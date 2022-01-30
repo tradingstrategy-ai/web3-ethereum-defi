@@ -1,16 +1,20 @@
 [tool.poetry]
 name = "smart_contracts_for_testing"
 version = "0.1.0"
-description = "Popular Solidity smart contracts to be used in testing: ERC-20, Uniswap v2 likes, etc."
+description = "Popular Solidity smart contracts to be used in testing: ERC-20, Uniswap v2, etc."
 authors = ["Mikko Ohtamaa <mikko@capitalgram.com>"]
 license = "MIT"
+homepage = "https://tradingstrategy.ai"
+repository = "https://github.com/tradingstrategy-ai/smart-contracts-for-testing"
+readme = "README.md"
+keywords = ["ethereum", "cryptocurrency", "uniswap", "erc-20", "pancakeswap", "sushiswap", "polygon", "web3"]
 
 [tool.poetry.dependencies]
 python = "^3.9"
+web3 = {extras = ["tester"], version = "^5.26.0"}
 
 [tool.poetry.dev-dependencies]
 pytest = "^6.2.5"
-web3 = "^5.26.0"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]
