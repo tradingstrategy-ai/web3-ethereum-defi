@@ -19,6 +19,10 @@ Sphinx = "^4.4.0"
 sphinx-rtd-theme = "^1.0.0"
 sphinx-sitemap = "^2.2.0"
 
+# See discussion https://github.com/python-poetry/poetry/issues/3348#issuecomment-726534462
+[tool.poetry.extras]
+docs = ["Sphinx", "sphinx-rtd-theme", "sphinx-sitemap"]
+
 [build-system]
 requires = ["poetry-core>=1.0.0"]
 build-backend = "poetry.core.masonry.api"
