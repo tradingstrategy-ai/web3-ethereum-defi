@@ -10,5 +10,5 @@ all: copy-abi
 
 # Export the dependencies, so that Read the docs can build our API docs
 # See: https://github.com/readthedocs/readthedocs.org/issues/4912
-rtd-export:
-	poetry export --dev -f requirements.txt --output requirements-dev.txt
+rtd-dep-export:
+	poetry export --without-hashes --dev -f requirements.txt --output requirements-dev.txt
