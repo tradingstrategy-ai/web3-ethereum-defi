@@ -12,14 +12,18 @@ keywords = ["ethereum", "cryptocurrency", "uniswap", "erc-20", "pancakeswap", "s
 [tool.poetry.dependencies]
 python = "^3.8"
 web3 = {extras = ["tester"], version = "^5.26.0"}
-
-# See discussion https://github.com/python-poetry/poetry/issues/3348#issuecomment-726534462
-Sphinx = {version = "^4.4.0", extras = ["docs"]}
-sphinx-rtd-theme = {version = "^1.0.0", extras = ["docs"]}
-sphinx-sitemap = {version="^2.2.0", extras= ["docs"]}
+Sphinx = {version = "^4.4.0", optional = true}
+sphinx-rtd-theme = {version = "^1.0.0", optional = true}
+sphinx-sitemap = {version = "^2.2.0", optional = true}
 
 [tool.poetry.dev-dependencies]
 pytest = "^6.2.5"
+sphinx-rtd-theme = "^1.0.0"
+sphinx-sitemap = "^2.2.0"
+
+# See discussion https://github.com/python-poetry/poetry/issues/3348#issuecomment-726534462
+[tool.poetry.extras]
+docs = ["Sphinx", "sphinx-rtd-theme", "sphinx-sitemap"]
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]
