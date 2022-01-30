@@ -42,8 +42,8 @@ The package depends only on [web3.py](github.com/ethereum/web3.py) and not other
 
 ## Features
 
-* Documented functions
-* Full type hinting support
+* High-quality API documentation
+* Full type hinting support for optimal developer experience
 
 ## Prerequisites
 

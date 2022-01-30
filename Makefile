@@ -1,6 +1,7 @@
 # Compile all of Sushiswap fiels
 sushi:
-	(cd sushiswap && yarn install && yarn build)
+	@(cd sushiswap && yarn install && yarn build) > /dev/null
+	@echo "Sushi is ready"
 
 # Extract all compilation artifacts from Sushi to our abi/ dump
 copy-abi: sushi
