@@ -47,6 +47,7 @@ The package depends only on [web3.py](github.com/ethereum/web3.py) and not other
 
 * [Proficient in Python programming](https://wiki.python.org/moin/BeginnersGuide)
 * [Understanding of Web3.py library](https://web3py.readthedocs.io/en/stable/) 
+* [pytest basics](https://docs.pytest.org/)
 
 ## ERC-20 token example
 

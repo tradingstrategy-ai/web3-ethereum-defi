@@ -25,6 +25,7 @@ def create_token(web3: Web3, deployer: str, name: str, symbol: str, supply: int)
         # Deploys an ERC-20 token where 100,000 tokens are allocated ato the deployer address
         token = create_token(web3, deployer, "Hentai books token", "HENTAI", 100_000 * 10**18)
         print(f"Deployed token contract address is {token.address}")
+        print(f"Deployer account {deployer} has {token.functions.balanceOf(user_1).call() / 10**18} tokens")
 
     :param web3: Web3 instance
     :param deployer: Deployer account as 0x address

@@ -7,3 +7,8 @@ copy-abi: sushi
 	find sushiswap/artifacts/contracts -iname "*.json" -not -iname "*.dbg.json" -exec cp {} smart_contracts_for_testing/abi \;
 
 all: copy-abi
+
+# Export the dependencies, so that Read the docs can build our API docs
+# See: https://github.com/readthedocs/readthedocs.org/issues/4912
+rtd-export:
+	poetry export --dev -f requirements.txt --output requirements-dev.txt
