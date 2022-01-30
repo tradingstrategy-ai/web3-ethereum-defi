@@ -13,3 +13,7 @@ all: copy-abi
 # See: https://github.com/readthedocs/readthedocs.org/issues/4912
 rtd-dep-export:
 	poetry export --without-hashes --dev -f requirements.txt --output requirements-dev.txt
+
+# Build docs locally
+build-docs:
+	@(cd docs && make html)
