@@ -10,7 +10,7 @@ readme = "README.md"
 keywords = ["ethereum", "cryptocurrency", "uniswap", "erc-20", "pancakeswap", "sushiswap", "polygon", "web3"]
 
 [tool.poetry.dependencies]
-python = "^3.9"
+python = "^3.8"
 web3 = {extras = ["tester"], version = "^5.26.0"}
 
 [tool.poetry.dev-dependencies]
