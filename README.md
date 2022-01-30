@@ -12,10 +12,11 @@ As opposite to mainnet forking strategies, this project aims to explicit deploym
 It grabs popular ABI files with their bytecode and compilation artifacts so that the contracts
 are easily deployable on any Ethereum tester interface.
 
-Smart contracts include 
+Smart contract support includes 
 
 * ERC-20 token
 * [SushiSwap](https://github.com/sushiswap/sushiswap): router, factory, pool
+* Uniswap v2, PancakeSwape, QuickSwap, Trader Joe and others are Sushiswap compatible
 * (More to come)
 
 # Precompiled ABI file distribution
