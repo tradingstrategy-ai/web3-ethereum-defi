@@ -1,0 +1,17 @@
+[tool.poetry]
+name = "smart_contracts_for_testing"
+version = "0.1.0"
+description = "Popular Solidity smart contracts to be used in testing: ERC-20, Uniswap v2 likes, etc."
+authors = ["Mikko Ohtamaa <mikko@capitalgram.com>"]
+license = "MIT"
+
+[tool.poetry.dependencies]
+python = "^3.9"
+
+[tool.poetry.dev-dependencies]
+pytest = "^6.2.5"
+web3 = "^5.26.0"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"

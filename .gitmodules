@@ -1,0 +1,3 @@
+[submodule "sushiswap"]
+	path = sushiswap
+	url = https://github.com/sushiswap/sushiswap.git
