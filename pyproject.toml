@@ -17,6 +17,7 @@ web3 = {extras = ["tester"], version = "^5.26.0"}
 pytest = "^6.2.5"
 Sphinx = "^4.4.0"
 sphinx-rtd-theme = "^1.0.0"
+sphinx-sitemap = "^2.2.0"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]

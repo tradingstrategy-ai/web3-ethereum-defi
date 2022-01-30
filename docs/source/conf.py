@@ -28,7 +28,9 @@ author = 'Mikko Ohtamaa'
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
 extensions = [
+    'sphinx.ext.autodoc',
     'sphinx_rtd_theme',
+    "sphinx_sitemap",
 ]
 
 # Add any paths that contain templates here, relative to this directory.
@@ -51,3 +53,14 @@ html_theme = "sphinx_rtd_theme"
 # relative to this directory. They are copied after the builtin static files,
 # so a file named "default.css" will overwrite the builtin "default.css".
 html_static_path = ['_static']
+
+autodoc_class_signature = "separated"
+
+html_context = {
+    # https://stackoverflow.com/questions/62904172/how-do-i-replace-view-page-source-with-edit-on-github-links-in-sphinx-rtd-th
+    # https://github.com/readthedocs/sphinx_rtd_theme/issues/529
+    'display_github': True,
+    'github_user': 'tradingstrategy-ai',
+    'github_repo': 'client',
+    'github_version': 'tree/master/docs/source/',
+}

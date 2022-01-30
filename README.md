@@ -43,6 +43,11 @@ The package depends only on [web3.py](github.com/ethereum/web3.py) and not other
 * Documented functions
 * Full type hinting support
 
+## Prerequisites
+
+* [Proficient in Python programming](https://wiki.python.org/moin/BeginnersGuide)
+* [Understanding of Web3.py library](https://web3py.readthedocs.io/en/stable/) 
+
 ## ERC-20 token example
 
 To use the package to deploy a simple ERC-20 token in [pytest](https://docs.pytest.org/) testing: 

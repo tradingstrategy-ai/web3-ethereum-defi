@@ -1,4 +1,7 @@
+"""Methods for loading contracts and ABI files from the precompiled bundle.
 
+`See Github for available contracts <https://github.com/tradingstrategy-ai/smart-contracts-for-testing/tree/master/smart_contracts_for_testing/abi>`_.
+"""
 
 import os
 import os.path
@@ -27,7 +30,7 @@ def get_abi_by_filename(fname: str) -> dict:
 def get_contract(web3: Web3, fname: str) -> Type[Contract]:
     """Load contract from an ABI file with bytecode enabled.
 
-    See https://web3py.readthedocs.io/en/stable/contracts.html#contract-deployment-example
+    `See Web3.py documentation on Contract instances <https://web3py.readthedocs.io/en/stable/contracts.html#contract-deployment-example>`_.
     """
     contract_interface = get_abi_by_filename(fname)
     abi = contract_interface["abi"]

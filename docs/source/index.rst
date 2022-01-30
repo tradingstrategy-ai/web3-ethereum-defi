@@ -6,13 +6,16 @@ See `the project Github for an overview <https://github.com/tradingstrategy-ai/s
 
 .. toctree::
    :maxdepth: 2
-   :caption: Contents:
+   :caption: API documentation:
+
+   abi
+   token
 
 More information
 ================
 
 * `README <https://github.com/tradingstrategy-ai/smart-contracts-for-testing>`_
-* `PyPi <>`_
+* `Supported smart contracts list <https://github.com/tradingstrategy-ai/smart-contracts-for-testing/tree/master/smart_contracts_for_testing/abi>`_
 * `Github <https://github.com/tradingstrategy-ai/smart-contracts-for-testing>`_
 * `Discord <tradingstrategy.ai/community>`_
 
