@@ -16,4 +16,5 @@ rtd-dep-export:
 
 # Build docs locally
 build-docs:
+	@poetry install -E docs
 	@(cd docs && make html)

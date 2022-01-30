@@ -39,9 +39,17 @@ def deploy_uniswap_v2_like(web3: Web3, deployer: str) -> UniswapV2Deployment:
 
     `See this StackOverflow question for commentary <https://stackoverflow.com/q/70846489/315168>`_.
 
-    :param web3:
-    :param deployer:
-    :return:
+    Example:
+
+    .. code-block:: python
+
+        deployment = deploy_uniswap_v2_like(web3, deployer)
+        factory = deployment.factory
+        print(f"Uniswap factory is {factory.address}")
+
+    :param web3: Web3 instance
+    :param deployer: Deployer account
+    :return: Deployment details
     """
 
     # Factory takes feeSetter as an argument
@@ -51,5 +59,25 @@ def deploy_uniswap_v2_like(web3: Web3, deployer: str) -> UniswapV2Deployment:
     return UniswapV2Deployment(factory, weth, router)
 
 
-def deploy_trading_pair(web3, deployer: str, deployment: UniswapV2Deployment):
-    pass
+def deploy_trading_pair(
+        web3: Web3,
+        deployer: str,
+        deployment: UniswapV2Deployment,
+        token_a: Contract,
+        token_b: Contract,
+        liquidity_a: int,
+        liquidity_b: int) -> str:
+    """Deploy a new trading pair on Uniswap v2.
+
+    Assumes `deployer` has enough token balance to add the initial liquidity.
+
+    `See UniswapV2Factory.createPair() for details <https://github.com/sushiswap/sushiswap/blob/4fdfeb7dafe852e738c56f11a6cae855e2fc0046/contracts/uniswapv2/UniswapV2Factory.sol#L30>`_.
+
+    :param web3:
+    :param deployer:
+    :param deployment:
+    :return: Pair contract address
+    """
+    factory = deployment.factory
+    tx = factory.functions.createPair(token_a.address, token_b.address).transact({"from": deployer})
+
