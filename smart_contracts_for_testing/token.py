@@ -7,6 +7,7 @@ from web3 import Web3
 from web3.contract import Contract
 
 from smart_contracts_for_testing.abi import get_contract
+from smart_contracts_for_testing.deploy import deploy_contract
 
 
 def create_token(web3: Web3, deployer: str, name: str, symbol: str, supply: int) -> Contract:
@@ -34,10 +35,4 @@ def create_token(web3: Web3, deployer: str, name: str, symbol: str, supply: int)
     :param supply: Token supply as raw units
     :return: Instance to a deployed Web3 contract.
     """
-    ERC20Mock = get_contract(web3, "ERC20Mock.json")
-    tx_hash = ERC20Mock.constructor(name, symbol, supply).transact({"from": deployer})
-    tx_receipt = web3.eth.wait_for_transaction_receipt(tx_hash)
-    instance = ERC20Mock(
-        address=tx_receipt.contractAddress,
-    )
-    return instance
+    return deploy_contract(web3, "ERC20Mock.json", deployer, name, symbol, supply)
