@@ -1,5 +1,7 @@
 [![Automated test suite](https://github.com/tradingstrategy-ai/smart-contracts-for-testing/actions/workflows/tests.yml/badge.svg)](https://github.com/tradingstrategy-ai/smart-contracts-for-testing/actions/workflows/tests.yml)
 
+[![Documentation Status](https://readthedocs.org/projects/smart-contracts-for-testing/badge/?version=latest)](https://smart-contracts-for-testing.readthedocs.io/en/latest/?badge=latest)
+
 # Mock smart contracts for writing Ethereum test suites
 
 This package contains common Ethereum smart contracts to be used in automated test suites. 
