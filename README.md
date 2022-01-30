@@ -1,7 +1,9 @@
+[![Automated test suite](https://github.com/tradingstrategy-ai/smart-contracts-for-testing/actions/workflows/tests.yml/badge.svg)](https://github.com/tradingstrategy-ai/smart-contracts-for-testing/actions/workflows/tests.yml)
+
 # Mock smart contracts for writing Ethereum test suites
 
-A repository of common Ethereum smart contracts to be used in the unit test deployments. 
-This was created for [Trading Stratetgy](https://tradingstrategy.ai), but can be used for any other 
+This package contains common Ethereum smart contracts to be used in automated test suites. 
+This was created for [Trading Strategy](https://tradingstrategy.ai), but can be used for any other 
 projects as well.
 
 As opposite to mainnet forking strategies, this project aims to explicit deployments and speed of test execution.
@@ -16,7 +18,9 @@ Smart contracts include
 
 # Precompiled ABI file distribution
 
-You can [find Solidity ABI files containing bytecode in abi folder](https://github.com/tradingstrategy-ai/smart-contracts-for-testing/tree/master/smart_contracts_for_testing/abi).
+This package primarly supports Python, Web3.p3 and Brownie developers.
+For other programming languages and frameworks,
+you can [find precompiled Solidity smart contracts in abi folder](https://github.com/tradingstrategy-ai/smart-contracts-for-testing/tree/master/smart_contracts_for_testing/abi).
 
 These files are good to go with any framework:
 * Web3.js
@@ -24,6 +28,8 @@ These files are good to go with any framework:
 * Hardhat
 * Truffle
 * Web3j
+
+Each JSON file has `abi` and `bytecode` keys you need to deploy a contract.
 
 Just download and embed in your project. All compiled source code files are under MIT license.
 
@@ -37,7 +43,7 @@ The package depends only on [web3.py](github.com/ethereum/web3.py) and not other
 * Documented functions
 * Full type hinting support
 
-## Token example
+## ERC-20 token example
 
 To use the package to deploy a simple ERC-20 token in [pytest](https://docs.pytest.org/) testing: 
 
@@ -104,7 +110,7 @@ def test_tranfer_tokens_between_users(web3: Web3, deployer: str, user_1: str, us
     assert token.functions.balanceOf(user_2).call() == 6 * 10**18
 ```
 
-[See full example][https://github.com/tradingstrategy-ai/smart-contracts-for-testing/blob/master/tests/test_token.py].
+[See full example](https://github.com/tradingstrategy-ai/smart-contracts-for-testing/blob/master/tests/test_token.py).
 
 [For more information how to user Web3.py in testing, see Web3.py documentation](https://web3py.readthedocs.io/en/stable/examples.html#contract-unit-tests-in-python).
 
@@ -112,7 +118,7 @@ def test_tranfer_tokens_between_users(web3: Web3, deployer: str, user_1: str, us
 
 Add `smart_contract_test_fixtures` as a development dependency:
 
-Poetry:
+Using [Poetry](https://python-poetry.org/):
 
 ```shell
 poetry add -D smart_contract_test_fixtures
@@ -140,6 +146,10 @@ make
 ```
 
 [See SushiSwap continuous integration files for more information](https://github.com/sushiswap/sushiswap/blob/canary/.github/workflows/sushiswap.yml).
+
+# Version history
+
+[See change log](https://github.com/tradingstrategy-ai/smart-contracts-for-testing/blob/master/CHANGELOG.md).
 
 # Discord
 
