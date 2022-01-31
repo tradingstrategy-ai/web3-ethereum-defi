@@ -22,3 +22,7 @@ rtd-dep-export:
 build-docs:
 	@poetry install -E docs
 	@(cd docs && make html)
+
+# Manually generate table of contents for Github README
+toc:
+	cat README.md | scripts/gh-md-toc -

@@ -14,7 +14,26 @@ Smart contract support includes
 * ERC-20 token
 * [SushiSwap](https://github.com/sushiswap/sushiswap): router, factory, pool
 * Uniswap v2, PancakeSwape, QuickSwap, Trader Joe and others are 99% Sushiswap compatible
-* (More to come)
+* High-quality API documentation
+* Full type hinting support for optimal developer experience
+* (More integrations to come)
+
+Table of contents
+
+* [Precompiled ABI file distribution](#precompiled-abi-file-distribution)
+* [Python usage](#python-usage)
+   * [Prerequisites](#prerequisites)
+   * [ERC-20 token example](#erc-20-token-example)
+   * [Uniswap swap example](#uniswap-swap-example)
+   * [How to use thhe library in your Python project](#how-to-use-thhe-library-in-your-python-project)
+* [Development](#development)
+   * [Requires](#requires)
+   * [Make](#make)
+* [Version history](#version-history)
+* [Discord](#discord)
+* [Notes](#notes)
+* [License](#license)
+
 
 # Precompiled ABI file distribution
 
@@ -31,9 +50,10 @@ These files are good to go with any framework:
 
 Each JSON file has `abi` and `bytecode` keys you need to deploy a contract.
 
-Just download and embed in your project. All compiled source code files are under MIT license.
+Just download and embed in your project. 
+The compiled source code files are mixture of MIT and GPL v2 license.
 
-# Python examples
+# Python usage
 
 The Python support is available as `smart_contract_test_fixtures` Python package.
 
@@ -41,12 +61,6 @@ The package depends only on [web3.py](github.com/ethereum/web3.py) and not other
 It grabs popular ABI files with their bytecode and compilation artifacts so that the contracts
 are easily deployable on any Ethereum tester interface. No Ganache is needed and everything
 can be executed on faster [eth-tester enginer](https://github.com/ethereum/eth-tester).
-
-
-## Features
-
-* High-quality API documentation
-* Full type hinting support for optimal developer experience
 
 ## Prerequisites
 
@@ -125,7 +139,57 @@ def test_tranfer_tokens_between_users(web3: Web3, deployer: str, user_1: str, us
 
 [For more information how to user Web3.py in testing, see Web3.py documentation](https://web3py.readthedocs.io/en/stable/examples.html#contract-unit-tests-in-python).
 
-## Use in your Python project
+## Uniswap swap example
+
+```python
+import pytest
+from web3 import Web3
+from web3.contract import Contract
+
+from smart_contracts_for_testing.uniswap_v2 import UniswapV2Deployment, deploy_trading_pair, FOREVER_DEADLINE
+
+
+def test_swap(web3: Web3, deployer: str, user_1: str, uniswap_v2: UniswapV2Deployment, weth: Contract, usdc: Contract):
+    """User buys WETH on Uniswap v2 using mock USDC."""
+
+    # Create the trading pair and add initial liquidity
+    deploy_trading_pair(
+        web3,
+        deployer,
+        uniswap_v2,
+        weth,
+        usdc,
+        10 * 10**18,  # 10 ETH liquidity
+        17_000 * 10**18,  # 17000 USDC liquidity
+    )
+
+    router = uniswap_v2.router
+
+    # Give user_1 some cash to buy ETH and approve it on the router
+    usdc_amount_to_pay = 500 * 10**18
+    usdc.functions.transfer(user_1, usdc_amount_to_pay).transact({"from": deployer})
+    usdc.functions.approve(router.address, usdc_amount_to_pay).transact({"from": user_1})
+
+    # Perform a swap USDC->WETH
+    path = [usdc.address, weth.address]  # Path tell how the swap is routed
+    # https://docs.uniswap.org/protocol/V2/reference/smart-contracts/router-02#swapexacttokensfortokens
+    router.functions.swapExactTokensForTokens(
+        usdc_amount_to_pay,
+        0,
+        path,
+        user_1,
+        FOREVER_DEADLINE,
+    ).transact({
+        "from": user_1
+    })
+
+    # Check the user_1 received ~0.284 ethers
+    assert weth.functions.balanceOf(user_1).call() / 1e18 == pytest.approx(0.28488156127668085)
+```
+
+[See the full example](https://github.com/tradingstrategy-ai/smart-contracts-for-testing/blob/master/tests/test_uniswap_v2_pair.py).
+
+## How to use thhe library in your Python project
 
 Add `smart_contract_test_fixtures` as a development dependency:
 
@@ -149,11 +213,11 @@ This step will extract compiled smart contract from Sushiswap repository.
 
 ## Make
 
-To build:
+To build the ABI distribution:
 
 ```shell
 git submodule update --recursive --init
-make
+make all
 ```
 
 [See SushiSwap continuous integration files for more information](https://github.com/sushiswap/sushiswap/blob/canary/.github/workflows/sushiswap.yml).
