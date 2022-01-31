@@ -7,7 +7,7 @@ license = "MIT"
 homepage = "https://tradingstrategy.ai"
 repository = "https://github.com/tradingstrategy-ai/smart-contracts-for-testing"
 readme = "README.md"
-keywords = ["ethereum", "cryptocurrency", "uniswap", "erc-20", "pancakeswap", "sushiswap", "polygon", "web3"]
+keywords = ["ethereum", "cryptocurrency", "uniswap", "erc-20", "pancakeswap", "sushiswap", "polygon", "web3", "blockchain"]
 
 [tool.poetry.dependencies]
 python = "^3.8"
