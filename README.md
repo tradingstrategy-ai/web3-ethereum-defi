@@ -12,8 +12,7 @@ this project aims to explicit clean deployments and very fast test execution.
 Smart contract support includes 
 
 * ERC-20 token
-* [SushiSwap](https://github.com/sushiswap/sushiswap): router, factory, pool
-* Uniswap v2, PancakeSwape, QuickSwap, Trader Joe and others are 99% Sushiswap compatible
+* [SushiSwap](https://github.com/sushiswap/sushiswap): router, factory, pool (Uniswap v2, PancakeSwape, QuickSwap, Trader Joe and others are 99% Sushiswap compatible)
 * High-quality API documentation
 * Full type hinting support for optimal developer experience
 * (More integrations to come)
@@ -25,7 +24,7 @@ Table of contents
    * [Prerequisites](#prerequisites)
    * [ERC-20 token example](#erc-20-token-example)
    * [Uniswap swap example](#uniswap-swap-example)
-   * [How to use thhe library in your Python project](#how-to-use-thhe-library-in-your-python-project)
+   * [How to use hhe library in your Python project](#how-to-use-hhe-library-in-your-python-project)
 * [Development](#development)
    * [Requires](#requires)
    * [Make](#make)
@@ -33,7 +32,6 @@ Table of contents
 * [Discord](#discord)
 * [Notes](#notes)
 * [License](#license)
-
 
 # Precompiled ABI file distribution
 
@@ -165,7 +163,7 @@ def test_swap(web3: Web3, deployer: str, user_1: str, uniswap_v2: UniswapV2Deplo
 
     router = uniswap_v2.router
 
-    # Give user_1 some cash to buy ETH and approve it on the router
+    # Give user_1 500 dollars to buy ETH and approve it on the router
     usdc_amount_to_pay = 500 * 10**18
     usdc.functions.transfer(user_1, usdc_amount_to_pay).transact({"from": deployer})
     usdc.functions.approve(router.address, usdc_amount_to_pay).transact({"from": user_1})
@@ -189,7 +187,7 @@ def test_swap(web3: Web3, deployer: str, user_1: str, uniswap_v2: UniswapV2Deplo
 
 [See the full example](https://github.com/tradingstrategy-ai/smart-contracts-for-testing/blob/master/tests/test_uniswap_v2_pair.py).
 
-## How to use thhe library in your Python project
+## How to use hhe library in your Python project
 
 Add `smart_contract_test_fixtures` as a development dependency:
 
