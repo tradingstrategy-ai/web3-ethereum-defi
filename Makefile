@@ -28,5 +28,5 @@ toc:
 	cat README.md | scripts/gh-md-toc -
 
 # Open web browser on docs on macOS
-browser-docs-macos:
+browse-docs-macos:
 	@open docs/build/html/index.html

@@ -1,11 +1,16 @@
 """Deploy a mock Uniswap v2 like decentralised exchange.
 
 Compatible exchanges include, but not limited to
-* Uniswap v2
-* Sushiswap v2
-* Pancakeswap v2 and v3
-* QuickSwap
-* TraderJoe
+
+- Uniswap v2
+
+- Sushiswap v2
+
+- Pancakeswap v2 and v3
+
+- QuickSwap
+
+- TraderJoe
 
 Under the hood we are using `SushiSwap v2 contracts <github.com/sushiswap/sushiswap>`_ for the deployment.
 """
@@ -27,15 +32,15 @@ class UniswapV2Deployment:
     """Describe Uniswap v2 deployment."""
 
     #: Factory address.
-    #: `See the Solidity source code <https://github.com/sushiswap/sushiswap/blob/4fdfeb7dafe852e738c56f11a6cae855e2fc0046/contracts/uniswapv2/UniswapV2Factory.sol>`_.
+    #: `See the Solidity source code <https://github.com/sushiswap/sushiswap/blob/4fdfeb7dafe852e738c56f11a6cae855e2fc0046/contracts/uniswapv2/UniswapV2Factory.sol>`__.
     factory: Contract
 
     #: WETH9Mock address.
-    #: `See the Solidity source code <https://github.com/sushiswap/sushiswap/blob/4fdfeb7dafe852e738c56f11a6cae855e2fc0046/contracts/mocks/WETH9Mock.sol>`_.
+    #: `See the Solidity source code <https://github.com/sushiswap/sushiswap/blob/4fdfeb7dafe852e738c56f11a6cae855e2fc0046/contracts/mocks/WETH9Mock.sol>`__.
     weth: Contract
 
     #: Router address.
-    #: `See the Solidity source code <https://github.com/sushiswap/sushiswap/blob/4fdfeb7dafe852e738c56f11a6cae855e2fc0046/contracts/uniswapv2/UniswapV2Router02.sol>`_.
+    #: `See the Solidity source code <https://github.com/sushiswap/sushiswap/blob/4fdfeb7dafe852e738c56f11a6cae855e2fc0046/contracts/uniswapv2/UniswapV2Router02.sol>`__.
     router: Contract
 
 
