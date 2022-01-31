@@ -13,7 +13,7 @@ Smart contract support includes
 
 * ERC-20 token
 * [SushiSwap](https://github.com/sushiswap/sushiswap): router, factory, pool
-* Uniswap v2, PancakeSwape, QuickSwap, Trader Joe and others are Sushiswap compatible
+* Uniswap v2, PancakeSwape, QuickSwap, Trader Joe and others are 99% Sushiswap compatible
 * (More to come)
 
 # Precompiled ABI file distribution

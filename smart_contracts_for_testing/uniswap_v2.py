@@ -47,7 +47,7 @@ def deploy_factory(web3: Web3, deployer: str) -> Contract:
     the Uniswap deployment non-recompilable, as the source code files refer to the hashes
     of a certain compilation version.
 
-    We create a bytecode hash identical deployment by replaying the transaction that
+    We create a bytecode hash identical deployment by **replaying** the transaction that
     deployed `Sushiv2Factory` contract.
 
     - `Uniswap v2 issue <https://github.com/Uniswap/v2-core/issues/102>`_
@@ -60,6 +60,7 @@ def deploy_factory(web3: Web3, deployer: str) -> Contract:
     """
     UniswapV2Factory = get_contract(web3, "UniswapV2Factory.json", bytecode=_SUSHI_FACTORY_BYTECODE)
 
+    # https://ethereum.stackexchange.com/a/73872/620
     tx_hash = web3.eth.send_transaction({"from": deployer, "data": _SUSHI_FACTORY_DEPLOYMENT_DATA})
     tx_receipt = web3.eth.wait_for_transaction_receipt(tx_hash)
     instance = UniswapV2Factory(

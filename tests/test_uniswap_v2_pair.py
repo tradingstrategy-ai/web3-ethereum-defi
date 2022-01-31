@@ -5,9 +5,9 @@ from web3 import Web3, EthereumTesterProvider
 from web3.contract import Contract
 
 from smart_contracts_for_testing.abi import get_deployed_contract
-from smart_contracts_for_testing.deploy import deploy_contract
 from smart_contracts_for_testing.token import create_token
-from smart_contracts_for_testing.uniswap_v2 import deploy_uniswap_v2_like, UniswapV2Deployment, deploy_trading_pair
+from smart_contracts_for_testing.uniswap_v2 import deploy_uniswap_v2_like, UniswapV2Deployment, deploy_trading_pair, \
+    FOREVER_DEADLINE
 
 
 @pytest.fixture
@@ -124,3 +124,41 @@ def test_create_trading_pair_with_liquidity(web3: Web3, deployer: str, uniswap_v
     # Check we got the liquidity
     assert token_a == 10 * 10**18
     assert token_b == 17_000 * 10**18
+
+
+def test_swap(web3: Web3, deployer: str, user_1: str, uniswap_v2: UniswapV2Deployment, weth: Contract, usdc: Contract):
+    """User buys WETH on Uniswap v2 using mock USDC."""
+
+    # Create the trading pair and add initial liquidity
+    deploy_trading_pair(
+        web3,
+        deployer,
+        uniswap_v2,
+        weth,
+        usdc,
+        10 * 10**18,  # 10 ETH liquidity
+        17_000 * 10**18,  # 17000 USDC liquidity
+    )
+
+    router = uniswap_v2.router
+
+    # Give user_1 some cash to buy ETH and approve it on the router
+    usdc_amount_to_pay = 500 * 10**18
+    usdc.functions.transfer(user_1, usdc_amount_to_pay).transact({"from": deployer})
+    usdc.functions.approve(router.address, usdc_amount_to_pay).transact({"from": user_1})
+
+    # Perform a swap USDC->WETH
+    path = [usdc.address, weth.address]  # Path tell how the swap is routed
+    # https://docs.uniswap.org/protocol/V2/reference/smart-contracts/router-02#swapexacttokensfortokens
+    router.functions.swapExactTokensForTokens(
+        usdc_amount_to_pay,
+        0,
+        path,
+        user_1,
+        FOREVER_DEADLINE,
+    ).transact({
+        "from": user_1
+    })
+
+    # Check the user_1 received ~0.284 ethers
+    assert weth.functions.balanceOf(user_1).call() / 1e18 == pytest.approx(0.28488156127668085)
