@@ -8,8 +8,10 @@ See `the project Github for an overview <https://github.com/tradingstrategy-ai/s
    :maxdepth: 2
    :caption: API documentation:
 
-   abi
    token
+   uniswap_v2
+   abi
+   deploy
 
 .. toctree::
    :maxdepth: 2

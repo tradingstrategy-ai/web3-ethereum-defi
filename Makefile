@@ -26,3 +26,7 @@ build-docs:
 # Manually generate table of contents for Github README
 toc:
 	cat README.md | scripts/gh-md-toc -
+
+# Open web browser on docs on macOS
+browser-docs-macos:
+	@open docs/build/html/index.html
