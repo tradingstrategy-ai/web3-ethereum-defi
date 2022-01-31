@@ -15,7 +15,6 @@ web3 = {extras = ["tester"], version = "^5.26.0"}
 Sphinx = {version = "^4.4.0", optional = true}
 sphinx-rtd-theme = {version = "^1.0.0", optional = true}
 sphinx-sitemap = {version = "^2.2.0", optional = true}
-Brownie = "^0.5.1"
 
 [tool.poetry.dev-dependencies]
 pytest = "^6.2.5"

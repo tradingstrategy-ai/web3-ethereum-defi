@@ -10,8 +10,10 @@ See `the project README for an overview <https://github.com/tradingstrategy-ai/s
 
    token
    uniswap_v2
+   portfolio
    abi
    deploy
+   event
 
 .. toctree::
    :maxdepth: 2
