@@ -6,10 +6,14 @@
 import os
 import os.path
 import json
-from typing import Type
+from typing import Type, Optional
 
 from web3 import Web3
 from web3.contract import Contract
+
+
+# Cache loaded ABI files in-process memory for speedup
+_cache = {}
 
 
 def get_abi_by_filename(fname: str) -> dict:
@@ -19,22 +23,51 @@ def get_abi_by_filename(fname: str) -> dict:
 
         abi = get_abi_by_filename("ERC20Mock.json")
 
-    :return: Full contract interface, including bytecode.
+    You are most likely interested in the keys `abi` and `bytecode` of the JSON file.
+
+    Loaded ABI files are cache in in-process memory to speed up future loading.
+
+    :param web3: Web3 instance
+    :param fname: `JSON filename from supported contract lists <https://github.com/tradingstrategy-ai/smart-contracts-for-testing/tree/master/smart_contracts_for_testing/abi>`_.
+    :return: Full contract interface, including `bytecode`.
     """
+
+    if fname in _cache:
+        return _cache[fname]
+
     here = os.path.dirname(__file__)
     abi_path = os.path.join(here, "abi", fname)
     abi = json.load(open(abi_path, "rt"))
+    _cache[fname] = abi
     return abi
 
 
-def get_contract(web3: Web3, fname: str) -> Type[Contract]:
-    """Load contract from an ABI file with bytecode enabled.
+def get_contract(web3: Web3, fname: str, bytecode: Optional[str]=None) -> Type[Contract]:
+    """Create a Contract proxy class from our bundled contracts.
 
     `See Web3.py documentation on Contract instances <https://web3py.readthedocs.io/en/stable/contracts.html#contract-deployment-example>`_.
+
+    :param web3: Web3 instance
+    :param bytecode: Override bytecode payload for the contract
+    :param fname: `JSON filename from supported contract lists <https://github.com/tradingstrategy-ai/smart-contracts-for-testing/tree/master/smart_contracts_for_testing/abi>`_.
+    :return: Python class
     """
     contract_interface = get_abi_by_filename(fname)
     abi = contract_interface["abi"]
-    bytecode = contract_interface["bytecode"]
-    contract = web3.eth.contract(abi=abi, bytecode=bytecode)
-    return contract
+    bytecode = bytecode if bytecode is not None else contract_interface["bytecode"]
+    Contract = web3.eth.contract(abi=abi, bytecode=bytecode)
+    return Contract
 
+
+def get_deployed_contract(web3: Web3, fname: str, address: str) -> Contract:
+    """Get a Contract proxy objec for a contract deployed at a specific address.
+
+    `See Web3.py documentation on Contract instances <https://web3py.readthedocs.io/en/stable/contracts.html#contract-deployment-example>`_.
+
+    :param web3: Web3 instance
+    :param fname: `JSON filename from supported contract lists <https://github.com/tradingstrategy-ai/smart-contracts-for-testing/tree/master/smart_contracts_for_testing/abi>`_.
+    :param address: Ethereum address of the deployed contract
+    :return: `web3.contract.Contract` subclass
+    """
+    Contract = get_contract(web3, fname)
+    return Contract(address)

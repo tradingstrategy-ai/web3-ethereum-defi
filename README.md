@@ -6,11 +6,8 @@
 
 This package contains common Ethereum smart contracts to be used in automated test suites. 
 This was created for [Trading Strategy](https://tradingstrategy.ai), but can be used for any other 
-projects as well.
-
-As opposite to mainnet forking strategies, this project aims to explicit deployments and speed of test execution.
-It grabs popular ABI files with their bytecode and compilation artifacts so that the contracts
-are easily deployable on any Ethereum tester interface.
+projects as well. As opposite to slower and messier [mainnet forking test strategies](https://www.quicknode.com/guides/web3-sdks/how-to-fork-ethereum-blockchain-with-ganache), 
+this project aims to explicit clean deployments and very fast test execution.
 
 Smart contract support includes 
 
@@ -39,7 +36,12 @@ Just download and embed in your project. All compiled source code files are unde
 # Python examples
 
 The Python support is available as `smart_contract_test_fixtures` Python package.
+
 The package depends only on [web3.py](github.com/ethereum/web3.py) and not others, like Brownie.
+It grabs popular ABI files with their bytecode and compilation artifacts so that the contracts
+are easily deployable on any Ethereum tester interface. No Ganache is needed and everything
+can be executed on faster [eth-tester enginer](https://github.com/ethereum/eth-tester).
+
 
 ## Features
 
@@ -163,6 +165,12 @@ make
 # Discord
 
 [Join Discord for any questions](https://tradingstrategy.ai/community).
+
+# Notes
+
+Currently there is no [Brownie](https://eth-brownie.readthedocs.io/) support.
+To support Brownie, one would need to figure out how to import an existing Hardhat
+based project (Sushiswap) to Brownie project format.
 
 # License 
 

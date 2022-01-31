@@ -1,6 +1,8 @@
 """ERC-20 token mocks.
 
 Deploy ERC-20 tokens to be used within your test suite.
+
+`Read also unit test suite for tokens to see how ERC-20 can be manipulated in pytest <https://github.com/tradingstrategy-ai/smart-contracts-for-testing/blob/master/tests/test_token.py>`_.
 """
 
 from web3 import Web3
@@ -27,6 +29,8 @@ def create_token(web3: Web3, deployer: str, name: str, symbol: str, supply: int)
         token = create_token(web3, deployer, "Hentai books token", "HENTAI", 100_000 * 10**18)
         print(f"Deployed token contract address is {token.address}")
         print(f"Deployer account {deployer} has {token.functions.balanceOf(user_1).call() / 10**18} tokens")
+
+    TODO: Add support for tokens with non-18 decimals like USDC.
 
     :param web3: Web3 instance
     :param deployer: Deployer account as 0x address

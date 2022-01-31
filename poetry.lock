@@ -98,6 +98,14 @@ optional = false
 python-versions = "*"
 
 [[package]]
+name = "brownie"
+version = "0.5.1"
+description = "Common utilities and datastructures for Python applications."
+category = "main"
+optional = false
+python-versions = "*"
+
+[[package]]
 name = "cached-property"
 version = "1.5.2"
 description = "A decorator for caching properties in classes."
@@ -1043,7 +1051,7 @@ docs = ["Sphinx", "sphinx-rtd-theme", "sphinx-sitemap"]
 [metadata]
 lock-version = "1.1"
 python-versions = "^3.8"
-content-hash = "84e6de1b688e1634e7cf14ac4f81ec677f3aa0d2735e6cfd01f1af45d86c3a63"
+content-hash = "9dfbb547ae5da14a1f2d4464668506a39b22b227b330ed4f6eee67fb6dca3c23"
 
 [metadata.files]
 aiohttp = [
@@ -1150,6 +1158,9 @@ base58 = [
 ]
 bitarray = [
     {file = "bitarray-1.2.2.tar.gz", hash = "sha256:27a69ffcee3b868abab3ce8b17c69e02b63e722d4d64ffd91d659f81e9984954"},
+]
+brownie = [
+    {file = "Brownie-0.5.1.tar.gz", hash = "sha256:07f7d594feedf3d3dca160fd0bd1156e5077ef6ddb64ac759eebf1c56f83ce37"},
 ]
 cached-property = [
     {file = "cached-property-1.5.2.tar.gz", hash = "sha256:9fa5755838eecbb2d234c3aa390bd80fbd3ac6b6869109bfc1b499f7bd89a130"},

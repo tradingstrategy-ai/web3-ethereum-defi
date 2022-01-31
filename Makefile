@@ -3,9 +3,13 @@ sushi:
 	@(cd sushiswap && yarn install && yarn build) > /dev/null
 	@echo "Sushi is ready"
 
+
+clean:
+	@rm -rf sushiswap/artifacts/*
+
 # Extract all compilation artifacts from Sushi to our abi/ dump
 copy-abi: sushi
-	find sushiswap/artifacts/contracts -iname "*.json" -not -iname "*.dbg.json" -exec cp {} smart_contracts_for_testing/abi \;
+	@find sushiswap/artifacts/contracts -iname "*.json" -not -iname "*.dbg.json" -exec cp {} smart_contracts_for_testing/abi \;
 
 all: copy-abi
 

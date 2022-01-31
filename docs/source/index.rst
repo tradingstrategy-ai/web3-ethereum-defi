@@ -11,6 +11,12 @@ See `the project Github for an overview <https://github.com/tradingstrategy-ai/s
    abi
    token
 
+.. toctree::
+   :maxdepth: 2
+   :caption: Misc. documentation:
+
+   related
+
 More information
 ================
 

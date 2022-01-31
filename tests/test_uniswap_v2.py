@@ -58,17 +58,15 @@ def test_deploy_uniswap_v2(web3: Web3, deployer: str):
     factory = deployment.factory
     assert factory.functions.allPairsLength().call() == 0
 
+    assert deployment.router.functions.WETH().call() == deployment.weth.address
+    assert deployment.router.functions.factory().call() == factory.address
+
 
 def test_weth(web3: Web3, deployer: str):
     """Wrap some WETH."""
-    deployment = deploy_uniswap_v2_like(web3, deployer)
+    deployment = deploy_uniswap_v2_like(web3, deployer, give_weth=False)
     weth = deployment.weth
     weth.functions.deposit().transact({"from": deployer, "value": 5 * 10**18})
     assert weth.functions.balanceOf(deployer).call() == 5 * 10**18
 
 
-def test_create_trading_pair(web3: Web3, deployer: str):
-    """Deploy mock trading pair on mock Uniswap v2."""
-    deployment = deploy_uniswap_v2_like(web3, deployer)
-    factory = deployment.factory
-    assert factory.functions.allPairsLength().call() == 0
