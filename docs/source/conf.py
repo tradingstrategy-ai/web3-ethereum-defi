@@ -31,6 +31,8 @@ extensions = [
     'sphinx.ext.autodoc',
     'sphinx_rtd_theme',
     "sphinx_sitemap",
+    # https://pythonrepo.com/repo/agronholm-sphinx-autodoc-typehints-python-documentation
+    'sphinx_autodoc_typehints'
 ]
 
 # Add any paths that contain templates here, relative to this directory.

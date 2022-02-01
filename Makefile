@@ -23,6 +23,10 @@ build-docs:
 	@poetry install -E docs
 	@(cd docs && make html)
 
+# Nuke the old docs build to ensure all pages are regenerated
+clean-docs:
+	@rm -rf docs/build/html
+
 # Manually generate table of contents for Github README
 toc:
 	cat README.md | scripts/gh-md-toc -
