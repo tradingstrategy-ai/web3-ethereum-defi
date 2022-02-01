@@ -31,8 +31,8 @@ extensions = [
     'sphinx.ext.autodoc',
     'sphinx_rtd_theme',
     "sphinx_sitemap",
-    # https://pythonrepo.com/repo/agronholm-sphinx-autodoc-typehints-python-documentation
-    'sphinx_autodoc_typehints'
+    # https://github.com/tox-dev/sphinx-autodoc-typehints/issues/216
+    # sphinx_autodoc_typehints'
 ]
 
 # Add any paths that contain templates here, relative to this directory.
@@ -63,6 +63,6 @@ html_context = {
     # https://github.com/readthedocs/sphinx_rtd_theme/issues/529
     'display_github': True,
     'github_user': 'tradingstrategy-ai',
-    'github_repo': 'client',
+    'github_repo': 'smart-contracts-for-testing',
     'github_version': 'tree/master/docs/source/',
 }
