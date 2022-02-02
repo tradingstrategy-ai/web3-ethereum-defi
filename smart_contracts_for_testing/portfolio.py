@@ -1,12 +1,26 @@
 """Portfolio analysis for wallets."""
 from collections import Counter
+from dataclasses import dataclass
+from decimal import Decimal
 from typing import Optional, Dict
 
 from eth_typing import ChecksumAddress, BlockNumber, HexAddress
 from web3 import Web3
+from web3.contract import Contract
 
 from smart_contracts_for_testing.abi import get_contract
 from smart_contracts_for_testing.event import fetch_all_events
+
+
+@dataclass
+class DecimalisedHolding:
+    """A helper class to represent token holdings.
+
+    Exposes the underlying decimals the ERC-20 wants to express.
+    """
+    value: Decimal
+    decimals: int
+    contract: Contract
 
 
 def fetch_erc20_balances(web3: Web3, owner: HexAddress, last_block_num: Optional[BlockNumber] = None) -> Dict[HexAddress, int]:
@@ -52,3 +66,47 @@ def fetch_erc20_balances(web3: Web3, owner: HexAddress, last_block_num: Optional
     return balances
 
 
+def convert_to_decimal(web3, raw_balances: Dict[HexAddress, int]) -> Dict[HexAddress, DecimalisedHolding]:
+    """Convert mapping of ERC-20 holdings to decimals.
+
+    Issues a JSON-RPC call to fetch token data for each ERC-20 in the input dictionary.
+    """
+
+    # decimals() is not part of core ERC-20 interface,
+    # use OpenZeppein contract here
+    ERC20 = get_contract(web3, "ERC20MockDecimals.json")
+
+    res = {}
+
+    for address, raw_balance in raw_balances.items():
+        contract = ERC20(address)
+        decimals = contract.functions.decimals().call()
+        res[address] = DecimalisedHolding(Decimal(raw_balance) / Decimal(10**decimals), decimals, contract)
+
+    return res
+
+
+def fetch_erc20_balances_decimal(web3: Web3, owner: HexAddress, last_block_num: Optional[BlockNumber] = None) -> Dict[HexAddress, DecimalisedHolding]:
+    """Get all current holdings of an account.
+
+    Convert holdings to the natural decimal format.
+.
+    Example:
+
+    .. code-block:: python
+
+        # Load up the user with some tokens
+        usdc.functions.transfer(user_1, 500).transact({"from": deployer})
+        aave.functions.transfer(user_1, 200).transact({"from": deployer})
+        balances = fetch_erc20_balances(web3, user_1)
+        assert balances[usdc.address] == 500
+        assert balances[aave.address] == 200
+
+    :param web3: Web3 instance
+    :param owner: The address we are analysis
+    :param last_block_num: Set to the last block, inclusive, if you want to have an analysis of in a point of history.
+    :return: Map of (token address, amount)
+    """
+
+    raw_balances = fetch_erc20_balances(web3, owner, last_block_num)
+    return convert_to_decimal(web3, raw_balances)

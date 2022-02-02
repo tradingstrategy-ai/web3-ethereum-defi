@@ -56,12 +56,12 @@ def user_2(web3) -> str:
 
 def test_deploy_token(web3: Web3, deployer: str):
     """Deploy mock ERC-20."""
-    token = create_token(web3, deployer, "Hentai books token", "HENTAI", 100_000 * 10**18)
+    token = create_token(web3, deployer, "Hentai books token", "HENTAI", 100_000 * 10**18, 6)
     # https://web3py.readthedocs.io/en/stable/contracts.html#contract-deployment-example
     assert token.functions.name().call() == "Hentai books token"
     assert token.functions.symbol().call() == "HENTAI"
     assert token.functions.totalSupply().call() == 100_000 * 10**18
-    assert token.functions.decimals().call() == 18
+    assert token.functions.decimals().call() == 6
 
 
 def test_tranfer_tokens_between_users(web3: Web3, deployer: str, user_1: str, user_2: str):

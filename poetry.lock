@@ -558,7 +558,7 @@ python-versions = ">=2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*, !=3.4.*"
 
 [[package]]
 name = "py-ecc"
-version = "4.1.0"
+version = "5.2.0"
 description = "Elliptic curve crypto in python including secp256k1 and alt_bn128"
 category = "main"
 optional = false
@@ -1513,8 +1513,8 @@ py = [
     {file = "py-1.11.0.tar.gz", hash = "sha256:51c75c4126074b472f746a24399ad32f6053d1b34b68d2fa41e558e6f4a98719"},
 ]
 py-ecc = [
-    {file = "py_ecc-4.1.0-py3-none-any.whl", hash = "sha256:2b50b4098805eb40d2e06e682c3e7cd2c99cc4ca77fd088aab535a87eb2ac3be"},
-    {file = "py_ecc-4.1.0.tar.gz", hash = "sha256:7b26f4bb213c489967a01b526ca77087cc213626869ecbe838dfc217ef7a99ec"},
+    {file = "py_ecc-5.2.0-py3-none-any.whl", hash = "sha256:525b95aae5bbc185baff7dbfdb9bbd14d2c9454a797457f3edc85fd14c2ad7a6"},
+    {file = "py_ecc-5.2.0.tar.gz", hash = "sha256:f0aabdc82813ecb2e75e0531e3850295ff1a96bedfba42f15b5bc7f39ced64ba"},
 ]
 py-evm = [
     {file = "py-evm-0.5.0a3.tar.gz", hash = "sha256:7253dc14f5780d90eba7b236043ccacbfddee7c2a3b771584260f6f82e61486b"},

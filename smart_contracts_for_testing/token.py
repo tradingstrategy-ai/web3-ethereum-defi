@@ -12,14 +12,12 @@ from smart_contracts_for_testing.abi import get_contract
 from smart_contracts_for_testing.deploy import deploy_contract
 
 
-def create_token(web3: Web3, deployer: str, name: str, symbol: str, supply: int) -> Contract:
+def create_token(web3: Web3, deployer: str, name: str, symbol: str, supply: int, decimals: int=18) -> Contract:
     """Deploys a new test token.
 
     Uses `ERC20Mock <https://github.com/sushiswap/sushiswap/blob/canary/contracts/mocks/ERC20Mock.sol>`_ contract for the deployment.
 
     `See Web3.py documentation on Contract instances <https://web3py.readthedocs.io/en/stable/contracts.html#contract-deployment-example>`_.
-
-    Token decimal units is hardcoded to 18.
 
     Example:
 
@@ -37,6 +35,7 @@ def create_token(web3: Web3, deployer: str, name: str, symbol: str, supply: int)
     :param name: Token name
     :param symbol: Token symbol
     :param supply: Token supply as raw units
+    :param decimals: How many decimals ERC-20 token values have
     :return: Instance to a deployed Web3 contract.
     """
-    return deploy_contract(web3, "ERC20Mock.json", deployer, name, symbol, supply)
+    return deploy_contract(web3, "ERC20MockDecimals.json", deployer, name, symbol, supply, decimals)

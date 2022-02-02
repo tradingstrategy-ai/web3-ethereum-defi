@@ -1,5 +1,6 @@
 # Compile all of Sushiswap fiels
 sushi:
+	@cp contracts/* sushiswap/contracts
 	@(cd sushiswap && yarn install && yarn build) > /dev/null
 	@echo "Sushi is ready"
 
