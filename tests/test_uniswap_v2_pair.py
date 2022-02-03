@@ -7,7 +7,7 @@ from web3.contract import Contract
 from smart_contracts_for_testing.abi import get_deployed_contract
 from smart_contracts_for_testing.token import create_token
 from smart_contracts_for_testing.uniswap_v2 import deploy_uniswap_v2_like, UniswapV2Deployment, deploy_trading_pair, \
-    FOREVER_DEADLINE
+    FOREVER_DEADLINE, estimate_price
 
 
 @pytest.fixture
@@ -162,3 +162,28 @@ def test_swap(web3: Web3, deployer: str, user_1: str, uniswap_v2: UniswapV2Deplo
 
     # Check the user_1 received ~0.284 ethers
     assert weth.functions.balanceOf(user_1).call() / 1e18 == pytest.approx(0.28488156127668085)
+
+
+def test_estimate_price(web3: Web3, deployer: str, user_1: str, uniswap_v2: UniswapV2Deployment, weth: Contract, usdc: Contract):
+    """Estimate price."""
+
+    # Create the trading pair and add initial liquidity
+    deploy_trading_pair(
+        web3,
+        deployer,
+        uniswap_v2,
+        weth,
+        usdc,
+        10 * 10**18,  # 10 ETH liquidity
+        17_000 * 10**18,  # 17000 USDC liquidity
+    )
+
+    # Estimate how much ETH we will receive for 500 USDC
+    amount_eth = estimate_price(
+        web3,
+        uniswap_v2,
+        weth,
+        usdc,
+        500*10**18,
+    )
+    assert amount_eth / 1e18 == pytest.approx(0.28488156127668085)
