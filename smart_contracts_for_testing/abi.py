@@ -8,6 +8,7 @@ import os.path
 import json
 from typing import Type, Optional
 
+from eth_typing import HexAddress
 from web3 import Web3
 from web3.contract import Contract
 
@@ -60,7 +61,7 @@ def get_contract(web3: Web3, fname: str, bytecode: Optional[str]=None) -> Type[C
     return Contract
 
 
-def get_deployed_contract(web3: Web3, fname: str, address: str) -> Contract:
+def get_deployed_contract(web3: Web3, fname: str, address: HexAddress) -> Contract:
     """Get a Contract proxy objec for a contract deployed at a specific address.
 
     `See Web3.py documentation on Contract instances <https://web3py.readthedocs.io/en/stable/contracts.html#contract-deployment-example>`_.

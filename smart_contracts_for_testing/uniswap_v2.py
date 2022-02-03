@@ -21,7 +21,7 @@ from eth_typing import HexAddress, HexStr
 from web3 import Web3
 from web3.contract import Contract
 
-from smart_contracts_for_testing.abi import get_contract
+from smart_contracts_for_testing.abi import get_contract, get_deployed_contract
 from smart_contracts_for_testing.deploy import deploy_contract
 
 
@@ -407,6 +407,30 @@ def estimate_price(web3: Web3, uniswap: UniswapV2Deployment, base_token: Contrac
     path = [quote_token.address, base_token.address]
     amounts = fee_helper.get_amounts_out(quantity, path)
     return amounts[-1]
+
+
+def fetch_deployment(web3: Web3, factory_address: HexAddress, router_address: HexAddress) -> UniswapV2Deployment:
+    """Construct Uniswap deployment based on on-chain data.
+
+    Fetches init code hash from on-chain.
+
+    Factory does not know about routers, so they must be explicitly given.
+
+    `Read more details here <https://ethereum.stackexchange.com/questions/76334/what-is-the-difference-between-bytecode-init-code-deployed-bytedcode-creation>`_.
+    """
+    factory = get_deployed_contract(web3, "UniswapV2Factory.json",factory_address)
+    # https://github.com/sushiswap/sushiswap/blob/4fdfeb7dafe852e738c56f11a6cae855e2fc0046/contracts/uniswapv2/UniswapV2Factory.sol#L26
+    init_code_hash = factory.functions.pairCodeHash().call().hex()
+    router = get_deployed_contract(web3, "UniswapV2Router02.json", router_address)
+    # https://github.com/sushiswap/sushiswap/blob/4fdfeb7dafe852e738c56f11a6cae855e2fc0046/contracts/uniswapv2/UniswapV2Router02.sol#L17
+    weth_address = router.functions.WETH().call()
+    weth = get_deployed_contract(web3, "WETH9Mock.json", weth_address)
+    return UniswapV2Deployment(
+        factory,
+        weth,
+        router,
+        init_code_hash
+    )
 
 
 # Getting the byte code as https://ethereum.stackexchange.com/questions/77528/web3-eth-getcode-doesnt-return-the-data-shown-on-etherscan

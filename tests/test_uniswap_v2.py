@@ -3,7 +3,7 @@
 import pytest
 from web3 import Web3, EthereumTesterProvider
 
-from smart_contracts_for_testing.uniswap_v2 import deploy_uniswap_v2_like
+from smart_contracts_for_testing.uniswap_v2 import deploy_uniswap_v2_like, fetch_deployment
 
 
 @pytest.fixture
@@ -70,3 +70,8 @@ def test_weth(web3: Web3, deployer: str):
     assert weth.functions.balanceOf(deployer).call() == 5 * 10**18
 
 
+def test_fetch_deployment(web3: Web3, deployer: str):
+    """Reserve Uniswap deployment from on-chain data."""
+    deployment = deploy_uniswap_v2_like(web3, deployer, give_weth=False)
+    fetched = fetch_deployment(web3, deployment.factory.address, deployment.router.address)
+    assert fetched.init_code_hash == deployment.init_code_hash
