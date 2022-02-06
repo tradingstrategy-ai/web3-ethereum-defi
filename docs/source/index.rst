@@ -14,6 +14,7 @@ See `the project README for an overview <https://github.com/tradingstrategy-ai/s
    abi
    deploy
    event
+   gas
 
 .. toctree::
    :maxdepth: 2
