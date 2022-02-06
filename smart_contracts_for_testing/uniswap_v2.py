@@ -48,6 +48,11 @@ class UniswapV2Deployment:
     router: Contract
 
 
+@dataclass
+class UniswapTradeInfo:
+    """Reverse engineered uniswap trade information."""
+
+
 def deploy_factory(web3: Web3, deployer: str) -> Contract:
     """Deploy a Uniswap V2 factory contract.
 
@@ -457,3 +462,11 @@ _SUSHI_FACTORY_DEPLOYMENT_DATA = """0x608060405234801561001057600080fd5b50604051
 # https://dev.sushi.com/sushiswap/contracts#sushiv2factory
 _SUSHI_V2_INIT_CODE_HASH = "e18a34eb0e04b04f7a0ac29a6e80748dca96319b42c54d679cb821dca90c6303"
 
+
+_GOOD_TRANSFER_SIGNATURES = (
+    # https://github.com/OpenZeppelin/openzeppelin-contracts/blob/master/contracts/token/ERC20/IERC20.sol#L75
+    "Transfer(address,address,uint)",
+    # WETH9 wtf Transfer()
+    # https://github.com/gnosis/canonical-weth/blob/master/contracts/WETH9.sol#L24
+    "Transfer(address,address,uint,uint)",
+)

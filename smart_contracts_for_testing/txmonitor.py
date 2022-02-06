@@ -33,6 +33,9 @@ def wait_transactions_to_complete(
     :return: Map of transaction hashes -> receipt
     """
 
+    assert isinstance(poll_delay, datetime.timedelta)
+    assert isinstance(max_timeout, datetime.timedelta)
+
     started_at = datetime.datetime.utcnow()
 
     receipts_received = {}

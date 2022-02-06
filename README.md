@@ -11,10 +11,11 @@ this project aims to explicit clean deployments and very fast test execution.
 
 Smart contract support includes 
 
-* ERC-20 token
+* ERC-20 token manipulation
 * [SushiSwap](https://github.com/sushiswap/sushiswap): router, factory, pool (Uniswap v2, PancakeSwape, QuickSwap, Trader Joe and others are 99% Sushiswap compatible)
 * [High-quality API documentation](https://smart-contracts-for-testing.readthedocs.io/)
 * Full type hinting support for optimal developer experience
+* Parallel transaction execution
 * (More integrations to come)
 
 Table of contents
