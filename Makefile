@@ -1,5 +1,6 @@
 # Compile all of Sushiswap fiels
 sushi:
+	# Get our mock up contracts to the compiler bundle
 	@cp contracts/* sushiswap/contracts
 	@(cd sushiswap && yarn install && yarn build) > /dev/null
 	@echo "Sushi is ready"

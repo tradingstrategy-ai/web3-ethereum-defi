@@ -4,12 +4,39 @@ Deploy ERC-20 tokens to be used within your test suite.
 
 `Read also unit test suite for tokens to see how ERC-20 can be manipulated in pytest <https://github.com/tradingstrategy-ai/smart-contracts-for-testing/blob/master/tests/test_token.py>`_.
 """
+from dataclasses import dataclass
+from typing import Optional
 
+from eth_tester.exceptions import TransactionFailed
+from eth_typing import HexAddress
 from web3 import Web3
 from web3.contract import Contract
 
-from smart_contracts_for_testing.abi import get_contract
+from smart_contracts_for_testing.abi import get_contract, get_deployed_contract
 from smart_contracts_for_testing.deploy import deploy_contract
+from smart_contracts_for_testing.utils import sanitise_string
+
+
+#: List of exceptions JSON-RPC provider can through when ERC-20 field look-up fails
+#: TODO: Add exceptios from real HTTPS/WSS providers
+_call_missing_exceptions = (TransactionFailed,)
+
+
+@dataclass
+class TokenDetails:
+    """A helper class to detail with token instructions.
+
+    Any field can be None for non-wellformed tokens.
+    """
+    address: HexAddress
+    name: Optional[str] = None
+    symbol: Optional[str] = None
+    total_supply: Optional[int] = None
+    decimals: Optional[int] = None
+
+
+class TokenDetailError(Exception):
+    """Cannot extract token details for an ERC-20 token for some reason."""
 
 
 def create_token(web3: Web3, deployer: str, name: str, symbol: str, supply: int, decimals: int=18) -> Contract:
@@ -39,3 +66,50 @@ def create_token(web3: Web3, deployer: str, name: str, symbol: str, supply: int,
     :return: Instance to a deployed Web3 contract.
     """
     return deploy_contract(web3, "ERC20MockDecimals.json", deployer, name, symbol, supply, decimals)
+
+
+def fetch_erc20_details(web3: Web3, token_address: HexAddress, max_str_length: int = 256) -> TokenDetails:
+    """Read token details from on-chain data.
+
+    Connect to Web3 node and do RPC calls to extract the token info.
+    We apply some sanitazation for incoming data, like length checks and removal of null bytes.
+
+    The function should not raise an exception as long as the underlying node connection does not fail.
+
+    Example:
+
+    .. code-block:: python
+
+        details = fetch_erc20_details(web3, token_address)
+        assert details.name == "Hentai books token"
+        assert details.decimals == 6
+
+    :param web3: Web3 instance
+    :param token_address: ERC-20 contract address:
+    :param max_str_length: For input sanitisation
+    :return: Sanitised token info
+    """
+
+    erc_20 = get_deployed_contract(web3, "ERC20MockDecimals.json", token_address)
+
+    try:
+        symbol = sanitise_string(erc_20.functions.symbol().call()[0:max_str_length])
+    except _call_missing_exceptions:
+        symbol = None
+
+    try:
+        name = sanitise_string(erc_20.functions.name().call()[0:max_str_length])
+    except _call_missing_exceptions:
+        name = None
+
+    try:
+        decimals = erc_20.functions.decimals().call()
+    except _call_missing_exceptions:
+        decimals = None
+
+    try:
+        supply = erc_20.functions.totalSupply().call()
+    except _call_missing_exceptions:
+        supply = None
+
+    return TokenDetails(token_address, name, symbol, supply, decimals)

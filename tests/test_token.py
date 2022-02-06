@@ -5,7 +5,8 @@ import pytest
 from eth_tester.exceptions import TransactionFailed
 from web3 import Web3, EthereumTesterProvider
 
-from smart_contracts_for_testing.token import create_token
+from smart_contracts_for_testing.deploy import deploy_contract
+from smart_contracts_for_testing.token import create_token, fetch_erc20_details
 
 
 @pytest.fixture
@@ -91,3 +92,19 @@ def test_tranfer_too_much(web3: Web3, deployer: str, user_1: str, user_2: str):
         token.functions.transfer(user_2, 11 * 10**18).transact({"from": user_1})
     assert str(excinfo.value) == "execution reverted: ERC20: transfer amount exceeds balance"
 
+
+def test_fetch_token_details(web3: Web3, deployer: str):
+    """Get details of a token."""
+    token = create_token(web3, deployer, "Hentai books token", "HENTAI", 100_000 * 10**18, 6)
+    details = fetch_erc20_details(web3, token.address)
+    assert details.name == "Hentai books token"
+    assert details.decimals == 6
+
+
+def test_fetch_token_details_broken(web3: Web3, deployer: str):
+    """Get details of a token that does not conform ERC-20 guidelines."""
+    malformed_token = deploy_contract(web3, "MalformedERC20.json", deployer)
+    details = fetch_erc20_details(web3, malformed_token.address)
+    assert details.symbol == ""
+    assert details.decimals is None
+    assert details.total_supply is None

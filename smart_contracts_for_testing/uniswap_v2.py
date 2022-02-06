@@ -396,6 +396,20 @@ def estimate_price(web3: Web3, uniswap: UniswapV2Deployment, base_token: Contrac
     Calls the on-chain contract to get the current liquidity and estimates the
     the price based on it.s
 
+    Example:
+
+    .. code-block:: python
+
+            # Estimate how much ETH we will receive for 500 USDC
+            amount_eth = estimate_price(
+                web3,
+                uniswap_v2,
+                weth,
+                usdc,
+                500*10**18,
+            )
+            assert amount_eth / 1e18 == pytest.approx(0.28488156127668085)
+
     :param web3: Web3 instance
     :param uniswap: Uniswap v2 deployment
     :param base_token: Base token of the trading pair

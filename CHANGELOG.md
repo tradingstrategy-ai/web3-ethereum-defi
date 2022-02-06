@@ -5,6 +5,7 @@
 - Feature: Solidity event fetcher
 - Feature: Fee estimator
 - Feature: Fetch Uniswap deployment from on-chain data
+- Feature: Fetch ERC-20 details
 
 # 0.1
 
