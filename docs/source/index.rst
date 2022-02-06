@@ -15,6 +15,7 @@ See `the project README for an overview <https://github.com/tradingstrategy-ai/s
    deploy
    event
    gas
+   txmonitor
 
 .. toctree::
    :maxdepth: 2
