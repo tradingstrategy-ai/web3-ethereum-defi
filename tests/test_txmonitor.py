@@ -12,7 +12,8 @@ from web3._utils.transactions import fill_nonce
 
 from smart_contracts_for_testing.gas import estimate_gas_fees, GasPriceMethod, apply_gas
 from smart_contracts_for_testing.token import create_token
-from smart_contracts_for_testing.txmonitor import wait_transactions_to_complete
+from smart_contracts_for_testing.txmonitor import wait_transactions_to_complete, \
+    broadcast_and_wait_transactions_to_complete
 
 
 @pytest.fixture
@@ -63,7 +64,6 @@ def test_wait_txs_parallel(web3: Web3, eth_tester, deployer: HexAddress, hot_wal
 
     gas_fees = estimate_gas_fees(web3)
 
-    """Transfer tokens between users."""
     token = create_token(web3, deployer, "Cow token", "COWS", 100_000 * 10**18)
 
     # Drop some ETH and token to the hot wallet
@@ -104,5 +104,47 @@ def test_wait_txs_parallel(web3: Web3, eth_tester, deployer: HexAddress, hot_wal
     for receipt in complete.values():
         assert receipt.status == 1  # tx success
 
+
+def test_broadcast_and_wait(web3: Web3, eth_tester, deployer: HexAddress, hot_wallet: LocalAccount):
+    """Broadcast and multiple transactions to complete in parallel."""
+
+    gas_fees = estimate_gas_fees(web3)
+
+    token = create_token(web3, deployer, "Cow token", "COWS", 100_000 * 10**18)
+
+    # Drop some ETH and token to the hot wallet
+    web3.eth.send_transaction({"from": deployer, "to": hot_wallet.address, "value": 1 * 10**18})
+    token.functions.transfer(hot_wallet.address, 50_000 * 10**18).transact({"from": deployer})
+
+    nonce = web3.eth.get_transaction_count(hot_wallet.address)
+
+    # Create a raw transaction
+    # Move 10 tokens from deployer to user1
+    # https://web3py.readthedocs.io/en/stable/contracts.html?highlight=buildTransaction#web3.contract.ContractFunction.buildTransaction
+    tx1 = token.functions.transfer(hot_wallet.address, 10 * 10**18).buildTransaction({
+        "from": hot_wallet.address,
+        'chainId': web3.eth.chain_id,
+        "gas": 150_000,  # 150k gas should be more than enough for ERC20.transfer(),
+        "nonce": nonce,
+    })
+
+    tx2 = token.functions.transfer(hot_wallet.address, 10 * 10**18).buildTransaction({
+        "from": hot_wallet.address,
+        'chainId': web3.eth.chain_id,
+        "gas": 150_000,  # 150k gas should be more than enough for ERC20.transfer()
+        "nonce": nonce + 1,
+    })
+
+    apply_gas(tx1, gas_fees)
+    apply_gas(tx2, gas_fees)
+
+    signed1 = hot_wallet.sign_transaction(tx1)
+    signed2 = hot_wallet.sign_transaction(tx2)
+
+    complete = broadcast_and_wait_transactions_to_complete(web3, [signed1, signed2])
+
+    # Check both transaction succeeded
+    for receipt in complete.values():
+        assert receipt.status == 1  # tx success
 
 

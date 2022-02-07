@@ -15,7 +15,6 @@ Compatible exchanges include, but not limited to
 Under the hood we are using `SushiSwap v2 contracts <github.com/sushiswap/sushiswap>`_ for the deployment.
 """
 from dataclasses import dataclass
-from typing import Tuple
 
 from eth_typing import HexAddress, HexStr
 from web3 import Web3

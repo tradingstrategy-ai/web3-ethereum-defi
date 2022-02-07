@@ -15,6 +15,9 @@ from smart_contracts_for_testing.uniswap_v2 import UniswapV2Deployment
 class TradeResult:
     """A base class for Success/Fail trade result."""
 
+    #: How many units of gas we burned
+    gas_used: int
+
     #: What as the gas price used in wei
     effective_gas_price: int
 
@@ -78,13 +81,14 @@ def analyse_trade(web3: Web3, uniswap: UniswapV2Deployment, tx_hash: hash) -> Un
     assert tx_receipt["to"] == router.address, f"For now, we can only analyze naive trades to the router. This tx was to {tx_receipt['to']}, router is {router.address}"
 
     effective_gas_price = tx_receipt["effectiveGasPrice"]
+    gas_used = tx_receipt["gasUsed"]
 
     # Tx reverted
     if tx_receipt["status"] != 1:
         # See https://github.com/ethereum/web3.py/issues/1941
         # TODO: Add a logic to get revert reason, needs archival node as per
         # https://medium.com/authereum/getting-ethereum-transaction-revert-reasons-the-easy-way-24203a4d1844
-        return TradeFail(effective_gas_price, revert_message=None)
+        return TradeFail(gas_used, effective_gas_price, revert_message=None)
 
     # Decode inputs going to the Uniswap swap
     # https://stackoverflow.com/a/70737448/315168
@@ -107,6 +111,7 @@ def analyse_trade(web3: Web3, uniswap: UniswapV2Deployment, tx_hash: hash) -> Un
     price = Decimal(amount_out) / Decimal(amount_in)
 
     return TradeSuccess(
+        gas_used,
         effective_gas_price,
         path,
         amount_in,
