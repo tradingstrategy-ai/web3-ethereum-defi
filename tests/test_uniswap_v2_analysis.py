@@ -71,7 +71,7 @@ def usdc(web3, deployer) -> Contract:
 
     Note that this token has 18 decimals instead of 6 of real USDC.
     """
-    token = create_token(web3, deployer, "USD Coin", "USDC", 10_000_000 * 10**18)
+    token = create_token(web3, deployer, "USD Coin", "USDC", 10_000_000 * 10**6, 6)
     return token
 
 
@@ -92,13 +92,13 @@ def test_analyse_trade_success(web3: Web3, deployer: str, user_1: str, uniswap_v
         weth,
         usdc,
         10 * 10**18,  # 10 ETH liquidity
-        17_000 * 10**18,  # 17000 USDC liquidity
+        17_000 * 10**6,  # 17000 USDC liquidity
     )
 
     router = uniswap_v2.router
 
     # Give user_1 some cash to buy ETH and approve it on the router
-    usdc_amount_to_pay = 500 * 10**18
+    usdc_amount_to_pay = 500 * 10**6
     usdc.functions.transfer(user_1, usdc_amount_to_pay).transact({"from": deployer})
     usdc.functions.approve(router.address, usdc_amount_to_pay).transact({"from": user_1})
 
@@ -121,6 +121,9 @@ def test_analyse_trade_success(web3: Web3, deployer: str, user_1: str, uniswap_v
     assert (1 / analysis.price) == pytest.approx(Decimal('1755.115346038114345242609866'))
     assert analysis.get_effective_gas_price_gwei() == 1
 
+    assert analysis.amount_in_decimals == 6
+    assert analysis.amount_out_decimals == 18
+
 
 def test_analyse_trade_failed(eth_tester: EthereumTester, web3: Web3, deployer: str, user_1: str, uniswap_v2: UniswapV2Deployment, weth: Contract, usdc: Contract):
     """Aanlyze reverted Uniswap v2 trade."""
@@ -133,13 +136,13 @@ def test_analyse_trade_failed(eth_tester: EthereumTester, web3: Web3, deployer: 
         weth,
         usdc,
         10 * 10**18,  # 10 ETH liquidity
-        17_000 * 10**18,  # 17000 USDC liquidity
+        17_000 * 10**6,  # 17000 USDC liquidity
     )
 
     router = uniswap_v2.router
 
     # Fail reason: Do not approve() enough USDC
-    usdc_amount_to_pay = 500 * 10**18
+    usdc_amount_to_pay = 500 * 10**6
     usdc.functions.transfer(user_1, usdc_amount_to_pay).transact({"from": deployer})
     usdc.functions.approve(router.address, 1).transact({"from": user_1})
 

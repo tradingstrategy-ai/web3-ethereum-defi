@@ -7,6 +7,7 @@ from eth_typing import HexAddress
 from web3 import Web3
 
 from smart_contracts_for_testing.abi import get_contract
+from smart_contracts_for_testing.token import fetch_erc20_details
 from smart_contracts_for_testing.uniswap_v2 import UniswapV2Deployment
 
 
@@ -40,6 +41,10 @@ class TradeSuccess(TradeResult):
     #: Price includes any fees paid during the order routing path.
     #: Note that you get inverse price, if you route ETH-USD or USD-ETH e.g. are you doing buy or sell.
     price: Decimal
+
+    # Token information book keeping
+    amount_in_decimals: int
+    amount_out_decimals: int
 
 
 @dataclass
@@ -108,7 +113,13 @@ def analyse_trade(web3: Web3, uniswap: UniswapV2Deployment, tx_hash: hash) -> Un
     # (AttributeDict({'args': AttributeDict({'sender': '0xDe09E74d4888Bc4e65F589e8c13Bce9F71DdF4c7', 'to': '0x2B5AD5c4795c026514f8317c7a215E218DcCD6cF', 'amount0In': 0, 'amount1In': 500000000000000000000, 'amount0Out': 284881561276680858, 'amount1Out': 0}), 'event': 'Swap', 'logIndex': 4, 'transactionIndex': 0, 'transactionHash': HexBytes('0x58312ff98147ca16c3a81019c8bca390cd78963175e4c0a30643d45d274df947'), 'address': '0x68931307eDCB44c3389C507dAb8D5D64D242e58f', 'blockHash': HexBytes('0x1222012923c7024b1d49e1a3e58552b89e230f8317ac1b031f070c4845d55db1'), 'blockNumber': 12}),)
     amount_out = events[-1]["args"]["amount0Out"]
 
-    price = Decimal(amount_out) / Decimal(amount_in)
+    in_token_details = fetch_erc20_details(web3, path[0])
+    out_token_details = fetch_erc20_details(web3, path[-1])
+
+    amount_out_cleaned = Decimal(amount_out) / Decimal(10**out_token_details.decimals)
+    amount_in_cleaned = Decimal(amount_in) / Decimal(10**in_token_details.decimals)
+
+    price = amount_out_cleaned / amount_in_cleaned
 
     return TradeSuccess(
         gas_used,
@@ -118,6 +129,8 @@ def analyse_trade(web3: Web3, uniswap: UniswapV2Deployment, tx_hash: hash) -> Un
         amount_out_min,
         amount_out,
         price,
+        in_token_details.decimals,
+        out_token_details.decimals,
     )
 
 

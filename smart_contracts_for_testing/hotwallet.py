@@ -39,7 +39,10 @@ class HotWallet:
         return nonce
 
     def sign_transaction_with_new_nonce(self, tx: dict) -> SignedTransaction:
-        """Signs a transaction and allocates a nonce for it."""
+        """Signs a transaction and allocates a nonce for it.
+
+        :param: Ethereum transaction data as a dict. This is modified in-place to include nonce.
+        """
         assert "nonce" not in tx
         tx["nonce"] = self.allocate_nonce()
         signed = self.account.sign_transaction(tx)
