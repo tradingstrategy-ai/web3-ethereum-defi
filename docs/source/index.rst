@@ -10,6 +10,8 @@ See `the project README for an overview <https://github.com/tradingstrategy-ai/s
 
    token
    uniswap_v2
+   uniswap_v2_helpers
+   uniswap_v2_analysis
    portfolio
    abi
    deploy
