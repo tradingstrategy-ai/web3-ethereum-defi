@@ -18,6 +18,7 @@ See `the project README for an overview <https://github.com/tradingstrategy-ai/s
    event
    gas
    txmonitor
+   hotwallet
 
 .. toctree::
    :maxdepth: 2

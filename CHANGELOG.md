@@ -7,6 +7,7 @@
 - Feature: Fetch Uniswap deployment from on-chain data
 - Feature: Fetch ERC-20 details
 - Feature: Gas estimator
+- Feature: Hot wallet utilities
 - Feature: Monitor success/fail execution of transactions in parallel
 - Feature: Analyse Uniswap trades to get the price and fees paid
 
