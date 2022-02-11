@@ -178,10 +178,10 @@ def test_analyse_sell_success(web3: Web3, deployer: str, user_1: str, uniswap_v2
 
     analysis = analyse_trade(web3, uniswap_v2, tx_hash)
     assert isinstance(analysis, TradeSuccess)
-    assert (1 / analysis.price) == pytest.approx(Decimal('1755.115346038114345242609866'))
+    assert analysis.price == pytest.approx(Decimal('1744.899124998896692270848706'))
     assert analysis.get_effective_gas_price_gwei() == 1
-    assert analysis.amount_out_decimals == 18
-    assert analysis.amount_in_decimals == 6
+    assert analysis.amount_out_decimals == 6
+    assert analysis.amount_in_decimals == 18
 
 
 def test_analyse_trade_failed(eth_tester: EthereumTester, web3: Web3, deployer: str, user_1: str, uniswap_v2: UniswapV2Deployment, weth: Contract, usdc: Contract):
