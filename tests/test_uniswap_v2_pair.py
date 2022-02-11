@@ -189,7 +189,7 @@ def test_estimate_price(web3: Web3, deployer: str, user_1: str, uniswap_v2: Unis
     assert amount_eth / 1e18 == pytest.approx(0.28488156127668085)
 
 
-def test_buy_sell_all(web3: Web3, deployer: str, user_1: str, uniswap_v2: UniswapV2Deployment, weth: Contract, usdc: Contract):
+def test_buy_sell_round_trip(web3: Web3, deployer: str, user_1: str, uniswap_v2: UniswapV2Deployment, weth: Contract, usdc: Contract):
     """Buys some token, then sells it.
 
     Does a full round trip of trade and see how much money we lost.
@@ -215,7 +215,6 @@ def test_buy_sell_all(web3: Web3, deployer: str, user_1: str, uniswap_v2: Uniswa
 
     # Perform a swap USDC->WETH
     path = [usdc.address, weth.address]  # Path tell how the swap is routed
-    # https://docs.uniswap.org/protocol/V2/reference/smart-contracts/router-02#swapexacttokensfortokens
     router.functions.swapExactTokensForTokens(
         usdc_amount_to_pay,
         0,
@@ -231,7 +230,6 @@ def test_buy_sell_all(web3: Web3, deployer: str, user_1: str, uniswap_v2: Uniswa
 
     # Perform the reverse swap WETH->USDC
     reverse_path = [weth.address, usdc.address]  # Path tell how the swap is routed
-    # https://docs.uniswap.org/protocol/V2/reference/smart-contracts/router-02#swapexacttokensfortokens
     router.functions.swapExactTokensForTokens(
         all_weth_amount,
         0,
