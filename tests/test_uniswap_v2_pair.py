@@ -7,7 +7,7 @@ from web3.contract import Contract
 from smart_contracts_for_testing.abi import get_deployed_contract
 from smart_contracts_for_testing.token import create_token
 from smart_contracts_for_testing.uniswap_v2 import deploy_uniswap_v2_like, UniswapV2Deployment, deploy_trading_pair, \
-    FOREVER_DEADLINE, estimate_price
+    FOREVER_DEADLINE, estimate_received_quantity
 
 
 @pytest.fixture
@@ -179,7 +179,7 @@ def test_estimate_price(web3: Web3, deployer: str, user_1: str, uniswap_v2: Unis
     )
 
     # Estimate how much ETH we will receive for 500 USDC
-    amount_eth = estimate_price(
+    amount_eth = estimate_received_quantity(
         web3,
         uniswap_v2,
         weth,
@@ -187,3 +187,61 @@ def test_estimate_price(web3: Web3, deployer: str, user_1: str, uniswap_v2: Unis
         500*10**18,
     )
     assert amount_eth / 1e18 == pytest.approx(0.28488156127668085)
+
+
+def test_buy_sell_all(web3: Web3, deployer: str, user_1: str, uniswap_v2: UniswapV2Deployment, weth: Contract, usdc: Contract):
+    """Buys some token, then sells it.
+
+    Does a full round trip of trade and see how much money we lost.
+    """
+
+    # Create the trading pair and add initial liquidity
+    deploy_trading_pair(
+        web3,
+        deployer,
+        uniswap_v2,
+        weth,
+        usdc,
+        10 * 10**18,  # 10 ETH liquidity
+        17_000 * 10**18,  # 17000 USDC liquidity
+    )
+
+    router = uniswap_v2.router
+
+    # Give user_1 500 USD to buy ETH
+    usdc_amount_to_pay = 500 * 10**18
+    usdc.functions.transfer(user_1, usdc_amount_to_pay).transact({"from": deployer})
+    usdc.functions.approve(router.address, usdc_amount_to_pay).transact({"from": user_1})
+
+    # Perform a swap USDC->WETH
+    path = [usdc.address, weth.address]  # Path tell how the swap is routed
+    # https://docs.uniswap.org/protocol/V2/reference/smart-contracts/router-02#swapexacttokensfortokens
+    router.functions.swapExactTokensForTokens(
+        usdc_amount_to_pay,
+        0,
+        path,
+        user_1,
+        FOREVER_DEADLINE,
+    ).transact({
+        "from": user_1
+    })
+
+    all_weth_amount = weth.functions.balanceOf(user_1).call()
+    weth.functions.approve(router.address, all_weth_amount).transact({"from": user_1})
+
+    # Perform the reverse swap WETH->USDC
+    reverse_path = [weth.address, usdc.address]  # Path tell how the swap is routed
+    # https://docs.uniswap.org/protocol/V2/reference/smart-contracts/router-02#swapexacttokensfortokens
+    router.functions.swapExactTokensForTokens(
+        all_weth_amount,
+        0,
+        reverse_path,
+        user_1,
+        FOREVER_DEADLINE,
+    ).transact({
+        "from": user_1
+    })
+
+    # user_1 has less than 500 USDC left to loses in the LP fees
+    usdc_left = usdc.functions.balanceOf(user_1).call() / (10.0**18)
+    assert usdc_left == pytest.approx(497.0895)

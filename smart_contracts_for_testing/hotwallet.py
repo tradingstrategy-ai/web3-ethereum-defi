@@ -8,9 +8,12 @@ from web3 import Web3
 
 
 class HotWallet:
-    """Hot wallet helper.
+    """Hot wallet.
 
-    Carry the information of allocated tx nonces with us.
+    A hot wallet maintains an unecrypted private key of an Ethereum address in the process memory.
+    It is able to sign transactions.
+
+    This particular hot wallet implementation carries the information of allocated tx nonces with us.
     This allows us to prepare multiple transactions from the same account upfront.
     """
 

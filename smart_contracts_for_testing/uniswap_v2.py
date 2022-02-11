@@ -185,8 +185,8 @@ def deploy_trading_pair(
     return pair_address
 
 
-def estimate_price(web3: Web3, uniswap: UniswapV2Deployment, base_token: Contract, quote_token: Contract, quantity: int) -> int:
-    """Estimate what price we are going to receive for a swap.
+def estimate_received_quantity(web3: Web3, uniswap: UniswapV2Deployment, base_token: Contract, quote_token: Contract, quantity: int) -> int:
+    """Estimate how many tokens we are going to receive when doing a buy..
 
     Calls the on-chain contract to get the current liquidity and estimates the
     the price based on it.s
@@ -195,7 +195,8 @@ def estimate_price(web3: Web3, uniswap: UniswapV2Deployment, base_token: Contrac
 
     .. code-block:: python
 
-            # Estimate how much ETH we will receive for 500 USDC
+            # Estimate how much ETH we will receive for 500 USDC.
+            # In this case the pool ETH price is $1700 so this should be below ~1/4 of ETH
             amount_eth = estimate_price(
                 web3,
                 uniswap_v2,
@@ -206,14 +207,33 @@ def estimate_price(web3: Web3, uniswap: UniswapV2Deployment, base_token: Contrac
             assert amount_eth / 1e18 == pytest.approx(0.28488156127668085)
 
     :param web3: Web3 instance
+    :param quantity: How much of the base token we want to buy
     :param uniswap: Uniswap v2 deployment
     :param base_token: Base token of the trading pair
     :param quote_token: Quote token of the trading pair
-    :param quantity: How much of the base token we want to buy
     :return: Expected base token to receive
     """
     fee_helper = UniswapFeeHelper(web3, uniswap.factory.address, uniswap.init_code_hash)
     path = [quote_token.address, base_token.address]
+    amounts = fee_helper.get_amounts_out(quantity, path)
+    return amounts[-1]
+
+
+def estimate_received_quote(web3: Web3, uniswap: UniswapV2Deployment, base_token: Contract, quote_token: Contract, quantity: int) -> int:
+    """Estimate how much we are going to get paid when doing a sell.
+
+    Calls the on-chain contract to get the current liquidity and estimates the
+    the price based on it.s
+
+    :param web3: Web3 instance
+    :param quantity: How much of the base token we want to buy
+    :param uniswap: Uniswap v2 deployment
+    :param base_token: Base token of the trading pair
+    :param quote_token: Quote token of the trading pair
+    :return: Expected base token to receive
+    """
+    fee_helper = UniswapFeeHelper(web3, uniswap.factory.address, uniswap.init_code_hash)
+    path = [base_token.address, quote_token.address]
     amounts = fee_helper.get_amounts_out(quantity, path)
     return amounts[-1]
 
