@@ -69,6 +69,15 @@ def analyse_trade(web3: Web3, uniswap: UniswapV2Deployment, tx_hash: hash) -> Un
     Currently only supports simple analysis where there is one input token
     and one output token.
 
+    Example:
+
+    .. code-block:: python
+
+        analysis = analyse_trade(web3, uniswap_v2, tx_hash)
+        assert isinstance(analysis, TradeSuccess)  # Trade was successful
+        assert analysis.price == pytest.approx(Decimal('1744.899124998896692270848706'))  # ETC/USDC price
+        assert analysis.get_effective_gas_price_gwei() == 1  # What gas was paid for this price
+
     .. note ::
 
         This code is still much under development and unlikely to support any
