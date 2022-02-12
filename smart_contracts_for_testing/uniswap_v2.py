@@ -25,7 +25,7 @@ from smart_contracts_for_testing.deploy import deploy_contract
 
 
 #: An UNIX timestamp that will never happen. Can be passed as `deadline` for Uniswap v2.
-from smart_contracts_for_testing.uniswaputils import UniswapFeeHelper
+from smart_contracts_for_testing.uniswap_v2_utils import UniswapFeeHelper
 
 FOREVER_DEADLINE = 2**63
 

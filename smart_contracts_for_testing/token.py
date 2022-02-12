@@ -28,11 +28,15 @@ class TokenDetails:
 
     Any field can be None for non-wellformed tokens.
     """
-    address: HexAddress
+    contract: Contract
     name: Optional[str] = None
     symbol: Optional[str] = None
     total_supply: Optional[int] = None
     decimals: Optional[int] = None
+
+    @property
+    def address(self) -> HexAddress:
+        return self.contract.address
 
 
 class TokenDetailError(Exception):
@@ -112,4 +116,4 @@ def fetch_erc20_details(web3: Web3, token_address: HexAddress, max_str_length: i
     except _call_missing_exceptions:
         supply = None
 
-    return TokenDetails(token_address, name, symbol, supply, decimals)
+    return TokenDetails(erc_20, name, symbol, supply, decimals)
