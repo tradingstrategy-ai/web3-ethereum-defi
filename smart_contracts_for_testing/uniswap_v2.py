@@ -185,7 +185,7 @@ def deploy_trading_pair(
     return pair_address
 
 
-def estimate_received_quantity(web3: Web3, uniswap: UniswapV2Deployment, base_token: Contract, quote_token: Contract, quantity: int) -> int:
+def estimate_buy_quantity(web3: Web3, uniswap: UniswapV2Deployment, base_token: Contract, quote_token: Contract, quantity: int) -> int:
     """Estimate how many tokens we are going to receive when doing a buy..
 
     Calls the on-chain contract to get the current liquidity and estimates the
@@ -197,7 +197,7 @@ def estimate_received_quantity(web3: Web3, uniswap: UniswapV2Deployment, base_to
 
             # Estimate how much ETH we will receive for 500 USDC.
             # In this case the pool ETH price is $1700 so this should be below ~1/4 of ETH
-            amount_eth = estimate_price(
+            amount_eth = estimate_received_quantity(
                 web3,
                 uniswap_v2,
                 weth,
@@ -219,18 +219,49 @@ def estimate_received_quantity(web3: Web3, uniswap: UniswapV2Deployment, base_to
     return amounts[-1]
 
 
-def estimate_received_quote(web3: Web3, uniswap: UniswapV2Deployment, base_token: Contract, quote_token: Contract, quantity: int) -> int:
+def estimate_sell_price(web3: Web3, uniswap: UniswapV2Deployment, base_token: Contract, quote_token: Contract, quantity: int) -> int:
     """Estimate how much we are going to get paid when doing a sell.
 
     Calls the on-chain contract to get the current liquidity and estimates the
-    the price based on it.s
+    the price based on it.
+
+    .. note ::
+
+        The price of an asset depends on how much you are selling it. More you sell,
+        more there will be price impact.
+
+    To get a price of an asset, ask for quantity 1 of it:
+
+    .. code-block:: python
+
+        # Create the trading pair and add initial liquidity for price 1700 USDC/ETH
+        deploy_trading_pair(
+            web3,
+            deployer,
+            uniswap_v2,
+            weth,
+            usdc,
+            1_000 * 10**18,  # 1000 ETH liquidity
+            1_700_000 * 10**6,  # 1.7M USDC liquidity
+        )
+
+        # Estimate the price of selling 1 ETH
+        usdc_per_eth = estimate_price(
+            web3,
+            uniswap_v2,
+            weth,
+            usdc,
+            1 * 10**18,  # 1 ETH
+        )
+        price_as_usd = usdc_per_eth / 1e6
+        assert price_as_usd == pytest.approx(1693.2118677678354)
 
     :param web3: Web3 instance
     :param quantity: How much of the base token we want to buy
     :param uniswap: Uniswap v2 deployment
     :param base_token: Base token of the trading pair
     :param quote_token: Quote token of the trading pair
-    :return: Expected base token to receive
+    :return: Expected quote token amount to receive
     """
     fee_helper = UniswapFeeHelper(web3, uniswap.factory.address, uniswap.init_code_hash)
     path = [base_token.address, quote_token.address]

@@ -7,7 +7,7 @@ from web3.contract import Contract
 from smart_contracts_for_testing.abi import get_deployed_contract
 from smart_contracts_for_testing.token import create_token
 from smart_contracts_for_testing.uniswap_v2 import deploy_uniswap_v2_like, UniswapV2Deployment, deploy_trading_pair, \
-    FOREVER_DEADLINE, estimate_received_quantity
+    FOREVER_DEADLINE, estimate_buy_quantity, estimate_sell_price
 
 
 @pytest.fixture
@@ -69,7 +69,7 @@ def usdc(web3, deployer) -> Contract:
 
     Note that this token has 18 decimals instead of 6 of real USDC.
     """
-    token = create_token(web3, deployer, "USD Coin", "USDC", 10_000_000 * 10**18)
+    token = create_token(web3, deployer, "USD Coin", "USDC", 100_000_000 * 10**18)
     return token
 
 
@@ -164,8 +164,8 @@ def test_swap(web3: Web3, deployer: str, user_1: str, uniswap_v2: UniswapV2Deplo
     assert weth.functions.balanceOf(user_1).call() / 1e18 == pytest.approx(0.28488156127668085)
 
 
-def test_estimate_price(web3: Web3, deployer: str, user_1: str, uniswap_v2: UniswapV2Deployment, weth: Contract, usdc: Contract):
-    """Estimate price."""
+def test_estimate_quantity(web3: Web3, deployer: str, user_1: str, uniswap_v2: UniswapV2Deployment, weth: Contract, usdc: Contract):
+    """Estimate quantity."""
 
     # Create the trading pair and add initial liquidity
     deploy_trading_pair(
@@ -179,7 +179,7 @@ def test_estimate_price(web3: Web3, deployer: str, user_1: str, uniswap_v2: Unis
     )
 
     # Estimate how much ETH we will receive for 500 USDC
-    amount_eth = estimate_received_quantity(
+    amount_eth = estimate_buy_quantity(
         web3,
         uniswap_v2,
         weth,
@@ -187,6 +187,32 @@ def test_estimate_price(web3: Web3, deployer: str, user_1: str, uniswap_v2: Unis
         500*10**18,
     )
     assert amount_eth / 1e18 == pytest.approx(0.28488156127668085)
+
+
+def test_estimate_price(web3: Web3, deployer: str, user_1: str, uniswap_v2: UniswapV2Deployment, weth: Contract, usdc: Contract):
+    """Estimate price."""
+
+    # Create the trading pair and add initial liquidity
+    deploy_trading_pair(
+        web3,
+        deployer,
+        uniswap_v2,
+        weth,
+        usdc,
+        1_000 * 10**18,  # 1000 ETH liquidity
+        1_700_000 * 10**18,  # 1.7M USDC liquidity
+    )
+
+    # Estimate the price of selling 1 ETH
+    usdc_per_eth = estimate_sell_price(
+        web3,
+        uniswap_v2,
+        weth,
+        usdc,
+        1 * 10**18,
+    )
+    price_as_usd = usdc_per_eth / 1e18
+    assert price_as_usd == pytest.approx(1693.2118677678354)
 
 
 def test_buy_sell_round_trip(web3: Web3, deployer: str, user_1: str, uniswap_v2: UniswapV2Deployment, weth: Contract, usdc: Contract):
