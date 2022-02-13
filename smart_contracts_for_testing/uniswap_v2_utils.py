@@ -66,11 +66,12 @@ class UniswapFeeHelper:
         self.init_code_hash = init_code_hash
         self.PairContract = get_contract(web3, "UniswapV2Pair.json")
 
+    # Liften from uniswap-v2-py by Asynctomatic
     def get_reserves(self, token_a: HexAddress, token_b: HexAddress):
-        """
-        Gets the reserves of token_0 and token_1 used to price trades
+        """Gets the reserves of token_0 and token_1 used to price trades
         and distribute liquidity as well as the timestamp of the last block
         during which an interaction occurred for the pair.
+
         :param pair: Address of the pair.
         :return:
             - reserve_0 - Amount of token_0 in the contract.
@@ -85,7 +86,6 @@ class UniswapFeeHelper:
         reserve = pair_contract.functions.getReserves().call()
         return reserve if token0 == token_a else [reserve[1], reserve[0], reserve[2]]
 
-    # Liften from uniswap-v2-py by Asynctomatic
     def get_amounts_out(self, amount_in: int, path: List[HexAddress]) -> List[int]:
         """Get how much token we are going to receive.
 

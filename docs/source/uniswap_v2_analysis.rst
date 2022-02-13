@@ -1,5 +1,5 @@
-Trade and porfolio analysis
-===========================
+Uniswap v2: Trade and porfolio analysis
+=======================================
 
  .. automodule:: smart_contracts_for_testing.uniswap_v2_analysis
     :members:

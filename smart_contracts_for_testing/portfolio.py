@@ -45,6 +45,7 @@ def fetch_erc20_balances(web3: Web3, owner: HexAddress, last_block_num: Optional
         assert balances[usdc.address] == 500
         assert balances[aave.address] == 200
 
+
     :param web3: Web3 instance
     :param owner: The address we are analysis
     :param last_block_num: Set to the last block, inclusive, if you want to have an analysis of in a point of history.
@@ -90,7 +91,7 @@ def fetch_erc20_balances_decimal(web3: Web3, owner: HexAddress, last_block_num: 
     """Get all current holdings of an account.
 
     Convert holdings to the natural decimal format.
-.
+
     Example:
 
     .. code-block:: python
@@ -101,6 +102,7 @@ def fetch_erc20_balances_decimal(web3: Web3, owner: HexAddress, last_block_num: 
         balances = fetch_erc20_balances(web3, user_1)
         assert balances[usdc.address] == 500
         assert balances[aave.address] == 200
+
 
     :param web3: Web3 instance
     :param owner: The address we are analysis
