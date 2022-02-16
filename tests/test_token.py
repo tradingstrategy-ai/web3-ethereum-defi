@@ -6,7 +6,7 @@ from eth_tester.exceptions import TransactionFailed
 from web3 import Web3, EthereumTesterProvider
 
 from smart_contracts_for_testing.deploy import deploy_contract
-from smart_contracts_for_testing.token import create_token, fetch_erc20_details
+from smart_contracts_for_testing.token import create_token, fetch_erc20_details, TokenDetailError
 
 
 @pytest.fixture
@@ -101,10 +101,17 @@ def test_fetch_token_details(web3: Web3, deployer: str):
     assert details.decimals == 6
 
 
-def test_fetch_token_details_broken(web3: Web3, deployer: str):
+def test_fetch_token_details_broken_silent(web3: Web3, deployer: str):
     """Get details of a token that does not conform ERC-20 guidelines."""
     malformed_token = deploy_contract(web3, "MalformedERC20.json", deployer)
-    details = fetch_erc20_details(web3, malformed_token.address)
+    details = fetch_erc20_details(web3, malformed_token.address, raise_on_error=False)
     assert details.symbol == ""
     assert details.decimals is None
     assert details.total_supply is None
+
+
+def test_fetch_token_details_broken_load(web3: Web3, deployer: str):
+    """Get an error if trying to read malformed token."""
+    malformed_token = deploy_contract(web3, "MalformedERC20.json", deployer)
+    with pytest.raises(TokenDetailError):
+        fetch_erc20_details(web3, malformed_token.address)

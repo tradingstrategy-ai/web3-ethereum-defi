@@ -15,6 +15,8 @@ Compatible exchanges include, but not limited to
 Under the hood we are using `SushiSwap v2 contracts <github.com/sushiswap/sushiswap>`_ for the deployment.
 """
 from dataclasses import dataclass
+from decimal import Decimal
+from typing import Optional
 
 from eth_typing import HexAddress, HexStr
 from web3 import Web3
@@ -25,6 +27,7 @@ from smart_contracts_for_testing.deploy import deploy_contract
 
 
 #: An UNIX timestamp that will never happen. Can be passed as `deadline` for Uniswap v2.
+from smart_contracts_for_testing.token import fetch_erc20_details
 from smart_contracts_for_testing.uniswap_v2_utils import UniswapFeeHelper
 
 FOREVER_DEADLINE = 2**63
@@ -257,7 +260,7 @@ def estimate_sell_price(web3: Web3, uniswap: UniswapV2Deployment, base_token: Co
         assert price_as_usd == pytest.approx(1693.2118677678354)
 
     :param web3: Web3 instance
-    :param quantity: How much of the base token we want to buy
+    :param quantity: How much of the base token we want to sell
     :param uniswap: Uniswap v2 deployment
     :param base_token: Base token of the trading pair
     :param quote_token: Quote token of the trading pair
@@ -267,6 +270,33 @@ def estimate_sell_price(web3: Web3, uniswap: UniswapV2Deployment, base_token: Co
     path = [base_token.address, quote_token.address]
     amounts = fee_helper.get_amounts_out(quantity, path)
     return amounts[-1]
+
+
+def estimate_sell_price_decimals(web3: Web3, uniswap: UniswapV2Deployment, base_token_address: HexAddress, quote_token_address: HexAddress, quantity: Decimal) -> Decimal:
+    """Estimate how much we are going to get paid when doing a sell.
+
+    Much like :py:func:`estimate_sell_price` but in/out is expressed as python Decimal units.
+    Furthermore, no ERC-20 token contract needed ABI, but it is loaded by the function.
+
+    :param web3: Web3 instance
+    :param quantity: How much of the base token we want to sell
+    :param uniswap: Uniswap v2 deployment
+    :param base_token: Base token of the trading pair
+    :param quote_token: Quote token of the trading pair
+    :return: Expected quote token amount to receive
+    :raise TokenDetailError: If we have an issue with ERC-20 contracts
+    """
+
+    base = fetch_erc20_details(web3, base_token_address)
+    quote = fetch_erc20_details(web3, base_token_address)
+    quantity_raw = base.convert_to_raw(quantity)
+
+    fee_helper = UniswapFeeHelper(web3, uniswap.factory.address, uniswap.init_code_hash)
+    path = [base_token_address, quote_token_address]
+    amounts = fee_helper.get_amounts_out(quantity_raw, path)
+
+    out_raw = amounts[-1]
+    return quote.convert_to_decimals(out_raw)
 
 
 def fetch_deployment(web3: Web3, factory_address: HexAddress, router_address: HexAddress) -> UniswapV2Deployment:

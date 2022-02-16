@@ -5,6 +5,7 @@ Deploy ERC-20 tokens to be used within your test suite.
 `Read also unit test suite for tokens to see how ERC-20 can be manipulated in pytest <https://github.com/tradingstrategy-ai/smart-contracts-for-testing/blob/master/tests/test_token.py>`_.
 """
 from dataclasses import dataclass
+from decimal import Decimal
 from typing import Optional
 
 from eth_tester.exceptions import TransactionFailed
@@ -37,6 +38,34 @@ class TokenDetails:
     @property
     def address(self) -> HexAddress:
         return self.contract.address
+
+    def convert_to_decimals(self, raw_amount: int) -> Decimal:
+        """Convert raw token units to decimals.
+
+        Example:
+
+        .. code-block:: python
+
+            details = fetch_erc20_details(web3, token_address)
+            # Convert 1 wei units to edcimals
+            assert details.convert_to_decimals(1) == Decimal("0.0000000000000001")
+
+        """
+        return Decimal(raw_amount) / Decimal(10**self.decimals)
+
+    def convert_to_raw(self, decimal_amount: Decimal) -> int:
+        """Convert raw token units to decimals.
+
+        Example:
+
+        .. code-block:: python
+
+            details = fetch_erc20_details(web3, token_address)
+            # Convert 1.0 USDC to raw unit with 6 decimals
+            assert details.convert_to_raw(1) == 1_000_000
+
+        """
+        return int(decimal_amount * 10**self.decimals)
 
 
 class TokenDetailError(Exception):
@@ -72,7 +101,7 @@ def create_token(web3: Web3, deployer: str, name: str, symbol: str, supply: int,
     return deploy_contract(web3, "ERC20MockDecimals.json", deployer, name, symbol, supply, decimals)
 
 
-def fetch_erc20_details(web3: Web3, token_address: HexAddress, max_str_length: int = 256) -> TokenDetails:
+def fetch_erc20_details(web3: Web3, token_address: HexAddress, max_str_length: int = 256, raise_on_error=True) -> TokenDetails:
     """Read token details from on-chain data.
 
     Connect to Web3 node and do RPC calls to extract the token info.
@@ -91,6 +120,7 @@ def fetch_erc20_details(web3: Web3, token_address: HexAddress, max_str_length: i
     :param web3: Web3 instance
     :param token_address: ERC-20 contract address:
     :param max_str_length: For input sanitisation
+    :param raise_on_error: If set, raise `TokenDetailError` on any error instead of silently ignoring in and setting details to None.
     :return: Sanitised token info
     """
 
@@ -99,21 +129,29 @@ def fetch_erc20_details(web3: Web3, token_address: HexAddress, max_str_length: i
     try:
         symbol = sanitise_string(erc_20.functions.symbol().call()[0:max_str_length])
     except _call_missing_exceptions:
+        if raise_on_error:
+            raise TokenDetailError(f"Token {token_address} missing symbol")
         symbol = None
 
     try:
         name = sanitise_string(erc_20.functions.name().call()[0:max_str_length])
     except _call_missing_exceptions:
+        if raise_on_error:
+            raise TokenDetailError(f"Token {token_address} missing name")
         name = None
 
     try:
         decimals = erc_20.functions.decimals().call()
     except _call_missing_exceptions:
+        if raise_on_error:
+            raise TokenDetailError(f"Token {token_address} missing decimals")
         decimals = None
 
     try:
         supply = erc_20.functions.totalSupply().call()
     except _call_missing_exceptions:
+        if raise_on_error:
+            raise TokenDetailError(f"Token {token_address} missing totalSupply")
         supply = None
 
     return TokenDetails(erc_20, name, symbol, supply, decimals)
