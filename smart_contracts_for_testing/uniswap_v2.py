@@ -37,6 +37,9 @@ FOREVER_DEADLINE = 2**63
 class UniswapV2Deployment:
     """Describe Uniswap v2 deployment."""
 
+    #: The Web3 instance for which all the contracts here are bound
+    web3: Web3
+
     #: Factory address.
     #: `See the Solidity source code <https://github.com/sushiswap/sushiswap/blob/4fdfeb7dafe852e738c56f11a6cae855e2fc0046/contracts/uniswapv2/UniswapV2Factory.sol>`__.
     factory: Contract
@@ -117,7 +120,7 @@ def deploy_uniswap_v2_like(web3: Web3, deployer: str, give_weth=10_000, init_cod
     if give_weth:
         weth.functions.deposit().transact({"from": deployer, "value": give_weth * 10**18})
 
-    return UniswapV2Deployment(factory, weth, router, init_code_hash)
+    return UniswapV2Deployment(web3, factory, weth, router, init_code_hash)
 
 
 def deploy_trading_pair(
@@ -188,7 +191,7 @@ def deploy_trading_pair(
     return pair_address
 
 
-def estimate_buy_quantity(web3: Web3, uniswap: UniswapV2Deployment, base_token: Contract, quote_token: Contract, quantity: int) -> int:
+def estimate_buy_quantity(uniswap: UniswapV2Deployment, base_token: Contract, quote_token: Contract, quantity: int) -> int:
     """Estimate how many tokens we are going to receive when doing a buy..
 
     Calls the on-chain contract to get the current liquidity and estimates the
@@ -201,7 +204,6 @@ def estimate_buy_quantity(web3: Web3, uniswap: UniswapV2Deployment, base_token: 
             # Estimate how much ETH we will receive for 500 USDC.
             # In this case the pool ETH price is $1700 so this should be below ~1/4 of ETH
             amount_eth = estimate_received_quantity(
-                web3,
                 uniswap_v2,
                 weth,
                 usdc,
@@ -216,13 +218,14 @@ def estimate_buy_quantity(web3: Web3, uniswap: UniswapV2Deployment, base_token: 
     :param quote_token: Quote token of the trading pair
     :return: Expected base token to receive
     """
+    web3 = uniswap.web3
     fee_helper = UniswapFeeHelper(web3, uniswap.factory.address, uniswap.init_code_hash)
     path = [quote_token.address, base_token.address]
     amounts = fee_helper.get_amounts_out(quantity, path)
     return amounts[-1]
 
 
-def estimate_sell_price(web3: Web3, uniswap: UniswapV2Deployment, base_token: Contract, quote_token: Contract, quantity: int) -> int:
+def estimate_sell_price(uniswap: UniswapV2Deployment, base_token: Contract, quote_token: Contract, quantity: int) -> int:
     """Estimate how much we are going to get paid when doing a sell.
 
     Calls the on-chain contract to get the current liquidity and estimates the
@@ -250,7 +253,6 @@ def estimate_sell_price(web3: Web3, uniswap: UniswapV2Deployment, base_token: Co
 
         # Estimate the price of selling 1 ETH
         usdc_per_eth = estimate_price(
-            web3,
             uniswap_v2,
             weth,
             usdc,
@@ -259,26 +261,25 @@ def estimate_sell_price(web3: Web3, uniswap: UniswapV2Deployment, base_token: Co
         price_as_usd = usdc_per_eth / 1e6
         assert price_as_usd == pytest.approx(1693.2118677678354)
 
-    :param web3: Web3 instance
     :param quantity: How much of the base token we want to sell
     :param uniswap: Uniswap v2 deployment
     :param base_token: Base token of the trading pair
     :param quote_token: Quote token of the trading pair
     :return: Expected quote token amount to receive
     """
+    web3 = uniswap.web3
     fee_helper = UniswapFeeHelper(web3, uniswap.factory.address, uniswap.init_code_hash)
     path = [base_token.address, quote_token.address]
     amounts = fee_helper.get_amounts_out(quantity, path)
     return amounts[-1]
 
 
-def estimate_sell_price_decimals(web3: Web3, uniswap: UniswapV2Deployment, base_token_address: HexAddress, quote_token_address: HexAddress, quantity: Decimal) -> Decimal:
+def estimate_sell_price_decimals(uniswap: UniswapV2Deployment, base_token_address: HexAddress, quote_token_address: HexAddress, quantity: Decimal) -> Decimal:
     """Estimate how much we are going to get paid when doing a sell.
 
     Much like :py:func:`estimate_sell_price` but in/out is expressed as python Decimal units.
     Furthermore, no ERC-20 token contract needed ABI, but it is loaded by the function.
 
-    :param web3: Web3 instance
     :param quantity: How much of the base token we want to sell
     :param uniswap: Uniswap v2 deployment
     :param base_token: Base token of the trading pair
@@ -287,6 +288,7 @@ def estimate_sell_price_decimals(web3: Web3, uniswap: UniswapV2Deployment, base_
     :raise TokenDetailError: If we have an issue with ERC-20 contracts
     """
 
+    web3 = uniswap.web3
     base = fetch_erc20_details(web3, base_token_address)
     quote = fetch_erc20_details(web3, base_token_address)
     quantity_raw = base.convert_to_raw(quantity)
@@ -316,6 +318,7 @@ def fetch_deployment(web3: Web3, factory_address: HexAddress, router_address: He
     weth_address = router.functions.WETH().call()
     weth = get_deployed_contract(web3, "WETH9Mock.json", weth_address)
     return UniswapV2Deployment(
+        web3,
         factory,
         weth,
         router,

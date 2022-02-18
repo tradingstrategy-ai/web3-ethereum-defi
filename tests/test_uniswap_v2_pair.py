@@ -181,7 +181,6 @@ def test_estimate_quantity(web3: Web3, deployer: str, user_1: str, uniswap_v2: U
 
     # Estimate how much ETH we will receive for 500 USDC
     amount_eth = estimate_buy_quantity(
-        web3,
         uniswap_v2,
         weth,
         usdc,
@@ -206,7 +205,6 @@ def test_estimate_price(web3: Web3, deployer: str, user_1: str, uniswap_v2: Unis
 
     # Estimate the price of selling 1 ETH
     usdc_per_eth = estimate_sell_price(
-        web3,
         uniswap_v2,
         weth,
         usdc,
@@ -232,7 +230,6 @@ def test_estimate_price_decimals(web3: Web3, deployer: str, user_1: str, uniswap
 
     # Estimate the price of selling 1 ETH
     usdc_per_eth = estimate_sell_price_decimals(
-        web3,
         uniswap_v2,
         weth.address,
         usdc.address,

@@ -2,20 +2,19 @@
 
 [![Documentation Status](https://readthedocs.org/projects/smart-contracts-for-testing/badge/?version=latest)](https://smart-contracts-for-testing.readthedocs.io/en/latest/?badge=latest)
 
-# Mock smart contracts for writing Ethereum test suites
+# Popular EVM smart contracts and related utilities 
 
-This package contains common Ethereum smart contracts to be used in automated test suites. 
-This was created for [Trading Strategy](https://tradingstrategy.ai), but can be used for any other 
-projects as well. As opposite to slower and messier [mainnet forking test strategies](https://www.quicknode.com/guides/web3-sdks/how-to-fork-ethereum-blockchain-with-ganache), 
+This package contains common Ethereum smart contracts, and related utilities, designed
+especially for testing environment.  As opposite to slower and messier [mainnet forking test strategies](https://www.quicknode.com/guides/web3-sdks/how-to-fork-ethereum-blockchain-with-ganache), 
 this project aims to explicit clean deployments and very fast test execution.
 
 Smart contract support includes 
 
-* ERC-20 token manipulation
-* [SushiSwap](https://github.com/sushiswap/sushiswap): router, factory, pool (Uniswap v2, PancakeSwape, QuickSwap, Trader Joe and others are 99% Sushiswap compatible)
+* ERC-20 token issuance and manipulation
+* [Uniswap v2 tools](https://github.com/sushiswap/sushiswap): router, factory, trading pair deployment for Sushiswap, PancakeSwape, QuickSwap, Trader Joe, others
 * [High-quality API documentation](https://smart-contracts-for-testing.readthedocs.io/)
-* Full type hinting support for optimal developer experience
-* Parallel transaction execution
+* [Fully type hinted](https://smart-contracts-for-testing.readthedocs.io/) for good developer experience
+* [Parallel transaction execution](https://smart-contracts-for-testing.readthedocs.io/en/latest/txmonitor.html)
 * (More integrations to come)
 
 Table of contents
@@ -54,12 +53,16 @@ The compiled source code files are mixture of MIT and GPL v2 license.
 
 # Python usage
 
-The Python support is available as `smart_contract_test_fixtures` Python package.
+The Python support is available as `smart_contracts_for_testing` Python package.
 
-The package depends only on [web3.py](github.com/ethereum/web3.py) and not others, like Brownie.
+The package depends only on [web3.py](github.com/ethereum/web3.py) and not others, like [Brownie](https://eth-brownie.readthedocs.io/).
 It grabs popular ABI files with their bytecode and compilation artifacts so that the contracts
 are easily deployable on any Ethereum tester interface. No Ganache is needed and everything
 can be executed on faster [eth-tester enginer](https://github.com/ethereum/eth-tester).
+
+Unlike Brownie, which is a framework, `smart_contracts_for_testing` is a library. It is designed
+to be included in any other Python application and you can only use bits of its that you need.
+There are no expectations on configuration files or folder structure.
 
 [Read the full API documnetation]([High-quality API documentation](https://smart-contracts-for-testing.readthedocs.io/)).
 For code examples please see below.
@@ -237,6 +240,10 @@ make all
 Currently there is no [Brownie](https://eth-brownie.readthedocs.io/) support.
 To support Brownie, one would need to figure out how to import an existing Hardhat
 based project (Sushiswap) to Brownie project format.
+
+# History
+
+[Originally created for Trading Strategy](https://tradingstrategy.ai).
 
 # License 
 
