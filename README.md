@@ -4,7 +4,7 @@
 
 # ETH-Hentai 
 
-This package contains common Ethereum smart contracts, and related utilities, 
+This project contains common Ethereum smart contracts, and related utilities, 
 for developing automated test suites, backend integration and trading bots for EVM based blockchains.  
 
 [![ETH-Hentai](./docs/source/_static/hentai_teacher_mikisugi_by_ilmaris_d6tjrn8-fullview.jpg)](https://www.deviantart.com/ilmaris)
@@ -38,6 +38,9 @@ Table of contents
 * [License](#license)
 
 # Precompiled ABI file distribution
+
+The project provides a precompiled smart contract bundle, including ABI files, full source
+and debug maps, to make deploying test instances trivial.
 
 This package primarly supports Python, Web3.p3 and Brownie developers.
 For other programming languages and frameworks,
