@@ -10,6 +10,7 @@
 - Feature: Hot wallet utilities
 - Feature: Monitor success/fail execution of transactions in parallel
 - Feature: Analyse Uniswap trades to get the price and fees paid
+- Renamed package to `eth-hentai`
 
 # 0.1
 

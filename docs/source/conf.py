@@ -68,6 +68,6 @@ html_context = {
     # https://github.com/readthedocs/sphinx_rtd_theme/issues/529
     'display_github': True,
     'github_user': 'tradingstrategy-ai',
-    'github_repo': 'smart-contracts-for-testing',
+    'github_repo': 'eth-hentai',
     'github_version': 'tree/master/docs/source/',
 }

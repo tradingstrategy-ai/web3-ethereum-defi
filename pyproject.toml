@@ -5,7 +5,7 @@ description = "Common Ethereum smart contracts, and related utilities, designed 
 authors = ["Mikko Ohtamaa <mikko@capitalgram.com>"]
 license = "MIT"
 homepage = "https://tradingstrategy.ai"
-repository = "https://github.com/tradingstrategy-ai/smart-contracts-for-testing"
+repository = "https://github.com/tradingstrategy-ai/eth-hentai"
 readme = "README.md"
 keywords = ["ethereum", "cryptocurrency", "uniswap", "erc-20", "pancakeswap", "sushiswap", "polygon", "web3", "blockchain"]
 

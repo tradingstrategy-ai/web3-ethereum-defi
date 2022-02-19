@@ -2,7 +2,7 @@
 
 Deploy ERC-20 tokens to be used within your test suite.
 
-`Read also unit test suite for tokens to see how ERC-20 can be manipulated in pytest <https://github.com/tradingstrategy-ai/smart-contracts-for-testing/blob/master/tests/test_token.py>`_.
+`Read also unit test suite for tokens to see how ERC-20 can be manipulated in pytest <https://github.com/tradingstrategy-ai/eth-hentai/blob/master/tests/test_token.py>`_.
 """
 from dataclasses import dataclass
 from decimal import Decimal

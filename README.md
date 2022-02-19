@@ -148,7 +148,7 @@ def test_tranfer_tokens_between_users(web3: Web3, deployer: str, user_1: str, us
 
 [For more information how to user Web3.py in testing, see Web3.py documentation](https://web3py.readthedocs.io/en/stable/examples.html#contract-unit-tests-in-python).
 
-## Uniswap swap example
+## Uniswap v2 trade example
 
 ```python
 import pytest
@@ -197,6 +197,30 @@ def test_swap(web3: Web3, deployer: str, user_1: str, uniswap_v2: UniswapV2Deplo
 ```
 
 [See the full example](https://github.com/tradingstrategy-ai/smart-contracts-for-testing/blob/master/tests/test_uniswap_v2_pair.py).
+
+## Uniswap v2 price estimation example
+
+```python
+# Create the trading pair and add initial liquidity
+deploy_trading_pair(
+    web3,
+    deployer,
+    uniswap_v2,
+    weth,
+    usdc,
+    1_000 * 10**18,  # 1000 ETH liquidity
+    1_700_000 * 10**18,  # 1.7M USDC liquidity
+)
+
+# Estimate the price of buying 1 ETH
+usdc_per_eth = estimate_buy_price_decimals(
+    uniswap_v2,
+    weth.address,
+    usdc.address,
+    Decimal(1.0),
+)
+assert usdc_per_eth == pytest.approx(Decimal(1706.82216820632059904))
+```
 
 ## How to use the library in your Python project
 

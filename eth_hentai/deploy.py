@@ -1,6 +1,6 @@
 """Deploy any precompiled contract.
 
-`See Github for available contracts <https://github.com/tradingstrategy-ai/smart-contracts-for-testing/tree/master/eth_hentai/abi>`_.
+`See Github for available contracts <https://github.com/tradingstrategy-ai/eth-hentai/tree/master/eth_hentai/abi>`_.
 """
 
 from web3 import Web3
