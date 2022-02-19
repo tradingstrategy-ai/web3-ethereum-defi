@@ -20,12 +20,14 @@ jobs:
     - name: Initialize submodules
       run: |
         git submodule update --init --recursive
+    - name: Get poetry
+      run: |
+        pip install poetry
     - name: Cook sushi
       run: |
         make all
     - name: Install dependencies
       run: |
-        pip install poetry
         poetry install
     - name: Run test scripts
       run: |
