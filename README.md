@@ -227,12 +227,12 @@ assert usdc_per_eth == pytest.approx(Decimal(1706.82216820632059904))
 
 ## How to use the library in your Python project
 
-Add `smart_contract_test_fixtures` as a development dependency:
+Add `eth-hentai` as a development dependency:
 
 Using [Poetry](https://python-poetry.org/):
 
 ```shell
-poetry add -D smart_contract_test_fixtures
+poetry add -D eth-hentai
 ```
 
 # Development
