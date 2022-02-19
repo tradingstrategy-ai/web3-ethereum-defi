@@ -5,7 +5,7 @@
 # ETH-Hentai 
 
 This package contains common Ethereum smart contracts, and related utilities, designed
-especially for smart contract interaction testing environment.  
+for automated testing, interaction from backends and building trading bots.  
 
 [![ETH-Hentai](./docs/source/_static/hentai_teacher_mikisugi_by_ilmaris_d6tjrn8-fullview.jpg)](https://www.deviantart.com/ilmaris)
 

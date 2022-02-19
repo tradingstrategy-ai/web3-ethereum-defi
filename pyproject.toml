@@ -1,7 +1,7 @@
 [tool.poetry]
 name = "eth-hentai"
 version = "0.120"
-description = "Interact and test with popular Ethereum smart contracts"
+description = "Common Ethereum smart contracts, and related utilities, designed for automated testing, interaction from backends and building trading bots."
 authors = ["Mikko Ohtamaa <mikko@capitalgram.com>"]
 license = "MIT"
 homepage = "https://tradingstrategy.ai"
