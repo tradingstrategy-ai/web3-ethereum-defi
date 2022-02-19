@@ -1,6 +1,6 @@
-"""Methods for loading contracts and ABI files from the precompiled bundle.
+"""ABI loading from the precompiled bundle.
 
-`See Github for available contracts <https://github.com/tradingstrategy-ai/smart-contracts-for-testing/tree/master/smart_contracts_for_testing/abi>`_.
+`See Github for available contracts <https://github.com/tradingstrategy-ai/smart-contracts-for-testing/tree/master/eth_hentai/abi>`_.
 """
 
 import os
@@ -29,7 +29,7 @@ def get_abi_by_filename(fname: str) -> dict:
     Loaded ABI files are cache in in-process memory to speed up future loading.
 
     :param web3: Web3 instance
-    :param fname: `JSON filename from supported contract lists <https://github.com/tradingstrategy-ai/smart-contracts-for-testing/tree/master/smart_contracts_for_testing/abi>`_.
+    :param fname: `JSON filename from supported contract lists <https://github.com/tradingstrategy-ai/smart-contracts-for-testing/tree/master/eth_hentai/abi>`_.
     :return: Full contract interface, including `bytecode`.
     """
 
@@ -51,7 +51,7 @@ def get_contract(web3: Web3, fname: str, bytecode: Optional[str]=None) -> Type[C
 
     :param web3: Web3 instance
     :param bytecode: Override bytecode payload for the contract
-    :param fname: `JSON filename from supported contract lists <https://github.com/tradingstrategy-ai/smart-contracts-for-testing/tree/master/smart_contracts_for_testing/abi>`_.
+    :param fname: `JSON filename from supported contract lists <https://github.com/tradingstrategy-ai/smart-contracts-for-testing/tree/master/eth_hentai/abi>`_.
     :return: Python class
     """
     contract_interface = get_abi_by_filename(fname)
@@ -67,7 +67,7 @@ def get_deployed_contract(web3: Web3, fname: str, address: HexAddress) -> Contra
     `See Web3.py documentation on Contract instances <https://web3py.readthedocs.io/en/stable/contracts.html#contract-deployment-example>`_.
 
     :param web3: Web3 instance
-    :param fname: `JSON filename from supported contract lists <https://github.com/tradingstrategy-ai/smart-contracts-for-testing/tree/master/smart_contracts_for_testing/abi>`_.
+    :param fname: `JSON filename from supported contract lists <https://github.com/tradingstrategy-ai/smart-contracts-for-testing/tree/master/eth_hentai/abi>`_.
     :param address: Ethereum address of the deployed contract
     :return: `web3.contract.Contract` subclass
     """

@@ -6,10 +6,10 @@ from eth_tester import EthereumTester
 from web3 import Web3, EthereumTesterProvider
 from web3.contract import Contract
 
-from smart_contracts_for_testing.token import create_token
-from smart_contracts_for_testing.uniswap_v2 import deploy_uniswap_v2_like, UniswapV2Deployment, deploy_trading_pair, \
+from eth_hentai.token import create_token
+from eth_hentai.uniswap_v2 import deploy_uniswap_v2_like, UniswapV2Deployment, deploy_trading_pair, \
     FOREVER_DEADLINE
-from smart_contracts_for_testing.uniswap_v2_analysis import analyse_trade, TradeSuccess, TradeFail
+from eth_hentai.uniswap_v2_analysis import analyse_trade, TradeSuccess, TradeFail
 
 
 @pytest.fixture

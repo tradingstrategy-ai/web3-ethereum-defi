@@ -1,4 +1,4 @@
-"""Support for gas price strategies.
+"""Gas price strategies.
 
 `Web3.py no longer support gas price strategies post London hard work <https://web3py.readthedocs.io/en/stable/gas_price.html>`_.
 """

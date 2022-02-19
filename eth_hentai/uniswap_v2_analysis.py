@@ -1,4 +1,4 @@
-"""Analyse Uniswap v2 trades."""
+"""Uniswap v2 individual trade analysis."""
 from dataclasses import dataclass
 from decimal import Decimal
 from typing import Tuple, Optional, Union, List
@@ -7,9 +7,9 @@ from eth_typing import HexAddress
 from web3 import Web3
 from web3.logs import DISCARD
 
-from smart_contracts_for_testing.abi import get_contract
-from smart_contracts_for_testing.token import fetch_erc20_details
-from smart_contracts_for_testing.uniswap_v2 import UniswapV2Deployment
+from eth_hentai.abi import get_contract
+from eth_hentai.token import fetch_erc20_details
+from eth_hentai.uniswap_v2 import UniswapV2Deployment
 
 
 

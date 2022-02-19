@@ -1,4 +1,4 @@
-"""Transaction broadcasting and monitoring helpers."""
+"""Transaction broadcasting and monitoring."""
 
 import time
 from typing import List, Dict

@@ -10,10 +10,10 @@ from hexbytes import HexBytes
 from web3 import Web3, EthereumTesterProvider
 from web3._utils.transactions import fill_nonce
 
-from smart_contracts_for_testing.gas import estimate_gas_fees, GasPriceMethod, apply_gas
-from smart_contracts_for_testing.hotwallet import HotWallet
-from smart_contracts_for_testing.token import create_token
-from smart_contracts_for_testing.txmonitor import wait_transactions_to_complete, \
+from eth_hentai.gas import estimate_gas_fees, GasPriceMethod, apply_gas
+from eth_hentai.hotwallet import HotWallet
+from eth_hentai.token import create_token
+from eth_hentai.txmonitor import wait_transactions_to_complete, \
     broadcast_and_wait_transactions_to_complete
 
 

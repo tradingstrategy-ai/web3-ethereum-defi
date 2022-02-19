@@ -1,7 +1,7 @@
 [tool.poetry]
-name = "smart_contracts_for_testing"
-version = "0.1.0"
-description = "Popular Solidity smart contracts to be used in testing: ERC-20, Uniswap v2, etc."
+name = "eth-hentai"
+version = "0.120"
+description = "Interact and test with popular Ethereum smart contracts"
 authors = ["Mikko Ohtamaa <mikko@capitalgram.com>"]
 license = "MIT"
 homepage = "https://tradingstrategy.ai"

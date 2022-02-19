@@ -4,22 +4,30 @@ Smart contracts for testing documentation
 This is the API documentation for Python `smart_contract_test_fixtures` package.
 See `the project README for an overview <https://github.com/tradingstrategy-ai/smart-contracts-for-testing>`_.
 
+
+
 .. toctree::
    :maxdepth: 2
    :caption: API documentation:
 
-   token
-   uniswap_v2
-   uniswap_v2_fees
-   uniswap_v2_analysis
-   uniswap_v2_helpers
-   portfolio
-   abi
-   deploy
-   event
-   gas
-   txmonitor
-   hotwallet
+.. autosummary::
+   :toctree: _autosummary
+   :recursive:
+
+   eth_hentai.token
+   eth_hentai.uniswap_v2
+   eth_hentai.uniswap_v2_fees
+   eth_hentai.uniswap_v2_analysis
+   eth_hentai.uniswap_v2_helpers
+   eth_hentai.portfolio
+   eth_hentai.abi
+   eth_hentai.deploy
+   eth_hentai.event
+   eth_hentai.gas
+   eth_hentai.txmonitor
+   eth_hentai.hotwallet
+   eth_hentai.utils
+
 
 .. toctree::
    :maxdepth: 2

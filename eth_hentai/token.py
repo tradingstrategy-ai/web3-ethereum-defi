@@ -1,4 +1,4 @@
-"""ERC-20 token mocks.
+"""ERC-20 token information, deployment and manipulation.
 
 Deploy ERC-20 tokens to be used within your test suite.
 
@@ -13,9 +13,9 @@ from eth_typing import HexAddress
 from web3 import Web3
 from web3.contract import Contract
 
-from smart_contracts_for_testing.abi import get_contract, get_deployed_contract
-from smart_contracts_for_testing.deploy import deploy_contract
-from smart_contracts_for_testing.utils import sanitise_string
+from eth_hentai.abi import get_contract, get_deployed_contract
+from eth_hentai.deploy import deploy_contract
+from eth_hentai.utils import sanitise_string
 
 
 #: List of exceptions JSON-RPC provider can through when ERC-20 field look-up fails

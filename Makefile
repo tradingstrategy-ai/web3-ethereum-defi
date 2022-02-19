@@ -11,9 +11,9 @@ clean:
 
 # Extract all compilation artifacts from Sushi to our abi/ dump
 copy-abi: sushi
-	@find sushiswap/artifacts/contracts -iname "*.json" -not -iname "*.dbg.json" -exec cp {} smart_contracts_for_testing/abi \;
+	@find sushiswap/artifacts/contracts -iname "*.json" -not -iname "*.dbg.json" -exec cp {} eth_hentai/abi \;
 
-all: copy-abi
+all: clean-docs copy-abi build-docs
 
 # Export the dependencies, so that Read the docs can build our API docs
 # See: https://github.com/readthedocs/readthedocs.org/issues/4912

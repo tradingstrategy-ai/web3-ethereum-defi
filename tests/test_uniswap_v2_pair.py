@@ -5,11 +5,11 @@ import pytest
 from web3 import Web3, EthereumTesterProvider
 from web3.contract import Contract
 
-from smart_contracts_for_testing.abi import get_deployed_contract
-from smart_contracts_for_testing.token import create_token
-from smart_contracts_for_testing.uniswap_v2 import deploy_uniswap_v2_like, UniswapV2Deployment, deploy_trading_pair, \
+from eth_hentai.abi import get_deployed_contract
+from eth_hentai.token import create_token
+from eth_hentai.uniswap_v2 import deploy_uniswap_v2_like, UniswapV2Deployment, deploy_trading_pair, \
     FOREVER_DEADLINE
-from smart_contracts_for_testing.uniswap_v2_fees import estimate_buy_quantity, estimate_sell_price, \
+from eth_hentai.uniswap_v2_fees import estimate_buy_quantity, estimate_sell_price, \
     estimate_sell_price_decimals, estimate_buy_price_decimals
 
 

@@ -7,8 +7,8 @@ from eth_tester.exceptions import TransactionFailed
 from web3 import Web3, EthereumTesterProvider
 from web3.contract import Contract
 
-from smart_contracts_for_testing.portfolio import fetch_erc20_balances, fetch_erc20_balances_decimal
-from smart_contracts_for_testing.token import create_token
+from eth_hentai.portfolio import fetch_erc20_balances, fetch_erc20_balances_decimal
+from eth_hentai.token import create_token
 
 
 @pytest.fixture

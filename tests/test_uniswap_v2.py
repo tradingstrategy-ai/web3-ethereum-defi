@@ -3,7 +3,7 @@
 import pytest
 from web3 import Web3, EthereumTesterProvider
 
-from smart_contracts_for_testing.uniswap_v2 import deploy_uniswap_v2_like, fetch_deployment
+from eth_hentai.uniswap_v2 import deploy_uniswap_v2_like, fetch_deployment
 
 
 @pytest.fixture

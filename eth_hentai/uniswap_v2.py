@@ -1,4 +1,4 @@
-"""Deploy a mock Uniswap v2 like decentralised exchange.
+"""Uniswap v2 and compatible DEX deployments.
 
 Compatible exchanges include, but not limited to
 
@@ -20,8 +20,8 @@ from eth_typing import HexAddress, HexStr
 from web3 import Web3
 from web3.contract import Contract
 
-from smart_contracts_for_testing.abi import get_contract, get_deployed_contract
-from smart_contracts_for_testing.deploy import deploy_contract
+from eth_hentai.abi import get_contract, get_deployed_contract
+from eth_hentai.deploy import deploy_contract
 
 
 FOREVER_DEADLINE = 2**63

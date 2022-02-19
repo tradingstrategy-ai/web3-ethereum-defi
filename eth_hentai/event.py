@@ -1,4 +1,4 @@
-"""Read Solidity events over JSON-RPC API in scale."""
+"""Solidity events scalable fetch and reading."""
 
 from typing import Iterable, List, Optional, Type
 

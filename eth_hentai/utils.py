@@ -1,3 +1,5 @@
+"""Bunch of random utilities."""
+
 
 def sanitise_string(s: str) -> str:
     """Remove null characters."""

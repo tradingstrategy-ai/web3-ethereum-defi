@@ -1,4 +1,4 @@
-"""Portfolio analysis for wallets."""
+"""Token holding and portfolio for addresses."""
 from collections import Counter
 from dataclasses import dataclass
 from decimal import Decimal
@@ -8,8 +8,8 @@ from eth_typing import ChecksumAddress, BlockNumber, HexAddress
 from web3 import Web3
 from web3.contract import Contract
 
-from smart_contracts_for_testing.abi import get_contract
-from smart_contracts_for_testing.event import fetch_all_events
+from eth_hentai.abi import get_contract
+from eth_hentai.event import fetch_all_events
 
 
 @dataclass

@@ -2,10 +2,12 @@
 
 [![Documentation Status](https://readthedocs.org/projects/smart-contracts-for-testing/badge/?version=latest)](https://smart-contracts-for-testing.readthedocs.io/en/latest/?badge=latest)
 
-# Popular EVM smart contracts and related utilities 
+# ETH-Hentai 
 
 This package contains common Ethereum smart contracts, and related utilities, designed
 especially for smart contract interaction testing environment.  
+
+[![ETH-Hentai](./docs/source/_static/hentai_teacher_mikisugi_by_ilmaris_d6tjrn8-fullview.jpg)](https://www.deviantart.com/ilmaris)
 
 Features include 
 
@@ -242,6 +244,8 @@ make all
 Currently there is no [Brownie](https://eth-brownie.readthedocs.io/) support.
 To support Brownie, one would need to figure out how to import an existing Hardhat
 based project (Sushiswap) to Brownie project format.
+
+Cover art by [Ilmaris](https://www.deviantart.com/ilmaris).
 
 # History
 

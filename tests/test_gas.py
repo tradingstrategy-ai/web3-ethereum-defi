@@ -10,8 +10,8 @@ from hexbytes import HexBytes
 from web3 import Web3, EthereumTesterProvider
 from web3._utils.transactions import fill_nonce
 
-from smart_contracts_for_testing.gas import estimate_gas_fees, GasPriceMethod, apply_gas
-from smart_contracts_for_testing.token import create_token
+from eth_hentai.gas import estimate_gas_fees, GasPriceMethod, apply_gas
+from eth_hentai.token import create_token
 
 
 @pytest.fixture

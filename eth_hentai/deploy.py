@@ -1,12 +1,12 @@
 """Deploy any precompiled contract.
 
-`See Github for available contracts <https://github.com/tradingstrategy-ai/smart-contracts-for-testing/tree/master/smart_contracts_for_testing/abi>`_.
+`See Github for available contracts <https://github.com/tradingstrategy-ai/smart-contracts-for-testing/tree/master/eth_hentai/abi>`_.
 """
 
 from web3 import Web3
 from web3.contract import Contract
 
-from smart_contracts_for_testing.abi import get_contract
+from eth_hentai.abi import get_contract
 
 
 def deploy_contract(web3: Web3, fname: str, deployer: str, *constructor_args) -> Contract:
