@@ -1,16 +1,16 @@
-Smart contracts for testing documentation
-=========================================
+ETH-Hentai Python documentation
+===============================
 
 This is the API documentation for Python `eth-hentai` package.
-See `the project README for an overview <https://github.com/tradingstrategy-ai/eth=hentai>`_.
+See `the project README for an overview <https://github.com/tradingstrategy-ai/eth-hentai>`_.
 
 More information
 ================
 
-* `README <https://github.com/tradingstrategy-ai/smart-contracts-for-testing>`_
-* `Supported smart contracts list <https://github.com/tradingstrategy-ai/smart-contracts-for-testing/tree/master/smart_contracts_for_testing/abi>`_
-* `Github <https://github.com/tradingstrategy-ai/smart-contracts-for-testing>`_
-* `Discord <tradingstrategy.ai/community>`_
+* `README <https://github.com/tradingstrategy-ai/eth-hentai>`_
+* `Supported smart contracts list <https://github.com/tradingstrategy-ai/eth-hentai/tree/master/smart_contracts_for_testing/abi>`_
+* `Github <https://github.com/tradingstrategy-ai/eth-hentai>`_
+* `Discord <https://tradingstrategy.ai/community>`_
 
 .. toctree::
    :maxdepth: 2
