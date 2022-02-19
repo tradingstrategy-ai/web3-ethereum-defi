@@ -25,7 +25,7 @@ jobs:
         pip install poetry
     - name: Cook sushi
       run: |
-        make all
+        make copy-abi
     - name: Install dependencies
       run: |
         poetry install
