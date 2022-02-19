@@ -24,7 +24,7 @@ More information
    eth_hentai.uniswap_v2
    eth_hentai.uniswap_v2_fees
    eth_hentai.uniswap_v2_analysis
-   eth_hentai.uniswap_v2_helpers
+   eth_hentai.uniswap_v2_utils
    eth_hentai.portfolio
    eth_hentai.abi
    eth_hentai.deploy
