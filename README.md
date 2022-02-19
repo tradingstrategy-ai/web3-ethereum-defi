@@ -1,6 +1,6 @@
-[![Automated test suite](https://github.com/tradingstrategy-ai/smart-contracts-for-testing/actions/workflows/tests.yml/badge.svg)](https://github.com/tradingstrategy-ai/smart-contracts-for-testing/actions/workflows/tests.yml)
+[![Automated test suite](https://github.com/tradingstrategy-ai/eth-hentai/actions/workflows/tests.yml/badge.svg)](https://github.com/tradingstrategy-ai/eth-hentai/actions/workflows/tests.yml)
 
-[![Documentation Status](https://readthedocs.org/projects/smart-contracts-for-testing/badge/?version=latest)](https://smart-contracts-for-testing.readthedocs.io/en/latest/?badge=latest)
+[![Documentation Status](https://readthedocs.org/projects/eth-hentai/badge/?version=latest)](https://eth-hentai.readthedocs.io/en/latest/?badge=latest)
 
 # ETH-Hentai 
 
@@ -12,11 +12,11 @@ for developing automated test suites, backend integration and trading bots for E
 Features include 
 
 * [Made for 99% developers](https://future.a16z.com/software-development-building-for-99-developers/)
-* [High-quality API documentation](https://smart-contracts-for-testing.readthedocs.io/)
-* [Fully type hinted](https://smart-contracts-for-testing.readthedocs.io/) for good developer experience
-* [ERC-20 token issuance and manipulation](https://smart-contracts-for-testing.readthedocs.io/en/latest/_autosummary/eth_hentai.token.html#module-eth_hentai.token)
+* [High-quality API documentation](https://eth-hentai.readthedocs.io/)
+* [Fully type hinted](https://eth-hentai.readthedocs.io/) for good developer experience
+* [ERC-20 token issuance and manipulation](https://eth-hentai.readthedocs.io/en/latest/_autosummary/eth_hentai.token.html#module-eth_hentai.token)
 * [Uniswap v2 tools](https://github.com/sushiswap/sushiswap): deployment, trading, price estimation for Sushiswap, PancakeSwape, QuickSwap, Trader Joe, others
-* [Parallel transaction execution](https://smart-contracts-for-testing.readthedocs.io/en/latest/_autosummary/eth_hentai.txmonitor.html)
+* [Parallel transaction execution](https://eth-hentai.readthedocs.io/en/latest/_autosummary/eth_hentai.txmonitor.html)
 * As opposite to slower and messier [mainnet forking workflows](https://www.quicknode.com/guides/web3-sdks/how-to-fork-ethereum-blockchain-with-ganache), 
 this project aims to explicit clean deployments and very fast test execution.
 * (More integrations to come)
@@ -44,7 +44,7 @@ and debug maps, to make deploying test instances trivial.
 
 This package primarly supports Python, Web3.p3 and Brownie developers.
 For other programming languages and frameworks,
-you can [find precompiled Solidity smart contracts in abi folder](https://github.com/tradingstrategy-ai/smart-contracts-for-testing/tree/master/eth_hentai/abi).
+you can [find precompiled Solidity smart contracts in abi folder](https://github.com/tradingstrategy-ai/eth-hentai/tree/master/eth_hentai/abi).
 
 These files are good to go with any framework:
 * Web3.js
@@ -71,7 +71,7 @@ Unlike Brownie, which is a framework, `eth_hentai` is a library. It is designed
 to be included in any other Python application and you can only use bits of its that you need.
 There are no expectations on configuration files or folder structure.
 
-[Read the full API documnetation]([High-quality API documentation](https://smart-contracts-for-testing.readthedocs.io/)).
+[Read the full API documnetation]([High-quality API documentation](https://eth-hentai.readthedocs.io/)).
 For code examples please see below.
 
 ## Prerequisites
@@ -147,7 +147,7 @@ def test_tranfer_tokens_between_users(web3: Web3, deployer: str, user_1: str, us
     assert token.functions.balanceOf(user_2).call() == 6 * 10**18
 ```
 
-[See full example](https://github.com/tradingstrategy-ai/smart-contracts-for-testing/blob/master/tests/test_token.py).
+[See full example](https://github.com/tradingstrategy-ai/eth-hentai/blob/master/tests/test_token.py).
 
 [For more information how to user Web3.py in testing, see Web3.py documentation](https://web3py.readthedocs.io/en/stable/examples.html#contract-unit-tests-in-python).
 
@@ -199,7 +199,7 @@ def test_swap(web3: Web3, deployer: str, user_1: str, uniswap_v2: UniswapV2Deplo
     assert weth.functions.balanceOf(user_1).call() / 1e18 == pytest.approx(0.28488156127668085)
 ```
 
-[See the full example](https://github.com/tradingstrategy-ai/smart-contracts-for-testing/blob/master/tests/test_uniswap_v2_pair.py).
+[See the full example](https://github.com/tradingstrategy-ai/eth-hentai/blob/master/tests/test_uniswap_v2_pair.py).
 
 ## Uniswap v2 price estimation example
 
@@ -224,6 +224,8 @@ usdc_per_eth = estimate_buy_price_decimals(
 )
 assert usdc_per_eth == pytest.approx(Decimal(1706.82216820632059904))
 ```
+
+[See full example](https://github.com/tradingstrategy-ai/eth-hentai/blob/34a9e1b948a4ef5a620ee520b568c0fd27c75457/tests/test_uniswap_v2_pair.py#L243).
 
 ## How to use the library in your Python project
 
@@ -260,7 +262,7 @@ make all
 
 # Version history
 
-[See change log](https://github.com/tradingstrategy-ai/smart-contracts-for-testing/blob/master/CHANGELOG.md).
+[See change log](https://github.com/tradingstrategy-ai/eth-hentai/blob/master/CHANGELOG.md).
 
 # Discord
 
