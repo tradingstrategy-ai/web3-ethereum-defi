@@ -43,7 +43,7 @@ def estimate_gas_fees(web3: Web3) -> GasPriceSuggestion:
     TODO: This is non-optimal, first draft implementation.
     """
 
-    last_block = web3.eth.getBlock("latest")
+    last_block = web3.eth.get_block("latest")
     base_fee = last_block.get("baseFeePerGas")
     if base_fee is not None:
         # London gas strategy
