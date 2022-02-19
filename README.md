@@ -5,7 +5,7 @@
 # Popular EVM smart contracts and related utilities 
 
 This package contains common Ethereum smart contracts, and related utilities, designed
-especially for testing environment.  As opposite to slower and messier [mainnet forking test strategies](https://www.quicknode.com/guides/web3-sdks/how-to-fork-ethereum-blockchain-with-ganache), 
+especially for testing environment.  As opposite to slower and messier [mainnet forking workflows](https://www.quicknode.com/guides/web3-sdks/how-to-fork-ethereum-blockchain-with-ganache), 
 this project aims to explicit clean deployments and very fast test execution.
 
 Smart contract support includes 

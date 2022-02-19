@@ -8,7 +8,9 @@ from web3.contract import Contract
 from smart_contracts_for_testing.abi import get_deployed_contract
 from smart_contracts_for_testing.token import create_token
 from smart_contracts_for_testing.uniswap_v2 import deploy_uniswap_v2_like, UniswapV2Deployment, deploy_trading_pair, \
-    FOREVER_DEADLINE, estimate_buy_quantity, estimate_sell_price, estimate_sell_price_decimals
+    FOREVER_DEADLINE
+from smart_contracts_for_testing.uniswap_v2_fees import estimate_buy_quantity, estimate_sell_price, \
+    estimate_sell_price_decimals, estimate_buy_price_decimals
 
 
 @pytest.fixture
@@ -189,7 +191,7 @@ def test_estimate_quantity(web3: Web3, deployer: str, user_1: str, uniswap_v2: U
     assert amount_eth / 1e18 == pytest.approx(0.28488156127668085)
 
 
-def test_estimate_price(web3: Web3, deployer: str, user_1: str, uniswap_v2: UniswapV2Deployment, weth: Contract, usdc: Contract):
+def test_estimate_sell_price(web3: Web3, deployer: str, user_1: str, uniswap_v2: UniswapV2Deployment, weth: Contract, usdc: Contract):
     """Estimate sell price."""
 
     # Create the trading pair and add initial liquidity
@@ -214,7 +216,7 @@ def test_estimate_price(web3: Web3, deployer: str, user_1: str, uniswap_v2: Unis
     assert price_as_usd == pytest.approx(1693.2118677678354)
 
 
-def test_estimate_price_decimals(web3: Web3, deployer: str, user_1: str, uniswap_v2: UniswapV2Deployment, weth: Contract, usdc: Contract):
+def test_estimate_sell_price_decimals(web3: Web3, deployer: str, user_1: str, uniswap_v2: UniswapV2Deployment, weth: Contract, usdc: Contract):
     """Estimate sell price using the decimal friendly function."""
 
     # Create the trading pair and add initial liquidity
@@ -237,6 +239,29 @@ def test_estimate_price_decimals(web3: Web3, deployer: str, user_1: str, uniswap
     )
     assert usdc_per_eth == pytest.approx(Decimal(1693.2118677678354))
 
+
+def test_estimate_buy_price_decimals(web3: Web3, deployer: str, user_1: str, uniswap_v2: UniswapV2Deployment, weth: Contract, usdc: Contract):
+    """Estimate sell price using the decimal friendly function."""
+
+    # Create the trading pair and add initial liquidity
+    deploy_trading_pair(
+        web3,
+        deployer,
+        uniswap_v2,
+        weth,
+        usdc,
+        1_000 * 10**18,  # 1000 ETH liquidity
+        1_700_000 * 10**18,  # 1.7M USDC liquidity
+    )
+
+    # Estimate the price of buying 1 ETH
+    usdc_per_eth = estimate_buy_price_decimals(
+        uniswap_v2,
+        weth.address,
+        usdc.address,
+        Decimal(1.0),
+    )
+    assert usdc_per_eth == pytest.approx(Decimal(1706.82216820632059904))
 
 
 def test_buy_sell_round_trip(web3: Web3, deployer: str, user_1: str, uniswap_v2: UniswapV2Deployment, weth: Contract, usdc: Contract):
