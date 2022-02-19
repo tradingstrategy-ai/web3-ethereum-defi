@@ -44,7 +44,7 @@ and debug maps, to make deploying test instances trivial.
 
 This package primarly supports Python, Web3.p3 and Brownie developers.
 For other programming languages and frameworks,
-you can [find precompiled Solidity smart contracts in abi folder](https://github.com/tradingstrategy-ai/smart-contracts-for-testing/tree/master/smart_contracts_for_testing/abi).
+you can [find precompiled Solidity smart contracts in abi folder](https://github.com/tradingstrategy-ai/smart-contracts-for-testing/tree/master/eth_hentai/abi).
 
 These files are good to go with any framework:
 * Web3.js
@@ -60,14 +60,14 @@ The compiled source code files are mixture of MIT and GPL v2 license.
 
 # Python usage
 
-The Python support is available as `smart_contracts_for_testing` Python package.
+The Python support is available as `eth-hentai` Python package.
 
 The package depends only on [web3.py](github.com/ethereum/web3.py) and not others, like [Brownie](https://eth-brownie.readthedocs.io/).
 It grabs popular ABI files with their bytecode and compilation artifacts so that the contracts
 are easily deployable on any Ethereum tester interface. No Ganache is needed and everything
 can be executed on faster [eth-tester enginer](https://github.com/ethereum/eth-tester).
 
-Unlike Brownie, which is a framework, `smart_contracts_for_testing` is a library. It is designed
+Unlike Brownie, which is a framework, `eth_hentai` is a library. It is designed
 to be included in any other Python application and you can only use bits of its that you need.
 There are no expectations on configuration files or folder structure.
 
@@ -88,7 +88,7 @@ To use the package to deploy a simple ERC-20 token in [pytest](https://docs.pyte
 import pytest
 from web3 import Web3, EthereumTesterProvider
 
-from smart_contracts_for_testing.token import create_token
+from eth_hentai.token import create_token
 
 
 @pytest.fixture
@@ -158,7 +158,7 @@ import pytest
 from web3 import Web3
 from web3.contract import Contract
 
-from smart_contracts_for_testing.uniswap_v2 import UniswapV2Deployment, deploy_trading_pair, FOREVER_DEADLINE
+from eth_hentai.uniswap_v2 import UniswapV2Deployment, deploy_trading_pair, FOREVER_DEADLINE
 
 
 def test_swap(web3: Web3, deployer: str, user_1: str, uniswap_v2: UniswapV2Deployment, weth: Contract, usdc: Contract):
