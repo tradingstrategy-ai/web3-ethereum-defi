@@ -241,7 +241,9 @@ poetry add -D eth-hentai
 
 This step will extract compiled smart contract from Sushiswap repository. 
 
-## Requires
+## Build requirements
+
+You need to be able to compile Solidity code in `sushiswap` that is included as a submodule.
 
 * Node v14 
 * npx 
