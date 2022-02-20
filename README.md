@@ -1,3 +1,5 @@
+[![PyPI version](https://badge.fury.io/py/eth-hentai.svg)](https://badge.fury.io/py/eth-hentai)
+
 [![Automated test suite](https://github.com/tradingstrategy-ai/eth-hentai/actions/workflows/tests.yml/badge.svg)](https://github.com/tradingstrategy-ai/eth-hentai/actions/workflows/tests.yml)
 
 [![Documentation Status](https://readthedocs.org/projects/smart-contracts-for-testing/badge/?version=latest)](https://eth-hentai.readthedocs.io/en/latest/?badge=latest)
