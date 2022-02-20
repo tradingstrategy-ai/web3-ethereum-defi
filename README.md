@@ -12,11 +12,11 @@ for developing automated test suites, backend integration and trading bots for E
 Features include 
 
 * [Made for 99% developers](https://future.a16z.com/software-development-building-for-99-developers/)
-* [High-quality API documentation](https://eth-hentai.readthedocs.io/)
-* [Fully type hinted](https://eth-hentai.readthedocs.io/) for good developer experience
+* [High-quality API documentation](https://smart-contracts-for-testing.readthedocs.io/)
+* [Fully type hinted](https://smart-contracts-for-testing.readthedocs.io/) for good developer experience
 * [ERC-20 token issuance and manipulation](https://eth-hentai.readthedocs.io/en/latest/_autosummary/eth_hentai.token.html#module-eth_hentai.token)
 * [Uniswap v2 tools](https://github.com/sushiswap/sushiswap): deployment, trading, price estimation for Sushiswap, PancakeSwape, QuickSwap, Trader Joe, others
-* [Parallel transaction execution](https://eth-hentai.readthedocs.io/en/latest/_autosummary/eth_hentai.txmonitor.html)
+* [Parallel transaction execution](https://smart-contracts-for-testing.readthedocs.io/en/latest/_autosummary/eth_hentai.txmonitor.html)
 * As opposite to slower and messier [mainnet forking workflows](https://www.quicknode.com/guides/web3-sdks/how-to-fork-ethereum-blockchain-with-ganache), 
 this project aims to explicit clean deployments and very fast test execution.
 * (More integrations to come)
