@@ -8,7 +8,7 @@ More information
 ================
 
 * `README <https://github.com/tradingstrategy-ai/eth-hentai>`_
-* `Supported smart contracts list <https://github.com/tradingstrategy-ai/eth-hentai/tree/master/smart_contracts_for_testing/abi>`_
+* `Supported smart contracts list <https://github.com/tradingstrategy-ai/eth-hentai/tree/master/eth_hentai/abi>`_
 * `Github <https://github.com/tradingstrategy-ai/eth-hentai>`_
 * `Discord <https://tradingstrategy.ai/community>`_
 
