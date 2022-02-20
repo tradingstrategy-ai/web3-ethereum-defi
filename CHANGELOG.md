@@ -1,15 +1,14 @@
-# Current 
+# 0.2.0
 
-- Feature: ERC-20 decimals mock up
-- Feature: Wallet ERC-20 portfolio analysis
-- Feature: Solidity event fetcher
-- Feature: Fee estimator
+- Feature: ERC-20 token deployments with custom decimals
+- Feature: Wallet ERC-20 token holdings analysis
+- Feature: Scaleable Solidity event fetcher
+- Feature: Uniswap v2 price impact and fee estimator
 - Feature: Fetch Uniswap deployment from on-chain data
-- Feature: Fetch ERC-20 details
-- Feature: Gas estimator
-- Feature: Hot wallet utilities
-- Feature: Monitor success/fail execution of transactions in parallel
-- Feature: Analyse Uniswap trades to get the price and fees paid
+- Feature: ERC-20 detail fetcher
+- Feature: London hard fork compatible gas estimator
+- Feature: Hot wallet with nonce management and batch sending
+- Feature: Sending and confirming transactions in batches
 - Renamed package to `eth-hentai`
 
 # 0.1
