@@ -71,7 +71,7 @@ Unlike Brownie, which is a framework, `eth_hentai` is a library. It is designed
 to be included in any other Python application and you can only use bits of its that you need.
 There are no expectations on configuration files or folder structure.
 
-[Read the full API documnetation]([High-quality API documentation](https://eth-hentai.readthedocs.io/)).
+[Read the full API documentation](High-quality API documentation](https://eth-hentai.readthedocs.io/)).
 For code examples please see below.
 
 ## Prerequisites
