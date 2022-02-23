@@ -228,7 +228,7 @@ def estimate_buy_price_decimals(uniswap: UniswapV2Deployment, base_token_address
     """
     web3 = uniswap.web3
     base = fetch_erc20_details(web3, base_token_address)
-    quote = fetch_erc20_details(web3, base_token_address)
+    quote = fetch_erc20_details(web3, quote_token_address)
     quantity_raw = base.convert_to_raw(quantity)
     fee_helper = UniswapV2FeeCalculator(uniswap)
     path = [quote_token_address, base_token_address]
@@ -253,7 +253,7 @@ def estimate_sell_price_decimals(uniswap: UniswapV2Deployment, base_token_addres
 
     web3 = uniswap.web3
     base = fetch_erc20_details(web3, base_token_address)
-    quote = fetch_erc20_details(web3, base_token_address)
+    quote = fetch_erc20_details(web3, quote_token_address)
     quantity_raw = base.convert_to_raw(quantity)
 
     fee_helper = UniswapV2FeeCalculator(uniswap)
