@@ -57,12 +57,22 @@ def fetch_erc20_balances(web3: Web3, owner: HexAddress, last_block_num: Optional
 
     balances = Counter()
 
+    #
+    # TODO: We are not iterating over the Transfer() events in historical order -
+    # though this should not cause difference in the end balances
+    #
+
     # Iterate over all ERC-20 transfer events to the address
     for transfer in fetch_all_events(web3, Transfer, argument_filters={"to": owner}, to_block=last_block_num):
         # transfer is AttributeDict({'args': AttributeDict({'from': '0x7E5F4552091A69125d5DfCb7b8C2659029395Bdf', 'to': '0x2B5AD5c4795c026514f8317c7a215E218DcCD6cF', 'value': 200}), 'event': 'Transfer', 'logIndex': 0, 'transactionIndex': 0, 'transactionHash': HexBytes('0xd3fef67dbded34f1f7b2ec5217e5dfd5e4d9ad0fda66a8da925722f1e62518c8'), 'address': '0x2946259E0334f33A064106302415aD3391BeD384', 'blockHash': HexBytes('0x55618d13d644f35a8639671561c2f9a93958eae055c754531b124735f92b429b'), 'blockNumber': 4})
         erc20_smart_contract = transfer["address"]
         value = transfer["args"]["value"]
         balances[erc20_smart_contract] += value
+
+    for transfer in fetch_all_events(web3, Transfer, argument_filters={"from": owner}, to_block=last_block_num):
+        erc20_smart_contract = transfer["address"]
+        value = transfer["args"]["value"]
+        balances[erc20_smart_contract] -= value
 
     return balances
 

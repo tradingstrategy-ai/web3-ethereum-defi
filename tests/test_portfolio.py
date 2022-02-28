@@ -3,11 +3,10 @@ from decimal import Decimal
 
 import pytest
 
-from eth_tester.exceptions import TransactionFailed
 from web3 import Web3, EthereumTesterProvider
 from web3.contract import Contract
 
-from eth_hentai.portfolio import fetch_erc20_balances, fetch_erc20_balances_decimal
+from eth_hentai.balances import fetch_erc20_balances, fetch_erc20_balances_decimal
 from eth_hentai.token import create_token
 
 
@@ -107,3 +106,19 @@ def test_portfolio_decimals(web3: Web3, deployer: str, user_1: str, usdc: Contra
     assert balances[usdc.address].decimals == 6
     assert balances[aave.address].value == Decimal(200) / Decimal(10**18)
     assert balances[aave.address].decimals == 18
+
+
+def test_portfolio_two_transactions(web3: Web3, deployer: str, user_1: str, usdc: Contract, aave: Contract):
+    """Get the balance after two top up transactions."""
+    usdc.functions.transfer(user_1, 500).transact({"from": deployer})
+    usdc.functions.transfer(user_1, 300).transact({"from": deployer})
+    balances = fetch_erc20_balances(web3, user_1)
+    assert balances[usdc.address] == 800
+
+
+def test_portfolio_debit_transactions(web3: Web3, deployer: str, user_1: str, usdc: Contract, aave: Contract):
+    """Get the balance after debit  transactions."""
+    usdc.functions.transfer(user_1, 500).transact({"from": deployer})
+    usdc.functions.transfer(deployer, 300).transact({"from": user_1})
+    balances = fetch_erc20_balances(web3, user_1)
+    assert balances[usdc.address] == 200

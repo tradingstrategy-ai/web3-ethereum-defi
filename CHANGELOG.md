@@ -1,5 +1,9 @@
 # 0.2.0
 
+- Rename module: `portfolio` -> `balances`
+
+# 0.2.0
+
 - Feature: ERC-20 token deployments with custom decimals
 - Feature: Wallet ERC-20 token holdings analysis
 - Feature: Scaleable Solidity event fetcher
