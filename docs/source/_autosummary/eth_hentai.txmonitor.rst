@@ -12,6 +12,7 @@
    .. rubric:: Functions
 
    .. autosummary::
+      :toctree:
    
       broadcast_and_wait_transactions_to_complete
       wait_transactions_to_complete

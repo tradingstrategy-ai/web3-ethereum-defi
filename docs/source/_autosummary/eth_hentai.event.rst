@@ -12,6 +12,7 @@
    .. rubric:: Functions
 
    .. autosummary::
+      :toctree:
    
       fetch_all_events
    

@@ -12,9 +12,9 @@ More information
 * `Github <https://github.com/tradingstrategy-ai/eth-hentai>`_
 * `Discord <https://tradingstrategy.ai/community>`_
 
-.. toctree::
-   :maxdepth: 2
-   :caption: API documentation:
+
+API documentation
+=================
 
 .. autosummary::
    :toctree: _autosummary
@@ -25,7 +25,7 @@ More information
    eth_hentai.uniswap_v2_fees
    eth_hentai.uniswap_v2_analysis
    eth_hentai.uniswap_v2_utils
-   eth_hentai.portfolio
+   eth_hentai.balances
    eth_hentai.abi
    eth_hentai.deploy
    eth_hentai.event

@@ -17,7 +17,7 @@
 
 # -- Project information -----------------------------------------------------
 
-project = 'Smart contracts for testing'
+project = 'ETH-Hentai'
 copyright = '2022, Mikko Ohtamaa'
 author = 'Mikko Ohtamaa'
 
@@ -28,9 +28,9 @@ author = 'Mikko Ohtamaa'
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
 extensions = [
-    'sphinx.ext.autodoc',
     'sphinx_rtd_theme',
     "sphinx_sitemap",
+    'sphinx.ext.autodoc',
     "sphinx.ext.autosummary",
     # https://github.com/tox-dev/sphinx-autodoc-typehints/issues/216
     # sphinx_autodoc_typehints'
@@ -60,6 +60,8 @@ html_static_path = ['_static']
 autodoc_class_signature = "separated"
 
 autodoc_typehints = "description"
+
+autosummary_generate = True
 
 add_module_names = False
 

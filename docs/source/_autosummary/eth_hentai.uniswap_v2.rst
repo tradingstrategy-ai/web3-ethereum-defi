@@ -12,6 +12,7 @@
    .. rubric:: Functions
 
    .. autosummary::
+      :toctree:
    
       deploy_factory_sushi
       deploy_trading_pair
@@ -25,6 +26,8 @@
    .. rubric:: Classes
 
    .. autosummary::
+      :toctree:
+      :template: custom-class-template.rst
    
       UniswapV2Deployment
    

@@ -12,6 +12,7 @@
    .. rubric:: Functions
 
    .. autosummary::
+      :toctree:
    
       pair_for
       sort_tokens

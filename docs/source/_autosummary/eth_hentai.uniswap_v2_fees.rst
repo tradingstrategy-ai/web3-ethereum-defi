@@ -12,6 +12,7 @@
    .. rubric:: Functions
 
    .. autosummary::
+      :toctree:
    
       estimate_buy_price_decimals
       estimate_buy_quantity
@@ -27,6 +28,8 @@
    .. rubric:: Classes
 
    .. autosummary::
+      :toctree:
+      :template: custom-class-template.rst
    
       UniswapV2FeeCalculator
    
