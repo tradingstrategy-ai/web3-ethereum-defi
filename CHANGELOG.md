@@ -1,6 +1,8 @@
-# 0.2.0
+# 0.3
 
-- Rename module: `portfolio` -> `balances`
+- Rename module: `eth_hentai.portfolio` -> `eth_hentai.balances`
+- Fix: Documentation now builds correctly with body text for functions 
+- Fix: ERC-20 balances when there exist debit transactions 
 
 # 0.2.0
 
