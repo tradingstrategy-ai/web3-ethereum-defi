@@ -332,6 +332,12 @@ def fork_network(
 
     `See the full example in tests source code <https://github.com/tradingstrategy-ai/eth-hentai/blob/master/tests/test_ganache.py>`_.
 
+    This function uses Python logging subsystem. If you want to see error/info/debug logs with `pytest` you can do:
+
+    .. code-block:: shell
+
+        pytest --log-cli-level=debug
+
     :param cmd: Override `ganache-cli` command. If not given we look up from `PATH`.*
     :param json_rpc_url: HTTP JSON-RPC URL of the network we want to fork
     :param unlocked_addresses: List of addresses of which ownership we take to allow test code to transact as them

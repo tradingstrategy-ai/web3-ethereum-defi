@@ -1,3 +1,7 @@
+# Current
+
+- Feature: Allow override init code hash for `eth_hentai.uniswap_v2.fetch_deployment`
+
 # 0.4
 
 - Feature: [eth_hentai.ganache module](https://smart-contracts-for-testing.readthedocs.io/en/latest/_autosummary/eth_hentai.ganache.html#module-eth_hentai.ganache) to support ganache-cli mainnet forks
