@@ -291,7 +291,8 @@ def fork_network(
         Forking a network with ganache-cli is a slow process. It is recommended
         that you use fast Ethereum Tester based testing if possible.
 
-    Example:
+    Here is an example that forks BNB chain mainnet and transfer BUSD stablecoin to a test
+    account we control:
 
     .. code-block:: python
 
@@ -329,6 +330,7 @@ def fork_network(
 
             assert busd.functions.balanceOf(user_1.address).call() == 500*10**18
 
+    :param cmd: Override `ganache-cli` command. If not given we look up from `PATH`.*
     :param json_rpc_url: HTTP JSON-RPC URL of the network we want to fork
     :param unlocked_addresses: List of addresses of which ownership we take to allow test code to transact as them
     :param port: Localhost port we bind for ganache JSON-RPC

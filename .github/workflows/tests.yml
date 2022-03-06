@@ -20,9 +20,12 @@ jobs:
     - name: Initialize submodules
       run: |
         git submodule update --init --recursive
-    - name: Get poetry
+    - name: Install poetry
       run: |
         pip install poetry
+    - name: Install ganache-cli
+      run: |
+        npm install ganache-cli
     - name: Cook sushi
       run: |
         make copy-abi
@@ -32,3 +35,5 @@ jobs:
     - name: Run test scripts
       run: |
         poetry run pytest
+      env:
+        BNB_CHAIN_JSON_RPC: ${{ secrets.BNB_CHAIN_JSON_RPC }}
