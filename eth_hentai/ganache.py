@@ -330,6 +330,8 @@ def fork_network(
 
             assert busd.functions.balanceOf(user_1.address).call() == 500*10**18
 
+    `See the full example in tests source code <https://github.com/tradingstrategy-ai/eth-hentai/blob/master/tests/test_ganache.py>`_.
+
     :param cmd: Override `ganache-cli` command. If not given we look up from `PATH`.*
     :param json_rpc_url: HTTP JSON-RPC URL of the network we want to fork
     :param unlocked_addresses: List of addresses of which ownership we take to allow test code to transact as them
