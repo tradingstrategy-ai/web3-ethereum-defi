@@ -32,6 +32,7 @@ API documentation
    eth_hentai.gas
    eth_hentai.txmonitor
    eth_hentai.hotwallet
+   eth_hentai.ganache
    eth_hentai.utils
 
 

@@ -30,6 +30,8 @@ clean-docs:
 	@rm -rf docs/source/_autosummary
 	@rm -rf docs/build/html
 
+docs-all: clean-docs build-docs
+
 # Manually generate table of contents for Github README
 toc:
 	cat README.md | scripts/gh-md-toc -

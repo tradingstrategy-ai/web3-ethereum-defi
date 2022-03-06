@@ -1,3 +1,9 @@
+# Current
+
+- Added `eth_hentai.ganache` module to support ganache-cli mainnet forks
+- Added `HotWallet.get_native_currency_balance`
+- Added `HotWallet.from_private_key`
+
 # 0.3
 
 - Rename module: `eth_hentai.portfolio` -> `eth_hentai.balances`

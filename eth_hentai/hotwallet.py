@@ -1,7 +1,9 @@
 """Utilities for managing hot wallets."""
 
+from decimal import Decimal
 from typing import Optional
 
+from eth_account import Account
 from eth_account.datastructures import SignedTransaction
 from eth_account.signers.local import LocalAccount
 from web3 import Web3
@@ -15,6 +17,8 @@ class HotWallet:
 
     This particular hot wallet implementation carries the information of allocated tx nonces with us.
     This allows us to prepare multiple transactions from the same account upfront.
+
+    `See also how to create private keys from command line <https://ethereum.stackexchange.com/q/82926/620>`_.
     """
 
     def __init__(self, account: LocalAccount):
@@ -23,6 +27,7 @@ class HotWallet:
 
     @property
     def address(self):
+        """Get address of the private key of the wallet."""
         return self.account.address
 
     def sync_nonce(self, web3: Web3):
@@ -50,3 +55,31 @@ class HotWallet:
         tx["nonce"] = self.allocate_nonce()
         signed = self.account.sign_transaction(tx)
         return signed
+
+    def get_native_currency_balance(self, web3: Web3) -> Decimal:
+        """Get the balance of the native currency (ETH, BNB, MATIC) of the wallet.
+
+        Useful to check if you have enough cryptocurrency for the gas fees.
+        """
+        balance = web3.eth.getBalance(self.address)
+        return web3.fromWei(balance, "ether")
+
+    @staticmethod
+    def from_private_key(key: str) -> "HotWallet":
+        """Create a hot wallet from a private key that is passed in as a hex string.
+
+        Add the key to web3 signing chain.
+
+        Example:
+
+        .. code-block::
+
+            # Generated with  openssl rand -hex 32
+            wallet = HotWallet.from_private_key("0x54c137e27d2930f7b3433249c5f07b37ddcfea70871c0a4ef9e0f65655faf957")
+
+        :param key: 0x prefixed hex string
+        :return: Ready to go hot wallet account
+        """
+        assert key.startswith("0x")
+        account = Account.from_key(key)
+        return HotWallet(account)

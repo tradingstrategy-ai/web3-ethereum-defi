@@ -16,12 +16,14 @@ Sphinx = {version = "^4.4.0", optional = true}
 sphinx-rtd-theme = {version = "^1.0.0", optional = true}
 sphinx-sitemap = {version = "^2.2.0", optional = true}
 sphinx-autodoc-typehints = {version = "^1.16.0", extras = ["docs"]}
+psutil = "^5.9.0"
 
 [tool.poetry.dev-dependencies]
 pytest = "^6.2.5"
 sphinx-rtd-theme = "^1.0.0"
 sphinx-sitemap = "^2.2.0"
 
+ipdb = "^0.13.9"
 # See discussion https://github.com/python-poetry/poetry/issues/3348#issuecomment-726534462
 [tool.poetry.extras]
 docs = ["Sphinx", "sphinx-rtd-theme", "sphinx-sitemap", "sphinx-autodoc-typehints"]
