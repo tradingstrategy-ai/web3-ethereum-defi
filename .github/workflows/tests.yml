@@ -25,7 +25,7 @@ jobs:
         pip install poetry
     - name: Install ganache-cli
       run: |
-        npm install ganache-cli
+        npm install -g ganache-cli
     - name: Cook sushi
       run: |
         make copy-abi
