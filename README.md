@@ -267,7 +267,8 @@ make all
 
 # Version history
 
-[See change log](https://github.com/tradingstrategy-ai/eth-hentai/blob/master/CHANGELOG.md).
+- [See change log](https://github.com/tradingstrategy-ai/eth-hentai/blob/master/CHANGELOG.md).
+- [See releases](https://pypi.org/project/eth-hentai/#history).
 
 # Discord
 

@@ -1,4 +1,4 @@
-# Current
+# 0.4
 
 - Feature: [eth_hentai.ganache module](https://smart-contracts-for-testing.readthedocs.io/en/latest/_autosummary/eth_hentai.ganache.html#module-eth_hentai.ganache) to support ganache-cli mainnet forks
 - Feature: `HotWallet.get_native_currency_balance` to easier management of hot wallet accounts
