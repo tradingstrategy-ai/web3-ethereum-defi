@@ -9,11 +9,10 @@ How to install ganache-cli using npm:
 
 .. code-block:: shell
 
-    npm install -g ganache-cli
+    npm install -g ganache
 
 For more information about Ganache see
 
-- `Ganache CLI on NPM <https://www.npmjs.com/package/ganache-cli>`_
 - `Ganache CLI command line documentation <https://github.com/trufflesuite/ganache#documentation>`_
 - `Aave Web.py example <https://github.com/PatrickAlphaC/aave_web3_py>`_
 - `QuickNode how to fork mainnet with Ganache tutorial <https://www.quicknode.com/guides/web3-sdks/how-to-fork-ethereum-blockchain-with-ganache>`_
