@@ -82,7 +82,7 @@ def test_portfolio_past(web3: Web3, deployer: str, user_1: str, usdc: Contract, 
     usdc.functions.transfer(user_1, 500).transact({"from": deployer})
     aave.functions.transfer(user_1, 200).transact({"from": deployer})
 
-    threshold_block = web3.eth.blockNumber
+    threshold_block = web3.eth.block_number
 
     # Top up AAVE which won't show up in the analysis
     aave.functions.transfer(user_1, 333).transact({"from": deployer})
