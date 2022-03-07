@@ -5,15 +5,26 @@ sushi:
 	@(cd sushiswap && yarn install && yarn build) > /dev/null
 	@echo "Sushi is ready"
 
+# Extract all compilation artifacts from Sushi to our abi/ dump
+copy-sushi-abi: sushi
+	@find sushiswap/artifacts/contracts -iname "*.json" -not -iname "*.dbg.json" -exec cp {} eth_hentai/abi \;
+
+# Compile v3 core and periphery
+uniswapv3:
+	@(cd uniswap_v3/v3-core && yarn install && yarn compile) > /dev/null
+	@(cd uniswap_v3/v3-periphery && yarn install && yarn compile) > /dev/null
+
+# Extract ABI and copied over to our abi/uniswap_v3/ folder
+copy-uniswapv3-abi: uniswapv3
+	@find uniswap_v3/v3-core/artifacts/contracts -iname "*.json" -not -iname "*.dbg.json" -exec cp {} eth_hentai/abi/uniswap_v3 \;
+	@find uniswap_v3/v3-periphery/artifacts/contracts -iname "*.json" -not -iname "*.dbg.json" -exec cp {} eth_hentai/abi/uniswap_v3 \;
 
 clean:
 	@rm -rf sushiswap/artifacts/*
+	@rm -rf uniswap_v3/v3-core/artifacts/*
+	@rm -rf uniswap_v3/v3-periphery/artifacts/*
 
-# Extract all compilation artifacts from Sushi to our abi/ dump
-copy-abi: sushi
-	@find sushiswap/artifacts/contracts -iname "*.json" -not -iname "*.dbg.json" -exec cp {} eth_hentai/abi \;
-
-all: clean-docs copy-abi build-docs
+all: clean-docs copy-sushi-abi build-docs
 
 # Export the dependencies, so that Read the docs can build our API docs
 # See: https://github.com/readthedocs/readthedocs.org/issues/4912
