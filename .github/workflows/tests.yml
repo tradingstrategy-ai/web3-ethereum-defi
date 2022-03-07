@@ -28,7 +28,10 @@ jobs:
         npm install -g ganache
     - name: Cook sushi
       run: |
-        make copy-abi
+        make copy-sushi-abi
+    - name: Copy uniswap v3
+      run: |
+        make copy-uniswapv3-abi
     - name: Install dependencies
       run: |
         poetry install
