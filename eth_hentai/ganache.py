@@ -84,7 +84,9 @@ CLI_FLAGS = {
 }
 
 EVM_VERSIONS = ["byzantium", "constantinople", "petersburg", "istanbul"]
-EVM_DEFAULT = "istanbul"
+
+#: The default hardfork rules used by Ganache
+EVM_DEFAULT = "london"
 
 
 class NoGanacheInstalled(Exception):
@@ -149,7 +151,7 @@ def _launch(cmd: str, **kwargs: Dict) -> Tuple[psutil.Popen, List[str]]:
                 )
     out = DEVNULL if sys.platform == "win32" else PIPE
 
-    logger.debug("Launching ganache-cli: %s", cmd_list)
+    logger.debug("Launching ganache-cli: %s", " ".join(cmd_list))
     return psutil.Popen(cmd_list, stdin=DEVNULL, stdout=out, stderr=out), cmd_list
 
 
@@ -262,9 +264,21 @@ class GanacheLaunch:
     #: UNIX process that we opened
     process: psutil.Popen
 
-    def close(self):
-        """Kill the ganache-cli process."""
-        self.process.terminate()
+    def close(self, verbose=False):
+        """Kill the ganache-cli process.
+
+        :param verbose: If set, dump anything in Ganache stdout to the Python logging using level `INFO`.
+        """
+
+        process = self.process
+        if verbose:
+            logger.info("Dumping Ganache output")
+            if process.poll() is not None:
+                output = process.communicate()[0].decode("utf-8")
+                for line in output.split("\n"):
+                    logger.info(line)
+
+        process.terminate()
 
 
 def fork_network(
@@ -272,6 +286,7 @@ def fork_network(
         unlocked_addresses: List[HexAddress] = [],
         cmd="ganache-cli",
         port=19999,
+        evm_version=EVM_DEFAULT,
         launch_wait_seconds=5.0) -> GanacheLaunch:
     """Creates the ganache "fork" of given JSON-RPC endpoint.
 
@@ -354,6 +369,7 @@ def fork_network(
     :param unlocked_addresses: List of addresses of which ownership we take to allow test code to transact as them
     :param port: Localhost port we bind for Ganache JSON-RPC
     :param launch_wait_seconds: How long we wait ganache-cli to start until giving up
+    :param evm_version: "london" for the default hard fork
     """
 
     url = f"http://localhost:{port}"

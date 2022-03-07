@@ -2,6 +2,10 @@
 
 - Feature: Allow override init code hash for `eth_hentai.uniswap_v2.fetch_deployment`
 - Feature: Faster failing if ganache-cli RPS port is already taken
+- Feature: Add `fetch_erc20_balances_by_token_list`
+- API change: Rename `fetch_erc20_balances` -> `fetch_erc20_balances_by_transfer_event`
+- Fix: `fetch_erc20_balances`: User friendly error message when trying to grab a too big chunk of transfers once
+- Fix: Use `london` hard fork by default for `fork_network`
 
 # 0.4
 

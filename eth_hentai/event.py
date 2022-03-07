@@ -17,7 +17,7 @@ def fetch_all_events(
         event: Type[ContractEvent],
         address: Optional[HexAddress] = None,
         argument_filters: Optional[dict] = None,
-        from_block: Optional[BlockNumber] = None,
+        from_block: Optional[BlockNumber] = 1,
         to_block: Optional[BlockNumber] = None) -> Iterable[AttributeDict]:
     """Get events using eth_getLogs API.
 
@@ -39,12 +39,9 @@ def fetch_all_events(
     :param event: Event class grabbed from a Contract proxy class, like `IERC20.events.Transfer`.
     :param address: The smart contract address of the event emitter. Set to none to capture events from all the smart contracts.
     :param argument_filters: Filters based on the event structure, e.g. `to` field `IERC20.events.Transfer`
-    :param from_block: Limit block range
+    :param from_block: Limit block range. Set to `1` to get all the events, ever.
     :param to_block: Limit block range
     """
-
-    if from_block is None:
-        from_block = 1
 
     # Currently no way to poke this using a public Web3.py API.
     # This will return raw underlying ABI JSON object for the event

@@ -2,13 +2,14 @@
 from collections import Counter
 from dataclasses import dataclass
 from decimal import Decimal
-from typing import Optional, Dict
+from typing import Optional, Dict, Set
+import requests.exceptions
 
 from eth_typing import ChecksumAddress, BlockNumber, HexAddress
 from web3 import Web3
 from web3.contract import Contract
 
-from eth_hentai.abi import get_contract
+from eth_hentai.abi import get_contract, get_deployed_contract
 from eth_hentai.event import fetch_all_events
 
 
@@ -23,7 +24,15 @@ class DecimalisedHolding:
     contract: Contract
 
 
-def fetch_erc20_balances(web3: Web3, owner: HexAddress, last_block_num: Optional[BlockNumber] = None) -> Dict[HexAddress, int]:
+class BalanceFetchFailed(Exception):
+    """Could not read balances for an address.
+
+    Usually this means that you tried to read balances for an address with too many transactions
+    and the underlying GoEthereun node craps out.
+    """
+
+
+def fetch_erc20_balances_by_transfer_event(web3: Web3, owner: HexAddress, from_block: Optional[int] = 1, last_block_num: Optional[BlockNumber] = None) -> Dict[HexAddress, int]:
     """Get all current holdings of an account.
 
     We attempt to build a list of token holdings by analysing incoming ERC-20 Transfer events to a wallet.
@@ -33,6 +42,13 @@ def fetch_erc20_balances(web3: Web3, owner: HexAddress, last_block_num: Optional
 
     We are not doing any throttling: If you ask for too many events once this function and your
     Ethereum node are likely to blow up.
+
+    .. note ::
+
+        Because the limitations of GoEthereum, this method is likely to fail on public
+        JSON-RPC nodes for blockchains like Binance Smart Chain, Polygon and others.
+        E.g. BSC nodes will fail with `{'code': -32000, 'message': 'exceed maximum block range: 5000'}`.
+        Even if the nodes don't directly fail, their JSON-RPC APIs are likely to timeout.
 
     Example:
 
@@ -45,9 +61,9 @@ def fetch_erc20_balances(web3: Web3, owner: HexAddress, last_block_num: Optional
         assert balances[usdc.address] == 500
         assert balances[aave.address] == 200
 
-
     :param web3: Web3 instance
     :param owner: The address we are analysis
+    :param from_block: As passed to eth_getLogs
     :param last_block_num: Set to the last block, inclusive, if you want to have an analysis of in a point of history.
     :return: Map of (token address, amount)
     """
@@ -62,19 +78,38 @@ def fetch_erc20_balances(web3: Web3, owner: HexAddress, last_block_num: Optional
     # though this should not cause difference in the end balances
     #
 
-    # Iterate over all ERC-20 transfer events to the address
-    for transfer in fetch_all_events(web3, Transfer, argument_filters={"to": owner}, to_block=last_block_num):
-        # transfer is AttributeDict({'args': AttributeDict({'from': '0x7E5F4552091A69125d5DfCb7b8C2659029395Bdf', 'to': '0x2B5AD5c4795c026514f8317c7a215E218DcCD6cF', 'value': 200}), 'event': 'Transfer', 'logIndex': 0, 'transactionIndex': 0, 'transactionHash': HexBytes('0xd3fef67dbded34f1f7b2ec5217e5dfd5e4d9ad0fda66a8da925722f1e62518c8'), 'address': '0x2946259E0334f33A064106302415aD3391BeD384', 'blockHash': HexBytes('0x55618d13d644f35a8639671561c2f9a93958eae055c754531b124735f92b429b'), 'blockNumber': 4})
-        erc20_smart_contract = transfer["address"]
-        value = transfer["args"]["value"]
-        balances[erc20_smart_contract] += value
+    try:
+        # Iterate over all ERC-20 transfer events to the address
+        for transfer in fetch_all_events(web3, Transfer, argument_filters={"to": owner}, to_block=last_block_num, from_block=from_block):
+            # transfer is AttributeDict({'args': AttributeDict({'from': '0x7E5F4552091A69125d5DfCb7b8C2659029395Bdf', 'to': '0x2B5AD5c4795c026514f8317c7a215E218DcCD6cF', 'value': 200}), 'event': 'Transfer', 'logIndex': 0, 'transactionIndex': 0, 'transactionHash': HexBytes('0xd3fef67dbded34f1f7b2ec5217e5dfd5e4d9ad0fda66a8da925722f1e62518c8'), 'address': '0x2946259E0334f33A064106302415aD3391BeD384', 'blockHash': HexBytes('0x55618d13d644f35a8639671561c2f9a93958eae055c754531b124735f92b429b'), 'blockNumber': 4})
+            erc20_smart_contract = transfer["address"]
+            value = transfer["args"]["value"]
+            balances[erc20_smart_contract] += value
 
-    for transfer in fetch_all_events(web3, Transfer, argument_filters={"from": owner}, to_block=last_block_num):
-        erc20_smart_contract = transfer["address"]
-        value = transfer["args"]["value"]
-        balances[erc20_smart_contract] -= value
+        for transfer in fetch_all_events(web3, Transfer, argument_filters={"from": owner}, to_block=last_block_num, from_block=from_block):
+            erc20_smart_contract = transfer["address"]
+            value = transfer["args"]["value"]
+            balances[erc20_smart_contract] -= value
+
+        return balances
+    except requests.exceptions.ReadTimeout as e:
+        raise BalanceFetchFailed(f"Could not read Transfer() events for an address {owner} - fetch_erc20_balances() only works with addresses with small amount of transfers") from e
+
+
+def fetch_erc20_balances_by_token_list(web3: Web3, owner: HexAddress, tokens: Set[HexAddress]) -> Dict[HexAddress, int]:
+    """Get all current holdings of an account for a limited set of ERC-20 tokens.
+
+    If you know what tokens you are interested in, this method is much more efficient
+    way than :py:func:`fetch_erc20_balances_by_transfer_event` to query token balances.
+    """
+
+    balances = {}
+    for address in tokens:
+        erc_20 = get_deployed_contract(web3, "IERC20.json", address)
+        balances[address] = erc_20.functions.balanceOf(owner).call()
 
     return balances
+
 
 
 def convert_to_decimal(web3, raw_balances: Dict[HexAddress, int]) -> Dict[HexAddress, DecimalisedHolding]:
@@ -97,7 +132,7 @@ def convert_to_decimal(web3, raw_balances: Dict[HexAddress, int]) -> Dict[HexAdd
     return res
 
 
-def fetch_erc20_balances_decimal(web3: Web3, owner: HexAddress, last_block_num: Optional[BlockNumber] = None) -> Dict[HexAddress, DecimalisedHolding]:
+def fetch_erc20_balances_decimal_by_transfer_event(web3: Web3, owner: HexAddress, last_block_num: Optional[BlockNumber] = None) -> Dict[HexAddress, DecimalisedHolding]:
     """Get all current holdings of an account.
 
     Convert holdings to the natural decimal format.
@@ -120,5 +155,5 @@ def fetch_erc20_balances_decimal(web3: Web3, owner: HexAddress, last_block_num: 
     :return: Map of (token address, amount)
     """
 
-    raw_balances = fetch_erc20_balances(web3, owner, last_block_num)
+    raw_balances = fetch_erc20_balances_by_transfer_event(web3, owner, last_block_num=last_block_num)
     return convert_to_decimal(web3, raw_balances)
