@@ -3,13 +3,17 @@ from decimal import Decimal
 
 import pytest
 from eth_tester import EthereumTester
-from web3 import Web3, EthereumTesterProvider
+from web3 import EthereumTesterProvider, Web3
 from web3.contract import Contract
 
 from eth_hentai.token import create_token
-from eth_hentai.uniswap_v2 import deploy_uniswap_v2_like, UniswapV2Deployment, deploy_trading_pair, \
-    FOREVER_DEADLINE
-from eth_hentai.uniswap_v2_analysis import analyse_trade, TradeSuccess, TradeFail
+from eth_hentai.uniswap_v2.analysis import TradeFail, TradeSuccess, analyse_trade
+from eth_hentai.uniswap_v2.deployment import (
+    FOREVER_DEADLINE,
+    UniswapV2Deployment,
+    deploy_trading_pair,
+    deploy_uniswap_v2_like,
+)
 
 
 @pytest.fixture
