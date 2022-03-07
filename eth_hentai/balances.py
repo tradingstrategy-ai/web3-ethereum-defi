@@ -101,6 +101,20 @@ def fetch_erc20_balances_by_token_list(web3: Web3, owner: HexAddress, tokens: Se
 
     If you know what tokens you are interested in, this method is much more efficient
     way than :py:func:`fetch_erc20_balances_by_transfer_event` to query token balances.
+
+    Example:
+
+    .. code-block:: python
+
+        def test_portfolio_token_list(web3: Web3, deployer: str, user_1: str, usdc: Contract, aave: Contract):
+            # Create a set of tokens
+            tokens = {aave.address, usdc.address}
+            # Load up the user with some tokens
+            usdc.functions.transfer(user_1, 500).transact({"from": deployer})
+            aave.functions.transfer(user_1, 200).transact({"from": deployer})
+            balances = fetch_erc20_balances_by_token_list(web3, user_1, tokens)
+            assert balances[usdc.address] == 500
+            assert balances[aave.address] == 200
     """
 
     balances = {}
