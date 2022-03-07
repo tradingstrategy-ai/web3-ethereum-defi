@@ -1,6 +1,7 @@
 # Current
 
 - Feature: Allow override init code hash for `eth_hentai.uniswap_v2.fetch_deployment`
+- Feature: Faster failing if ganache-cli RPS port is already taken
 
 # 0.4
 

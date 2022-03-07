@@ -36,6 +36,7 @@ import logging
 
 import psutil
 import requests
+import urllib3
 from eth_typing import HexAddress
 from hexbytes import HexBytes
 from requests.exceptions import ConnectionError as RequestsConnectionError
@@ -278,7 +279,7 @@ def fork_network(
     Forking a mainnet is common way to test against live deployments.
     This function invokes `ganache-cli` command and tells it to fork a given JSON-RPC endpoint.
 
-    A subprocess is started on the background. To stop this process, call :py:meth:`GanacheLaunch.close`.
+    A subprocess is started on the background. To stop this process, call :py:meth:`eth_hentai.ganache.GanacheLaunch.close`.
     This function waits `launch_wait_seconds` in order to `ganache-cli` process to start
     and complete the chain fork.
 
@@ -291,13 +292,20 @@ def fork_network(
         Forking a network with ganache-cli is a slow process. It is recommended
         that you use fast Ethereum Tester based testing if possible.
 
-    Here is an example that forks BNB chain mainnet and transfer BUSD stablecoin to a test
+    Here is an example that forks BNB chain mainnet and transfer 500 BUSD stablecoin to a test
     account we control:
 
     .. code-block:: python
 
         @pytest.fixture()
-        def ganache_bnb_chain_fork(large_busd_holder, user_1, user_2) -> str:
+        def large_busd_holder() -> HexAddress:
+            # A random account picked from BNB Smart chain that holds a lot of BUSD.
+            # Binance Hot Wallet 6
+            return HexAddress(HexStr("0x8894E0a0c962CB723c1976a4421c95949bE2D4E3"))
+
+
+        @pytest.fixture()
+        def ganache_bnb_chain_fork(large_busd_holder) -> str:
             # Create a testable fork of live BNB chain.
             mainnet_rpc = os.environ["BNB_CHAIN_JSON_RPC"]
             launch = fork_network(
@@ -338,10 +346,14 @@ def fork_network(
 
         pytest --log-cli-level=debug
 
-    :param cmd: Override `ganache-cli` command. If not given we look up from `PATH`.*
+    For public JSON-RPC endpoints check
+    - `BNB chain documentation <https://docs.binance.org/smart-chain/developer/rpc.html>`_
+    - `ethereumnodes.com <https://ethereumnodes.com/>`_
+
+    :param cmd: Override `ganache-cli` command. If not given we look up from `PATH`.
     :param json_rpc_url: HTTP JSON-RPC URL of the network we want to fork
     :param unlocked_addresses: List of addresses of which ownership we take to allow test code to transact as them
-    :param port: Localhost port we bind for ganache JSON-RPC
+    :param port: Localhost port we bind for Ganache JSON-RPC
     :param launch_wait_seconds: How long we wait ganache-cli to start until giving up
     """
 
@@ -357,6 +369,9 @@ def fork_network(
     # Wait until Ganache is responsive
     timeout = time.time() + launch_wait_seconds
     current_block = None
+
+    # Use short 1.0s HTTP read timeout here - otherwise requests will wait > 10s if something is wrong
+    web3 = Web3(HTTPProvider(url, request_kwargs={"timeout": 1.0}))
     while time.time() < timeout:
         if process.poll() is not None:
             output = process.communicate()[0].decode("utf-8")
@@ -364,16 +379,22 @@ def fork_network(
                 logger.error(line)
             raise AssertionError(f"ganache-cli died on launch, used command was {final_cmd}")
 
-        web3 = Web3(HTTPProvider(url))
         try:
             current_block = web3.eth.block_number
             break
-        except requests.exceptions.ConnectionError:
+        except (requests.exceptions.ConnectionError, requests.exceptions.ReadTimeout):
             # requests.exceptions.ConnectionError: ('Connection aborted.', ConnectionResetError(54, 'Connection reset by peer'))
             time.sleep(0.1)
             continue
 
     if current_block is None:
+
+        if process.poll() is not None:
+            output = process.communicate()[0].decode("utf-8")
+            for line in output.split("\n"):
+                logger.error(line)
+            raise AssertionError(f"ganache-cli died on launch, used command was {final_cmd}")
+
         logger.error("Could not read the latest block from ganache-cli within %f seconds", launch_wait_seconds)
         raise AssertionError(f"Could not connect to ganache-cli {cmd}: at {url}")
 
