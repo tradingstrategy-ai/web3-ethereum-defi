@@ -125,11 +125,20 @@ def fetch_erc20_balances_by_token_list(web3: Web3, owner: HexAddress, tokens: Se
     return balances
 
 
-
-def convert_to_decimal(web3, raw_balances: Dict[HexAddress, int]) -> Dict[HexAddress, DecimalisedHolding]:
+def convert_balances_to_decimal(web3, raw_balances: Dict[HexAddress, int]) -> Dict[HexAddress, DecimalisedHolding]:
     """Convert mapping of ERC-20 holdings to decimals.
 
     Issues a JSON-RPC call to fetch token data for each ERC-20 in the input dictionary.
+
+    Example:
+
+    .. code-block:: python
+
+        raw_balances = fetch_erc20_balances_by_token_list(web3, address, tokens)
+        return convert_balances_to_decimal(web3, raw_balances)
+
+    :param raw_balances: Token address -> uint256 mappings
+    :return: Token address -> `DecimalisedHolding` mappings
     """
 
     # decimals() is not part of core ERC-20 interface,
@@ -145,29 +154,3 @@ def convert_to_decimal(web3, raw_balances: Dict[HexAddress, int]) -> Dict[HexAdd
 
     return res
 
-
-def fetch_erc20_balances_decimal_by_transfer_event(web3: Web3, owner: HexAddress, last_block_num: Optional[BlockNumber] = None) -> Dict[HexAddress, DecimalisedHolding]:
-    """Get all current holdings of an account.
-
-    Convert holdings to the natural decimal format.
-
-    Example:
-
-    .. code-block:: python
-
-        # Load up the user with some tokens
-        usdc.functions.transfer(user_1, 500).transact({"from": deployer})
-        aave.functions.transfer(user_1, 200).transact({"from": deployer})
-        balances = fetch_erc20_balances(web3, user_1)
-        assert balances[usdc.address] == 500
-        assert balances[aave.address] == 200
-
-
-    :param web3: Web3 instance
-    :param owner: The address we are analysis
-    :param last_block_num: Set to the last block, inclusive, if you want to have an analysis of in a point of history.
-    :return: Map of (token address, amount)
-    """
-
-    raw_balances = fetch_erc20_balances_by_transfer_event(web3, owner, last_block_num=last_block_num)
-    return convert_to_decimal(web3, raw_balances)
