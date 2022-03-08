@@ -28,8 +28,12 @@ class UniswapV3Deployment:
     #: `See the Solidity source code <https://github.com/Uniswap/v3-periphery/blob/main/contracts/SwapRouter.sol>`__.
     router: Contract
 
+    # Pool contract proxy class
+    #: `See the Solidity source code <https://github.com/Uniswap/v3-core/blob/main/contracts/UniswapV3Pool.sol>`__.
+    PoolContract: Contract
 
-def deploy_uniswap_v3_factory(web3: Web3, deployer: str) -> Contract:
+
+def deploy_uniswap_v3_factory(web3: Web3, deployer: HexAddress) -> Contract:
     """Deploy a Uniswap v3 factory contract.
 
     :param web3: Web3 instance
@@ -53,7 +57,7 @@ def deploy_uniswap_v3_factory(web3: Web3, deployer: str) -> Contract:
 
 def deploy_uniswap_v3(
     web3: Web3,
-    deployer: str,
+    deployer: HexAddress,
     give_weth: Optional[int] = 10_000,
 ) -> UniswapV3Deployment:
     """Deploy v3
@@ -65,6 +69,8 @@ def deploy_uniswap_v3(
         deployment = deploy_uniswap_v3(web3, deployer)
         factory = deployment.factory
         print(f"Uniswap factory is {factory.address}")
+        router = deployment.router
+        print(f"Uniswap router is {router.address}")
 
     :param web3: Web3 instance
     :param deployer: Deployer account
@@ -89,13 +95,67 @@ def deploy_uniswap_v3(
             {"from": deployer, "value": give_weth * 10**18}
         )
 
+    PoolContract = get_contract(web3, "uniswap_v3/UniswapV3Pool.json")
+
     return UniswapV3Deployment(
-        web3,
-        factory,
-        weth,
-        router,
+        web3=web3,
+        factory=factory,
+        weth=weth,
+        router=router,
+        PoolContract=PoolContract,
     )
 
+
+def deploy_pool(
+    web3: Web3,
+    deployer: HexAddress,
+    *,
+    deployment: UniswapV3Deployment,
+    token_a: Contract,
+    token_b: Contract,
+    fee: int,
+) -> HexAddress:
+    """Deploy a new pool on Uniswap v3.
+
+    Assumes `deployer` has enough token balance to add the initial liquidity.
+    The deployer will also receive LP tokens for newly added liquidity.
+
+    `See UniswapV3Factory.createPool() for details <https://github.com/Uniswap/v3-core/blob/main/contracts/UniswapV3Factory.sol#L35>`_.
+
+    :param web3: Web3 instance
+    :param deployer: Deployer account
+    :param deployment: Uniswap v3 deployment
+    :param token_a: Base token of the pool
+    :param token_b: Quote token of the pool
+    :param fee: Fee of the pool
+    :return: Pool address
+    """
+
+    assert token_a.address != token_b.address
+
+    # https://github.com/Uniswap/v3-core/blob/main/contracts/UniswapV3Factory.sol#L26-L31
+    assert fee in [
+        500,
+        3_000,
+        10_000,
+    ], "Default Uniswap v3 factory only supports 3 fee amount: 500, 3000, 10000"
+
+    # NOTE: later we can support custom fee by using enableFeeAmount() in the factory:
+    # https://github.com/Uniswap/v3-core/blob/main/contracts/UniswapV3Factory.sol#L61
+
+    factory = deployment.factory
+    tx_hash = factory.functions.createPool(
+        token_a.address, token_b.address, fee
+    ).transact({"from": deployer})
+    tx_receipt = web3.eth.wait_for_transaction_receipt(tx_hash)
+
+    # https://ethereum.stackexchange.com/a/59288/620
+    # AttributeDict({'args': AttributeDict({'token0': '0x2946259E0334f33A064106302415aD3391BeD384', 'token1': '0xB9816fC57977D5A786E654c7CF76767be63b966e', 'fee': 3000, 'tickSpacing': 60, 'pool': '0x2a28188cEa899849B9dd497C1E04BC2f62E54B97'}), 'event': 'PoolCreated', 'logIndex': 0, 'transactionIndex': 0, 'transactionHash': HexBytes('0xb4e137f58ba6f22ecfce572e9ca50e7e174fb5c02243b956883c4da08c3cbef9'), 'address': '0xF2E246BB76DF876Cef8b38ae84130F4F55De395b', 'blockHash': HexBytes('0x7d3eb4fceaf4df22df7644a1df2af1d00863476bcd8fc76ade7c4efe7d78c8e5'), 'blockNumber': 6})
+    logs = factory.events.PoolCreated().processReceipt(tx_receipt)
+    event0 = logs[0]
+    pool_address = event0["args"]["pool"]
+
+    return pool_address
 
 
 # https://etherscan.io/address/0x1F98431c8aD98523631AE4a59f267346ea31F984#code
