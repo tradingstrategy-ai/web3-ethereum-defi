@@ -7,7 +7,7 @@ from eth_typing import HexAddress
 from web3 import Web3
 from web3.logs import DISCARD
 
-from eth_hentai.abi import get_contract
+from eth_hentai.abi import get_contract, get_transaction_data_field
 from eth_hentai.token import fetch_erc20_details
 from eth_hentai.uniswap_v2 import UniswapV2Deployment
 
@@ -110,7 +110,7 @@ def analyse_trade(web3: Web3, uniswap: UniswapV2Deployment, tx_hash: hash) -> Un
 
     # Decode inputs going to the Uniswap swap
     # https://stackoverflow.com/a/70737448/315168
-    function, input_args = router.decode_function_input(tx["data"])
+    function, input_args = router.decode_function_input(get_transaction_data_field(tx))
     path = input_args["path"]
 
     assert function.fn_name == "swapExactTokensForTokens", f"Unsupported Uniswap v2 trade function {function}"

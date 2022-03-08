@@ -14,6 +14,8 @@ from web3.contract import Contract
 
 
 # Cache loaded ABI files in-process memory for speedup
+from web3.datastructures import AttributeDict
+
 _cache = {}
 
 
@@ -73,3 +75,24 @@ def get_deployed_contract(web3: Web3, fname: str, address: Union[HexAddress, str
     """
     Contract = get_contract(web3, fname)
     return Contract(address)
+
+
+def get_transaction_data_field(tx: AttributeDict) -> str:
+    """Get the "Data" payload of a transaction.
+
+    Ethereum Tester has this in tx.data while Ganache has this in tx.input.
+    Yes, it is madness.
+
+    Example:
+
+    .. code-block::
+
+        tx = web3.eth.get_transaction(tx_hash)
+        function, input_args = router.decode_function_input(get_transaction_data_field(tx))
+        print("Transaction {tx_hash} called function {function}")
+
+    """
+    if "data" in tx:
+        return tx["data"]
+    else:
+        return tx["input"]
