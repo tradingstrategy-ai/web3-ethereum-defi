@@ -42,6 +42,7 @@ from requests.exceptions import ConnectionError as RequestsConnectionError
 
 from web3 import Web3, HTTPProvider
 
+from eth_hentai.utils import is_localhost_port_listening
 
 logger = logging.getLogger(__name__)
 
@@ -151,7 +152,7 @@ def _launch(cmd: str, **kwargs: Dict) -> Tuple[psutil.Popen, List[str]]:
                 )
     out = DEVNULL if sys.platform == "win32" else PIPE
 
-    logger.debug("Launching ganache-cli: %s", " ".join(cmd_list))
+    logger.info("Launching ganache-cli: %s", " ".join(cmd_list))
     return psutil.Popen(cmd_list, stdin=DEVNULL, stdout=out, stderr=out), cmd_list
 
 
@@ -255,6 +256,9 @@ def _validate_cmd_settings(cmd_settings: dict) -> dict:
 class GanacheLaunch:
     """Control ganache-cli processes launched on background."""
 
+    #: Which port was bound by the ganache
+    port: int
+
     #: Used command-line to spin up ganache-cli
     cmd: List[str]
 
@@ -264,9 +268,11 @@ class GanacheLaunch:
     #: UNIX process that we opened
     process: psutil.Popen
 
-    def close(self, verbose=False):
+    def close(self, verbose=False, block=True, block_timeout=30):
         """Kill the ganache-cli process.
 
+        :param block: Block the execution until Ganache has terminated
+        :param block_timeout: How long we give for Ganache to clean up after itself
         :param verbose: If set, dump anything in Ganache stdout to the Python logging using level `INFO`.
         """
 
@@ -279,6 +285,15 @@ class GanacheLaunch:
                     logger.info(line)
 
         process.terminate()
+
+        if block:
+            deadline = time.time() + 30
+            while time.time() < deadline:
+                if is_localhost_port_listening(self.port):
+                    # Port released, assume Ganache is gone
+                    return
+
+            raise AssertionError(f"Could not terminate ganache in {block_timeout} seconds")
 
 
 def fork_network(
@@ -354,6 +369,13 @@ def fork_network(
 
     `See the full example in tests source code <https://github.com/tradingstrategy-ai/eth-hentai/blob/master/tests/test_ganache.py>`_.
 
+    If `ganache-cli` refuses to terminate properly, you can kill a process by a port with:
+
+    .. code-block:: shell
+
+        # Kill any process listening to localhost:19999
+        kill -9 $(lsof -ti:19999)
+
     This function uses Python logging subsystem. If you want to see error/info/debug logs with `pytest` you can do:
 
     .. code-block:: shell
@@ -372,6 +394,8 @@ def fork_network(
     :param evm_version: "london" for the default hard fork
     """
 
+    assert not is_localhost_port_listening(port), f"localhost port {port} occupied - you might have a zombie Ganache around"
+
     url = f"http://localhost:{port}"
 
     process, final_cmd = _launch(
@@ -379,13 +403,14 @@ def fork_network(
         port=port,
         fork=json_rpc_url,
         unlock=unlocked_addresses,
+        evm_version=evm_version,
     )
 
     # Wait until Ganache is responsive
     timeout = time.time() + launch_wait_seconds
     current_block = None
 
-    # Use short 1.0s HTTP read timeout here - otherwise requests will wait > 10s if something is wrong
+    # Use short 1.0s HTTP read timeout here - otherwise requests will wa-it > 10s if something is wrong
     web3 = Web3(HTTPProvider(url, request_kwargs={"timeout": 1.0}))
     while time.time() < timeout:
         if process.poll() is not None:
@@ -419,6 +444,7 @@ def fork_network(
     logger.info(f"ganache-cli forked network %d, the current block is {current_block:,}, Ganache JSON-RPC is %s", chain_id, url)
 
     return GanacheLaunch(
+        port,
         final_cmd,
         url,
         process
