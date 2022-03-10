@@ -53,7 +53,7 @@ def user_1(web3) -> str:
 
 @pytest.fixture()
 def uniswap_v3(web3, deployer) -> UniswapV3Deployment:
-    """Uniswap v2 deployment."""
+    """Uniswap v3 deployment."""
     deployment = deploy_uniswap_v3(web3, deployer)
     return deployment
 
@@ -93,8 +93,8 @@ def test_create_pool(
             web3,
             deployer,
             deployment=uniswap_v3,
-            token_a=weth,
-            token_b=usdc,
+            token0=weth,
+            token1=usdc,
             fee=10,
         )
 
@@ -102,9 +102,11 @@ def test_create_pool(
         web3,
         deployer,
         deployment=uniswap_v3,
-        token_a=weth,
-        token_b=usdc,
+        token0=weth,
+        token1=usdc,
         fee=fee,
+        liquidity0=100,
+        liquidity1=200,
     )
 
     # Check the pool was successfully deployed
