@@ -254,7 +254,10 @@ def _validate_cmd_settings(cmd_settings: dict) -> dict:
 
 @dataclass
 class GanacheLaunch:
-    """Control ganache-cli processes launched on background."""
+    """Control ganache-cli processes launched on background.
+
+    Comes with a helpful :py:meth:`close` method when it is time to put Ganache rest.
+    """
 
     #: Which port was bound by the ganache
     port: int
@@ -271,6 +274,8 @@ class GanacheLaunch:
     def close(self, verbose=False, block=True, block_timeout=30):
         """Kill the ganache-cli process.
 
+        Ganache is pretty hard to kill, so keep killing it until it dies and the port is free again.
+
         :param block: Block the execution until Ganache has terminated
         :param block_timeout: How long we give for Ganache to clean up after itself
         :param verbose: If set, dump anything in Ganache stdout to the Python logging using level `INFO`.
@@ -284,12 +289,14 @@ class GanacheLaunch:
                 for line in output.split("\n"):
                     logger.info(line)
 
-        process.terminate()
+        # process.terminate()
+        # Hahahahah, this is Ganache, do you think terminate signal is enough
+        process.kill()
 
         if block:
             deadline = time.time() + 30
             while time.time() < deadline:
-                if is_localhost_port_listening(self.port):
+                if not is_localhost_port_listening(self.port):
                     # Port released, assume Ganache is gone
                     return
 
