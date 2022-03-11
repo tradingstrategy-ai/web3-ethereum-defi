@@ -5,14 +5,12 @@ from eth_typing import HexAddress
 from web3 import Web3
 from web3.contract import Contract
 
-from eth_hentai.abi import get_contract, get_deployed_contract
+from eth_hentai.abi import get_abi_by_filename, get_contract, get_deployed_contract
 from eth_hentai.deploy import deploy_contract
 from eth_hentai.uniswap_v2.deployment import FOREVER_DEADLINE
 from eth_hentai.uniswap_v3.bytecodes import (
     UNISWAP_V3_FACTORY_BYTECODE,
     UNISWAP_V3_FACTORY_DEPLOYMENT_DATA,
-    UNISWAP_V3_NFT_DESCRIPTOR_BYTECODE,
-    UNISWAP_V3_NFT_DESCRIPTOR_DEPLOYMENT_DATA,
 )
 from eth_hentai.uniswap_v3.utils import get_sqrt_price_x96
 
@@ -102,25 +100,9 @@ def deploy_uniswap_v3(
         weth.address,
     )
 
-    # NOTE: it currently isn't possible to deploy NFT descriptor contract direclty since the bytecode contains non-hexstr characters
-    # token_descriptor = deploy_contract(
-    #     web3,
-    #     "uniswap_v3/NonfungibleTokenPositionDescriptor.json",
-    #     deployer,
-    #     deployment.weth.address,
-    #     b"TEST",  # natural
-    # )
-    TokenDescriptor = get_contract(
-        web3,
-        "uniswap_v3/NonfungibleTokenPositionDescriptor.json",
-        bytecode=UNISWAP_V3_NFT_DESCRIPTOR_BYTECODE,
+    nft_position_descriptor = _deploy_nft_position_descriptor(
+        web3, deployer, weth, native_currency_label=b"TEST"
     )
-
-    tx_hash = web3.eth.send_transaction(
-        {"from": deployer, "data": UNISWAP_V3_NFT_DESCRIPTOR_DEPLOYMENT_DATA}
-    )
-    tx_receipt = web3.eth.wait_for_transaction_receipt(tx_hash)
-    token_descriptor = TokenDescriptor(address=tx_receipt.contractAddress)
 
     position_manager = deploy_contract(
         web3,
@@ -128,7 +110,7 @@ def deploy_uniswap_v3(
         deployer,
         factory.address,
         weth.address,
-        token_descriptor.address,
+        nft_position_descriptor.address,
     )
 
     if give_weth:
@@ -145,6 +127,37 @@ def deploy_uniswap_v3(
         swap_router=swap_router,
         position_manager=position_manager,
         PoolContract=PoolContract,
+    )
+
+
+def _deploy_nft_position_descriptor(
+    web3: Web3,
+    deployer: HexAddress,
+    weth: Contract,
+    native_currency_label: bytes,
+):
+    """Deploy NFT position descripor.
+
+    Currently this is a separate function since we need to manage the link references
+    in ad-hoc manner.
+    """
+    nft_descriptor = deploy_contract(web3, "uniswap_v3/NFTDescriptor.json", deployer)
+
+    contract_interface = get_abi_by_filename(
+        "uniswap_v3/NonfungibleTokenPositionDescriptor.json"
+    )
+    abi = contract_interface["abi"]
+    bytecode = contract_interface["bytecode"].replace(
+        "__$cea9be979eee3d87fb124d6cbb244bb0b5$__", nft_descriptor.address[2:]
+    )
+    NonfungibleTokenPositionDescriptor = web3.eth.contract(abi=abi, bytecode=bytecode)
+
+    return deploy_contract(
+        web3,
+        NonfungibleTokenPositionDescriptor,
+        deployer,
+        weth.address,
+        native_currency_label,
     )
 
 
