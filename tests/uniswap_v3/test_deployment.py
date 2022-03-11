@@ -40,8 +40,8 @@ def test_deploy_uniswap_v3(web3: Web3, deployer: str):
     assert len(parameters) == 5
     assert parameters[4] == 0  # initial fee
 
-    assert deployment.router.functions.WETH9().call() == deployment.weth.address
-    assert deployment.router.functions.factory().call() == factory.address
+    assert deployment.swap_router.functions.WETH9().call() == deployment.weth.address
+    assert deployment.swap_router.functions.factory().call() == factory.address
 
 
 def test_weth(web3: Web3, deployer: str):

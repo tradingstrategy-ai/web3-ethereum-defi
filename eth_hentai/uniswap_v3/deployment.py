@@ -32,11 +32,15 @@ class UniswapV3Deployment:
     #: `See the Solidity source code <https://github.com/sushiswap/sushiswap/blob/4fdfeb7dafe852e738c56f11a6cae855e2fc0046/contracts/mocks/WETH9Mock.sol>`__.
     weth: Contract
 
-    #: Router address.
+    #: Swap router address.
     #: `See the Solidity source code <https://github.com/Uniswap/v3-periphery/blob/main/contracts/SwapRouter.sol>`__.
-    router: Contract
+    swap_router: Contract
 
-    # Pool contract proxy class
+    #: Non-fungible position manager address.
+    #: `See the Solidity source code <https://github.com/Uniswap/v3-periphery/blob/main/contracts/NonfungiblePositionManager.sol>`__.
+    position_manager: Contract
+
+    # Pool contract proxy class.
     #: `See the Solidity source code <https://github.com/Uniswap/v3-core/blob/main/contracts/UniswapV3Pool.sol>`__.
     PoolContract: Contract
 
@@ -77,8 +81,8 @@ def deploy_uniswap_v3(
         deployment = deploy_uniswap_v3(web3, deployer)
         factory = deployment.factory
         print(f"Uniswap factory is {factory.address}")
-        router = deployment.router
-        print(f"Uniswap router is {router.address}")
+        swap_router = deployment.swap_router
+        print(f"Uniswap swap router is {swap_router.address}")
 
     :param web3: Web3 instance
     :param deployer: Deployer account
@@ -90,12 +94,41 @@ def deploy_uniswap_v3(
     # Factory takes feeSetter as an argument
     factory = deploy_uniswap_v3_factory(web3, deployer)
     weth = deploy_contract(web3, "WETH9Mock.json", deployer)
-    router = deploy_contract(
+    swap_router = deploy_contract(
         web3,
         "uniswap_v3/SwapRouter.json",
         deployer,
         factory.address,
         weth.address,
+    )
+
+    # NOTE: it currently isn't possible to deploy NFT descriptor contract direclty since the bytecode contains non-hexstr characters
+    # token_descriptor = deploy_contract(
+    #     web3,
+    #     "uniswap_v3/NonfungibleTokenPositionDescriptor.json",
+    #     deployer,
+    #     deployment.weth.address,
+    #     b"TEST",  # natural
+    # )
+    TokenDescriptor = get_contract(
+        web3,
+        "uniswap_v3/NonfungibleTokenPositionDescriptor.json",
+        bytecode=UNISWAP_V3_NFT_DESCRIPTOR_BYTECODE,
+    )
+
+    tx_hash = web3.eth.send_transaction(
+        {"from": deployer, "data": UNISWAP_V3_NFT_DESCRIPTOR_DEPLOYMENT_DATA}
+    )
+    tx_receipt = web3.eth.wait_for_transaction_receipt(tx_hash)
+    token_descriptor = TokenDescriptor(address=tx_receipt.contractAddress)
+
+    position_manager = deploy_contract(
+        web3,
+        "uniswap_v3/NonfungiblePositionManager.json",
+        deployer,
+        factory.address,
+        weth.address,
+        token_descriptor.address,
     )
 
     if give_weth:
@@ -109,7 +142,8 @@ def deploy_uniswap_v3(
         web3=web3,
         factory=factory,
         weth=weth,
-        router=router,
+        swap_router=swap_router,
+        position_manager=position_manager,
         PoolContract=PoolContract,
     )
 
@@ -122,8 +156,8 @@ def deploy_pool(
     token0: Contract,
     token1: Contract,
     fee: int,
-    amount0: int = 0,
-    amount1: int = 0,
+    initial_amount0: int = 0,
+    initial_amount1: int = 0,
 ) -> Contract:
     """Deploy a new pool on Uniswap v3.
 
@@ -138,8 +172,8 @@ def deploy_pool(
     :param token0: Base token of the pool
     :param token1: Quote token of the pool
     :param fee: Fee of the pool
-    :param amount0: Initial liquidity added for `token0`. Set zero if no liquidity will be added.
-    :param amount1: Initial liquidity added for `token1`. Set zero if no liquidity will be added.
+    :param initial_amount0: Initial liquidity added for `token0`. Set zero if no liquidity will be added.
+    :param initial_amount1: Initial liquidity added for `token1`. Set zero if no liquidity will be added.
     :return: Pool contract proxy
     """
 
@@ -168,59 +202,35 @@ def deploy_pool(
     pool_address = event0["args"]["pool"]
     pool = deployment.PoolContract(address=pool_address)
 
-    if amount0 > 0:
-        assert token0.functions.balanceOf(deployer).call() > amount0
-        assert token1.functions.balanceOf(deployer).call() > amount1
+    if initial_amount0 > 0 and initial_amount1 > 0:
+        assert token0.functions.balanceOf(deployer).call() > initial_amount0
+        assert token1.functions.balanceOf(deployer).call() > initial_amount1
 
-        # pool is locked until initialize with initial sqrt_price_x96
-        sqrt_price_x96 = get_sqrt_price_x96(amount0, amount1)
+        # pool is locked until initialize with initial sqrtPriceX96
+        # https://github.com/Uniswap/v3-core/blob/main/contracts/UniswapV3Pool.sol#L271
+        sqrt_price_x96 = get_sqrt_price_x96(initial_amount0, initial_amount1)
         pool.functions.initialize(sqrt_price_x96).transact({"from": deployer})
 
-        # NOTE: it currently isn't possible to deploy NFT descriptor contract direclty since the bytecode contains non-hexstr characters
-        # token_descriptor = deploy_contract(
-        #     web3,
-        #     "uniswap_v3/NonfungibleTokenPositionDescriptor.json",
-        #     deployer,
-        #     deployment.weth.address,
-        #     b"TEST",
-        # )
-        TokenDescriptor = get_contract(
-            web3,
-            "uniswap_v3/NonfungibleTokenPositionDescriptor.json",
-            bytecode=UNISWAP_V3_NFT_DESCRIPTOR_BYTECODE,
-        )
-
-        tx_hash = web3.eth.send_transaction(
-            {"from": deployer, "data": UNISWAP_V3_NFT_DESCRIPTOR_DEPLOYMENT_DATA}
-        )
-        tx_receipt = web3.eth.wait_for_transaction_receipt(tx_hash)
-        token_descriptor = TokenDescriptor(address=tx_receipt.contractAddress)
-
-        position_manager = deploy_contract(
-            web3,
-            "uniswap_v3/NonfungiblePositionManager.json",
-            deployer,
-            factory.address,
-            deployment.weth.address,
-            token_descriptor.address,
-        )
-
-        token0.functions.approve(position_manager.address, amount0).transact(
+        position_manager = deployment.position_manager
+        token0.functions.approve(position_manager.address, initial_amount0).transact(
             {"from": deployer}
         )
-        token1.functions.approve(position_manager.address, amount1).transact(
+        token1.functions.approve(position_manager.address, initial_amount1).transact(
             {"from": deployer}
         )
 
-        tx_hash = position_manager.functions.mint(
+        # mint initial position
+        # https://docs.uniswap.org/protocol/guides/providing-liquidity/mint-a-position
+        # TODO: this doesn't work at the moment
+        position_manager.functions.mint(
             (
                 token0.address,
                 token1.address,
                 fee,
                 -887272,  # copied from TickMath.MIN_TICK
                 887272,  # copied from TickMath.MAX_TICK
-                amount0,
-                amount1,
+                initial_amount0,
+                initial_amount1,
                 0,  # Have dummy value here
                 0,  # Have dummy value here
                 deployer,
@@ -228,4 +238,4 @@ def deploy_pool(
             )
         ).transact({"from": deployer})
 
-    return pool_address
+    return pool

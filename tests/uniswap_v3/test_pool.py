@@ -79,7 +79,7 @@ def fee() -> int:
     return 3_000
 
 
-def test_create_pool(
+def test_create_pool_no_liquidity(
     web3: Web3,
     deployer: str,
     uniswap_v3: UniswapV3Deployment,
@@ -87,9 +87,9 @@ def test_create_pool(
     usdc: Contract,
     fee: int,
 ):
-    """Deploy mock pool on mock Uniswap v3."""
-    with pytest.raises(AssertionError) as e:
-        pool_address = deploy_pool(
+    """Deploy mock pool on Uniswap v3 without initial liquidity."""
+    with pytest.raises(AssertionError) as exc:
+        deploy_pool(
             web3,
             deployer,
             deployment=uniswap_v3,
@@ -98,25 +98,58 @@ def test_create_pool(
             fee=10,
         )
 
-    pool_address = deploy_pool(
+        assert (
+            str(exc)
+            == "Default Uniswap v3 factory only allows 3 fee levels: 500, 3000, 10000"
+        )
+
+    pool = deploy_pool(
         web3,
         deployer,
         deployment=uniswap_v3,
         token0=weth,
         token1=usdc,
         fee=fee,
-        liquidity0=100,
-        liquidity1=200,
+        # initial_amount0=100,
+        # initial_amount1=200,
     )
 
     # Check the pool was successfully deployed
-    assert pool_address.startswith("0x")
+    assert pool.address.startswith("0x")
     assert (
         uniswap_v3.factory.functions.getPool(weth.address, usdc.address, fee).call()
-        == pool_address
+        == pool.address
+    )
+    assert pool.functions.token0().call() == weth.address
+    assert pool.functions.token1().call() == usdc.address
+    assert pool.functions.fee().call() == fee
+
+
+def test_create_pool_with_initial_liquidity(
+    web3: Web3,
+    deployer: str,
+    uniswap_v3: UniswapV3Deployment,
+    weth: Contract,
+    usdc: Contract,
+    fee: int,
+):
+    """Deploy mock pool on Uniswap v3 with initial liquidity."""
+    pool = deploy_pool(
+        web3,
+        deployer,
+        deployment=uniswap_v3,
+        token0=weth,
+        token1=usdc,
+        fee=fee,
+        initial_amount0=100,
+        initial_amount1=200,
     )
 
-    pool = get_deployed_contract(web3, "uniswap_v3/UniswapV3Pool.json", pool_address)
+    assert pool.address.startswith("0x")
+    assert (
+        uniswap_v3.factory.functions.getPool(weth.address, usdc.address, fee).call()
+        == pool.address
+    )
     assert pool.functions.token0().call() == weth.address
     assert pool.functions.token1().call() == usdc.address
     assert pool.functions.fee().call() == fee
