@@ -381,7 +381,7 @@ def fork_network(
     .. code-block:: shell
 
         # Kill any process listening to localhost:19999
-        kill -9 $(lsof -ti:19999)
+        kill -SIGKILL $(lsof -ti:19999)
 
     This function uses Python logging subsystem. If you want to see error/info/debug logs with `pytest` you can do:
 

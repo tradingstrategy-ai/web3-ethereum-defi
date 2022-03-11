@@ -12,6 +12,7 @@ from eth_tester.exceptions import TransactionFailed
 from eth_typing import HexAddress
 from web3 import Web3
 from web3.contract import Contract
+from web3.exceptions import BadFunctionCallOutput
 
 from eth_hentai.abi import get_contract, get_deployed_contract
 from eth_hentai.deploy import deploy_contract
@@ -20,7 +21,7 @@ from eth_hentai.utils import sanitise_string
 
 #: List of exceptions JSON-RPC provider can through when ERC-20 field look-up fails
 #: TODO: Add exceptios from real HTTPS/WSS providers
-_call_missing_exceptions = (TransactionFailed,)
+_call_missing_exceptions = (TransactionFailed, BadFunctionCallOutput)
 
 
 @dataclass
@@ -128,30 +129,30 @@ def fetch_erc20_details(web3: Web3, token_address: HexAddress, max_str_length: i
 
     try:
         symbol = sanitise_string(erc_20.functions.symbol().call()[0:max_str_length])
-    except _call_missing_exceptions:
+    except _call_missing_exceptions as e:
         if raise_on_error:
-            raise TokenDetailError(f"Token {token_address} missing symbol")
+            raise TokenDetailError(f"Token {token_address} missing symbol") from e
         symbol = None
 
     try:
         name = sanitise_string(erc_20.functions.name().call()[0:max_str_length])
-    except _call_missing_exceptions:
+    except _call_missing_exceptions as e:
         if raise_on_error:
-            raise TokenDetailError(f"Token {token_address} missing name")
+            raise TokenDetailError(f"Token {token_address} missing name") from e
         name = None
 
     try:
         decimals = erc_20.functions.decimals().call()
-    except _call_missing_exceptions:
+    except _call_missing_exceptions as e:
         if raise_on_error:
-            raise TokenDetailError(f"Token {token_address} missing decimals")
+            raise TokenDetailError(f"Token {token_address} missing decimals") from e
         decimals = None
 
     try:
         supply = erc_20.functions.totalSupply().call()
-    except _call_missing_exceptions:
+    except _call_missing_exceptions as e:
         if raise_on_error:
-            raise TokenDetailError(f"Token {token_address} missing totalSupply")
+            raise TokenDetailError(f"Token {token_address} missing totalSupply") from e
         supply = None
 
     return TokenDetails(erc_20, name, symbol, supply, decimals)
