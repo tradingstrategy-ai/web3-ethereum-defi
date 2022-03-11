@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Optional, Union
+from typing import Optional
 
 from eth_typing import HexAddress
 from web3 import Web3
@@ -23,7 +23,7 @@ class UniswapV3Deployment:
     web3: Web3
 
     #: Factory address.
-    #: `See the Solidity source code <https://github.com/Uniswap/v3-core/blob/main/contracts/UniswapV3Factory.sol>`__.
+    #: `See the Solidity source code <https://github.com/Uniswap/v3-core/blob/v1.0.0/contracts/UniswapV3Factory.sol>`__.
     factory: Contract
 
     #: WETH9Mock address.
@@ -31,15 +31,15 @@ class UniswapV3Deployment:
     weth: Contract
 
     #: Swap router address.
-    #: `See the Solidity source code <https://github.com/Uniswap/v3-periphery/blob/main/contracts/SwapRouter.sol>`__.
+    #: `See the Solidity source code <https://github.com/Uniswap/v3-periphery/blob/v1.0.0/contracts/SwapRouter.sol>`__.
     swap_router: Contract
 
     #: Non-fungible position manager address.
-    #: `See the Solidity source code <https://github.com/Uniswap/v3-periphery/blob/main/contracts/NonfungiblePositionManager.sol>`__.
+    #: `See the Solidity source code <https://github.com/Uniswap/v3-periphery/blob/v1.0.0/contracts/NonfungiblePositionManager.sol>`__.
     position_manager: Contract
 
     # Pool contract proxy class.
-    #: `See the Solidity source code <https://github.com/Uniswap/v3-core/blob/main/contracts/UniswapV3Pool.sol>`__.
+    #: `See the Solidity source code <https://github.com/Uniswap/v3-core/blob/v1.0.0/contracts/UniswapV3Pool.sol>`__.
     PoolContract: Contract
 
 
@@ -100,9 +100,7 @@ def deploy_uniswap_v3(
         weth.address,
     )
 
-    nft_position_descriptor = _deploy_nft_position_descriptor(
-        web3, deployer, weth, native_currency_label=b"TEST"
-    )
+    nft_position_descriptor = _deploy_nft_position_descriptor(web3, deployer, weth)
 
     position_manager = deploy_contract(
         web3,
@@ -130,17 +128,15 @@ def deploy_uniswap_v3(
     )
 
 
-def _deploy_nft_position_descriptor(
-    web3: Web3,
-    deployer: HexAddress,
-    weth: Contract,
-    native_currency_label: bytes,
-):
-    """Deploy NFT position descripor.
+def _deploy_nft_position_descriptor(web3: Web3, deployer: HexAddress, weth: Contract):
+    """Deploy NFT position descriptor.
 
-    Currently this is a separate function since we need to manage the link references
+    `See the solidity source code <https://github.com/Uniswap/v3-periphery/blob/v1.0.0/contracts/NonfungibleTokenPositionDescriptor.sol>`__.
+
+    Currently this is a separate function since we need to link references in bytecode
     in ad-hoc manner.
     """
+    # linkReferences can be found in compiled `abi/uniswap_v3/NonfungibleTokenPositionDescriptor.json`
     nft_descriptor = deploy_contract(web3, "uniswap_v3/NFTDescriptor.json", deployer)
 
     contract_interface = get_abi_by_filename(
@@ -157,7 +153,6 @@ def _deploy_nft_position_descriptor(
         NonfungibleTokenPositionDescriptor,
         deployer,
         weth.address,
-        native_currency_label,
     )
 
 
@@ -177,7 +172,7 @@ def deploy_pool(
     Assumes `deployer` has enough token balance to add the initial liquidity.
     The deployer will also receive LP tokens for newly added liquidity.
 
-    `See UniswapV3Factory.createPool() for details <https://github.com/Uniswap/v3-core/blob/main/contracts/UniswapV3Factory.sol#L35>`_.
+    `See UniswapV3Factory.createPool() for details <https://github.com/Uniswap/v3-core/blob/v1.0.0/contracts/UniswapV3Factory.sol#L35>`_.
 
     :param web3: Web3 instance
     :param deployer: Deployer account
@@ -192,7 +187,7 @@ def deploy_pool(
 
     assert token0.address != token1.address
 
-    # https://github.com/Uniswap/v3-core/blob/main/contracts/UniswapV3Factory.sol#L26-L31
+    # https://github.com/Uniswap/v3-core/blob/v1.0.0/contracts/UniswapV3Factory.sol#L26-L31
     assert fee in [
         500,
         3_000,
@@ -200,7 +195,7 @@ def deploy_pool(
     ], "Default Uniswap v3 factory only allows 3 fee levels: 500, 3000, 10000"
 
     # NOTE: later we can support custom fee by using enableFeeAmount() in the factory:
-    # https://github.com/Uniswap/v3-core/blob/main/contracts/UniswapV3Factory.sol#L61
+    # https://github.com/Uniswap/v3-core/blob/v1.0.0/contracts/UniswapV3Factory.sol#L61
 
     factory = deployment.factory
     tx_hash = factory.functions.createPool(
@@ -220,7 +215,7 @@ def deploy_pool(
         assert token1.functions.balanceOf(deployer).call() > initial_amount1
 
         # pool is locked until initialize with initial sqrtPriceX96
-        # https://github.com/Uniswap/v3-core/blob/main/contracts/UniswapV3Pool.sol#L271
+        # https://github.com/Uniswap/v3-core/blob/v1.0.0/contracts/UniswapV3Pool.sol#L271
         sqrt_price_x96 = get_sqrt_price_x96(initial_amount0, initial_amount1)
         pool.functions.initialize(sqrt_price_x96).transact({"from": deployer})
 
