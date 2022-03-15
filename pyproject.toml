@@ -22,8 +22,9 @@ psutil = "^5.9.0"
 pytest = "^6.2.5"
 sphinx-rtd-theme = "^1.0.0"
 sphinx-sitemap = "^2.2.0"
-
 ipdb = "^0.13.9"
+black = "^22.1.0"
+
 # See discussion https://github.com/python-poetry/poetry/issues/3348#issuecomment-726534462
 [tool.poetry.extras]
 docs = ["Sphinx", "sphinx-rtd-theme", "sphinx-sitemap", "sphinx-autodoc-typehints"]
@@ -31,3 +32,9 @@ docs = ["Sphinx", "sphinx-rtd-theme", "sphinx-sitemap", "sphinx-autodoc-typehint
 [build-system]
 requires = ["poetry-core>=1.0.0"]
 build-backend = "poetry.core.masonry.api"
+
+[tool.pytest.ini_options]
+addopts = "--capture=no --durations=0"
+
+[tool.isort]
+profile = "black"

@@ -2,16 +2,13 @@
 
 `See Github for available contracts <https://github.com/tradingstrategy-ai/eth-hentai/tree/master/eth_hentai/abi>`_.
 """
-
-import os
-import os.path
 import json
-from typing import Type, Optional, Union
+from pathlib import Path
+from typing import Optional, Type, Union
 
 from eth_typing import HexAddress
 from web3 import Web3
 from web3.contract import Contract
-
 
 # Cache loaded ABI files in-process memory for speedup
 from web3.datastructures import AttributeDict
@@ -38,15 +35,18 @@ def get_abi_by_filename(fname: str) -> dict:
     if fname in _cache:
         return _cache[fname]
 
-    here = os.path.dirname(__file__)
-    abi_path = os.path.join(here, "abi", fname)
+    here = Path(__file__).resolve().parent
+    abi_path = here / "abi" / Path(fname)
     with open(abi_path, "rt") as f:
         abi = json.load(f)
     _cache[fname] = abi
+
     return abi
 
 
-def get_contract(web3: Web3, fname: str, bytecode: Optional[str]=None) -> Type[Contract]:
+def get_contract(
+    web3: Web3, fname: str, bytecode: Optional[str] = None
+) -> Type[Contract]:
     """Create a Contract proxy class from our bundled contracts.
 
     `See Web3.py documentation on Contract instances <https://web3py.readthedocs.io/en/stable/contracts.html#contract-deployment-example>`_.
@@ -63,7 +63,11 @@ def get_contract(web3: Web3, fname: str, bytecode: Optional[str]=None) -> Type[C
     return Contract
 
 
-def get_deployed_contract(web3: Web3, fname: str, address: Union[HexAddress, str]) -> Contract:
+def get_deployed_contract(
+    web3: Web3,
+    fname: str,
+    address: Union[HexAddress, str],
+) -> Contract:
     """Get a Contract proxy objec for a contract deployed at a specific address.
 
     `See Web3.py documentation on Contract instances <https://web3py.readthedocs.io/en/stable/contracts.html#contract-deployment-example>`_.

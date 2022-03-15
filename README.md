@@ -161,7 +161,7 @@ import pytest
 from web3 import Web3
 from web3.contract import Contract
 
-from eth_hentai.uniswap_v2 import UniswapV2Deployment, deploy_trading_pair, FOREVER_DEADLINE
+from eth_hentai.uniswap_v2.deployment import UniswapV2Deployment, deploy_trading_pair, FOREVER_DEADLINE
 
 
 def test_swap(web3: Web3, deployer: str, user_1: str, uniswap_v2: UniswapV2Deployment, weth: Contract, usdc: Contract):

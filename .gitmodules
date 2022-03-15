@@ -1,3 +1,9 @@
 [submodule "sushiswap"]
 	path = sushiswap
 	url = https://github.com/sushiswap/sushiswap.git
+[submodule "uniswap_v3/v3-core"]
+	path = uniswap_v3/v3-core
+	url = https://github.com/Uniswap/v3-core.git
+[submodule "uniswap_v3/v3-periphery"]
+	path = uniswap_v3/v3-periphery
+	url = https://github.com/Uniswap/v3-periphery.git
