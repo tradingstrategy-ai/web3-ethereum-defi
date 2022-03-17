@@ -13,18 +13,14 @@ More information
 * `Discord <https://tradingstrategy.ai/community>`_
 
 
-API documentation
-=================
+Core API documentation
+======================
 
 .. autosummary::
    :toctree: _autosummary
    :recursive:
 
    eth_hentai.token
-   eth_hentai.uniswap_v2
-   eth_hentai.uniswap_v2_fees
-   eth_hentai.uniswap_v2_analysis
-   eth_hentai.uniswap_v2_utils
    eth_hentai.balances
    eth_hentai.abi
    eth_hentai.deploy
@@ -35,10 +31,35 @@ API documentation
    eth_hentai.ganache
    eth_hentai.utils
 
+Uniswap v2 API documentation
+============================
+
+.. autosummary::
+   :toctree: _autosummary_uniswap_v2
+   :recursive:
+
+   eth_hentai.uniswap_v2.deployment
+   eth_hentai.uniswap_v2.fees
+   eth_hentai.uniswap_v2.analysis
+   eth_hentai.uniswap_v2.utils
+
+Uniswap v3 API documentation
+============================
+
+.. autosummary::
+   :toctree: _autosummary_uniswap_v3
+   :recursive:
+
+   eth_hentai.uniswap_v3.deployment
+   eth_hentai.uniswap_v3.constants
+   eth_hentai.uniswap_v3.utils
+
+Other documentation
+===================
+
 
 .. toctree::
    :maxdepth: 2
-   :caption: Misc. documentation:
 
    related
 

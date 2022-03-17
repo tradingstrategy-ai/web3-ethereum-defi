@@ -1,3 +1,5 @@
+"""Uniswap v3 constants."""
+
 FOREVER_DEADLINE = 2**63
 
 # https://github.com/Uniswap/v3-core/blob/v1.0.0/contracts/libraries/TickMath.sol#L8-L11

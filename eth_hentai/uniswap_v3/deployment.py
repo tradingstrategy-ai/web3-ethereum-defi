@@ -1,3 +1,19 @@
+"""Uniswap v3 and compatible DEX deployments.
+
+Compatible exchanges include Uniswap v3 deployments on:
+
+- Ethereum mainnet
+
+- Avalanche
+
+- Polygon
+
+- Optimism
+
+- Arbitrum
+
+"""
+
 from dataclasses import dataclass
 from typing import Callable, Optional, Tuple
 

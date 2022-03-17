@@ -14,6 +14,7 @@
    .. autosummary::
       :toctree:
    
+      is_localhost_port_listening
       sanitise_string
    
    

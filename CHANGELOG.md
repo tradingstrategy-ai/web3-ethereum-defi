@@ -1,9 +1,11 @@
-# Current
+# 0.5
 
+- Feature: Added initial Uniswap v3 testing support
 - Feature: Allow override init code hash for `eth_hentai.uniswap_v2.fetch_deployment`
 - Feature: Faster failing if ganache-cli RPS port is already taken
 - Feature: Added `fetch_erc20_balances_by_token_list`
 - Feature: Added `get_transaction_data_field`
+- API change: `uniswap_v2` or `uniswap_v3` are now their respective submodules
 - API change: Rename `fetch_erc20_balances` -> `fetch_erc20_balances_by_transfer_event`
 - API change: Removed `fetch_erc20_balances_decimal_by_transfer_event`
 - API change: Rename `convert_to_decimal` -> `convert_balances_to_decimal`
