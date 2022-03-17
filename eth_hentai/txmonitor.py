@@ -7,6 +7,7 @@ import datetime
 from eth_account.datastructures import SignedTransaction
 from hexbytes import HexBytes
 from web3 import Web3
+from web3.exceptions import TransactionNotFound
 
 
 def wait_transactions_to_complete(
@@ -45,7 +46,12 @@ def wait_transactions_to_complete(
     while len(receipts_received) < len(txs):
 
         for tx_hash in txs:
-            receipt = web3.eth.get_transaction_receipt(tx_hash)
+            try:
+                receipt = web3.eth.get_transaction_receipt(tx_hash)
+            except TransactionNotFound:
+                # BNB Chain get does this instead of returning None
+                receipt = None
+
             if receipt:
                 receipts_received[tx_hash] = receipt
 

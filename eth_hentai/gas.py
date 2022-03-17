@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from typing import Optional
 
 from web3 import Web3
+from web3.gas_strategies.rpc import rpc_gas_price_strategy
 
 
 class GasPriceMethod(enum.Enum):
@@ -93,3 +94,31 @@ def apply_gas(tx: dict, suggestion: GasPriceSuggestion):
         tx["maxPriorityFeePerGas"] = suggestion.max_priority_fee_per_gas
     else:
         tx["gasPrice"] = suggestion.legacy_gas_price
+
+
+def node_default_gas_price_strategy(web3: Web3, transaction_params: dict) -> int:
+    """Gas price strategy for blockchains not supporting dynamic gas fees.
+
+    This gas price strategy will query the JSON-RPC for the suggested flat fee.
+    It works on chains that do not support EIP-1559 London hardfork style
+    base fee + max fee dynamic pricing.
+
+    These include
+
+    - BNB Chain
+
+    Example:
+
+    .. code-block::
+
+        from eth_hentai.gas import node_default_gas_price_strategy
+        web3.eth.set_gas_price_strategy(node_default_gas_price_strategy)
+
+    For more information see
+
+    - https://web3py.readthedocs.io/en/stable/gas_price.html
+
+    - https://www.blockchain-council.org/ethereum/eip-1559/
+    """
+    node_default_price = rpc_gas_price_strategy(web3)
+    return node_default_price
