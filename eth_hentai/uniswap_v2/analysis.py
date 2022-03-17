@@ -19,7 +19,8 @@ class TradeResult:
     #: How many units of gas we burned
     gas_used: int
 
-    #: What as the gas price used in wei
+    #: What as the gas price used in wei.
+    #: Set to `0` if not available.
     effective_gas_price: int
 
     def get_effective_gas_price_gwei(self) -> Decimal:
@@ -97,7 +98,7 @@ def analyse_trade(web3: Web3, uniswap: UniswapV2Deployment, tx_hash: hash) -> Un
     router = uniswap.router
     assert tx_receipt["to"] == router.address, f"For now, we can only analyze naive trades to the router. This tx was to {tx_receipt['to']}, router is {router.address}"
 
-    effective_gas_price = tx_receipt["effectiveGasPrice"]
+    effective_gas_price = tx_receipt.get("effectiveGasPrice", 0)
     gas_used = tx_receipt["gasUsed"]
 
     # Tx reverted
