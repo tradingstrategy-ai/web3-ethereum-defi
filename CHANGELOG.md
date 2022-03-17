@@ -1,3 +1,7 @@
+# Current
+
+- Feature: Added `eth_hentai.gas.node_default_gas_price_strategy` to support BNB Chain
+
 # 0.5
 
 - Feature: Added initial Uniswap v3 testing support
