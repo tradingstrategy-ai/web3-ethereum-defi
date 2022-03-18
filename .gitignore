@@ -1,7 +1,16 @@
 __pycache__
-docs/build
 .DS_Store
-.ipynb_checkpoints
+
+# build
 dist
+
+# jupyter
+.ipynb_checkpoints
+
+# IDE
 .vscode
 .python-version
+
+# docs
+docs/build
+docs/source/_autosummary*
