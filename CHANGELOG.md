@@ -15,6 +15,8 @@
 - Fix: Wait 10 seconds instead of 5 seconds to ganache-cli to launch, as the latter is too slow for some computers
 - Fix: Optimize `wait_transactions_to_complete`
 - API change: Created a separate `broadcast_transactions` function
+- API change: Moved `get_amount_in` and `get_amount_out` to `UniswapV2FeeCalculator` class
+- Feature: Added support for `fee` and `slippage` to `uniswap_v2` price calculations
 
 # 0.5
 
