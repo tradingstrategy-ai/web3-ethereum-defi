@@ -38,7 +38,7 @@ build-docs:
 
 # Nuke the old docs build to ensure all pages are regenerated
 clean-docs:
-	@rm -rf docs/source/_autosummary
+	@rm -rf docs/source/_autosummary*
 	@rm -rf docs/build/html
 
 docs-all: clean-docs build-docs
