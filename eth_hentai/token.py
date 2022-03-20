@@ -146,7 +146,7 @@ def fetch_erc20_details(web3: Web3, token_address: HexAddress, max_str_length: i
     except _call_missing_exceptions as e:
         if raise_on_error:
             raise TokenDetailError(f"Token {token_address} missing decimals") from e
-        decimals = None
+        decimals = 0
 
     try:
         supply = erc_20.functions.totalSupply().call()

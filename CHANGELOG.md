@@ -1,6 +1,7 @@
 # Current
 
 - Feature: Added `eth_hentai.gas.node_default_gas_price_strategy` to support BNB Chain
+- Fix: BNB Chain compatibility fixes because of brokeness in Ethereum JSON-RPC
 
 # 0.5
 

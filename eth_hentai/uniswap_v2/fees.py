@@ -218,7 +218,7 @@ def estimate_buy_price_decimals(uniswap: UniswapV2Deployment, base_token_address
             Decimal(1.0),
         )
         assert usdc_per_eth == pytest.approx(Decimal(1706.82216820632059904))
-
+-
     :param quantity: How much of the base token we want to buy
     :param uniswap: Uniswap v2 deployment
     :param base_token: Base token of the trading pair
@@ -227,8 +227,8 @@ def estimate_buy_price_decimals(uniswap: UniswapV2Deployment, base_token_address
     :raise TokenDetailError: If we have an issue with ERC-20 contracts
     """
     web3 = uniswap.web3
-    base = fetch_erc20_details(web3, base_token_address)
-    quote = fetch_erc20_details(web3, quote_token_address)
+    base = fetch_erc20_details(web3, base_token_address, raise_on_error=False)
+    quote = fetch_erc20_details(web3, quote_token_address, raise_on_error=False)
     quantity_raw = base.convert_to_raw(quantity)
     fee_helper = UniswapV2FeeCalculator(uniswap)
     path = [quote_token_address, base_token_address]
@@ -252,8 +252,8 @@ def estimate_sell_price_decimals(uniswap: UniswapV2Deployment, base_token_addres
     """
 
     web3 = uniswap.web3
-    base = fetch_erc20_details(web3, base_token_address)
-    quote = fetch_erc20_details(web3, quote_token_address)
+    base = fetch_erc20_details(web3, base_token_address, raise_on_error=False)
+    quote = fetch_erc20_details(web3, quote_token_address, raise_on_error=False)
     quantity_raw = base.convert_to_raw(quantity)
 
     fee_helper = UniswapV2FeeCalculator(uniswap)
