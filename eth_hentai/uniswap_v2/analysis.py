@@ -3,6 +3,7 @@ from dataclasses import dataclass
 from decimal import Decimal
 from typing import List, Optional, Tuple, Union
 
+from eth_hentai.revert_reason import fetch_transaction_revert_reason
 from eth_typing import HexAddress
 from web3 import Web3
 from web3.logs import DISCARD
@@ -55,9 +56,8 @@ class TradeFail(TradeResult):
     The transaction reverted for a reason or another.
     """
 
-    #: Revert reason is unlikely to be available depending on the JSON-RPC node
-    #: `Please read this article on the topic <https://medium.com/authereum/getting-ethereum-transaction-revert-reasons-the-easy-way-24203a4d1844>`_.
-    revert_message: Optional[str] = None
+    #: Revert reason if we managed to extract one
+    revert_reason: Optional[str] = None
 
 
 def analyse_trade(web3: Web3, uniswap: UniswapV2Deployment, tx_hash: hash) -> Union[TradeSuccess, TradeFail]:
@@ -101,15 +101,11 @@ def analyse_trade(web3: Web3, uniswap: UniswapV2Deployment, tx_hash: hash) -> Un
     effective_gas_price = tx_receipt.get("effectiveGasPrice", 0)
     gas_used = tx_receipt["gasUsed"]
 
+    # TODO: Unit test this code path
     # Tx reverted
     if tx_receipt["status"] != 1:
-        # See https://github.com/ethereum/web3.py/issues/1941
-        # TODO: Add a logic to get revert reason, needs archival node as per
-        # https://medium.com/authereum/getting-ethereum-transaction-revert-reasons-the-easy-way-24203a4d1844
-
-        import ipdb ; ipdb.set_trace()
-
-        return TradeFail(gas_used, effective_gas_price, revert_message=None)
+        reason = fetch_transaction_revert_reason(web3, tx_hash)
+        return TradeFail(gas_used, effective_gas_price, revert_reason=reason)
 
     # Decode inputs going to the Uniswap swap
     # https://stackoverflow.com/a/70737448/315168
