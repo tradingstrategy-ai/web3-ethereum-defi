@@ -116,6 +116,5 @@ def test_revert_reason(
     receipt = receipts[tx_hash]
     assert receipt.status == 0
 
-    # Because Ganache has instamine turned on by default, we do not need to wait for the transaction
     reason = fetch_transaction_revert_reason(web3, tx_hash)
     assert reason == "VM Exception while processing transaction: revert BEP20: transfer amount exceeds balance"

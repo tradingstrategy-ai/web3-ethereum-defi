@@ -35,11 +35,25 @@ def fetch_transaction_revert_reason(web3: Web3, tx_hash: Union[HexBytes, str], u
     - When sending transsaction using `web3.eth.send_transaction` it must have `gas` set, or the transaction
       will revert during the gas estimation
 
+    Example:
+
+    .. code-block:: python
+
+        receipts = wait_transactions_to_complete(web3, [tx_hash])
+
+        # Check that the transaction reverted
+        assert len(receipts) == 1
+        receipt = receipts[tx_hash]
+        assert receipt.status == 0
+
+        reason = fetch_transaction_revert_reason(web3, tx_hash)
+        assert reason == "VM Exception while processing transaction: revert BEP20: transfer amount exceeds balance"
+
     .. note ::
 
         `use_archive_node=True` path cannot be tested in unit testing.
 
-    :param web3: Our node connection
+    :param web3: Our JSON-RPC connection
 
     :param tx_hash: Transaction hash of which reason we extract by simulation.
 
