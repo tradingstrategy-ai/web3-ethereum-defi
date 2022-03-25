@@ -106,6 +106,9 @@ def analyse_trade(web3: Web3, uniswap: UniswapV2Deployment, tx_hash: hash) -> Un
         # See https://github.com/ethereum/web3.py/issues/1941
         # TODO: Add a logic to get revert reason, needs archival node as per
         # https://medium.com/authereum/getting-ethereum-transaction-revert-reasons-the-easy-way-24203a4d1844
+
+        import ipdb ; ipdb.set_trace()
+
         return TradeFail(gas_used, effective_gas_price, revert_message=None)
 
     # Decode inputs going to the Uniswap swap

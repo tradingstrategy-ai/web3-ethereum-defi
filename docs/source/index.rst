@@ -27,6 +27,7 @@ Core API documentation
    eth_hentai.event
    eth_hentai.gas
    eth_hentai.txmonitor
+   eth_hentai.revert_reason
    eth_hentai.hotwallet
    eth_hentai.ganache
    eth_hentai.utils

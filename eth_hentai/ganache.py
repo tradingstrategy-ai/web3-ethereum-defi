@@ -309,7 +309,8 @@ def fork_network(
         cmd="ganache-cli",
         port=19999,
         evm_version=EVM_DEFAULT,
-        launch_wait_seconds=5.0) -> GanacheLaunch:
+        block_time=0,
+        launch_wait_seconds=10.0) -> GanacheLaunch:
     """Creates the ganache "fork" of given JSON-RPC endpoint.
 
     Forking a mainnet is common way to test against live deployments.
@@ -399,6 +400,12 @@ def fork_network(
     :param port: Localhost port we bind for Ganache JSON-RPC
     :param launch_wait_seconds: How long we wait ganache-cli to start until giving up
     :param evm_version: "london" for the default hard fork
+    :param block_time:
+        How long Ganache takes to mine a block. Default is zero and any RPC transaction
+        will immediately return with the transaction inclusion.
+        Set to `1` so that you can poll the transaction as you would do with
+        a live JSON-RPC node.
+
     """
 
     assert not is_localhost_port_listening(port), f"localhost port {port} occupied - you might have a zombie Ganache around"
@@ -411,6 +418,7 @@ def fork_network(
         fork=json_rpc_url,
         unlock=unlocked_addresses,
         evm_version=evm_version,
+        block_time=block_time,
     )
 
     # Wait until Ganache is responsive

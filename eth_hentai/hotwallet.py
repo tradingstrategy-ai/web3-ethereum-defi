@@ -1,5 +1,6 @@
 """Utilities for managing hot wallets."""
-
+import time
+import logging
 from decimal import Decimal
 from typing import Optional
 
@@ -7,6 +8,9 @@ from eth_account import Account
 from eth_account.datastructures import SignedTransaction
 from eth_account.signers.local import LocalAccount
 from web3 import Web3
+
+
+logger = logging.getLogger(__name__)
 
 
 class HotWallet:
@@ -83,3 +87,6 @@ class HotWallet:
         assert key.startswith("0x")
         account = Account.from_key(key)
         return HotWallet(account)
+
+
+
