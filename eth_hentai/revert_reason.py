@@ -7,6 +7,8 @@ Further reading
 """
 from typing import Union
 
+from eth_hentai.abi import get_transaction_data_field
+from eth_tester.exceptions import TransactionFailed
 from hexbytes import HexBytes
 from web3 import Web3
 
@@ -53,6 +55,11 @@ def fetch_transaction_revert_reason(web3: Web3, tx_hash: Union[HexBytes, str], u
 
         `use_archive_node=True` path cannot be tested in unit testing.
 
+    .. note ::
+
+        Different JSON-RPC providers may return payloads and this function
+        needs to handle each provider as a special case.
+
     :param web3: Our JSON-RPC connection
 
     :param tx_hash: Transaction hash of which reason we extract by simulation.
@@ -72,19 +79,23 @@ def fetch_transaction_revert_reason(web3: Web3, tx_hash: Union[HexBytes, str], u
         'to': tx['to'],
         'from': tx['from'],
         'value': tx['value'],
-        'data': tx['input'],
+        'data': get_transaction_data_field(tx),
     }
 
-    # replay the transaction locally
+    # Replay the transaction locally
     try:
         if use_archive_node:
             web3.eth.call(replay_tx, tx.blockNumber - 1)
         else:
             web3.eth.call(replay_tx)
     except ValueError as e:
+        # Ganache
         assert len(e.args) == 1, f"Something fishy going on with {e}"
         # {'message': 'VM Exception while processing transaction: revert BEP20: transfer amount exceeds balance', 'stack': 'CallError: VM Exception while processing transaction: revert BEP20: transfer amount exceeds balance\n    at Blockchain.simulateTransaction (/usr/local/lib/node_modules/ganache/dist/node/1.js:2:49094)\n    at processTicksAndRejections (node:internal/process/task_queues:96:5)', 'code': -32000, 'name': 'CallError', 'data': '0x08c379a00000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000002642455032303a207472616e7366657220616d6f756e7420657863656564732062616c616e63650000000000000000000000000000000000000000000000000000'}
         data = e.args[0]
         return data["message"]
+    except TransactionFailed as e:
+        # Ethereum Tester
+        return e.args[0]
 
     raise RevertReasonFetchFailed("Transaction succeeded, when it should have failed")

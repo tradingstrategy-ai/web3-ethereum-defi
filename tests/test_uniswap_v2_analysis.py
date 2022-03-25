@@ -235,6 +235,7 @@ def test_analyse_trade_failed(eth_tester: EthereumTester, web3: Web3, deployer: 
         analysis = analyse_trade(web3, uniswap_v2, tx_hash)
         assert isinstance(analysis, TradeFail)
         assert analysis.get_effective_gas_price_gwei() == 1
+        assert analysis.revert_reason == "execution reverted: TransferHelper: TRANSFER_FROM_FAILED"
     finally:
         eth_tester.enable_auto_mine_transactions()
 
