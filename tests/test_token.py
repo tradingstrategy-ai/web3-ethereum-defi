@@ -106,7 +106,7 @@ def test_fetch_token_details_broken_silent(web3: Web3, deployer: str):
     malformed_token = deploy_contract(web3, "MalformedERC20.json", deployer)
     details = fetch_erc20_details(web3, malformed_token.address, raise_on_error=False)
     assert details.symbol == ""
-    assert details.decimals is None
+    assert details.decimals == 0
     assert details.total_supply is None
 
 

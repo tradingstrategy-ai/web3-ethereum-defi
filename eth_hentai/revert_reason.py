@@ -60,6 +60,8 @@ def fetch_transaction_revert_reason(web3: Web3, tx_hash: Union[HexBytes, str], u
     :param use_archive_node:
         Look up *exact* reason by running the tx against the past state.
         This only works if you are connected to the archive node.
+
+    :raise RevertReasonFetchFailed: In the case we could not replay the transaction and extract the reason.
     """
 
     # fetch a reverted transaction:
