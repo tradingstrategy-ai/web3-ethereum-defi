@@ -49,7 +49,11 @@ tx_hash = token.functions.transfer(
     "gas": 500_000,  # Gas must be set or we are going to get an exception in the gas estimate
 })
 
-receipts = wait_transactions_to_complete(web3, [tx_hash], max_timeout=datetime.timedelta(minutes=1))
+receipts = wait_transactions_to_complete(
+    web3, 
+    [tx_hash], 
+    max_timeout=datetime.timedelta(minutes=1),
+    confirmation_block_count=3)
 
 # https://stackoverflow.com/a/39292086/315168
 assert len(receipts) == 1

@@ -2,7 +2,7 @@
 
 import logging
 import time
-from typing import List, Dict
+from typing import List, Dict, Set
 import datetime
 
 from eth_account.datastructures import SignedTransaction
@@ -21,6 +21,7 @@ class ConfirmationTimedOut(Exception):
 def wait_transactions_to_complete(
         web3: Web3,
         txs: List[HexBytes],
+        confirmation_block_count: int = 0,
         max_timeout=datetime.timedelta(minutes=5),
         poll_delay=datetime.timedelta(seconds=1)) -> Dict[HexBytes, dict]:
     """Watch multiple transactions executed at parallel.
@@ -40,8 +41,13 @@ def wait_transactions_to_complete(
         for receipt in complete.values():
             assert receipt.status == 1  # tx success
 
-    :param txs: List of transaction hashes
-    :return: Map of transaction hashes -> receipt
+    :param txs:
+        List of transaction hashes
+    :param confirmation_block_count:
+        How many blocks wait for the transaction receipt to settle.
+        Set to zero to return as soon as we see the first transaction receipt.
+    :return:
+        Map of transaction hashes -> receipt
     """
 
     assert isinstance(poll_delay, datetime.timedelta)
@@ -51,7 +57,7 @@ def wait_transactions_to_complete(
 
     receipts_received = {}
 
-    unconfirmed_txs = set(txs)
+    unconfirmed_txs: Set[HexBytes] = {HexBytes(tx) for tx in txs}
 
     while len(unconfirmed_txs) > 0:
 
@@ -67,8 +73,13 @@ def wait_transactions_to_complete(
                 receipt = None
 
             if receipt:
-                confirmation_received.add(tx_hash)
-                receipts_received[tx_hash] = receipt
+                tx_confirmations = web3.eth.block_number - receipt.blockNumber
+                if tx_confirmations >= confirmation_block_count:
+                    logger.debug("Confirmed tx %s with %d confirmations", tx_hash.hex(), tx_confirmations)
+                    confirmation_received.add(tx_hash)
+                    receipts_received[tx_hash] = receipt
+                else:
+                    logger.debug("Still waiting more confirmations. Tx %s with %d confirmations, %d needed", tx_hash.hex(), tx_confirmations, confirmation_block_count)
 
         # Remove confirmed txs from the working set
         unconfirmed_txs -= confirmation_received

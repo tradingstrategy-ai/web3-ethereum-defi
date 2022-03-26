@@ -99,7 +99,7 @@ def fetch_transaction_revert_reason(web3: Web3, tx_hash: Union[HexBytes, str], u
         else:
             web3.eth.call(replay_tx)
     except ValueError as e:
-        logger.debug("Revert exceptin result is: %s", e)
+        logger.debug("Revert exception result is: %s", e)
         assert len(e.args) == 1, f"Something fishy going on with {e}"
 
         data = e.args[0]
@@ -115,4 +115,4 @@ def fetch_transaction_revert_reason(web3: Web3, tx_hash: Union[HexBytes, str], u
         return e.args[0]
 
     current_block_number = web3.eth.block_number
-    raise RevertReasonFetchFailed(f"Transaction succeeded, when it should have failed. Hash: {tx_hash}, tx block num: {tx.blockNumber}, current block number: {current_block_number}")
+    raise RevertReasonFetchFailed(f"Transaction succeeded, when it should have failed. Hash: {tx_hash}, tx block num: {tx.blockNumber}, current block number: {current_block_number}. Maybe the chain tip is unstable?")
