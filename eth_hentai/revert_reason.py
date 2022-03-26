@@ -99,9 +99,9 @@ def fetch_transaction_revert_reason(
     # Replay the transaction locally
     try:
         if use_archive_node:
-            web3.eth.call(replay_tx, tx.blockNumber - 1)
+            result = web3.eth.call(replay_tx, tx.blockNumber - 1)
         else:
-            web3.eth.call(replay_tx)
+            result = web3.eth.call(replay_tx)
     except ValueError as e:
         logger.debug("Revert exception result is: %s", e)
         assert len(e.args) == 1, f"Something fishy going on with {e}"
@@ -124,5 +124,5 @@ def fetch_transaction_revert_reason(
 
     current_block_number = web3.eth.block_number
     # TODO: Convert to logger record
-    logger.error(f"Transaction succeeded, when it should have failed. Hash: {tx_hash.hex()}, tx block num: {tx.blockNumber}, current block number: {current_block_number}. Maybe the chain tip is unstable?")
+    logger.error(f"Transaction succeeded, when it should have failed. Hash: {tx_hash.hex()}, tx block num: {tx.blockNumber}, current block number: {current_block_number}. Transaction result {result}. Maybe the chain tip is unstable?")
     return unknown_error_message
