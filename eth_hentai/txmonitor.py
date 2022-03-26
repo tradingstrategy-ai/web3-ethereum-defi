@@ -57,7 +57,7 @@ def wait_transactions_to_complete(
     if web3.eth.chain_id == 61:
         assert confirmation_block_count == 0, "Ethereum Tester chain does not progress itself, so we cannot wait"
 
-    logger.info("Waiting %d transactions to confirm in %d blocks", len(txs), confirmation_block_count)
+    logger.info("Waiting %d transactions to confirm in %d blocks, timeout is %s", len(txs), confirmation_block_count, max_timeout)
 
     started_at = datetime.datetime.utcnow()
 
