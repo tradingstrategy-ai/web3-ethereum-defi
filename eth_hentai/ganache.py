@@ -276,7 +276,7 @@ class GanacheLaunch:
     #: UNIX process that we opened
     process: psutil.Popen
 
-    def close(self, verbose=False, block=True, block_timeout=30):
+    def close(self, verbose=False, block=True, block_timeout=30, noise_free=True):
         """Kill the ganache-cli process.
 
         Ganache is pretty hard to kill, so keep killing it until it dies and the port is free again.
@@ -288,6 +288,8 @@ class GanacheLaunch:
 
         process = self.process
         if verbose:
+            # TODO: This does not seem to work on macOS,
+            # but is fine on Ubuntu on Github CI
             logger.info("Dumping Ganache output")
             if process.poll() is not None:
                 output = process.communicate()[0].decode("utf-8")
