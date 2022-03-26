@@ -1,5 +1,6 @@
 """Transaction broadcasting and monitoring."""
 
+import logging
 import time
 from typing import List, Dict
 import datetime
@@ -8,6 +9,9 @@ from eth_account.datastructures import SignedTransaction
 from hexbytes import HexBytes
 from web3 import Web3
 from web3.exceptions import TransactionNotFound
+
+
+logger = logging.getLogger(__name__)
 
 
 class ConfirmationTimedOut(Exception):
@@ -57,8 +61,9 @@ def wait_transactions_to_complete(
         for tx_hash in unconfirmed_txs:
             try:
                 receipt = web3.eth.get_transaction_receipt(tx_hash)
-            except TransactionNotFound:
+            except TransactionNotFound as e:
                 # BNB Chain get does this instead of returning None
+                logger.debug("Transaction not found yet: %s", e)
                 receipt = None
 
             if receipt:

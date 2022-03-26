@@ -38,6 +38,7 @@ import requests
 import urllib3
 from eth_typing import HexAddress
 from hexbytes import HexBytes
+from psutil import NoSuchProcess
 from requests.exceptions import ConnectionError as RequestsConnectionError
 
 from web3 import Web3, HTTPProvider
@@ -49,6 +50,7 @@ logger = logging.getLogger(__name__)
 
 EVM_EQUIVALENTS = {"atlantis": "byzantium", "agharta": "petersburg"}
 
+# https://github.com/trufflesuite/ganache
 CLI_FLAGS = {
     "7": {
         "port": "--server.port",
@@ -65,6 +67,7 @@ CLI_FLAGS = {
         "network_id": "--chain.networkId",
         "chain_id": "--chain.chainId",
         "unlimited_contract_size": "--chain.allowUnlimitedContractSize",
+        "quiet": "--logging.quiet",
     },
     "<=6": {
         "port": "--port",
@@ -140,6 +143,7 @@ def _launch(cmd: str, **kwargs: Dict) -> Tuple[psutil.Popen, List[str]]:
                 cmd_list.extend([cli_flags[key], address])
         else:
             try:
+                # Handle boolean options
                 if value is True:
                     cmd_list.append(cli_flags[key])
                 elif value is not False:
@@ -228,6 +232,7 @@ def _validate_cmd_settings(cmd_settings: dict) -> dict:
         "fork": str,
         "network_id": int,
         "chain_id": int,
+        "quiet": bool,
     }
     for cmd, value in cmd_settings.items():
         if (
@@ -291,7 +296,10 @@ class GanacheLaunch:
 
         # process.terminate()
         # Hahahahah, this is Ganache, do you think terminate signal is enough
-        process.kill()
+        try:
+            process.kill()
+        except NoSuchProcess:
+            raise AssertionError("ganache died on its own :(")
 
         if block:
             deadline = time.time() + 30
@@ -310,6 +318,7 @@ def fork_network(
         port=19999,
         evm_version=EVM_DEFAULT,
         block_time=0,
+        quiet=False,
         launch_wait_seconds=10.0) -> GanacheLaunch:
     """Creates the ganache "fork" of given JSON-RPC endpoint.
 
@@ -405,7 +414,7 @@ def fork_network(
         will immediately return with the transaction inclusion.
         Set to `1` so that you can poll the transaction as you would do with
         a live JSON-RPC node.
-
+    :param quiet: Disable extensive logging.
     """
 
     assert not is_localhost_port_listening(port), f"localhost port {port} occupied - you might have a zombie Ganache around"
@@ -419,6 +428,7 @@ def fork_network(
         unlock=unlocked_addresses,
         evm_version=evm_version,
         block_time=block_time,
+        quiet=quiet,
     )
 
     # Wait until Ganache is responsive
