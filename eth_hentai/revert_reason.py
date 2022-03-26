@@ -124,5 +124,5 @@ def fetch_transaction_revert_reason(
 
     current_block_number = web3.eth.block_number
     # TODO: Convert to logger record
-    logger.error(f"Transaction succeeded, when it should have failed. Hash: {tx_hash.hex()}, tx block num: {tx.blockNumber}, current block number: {current_block_number}. Transaction result {result}. Maybe the chain tip is unstable?")
+    logger.error(f"Transaction succeeded, when it should have failed. Hash: {tx_hash.hex()}, tx block num: {tx.blockNumber}, current block number: {current_block_number}, transaction result {result.hex()}. Maybe the chain tip is unstable?")
     return unknown_error_message
