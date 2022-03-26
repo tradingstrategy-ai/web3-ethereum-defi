@@ -54,6 +54,9 @@ def wait_transactions_to_complete(
     assert isinstance(max_timeout, datetime.timedelta)
     assert isinstance(confirmation_block_count, int)
 
+    if web3.eth.chain_id == 61:
+        assert confirmation_block_count == 0, "Ethereum Tester chain does not progress itself, so we cannot wait"
+
     logger.info("Waiting %d transactions to confirm in %d blocks", len(txs), confirmation_block_count)
 
     started_at = datetime.datetime.utcnow()
@@ -91,6 +94,9 @@ def wait_transactions_to_complete(
             time.sleep(poll_delay.total_seconds())
 
             if datetime.datetime.utcnow() > started_at + max_timeout:
+                for tx_hash in unconfirmed_txs:
+                    tx_data = web3.eth.get_transaction(tx_hash)
+                    logger.error("Data for transaction %s was %s", tx_hash.hex(), tx_data)
                 raise ConfirmationTimedOut(f"Transaction confirmation failed. Started: {started_at}, timed out after {max_timeout}. Still unconfirmed: {unconfirmed_txs}")
 
     return receipts_received
