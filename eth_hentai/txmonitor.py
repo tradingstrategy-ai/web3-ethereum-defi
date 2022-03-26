@@ -52,6 +52,9 @@ def wait_transactions_to_complete(
 
     assert isinstance(poll_delay, datetime.timedelta)
     assert isinstance(max_timeout, datetime.timedelta)
+    assert isinstance(confirmation_block_count, int)
+
+    logger.info("Waiting %d transactions to confirm in %d blocks", len(txs), confirmation_block_count)
 
     started_at = datetime.datetime.utcnow()
 
@@ -97,6 +100,7 @@ def broadcast_and_wait_transactions_to_complete(
         web3: Web3,
         txs: List[SignedTransaction],
         confirm_ok=True,
+        confirmation_block_count: int = 0,
         max_timeout=datetime.timedelta(minutes=5),
         poll_delay=datetime.timedelta(seconds=1)) -> Dict[HexBytes, dict]:
     """Broadcast and wait a bunch of signed transactions to confirm.
@@ -106,6 +110,9 @@ def broadcast_and_wait_transactions_to_complete(
     :param confirm_ok: Raise an error if any of the transaction reverts
     :param max_timeout: How long we wait until we give up waiting transactions to complete
     :param poll_delay: Poll timeout between the tx check loops
+    :param confirmation_block_count:
+        How many blocks wait for the transaction receipt to settle.
+        Set to zero to return as soon as we see the first transaction receipt.
     :return: Map transaction hash -> receipt
     """
 
@@ -117,7 +124,7 @@ def broadcast_and_wait_transactions_to_complete(
         hashes.append(hash)
 
     # Wait transactions to confirm
-    receipts = wait_transactions_to_complete(web3, hashes, max_timeout, poll_delay)
+    receipts = wait_transactions_to_complete(web3, hashes, confirmation_block_count, max_timeout, poll_delay)
 
     if confirm_ok:
         for tx_hash, receipt in receipts.items():

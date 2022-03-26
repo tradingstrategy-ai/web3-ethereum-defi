@@ -36,7 +36,7 @@ def fetch_transaction_revert_reason(web3: Web3, tx_hash: Union[HexBytes, str], u
 
     - Live node must have had enough archive state for the replay to success (full nodes store only 128 blocks by default)
 
-    - Ganache must have been started with `block_time >= 1` so that transactions do not revent on transaction JSON-RPC broadcast
+    - Ganache must have been started with `block_time >= 1` so that transactions do not revert on transaction broadcast
 
     - When sending transsaction using `web3.eth.send_transaction` it must have `gas` set, or the transaction
       will revert during the gas estimation
@@ -58,7 +58,6 @@ def fetch_transaction_revert_reason(web3: Web3, tx_hash: Union[HexBytes, str], u
     .. note ::
 
         `use_archive_node=True` path cannot be tested in unit testing.
-
 
     Different JSON-RPC providers may return payloads and this function
     needs to handle each provider as a special case. See `manual_bnb_chain_check_revert_reason.py`
