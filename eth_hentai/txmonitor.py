@@ -10,6 +10,10 @@ from web3 import Web3
 from web3.exceptions import TransactionNotFound
 
 
+class ConfirmationTimedOut(Exception):
+    """We exceeded the transaction confirmation timeout."""
+
+
 def wait_transactions_to_complete(
         web3: Web3,
         txs: List[HexBytes],
@@ -43,9 +47,14 @@ def wait_transactions_to_complete(
 
     receipts_received = {}
 
-    while len(receipts_received) < len(txs):
+    unconfirmed_txs = set(txs)
 
-        for tx_hash in txs:
+    while len(unconfirmed_txs) > 0:
+
+        # Transaction hashes that receive confirmation on this round
+        confirmation_received = set()
+
+        for tx_hash in unconfirmed_txs:
             try:
                 receipt = web3.eth.get_transaction_receipt(tx_hash)
             except TransactionNotFound:
@@ -53,12 +62,17 @@ def wait_transactions_to_complete(
                 receipt = None
 
             if receipt:
+                confirmation_received.add(tx_hash)
                 receipts_received[tx_hash] = receipt
 
-        time.sleep(poll_delay.total_seconds())
+        # Remove confirmed txs from the working set
+        unconfirmed_txs -= confirmation_received
 
-        if datetime.datetime.utcnow() > started_at + max_timeout:
-            raise RuntimeError("Never was able to confirm some of the transactions")
+        if unconfirmed_txs:
+            time.sleep(poll_delay.total_seconds())
+
+            if datetime.datetime.utcnow() > started_at + max_timeout:
+                raise ConfirmationTimedOut(f"Transaction confirmation failed. Started: {started_at}, timed out after {max_timeout}. Still unconfirmed: {unconfirmed_txs}")
 
     return receipts_received
 
