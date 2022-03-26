@@ -5,12 +5,16 @@ Further reading
 - `Web3.py Patterns: Revert Reason Lookups <https://snakecharmers.ethereum.org/web3py-revert-reason-parsing/>`_
 
 """
+import logging
 from typing import Union
 
 from eth_hentai.abi import get_transaction_data_field
 from eth_tester.exceptions import TransactionFailed
 from hexbytes import HexBytes
 from web3 import Web3
+
+
+logger = logging.getLogger(__name__)
 
 
 class RevertReasonFetchFailed(Exception):
@@ -55,10 +59,16 @@ def fetch_transaction_revert_reason(web3: Web3, tx_hash: Union[HexBytes, str], u
 
         `use_archive_node=True` path cannot be tested in unit testing.
 
-    .. note ::
 
-        Different JSON-RPC providers may return payloads and this function
-        needs to handle each provider as a special case.
+    Different JSON-RPC providers may return payloads and this function
+    needs to handle each provider as a special case. See `manual_bnb_chain_check_revert_reason.py`
+    for testing. Currently tested:
+
+    - Ethereum Tester
+
+    - Ganache
+
+    - BNB Chain + geth
 
     :param web3: Our JSON-RPC connection
 
@@ -89,13 +99,20 @@ def fetch_transaction_revert_reason(web3: Web3, tx_hash: Union[HexBytes, str], u
         else:
             web3.eth.call(replay_tx)
     except ValueError as e:
-        # Ganache
+        logger.debug("Revert exceptin result is: %s", e)
         assert len(e.args) == 1, f"Something fishy going on with {e}"
-        # {'message': 'VM Exception while processing transaction: revert BEP20: transfer amount exceeds balance', 'stack': 'CallError: VM Exception while processing transaction: revert BEP20: transfer amount exceeds balance\n    at Blockchain.simulateTransaction (/usr/local/lib/node_modules/ganache/dist/node/1.js:2:49094)\n    at processTicksAndRejections (node:internal/process/task_queues:96:5)', 'code': -32000, 'name': 'CallError', 'data': '0x08c379a00000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000002642455032303a207472616e7366657220616d6f756e7420657863656564732062616c616e63650000000000000000000000000000000000000000000000000000'}
+
         data = e.args[0]
-        return data["message"]
+        if type(data) == str:
+            # BNB Smart chain + geth
+            return data
+        else:
+            # Ganache
+            # {'message': 'VM Exception while processing transaction: revert BEP20: transfer amount exceeds balance', 'stack': 'CallError: VM Exception while processing transaction: revert BEP20: transfer amount exceeds balance\n    at Blockchain.simulateTransaction (/usr/local/lib/node_modules/ganache/dist/node/1.js:2:49094)\n    at processTicksAndRejections (node:internal/process/task_queues:96:5)', 'code': -32000, 'name': 'CallError', 'data': '0x08c379a00000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000002642455032303a207472616e7366657220616d6f756e7420657863656564732062616c616e63650000000000000000000000000000000000000000000000000000'}
+            return data["message"]
     except TransactionFailed as e:
         # Ethereum Tester
         return e.args[0]
 
-    raise RevertReasonFetchFailed("Transaction succeeded, when it should have failed")
+    current_block_number = web3.eth.block_number
+    raise RevertReasonFetchFailed(f"Transaction succeeded, when it should have failed. Hash: {tx_hash}, tx block num: {tx.blockNumber}, current block number: {current_block_number}")
