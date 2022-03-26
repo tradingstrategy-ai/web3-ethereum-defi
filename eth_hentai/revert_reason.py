@@ -17,11 +17,12 @@ from web3 import Web3
 logger = logging.getLogger(__name__)
 
 
-class RevertReasonFetchFailed(Exception):
-    """We could not get the revert reason for a reason or another."""
-
-
-def fetch_transaction_revert_reason(web3: Web3, tx_hash: Union[HexBytes, str], use_archive_node=False) -> str:
+def fetch_transaction_revert_reason(
+        web3: Web3,
+        tx_hash: Union[HexBytes, str],
+        use_archive_node=False,
+        unknown_error_message="<could not extract the revert reason>",
+        ) -> str:
     """Gets a transaction revert reason.
 
     Ethereum nodes do not store the transaction failure reason in any database or index.
@@ -77,7 +78,11 @@ def fetch_transaction_revert_reason(web3: Web3, tx_hash: Union[HexBytes, str], u
         Look up *exact* reason by running the tx against the past state.
         This only works if you are connected to the archive node.
 
-    :raise RevertReasonFetchFailed: In the case we could not replay the transaction and extract the reason.
+    :param unknown_error_message:
+        Return this message if the revert reason extraction fails.
+        Check the logs for details and pointers.
+
+    :return: The revert reason of the placeholder message if we could not extract the reason somehow.
     """
 
     # fetch a reverted transaction:
@@ -113,5 +118,11 @@ def fetch_transaction_revert_reason(web3: Web3, tx_hash: Union[HexBytes, str], u
         # Ethereum Tester
         return e.args[0]
 
+    receipt = web3.eth.get_transaction_receipt(tx_hash)
+    if receipt.status != 0:
+        logger.error("Queried revert reason for a transaction, but receipt tells it did not fail. tx_hash:%s, receipt: %s", tx_hash.hex(), receipt)
+
     current_block_number = web3.eth.block_number
-    raise RevertReasonFetchFailed(f"Transaction succeeded, when it should have failed. Hash: {tx_hash}, tx block num: {tx.blockNumber}, current block number: {current_block_number}. Maybe the chain tip is unstable?")
+    # TODO: Convert to logger record
+    logger.error(f"Transaction succeeded, when it should have failed. Hash: {tx_hash.hex()}, tx block num: {tx.blockNumber}, current block number: {current_block_number}. Maybe the chain tip is unstable?")
+    return unknown_error_message
