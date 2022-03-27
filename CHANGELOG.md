@@ -3,8 +3,10 @@
 - Feature: Added revert reason extraction for failed transactions
 - Feature: Added `eth_hentai.gas.node_default_gas_price_strategy` to support BNB Chain
 - Fix: BNB Chain compatibility fixes because of brokeness in Ethereum JSON-RPC
+- Fix: Ganache compatibility fixes because of brokeness in Ethereum JSON-RPC
 - Fix: Wait 10 seconds instead of 5 seconds to ganache-cli to launch, as the latter is too slow for some computers
 - Fix: Optimize `wait_transactions_to_complete`
+- API change: Created a separate `broadcast_transactions` function
 
 # 0.5
 

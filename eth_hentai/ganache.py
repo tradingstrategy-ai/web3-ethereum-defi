@@ -416,7 +416,10 @@ def fork_network(
         will immediately return with the transaction inclusion.
         Set to `1` so that you can poll the transaction as you would do with
         a live JSON-RPC node.
-    :param quiet: Disable extensive logging.
+    :param quiet:
+        Disable extensive logging. If there is a lot of Ganache logging it seems to crash
+        on Github CI.
+
     """
 
     assert not is_localhost_port_listening(port), f"localhost port {port} occupied - you might have a zombie Ganache around"
