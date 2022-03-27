@@ -102,6 +102,78 @@ def wait_transactions_to_complete(
     return receipts_received
 
 
+def broadcast_transactions(
+        web3: Web3,
+        txs: List[SignedTransaction],
+        confirmation_block_count=0,
+        work_around_bad_nodes=True,
+        bad_node_sleep=0.5) -> List[HexBytes]:
+    """Broadcast and wait a bunch of signed transactions to confirm.
+
+    Multiple transactions can be broadcasted and confirmed in a single go,
+    to ensure fast confirmation batches.
+
+    :param web3: Web3
+    :param txs: List of Signed transactions
+    :param work_around_bad_nodes:
+        If `true` try to work around issues with low quality JSON-RPC APIs like Ganache
+        by checking if the transaction broadcast succeeded
+    :param confirmation_block_count:
+        How many blocks wait for the transaction receipt to settle.
+        Set to zero to return as soon as we see the first transaction receipt
+        or when using insta-mining tester RPC.
+    :return: List of tx hashes
+    """
+    # Detect Ganache
+    chain_id = web3.eth.chain_id
+    low_quality_node = chain_id in (1337,)
+    broadcast_attempts = 5
+    broadcast_sleep = 1
+    bad_node_workaround = work_around_bad_nodes and low_quality_node and (confirmation_block_count > 0)
+
+    if bad_node_workaround:
+        logger.info("Ganache broadcast workaround engaged")
+
+    # Broadcast transactions to the mempool
+    hashes = []
+    for tx in txs:
+        assert isinstance(tx, SignedTransaction), f"Got {tx}"
+        hash = web3.eth.send_raw_transaction(tx.rawTransaction)
+
+        assert hash
+
+        # Work around "Transaction not found" issues later
+        # by bombing Ganache until it picks up the transaction.
+        # And you can guess this code is not testable. You only run in Github CI
+        # and hope it works.
+        if bad_node_workaround:
+
+            # Try to be gentle with Ganache
+            time.sleep(bad_node_sleep)
+
+            tx = None
+            attempt = broadcast_attempts
+            while attempt >= 0:
+                try:
+                    tx = web3.eth.get_transaction(hash)
+                    logger.info("Node recognized our transaction: %s: %s", hash.hex(), tx)
+                    break
+                except TransactionNotFound:
+                    pass
+
+                time.sleep(broadcast_sleep)
+                logger.warning("Rebroadcasting %s, attempts left %d", hash.hex(), attempt)
+                hash = web3.eth.send_raw_transaction(tx.rawTransaction)
+                attempt -= 1
+            assert tx, f"Could not read broadcasted transaction back from the node {hash.hex()}"
+        else:
+            logger.info("We are not going to try to broadcast too hard. work_around_bad_nodes:%s, confirmation_block_count:%d, chain_id:%d", work_around_bad_nodes, confirmation_block_count, chain_id)
+
+        hashes.append(hash)
+
+    return hashes
+
+
 def broadcast_and_wait_transactions_to_complete(
         web3: Web3,
         txs: List[SignedTransaction],
@@ -129,47 +201,10 @@ def broadcast_and_wait_transactions_to_complete(
     :return: Map transaction hash -> receipt
     """
 
-    # Detect Ganche
-    chain_id = web3.eth.chain_id
-    low_quality_node = chain_id in (1337,)
-    broadcast_attempts = 5
-    broadcast_sleep = 1
-
-    # Broadcast transactions to the mempool
-    hashes = []
-    for tx in txs:
-        assert isinstance(tx, SignedTransaction), f"Got {tx}"
-        hash = web3.eth.send_raw_transaction(tx.rawTransaction)
-
-        # Work around "Transaction not found" issues later
-        # by bombing Ganache until it picks up the transaction.
-        # And you can guess this code is not testable. You only run in Github CI
-        # and hope it works.
-        if work_around_bad_nodes and low_quality_node and (confirmation_block_count > 0):
-            logger.info("Ganache broadcast workaround engaged")
-
-            # Try to be gentle with Ganache
-            time.sleep(3)
-
-            tx = None
-            attempt = broadcast_attempts
-            while attempt >= 0:
-                try:
-                    tx = web3.eth.get_transaction(hash)
-                    logger.info("Transaction found: %s: %s", hash.hex(), tx)
-                    break
-                except TransactionNotFound:
-                    pass
-
-                time.sleep(broadcast_sleep)
-                logger.warning("Rebroadcasting %s, attempts left %d", hash.hex(), attempt)
-                hash = web3.eth.send_raw_transaction(tx.rawTransaction)
-                attempt -= 1
-            assert tx, f"Could not read broadcasted transaction back from the node {hash.hex()}"
-        else:
-            logger.info("We are not going to try to broadcast too hard. work_around_bad_nodes:%s, confirmation_block_count:%d, chain_id:%d", work_around_bad_nodes, confirmation_block_count, chain_id)
-
-        hashes.append(hash)
+    hashes = broadcast_transactions(
+        web3=web3,
+        txs=txs,
+    )
 
     # Wait transactions to confirm
     receipts = wait_transactions_to_complete(web3, hashes, confirmation_block_count, max_timeout, poll_delay)
