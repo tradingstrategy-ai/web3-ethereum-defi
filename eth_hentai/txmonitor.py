@@ -153,8 +153,8 @@ def broadcast_and_wait_transactions_to_complete(
             while attempt >= 0:
                 try:
                     tx = web3.eth.get_transaction(hash)
-                except TransactionNotFound:
                     logger.info("Transaction found: %s: %s", hash.hex(), tx)
+                except TransactionNotFound:
                     tx = None
                 if tx:
                     break
