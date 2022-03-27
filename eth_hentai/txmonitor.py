@@ -142,14 +142,19 @@ def broadcast_and_wait_transactions_to_complete(
 
         # Work around "Transaction not found" issues later
         # by bombing Ganache until it picks up the transaction
-        if work_around_bad_nodes and low_quality_node:
+        if work_around_bad_nodes and low_quality_node and (confirmation_block_count > 0):
             logger.info("Ganache broadcast workaround engaged")
+
+            # Try to be gentle with Ganache
+            time.sleep(3)
+
             tx = None
             attempt = broadcast_attempts
             while attempt >= 0:
                 try:
                     tx = web3.eth.get_transaction(hash)
                 except TransactionNotFound:
+                    logger.info("Transaction found: %s: %s", hash.hex(), tx)
                     tx = None
                 if tx:
                     break
