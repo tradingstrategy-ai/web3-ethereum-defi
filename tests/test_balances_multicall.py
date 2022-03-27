@@ -10,20 +10,16 @@ You must have a live BNB Chain node URL to run these tests:
 """
 import json
 import os
-from decimal import Decimal
 from typing import Dict
 
 import pytest
 from eth_typing import HexAddress, HexStr
 from web3 import Web3, HTTPProvider
-from web3.contract import Contract
+
 
 from eth_hentai.balances import (
-    fetch_erc20_balances_by_token_list,
-    fetch_erc20_balances_by_transfer_event, fetch_erc20_balances_by_multicall,
+    fetch_erc20_balances_by_multicall,
 )
-from eth_hentai.token import create_token
-
 
 
 
@@ -55,8 +51,7 @@ def account_with_multiple_tokens() -> HexAddress:
     return HexAddress(HexStr("0x8894E0a0c962CB723c1976a4421c95949bE2D4E3"))
 
 
-
-def test_fetch_balances_multicall(
+def test_fetch_balances_multicall_plenty(
     web3: Web3,
     token_data: dict,
     account_with_multiple_tokens: HexAddress,
@@ -66,11 +61,26 @@ def test_fetch_balances_multicall(
 
     We test against live node to
     """
-    token_addresses = list(token_data.keys())
-    fetch_erc20_balances_by_multicall(
+    token_addresses = set(token_data.keys())
+    balances = fetch_erc20_balances_by_multicall(
         web3,
         owner=account_with_multiple_tokens,
-        token_addresses
+        tokens=token_addresses,
     )
 
 
+
+def test_fetch_balances_multicall_empty(
+    web3: Web3,
+    token_data: dict,
+    account_with_multiple_tokens: HexAddress,
+
+):
+    """Asking empty token list should success.
+    """
+    balances = fetch_erc20_balances_by_multicall(
+        web3,
+        owner=account_with_multiple_tokens,
+        tokens=set(),
+    )
+    assert not balances

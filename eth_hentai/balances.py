@@ -186,7 +186,11 @@ def fetch_erc20_balances_by_multicall(
     :param throttle_timeout: How many seconds sleep if the JSON-RPC server tells us to throttle
     """
 
-    assert web3.eth.chain_id in Network.keys()
+    chain_id = web3.eth.chain_id
+    try:
+        Network(chain_id)
+    except ValueError:
+        raise AssertionError(f"Unsupported chain id %d", chain_id)
 
     # Process one batch of addresses.
     # We prepare 2 queries per token.
