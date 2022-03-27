@@ -147,7 +147,10 @@ def broadcast_and_wait_transactions_to_complete(
             tx = None
             attempt = broadcast_attempts
             while attempt >= 0:
-                tx = web3.eth.get_transaction(hash)
+                try:
+                    tx = web3.eth.get_transaction(hash)
+                except TransactionNotFound:
+                    tx = None
                 if tx:
                     break
                 time.sleep(broadcast_sleep)
