@@ -1,5 +1,7 @@
 """Bunch of random utilities."""
+import itertools
 import socket
+from typing import Iterable, List
 
 
 def sanitise_string(s: str) -> str:
@@ -20,3 +22,20 @@ def is_localhost_port_listening(port: int, host="localhost") -> bool:
     location = (host, port)
     result_of_check = a_socket.connect_ex(location)
     return result_of_check == 0
+
+
+def grouper(size: int, iterable: Iterable) -> Iterable[List]:
+    """Split a long list to iterable chunks.
+
+    `See this StackOverflow answer for more information <https://stackoverflow.com/a/10791887/315168>`_.
+
+    :param size: The chunk size
+    :param iterable: Any Python iterable
+    :return: Iterable of list of chunks
+    """
+    it = iter(iterable)
+    while True:
+        group = tuple(itertools.islice(it, None, size))
+        if not group:
+            break
+        yield group
