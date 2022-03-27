@@ -130,7 +130,8 @@ def broadcast_and_wait_transactions_to_complete(
     """
 
     # Detect Ganche
-    low_quality_node = web3.eth.chain_id in (1337,)
+    chain_id = web3.eth.chain_id
+    low_quality_node = chain_id in (1337,)
     broadcast_attempts = 5
     broadcast_sleep = 1
 
@@ -165,6 +166,8 @@ def broadcast_and_wait_transactions_to_complete(
                 hash = web3.eth.send_raw_transaction(tx.rawTransaction)
                 attempt -= 1
             assert tx, f"Could not read broadcasted transaction back from the node {hash.hex()}"
+        else:
+            logger.info("We are not going to try to broadcast too hard. work_around_bad_nodes:%s, confirmation_block_count:%d, chain_id:%d", work_around_bad_nodes, confirmation_block_count, chain_id)
 
         hashes.append(hash)
 
