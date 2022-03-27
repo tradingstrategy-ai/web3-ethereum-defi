@@ -1,4 +1,4 @@
-"""Mock token deployment."""
+"""Balance fetch tests."""
 from decimal import Decimal
 
 import pytest

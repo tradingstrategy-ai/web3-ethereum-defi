@@ -162,7 +162,7 @@ def fetch_erc20_balances_by_multicall(
         web3: Web3,
         owner: HexAddress,
         tokens: Set[Union[HexAddress, str]],
-        call_batch_size=50,
+        call_batch_size=300,
         threads=16,
         throttle_timeout=5.0,
     ) -> Dict[str, Decimal]:
@@ -186,6 +186,8 @@ def fetch_erc20_balances_by_multicall(
     :param throttle_timeout: How many seconds sleep if the JSON-RPC server tells us to throttle
     """
 
+    assert web3.eth.chain_id in Network.keys()
+
     # Process one batch of addresses.
     # We prepare 2 queries per token.
     # One for the token balance of the owner
@@ -196,8 +198,8 @@ def fetch_erc20_balances_by_multicall(
         calls = []
         for address in tokens:
             # balances[address] = erc_20.functions.balanceOf(owner).call()
-            calls.append(Call(address, ['balanceOf(address)(uint256)', owner], [[(address, False)]], _w3=web3))
-            calls.append(Call(address, ['decimals()(uint8)'], [[(address, True)]], _w3=web3))
+            calls.append(Call(address, ['balanceOf(address)(uint256)', owner], [[(address, True)]], _w3=web3))
+            calls.append(Call(address, ['decimals()(uint8)'], [[(address, False)]], _w3=web3))
         multi = Multicall(calls)
         return multi()
 
