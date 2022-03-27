@@ -163,7 +163,7 @@ def broadcast_transactions(
 
                 time.sleep(broadcast_sleep)
                 logger.warning("Rebroadcasting %s, attempts left %d", hash.hex(), attempt)
-                hash = web3.eth.send_raw_transaction(tx_data.rawTransaction)
+                hash = web3.eth.send_raw_transaction(tx.rawTransaction)
                 attempt -= 1
             assert tx_data, f"Could not read broadcasted transaction back from the node {hash.hex()}"
         else:
