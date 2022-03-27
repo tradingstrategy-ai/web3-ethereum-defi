@@ -7,7 +7,7 @@ on:
     branches: [ master ]
 
 jobs:
-  build:
+  automated-test-suite:
 
     runs-on: ubuntu-latest
 
