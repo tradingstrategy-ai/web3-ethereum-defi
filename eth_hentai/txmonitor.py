@@ -204,10 +204,17 @@ def broadcast_and_wait_transactions_to_complete(
     hashes = broadcast_transactions(
         web3=web3,
         txs=txs,
+        work_around_bad_nodes=work_around_bad_nodes,
+        confirmation_block_count=confirmation_block_count,
     )
 
     # Wait transactions to confirm
-    receipts = wait_transactions_to_complete(web3, hashes, confirmation_block_count, max_timeout, poll_delay)
+    receipts = wait_transactions_to_complete(
+        web3,
+        hashes,
+        confirmation_block_count=confirmation_block_count,
+        max_timeout=max_timeout,
+        poll_delay=poll_delay)
 
     if confirm_ok:
         for tx_hash, receipt in receipts.items():
