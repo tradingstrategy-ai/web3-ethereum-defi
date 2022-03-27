@@ -151,21 +151,21 @@ def broadcast_transactions(
             # Try to be gentle with Ganache
             time.sleep(bad_node_sleep)
 
-            tx = None
+            tx_data = None
             attempt = broadcast_attempts
             while attempt >= 0:
                 try:
-                    tx = web3.eth.get_transaction(hash)
-                    logger.info("Node recognized our transaction: %s: %s", hash.hex(), tx)
+                    tx_data = web3.eth.get_transaction(hash)
+                    logger.info("Node recognized our transaction %s in mempool", hash.hex())
                     break
                 except TransactionNotFound:
                     pass
 
                 time.sleep(broadcast_sleep)
                 logger.warning("Rebroadcasting %s, attempts left %d", hash.hex(), attempt)
-                hash = web3.eth.send_raw_transaction(tx.rawTransaction)
+                hash = web3.eth.send_raw_transaction(tx_data.rawTransaction)
                 attempt -= 1
-            assert tx, f"Could not read broadcasted transaction back from the node {hash.hex()}"
+            assert tx_data, f"Could not read broadcasted transaction back from the node {hash.hex()}"
         else:
             logger.info("We are not going to try to broadcast too hard. work_around_bad_nodes:%s, confirmation_block_count:%d, chain_id:%d", work_around_bad_nodes, confirmation_block_count, chain_id)
 
