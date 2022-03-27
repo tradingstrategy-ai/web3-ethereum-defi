@@ -3,7 +3,7 @@ from collections import Counter
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from decimal import Decimal
-from typing import Optional, Dict, Set, Union, List
+from typing import Optional, Dict, Set, Union, List, Any
 import requests.exceptions
 from eth_hentai.utils import grouper
 
@@ -165,7 +165,7 @@ def fetch_erc20_balances_by_multicall(
         call_batch_size=50,
         threads=16,
         throttle_timeout=5.0,
-    ) -> Dict[HexAddress, Decimal]:
+    ) -> Dict[str, Decimal]:
     """Get all current holdings of an account for a limited set of ERC-20 tokens using more efficient multicall queries.
 
     The target chain must ave the multicall smart contract deployed.
@@ -186,32 +186,41 @@ def fetch_erc20_balances_by_multicall(
     :param throttle_timeout: How many seconds sleep if the JSON-RPC server tells us to throttle
     """
 
-    balances = {}
-
-    # Process one batch of addresses
-    def query_one_rpc(addresses):
+    # Process one batch of addresses.
+    # We prepare 2 queries per token.
+    # One for the token balance of the owner
+    # and another for the token decimals.
+    # The dict uses tuple as a key, so
+    # that those two different values are easy to unpack
+    def query_one_rpc(addresses) -> Dict[tuple, Any]:
         calls = []
         for address in tokens:
             # balances[address] = erc_20.functions.balanceOf(owner).call()
-            calls.append(Call(address, ['balanceOf(address)(uint256)', owner], [[f"balance_{address}", None]], _w3=web3))
-            calls.append(Call(address, ['decimals()(uint8)'], [[f"decimals_{address}", None]], _w3=web3))
-
+            calls.append(Call(address, ['balanceOf(address)(uint256)', owner], [[(address, False)]], _w3=web3))
+            calls.append(Call(address, ['decimals()(uint8)'], [[(address, True)]], _w3=web3))
         multi = Multicall(calls)
+        return multi()
 
-    result_decimals = {}
-    result_values = {}
-    decimal_balances = {}
+    result = {}
 
     def process_result(group: List[dict]):
+        balances = {}
         for key, value in group.values():
-            keytype, address = key.split("_")
+            address, call_kind = key
+            if call_kind:
+                # balanceOf
+                balances[address] = value
+            else:
+                # decimals
+                result[address] = Decimal(balances[address]) / Decimal(10**18)
 
     if threads > 1:
         # https://stackoverflow.com/a/43809617/315168
         with ThreadPoolExecutor() as executor:
             pass
     else:
+        # Single thread runs in the same execution context
         for group in query_one_rpc(grouper(call_batch_size, tokens)):
-            process_result()
+            process_result(group)
 
-    return balances
+    return result
