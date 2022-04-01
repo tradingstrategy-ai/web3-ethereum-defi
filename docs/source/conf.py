@@ -17,7 +17,7 @@
 
 # -- Project information -----------------------------------------------------
 
-project = 'ETH-Hentai'
+project = 'Web3 Ethereum Defi'
 copyright = '2022, Mikko Ohtamaa'
 author = 'Mikko Ohtamaa'
 
