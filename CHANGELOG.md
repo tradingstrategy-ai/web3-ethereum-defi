@@ -1,3 +1,7 @@
+# Current
+
+- Update web3.py dependency to 5.28.0
+
 # 0.7.1
 
 - Completed migration to new [web3-ethereum-defi](https://github.com/tradingstrategy-ai/web3-ethereum-defi) package name
