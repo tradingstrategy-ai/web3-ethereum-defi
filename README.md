@@ -10,7 +10,7 @@ This project contains common Ethereum smart contracts and utilities,
 for trading, wallets,automated test suites and backend integrations for EVM based blockchains.  
 
 <figure>
-  <img src="https://raw.githubusercontent.com/tradingstrategy-ai/web3-ethereum-defi/master/docs/source/_staticpepe.jpg" alt="">
+  <img src="https://raw.githubusercontent.com/tradingstrategy-ai/web3-ethereum-defi/master/docs/source/_static/pepe.jpg" alt="">
   <figcaption align = "center"><b>Pepe chooses Web3 Ethereum DeFi and Python</b></figcaption>
 </figure>
 
@@ -66,7 +66,7 @@ The compiled source code files are mixture of MIT and GPL v2 license.
 
 # Python usage
 
-The Python support is available as `eth-hentai` Python package.
+The Python support is available as `web3-ethereum-defi` Python package.
 
 The package depends only on [web3.py](github.com/ethereum/web3.py) and not others, like [Brownie](https://eth-brownie.readthedocs.io/).
 It grabs popular ABI files with their bytecode and compilation artifacts so that the contracts
