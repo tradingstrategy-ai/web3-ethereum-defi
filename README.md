@@ -11,7 +11,7 @@ for trading, wallets,automated test suites and backend integrations for EVM base
 
 <figure>
   <img src="https://raw.githubusercontent.com/tradingstrategy-ai/web3-ethereum-defi/master/docs/source/_staticpepe.jpg" alt="">
-<figcaption align = "center"><b>Pepe choose Web3 Ethereum DeFi and Python</b></figcaption>
+  <figcaption align = "center"><b>Pepe chooses Web3 Ethereum DeFi and Python</b></figcaption>
 </figure>
 
 Features include 
@@ -235,12 +235,12 @@ assert usdc_per_eth == pytest.approx(Decimal(1706.82216820632059904))
 
 ## How to use the library in your Python project
 
-Add `eth-hentai` as a development dependency:
+Add `web3-ethereum-defi` as a development dependency:
 
 Using [Poetry](https://python-poetry.org/):
 
 ```shell
-poetry add -D eth-hentai
+poetry add -D web3-ethereum-defi
 ```
 
 # Development
@@ -270,7 +270,7 @@ make all
 
 # Version history
 
-- [See change log](https://github.com/tradingstrategy-ai/web3-ethereum-defi/blob/master/CHANGELOG.md).
+- [Read changelog](https://github.com/tradingstrategy-ai/web3-ethereum-defi/blob/master/CHANGELOG.md).
 - [See releases](https://pypi.org/project/web3-ethereum-defi/#history).
 
 # Discord
@@ -287,7 +287,8 @@ Cover art by [Ilmaris](https://www.deviantart.com/ilmaris).
 
 # History
 
-[Originally created for Trading Strategy](https://tradingstrategy.ai).
+[Originally created for Trading Strategy](https://tradingstrategy.ai). 
+[Originally the package was known as eth-hentai](https://raw.githubusercontent.com/tradingstrategy-ai/web3-ethereum-defi/master/docs/source/_static/hentai_teacher_mikisugi_by_ilmaris_d6tjrn8-fullview.jpghttps://raw.githubusercontent.com/tradingstrategy-ai/web3-ethereum-defi/master/docs/source/_static/hentai_teacher_mikisugi_by_ilmaris_d6tjrn8-fullview.jpg).
 
 # License 
 
