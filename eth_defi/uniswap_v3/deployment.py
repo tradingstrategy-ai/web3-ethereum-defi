@@ -21,15 +21,15 @@ from eth_typing import HexAddress
 from web3 import Web3
 from web3.contract import Contract
 
-from eth_hentai.abi import get_abi_by_filename, get_contract
-from eth_hentai.deploy import deploy_contract
-from eth_hentai.uniswap_v3.constants import (
+from eth_defi.abi import get_abi_by_filename, get_contract
+from eth_defi.deploy import deploy_contract
+from eth_defi.uniswap_v3.constants import (
     DEFAULT_FEES,
     FOREVER_DEADLINE,
     UNISWAP_V3_FACTORY_BYTECODE,
     UNISWAP_V3_FACTORY_DEPLOYMENT_DATA,
 )
-from eth_hentai.uniswap_v3.utils import encode_sqrt_ratio_x96, get_default_tick_range
+from eth_defi.uniswap_v3.utils import encode_sqrt_ratio_x96, get_default_tick_range
 
 
 @dataclass(frozen=True)

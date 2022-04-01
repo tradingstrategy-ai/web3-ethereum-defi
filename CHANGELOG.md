@@ -1,4 +1,4 @@
-# Current
+# 0.6
 
 - Feature: Added revert reason extraction for failed transactions
 - Feature: Added `eth_hentai.gas.node_default_gas_price_strategy` to support BNB Chain

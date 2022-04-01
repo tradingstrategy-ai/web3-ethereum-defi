@@ -8,7 +8,7 @@ Further reading
 import logging
 from typing import Union
 
-from eth_hentai.abi import get_transaction_data_field
+from eth_defi.abi import get_transaction_data_field
 from eth_tester.exceptions import TransactionFailed
 from hexbytes import HexBytes
 from web3 import Web3

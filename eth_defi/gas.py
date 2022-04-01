@@ -111,7 +111,7 @@ def node_default_gas_price_strategy(web3: Web3, transaction_params: dict) -> int
 
     .. code-block::
 
-        from eth_hentai.gas import node_default_gas_price_strategy
+        from eth_defi.gas import node_default_gas_price_strategy
         web3.eth.set_gas_price_strategy(node_default_gas_price_strategy)
 
     For more information see

@@ -2,7 +2,7 @@
 import math
 from typing import Tuple
 
-from eth_hentai.uniswap_v3.constants import (
+from eth_defi.uniswap_v3.constants import (
     DEFAULT_FEES,
     DEFAULT_TICK_SPACINGS,
     MAX_TICK,

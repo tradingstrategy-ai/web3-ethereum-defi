@@ -43,7 +43,7 @@ from requests.exceptions import ConnectionError as RequestsConnectionError
 
 from web3 import Web3, HTTPProvider
 
-from eth_hentai.utils import is_localhost_port_listening
+from eth_defi.utils import is_localhost_port_listening
 
 logger = logging.getLogger(__name__)
 
@@ -327,7 +327,7 @@ def fork_network(
     Forking a mainnet is common way to test against live deployments.
     This function invokes `ganache-cli` command and tells it to fork a given JSON-RPC endpoint.
 
-    A subprocess is started on the background. To stop this process, call :py:meth:`eth_hentai.ganache.GanacheLaunch.close`.
+    A subprocess is started on the background. To stop this process, call :py:meth:`eth_defi.ganache.GanacheLaunch.close`.
     This function waits `launch_wait_seconds` in order to `ganache-cli` process to start
     and complete the chain fork.
 

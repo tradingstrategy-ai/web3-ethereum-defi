@@ -85,13 +85,13 @@ For code examples please see below.
 
 ## ERC-20 token example
 
-To use the package to deploy a simple ERC-20 token in [pytest](https://docs.pytest.org/) testing: 
+To use the package to deploy a simple ERC-20 token in [pytest](https://docs.pytest.org/) testing:
 
 ```python
 import pytest
 from web3 import Web3, EthereumTesterProvider
 
-from eth_hentai.token import create_token
+from eth_defi.token import create_token
 
 
 @pytest.fixture
@@ -161,7 +161,7 @@ import pytest
 from web3 import Web3
 from web3.contract import Contract
 
-from eth_hentai.uniswap_v2.deployment import UniswapV2Deployment, deploy_trading_pair, FOREVER_DEADLINE
+from eth_defi.uniswap_v2.deployment import UniswapV2Deployment, deploy_trading_pair, FOREVER_DEADLINE
 
 
 def test_swap(web3: Web3, deployer: str, user_1: str, uniswap_v2: UniswapV2Deployment, weth: Contract, usdc: Contract):

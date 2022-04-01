@@ -3,7 +3,7 @@
 """
 from web3 import Web3, HTTPProvider
 
-from eth_hentai.balances import fetch_erc20_balances_by_transfer_event
+from eth_defi.balances import fetch_erc20_balances_by_transfer_event
 
 # node = ""https://bsc-dataseed1.defibit.io/""
 # node = "https://bsc-dataseed.binance.org/"

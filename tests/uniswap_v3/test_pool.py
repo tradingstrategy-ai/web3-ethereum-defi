@@ -5,14 +5,14 @@ import pytest
 from web3 import EthereumTesterProvider, Web3
 from web3.contract import Contract
 
-from eth_hentai.token import create_token
-from eth_hentai.uniswap_v3.constants import DEFAULT_FEES
-from eth_hentai.uniswap_v3.deployment import (
+from eth_defi.token import create_token
+from eth_defi.uniswap_v3.constants import DEFAULT_FEES
+from eth_defi.uniswap_v3.deployment import (
     UniswapV3Deployment,
     deploy_pool,
     deploy_uniswap_v3,
 )
-from eth_hentai.uniswap_v3.utils import encode_sqrt_ratio_x96
+from eth_defi.uniswap_v3.utils import encode_sqrt_ratio_x96
 
 
 @pytest.fixture

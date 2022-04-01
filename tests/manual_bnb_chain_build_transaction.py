@@ -53,10 +53,10 @@ from web3 import Web3, HTTPProvider
 from web3.datastructures import AttributeDict
 from web3.gas_strategies.rpc import rpc_gas_price_strategy
 
-from eth_hentai.abi import get_deployed_contract
-from eth_hentai.gas import node_default_gas_price_strategy
-from eth_hentai.hotwallet import HotWallet
-from eth_hentai.txmonitor import broadcast_and_wait_transactions_to_complete
+from eth_defi.abi import get_deployed_contract
+from eth_defi.gas import node_default_gas_price_strategy
+from eth_defi.hotwallet import HotWallet
+from eth_defi.txmonitor import broadcast_and_wait_transactions_to_complete
 
 node = os.environ["JSON_RPC_BINANCE"]
 private_key = os.environ["PRIVATE_KEY"]

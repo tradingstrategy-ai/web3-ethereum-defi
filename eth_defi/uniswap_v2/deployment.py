@@ -21,8 +21,8 @@ from eth_typing import HexAddress, HexStr
 from web3 import Web3
 from web3.contract import Contract
 
-from eth_hentai.abi import get_contract, get_deployed_contract
-from eth_hentai.deploy import deploy_contract
+from eth_defi.abi import get_contract, get_deployed_contract
+from eth_defi.deploy import deploy_contract
 
 
 FOREVER_DEADLINE = 2**63

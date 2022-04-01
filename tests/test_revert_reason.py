@@ -16,13 +16,13 @@ import random
 import pytest
 from eth_account import Account
 from eth_account.signers.local import LocalAccount
-from eth_hentai.revert_reason import fetch_transaction_revert_reason
-from eth_hentai.txmonitor import wait_transactions_to_complete
+from eth_defi.revert_reason import fetch_transaction_revert_reason
+from eth_defi.txmonitor import wait_transactions_to_complete
 from eth_typing import HexAddress, HexStr
 from web3 import HTTPProvider, Web3
 
-from eth_hentai.ganache import fork_network
-from eth_hentai.token import fetch_erc20_details
+from eth_defi.ganache import fork_network
+from eth_defi.token import fetch_erc20_details
 
 # https://docs.pytest.org/en/latest/how-to/skipping.html#skip-all-test-functions-of-a-class-or-module
 from web3.middleware import construct_sign_and_send_raw_middleware

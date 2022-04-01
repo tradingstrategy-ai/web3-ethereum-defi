@@ -2,7 +2,7 @@
 import pytest
 from web3 import EthereumTesterProvider, Web3
 
-from eth_hentai.uniswap_v3.deployment import (
+from eth_defi.uniswap_v3.deployment import (
     deploy_uniswap_v3,
     deploy_uniswap_v3_factory,
 )

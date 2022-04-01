@@ -1,6 +1,6 @@
 """Check if we have zombine Ganache around"""
 
-from eth_hentai.utils import is_localhost_port_listening
+from eth_defi.utils import is_localhost_port_listening
 import socket
 from contextlib import closing
 

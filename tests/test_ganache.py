@@ -17,8 +17,8 @@ from eth_account.signers.local import LocalAccount
 from eth_typing import HexAddress, HexStr
 from web3 import EthereumTesterProvider, HTTPProvider, Web3
 
-from eth_hentai.ganache import GanacheLaunch, fork_network
-from eth_hentai.token import fetch_erc20_details
+from eth_defi.ganache import GanacheLaunch, fork_network
+from eth_defi.token import fetch_erc20_details
 
 # https://docs.pytest.org/en/latest/how-to/skipping.html#skip-all-test-functions-of-a-class-or-module
 pytestmark = pytest.mark.skipif(

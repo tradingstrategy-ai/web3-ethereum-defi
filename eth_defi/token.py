@@ -14,9 +14,9 @@ from web3 import Web3
 from web3.contract import Contract
 from web3.exceptions import BadFunctionCallOutput
 
-from eth_hentai.abi import get_contract, get_deployed_contract
-from eth_hentai.deploy import deploy_contract
-from eth_hentai.utils import sanitise_string
+from eth_defi.abi import get_contract, get_deployed_contract
+from eth_defi.deploy import deploy_contract
+from eth_defi.utils import sanitise_string
 
 
 #: List of exceptions JSON-RPC provider can through when ERC-20 field look-up fails

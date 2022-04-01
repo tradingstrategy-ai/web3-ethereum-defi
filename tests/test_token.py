@@ -5,8 +5,8 @@ import pytest
 from eth_tester.exceptions import TransactionFailed
 from web3 import Web3, EthereumTesterProvider
 
-from eth_hentai.deploy import deploy_contract
-from eth_hentai.token import create_token, fetch_erc20_details, TokenDetailError
+from eth_defi.deploy import deploy_contract
+from eth_defi.token import create_token, fetch_erc20_details, TokenDetailError
 
 
 @pytest.fixture

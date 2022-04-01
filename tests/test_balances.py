@@ -5,11 +5,11 @@ import pytest
 from web3 import EthereumTesterProvider, Web3
 from web3.contract import Contract
 
-from eth_hentai.balances import (
+from eth_defi.balances import (
     fetch_erc20_balances_by_token_list,
     fetch_erc20_balances_by_transfer_event,
 )
-from eth_hentai.token import create_token
+from eth_defi.token import create_token
 
 
 @pytest.fixture

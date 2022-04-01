@@ -10,9 +10,9 @@ from eth_typing import HexAddress
 from web3 import Web3
 from web3.contract import Contract
 
-from eth_hentai.token import fetch_erc20_details
-from eth_hentai.uniswap_v2.deployment import UniswapV2Deployment
-from eth_hentai.uniswap_v2.utils import pair_for, sort_tokens
+from eth_defi.token import fetch_erc20_details
+from eth_defi.uniswap_v2.deployment import UniswapV2Deployment
+from eth_defi.uniswap_v2.utils import pair_for, sort_tokens
 
 
 def get_amount_in(amount_out, reserve_in, reserve_out):

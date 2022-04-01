@@ -5,15 +5,15 @@ import pytest
 from web3 import EthereumTesterProvider, Web3
 from web3.contract import Contract
 
-from eth_hentai.abi import get_deployed_contract
-from eth_hentai.token import create_token
-from eth_hentai.uniswap_v2.deployment import (
+from eth_defi.abi import get_deployed_contract
+from eth_defi.token import create_token
+from eth_defi.uniswap_v2.deployment import (
     FOREVER_DEADLINE,
     UniswapV2Deployment,
     deploy_trading_pair,
     deploy_uniswap_v2_like,
 )
-from eth_hentai.uniswap_v2.fees import (
+from eth_defi.uniswap_v2.fees import (
     estimate_buy_price_decimals,
     estimate_buy_quantity,
     estimate_sell_price,
