@@ -9,7 +9,10 @@
 This project contains common Ethereum smart contracts and utilities, 
 for trading, wallets,automated test suites and backend integrations for EVM based blockchains.  
 
-[![ETH-Hentai](https://raw.githubusercontent.com/tradingstrategy-ai/web3-ethereum-defi/master/docs/source/_static/hentai_teacher_mikisugi_by_ilmaris_d6tjrn8-fullview.jpg)](https://www.deviantart.com/ilmaris)
+<figure>
+  <img src="https://raw.githubusercontent.com/tradingstrategy-ai/web3-ethereum-defi/master/docs/source/_staticpepe.jpg" alt="">
+<figcaption align = "center"><b>Pepe choose Web3 Ethereum DeFi and Python</b></figcaption>
+</figure>
 
 Features include 
 
