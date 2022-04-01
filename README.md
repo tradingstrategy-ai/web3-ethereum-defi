@@ -285,8 +285,6 @@ Currently there is no [Brownie](https://eth-brownie.readthedocs.io/) support.
 To support Brownie, one would need to figure out how to import an existing Hardhat
 based project (Sushiswap) to Brownie project format.
 
-Cover art by [Ilmaris](https://www.deviantart.com/ilmaris).
-
 # History
 
 [Originally created for Trading Strategy](https://tradingstrategy.ai). 
