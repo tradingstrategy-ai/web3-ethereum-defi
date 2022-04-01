@@ -4,7 +4,7 @@
 
 [![Documentation Status](https://readthedocs.org/projects/web3-ethereum-defi/badge/?version=latest)](https://web3-ethereum-defi.readthedocs.io/en/latest/?badge=latest)
 
-# Web Ethereum Defi
+# Web3 Ethereum Defi
 
 This project contains common Ethereum smart contracts and utilities, 
 for trading, wallets,automated test suites and backend integrations for EVM based blockchains.  

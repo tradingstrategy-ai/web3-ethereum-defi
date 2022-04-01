@@ -70,6 +70,6 @@ html_context = {
     # https://github.com/readthedocs/sphinx_rtd_theme/issues/529
     'display_github': True,
     'github_user': 'tradingstrategy-ai',
-    'github_repo': 'eth-hentai',
+    'github_repo': 'web3-ethereum-defi',
     'github_version': 'tree/master/docs/source/',
 }
