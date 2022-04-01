@@ -9,10 +9,29 @@
 This project contains common Ethereum smart contracts and utilities, 
 for trading, wallets,automated test suites and backend integrations for EVM based blockchains.  
 
+* [Features](#features)
+* [Precompiled ABI file distribution](#precompiled-abi-file-distribution)
+* [Python usage](#python-usage)
+   * [Prerequisites](#prerequisites)
+   * [ERC-20 token example](#erc-20-token-example)
+   * [Uniswap v2 trade example](#uniswap-v2-trade-example)
+   * [Uniswap v2 price estimation example](#uniswap-v2-price-estimation-example)
+   * [How to use the library in your Python project](#how-to-use-the-library-in-your-python-project)
+* [Development](#development)
+   * [Build requirements](#build-requirements)
+   * [Make](#make)
+* [Version history](#version-history)
+* [Discord](#discord)
+* [Notes](#notes)
+* [History](#history)
+* [License](#license)
+
 <figure>
   <img src="https://raw.githubusercontent.com/tradingstrategy-ai/web3-ethereum-defi/master/docs/source/_static/pepe.jpg" alt="">
   <figcaption align = "center"><b>Pepe chooses Web3 Ethereum DeFi and Python</b></figcaption>
 </figure>
+
+# Features
 
 Features include 
 
@@ -26,22 +45,6 @@ Features include
 * As opposite to slower and messier [mainnet forking workflows](https://www.quicknode.com/guides/web3-sdks/how-to-fork-ethereum-blockchain-with-ganache), 
 this project aims to explicit clean deployments and very fast test execution.
 * (More integrations to come)
-
-Table of contents
-
-* [Precompiled ABI file distribution](#precompiled-abi-file-distribution)
-* [Python usage](#python-usage)
-   * [Prerequisites](#prerequisites)
-   * [ERC-20 token example](#erc-20-token-example)
-   * [Uniswap swap example](#uniswap-swap-example)
-   * [How to use hhe library in your Python project](#how-to-use-hhe-library-in-your-python-project)
-* [Development](#development)
-   * [Requires](#requires)
-   * [Make](#make)
-* [Version history](#version-history)
-* [Discord](#discord)
-* [Notes](#notes)
-* [License](#license)
 
 # Precompiled ABI file distribution
 
