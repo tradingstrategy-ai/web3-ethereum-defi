@@ -7,7 +7,7 @@ sushi:
 
 # Extract all compilation artifacts from Sushi to our abi/ dump
 copy-sushi-abi: sushi
-	@find sushiswap/artifacts/contracts -iname "*.json" -not -iname "*.dbg.json" -exec cp {} eth_hentai/abi \;
+	@find sushiswap/artifacts/contracts -iname "*.json" -not -iname "*.dbg.json" -exec cp {} eth_defi/abi \;
 
 # Compile v3 core and periphery
 uniswapv3:

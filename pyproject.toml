@@ -1,14 +1,16 @@
 [tool.poetry]
-name = "eth-hentai"
-version = "0.6"
-description = "Common Ethereum smart contracts, and related utilities, for developing automated test suites, backend integration and trading bots for EVM based blockchains."
-authors = ["Mikko Ohtamaa <mikko@capitalgram.com>"]
+name = "web3-ethereum-defi"
+version = "0.7"
+description = "Web3 Ethereum DeFi toolkit for smart contracts, Ethereum JSON-RPC utilities, wallets and automated test suites."
+authors = ["Mikko Ohtamaa <mikko@tradingstrategy.ai>"]
 license = "MIT"
 homepage = "https://tradingstrategy.ai"
-repository = "https://github.com/tradingstrategy-ai/eth-hentai"
+repository = "https://github.com/tradingstrategy-ai/web3-ethereum-defi"
 readme = "README.md"
 keywords = ["ethereum", "cryptocurrency", "uniswap", "erc-20", "pancakeswap", "sushiswap", "polygon", "web3", "blockchain"]
-
+packages = [
+    { include = "eth_defi" },
+]
 [tool.poetry.dependencies]
 python = "^3.8"
 web3 = {extras = ["tester"], version = "^5.26.0"}
