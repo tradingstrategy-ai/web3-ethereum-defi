@@ -1,3 +1,7 @@
+# 0.7.1
+
+- Completed migration to new [web3-ethereum-defi](https://github.com/tradingstrategy-ai/web3-ethereum-defi) package name
+
 # 0.6
 
 - Feature: Added revert reason extraction for failed transactions

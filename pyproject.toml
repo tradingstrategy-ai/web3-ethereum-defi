@@ -1,7 +1,7 @@
 [tool.poetry]
 name = "web3-ethereum-defi"
-version = "0.7"
-description = "Web3 Ethereum DeFi toolkit for smart contracts, Ethereum JSON-RPC utilities, wallets and automated test suites."
+version = "0.7.1"
+description = "Web3 Ethereum DeFi toolkit for smart contracts, Ethereum JSON-RPC utilities, Uniswap, PancakeSwap, wallets and automated test suites."
 authors = ["Mikko Ohtamaa <mikko@tradingstrategy.ai>"]
 license = "MIT"
 homepage = "https://tradingstrategy.ai"
