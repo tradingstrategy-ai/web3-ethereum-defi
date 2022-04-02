@@ -9,6 +9,7 @@ More information
 
 * `README <https://github.com/tradingstrategy-ai/web3-ethereum-defi>`_
 * `Supported smart contracts list <https://github.com/tradingstrategy-ai/web3-ethereum-defi/tree/master/eth_hentai/abi>`_
+* `Information for other programming languages than Python <https://github.com/tradingstrategy-ai/web3-ethereum-defi#precompiled-abi-file-distribution>`_
 * `Github <https://github.com/tradingstrategy-ai/web3-ethereum-defi>`_
 * `Discord <https://tradingstrategy.ai/community>`_
 
