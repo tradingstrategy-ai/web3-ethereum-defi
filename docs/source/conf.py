@@ -73,3 +73,6 @@ html_context = {
     'github_repo': 'web3-ethereum-defi',
     'github_version': 'tree/master/docs/source/',
 }
+
+# Don't conflict with RTD supplied sitemap
+sitemap_filename = "sitemap-generated.xml"
