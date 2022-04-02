@@ -218,7 +218,7 @@ def estimate_buy_price_decimals(uniswap: UniswapV2Deployment, base_token_address
             Decimal(1.0),
         )
         assert usdc_per_eth == pytest.approx(Decimal(1706.82216820632059904))
--
+
     :param quantity: How much of the base token we want to buy
     :param uniswap: Uniswap v2 deployment
     :param base_token: Base token of the trading pair

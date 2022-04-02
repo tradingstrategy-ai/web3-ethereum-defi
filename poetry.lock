@@ -1063,7 +1063,7 @@ name = "sphinx-autodoc-typehints"
 version = "1.17.0"
 description = "Type hints (PEP 484) support for the Sphinx autodoc extension"
 category = "main"
-optional = false
+optional = true
 python-versions = ">=3.7"
 
 [package.dependencies]
@@ -1350,7 +1350,7 @@ docs = ["Sphinx", "sphinx-rtd-theme", "sphinx-sitemap", "sphinx-autodoc-typehint
 [metadata]
 lock-version = "1.1"
 python-versions = "^3.8"
-content-hash = "d288f98b3f6d3e6a23bc59d5f865079552315dbd293c688c77417b7d0a6a9620"
+content-hash = "025a8949c927afcc3839fc25af872a4d051f44859af664d3d7ccd273aee44635"
 
 [metadata.files]
 aiohttp = [
