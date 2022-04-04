@@ -1,6 +1,5 @@
 import secrets
 from decimal import Decimal
-from re import T
 
 import pytest
 from eth_account import Account
@@ -10,15 +9,17 @@ from web3 import EthereumTesterProvider, Web3
 from web3._utils.transactions import fill_nonce
 from web3.contract import Contract
 
-from eth_hentai.token import create_token
-from eth_hentai.uniswap_v2.deployment import (
+from eth_defi.revert_reason import fetch_transaction_revert_reason
+from eth_defi.token import create_token
+from eth_defi.uniswap_v2.deployment import (
     FOREVER_DEADLINE,
     UniswapV2Deployment,
     deploy_trading_pair,
     deploy_uniswap_v2_like,
 )
-from eth_hentai.uniswap_v2.fees import (
+from eth_defi.uniswap_v2.fees import (
     UniswapV2FeeCalculator,
+    estimate_buy_price,
     estimate_buy_price_decimals,
     estimate_buy_quantity,
     estimate_sell_price,
@@ -52,6 +53,15 @@ def deployer(web3) -> str:
     Do some account allocation for tests.
     """
     return web3.eth.accounts[0]
+
+
+@pytest.fixture()
+def user_1(web3) -> str:
+    """User account.
+
+    Do some account allocation for tests.
+    """
+    return web3.eth.accounts[1]
 
 
 @pytest.fixture()
@@ -114,6 +124,249 @@ def test_get_amount_out():
     assert UniswapV2FeeCalculator.get_amount_out(100, 1000, 1000, slippage=500) == 86
 
 
+def test_estimate_quantity(
+    web3: Web3,
+    deployer: str,
+    uniswap_v2: UniswapV2Deployment,
+    weth: Contract,
+    usdc: Contract,
+):
+    """Estimate quantity."""
+
+    # Create the trading pair and add initial liquidity
+    deploy_trading_pair(
+        web3,
+        deployer,
+        uniswap_v2,
+        weth,
+        usdc,
+        10 * 10**18,  # 10 ETH liquidity
+        17_000 * 10**18,  # 17000 USDC liquidity
+    )
+
+    # Estimate how much ETH we will receive for 500 USDC
+    amount_eth = estimate_buy_quantity(
+        uniswap_v2,
+        weth,
+        usdc,
+        500 * 10**18,
+    )
+    assert amount_eth / 1e18 == pytest.approx(0.28488156127668085)
+
+
+def test_estimate_buy_price(
+    web3: Web3,
+    deployer: str,
+    uniswap_v2: UniswapV2Deployment,
+    weth: Contract,
+    usdc: Contract,
+):
+    """Estimate buy price."""
+
+    # Create the trading pair and add initial liquidity
+    deploy_trading_pair(
+        web3,
+        deployer,
+        uniswap_v2,
+        weth,
+        usdc,
+        10 * 10**18,  # 10 ETH liquidity
+        17_000 * 10**18,  # 17000 USDC liquidity
+    )
+
+    # Estimate how much USDC we will need to buy 1 ETH
+    usdc_per_eth = estimate_buy_price(
+        uniswap_v2,
+        weth,
+        usdc,
+        1 * 10**18,
+    )
+    assert usdc_per_eth / 1e18 == pytest.approx(1894.572606709)
+
+
+def test_estimate_sell_price(
+    web3: Web3,
+    deployer: str,
+    uniswap_v2: UniswapV2Deployment,
+    weth: Contract,
+    usdc: Contract,
+):
+    """Estimate sell price."""
+
+    # Create the trading pair and add initial liquidity
+    deploy_trading_pair(
+        web3,
+        deployer,
+        uniswap_v2,
+        weth,
+        usdc,
+        1_000 * 10**18,  # 1000 ETH liquidity
+        1_700_000 * 10**18,  # 1.7M USDC liquidity
+    )
+
+    # Estimate the price of selling 1 ETH
+    usdc_per_eth = estimate_sell_price(
+        uniswap_v2,
+        weth,
+        usdc,
+        1 * 10**18,
+    )
+    price_as_usd = usdc_per_eth / 1e18
+    assert price_as_usd == pytest.approx(1693.2118677678354)
+
+    # Estimate the price of selling 1 ETH with slippage 5%
+    usdc_per_eth = estimate_sell_price(
+        uniswap_v2,
+        weth,
+        usdc,
+        1 * 10**18,
+        slippage=500,
+    )
+    price_as_usd = usdc_per_eth / 1e18
+    assert price_as_usd == pytest.approx(1608.631384783902)
+
+
+def test_estimate_sell_price_decimals(
+    web3: Web3,
+    deployer: str,
+    uniswap_v2: UniswapV2Deployment,
+    weth: Contract,
+    usdc: Contract,
+):
+    """Estimate sell price using the decimal friendly function."""
+
+    # Create the trading pair and add initial liquidity
+    deploy_trading_pair(
+        web3,
+        deployer,
+        uniswap_v2,
+        weth,
+        usdc,
+        1_000 * 10**18,  # 1000 ETH liquidity
+        1_700_000 * 10**18,  # 1.7M USDC liquidity
+    )
+
+    # Estimate the price of selling 1 ETH
+    usdc_per_eth = estimate_sell_price_decimals(
+        uniswap_v2,
+        weth.address,
+        usdc.address,
+        Decimal(1.0),
+    )
+    assert usdc_per_eth == pytest.approx(Decimal(1693.2118677678354))
+
+    # Estimate the price of selling 1 ETH with 5% slippage
+    usdc_per_eth = estimate_sell_price_decimals(
+        uniswap_v2,
+        weth.address,
+        usdc.address,
+        Decimal(1.0),
+        slippage=5 * 100,
+    )
+    assert usdc_per_eth == pytest.approx(Decimal(1608.631384783902))
+
+
+def test_estimate_buy_price_decimals(
+    web3: Web3,
+    deployer: str,
+    uniswap_v2: UniswapV2Deployment,
+    weth: Contract,
+    usdc: Contract,
+):
+    """Estimate sell price using the decimal friendly function."""
+
+    # Create the trading pair and add initial liquidity
+    deploy_trading_pair(
+        web3,
+        deployer,
+        uniswap_v2,
+        weth,
+        usdc,
+        1_000 * 10**18,  # 1000 ETH liquidity
+        1_700_000 * 10**18,  # 1.7M USDC liquidity
+    )
+
+    # Estimate the price of buying 1 ETH
+    usdc_per_eth = estimate_buy_price_decimals(
+        uniswap_v2,
+        weth.address,
+        usdc.address,
+        Decimal(1.0),
+    )
+    assert usdc_per_eth == pytest.approx(Decimal(1706.82216820632059904))
+
+    # Estimate the price of buying 1 ETH with 10% slippage
+    usdc_per_eth = estimate_buy_price_decimals(
+        uniswap_v2,
+        weth.address,
+        usdc.address,
+        Decimal(1.0),
+        slippage=10 * 100,
+    )
+    assert usdc_per_eth == pytest.approx(Decimal(1896.4690757848006656))
+
+
+def test_buy_sell_round_trip(
+    web3: Web3,
+    deployer: str,
+    user_1: str,
+    uniswap_v2: UniswapV2Deployment,
+    weth: Contract,
+    usdc: Contract,
+):
+    """Buys some token, then sells it.
+
+    Does a full round trip of trade and see how much money we lost.
+    """
+
+    # Create the trading pair and add initial liquidity
+    deploy_trading_pair(
+        web3,
+        deployer,
+        uniswap_v2,
+        weth,
+        usdc,
+        10 * 10**18,  # 10 ETH liquidity
+        17_000 * 10**18,  # 17000 USDC liquidity
+    )
+
+    router = uniswap_v2.router
+
+    # Give user_1 500 USD to buy ETH
+    usdc_amount_to_pay = 500 * 10**18
+    usdc.functions.transfer(user_1, usdc_amount_to_pay).transact({"from": deployer})
+    usdc.functions.approve(router.address, usdc_amount_to_pay).transact(
+        {"from": user_1}
+    )
+
+    # Perform a swap USDC->WETH
+    path = [usdc.address, weth.address]  # Path tell how the swap is routed
+    router.functions.swapExactTokensForTokens(
+        usdc_amount_to_pay,
+        0,
+        path,
+        user_1,
+        FOREVER_DEADLINE,
+    ).transact({"from": user_1})
+
+    all_weth_amount = weth.functions.balanceOf(user_1).call()
+    weth.functions.approve(router.address, all_weth_amount).transact({"from": user_1})
+
+    # Perform the reverse swap WETH->USDC
+    reverse_path = [weth.address, usdc.address]  # Path tell how the swap is routed
+    router.functions.swapExactTokensForTokens(
+        all_weth_amount,
+        0,
+        reverse_path,
+        user_1,
+        FOREVER_DEADLINE,
+    ).transact({"from": user_1})
+
+    # user_1 has less than 500 USDC left to loses in the LP fees
+    usdc_left = usdc.functions.balanceOf(user_1).call() / (10.0**18)
+    assert usdc_left == pytest.approx(497.0895)
+
+
 def test_swap_price_from_hot_wallet(
     web3: Web3,
     deployer: str,
@@ -164,10 +417,10 @@ def test_swap_price_from_hot_wallet(
     signed = hot_wallet.sign_transaction(tx)
 
     # estimate the quantity before sending transaction
-    amount_eth = estimate_buy_quantity(
+    amount_eth = estimate_sell_price(
         uniswap_v2,
-        weth,
         usdc,
+        weth,
         usdc_amount_to_pay,
     )
 
@@ -177,100 +430,3 @@ def test_swap_price_from_hot_wallet(
 
     # check if hot wallet get the same ETH amount estimated earlier
     assert weth.functions.balanceOf(hw_address).call() == pytest.approx(amount_eth)
-
-
-def test_swap_with_slippage(
-    web3: Web3,
-    deployer: str,
-    hot_wallet: LocalAccount,
-    user_2: str,
-    uniswap_v2: UniswapV2Deployment,
-    weth: Contract,
-    usdc: Contract,
-):
-    """Use local hot wallet to buy WETH on Uniswap v2 using mock USDC."""
-
-    # Create the trading pair and add initial liquidity
-    deploy_trading_pair(
-        web3,
-        deployer,
-        uniswap_v2,
-        weth,
-        usdc,
-        10 * 10**18,  # 10 ETH liquidity
-        17_000 * 10**18,  # 17000 USDC liquidity
-    )
-
-    router = uniswap_v2.router
-    hw_address = hot_wallet.address
-
-    # Give hot wallet some USDC to buy ETH (also some ETH as well to send tx)
-    web3.eth.send_transaction(
-        {"from": deployer, "to": hw_address, "value": 1 * 10**18}
-    )
-    usdc_amount_to_pay = 500 * 10**18
-    usdc.functions.transfer(hw_address, usdc_amount_to_pay).transact({"from": deployer})
-    usdc.functions.approve(router.address, usdc_amount_to_pay).transact(
-        {"from": hw_address}
-    )
-
-    # give user_2 some cash as well
-    usdc.functions.transfer(user_2, usdc_amount_to_pay).transact({"from": deployer})
-    usdc.functions.approve(router.address, usdc_amount_to_pay).transact(
-        {"from": user_2}
-    )
-
-    original_price = estimate_sell_price(
-        uniswap_v2,
-        usdc,
-        weth,
-        1 * 10**18,
-    )
-
-    eth_amount_with_slippage = estimate_buy_quantity(
-        uniswap_v2,
-        weth,
-        usdc,
-        usdc_amount_to_pay,
-        slippage=100,  # 100bps = 1%
-    )
-
-    # assert Decimal(price / 1e18) == pytest.approx(price2)
-    path = [usdc.address, weth.address]
-
-    # prepare a swap USDC->WETH
-    tx1 = router.functions.swapExactTokensForTokens(
-        usdc_amount_to_pay,
-        eth_amount_with_slippage,
-        path,
-        hw_address,
-        FOREVER_DEADLINE,
-    ).buildTransaction({"from": hw_address})
-    tx1 = fill_nonce(web3, tx1)
-    signed_tx1 = hot_wallet.sign_transaction(tx1)
-
-    # user_2 makes a faster trade which moves the price
-    tx2 = router.functions.swapExactTokensForTokens(
-        85 * 10**18,
-        0,
-        path,
-        user_2,
-        FOREVER_DEADLINE,
-    ).transact({"from": user_2})
-
-    # check the move percentage
-    new_price = estimate_sell_price(
-        uniswap_v2,
-        usdc,
-        weth,
-        1 * 10**18,
-    )
-    price_move_percent = original_price * 100 / new_price - 100
-    assert 1 < price_move_percent < 1.1
-
-    print(f"Price moved: {price_move_percent} %")
-
-    # now the hotwallet finally manages to send the tx, it should fail
-    tx1_hash = web3.eth.send_raw_transaction(signed_tx1.rawTransaction)
-    tx1_receipt = web3.eth.get_transaction_receipt(tx1_hash)
-    assert tx1_receipt.status == 0  # failure

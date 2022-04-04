@@ -164,27 +164,26 @@ def estimate_buy_quantity(
     fee: int = 30,
     slippage: int = 0,
 ) -> int:
-    """Estimate how many tokens we are going to receive when doing a buy..
+    """Estimate how many tokens we are going to receive when doing a buy.
 
     Calls the on-chain contract to get the current liquidity and estimates the
-    the price based on it.s
+    the price based on it.
 
     Example:
 
     .. code-block:: python
 
-            # Estimate how much ETH we will receive for 500 USDC.
-            # In this case the pool ETH price is $1700 so this should be below ~1/4 of ETH
-            amount_eth = estimate_received_quantity(
-                uniswap_v2,
-                weth,
-                usdc,
-                500*10**18,
-            )
-            assert amount_eth / 1e18 == pytest.approx(0.28488156127668085)
+        # Estimate how much ETH we will receive for 500 USDC.
+        # In this case the pool ETH price is $1700 so this should be below ~1/4 of ETH
+        amount_eth = estimate_buy_quantity(
+            uniswap_v2,
+            weth,
+            usdc,
+            500*10**18,
+        )
+        assert amount_eth / 1e18 == pytest.approx(0.28488156127668085)
 
-    :param web3: Web3 instance
-    :param quantity: How much of the base token we want to buy
+    :param quantity: How much of the quote token we have to use
     :param uniswap: Uniswap v2 deployment
     :param base_token: Base token of the trading pair
     :param quote_token: Quote token of the trading pair
@@ -196,6 +195,48 @@ def estimate_buy_quantity(
     path = [quote_token.address, base_token.address]
     amounts = fee_helper.get_amounts_out(quantity, path, fee=fee, slippage=slippage)
     return amounts[-1]
+
+
+def estimate_buy_price(
+    uniswap: UniswapV2Deployment,
+    base_token: Contract,
+    quote_token: Contract,
+    quantity: int,
+    *,
+    fee: int = 30,
+    slippage: int = 0,
+) -> int:
+    """Estimate how much we are going to need to pay when doing buy.
+
+    Calls the on-chain contract to get the current liquidity and estimates the
+    the price based on it.
+
+    Example:
+
+    .. code-block:: python
+
+        # Estimate how much ETH we will receive for 500 USDC.
+        # In this case the pool ETH price is $1700 so this should be below ~1/4 of ETH
+        amount_eth = estimate_buy_price(
+            uniswap_v2,
+            weth,
+            usdc,
+            1*10**18,
+        )
+        assert amount_eth / 1e18 == pytest.approx(0.28488156127668085)
+
+    :param uniswap: Uniswap v2 deployment
+    :param base_token: Base token of the trading pair
+    :param quote_token: Quote token of the trading pair
+    :param quantity: How much of the base token we want to buy
+    :param fee: Trading fee express in bps, default = 30 bps (0.3%)
+    :param slippage: Slippage express in bps
+    :return: Expected base token to receive
+    """
+    fee_helper = UniswapV2FeeCalculator(uniswap)
+    path = [quote_token.address, base_token.address]
+    amounts = fee_helper.get_amounts_in(quantity, path, fee=fee, slippage=slippage)
+    return amounts[0]
 
 
 def estimate_sell_price(
@@ -267,7 +308,7 @@ def estimate_buy_price_decimals(
 ) -> Decimal:
     """Estimate how much we are going to need to pay when doing buy.
 
-    Much like :py:func:`estimate_buy_quantity` with the differences of
+    Much like :py:func:`estimate_buy_price` with the differences of
     - Tokens are passed as address instead of contract instance
     - We use base token quantity units instead of cash
     - We use decimals instead of raw token amounts
