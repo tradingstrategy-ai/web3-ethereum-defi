@@ -1,0 +1,85 @@
+Development instructions
+========================
+
+Here are instructions for new developers how to get started with the development of `web3-ethereum-defi <https://github.com/tradingstrategy-ai/web3-ethereum-defi>`_ package.
+
+Prerequisites
+-------------
+
+* You can program in Python
+* You now how Git and Github work
+* Linux or Mac recommended (We might not be able to support Windows users)
+
+Checkout
+--------
+
+Check out the project locally:
+
+.. code-block:: shell
+
+    git clone git@github.com:tradingstrategy-ai/web3-ethereum-defi.git
+
+We assume you use SSH keys with Github, but HTTPS checkout works as well.
+
+Install with Poetry
+-------------------
+
+`Install Poetry <https://python-poetry.org/docs/#installation>`_.
+
+Install the project with Poetry in development mode:
+
+.. code-block:: shell
+
+    cd web3-ethereum-defi
+    poetry shell  # Enter to Poetry/virtualenv enabled shell
+    poetry install -E docs
+
+Note that `-E docs` is important, otherwise Sphinx package won't be installed and you cannot build docs.
+
+`Check instructions here if you need to change Python version from your default to Python 3.8+ <https://stackoverflow.com/questions/70064449/how-to-rebuild-poetry-environment-from-scratch-and-force-reinstall-everything/70064450#70064450>`_.
+
+Ganache
+-------
+
+Some features require ganache, to install it.
+
+First install Node / NPM:
+
+.. code-block:: shell
+
+     brew install node  # For macOS
+
+Then install Ganache itself:
+
+.. code-block:: shell
+
+     npm install -g ganache
+
+Make sure your Ganache is version 7+:
+
+.. code-block:: shell
+
+    ganache --version
+
+::
+
+    ganache v7.0.3 (@ganache/cli: 0.1.4, @ganache/core: 0.1.4)
+
+Smoke test
+----------
+
+Check that the tests of unmodified master branch pass:
+
+.. code-block:: shell
+
+     pytest
+
+You should get all green.
+
+Some tests will be skipped, because they require full EVM nodes. JSON-ROPC needs to be configured through environment variables.
+
+Pull requets
+------------
+
+For new feature requests, do a pull request and enjoy merge party.
+
