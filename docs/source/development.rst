@@ -23,6 +23,8 @@ We assume you use SSH keys with Github, but HTTPS checkout works as well.
 
 Make sure you checkout the submodules, as we include Uniswap, Sushiswap and others as Git submodules:
 
+.. code-block:: shell
+
    cd web3-ethereum-defi
    git submodule update --init --recursive
 
