@@ -317,7 +317,7 @@ def fork_network(
         json_rpc_url: str,
         unlocked_addresses: List[HexAddress] = [],
         cmd="ganache-cli",
-        port=19999,
+        port=19998,
         evm_version=EVM_DEFAULT,
         block_time=0,
         quiet=False,
