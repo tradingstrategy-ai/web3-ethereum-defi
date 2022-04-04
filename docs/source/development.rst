@@ -85,6 +85,20 @@ You should get all green.
 
 Some tests will be skipped, because they require full EVM nodes. JSON-ROPC needs to be configured through environment variables.
 
+You can also run tests with logging enabled to get more information:
+
+.. code-block:: shell
+
+    pytest --tb=native --log-cli-level=info -x
+
+This will
+
+- Use native tracebacks
+
+- Set console logging level to `INFO`
+
+- Stop on the first failure
+
 Pull requets
 ------------
 
