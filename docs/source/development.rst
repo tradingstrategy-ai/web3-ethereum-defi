@@ -21,6 +21,11 @@ Check out the project locally:
 
 We assume you use SSH keys with Github, but HTTPS checkout works as well.
 
+Make sure you checkout the submodules, as we include Uniswap, Sushiswap and others as Git submodules:
+
+   cd web3-ethereum-defi
+   git submodule update --init --recursive
+
 Install with Poetry
 -------------------
 
@@ -82,4 +87,26 @@ Pull requets
 ------------
 
 For new feature requests, do a pull request and enjoy merge party.
+
+Rebuilding smart contract compilation artifacts
+-----------------------------------------------
+
+All smart contracts should be precompiled in the Github repository. If you need to recompile them, you need to have Gnu make.
+
+You will need `yarn` in the additional to `npm`:
+
+    npm install -g yarn
+
+Get make:
+
+.. code-block:: shell
+
+    brew install make
+
+Then you can run the command to recompile all the smart contracts:
+
+.. code-block:: shell
+
+    make all
+
 

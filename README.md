@@ -245,30 +245,9 @@ Using [Poetry](https://python-poetry.org/):
 poetry add -D web3-ethereum-defi
 ```
 
-# Development
+# Development and contributing
 
-This step will extract compiled smart contract from Sushiswap repository. 
-
-## Build requirements
-
-You need to be able to compile Solidity code in `sushiswap` that is included as a submodule.
-
-* Node v14 
-* npx 
-* yarn
-* GNU Make
-* Unix shell
-
-## Make
-
-To build the ABI distribution:
-
-```shell
-git submodule update --recursive --init
-make all
-```
-
-[See SushiSwap continuous integration files for more information](https://github.com/sushiswap/sushiswap/blob/canary/.github/workflows/sushiswap.yml).
+[Read development instructions](https://web3-ethereum-defi.readthedocs.io/development.html).
 
 # Version history
 
