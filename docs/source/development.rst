@@ -95,6 +95,8 @@ All smart contracts should be precompiled in the Github repository. If you need 
 
 You will need `yarn` in the additional to `npm`:
 
+.. code-block:: shell
+
     npm install -g yarn
 
 Get make:
