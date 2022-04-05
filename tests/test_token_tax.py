@@ -19,6 +19,8 @@ from web3 import EthereumTesterProvider, HTTPProvider, Web3
 from eth_defi.token_tax import estimate_token_taxes
 
 from eth_defi.ganache import GanacheLaunch, fork_network
+from eth_defi.utils import approx
+from eth_defi.token_tax import TokenTaxInfo
 from eth_defi.token import fetch_erc20_details
 from eth_defi.uniswap_v2.deployment import UniswapV2Deployment, fetch_deployment
 
@@ -89,6 +91,13 @@ def test_token_tax(web3: Web3, large_busd_holder: HexAddress):
     elephant = HexAddress(HexStr(ELEPHANT_TOKEN))
     busd = HexAddress(HexStr(BUSD_TOKEN))
 
+    expected_elephant_tax_percent : float = 0.1
+
     seller = web3.eth.accounts[5]
 
-    estimate_token_taxes(uniswap, elephant, busd, large_busd_holder, seller)
+    tokenTaxInfo: TokenTaxInfo = estimate_token_taxes(uniswap, elephant, busd, large_busd_holder, seller)
+
+    # asserting if the elephant tax is close to 10% or not
+    approx(tokenTaxInfo.buy_tax, expected_elephant_tax_percent, 0.001)
+    approx(tokenTaxInfo.transfer_tax, expected_elephant_tax_percent, 0.001)
+    approx(tokenTaxInfo.sell_tax, expected_elephant_tax_percent, 0.001)
