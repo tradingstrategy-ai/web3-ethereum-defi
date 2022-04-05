@@ -13,6 +13,9 @@ jobs:
 
     steps:
     - uses: actions/checkout@v3
+    - name: Initialize submodules
+      run: |
+        git submodule update --init --recursive
     - name: Install poetry
       run: pipx install poetry
     - name: Set up Python 3.9
@@ -20,12 +23,17 @@ jobs:
       with:
         python-version: 3.9
         cache: 'poetry'
-    - name: Initialize submodules
-      run: |
-        git submodule update --init --recursive
+    - name: Set up NodeJS 14
+      uses: actions/setup-node@v3
+      with:
+        node-version: '14'
+        cache: 'yarn'
+        cache-dependency-path: |
+          sushiswap/yarn.lock
+          uniswap_v3/v3-core/yarn.lock
+          uniswap_v3/v3-periphery/yarn.lock
     - name: Install Ganache
-      run: |
-        npm install -g ganache
+      run: yarn global add ganache
     - name: Cook sushi
       run: |
         make copy-sushi-abi
