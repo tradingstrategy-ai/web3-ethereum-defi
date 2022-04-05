@@ -82,11 +82,13 @@ def web3(ganache_bnb_chain_fork: str):
     # https://web3py.readthedocs.io/en/stable/examples.html#contract-unit-tests-in-python
     return Web3(HTTPProvider(ganache_bnb_chain_fork))
 
-def test_token_tax(web3: Web3, large_busd_holder: HexAddress, user_1: LocalAccount):
+def test_token_tax(web3: Web3, large_busd_holder: HexAddress):
     
     uniswap: UniswapV2Deployment = fetch_deployment(web3, PANCAKESWAP_FACTORYV2, PANCAKE_ROUTER, PANCAKE_CODE_HASH)
 
     elephant = HexAddress(HexStr(ELEPHANT_TOKEN))
     busd = HexAddress(HexStr(BUSD_TOKEN))
 
-    estimate_token_taxes(uniswap, elephant, busd, large_busd_holder, large_busd_holder)
+    seller = web3.eth.accounts[5]
+
+    estimate_token_taxes(uniswap, elephant, busd, large_busd_holder, seller)

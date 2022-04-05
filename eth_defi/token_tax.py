@@ -1,3 +1,4 @@
+from email.quoprimime import quote
 from eth_account.signers.local import LocalAccount
 from eth_typing import HexAddress
 from eth_defi.uniswap_v3.constants import FOREVER_DEADLINE
@@ -5,6 +6,7 @@ from web3 import Web3
 
 from eth_defi.uniswap_v2.deployment import UniswapV2Deployment
 from eth_defi.abi import get_deployed_contract
+from eth_defi.token import fetch_erc20_details
 
 from dataclasses import dataclass
 
@@ -67,30 +69,79 @@ def estimate_token_taxes(
     web3: Web3 = uniswap.web3
     router = uniswap.router
 
-    quote_token = get_deployed_contract(web3, "ERC20MockDecimals.json", quote_token)
+    quote_token_details = fetch_erc20_details(web3, quote_token)
+    quote_token = quote_token_details.contract
+
+    base_token_details = fetch_erc20_details(web3, base_token)
+    base_token = base_token_details.contract
 
     # approve router to spend tokens
-    quote_token.functions.approve(router.address, 99999 * 1e18).transact({"from": buy_account})
+    quote_token.functions.approve(router.address, quote_token_details.convert_to_raw(99999)).transact({"from": buy_account})
 
-    quote_token_decimals = quote_token.functions.decimals().call()
-
-    quote_token_amount = 10**quote_token_decimals  # exactly 1 unit of quote token
-
-    path = [quote_token.address, base_token]
+    path = [quote_token.address, base_token.address]
+    amountIn = quote_token_details.convert_to_raw(0.1)
     # Figure out base_token/quote_token trading pair
+    initial_base_bal = base_token.functions.balanceOf(buy_account).call()
     # Buy base_token with buy_account
-    tx_hash = router.functions.swapExactTokensForTokens(
-        quote_token_amount,
+    router.functions.swapExactTokensForTokens(
+        amountIn,
         0,
         path,
         buy_account,
         FOREVER_DEADLINE
     ).transact({"from": buy_account})
 
-    print(tx_hash)
+    received_amt = base_token.functions.balanceOf(buy_account).call() - initial_base_bal
+    uniswap_price = router.functions.getAmountsOut(amountIn, path).call()[1]
 
     # Measure the loss as "buy tax"
+    buy_tax = uniswap_price - received_amt
+    buy_tax_percent = (buy_tax / uniswap_price) * 100
+
+    print("Received Amount", received_amt)
+    print("Uniswap Price", uniswap_price)
+    print("Buy Tax", buy_tax)
+    print("Buy Tax Percent", buy_tax_percent)
+
+
     # Transfer tokens to sell_account
     # Measure the loss as "transfer tax"
+    base_token.functions.transfer(sell_account, received_amt).transact({"from": buy_account})
+
+    received_amt_by_seller = base_token.functions.balanceOf(sell_account).call()
+
+    transfer_tax = received_amt - received_amt_by_seller
+    transfer_tax_percent = (transfer_tax / received_amt) * 100
+
+    print("Seller Received Amount", received_amt_by_seller)
+    print("Transfer Tax", transfer_tax)
+    print("Transfer Tax Percent", transfer_tax_percent)
+
     # Sell tokens
-    # Measure the loss as "sell tax"
+    base_token.functions.approve(router.address, received_amt_by_seller).transact({"from": sell_account})
+    path = [ base_token.address, quote_token.address]
+
+    sell_tax = 0
+    sell_tax_percent = 0
+    try:
+        # this method will revert in case of low liquidity of the token
+        router.functions.swapExactTokensForTokens(
+            received_amt_by_seller,
+            0,
+            path,
+            sell_account,
+            FOREVER_DEADLINE
+        ).transact({"from": sell_account})
+    except:
+        print("Low liquidity. Sell method failed")
+
+     # Measure the loss as "sell tax"
+    received_amt_after_sell = quote_token.functions.balanceOf(sell_account).call()
+    uniswap_price = router.functions.getAmountsOut(received_amt_by_seller, path).call()[1]
+
+    if received_amt_after_sell > 0:
+        sell_tax =   uniswap_price - received_amt_after_sell
+        sell_tax_percent =  (sell_tax / uniswap_price) * 100 if uniswap_price > 0  else 0
+
+    print("sell tax", sell_tax)
+    print("sell tax percent", sell_tax_percent)
