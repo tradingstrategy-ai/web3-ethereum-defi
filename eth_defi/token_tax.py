@@ -95,14 +95,7 @@ def estimate_token_taxes(
     uniswap_price = router.functions.getAmountsOut(amountIn, path).call()[1]
 
     # Measure the loss as "buy tax"
-    buy_tax = uniswap_price - received_amt
-    buy_tax_percent = (buy_tax / uniswap_price) 
-
-    print("Received Amount", received_amt)
-    print("Uniswap Price", uniswap_price)
-    print("Buy Tax", buy_tax)
-    print("Buy Tax Percent", buy_tax_percent)
-
+    buy_tax_percent = (uniswap_price - received_amt) / uniswap_price
 
     # Transfer tokens to sell_account
     # Measure the loss as "transfer tax"
@@ -110,12 +103,7 @@ def estimate_token_taxes(
 
     received_amt_by_seller = base_token.functions.balanceOf(sell_account).call()
 
-    transfer_tax = received_amt - received_amt_by_seller
-    transfer_tax_percent = (transfer_tax / received_amt) 
-
-    print("Seller Received Amount", received_amt_by_seller)
-    print("Transfer Tax", transfer_tax)
-    print("Transfer Tax Percent", transfer_tax_percent)
+    transfer_tax_percent = (received_amt - received_amt_by_seller) / received_amt
 
     # Sell tokens
     base_token.functions.approve(router.address, received_amt_by_seller).transact({"from": sell_account})
@@ -142,8 +130,5 @@ def estimate_token_taxes(
     if received_amt_after_sell > 0:
         sell_tax =   uniswap_price - received_amt_after_sell
         sell_tax_percent =  (sell_tax / uniswap_price)  if uniswap_price > 0  else 0
-
-    print("sell tax", sell_tax)
-    print("sell tax percent", sell_tax_percent)
 
     return TokenTaxInfo(base_token.address, quote_token.address, buy_tax_percent, transfer_tax_percent, sell_tax_percent)
