@@ -1,6 +1,6 @@
 from email.quoprimime import quote
 from eth_account.signers.local import LocalAccount
-from eth_typing import HexAddress
+from eth_typing import HexAddress, HexStr
 from eth_defi.uniswap_v3.constants import FOREVER_DEADLINE
 from web3 import Web3
 
@@ -79,7 +79,7 @@ def estimate_token_taxes(
     quote_token.functions.approve(router.address, quote_token_details.convert_to_raw(99999)).transact({"from": buy_account})
 
     path = [quote_token.address, base_token.address]
-    amountIn = quote_token_details.convert_to_raw(0.1)
+    amountIn = quote_token_details.convert_to_raw(1)
     # Figure out base_token/quote_token trading pair
     initial_base_bal = base_token.functions.balanceOf(buy_account).call()
     # Buy base_token with buy_account
@@ -123,17 +123,17 @@ def estimate_token_taxes(
 
     sell_tax = 0
     sell_tax_percent = 0
-    try:
+    # try:
         # this method will revert in case of low liquidity of the token
-        router.functions.swapExactTokensForTokens(
-            received_amt_by_seller,
-            0,
-            path,
-            sell_account,
-            FOREVER_DEADLINE
-        ).transact({"from": sell_account})
-    except:
-        print("Low liquidity. Sell method failed")
+    router.functions.swapExactTokensForTokens(
+        received_amt_by_seller,
+        0,
+        path,
+        sell_account,
+        FOREVER_DEADLINE
+    ).transact({"from": sell_account})
+    # except:
+    #     print("Low liquidity. Sell method failed")
 
      # Measure the loss as "sell tax"
     received_amt_after_sell = quote_token.functions.balanceOf(sell_account).call()
