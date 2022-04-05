@@ -83,7 +83,7 @@ def estimate_token_taxes(
     # Figure out base_token/quote_token trading pair
     initial_base_bal = base_token.functions.balanceOf(buy_account).call()
     # Buy base_token with buy_account
-    router.functions.swapExactTokensForTokens(
+    router.functions.swapExactTokensForTokensSupportingFeeOnTransferTokens(
         amountIn,
         0,
         path,
@@ -96,7 +96,7 @@ def estimate_token_taxes(
 
     # Measure the loss as "buy tax"
     buy_tax = uniswap_price - received_amt
-    buy_tax_percent = (buy_tax / uniswap_price) * 100
+    buy_tax_percent = (buy_tax / uniswap_price) 
 
     print("Received Amount", received_amt)
     print("Uniswap Price", uniswap_price)
@@ -111,7 +111,7 @@ def estimate_token_taxes(
     received_amt_by_seller = base_token.functions.balanceOf(sell_account).call()
 
     transfer_tax = received_amt - received_amt_by_seller
-    transfer_tax_percent = (transfer_tax / received_amt) * 100
+    transfer_tax_percent = (transfer_tax / received_amt) 
 
     print("Seller Received Amount", received_amt_by_seller)
     print("Transfer Tax", transfer_tax)
@@ -123,17 +123,17 @@ def estimate_token_taxes(
 
     sell_tax = 0
     sell_tax_percent = 0
-    # try:
+    try:
         # this method will revert in case of low liquidity of the token
-    router.functions.swapExactTokensForTokens(
-        received_amt_by_seller,
-        0,
-        path,
-        sell_account,
-        FOREVER_DEADLINE
+        router.functions.swapExactTokensForTokensSupportingFeeOnTransferTokens(
+            received_amt_by_seller,
+            0,
+            path,
+            sell_account,
+            FOREVER_DEADLINE
     ).transact({"from": sell_account})
-    # except:
-    #     print("Low liquidity. Sell method failed")
+    except:
+        print("Low liquidity. Sell method failed")
 
      # Measure the loss as "sell tax"
     received_amt_after_sell = quote_token.functions.balanceOf(sell_account).call()
@@ -141,7 +141,9 @@ def estimate_token_taxes(
 
     if received_amt_after_sell > 0:
         sell_tax =   uniswap_price - received_amt_after_sell
-        sell_tax_percent =  (sell_tax / uniswap_price) * 100 if uniswap_price > 0  else 0
+        sell_tax_percent =  (sell_tax / uniswap_price)  if uniswap_price > 0  else 0
 
     print("sell tax", sell_tax)
     print("sell tax percent", sell_tax_percent)
+
+    return TokenTaxInfo(base_token.address, quote_token.address, buy_tax_percent, transfer_tax_percent, sell_tax_percent)
