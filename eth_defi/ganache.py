@@ -386,7 +386,7 @@ def fork_network(
 
             assert busd.functions.balanceOf(user_1.address).call() == 500*10**18
 
-    `See the full example in tests source code <https://github.com/tradingstrategy-ai/eth-hentai/blob/master/tests/test_ganache.py>`_.
+    `See the full example in tests source code <https://github.com/tradingstrategy-ai/web3-ethereum-defi/blob/master/tests/test_ganache.py>`_.
 
     If `ganache-cli` refuses to terminate properly, you can kill a process by a port with:
 
