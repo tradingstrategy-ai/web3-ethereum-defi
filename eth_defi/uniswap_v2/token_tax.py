@@ -1,14 +1,18 @@
-from email.quoprimime import quote
-from eth_account.signers.local import LocalAccount
-from eth_typing import HexAddress, HexStr
+"""Querying the buy tax, transfer tax & sell tax of an ERC20 token
+
+Read also unit test suite tests/test_token_tax.py to see the retrieval of token taxes for ELEPHANT token on BSC
+"""
+from eth_typing import HexAddress
 from eth_defi.uniswap_v3.constants import FOREVER_DEADLINE
 from web3 import Web3
 
 from eth_defi.uniswap_v2.deployment import UniswapV2Deployment
-from eth_defi.abi import get_deployed_contract
 from eth_defi.token import fetch_erc20_details
 
 from dataclasses import dataclass
+
+class LowLiquidityError(Exception):
+    """The swap method reverted due to low liquidity of either the base or quote token"""
 
 
 @dataclass
@@ -36,7 +40,8 @@ def estimate_token_taxes(
         base_token: HexAddress,
         quote_token: HexAddress,
         buy_account: HexAddress,
-        sell_account: HexAddress
+        sell_account: HexAddress,
+        buy_amount: float
     ) -> TokenTaxInfo:
     """Estimates different token taxes for a token by running Ganache simulations for it.
 
@@ -64,8 +69,7 @@ def estimate_token_taxes(
     :return:
         ToxTaxInfo tells us what we figure out about taxes.
         This can be later recorded to a database.
-    """
-
+    """    
     web3: Web3 = uniswap.web3
     router = uniswap.router
 
@@ -76,20 +80,23 @@ def estimate_token_taxes(
     base_token = base_token_details.contract
 
     # approve router to spend tokens
-    quote_token.functions.approve(router.address, quote_token_details.convert_to_raw(99999)).transact({"from": buy_account})
+    quote_token.functions.approve(router.address, quote_token_details.convert_to_raw(buy_amount)).transact({"from": buy_account})
 
     path = [quote_token.address, base_token.address]
-    amountIn = quote_token_details.convert_to_raw(1)
+    amountIn = quote_token_details.convert_to_raw(buy_amount)
     # Figure out base_token/quote_token trading pair
     initial_base_bal = base_token.functions.balanceOf(buy_account).call()
     # Buy base_token with buy_account
-    router.functions.swapExactTokensForTokensSupportingFeeOnTransferTokens(
-        amountIn,
-        0,
-        path,
-        buy_account,
-        FOREVER_DEADLINE
-    ).transact({"from": buy_account})
+    try:
+        router.functions.swapExactTokensForTokensSupportingFeeOnTransferTokens(
+            amountIn,
+            0,
+            path,
+            buy_account,
+            FOREVER_DEADLINE
+        ).transact({"from": buy_account})
+    except:
+        raise LowLiquidityError("Low liquidity. swapExactTokensForTokensSupportingFeeOnTransferTokens() method failed")
 
     received_amt = base_token.functions.balanceOf(buy_account).call() - initial_base_bal
     uniswap_price = router.functions.getAmountsOut(amountIn, path).call()[1]
@@ -121,7 +128,7 @@ def estimate_token_taxes(
             FOREVER_DEADLINE
     ).transact({"from": sell_account})
     except:
-        print("Low liquidity. Sell method failed")
+        raise LowLiquidityError("Low liquidity. swapExactTokensForTokensSupportingFeeOnTransferTokens() method failed")
 
      # Measure the loss as "sell tax"
     received_amt_after_sell = quote_token.functions.balanceOf(sell_account).call()
