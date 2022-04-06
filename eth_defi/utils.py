@@ -1,14 +1,6 @@
 """Bunch of random utilities."""
 import socket
 
-# Assert approximate integer
-def approx(actual :float , expected : float, percentage_threshold : float) -> bool:
-    diff = int(abs(actual - expected))
-    # 0 diff should automtically be a match
-    if diff == 0:
-        return True
-    return diff < (actual * percentage_threshold // 100)
-
 def sanitise_string(s: str) -> str:
     """Remove null characters."""
     # https://stackoverflow.com/a/18762899/315168
