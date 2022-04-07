@@ -1,6 +1,6 @@
 [![PyPI version](https://badge.fury.io/py/web3-ethereum-defi.svg)](https://badge.fury.io/py/web3-ethereum-defi)
 
-[![Automated test suite](https://github.com/tradingstrategy-ai/web3-ethereum-defi/actions/workflows/tests.yml/badge.svg)](https://github.com/tradingstrategy-ai/web3-ethereum-defi/actions/workflows/tests.yml)
+[![Automated test suite](https://github.com/tradingstrategy-ai/web3-ethereum-defi/actions/workflows/test.yml/badge.svg)](https://github.com/tradingstrategy-ai/web3-ethereum-defi/actions/workflows/test.yml)
 
 [![Documentation Status](https://readthedocs.org/projects/web3-ethereum-defi/badge/?version=latest)](https://web3-ethereum-defi.readthedocs.io/en/latest/?badge=latest)
 
@@ -37,10 +37,10 @@ Features include
 * [Made for 99% developers](https://future.a16z.com/software-development-building-for-99-developers/)
 * [High-quality API documentation](https://web3-ethereum-defi.readthedocs.io/)
 * [Fully type hinted](https://web3-ethereum-defi.readthedocs.io/) for good developer experience
-* [ERC-20 token issuance and manipulation](https://web3-ethereum-defi.readthedocs.io/en/latest/_autosummary/eth_hentai.token.html#module-eth_hentai.token)
+* [ERC-20 token issuance and manipulation](https://web3-ethereum-defi.readthedocs.io/en/latest/_autosummary/eth_defi.token.html#module-eth_defi.token)
 * [Uniswap v2 tools](https://github.com/sushiswap/sushiswap): deployment, trading, price estimation for Sushiswap, PancakeSwape, QuickSwap, Trader Joe, others
-* [Parallel transaction execution](https://web3-ethereum-defi.readthedocs.io/en/latest/_autosummary/eth_hentai.txmonitor.html)
-* [Mainnet forking with ganache-cli](https://web3-ethereum-defi.readthedocs.io/en/latest/_autosummary/eth_hentai.ganache.fork_network.html#eth_hentai.ganache.fork_network)
+* [Parallel transaction execution](https://web3-ethereum-defi.readthedocs.io/en/latest/_autosummary/eth_defi.txmonitor.html)
+* [Mainnet forking with ganache-cli](https://web3-ethereum-defi.readthedocs.io/en/latest/_autosummary/eth_defi.ganache.fork_network.html#eth_defi.ganache.fork_network)
 * As opposite to slower and messier [mainnet forking workflows](https://www.quicknode.com/guides/web3-sdks/how-to-fork-ethereum-blockchain-with-ganache), 
 this project aims to explicit clean deployments and very fast test execution.
 * (More integrations to come)
@@ -52,7 +52,7 @@ and debug maps, to make deploying test instances trivial.
 
 This package primarly supports Python, Web3.p3 and Brownie developers.
 For other programming languages and frameworks,
-you can [find precompiled Solidity smart contracts in abi folder](https://github.com/tradingstrategy-ai/web3-ethereum-defi/tree/master/eth_hentai/abi).
+you can [find precompiled Solidity smart contracts in abi folder](https://github.com/tradingstrategy-ai/web3-ethereum-defi/tree/master/eth_defi/abi).
 
 These files are good to go with any framework:
 * Web3.js
@@ -75,7 +75,7 @@ It grabs popular ABI files with their bytecode and compilation artifacts so that
 are easily deployable on any Ethereum tester interface. No Ganache is needed and everything
 can be executed on faster [eth-tester enginer](https://github.com/ethereum/eth-tester).
 
-Unlike Brownie, which is a framework, `eth_hentai` is a library. It is designed
+Unlike Brownie, which is a framework, `web3-ethereum-defi` is a library. It is designed
 to be included in any other Python application and you can only use bits of its that you need.
 There are no expectations on configuration files or folder structure.
 

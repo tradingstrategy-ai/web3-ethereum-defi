@@ -1,6 +1,6 @@
 """Deploy any precompiled contract.
 
-`See Github for available contracts <https://github.com/tradingstrategy-ai/eth-hentai/tree/master/eth_hentai/abi>`_.
+`See Github for available contracts <https://github.com/tradingstrategy-ai/web3-ethereum-defi/tree/master/eth_defi/abi>`_.
 """
 
 from typing import Union
