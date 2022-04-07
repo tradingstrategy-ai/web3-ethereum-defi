@@ -2,23 +2,23 @@
 
 from typing import Iterable, List, Optional, Type
 
-from eth_typing import BlockNumber, HexAddress
 from eth_abi.codec import ABICodec
+from eth_typing import BlockNumber, HexAddress
 from web3 import Web3
-
-from web3._utils.filters import construct_event_filter_params
 from web3._utils.events import get_event_data
+from web3._utils.filters import construct_event_filter_params
 from web3.contract import ContractEvent
 from web3.datastructures import AttributeDict
 
 
 def fetch_all_events(
-        web3: Web3,
-        event: Type[ContractEvent],
-        address: Optional[HexAddress] = None,
-        argument_filters: Optional[dict] = None,
-        from_block: Optional[BlockNumber] = 1,
-        to_block: Optional[BlockNumber] = None) -> Iterable[AttributeDict]:
+    web3: Web3,
+    event: Type[ContractEvent],
+    address: Optional[HexAddress] = None,
+    argument_filters: Optional[dict] = None,
+    from_block: Optional[BlockNumber] = 1,
+    to_block: Optional[BlockNumber] = None,
+) -> Iterable[AttributeDict]:
     """Get events using eth_getLogs API.
 
     This is a stateless method, as oppose to JSON-RPC filter objects.
@@ -60,14 +60,7 @@ def fetch_all_events(
     # Namely, convert event names to their keccak signatures
     # More information here:
     # https://github.com/ethereum/web3.py/blob/e176ce0793dafdd0573acc8d4b76425b6eb604ca/web3/_utils/filters.py#L71
-    data_filter_set, event_filter_params = construct_event_filter_params(
-        abi,
-        codec,
-        address=address,
-        argument_filters=argument_filters,
-        fromBlock=from_block,
-        toBlock=to_block
-    )
+    data_filter_set, event_filter_params = construct_event_filter_params(abi, codec, address=address, argument_filters=argument_filters, fromBlock=from_block, toBlock=to_block)
 
     # Call JSON-RPC API on your Ethereum node.
     # get_logs() returns raw AttributedDict entries
@@ -80,4 +73,3 @@ def fetch_all_events(
         # https://github.com/ethereum/web3.py/blob/fbaf1ad11b0c7fac09ba34baff2c256cffe0a148/web3/_utils/events.py#L200
         evt = get_event_data(codec, abi, log)
         yield evt
-

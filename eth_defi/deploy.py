@@ -11,9 +11,7 @@ from web3.contract import Contract
 from eth_defi.abi import get_contract
 
 
-def deploy_contract(
-    web3: Web3, contract: Union[str, Contract], deployer: str, *constructor_args
-) -> Contract:
+def deploy_contract(web3: Web3, contract: Union[str, Contract], deployer: str, *constructor_args) -> Contract:
     """Deploys a new contract from ABI file.
 
     A generic helper function to deploy any contract.

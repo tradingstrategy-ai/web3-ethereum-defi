@@ -18,11 +18,11 @@ logger = logging.getLogger(__name__)
 
 
 def fetch_transaction_revert_reason(
-        web3: Web3,
-        tx_hash: Union[HexBytes, str],
-        use_archive_node=False,
-        unknown_error_message="<could not extract the revert reason>",
-        ) -> str:
+    web3: Web3,
+    tx_hash: Union[HexBytes, str],
+    use_archive_node=False,
+    unknown_error_message="<could not extract the revert reason>",
+) -> str:
     """Gets a transaction revert reason.
 
     Ethereum nodes do not store the transaction failure reason in any database or index.
@@ -90,10 +90,10 @@ def fetch_transaction_revert_reason(
 
     # build a new transaction to replay:
     replay_tx = {
-        'to': tx['to'],
-        'from': tx['from'],
-        'value': tx['value'],
-        'data': get_transaction_data_field(tx),
+        "to": tx["to"],
+        "from": tx["from"],
+        "value": tx["value"],
+        "data": get_transaction_data_field(tx),
     }
 
     # Replay the transaction locally

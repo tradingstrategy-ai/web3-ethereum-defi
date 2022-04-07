@@ -23,6 +23,7 @@ and it is not properly cleaned up yet.
 """
 
 import datetime
+import logging
 import re
 import shutil
 import sys
@@ -31,7 +32,6 @@ import warnings
 from dataclasses import dataclass
 from subprocess import DEVNULL, PIPE
 from typing import Dict, List, Optional, Tuple
-import logging
 
 import psutil
 import requests
@@ -40,8 +40,7 @@ from eth_typing import HexAddress
 from hexbytes import HexBytes
 from psutil import NoSuchProcess
 from requests.exceptions import ConnectionError as RequestsConnectionError
-
-from web3 import Web3, HTTPProvider
+from web3 import HTTPProvider, Web3
 
 from eth_defi.utils import is_localhost_port_listening
 
@@ -150,8 +149,7 @@ def _launch(cmd: str, **kwargs: Dict) -> Tuple[psutil.Popen, List[str]]:
                     cmd_list.extend([cli_flags[key], str(value)])
             except KeyError:
                 warnings.warn(
-                    f"Ignoring invalid commandline setting for ganache-cli: "
-                    f'"{key}" with value "{value}".',
+                    f"Ignoring invalid commandline setting for ganache-cli: '{key}' with value '{value}'.",
                     InvalidArgumentWarning,
                 )
     out = DEVNULL if sys.platform == "win32" else PIPE
@@ -235,15 +233,8 @@ def _validate_cmd_settings(cmd_settings: dict) -> dict:
         "quiet": bool,
     }
     for cmd, value in cmd_settings.items():
-        if (
-            cmd in ganache_keys
-            and cmd in CMD_TYPES.keys()
-            and not isinstance(value, CMD_TYPES[cmd])
-        ):
-            raise TypeError(
-                f'Wrong type for cmd_settings "{cmd}": {value}. '
-                f"Found {type(value).__name__}, but expected {CMD_TYPES[cmd].__name__}."
-            )
+        if cmd in ganache_keys and cmd in CMD_TYPES.keys() and not isinstance(value, CMD_TYPES[cmd]):
+            raise TypeError(f"Wrong type for cmd_settings '{cmd}': {value}. Found {type(value).__name__}, but expected {CMD_TYPES[cmd].__name__}.")
 
     if "default_balance" in cmd_settings:
         try:
@@ -251,9 +242,7 @@ def _validate_cmd_settings(cmd_settings: dict) -> dict:
         except ValueError:
             # convert any input to ether, then format it properly
             default_eth = Wei(cmd_settings["default_balance"]).to("ether")
-            cmd_settings["default_balance"] = (
-                default_eth.quantize(1) if default_eth > 1 else default_eth.normalize()
-            )
+            cmd_settings["default_balance"] = default_eth.quantize(1) if default_eth > 1 else default_eth.normalize()
     return cmd_settings
 
 
@@ -314,14 +303,15 @@ class GanacheLaunch:
 
 
 def fork_network(
-        json_rpc_url: str,
-        unlocked_addresses: List[HexAddress] = [],
-        cmd="ganache-cli",
-        port=19999,
-        evm_version=EVM_DEFAULT,
-        block_time=0,
-        quiet=False,
-        launch_wait_seconds=10.0) -> GanacheLaunch:
+    json_rpc_url: str,
+    unlocked_addresses: List[HexAddress] = [],
+    cmd="ganache-cli",
+    port=19999,
+    evm_version=EVM_DEFAULT,
+    block_time=0,
+    quiet=False,
+    launch_wait_seconds=10.0,
+) -> GanacheLaunch:
     """Creates the ganache "fork" of given JSON-RPC endpoint.
 
     Forking a mainnet is common way to test against live deployments.
@@ -473,9 +463,4 @@ def fork_network(
     # Use f-string for thousand separator formatting
     logger.info(f"ganache-cli forked network %d, the current block is {current_block:,}, Ganache JSON-RPC is %s", chain_id, url)
 
-    return GanacheLaunch(
-        port,
-        final_cmd,
-        url,
-        process
-    )
+    return GanacheLaunch(port, final_cmd, url, process)

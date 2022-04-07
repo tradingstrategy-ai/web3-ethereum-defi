@@ -32,6 +32,7 @@ pytestmark = pytest.mark.skipif(
     reason="Set BNB_CHAIN_JSON_RPC environment variable to Binance Smart Chain node to run this test",
 )
 
+
 @pytest.fixture(scope="module")
 def large_busd_holder() -> HexAddress:
     """A random account picked from BNB Smart chain that holds a lot of BUSD.
@@ -83,12 +84,7 @@ def web3(user_1, ganache_bnb_chain_fork: str):
     return web3
 
 
-def test_revert_reason(
-    web3: Web3,
-    large_busd_holder: HexAddress,
-    user_1: LocalAccount,
-    user_2: LocalAccount
-):
+def test_revert_reason(web3: Web3, large_busd_holder: HexAddress, user_1: LocalAccount, user_2: LocalAccount):
     """Revert reason can be extracted from the transaction.
 
     We test this by sending BUSD with insufficient token balance.
@@ -96,9 +92,7 @@ def test_revert_reason(
 
     # BUSD deployment on BNB chain
     # https://bscscan.com/token/0xe9e7cea3dedca5984780bafc599bd69add087d56
-    busd_details = fetch_erc20_details(
-        web3, "0xe9e7CEA3DedcA5984780Bafc599bD69ADd087D56"
-    )
+    busd_details = fetch_erc20_details(web3, "0xe9e7CEA3DedcA5984780Bafc599bD69ADd087D56")
     busd = busd_details.contract
 
     # Make sure user_1 has enough BNB

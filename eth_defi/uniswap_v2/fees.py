@@ -37,14 +37,7 @@ class UniswapV2FeeCalculator:
         assert token_b.startswith("0x")
         (token0, token1) = sort_tokens(token_a, token_b)
         pair_contract = self.deployment.PairContract(
-            address=Web3.toChecksumAddress(
-                pair_for(
-                    self.deployment.factory.address,
-                    token_a,
-                    token_b,
-                    self.deployment.init_code_hash,
-                )
-            ),
+            address=Web3.toChecksumAddress(pair_for(self.deployment.factory.address, token_a, token_b, self.deployment.init_code_hash)),
         )
         reserve = pair_contract.functions.getReserves().call()
         return reserve if token0 == token_a else [reserve[1], reserve[0], reserve[2]]
@@ -70,9 +63,7 @@ class UniswapV2FeeCalculator:
         current_amount = amount_in
         for p0, p1 in zip(path, path[1:]):
             r = self.get_reserves(p0, p1)
-            current_amount = self.get_amount_out(
-                current_amount, r[0], r[1], fee=fee, slippage=slippage
-            )
+            current_amount = self.get_amount_out(current_amount, r[0], r[1], fee=fee, slippage=slippage)
             amounts.append(current_amount)
         return amounts
 
@@ -97,9 +88,7 @@ class UniswapV2FeeCalculator:
         current_amount = amount_out
         for p0, p1 in reversed(list(zip(path, path[1:]))):
             r = self.get_reserves(p0, p1)
-            current_amount = self.get_amount_in(
-                current_amount, r[0], r[1], fee=fee, slippage=slippage
-            )
+            current_amount = self.get_amount_in(current_amount, r[0], r[1], fee=fee, slippage=slippage)
             amounts.insert(0, current_amount)
         return amounts
 

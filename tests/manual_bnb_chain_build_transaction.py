@@ -81,14 +81,13 @@ print(f"Default gas price given by the node is: {default_gas_price_strategy}")
 web3.eth.set_gas_price_strategy(node_default_gas_price_strategy)
 
 token = get_deployed_contract(web3, "ERC20MockDecimals.json", busd_token)
-tx = token.functions.transfer(
-    received_address,
-    amount,
-).buildTransaction({
-    'chainId': web3.eth.chain_id,
-    'gas': 100_000,  # Estimate max 100k per approval
-    'from': wallet.address,
-})
+tx = token.functions.transfer(received_address, amount,).buildTransaction(
+    {
+        "chainId": web3.eth.chain_id,
+        "gas": 100_000,  # Estimate max 100k per approval
+        "from": wallet.address,
+    }
+)
 
 signed = wallet.sign_transaction_with_new_nonce(tx)
 
@@ -102,4 +101,3 @@ receipt: AttributeDict = next(iter(receipts.values()))
 print(f"Transaction mined in block {receipt.blockNumber:,}, view it at https://bscscan.com/tx/{receipt.transactionHash.hex()}")
 
 print("All ok!")
-

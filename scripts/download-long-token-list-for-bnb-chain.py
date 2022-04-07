@@ -44,11 +44,11 @@ for batch in pairs_table.to_batches():
     # Get base and quote token of all trading pairs
 
     # https://stackoverflow.com/a/55633193/315168
-    for chain_id, symbol, address in zip(d['chain_id'], d['token0_symbol'], d['token0_address']):
+    for chain_id, symbol, address in zip(d["chain_id"], d["token0_symbol"], d["token0_address"]):
         if chain_id == wanted_chain_id:
             tokens[symbol] = address
 
-    for chain_id, symbol, address in zip(d['chain_id'], d['token1_symbol'], d['token1_address']):
+    for chain_id, symbol, address in zip(d["chain_id"], d["token1_symbol"], d["token1_address"]):
         if chain_id == wanted_chain_id:
             tokens[symbol] = address
 

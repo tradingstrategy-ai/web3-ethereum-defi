@@ -18,7 +18,6 @@ from eth_defi.abi import get_contract, get_deployed_contract
 from eth_defi.deploy import deploy_contract
 from eth_defi.utils import sanitise_string
 
-
 #: List of exceptions JSON-RPC provider can through when ERC-20 field look-up fails
 #: TODO: Add exceptios from real HTTPS/WSS providers
 _call_missing_exceptions = (TransactionFailed, BadFunctionCallOutput)
@@ -30,6 +29,7 @@ class TokenDetails:
 
     Any field can be None for non-wellformed tokens.
     """
+
     contract: Contract
     name: Optional[str] = None
     symbol: Optional[str] = None
@@ -73,7 +73,14 @@ class TokenDetailError(Exception):
     """Cannot extract token details for an ERC-20 token for some reason."""
 
 
-def create_token(web3: Web3, deployer: str, name: str, symbol: str, supply: int, decimals: int=18) -> Contract:
+def create_token(
+    web3: Web3,
+    deployer: str,
+    name: str,
+    symbol: str,
+    supply: int,
+    decimals: int = 18,
+) -> Contract:
     """Deploys a new test token.
 
     Uses `ERC20Mock <https://github.com/sushiswap/sushiswap/blob/canary/contracts/mocks/ERC20Mock.sol>`_ contract for the deployment.
@@ -102,7 +109,12 @@ def create_token(web3: Web3, deployer: str, name: str, symbol: str, supply: int,
     return deploy_contract(web3, "ERC20MockDecimals.json", deployer, name, symbol, supply, decimals)
 
 
-def fetch_erc20_details(web3: Web3, token_address: HexAddress, max_str_length: int = 256, raise_on_error=True) -> TokenDetails:
+def fetch_erc20_details(
+    web3: Web3,
+    token_address: HexAddress,
+    max_str_length: int = 256,
+    raise_on_error=True,
+) -> TokenDetails:
     """Read token details from on-chain data.
 
     Connect to Web3 node and do RPC calls to extract the token info.

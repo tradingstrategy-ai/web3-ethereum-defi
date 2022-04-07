@@ -35,7 +35,7 @@ class HotWallet:
         return self.account.address
 
     def sync_nonce(self, web3: Web3):
-        """Read the current nonce """
+        """Read the current nonce"""
         self.current_nonce = web3.eth.get_transaction_count(self.account.address)
 
     def allocate_nonce(self) -> int:
@@ -87,6 +87,3 @@ class HotWallet:
         assert key.startswith("0x")
         account = Account.from_key(key)
         return HotWallet(account)
-
-
-
