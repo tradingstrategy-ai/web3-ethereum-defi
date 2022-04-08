@@ -19,15 +19,6 @@ from eth_defi.ganache import  fork_network
 from eth_defi.uniswap_v2.token_tax import TokenTaxInfo
 from eth_defi.uniswap_v2.deployment import UniswapV2Deployment, fetch_deployment
 
-
-SUSHISWAP_FACTORYV2 = "0xc35DADB65012eC5796536bD9864eD8773aBc74C4"
-PANCAKESWAP_FACTORYV2 = "0xcA143Ce32Fe78f1f7019d7d551a6402fC5350c73"
-PANCAKE_ROUTER="0x10ED43C718714eb63d5aA57B78B54704E256024E"
-PANCAKE_CODE_HASH="0x00fb7f630766e6a796048ea87d01acd3068e8ff67d078148a3fa3f4a84f69bd5"
-
-ELEPHANT_TOKEN="0xE283D0e3B8c102BAdF5E8166B73E02D96d92F688"
-BUSD_TOKEN="0xe9e7CEA3DedcA5984780Bafc599bD69ADd087D56"
-
 # https://docs.pytest.org/en/latest/how-to/skipping.html#skip-all-test-functions-of-a-class-or-module
 pytestmark = pytest.mark.skipif(
     os.environ.get("BNB_CHAIN_JSON_RPC") is None,
@@ -70,17 +61,37 @@ def seller(web3: Web3) -> HexAddress:
     return web3.eth.accounts[5]
 
 @pytest.fixture(scope="module")
+def SUSHISWAP_FACTORYV2() -> HexAddress:
+    """returns the uniswapfactoryV2 address for sushiswap on bsc"""
+    return HexAddress(HexStr("0xc35DADB65012eC5796536bD9864eD8773aBc74C4"))
+
+@pytest.fixture(scope="module")
+def PANCAKESWAP_FACTORYV2() -> HexAddress:
+    """returns the uniswapfactoryV2 address for pancakeswap on bsc"""
+    return HexAddress(HexStr("0xcA143Ce32Fe78f1f7019d7d551a6402fC5350c73"))
+
+@pytest.fixture(scope="module")
+def PANCAKE_ROUTER() -> HexAddress:
+    """returns the uniswaprouterV2 address for pancakeswap in bsc"""
+    return HexAddress(HexStr("0x10ED43C718714eb63d5aA57B78B54704E256024E"))
+
+@pytest.fixture(scope="module")
+def PANCAKE_CODE_HASH() -> str:
+    """The init code hash for pancakeswap. needed while fetching deployment"""
+    return "0x00fb7f630766e6a796048ea87d01acd3068e8ff67d078148a3fa3f4a84f69bd5"
+
+@pytest.fixture(scope="module")
 def elephant() -> HexAddress:
     """return hex address of the elephant token"""
-    return HexAddress(HexStr(ELEPHANT_TOKEN))
+    return HexAddress(HexStr("0xE283D0e3B8c102BAdF5E8166B73E02D96d92F688"))
 
 @pytest.fixture(scope="module")
 def busd() -> HexAddress:
     """return hex address of busd token"""
-    return HexAddress(HexStr(BUSD_TOKEN))
+    return HexAddress(HexStr("0xe9e7CEA3DedcA5984780Bafc599bD69ADd087D56"))
 
 @pytest.fixture
-def uniswap(web3: Web3) -> UniswapV2Deployment:
+def uniswap(web3: Web3, PANCAKESWAP_FACTORYV2 : HexAddress, PANCAKE_ROUTER : HexAddress, PANCAKE_CODE_HASH: str) -> UniswapV2Deployment:
     """returns an instance of the pancakeswap router & factory deployment on bsc"""
     return fetch_deployment(web3, PANCAKESWAP_FACTORYV2, PANCAKE_ROUTER, PANCAKE_CODE_HASH)
 
