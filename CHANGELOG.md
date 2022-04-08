@@ -4,6 +4,7 @@
 - Feature: Added support for `fee` and `slippage` to `uniswap_v2` price calculations
 - Feature: Added Uniswap v2 swap helper function with slippage protection
 - API change: Moved `get_amount_in` and `get_amount_out` to `UniswapV2FeeCalculator` class
+- Fix: Improve exception message when transactions timeout
 
 # 0.7.1
 
