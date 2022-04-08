@@ -124,14 +124,10 @@ def test_sell_exact_with_slippage_protection(
     hw_address = hot_wallet.address
 
     # Give hot wallet some USDC to buy ETH (also some ETH as well to send tx)
-    web3.eth.send_transaction(
-        {"from": deployer, "to": hw_address, "value": 1 * 10**18}
-    )
+    web3.eth.send_transaction({"from": deployer, "to": hw_address, "value": 1 * 10**18})
     usdc_amount_to_pay = 500 * 10**18
     usdc.functions.transfer(hw_address, usdc_amount_to_pay).transact({"from": deployer})
-    usdc.functions.approve(router.address, usdc_amount_to_pay).transact(
-        {"from": hw_address}
-    )
+    usdc.functions.approve(router.address, usdc_amount_to_pay).transact({"from": hw_address})
 
     # build transaction
     swap_func = swap_with_slippage_protection(
@@ -185,14 +181,10 @@ def test_buy_exact_with_slippage_protection(
     hw_address = hot_wallet.address
 
     # Give hot wallet some USDC to buy ETH (also some ETH as well to send tx)
-    web3.eth.send_transaction(
-        {"from": deployer, "to": hw_address, "value": 1 * 10**18}
-    )
+    web3.eth.send_transaction({"from": deployer, "to": hw_address, "value": 1 * 10**18})
     max_usdc_amount = 500 * 10**18
     usdc.functions.transfer(hw_address, max_usdc_amount).transact({"from": deployer})
-    usdc.functions.approve(router.address, max_usdc_amount).transact(
-        {"from": hw_address}
-    )
+    usdc.functions.approve(router.address, max_usdc_amount).transact({"from": hw_address})
 
     # expect to get 0.1 ETH
     eth_amount_expected = int(0.1 * 10**18)
@@ -257,20 +249,14 @@ def test_swap_revert_with_slippage_protection(
     hw_address = hot_wallet.address
 
     # Give hot wallet some USDC to buy ETH (also some ETH as well to send tx)
-    web3.eth.send_transaction(
-        {"from": deployer, "to": hw_address, "value": 1 * 10**18}
-    )
+    web3.eth.send_transaction({"from": deployer, "to": hw_address, "value": 1 * 10**18})
     usdc_amount_to_pay = 500 * 10**18
     usdc.functions.transfer(hw_address, usdc_amount_to_pay).transact({"from": deployer})
-    usdc.functions.approve(router.address, usdc_amount_to_pay).transact(
-        {"from": hw_address}
-    )
+    usdc.functions.approve(router.address, usdc_amount_to_pay).transact({"from": hw_address})
 
     # give user_2 some cash as well
     usdc.functions.transfer(user_2, usdc_amount_to_pay).transact({"from": deployer})
-    usdc.functions.approve(router.address, usdc_amount_to_pay).transact(
-        {"from": user_2}
-    )
+    usdc.functions.approve(router.address, usdc_amount_to_pay).transact({"from": user_2})
 
     original_price = estimate_sell_price(
         uniswap_v2,
@@ -302,7 +288,7 @@ def test_swap_revert_with_slippage_protection(
     signed_tx1 = hot_wallet.sign_transaction(tx1)
 
     # user_2 makes a faster trade which moves the price
-    tx2 = router.functions.swapExactTokensForTokens(
+    router.functions.swapExactTokensForTokens(
         85 * 10**18,
         0,
         [usdc.address, weth.address],
