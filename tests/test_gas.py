@@ -86,11 +86,13 @@ def test_raw_transaction_with_gas(web3: Web3, eth_tester, deployer: HexAddress, 
     # Create a raw transaction
     # Move 10 tokens from deployer to user1
     # https://web3py.readthedocs.io/en/stable/contracts.html?highlight=buildTransaction#web3.contract.ContractFunction.buildTransaction
-    tx = token.functions.transfer(hot_wallet.address, 10 * 10**18).buildTransaction({
-        "from": hot_wallet.address,
-        'chainId': web3.eth.chain_id,
-        "gas": 150_000,  # 150k gas should be more than enough for ERC20.transfer()
-    })
+    tx = token.functions.transfer(hot_wallet.address, 10 * 10**18).buildTransaction(
+        {
+            "from": hot_wallet.address,
+            "chainId": web3.eth.chain_id,
+            "gas": 150_000,  # 150k gas should be more than enough for ERC20.transfer()
+        }
+    )
 
     tx = fill_nonce(web3, tx)
     apply_gas(tx, gas_fees)
@@ -98,5 +100,4 @@ def test_raw_transaction_with_gas(web3: Web3, eth_tester, deployer: HexAddress, 
     signed = hot_wallet.sign_transaction(tx)
     tx_hash = web3.eth.send_raw_transaction(signed.rawTransaction)
     receipt = web3.eth.get_transaction_receipt(tx_hash)
-    assert receipt.status == 1   # 1=success and mined
-
+    assert receipt.status == 1  # 1=success and mined

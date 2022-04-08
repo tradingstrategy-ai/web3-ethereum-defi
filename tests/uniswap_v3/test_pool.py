@@ -92,10 +92,7 @@ def test_create_pool_wrong_fee(
             fee=10,
         )
 
-        assert (
-            str(e)
-            == "Default Uniswap v3 factory only allows 3 fee levels: 500, 3000, 10000"
-        )
+        assert str(e) == "Default Uniswap v3 factory only allows 3 fee levels: 500, 3000, 10000"
 
 
 @pytest.mark.parametrize("fee", DEFAULT_FEES)
@@ -119,10 +116,7 @@ def test_create_pool_no_liquidity(
 
     # Check the pool was successfully deployed
     assert pool.address.startswith("0x")
-    assert (
-        uniswap_v3.factory.functions.getPool(weth.address, usdc.address, fee).call()
-        == pool.address
-    )
+    assert uniswap_v3.factory.functions.getPool(weth.address, usdc.address, fee).call() == pool.address
     assert pool.functions.token0().call() == weth.address
     assert pool.functions.token1().call() == usdc.address
     assert pool.functions.fee().call() == fee
@@ -159,6 +153,4 @@ def test_create_pool_with_initial_liquidity(
 
     # check if sqrt price is changed
     slot0 = pool.functions.slot0().call()
-    assert slot0[0] == encode_sqrt_ratio_x96(
-        amount0=initial_amount0, amount1=initial_amount1
-    )
+    assert slot0[0] == encode_sqrt_ratio_x96(amount0=initial_amount0, amount1=initial_amount1)

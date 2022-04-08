@@ -41,19 +41,14 @@ web3.eth.set_gas_price_strategy(node_default_gas_price_strategy)
 
 # Attempt to send 1M BUSD that should revert
 token = get_deployed_contract(web3, "ERC20MockDecimals.json", busd_token)
-tx_hash = token.functions.transfer(
-    received_address,
-    1_000_0000 * 10**18,
-).transact({
-    "from": account.address,
-    "gas": 500_000,  # Gas must be set or we are going to get an exception in the gas estimate
-})
+tx_hash = token.functions.transfer(received_address, 1_000_0000 * 10**18,).transact(
+    {
+        "from": account.address,
+        "gas": 500_000,  # Gas must be set or we are going to get an exception in the gas estimate
+    }
+)
 
-receipts = wait_transactions_to_complete(
-    web3, 
-    [tx_hash], 
-    max_timeout=datetime.timedelta(minutes=1),
-    confirmation_block_count=3)
+receipts = wait_transactions_to_complete(web3, [tx_hash], max_timeout=datetime.timedelta(minutes=1), confirmation_block_count=3)
 
 # https://stackoverflow.com/a/39292086/315168
 assert len(receipts) == 1
@@ -65,6 +60,3 @@ assert receipt.status == 0, "Did not fail?"
 # Check the failure reason
 reason = fetch_transaction_revert_reason(web3, tx_hash)
 print(f"Got revert reason: {reason}")
-
-
-

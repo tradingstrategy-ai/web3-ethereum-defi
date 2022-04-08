@@ -1,15 +1,14 @@
 """Transaction broadcasting and monitoring."""
 
+import datetime
 import logging
 import time
-from typing import List, Dict, Set
-import datetime
+from typing import Dict, List, Set
 
 from eth_account.datastructures import SignedTransaction
 from hexbytes import HexBytes
 from web3 import Web3
 from web3.exceptions import TransactionNotFound
-
 
 logger = logging.getLogger(__name__)
 
@@ -19,11 +18,12 @@ class ConfirmationTimedOut(Exception):
 
 
 def wait_transactions_to_complete(
-        web3: Web3,
-        txs: List[HexBytes],
-        confirmation_block_count: int = 0,
-        max_timeout=datetime.timedelta(minutes=5),
-        poll_delay=datetime.timedelta(seconds=1)) -> Dict[HexBytes, dict]:
+    web3: Web3,
+    txs: List[HexBytes],
+    confirmation_block_count: int = 0,
+    max_timeout=datetime.timedelta(minutes=5),
+    poll_delay=datetime.timedelta(seconds=1),
+) -> Dict[HexBytes, dict]:
     """Watch multiple transactions executed at parallel.
 
     Use simple poll loop to wait all transactions to complete.
@@ -104,11 +104,12 @@ def wait_transactions_to_complete(
 
 
 def broadcast_transactions(
-        web3: Web3,
-        txs: List[SignedTransaction],
-        confirmation_block_count=0,
-        work_around_bad_nodes=True,
-        bad_node_sleep=0.5) -> List[HexBytes]:
+    web3: Web3,
+    txs: List[SignedTransaction],
+    confirmation_block_count=0,
+    work_around_bad_nodes=True,
+    bad_node_sleep=0.5,
+) -> List[HexBytes]:
     """Broadcast and wait a bunch of signed transactions to confirm.
 
     Multiple transactions can be broadcasted and confirmed in a single go,
@@ -176,13 +177,14 @@ def broadcast_transactions(
 
 
 def broadcast_and_wait_transactions_to_complete(
-        web3: Web3,
-        txs: List[SignedTransaction],
-        confirm_ok=True,
-        work_around_bad_nodes=True,
-        confirmation_block_count: int = 0,
-        max_timeout=datetime.timedelta(minutes=5),
-        poll_delay=datetime.timedelta(seconds=1)) -> Dict[HexBytes, dict]:
+    web3: Web3,
+    txs: List[SignedTransaction],
+    confirm_ok=True,
+    work_around_bad_nodes=True,
+    confirmation_block_count: int = 0,
+    max_timeout=datetime.timedelta(minutes=5),
+    poll_delay=datetime.timedelta(seconds=1),
+) -> Dict[HexBytes, dict]:
     """Broadcast and wait a bunch of signed transactions to confirm.
 
     Multiple transactions can be broadcasted and confirmed in a single go,
@@ -210,12 +212,7 @@ def broadcast_and_wait_transactions_to_complete(
     )
 
     # Wait transactions to confirm
-    receipts = wait_transactions_to_complete(
-        web3,
-        hashes,
-        confirmation_block_count=confirmation_block_count,
-        max_timeout=max_timeout,
-        poll_delay=poll_delay)
+    receipts = wait_transactions_to_complete(web3, hashes, confirmation_block_count=confirmation_block_count, max_timeout=max_timeout, poll_delay=poll_delay)
 
     if confirm_ok:
         for tx_hash, receipt in receipts.items():
@@ -223,4 +220,3 @@ def broadcast_and_wait_transactions_to_complete(
                 raise RuntimeError(f"Transaction {tx_hash} failed {receipt}")
 
     return receipts
-

@@ -8,7 +8,9 @@ dist
 .ipynb_checkpoints
 
 # IDE
-.vscode
+.vscode/*
+!.vscode/settings.json
+.idea
 .python-version
 
 # docs

@@ -39,5 +39,8 @@ build-backend = "poetry.core.masonry.api"
 [tool.pytest.ini_options]
 addopts = "--capture=no --durations=0"
 
+[tool.black]
+line-length = 999
+
 [tool.isort]
 profile = "black"

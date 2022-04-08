@@ -169,9 +169,7 @@ def test_swap(
     # Give user_1 some cash to buy ETH and approve it on the router
     usdc_amount_to_pay = 500 * 10**18
     usdc.functions.transfer(user_1, usdc_amount_to_pay).transact({"from": deployer})
-    usdc.functions.approve(router.address, usdc_amount_to_pay).transact(
-        {"from": user_1}
-    )
+    usdc.functions.approve(router.address, usdc_amount_to_pay).transact({"from": user_1})
 
     # Perform a swap USDC->WETH
     path = [usdc.address, weth.address]  # Path tell how the swap is routed
@@ -185,6 +183,4 @@ def test_swap(
     ).transact({"from": user_1})
 
     # Check the user_1 received ~0.284 ethers
-    assert weth.functions.balanceOf(user_1).call() / 1e18 == pytest.approx(
-        0.28488156127668085
-    )
+    assert weth.functions.balanceOf(user_1).call() / 1e18 == pytest.approx(0.28488156127668085)
