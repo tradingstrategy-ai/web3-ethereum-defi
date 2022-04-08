@@ -97,7 +97,7 @@ def wait_transactions_to_complete(
                 for tx_hash in unconfirmed_txs:
                     tx_data = web3.eth.get_transaction(tx_hash)
                     logger.error("Data for transaction %s was %s", tx_hash.hex(), tx_data)
-                unconfirmed_tx_strs = ", ".join([tx_hash.hex() for tx_hashcd  in unconfirmed_txs])
+                unconfirmed_tx_strs = ", ".join([tx_hash.hex() for tx_hash in unconfirmed_txs])
                 raise ConfirmationTimedOut(f"Transaction confirmation failed. Started: {started_at}, timed out after {max_timeout}. Still unconfirmed: {unconfirmed_tx_strs}")
 
     return receipts_received

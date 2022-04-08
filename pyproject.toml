@@ -27,6 +27,7 @@ sphinx-rtd-theme = "^1.0.0"
 sphinx-sitemap = "^2.2.0"
 ipdb = "^0.13.9"
 black = "^22.1.0"
+flake8 = "^4.0.1"
 
 # See discussion https://github.com/python-poetry/poetry/issues/3348#issuecomment-726534462
 [tool.poetry.extras]
