@@ -1,6 +1,9 @@
 # Current
 
 - Update web3.py dependency to 5.28.0
+- Feature: Added support for `fee` and `slippage` to `uniswap_v2` price calculations
+- Feature: Added Uniswap v2 swap helper function with slippage protection
+- API change: Moved `get_amount_in` and `get_amount_out` to `UniswapV2FeeCalculator` class
 
 # 0.7.1
 
@@ -9,17 +12,18 @@
 # 0.6
 
 - Feature: Added revert reason extraction for failed transactions
-- Feature: Added `eth_hentai.gas.node_default_gas_price_strategy` to support BNB Chain
+- Feature: Added `eth_defi.gas.node_default_gas_price_strategy` to support BNB Chain
 - Fix: BNB Chain compatibility fixes because of brokeness in Ethereum JSON-RPC
 - Fix: Ganache compatibility fixes because of brokeness in Ethereum JSON-RPC
 - Fix: Wait 10 seconds instead of 5 seconds to ganache-cli to launch, as the latter is too slow for some computers
 - Fix: Optimize `wait_transactions_to_complete`
 - API change: Created a separate `broadcast_transactions` function
 
+
 # 0.5
 
 - Feature: Added initial Uniswap v3 testing support
-- Feature: Allow override init code hash for `eth_hentai.uniswap_v2.fetch_deployment`
+- Feature: Allow override init code hash for `eth_defi.uniswap_v2.fetch_deployment`
 - Feature: Faster failing if ganache-cli RPS port is already taken
 - Feature: Added `fetch_erc20_balances_by_token_list`
 - Feature: Added `get_transaction_data_field`
@@ -32,13 +36,13 @@
 
 # 0.4
 
-- Feature: [eth_hentai.ganache module](https://smart-contracts-for-testing.readthedocs.io/en/latest/_autosummary/eth_hentai.ganache.html#module-eth_hentai.ganache) to support ganache-cli mainnet forks
+- Feature: [eth_defi.ganache module](https://smart-contracts-for-testing.readthedocs.io/en/latest/_autosummary/eth_defi.ganache.html#module-eth_defi.ganache) to support ganache-cli mainnet forks
 - Feature: `HotWallet.get_native_currency_balance` to easier management of hot wallet accounts
 - Feature: `HotWallet.from_private_key` to easier management of hot wallet accounts
 
 # 0.3
 
-- Rename module: `eth_hentai.portfolio` -> `eth_hentai.balances`
+- Rename module: `eth_defi.portfolio` -> `eth_defi.balances`
 - Fix: Documentation now builds correctly with body text for functions 
 - Fix: ERC-20 balances when there exist debit transactions 
 

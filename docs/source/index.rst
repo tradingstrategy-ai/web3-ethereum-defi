@@ -44,6 +44,7 @@ Uniswap v2 API documentation
    eth_defi.uniswap_v2.fees
    eth_defi.uniswap_v2.analysis
    eth_defi.uniswap_v2.utils
+   eth_defi.uniswap_v2.swap
 
 Uniswap v3 API documentation
 ============================
