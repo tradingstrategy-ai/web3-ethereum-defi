@@ -61,22 +61,22 @@ def seller(web3: Web3) -> HexAddress:
     return web3.eth.accounts[5]
 
 @pytest.fixture(scope="module")
-def SUSHISWAP_FACTORYV2() -> HexAddress:
+def sushiswap_factory_v2() -> HexAddress:
     """returns the uniswapfactoryV2 address for sushiswap on bsc"""
     return HexAddress(HexStr("0xc35DADB65012eC5796536bD9864eD8773aBc74C4"))
 
 @pytest.fixture(scope="module")
-def PANCAKESWAP_FACTORYV2() -> HexAddress:
+def pancakeswap_factory_v2() -> HexAddress:
     """returns the uniswapfactoryV2 address for pancakeswap on bsc"""
     return HexAddress(HexStr("0xcA143Ce32Fe78f1f7019d7d551a6402fC5350c73"))
 
 @pytest.fixture(scope="module")
-def PANCAKE_ROUTER() -> HexAddress:
+def pancake_router() -> HexAddress:
     """returns the uniswaprouterV2 address for pancakeswap in bsc"""
     return HexAddress(HexStr("0x10ED43C718714eb63d5aA57B78B54704E256024E"))
 
 @pytest.fixture(scope="module")
-def PANCAKE_CODE_HASH() -> str:
+def pancake_code_hash() -> str:
     """The init code hash for pancakeswap. needed while fetching deployment"""
     return "0x00fb7f630766e6a796048ea87d01acd3068e8ff67d078148a3fa3f4a84f69bd5"
 
@@ -91,9 +91,9 @@ def busd() -> HexAddress:
     return HexAddress(HexStr("0xe9e7CEA3DedcA5984780Bafc599bD69ADd087D56"))
 
 @pytest.fixture
-def uniswap(web3: Web3, PANCAKESWAP_FACTORYV2 : HexAddress, PANCAKE_ROUTER : HexAddress, PANCAKE_CODE_HASH: str) -> UniswapV2Deployment:
+def uniswap(web3: Web3, pancakeswap_factory_v2 : HexAddress, pancake_router : HexAddress, pancake_code_hash: str) -> UniswapV2Deployment:
     """returns an instance of the pancakeswap router & factory deployment on bsc"""
-    return fetch_deployment(web3, PANCAKESWAP_FACTORYV2, PANCAKE_ROUTER, PANCAKE_CODE_HASH)
+    return fetch_deployment(web3, pancakeswap_factory_v2, pancake_router, pancake_code_hash)
 
 def test_token_tax(uniswap: UniswapV2Deployment, large_busd_holder: HexAddress, seller: HexAddress, elephant: HexAddress, busd: HexAddress):
     expected_elephant_tax_percent : float = 0.1
