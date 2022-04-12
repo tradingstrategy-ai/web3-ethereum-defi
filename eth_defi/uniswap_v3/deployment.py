@@ -74,9 +74,7 @@ def deploy_uniswap_v3_factory(web3: Web3, deployer: HexAddress) -> Contract:
     )
 
     # https://ethereum.stackexchange.com/a/73872/620
-    tx_hash = web3.eth.send_transaction(
-        {"from": deployer, "data": UNISWAP_V3_FACTORY_DEPLOYMENT_DATA}
-    )
+    tx_hash = web3.eth.send_transaction({"from": deployer, "data": UNISWAP_V3_FACTORY_DEPLOYMENT_DATA})
     tx_receipt = web3.eth.wait_for_transaction_receipt(tx_hash)
     instance = UniswapV3Factory(address=tx_receipt.contractAddress)
     return instance
@@ -129,9 +127,7 @@ def deploy_uniswap_v3(
     )
 
     if give_weth:
-        weth.functions.deposit().transact(
-            {"from": deployer, "value": give_weth * 10**18}
-        )
+        weth.functions.deposit().transact({"from": deployer, "value": give_weth * 10**18})
 
     PoolContract = get_contract(web3, "uniswap_v3/UniswapV3Pool.json")
 
@@ -177,14 +173,10 @@ def deploy_pool(
     """
 
     assert token0.address != token1.address
-    assert (
-        fee in DEFAULT_FEES
-    ), f"Default Uniswap v3 factory only allows 3 fee levels: {', '.join(map(str, DEFAULT_FEES))}"
+    assert fee in DEFAULT_FEES, f"Default Uniswap v3 factory only allows 3 fee levels: {', '.join(map(str, DEFAULT_FEES))}"
 
     factory = deployment.factory
-    tx_hash = factory.functions.createPool(
-        token0.address, token1.address, fee
-    ).transact({"from": deployer})
+    tx_hash = factory.functions.createPool(token0.address, token1.address, fee).transact({"from": deployer})
     tx_receipt = web3.eth.wait_for_transaction_receipt(tx_hash)
 
     # https://ethereum.stackexchange.com/a/59288/620
@@ -201,18 +193,12 @@ def deploy_pool(
 
         # pool is locked until initialize with initial sqrtPriceX96
         # https://github.com/Uniswap/v3-core/blob/v1.0.0/contracts/UniswapV3Pool.sol#L271
-        sqrt_price_x96 = encode_sqrt_ratio_x96(
-            amount0=initial_amount0, amount1=initial_amount1
-        )
+        sqrt_price_x96 = encode_sqrt_ratio_x96(amount0=initial_amount0, amount1=initial_amount1)
         tx_hash = pool.functions.initialize(sqrt_price_x96).transact({"from": deployer})
 
         position_manager = deployment.position_manager
-        token0.functions.approve(position_manager.address, initial_amount0).transact(
-            {"from": deployer}
-        )
-        token1.functions.approve(position_manager.address, initial_amount1).transact(
-            {"from": deployer}
-        )
+        token0.functions.approve(position_manager.address, initial_amount0).transact({"from": deployer})
+        token1.functions.approve(position_manager.address, initial_amount1).transact({"from": deployer})
 
         min_tick, max_tick = get_default_tick_range(fee)
         if get_tick_range_fn:
@@ -255,13 +241,9 @@ def _deploy_nft_position_descriptor(web3: Web3, deployer: HexAddress, weth: Cont
     # linkReferences can be found in compiled `abi/uniswap_v3/NonfungibleTokenPositionDescriptor.json`
     nft_descriptor = deploy_contract(web3, "uniswap_v3/NFTDescriptor.json", deployer)
 
-    contract_interface = get_abi_by_filename(
-        "uniswap_v3/NonfungibleTokenPositionDescriptor.json"
-    )
+    contract_interface = get_abi_by_filename("uniswap_v3/NonfungibleTokenPositionDescriptor.json")
     abi = contract_interface["abi"]
-    bytecode = contract_interface["bytecode"].replace(
-        "__$cea9be979eee3d87fb124d6cbb244bb0b5$__", nft_descriptor.address[2:]
-    )
+    bytecode = contract_interface["bytecode"].replace("__$cea9be979eee3d87fb124d6cbb244bb0b5$__", nft_descriptor.address[2:])
     NonfungibleTokenPositionDescriptor = web3.eth.contract(abi=abi, bytecode=bytecode)
 
     return deploy_contract(

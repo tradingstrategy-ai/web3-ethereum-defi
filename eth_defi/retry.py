@@ -28,13 +28,7 @@ def retry_web3_call(func: Callable, start_block, end_block, retries, delay) -> T
             # https://github.com/ethereum/go-ethereum/issues/20426
             if i < retries - 1:
                 # Give some more verbose info than the default middleware
-                logger.warning(
-                    "Retrying events for block range %d - %d (%d) failed with %s, retrying in %s seconds",
-                    start_block,
-                    end_block,
-                    end_block-start_block,
-                    e,
-                    delay)
+                logger.warning("Retrying events for block range %d - %d (%d) failed with %s, retrying in %s seconds", start_block, end_block, end_block - start_block, e, delay)
                 # Decrease the `eth_getBlocks` range
                 end_block = start_block + ((end_block - start_block) // 2)
                 # Let the JSON-RPC to recover e.g. from restart

@@ -40,6 +40,7 @@ out_file = "/tmp/bnb-chain-trading-pairs.json"
 #: Which chain we scan
 chain_id = 56
 
+
 @dataclass_json
 @dataclass
 class PairAddressInfo:
@@ -50,6 +51,7 @@ class PairAddressInfo:
 
     https://tradingstrategy.ai/docs/programming/referenceprice.html#determining-quote-token
     """
+
     #: E.g. "WBNB"
     base_token_symbol: str
     #: E.g. "BUSD"
@@ -69,6 +71,7 @@ class PairAddressInfo:
 @dataclass
 class PairDatabase:
     """Describe JSON file."""
+
     pairs: List[PairAddressInfo] = field(default_factory=list)
 
 
@@ -83,7 +86,7 @@ pair_table = client.fetch_pair_universe()
 # This contains pairs for all blockchains so we filter it down to the desired chain
 # https://stackoverflow.com/a/67005586/315168
 print("Filtering")
-pair_table = pair_table.filter(pa.compute.equal(pair_table['chain_id'], chain_id))
+pair_table = pair_table.filter(pa.compute.equal(pair_table["chain_id"], chain_id))
 
 print("Preparing output")
 # Convert to PairUniverse class that's easier to manipualte
@@ -95,17 +98,8 @@ database = PairDatabase()
 # Populate database's entry list with fields that are our interest
 pair: DEXPair
 for pair_id, pair in pair_universe.pairs.items():
-    database.pairs.append(
-        PairAddressInfo(
-            pair.base_token_symbol,
-            pair.quote_token_symbol,
-            pair.base_token_address,
-            pair.quote_token_address,
-            pair.address
-        )
-    )
+    database.pairs.append(PairAddressInfo(pair.base_token_symbol, pair.quote_token_symbol, pair.base_token_address, pair.quote_token_address, pair.address))
 
 # Dump it to the disk
 with open(out_file, "wt") as out:
     out.write(database.to_json())
-

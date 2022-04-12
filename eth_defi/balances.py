@@ -2,10 +2,10 @@
 from collections import Counter
 from dataclasses import dataclass
 from decimal import Decimal
-from typing import Optional, Dict, Set
-import requests.exceptions
+from typing import Dict, Optional, Set
 
-from eth_typing import ChecksumAddress, BlockNumber, HexAddress
+import requests.exceptions
+from eth_typing import BlockNumber, ChecksumAddress, HexAddress
 from web3 import Web3
 from web3.contract import Contract
 
@@ -19,6 +19,7 @@ class DecimalisedHolding:
 
     Exposes the underlying decimals the ERC-20 wants to express.
     """
+
     value: Decimal
     decimals: int
     contract: Contract
@@ -32,7 +33,12 @@ class BalanceFetchFailed(Exception):
     """
 
 
-def fetch_erc20_balances_by_transfer_event(web3: Web3, owner: HexAddress, from_block: Optional[int] = 1, last_block_num: Optional[BlockNumber] = None) -> Dict[HexAddress, int]:
+def fetch_erc20_balances_by_transfer_event(
+    web3: Web3,
+    owner: HexAddress,
+    from_block: Optional[int] = 1,
+    last_block_num: Optional[BlockNumber] = None,
+) -> Dict[HexAddress, int]:
     """Get all current holdings of an account.
 
     We attempt to build a list of token holdings by analysing incoming ERC-20 Transfer events to a wallet.
@@ -153,4 +159,3 @@ def convert_balances_to_decimal(web3, raw_balances: Dict[HexAddress, int]) -> Di
         res[address] = DecimalisedHolding(Decimal(raw_balance) / Decimal(10**decimals), decimals, contract)
 
     return res
-

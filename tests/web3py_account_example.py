@@ -1,4 +1,3 @@
-
 import os
 from eth_account import Account
 from eth_account.signers.local import LocalAccount

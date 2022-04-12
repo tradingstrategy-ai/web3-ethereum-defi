@@ -15,7 +15,7 @@ Compatible exchanges include, but not limited to
 Under the hood we are using `SushiSwap v2 contracts <github.com/sushiswap/sushiswap>`_ for the deployment.
 """
 from dataclasses import dataclass
-from typing import Union, Optional
+from typing import Optional, Union
 
 from eth_typing import HexAddress, HexStr
 from web3 import Web3
@@ -23,7 +23,6 @@ from web3.contract import Contract
 
 from eth_defi.abi import get_contract, get_deployed_contract
 from eth_defi.deploy import deploy_contract
-
 
 FOREVER_DEADLINE = 2**63
 
@@ -81,9 +80,7 @@ def deploy_factory_sushi(web3: Web3, deployer: str) -> Contract:
     # https://ethereum.stackexchange.com/a/73872/620
     tx_hash = web3.eth.send_transaction({"from": deployer, "data": _SUSHI_FACTORY_DEPLOYMENT_DATA})
     tx_receipt = web3.eth.wait_for_transaction_receipt(tx_hash)
-    instance = UniswapV2Factory(
-        address=tx_receipt.contractAddress,
-    )
+    instance = UniswapV2Factory(address=tx_receipt.contractAddress)
     return instance
 
 
@@ -126,13 +123,14 @@ def deploy_uniswap_v2_like(web3: Web3, deployer: str, give_weth=10_000, init_cod
 
 
 def deploy_trading_pair(
-        web3: Web3,
-        deployer: str,
-        deployment: UniswapV2Deployment,
-        token_a: Contract,
-        token_b: Contract,
-        liquidity_a: int,
-        liquidity_b: int) -> HexAddress:
+    web3: Web3,
+    deployer: str,
+    deployment: UniswapV2Deployment,
+    token_a: Contract,
+    token_b: Contract,
+    liquidity_a: int,
+    liquidity_b: int,
+) -> HexAddress:
     """Deploy a new trading pair on Uniswap v2.
 
     Assumes `deployer` has enough token balance to add the initial liquidity.
@@ -186,14 +184,17 @@ def deploy_trading_pair(
             1,  # Have dummy value here
             deployer,
             FOREVER_DEADLINE,
-        ).transact({
-            "from": deployer,
-        })
+        ).transact({"from": deployer})
 
     return pair_address
 
 
-def fetch_deployment(web3: Web3, factory_address: Union[HexAddress, str], router_address: Union[HexAddress, str], init_code_hash: Optional[Union[HexStr, str]] = None) -> UniswapV2Deployment:
+def fetch_deployment(
+    web3: Web3,
+    factory_address: Union[HexAddress, str],
+    router_address: Union[HexAddress, str],
+    init_code_hash: Optional[Union[HexStr, str]] = None,
+) -> UniswapV2Deployment:
     """Construct Uniswap deployment based on on-chain data.
 
     Fetches init code hash from on-chain.
@@ -219,7 +220,7 @@ def fetch_deployment(web3: Web3, factory_address: Union[HexAddress, str], router
 
     :param init_code_hash: Read init code hash from the caller. If not given call `pairCodeHash` (SushiSwap) on the factory.
     """
-    factory = get_deployed_contract(web3, "UniswapV2Factory.json",factory_address)
+    factory = get_deployed_contract(web3, "UniswapV2Factory.json", factory_address)
     # https://github.com/sushiswap/sushiswap/blob/4fdfeb7dafe852e738c56f11a6cae855e2fc0046/contracts/uniswapv2/UniswapV2Factory.sol#L26
     if init_code_hash is None:
         init_code_hash = factory.functions.pairCodeHash().call().hex()

@@ -19,8 +19,6 @@ def sort_tokens(token_a: HexAddress, token_b: HexAddress) -> Tuple[HexAddress, H
     return token_0, token_1
 
 
-
-
 # Liften from uniswap-v2-py by Asynctomatic
 def pair_for(factory: HexAddress, token_a: HexAddress, token_b: HexAddress, magical_hash: HexStr) -> HexAddress:
     """Deduct the Uniswap pair contract address
@@ -36,5 +34,3 @@ def pair_for(factory: HexAddress, token_a: HexAddress, token_b: HexAddress, magi
     suffix = Web3.toHex(hexstr=magical_hash)
     raw = Web3.solidityKeccak(["bytes", "address", "bytes", "bytes"], [prefix, factory, encoded_tokens, suffix])
     return Web3.toChecksumAddress(Web3.toHex(raw)[-40:])
-
-
