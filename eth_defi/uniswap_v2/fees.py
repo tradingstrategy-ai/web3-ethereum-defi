@@ -4,7 +4,7 @@
 """
 
 from decimal import Decimal
-from typing import List
+from typing import List, Optional
 
 from eth_typing import HexAddress
 from web3 import Web3
@@ -48,7 +48,7 @@ class UniswapV2FeeCalculator:
         path: List[HexAddress],
         *,
         fee: int = 30,
-        slippage: int = 0,
+        slippage: float = 0,
     ) -> List[int]:
         """Get how much token we are going to receive.
 
@@ -61,10 +61,19 @@ class UniswapV2FeeCalculator:
         assert len(path) >= 2
         amounts = [amount_in]
         current_amount = amount_in
-        for p0, p1 in zip(path, path[1:]):
+
+        pairs = list(zip(path, path[1:]))
+        for index, (p0, p1) in enumerate(pairs):
             r = self.get_reserves(p0, p1)
-            current_amount = self.get_amount_out(current_amount, r[0], r[1], fee=fee, slippage=slippage)
+
+            # since we care only about the last amount out, apply slippage to only last pair calculation
+            _slippage = 0
+            if index == len(pairs) - 1:
+                _slippage = slippage
+            current_amount = self.get_amount_out(current_amount, r[0], r[1], fee=fee, slippage=_slippage)
+
             amounts.append(current_amount)
+
         return amounts
 
     def get_amounts_in(
@@ -73,7 +82,7 @@ class UniswapV2FeeCalculator:
         path: List[HexAddress],
         *,
         fee: int = 30,
-        slippage: int = 0,
+        slippage: float = 0,
     ):
         """Get how much token we are going to spend.
 
@@ -86,10 +95,19 @@ class UniswapV2FeeCalculator:
         assert len(path) >= 2
         amounts = [amount_out]
         current_amount = amount_out
-        for p0, p1 in reversed(list(zip(path, path[1:]))):
+
+        pairs = reversed(list(zip(path, path[1:])))
+        for index, (p0, p1) in enumerate(pairs):
             r = self.get_reserves(p0, p1)
-            current_amount = self.get_amount_in(current_amount, r[0], r[1], fee=fee, slippage=slippage)
+
+            # since we care only about the first amount in, apply slippage to only first pair calculation
+            _slippage = 0
+            if index == 0:
+                _slippage = slippage
+            current_amount = self.get_amount_in(current_amount, r[0], r[1], fee=fee, slippage=_slippage)
+
             amounts.insert(0, current_amount)
+
         return amounts
 
     @staticmethod
@@ -99,7 +117,7 @@ class UniswapV2FeeCalculator:
         reserve_out: int,
         *,
         fee: int = 30,
-        slippage: int = 0,
+        slippage: float = 0,
     ):
         """Returns the minimum input asset amount required to buy the given
         output asset amount (accounting for fees) given reserves.
@@ -115,7 +133,7 @@ class UniswapV2FeeCalculator:
         assert reserve_in > 0 and reserve_out > 0
         numerator = reserve_in * amount_out * 10_000 * 10_000
         denominator = (reserve_out - amount_out) * (10_000 - fee) * (10_000 - slippage)
-        return int(numerator / denominator + 1)
+        return int(numerator // (denominator + 1))
 
     @staticmethod
     def get_amount_out(
@@ -124,7 +142,7 @@ class UniswapV2FeeCalculator:
         reserve_out: int,
         *,
         fee: int = 30,
-        slippage: int = 0,
+        slippage: float = 0,
     ):
         """Given an input asset amount, returns the maximum output amount of
         the other asset (accounting for fees) given reserves.
@@ -141,7 +159,7 @@ class UniswapV2FeeCalculator:
         amount_in_with_fee = amount_in * (10_000 - fee) * (10_000 - slippage)
         numerator = amount_in_with_fee * reserve_out
         denominator = reserve_in * 10_000 * 10_000 + amount_in_with_fee
-        return int(numerator / denominator)
+        return int(numerator // denominator)
 
 
 def estimate_buy_quantity(
@@ -151,7 +169,7 @@ def estimate_buy_quantity(
     quantity: int,
     *,
     fee: int = 30,
-    slippage: int = 0,
+    slippage: float = 0,
 ) -> int:
     """Estimate how many tokens we are going to receive when doing a buy.
 
@@ -193,7 +211,8 @@ def estimate_buy_price(
     quantity: int,
     *,
     fee: int = 30,
-    slippage: int = 0,
+    slippage: float = 0,
+    intermediate_token: Optional[Contract] = None,
 ) -> int:
     """Estimate how much we are going to need to pay when doing buy.
 
@@ -223,7 +242,10 @@ def estimate_buy_price(
     :return: Expected base token to receive
     """
     fee_helper = UniswapV2FeeCalculator(uniswap)
-    path = [quote_token.address, base_token.address]
+    if intermediate_token:
+        path = [quote_token.address, intermediate_token.address, base_token.address]
+    else:
+        path = [quote_token.address, base_token.address]
     amounts = fee_helper.get_amounts_in(quantity, path, fee=fee, slippage=slippage)
     return amounts[0]
 
@@ -235,7 +257,8 @@ def estimate_sell_price(
     quantity: int,
     *,
     fee: int = 30,
-    slippage: int = 0,
+    slippage: float = 0,
+    intermediate_token: Optional[Contract] = None,
 ) -> int:
     """Estimate how much we are going to get paid when doing a sell.
 
@@ -251,7 +274,7 @@ def estimate_sell_price(
 
     .. code-block:: python
 
-        # Create the trading pair and add initial liquidity for price 1700 USDC/ETH
+        # Create the trading pair and add iint(10_000 * amounts[-1] // (10_000 - slippage))nitial liquidity for price 1700 USDC/ETH
         deploy_trading_pair(
             web3,
             deployer,
@@ -265,7 +288,7 @@ def estimate_sell_price(
         # Estimate the price of selling 1 ETH
         usdc_per_eth = estimate_price(
             uniswap_v2,
-            weth,
+            weth,user_1
             usdc,
             1 * 10**18,  # 1 ETH
         )
@@ -281,7 +304,10 @@ def estimate_sell_price(
     :return: Expected quote token amount to receive
     """
     fee_helper = UniswapV2FeeCalculator(uniswap)
-    path = [base_token.address, quote_token.address]
+    if intermediate_token:
+        path = [base_token.address, intermediate_token.address, quote_token.address]
+    else:
+        path = [base_token.address, quote_token.address]
     amounts = fee_helper.get_amounts_out(quantity, path, fee=fee, slippage=slippage)
     return amounts[-1]
 
@@ -293,7 +319,8 @@ def estimate_buy_price_decimals(
     quantity: Decimal,
     *,
     fee: int = 30,
-    slippage: int = 0,
+    slippage: float = 0,
+    intermediate_token_address: Optional[HexAddress] = None,
 ) -> Decimal:
     """Estimate how much we are going to need to pay when doing buy.
 
@@ -340,7 +367,11 @@ def estimate_buy_price_decimals(
     quote = fetch_erc20_details(web3, quote_token_address, raise_on_error=False)
     quantity_raw = base.convert_to_raw(quantity)
     fee_helper = UniswapV2FeeCalculator(uniswap)
-    path = [quote_token_address, base_token_address]
+
+    if intermediate_token_address:
+        path = [quote_token_address, intermediate_token_address, base_token_address]
+    else:
+        path = [quote_token_address, base_token_address]
     amounts = fee_helper.get_amounts_in(quantity_raw, path, fee=fee, slippage=slippage)
     in_raw = amounts[0]
     return quote.convert_to_decimals(in_raw)
@@ -353,7 +384,8 @@ def estimate_sell_price_decimals(
     quantity: Decimal,
     *,
     fee: int = 30,
-    slippage: int = 0,
+    slippage: float = 0,
+    intermediate_token_address: Optional[HexAddress] = None,
 ) -> Decimal:
     """Estimate how much we are going to get paid when doing a sell.
 
@@ -376,7 +408,10 @@ def estimate_sell_price_decimals(
     quantity_raw = base.convert_to_raw(quantity)
 
     fee_helper = UniswapV2FeeCalculator(uniswap)
-    path = [base_token_address, quote_token_address]
+    if intermediate_token_address:
+        path = [base_token_address, intermediate_token_address, quote_token_address]
+    else:
+        path = [base_token_address, quote_token_address]
     amounts = fee_helper.get_amounts_out(quantity_raw, path, fee=fee, slippage=slippage)
 
     out_raw = amounts[-1]
