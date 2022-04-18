@@ -9,7 +9,6 @@ from web3 import EthereumTesterProvider, Web3
 from web3._utils.transactions import fill_nonce
 from web3.contract import Contract
 
-from eth_defi.revert_reason import fetch_transaction_revert_reason
 from eth_defi.token import create_token
 from eth_defi.uniswap_v2.deployment import (
     FOREVER_DEADLINE,
@@ -112,10 +111,16 @@ def weth(uniswap_v2) -> Contract:
     return uniswap_v2.weth
 
 
+@pytest.fixture()
+def dai(web3, deployer) -> Contract:
+    """Mock DAI token."""
+    return create_token(web3, deployer, "DAI", "DAI", 100_000_000 * 10**18)
+
+
 def test_get_amount_in():
-    assert UniswapV2FeeCalculator.get_amount_in(100, 1000, 1000) == 112
-    assert UniswapV2FeeCalculator.get_amount_in(100, 10000, 10000) == 102
-    assert UniswapV2FeeCalculator.get_amount_in(100, 10000, 10000, slippage=1000) == 113
+    assert UniswapV2FeeCalculator.get_amount_in(100, 1000, 1000) == 111
+    assert UniswapV2FeeCalculator.get_amount_in(100, 10000, 10000) == 101
+    assert UniswapV2FeeCalculator.get_amount_in(100, 10000, 10000, slippage=1000) == 112
 
 
 def test_get_amount_out():
@@ -182,6 +187,14 @@ def test_estimate_buy_price(
         1 * 10**18,
     )
     assert usdc_per_eth / 1e18 == pytest.approx(1894.572606709)
+
+    usdc_per_eth = estimate_buy_price(
+        uniswap_v2,
+        weth,
+        usdc,
+        1 * 10**18,
+        slippage=500,
+    )
 
 
 def test_estimate_sell_price(
@@ -335,9 +348,7 @@ def test_buy_sell_round_trip(
     # Give user_1 500 USD to buy ETH
     usdc_amount_to_pay = 500 * 10**18
     usdc.functions.transfer(user_1, usdc_amount_to_pay).transact({"from": deployer})
-    usdc.functions.approve(router.address, usdc_amount_to_pay).transact(
-        {"from": user_1}
-    )
+    usdc.functions.approve(router.address, usdc_amount_to_pay).transact({"from": user_1})
 
     # Perform a swap USDC->WETH
     path = [usdc.address, weth.address]  # Path tell how the swap is routed
@@ -393,14 +404,10 @@ def test_swap_price_from_hot_wallet(
 
     # Give hot wallet some cash to buy ETH (also some ETH as well to sign tx)
     # and approve it on the router
-    web3.eth.send_transaction(
-        {"from": deployer, "to": hw_address, "value": 1 * 10**18}
-    )
+    web3.eth.send_transaction({"from": deployer, "to": hw_address, "value": 1 * 10**18})
     usdc_amount_to_pay = 500 * 10**18
     usdc.functions.transfer(hw_address, usdc_amount_to_pay).transact({"from": deployer})
-    usdc.functions.approve(router.address, usdc_amount_to_pay).transact(
-        {"from": hw_address}
-    )
+    usdc.functions.approve(router.address, usdc_amount_to_pay).transact({"from": hw_address})
 
     # Perform a swap USDC->WETH
     path = [usdc.address, weth.address]
@@ -430,3 +437,71 @@ def test_swap_price_from_hot_wallet(
 
     # check if hot wallet get the same ETH amount estimated earlier
     assert weth.functions.balanceOf(hw_address).call() == pytest.approx(amount_eth)
+    # precision test
+    assert weth.functions.balanceOf(hw_address).call() == amount_eth
+
+
+def test_estimate_price_three_way(
+    web3: Web3,
+    deployer: str,
+    user_1: str,
+    uniswap_v2: UniswapV2Deployment,
+    weth: Contract,
+    usdc: Contract,
+    dai: Contract,
+):
+    """User buys DAI on Uniswap v2 using mock USDC through WETH"""
+
+    # Create ETH/USDC pair
+    deploy_trading_pair(
+        web3,
+        deployer,
+        uniswap_v2,
+        weth,
+        usdc,
+        10 * 10**18,  # 10 ETH liquidity
+        17_000 * 10**18,  # 17000 USDC liquidity
+    )
+    # Create ETH/DAI pair
+    deploy_trading_pair(
+        web3,
+        deployer,
+        uniswap_v2,
+        weth,
+        dai,
+        10 * 10**18,  # 10 ETH liquidity
+        17_200 * 10**18,  # 17200 DAI liquidity
+    )
+
+    router = uniswap_v2.router
+
+    # Give user_1 some cash to buy DAI and approve it on the router
+    usdc_amount_to_pay = 500 * 10**18
+    usdc.functions.transfer(user_1, usdc_amount_to_pay).transact({"from": deployer})
+    usdc.functions.approve(router.address, usdc_amount_to_pay).transact({"from": user_1})
+
+    # Estimate the DAI amount user will get
+    dai_amount = estimate_sell_price(
+        uniswap_v2,
+        usdc,
+        dai,
+        quantity=usdc_amount_to_pay,
+        intermediate_token=weth,
+    )
+
+    # Perform a swap USDC->WETH->DAI
+    path = [usdc.address, weth.address, dai.address]
+
+    # https://docs.uniswap.org/protocol/V2/reference/smart-contracts/router-02#swapexacttokensfortokens
+    router.functions.swapExactTokensForTokens(
+        usdc_amount_to_pay,
+        0,
+        path,
+        user_1,
+        FOREVER_DEADLINE,
+    ).transact({"from": user_1})
+
+    # Compare the amount user receives to the estimation ealier
+    assert dai.functions.balanceOf(user_1).call() == pytest.approx(dai_amount)
+    # precision test
+    assert dai.functions.balanceOf(user_1).call() == dai_amount
