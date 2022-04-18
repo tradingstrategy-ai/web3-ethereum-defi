@@ -3,14 +3,12 @@ import secrets
 
 import pytest
 from eth_account import Account
-from eth_account.signers.local import LocalAccount
 
 from eth_typing import HexAddress
 from hexbytes import HexBytes
 from web3 import Web3, EthereumTesterProvider
-from web3._utils.transactions import fill_nonce
 
-from eth_defi.gas import estimate_gas_fees, GasPriceMethod, apply_gas
+from eth_defi.gas import estimate_gas_fees, apply_gas
 from eth_defi.hotwallet import HotWallet
 from eth_defi.token import create_token
 from eth_defi.txmonitor import wait_transactions_to_complete, broadcast_and_wait_transactions_to_complete

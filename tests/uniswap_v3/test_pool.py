@@ -1,6 +1,4 @@
 """Test Uniswap v3 liquidity pool."""
-from decimal import Decimal
-
 import pytest
 from web3 import EthereumTesterProvider, Web3
 from web3.contract import Contract

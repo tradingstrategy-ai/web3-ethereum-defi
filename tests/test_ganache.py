@@ -15,9 +15,9 @@ import pytest
 from eth_account import Account
 from eth_account.signers.local import LocalAccount
 from eth_typing import HexAddress, HexStr
-from web3 import EthereumTesterProvider, HTTPProvider, Web3
+from web3 import HTTPProvider, Web3
 
-from eth_defi.ganache import GanacheLaunch, fork_network
+from eth_defi.ganache import fork_network
 from eth_defi.token import fetch_erc20_details
 
 # https://docs.pytest.org/en/latest/how-to/skipping.html#skip-all-test-functions-of-a-class-or-module
