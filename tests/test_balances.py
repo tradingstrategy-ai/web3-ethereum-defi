@@ -1,6 +1,4 @@
-"""Mock token deployment."""
-from decimal import Decimal
-
+"""Test token balances."""
 import pytest
 from web3 import EthereumTesterProvider, Web3
 from web3.contract import Contract

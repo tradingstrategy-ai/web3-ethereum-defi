@@ -31,7 +31,7 @@ import time
 import warnings
 from dataclasses import dataclass
 from subprocess import DEVNULL, PIPE
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Tuple
 
 import psutil
 import requests
@@ -39,8 +39,8 @@ import requests
 from eth_typing import HexAddress
 from hexbytes import HexBytes
 from psutil import NoSuchProcess
-from requests.exceptions import ConnectionError as RequestsConnectionError
 from web3 import HTTPProvider, Web3
+from web3.types import Wei
 
 from eth_defi.utils import is_localhost_port_listening
 
