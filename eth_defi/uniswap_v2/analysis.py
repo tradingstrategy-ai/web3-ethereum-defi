@@ -1,7 +1,7 @@
 """Uniswap v2 individual trade analysis."""
 from dataclasses import dataclass
 from decimal import Decimal
-from typing import List, Optional, Tuple, Union
+from typing import List, Optional, Union
 
 from eth_defi.revert_reason import fetch_transaction_revert_reason
 from eth_typing import HexAddress

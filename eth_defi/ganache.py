@@ -35,7 +35,7 @@ from typing import Dict, List, Optional, Tuple
 
 import psutil
 import requests
-import urllib3
+
 from eth_typing import HexAddress
 from hexbytes import HexBytes
 from psutil import NoSuchProcess
@@ -165,54 +165,6 @@ def _get_ganache_version(ganache_executable: str) -> int:
     if not ganache_version_match:
         raise ValueError("could not read ganache version: {}".format(ganache_version_stdout))
     return int(ganache_version_match.group(1))
-
-
-def _request(method: str, args: List) -> int:
-    try:
-        response = web3.provider.make_request(method, args)  # type: ignore
-        if "result" in response:
-            return response["result"]
-    except (AttributeError, RequestsConnectionError):
-        raise RPCRequestError("Web3 is not connected.")
-    raise RPCRequestError(response["error"]["message"])
-
-
-def _sleep(seconds: int) -> int:
-    return _request("evm_increaseTime", [seconds])
-
-
-def mine(web3: Web3, timestamp: Optional[int] = None):
-    """Mine a new block in Ganache test chain.
-
-    Note that Ganache should have "instamine" on by default.
-
-    :param web3: Web3 instance connected to the ganache chain
-    """
-    params = [timestamp] if timestamp else []
-    _request("evm_mine", params)
-    if timestamp and web3.clientVersion.lower().startswith("ganache/v7"):
-        # ganache v7 does not modify the internal time when mining new blocks
-        # so we also set the time to maintain consistency with v6 behavior
-        _request("evm_setTime", [(timestamp + 1) * 1000])
-
-
-def _snapshot() -> int:
-    return _request("evm_snapshot", [])
-
-
-def _revert(snapshot_id: int) -> None:
-    _request("evm_revert", [snapshot_id])
-
-
-def _unlock_account(address: str) -> None:
-    if web3.clientVersion.lower().startswith("ganache/v7"):
-        web3.provider.make_request("evm_addAccount", [address, ""])  # type: ignore
-        web3.provider.make_request(  # type: ignore
-            "personal_unlockAccount",
-            [address, "", 9999999999],
-        )
-    else:
-        web3.provider.make_request("evm_unlockUnknownAccount", [address])  # type: ignore
 
 
 def _validate_cmd_settings(cmd_settings: dict) -> dict:

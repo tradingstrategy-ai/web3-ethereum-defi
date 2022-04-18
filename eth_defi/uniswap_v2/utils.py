@@ -2,7 +2,7 @@
 
 `Mostly lifted from Uniswap-v2-py MIT licensed by Asynctomatic <https://github.com/nosofa/uniswap-v2-py>`_.
 """
-from typing import List, Tuple
+from typing import Tuple
 
 from eth_typing import HexAddress, HexStr
 from web3 import Web3
