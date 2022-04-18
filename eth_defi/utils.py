@@ -1,7 +1,6 @@
 """Bunch of random utilities."""
 import socket
 
-
 def sanitise_string(s: str) -> str:
     """Remove null characters."""
     # https://stackoverflow.com/a/18762899/315168
