@@ -5,7 +5,7 @@ from decimal import Decimal
 from typing import Dict, Optional, Set
 
 import requests.exceptions
-from eth_typing import BlockNumber, ChecksumAddress, HexAddress
+from eth_typing import BlockNumber, HexAddress
 from web3 import Web3
 from web3.contract import Contract
 

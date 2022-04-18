@@ -1,6 +1,6 @@
 """Solidity events scalable fetch and reading."""
 
-from typing import Iterable, List, Optional, Type
+from typing import Iterable, Optional, Type
 
 from eth_abi.codec import ABICodec
 from eth_typing import BlockNumber, HexAddress

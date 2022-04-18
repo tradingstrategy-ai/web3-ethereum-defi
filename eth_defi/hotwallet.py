@@ -1,5 +1,5 @@
 """Utilities for managing hot wallets."""
-import time
+
 import logging
 from decimal import Decimal
 from typing import Optional
