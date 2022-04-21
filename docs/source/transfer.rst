@@ -124,6 +124,18 @@ Run the script:
 
     python scripts/erc20-manual-transfer.py
 
+Example output::
+
+    Connected to blockchain, chain id is 1. the latest block is 14,627,918
+    Token details are <XXX (XXXX) at 0x0aC7B3733cBeE5D87A80fbf331f4A0bD01f17386>
+    Your balance is: 369999999 XXXX
+    Your have : 0.2679961495972585 ETH for gas fees
+    How many tokens to transfer? 1
+    Give destination Ethereum address? 0x6449299d1d268c4008b4fB992afd04AB5fAec4E6
+    Confirm transfering 1 DAMEX to 0x6449299d1d268c4008b4fB992afd04AB5fAec4E6
+    Ok [y/n]?y
+    Broadcasted transaction 0xfed8c07b1da1d4348d3ea0ec678f30082fc8e944ada4b0f6510b5a7c05ceb910, now waiting 5 minutes for mining
+    All ok!
 
 More information
 ~~~~~~~~~~~~~~~~
