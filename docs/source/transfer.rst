@@ -84,7 +84,7 @@ Then create the following script:
     eth_balance = web3.eth.getBalance(account.address)
 
     print(f"Your balance is: {token_details.convert_to_decimals(balance)} {token_details.symbol}")
-    print(f"Your have : {eth_balance/(10**18)} ETH for gas fees")
+    print(f"Your have {eth_balance/(10**18)} ETH for gas fees")
 
     # Ask for transfer details
     decimal_amount = input("How many tokens to transfer? ")
