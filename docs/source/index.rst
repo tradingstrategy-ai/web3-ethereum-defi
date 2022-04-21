@@ -57,6 +57,14 @@ Uniswap v3 API documentation
    eth_defi.uniswap_v3.constants
    eth_defi.uniswap_v3.utils
 
+Tutorials
+=========
+
+.. toctree::
+   :maxdepth: 1
+
+   transfer
+
 Other documentation
 ===================
 

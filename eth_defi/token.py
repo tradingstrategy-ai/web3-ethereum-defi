@@ -36,6 +36,9 @@ class TokenDetails:
     total_supply: Optional[int] = None
     decimals: Optional[int] = None
 
+    def __repr__(self):
+        return f"<{self.name} ({self.symbol}) at {self.contract.address}>"
+
     @property
     def address(self) -> HexAddress:
         return self.contract.address
