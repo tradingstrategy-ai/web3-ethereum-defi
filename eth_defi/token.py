@@ -6,7 +6,7 @@ Deploy ERC-20 tokens to be used within your test suite.
 """
 from dataclasses import dataclass
 from decimal import Decimal
-from typing import Optional
+from typing import Optional, Union
 
 from eth_tester.exceptions import TransactionFailed
 from eth_typing import HexAddress
@@ -114,7 +114,7 @@ def create_token(
 
 def fetch_erc20_details(
     web3: Web3,
-    token_address: HexAddress,
+    token_address: Union[HexAddress, str],
     max_str_length: int = 256,
     raise_on_error=True,
 ) -> TokenDetails:

@@ -6,6 +6,7 @@
 - Feature: Added support for three-way swap (swap through an intermediate token) and price calculations
 - API change: Moved `get_amount_in` and `get_amount_out` to `UniswapV2FeeCalculator` class
 - Fix: Improve exception message when transactions timeout
+- Feature: [Added ERC-20 transfer tutorial](https://web3-ethereum-defi.readthedocs.io/transfer.html)
 
 # 0.7.1
 

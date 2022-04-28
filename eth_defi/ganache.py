@@ -31,7 +31,7 @@ import time
 import warnings
 from dataclasses import dataclass
 from subprocess import DEVNULL, PIPE
-from typing import Dict, List, Tuple
+from typing import Dict, List, Tuple, Union
 
 import psutil
 import requests
@@ -256,7 +256,7 @@ class GanacheLaunch:
 
 def fork_network(
     json_rpc_url: str,
-    unlocked_addresses: List[HexAddress] = [],
+    unlocked_addresses: List[Union[HexAddress, str]] = [],
     cmd="ganache-cli",
     port=19999,
     evm_version=EVM_DEFAULT,
