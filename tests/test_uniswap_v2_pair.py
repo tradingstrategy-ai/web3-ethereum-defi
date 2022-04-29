@@ -192,7 +192,7 @@ def test_get_liquidity(
     weth: Contract,
     usdc: Contract,
 ):
-    """Deploy mock trading pair on mock Uniswap v2."""
+    """Fetch the liquidity of a Uniswap v2 pair."""
 
     pair_address = deploy_trading_pair(
         web3,
