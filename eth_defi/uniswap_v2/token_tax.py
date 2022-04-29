@@ -3,6 +3,8 @@
 Read also unit test suite tests/test_token_tax.py to see the retrieval of token taxes for ELEPHANT token on BSC
 """
 from eth_typing import HexAddress
+from web3.exceptions import ContractLogicError
+
 from eth_defi.uniswap_v3.constants import FOREVER_DEADLINE
 from web3 import Web3
 
@@ -14,6 +16,33 @@ from dataclasses import dataclass
 
 class SwapError(Exception):
     """The swap method reverted due to low liquidity of either the base or quote token"""
+
+
+class TransferFromError(Exception):
+    """The token is likely broken.
+
+    See KICK on Ethereum mainnet.
+    """
+
+class OutOfGasDuringTransfer(Exception):
+    """The token is likely some sort of ponzi with restricted transfer.
+
+    See WETH-CGT on Ethereum mainnet.
+    """
+
+class OutOfGasDuringSell(Exception):
+    """The token is likely some sort of ponzi with restricted transfer.
+
+    See WETH-DEXE on Ethereum mainnet: 0xde4ee8057785a7e8e800db58f9784845a5c2cbd6
+    """
+
+
+class SellFailed(Exception):
+    """Could not sell the token."""
+
+
+class ApprovalFailure(Exception):
+    """Yet another random Ganache failure."""
 
 
 @dataclass
@@ -102,8 +131,13 @@ def estimate_token_taxes(
             buy_account,
             FOREVER_DEADLINE
         ).transact({"from": buy_account})
+    except ContractLogicError as e:
+        msg = str(e)
+        if "TRANSFER_FAILED" in msg:
+            raise TransferFromError(f"Token does not co-operate:{base_token_details.symbol} - {quote_token_details.symbol}, {e} to router {router.address}") from e
+        raise
     except Exception as e:
-        raise SwapError(f"swapExactTokensForTokensSupportingFeeOnTransferTokens() method failed:{base_token_details.symbol} - {quote_token_details.symbol}, {e} to router {router.address}") from e
+        raise SwapError(f"swapExactTokensForTokensSupportingFeeOnTransferTokens() buy failed:{base_token_details.symbol} - {quote_token_details.symbol}, {e} to router {router.address}") from e
 
     received_amt = base_token.functions.balanceOf(buy_account).call() - initial_base_bal
     uniswap_price = router.functions.getAmountsOut(amountIn, path).call()[1]
@@ -113,14 +147,24 @@ def estimate_token_taxes(
 
     # Transfer tokens to sell_account
     # Measure the loss as "transfer tax"
-    base_token.functions.transfer(sell_account, received_amt).transact({"from": buy_account})
+    try:
+        base_token.functions.transfer(sell_account, received_amt).transact({"from": buy_account})
+    except ValueError as e:
+        if "out of gas" in str(e):
+            raise OutOfGasDuringTransfer() from e
+        raise
 
     received_amt_by_seller = base_token.functions.balanceOf(sell_account).call()
 
     transfer_tax_percent = (received_amt - received_amt_by_seller) / received_amt
 
     # Sell tokens
-    base_token.functions.approve(router.address, received_amt_by_seller).transact({"from": sell_account})
+    try:
+        base_token.functions.approve(router.address, received_amt_by_seller).transact({"from": sell_account})
+    except ValueError as e:
+        if "out of gas" in str(e):
+            raise ApprovalFailure() from e
+
     path = [base_token.address, quote_token.address]
 
     sell_tax = 0
@@ -134,6 +178,12 @@ def estimate_token_taxes(
             sell_account,
             FOREVER_DEADLINE
         ).transact({"from": sell_account})
+    except ValueError as e:
+        if "VM Exception while processing transaction: revert" in str(e):
+            raise SellFailed(f"Could not sell {base_token_details.symbol} - {quote_token_details.symbol}: {e}") from e
+        elif "out of gas" in str(e):
+            raise OutOfGasDuringTransfer() from e
+        raise
     except Exception as e:
         raise SwapError(f"Sell failed. swapExactTokensForTokensSupportingFeeOnTransferTokens() method failed: {base_token_details.symbol} - {quote_token_details.symbol}: {e}") from e
 

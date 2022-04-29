@@ -148,12 +148,24 @@ def fetch_erc20_details(
         if raise_on_error:
             raise TokenDetailError(f"Token {token_address} missing symbol") from e
         symbol = None
+    except OverflowError:
+        # OverflowError: Python int too large to convert to C ssize_t
+        # Que?
+        # Sai Stablecoin uses bytes32 instead of string for name and symbol information
+        # https://etherscan.io/address/0x89d24a6b4ccb1b6faa2625fe562bdd9a23260359#readContract
+        symbol = None
 
     try:
         name = sanitise_string(erc_20.functions.name().call()[0:max_str_length])
     except _call_missing_exceptions as e:
         if raise_on_error:
             raise TokenDetailError(f"Token {token_address} missing name") from e
+        name = None
+    except OverflowError:
+        # OverflowError: Python int too large to convert to C ssize_t
+        # Que?
+        # Sai Stablecoin uses bytes32 instead of string for name and symbol information
+        # https://etherscan.io/address/0x89d24a6b4ccb1b6faa2625fe562bdd9a23260359#readContract
         name = None
 
     try:
