@@ -3,6 +3,7 @@
 - Update web3.py dependency to 5.28.0
 - Feature: Added support for `fee` and `slippage` to Uniswap v2 price calculations
 - Feature: Added Uniswap v2 swap helper function with slippage protection
+- Feature: Added Uniswap v2 pair liquidity fetch
 - Feature: Added support for three-way swap (swap through an intermediate token) and price calculations
 - API change: Moved `get_amount_in` and `get_amount_out` to `UniswapV2FeeCalculator` class
 - Fix: Improve exception message when transactions timeout

@@ -45,6 +45,7 @@ Uniswap v2 API documentation
    eth_defi.uniswap_v2.analysis
    eth_defi.uniswap_v2.utils
    eth_defi.uniswap_v2.swap
+   eth_defi.uniswap_v2.liquidity
 
 Uniswap v3 API documentation
 ============================

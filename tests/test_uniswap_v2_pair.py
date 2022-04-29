@@ -11,6 +11,7 @@ from eth_defi.uniswap_v2.deployment import (
     deploy_trading_pair,
     deploy_uniswap_v2_like,
 )
+from eth_defi.uniswap_v2.liquidity import get_liquidity
 
 
 @pytest.fixture
@@ -182,3 +183,31 @@ def test_swap(
 
     # Check the user_1 received ~0.284 ethers
     assert weth.functions.balanceOf(user_1).call() / 1e18 == pytest.approx(0.28488156127668085)
+
+
+def test_get_liquidity(
+    web3: Web3,
+    deployer: str,
+    uniswap_v2: UniswapV2Deployment,
+    weth: Contract,
+    usdc: Contract,
+):
+    """Deploy mock trading pair on mock Uniswap v2."""
+
+    pair_address = deploy_trading_pair(
+        web3,
+        deployer,
+        uniswap_v2,
+        weth,
+        usdc,
+        10 * 10**18,  # 10 ETH liquidity
+        17_000 * 10**18,  # 17000 USDC liquidity
+    )
+
+    liquidity_result = get_liquidity(web3, pair_address)
+
+    assert liquidity_result.token0 == weth.address
+    assert liquidity_result.token1 == usdc.address
+
+    assert liquidity_result.get_liquidity_for_token(weth.address) == 10 * 10**18
+    assert liquidity_result.block_number > 0
