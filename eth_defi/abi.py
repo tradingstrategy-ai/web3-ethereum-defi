@@ -75,6 +75,7 @@ def get_deployed_contract(
     :param address: Ethereum address of the deployed contract
     :return: `web3.contract.Contract` subclass
     """
+    assert address
     Contract = get_contract(web3, fname)
     return Contract(address)
 

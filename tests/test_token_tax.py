@@ -13,7 +13,7 @@ import os
 import pytest
 from eth_typing import HexAddress, HexStr
 from web3 import HTTPProvider, Web3
-from eth_defi.uniswap_v2.token_tax import estimate_token_taxes, LowLiquidityError
+from eth_defi.uniswap_v2.token_tax import estimate_token_taxes, SwapError
 
 from eth_defi.ganache import fork_network
 from eth_defi.uniswap_v2.token_tax import TokenTaxInfo
@@ -124,5 +124,5 @@ def test_low_liquidity_exception(uniswap: UniswapV2Deployment, large_busd_holder
                                  elephant: HexAddress, busd: HexAddress):
     buy_amount: float = 1e30
 
-    with pytest.raises(LowLiquidityError):
+    with pytest.raises(SwapError):
         estimate_token_taxes(uniswap, elephant, busd, large_busd_holder, seller, buy_amount)

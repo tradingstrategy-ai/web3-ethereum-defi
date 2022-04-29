@@ -38,12 +38,15 @@ class LiquidityResult:
 
         :raise: UnmatchedToken
         """
+
+        token_address = Web3.toChecksumAddress(token_address)
+
         if token_address == self.token0:
             return self.token0_reserve
         elif token_address == self.token1:
             return self.token1_reserve
         else:
-            raise UnmatchedToken(f"Unknown pair token {token_address}")
+            raise UnmatchedToken(f"Unknown pair token {token_address}, we have {self.token0} and {self.token1}")
 
 
 def get_liquidity(
