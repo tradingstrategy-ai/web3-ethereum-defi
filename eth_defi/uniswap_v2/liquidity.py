@@ -4,6 +4,7 @@ from typing import Union, Tuple
 
 from eth_typing import HexAddress
 from web3 import Web3
+from web3.contract import Contract
 
 from eth_defi.abi import get_deployed_contract
 
@@ -14,7 +15,13 @@ class UnmatchedToken(Exception):
 
 @dataclass
 class LiquidityResult:
-    """Sampled liquidity on Uniswap v2 pool."""
+    """Sampled liquidity on Uniswap v2 pool.
+
+    Reserves are returned in raw token amounts.
+    """
+
+    #: Direct Contract proxy to the pair contract
+    pair_contract: Contract
 
     #: Side a
     token0: HexAddress
@@ -79,6 +86,7 @@ def get_liquidity(
     reserve_result = pair.functions.getReserves().call()
 
     return LiquidityResult(
+        pair,
         token0,
         token1,
         reserve_result[0],

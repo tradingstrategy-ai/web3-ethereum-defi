@@ -2,6 +2,8 @@
 
 Read also unit test suite tests/test_token_tax.py to see the retrieval of token taxes for ELEPHANT token on BSC
 """
+from typing import Optional
+
 from eth_typing import HexAddress
 from web3.exceptions import ContractLogicError
 
@@ -9,7 +11,7 @@ from eth_defi.uniswap_v3.constants import FOREVER_DEADLINE
 from web3 import Web3
 
 from eth_defi.uniswap_v2.deployment import UniswapV2Deployment
-from eth_defi.token import fetch_erc20_details
+from eth_defi.token import fetch_erc20_details, TokenDetails
 
 from dataclasses import dataclass
 
@@ -72,7 +74,9 @@ def estimate_token_taxes(
         buy_account: HexAddress,
         sell_account: HexAddress,
         buy_amount: float,
-        approve=False,
+        approve=True,
+        quote_token_details: Optional[TokenDetails] = None,
+        base_token_details: Optional[TokenDetails] = None,
 ) -> TokenTaxInfo:
     """Estimates different token taxes for a token by running Ganache simulations for it.
 
@@ -100,6 +104,12 @@ def estimate_token_taxes(
     :param approve:
         Perform quote token approval before wap test
 
+   :param base_token_details:
+        Pass base token details. If not given automatically fetch.
+
+    :param quote_token_details:
+        Pass quote token details. If not given automatically fetch.
+
     :return:
         ToxTaxInfo tells us what we figure out about taxes.
         This can be later recorded to a database.
@@ -107,10 +117,12 @@ def estimate_token_taxes(
     web3: Web3 = uniswap.web3
     router = uniswap.router
 
-    quote_token_details = fetch_erc20_details(web3, quote_token)
+    if not quote_token_details:
+        quote_token_details = fetch_erc20_details(web3, quote_token)
     quote_token = quote_token_details.contract
 
-    base_token_details = fetch_erc20_details(web3, base_token)
+    if not base_token_details:
+        base_token_details = fetch_erc20_details(web3, base_token)
     base_token = base_token_details.contract
 
     # approve router to spend tokens
