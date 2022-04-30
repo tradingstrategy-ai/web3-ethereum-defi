@@ -20,7 +20,8 @@ from eth_defi.utils import sanitise_string
 
 #: List of exceptions JSON-RPC provider can through when ERC-20 field look-up fails
 #: TODO: Add exceptios from real HTTPS/WSS providers
-_call_missing_exceptions = (TransactionFailed, BadFunctionCallOutput)
+#: `ValueError` is raised by Ganache
+_call_missing_exceptions = (TransactionFailed, BadFunctionCallOutput, ValueError)
 
 
 @dataclass
