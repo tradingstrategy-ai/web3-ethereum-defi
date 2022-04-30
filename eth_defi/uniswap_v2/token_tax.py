@@ -118,11 +118,15 @@ def estimate_token_taxes(
     router = uniswap.router
 
     if not quote_token_details:
-        quote_token_details = fetch_erc20_details(web3, quote_token)
+        # No need to consider brokeness of token metadata
+        # when calculating tax
+        quote_token_details = fetch_erc20_details(web3, quote_token, raise_on_error=False)
     quote_token = quote_token_details.contract
 
     if not base_token_details:
-        base_token_details = fetch_erc20_details(web3, base_token)
+        # No need to consider brokeness of token metadata
+        # when calculating tax
+        base_token_details = fetch_erc20_details(web3, base_token, raise_on_error=False)
     base_token = base_token_details.contract
 
     # approve router to spend tokens
