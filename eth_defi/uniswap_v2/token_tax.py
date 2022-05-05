@@ -156,6 +156,12 @@ def estimate_token_taxes(
         raise SwapError(f"swapExactTokensForTokensSupportingFeeOnTransferTokens() buy failed:{base_token_details.symbol} - {quote_token_details.symbol}, {e} to router {router.address}") from e
 
     received_amt = base_token.functions.balanceOf(buy_account).call() - initial_base_bal
+
+    if received_amt == 0:
+        # Nothing was received when we bought the token, so assume 100% tax
+        # Would cause division by zero later
+        return TokenTaxInfo(base_token.address, quote_token.address, 1.0, 1.0, 1.0)
+
     uniswap_price = router.functions.getAmountsOut(amountIn, path).call()[1]
 
     # Measure the loss as "buy tax"
