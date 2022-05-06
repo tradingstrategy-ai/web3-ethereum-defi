@@ -40,6 +40,15 @@ class OutOfGasDuringSell(Exception):
     """
 
 
+class TransferFailure(Exception):
+    """The token transfer failed for some random reason.
+
+    VM Exception while processing transaction: revert Protection: 30 sec/tx allowed
+
+    https://tradingstrategy.ai/trading-view/polygon/quickswap/kmc-usdc
+    """
+
+
 class SellFailed(Exception):
     """Could not sell the token."""
 
@@ -196,7 +205,8 @@ def estimate_token_taxes(
     except ValueError as e:
         if "out of gas" in str(e):
             raise OutOfGasDuringTransfer() from e
-        raise
+        else:
+            raise TransferFailure() from e
 
     received_amt_by_seller = base_token.functions.balanceOf(sell_account).call()
 
