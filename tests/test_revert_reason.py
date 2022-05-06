@@ -48,7 +48,7 @@ def large_busd_holder() -> HexAddress:
 @pytest.fixture(scope="module")
 def user_1() -> LocalAccount:
     """Create a test account."""
-    return Account.from_key(hex(random.randint(1, 2**256)))
+    return Account.create()
 
 
 @pytest.fixture(scope="module")
@@ -57,7 +57,7 @@ def user_2() -> LocalAccount:
 
     Do some account allocation for tests.
     """
-    return Account.from_key(hex(random.randint(1, 2**256)))
+    return Account.create()
 
 
 @pytest.fixture(scope="module")
