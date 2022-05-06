@@ -82,7 +82,11 @@ def get_liquidity(
     pair = get_deployed_contract(web3, "UniswapV2Pair.json", pair_address)
 
     token0 = pair.functions.token0().call()
+    assert token0 != "0x0000000000000000000000000000000000000000", "Invalid pair, token0 zero address"
+
     token1 = pair.functions.token1().call()
+    assert token1 != "0x0000000000000000000000000000000000000000", "Invalid pair, token1 zero address"
+
     reserve_result = pair.functions.getReserves().call()
 
     return LiquidityResult(
