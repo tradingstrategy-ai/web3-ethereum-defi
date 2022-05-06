@@ -1,6 +1,7 @@
 """Querying the buy tax, transfer tax & sell tax of an ERC20 token
 
 Read also unit test suite tests/test_token_tax.py to see the retrieval of token taxes for ELEPHANT token on BSC
+
 """
 from typing import Optional
 
@@ -77,6 +78,8 @@ def estimate_token_taxes(
         approve=True,
         quote_token_details: Optional[TokenDetails] = None,
         base_token_details: Optional[TokenDetails] = None,
+        gas_limit: Optional[int]=None,
+        gas_price: Optional[int]=None,
 ) -> TokenTaxInfo:
     """Estimates different token taxes for a token by running Ganache simulations for it.
 
@@ -110,6 +113,14 @@ def estimate_token_taxes(
     :param quote_token_details:
         Pass quote token details. If not given automatically fetch.
 
+    :param gas_limit:
+        Use this gas limit for all transactions, so that
+        we do not need to call eth_estimateGas on the node.
+
+    :param gas_price:
+        Use this gas price for all transactions, so that
+        we do not need to call eth_estimateGas on the node.
+
     :return:
         ToxTaxInfo tells us what we figure out about taxes.
         This can be later recorded to a database.
@@ -129,15 +140,26 @@ def estimate_token_taxes(
         base_token_details = fetch_erc20_details(web3, base_token, raise_on_error=False)
     base_token = base_token_details.contract
 
+    if gas_limit:
+        # Try to eliminate some RPC calls by not doing gas oracle requests
+        # https://web3js.readthedocs.io/en/v1.2.11/web3-eth.html#sendtransaction
+        generic_tx_params = {
+            "gas": gas_limit,
+            "gasPrice": gas_price,
+        }
+    else:
+        generic_tx_params = {}
+
     # approve router to spend tokens
     if approve:
         quote_token.functions.approve(router.address, quote_token_details.convert_to_raw(buy_amount)).transact(
-            {"from": buy_account})
+            {"from": buy_account} | generic_tx_params)
 
     path = [quote_token.address, base_token.address]
     amountIn = quote_token_details.convert_to_raw(buy_amount)
     # Figure out base_token/quote_token trading pair
     initial_base_bal = base_token.functions.balanceOf(buy_account).call()
+
     # Buy base_token with buy_account
     try:
         router.functions.swapExactTokensForTokensSupportingFeeOnTransferTokens(
@@ -146,7 +168,7 @@ def estimate_token_taxes(
             path,
             buy_account,
             FOREVER_DEADLINE
-        ).transact({"from": buy_account})
+        ).transact({"from": buy_account} | generic_tx_params)
     except ContractLogicError as e:
         msg = str(e)
         if "TRANSFER_FAILED" in msg:
@@ -170,7 +192,7 @@ def estimate_token_taxes(
     # Transfer tokens to sell_account
     # Measure the loss as "transfer tax"
     try:
-        base_token.functions.transfer(sell_account, received_amt).transact({"from": buy_account})
+        base_token.functions.transfer(sell_account, received_amt).transact({"from": buy_account} | generic_tx_params)
     except ValueError as e:
         if "out of gas" in str(e):
             raise OutOfGasDuringTransfer() from e
@@ -182,7 +204,7 @@ def estimate_token_taxes(
 
     # Sell tokens
     try:
-        base_token.functions.approve(router.address, received_amt_by_seller).transact({"from": sell_account})
+        base_token.functions.approve(router.address, received_amt_by_seller).transact({"from": sell_account} | generic_tx_params)
     except ValueError as e:
         if "out of gas" in str(e):
             raise ApprovalFailure() from e
@@ -199,7 +221,7 @@ def estimate_token_taxes(
             path,
             sell_account,
             FOREVER_DEADLINE
-        ).transact({"from": sell_account})
+        ).transact({"from": sell_account} | generic_tx_params)
     except ValueError as e:
         if "VM Exception while processing transaction: revert" in str(e):
             raise SellFailed(f"Could not sell {base_token_details.symbol} - {quote_token_details.symbol}: {e}") from e

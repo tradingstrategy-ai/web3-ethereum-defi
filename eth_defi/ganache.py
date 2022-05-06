@@ -217,7 +217,7 @@ class GanacheLaunch:
     #: UNIX process that we opened
     process: psutil.Popen
 
-    def close(self, verbose=False, block=True, block_timeout=30, noise_free=True):
+    def close(self, verbose=False, block=True, block_timeout=30):
         """Kill the ganache-cli process.
 
         Ganache is pretty hard to kill, so keep killing it until it dies and the port is free again.
@@ -262,7 +262,7 @@ def fork_network(
     evm_version=EVM_DEFAULT,
     block_time=0,
     quiet=False,
-    launch_wait_seconds=10.0,
+    launch_wait_seconds=20.0,
 ) -> GanacheLaunch:
     """Creates the ganache "fork" of given JSON-RPC endpoint.
 
