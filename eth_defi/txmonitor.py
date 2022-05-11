@@ -10,6 +10,8 @@ from hexbytes import HexBytes
 from web3 import Web3
 from web3.exceptions import TransactionNotFound
 
+from eth_defi.hotwallet import SignedTransactionWithNonce
+
 logger = logging.getLogger(__name__)
 
 
@@ -139,7 +141,7 @@ def broadcast_transactions(
     # Broadcast transactions to the mempool
     hashes = []
     for tx in txs:
-        assert isinstance(tx, SignedTransaction), f"Got {tx}"
+        assert isinstance(tx, SignedTransaction) or isinstance(tx, SignedTransactionWithNonce), f"Got {tx}"
         hash = web3.eth.send_raw_transaction(tx.rawTransaction)
 
         assert hash
