@@ -2,15 +2,29 @@
 
 import logging
 from decimal import Decimal
-from typing import Optional
+from typing import Optional, NamedTuple
 
 from eth_account import Account
-from eth_account.datastructures import SignedTransaction
+from eth_account.datastructures import SignedTransaction, __getitem__
 from eth_account.signers.local import LocalAccount
+from hexbytes import HexBytes
 from web3 import Web3
 
 
 logger = logging.getLogger(__name__)
+
+
+class SignedTransactionWithNonce(NamedTuple):
+    """Helper class to pass around the used nonce when signing txs from the wallet."""
+    rawTransaction: HexBytes
+    hash: HexBytes
+    r: int
+    s: int
+    v: int
+    nonce: int
+
+    def __getitem__(self, index):
+        return __getitem__(self, index)
 
 
 class HotWallet:
@@ -50,14 +64,22 @@ class HotWallet:
         self.current_nonce += 1
         return nonce
 
-    def sign_transaction_with_new_nonce(self, tx: dict) -> SignedTransaction:
+    def sign_transaction_with_new_nonce(self, tx: dict) -> SignedTransactionWithNonce:
         """Signs a transaction and allocates a nonce for it.
 
         :param: Ethereum transaction data as a dict. This is modified in-place to include nonce.
         """
         assert "nonce" not in tx
         tx["nonce"] = self.allocate_nonce()
-        signed = self.account.sign_transaction(tx)
+        _signed = self.account.sign_transaction(tx)
+        signed = SignedTransactionWithNonce(
+            rawTransaction=_signed.rawTransaction,
+            hash=_signed.hash,
+            v=_signed.v,
+            r=_signed.r,
+            s=_signed.s,
+            nonce=tx["nonce"],
+        )
         return signed
 
     def get_native_currency_balance(self, web3: Web3) -> Decimal:
