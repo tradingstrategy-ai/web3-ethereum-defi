@@ -122,7 +122,7 @@ def main():
                     buffer = []
 
             # Read specified events in block range
-            for event in read_events(web3, start_block, end_block, events, update_progress):
+            for event in read_events(web3, start_block, end_block, events, update_progress, chunk_size=10):
                 buffer.append(event)
 
 if __name__ == "__main__":

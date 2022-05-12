@@ -49,7 +49,7 @@ def extract_timestamps_json_rpc(
 ) -> Dict[int, int]:
     """Get block timestamps from block headers.
 
-    Use slow JSON-RPC path.
+    Use slow JSON-RPC block headers call to get this information.
     """
     timestamps = {}
 
@@ -72,6 +72,12 @@ def extract_events(
         extract_timestamps=extract_timestamps_json_rpc,
 ) -> Iterable[dict]:
     """Perform eth_getLogs call over a log range.
+
+    :param start_block:
+        First block to process (inclusive)
+
+    :param end_block:
+        Last block to process (exclusive)
 
     :return:
         Iterable for the raw event data
@@ -136,14 +142,16 @@ def read_events(
 
     filter = Filter(topics, bloom)
 
-    for block_num in range(start_block, end_block, chunk_size):
+    for block_num in range(start_block, end_block + 1, chunk_size):
 
         # Ping our master
         if notify is not None:
             notify(block_num, start_block, end_block, total_events)
 
+        last_of_chunk = min(end_block, block_num + chunk_size)
+
         # Stream the events
-        for event in extract_events(web3, block_num, block_num + chunk_size, filter, extract_timestamps):
+        for event in extract_events(web3, block_num, last_of_chunk, filter, extract_timestamps):
             total_events += 1
             yield event
 
