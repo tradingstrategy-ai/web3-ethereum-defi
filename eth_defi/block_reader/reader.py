@@ -6,11 +6,10 @@ To read:
 """
 
 import logging
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Iterable, List, Protocol, Dict
 
 from eth_bloom import BloomFilter
-from eth_typing import HexStr
 
 from web3 import Web3
 from web3._utils.events import construct_event_topic_set
@@ -43,6 +42,7 @@ class ProgressUpdate(Protocol):
 
 
 def extract_timestamps_json_rpc(
+
         web3: Web3,
         start_block: int,
         end_block: int,
@@ -77,16 +77,31 @@ def extract_events(
         First block to process (inclusive)
 
     :param end_block:
-        Last block to process (exclusive)
+        Last block to process (inclusive)
+
+    :param extract_timestamps:
+        Method to get the block timestamps
 
     :return:
         Iterable for the raw event data
     """
-    timestamps = extract_timestamps(web3, start_block, end_block)
+
     topics = list(filter.topics.keys())
-    logs = web3.manager.request_blocking("eth_getLogs", (start_block, end_block, None, topics))
-    for log in logs:
-        print(log)
+
+    filter_params = {
+        "topics": topics,
+        "fromBlock": hex(start_block),
+        "toBlock": hex(end_block),
+    }
+
+    logs = web3.manager.request_blocking("eth_getLogs", (filter_params,))
+
+    if logs:
+        timestamps = extract_timestamps(web3, start_block, end_block)
+
+        for log in logs:
+            print(log)
+            yield log
 
 
 def read_events(

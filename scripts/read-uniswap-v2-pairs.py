@@ -21,6 +21,7 @@ from dataclasses import dataclass, field
 from typing import List
 
 import pyarrow as pa
+import requests
 from dataclasses_json import dataclass_json
 from tqdm import tqdm
 from tradingstrategy.client import Client
@@ -37,7 +38,7 @@ from eth_defi.block_reader.reader import read_events
 def save_state(state_fname, last_block):
     """Saves the last block we have read."""
     with open(state_fname, "wt") as f:
-        print("{last_block}", file=f)
+        print(f"{last_block}", file=f)
 
 
 def restore_state(state_fname, default_block: int) -> int:
@@ -57,10 +58,14 @@ def main():
 
     # Mute noise
     logging.getLogger("web3.providers.HTTPProvider").setLevel(logging.WARNING)
+    logging.getLogger("web3.RequestManager").setLevel(logging.WARNING)
     logging.getLogger("urllib3.connectionpool").setLevel(logging.WARNING)
 
+    # HTTP 1.1 keep-alive
+    session = requests.Session()
+
     json_rpc_url = os.environ["JSON_RPC_URL"]
-    web3 = Web3(HTTPProvider(json_rpc_url))
+    web3 = Web3(HTTPProvider(json_rpc_url, session=session))
 
     # Enable faster ujson reads
     patch_web3(web3)
@@ -76,8 +81,8 @@ def main():
         Pair.events.Swap
     ]
 
-    output_fname = "uni-v2-events.csv"
-    state_fname = "uni-v2-last-block-state.txt"
+    output_fname = "/tmp/uni-v2-events.csv"
+    state_fname = "/tmp/uni-v2-last-block-state.txt"
 
     start_block = restore_state(state_fname, 9_900_000)  # # When Uni v2 was deployed
     end_block = web3.eth.block_number
@@ -107,22 +112,18 @@ def main():
             # 2. save any events in the buffer in to a file in one go
             def update_progress(current_block, start_block,  end_block, total_events: int):
                 nonlocal buffer
-                progress_bar.set_description(f"{total_events:,} read")
+                progress_bar.set_description(f"Block: {current_block:,}, events: {total_events:,}")
                 progress_bar.update(1)
 
                 # Save the progress
-                if current_block > 0 and total_events > 0:
-                    last_processed_block = current_block - 1
+                for entry in buffer:
+                    writer.writerow(entry)
 
-                    for entry in buffer:
-                        writer.writerow(entry)
-
-                    save_state(state_fname, last_processed_block)
-
-                    buffer = []
+                save_state(state_fname, current_block-1)
+                buffer = []
 
             # Read specified events in block range
-            for event in read_events(web3, start_block, end_block, events, update_progress, chunk_size=10):
+            for event in read_events(web3, start_block, end_block, events, update_progress, chunk_size=100):
                 buffer.append(event)
 
 if __name__ == "__main__":
