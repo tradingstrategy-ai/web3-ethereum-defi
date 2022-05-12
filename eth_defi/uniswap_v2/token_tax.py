@@ -3,6 +3,7 @@
 Read also unit test suite tests/test_token_tax.py to see the retrieval of token taxes for ELEPHANT token on BSC
 
 """
+import logging
 from typing import Optional
 
 from eth_typing import HexAddress
@@ -15,6 +16,9 @@ from eth_defi.uniswap_v2.deployment import UniswapV2Deployment
 from eth_defi.token import fetch_erc20_details, TokenDetails
 
 from dataclasses import dataclass
+
+
+logger = logging.getLogger(__name__)
 
 
 class SwapError(Exception):
@@ -171,6 +175,7 @@ def estimate_token_taxes(
 
     # Buy base_token with buy_account
     try:
+        logger.info("Attempting to buy for path %s", path)
         router.functions.swapExactTokensForTokensSupportingFeeOnTransferTokens(
             amountIn,
             0,
@@ -204,9 +209,9 @@ def estimate_token_taxes(
         base_token.functions.transfer(sell_account, received_amt).transact({"from": buy_account} | generic_tx_params)
     except ValueError as e:
         if "out of gas" in str(e):
-            raise OutOfGasDuringTransfer() from e
+            raise OutOfGasDuringTransfer(f"Out of gas during transfer: {e}") from e
         else:
-            raise TransferFailure() from e
+            raise TransferFailure(f"Transfer failure: {e}") from e
 
     received_amt_by_seller = base_token.functions.balanceOf(sell_account).call()
 
@@ -225,6 +230,7 @@ def estimate_token_taxes(
     sell_tax_percent = 0
     try:
         # this method will revert in case of low liquidity of the token
+        logger.info("Attempting to see for path %s", path)
         router.functions.swapExactTokensForTokensSupportingFeeOnTransferTokens(
             received_amt_by_seller,
             0,

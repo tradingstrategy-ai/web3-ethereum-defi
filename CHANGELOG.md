@@ -1,10 +1,11 @@
-# Current
+# 0.8
 
 - Update web3.py dependency to 5.28.0
+- Feature: Added Uniswap v2 swap function with slippage protection
 - Feature: Added support for `fee` and `slippage` to Uniswap v2 price calculations
-- Feature: Added Uniswap v2 swap helper function with slippage protection
 - Feature: Added Uniswap v2 pair liquidity fetch
 - Feature: Added support for three-way swap (swap through an intermediate token) and price calculations
+- Feature: Added support for [transfer fee, token tax and honeypot checks](https://tradingstrategy.ai/docs/programming/token-tax.html)
 - API change: Moved `get_amount_in` and `get_amount_out` to `UniswapV2FeeCalculator` class
 - Fix: Improve exception message when transactions timeout
 - Feature: [Added ERC-20 transfer tutorial](https://web3-ethereum-defi.readthedocs.io/transfer.html)
