@@ -28,6 +28,13 @@ def convert_uint256_bytes_to_address(bytes32: bytes) -> ChecksumAddress:
     return Web3.toChecksumAddress(hex(val))
 
 
+def convert_uint256_bytes_to_int(bytes32: bytes) -> int:
+    """Convert raw bytes32 from log data to addresses uints.
+    """
+    val = int.from_bytes(bytes32, "big")
+    return val
+
+
 def convert_uint256_string_to_address(bytes32: str) -> ChecksumAddress:
     """Convert raw uin256 from log data to addresses.
 

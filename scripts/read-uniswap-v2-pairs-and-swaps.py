@@ -1,10 +1,22 @@
 """Read all Uniswap pairs and their swaps in a blockchain.
 
+Overview:
+
 - Stateful: Can resume operation after CTRL+C or crash
 
-- Outputs two append only CSV files, one for pairs and one for swaps
+- Outputs two append only CSV files, `/tmp/uni-v2-pairs.csv` and `/tmp/uni-v2-swaps.csv`
+
+- Iterates through all the events using `read_events()` generator
+
+- Events can be pair creation or swap events
+
+- For pair creation events, we perform additional token lookups using Web3 connection
+
+- Demonstrates how to hand tune event decoding
 
 - The first PairCreated event is at Ethereum mainnet block is 10000835
+
+- The first swap event is at Ethereum mainnet block 10_008_566, 0x932cb88306450d481a0e43365a3ed832625b68f036e9887684ef6da594891366
 
 - Uniswap v2 deployment transaction https://bloxy.info/tx/0xc31d7e7e85cab1d38ce1b8ac17e821ccd47dbde00f9d57f2bd8613bff9428396
 
@@ -12,10 +24,11 @@ To run:
 
 .. code-block:: shell
 
-    # Your Ethereum node RPC
+    # Switch between INFO and DEBUG
     export LOG_LEVEL=INFO
+    # Your Ethereum node RPC
     export JSON_RPC_URL="https://xxx@vitalik.tradingstrategy.ai"
-    python scripts/read-uniswap-v2-pairs.py
+    python scripts/read-uniswap-v2-pairs-and-swaps.py
 
 
 """
@@ -33,7 +46,7 @@ from web3 import HTTPProvider, Web3
 
 from eth_defi.abi import get_contract
 from eth_defi.block_reader.conversion import convert_uint256_string_to_address, convert_uint256_bytes_to_address, \
-    decode_data
+    decode_data, convert_uint256_bytes_to_int
 from eth_defi.block_reader.fastjsonrpc import patch_web3
 from eth_defi.block_reader.logresult import LogContext
 from eth_defi.block_reader.reader import read_events, LogResult
@@ -54,6 +67,20 @@ PAIR_FIELD_NAMES = [
     'token1_address',
     'token1_symbol',
 ]
+
+#: List of output columns to swaps.csv
+SWAP_FIELD_NAMES = [
+    'block_number',
+    'timestamp',
+    'tx_hash',
+    'log_index',
+    'pair_contract_address',
+    "amount0_in",
+    "amount1_in",
+    "amount0_out",
+    "amount1_out",
+]
+
 
 class TokenCache(LogContext):
     """Manage cache of token data when doing PairCreated look-up.
@@ -141,6 +168,51 @@ def decode_pair_created(log: LogResult) -> dict:
     return data
 
 
+def decode_swap(log: LogResult) -> dict:
+    """Process swap event.
+
+    This function does manually optimised high speed decoding of the event.
+
+    The event signature is:
+
+    .. code-block::
+
+        event Swap(
+          address indexed sender,
+          uint amount0In,
+          uint amount1In,
+          uint amount0Out,
+          uint amount1Out,
+          address indexed to
+        );
+    """
+
+    # Raw example event
+    # {'address': '0xb4e16d0168e52d35cacd2c6185b44281ec28c9dc', 'blockHash': '0x4ba33a650f9e3d8430f94b61a382e60490ec7a06c2f4441ecf225858ec748b78', 'blockNumber': '0x98b7f6', 'data': '0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000046ec814a2e900000000000000000000000000000000000000000000000000000000000003e80000000000000000000000000000000000000000000000000000000000000000', 'logIndex': '0x4', 'removed': False, 'topics': ['0xd78ad95fa46c994b6551d0da85fc275fe613ce37657fb8d5e3d130840159d822', '0x000000000000000000000000f164fc0ec4e93095b804a4795bbe1e041497b92a', '0x0000000000000000000000008688a84fcfd84d8f78020d0fc0b35987cc58911f'], 'transactionHash': '0x932cb88306450d481a0e43365a3ed832625b68f036e9887684ef6da594891366', 'transactionIndex': '0x1', 'context': <__main__.TokenCache object at 0x104ab7e20>, 'event': <class 'web3._utils.datatypes.Swap'>, 'timestamp': 1588712972}
+
+    block_time = datetime.datetime.utcfromtimestamp(log["timestamp"])
+
+    pair_contract_address = log["address"]
+
+    # Chop data blob to byte32 entries
+    data_entries = decode_data(log["data"])
+
+    amount0_in, amount1_in, amount0_out, amount1_out = data_entries
+
+    data = {
+        "block_number": int(log["blockNumber"], 16),
+        "timestamp": block_time.isoformat(),
+        "tx_hash": log["transactionHash"],
+        "log_index": int(log["logIndex"], 16),
+        "pair_contract_address": pair_contract_address,
+        "amount0_in": convert_uint256_bytes_to_int(amount0_in),
+        "amount1_in": convert_uint256_bytes_to_int(amount1_in),
+        "amount0_out": convert_uint256_bytes_to_int(amount0_out),
+        "amount1_out": convert_uint256_bytes_to_int(amount1_out),
+    }
+    return data
+
+
 def main():
 
     logging.basicConfig(level=os.environ["LOG_LEVEL"], handlers=[logging.StreamHandler()])
@@ -190,6 +262,7 @@ def main():
     with open(pairs_fname, 'a') as pairs_out, open(swaps_fname, 'a') as swaps_out:
 
         pairs_writer = csv.DictWriter(pairs_out, fieldnames=PAIR_FIELD_NAMES)
+        swaps_writer = csv.DictWriter(swaps_out, fieldnames=SWAP_FIELD_NAMES)
 
         with tqdm(max_blocks) as progress_bar:
 
@@ -211,6 +284,9 @@ def main():
                 for entry in pairs_event_buffer:
                     pairs_writer.writerow(entry)
 
+                for entry in swaps_event_buffer:
+                    swaps_writer.writerow(entry)
+
                 # Save the scan sate
                 save_state(state_fname, current_block-1)
 
@@ -228,15 +304,15 @@ def main():
                     chunk_size=100,
                     context=token_cache,
             ):
-                if log_result["event"].event_name == "PairCreated":
-                    try:
+                # We are getting two kinds of log entries, pairs and swaps.
+                # Choose between where to store.
+                try:
+                    if log_result["event"].event_name == "PairCreated":
                         pairs_event_buffer.append(decode_pair_created(log_result))
-                    except Exception as e:
-                        raise RuntimeError(f"Could not decode {log_result}") from e
-                elif log_result["event"].event_name == "Swap":
-                    pass
-                else:
-                    raise RuntimeError(f"Unknown log entry {log_result}")
+                    elif log_result["event"].event_name == "Swap":
+                        swaps_event_buffer.append(decode_swap(log_result))
+                except Exception as e:
+                    raise RuntimeError(f"Could not decode {log_result}") from e
 
 
 if __name__ == "__main__":

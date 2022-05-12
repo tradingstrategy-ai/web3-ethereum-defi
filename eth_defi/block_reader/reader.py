@@ -104,7 +104,7 @@ def extract_events(
         context: Optional[LogContext] = None,
         extract_timestamps: Optional[Callable]=extract_timestamps_json_rpc,
 ) -> Iterable[LogResult]:
-    """Perform eth_getLogs call over a log range.
+    """Perform eth_getLogs call over a block range.
 
     :param start_block:
         First block to process (inclusive)
@@ -123,12 +123,11 @@ def extract_events(
     """
 
     topics = list(filter.topics.keys())
-    topics = topics[0:1]
 
     # https://www.quicknode.com/docs/ethereum/eth_getLogs
     # https://docs.alchemy.com/alchemy/guides/eth_getlogs
     filter_params = {
-        "topics": topics,
+        "topics": [topics],  # JSON-RPC has totally braindead API to say how to do OR event lookup
         "fromBlock": hex(start_block),
         "toBlock": hex(end_block),
     }
@@ -143,9 +142,7 @@ def extract_events(
             timestamps = extract_timestamps(web3, start_block, end_block)
 
         for log in logs:
-
             block_hash = log["blockHash"]
-
             # Retrofit our information to the dict
             event_signature = log["topics"][0]
             log["context"] = context
