@@ -112,7 +112,7 @@ def dai(web3, deployer) -> Contract:
     return create_token(web3, deployer, "DAI", "DAI", 100_000_000 * 10**18)
 
 
-def test_sell_exact_with_slippage_protection(
+def test_buy_with_slippage_when_you_know_quote_amount(
     web3: Web3,
     deployer: str,
     hot_wallet: LocalAccount,
@@ -147,8 +147,8 @@ def test_sell_exact_with_slippage_protection(
     swap_func = swap_with_slippage_protection(
         uniswap_v2_deployment=uniswap_v2,
         recipient_address=hw_address,
-        base_token=usdc,
-        quote_token=weth,
+        base_token=weth,
+        quote_token=usdc,
         amount_in=usdc_amount_to_pay,
         max_slippage=50,  # 50 bps = 0.5%
     )
@@ -170,7 +170,7 @@ def test_sell_exact_with_slippage_protection(
     assert tx_receipt.status == 1
 
 
-def test_buy_exact_with_slippage_protection(
+def test_buy_with_slippage_when_you_know_base_amount(
     web3: Web3,
     deployer: str,
     hot_wallet: LocalAccount,
@@ -178,7 +178,7 @@ def test_buy_exact_with_slippage_protection(
     weth: Contract,
     usdc: Contract,
 ):
-    """Use local hot wallet to buy a define amount of WETH on Uniswap v2 using mock USDC."""
+    """Use local hot wallet to buy a define amount of WETH on Uniswap v2 using a little as possible USDC."""
 
     # Create the trading pair and add initial liquidity
     deploy_trading_pair(
@@ -207,8 +207,8 @@ def test_buy_exact_with_slippage_protection(
     swap_func = swap_with_slippage_protection(
         uniswap_v2_deployment=uniswap_v2,
         recipient_address=hw_address,
-        base_token=usdc,
-        quote_token=weth,
+        base_token=weth,
+        quote_token=usdc,
         amount_out=eth_amount_expected,
         max_slippage=50,  # 50 bps = 0.5%
     )
@@ -282,8 +282,8 @@ def test_swap_revert_with_slippage_protection(
     swap_func = swap_with_slippage_protection(
         uniswap_v2_deployment=uniswap_v2,
         recipient_address=hw_address,
-        base_token=usdc,
-        quote_token=weth,
+        base_token=weth,
+        quote_token=usdc,
         amount_in=usdc_amount_to_pay,
         max_slippage=100,  # 100 bps = 1%
     )
@@ -379,8 +379,8 @@ def test_sell_three_way_with_slippage_protection(
     swap_func = swap_with_slippage_protection(
         uniswap_v2_deployment=uniswap_v2,
         recipient_address=hw_address,
-        base_token=usdc,
-        quote_token=dai,
+        base_token=dai,
+        quote_token=usdc,
         amount_in=usdc_amount_to_pay,
         intermediate_token=weth,
     )
@@ -402,12 +402,12 @@ def test_sell_three_way_with_slippage_protection(
     assert tx_receipt.status == 1
 
     # precision test with slippage = 0
-    with pytest.warns(UserWarning, match=r"The `max_slippage` has be set to 0(.*)$"):
+    with pytest.warns(UserWarning, match=r"The `max_slippage` is set to 0(.*)"):
         swap_func = swap_with_slippage_protection(
             uniswap_v2_deployment=uniswap_v2,
             recipient_address=hw_address,
-            base_token=usdc,
-            quote_token=dai,
+            base_token=dai,
+            quote_token=usdc,
             amount_in=usdc_amount_to_pay,
             intermediate_token=weth,
             max_slippage=0,
@@ -492,8 +492,8 @@ def test_swap_three_way_revert(
     swap_func = swap_with_slippage_protection(
         uniswap_v2_deployment=uniswap_v2,
         recipient_address=hw_address,
-        base_token=usdc,
-        quote_token=dai,
+        base_token=dai,
+        quote_token=usdc,
         intermediate_token=weth,
         amount_in=usdc_amount_to_pay,
         max_slippage=100,  # 100 bps = 1%
