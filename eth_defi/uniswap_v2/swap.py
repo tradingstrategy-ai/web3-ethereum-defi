@@ -22,7 +22,8 @@ def swap_with_slippage_protection(
     fee: int = 30,
     deadline: int = FOREVER_DEADLINE,
 ) -> Callable:
-    """Helper function to prepare a swap from base token to quote token with price estimation and slippage protection baked in.
+    """Helper function to prepare a swap from quote token to base token (buy base token with quote token)
+    with price estimation and slippage protection baked in.
 
     Example:
 
@@ -32,8 +33,8 @@ def swap_with_slippage_protection(
         swap_func = swap_with_slippage_protection(
             uniswap_v2_deployment=uniswap_v2,
             recipient_address=hot_wallet_address,
-            base_token=usdc,
-            quote_token=weth,
+            base_token=weth,
+            quote_token=usdc,
             amount_in=usdc_amount_to_pay,
             max_slippage=50,  # 50 bps = 0.5%
         )
@@ -58,8 +59,8 @@ def swap_with_slippage_protection(
         swap_func = swap_with_slippage_protection(
             uniswap_v2_deployment=uniswap_v2,
             recipient_address=hot_wallet_address,
-            base_token=usdc,
-            quote_token=dai,
+            base_token=dai,
+            quote_token=usdc,
             intermediate_token=weth,
             amount_out=dai_amount_expected,
             max_slippage=100,  # 100 bps = 1%
@@ -84,8 +85,8 @@ def swap_with_slippage_protection(
     :param quote_token: Quote token of the trading pair
     :param intermediate_token: Intermediate token which the swap can go through
     :param recipient_address: Recipient's address
-    :param amount_in: How much of the base token we want to pay, this has to be `None` if `amount_out` is specified
-    :param amount_out: How much of the quote token we want to receive, this has to be `None` if `amount_in` is specified
+    :param amount_in: How much of the quote token we want to pay, this has to be `None` if `amount_out` is specified
+    :param amount_out: How much of the base token we want to receive, this has to be `None` if `amount_in` is specified
     :param max_slippage: Max slippage express in bps, default = 0.1 bps (0.001%)
     :param fee: Trading fee express in bps, default = 30 bps (0.3%)
     :param deadline: Time limit of the swap transaction, by default = forever (no deadline)
@@ -93,20 +94,20 @@ def swap_with_slippage_protection(
     """
     assert max_slippage >= 0
     if max_slippage == 0:
-        warnings.warn("The `max_slippage` has be set to 0, this can potentially lead to reverted transaction. It's recommended to set use default max_slippage instead (0.1 bps) to ensure successful transaction")
+        warnings.warn("The `max_slippage` is set to 0, this can potentially lead to reverted transaction. It's recommended to set use default max_slippage instead (0.1 bps) to ensure successful transaction")
 
     router = uniswap_v2_deployment.router
-    path = [base_token.address, quote_token.address]
+    path = [quote_token.address, base_token.address]
     if intermediate_token:
-        path = [base_token.address, intermediate_token.address, quote_token.address]
+        path = [quote_token.address, intermediate_token.address, base_token.address]
 
     if amount_in:
         assert amount_out is None, "amount_in is specified, amount_out has to be None"
 
         estimated_min_amount_out: int = estimate_sell_price(
             uniswap=uniswap_v2_deployment,
-            base_token=base_token,
-            quote_token=quote_token,
+            base_token=quote_token,
+            quote_token=base_token,
             quantity=amount_in,
             slippage=max_slippage,
             fee=fee,
@@ -125,8 +126,8 @@ def swap_with_slippage_protection(
 
         estimated_max_amount_in: int = estimate_buy_price(
             uniswap=uniswap_v2_deployment,
-            base_token=quote_token,
-            quote_token=base_token,
+            base_token=base_token,
+            quote_token=quote_token,
             quantity=amount_out,
             slippage=max_slippage,
             fee=fee,
