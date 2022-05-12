@@ -5,7 +5,7 @@ from decimal import Decimal
 from typing import Optional, NamedTuple
 
 from eth_account import Account
-from eth_account.datastructures import SignedTransaction, __getitem__
+from eth_account.datastructures import __getitem__
 from eth_account.signers.local import LocalAccount
 from hexbytes import HexBytes
 from web3 import Web3

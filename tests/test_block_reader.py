@@ -117,7 +117,7 @@ def test_read_events():
     Factory = get_contract(web3, "UniswapV2Factory.json")
 
     events = [
-        Factory.events.PairCreated, # https://etherscan.io/txs?ea=0x5c69bee701ef814a2b6a3edd4b1652cb9cc5aa6f&topic0=0x0d3648bd0f6ba80134a33ba9275ac585d9d315f0ad8355cddefde31afa28d0e9
+        Factory.events.PairCreated,  # https://etherscan.io/txs?ea=0x5c69bee701ef814a2b6a3edd4b1652cb9cc5aa6f&topic0=0x0d3648bd0f6ba80134a33ba9275ac585d9d315f0ad8355cddefde31afa28d0e9
     ]
 
     token_cache = TokenCache()

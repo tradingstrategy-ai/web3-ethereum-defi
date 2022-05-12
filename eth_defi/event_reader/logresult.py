@@ -60,5 +60,3 @@ class LogResult(TypedDict):
 
     #: Data related to the event
     data: str
-
-

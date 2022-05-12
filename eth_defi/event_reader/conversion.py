@@ -12,7 +12,7 @@ def decode_data(data: str) -> List[bytes]:
     b = bytes.fromhex(data[2:])
     entries = []
     for i in range(0, len(b), 32):
-        entries.append(b[i: i+32])
+        entries.append(b[i: i + 32])
     return entries
 
 

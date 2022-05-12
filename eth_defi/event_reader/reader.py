@@ -7,7 +7,7 @@ Also see:
 
 import logging
 from dataclasses import dataclass
-from typing import Iterable, List, Protocol, Dict, Optional, TypedDict, Callable
+from typing import Iterable, List, Protocol, Dict, Optional, Callable
 
 from eth_bloom import BloomFilter
 
@@ -102,7 +102,7 @@ def extract_events(
         end_block: int,
         filter: Filter,
         context: Optional[LogContext] = None,
-        extract_timestamps: Optional[Callable]=extract_timestamps_json_rpc,
+        extract_timestamps: Optional[Callable] = extract_timestamps_json_rpc,
 ) -> Iterable[LogResult]:
     """Perform eth_getLogs call over a block range.
 
@@ -162,7 +162,7 @@ def read_events(
     notify: Optional[ProgressUpdate],
     chunk_size: int = 100,
     context: Optional[LogContext] = None,
-    extract_timestamps: Optional[Callable]=extract_timestamps_json_rpc,
+    extract_timestamps: Optional[Callable] = extract_timestamps_json_rpc,
 ) -> Iterable[LogResult]:
     """Reads multiple events from the blockchain.
 

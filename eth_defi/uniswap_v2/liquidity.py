@@ -1,6 +1,6 @@
 """Liquidity measuring."""
 from dataclasses import dataclass
-from typing import Union, Tuple
+from typing import Union
 
 from eth_typing import HexAddress
 from web3 import Web3
@@ -97,4 +97,3 @@ def get_liquidity(
         reserve_result[1],
         reserve_result[2],
     )
-

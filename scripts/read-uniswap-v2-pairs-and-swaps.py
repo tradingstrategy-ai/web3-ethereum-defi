@@ -238,8 +238,8 @@ def main():
     Pair = get_contract(web3, "UniswapV2Pair.json")
 
     events = [
-        Factory.events.PairCreated, # https://etherscan.io/txs?ea=0x5c69bee701ef814a2b6a3edd4b1652cb9cc5aa6f&topic0=0x0d3648bd0f6ba80134a33ba9275ac585d9d315f0ad8355cddefde31afa28d0e9
-        Pair.events.Swap  #
+        Factory.events.PairCreated,  # https://etherscan.io/txs?ea=0x5c69bee701ef814a2b6a3edd4b1652cb9cc5aa6f&topic0=0x0d3648bd0f6ba80134a33ba9275ac585d9d315f0ad8355cddefde31afa28d0e9
+        Pair.events.Swap
     ]
 
     pairs_fname = "/tmp/uni-v2-pairs.csv"
@@ -266,9 +266,9 @@ def main():
 
         with tqdm(max_blocks) as progress_bar:
 
-            # 1. Update the progress bar
-            # 2. save any events in the buffer in to a file in one go
-            def update_progress(current_block, start_block,  end_block, chunk_size: int, total_events: int, last_timestamp: Optional[int], context: TokenCache):
+            #  1. Update the progress bar
+            #  2. save any events in the buffer in to a file in one go
+            def update_progress(current_block, start_block, end_block, chunk_size: int, total_events: int, last_timestamp: Optional[int], context: TokenCache):
                 nonlocal pairs_event_buffer
                 nonlocal swaps_event_buffer
                 if last_timestamp:
@@ -288,7 +288,7 @@ def main():
                     swaps_writer.writerow(entry)
 
                 # Save the scan sate
-                save_state(state_fname, current_block-1)
+                save_state(state_fname, current_block - 1)
 
                 # Reset buffer
                 pairs_event_buffer = []
