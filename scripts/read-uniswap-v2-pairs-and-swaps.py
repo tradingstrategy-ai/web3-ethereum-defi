@@ -2,7 +2,7 @@
 
 - Stateful: Can resume operation after CTRL+C or crash
 
-- Outputs to append only CSV file
+- Outputs two append only CSV files, one for pairs and one for swaps
 
 - The first PairCreated event is at Ethereum mainnet block is 10000835
 

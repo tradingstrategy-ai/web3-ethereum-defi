@@ -35,6 +35,11 @@ def convert_uint256_string_to_address(bytes32: str) -> ChecksumAddress:
 
         Ethereum address checksum might have a speed penalty for
         high speed operations.
+
+    :param bytes32:
+        E.g. `0x00000000000000000000000006af07097c9eeb7fd685c692751d5c66db49c215`
     """
-    val = int(bytes32, 16)
-    return Web3.toChecksumAddress(hex(val))
+    assert bytes32.startswith("0x")
+    raw = bytes.fromhex(bytes32[2:])
+    assert len(raw) == 32
+    return Web3.toChecksumAddress(raw[12:])

@@ -1,22 +1,19 @@
-"""JSON-RPC decoding optimised for web3.py"""
-import socket
-import time
-import types
+"""JSON-RPC decoding optimised for web3.py.
+
+Monkey-patches JSON decoder to use ujson.
+"""
+
 import logging
 from json import JSONDecodeError
 
-from typing import cast, Union, Callable, Any
+from typing import cast
 
 import ujson
 
-from web3 import Web3, IPCProvider
-from web3.manager import RequestManager
+from web3 import Web3
 from web3.providers import JSONBaseProvider
-from web3.providers.ipc import has_valid_json_rpc_ending
-from web3.types import RPCResponse, RPCEndpoint
-from web3._utils.threads import (
-    Timeout,
-)
+from web3.types import RPCResponse
+
 
 logger = logging.getLogger(__name__)
 
@@ -26,6 +23,7 @@ class IPCFlaky(JSONDecodeError):
 
 
 def _fast_decode_rpc_response(raw_response: bytes) -> RPCResponse:
+    """Uses ujson for speeded up JSON decoding instead of web3.py default JSON."""
     try:
         decoded = ujson.loads(raw_response)
     except ValueError as e:

@@ -1,13 +1,13 @@
 """High performance Solidity event reader.
 
-To read:
+Also see:
 
 - `Ethereum JSON-RPC API spec <https://playground.open-rpc.org/?schemaUrl=https://raw.githubusercontent.com/ethereum/execution-apis/assembled-spec/openrpc.json&uiSchema%5BappBar%5D%5Bui:splitView%5D=false&uiSchema%5BappBar%5D%5Bui:input%5D=false&uiSchema%5BappBar%5D%5Bui:examplesDropdown%5D=false>`_
 """
 
 import logging
 from dataclasses import dataclass
-from typing import Iterable, List, Protocol, Dict, Optional, TypedDict
+from typing import Iterable, List, Protocol, Dict, Optional, TypedDict, Callable
 
 from eth_bloom import BloomFilter
 
@@ -102,7 +102,7 @@ def extract_events(
         end_block: int,
         filter: Filter,
         context: Optional[LogContext] = None,
-        extract_timestamps=extract_timestamps_json_rpc,
+        extract_timestamps: Optional[Callable]=extract_timestamps_json_rpc,
 ) -> Iterable[LogResult]:
     """Perform eth_getLogs call over a log range.
 
@@ -138,7 +138,9 @@ def extract_events(
     logs = web3.manager.request_blocking("eth_getLogs", (filter_params,))
 
     if logs:
-        timestamps = extract_timestamps(web3, start_block, end_block)
+
+        if extract_timestamps is not None:
+            timestamps = extract_timestamps(web3, start_block, end_block)
 
         for log in logs:
 
@@ -148,7 +150,7 @@ def extract_events(
             event_signature = log["topics"][0]
             log["context"] = context
             log["event"] = filter.topics[event_signature]
-            log["timestamp"] = timestamps[block_hash]
+            log["timestamp"] = timestamps[block_hash] if extract_timestamps else None
             yield log
 
 
@@ -157,10 +159,10 @@ def read_events(
     start_block: int,
     end_block: int,
     events: List[ContractEvent],
-    notify: ProgressUpdate,
+    notify: Optional[ProgressUpdate],
     chunk_size: int = 100,
     context: Optional[LogContext] = None,
-    extract_timestamps=extract_timestamps_json_rpc,
+    extract_timestamps: Optional[Callable]=extract_timestamps_json_rpc,
 ) -> Iterable[LogResult]:
     """Reads multiple events from the blockchain.
 
@@ -199,8 +201,6 @@ def read_events(
     topics = {}
 
     for event in events:
-        #abi = event._get_event_abi()
-        #import ipdb ; ipdb.set_trace()
         signatures = event.build_filter().topics
 
         for signature in signatures:

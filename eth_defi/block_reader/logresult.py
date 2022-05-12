@@ -1,5 +1,5 @@
 """Output of the log reader"""
-from typing import TypedDict, List
+from typing import TypedDict, List, Optional
 
 from eth_typing import HexAddress
 from web3.contract import ContractEvent
@@ -38,8 +38,9 @@ class LogResult(TypedDict):
     blockNumber: str
 
     #: UNIX timestamp of the block number.
-    #: Synthesized by us.
-    timestamp: int
+    #: Synthesized by block reader code, not present in the receipt.
+    #: May be None if timestamp fetching is disabled for the speed reasons.
+    timestamp: Optional[int]
 
     #: Transaction where the event occred
     transactionHash: str
