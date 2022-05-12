@@ -112,7 +112,7 @@ def dai(web3, deployer) -> Contract:
     return create_token(web3, deployer, "DAI", "DAI", 100_000_000 * 10**18)
 
 
-def test_sell_exact_with_slippage_protection(
+def test_buy_with_slippage_when_you_know_quote_amount(
     web3: Web3,
     deployer: str,
     hot_wallet: LocalAccount,
@@ -170,7 +170,7 @@ def test_sell_exact_with_slippage_protection(
     assert tx_receipt.status == 1
 
 
-def test_buy_exact_with_slippage_protection(
+def test_buy_with_slippage_when_you_know_base_amount(
     web3: Web3,
     deployer: str,
     hot_wallet: LocalAccount,
@@ -178,7 +178,7 @@ def test_buy_exact_with_slippage_protection(
     weth: Contract,
     usdc: Contract,
 ):
-    """Use local hot wallet to buy a define amount of WETH on Uniswap v2 using mock USDC."""
+    """Use local hot wallet to buy a define amount of WETH on Uniswap v2 using a little as possible USDC."""
 
     # Create the trading pair and add initial liquidity
     deploy_trading_pair(
