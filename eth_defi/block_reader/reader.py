@@ -34,11 +34,30 @@ class ProgressUpdate(Protocol):
     Hook this up with `tqdm` for an interactive progress bar.
     """
 
-    def __call__(current_block: int,
+    def __call__(self,
+                 current_block: int,
                  start_block: int,
                  end_block: int,
+                 chunk_size: int,
                  total_events: int):
-        pass
+        """
+
+        :param current_block:
+            The block we are about to scan.
+            After this scan, we have scanned `current_block + chunk_size` blocks
+
+        :param start_block:
+            The first block in our total scan range
+
+        :param end_block:
+            The last block in our total scan range
+
+        :param chunk_size:
+            What was the chunk size (can differ for the last scanned chunk)
+
+        :param total_events:
+            Total events picked up so far
+        """
 
 
 def extract_timestamps_json_rpc(
@@ -94,6 +113,8 @@ def extract_events(
         "toBlock": hex(end_block),
     }
 
+    logging.debug("Extracting logs %s", filter_params)
+
     logs = web3.manager.request_blocking("eth_getLogs", (filter_params,))
 
     if logs:
@@ -101,6 +122,7 @@ def extract_events(
 
         for log in logs:
             print(log)
+            import ipdb ; ipdb.set_trace()
             yield log
 
 
@@ -148,8 +170,9 @@ def read_events(
     topics = {}
 
     for event in events:
-        abi = event._get_event_abi()
-        signatures = construct_event_topic_set(abi, web3.codec)
+        #abi = event._get_event_abi()
+        #import ipdb ; ipdb.set_trace()
+        signatures = event.build_filter().topics
         for signature in signatures:
             topics[signature] = event
             # TODO: Confirm correct usage of bloom filter for topics
@@ -161,7 +184,7 @@ def read_events(
 
         # Ping our master
         if notify is not None:
-            notify(block_num, start_block, end_block, total_events)
+            notify(block_num, start_block, end_block, chunk_size, total_events)
 
         last_of_chunk = min(end_block, block_num + chunk_size)
 

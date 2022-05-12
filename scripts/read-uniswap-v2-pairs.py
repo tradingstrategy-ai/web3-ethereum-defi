@@ -77,8 +77,8 @@ def main():
     Pair = get_contract(web3, "UniswapV2Pair.json")
 
     events = [
-        Factory.events.PairCreated,
-        Pair.events.Swap
+        Factory.events.PairCreated,  # https://etherscan.io/txs?ea=0x5c69bee701ef814a2b6a3edd4b1652cb9cc5aa6f&topic0=0x0d3648bd0f6ba80134a33ba9275ac585d9d315f0ad8355cddefde31afa28d0e9
+        Pair.events.Swap  #
     ]
 
     output_fname = "/tmp/uni-v2-events.csv"
@@ -110,10 +110,10 @@ def main():
 
             # 1. Update the progress bar
             # 2. save any events in the buffer in to a file in one go
-            def update_progress(current_block, start_block,  end_block, total_events: int):
+            def update_progress(current_block, start_block,  end_block, chunk_size: int, total_events: int):
                 nonlocal buffer
                 progress_bar.set_description(f"Block: {current_block:,}, events: {total_events:,}")
-                progress_bar.update(1)
+                progress_bar.update(chunk_size)
 
                 # Save the progress
                 for entry in buffer:
@@ -123,7 +123,7 @@ def main():
                 buffer = []
 
             # Read specified events in block range
-            for event in read_events(web3, start_block, end_block, events, update_progress, chunk_size=100):
+            for event in read_events(web3, start_block, end_block - 1, events, update_progress, chunk_size=1000):
                 buffer.append(event)
 
 if __name__ == "__main__":
