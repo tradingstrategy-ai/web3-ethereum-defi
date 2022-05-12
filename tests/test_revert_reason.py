@@ -11,7 +11,6 @@ To run tests in this module:
 
 """
 import os
-import random
 
 import pytest
 from eth_account import Account

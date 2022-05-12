@@ -58,6 +58,18 @@ Uniswap v3 API documentation
    eth_defi.uniswap_v3.constants
    eth_defi.uniswap_v3.utils
 
+High speed event reader documentation
+=====================================
+
+.. autosummary::
+   :toctree: _autosummary_block_reader
+   :recursive:
+
+   eth_defi.event_reader.reader
+   eth_defi.event_reader.logresult
+   eth_defi.event_reader.conversion
+   eth_defi.event_reader.fast_json_rpc
+
 Tutorials
 =========
 

@@ -1,3 +1,7 @@
+# Current
+
+- High speed Solidity event (log) decoding
+
 # 0.8
 
 - Update web3.py dependency to 5.28.0

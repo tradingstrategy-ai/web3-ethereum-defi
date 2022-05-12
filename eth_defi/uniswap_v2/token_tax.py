@@ -31,11 +31,13 @@ class TransferFromError(Exception):
     See KICK on Ethereum mainnet.
     """
 
+
 class OutOfGasDuringTransfer(Exception):
     """The token is likely some sort of ponzi with restricted transfer.
 
     See WETH-CGT on Ethereum mainnet.
     """
+
 
 class OutOfGasDuringSell(Exception):
     """The token is likely some sort of ponzi with restricted transfer.
@@ -91,8 +93,8 @@ def estimate_token_taxes(
         approve=True,
         quote_token_details: Optional[TokenDetails] = None,
         base_token_details: Optional[TokenDetails] = None,
-        gas_limit: Optional[int]=None,
-        gas_price: Optional[int]=None,
+        gas_limit: Optional[int] = None,
+        gas_price: Optional[int] = None,
 ) -> TokenTaxInfo:
     """Estimates different token taxes for a token by running Ganache simulations for it.
 
