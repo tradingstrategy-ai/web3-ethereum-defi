@@ -1,14 +1,16 @@
-"""Output of the log reader"""
+"""Event reader output."""
+
 from typing import TypedDict, List, Optional
 
-from eth_typing import HexAddress
 from web3.contract import ContractEvent
 
 
 class LogContext:
-    """A helper you can pass around for the events.
+    """A helper you can pass around for the log results.
 
     Subclass this and add your own data / methods.
+
+    See `scripts/read-uniswap-v2-pairs-and-swaps.py` for an example.
     """
     pass
 
@@ -21,8 +23,10 @@ class LogResult(TypedDict):
     See also
 
     - https://docs.alchemy.com/alchemy/guides/eth_getlogs
+
     """
 
+    #: User passed context
     context: LogContext
 
     #: Contract event matches for this raw log

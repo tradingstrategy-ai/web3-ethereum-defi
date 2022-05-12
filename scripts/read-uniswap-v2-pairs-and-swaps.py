@@ -45,11 +45,11 @@ from tqdm import tqdm
 from web3 import HTTPProvider, Web3
 
 from eth_defi.abi import get_contract
-from eth_defi.block_reader.conversion import convert_uint256_string_to_address, convert_uint256_bytes_to_address, \
+from eth_defi.event_reader.conversion import convert_uint256_string_to_address, convert_uint256_bytes_to_address, \
     decode_data, convert_uint256_bytes_to_int
-from eth_defi.block_reader.fastjsonrpc import patch_web3
-from eth_defi.block_reader.logresult import LogContext
-from eth_defi.block_reader.reader import read_events, LogResult
+from eth_defi.event_reader.fast_json_rpc import patch_web3
+from eth_defi.event_reader.logresult import LogContext
+from eth_defi.event_reader.reader import read_events, LogResult
 from eth_defi.token import fetch_erc20_details, TokenDetails
 
 

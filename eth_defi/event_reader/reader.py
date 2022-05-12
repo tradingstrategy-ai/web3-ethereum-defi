@@ -14,12 +14,12 @@ from eth_bloom import BloomFilter
 from web3 import Web3
 from web3.contract import ContractEvent
 
-from eth_defi.block_reader.logresult import LogContext, LogResult
+from eth_defi.event_reader.logresult import LogContext, LogResult
 
 
 @dataclass
 class Filter:
-    """Internal filter we use to get all events once."""
+    """Internal filter used to match events."""
 
     #: Preconstructed topic hash -> Event mapping
     topics: Dict[str, ContractEvent]
@@ -112,6 +112,9 @@ def extract_events(
     :param end_block:
         Last block to process (inclusive)
 
+    :param filter:
+        Internal filter used to match logs
+
     :param extract_timestamps:
         Method to get the block timestamps
 
@@ -176,11 +179,66 @@ def read_events(
     - Reads all the events matching signature - any filtering must be done
       by the reader
 
+    See `scripts/read-uniswap-v2-pairs-and-swaps.py` for a full example.
+
+    Example:
+
+    .. code-block:: python
+
+        # HTTP 1.1 keep-alive
+        session = requests.Session()
+
+        json_rpc_url = os.environ["JSON_RPC_URL"]
+        web3 = Web3(HTTPProvider(json_rpc_url, session=session))
+
+        # Enable faster ujson reads
+        patch_web3(web3)
+
+        web3.middleware_onion.clear()
+
+        # Get contracts
+        Factory = get_contract(web3, "UniswapV2Factory.json")
+
+        events = [
+            Factory.events.PairCreated, # https://etherscan.io/txs?ea=0x5c69bee701ef814a2b6a3edd4b1652cb9cc5aa6f&topic0=0x0d3648bd0f6ba80134a33ba9275ac585d9d315f0ad8355cddefde31afa28d0e9
+        ]
+
+        token_cache = TokenCache()
+
+        start_block = 10_000_835  # Uni deployed
+        end_block = 10_009_000  # The first pair created before this block
+
+        # Read through the blog ran
+        out = []
+        for log_result in read_events(
+            web3,
+            start_block,
+            end_block,
+            events,
+            None,
+            chunk_size=1000,
+            context=token_cache,
+            extract_timestamps=None,
+        ):
+            out.append(decode_pair_created(log_result))
+
+    :param web3:
+        Web3 instance
+
+    :param events:
+        List of Web3.py contract event classes to scan for
+
+    :param notify:
+        Optional callback to be called before starting to scan each chunk
+
     :param start_block:
         First block to process (inclusive)
 
     :param end_block:
         Last block to process (inclusive)
+
+    :param extract_timestamps:
+        Override for different block timestamp extraction methods
 
     :param chunk_size:
         How many blocks to scan in one eth_getLogs call
