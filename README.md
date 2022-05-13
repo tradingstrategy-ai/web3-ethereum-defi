@@ -21,7 +21,7 @@ for trading, wallets,automated test suites and backend integrations for EVM base
    * [Build requirements](#build-requirements)
    * [Make](#make)
 * [Version history](#version-history)
-* [Discord](#discord)
+* [Social media](#social-media)
 * [Notes](#notes)
 * [History](#history)
 * [License](#license)
@@ -254,9 +254,10 @@ poetry add -D web3-ethereum-defi
 - [Read changelog](https://github.com/tradingstrategy-ai/web3-ethereum-defi/blob/master/CHANGELOG.md).
 - [See releases](https://pypi.org/project/web3-ethereum-defi/#history).
 
-# Discord
+# Social media
 
-[Join Discord for any questions](https://tradingstrategy.ai/community).
+- [Join Discord for any questions](https://tradingstrategy.ai/community).
+- [Message us on Twitter](https://twitter.com/TradingProtocol)
 
 # Notes
 
