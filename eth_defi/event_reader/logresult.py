@@ -52,7 +52,8 @@ class LogResult(TypedDict):
     #: Log index as a hex number
     logIndex: str
 
-    #: Topics in this receipt
+    #: Topics in this receipt.
+    #: `topics[0]` is always the event signature.
     topics: List[str]
 
     #: Block reorg helper

@@ -448,6 +448,22 @@ optional = false
 python-versions = ">=3.7"
 
 [[package]]
+name = "futureproof"
+version = "0.3.1"
+description = "Bulletproof concurrent.futures"
+category = "main"
+optional = false
+python-versions = "*"
+
+[package.dependencies]
+attrs = ">=20.0.0"
+
+[package.extras]
+dev = ["furo", "pytest-mock", "pytest-timeout", "coverage", "sphinx", "sphinx-autobuild", "myst-parser"]
+docs = ["furo", "sphinx", "sphinx-autobuild", "myst-parser"]
+tests = ["pytest-mock", "pytest-timeout", "coverage"]
+
+[[package]]
 name = "hexbytes"
 version = "0.2.2"
 description = "hexbytes: Python `bytes` subclass that decodes hex, with a readable console output"
@@ -1395,7 +1411,7 @@ docs = ["Sphinx", "sphinx-rtd-theme", "sphinx-sitemap", "sphinx-autodoc-typehint
 [metadata]
 lock-version = "1.1"
 python-versions = "^3.8"
-content-hash = "e844eea4c6f6a5f21d3d84c06782a5efae7c312586e5e514ca5ee8c9c8746f93"
+content-hash = "683907429cb3cec789237da7a098c2b24c55a0516e16aa1490b7e68c3d727297"
 
 [metadata.files]
 aiohttp = [
@@ -1679,6 +1695,10 @@ frozenlist = [
     {file = "frozenlist-1.3.0-cp39-cp39-win32.whl", hash = "sha256:01a73627448b1f2145bddb6e6c2259988bb8aee0fb361776ff8604b99616cd08"},
     {file = "frozenlist-1.3.0-cp39-cp39-win_amd64.whl", hash = "sha256:772965f773757a6026dea111a15e6e2678fbd6216180f82a48a40b27de1ee2ab"},
     {file = "frozenlist-1.3.0.tar.gz", hash = "sha256:ce6f2ba0edb7b0c1d8976565298ad2deba6f8064d2bebb6ffce2ca896eb35b0b"},
+]
+futureproof = [
+    {file = "futureproof-0.3.1-py2.py3-none-any.whl", hash = "sha256:849d664cc201c39eb4503e1aa35d81b437e89e99cf34c3960ed106d7bbf6f154"},
+    {file = "futureproof-0.3.1.tar.gz", hash = "sha256:274365159bfd8b7aa39677abfa7b16c8253a771d72d3c3ee9de4a03c8d6d2d9b"},
 ]
 hexbytes = [
     {file = "hexbytes-0.2.2-py3-none-any.whl", hash = "sha256:ef53c37ea9f316fff86fcb1df057b4c6ba454da348083e972031bbf7bc9c3acc"},

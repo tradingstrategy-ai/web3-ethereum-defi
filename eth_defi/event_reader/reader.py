@@ -6,15 +6,22 @@ Also see:
 """
 
 import logging
+import threading
+import time
 from dataclasses import dataclass
 from typing import Iterable, List, Protocol, Dict, Optional, Callable
 
 from eth_bloom import BloomFilter
-
+from futureproof.task_manager import Task
 from web3 import Web3
 from web3.contract import ContractEvent
+import futureproof
+from futureproof import ThreadPoolExecutor
 
 from eth_defi.event_reader.logresult import LogContext, LogResult
+from eth_defi.event_reader.web3worker import get_worker_web3, complete_tasks
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -154,6 +161,45 @@ def extract_events(
             yield log
 
 
+def extract_events_concurrent(
+        start_block: int,
+        end_block: int,
+        filter: Filter,
+        context: Optional[LogContext] = None,
+        extract_timestamps: Optional[Callable] = extract_timestamps_json_rpc,
+) -> List[LogResult]:
+    """Concurrency happy event extractor.
+
+    Assumes the web3 connection is preset when the concurrent worker has been created,
+    see `get_worker_web3()`.
+    """
+    logger.debug("Starting block scan %d - %d at thread %d for %d different events", start_block, end_block, threading.get_ident(), len(filter.topics))
+    web3 = get_worker_web3()
+    assert web3 is not None
+    events = list(extract_events(web3, start_block, end_block, filter, context, extract_timestamps))
+    return events
+
+
+def prepare_filter(events: List[ContractEvent]) -> Filter:
+    """Creates internal filter to match contract events."""
+
+    # Construct our bloom filter
+    bloom = BloomFilter()
+    topics = {}
+
+    for event in events:
+        signatures = event.build_filter().topics
+
+        for signature in signatures:
+            topics[signature] = event
+            # TODO: Confirm correct usage of bloom filter for topics
+            bloom.add(bytes.fromhex(signature[2:]))
+
+    filter = Filter(topics, bloom)
+
+    return filter
+
+
 def read_events(
     web3: Web3,
     start_block: int,
@@ -171,8 +217,6 @@ def read_events(
     - Scans chains block by block
 
     - Returns events as a dict for optimal performance
-
-    - Can resume scan
 
     - Supports interactive progress bar
 
@@ -252,18 +296,8 @@ def read_events(
     assert len(web3.middleware_onion) == 0, f"Must not have any Web3 middleware installed to slow down scan, has {web3.middleware_onion.middlewares}"
 
     # Construct our bloom filter
-    bloom = BloomFilter()
-    topics = {}
+    filter = prepare_filter(events)
 
-    for event in events:
-        signatures = event.build_filter().topics
-
-        for signature in signatures:
-            topics[signature] = event
-            # TODO: Confirm correct usage of bloom filter for topics
-            bloom.add(bytes.fromhex(signature[2:]))
-
-    filter = Filter(topics, bloom)
     last_timestamp = None
 
     for block_num in range(start_block, end_block + 1, chunk_size):
@@ -276,5 +310,139 @@ def read_events(
 
         # Stream the events
         for event in extract_events(web3, block_num, last_of_chunk, filter, context, extract_timestamps):
+            last_timestamp = event.get("timestamp")
             total_events += 1
             yield event
+
+
+def read_events_concurrent(
+    executor: ThreadPoolExecutor,
+    start_block: int,
+    end_block: int,
+    events: List[ContractEvent],
+    notify: Optional[ProgressUpdate],
+    chunk_size: int = 100,
+    context: Optional[LogContext] = None,
+    extract_timestamps: Optional[Callable] = extract_timestamps_json_rpc,
+    pending_loop_sleep_seconds=1.0,
+) -> Iterable[LogResult]:
+    """Reads multiple events from the blockchain parallel using a thread pool for IO.
+
+    Optimized to read multiple events fast.
+
+    - Uses a thread worker pool for concurrency
+
+    - Scans chains block by block
+
+    - Returns events as a dict for optimal performance
+
+    - Can resume scan
+
+    - Supports interactive progress bar
+
+    - Reads all the events matching signature - any filtering must be done
+      by the reader
+
+    See `scripts/read-uniswap-v2-pairs-and-swaps.py` for a full example.
+
+    Example:
+
+    .. code-block:: python
+
+        pass
+
+    :param web3:
+        Web3 instance
+
+    :param events:
+        List of Web3.py contract event classes to scan for
+
+    :param notify:
+        Optional callback to be called before starting to scan each chunk
+
+    :param start_block:
+        First block to process (inclusive)
+
+    :param end_block:
+        Last block to process (inclusive)
+
+    :param extract_timestamps:
+        Override for different block timestamp extraction methods
+
+    :param chunk_size:
+        How many blocks to scan in one eth_getLogs call
+
+    :param context:
+        Passed to the all generated logs
+    """
+
+    total_events = 0
+
+    last_timestamp = None
+
+    filter = prepare_filter(events)
+
+    # For futureproof usage see
+    # https://github.com/yeraydiazdiaz/futureproof
+    tm = futureproof.TaskManager(executor, error_policy=futureproof.ErrorPolicyEnum.RAISE)
+
+    # Build a list of all tasks
+    # block number -> arguments
+    task_list: Dict[int, tuple] = {}
+    completed_tasks: Dict[int, tuple] = {}
+
+    for block_num in range(start_block, end_block + 1, chunk_size):
+        last_of_chunk = min(end_block, block_num + chunk_size)
+        task_list[block_num] = (block_num, last_of_chunk, filter, context, extract_timestamps,)
+
+    # Run all tasks and handle backpressure
+    tm.map(extract_events_concurrent, list(task_list.values()))
+
+    logger.debug("Submitted %d tasks", len(task_list))
+
+    # Complete the tasks.
+    # Always guarantee the block order for the caller,
+    # so that events are iterated in the correct order
+    for task in tm.as_completed():
+        block_num = task.args[0]  # Peekaboo
+        completed_tasks[block_num] = task
+        logger.debug("Completed block range at block %d", block_num)
+
+        # Iterate through the start for the task list
+        # and then yield the completed blocks forward
+        tasks_pending = list(task_list.keys()) # By a block number
+
+        # Iterate through the tasks in their correct order
+        for block_num in tasks_pending:
+
+            # The first task at the head of pending list is complete
+            if block_num in completed_tasks:
+
+                # Remove task from our list
+                task = completed_tasks.pop(block_num)
+                del task_list[block_num]
+
+                if isinstance(task.result, Exception):
+                    raise AssertionError("Should not never happen")
+
+                # Ping our master
+                if notify is not None:
+                    notify(block_num, start_block, end_block, chunk_size, total_events, last_timestamp, context)
+
+                assert task.result is not None, f"Result missing for the task: {task}"
+
+                log_results: List[LogResult] = task.result
+
+                logger.debug("Result is %s", log_results)
+
+                for log in log_results:
+                    last_timestamp = log.get("timestamp")
+                    yield log
+                    total_events += 1
+
+            else:
+                # This task is not yet completed,
+                # but block ranges after this task are
+                break
+
+
