@@ -8,6 +8,7 @@ from web3 import Web3, HTTPProvider
 
 from eth_defi.event_reader.fast_json_rpc import patch_web3
 from eth_defi.event_reader.logresult import LogContext
+from eth_defi.middleware import http_retry_request_with_sleep_middleware
 
 
 class Web3Factory(Protocol):
@@ -45,5 +46,6 @@ class TunedWeb3Factory(Web3Factory):
         patch_web3(web3)
 
         web3.middleware_onion.clear()
+        web3.middleware_onion.inject(http_retry_request_with_sleep_middleware, layer=0)
 
         return web3

@@ -1,8 +1,11 @@
-"""High performance Solidity event reader.
+"""High performance EVM event reader.
 
-Also see:
+For further reading see:
 
 - `Ethereum JSON-RPC API spec <https://playground.open-rpc.org/?schemaUrl=https://raw.githubusercontent.com/ethereum/execution-apis/assembled-spec/openrpc.json&uiSchema%5BappBar%5D%5Bui:splitView%5D=false&uiSchema%5BappBar%5D%5Bui:input%5D=false&uiSchema%5BappBar%5D%5Bui:examplesDropdown%5D=false>`_
+
+- `futureproof - - Bulletproof concurrent.futures for Python <https://github.com/yeraydiazdiaz/futureproof>`_
+
 """
 
 import logging
@@ -94,7 +97,7 @@ def extract_timestamps_json_rpc(
     logging.debug("Extracting timestamps for logs %d - %d", start_block, end_block)
 
     # Collect block timestamps from the headers
-    for block_num in range(start_block, end_block):
+    for block_num in range(start_block, end_block + 1):
         raw_result = web3.manager.request_blocking("eth_getBlockByNumber", (hex(block_num), False))
         assert int(raw_result["number"], 16) == block_num
         timestamps[raw_result["hash"]] = int(raw_result["timestamp"], 16)
@@ -156,7 +159,10 @@ def extract_events(
             event_signature = log["topics"][0]
             log["context"] = context
             log["event"] = filter.topics[event_signature]
-            log["timestamp"] = timestamps[block_hash] if extract_timestamps else None
+            try:
+                log["timestamp"] = timestamps[block_hash] if extract_timestamps else None
+            except KeyError as e:
+                raise RuntimeError(f"Timestamp missing for block {block_hash}, our timestamp table has {len(timestamps)} entries and looks like {timestamps}")
             yield log
 
 
@@ -332,7 +338,8 @@ def read_events_concurrent(
 
     - Uses a thread worker pool for concurrency
 
-    - Scans chains block by block
+    - Even though we receive data from JSON-RPC API in random order,
+      the iterable results are always in the correct order (and processes in a single thread)
 
     - Returns events as a dict for optimal performance
 
@@ -343,7 +350,7 @@ def read_events_concurrent(
     - Reads all the events matching signature - any filtering must be done
       by the reader
 
-    See `scripts/read-uniswap-v2-pairs-and-swaps.py` for a full example.
+    See `scripts/read-uniswap-v2-pairs-and-swaps-concurrent.py` for a full example.
 
     Example:
 
@@ -359,7 +366,7 @@ def read_events_concurrent(
         Factory = get_contract(web3, "UniswapV2Factory.json")
 
         events = [
-            Factory.events.PairCreated,  # https://etherscan.io/txs?ea=0x5c69bee701ef814a2b6a3edd4b1652cb9cc5aa6f&topic0=0x0d3648bd0f6ba80134a33ba9275ac585d9d315f0ad8355cddefde31afa28d0e9
+            Factory.events.PairCreated,
         ]
 
         start_block = 10_000_835  # Uni deployed

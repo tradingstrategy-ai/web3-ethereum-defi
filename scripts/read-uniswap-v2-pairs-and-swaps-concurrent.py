@@ -4,23 +4,17 @@ Overview:
 
 - Uses a thread pool and parallel JSON-RPC requests for maximum performance
 
-- Stateful: Can resume operation after CTRL+C or crash
+- Does not stave state: For state saving example see `read-uniswap-v2-pairs-and-swaps.py`
 
 - Outputs two append only CSV files, `/tmp/uni-v2-pairs.csv` and `/tmp/uni-v2-swaps.csv`
 
-- Iterates through all the events using `read_events()` generator
+- Iterates through all the events using `read_events_concurrent()` generator
 
 - Events can be pair creation or swap events
 
 - For pair creation events, we perform additional token lookups using Web3 connection
 
 - Demonstrates how to hand tune event decoding
-
-- The first PairCreated event is at Ethereum mainnet block is 10000835
-
-- The first swap event is at Ethereum mainnet block 10_008_566, 0x932cb88306450d481a0e43365a3ed832625b68f036e9887684ef6da594891366
-
-- Uniswap v2 deployment transaction https://bloxy.info/tx/0xc31d7e7e85cab1d38ce1b8ac17e821ccd47dbde00f9d57f2bd8613bff9428396
 
 To run:
 
@@ -30,8 +24,23 @@ To run:
     export LOG_LEVEL=INFO
     # Your Ethereum node RPC
     export JSON_RPC_URL="https://xxx@vitalik.tradingstrategy.ai"
-    python scripts/read-uniswap-v2-pairs-and-swaps.py
+    python scripts/read-uniswap-v2-pairs-and-swaps-concurrent.py
 
+By default, scans only few thousand blocks.
+If you want to wait and stress test parallerism try:
+
+.. code-block:: shell
+
+    export END_BLOCK=12500999
+    python scripts/read-uniswap-v2-pairs-and-swaps-concurrent.py
+
+Some data background info:
+
+- The first PairCreated event is at Ethereum mainnet block is 10000835
+
+- The first swap event is at Ethereum mainnet block 10_008_566, 0x932cb88306450d481a0e43365a3ed832625b68f036e9887684ef6da594891366
+
+- Uniswap v2 deployment transaction https://bloxy.info/tx/0xc31d7e7e85cab1d38ce1b8ac17e821ccd47dbde00f9d57f2bd8613bff9428396
 
 """
 import csv
@@ -231,7 +240,7 @@ def main():
     swaps_fname = "/tmp/uni-v2-swaps.csv"
 
     start_block = 10_000_835
-    end_block = 10_010_000
+    end_block = int(os.environ.get("END_BLOCK", 10_010_000))
 
     max_blocks = end_block - start_block
 
@@ -242,7 +251,6 @@ def main():
 
     print(f"Starting to read block range {start_block:,} - {end_block:,}")
 
-    # Prepare CSV append wr
     with open(pairs_fname, 'a') as pairs_out, open(swaps_fname, 'a') as swaps_out:
 
         pairs_writer = csv.DictWriter(pairs_out, fieldnames=PAIR_FIELD_NAMES)

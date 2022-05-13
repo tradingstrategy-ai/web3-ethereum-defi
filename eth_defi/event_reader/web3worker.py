@@ -2,10 +2,8 @@
 
 import logging
 import threading
-from typing import Iterator
 
 import futureproof
-from futureproof.task_manager import Task, TaskManager
 from web3 import Web3
 
 from eth_defi.event_reader.logresult import LogContext
@@ -35,7 +33,7 @@ def create_thread_pool_executor(factory: Web3Factory, context: LogContext, max_w
 
     def init():
         _thread_local_storage.web3 = factory(context)
-        logger.info("Worker thread %d initialized", threading.get_ident())
+        logger.debug("Worker thread %d initialized", threading.get_ident())
 
     executor = futureproof.ThreadPoolExecutor(max_workers=max_workers, initializer=init)
 

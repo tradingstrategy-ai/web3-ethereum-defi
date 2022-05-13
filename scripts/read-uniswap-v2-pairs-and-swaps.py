@@ -258,7 +258,6 @@ def main():
 
     print(f"Starting to read block range {start_block:,} - {end_block:,}")
 
-    # Prepare CSV append wr
     with open(pairs_fname, 'a') as pairs_out, open(swaps_fname, 'a') as swaps_out:
 
         pairs_writer = csv.DictWriter(pairs_out, fieldnames=PAIR_FIELD_NAMES)

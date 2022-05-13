@@ -1,6 +1,7 @@
 # Current
 
-- High speed Solidity event (log) decoding
+- Feature: High speed Solidity event (log) decoding
+- Feature: JSON-RPC retry middleware with sleep and backoff 
 
 # 0.8
 
