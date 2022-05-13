@@ -7,19 +7,18 @@ Also see:
 
 import logging
 import threading
-import time
 from dataclasses import dataclass
 from typing import Iterable, List, Protocol, Dict, Optional, Callable
 
 from eth_bloom import BloomFilter
-from futureproof.task_manager import Task
+
 from web3 import Web3
 from web3.contract import ContractEvent
 import futureproof
 from futureproof import ThreadPoolExecutor
 
 from eth_defi.event_reader.logresult import LogContext, LogResult
-from eth_defi.event_reader.web3worker import get_worker_web3, complete_tasks
+from eth_defi.event_reader.web3worker import get_worker_web3
 
 logger = logging.getLogger(__name__)
 

@@ -1,6 +1,8 @@
-"""Read all Uniswap pairs and their swaps in a blockchain.
+"""Read all Uniswap pairs and their swaps in a blockchain using a thread pool.
 
 Overview:
+
+- Uses a thread pool and parallel JSON-RPC requests for maximum performance
 
 - Stateful: Can resume operation after CTRL+C or crash
 
@@ -208,12 +210,13 @@ def main():
     logging.getLogger("web3.RequestManager").setLevel(logging.WARNING)
     logging.getLogger("urllib3.connectionpool").setLevel(logging.WARNING)
     logging.getLogger("futureproof.executors").setLevel(logging.WARNING)
+    logging.getLogger("urllib3.connectionpool").setLevel(logging.ERROR)  # WARNING:urllib3.connectionpool:Connection pool is full, discarding connection: eth-mainnet.alchemyapi.io. Connection pool size: 10
 
     json_rpc_url = os.environ["JSON_RPC_URL"]
     token_cache = TokenCache()
     web3_factory = TunedWeb3Factory(json_rpc_url)
     web3 = web3_factory(token_cache)
-    executor = create_thread_pool_executor(web3_factory, token_cache, max_workers=3)
+    executor = create_thread_pool_executor(web3_factory, token_cache, max_workers=12)
 
     # Get contracts
     Factory = get_contract(web3, "UniswapV2Factory.json")
