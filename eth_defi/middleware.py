@@ -1,4 +1,6 @@
-"""Deal with JSON-RPC unreliability issues with retries.
+"""Web3 middleware.
+
+Most for dealing with JSON-RPC unreliability issues with retries.
 
 - Taken from exception_retry_request.py from Web3.py
 
