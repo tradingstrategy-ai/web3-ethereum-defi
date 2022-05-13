@@ -16,7 +16,7 @@ def decode_data(data: str) -> List[bytes]:
     return entries
 
 
-def convert_uint256_bytes_to_address(bytes32: bytes) -> ChecksumAddress:
+def convert_uint256_bytes_to_address(raw: bytes) -> ChecksumAddress:
     """Convert raw uin256 from log data to addresses.
 
     .. note ::
@@ -24,8 +24,8 @@ def convert_uint256_bytes_to_address(bytes32: bytes) -> ChecksumAddress:
         Ethereum address checksum might have a speed penalty for
         high speed operations.
     """
-    val = int.from_bytes(bytes32, "big")
-    return Web3.toChecksumAddress(hex(val))
+    assert len(raw) == 32
+    return Web3.toChecksumAddress(raw[12:])
 
 
 def convert_uint256_bytes_to_int(bytes32: bytes) -> int:

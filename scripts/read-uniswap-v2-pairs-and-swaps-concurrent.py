@@ -1,24 +1,20 @@
-"""Read all Uniswap pairs and their swaps in a blockchain.
+"""Read all Uniswap pairs and their swaps in a blockchain using a thread pool.
 
 Overview:
 
-- Stateful: Can resume operation after CTRL+C or crash
+- Uses a thread pool and parallel JSON-RPC requests for maximum performance
+
+- Does not stave state: For state saving example see `read-uniswap-v2-pairs-and-swaps.py`
 
 - Outputs two append only CSV files, `/tmp/uni-v2-pairs.csv` and `/tmp/uni-v2-swaps.csv`
 
-- Iterates through all the events using `read_events()` generator
+- Iterates through all the events using `read_events_concurrent()` generator
 
 - Events can be pair creation or swap events
 
 - For pair creation events, we perform additional token lookups using Web3 connection
 
 - Demonstrates how to hand tune event decoding
-
-- The first PairCreated event is at Ethereum mainnet block is 10000835
-
-- The first swap event is at Ethereum mainnet block 10_008_566, 0x932cb88306450d481a0e43365a3ed832625b68f036e9887684ef6da594891366
-
-- Uniswap v2 deployment transaction https://bloxy.info/tx/0xc31d7e7e85cab1d38ce1b8ac17e821ccd47dbde00f9d57f2bd8613bff9428396
 
 To run:
 
@@ -28,8 +24,23 @@ To run:
     export LOG_LEVEL=INFO
     # Your Ethereum node RPC
     export JSON_RPC_URL="https://xxx@vitalik.tradingstrategy.ai"
-    python scripts/read-uniswap-v2-pairs-and-swaps.py
+    python scripts/read-uniswap-v2-pairs-and-swaps-concurrent.py
 
+By default, scans only few thousand blocks.
+If you want to wait and stress test parallerism try:
+
+.. code-block:: shell
+
+    export END_BLOCK=12500999
+    python scripts/read-uniswap-v2-pairs-and-swaps-concurrent.py
+
+Some data background info:
+
+- The first PairCreated event is at Ethereum mainnet block is 10000835
+
+- The first swap event is at Ethereum mainnet block 10_008_566, 0x932cb88306450d481a0e43365a3ed832625b68f036e9887684ef6da594891366
+
+- Uniswap v2 deployment transaction https://bloxy.info/tx/0xc31d7e7e85cab1d38ce1b8ac17e821ccd47dbde00f9d57f2bd8613bff9428396
 
 """
 import csv
@@ -38,18 +49,18 @@ import os
 import logging
 from typing import Optional
 
-import requests
-
 from tqdm import tqdm
 
-from web3 import HTTPProvider, Web3
+from web3 import Web3
 
 from eth_defi.abi import get_contract
 from eth_defi.event_reader.conversion import convert_uint256_string_to_address, convert_uint256_bytes_to_address, \
     decode_data, convert_uint256_bytes_to_int
-from eth_defi.event_reader.fast_json_rpc import patch_web3
+
 from eth_defi.event_reader.logresult import LogContext
-from eth_defi.event_reader.reader import read_events, LogResult
+from eth_defi.event_reader.reader import LogResult, read_events_concurrent
+from eth_defi.event_reader.web3factory import TunedWeb3Factory
+from eth_defi.event_reader.web3worker import create_thread_pool_executor
 from eth_defi.token import fetch_erc20_details, TokenDetails
 
 
@@ -95,22 +106,6 @@ class TokenCache(LogContext):
         if address not in self.cache:
             self.cache[address] = fetch_erc20_details(web3, address, raise_on_error=False)
         return self.cache[address]
-
-
-def save_state(state_fname, last_block):
-    """Saves the last block we have read."""
-    with open(state_fname, "wt") as f:
-        print(f"{last_block}", file=f)
-
-
-def restore_state(state_fname, default_block: int) -> int:
-    """Restore the last block we have processes."""
-    if os.path.exists(state_fname):
-        with open(state_fname, "rt") as f:
-            last_block_text = f.read()
-            return int(last_block_text)
-
-    return default_block
 
 
 def decode_pair_created(log: LogResult) -> dict:
@@ -221,17 +216,14 @@ def main():
     logging.getLogger("web3.providers.HTTPProvider").setLevel(logging.WARNING)
     logging.getLogger("web3.RequestManager").setLevel(logging.WARNING)
     logging.getLogger("urllib3.connectionpool").setLevel(logging.WARNING)
-
-    # HTTP 1.1 keep-alive
-    session = requests.Session()
+    logging.getLogger("futureproof.executors").setLevel(logging.WARNING)
+    logging.getLogger("urllib3.connectionpool").setLevel(logging.ERROR)  # WARNING:urllib3.connectionpool:Connection pool is full, discarding connection: eth-mainnet.alchemyapi.io. Connection pool size: 10
 
     json_rpc_url = os.environ["JSON_RPC_URL"]
-    web3 = Web3(HTTPProvider(json_rpc_url, session=session))
-
-    # Enable faster ujson reads
-    patch_web3(web3)
-
-    web3.middleware_onion.clear()
+    token_cache = TokenCache()
+    web3_factory = TunedWeb3Factory(json_rpc_url)
+    web3 = web3_factory(token_cache)
+    executor = create_thread_pool_executor(web3_factory, token_cache, max_workers=12)
 
     # Get contracts
     Factory = get_contract(web3, "UniswapV2Factory.json")
@@ -244,17 +236,16 @@ def main():
 
     pairs_fname = "/tmp/uni-v2-pairs.csv"
     swaps_fname = "/tmp/uni-v2-swaps.csv"
-    state_fname = "/tmp/uni-v2-last-block-state.txt"
 
-    start_block = restore_state(state_fname, 10_000_835)  # # When Uni v2 was deployed
-    end_block = web3.eth.block_number
+    start_block = 10_000_835
+    end_block = int(os.environ.get("END_BLOCK", 10_010_000))
 
     max_blocks = end_block - start_block
 
     pairs_event_buffer = []
     swaps_event_buffer = []
-
-    token_cache = TokenCache()
+    total_pairs = 0
+    total_swaps = 0
 
     print(f"Starting to read block range {start_block:,} - {end_block:,}")
 
@@ -270,6 +261,8 @@ def main():
             def update_progress(current_block, start_block, end_block, chunk_size: int, total_events: int, last_timestamp: Optional[int], context: TokenCache):
                 nonlocal pairs_event_buffer
                 nonlocal swaps_event_buffer
+                nonlocal total_pairs
+                nonlocal total_swaps
                 if last_timestamp:
                     # Display progress with the date information
                     d = datetime.datetime.utcfromtimestamp(last_timestamp)
@@ -277,25 +270,25 @@ def main():
                     progress_bar.set_description(f"Block: {current_block:,}, events: {total_events:}, time:{formatted_time}")
                 else:
                     progress_bar.set_description(f"Block: {current_block:,}, events: {total_events:,}")
+
                 progress_bar.update(chunk_size)
 
                 # Output scanned events
                 for entry in pairs_event_buffer:
                     pairs_writer.writerow(entry)
+                    total_pairs += 1
 
                 for entry in swaps_event_buffer:
                     swaps_writer.writerow(entry)
-
-                # Save the scan sate
-                save_state(state_fname, current_block - 1)
+                    total_swaps += 1
 
                 # Reset buffer
                 pairs_event_buffer = []
                 swaps_event_buffer = []
 
             # Read specified events in block range
-            for log_result in read_events(
-                    web3,
+            for log_result in read_events_concurrent(
+                    executor,
                     start_block,
                     end_block,
                     events,
@@ -312,6 +305,8 @@ def main():
                         swaps_event_buffer.append(decode_swap(log_result))
                 except Exception as e:
                     raise RuntimeError(f"Could not decode {log_result}") from e
+
+    print(f"Wrote {total_pairs} pairs, {total_swaps} swaps")
 
 
 if __name__ == "__main__":

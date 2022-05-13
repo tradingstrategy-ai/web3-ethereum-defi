@@ -22,7 +22,9 @@ from eth_defi.event_reader.fast_json_rpc import patch_web3
 from eth_defi.event_reader.logresult import LogContext, LogResult
 from web3 import HTTPProvider, Web3
 
-from eth_defi.event_reader.reader import read_events
+from eth_defi.event_reader.reader import read_events, read_events_concurrent
+from eth_defi.event_reader.web3factory import TunedWeb3Factory
+from eth_defi.event_reader.web3worker import create_thread_pool_executor
 from eth_defi.token import fetch_erc20_details, TokenDetails
 
 
@@ -134,6 +136,55 @@ def test_read_events():
         events,
         None,
         chunk_size=1000,
+        context=token_cache,
+        extract_timestamps=None,
+    ):
+        out.append(decode_pair_created(log_result))
+
+    assert len(out) == 2
+
+    e = out[0]
+    assert e["pair_count_index"] == 1
+    assert e["pair_contract_address"] == "0xB4e16d0168e52d35CaCD2c6185b44281Ec28C9Dc"
+    assert e["token1_symbol"] == "WETH"
+    assert e["token0_symbol"] == "USDC"
+    assert e["tx_hash"] == "0xd07cbde817318492092cc7a27b3064a69bd893c01cb593d6029683ffd290ab3a"
+
+    e = out[1]
+    assert e["pair_count_index"] == 2
+    assert e["token1_symbol"] == "USDC"
+    assert e["token0_symbol"] == "USDP"
+    assert e["tx_hash"] == "0xb0621ca74cee9f540dda6d575f6a7b876133b42684c1259aaeb59c831410ccb2"
+
+
+def test_read_events_concurrent():
+    """Read events quickly over JSON-RPC API using a thread pool."""
+
+    json_rpc_url = os.environ["JSON_RPC_URL"]
+    token_cache = TokenCache()
+    web3_factory = TunedWeb3Factory(json_rpc_url)
+    web3 = web3_factory(token_cache)
+    executor = create_thread_pool_executor(web3_factory, token_cache, max_workers=16)
+
+    # Get contracts
+    Factory = get_contract(web3, "UniswapV2Factory.json")
+
+    events = [
+        Factory.events.PairCreated,  # https://etherscan.io/txs?ea=0x5c69bee701ef814a2b6a3edd4b1652cb9cc5aa6f&topic0=0x0d3648bd0f6ba80134a33ba9275ac585d9d315f0ad8355cddefde31afa28d0e9
+    ]
+
+    start_block = 10_000_835  # Uni deployed
+    end_block = 10_009_000  # The first pair created before this block
+
+    # Read through the blog ran
+    out = []
+    for log_result in read_events_concurrent(
+        executor,
+        start_block,
+        end_block,
+        events,
+        None,
+        chunk_size=100,
         context=token_cache,
         extract_timestamps=None,
     ):

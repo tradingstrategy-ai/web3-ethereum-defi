@@ -31,6 +31,7 @@ Core API documentation
    eth_defi.revert_reason
    eth_defi.hotwallet
    eth_defi.ganache
+   eth_defi.middleware
    eth_defi.utils
 
 Uniswap v2 API documentation
