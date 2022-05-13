@@ -170,6 +170,8 @@ def extract_events_concurrent(
 ) -> List[LogResult]:
     """Concurrency happy event extractor.
 
+    Called by the thread pool - you probably do not want to call this directly.
+
     Assumes the web3 connection is preset when the concurrent worker has been created,
     see `get_worker_web3()`.
     """
@@ -324,7 +326,6 @@ def read_events_concurrent(
     chunk_size: int = 100,
     context: Optional[LogContext] = None,
     extract_timestamps: Optional[Callable] = extract_timestamps_json_rpc,
-    pending_loop_sleep_seconds=1.0,
 ) -> Iterable[LogResult]:
     """Reads multiple events from the blockchain parallel using a thread pool for IO.
 
@@ -349,10 +350,38 @@ def read_events_concurrent(
 
     .. code-block:: python
 
-        pass
+        json_rpc_url = os.environ["JSON_RPC_URL"]
+        token_cache = TokenCache()
+        web3_factory = TunedWeb3Factory(json_rpc_url)
+        web3 = web3_factory(token_cache)
+        executor = create_thread_pool_executor(web3_factory, context=token_cache, max_workers=16)
 
-    :param web3:
-        Web3 instance
+        # Get contracts
+        Factory = get_contract(web3, "UniswapV2Factory.json")
+
+        events = [
+            Factory.events.PairCreated,  # https://etherscan.io/txs?ea=0x5c69bee701ef814a2b6a3edd4b1652cb9cc5aa6f&topic0=0x0d3648bd0f6ba80134a33ba9275ac585d9d315f0ad8355cddefde31afa28d0e9
+        ]
+
+        start_block = 10_000_835  # Uni deployed
+        end_block = 10_009_000  # The first pair created before this block
+
+        # Read through the blog ran
+        out = []
+        for log_result in read_events_concurrent(
+            executor,
+            start_block,
+            end_block,
+            events,
+            None,
+            chunk_size=100,
+            context=token_cache,
+            extract_timestamps=None,
+        ):
+            out.append(decode_pair_created(log_result))
+
+    :param executor:
+        Thread pool executor created with :py:func:`eth_defi.event_reader.web3worker.create_thread_pool_executor`
 
     :param events:
         List of Web3.py contract event classes to scan for
@@ -442,7 +471,10 @@ def read_events_concurrent(
 
             else:
                 # This task is not yet completed,
-                # but block ranges after this task are
+                # but block ranges after this task are.
+                # Because we need to return events in their order,
+                # we try to return events from this completed tasks later,
+                # when we have some results from earlier tasks first.
                 break
 
 

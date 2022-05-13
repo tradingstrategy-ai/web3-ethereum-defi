@@ -41,29 +41,3 @@ def create_thread_pool_executor(factory: Web3Factory, context: LogContext, max_w
 
     return executor
 
-
-def complete_tasks(self: TaskManager) -> Iterator[Task]:
-    """Start the manager and return an iterator of completed tasks.
-
-    When using the task manager as a context manager as_completed must be used
-    *inside* the context, otherwise there will be no effect as the task manager
-    will wait until all tasks are completed.
-    """
-    logger.info("Starting to process tasks with %d workers", self._executor.max_workers)
-    for task in self._tasks:
-        if self._shutdown:
-            break
-
-        logger.info("Submit task, queue is %d", self._tasks_in_queue)
-        if self._tasks_in_queue == self._executor.max_workers:
-            print("Queue full, waiting for result")
-            yield self._wait_for_result()
-
-        self._submit_task(task)
-
-    print("hophop")
-    while len(self.completed_tasks) < self._submitted_task_count:
-        print("Not yet")
-        yield self._wait_for_result()
-
-    self._executor.join()
