@@ -38,4 +38,3 @@ def create_thread_pool_executor(factory: Web3Factory, context: LogContext, max_w
     executor = futureproof.ThreadPoolExecutor(max_workers=max_workers, initializer=init)
 
     return executor
-

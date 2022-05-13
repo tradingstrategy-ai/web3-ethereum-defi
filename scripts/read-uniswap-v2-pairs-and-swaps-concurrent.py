@@ -49,18 +49,16 @@ import os
 import logging
 from typing import Optional
 
-import requests
-
 from tqdm import tqdm
 
-from web3 import HTTPProvider, Web3
+from web3 import Web3
 
 from eth_defi.abi import get_contract
 from eth_defi.event_reader.conversion import convert_uint256_string_to_address, convert_uint256_bytes_to_address, \
     decode_data, convert_uint256_bytes_to_int
-from eth_defi.event_reader.fast_json_rpc import patch_web3
+
 from eth_defi.event_reader.logresult import LogContext
-from eth_defi.event_reader.reader import read_events, LogResult, read_events_concurrent
+from eth_defi.event_reader.reader import LogResult, read_events_concurrent
 from eth_defi.event_reader.web3factory import TunedWeb3Factory
 from eth_defi.event_reader.web3worker import create_thread_pool_executor
 from eth_defi.token import fetch_erc20_details, TokenDetails

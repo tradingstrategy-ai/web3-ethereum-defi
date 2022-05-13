@@ -9,7 +9,7 @@ Most for dealing with JSON-RPC unreliability issues with retries.
 - Logs warnings to Python logging subsystem in the case there is need to retry
 """
 
-
+from web3 import Web3
 import time
 from typing import Callable, Any, Collection, Type
 import logging

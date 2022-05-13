@@ -162,7 +162,7 @@ def extract_events(
             try:
                 log["timestamp"] = timestamps[block_hash] if extract_timestamps else None
             except KeyError as e:
-                raise RuntimeError(f"Timestamp missing for block {block_hash}, our timestamp table has {len(timestamps)} entries and looks like {timestamps}")
+                raise RuntimeError(f"Timestamp missing for block {block_hash}, our timestamp table has {len(timestamps)} entries and looks like {timestamps}") from e
             yield log
 
 
@@ -445,7 +445,7 @@ def read_events_concurrent(
 
         # Iterate through the start for the task list
         # and then yield the completed blocks forward
-        tasks_pending = list(task_list.keys()) # By a block number
+        tasks_pending = list(task_list.keys())  # By a block number
 
         # Iterate through the tasks in their correct order
         for block_num in tasks_pending:
@@ -482,5 +482,3 @@ def read_events_concurrent(
                 # we try to return events from this completed tasks later,
                 # when we have some results from earlier tasks first.
                 break
-
-
