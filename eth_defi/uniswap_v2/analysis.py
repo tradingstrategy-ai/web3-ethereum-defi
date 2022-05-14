@@ -87,7 +87,7 @@ def analyse_trade(web3: Web3, uniswap: UniswapV2Deployment, tx_hash: hash) -> Un
     :return: `TradeSuccess` or `TradeFail` analysis
     """
 
-    pair = get_contract(web3, "UniswapV2Pair.json")
+    pair = uniswap.PairContract
 
     # Example tx https://etherscan.io/tx/0xa8e6d47fb1429c7aec9d30332eafaeb515c8dfa73ab413c48560d8d6060c3193#eventlog
     # swapExactTokensForTokens

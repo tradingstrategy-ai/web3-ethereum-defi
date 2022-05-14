@@ -30,7 +30,7 @@ from dataclasses_json import dataclass_json
 from tradingstrategy.client import Client
 
 #: Our API key to access the dataset
-from tradingstrategy.pair import PairUniverse, DEXPair
+from tradingstrategy.pair import LegacyPairUniverse, DEXPair
 
 api_key = os.environ["TRADING_STRATEGY_API_KEY"]
 
@@ -90,7 +90,7 @@ pair_table = pair_table.filter(pa.compute.equal(pair_table["chain_id"], chain_id
 
 print("Preparing output")
 # Convert to PairUniverse class that's easier to manipualte
-pair_universe = PairUniverse.create_from_pyarrow_table(pair_table)
+pair_universe = LegacyPairUniverse.create_from_pyarrow_table(pair_table)
 
 # Build pairs list
 database = PairDatabase()

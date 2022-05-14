@@ -24,7 +24,13 @@ from web3.contract import Contract
 from eth_defi.abi import get_contract, get_deployed_contract
 from eth_defi.deploy import deploy_contract
 
+
+#: A constant to tell the trade won't expire
 FOREVER_DEADLINE = 2**63
+
+
+#: A constant to tell we do not know or care about pair init code hash for this Uni v2 deploymeny
+INIT_CODE_HASH_MISSING = "0x01"
 
 
 @dataclass(frozen=True)
@@ -237,6 +243,31 @@ def fetch_deployment(
         init_code_hash,
         PairContract,
     )
+
+
+def mock_partial_deployment_for_analysis(web3: Web3, router_address: str) -> UniswapV2Deployment:
+    """Create a Uniswap deployment that is only usable in trade analysis.
+
+    Router and pair is all we need.
+
+    TODO: This function is likely to change / relocate.
+    """
+
+    factory = None
+    init_code_hash = INIT_CODE_HASH_MISSING
+    router = get_deployed_contract(web3, "UniswapV2Router02.json", router_address)
+    PairContract = get_contract(web3, "UniswapV2Pair.json")
+    weth = None
+    return UniswapV2Deployment(
+        web3,
+        factory,
+        weth,
+        router,
+        init_code_hash,
+        PairContract,
+    )
+
+
 
 
 # Getting the byte code as https://ethereum.stackexchange.com/questions/77528/web3-eth-getcode-doesnt-return-the-data-shown-on-etherscan

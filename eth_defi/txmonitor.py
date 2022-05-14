@@ -3,7 +3,7 @@
 import datetime
 import logging
 import time
-from typing import Dict, List, Set
+from typing import Dict, List, Set, Union
 
 from eth_account.datastructures import SignedTransaction
 from hexbytes import HexBytes
@@ -21,7 +21,7 @@ class ConfirmationTimedOut(Exception):
 
 def wait_transactions_to_complete(
     web3: Web3,
-    txs: List[HexBytes],
+    txs: List[Union[HexBytes, str]],
     confirmation_block_count: int = 0,
     max_timeout=datetime.timedelta(minutes=5),
     poll_delay=datetime.timedelta(seconds=1),

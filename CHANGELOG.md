@@ -2,6 +2,7 @@
 
 - Feature: High speed Solidity event (log) decoding
 - Feature: JSON-RPC retry middleware with sleep and backoff 
+- Fix: Cosmetic API improvements and fixes
 
 # 0.8
 
