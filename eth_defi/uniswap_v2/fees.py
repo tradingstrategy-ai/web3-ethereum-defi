@@ -116,7 +116,7 @@ class UniswapV2FeeCalculator:
             _slippage = 0
             if index == 0:
                 _slippage = slippage
-            import ipdb ; ipdb.set_trace()
+
             current_amount = self.get_amount_in(current_amount, r[0], r[1], fee=fee, slippage=_slippage)
 
             amounts.insert(0, current_amount)
