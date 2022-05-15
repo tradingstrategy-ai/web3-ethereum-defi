@@ -13,7 +13,7 @@ ZERO_ADDRESS = Web3.toHex(0x0)
 
 def sort_tokens(token_a: HexAddress, token_b: HexAddress) -> Tuple[HexAddress, HexAddress]:
     """Put lower address first, as Uniswap wants."""
-    assert token_a != token_b
+    assert token_a != token_b, f"Received bad token pair {token_a}:{token_b}"
     (token_0, token_1) = (token_a, token_b) if int(token_a, 16) < int(token_b, 16) else (token_b, token_a)
     assert token_0 != ZERO_ADDRESS
     return token_0, token_1

@@ -1,8 +1,9 @@
 # Current
 
 - Feature: High speed Solidity event (log) decoding
-- Feature: JSON-RPC retry middleware with sleep and backoff 
-- Fix: Cosmetic API improvements and fixes
+- Feature: JSON-RPC retry middleware with sleep and backoff
+- Fix: pairFor could give a wrong address for trading pair 
+- Fix: Cosmetic API improvements and fixes, with more asserts 
 - Feature: Added `estimate_buy_received_amount_raw` and `estimate_sell_received_amount_raw`
 
 # 0.8

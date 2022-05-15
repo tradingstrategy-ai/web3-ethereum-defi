@@ -9,10 +9,15 @@ from typing import List, Optional
 from eth_typing import HexAddress
 from web3 import Web3
 from web3.contract import Contract
+from web3.exceptions import BadFunctionCallOutput
 
 from eth_defi.token import fetch_erc20_details
-from eth_defi.uniswap_v2.deployment import UniswapV2Deployment
+from eth_defi.uniswap_v2.deployment import UniswapV2Deployment, INIT_CODE_HASH_MISSING
 from eth_defi.uniswap_v2.utils import pair_for, sort_tokens
+
+
+class BadReserves(Exception):
+    pass
 
 
 class UniswapV2FeeCalculator:
@@ -33,13 +38,20 @@ class UniswapV2FeeCalculator:
             - reserve_1 - Amount of token_1 in the contract.
             - liquidity - Unix timestamp of the block containing the last pair interaction.
         """
+
+        assert self.deployment.init_code_hash is not None, "Init hash not set"
+        assert self.deployment.init_code_hash != INIT_CODE_HASH_MISSING, "You need to set init hash to use get_reserves()"
+
         assert token_a.startswith("0x")
         assert token_b.startswith("0x")
-        (token0, token1) = sort_tokens(token_a, token_b)
-        pair_contract = self.deployment.PairContract(
-            address=Web3.toChecksumAddress(pair_for(self.deployment.factory.address, token_a, token_b, self.deployment.init_code_hash)),
-        )
-        reserve = pair_contract.functions.getReserves().call()
+
+        # (token0, token1) = sort_tokens(token_a, token_b)
+        pair_address, token0, token1 = self.deployment.pair_for(token_a, token_b)
+        pair_contract = self.deployment.PairContract(pair_address)
+        try:
+            reserve = pair_contract.functions.getReserves().call()
+        except BadFunctionCallOutput as e:
+            raise BadReserves(f"Could not get reserves, bad pair contract {pair_address}, init hash {self.deployment.init_code_hash}, token_a {token_a}, token_b {token_b}?") from e
         return reserve if token0 == token_a else [reserve[1], reserve[0], reserve[2]]
 
     def get_amounts_out(

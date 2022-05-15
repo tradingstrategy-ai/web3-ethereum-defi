@@ -15,9 +15,9 @@ Compatible exchanges include, but not limited to
 Under the hood we are using `SushiSwap v2 contracts <github.com/sushiswap/sushiswap>`_ for the deployment.
 """
 from dataclasses import dataclass
-from typing import Optional, Union
+from typing import Optional, Union, Tuple
 
-from eth_typing import HexAddress, HexStr
+from eth_typing import HexAddress, HexStr, ChecksumAddress
 from web3 import Web3
 from web3.contract import Contract
 
@@ -26,6 +26,8 @@ from eth_defi.deploy import deploy_contract
 
 
 #: A constant to tell the trade won't expire
+from eth_defi.uniswap_v2.utils import pair_for, sort_tokens
+
 FOREVER_DEADLINE = 2**63
 
 
@@ -60,6 +62,13 @@ class UniswapV2Deployment:
     #: Used to manipulate the underlying polls.
     #: See `UniswapV2Pair` smartc contract for details.
     PairContract: Contract
+
+    def pair_for(self, token_a: str, token_b: str) -> Tuple[ChecksumAddress, HexAddress, HexAddress]:
+        """Calculate CREATE2 contract address for a trading pair."""
+        (token0, token1) = sort_tokens(token_a, token_b)
+        return (Web3.toChecksumAddress(pair_for(self.factory.address, token0, token1, self.init_code_hash)),
+            token0,
+            token1)
 
 
 def deploy_factory_sushi(web3: Web3, deployer: str) -> Contract:
