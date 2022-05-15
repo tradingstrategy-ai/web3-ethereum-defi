@@ -30,6 +30,8 @@ def pair_for(factory: HexAddress, token_a: HexAddress, token_b: HexAddress, magi
     :return: Pair contract address
     """
     prefix = Web3.toHex(hexstr="ff")
+    token_a = Web3.toChecksumAddress(token_a)
+    token_b = Web3.toChecksumAddress(token_b)
     encoded_tokens = Web3.solidityKeccak(["address", "address"], sort_tokens(token_a, token_b))
     suffix = Web3.toHex(hexstr=magical_hash)
     raw = Web3.solidityKeccak(["bytes", "address", "bytes", "bytes"], [prefix, factory, encoded_tokens, suffix])
