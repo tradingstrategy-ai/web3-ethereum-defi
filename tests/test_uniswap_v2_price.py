@@ -22,7 +22,7 @@ from eth_defi.uniswap_v2.fees import (
     estimate_buy_price_decimals,
     estimate_buy_quantity,
     estimate_sell_price,
-    estimate_sell_price_decimals,
+    estimate_sell_price_decimals, estimate_buy_received_amount_raw, estimate_sell_received_amount_raw,
 )
 
 
@@ -150,7 +150,7 @@ def test_estimate_quantity(
     )
 
     # Estimate how much ETH we will receive for 500 USDC
-    amount_eth = estimate_buy_quantity(
+    amount_eth = estimate_buy_received_amount(
         uniswap_v2,
         weth,
         usdc,
@@ -287,6 +287,46 @@ def test_estimate_buy_price_decimals(
     usdc: Contract,
 ):
     """Estimate sell price using the decimal friendly function."""
+
+    # Create the trading pair and add initial liquidity
+    deploy_trading_pair(
+        web3,
+        deployer,
+        uniswap_v2,
+        weth,
+        usdc,
+        1_000 * 10**18,  # 1000 ETH liquidity
+        1_700_000 * 10**18,  # 1.7M USDC liquidity
+    )
+
+    # Estimate the price of buying 1 ETH
+    usdc_per_eth = estimate_buy_price_decimals(
+        uniswap_v2,
+        weth.address,
+        usdc.address,
+        Decimal(1.0),
+    )
+    assert usdc_per_eth == pytest.approx(Decimal(1706.82216820632059904))
+
+    # Estimate the price of buying 1 ETH with 10% slippage
+    usdc_per_eth = estimate_buy_price_decimals(
+        uniswap_v2,
+        weth.address,
+        usdc.address,
+        Decimal(1.0),
+        slippage=10 * 100,
+    )
+    assert usdc_per_eth == pytest.approx(Decimal(1896.4690757848006656))
+
+
+def test_estimate_buy_price_for_amount(
+    web3: Web3,
+    deployer: str,
+    uniswap_v2: UniswapV2Deployment,
+    weth: Contract,
+    usdc: Contract,
+):
+    """Estimate the asset Price for a given amount."""
 
     # Create the trading pair and add initial liquidity
     deploy_trading_pair(
@@ -505,3 +545,74 @@ def test_estimate_price_three_way(
     assert dai.functions.balanceOf(user_1).call() == pytest.approx(dai_amount)
     # precision test
     assert dai.functions.balanceOf(user_1).call() == dai_amount
+
+
+def test_estimate_buy_price_for_cash(
+    web3: Web3,
+    deployer: str,
+    uniswap_v2: UniswapV2Deployment,
+    weth: Contract,
+    usdc: Contract,
+):
+    """Estimate how much asset we receive for a given cash buy."""
+
+    # Create the trading pair and add initial liquidity
+    deploy_trading_pair(
+        web3,
+        deployer,
+        uniswap_v2,
+        weth,
+        usdc,
+        1_000 * 10**18,  # 1000 ETH liquidity
+        1_700_000 * 10**18,  # 1.7M USDC liquidity
+    )
+
+    # Estimate the price of buying 1650 USDC worth of ETH
+    eth_received = estimate_buy_received_amount_raw(
+        uniswap_v2,
+        weth.address,
+        usdc.address,
+        1650 * 10**18,
+    )
+
+    assert eth_received / (10**18) == pytest.approx(0.9667409780905836)
+
+    # Calculate price of ETH as $ for our purchase
+    price = (1650*10**18) / eth_received
+    assert price == pytest.approx(Decimal(1706.7653460381143))
+
+
+def test_estimate_sell_received_cash(
+    web3: Web3,
+    deployer: str,
+    uniswap_v2: UniswapV2Deployment,
+    weth: Contract,
+    usdc: Contract,
+):
+    """Estimate how much asset we receive for a given cash buy."""
+
+    # Create the trading pair and add initial liquidity
+    deploy_trading_pair(
+        web3,
+        deployer,
+        uniswap_v2,
+        weth,
+        usdc,
+        1_000 * 10**18,  # 1000 ETH liquidity
+        1_700_000 * 10**18,  # 1.7M USDC liquidity
+    )
+
+    # Sell 50 ETH
+    usdc_received = estimate_sell_received_amount_raw(
+        uniswap_v2,
+        weth.address,
+        usdc.address,
+        50 * 10**18,
+    )
+
+    usdc_received_decimals = usdc_received / 10**18
+    assert usdc_received_decimals == pytest.approx(80721.05538886508)
+
+    # Calculate price of ETH as $ for our purchase
+    price = usdc_received / (50*10**18)
+    assert price == pytest.approx(Decimal(1614.4211077773016))

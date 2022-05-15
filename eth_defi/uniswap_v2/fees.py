@@ -104,6 +104,7 @@ class UniswapV2FeeCalculator:
             _slippage = 0
             if index == 0:
                 _slippage = slippage
+            import ipdb ; ipdb.set_trace()
             current_amount = self.get_amount_in(current_amount, r[0], r[1], fee=fee, slippage=_slippage)
 
             amounts.insert(0, current_amount)
@@ -172,6 +173,8 @@ def estimate_buy_quantity(
     slippage: float = 0,
 ) -> int:
     """Estimate how many tokens we are going to receive when doing a buy.
+
+    Good for doing a price impact calculations.
 
     Calls the on-chain contract to get the current liquidity and estimates the
     the price based on it.
@@ -365,7 +368,7 @@ def estimate_buy_price_decimals(
     web3 = uniswap.web3
     base = fetch_erc20_details(web3, base_token_address, raise_on_error=False)
     quote = fetch_erc20_details(web3, quote_token_address, raise_on_error=False)
-    quantity_raw = base.convert_to_raw(quantity)
+    quantity_raw = quote.convert_to_raw(quantity)
     fee_helper = UniswapV2FeeCalculator(uniswap)
 
     if intermediate_token_address:
@@ -416,3 +419,123 @@ def estimate_sell_price_decimals(
 
     out_raw = amounts[-1]
     return quote.convert_to_decimals(out_raw)
+
+
+def estimate_buy_received_amount_raw(
+    uniswap: UniswapV2Deployment,
+    base_token_address: HexAddress,
+    quote_token_address: HexAddress,
+    quantity_raw: Decimal,
+    *,
+    fee: int = 30,
+    slippage: float = 0,
+    intermediate_token_address: Optional[HexAddress] = None,
+) -> int:
+    """Estimate how much we receive for a certain cash amount.
+
+    Example:
+
+    .. code-block:: python
+
+        # Create the trading pair and add initial liquidity
+        deploy_trading_pair(
+            web3,
+            deployer,
+            uniswap_v2,
+            weth,
+            usdc,
+            1_000 * 10**18,  # 1000 ETH liquidity
+            1_700_000 * 10**18,  # 1.7M USDC liquidity
+        )
+
+        # Estimate the price of buying 1650 USDC worth of ETH
+        eth_received = estimate_buy_received_amount_raw(
+            uniswap_v2,
+            weth.address,
+            usdc.address,
+            1650 * 10**18,
+        )
+
+        assert eth_received / (10**18) == pytest.approx(0.9667409780905836)
+
+        # Calculate price of ETH as $ for our purchase
+        price = (1650*10**18) / eth_received
+        assert price == pytest.approx(Decimal(1706.7653460381143))
+
+    :param quantity: How much of the base token we want to buy
+    :param uniswap: Uniswap v2 deployment
+    :param base_token: Base token of the trading pair
+    :param quote_token: Quote token of the trading pair
+    :param fee: Trading fee express in bps, default = 30 bps (0.3%)
+    :param slippage: Slippage express in bps
+    :return: Expected quote token amount to receive
+    :raise TokenDetailError: If we have an issue with ERC-20 contracts
+    """
+    fee_helper = UniswapV2FeeCalculator(uniswap)
+
+    if intermediate_token_address:
+        path = [quote_token_address, intermediate_token_address, base_token_address]
+    else:
+        path = [quote_token_address, base_token_address]
+    amounts = fee_helper.get_amounts_out(quantity_raw, path, fee=fee, slippage=slippage)
+    return amounts[1]
+
+
+def estimate_sell_received_amount_raw(
+    uniswap: UniswapV2Deployment,
+    base_token_address: HexAddress,
+    quote_token_address: HexAddress,
+    quantity_raw: Decimal,
+    *,
+    fee: int = 30,
+    slippage: float = 0,
+    intermediate_token_address: Optional[HexAddress] = None,
+) -> int:
+    """Estimate how much cash we receive for a certain quantity of tokens sold.
+
+    Example:
+
+    .. code-block:: python
+
+        deploy_trading_pair(
+            web3,
+            deployer,
+            uniswap_v2,
+            weth,
+            usdc,
+            1_000 * 10**18,  # 1000 ETH liquidity
+            1_700_000 * 10**18,  # 1.7M USDC liquidity
+        )
+
+        # Sell 50 ETH
+        usdc_received = estimate_sell_received_amount_raw(
+            uniswap_v2,
+            weth.address,
+            usdc.address,
+            50 * 10**18,
+        )
+
+        usdc_received_decimals = usdc_received / 10**18
+        assert usdc_received_decimals == pytest.approx(80721.05538886508)
+
+        # Calculate price of ETH as $ for our purchase
+        price = usdc_received / (50*10**18)
+        assert price == pytest.approx(Decimal(1614.4211077773016))
+
+    :param quantity: How much of the base token we want to buy
+    :param uniswap: Uniswap v2 deployment
+    :param base_token: Base token of the trading pair
+    :param quote_token: Quote token of the trading pair
+    :param fee: Trading fee express in bps, default = 30 bps (0.3%)
+    :param slippage: Slippage express in bps
+    :return: Expected quote token amount to receive
+    :raise TokenDetailError: If we have an issue with ERC-20 contracts
+    """
+    fee_helper = UniswapV2FeeCalculator(uniswap)
+
+    if intermediate_token_address:
+        path = (base_token_address, intermediate_token_address, quote_token_address)
+    else:
+        path = (base_token_address, quote_token_address)
+    amounts = fee_helper.get_amounts_out(quantity_raw, path, fee=fee, slippage=slippage)
+    return amounts[1]
