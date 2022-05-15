@@ -150,7 +150,7 @@ def test_estimate_quantity(
     )
 
     # Estimate how much ETH we will receive for 500 USDC
-    amount_eth = estimate_buy_received_amount(
+    amount_eth = estimate_buy_quantity(
         uniswap_v2,
         weth,
         usdc,
