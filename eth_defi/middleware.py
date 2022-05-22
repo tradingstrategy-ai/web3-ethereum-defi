@@ -94,7 +94,7 @@ def http_retry_request_with_sleep_middleware(
 
     """
 
-    retryable_exceptions=(ConnectionError, HTTPError, Timeout, TooManyRedirects)
+    retryable_exceptions = (ConnectionError, HTTPError, Timeout, TooManyRedirects)
 
     return exception_retry_middleware(
         make_request,

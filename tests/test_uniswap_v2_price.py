@@ -26,7 +26,6 @@ from eth_defi.uniswap_v2.fees import (
 )
 
 
-
 @pytest.fixture
 def tester_provider():
     # https://web3py.readthedocs.io/en/stable/examples.html#contract-unit-tests-in-python
@@ -579,7 +578,7 @@ def test_estimate_buy_price_for_cash(
     assert eth_received / (10**18) == pytest.approx(0.9667409780905836)
 
     # Calculate price of ETH as $ for our purchase
-    price = (1650*10**18) / eth_received
+    price = (1650 * 10**18) / eth_received
     assert price == pytest.approx(Decimal(1706.7653460381143))
 
 
@@ -615,5 +614,5 @@ def test_estimate_sell_received_cash(
     assert usdc_received_decimals == pytest.approx(80721.05538886508)
 
     # Calculate price of ETH as $ for our purchase
-    price = usdc_received / (50*10**18)
+    price = usdc_received / (50 * 10**18)
     assert price == pytest.approx(Decimal(1614.4211077773016))

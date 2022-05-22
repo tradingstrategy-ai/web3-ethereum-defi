@@ -23,7 +23,7 @@ class GasPriceMethod(enum.Enum):
 @dataclass
 class GasPriceSuggestion:
     """Gas price details.
-    
+
     Capture the necessary information for the gas price to used during the transaction building.
 
     - EIP-1559 London hard fork chains (Ethereumm mainnet)

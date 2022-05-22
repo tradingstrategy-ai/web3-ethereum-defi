@@ -8,7 +8,7 @@ from eth_typing import HexAddress
 from web3 import Web3
 from web3.logs import DISCARD
 
-from eth_defi.abi import get_contract, get_transaction_data_field
+from eth_defi.abi import get_transaction_data_field
 from eth_defi.token import fetch_erc20_details
 from eth_defi.uniswap_v2.deployment import UniswapV2Deployment
 
