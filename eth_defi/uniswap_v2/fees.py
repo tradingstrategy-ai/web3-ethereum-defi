@@ -489,8 +489,10 @@ def estimate_buy_received_amount_raw(
         path = [quote_token_address, intermediate_token_address, base_token_address]
     else:
         path = [quote_token_address, base_token_address]
+
+    # We will receive equal number of amounts as there are items in the path
     amounts = fee_helper.get_amounts_out(quantity_raw, path, fee=fee, slippage=slippage)
-    return amounts[1]
+    return amounts[-1]
 
 
 def estimate_sell_received_amount_raw(
@@ -550,4 +552,4 @@ def estimate_sell_received_amount_raw(
     else:
         path = (base_token_address, quote_token_address)
     amounts = fee_helper.get_amounts_out(quantity_raw, path, fee=fee, slippage=slippage)
-    return amounts[1]
+    return amounts[-1]
