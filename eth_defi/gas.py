@@ -22,7 +22,16 @@ class GasPriceMethod(enum.Enum):
 
 @dataclass
 class GasPriceSuggestion:
+    """Gas price details.
 
+    Capture the necessary information for the gas price to used during the transaction building.
+
+    - EIP-1559 London hard fork chains (Ethereumm mainnet)
+
+    - Legacy EVM: Polygon, BNB Chain
+    """
+
+    #: How the gas price was determined
     method: GasPriceMethod
 
     #: Non London hard fork chains
@@ -36,6 +45,9 @@ class GasPriceSuggestion:
 
     #: London hard fork chains
     max_fee_per_gas: Optional[int] = None
+
+    def __repr__(self):
+        return f"<Gas pricing method:{self.method.name} base:{self.base_fee} priority:{self.max_priority_fee_per_gas} max:{self.max_fee_per_gas} legacy:{self.legacy_gas_price}>"
 
 
 def estimate_gas_fees(web3: Web3) -> GasPriceSuggestion:

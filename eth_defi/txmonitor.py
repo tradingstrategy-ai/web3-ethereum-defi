@@ -171,7 +171,7 @@ def broadcast_transactions(
                 attempt -= 1
             assert tx_data, f"Could not read broadcasted transaction back from the node {hash.hex()}"
         else:
-            logger.info("We are not going to try to broadcast too hard. work_around_bad_nodes:%s, confirmation_block_count:%d, chain_id:%d", work_around_bad_nodes, confirmation_block_count, chain_id)
+            logger.debug("We are not going to try to broadcast too hard. work_around_bad_nodes:%s, confirmation_block_count:%d, chain_id:%d", work_around_bad_nodes, confirmation_block_count, chain_id)
 
         hashes.append(hash)
 

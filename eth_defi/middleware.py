@@ -71,9 +71,12 @@ def exception_retry_middleware(
 
 
 def http_retry_request_with_sleep_middleware(
-    make_request: Callable[[RPCEndpoint, Any], Any], web3: "Web3"
+    make_request: Callable[[RPCEndpoint, Any], Any],
+    web3: "Web3",
 ) -> Callable[[RPCEndpoint, Any], Any]:
     """A HTTP retry middleware with sleep and backoff.
+
+    TODO: Convert this to class so that we can customise arguments
 
     Usage:
 
@@ -82,10 +85,19 @@ def http_retry_request_with_sleep_middleware(
         web3.middleware_onion.clear()
         web3.middleware_onion.inject(http_retry_request_with_sleep_middleware, layer=0)
 
-    TODO: Make sleep and backoff parameters customizable
+
+    :param make_request:
+        Part of middleware call signature
+
+    :param web3:
+        Part of middleware call signature
+
     """
+
+    retryable_exceptions = (ConnectionError, HTTPError, Timeout, TooManyRedirects)
+
     return exception_retry_middleware(
         make_request,
         web3,
-        (ConnectionError, HTTPError, Timeout, TooManyRedirects)
+        retryable_exceptions,
     )

@@ -7,13 +7,12 @@ from decimal import Decimal
 from typing import List, Optional
 
 from eth_typing import HexAddress
-from web3 import Web3
+
 from web3.contract import Contract
 from web3.exceptions import BadFunctionCallOutput
 
 from eth_defi.token import fetch_erc20_details
 from eth_defi.uniswap_v2.deployment import UniswapV2Deployment, INIT_CODE_HASH_MISSING
-from eth_defi.uniswap_v2.utils import pair_for, sort_tokens
 
 
 class BadReserves(Exception):
@@ -378,7 +377,6 @@ def estimate_buy_price_decimals(
     :raise TokenDetailError: If we have an issue with ERC-20 contracts
     """
     web3 = uniswap.web3
-    base = fetch_erc20_details(web3, base_token_address, raise_on_error=False)
     quote = fetch_erc20_details(web3, quote_token_address, raise_on_error=False)
     quantity_raw = quote.convert_to_raw(quantity)
     fee_helper = UniswapV2FeeCalculator(uniswap)
@@ -489,8 +487,10 @@ def estimate_buy_received_amount_raw(
         path = [quote_token_address, intermediate_token_address, base_token_address]
     else:
         path = [quote_token_address, base_token_address]
+
+    # We will receive equal number of amounts as there are items in the path
     amounts = fee_helper.get_amounts_out(quantity_raw, path, fee=fee, slippage=slippage)
-    return amounts[1]
+    return amounts[-1]
 
 
 def estimate_sell_received_amount_raw(
@@ -550,4 +550,4 @@ def estimate_sell_received_amount_raw(
     else:
         path = (base_token_address, quote_token_address)
     amounts = fee_helper.get_amounts_out(quantity_raw, path, fee=fee, slippage=slippage)
-    return amounts[1]
+    return amounts[-1]
