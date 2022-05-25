@@ -14,7 +14,9 @@ How to install ganache-cli using npm:
 For more information about Ganache see
 
 - `Ganache CLI command line documentation <https://github.com/trufflesuite/ganache#documentation>`_
+
 - `Aave Web.py example <https://github.com/PatrickAlphaC/aave_web3_py>`_
+
 - `QuickNode how to fork mainnet with Ganache tutorial <https://www.quicknode.com/guides/web3-sdks/how-to-fork-ethereum-blockchain-with-ganache>`_
 
 `Most of this code is lifted from Brownie project (MIT) <https://github.com/eth-brownie/brownie/blob/master/brownie/network/rpc/ganache.py>`_
@@ -43,6 +45,7 @@ from web3 import HTTPProvider, Web3
 from web3.types import Wei
 
 from eth_defi.utils import is_localhost_port_listening
+
 
 logger = logging.getLogger(__name__)
 
@@ -330,6 +333,13 @@ def fork_network(
 
     `See the full example in tests source code <https://github.com/tradingstrategy-ai/web3-ethereum-defi/blob/master/tests/test_ganache.py>`_.
 
+    Polygon needs to set a specific EVM version:
+
+    .. code-block:: python
+
+            mainnet_rpc = os.environ["POLYGON_JSON_RPC"]
+            launch = fork_network(mainnet_rpc, evm_version="istanbul")
+
     If `ganache-cli` refuses to terminate properly, you can kill a process by a port with:
 
     .. code-block:: shell
@@ -344,7 +354,9 @@ def fork_network(
         pytest --log-cli-level=debug
 
     For public JSON-RPC endpoints check
+
     - `BNB chain documentation <https://docs.binance.org/smart-chain/developer/rpc.html>`_
+
     - `ethereumnodes.com <https://ethereumnodes.com/>`_
 
     :param cmd: Override `ganache-cli` command. If not given we look up from `PATH`.
