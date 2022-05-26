@@ -117,13 +117,15 @@ def test_build_transaction_legacy(web3: Web3, deployer: str, hot_wallet_account)
     # Drop some ETH and token to the hot wallet
     web3.eth.send_transaction({"from": deployer, "to": hot_wallet_account.address, "value": 1 * 10**18})
 
+    # Build a transaction using gas hints and signed locally
+    # before broadcasting
     hot_wallet = HotWallet(hot_wallet_account)
     hot_wallet.sync_nonce(web3)
 
     tx = token\
         .functions\
         .approve(deployer, 100)\
-        .buildTransaction({"from": hot_wallet.address, "type": 1})
+        .buildTransaction({"from": hot_wallet.address})
 
     apply_gas(tx, gas_fees)
 
