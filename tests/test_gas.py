@@ -10,7 +10,8 @@ from hexbytes import HexBytes
 from web3 import Web3, EthereumTesterProvider
 from web3._utils.transactions import fill_nonce
 
-from eth_defi.gas import estimate_gas_fees, GasPriceMethod, apply_gas
+from eth_defi.gas import estimate_gas_fees, GasPriceMethod, apply_gas, GasPriceSuggestion
+from eth_defi.hotwallet import HotWallet
 from eth_defi.token import create_token
 
 
@@ -43,18 +44,12 @@ def deployer(web3) -> str:
 
 
 @pytest.fixture()
-def hot_wallet_private_key(web3) -> HexBytes:
-    """Generate a private key"""
-    return HexBytes(secrets.token_bytes(32))
-
-
-@pytest.fixture()
-def hot_wallet(web3, hot_wallet_private_key) -> LocalAccount:
+def hot_wallet_account(web3) -> LocalAccount:
     """User account.
 
     Do some account allocation for tests.
     """
-    return Account.from_key(hot_wallet_private_key)
+    return Account.create()
 
 
 def test_gas_fees_london(web3: Web3, deployer: str):
@@ -71,7 +66,7 @@ def test_gas_fees_london(web3: Web3, deployer: str):
     assert fees.max_priority_fee_per_gas == 1000000000
 
 
-def test_raw_transaction_with_gas(web3: Web3, eth_tester, deployer: HexAddress, hot_wallet: LocalAccount):
+def test_raw_transaction_with_gas(web3: Web3, eth_tester, deployer: HexAddress, hot_wallet_account: LocalAccount):
     """Create a raw transaction with gas information."""
 
     gas_fees = estimate_gas_fees(web3)
@@ -80,15 +75,15 @@ def test_raw_transaction_with_gas(web3: Web3, eth_tester, deployer: HexAddress, 
     token = create_token(web3, deployer, "Cow token", "COWS", 100_000 * 10**18)
 
     # Drop some ETH and token to the hot wallet
-    web3.eth.send_transaction({"from": deployer, "to": hot_wallet.address, "value": 1 * 10**18})
-    token.functions.transfer(hot_wallet.address, 50_000 * 10**18).transact({"from": deployer})
+    web3.eth.send_transaction({"from": deployer, "to": hot_wallet_account.address, "value": 1 * 10**18})
+    token.functions.transfer(hot_wallet_account.address, 50_000 * 10**18).transact({"from": deployer})
 
     # Create a raw transaction
     # Move 10 tokens from deployer to user1
     # https://web3py.readthedocs.io/en/stable/contracts.html?highlight=buildTransaction#web3.contract.ContractFunction.buildTransaction
-    tx = token.functions.transfer(hot_wallet.address, 10 * 10**18).buildTransaction(
+    tx = token.functions.transfer(hot_wallet_account.address, 10 * 10**18).buildTransaction(
         {
-            "from": hot_wallet.address,
+            "from": hot_wallet_account.address,
             "chainId": web3.eth.chain_id,
             "gas": 150_000,  # 150k gas should be more than enough for ERC20.transfer()
         }
@@ -97,7 +92,40 @@ def test_raw_transaction_with_gas(web3: Web3, eth_tester, deployer: HexAddress, 
     tx = fill_nonce(web3, tx)
     apply_gas(tx, gas_fees)
 
-    signed = hot_wallet.sign_transaction(tx)
+    signed = hot_wallet_account.sign_transaction(tx)
     tx_hash = web3.eth.send_raw_transaction(signed.rawTransaction)
     receipt = web3.eth.get_transaction_receipt(tx_hash)
     assert receipt.status == 1  # 1=success and mined
+
+
+def test_build_transaction_legacy(web3: Web3, deployer: str, hot_wallet_account):
+    """We can apply gas fees to the transactions signed with HotWallet.
+
+    Found problem when playing with Polygon.
+    """
+
+    # 99 GWei
+    gas_fees = GasPriceSuggestion(method=GasPriceMethod.legacy, legacy_gas_price=99 * 10**9)
+
+    token = create_token(web3, deployer, "Cow token", "COWS", 100_000 * 10**18)
+
+    # Drop some ETH and token to the hot wallet
+    web3.eth.send_transaction({"from": deployer, "to": hot_wallet_account.address, "value": 1 * 10**18})
+
+    hot_wallet = HotWallet(hot_wallet_account)
+    hot_wallet.sync_nonce(web3)
+
+    tx = token\
+        .functions\
+        .approve(deployer, 100)\
+        .buildTransaction({"from": hot_wallet.address})
+
+    apply_gas(tx, gas_fees)
+
+    signed_tx = hot_wallet.sign_transaction_with_new_nonce(tx)
+    signed_bytes = signed_tx.rawTransaction
+    assert len(signed_bytes) > 0
+
+    tx_hash = web3.eth.send_raw_transaction(signed_bytes)
+    receipt = web3.eth.get_transaction_receipt(tx_hash)
+    assert receipt.status == 1
