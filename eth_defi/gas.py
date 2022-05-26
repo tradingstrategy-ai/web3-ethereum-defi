@@ -105,7 +105,6 @@ def apply_gas(tx: dict, suggestion: GasPriceSuggestion):
         tx["maxFeePerGas"] = suggestion.max_fee_per_gas
         tx["maxPriorityFeePerGas"] = suggestion.max_priority_fee_per_gas
     else:
-        tx["type"] = 1
         tx["gasPrice"] = suggestion.legacy_gas_price
 
 

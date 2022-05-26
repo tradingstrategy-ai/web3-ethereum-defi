@@ -99,10 +99,7 @@ def test_raw_transaction_with_gas(web3: Web3, eth_tester, deployer: HexAddress, 
 
 
 def test_build_transaction_legacy(web3: Web3, deployer: str, hot_wallet_account):
-    """We can apply gas fees to the transactions signed with HotWallet.
-
-    Found problem when playing with Polygon.
-    """
+    """We can apply gas fees to the transactions signed with HotWallet."""
 
     # Unless we override the default gas price strategy,
     # web3.py is going to default to Ethereum mainnet London style transactions
@@ -127,6 +124,7 @@ def test_build_transaction_legacy(web3: Web3, deployer: str, hot_wallet_account)
         .approve(deployer, 100)\
         .buildTransaction({"from": hot_wallet.address})
 
+    assert "gas" in tx
     apply_gas(tx, gas_fees)
 
     signed_tx = hot_wallet.sign_transaction_with_new_nonce(tx)
