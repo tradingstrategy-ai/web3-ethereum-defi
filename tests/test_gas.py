@@ -10,7 +10,7 @@ from hexbytes import HexBytes
 from web3 import Web3, EthereumTesterProvider
 from web3._utils.transactions import fill_nonce
 
-from eth_defi.gas import estimate_gas_fees, GasPriceMethod, apply_gas, GasPriceSuggestion
+from eth_defi.gas import estimate_gas_fees, GasPriceMethod, apply_gas, GasPriceSuggestion, node_default_gas_price_strategy
 from eth_defi.hotwallet import HotWallet
 from eth_defi.token import create_token
 
@@ -104,6 +104,11 @@ def test_build_transaction_legacy(web3: Web3, deployer: str, hot_wallet_account)
     Found problem when playing with Polygon.
     """
 
+    # Unless we override the default gas price strategy,
+    # web3.py is going to default to Ethereum mainnet London style transactions
+    # that do not understand about "gasPrice" parameter
+    web3.eth.set_gas_price_strategy(node_default_gas_price_strategy)
+
     # 99 GWei
     gas_fees = GasPriceSuggestion(method=GasPriceMethod.legacy, legacy_gas_price=99 * 10**9)
 
@@ -118,7 +123,7 @@ def test_build_transaction_legacy(web3: Web3, deployer: str, hot_wallet_account)
     tx = token\
         .functions\
         .approve(deployer, 100)\
-        .buildTransaction({"from": hot_wallet.address})
+        .buildTransaction({"from": hot_wallet.address, "type": 1})
 
     apply_gas(tx, gas_fees)
 
