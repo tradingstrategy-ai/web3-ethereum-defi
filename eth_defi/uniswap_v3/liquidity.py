@@ -166,4 +166,6 @@ def create_tick_csv(
     )
 
     file_path = f"{output_folder}/uniswapv3-ticks.csv"
-    return ticks_df.to_csv(file_path)
+    ticks_df.to_csv(file_path)
+
+    return file_path
