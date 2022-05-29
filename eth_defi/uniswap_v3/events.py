@@ -289,7 +289,7 @@ def fetch_events_to_csv(
     :param json_rpc_url: JSON-RPC URL
     :param start_block: First block to process (inclusive), default is block 12369621 (when Uniswap v3 factory was created on mainnet)
     :param end_block: Last block to process (inclusive), default is block 12370621 (1000 block after default start block)
-    :param output_folder: Folder to contains output CSV files
+    :param output_folder: Folder to contain output CSV files, default is /tmp folder
     """
     token_cache = TokenCache()
     web3_factory = TunedWeb3Factory(json_rpc_url)
