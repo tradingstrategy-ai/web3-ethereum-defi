@@ -60,7 +60,7 @@ class TradeFail(TradeResult):
     revert_reason: Optional[str] = None
 
 
-def analyse_trade(web3: Web3, uniswap: UniswapV2Deployment, tx_hash: hash) -> Union[TradeSuccess, TradeFail]:
+def analyse_trade_by_hash(web3: Web3, uniswap: UniswapV2Deployment, tx_hash: str) -> Union[TradeSuccess, TradeFail]:
     """Analyse details of a Uniswap trade based on a transaction id.
 
     Analyses trade fees, etc. based on the event signatures in the transaction.
@@ -83,8 +83,14 @@ def analyse_trade(web3: Web3, uniswap: UniswapV2Deployment, tx_hash: hash) -> Un
         This code is still much under development and unlikely to support any
         advanced use cases yet.
 
-    :param tx_receipt: Transaction receipt for the swap
-    :return: `TradeSuccess` or `TradeFail` analysis
+    :param web3:
+        Web3 instance
+    :param uniswap:
+        Uniswap deployment description
+    :param tx_hash:
+        Transaction hash as a string
+    :return:
+        :py:class:`TradeSuccess` or :py:class:`TradeFail` instance
     """
 
     pair = uniswap.PairContract
@@ -94,6 +100,51 @@ def analyse_trade(web3: Web3, uniswap: UniswapV2Deployment, tx_hash: hash) -> Un
 
     tx = web3.eth.get_transaction(tx_hash)
     tx_receipt = web3.eth.get_transaction_receipt(tx_hash)
+    return analyse_trade_by_receipt(web3, uniswap, tx, tx_hash, tx_receipt)
+
+
+def analyse_trade_by_receipt(web3: Web3, uniswap: UniswapV2Deployment, tx: dict, tx_hash: str, tx_receipt: dict) -> Union[TradeSuccess, TradeFail]:
+    """Analyse details of a Uniswap trade based on already received receipt.
+
+    See also :py:func:`analyse_trade_by_hash`.
+
+    Example:
+
+    .. code-block:: python
+
+        tx_hash = router.functions.swapExactTokensForTokens(
+            all_weth_amount,
+            0,
+            reverse_path,
+            user_1,
+            FOREVER_DEADLINE,
+        ).transact({"from": user_1})
+
+        tx = web3.eth.get_transaction(tx_hash)
+        receipt = web3.eth.get_transaction_receipt(tx_hash)
+
+        analysis = analyse_trade_by_receipt(web3, uniswap_v2, tx, tx_hash, receipt)
+        assert isinstance(analysis, TradeSuccess)
+        assert analysis.price == pytest.approx(Decimal("1744.899124998896692270848706"))
+
+    :param web3:
+        Web3 instance
+    :param uniswap:
+        Uniswap deployment description
+    :param tx:
+        Transaction instance: needs to have `data` or `input` field to decode
+    :param tx_hash:
+        Transaction hash: needed for the call for the revert reason)
+    :param tx_receipt:
+        Transaction receipt to analyse
+    :return:
+        :py:class:`TradeSuccess` or :py:class:`TradeFail` instance
+    """
+
+    pair = uniswap.PairContract
+
+    # Example tx https://etherscan.io/tx/0xa8e6d47fb1429c7aec9d30332eafaeb515c8dfa73ab413c48560d8d6060c3193#eventlog
+    # swapExactTokensForTokens
 
     router = uniswap.router
     assert tx_receipt["to"] == router.address, f"For now, we can only analyze naive trades to the router. This tx was to {tx_receipt['to']}, router is {router.address}"

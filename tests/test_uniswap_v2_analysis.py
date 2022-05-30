@@ -7,7 +7,7 @@ from web3 import EthereumTesterProvider, Web3
 from web3.contract import Contract
 
 from eth_defi.token import create_token
-from eth_defi.uniswap_v2.analysis import TradeFail, TradeSuccess, analyse_trade
+from eth_defi.uniswap_v2.analysis import TradeFail, TradeSuccess, analyse_trade_by_hash, analyse_trade_by_receipt
 from eth_defi.uniswap_v2.deployment import (
     FOREVER_DEADLINE,
     UniswapV2Deployment,
@@ -117,7 +117,7 @@ def test_analyse_buy_success(web3: Web3, deployer: str, user_1: str, uniswap_v2:
         FOREVER_DEADLINE,
     ).transact({"from": user_1})
 
-    analysis = analyse_trade(web3, uniswap_v2, tx_hash)
+    analysis = analyse_trade_by_hash(web3, uniswap_v2, tx_hash)
     assert isinstance(analysis, TradeSuccess)
     assert (1 / analysis.price) == pytest.approx(Decimal("1755.115346038114345242609866"))
     assert analysis.get_effective_gas_price_gwei() == 1
@@ -174,7 +174,7 @@ def test_analyse_sell_success(web3: Web3, deployer: str, user_1: str, uniswap_v2
     usdc_left = usdc.functions.balanceOf(user_1).call() / (10.0**6)
     assert usdc_left == pytest.approx(497.0895)
 
-    analysis = analyse_trade(web3, uniswap_v2, tx_hash)
+    analysis = analyse_trade_by_hash(web3, uniswap_v2, tx_hash)
     assert isinstance(analysis, TradeSuccess)
     assert analysis.price == pytest.approx(Decimal("1744.899124998896692270848706"))
     assert analysis.get_effective_gas_price_gwei() == 1
@@ -222,9 +222,66 @@ def test_analyse_trade_failed(eth_tester: EthereumTester, web3: Web3, deployer: 
 
         eth_tester.mine_block()
 
-        analysis = analyse_trade(web3, uniswap_v2, tx_hash)
+        analysis = analyse_trade_by_hash(web3, uniswap_v2, tx_hash)
         assert isinstance(analysis, TradeFail)
         assert analysis.get_effective_gas_price_gwei() == 1
         assert analysis.revert_reason == "execution reverted: TransferHelper: TRANSFER_FROM_FAILED"
     finally:
         eth_tester.enable_auto_mine_transactions()
+
+
+def test_analyse_by_recept(web3: Web3, deployer: str, user_1: str, uniswap_v2: UniswapV2Deployment, weth: Contract, usdc: Contract):
+    """Aanlyse a Uniswap v2 trade by receipt."""
+
+    # Create the trading pair and add initial liquidity
+    deploy_trading_pair(
+        web3,
+        deployer,
+        uniswap_v2,
+        weth,
+        usdc,
+        10 * 10**18,  # 10 ETH liquidity
+        17_000 * 10**6,  # 17000 USDC liquidity
+    )
+
+    router = uniswap_v2.router
+
+    # Give user_1 some cash to buy ETH and approve it on the router
+    usdc_amount_to_pay = 500 * 10**6
+    usdc.functions.transfer(user_1, usdc_amount_to_pay).transact({"from": deployer})
+    usdc.functions.approve(router.address, usdc_amount_to_pay).transact({"from": user_1})
+
+    # Perform a swap USDC->WETH
+    path = [usdc.address, weth.address]  # Path tell how the swap is routed
+    # https://docs.uniswap.org/protocol/V2/reference/smart-contracts/router-02#swapexacttokensfortokens
+    router.functions.swapExactTokensForTokens(
+        usdc_amount_to_pay,
+        0,
+        path,
+        user_1,
+        FOREVER_DEADLINE,
+    ).transact({"from": user_1})
+
+    all_weth_amount = weth.functions.balanceOf(user_1).call()
+    weth.functions.approve(router.address, all_weth_amount).transact({"from": user_1})
+
+    # Perform the reverse swap WETH->USDC
+    reverse_path = [weth.address, usdc.address]  # Path tell how the swap is routed
+    tx_hash = router.functions.swapExactTokensForTokens(
+        all_weth_amount,
+        0,
+        reverse_path,
+        user_1,
+        FOREVER_DEADLINE,
+    ).transact({"from": user_1})
+
+    tx = web3.eth.get_transaction(tx_hash)
+    receipt = web3.eth.get_transaction_receipt(tx_hash)
+
+    # user_1 has less than 500 USDC left to loses in the LP fees
+    analysis = analyse_trade_by_receipt(web3, uniswap_v2, tx, tx_hash, receipt)
+    assert isinstance(analysis, TradeSuccess)
+    assert analysis.price == pytest.approx(Decimal("1744.899124998896692270848706"))
+    assert analysis.get_effective_gas_price_gwei() == 1
+    assert analysis.amount_out_decimals == 6
+    assert analysis.amount_in_decimals == 18

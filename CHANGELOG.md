@@ -5,6 +5,7 @@
 - Fix: pairFor could give a wrong address for trading pair 
 - Fix: Cosmetic API improvements and fixes, with more asserts 
 - Feature: Added `estimate_buy_received_amount_raw` and `estimate_sell_received_amount_raw`
+- API change: Split `analyse_trade` -> `analyse_trade_by_hash` and `analyse_trade_by_receipt`
 
 # 0.8
 
