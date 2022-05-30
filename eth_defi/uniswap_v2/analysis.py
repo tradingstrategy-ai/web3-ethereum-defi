@@ -107,6 +107,8 @@ def analyse_trade_by_receipt(web3: Web3, uniswap: UniswapV2Deployment, tx: dict,
     """Analyse details of a Uniswap trade based on already received receipt.
 
     See also :py:func:`analyse_trade_by_hash`.
+    This function is more ideal for the cases where you know your transaction is already confirmed
+    and you do not need to poll the chain for a receipt.
 
     Example:
 

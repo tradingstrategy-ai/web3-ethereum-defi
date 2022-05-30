@@ -56,7 +56,7 @@ def decode_signed_transaction(raw_bytes: Union[bytes, str, HexBytes]) -> dict:
         raw_bytes = HexBytes(raw_bytes)
 
     try:
-        # First we try EIP-2930 and this will fail we fall back to the legacy tx
+        # First we try EIP-2718 and this will fail we fall back to the legacy tx
         typed_tx = TypedTransaction.from_bytes(raw_bytes)
         return typed_tx.transaction.dictionary
     except ValueError:
