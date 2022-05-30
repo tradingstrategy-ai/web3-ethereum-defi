@@ -7,11 +7,13 @@ from hexbytes import HexBytes
 
 
 def decode_signed_transaction(raw_bytes: Union[bytes, str, HexBytes]) -> TypedTransaction:
-    """Decode already signed transction.
+    """Decode already signed transaction.
 
-    Reverse raw tranasction bytes back to dictionary form.
+    Reverse raw transaction bytes back to dictionary form.
     """
 
     if not isinstance(raw_bytes, HexBytes):
         raw_bytes = HexBytes(raw_bytes)
+
+    return TypedTransaction.from_bytes(raw_bytes)
 
