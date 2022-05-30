@@ -17,12 +17,18 @@ def decode_signed_transaction(raw_bytes: Union[bytes, str, HexBytes]) -> dict:
     Reverse raw transaction bytes back to dictionary form, so you can access
     its `data` field and other parameters.
 
+    The function supports:
+
     - Legacy transactions
 
-    - `EIP-2930 transactions introduced in Berlin hard fork <https://twitter.com/quicknode/status/1384212705658040330>`_.
+    - `EIP-2718, EIP-2930 transactions introduced in Berlin hard fork <https://twitter.com/quicknode/status/1384212705658040330>`_.
 
     - See `TypedTransaction source <https://github.com/ethereum/eth-account/blob/e78dfe871f4cb708fb9c842a42ca3e14697fb065/eth_account/_utils/typed_transactions.py#L112>`_
         for more documentation.
+
+    - `EIP-2718 spec <https://eips.ethereum.org/EIPS/eip-2718>`_
+
+    - `EIP-2930 spec <https://eips.ethereum.org/EIPS/eip-2930>`_
 
     Example:
 
@@ -55,6 +61,6 @@ def decode_signed_transaction(raw_bytes: Union[bytes, str, HexBytes]) -> dict:
         return typed_tx.transaction.dictionary
     except ValueError:
         try:
-            return Transaction.from_bytes(raw_bytes)
+            return Transaction.from_bytes(raw_bytes).as_dict()
         except Exception as e:
             raise DecodeFailure(f"Could not decode transaction: {raw_bytes.hex()}") from e

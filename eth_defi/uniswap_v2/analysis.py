@@ -132,7 +132,7 @@ def analyse_trade_by_receipt(web3: Web3, uniswap: UniswapV2Deployment, tx: dict,
     :param uniswap:
         Uniswap deployment description
     :param tx:
-        Transaction instance: needs to have `data` or `input` field to decode
+        Transaction data as a dictionary: needs to have `data` or `input` field to decode
     :param tx_hash:
         Transaction hash: needed for the call for the revert reason)
     :param tx_receipt:
