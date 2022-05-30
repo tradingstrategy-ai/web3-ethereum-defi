@@ -16,7 +16,7 @@ from web3.middleware import construct_sign_and_send_raw_middleware
 
 from eth_defi.abi import get_deployed_contract
 from eth_defi.token import fetch_erc20_details
-from eth_defi.txmonitor import wait_transactions_to_complete
+from eth_defi.confirmation import wait_transactions_to_complete
 
 # What is the token we are transferring.
 # Replace with your own token address.

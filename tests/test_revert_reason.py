@@ -16,7 +16,7 @@ import pytest
 from eth_account import Account
 from eth_account.signers.local import LocalAccount
 from eth_defi.revert_reason import fetch_transaction_revert_reason
-from eth_defi.txmonitor import wait_transactions_to_complete
+from eth_defi.confirmation import wait_transactions_to_complete
 from eth_typing import HexAddress, HexStr
 from web3 import HTTPProvider, Web3
 

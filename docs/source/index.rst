@@ -27,7 +27,7 @@ Core API documentation
    eth_defi.deploy
    eth_defi.event
    eth_defi.gas
-   eth_defi.txmonitor
+   eth_defi.confirmation
    eth_defi.revert_reason
    eth_defi.hotwallet
    eth_defi.ganache
