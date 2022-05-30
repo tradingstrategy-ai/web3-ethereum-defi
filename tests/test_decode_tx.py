@@ -88,8 +88,7 @@ def test_bnb_chain_decode_tx(web3: Web3, large_busd_holder: HexAddress, hot_wall
     raw_tx = busd.functions.transfer("0x0000000000000000000000000000000000000000", 500 * 10**18).buildTransaction({"gas": 100_000})
     signed_tx = hot_wallet.sign_transaction_with_new_nonce(raw_tx)
     signed_tx_bytes = signed_tx.rawTransaction
-    decoded_tx = decode_signed_transaction(signed_tx_bytes)
-    d = decoded_tx.transaction.dictionary
+    d = decode_signed_transaction(signed_tx_bytes)
     assert d["chainId"] == 1337
     assert d["nonce"] == 0
     assert d["data"].hex().startswith("0xa9059cbb0")  # transfer() function selector

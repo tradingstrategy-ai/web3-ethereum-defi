@@ -10,6 +10,7 @@ from eth_account.signers.local import LocalAccount
 from hexbytes import HexBytes
 from web3 import Web3
 
+from eth_defi.tx import decode_signed_transaction
 
 logger = logging.getLogger(__name__)
 
@@ -37,6 +38,11 @@ class HotWallet:
     This allows us to prepare multiple transactions from the same account upfront.
 
     `See also how to create private keys from command line <https://ethereum.stackexchange.com/q/82926/620>`_.
+
+    .. note ::
+
+        Not thread safe. Manages consumed nonce counter locally.
+
     """
 
     def __init__(self, account: LocalAccount):
@@ -72,6 +78,7 @@ class HotWallet:
         assert "nonce" not in tx
         tx["nonce"] = self.allocate_nonce()
         _signed = self.account.sign_transaction(tx)
+        decode_signed_transaction(_signed.rawTransaction)
         signed = SignedTransactionWithNonce(
             rawTransaction=_signed.rawTransaction,
             hash=_signed.hash,
