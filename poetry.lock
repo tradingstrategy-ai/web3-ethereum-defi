@@ -465,7 +465,7 @@ tests = ["pytest-mock", "pytest-timeout", "coverage"]
 
 [[package]]
 name = "gql"
-version = "3.2.0"
+version = "3.3.0"
 description = "GraphQL client for Python"
 category = "main"
 optional = true
@@ -473,6 +473,9 @@ python-versions = "*"
 
 [package.dependencies]
 graphql-core = ">=3.2,<3.3"
+requests = {version = ">=2.26,<3", optional = true, markers = "extra == \"requests\""}
+requests-toolbelt = {version = ">=0.9.1,<1", optional = true, markers = "extra == \"requests\""}
+urllib3 = {version = ">=1.26", optional = true, markers = "extra == \"requests\""}
 yarl = ">=1.6,<2.0"
 
 [package.extras]
@@ -1115,7 +1118,7 @@ name = "requests-toolbelt"
 version = "0.9.1"
 description = "A utility belt for advanced users of python-requests"
 category = "main"
-optional = false
+optional = true
 python-versions = "*"
 
 [package.dependencies]
@@ -1525,7 +1528,7 @@ docs = ["Sphinx", "sphinx-rtd-theme", "sphinx-sitemap", "sphinx-autodoc-typehint
 [metadata]
 lock-version = "1.1"
 python-versions = "^3.8"
-content-hash = "7ff78ce0b6dabb6f1b911ad4933ab3eaa2bda522c48209ce4671e014e1c9c047"
+content-hash = "a4329ac17726b2fd1887c89b2d967f3e9efe3fc7e6b8637b42c8652ceb5f1e3f"
 
 [metadata.files]
 aiohttp = [
@@ -1815,8 +1818,8 @@ futureproof = [
     {file = "futureproof-0.3.1.tar.gz", hash = "sha256:274365159bfd8b7aa39677abfa7b16c8253a771d72d3c3ee9de4a03c8d6d2d9b"},
 ]
 gql = [
-    {file = "gql-3.2.0-py2.py3-none-any.whl", hash = "sha256:cea850a6a922af74e01386b5c299e3ca9cf491f0c4bf039541da8e8b1f50a437"},
-    {file = "gql-3.2.0.tar.gz", hash = "sha256:026b1c6b605cb9d6f4885ca5d8b1873a686a5b81842f356a834141bf123d4975"},
+    {file = "gql-3.3.0-py2.py3-none-any.whl", hash = "sha256:77fbc0a47c2df4edb8a98afa8c9c23aead5e0b4ab26d424e2dcfeb3fa2a2319d"},
+    {file = "gql-3.3.0.tar.gz", hash = "sha256:efa405aebe0e7b2fe342b43cfc70fd57e2e385fcae04f79c509366ad48a64381"},
 ]
 graphql-core = [
     {file = "graphql-core-3.2.1.tar.gz", hash = "sha256:9d1bf141427b7d54be944587c8349df791ce60ade2e3cccaf9c56368c133c201"},

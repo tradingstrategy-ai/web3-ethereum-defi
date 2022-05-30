@@ -21,7 +21,7 @@ jobs:
       - name: Install dependencies
         run: |
           poetry env use '3.9'
-          poetry install
+          poetry install -E data
       - name: Install Ganache
         run: yarn global add ganache
       - name: Run test scripts
