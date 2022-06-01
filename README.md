@@ -245,7 +245,7 @@ poetry add -D web3-ethereum-defi
 
 # Documentation
 
-- [Browse Sphinx API documentation](https://web3-ethereum-defi.readthedocs.io/.
+- [Browse Sphinx API documentation](https://web3-ethereum-defi.readthedocs.io/).
 
 # Development and contributing
 
