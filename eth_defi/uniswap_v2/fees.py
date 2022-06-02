@@ -4,15 +4,14 @@
 """
 
 from decimal import Decimal
-from typing import List, Optional
+from typing import Optional
 
 from eth_typing import HexAddress
-
 from web3.contract import Contract
 from web3.exceptions import BadFunctionCallOutput
 
 from eth_defi.token import fetch_erc20_details
-from eth_defi.uniswap_v2.deployment import UniswapV2Deployment, INIT_CODE_HASH_MISSING
+from eth_defi.uniswap_v2.deployment import INIT_CODE_HASH_MISSING, UniswapV2Deployment
 
 
 class BadReserves(Exception):
@@ -26,7 +25,7 @@ class UniswapV2FeeCalculator:
         self.deployment = uniswap_v2
 
     # Liften from uniswap-v2-py by Asynctomatic
-    def get_reserves(self, token_a: HexAddress, token_b: HexAddress):
+    def get_reserves(self, token_a: HexAddress, token_b: HexAddress) -> tuple[int]:
         """Gets the reserves of token_0 and token_1 used to price trades
         and distribute liquidity as well as the timestamp of the last block
         during which an interaction occurred for the pair.
@@ -53,84 +52,74 @@ class UniswapV2FeeCalculator:
             raise BadReserves(f"Could not get reserves, bad pair contract {pair_address}, init hash {self.deployment.init_code_hash}, token_a {token_a}, token_b {token_b}?") from e
         return reserve if token0 == token_a else [reserve[1], reserve[0], reserve[2]]
 
-    def get_amounts_out(
+    def get_amount_out(
         self,
         amount_in: int,
-        path: List[HexAddress],
+        path: list[HexAddress],
         *,
         fee: int = 30,
         slippage: float = 0,
-    ) -> List[int]:
+    ) -> int:
         """Get how much token we are going to receive.
 
-        :param amount_in:
+        :param amount_in: Amount of input asset.
         :param path: List of token addresses how to route the trade
         :param fee: Trading fee express in bps, default = 30 bps (0.3%)
         :param slippage: Slippage express in bps
         :return:
         """
         assert len(path) >= 2
+        assert slippage >= 0
         amounts = [amount_in]
         current_amount = amount_in
 
         pairs = list(zip(path, path[1:]))
-        for index, (p0, p1) in enumerate(pairs):
+        for p0, p1 in pairs:
             r = self.get_reserves(p0, p1)
-
-            # since we care only about the last amount out, apply slippage to only last pair calculation
-            _slippage = 0
-            if index == len(pairs) - 1:
-                _slippage = slippage
-            current_amount = self.get_amount_out(current_amount, r[0], r[1], fee=fee, slippage=_slippage)
-
+            current_amount = self.get_amount_out_from_reserves(current_amount, r[0], r[1], fee=fee)
             amounts.append(current_amount)
 
-        return amounts
+        amount_out = amounts[-1]
+        return int(amount_out * 10_000 // (10_000 + slippage))
 
-    def get_amounts_in(
+    def get_amount_in(
         self,
         amount_out: int,
-        path: List[HexAddress],
+        path: list[HexAddress],
         *,
         fee: int = 30,
         slippage: float = 0,
-    ):
+    ) -> int:
         """Get how much token we are going to spend.
 
-        :param amount_out:
+        :param amount_out: Amount of output asset.
         :param path: List of token addresses how to route the trade
         :param fee: Trading fee express in bps, default = 30 bps (0.3%)
         :param slippage: Slippage express in bps
         :return:
         """
         assert len(path) >= 2
+        assert slippage >= 0
         amounts = [amount_out]
         current_amount = amount_out
 
         pairs = reversed(list(zip(path, path[1:])))
-        for index, (p0, p1) in enumerate(pairs):
+        for p0, p1 in pairs:
             r = self.get_reserves(p0, p1)
-
-            # since we care only about the first amount in, apply slippage to only first pair calculation
-            _slippage = 0
-            if index == 0:
-                _slippage = slippage
-
-            current_amount = self.get_amount_in(current_amount, r[0], r[1], fee=fee, slippage=_slippage)
-
+            current_amount = self.get_amount_in_from_reserves(current_amount, r[0], r[1], fee=fee)
             amounts.insert(0, current_amount)
 
-        return amounts
+        amount_in = amounts[0]
+        return int(amount_in * (10_000 + slippage) // 10_000)
 
     @staticmethod
-    def get_amount_in(
+    def get_amount_in_from_reserves(
         amount_out: int,
         reserve_in: int,
         reserve_out: int,
         *,
         fee: int = 30,
-        slippage: float = 0,
-    ):
+    ) -> int:
         """Returns the minimum input asset amount required to buy the given
         output asset amount (accounting for fees) given reserves.
 
@@ -138,24 +127,22 @@ class UniswapV2FeeCalculator:
         :param reserve_in: Reserve of input asset in the pair contract.
         :param reserve_out: Reserve of output asset in the pair contract.
         :param fee: Trading fee express in bps, default = 30 bps (0.3%)
-        :param slippage: Slippage express in bps
         :return: Required amount of input asset.
         """
         assert amount_out > 0
         assert reserve_in > 0 and reserve_out > 0
-        numerator = reserve_in * amount_out * 10_000 * 10_000
-        denominator = (reserve_out - amount_out) * (10_000 - fee) * (10_000 - slippage)
-        return int(numerator // (denominator + 1))
+        numerator = reserve_in * amount_out * 10_000
+        denominator = (reserve_out - amount_out) * (10_000 - fee)
+        return numerator // denominator + 1
 
     @staticmethod
-    def get_amount_out(
+    def get_amount_out_from_reserves(
         amount_in: int,
         reserve_in: int,
         reserve_out: int,
         *,
         fee: int = 30,
-        slippage: float = 0,
-    ):
+    ) -> int:
         """Given an input asset amount, returns the maximum output amount of
         the other asset (accounting for fees) given reserves.
 
@@ -163,15 +150,14 @@ class UniswapV2FeeCalculator:
         :param reserve_in: Reserve of input asset in the pair contract.
         :param reserve_out: Reserve of output asset in the pair contract.
         :param fee: Trading fee express in bps, default = 30 bps (0.3%)
-        :param slippage: Slippage express in bps
         :return: Maximum amount of output asset.
         """
         assert amount_in > 0
         assert reserve_in > 0 and reserve_out > 0
-        amount_in_with_fee = amount_in * (10_000 - fee) * (10_000 - slippage)
+        amount_in_with_fee = amount_in * (10_000 - fee)
         numerator = amount_in_with_fee * reserve_out
-        denominator = reserve_in * 10_000 * 10_000 + amount_in_with_fee
-        return int(numerator // denominator)
+        denominator = reserve_in * 10_000 + amount_in_with_fee
+        return numerator // denominator
 
 
 def estimate_buy_quantity(
@@ -214,8 +200,7 @@ def estimate_buy_quantity(
     """
     fee_helper = UniswapV2FeeCalculator(uniswap)
     path = [quote_token.address, base_token.address]
-    amounts = fee_helper.get_amounts_out(quantity, path, fee=fee, slippage=slippage)
-    return amounts[-1]
+    return fee_helper.get_amount_out(quantity, path, fee=fee, slippage=slippage)
 
 
 def estimate_buy_price(
@@ -260,8 +245,7 @@ def estimate_buy_price(
         path = [quote_token.address, intermediate_token.address, base_token.address]
     else:
         path = [quote_token.address, base_token.address]
-    amounts = fee_helper.get_amounts_in(quantity, path, fee=fee, slippage=slippage)
-    return amounts[0]
+    return fee_helper.get_amount_in(quantity, path, fee=fee, slippage=slippage)
 
 
 def estimate_sell_price(
@@ -322,8 +306,7 @@ def estimate_sell_price(
         path = [base_token.address, intermediate_token.address, quote_token.address]
     else:
         path = [base_token.address, quote_token.address]
-    amounts = fee_helper.get_amounts_out(quantity, path, fee=fee, slippage=slippage)
-    return amounts[-1]
+    return fee_helper.get_amount_out(quantity, path, fee=fee, slippage=slippage)
 
 
 def estimate_buy_price_decimals(
@@ -385,8 +368,8 @@ def estimate_buy_price_decimals(
         path = [quote_token_address, intermediate_token_address, base_token_address]
     else:
         path = [quote_token_address, base_token_address]
-    amounts = fee_helper.get_amounts_in(quantity_raw, path, fee=fee, slippage=slippage)
-    in_raw = amounts[0]
+
+    in_raw = fee_helper.get_amount_in(quantity_raw, path, fee=fee, slippage=slippage)
     return quote.convert_to_decimals(in_raw)
 
 
@@ -425,9 +408,8 @@ def estimate_sell_price_decimals(
         path = [base_token_address, intermediate_token_address, quote_token_address]
     else:
         path = [base_token_address, quote_token_address]
-    amounts = fee_helper.get_amounts_out(quantity_raw, path, fee=fee, slippage=slippage)
 
-    out_raw = amounts[-1]
+    out_raw = fee_helper.get_amount_out(quantity_raw, path, fee=fee, slippage=slippage)
     return quote.convert_to_decimals(out_raw)
 
 
@@ -489,8 +471,7 @@ def estimate_buy_received_amount_raw(
         path = [quote_token_address, base_token_address]
 
     # We will receive equal number of amounts as there are items in the path
-    amounts = fee_helper.get_amounts_out(quantity_raw, path, fee=fee, slippage=slippage)
-    return amounts[-1]
+    return fee_helper.get_amount_out(quantity_raw, path, fee=fee, slippage=slippage)
 
 
 def estimate_sell_received_amount_raw(
@@ -549,5 +530,5 @@ def estimate_sell_received_amount_raw(
         path = (base_token_address, intermediate_token_address, quote_token_address)
     else:
         path = (base_token_address, quote_token_address)
-    amounts = fee_helper.get_amounts_out(quantity_raw, path, fee=fee, slippage=slippage)
-    return amounts[-1]
+
+    return fee_helper.get_amount_out(quantity_raw, path, fee=fee, slippage=slippage)

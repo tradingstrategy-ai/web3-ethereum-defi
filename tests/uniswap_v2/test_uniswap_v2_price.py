@@ -21,8 +21,10 @@ from eth_defi.uniswap_v2.fees import (
     estimate_buy_price,
     estimate_buy_price_decimals,
     estimate_buy_quantity,
+    estimate_buy_received_amount_raw,
     estimate_sell_price,
-    estimate_sell_price_decimals, estimate_buy_received_amount_raw, estimate_sell_received_amount_raw,
+    estimate_sell_price_decimals,
+    estimate_sell_received_amount_raw,
 )
 
 
@@ -117,16 +119,70 @@ def dai(web3, deployer) -> Contract:
     return create_token(web3, deployer, "DAI", "DAI", 100_000_000 * 10**18)
 
 
-def test_get_amount_in():
-    assert UniswapV2FeeCalculator.get_amount_in(100, 1000, 1000) == 111
-    assert UniswapV2FeeCalculator.get_amount_in(100, 10000, 10000) == 101
-    assert UniswapV2FeeCalculator.get_amount_in(100, 10000, 10000, slippage=1000) == 112
+def test_get_min_amount_in_from_reserves():
+    assert UniswapV2FeeCalculator.get_amount_in_from_reserves(100, 1000, 1000) == 112
+    assert UniswapV2FeeCalculator.get_amount_in_from_reserves(100, 10000, 10000) == 102
 
 
-def test_get_amount_out():
-    assert UniswapV2FeeCalculator.get_amount_out(100, 1000, 1000) == 90
-    assert UniswapV2FeeCalculator.get_amount_out(100, 10000, 10000) == 98
-    assert UniswapV2FeeCalculator.get_amount_out(100, 1000, 1000, slippage=500) == 86
+def test_get_max_amount_out_from_reserves():
+    assert UniswapV2FeeCalculator.get_amount_out_from_reserves(100, 1000, 1000) == 90
+    assert UniswapV2FeeCalculator.get_amount_out_from_reserves(100, 10000, 10000) == 98
+
+
+@pytest.mark.parametrize(
+    "amount_in,reserves,slippage,expected_amount_out",
+    [
+        # 0% slippage
+        (100, [[1000, 1000], [1200, 1000]], 0, 69),
+        # 5% slippage
+        (100, [[1000, 1000], [1200, 1000]], 5 * 100, 65),
+        # 200% slippage
+        (100, [[1000, 1000], [1200, 1000]], 200 * 100, 23),
+    ],
+)
+def test_get_amount_out(uniswap_v2, mocker, amount_in, reserves, slippage, expected_amount_out):
+    """Test get min amount out with slippage calculation.
+
+    Based on: https://github.com/Uniswap/v2-sdk/blob/411d9709e6c41fd96cea050169c7080e5c6e11e1/src/entities/trade.test.ts#L251
+    """
+    # mock get_reserves() to return our intended reserves
+    get_reserves_mock = mocker.patch("eth_defi.uniswap_v2.fees.UniswapV2FeeCalculator.get_reserves")
+    get_reserves_mock.side_effect = reserves
+
+    # we don't need real token address for this test as long as number of tokens is correct
+    mock_path = ["0x1", "0x2", "0x3"]
+
+    helper = UniswapV2FeeCalculator(uniswap_v2)
+    amount_out = helper.get_amount_out(amount_in, mock_path, slippage=slippage)
+    assert amount_out == expected_amount_out
+
+
+@pytest.mark.parametrize(
+    "amount_out,reserves,slippage,expected_amount_in",
+    [
+        # # 0% slippage
+        (100, [[1200, 1000], [1000, 1000]], 0, 156),
+        # 5% slippage
+        (100, [[1200, 1000], [1000, 1000]], 5 * 100, 163),
+        # 200% slippage
+        (100, [[1200, 1000], [1000, 1000]], 200 * 100, 468),
+    ],
+)
+def test_get_amount_in(uniswap_v2, mocker, amount_out, reserves, slippage, expected_amount_in):
+    """Test get max amount in with slippage calculation.
+
+    Based on: https://github.com/Uniswap/v2-sdk/blob/411d9709e6c41fd96cea050169c7080e5c6e11e1/src/entities/trade.test.ts#L221
+    """
+    # mock get_reserves() to return our intended reserves
+    get_reserves_mock = mocker.patch("eth_defi.uniswap_v2.fees.UniswapV2FeeCalculator.get_reserves")
+    get_reserves_mock.side_effect = reserves
+
+    # we don't need real token address for this test as long as number of tokens is correct
+    mock_path = ["0x1", "0x2", "0x3"]
+
+    helper = UniswapV2FeeCalculator(uniswap_v2)
+    amount_in = helper.get_amount_in(amount_out, mock_path, slippage=slippage)
+    assert amount_in == expected_amount_in
 
 
 def test_estimate_quantity(
@@ -236,7 +292,7 @@ def test_estimate_sell_price(
         slippage=500,
     )
     price_as_usd = usdc_per_eth / 1e18
-    assert price_as_usd == pytest.approx(1608.631384783902)
+    assert price_as_usd == pytest.approx(1612.5827312074623)
 
 
 def test_estimate_sell_price_decimals(
@@ -276,7 +332,7 @@ def test_estimate_sell_price_decimals(
         Decimal(1.0),
         slippage=5 * 100,
     )
-    assert usdc_per_eth == pytest.approx(Decimal(1608.631384783902))
+    assert usdc_per_eth == pytest.approx(Decimal(1612.5827312074623))
 
 
 def test_estimate_buy_price_decimals(
@@ -316,7 +372,7 @@ def test_estimate_buy_price_decimals(
         Decimal(1.0),
         slippage=10 * 100,
     )
-    assert usdc_per_eth == pytest.approx(Decimal(1896.4690757848006656))
+    assert usdc_per_eth == pytest.approx(Decimal(1877.504385026952658944))
 
 
 def test_estimate_buy_price_for_amount(
@@ -356,7 +412,7 @@ def test_estimate_buy_price_for_amount(
         Decimal(1.0),
         slippage=10 * 100,
     )
-    assert usdc_per_eth == pytest.approx(Decimal(1896.4690757848006656))
+    assert usdc_per_eth == pytest.approx(Decimal(1877.504385026952658944))
 
 
 def test_buy_sell_round_trip(

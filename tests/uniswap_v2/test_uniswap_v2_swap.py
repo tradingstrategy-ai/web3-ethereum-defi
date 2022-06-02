@@ -303,7 +303,7 @@ def test_swap_revert_with_slippage_protection(
 
     # user_2 makes a faster trade which moves the price
     router.functions.swapExactTokensForTokens(
-        85 * 10**18,
+        87 * 10**18,
         0,
         [usdc.address, weth.address],
         user_2,
@@ -513,7 +513,7 @@ def test_swap_three_way_revert(
 
     # user_2 makes a faster trade to buy DAI which moves the price
     router.functions.swapExactTokensForTokens(
-        int(0.05 * 10**18),
+        int(0.051 * 10**18),
         0,
         [weth.address, dai.address],
         user_2,

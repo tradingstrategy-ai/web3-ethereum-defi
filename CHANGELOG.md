@@ -1,3 +1,8 @@
+# Current
+
+- Fix: Correct slippage calculation to match official Uniswap v2 SDK
+
+
 # 0.9
 
 - Feature: [High speed Solidity Solidity events / eth_getLogs decoding](https://github.com/tradingstrategy-ai/web3-ethereum-defi/blob/master/scripts/read-uniswap-v2-pairs-and-swaps-concurrent.py)
