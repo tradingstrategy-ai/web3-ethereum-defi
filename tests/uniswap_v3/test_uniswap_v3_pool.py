@@ -7,6 +7,7 @@ from eth_defi.token import create_token
 from eth_defi.uniswap_v3.constants import DEFAULT_FEES
 from eth_defi.uniswap_v3.deployment import (
     UniswapV3Deployment,
+    add_liquidity,
     deploy_pool,
     deploy_uniswap_v3,
 )
@@ -131,9 +132,7 @@ def test_create_pool_with_initial_liquidity(
     weth: Contract,
     usdc: Contract,
 ):
-    """Deploy mock pool on Uniswap v3 with initial liquidity."""
-    initial_amount0 = 100
-    initial_amount1 = 200
+    """Add liquidity to the mock pool on Uniswap v3."""
     pool = deploy_pool(
         web3,
         deployer,
@@ -141,14 +140,35 @@ def test_create_pool_with_initial_liquidity(
         token0=weth,
         token1=usdc,
         fee=3000,
-        initial_amount0=initial_amount0,
-        initial_amount1=initial_amount1,
     )
 
-    # check if liquidity is there
-    liquidity = pool.functions.liquidity().call()
-    assert liquidity > 0
+    initial_amount0 = 1_000_000
+    initial_amount1 = 20_000_000
 
-    # check if sqrt price is changed
-    slot0 = pool.functions.slot0().call()
-    assert slot0[0] == encode_sqrt_ratio_x96(amount0=initial_amount0, amount1=initial_amount1)
+    tx_receipt, lower_tick, upper_tick = add_liquidity(
+        web3,
+        deployer,
+        deployment=uniswap_v3,
+        pool=pool,
+        amount0=initial_amount0,
+        amount1=initial_amount1,
+        lower_tick=100,
+        upper_tick=200,
+    )
+
+    # successfull
+    assert tx_receipt.status == 1
+
+    # [6617184536, 6617184536, 0, 0, 89874, 1020847100762815390390123822295304634368, 1654638644, True]
+    lower_liquid_gross, lower_liquid_net, *_, init = pool.functions.ticks(lower_tick).call()
+    assert init is True
+
+    # [6617184536, -6617184536, 0, 0, 89874, 1020847100762815390390123822295304634368, 1654638849, True]
+    upper_liquid_gross, upper_liquid_net, *_, init = pool.functions.ticks(upper_tick).call()
+    assert init is True
+    assert upper_liquid_gross == lower_liquid_gross
+    assert upper_liquid_net == -lower_liquid_net
+
+    # other tick should not be initialized
+    *_, init = pool.functions.ticks(lower_tick - 60).call()
+    assert init is False
