@@ -2,9 +2,20 @@
 import math
 from typing import Tuple
 
+from gql import Client, gql
+from gql.transport.requests import RequestsHTTPTransport
+
+from eth_defi.uniswap_v3.constants import (
+    DEFAULT_TICK_SPACINGS,
+    MAX_TICK,
+    MIN_TICK,
+    UNISWAP_V3_SUBGRAPH_URL,
+)
+
 from eth_typing import HexAddress
 
 from eth_defi.uniswap_v3.constants import DEFAULT_TICK_SPACINGS, MAX_TICK, MIN_TICK
+
 
 
 def encode_sqrt_ratio_x96(*, amount0: int, amount1: int) -> int:
@@ -84,6 +95,48 @@ def get_default_tick_range(fee: int) -> Tuple[int, int]:
     return min_tick, max_tick
 
 
+def tick_to_price(tick):
+    """Returns price corresponding to a tick"""
+    return 1.0001**tick
+
+
+def tick_to_sqrt_price(tick):
+    """Returns square root price corresponding to a tick"""
+    return tick_to_price(tick / 2)
+
+
+def get_token0_amount_in_range(liquidity, sp, sb):
+    """Returns token0 (base token) amount in a liquidity range
+
+    This is derived formula based on: https://atiselsts.github.io/pdfs/uniswap-v3-liquidity-math.pdf
+
+    :param liquidity: current virtual liquidity
+    :param sp: square root current price
+    :param sb: square root upper price
+    """
+    return liquidity * (sb - sp) / (sp * sb)
+
+
+def get_token1_amount_in_range(liquidity, sp, sa):
+    """Returns token1 (quote token) amount in a liquidity range
+
+    This is derived formula based on: https://atiselsts.github.io/pdfs/uniswap-v3-liquidity-math.pdf
+
+    :param liquidity: current virtual liquidity
+    :param sp: square root current price
+    :param sb: square root lower price
+    """
+    return liquidity * (sp - sa)
+
+
+def run_graphql_query(query: str, *, variables: dict = {}, api_url=UNISWAP_V3_SUBGRAPH_URL) -> dict:
+    """Run query on Uniswap v3 subgraph"""
+    transport = RequestsHTTPTransport(url=api_url, verify=True, retries=3)
+    graphql_client = Client(transport=transport, fetch_schema_from_transport=True)
+
+    return graphql_client.execute(gql(query), variable_values=variables)
+
+  
 def get_nearest_usable_tick(tick: int, fee: int):
     min_tick, max_tick = get_default_tick_range(fee)
     assert min_tick <= tick <= max_tick, "Tick out of bound"
@@ -97,3 +150,4 @@ def get_nearest_usable_tick(tick: int, fee: int):
         return rounded - tick_spacing
     else:
         return rounded
+

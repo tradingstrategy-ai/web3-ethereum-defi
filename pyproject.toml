@@ -23,6 +23,9 @@ psutil = "^5.9.0"
 eth-bloom = "^1.0.4"
 ujson = "^5.2.0"
 futureproof = "^0.3.1"
+tqdm = {version = "^4.64.0", optional = true}
+pandas = {version = "^1.4.2", optional = true}
+gql = {extras = ["requests"], version = "^3.3.0", optional = true}
 
 [tool.poetry.dev-dependencies]
 pytest = "^6.2.5"
@@ -36,6 +39,7 @@ flake8 = "^4.0.1"
 # See discussion https://github.com/python-poetry/poetry/issues/3348#issuecomment-726534462
 [tool.poetry.extras]
 docs = ["Sphinx", "sphinx-rtd-theme", "sphinx-sitemap", "sphinx-autodoc-typehints"]
+data = ["tqdm", "pandas", "gql"]
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]

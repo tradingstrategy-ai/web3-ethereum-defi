@@ -59,6 +59,8 @@ Uniswap v3 API documentation
    eth_defi.uniswap_v3.deployment
    eth_defi.uniswap_v3.constants
    eth_defi.uniswap_v3.utils
+   eth_defi.uniswap_v3.liquidity
+   eth_defi.uniswap_v3.events
    eth_defi.uniswap_v3.price
 
 High speed event reader documentation
