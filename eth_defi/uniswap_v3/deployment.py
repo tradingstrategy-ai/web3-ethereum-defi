@@ -21,7 +21,7 @@ from eth_typing import HexAddress
 from web3 import Web3
 from web3.contract import Contract
 
-from eth_defi.abi import get_abi_by_filename, get_contract
+from eth_defi.abi import get_abi_by_filename, get_contract, get_deployed_contract
 from eth_defi.deploy import deploy_contract
 from eth_defi.uniswap_v3.constants import (
     DEFAULT_FEES,
@@ -29,7 +29,7 @@ from eth_defi.uniswap_v3.constants import (
     UNISWAP_V3_FACTORY_BYTECODE,
     UNISWAP_V3_FACTORY_DEPLOYMENT_DATA,
 )
-from eth_defi.uniswap_v3.utils import encode_sqrt_ratio_x96, get_default_tick_range
+from eth_defi.uniswap_v3.utils import encode_sqrt_ratio_x96, get_nearest_usable_tick
 
 
 @dataclass(frozen=True)
@@ -54,6 +54,8 @@ class UniswapV3Deployment:
     #: Non-fungible position manager address.
     #: `See the Solidity source code <https://github.com/Uniswap/v3-periphery/blob/v1.0.0/contracts/NonfungiblePositionManager.sol>`__.
     position_manager: Contract
+
+    quoter: Contract
 
     # Pool contract proxy class.
     #: `See the Solidity source code <https://github.com/Uniswap/v3-core/blob/v1.0.0/contracts/UniswapV3Pool.sol>`__.
@@ -126,6 +128,14 @@ def deploy_uniswap_v3(
         nft_position_descriptor.address,
     )
 
+    quoter = deploy_contract(
+        web3,
+        "uniswap_v3/Quoter.json",
+        deployer,
+        factory.address,
+        weth.address,
+    )
+
     if give_weth:
         weth.functions.deposit().transact({"from": deployer, "value": give_weth * 10**18})
 
@@ -137,6 +147,7 @@ def deploy_uniswap_v3(
         weth=weth,
         swap_router=swap_router,
         position_manager=position_manager,
+        quoter=quoter,
         PoolContract=PoolContract,
     )
 
@@ -149,14 +160,8 @@ def deploy_pool(
     token0: Contract,
     token1: Contract,
     fee: int,
-    initial_amount0: int = 0,
-    initial_amount1: int = 0,
-    get_tick_range_fn: Optional[Callable[[int, int], Tuple[int, int]]] = None,
 ) -> Contract:
     """Deploy a new pool on Uniswap v3.
-
-    Assumes `deployer` has enough token balance to add the initial liquidity.
-    The deployer will also receive LP tokens for newly added liquidity.
 
     `See UniswapV3Factory.createPool() for details <https://github.com/Uniswap/v3-core/blob/v1.0.0/contracts/UniswapV3Factory.sol#L35>`_.
 
@@ -166,9 +171,6 @@ def deploy_pool(
     :param token0: Base token of the pool
     :param token1: Quote token of the pool
     :param fee: Fee of the pool
-    :param initial_amount0: Initial liquidity added for `token0`. Set zero if no liquidity will be added.
-    :param initial_amount1: Initial liquidity added for `token1`. Set zero if no liquidity will be added.
-    :param get_tick_range_fn: Function to return lower tick and upper tick based on given fee and sqrt_price_x96
     :return: Pool contract proxy
     """
 
@@ -186,48 +188,81 @@ def deploy_pool(
     pool_address = event0["args"]["pool"]
     pool = deployment.PoolContract(address=pool_address)
 
-    # provide initial liquidity
-    if initial_amount0 > 0 and initial_amount1 > 0:
-        assert token0.functions.balanceOf(deployer).call() > initial_amount0
-        assert token1.functions.balanceOf(deployer).call() > initial_amount1
-
-        # pool is locked until initialize with initial sqrtPriceX96
-        # https://github.com/Uniswap/v3-core/blob/v1.0.0/contracts/UniswapV3Pool.sol#L271
-        sqrt_price_x96 = encode_sqrt_ratio_x96(amount0=initial_amount0, amount1=initial_amount1)
-        tx_hash = pool.functions.initialize(sqrt_price_x96).transact({"from": deployer})
-
-        position_manager = deployment.position_manager
-        token0.functions.approve(position_manager.address, initial_amount0).transact({"from": deployer})
-        token1.functions.approve(position_manager.address, initial_amount1).transact({"from": deployer})
-
-        min_tick, max_tick = get_default_tick_range(fee)
-        if get_tick_range_fn:
-            lower_tick, upper_tick = get_tick_range_fn(fee, sqrt_price_x96)
-            # quickly validate tick range
-            assert lower_tick >= min_tick
-            assert upper_tick <= max_tick
-        else:
-            lower_tick, upper_tick = min_tick, max_tick
-
-        # mint initial position
-        # https://docs.uniswap.org/protocol/guides/providing-liquidity/mint-a-position
-        position_manager.functions.mint(
-            (
-                token0.address,
-                token1.address,
-                fee,
-                lower_tick,
-                upper_tick,
-                initial_amount0,
-                initial_amount1,
-                0,  # min amount0 desired, this is used as safety check
-                0,  # min amount1 desired, this is used as safety check
-                deployer,
-                FOREVER_DEADLINE,
-            )
-        ).transact({"from": deployer})
-
     return pool
+
+
+def add_liquidity(
+    web3: Web3,
+    deployer: HexAddress,
+    *,
+    deployment: UniswapV3Deployment,
+    pool: Contract,
+    amount0: int,
+    amount1: int,
+    lower_tick: int,
+    upper_tick: int,
+) -> tuple[dict, int, int]:
+    """Add liquidity to a pool.
+
+    `See Uniswap V3 documentation for details <https://docs.uniswap.org/protocol/guides/providing-liquidity/mint-a-position>`_.
+
+    :param web3: Web3 instance
+    :param deployer: Deployer account
+    :param deployment: Uniswap v3 deployment
+    :param pool: Pool contract proxy
+    :param amount0: Amount of `token0` to be added
+    :param amount1: Amount of `token1` to be added
+    :param lower_tick: Lower tick of the position
+    :param upper_tick: Upper tick of the position
+    :return:
+        - tx_receipt: Transaction receipt of the mint transaction
+        - lower_tick: Corrected lower tick of the position with correct tick spacing
+        - upper_tick: Corrected upper tick of the position with correct tick spacing
+    """
+    token0_address = pool.functions.token0().call()
+    token1_address = pool.functions.token1().call()
+    token0 = get_deployed_contract(web3, "ERC20MockDecimals.json", token0_address)
+    token1 = get_deployed_contract(web3, "ERC20MockDecimals.json", token1_address)
+
+    assert token0.functions.balanceOf(deployer).call() > amount0
+    assert token1.functions.balanceOf(deployer).call() > amount1
+
+    # since provided lower and upper tick might not be correct (due to tick spacing), we
+    fee = pool.functions.fee().call()
+    lower_tick = get_nearest_usable_tick(lower_tick, fee)
+    upper_tick = get_nearest_usable_tick(upper_tick, fee)
+    assert lower_tick < upper_tick, "Upper tick is too close to lower tick"
+
+    # pool is locked until initialize with initial sqrtPriceX96
+    # https://github.com/Uniswap/v3-core/blob/v1.0.0/contracts/UniswapV3Pool.sol#L271
+    *_, initialized = pool.functions.slot0().call()
+    if initialized is False:
+        sqrt_price_x96 = encode_sqrt_ratio_x96(amount0=amount0, amount1=amount1)
+        pool.functions.initialize(sqrt_price_x96).transact({"from": deployer})
+
+    position_manager = deployment.position_manager
+    token0.functions.approve(position_manager.address, amount0).transact({"from": deployer})
+    token1.functions.approve(position_manager.address, amount1).transact({"from": deployer})
+
+    # mint a new position
+    tx_hash = position_manager.functions.mint(
+        (
+            token0.address,
+            token1.address,
+            fee,
+            lower_tick,
+            upper_tick,
+            amount0,
+            amount1,
+            0,  # min amount0 desired, this is used as safety check
+            0,  # min amount1 desired, this is used as safety check
+            deployer,
+            FOREVER_DEADLINE,
+        )
+    ).transact({"from": deployer})
+    tx_receipt = web3.eth.get_transaction_receipt(tx_hash)
+
+    return tx_receipt, lower_tick, upper_tick
 
 
 def _deploy_nft_position_descriptor(web3: Web3, deployer: HexAddress, weth: Contract):
