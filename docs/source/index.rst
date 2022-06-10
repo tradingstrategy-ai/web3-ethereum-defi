@@ -27,11 +27,12 @@ Core API documentation
    eth_defi.deploy
    eth_defi.event
    eth_defi.gas
-   eth_defi.txmonitor
+   eth_defi.confirmation
    eth_defi.revert_reason
    eth_defi.hotwallet
    eth_defi.ganache
    eth_defi.middleware
+   eth_defi.tx
    eth_defi.utils
 
 Uniswap v2 API documentation
@@ -60,6 +61,7 @@ Uniswap v3 API documentation
    eth_defi.uniswap_v3.utils
    eth_defi.uniswap_v3.liquidity
    eth_defi.uniswap_v3.events
+   eth_defi.uniswap_v3.price
 
 High speed event reader documentation
 =====================================

@@ -12,6 +12,11 @@ from eth_defi.uniswap_v3.constants import (
     UNISWAP_V3_SUBGRAPH_URL,
 )
 
+from eth_typing import HexAddress
+
+from eth_defi.uniswap_v3.constants import DEFAULT_TICK_SPACINGS, MAX_TICK, MIN_TICK
+
+
 
 def encode_sqrt_ratio_x96(*, amount0: int, amount1: int) -> int:
     """Returns the sqrt ratio as a Q64.96 corresponding to a given ratio of amount1 and amount0
@@ -26,6 +31,40 @@ def encode_sqrt_ratio_x96(*, amount0: int, amount1: int) -> int:
     denominator: int = amount0
     ratio_x192: int = numerator // denominator
     return int(math.sqrt(ratio_x192))
+
+
+def encode_path(
+    path: list[HexAddress],
+    fees: list,
+    exact_output: bool = False,
+) -> bytes:
+    """Encode the routing path to be suitable to use with Quoter and SwapRouter.
+
+    For example if we would like to route the swap from token1 -> token3 through 2 pools:
+        * pool1: token1/token2
+        * pool2: token2/token3
+    then encoded path would have this format: `token1 - pool1's fee - token2 - pool2's - token3`,
+    in which each token address length is 20 bytes and fee length is 3 bytes
+
+    `Read more <https://github.com/Uniswap/v3-periphery/blob/22a7ead071fff53f00d9ddc13434f285f4ed5c7d/contracts/libraries/Path.sol>`__.
+
+    :param path: List of token addresses how to route the trade
+    :param fees: List of trading fees of the pools in the route
+    :param exact_output: Whether the encoded path be used for exactOutput quote or swap
+    """
+    assert len(fees) == len(path) - 1
+
+    if exact_output:
+        path.reverse()
+        fees.reverse()
+
+    encoded = b""
+    for index, token in enumerate(path):
+        encoded += bytes.fromhex(token[2:])
+        if token != path[-1]:
+            encoded += int.to_bytes(fees[index], 3, "big")
+
+    return encoded
 
 
 def get_min_tick(fee: int) -> int:
@@ -96,3 +135,19 @@ def run_graphql_query(query: str, *, variables: dict = {}, api_url=UNISWAP_V3_SU
     graphql_client = Client(transport=transport, fetch_schema_from_transport=True)
 
     return graphql_client.execute(gql(query), variable_values=variables)
+
+  
+def get_nearest_usable_tick(tick: int, fee: int):
+    min_tick, max_tick = get_default_tick_range(fee)
+    assert min_tick <= tick <= max_tick, "Tick out of bound"
+
+    tick_spacing = DEFAULT_TICK_SPACINGS[fee]
+    rounded = round(tick / tick_spacing) * tick_spacing
+
+    if rounded < min_tick:
+        return rounded + tick_spacing
+    elif rounded > max_tick:
+        return rounded - tick_spacing
+    else:
+        return rounded
+

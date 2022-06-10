@@ -4,7 +4,7 @@
 
 [![Documentation Status](https://readthedocs.org/projects/web3-ethereum-defi/badge/?version=latest)](https://web3-ethereum-defi.readthedocs.io/en/latest/?badge=latest)
 
-# Web3 Ethereum Defi
+# Web3-Ethereum-Defi
 
 This project contains common Ethereum smart contracts and utilities, 
 for trading, wallets,automated test suites and backend integrations for EVM based blockchains.  
@@ -17,16 +17,14 @@ for trading, wallets,automated test suites and backend integrations for EVM base
    * [Uniswap v2 trade example](#uniswap-v2-trade-example)
    * [Uniswap v2 price estimation example](#uniswap-v2-price-estimation-example)
    * [How to use the library in your Python project](#how-to-use-the-library-in-your-python-project)
-* [Development](#development)
-   * [Build requirements](#build-requirements)
-   * [Make](#make)
+* [Documentation](#documentation)
+* [Development and contributing](#development-and-contributing)
 * [Version history](#version-history)
 * [Social media](#social-media)
 * [Notes](#notes)
 * [History](#history)
-* [License](#license)
 
-![Pepe chooses Web3 Ethereum DeFi and Python](https://raw.githubusercontent.com/tradingstrategy-ai/web3-ethereum-defi/master/docs/source/_static/pepe.jpg)
+![Pepe chooses Web3-Ethereum-DeFi and Python](https://raw.githubusercontent.com/tradingstrategy-ai/web3-ethereum-defi/master/docs/source/_static/pepe.jpg)
 
 **Pepe chooses web3-ethereum-defi and Python**.
 
@@ -245,9 +243,13 @@ Using [Poetry](https://python-poetry.org/):
 poetry add -D web3-ethereum-defi
 ```
 
+# Documentation
+
+- [Browse Sphinx API documentation](https://web3-ethereum-defi.readthedocs.io/).
+
 # Development and contributing
 
-[Read development instructions](https://web3-ethereum-defi.readthedocs.io/development.html).
+- [Read development instructions](https://web3-ethereum-defi.readthedocs.io/development.html).
 
 # Version history
 

@@ -1,10 +1,19 @@
 # Current
 
-- Feature: High speed Solidity event (log) decoding
-- Feature: JSON-RPC retry middleware with sleep and backoff
+- Feature: Added Uniswap V3 price helper (both single hop and multi hops)
+- API change: Moved Uniswap V3 `add_liquidity` to its own function
+- Fix: Correct slippage calculation to match official Uniswap v2 SDK
+
+# 0.9
+
+- Feature: [High speed Solidity events / eth_getLogs fetching and decoding](https://github.com/tradingstrategy-ai/web3-ethereum-defi/blob/master/scripts/read-uniswap-v2-pairs-and-swaps-concurrent.py)
+- Feature: [JSON-RPC retry middleware with sleep and backoff](https://web3-ethereum-defi.readthedocs.io/_autosummary/eth_defi.middleware.http_retry_request_with_sleep_middleware.html#eth_defi.middleware.http_retry_request_with_sleep_middleware)
+- Feature: Added [decode_signed_transaction](https://web3-ethereum-defi.readthedocs.io/_autosummary/eth_defi.tx.decode_signed_transaction.html#eth_defi.tx.decode_signed_transaction) with EIP-2718 and EIP-2930 tx support
+- Feature: Added `estimate_buy_received_amount_raw` and `estimate_sell_received_amount_raw`
 - Fix: pairFor could give a wrong address for trading pair 
 - Fix: Cosmetic API improvements and fixes, with more asserts 
-- Feature: Added `estimate_buy_received_amount_raw` and `estimate_sell_received_amount_raw`
+- API change: Split `analyse_trade` -> `analyse_trade_by_hash` and `analyse_trade_by_receipt`
+- API change: Rename module `txmonitor` -> `confirmation`
 
 # 0.8
 
