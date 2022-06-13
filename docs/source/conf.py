@@ -18,7 +18,7 @@
 # -- Project information -----------------------------------------------------
 
 project = "Web3 Ethereum Defi"
-copyright = "2022, Mikko Ohtamaa"
+copyright = "2022, Market Software Ltd"
 author = "Mikko Ohtamaa"
 
 
@@ -34,6 +34,8 @@ extensions = [
     "sphinx.ext.autosummary",
     # https://github.com/tox-dev/sphinx-autodoc-typehints/issues/216
     # sphinx_autodoc_typehints'
+    'nbsphinx',
+    "sphinx.ext.intersphinx",
 ]
 
 # Add any paths that contain templates here, relative to this directory.
@@ -57,7 +59,6 @@ html_theme = "sphinx_rtd_theme"
 # so a file named "default.css" will overwrite the builtin "default.css".
 html_static_path = ["_static"]
 
-
 autodoc_class_signature = "separated"
 
 autodoc_typehints = "description"
@@ -77,3 +78,25 @@ html_context = {
 
 # Don't conflict with RTD supplied sitemap
 sitemap_filename = "sitemap-generated.xml"
+
+
+#
+# All notebooks in documentation needs an API key and must be pre-executed
+# https://nbsphinx.readthedocs.io/en/0.8.6/never-execute.html
+#
+nbsphinx_execute = 'never'
+
+nbsphinx_prolog = """
+
+.. raw:: html
+
+    <script src='http://cdnjs.cloudflare.com/ajax/libs/require.js/2.1.10/require.min.js'></script>
+    <script>require=requirejs;</script>
+
+.. image:: https://colab.research.google.com/assets/colab-badge.svg
+   :target: https://colab.research.google.com/github/tradingstrategy-ai/trading-strategy/blob/master/docs/source/{{ env.doc2path(env.docname, base=None) }}
+
+.. raw:: html
+
+   <hr width=100% size=1>   
+"""

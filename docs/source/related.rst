@@ -1,9 +1,10 @@
 Related projects
 ================
 
-* `Python Hentai <https://pypi.org/project/hentai/>`_ - This python package implements a wrapper class around nhentai's RESTful API
+* `Python Hentai <https://pypi.org/project/hentai/>`_ - This python package implements a wrapper class around nhentai's RESTful API.
+  `web3-ethereum-defi` package was earlier known `eth-hentai`.
 
-* `Brownie <https://github.com/eth-brownie/brownie>`_
+* `Brownie <https://github.com/eth-brownie/brownie>`_ - smart contract development framwork with Bitcoin
 
 * `uniswap-python <https://github.com/uniswap-python/uniswap-python>`_
 

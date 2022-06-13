@@ -26,6 +26,7 @@ futureproof = "^0.3.1"
 tqdm = {version = "^4.64.0", optional = true}
 pandas = {version = "^1.4.2", optional = true}
 gql = {extras = ["requests"], version = "^3.3.0", optional = true}
+nbsphinx = {version = "^0.8.9", extras = ["docs"]}
 
 [tool.poetry.dev-dependencies]
 pytest = "^6.2.5"
