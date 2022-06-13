@@ -240,7 +240,8 @@ Add `web3-ethereum-defi` as a development dependency:
 Using [Poetry](https://python-poetry.org/):
 
 ```shell
-poetry add -D web3-ethereum-defi
+# Data optional dependencies include pandas and gql, needed to fetch Uniswap v3 data
+poetry add -D "web3-ethereum-defi[data]"
 ```
 
 # Documentation

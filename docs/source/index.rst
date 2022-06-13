@@ -81,7 +81,8 @@ Tutorials
 .. toctree::
    :maxdepth: 1
 
-   transfer
+   tutorials/transfer
+
 
 Other documentation
 ===================

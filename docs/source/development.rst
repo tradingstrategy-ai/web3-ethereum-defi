@@ -39,7 +39,7 @@ Install the project with Poetry in development mode:
 
     cd web3-ethereum-defi
     poetry shell  # Enter to Poetry/virtualenv enabled shell
-    poetry install -E docs
+    poetry install -E docs,data
 
 Note that `-E docs` is important, otherwise Sphinx package won't be installed and you cannot build docs.
 
