@@ -2,6 +2,7 @@
 import math
 from typing import Tuple
 
+from eth_typing import HexAddress
 from gql import Client, gql
 from gql.transport.requests import RequestsHTTPTransport
 
@@ -11,11 +12,6 @@ from eth_defi.uniswap_v3.constants import (
     MIN_TICK,
     UNISWAP_V3_SUBGRAPH_URL,
 )
-
-from eth_typing import HexAddress
-
-from eth_defi.uniswap_v3.constants import DEFAULT_TICK_SPACINGS, MAX_TICK, MIN_TICK
-
 
 
 def encode_sqrt_ratio_x96(*, amount0: int, amount1: int) -> int:
@@ -43,6 +39,7 @@ def encode_path(
     For example if we would like to route the swap from token1 -> token3 through 2 pools:
         * pool1: token1/token2
         * pool2: token2/token3
+
     then encoded path would have this format: `token1 - pool1's fee - token2 - pool2's - token3`,
     in which each token address length is 20 bytes and fee length is 3 bytes
 
@@ -136,7 +133,7 @@ def run_graphql_query(query: str, *, variables: dict = {}, api_url=UNISWAP_V3_SU
 
     return graphql_client.execute(gql(query), variable_values=variables)
 
-  
+
 def get_nearest_usable_tick(tick: int, fee: int):
     min_tick, max_tick = get_default_tick_range(fee)
     assert min_tick <= tick <= max_tick, "Tick out of bound"
@@ -150,4 +147,3 @@ def get_nearest_usable_tick(tick: int, fee: int):
         return rounded - tick_spacing
     else:
         return rounded
-
