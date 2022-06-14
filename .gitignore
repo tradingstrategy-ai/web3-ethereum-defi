@@ -15,7 +15,7 @@ dist
 
 # docs
 docs/build
-docs/source/_autosummary*
+docs/source/**/_autosummary*
 
 # Some read-uniswap-v2-pairs.py dynamic files
 uni-v2-last-block-state.txt
