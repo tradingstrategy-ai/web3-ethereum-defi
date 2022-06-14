@@ -1,5 +1,5 @@
-Developing web3-ethereum-defi
-=============================
+Developer guide
+===============
 
 Here are instructions for new developers how to get started with the development of `web3-ethereum-defi <https://github.com/tradingstrategy-ai/web3-ethereum-defi>`_ package.
 
