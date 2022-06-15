@@ -6,6 +6,7 @@ Currently we are tracking these events:
     - Mint
     - Burn
 """
+import logging
 import csv
 import datetime
 from pathlib import Path
@@ -23,10 +24,14 @@ from eth_defi.event_reader.conversion import (
 )
 from eth_defi.event_reader.logresult import LogContext
 from eth_defi.event_reader.reader import LogResult, read_events_concurrent
+from eth_defi.event_reader.state import ScanState
 from eth_defi.event_reader.web3factory import TunedWeb3Factory
 from eth_defi.event_reader.web3worker import create_thread_pool_executor
 from eth_defi.token import TokenDetails, fetch_erc20_details
 from eth_defi.uniswap_v3.constants import UNISWAP_V3_FACTORY_CREATED_AT_BLOCK
+
+
+logger = logging.getLogger(__name__)
 
 
 class TokenCache(LogContext):
@@ -280,23 +285,35 @@ def get_event_mapping(web3: Web3) -> dict:
 
 def fetch_events_to_csv(
     json_rpc_url: str,
+    state: ScanState,
     start_block: int = UNISWAP_V3_FACTORY_CREATED_AT_BLOCK,
     end_block: int = UNISWAP_V3_FACTORY_CREATED_AT_BLOCK + 1000,
     output_folder: str = "/tmp",
+    max_workers: int = 12,
 ):
     """Fetch all tracked Uniswap v3 events to CSV files
 
     :param json_rpc_url: JSON-RPC URL
     :param start_block: First block to process (inclusive), default is block 12369621 (when Uniswap v3 factory was created on mainnet)
     :param end_block: Last block to process (inclusive), default is block 12370621 (1000 block after default start block)
+    :param state: Store the current scan state, so we can resume
     :param output_folder: Folder to contain output CSV files, default is /tmp folder
+    :param max_workers: How many threads to allocate for JSON-RPC IO
     """
     token_cache = TokenCache()
     web3_factory = TunedWeb3Factory(json_rpc_url)
     web3 = web3_factory(token_cache)
-    executor = create_thread_pool_executor(web3_factory, token_cache, max_workers=12)
+    executor = create_thread_pool_executor(web3_factory, token_cache, max_workers=max_workers)
     event_mapping = get_event_mapping(web3)
     contract_events = [event_data["contract_event"] for event_data in event_mapping.values()]
+
+    # Start scannig
+    restored, start_block = state.restore_state(start_block)
+
+    if restored:
+        logger.info("No previous scan done, starting fresh from block %d", start_block)
+    else:
+        logger.info("Restored previous scan state, we have data until block %d", start_block)
 
     # prepare local buffers and files
     buffers = {}
@@ -347,6 +364,9 @@ def fetch_events_to_csv(
                 for entry in buffer:
                     buffer_data["csv_writer"].writerow(entry)
                     buffer_data["total"] += 1
+
+                # Sync the state of updated events
+                state.save_state(current_block)
 
                 # then reset buffer
                 buffer = []
