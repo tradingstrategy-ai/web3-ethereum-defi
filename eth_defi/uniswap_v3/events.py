@@ -10,6 +10,7 @@ import csv
 import datetime
 from pathlib import Path
 
+from requests.adapters import HTTPAdapter
 from tqdm import tqdm
 from web3 import Web3
 
@@ -283,6 +284,7 @@ def fetch_events_to_csv(
     start_block: int = UNISWAP_V3_FACTORY_CREATED_AT_BLOCK,
     end_block: int = UNISWAP_V3_FACTORY_CREATED_AT_BLOCK + 1000,
     output_folder: str = "/tmp",
+    threads: int = 16,
 ):
     """Fetch all tracked Uniswap v3 events to CSV files
 
@@ -290,11 +292,13 @@ def fetch_events_to_csv(
     :param start_block: First block to process (inclusive), default is block 12369621 (when Uniswap v3 factory was created on mainnet)
     :param end_block: Last block to process (inclusive), default is block 12370621 (1000 block after default start block)
     :param output_folder: Folder to contain output CSV files, default is /tmp folder
+    :param threads: The number of threads to use to concurrently fetch and decode the events, default is 16 threads
     """
     token_cache = TokenCache()
-    web3_factory = TunedWeb3Factory(json_rpc_url)
+    http_adapter = HTTPAdapter(pool_connections=threads, pool_maxsize=threads)
+    web3_factory = TunedWeb3Factory(json_rpc_url, http_adapter)
     web3 = web3_factory(token_cache)
-    executor = create_thread_pool_executor(web3_factory, token_cache, max_workers=12)
+    executor = create_thread_pool_executor(web3_factory, token_cache, max_workers=threads)
     event_mapping = get_event_mapping(web3)
     contract_events = [event_data["contract_event"] for event_data in event_mapping.values()]
 
