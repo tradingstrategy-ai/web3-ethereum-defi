@@ -14,19 +14,21 @@ import os
 
 import pytest
 import requests
-
-from eth_defi.abi import get_contract
-from eth_defi.event_reader.conversion import convert_uint256_string_to_address, decode_data, \
-    convert_uint256_bytes_to_address
-from eth_defi.event_reader.fast_json_rpc import patch_web3
-from eth_defi.event_reader.logresult import LogContext, LogResult
+from requests.adapters import HTTPAdapter
 from web3 import HTTPProvider, Web3
 
+from eth_defi.abi import get_contract
+from eth_defi.event_reader.conversion import (
+    convert_uint256_bytes_to_address,
+    convert_uint256_string_to_address,
+    decode_data,
+)
+from eth_defi.event_reader.fast_json_rpc import patch_web3
+from eth_defi.event_reader.logresult import LogContext, LogResult
 from eth_defi.event_reader.reader import read_events, read_events_concurrent
 from eth_defi.event_reader.web3factory import TunedWeb3Factory
 from eth_defi.event_reader.web3worker import create_thread_pool_executor
-from eth_defi.token import fetch_erc20_details, TokenDetails
-
+from eth_defi.token import TokenDetails, fetch_erc20_details
 
 pytestmark = pytest.mark.skipif(
     os.environ.get("JSON_RPC_URL") is None,
@@ -162,9 +164,11 @@ def test_read_events_concurrent():
 
     json_rpc_url = os.environ["JSON_RPC_URL"]
     token_cache = TokenCache()
-    web3_factory = TunedWeb3Factory(json_rpc_url)
+    threads = 16
+    http_adapter = HTTPAdapter(pool_connections=threads, pool_maxsize=threads)
+    web3_factory = TunedWeb3Factory(json_rpc_url, http_adapter)
     web3 = web3_factory(token_cache)
-    executor = create_thread_pool_executor(web3_factory, token_cache, max_workers=16)
+    executor = create_thread_pool_executor(web3_factory, token_cache, max_workers=threads)
 
     # Get contracts
     Factory = get_contract(web3, "UniswapV2Factory.json")
