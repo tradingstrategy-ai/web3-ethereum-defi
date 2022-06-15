@@ -11,14 +11,13 @@ For further reading see:
 import logging
 import threading
 from dataclasses import dataclass
-from typing import Iterable, List, Protocol, Dict, Optional, Callable
+from typing import Callable, Dict, Iterable, List, Optional, Protocol
 
+import futureproof
 from eth_bloom import BloomFilter
-
+from futureproof import ThreadPoolExecutor
 from web3 import Web3
 from web3.contract import ContractEvent
-import futureproof
-from futureproof import ThreadPoolExecutor
 
 from eth_defi.event_reader.logresult import LogContext, LogResult
 from eth_defi.event_reader.web3worker import get_worker_web3
@@ -46,15 +45,16 @@ class ProgressUpdate(Protocol):
     Hook this up with `tqdm` for an interactive progress bar.
     """
 
-    def __call__(self,
-                 current_block: int,
-                 start_block: int,
-                 end_block: int,
-                 chunk_size: int,
-                 total_events: int,
-                 last_timestamp: Optional[int],
-                 context: LogContext,
-                 ):
+    def __call__(
+        self,
+        current_block: int,
+        start_block: int,
+        end_block: int,
+        chunk_size: int,
+        total_events: int,
+        last_timestamp: Optional[int],
+        context: LogContext,
+    ):
         """
         :param current_block:
             The block we are about to scan.
@@ -81,9 +81,9 @@ class ProgressUpdate(Protocol):
 
 
 def extract_timestamps_json_rpc(
-        web3: Web3,
-        start_block: int,
-        end_block: int,
+    web3: Web3,
+    start_block: int,
+    end_block: int,
 ) -> Dict[str, int]:
     """Get block timestamps from block headers.
 
@@ -106,12 +106,12 @@ def extract_timestamps_json_rpc(
 
 
 def extract_events(
-        web3: Web3,
-        start_block: int,
-        end_block: int,
-        filter: Filter,
-        context: Optional[LogContext] = None,
-        extract_timestamps: Optional[Callable] = extract_timestamps_json_rpc,
+    web3: Web3,
+    start_block: int,
+    end_block: int,
+    filter: Filter,
+    context: Optional[LogContext] = None,
+    extract_timestamps: Optional[Callable] = extract_timestamps_json_rpc,
 ) -> Iterable[LogResult]:
     """Perform eth_getLogs call over a block range.
 
@@ -167,11 +167,11 @@ def extract_events(
 
 
 def extract_events_concurrent(
-        start_block: int,
-        end_block: int,
-        filter: Filter,
-        context: Optional[LogContext] = None,
-        extract_timestamps: Optional[Callable] = extract_timestamps_json_rpc,
+    start_block: int,
+    end_block: int,
+    filter: Filter,
+    context: Optional[LogContext] = None,
+    extract_timestamps: Optional[Callable] = extract_timestamps_json_rpc,
 ) -> List[LogResult]:
     """Concurrency happy event extractor.
 
@@ -358,9 +358,11 @@ def read_events_concurrent(
 
         json_rpc_url = os.environ["JSON_RPC_URL"]
         token_cache = TokenCache()
-        web3_factory = TunedWeb3Factory(json_rpc_url)
+        threads = 16
+        http_adapter = requests.adapters.HTTPAdapter(pool_connections=threads, pool_maxsize=threads)
+        web3_factory = TunedWeb3Factory(json_rpc_url, http_adapter)
         web3 = web3_factory(token_cache)
-        executor = create_thread_pool_executor(web3_factory, context=token_cache, max_workers=16)
+        executor = create_thread_pool_executor(web3_factory, context=token_cache, max_workers=threads)
 
         # Get contracts
         Factory = get_contract(web3, "UniswapV2Factory.json")
@@ -428,7 +430,13 @@ def read_events_concurrent(
 
     for block_num in range(start_block, end_block + 1, chunk_size):
         last_of_chunk = min(end_block, block_num + chunk_size)
-        task_list[block_num] = (block_num, last_of_chunk, filter, context, extract_timestamps,)
+        task_list[block_num] = (
+            block_num,
+            last_of_chunk,
+            filter,
+            context,
+            extract_timestamps,
+        )
 
     # Run all tasks and handle backpressure
     tm.map(extract_events_concurrent, list(task_list.values()))

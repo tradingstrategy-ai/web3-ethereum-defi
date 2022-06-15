@@ -4,7 +4,8 @@
 from typing import Protocol
 
 import requests
-from web3 import Web3, HTTPProvider
+from requests.adapters import HTTPAdapter
+from web3 import HTTPProvider, Web3
 
 from eth_defi.event_reader.fast_json_rpc import patch_web3
 from eth_defi.event_reader.logresult import LogContext
@@ -17,17 +18,16 @@ class Web3Factory(Protocol):
     When each worker is initialised, the factory is called to get JSON-RPC connection.
     """
 
-    def __call__(self,
-                 context: LogContext,
-                 ) -> Web3:
+    def __call__(self, context: LogContext) -> Web3:
         pass
 
 
 class TunedWeb3Factory(Web3Factory):
     """Create a connection"""
 
-    def __init__(self, json_rpc_url):
+    def __init__(self, json_rpc_url: str, http_adapter: HTTPAdapter):
         self.json_rpc_url = json_rpc_url
+        self.http_adapter = http_adapter
 
     def __call__(self, context: LogContext) -> Web3:
         """Create a new Web3 connection.
@@ -39,6 +39,7 @@ class TunedWeb3Factory(Web3Factory):
 
         # Reuse HTTPS session for HTTP 1.1 keep-alive
         session = requests.Session()
+        session.mount("https://", self.http_adapter)
 
         web3 = Web3(HTTPProvider(self.json_rpc_url, session=session))
 

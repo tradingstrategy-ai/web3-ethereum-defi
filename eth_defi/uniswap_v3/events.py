@@ -11,6 +11,7 @@ import csv
 import datetime
 from pathlib import Path
 
+from requests.adapters import HTTPAdapter
 from tqdm import tqdm
 from web3 import Web3
 
@@ -289,7 +290,7 @@ def fetch_events_to_csv(
     start_block: int = UNISWAP_V3_FACTORY_CREATED_AT_BLOCK,
     end_block: int = UNISWAP_V3_FACTORY_CREATED_AT_BLOCK + 1000,
     output_folder: str = "/tmp",
-    max_workers: int = 12,
+    max_workers: int = 16,
 ):
     """Fetch all tracked Uniswap v3 events to CSV files
 
@@ -301,7 +302,8 @@ def fetch_events_to_csv(
     :param max_workers: How many threads to allocate for JSON-RPC IO
     """
     token_cache = TokenCache()
-    web3_factory = TunedWeb3Factory(json_rpc_url)
+    http_adapter = HTTPAdapter(pool_connections=threads, pool_maxsize=threads)
+    web3_factory = TunedWeb3Factory(json_rpc_url, http_adapter)
     web3 = web3_factory(token_cache)
     executor = create_thread_pool_executor(web3_factory, token_cache, max_workers=max_workers)
     event_mapping = get_event_mapping(web3)
