@@ -1,0 +1,44 @@
+{
+  "_format": "hh-sol-artifact-1",
+  "contractName": "UniswapV3PoolDeployer",
+  "sourceName": "contracts/UniswapV3PoolDeployer.sol",
+  "abi": [
+    {
+      "inputs": [],
+      "name": "parameters",
+      "outputs": [
+        {
+          "internalType": "address",
+          "name": "factory",
+          "type": "address"
+        },
+        {
+          "internalType": "address",
+          "name": "token0",
+          "type": "address"
+        },
+        {
+          "internalType": "address",
+          "name": "token1",
+          "type": "address"
+        },
+        {
+          "internalType": "uint24",
+          "name": "fee",
+          "type": "uint24"
+        },
+        {
+          "internalType": "int24",
+          "name": "tickSpacing",
+          "type": "int24"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    }
+  ],
+  "bytecode": "0x608060405234801561001057600080fd5b5060f78061001f6000396000f3fe6080604052348015600f57600080fd5b506004361060285760003560e01c80638903573014602d575b600080fd5b60336082565b6040805173ffffffffffffffffffffffffffffffffffffffff96871681529486166020860152929094168383015262ffffff16606083015260029290920b608082015290519081900360a00190f35b6000546001546002805473ffffffffffffffffffffffffffffffffffffffff938416939283169281169162ffffff7401000000000000000000000000000000000000000083041691770100000000000000000000000000000000000000000000009004900b8556fea164736f6c6343000706000a",
+  "deployedBytecode": "0x6080604052348015600f57600080fd5b506004361060285760003560e01c80638903573014602d575b600080fd5b60336082565b6040805173ffffffffffffffffffffffffffffffffffffffff96871681529486166020860152929094168383015262ffffff16606083015260029290920b608082015290519081900360a00190f35b6000546001546002805473ffffffffffffffffffffffffffffffffffffffff938416939283169281169162ffffff7401000000000000000000000000000000000000000083041691770100000000000000000000000000000000000000000000009004900b8556fea164736f6c6343000706000a",
+  "linkReferences": {},
+  "deployedLinkReferences": {}
+}

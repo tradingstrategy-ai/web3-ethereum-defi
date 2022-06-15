@@ -11,6 +11,6 @@ Examples how to use Web-Ethereum-Defi
    :maxdepth: 1
 
    transfer
-   uniswap-v3-liquidity
-   uniswap-v3-price
+   uniswap-v3-liquidity-analysis
+   uniswap-v3-price-analysis
 

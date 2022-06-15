@@ -1,0 +1,30 @@
+{
+  "_format": "hh-sol-artifact-1",
+  "contractName": "IMasterChefV2",
+  "sourceName": "contracts/mocks/CloneRewarderTimeDual.sol",
+  "abi": [
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "pid",
+          "type": "uint256"
+        }
+      ],
+      "name": "lpToken",
+      "outputs": [
+        {
+          "internalType": "contract IERC20",
+          "name": "_lpToken",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    }
+  ],
+  "bytecode": "0x",
+  "deployedBytecode": "0x",
+  "linkReferences": {},
+  "deployedLinkReferences": {}
+}
