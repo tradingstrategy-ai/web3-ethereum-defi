@@ -12,7 +12,7 @@ import datetime
 from pathlib import Path
 
 from requests.adapters import HTTPAdapter
-from tqdm import tqdm
+from tqdm.autonotebook import tqdm
 from web3 import Web3
 
 from eth_defi.abi import get_contract
@@ -294,6 +294,8 @@ def fetch_events_to_csv(
 ):
     """Fetch all tracked Uniswap v3 events to CSV files
 
+    A progress bar and estimation on completion is rendered for console / Jupyter notebook using `tqdm`.
+
     :param json_rpc_url: JSON-RPC URL
     :param start_block: First block to process (inclusive), default is block 12369621 (when Uniswap v3 factory was created on mainnet)
     :param end_block: Last block to process (inclusive), default is block 12370621 (1000 block after default start block)
@@ -302,7 +304,7 @@ def fetch_events_to_csv(
     :param max_workers: How many threads to allocate for JSON-RPC IO
     """
     token_cache = TokenCache()
-    http_adapter = HTTPAdapter(pool_connections=threads, pool_maxsize=threads)
+    http_adapter = HTTPAdapter(pool_connections=max_workers, pool_maxsize=max_workers)
     web3_factory = TunedWeb3Factory(json_rpc_url, http_adapter)
     web3 = web3_factory(token_cache)
     executor = create_thread_pool_executor(web3_factory, token_cache, max_workers=max_workers)
