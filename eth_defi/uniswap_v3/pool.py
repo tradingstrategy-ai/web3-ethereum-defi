@@ -28,7 +28,7 @@ class PoolDetails:
     fee: float
 
     def __repr__(self):
-        return f"Pool {self.address} is {self.pool_details.token0.symbol}-{self.pool_details.token1.symbol}, with the fee {self.pool_details.fee * 100:.04f}%"
+        return f"Pool {self.address} is {self.token0.symbol}-{self.token1.symbol}, with the fee {self.fee * 100:.04f}%"
 
     def convert_price_to_human(self, tick: int, reverse_token_order=False):
         """Convert the price obtained through
@@ -43,9 +43,9 @@ class PoolDetails:
         raw_price = 1.0001**tick
 
         if reverse_token_order:
-            return raw_price / 10**self.token1.decimals
+            return (1/raw_price) / 10**(self.token0.decimals - self.token1.decimals)
         else:
-            return raw_price / 10**self.token0.decimals
+            return raw_price / 10**(self.token0.decimals - self.token1.decimals)
 
 
 def fetch_pool_details(web3, pool_contact_address: Union[str, HexAddress]) -> PoolDetails:
@@ -65,5 +65,3 @@ def fetch_pool_details(web3, pool_contact_address: Union[str, HexAddress]) -> Po
         raw_fee,
         raw_fee / 1_000_000,
     )
-
-

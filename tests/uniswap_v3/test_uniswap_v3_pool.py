@@ -209,11 +209,11 @@ def test_convert_price_to_human(
         web3,
         deployer,
         deployment=uniswap_v3,
-        token0=weth,
-        token1=usdc,
+        token0=usdc,
+        token1=weth,
         fee=3000,
     )
 
     details = fetch_pool_details(web3, pool.address)
     tick = 195298  # Fetched from Uni v3 USDC/WETH by hand
-    assert details.convert_price_to_human(tick, True) == pytest.approx(302.872830814394)
+    assert details.convert_price_to_human(tick, False) == pytest.approx(302.872830814394)

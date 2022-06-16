@@ -8,10 +8,11 @@ from typing import Optional
 import pandas as pd
 
 
-def convert_to_ohlc_candles(
+def convert_to_ohlcv_candles(
         df: pd.DataFrame,
         time_bucket: pd.Timedelta = pd.Timedelta("1D"),
         price_column: str="price",
+        value_column: str="value",
         timestamp_index_column: Optional[str]="timestamp",
 ) -> pd.DataFrame:
     """Create OHLCV candles based on raw trade events.
@@ -20,7 +21,6 @@ def convert_to_ohlc_candles(
         If given then convert this timestamp column to an index.
         It can contain ISO8601 string timestamp, or be a timestamp column.
     """
-
 
     # https://pandas.pydata.org/docs/reference/api/pandas.DataFrame.resample.html
     # https://pandas.pydata.org/docs/reference/api/pandas.core.resample.Resampler.ohlc.html
@@ -33,4 +33,5 @@ def convert_to_ohlc_candles(
         df = df.set_index(timestamp_index_column, drop=False)
 
     candles = df[price_column].resample(time_bucket).ohlc(_method='ohlc')
+    candles["volume"] = df[value_column].resample(time_bucket).sum()
     return candles
