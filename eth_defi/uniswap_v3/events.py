@@ -293,7 +293,17 @@ def fetch_events_to_csv(
     max_workers: int = 16,
     log_info=print,
 ):
-    """Fetch all tracked Uniswap v3 events to CSV files
+    """Fetch all tracked Uniswap v3 events to CSV files for notebook analysis.
+
+    Creates couple of CSV files with the event data:
+
+    - `/tmp/uniswap-v3-swap.csv`
+
+    - `/tmp/uniswap-v3-poolcreated.csv`
+
+    - `/tmp/uniswap-v3-mint.csv`
+
+    - `/tmp/uniswap-v3-burn.csv`
 
     A progress bar and estimation on the completion is rendered for console / Jupyter notebook using `tqdm`.
 
@@ -330,17 +340,21 @@ def fetch_events_to_csv(
     else:
         log_info(f"No previous scan done, starting fresh from block {start_block:,}, total {original_block_range:,} blocks", )
 
-
-    # prepare local buffers and files
+    # Prepare local buffers and files.
+    # Buffers is a context dictionary that is passed around
+    # by the event scanner.
     buffers = {}
+
     for event_name, mapping in event_mapping.items():
-        file_path = f"{output_folder}/uniswapv3-{event_name}.csv"
-        is_file_exists = Path(file_path).exists()
+        file_path = f"{output_folder}/uniswap-v3-{event_name.lower()}.csv"
+        exists_already = Path(file_path).exists()
         file_handler = open(file_path, "a")
         csv_writer = csv.DictWriter(file_handler, fieldnames=mapping["field_names"])
-        if not is_file_exists:
+        if not exists_already:
             csv_writer.writeheader()
 
+        # For each event, we have its own
+        # counters and handlers in the context dictionary
         buffers[event_name] = {
             "buffer": [],
             "total": 0,
@@ -373,6 +387,7 @@ def fetch_events_to_csv(
 
             progress_bar.update(chunk_size)
 
+            # Update event specific contexes
             for buffer_data in buffers.values():
                 buffer = buffer_data["buffer"]
 
