@@ -291,17 +291,27 @@ def fetch_events_to_csv(
     end_block: int = UNISWAP_V3_FACTORY_CREATED_AT_BLOCK + 1000,
     output_folder: str = "/tmp",
     max_workers: int = 16,
+    log_info=print,
 ):
     """Fetch all tracked Uniswap v3 events to CSV files
 
-    A progress bar and estimation on completion is rendered for console / Jupyter notebook using `tqdm`.
+    A progress bar and estimation on the completion is rendered for console / Jupyter notebook using `tqdm`.
+
+    The scan be resumed using `state` storage to retrieve the last scanned block number from the previous round.
+    However, the mechanism here is no perfect and only good for notebook use - for advanced
+    persistent usage like database backed scans, please write your own scan loop using proper transaction management.
 
     :param json_rpc_url: JSON-RPC URL
     :param start_block: First block to process (inclusive), default is block 12369621 (when Uniswap v3 factory was created on mainnet)
     :param end_block: Last block to process (inclusive), default is block 12370621 (1000 block after default start block)
     :param state: Store the current scan state, so we can resume
     :param output_folder: Folder to contain output CSV files, default is /tmp folder
-    :param max_workers: How many threads to allocate for JSON-RPC IO
+    :param max_workers:
+        How many threads to allocate for JSON-RPC IO.
+        You can increase your EVM node output a bit by making a lot of parallel requests,
+        until you exhaust your nodes IO capacity. Experiement with different values
+        and see how your node performs.
+    :param log_info: Which function to use to output info messages about the progress
     """
     token_cache = TokenCache()
     http_adapter = HTTPAdapter(pool_connections=max_workers, pool_maxsize=max_workers)
@@ -311,13 +321,15 @@ def fetch_events_to_csv(
     event_mapping = get_event_mapping(web3)
     contract_events = [event_data["contract_event"] for event_data in event_mapping.values()]
 
-    # Start scannig
-    restored, start_block = state.restore_state(start_block)
+    # Start scanning
+    restored, restored_start_block = state.restore_state(start_block)
+    original_block_range = end_block - start_block
 
     if restored:
-        logger.info("No previous scan done, starting fresh from block %d", start_block)
+        log_info(f"Restored previous scan state, data until block {restored_start_block:,}, we are skipping {restored_start_block - start_block:,} blocks out of {original_block_range:,} total")
     else:
-        logger.info("Restored previous scan state, we have data until block %d", start_block)
+        log_info(f"No previous scan done, starting fresh from block {start_block:,}, total {original_block_range:,} blocks", )
+
 
     # prepare local buffers and files
     buffers = {}
@@ -336,8 +348,8 @@ def fetch_events_to_csv(
             "csv_writer": csv_writer,
         }
 
-    print(f"Starting to read block range {start_block:,} - {end_block:,}")
-    with tqdm(total=end_block - start_block) as progress_bar:
+    log_info(f"Scanning block range {restored_start_block:,} - {end_block:,}")
+    with tqdm(total=end_block - restored_start_block) as progress_bar:
         #  1. update the progress bar
         #  2. save any events in the buffer in to a file in one go
         def update_progress(
@@ -355,7 +367,7 @@ def fetch_events_to_csv(
                 # Display progress with the date information
                 d = datetime.datetime.utcfromtimestamp(last_timestamp)
                 formatted_time = d.strftime("%d-%m-%Y")
-                progress_bar.set_description(f"Block: {current_block:,}, events: {total_events:}, time:{formatted_time}")
+                progress_bar.set_description(f"Block: {current_block:,}, events: {total_events:,}, time:{formatted_time}")
             else:
                 progress_bar.set_description(f"Block: {current_block:,}, events: {total_events:,}")
 
@@ -369,16 +381,16 @@ def fetch_events_to_csv(
                     buffer_data["csv_writer"].writerow(entry)
                     buffer_data["total"] += 1
 
-                # Sync the state of updated events
-                state.save_state(current_block)
-
                 # then reset buffer
-                buffer = []
+                buffer_data["buffer"] = []
+
+            # Sync the state of updated events
+            state.save_state(current_block)
 
         # Read specified events in block range
         for log_result in read_events_concurrent(
             executor,
-            start_block,
+            restored_start_block,
             end_block,
             events=contract_events,
             notify=update_progress,
@@ -398,4 +410,4 @@ def fetch_events_to_csv(
     # close files and print stats
     for event_name, buffer in buffers.items():
         buffer["file_handler"].close()
-        print(f"Wrote {buffer['total']} {event_name} events")
+        log_info(f"Wrote {buffer['total']} {event_name} events")
