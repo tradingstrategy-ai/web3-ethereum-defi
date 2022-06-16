@@ -28,9 +28,9 @@ def convert_to_ohlc_candles(
     # https://pandas.pydata.org/docs/reference/api/pandas.Timedelta.html
     # https://stackoverflow.com/questions/47365575/pandas-resampling-hourly-ohlc-to-daily-ohlc
 
-    #
     if timestamp_index_column:
         df['timestamp'] = pd.to_datetime(df['timestamp'])
         df = df.set_index(timestamp_index_column, drop=False)
 
-    return df.resample(time_bucket).ohlc(_method='ohlc')
+    candles = df[price_column].resample(time_bucket).ohlc(_method='ohlc')
+    return candles

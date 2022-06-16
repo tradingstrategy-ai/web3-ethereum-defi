@@ -11,6 +11,7 @@ from eth_defi.uniswap_v3.deployment import (
     deploy_pool,
     deploy_uniswap_v3,
 )
+from eth_defi.uniswap_v3.pair import fetch_pool_details
 from eth_defi.uniswap_v3.utils import encode_sqrt_ratio_x96
 
 
@@ -172,3 +173,26 @@ def test_create_pool_with_initial_liquidity(
     # other tick should not be initialized
     *_, init = pool.functions.ticks(lower_tick - 60).call()
     assert init is False
+
+
+def test_fetch_pool_details(
+    web3: Web3,
+    deployer: str,
+    uniswap_v3: UniswapV3Deployment,
+    weth: Contract,
+    usdc: Contract,
+):
+    """Get Uniswap v3 pool info."""
+    pool = deploy_pool(
+        web3,
+        deployer,
+        deployment=uniswap_v3,
+        token0=weth,
+        token1=usdc,
+        fee=3000,
+    )
+
+    details = fetch_pool_details(web3, pool.address)
+    assert details.token0.symbol == "WETH"
+    assert details.token1.symbol == "USDC"
+    assert details.fee == pytest.approx(0.0030)
