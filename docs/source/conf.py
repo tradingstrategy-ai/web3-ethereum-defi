@@ -4,17 +4,6 @@
 # list see the documentation:
 # https://www.sphinx-doc.org/en/master/usage/configuration.html
 
-# -- Path setup --------------------------------------------------------------
-
-# If extensions (or modules to document with autodoc) are in another directory,
-# add these directories to sys.path here. If the directory is relative to the
-# documentation root, use os.path.abspath to make it absolute, like shown here.
-#
-# import os
-# import sys
-# sys.path.insert(0, os.path.abspath('.'))
-
-
 # -- Project information -----------------------------------------------------
 
 
@@ -47,7 +36,6 @@ templates_path = ["_templates"]
 # directories to ignore when looking for source files.
 # This pattern also affects html_static_path and html_extra_path.
 exclude_patterns = []
-
 
 # -- Options for HTML output -------------------------------------------------
 
@@ -83,29 +71,33 @@ html_context = {
 # Don't conflict with RTD supplied sitemap
 sitemap_filename = "sitemap-generated.xml"
 
-
 #
 # All notebooks in documentation needs an API key and must be pre-executed
 # https://nbsphinx.readthedocs.io/en/0.8.6/never-execute.html
 #
 nbsphinx_execute = 'never'
 
-## [![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/tradingstrategy-ai/web3-ethereum-defi/master?labpath=docs/source/tutorials
-
 nbsphinx_prolog = """
 
 .. raw:: html
-
-    <script src='http://cdnjs.cloudflare.com/ajax/libs/require.js/2.1.10/require.min.js'></script>
+    
+    <script src='https://cdnjs.cloudflare.com/ajax/libs/require.js/2.1.10/require.min.js'></script>
     <script>require=requirejs;</script>
+    <script src='https://cdnjs.cloudflare.com/ajax/libs/require.js/2.1.10/require.min.js'></script>
 
-.. image:: https://mybinder.org/badge_logo.svg
-   :target: https://mybinder.org/v2/gh/tradingstrategy-ai/web3-ethereum-defi/master?labpath=docs/source/{{ env.doc2path(env.docname, base=None) }}
-
-.. raw:: html
-
-   <hr width=100% size=1>   
+    <a style="display: block; margin-top: 1.5rem" href="https://mybinder.org/v2/gh/tradingstrategy-ai/web3-ethereum-defi/master?labpath=docs/source/{{ env.doc2path(env.docname, base=None) }}">
+        <img src="https://mybinder.org/badge_logo.svg">
+    </a>    
 """
+
+# Grabbed from https://github.com/pandas-dev/pandas/blob/master/doc/source/conf.py
+intersphinx_mapping = {
+    "pandas": ("http://pandas.pydata.org/pandas-docs/dev", None),
+    "matplotlib": ("https://matplotlib.org/stable/", None),
+    "numpy": ("https://numpy.org/doc/stable/", None),
+    "py": ("https://pylib.readthedocs.io/en/latest/", None),
+    "python": ("https://docs.python.org/3/", None),
+}
 
 
 # Monkey-patch autosummary template context
