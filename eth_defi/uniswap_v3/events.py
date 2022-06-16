@@ -11,6 +11,7 @@ import csv
 import datetime
 from pathlib import Path
 
+import pandas as pd
 from requests.adapters import HTTPAdapter
 from tqdm.autonotebook import tqdm
 from web3 import Web3
@@ -310,6 +311,10 @@ def fetch_events_to_csv(
     The scan be resumed using `state` storage to retrieve the last scanned block number from the previous round.
     However, the mechanism here is no perfect and only good for notebook use - for advanced
     persistent usage like database backed scans, please write your own scan loop using proper transaction management.
+
+    .. note ::
+
+        Any Ethereum address is lowercased in the resulting dataset and is not checksummed.
 
     :param json_rpc_url: JSON-RPC URL
     :param start_block: First block to process (inclusive), default is block 12369621 (when Uniswap v3 factory was created on mainnet)

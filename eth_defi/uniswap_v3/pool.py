@@ -10,6 +10,7 @@ from eth_defi.token import TokenDetails, fetch_erc20_details
 
 @dataclass
 class PoolDetails:
+    """Uniswap v3 trading pool info."""
 
     #: Pool address
     address: HexAddress
@@ -25,6 +26,26 @@ class PoolDetails:
 
     #: Pool fee as % multiplier, 1 = 100%
     fee: float
+
+    def __repr__(self):
+        return f"Pool {self.pool_address} is {self.pool_details.token0.symbol}-{self.pool_details.token1.symbol}, with the fee {self.pool_details.fee * 100:.04f}%"
+
+    def convert_price_to_human(self, tick: int, reverse_token_order=False):
+        """Convert the price obtained through
+
+        :param tick:
+            Logarithmic tick from the Uniswap pool
+
+        :param reverse_token_order:
+            For natural base - quote token order. If set,
+            assume quote token is token0.
+        """
+        raw_price = 1.0001**tick
+
+        if reverse_token_order:
+            return raw_price / 10**self.token1.decimals
+        else:
+            return raw_price / 10**self.token0.decimals
 
 
 def fetch_pool_details(web3, pool_contact_address: Union[str, HexAddress]) -> PoolDetails:
