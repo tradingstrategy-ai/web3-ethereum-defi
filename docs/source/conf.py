@@ -90,6 +90,8 @@ sitemap_filename = "sitemap-generated.xml"
 #
 nbsphinx_execute = 'never'
 
+## [![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/tradingstrategy-ai/web3-ethereum-defi/master?labpath=docs/source/tutorials
+
 nbsphinx_prolog = """
 
 .. raw:: html
@@ -97,8 +99,8 @@ nbsphinx_prolog = """
     <script src='http://cdnjs.cloudflare.com/ajax/libs/require.js/2.1.10/require.min.js'></script>
     <script>require=requirejs;</script>
 
-.. image:: https://colab.research.google.com/assets/colab-badge.svg
-   :target: https://colab.research.google.com/github/tradingstrategy-ai/trading-strategy/blob/master/docs/source/{{ env.doc2path(env.docname, base=None) }}
+.. image:: https://mybinder.org/badge_logo.svg
+   :target: https://mybinder.org/v2/gh/tradingstrategy-ai/web3-ethereum-defi/master?labpath=docs/source/{{ env.doc2path(env.docname, base=None) }}
 
 .. raw:: html
 
