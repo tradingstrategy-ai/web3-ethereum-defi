@@ -1,10 +1,16 @@
-"""Uniswap v3 events.
+"""Uniswap v3 event reader.
+
+Efficiently read Uniswap v3 from a blockchain.
 
 Currently we are tracking these events:
-    - PoolCreated
-    - Swap
-    - Mint
-    - Burn
+
+- PoolCreated
+
+- Swap
+
+- Mint
+
+- Burn
 """
 import logging
 import csv
@@ -12,16 +18,16 @@ import datetime
 from pathlib import Path
 
 from requests.adapters import HTTPAdapter
-from tqdm.autonotebook import tqdm
+from tqdm.auto import tqdm
 from web3 import Web3
 
 from eth_defi.abi import get_contract
 from eth_defi.event_reader.conversion import (
     convert_uint256_bytes_to_address,
-    convert_uint256_bytes_to_int,
     convert_uint256_string_to_address,
     convert_uint256_string_to_int,
     decode_data,
+    convert_int256_bytes_to_int,
 )
 from eth_defi.event_reader.logresult import LogContext
 from eth_defi.event_reader.reader import LogResult, read_events_concurrent
@@ -128,11 +134,11 @@ def decode_swap(log: LogResult) -> dict:
     result.update(
         {
             "pool_contract_address": log["address"],
-            "amount0": convert_uint256_bytes_to_int(amount0),
-            "amount1": convert_uint256_bytes_to_int(amount1),
-            "sqrt_price_x96": convert_uint256_bytes_to_int(sqrt_price_x96),
-            "liquidity": convert_uint256_bytes_to_int(liquidity),
-            "tick": convert_uint256_bytes_to_int(tick, signed=True),
+            "amount0": convert_int256_bytes_to_int(amount0, signed=True),
+            "amount1": convert_int256_bytes_to_int(amount1, signed=True),
+            "sqrt_price_x96": convert_int256_bytes_to_int(sqrt_price_x96),
+            "liquidity": convert_int256_bytes_to_int(liquidity),
+            "tick": convert_int256_bytes_to_int(tick, signed=True),
         }
     )
     return result
@@ -163,9 +169,9 @@ def decode_mint(log: LogResult) -> dict:
             "pool_contract_address": log["address"],
             "tick_lower": convert_uint256_string_to_int(tick_lower, signed=True),
             "tick_upper": convert_uint256_string_to_int(tick_upper, signed=True),
-            "amount": convert_uint256_bytes_to_int(amount),
-            "amount0": convert_uint256_bytes_to_int(amount0),
-            "amount1": convert_uint256_bytes_to_int(amount1),
+            "amount": convert_int256_bytes_to_int(amount),
+            "amount0": convert_int256_bytes_to_int(amount0),
+            "amount1": convert_int256_bytes_to_int(amount1),
         }
     )
     return result
@@ -195,9 +201,9 @@ def decode_burn(log: LogResult) -> dict:
             "pool_contract_address": log["address"],
             "tick_lower": convert_uint256_string_to_int(tick_lower, signed=True),
             "tick_upper": convert_uint256_string_to_int(tick_upper, signed=True),
-            "amount": convert_uint256_bytes_to_int(amount),
-            "amount0": convert_uint256_bytes_to_int(amount0),
-            "amount1": convert_uint256_bytes_to_int(amount1),
+            "amount": convert_int256_bytes_to_int(amount),
+            "amount0": convert_int256_bytes_to_int(amount0),
+            "amount1": convert_int256_bytes_to_int(amount1),
         }
     )
     return result
@@ -310,6 +316,10 @@ def fetch_events_to_csv(
     The scan be resumed using `state` storage to retrieve the last scanned block number from the previous round.
     However, the mechanism here is no perfect and only good for notebook use - for advanced
     persistent usage like database backed scans, please write your own scan loop using proper transaction management.
+
+    .. note ::
+
+        Any Ethereum address is lowercased in the resulting dataset and is not checksummed.
 
     :param json_rpc_url: JSON-RPC URL
     :param start_block: First block to process (inclusive), default is block 12369621 (when Uniswap v3 factory was created on mainnet)

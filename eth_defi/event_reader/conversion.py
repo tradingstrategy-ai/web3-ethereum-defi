@@ -26,8 +26,12 @@ def convert_uint256_bytes_to_address(raw: bytes) -> ChecksumAddress:
     return Web3.toChecksumAddress(raw[12:])
 
 
-def convert_uint256_bytes_to_int(bytes32: bytes, *, signed: bool = False) -> int:
-    """Convert raw bytes32 from log data to addresses uints."""
+def convert_int256_bytes_to_int(bytes32: bytes, *, signed: bool = False) -> int:
+    """Convert raw bytes32 from log data to addresses ints.
+
+    :param signed:
+        Default to unsigned uint256. Set true for int256.
+    """
     return int.from_bytes(bytes32, "big", signed=signed)
 
 

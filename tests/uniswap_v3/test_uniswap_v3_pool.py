@@ -11,7 +11,7 @@ from eth_defi.uniswap_v3.deployment import (
     deploy_pool,
     deploy_uniswap_v3,
 )
-from eth_defi.uniswap_v3.utils import encode_sqrt_ratio_x96
+from eth_defi.uniswap_v3.pool import fetch_pool_details
 
 
 @pytest.fixture
@@ -64,7 +64,7 @@ def usdc(web3, deployer) -> Contract:
 
     Note that this token has 18 decimals instead of 6 of real USDC.
     """
-    token = create_token(web3, deployer, "USD Coin", "USDC", 100_000_000 * 10**18)
+    token = create_token(web3, deployer, "USD Coin", "USDC", 100_000_000 * 10**6, decimals=6)
     return token
 
 
@@ -172,3 +172,49 @@ def test_create_pool_with_initial_liquidity(
     # other tick should not be initialized
     *_, init = pool.functions.ticks(lower_tick - 60).call()
     assert init is False
+
+
+def test_fetch_pool_details(
+    web3: Web3,
+    deployer: str,
+    uniswap_v3: UniswapV3Deployment,
+    weth: Contract,
+    usdc: Contract,
+):
+    """Get Uniswap v3 pool info."""
+    pool = deploy_pool(
+        web3,
+        deployer,
+        deployment=uniswap_v3,
+        token0=weth,
+        token1=usdc,
+        fee=3000,
+    )
+
+    details = fetch_pool_details(web3, pool.address)
+    assert details.token0.symbol == "WETH"
+    assert details.token1.symbol == "USDC"
+    assert details.fee == pytest.approx(0.0030)
+
+
+def test_convert_price_to_human(
+    web3: Web3,
+    deployer: str,
+    uniswap_v3: UniswapV3Deployment,
+    weth: Contract,
+    usdc: Contract,
+):
+    """Convert Uniswap v3 tick prices to human prices."""
+    pool = deploy_pool(
+        web3,
+        deployer,
+        deployment=uniswap_v3,
+        token0=usdc,
+        token1=weth,
+        fee=3000,
+    )
+
+    details = fetch_pool_details(web3, pool.address)
+    tick = 195298  # Fetched from Uni v3 USDC/WETH by hand
+    # TODO: Fix
+    # assert details.convert_price_to_human(tick, False) == pytest.approx(302.872830814394)

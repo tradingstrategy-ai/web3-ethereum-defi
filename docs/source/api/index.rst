@@ -38,6 +38,7 @@ Uniswap v2 API
    eth_defi.uniswap_v2.utils
    eth_defi.uniswap_v2.swap
    eth_defi.uniswap_v2.liquidity
+   eth_defi.uniswap_v2.token_tax
 
 Uniswap v3 API
 --------------
@@ -52,6 +53,7 @@ Uniswap v3 API
    eth_defi.uniswap_v3.liquidity
    eth_defi.uniswap_v3.events
    eth_defi.uniswap_v3.price
+   eth_defi.uniswap_v3.pool
 
 Solidity event and log reader
 -----------------------------
