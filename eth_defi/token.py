@@ -31,10 +31,19 @@ class TokenDetails:
     Any field can be None for non-wellformed tokens.
     """
 
+    #: The underlying ERC-20 contract proxy class instance
     contract: Contract
+
+    #: Token name e.g. `USD Circle`
     name: Optional[str] = None
+
+    #: Token symbol e.g. `USDC`
     symbol: Optional[str] = None
+
+    #: Token supply as raw units
     total_supply: Optional[int] = None
+
+    #: Number of decimals
     decimals: Optional[int] = None
 
     def __repr__(self):
@@ -42,6 +51,7 @@ class TokenDetails:
 
     @property
     def address(self) -> HexAddress:
+        """The address of this token."""
         return self.contract.address
 
     def convert_to_decimals(self, raw_amount: int) -> Decimal:

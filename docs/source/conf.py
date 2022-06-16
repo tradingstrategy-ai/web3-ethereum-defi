@@ -17,6 +17,7 @@
 
 # -- Project information -----------------------------------------------------
 
+
 project = "Web3 Ethereum Defi"
 copyright = "2022, Market Software Ltd"
 author = "Mikko Ohtamaa"
@@ -32,6 +33,7 @@ extensions = [
     "sphinx_sitemap",
     "sphinx.ext.autodoc",
     "sphinx.ext.autosummary",
+    "sphinx.ext.viewcode",
     # https://github.com/tox-dev/sphinx-autodoc-typehints/issues/216
     # sphinx_autodoc_typehints'
     'nbsphinx',
@@ -52,7 +54,7 @@ exclude_patterns = []
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes.
 #
-html_theme = "sphinx_rtd_theme"
+html_theme = "furo"
 
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,
@@ -60,6 +62,8 @@ html_theme = "sphinx_rtd_theme"
 html_static_path = ["_static"]
 
 autodoc_class_signature = "separated"
+
+autodoc_member_order = "bysource"
 
 autodoc_typehints = "description"
 
@@ -100,3 +104,21 @@ nbsphinx_prolog = """
 
    <hr width=100% size=1>   
 """
+
+
+# Monkey-patch autosummary template context
+from sphinx.ext.autosummary.generate import AutosummaryRenderer
+
+
+def smart_fullname(fullname):
+    parts = fullname.split(".")
+    return ".".join(parts[1:])
+
+
+def fixed_init(self, app, template_dir=None):
+    AutosummaryRenderer.__old_init__(self, app, template_dir)
+    self.env.filters["smart_fullname"] = smart_fullname
+
+
+AutosummaryRenderer.__old_init__ = AutosummaryRenderer.__init__
+AutosummaryRenderer.__init__ = fixed_init
