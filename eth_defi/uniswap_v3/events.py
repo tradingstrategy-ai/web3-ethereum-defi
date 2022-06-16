@@ -1,28 +1,33 @@
-"""Uniswap v3 events.
+"""Uniswap v3 event reader.
+
+Efficiently read Uniswap v3 from a blockchain.
 
 Currently we are tracking these events:
-    - PoolCreated
-    - Swap
-    - Mint
-    - Burn
+
+- PoolCreated
+
+- Swap
+
+- Mint
+
+- Burn
 """
 import logging
 import csv
 import datetime
 from pathlib import Path
 
-import pandas as pd
 from requests.adapters import HTTPAdapter
-from tqdm.autonotebook import tqdm
+from tqdm.auto import tqdm
 from web3 import Web3
 
 from eth_defi.abi import get_contract
 from eth_defi.event_reader.conversion import (
     convert_uint256_bytes_to_address,
-    convert_int256_bytes_to_int,
     convert_uint256_string_to_address,
     convert_uint256_string_to_int,
-    decode_data, convert_int256_bytes_to_int,
+    decode_data,
+    convert_int256_bytes_to_int,
 )
 from eth_defi.event_reader.logresult import LogContext
 from eth_defi.event_reader.reader import LogResult, read_events_concurrent
