@@ -45,7 +45,7 @@ class PoolDetails:
         if reverse_token_order:
             return (1/raw_price) / 10**(self.token0.decimals - self.token1.decimals)
         else:
-            return raw_price / 10**(self.token0.decimals - self.token1.decimals)
+            return raw_price / 10**(self.token1.decimals - self.token0.decimals)
 
 
 def fetch_pool_details(web3, pool_contact_address: Union[str, HexAddress]) -> PoolDetails:
