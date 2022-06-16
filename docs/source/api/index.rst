@@ -55,6 +55,16 @@ Uniswap v3 API
    eth_defi.uniswap_v3.price
    eth_defi.uniswap_v3.pool
 
+Data research and science
+-------------------------
+
+.. autosummary::
+   :toctree: _autosummary_research
+   :recursive:
+
+   eth_defi.research.candle
+
+
 Solidity event and log reader
 -----------------------------
 

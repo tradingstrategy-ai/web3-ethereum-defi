@@ -1,6 +1,7 @@
-"""Create OHLCV candle diagrams.
+"""Create OHLCV candle charts.
 
 Allows analysing of cryptocurrency price data in notebooks.
+Create OHLCV charts out from :py:class:`pandas.DataFrame` price data.
 """
 
 from typing import Optional
@@ -17,9 +18,28 @@ def convert_to_ohlcv_candles(
 ) -> pd.DataFrame:
     """Create OHLCV candles based on raw trade events.
 
+    :param df:
+        Input data frame.
+
+    :param time_bucket:
+        What's the duration of a single candle.
+
+    :param price_column:
+        The dataframe column containing the price of a trade.
+        Used to generate `open`, `high`, `low` and `close` columns.
+
+    :param value_colum:
+        The dataframe column containing the price of a trade.
+        Used to generate `volume` column.
+
     :param timestamp_index_column:
         If given then convert this timestamp column to an index.
         It can contain ISO8601 string timestamp, or be a timestamp column.
+
+    :return:
+        :py:class:`pd.DataFrame` with
+        `open`, `high`, `low`, `close` and `volume` columns.
+        Index is resampled timestamp.
     """
 
     # https://pandas.pydata.org/docs/reference/api/pandas.DataFrame.resample.html
@@ -29,7 +49,7 @@ def convert_to_ohlcv_candles(
     # https://stackoverflow.com/questions/47365575/pandas-resampling-hourly-ohlc-to-daily-ohlc
 
     if timestamp_index_column:
-        df['timestamp'] = pd.to_datetime(df['timestamp'])
+        df[timestamp_index_column] = pd.to_datetime(df[timestamp_index_column])
         df = df.set_index(timestamp_index_column, drop=False)
 
     candles = df[price_column].resample(time_bucket).ohlc(_method='ohlc')
