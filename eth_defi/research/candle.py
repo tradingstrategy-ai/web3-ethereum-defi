@@ -18,6 +18,14 @@ def convert_to_ohlcv_candles(
 ) -> pd.DataFrame:
     """Create OHLCV candles based on raw trade events.
 
+    Example:
+
+    .. code-block:: python
+
+        candles = convert_to_ohlcv_candles(df, time_bucket=pd.Timedelta("4h"))
+
+    See :ref:`the full example in Uniswap v3 OHLCV notebook </tutorials/uniswap-v3-price-analysis.ipynb>`.
+
     :param df:
         Input data frame.
 
@@ -28,7 +36,7 @@ def convert_to_ohlcv_candles(
         The dataframe column containing the price of a trade.
         Used to generate `open`, `high`, `low` and `close` columns.
 
-    :param value_colum:
+    :param value_column:
         The dataframe column containing the price of a trade.
         Used to generate `volume` column.
 
