@@ -28,7 +28,7 @@ class PoolDetails:
     fee: float
 
     def __repr__(self):
-        return f"Pool {self.pool_address} is {self.pool_details.token0.symbol}-{self.pool_details.token1.symbol}, with the fee {self.pool_details.fee * 100:.04f}%"
+        return f"Pool {self.address} is {self.pool_details.token0.symbol}-{self.pool_details.token1.symbol}, with the fee {self.pool_details.fee * 100:.04f}%"
 
     def convert_price_to_human(self, tick: int, reverse_token_order=False):
         """Convert the price obtained through
