@@ -122,6 +122,24 @@
     {%- endif %}
   {%- endblock %}
   {%- block extrahead %} {% endblock %}
+
+  {#
+
+    Plotly uses require.js for asynchronous JavaScript loading.
+
+    Here we will define the require.js config and tell
+    nbsphinx embedded <script> tags from where to load Plotly.
+
+  #}
+  <script type="text/javascript" src="{{ pathto('_static/require.js', 1) }}"></script>
+  <script>
+    require.config({
+      paths: {
+          plotly: '{{ pathto("_static/plotly", 1) }}'
+      }g
+    });
+  </script>
+
 </head>
 
 <body class="wy-body-for-nav">

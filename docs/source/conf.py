@@ -77,13 +77,16 @@ sitemap_filename = "sitemap-generated.xml"
 #
 nbsphinx_execute = 'never'
 
+#     <script src='https://cdnjs.cloudflare.com/ajax/libs/require.js/2.1.10/require.min.js'></script>
+#     <script>require=requirejs;</script>
+#     <script src='https://cdnjs.cloudflare.com/ajax/libs/plotly.js/1.33.1/plotly.min.js'></script>
+
+
 nbsphinx_prolog = """
+
 
 .. raw:: html
     
-    <script src='https://cdnjs.cloudflare.com/ajax/libs/require.js/2.1.10/require.min.js'></script>
-    <script>require=requirejs;</script>
-    <script src='https://cdnjs.cloudflare.com/ajax/libs/plotly.js/1.33.1/plotly.min.js'></script>
 
     <a style="display: block; margin-top: 1.5rem" href="https://mybinder.org/v2/gh/tradingstrategy-ai/web3-ethereum-defi/master?labpath=docs/source/{{ env.doc2path(env.docname, base=None) }}">
         <img src="https://mybinder.org/badge_logo.svg">
