@@ -25,7 +25,7 @@ extensions = [
     "sphinx.ext.viewcode",
     # https://github.com/tox-dev/sphinx-autodoc-typehints/issues/216
     # sphinx_autodoc_typehints'
-    'nbsphinx',
+    "nbsphinx",
     "sphinx.ext.intersphinx",
 ]
 
@@ -75,8 +75,7 @@ sitemap_filename = "sitemap-generated.xml"
 # All notebooks in documentation needs an API key and must be pre-executed
 # https://nbsphinx.readthedocs.io/en/0.8.6/never-execute.html
 #
-nbsphinx_execute = 'never'
-
+nbsphinx_execute = "never"
 
 #     <script src='https://cdnjs.cloudflare.com/ajax/libs/require.js/2.1.10/require.min.js'></script>
 #     <script>require=requirejs;</script>
@@ -104,15 +103,16 @@ intersphinx_mapping = {
 }
 
 html_js_files = [
-    'require.js',
-    'plotly-2.12.1.min.js',
+    "require.js",
+    # 'plotly-2.12.1.min.js',
+    "custom.js",
 ]
 
-#nbsphinx_requirejs_options = {
-#	"src": "https://cdnjs.cloudflare.com/ajax/libs/require.js/2.1.10/require.min.js",
-#	"integrity": "sha512-VCK7oF67GXNc+J7zsu5o57jtxhLA75nSMHGaq8Q8TCOxDj4nMDw5dhQZvm9Cd9RN+3zgcodqbKcRc9gyPP8a2w==",
-#	"crossorigin": "anonymous"
-#}
+# nbsphinx_requirejs_options = {
+# 	"src": "https://cdnjs.cloudflare.com/ajax/libs/require.js/2.1.10/require.min.js",
+# 	"integrity": "sha512-VCK7oF67GXNc+J7zsu5o57jtxhLA75nSMHGaq8Q8TCOxDj4nMDw5dhQZvm9Cd9RN+3zgcodqbKcRc9gyPP8a2w==",
+# 	"crossorigin": "anonymous"
+# }
 
 # Monkey-patch autosummary template context
 from sphinx.ext.autosummary.generate import AutosummaryRenderer
