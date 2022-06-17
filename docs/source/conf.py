@@ -77,6 +77,7 @@ sitemap_filename = "sitemap-generated.xml"
 #
 nbsphinx_execute = 'never'
 
+
 #     <script src='https://cdnjs.cloudflare.com/ajax/libs/require.js/2.1.10/require.min.js'></script>
 #     <script>require=requirejs;</script>
 #     <script src='https://cdnjs.cloudflare.com/ajax/libs/plotly.js/1.33.1/plotly.min.js'></script>
@@ -86,11 +87,11 @@ nbsphinx_prolog = """
 
 
 .. raw:: html
-    
 
     <a style="display: block; margin-top: 1.5rem" href="https://mybinder.org/v2/gh/tradingstrategy-ai/web3-ethereum-defi/master?labpath=docs/source/{{ env.doc2path(env.docname, base=None) }}">
         <img src="https://mybinder.org/badge_logo.svg">
     </a>    
+
 """
 
 # Grabbed from https://github.com/pandas-dev/pandas/blob/master/doc/source/conf.py
@@ -102,6 +103,16 @@ intersphinx_mapping = {
     "python": ("https://docs.python.org/3/", None),
 }
 
+html_js_files = [
+    'require.js',
+    'plotly-2.12.1.min.js',
+]
+
+#nbsphinx_requirejs_options = {
+#	"src": "https://cdnjs.cloudflare.com/ajax/libs/require.js/2.1.10/require.min.js",
+#	"integrity": "sha512-VCK7oF67GXNc+J7zsu5o57jtxhLA75nSMHGaq8Q8TCOxDj4nMDw5dhQZvm9Cd9RN+3zgcodqbKcRc9gyPP8a2w==",
+#	"crossorigin": "anonymous"
+#}
 
 # Monkey-patch autosummary template context
 from sphinx.ext.autosummary.generate import AutosummaryRenderer
