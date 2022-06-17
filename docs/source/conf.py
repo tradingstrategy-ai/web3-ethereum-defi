@@ -25,7 +25,7 @@ extensions = [
     "sphinx.ext.viewcode",
     # https://github.com/tox-dev/sphinx-autodoc-typehints/issues/216
     # sphinx_autodoc_typehints'
-    'nbsphinx',
+    "nbsphinx",
     "sphinx.ext.intersphinx",
 ]
 
@@ -75,22 +75,17 @@ sitemap_filename = "sitemap-generated.xml"
 # All notebooks in documentation needs an API key and must be pre-executed
 # https://nbsphinx.readthedocs.io/en/0.8.6/never-execute.html
 #
-nbsphinx_execute = 'never'
+nbsphinx_execute = "never"
 
-#     <script src='https://cdnjs.cloudflare.com/ajax/libs/require.js/2.1.10/require.min.js'></script>
-#     <script>require=requirejs;</script>
-#     <script src='https://cdnjs.cloudflare.com/ajax/libs/plotly.js/1.33.1/plotly.min.js'></script>
-
-
+# Add MyBinder lnks
 nbsphinx_prolog = """
 
-
 .. raw:: html
-    
 
     <a style="display: block; margin-top: 1.5rem" href="https://mybinder.org/v2/gh/tradingstrategy-ai/web3-ethereum-defi/master?labpath=docs/source/{{ env.doc2path(env.docname, base=None) }}">
         <img src="https://mybinder.org/badge_logo.svg">
     </a>    
+
 """
 
 # Grabbed from https://github.com/pandas-dev/pandas/blob/master/doc/source/conf.py
@@ -102,6 +97,10 @@ intersphinx_mapping = {
     "python": ("https://docs.python.org/3/", None),
 }
 
+html_js_files = [
+    "require.min.js",
+    "custom.js",
+]
 
 # Monkey-patch autosummary template context
 from sphinx.ext.autosummary.generate import AutosummaryRenderer
