@@ -102,6 +102,10 @@ html_js_files = [
     "custom.js",
 ]
 
+html_css_files = [
+    "custom.css",
+]
+
 # Monkey-patch autosummary template context
 from sphinx.ext.autosummary.generate import AutosummaryRenderer
 
