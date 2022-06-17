@@ -77,13 +77,8 @@ sitemap_filename = "sitemap-generated.xml"
 #
 nbsphinx_execute = "never"
 
-#     <script src='https://cdnjs.cloudflare.com/ajax/libs/require.js/2.1.10/require.min.js'></script>
-#     <script>require=requirejs;</script>
-#     <script src='https://cdnjs.cloudflare.com/ajax/libs/plotly.js/1.33.1/plotly.min.js'></script>
-
-
+# Add MyBinder lnks
 nbsphinx_prolog = """
-
 
 .. raw:: html
 
@@ -103,16 +98,9 @@ intersphinx_mapping = {
 }
 
 html_js_files = [
-    "require.js",
-    # 'plotly-2.12.1.min.js',
+    "require.min.js",
     "custom.js",
 ]
-
-# nbsphinx_requirejs_options = {
-# 	"src": "https://cdnjs.cloudflare.com/ajax/libs/require.js/2.1.10/require.min.js",
-# 	"integrity": "sha512-VCK7oF67GXNc+J7zsu5o57jtxhLA75nSMHGaq8Q8TCOxDj4nMDw5dhQZvm9Cd9RN+3zgcodqbKcRc9gyPP8a2w==",
-# 	"crossorigin": "anonymous"
-# }
 
 # Monkey-patch autosummary template context
 from sphinx.ext.autosummary.generate import AutosummaryRenderer
