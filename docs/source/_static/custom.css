@@ -1,0 +1,8 @@
+.nboutput .rendered_html thead tr,
+.nboutput .rendered_html tbody tr:nth-child(even) {
+    background: #fff;
+}
+
+.nboutput .rendered_html tbody tr:hover {
+    background: #ADD8E6;
+}
