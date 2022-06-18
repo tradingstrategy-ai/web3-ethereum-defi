@@ -61,10 +61,10 @@ class ProgressUpdate(Protocol):
             After this scan, we have scanned `current_block + chunk_size` blocks
 
         :param start_block:
-            The first block in our total scan range
+            The first block in our total scan range.
 
         :param end_block:
-            The last block in our total scan range
+            The last block in our total scan range.
 
         :param chunk_size:
             What was the chunk size (can differ for the last scanned chunk)
@@ -144,7 +144,8 @@ def extract_events(
         "toBlock": hex(end_block),
     }
 
-    logging.debug("Extracting logs %s", filter_params)
+    # logging.debug("Extracting logs %s", filter_params)
+    # logging.info("Log range %d - %d", start_block, end_block)
 
     logs = web3.manager.request_blocking("eth_getLogs", (filter_params,))
 
@@ -155,6 +156,7 @@ def extract_events(
 
         for log in logs:
             block_hash = log["blockHash"]
+            block_number = int(log["blockNumber"], 16)
             # Retrofit our information to the dict
             event_signature = log["topics"][0]
             log["context"] = context
@@ -162,7 +164,7 @@ def extract_events(
             try:
                 log["timestamp"] = timestamps[block_hash] if extract_timestamps else None
             except KeyError as e:
-                raise RuntimeError(f"Timestamp missing for block {block_hash}, our timestamp table has {len(timestamps)} entries and looks like {timestamps}") from e
+                raise RuntimeError(f"Timestamp missing for block number {block_number:,}, hash {block_hash}, our timestamp table has {len(timestamps)} blocks") from e
             yield log
 
 
@@ -300,7 +302,8 @@ def read_events(
 
     total_events = 0
 
-    assert len(web3.middleware_onion) == 0, f"Must not have any Web3 middleware installed to slow down scan, has {web3.middleware_onion.middlewares}"
+    # TODO: retry middleware makes an exception
+    # assert len(web3.middleware_onion) == 0, f"Must not have any Web3 middleware installed to slow down scan, has {web3.middleware_onion.middlewares}"
 
     # Construct our bloom filter
     filter = prepare_filter(events)
@@ -313,7 +316,9 @@ def read_events(
         if notify is not None:
             notify(block_num, start_block, end_block, chunk_size, total_events, last_timestamp, context)
 
-        last_of_chunk = min(end_block, block_num + chunk_size)
+        last_of_chunk = min(end_block, block_num + chunk_size - 1)
+
+        # logger.info("Extracting %d - %d", block_num, last_of_chunk)
 
         # Stream the events
         for event in extract_events(web3, block_num, last_of_chunk, filter, context, extract_timestamps):
