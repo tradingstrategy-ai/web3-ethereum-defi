@@ -6,3 +6,8 @@
 .nboutput .rendered_html tbody tr:hover {
     background: #ADD8E6;
 }
+
+/* Increase sidebar with, so our long module names do not get chopped up */
+.sidebar-container {
+    width: 20em;
+}
