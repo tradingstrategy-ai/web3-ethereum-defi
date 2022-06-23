@@ -127,7 +127,7 @@ def create_tick_delta_csv(
         keep="first",
     )
 
-    file_path = f"{output_folder}/uniswapv3-tickdeltas.csv"
+    file_path = f"{output_folder}/uniswap-v3-tickdeltas.csv"
     with open(file_path, "w") as fh:
         writer = csv.DictWriter(fh, fieldnames=TickDelta.__annotations__.keys())
         writer.writeheader()
@@ -177,7 +177,7 @@ def create_tick_csv(
         .reset_index()
     )
 
-    file_path = f"{output_folder}/uniswapv3-ticks.csv"
+    file_path = f"{output_folder}/uniswap-v3-ticks.csv"
     ticks_df.to_csv(file_path)
 
     return file_path
