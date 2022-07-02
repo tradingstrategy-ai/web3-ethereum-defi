@@ -39,27 +39,32 @@ INIT_CODE_HASH_MISSING = "0x01"
 class UniswapV2Deployment:
     """Describe Uniswap v2 deployment."""
 
-    #: The Web3 instance for which all the contracts here are bound
+    #: The Web3 instance for which the instances of this class are bound
     web3: Web3
 
     #: Factory address.
+    #: Factory deploys new pair contracts and defines the exchange instance on a blockchain.
     #: `See the Solidity source code <https://github.com/sushiswap/sushiswap/blob/4fdfeb7dafe852e738c56f11a6cae855e2fc0046/contracts/uniswapv2/UniswapV2Factory.sol>`__.
     factory: Contract
 
-    #: WETH9Mock address.
+    #: WETH/WBNB etc. wrapper contract address.
     #: `See the Solidity source code <https://github.com/sushiswap/sushiswap/blob/4fdfeb7dafe852e738c56f11a6cae855e2fc0046/contracts/mocks/WETH9Mock.sol>`__.
     weth: Contract
 
     #: Router address.
+    #: New routers can be deployed to optimise trade routing and price impact.
     #: `See the Solidity source code <https://github.com/sushiswap/sushiswap/blob/4fdfeb7dafe852e738c56f11a6cae855e2fc0046/contracts/uniswapv2/UniswapV2Router02.sol>`__.
     router: Contract
 
-    #: Needed to derive pair addresses.
+    #: The hash of deployed pair contract code.
+    #: Needed to derive new pair contract addresses.
     #: `See here for more details <https://github.com/Uniswap/v2-core/issues/102>`_.
     init_code_hash: HexStr
 
-    #: Pair contract proxy class.
-    #: Used to manipulate the underlying polls.
+    #: Pair contract.
+    #: Holds the token0 and token1 side of the liquidity pool.
+    #: Executes actual trades.
+    #: Mints/burns new liquidity provider (LP) tokens.
     #: See `UniswapV2Pair` smartc contract for details.
     PairContract: Contract
 
