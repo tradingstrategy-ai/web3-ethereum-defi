@@ -37,7 +37,12 @@ INIT_CODE_HASH_MISSING = "0x01"
 
 @dataclass(frozen=True)
 class UniswapV2Deployment:
-    """Describe Uniswap v2 deployment."""
+    """Uniswap v2 deployment description.
+
+    - Data for a deployment fetched from live chain based on factory address and other factors
+
+    - Test deployment through :py:func:`eth_defi.uniswap_v2.deployment.deploy_uniswap_v2_like`.
+    """
 
     #: The Web3 instance for which the instances of this class are bound
     web3: Web3
