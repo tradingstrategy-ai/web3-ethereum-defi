@@ -1,4 +1,4 @@
-"""Transaction broadcasting, completion monitoring and confirmations."""
+"""Transaction broadcasting, block confirmations and completion monitoring."""
 
 import datetime
 import logging
