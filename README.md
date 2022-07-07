@@ -82,6 +82,7 @@ For code examples please see below.
 
 ## Prerequisites
 
+* Python 3.9 or higher
 * [Proficient in Python programming](https://wiki.python.org/moin/BeginnersGuide)
 * [Understanding of Web3.py library](https://web3py.readthedocs.io/en/stable/) 
 * [pytest basics](https://docs.pytest.org/)
