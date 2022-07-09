@@ -69,7 +69,7 @@ class TokenDetails:
         return Decimal(raw_amount) / Decimal(10**self.decimals)
 
     def convert_to_raw(self, decimal_amount: Decimal) -> int:
-        """Convert raw token units to decimals.
+        """Convert decimalised token amount to raw uint256.
 
         Example:
 
