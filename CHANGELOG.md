@@ -1,9 +1,10 @@
 # Current
 
+- Fix: Python 3.9 or later required
 - Feature: Added Uniswap V3 price helper (both single hop and multi hops)
 - API change: Moved Uniswap V3 `add_liquidity` to its own function
 - Fix: Correct slippage calculation to match official Uniswap v2 SDK
-- Fix: Bump Python requirement to 3.9 (deps did not work with 3.8 anymore)
+
 
 # 0.9
 
