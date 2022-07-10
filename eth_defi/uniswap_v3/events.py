@@ -358,7 +358,7 @@ def fetch_events_to_csv(
     for event_name, mapping in event_mapping.items():
         file_path = f"{output_folder}/uniswap-v3-{event_name.lower()}.csv"
         exists_already = Path(file_path).exists()
-        file_handler = open(file_path, "a")
+        file_handler = open(file_path, "a", encoding="utf-8")
         csv_writer = csv.DictWriter(file_handler, fieldnames=mapping["field_names"])
         if not exists_already:
             csv_writer.writeheader()

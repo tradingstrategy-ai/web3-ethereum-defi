@@ -128,7 +128,7 @@ def create_tick_delta_csv(
     )
 
     file_path = f"{output_folder}/uniswap-v3-tickdeltas.csv"
-    with open(file_path, "w") as fh:
+    with open(file_path, "w", encoding="utf-8") as fh:
         writer = csv.DictWriter(fh, fieldnames=TickDelta.__annotations__.keys())
         writer.writeheader()
 

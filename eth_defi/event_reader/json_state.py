@@ -16,7 +16,7 @@ class JSONFileScanState(ScanState):
 
     def save_state(self, last_block):
         """Saves the last block we have read."""
-        with open(self.fname, "wt") as f:
+        with open(self.fname, "wt", encoding="utf-8") as f:
             print(f"{last_block}", file=f)
 
     def restore_state(self, default_block: int) -> Tuple[bool, int]:
@@ -26,7 +26,7 @@ class JSONFileScanState(ScanState):
             Tuple (did we restore state, the first block numebr to scan)
         """
         if os.path.exists(self.fname):
-            with open(self.fname, "rt") as f:
+            with open(self.fname, "rt", encoding="utf-8") as f:
                 last_block_text = f.read()
                 return True, int(last_block_text)
 

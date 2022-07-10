@@ -37,7 +37,7 @@ def get_abi_by_filename(fname: str) -> dict:
 
     here = Path(__file__).resolve().parent
     abi_path = here / "abi" / Path(fname)
-    with open(abi_path, "rt") as f:
+    with open(abi_path, "rt", encoding="utf-8") as f:
         abi = json.load(f)
     _cache[fname] = abi
 
