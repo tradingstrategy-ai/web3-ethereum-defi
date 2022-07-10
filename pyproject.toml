@@ -1,13 +1,13 @@
 [tool.poetry]
 name = "web3-ethereum-defi"
-version = "0.9"
+version = "0.10"
 description = "Web3-Ethereum-DeFi is a library for smart contracts, DeFi trading (Uniswap, PancakeSwap), Ethereum JSON-RPC, EVM transactions and automated test suites."
 authors = ["Mikko Ohtamaa <mikko@tradingstrategy.ai>"]
 license = "MIT"
 homepage = "https://tradingstrategy.ai"
 repository = "https://github.com/tradingstrategy-ai/web3-ethereum-defi"
 readme = "README.md"
-keywords = ["ethereum", "cryptocurrency", "uniswap", "erc-20", "pancakeswap", "sushiswap", "polygon", "web3", "blockchain"]
+keywords = ["ethereum", "cryptocurrency", "uniswap", "erc-20", "pancakeswap", "bnb chain", "polygon", "web3", "blockchain", "binance smart chain"]
 packages = [
     { include = "eth_defi" },
 ]

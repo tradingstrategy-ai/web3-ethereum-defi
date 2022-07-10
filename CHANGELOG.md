@@ -1,10 +1,14 @@
 # Current
 
+- 
+
+# 0.10.0
+
 - Fix: Python 3.9 or later required
 - Feature: Added Uniswap V3 price helper (both single hop and multi hops)
 - API change: Moved Uniswap V3 `add_liquidity` to its own function
 - Fix: Correct slippage calculation to match official Uniswap v2 SDK
-- Fix: Microsoft Windows compatiblity: Always use utf-8 when reading and writing text files
+- Fix: Microsoft Windows compatibility: Always use utf-8 when reading and writing text files
 
 # 0.9
 
