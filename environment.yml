@@ -1,6 +1,0 @@
-name: web3-ethererum-defi
-dependencies:
-  - python=3.9
-  - pip
-  - pip:
-    - .[data]
