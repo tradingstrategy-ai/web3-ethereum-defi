@@ -19,7 +19,7 @@ from eth_defi.uniswap_v2.pair import PairDetails, fetch_pair_details
 @dataclass
 class UniswapV2PriceOracleContext(LogContext):
     """Hold data about tokens in in the pool"""
-    pool: PairDetails
+    pair: PairDetails
 
     reverse_token_order: bool
 
@@ -28,6 +28,9 @@ def convert_sync_log_result_to_price_entry(log: dict) -> PriceEntry:
     """Create a price entry based on Sync eth_getLogs result."""
 
     context: UniswapV2PriceOracleContext = log["context"]
+
+    # Check our JSON-RPC has not served us something bad
+    assert log["address"] == context.pair.address.lower(), f"Got wrong source address for Sync event. Expected pair contract {context.pair.address}, got {log['address']}"
 
     # {'address': '0xa6db9e0061cfb22da5755621bb363cdfe06057da',
     # 'topics': ['0x1c411e9a96e071241c2f21f7726b17ae89e3cab4c78be50e062b03a9fffbbad1'],
@@ -44,7 +47,7 @@ def convert_sync_log_result_to_price_entry(log: dict) -> PriceEntry:
     assert reserve0 > 0
     assert reserve1 > 0
 
-    price = context.pool.convert_price_to_human(
+    price = context.pair.convert_price_to_human(
         reserve0,
         reserve1,
         context.reverse_token_order,
@@ -57,7 +60,8 @@ def convert_sync_log_result_to_price_entry(log: dict) -> PriceEntry:
         block_number=int(log["blockNumber"], 16),
         source=PriceSource.uniswap_v2_like_pool_sync_event,
         pair_contract_address=log["address"],
-        block_hash=log["blockHash"]
+        block_hash=log["blockHash"],
+        tx_hash=log["transactionHash"]
     )
 
 
@@ -138,6 +142,8 @@ def update_price_oracle_with_sync_events_single_thread(
     :param reverse_token_order:
         If pair token0 is the quote token to calculate the price.
     """
+
+    assert pair_contract_address
 
     Pair = get_contract(web3, "UniswapV2Pair.json")
 

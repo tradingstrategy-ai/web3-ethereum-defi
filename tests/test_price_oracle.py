@@ -166,6 +166,7 @@ def test_bnb_busd_price(web3, bnb_busd_address):
     oracle = PriceOracle(
         time_weighted_average_price,
         max_age=PriceOracle.ANY_AGE,  # We are dealing with historical data
+        min_duration=datetime.timedelta(minutes=1),
     )
 
     update_price_oracle_with_sync_events_single_thread(
@@ -179,22 +180,15 @@ def test_bnb_busd_price(web3, bnb_busd_address):
     oldest = oracle.get_oldest()
     assert oldest.block_number == 14_000_000
     assert oldest.timestamp == datetime.datetime(2022, 1, 2, 1, 18, 40)
-    assert oldest.price == 1000
+    assert oldest.price == pytest.approx(Decimal('523.9534812968516567053232758'))
 
     newest = oracle.get_newest()
     assert newest.block_number == 14_000_100
     assert newest.timestamp == datetime.datetime(2022, 1, 2, 1, 23, 40)
-    assert newest.price == 1000
+    assert newest.price == pytest.approx(Decimal('523.6407772080559357061798420'))
 
-    # We have 6000 swaps for the duration
-    assert len(oracle.buffer) == 5996
+    # We have 556 swaps for the duration
+    assert len(oracle.buffer) == 556
     assert oracle.get_buffer_duration() == datetime.timedelta(seconds=300)
 
-    assert oracle.price()
-
-
-
-
-
-
-
+    assert oracle.calculate_price() == pytest.approx(Decimal('523.8243566658033237353702655'))

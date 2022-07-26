@@ -37,8 +37,6 @@ class PairDetails:
         token0_amount = self.token0.convert_to_decimals(reserve0)
         token1_amount = self.token1.convert_to_decimals(reserve1)
 
-        import ipdb ; ipdb.set_trace()
-
         if reverse_token_order:
             return token0_amount / token1_amount
         else:

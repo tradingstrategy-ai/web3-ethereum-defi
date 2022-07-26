@@ -319,7 +319,8 @@ def read_events(
     # assert len(web3.middleware_onion) == 0, f"Must not have any Web3 middleware installed to slow down scan, has {web3.middleware_onion.middlewares}"
 
     # Construct our bloom filter
-    filter = prepare_filter(events)
+    if filter is None:
+        filter = prepare_filter(events)
 
     last_timestamp = None
 
