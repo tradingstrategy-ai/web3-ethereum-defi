@@ -25,7 +25,10 @@ class UniswapV2PriceOracleContext(LogContext):
 
 
 def convert_sync_log_result_to_price_entry(log: dict) -> PriceEntry:
-    """Create a price entry based on Sync eth_getLogs result."""
+    """Create a price entry based on Sync eth_getLogs result.
+
+    Called by :py:func:`update_price_oracle_with_sync_events_single_thread`.
+    """
 
     context: UniswapV2PriceOracleContext = log["context"]
 

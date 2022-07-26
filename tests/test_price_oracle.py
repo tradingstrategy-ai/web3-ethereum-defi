@@ -23,8 +23,7 @@ from eth_defi.event_reader.web3factory import TunedWeb3Factory
 from eth_defi.event_reader.web3worker import create_thread_pool_executor
 from eth_defi.price_oracle.oracle import PriceOracle, time_weighted_average_price, NotEnoughData, DataTooOld, \
     DataPeriodTooShort
-from eth_defi.uniswap_v2.oracle import update_price_oracle_with_sync_events, \
-    update_price_oracle_with_sync_events_single_thread
+from eth_defi.uniswap_v2.oracle import update_price_oracle_with_sync_events_single_thread
 from eth_defi.uniswap_v2.pair import fetch_pair_details
 
 
