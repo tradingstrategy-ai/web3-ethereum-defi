@@ -10,20 +10,30 @@ from statistics import mean
 
 
 class PriceSource(enum.Enum):
+    """Different price entry sources."""
+
+    #: Uniswap v2 pool and sync event
     uniswap_v2_like_pool_sync_event = "uniswap_v2_like_pool_sync_event"
+
+    #: Uniswap v3 pool
     uniswap_v3_like_pool = "uniswap_v3_like_pool"
+
+    #: Not specified
     unknown = "unknown"
 
 
 @dataclass
 class PriceEntry:
-    """A single source entry for price calculations.]
+    """A single source entry for price calculations.
 
-    This can be:
+    :py:class:`PriceOracle` maintains a buffer of these to calculate
+    a smoothed out price, like py:func:`time_weighted_average_price`.
+
+    Price entry can be sourced from:
 
     - Manually entered price
 
-    - Price from Uniswap v2 sync evnet
+    - Price from Uniswap v2 sync events
 
     - Price from some other event
     """
@@ -32,13 +42,15 @@ class PriceEntry:
     #: All timestamps must be UTC, Python naive datetimes.
     timestamp: datetime.datetime
 
-    #: When price entry was booked
+    #: When price entry was booked.
+    #: This should be base token / quote token, in its human readable format,
+    #: all decimals converted correctly.
     price: Decimal
 
-    #: What was the source of this trade
+    #: What was the source of this price entry
     source: PriceSource
 
-    #: How much volume this trade carried.
+    #: How much volume this trade carried (if available)
     #: Expressed in the quote token.
     volume: Optional[Decimal] = None
 
