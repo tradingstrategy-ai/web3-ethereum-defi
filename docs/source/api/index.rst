@@ -33,6 +33,7 @@ Uniswap v2 API
    :recursive:
 
    eth_defi.uniswap_v2.deployment
+   eth_defi.uniswap_v2.pair
    eth_defi.uniswap_v2.fees
    eth_defi.uniswap_v2.analysis
    eth_defi.uniswap_v2.utils
