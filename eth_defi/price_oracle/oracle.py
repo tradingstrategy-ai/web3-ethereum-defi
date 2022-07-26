@@ -1,3 +1,10 @@
+"""Price oracle core functionality.
+
+This core mechanism is used by outside event feeders,
+like :py:mod:`eth_defi.uniswap_v2.oracle`.
+
+"""
+
 import datetime
 import enum
 import heapq
@@ -5,8 +12,6 @@ import statistics
 from decimal import Decimal
 from typing import Protocol, Optional, Dict, List, Tuple
 from dataclasses import dataclass
-
-from statistics import mean
 
 
 class PriceSource(enum.Enum):
@@ -128,6 +133,35 @@ class PriceOracle:
 
     - Rotate ring buffer of events when new data comes in.
       Uses `Python heapq <https://docs.python.org/3/library/heapq.html>`__ for this.
+
+    Example:
+
+    .. code-block:: python
+
+        # Randomly chosen block range.
+        # 100 blocks * 3 sec / block = ~300 seconds
+        start_block = 14_000_000
+        end_block = 14_000_100
+
+        pair_details = fetch_pair_details(web3, bnb_busd_address)
+        assert pair_details.token0.symbol == "WBNB"
+        assert pair_details.token1.symbol == "BUSD"
+
+        oracle = PriceOracle(
+            time_weighted_average_price,
+            max_age=PriceOracle.ANY_AGE,  # We are dealing with historical data
+            min_duration=datetime.timedelta(minutes=1),
+        )
+
+        update_price_oracle_with_sync_events_single_thread(
+            oracle,
+            web3,
+            bnb_busd_address,
+            start_block,
+            end_block
+        )
+
+        assert oracle.calculate_price() == pytest.approx(Decimal('523.8243566658033237353702655'))
     """
 
     #: An "infinite" place holder for max age
@@ -251,6 +285,23 @@ class PriceOracle:
         This method is mostly for testing: for actual
         implementation construct your :py:class:`PriceEntry`
         instances yourself.
+
+        Example:
+
+        .. code-block::
+
+            price_data = {
+                datetime.datetime(2021, 1, 3): Decimal(100),
+                datetime.datetime(2021, 1, 2): Decimal(150),
+                datetime.datetime(2021, 1, 1): Decimal(120),
+            }
+
+            oracle = PriceOracle(
+                time_weighted_average_price,
+            )
+
+            oracle.feed_simple_data(price_data)
+
         """
 
         for key, value in data.items():
@@ -266,6 +317,8 @@ class PriceOracle:
 
 def time_weighted_average_price(events: List[PriceEntry]) -> Decimal:
     """Calculate TWAP price over all entries in the buffer.
+
+    Calculates the price using :py:func:`statistics.mean`.
 
     Further reading:
 

@@ -64,53 +64,53 @@ def convert_sync_log_result_to_price_entry(log: dict) -> PriceEntry:
         tx_hash=log["transactionHash"]
     )
 
-
-def update_price_oracle_with_sync_events(
-    oracle: PriceOracle,
-    executor: futureproof.ThreadPoolExecutor,
-    web3_factory: Web3Factory,
-    pair_contract_address: str,
-    start_block: int,
-    end_block: int,
-    thread_pool_executor: Optional[futureproof.ThreadPoolExecutor],
-    ):
-    """Feed price oracle data for a given block range.
-
-    - Uses optimised parallel reading thread pool implmentation
-
-    - Uses fast multithreaded pool for the event fetch
-    """
-
-    web3 = Web3Factory(None)
-
-    Pair = get_contract(web3, "UniswapV2Pair.json")
-
-    events = [
-        Pair.events.Sync
-    ]
-
-    signatures = Pair.events.Sync.build_filter().topics
-    assert len(signatures) == 1
-
-    filter = Filter(
-        contract_address=pair_contract_address,
-        bloom=None,
-        topics={
-            signatures[0]: Pair.events.Sync,
-        }
-    )
-
-    for log_result in read_events_concurrent(
-            web3_factory,
-            start_block,
-            end_block,
-            [Pair.events.Sync],
-            notify=None,
-            chunk_size=100,
-            filter=filter,
-            context=None,
-    ):
-        import ipdb ; ipdb.set_trace()
+#
+# def update_price_oracle_with_sync_events(
+#     oracle: PriceOracle,
+#     executor: futureproof.ThreadPoolExecutor,
+#     web3_factory: Web3Factory,
+#     pair_contract_address: str,
+#     start_block: int,
+#     end_block: int,
+#     thread_pool_executor: Optional[futureproof.ThreadPoolExecutor],
+#     ):
+#     """Feed price oracle data for a given block range.
+#
+#     - Uses optimised parallel reading thread pool implmentation
+#
+#     - Uses fast multithreaded pool for the event fetch
+#     """
+#
+#     web3 = Web3Factory(None)
+#
+#     Pair = get_contract(web3, "UniswapV2Pair.json")
+#
+#     events = [
+#         Pair.events.Sync
+#     ]
+#
+#     signatures = Pair.events.Sync.build_filter().topics
+#     assert len(signatures) == 1
+#
+#     filter = Filter(
+#         contract_address=pair_contract_address,
+#         bloom=None,
+#         topics={
+#             signatures[0]: Pair.events.Sync,
+#         }
+#     )
+#
+#     for log_result in read_events_concurrent(
+#             web3_factory,
+#             start_block,
+#             end_block,
+#             [Pair.events.Sync],
+#             notify=None,
+#             chunk_size=100,
+#             filter=filter,
+#             context=None,
+#     ):
+#         import ipdb ; ipdb.set_trace()
 
 
 def update_price_oracle_with_sync_events_single_thread(
@@ -123,9 +123,35 @@ def update_price_oracle_with_sync_events_single_thread(
     ):
     """Feed price oracle data for a given block range.
 
-    - Uses optimised parallel reading thread pool implmentation
+    A slow single threaded implementation - suitable for testing.
 
-    - Uses fast multithreaded pool for the event fetch
+    Example:
+
+    .. code-block: python
+
+        # Randomly chosen block range.
+        start_block = 14_000_000
+        end_block = 14_000_100
+
+        pair_details = fetch_pair_details(web3, bnb_busd_address)
+        assert pair_details.token0.symbol == "WBNB"
+        assert pair_details.token1.symbol == "BUSD"
+
+        oracle = PriceOracle(
+            time_weighted_average_price,
+            max_age=PriceOracle.ANY_AGE,  # We are dealing with historical data
+            min_duration=datetime.timedelta(minutes=1),
+        )
+
+        update_price_oracle_with_sync_events_single_thread(
+            oracle,
+            web3,
+            bnb_busd_address,
+            start_block,
+            end_block
+        )
+
+        assert oracle.calculate_price() == pytest.approx(Decimal('523.8243566658033237353702655'))
 
     :param oracle:
         Price oracle to update
@@ -146,10 +172,6 @@ def update_price_oracle_with_sync_events_single_thread(
     assert pair_contract_address
 
     Pair = get_contract(web3, "UniswapV2Pair.json")
-
-    events = [
-        Pair.events.Sync
-    ]
 
     signatures = Pair.events.Sync.build_filter().topics
     assert len(signatures) == 1
