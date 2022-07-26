@@ -195,26 +195,3 @@ def test_fetch_pool_details(
     assert details.token0.symbol == "WETH"
     assert details.token1.symbol == "USDC"
     assert details.fee == pytest.approx(0.0030)
-
-
-def test_convert_price_to_human(
-    web3: Web3,
-    deployer: str,
-    uniswap_v3: UniswapV3Deployment,
-    weth: Contract,
-    usdc: Contract,
-):
-    """Convert Uniswap v3 tick prices to human prices."""
-    pool = deploy_pool(
-        web3,
-        deployer,
-        deployment=uniswap_v3,
-        token0=usdc,
-        token1=weth,
-        fee=3000,
-    )
-
-    details = fetch_pool_details(web3, pool.address)
-    tick = 195298  # Fetched from Uni v3 USDC/WETH by hand
-    # TODO: Fix
-    # assert details.convert_price_to_human(tick, False) == pytest.approx(302.872830814394)

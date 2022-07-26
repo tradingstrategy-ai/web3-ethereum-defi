@@ -93,8 +93,6 @@ def analyse_trade_by_hash(web3: Web3, uniswap: UniswapV2Deployment, tx_hash: str
         :py:class:`TradeSuccess` or :py:class:`TradeFail` instance
     """
 
-    pair = uniswap.PairContract
-
     # Example tx https://etherscan.io/tx/0xa8e6d47fb1429c7aec9d30332eafaeb515c8dfa73ab413c48560d8d6060c3193#eventlog
     # swapExactTokensForTokens
 

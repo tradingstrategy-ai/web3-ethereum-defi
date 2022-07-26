@@ -13,7 +13,6 @@ class ScanState(abc.ABC):
     def save_state(self, last_block):
         """Saves the last block we have read."""
 
-
     @abc.abstractmethod
     def restore_state(self, default_block: int) -> Tuple[bool, int]:
         """Restore the last block we have processes.
@@ -21,4 +20,3 @@ class ScanState(abc.ABC):
         :return:
             Tuple (did we restore state, the first block numebr to scan)
         """
-

@@ -12,9 +12,9 @@ import pandas as pd
 def convert_to_ohlcv_candles(
         df: pd.DataFrame,
         time_bucket: pd.Timedelta = pd.Timedelta("1D"),
-        price_column: str="price",
-        value_column: str="value",
-        timestamp_index_column: Optional[str]="timestamp",
+        price_column: str = "price",
+        value_column: str = "value",
+        timestamp_index_column: Optional[str] = "timestamp",
 ) -> pd.DataFrame:
     """Create OHLCV candles based on raw trade events.
 
