@@ -227,7 +227,7 @@ def read_events(
     chunk_size: int = 100,
     context: Optional[LogContext] = None,
     extract_timestamps: Optional[Callable] = extract_timestamps_json_rpc,
-    filter: Optional[Filter]=None,
+    filter: Optional[Filter] = None,
 ) -> Iterable[LogResult]:
     """Reads multiple events from the blockchain.
 
@@ -350,7 +350,7 @@ def read_events_concurrent(
     chunk_size: int = 100,
     context: Optional[LogContext] = None,
     extract_timestamps: Optional[Callable] = extract_timestamps_json_rpc,
-    filter: Optional[Filter]=None,
+    filter: Optional[Filter] = None,
 ) -> Iterable[LogResult]:
     """Reads multiple events from the blockchain parallel using a thread pool for IO.
 

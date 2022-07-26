@@ -165,13 +165,13 @@ class PriceOracle:
     """
 
     #: An "infinite" place holder for max age
-    ANY_AGE = datetime.timedelta(days=100*365)
+    ANY_AGE = datetime.timedelta(days=100 * 365)
 
     def __init__(self,
                  price_function: PriceFunction,
-                 min_duration: datetime.timedelta=datetime.timedelta(hours=1),
-                 max_age: datetime.timedelta=datetime.timedelta(hours=4),
-                 min_entries: int=8,
+                 min_duration: datetime.timedelta = datetime.timedelta(hours=1),
+                 max_age: datetime.timedelta = datetime.timedelta(hours=4),
+                 min_entries: int = 8,
                  ):
         """
         Create a new price oracle.
@@ -209,7 +209,7 @@ class PriceOracle:
         # The oldest datetime.datetime is the first always the first entry.
         self.buffer: List[Tuple[datetime.datetime, PriceEntry]] = []
 
-    def check_data_quality(self, now_: Optional[datetime.datetime]=None):
+    def check_data_quality(self, now_: Optional[datetime.datetime] = None):
         """Raises one of PriceCalculationError subclasses if our data is not good enough to calculate the oracle price.
 
         See :py:class:`PriceCalculationError`
@@ -234,8 +234,8 @@ class PriceOracle:
         threshold = now_ - self.max_age
         if self.get_newest().timestamp < threshold:
             raise DataTooOld(f"The data is too old (stale?).\n"
-                                     f"The latest price entry is at {self.get_newest().timestamp}\n"
-                                     f"where oracle cut off for stale data is {threshold}")
+                             f"The latest price entry is at {self.get_newest().timestamp}\n"
+                             f"where oracle cut off for stale data is {threshold}")
 
     def calculate_price(self) -> Decimal:
         """Calculate the price based on the data in the price data buffer.
@@ -329,6 +329,3 @@ def time_weighted_average_price(events: List[PriceEntry]) -> Decimal:
 
     prices = [e.price for e in events]
     return statistics.mean(prices)
-
-
-

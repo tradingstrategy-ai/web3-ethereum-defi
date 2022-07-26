@@ -1,12 +1,10 @@
 """Gas helpers."""
-import secrets
 
 import pytest
 from eth_account import Account
 from eth_account.signers.local import LocalAccount
 
 from eth_typing import HexAddress
-from hexbytes import HexBytes
 from web3 import Web3, EthereumTesterProvider
 from web3._utils.transactions import fill_nonce
 

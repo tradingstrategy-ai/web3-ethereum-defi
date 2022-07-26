@@ -18,9 +18,7 @@ import pytest
 from web3 import HTTPProvider, Web3
 from web3.middleware import geth_poa_middleware
 
-from eth_defi.event_reader.fast_json_rpc import patch_web3
 from eth_defi.event_reader.web3factory import TunedWeb3Factory
-from eth_defi.event_reader.web3worker import create_thread_pool_executor
 from eth_defi.price_oracle.oracle import PriceOracle, time_weighted_average_price, NotEnoughData, DataTooOld, \
     DataPeriodTooShort
 from eth_defi.uniswap_v2.oracle import update_price_oracle_with_sync_events_single_thread
@@ -146,7 +144,7 @@ def test_too_narrow_time_window():
         oracle.calculate_price()
 
 
-pytest.mark.skipif(
+@pytest.mark.skipif(
     os.environ.get("BNB_CHAIN_JSON_RPC") is None,
     reason="Set BNB_CHAIN_JSON_RPC environment variable to Binance Smart Chain node to run this test",
 )

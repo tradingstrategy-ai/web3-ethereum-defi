@@ -4,7 +4,7 @@ from typing import Union
 
 from eth_typing import HexAddress
 
-from eth_defi.abi import get_contract, get_deployed_contract
+from eth_defi.abi import get_deployed_contract
 from eth_defi.token import TokenDetails, fetch_erc20_details
 
 
@@ -43,7 +43,7 @@ class PoolDetails:
         raw_price = 1.0001**tick
 
         if reverse_token_order:
-            return (1/raw_price) / 10**(self.token0.decimals - self.token1.decimals)
+            return (1 / raw_price) / 10**(self.token0.decimals - self.token1.decimals)
         else:
             return raw_price / 10**(self.token1.decimals - self.token0.decimals)
 

@@ -1,17 +1,13 @@
 """Price oracle implementation for Uniswap v2 pools."""
 import datetime
 from dataclasses import dataclass
-from decimal import Decimal
-from typing import Optional
 
-import futureproof
 from web3 import Web3
 
 from eth_defi.abi import get_contract
 from eth_defi.event_reader.conversion import decode_data, convert_int256_bytes_to_int
 from eth_defi.event_reader.logresult import LogContext
-from eth_defi.event_reader.reader import read_events_concurrent, Filter, read_events
-from eth_defi.event_reader.web3factory import Web3Factory
+from eth_defi.event_reader.reader import Filter, read_events
 from eth_defi.price_oracle.oracle import PriceOracle, PriceEntry, PriceSource
 from eth_defi.uniswap_v2.pair import PairDetails, fetch_pair_details
 
@@ -67,6 +63,7 @@ def convert_sync_log_result_to_price_entry(log: dict) -> PriceEntry:
         tx_hash=log["transactionHash"]
     )
 
+
 #
 # def update_price_oracle_with_sync_events(
 #     oracle: PriceOracle,
@@ -117,13 +114,12 @@ def convert_sync_log_result_to_price_entry(log: dict) -> PriceEntry:
 
 
 def update_price_oracle_with_sync_events_single_thread(
-    oracle: PriceOracle,
-    web3: Web3,
-    pair_contract_address: str,
-    start_block: int,
-    end_block: int,
-    reverse_token_order=False,
-    ):
+        oracle: PriceOracle,
+        web3: Web3,
+        pair_contract_address: str,
+        start_block: int,
+        end_block: int,
+        reverse_token_order=False):
     """Feed price oracle data for a given block range.
 
     A slow single threaded implementation - suitable for testing.
@@ -202,4 +198,3 @@ def update_price_oracle_with_sync_events_single_thread(
     ):
         entry = convert_sync_log_result_to_price_entry(log_result)
         oracle.add_price_entry(entry)
-

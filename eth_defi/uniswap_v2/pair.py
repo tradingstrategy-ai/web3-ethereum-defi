@@ -25,9 +25,9 @@ class PairDetails:
     token1: TokenDetails
 
     def convert_price_to_human(self,
-                reserve0: int,
-                reserve1: int,
-                reverse_token_order=False):
+                               reserve0: int,
+                               reserve1: int,
+                               reverse_token_order=False):
         """Convert the price obtained through Sync event
 
         :param reverse_token_order:

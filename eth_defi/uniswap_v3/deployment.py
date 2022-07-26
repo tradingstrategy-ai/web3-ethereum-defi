@@ -15,7 +15,7 @@ Compatible exchanges include Uniswap v3 deployments on:
 """
 
 from dataclasses import dataclass
-from typing import Callable, Optional, Tuple
+from typing import Optional
 
 from eth_typing import HexAddress
 from web3 import Web3
