@@ -16,7 +16,8 @@ from decimal import Decimal
 
 import pytest
 from web3 import HTTPProvider, Web3
-from eth_defi.price_oracle.oracle import PriceOracle, time_weighted_average_price, NotEnoughData
+from eth_defi.price_oracle.oracle import PriceOracle, time_weighted_average_price, NotEnoughData, DataTooOld
+
 
 #pytestmark = pytest.mark.skipif(
 #    os.environ.get("BNB_CHAIN_JSON_RPC") is None,
@@ -84,3 +85,24 @@ def test_oracle_feed_data_reverse():
     # Heap is sorted oldest event first
     assert oracle.get_newest().timestamp == datetime.datetime(2021, 1, 3)
     assert oracle.get_oldest().timestamp == datetime.datetime(2021, 1, 1)
+
+
+def test_oracle_too_old():
+    """Price data is stale for real time."""
+
+    price_data = {
+        datetime.datetime(2021, 1, 1): Decimal(100),
+        datetime.datetime(2021, 1, 2): Decimal(150),
+        datetime.datetime(2021, 1, 3): Decimal(120),
+    }
+
+    oracle = PriceOracle(
+        time_weighted_average_price,
+        min_entries=1,
+        max_age=PriceOracle.ANY_AGE,
+    )
+
+    oracle.feed_simple_data(price_data)
+
+    with pytest.raises(DataTooOld):
+        oracle.calculate_price()
