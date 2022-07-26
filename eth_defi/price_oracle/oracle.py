@@ -51,6 +51,10 @@ class PriceEntry:
     #: Transaction where did we pick the event logs
     tx_hash: Optional[str] = None
 
+    #: Hash of the block where this price was picked in.
+    #: Can be used to remove data for blocks in unstable chain tip.
+    block_hash: Optional[str] = None
+
     def __post_init__(self):
         """Some basic data validation."""
         assert isinstance(self.timestamp, datetime.datetime)
@@ -61,6 +65,14 @@ class PriceEntry:
 
         if self.block_number:
             assert isinstance(self.block_number, int)
+
+    def __lt__(self, other):
+        """Needed for heappush.
+
+        https://stackoverflow.com/a/59956131/315168
+        """
+        assert isinstance(other, PriceEntry)
+        return self.block_number < other.block_number
 
 
 class PriceFunction(Protocol):
@@ -175,7 +187,7 @@ class PriceOracle:
 
         threshold = now_ - self.max_age
         if self.get_newest().timestamp < threshold:
-            raise DataPeriodTooShort(f"The data is too old (stale?).\n"
+            raise DataTooOld(f"The data is too old (stale?).\n"
                                      f"The latest price entry is at {self.get_newest().timestamp}\n"
                                      f"where oracle cut off for stale data is {threshold}")
 
@@ -197,6 +209,7 @@ class PriceOracle:
 
         - https://docs.python.org/3/library/heapq.html
         """
+        assert isinstance(evt, PriceEntry)
         heapq.heappush(self.buffer, (evt.timestamp, evt))
 
     def get_newest(self) -> Optional[PriceEntry]:

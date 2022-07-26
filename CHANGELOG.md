@@ -1,6 +1,6 @@
 # Current
 
-- 
+- Add `fetch_pair_details` to get info on Uniswap v2 pairs
 
 # 0.10.0
 

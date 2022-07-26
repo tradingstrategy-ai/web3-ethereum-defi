@@ -33,7 +33,11 @@ class Filter:
     topics: Dict[str, ContractEvent]
 
     #: Bloom filter to match block headers
-    bloom: BloomFilter
+    #: TODO: Currently unsupported
+    bloom: Optional[BloomFilter]
+
+    #: Get events from a single contract only
+    contract_address: Optional[str] = None
 
 
 # For typing.Protocol see https://stackoverflow.com/questions/68472236/type-hint-for-callable-that-takes-kwargs
@@ -99,6 +103,8 @@ def extract_timestamps_json_rpc(
     # Collect block timestamps from the headers
     for block_num in range(start_block, end_block + 1):
         raw_result = web3.manager.request_blocking("eth_getBlockByNumber", (hex(block_num), False))
+        data_block_number = raw_result["number"]
+        assert type(data_block_number) == str, "Some automatic data conversion occured from JSON-RPC data. Make sure that you have cleared middleware onion for web3"
         assert int(raw_result["number"], 16) == block_num
         timestamps[raw_result["hash"]] = int(raw_result["timestamp"], 16)
 
@@ -143,6 +149,9 @@ def extract_events(
         "fromBlock": hex(start_block),
         "toBlock": hex(end_block),
     }
+
+    if filter.contract_address:
+        filter_params["address"] = filter.contract_address
 
     # logging.debug("Extracting logs %s", filter_params)
     # logging.info("Log range %d - %d", start_block, end_block)
@@ -218,6 +227,7 @@ def read_events(
     chunk_size: int = 100,
     context: Optional[LogContext] = None,
     extract_timestamps: Optional[Callable] = extract_timestamps_json_rpc,
+    filter: Optional[Filter]=None,
 ) -> Iterable[LogResult]:
     """Reads multiple events from the blockchain.
 
@@ -298,6 +308,9 @@ def read_events(
 
     :param context:
         Passed to the all generated logs
+
+    :param filter:
+        Pass a custom event filter for the readers
     """
 
     total_events = 0
@@ -336,6 +349,7 @@ def read_events_concurrent(
     chunk_size: int = 100,
     context: Optional[LogContext] = None,
     extract_timestamps: Optional[Callable] = extract_timestamps_json_rpc,
+    filter: Optional[Filter]=None,
 ) -> Iterable[LogResult]:
     """Reads multiple events from the blockchain parallel using a thread pool for IO.
 
@@ -416,13 +430,17 @@ def read_events_concurrent(
 
     :param context:
         Passed to the all generated logs
+
+    :param filter:
+        Pass a custom event filter for the readers
     """
 
     total_events = 0
 
     last_timestamp = None
 
-    filter = prepare_filter(events)
+    if filter is None:
+        filter = prepare_filter(events)
 
     # For futureproof usage see
     # https://github.com/yeraydiazdiaz/futureproof
