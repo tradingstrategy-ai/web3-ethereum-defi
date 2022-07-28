@@ -47,7 +47,7 @@ def convert_swap_event_to_price_entry(log: dict) -> PriceEntry:
         volume=None,  # TODO: figure out the volume
         block_number=swap_info["block_number"],
         source=PriceSource.uniswap_v3_like_pool,
-        pair_contract_address=swap_info["pool_contract_address"],
+        pool_contract_address=swap_info["pool_contract_address"],
         block_hash=log["blockHash"],
         tx_hash=swap_info["tx_hash"],
     )

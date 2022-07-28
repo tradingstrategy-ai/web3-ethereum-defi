@@ -6,17 +6,18 @@ from dataclasses import dataclass
 from web3 import Web3
 
 from eth_defi.abi import get_contract
-from eth_defi.event_reader.conversion import decode_data, convert_int256_bytes_to_int
-from eth_defi.event_reader.logresult import LogContext
-from eth_defi.event_reader.reader import read_events, extract_timestamps_json_rpc
+from eth_defi.event_reader.conversion import convert_int256_bytes_to_int, decode_data
 from eth_defi.event_reader.filter import Filter
-from eth_defi.price_oracle.oracle import PriceOracle, PriceEntry, PriceSource
+from eth_defi.event_reader.logresult import LogContext
+from eth_defi.event_reader.reader import extract_timestamps_json_rpc, read_events
+from eth_defi.price_oracle.oracle import PriceEntry, PriceOracle, PriceSource
 from eth_defi.uniswap_v2.pair import PairDetails, fetch_pair_details
 
 
 @dataclass
 class UniswapV2PriceOracleContext(LogContext):
     """Hold data about tokens in in the pool"""
+
     pair: PairDetails
 
     reverse_token_order: bool
@@ -60,9 +61,9 @@ def convert_sync_log_result_to_price_entry(log: dict) -> PriceEntry:
         volume=None,  # For volume you would also need to get matching Swap() event
         block_number=int(log["blockNumber"], 16),
         source=PriceSource.uniswap_v2_like_pool_sync_event,
-        pair_contract_address=log["address"],
+        pool_contract_address=log["address"],
         block_hash=log["blockHash"],
-        tx_hash=log["transactionHash"]
+        tx_hash=log["transactionHash"],
     )
 
 
@@ -116,12 +117,13 @@ def convert_sync_log_result_to_price_entry(log: dict) -> PriceEntry:
 
 
 def update_price_oracle_with_sync_events_single_thread(
-        oracle: PriceOracle,
-        web3: Web3,
-        pair_contract_address: str,
-        start_block: int,
-        end_block: int,
-        reverse_token_order=False):
+    oracle: PriceOracle,
+    web3: Web3,
+    pair_contract_address: str,
+    start_block: int,
+    end_block: int,
+    reverse_token_order=False,
+):
     """Feed price oracle data for a given block range.
 
     A slow single threaded implementation - suitable for testing.
@@ -182,32 +184,32 @@ def update_price_oracle_with_sync_events_single_thread(
         bloom=None,
         topics={
             signatures[0]: Pair.events.Sync,
-        }
+        },
     )
 
     pool_details = fetch_pair_details(web3, pair_contract_address)
 
     # Feed oracle with event data from JSON-RPC node
     for log_result in read_events(
-            web3,
-            start_block,
-            end_block,
-            [Pair.events.Sync],
-            notify=None,
-            chunk_size=100,
-            filter=filter,
-            context=UniswapV2PriceOracleContext(pool_details, reverse_token_order),
+        web3,
+        start_block,
+        end_block,
+        [Pair.events.Sync],
+        notify=None,
+        chunk_size=100,
+        filter=filter,
+        context=UniswapV2PriceOracleContext(pool_details, reverse_token_order),
     ):
         entry = convert_sync_log_result_to_price_entry(log_result)
         oracle.add_price_entry(entry)
 
 
 def update_live_price_feed(
-        oracle: PriceOracle,
-        web3: Web3,
-        pair_contract_address: str,
-        reverse_token_order=False,
-        lookback_block_count: int = 5,
+    oracle: PriceOracle,
+    web3: Web3,
+    pair_contract_address: str,
+    reverse_token_order=False,
+    lookback_block_count: int = 5,
 ) -> Counter:
     """Fetch live price of Uniswap v2 pool by listening to Sync event.
 
@@ -226,11 +228,13 @@ def update_live_price_feed(
 
     """
 
-    stats = Counter({
-        "created": 0,
-        "reorgs": 0,
-        "discarded": 0,
-    })
+    stats = Counter(
+        {
+            "created": 0,
+            "reorgs": 0,
+            "discarded": 0,
+        }
+    )
 
     Pair = get_contract(web3, "UniswapV2Pair.json")
     events = [Pair.events.Sync]
@@ -246,14 +250,14 @@ def update_live_price_feed(
 
     # Feed oracle with event data from JSON-RPC node
     for log_result in read_events(
-            web3,
-            start_block,
-            end_block,
-            [Pair.events.Sync],
-            notify=None,
-            chunk_size=100,
-            filter=filter,
-            context=UniswapV2PriceOracleContext(pair_details, reverse_token_order),
+        web3,
+        start_block,
+        end_block,
+        [Pair.events.Sync],
+        notify=None,
+        chunk_size=100,
+        filter=filter,
+        context=UniswapV2PriceOracleContext(pair_details, reverse_token_order),
     ):
         entry = convert_sync_log_result_to_price_entry(log_result)
         hopped = oracle.add_price_entry_reorg_safe(entry)
