@@ -2,9 +2,8 @@
 import datetime
 from collections import Counter
 from dataclasses import dataclass
-from typing import Iterable
 
-from web3 import Web3, WebsocketProvider
+from web3 import Web3
 
 from eth_defi.abi import get_contract
 from eth_defi.event_reader.conversion import decode_data, convert_int256_bytes_to_int
@@ -32,8 +31,7 @@ def convert_sync_log_result_to_price_entry(log: dict) -> PriceEntry:
     context: UniswapV2PriceOracleContext = log["context"]
 
     # Check our JSON-RPC has not served us something bad
-    assert log[
-               "address"] == context.pair.address.lower(), f"Got wrong source address for Sync event. Expected pair contract {context.pair.address}, got {log['address']}"
+    assert log["address"] == context.pair.address.lower(), f"Got wrong source address for Sync event. Expected pair contract {context.pair.address}, got {log['address']}"
 
     # {'address': '0xa6db9e0061cfb22da5755621bb363cdfe06057da',
     # 'topics': ['0x1c411e9a96e071241c2f21f7726b17ae89e3cab4c78be50e062b03a9fffbbad1'],
@@ -209,7 +207,7 @@ def update_live_price_feed(
         web3: Web3,
         pair_contract_address: str,
         reverse_token_order=False,
-        lookback_block_count: int=5,
+        lookback_block_count: int = 5,
 ) -> Counter:
     """Fetch live price of Uniswap v2 pool by listening to Sync event.
 
@@ -274,9 +272,3 @@ def update_live_price_feed(
     stats["discarded"] = oracle.truncate_buffer(last_timestamp)
 
     return stats
-
-
-
-
-
-

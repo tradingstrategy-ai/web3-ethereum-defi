@@ -37,7 +37,7 @@ def main():
     web3.middleware_onion.clear()
     web3.middleware_onion.inject(geth_poa_middleware, layer=0)
 
-    # https://tradingstrategy.ai/trading-view/binance/pancakeswap-v2/bnb-busd"""
+    # https://tradingstrategy.ai/trading-view/binance/pancakeswap-v2/bnb-busd
     pair_contract_address = "0x58F876857a02D6762E0101bb5C46A8c1ED44Dc16"
 
     reverse_token_order = False
