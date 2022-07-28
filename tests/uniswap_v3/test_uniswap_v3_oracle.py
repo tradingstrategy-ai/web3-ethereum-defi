@@ -1,7 +1,5 @@
 """Price oracle testing for Uniswap V3.
 
-Tests are performed using Ethereum mainnet fork and Ganache.
-
 To run tests in this module:
 
 .. code-block:: shell
@@ -54,12 +52,12 @@ def usdc_eth_address():
 
 @pytest.mark.skipif(
     os.environ.get("ETHEREUM_JSON_RPC") is None,
-    reason="Set ETHEREUM_JSON_RPC environment variable to Ethereum node to run this test",
+    reason="Set ETHEREUM_JSON_RPC environment variable to Ethereum node URL to run this test",
 )
 def test_eth_usdc_price_single_thread(web3, usdc_eth_address):
     """Calculate historical ETH price from Uniswap V3 pool."""
 
-    # Randomly chosen block range.
+    # Randomly chosen block range
     start_block = 14_000_000
     end_block = 14_000_100
 
@@ -86,11 +84,13 @@ def test_eth_usdc_price_single_thread(web3, usdc_eth_address):
     assert oldest.block_number == 14_000_000
     assert oldest.timestamp == datetime.datetime(2022, 1, 13, 22, 59, 55)
     assert oldest.price == pytest.approx(Decimal("3250.2861765942502643156"))
+    assert oldest.volume == pytest.approx(3.075302542833839)
 
     newest = oracle.get_newest()
     assert newest.block_number == 14_000_097
     assert newest.timestamp == datetime.datetime(2022, 1, 13, 23, 24, 40)
     assert newest.price == pytest.approx(Decimal("3259.0733672883275175991"))
+    assert newest.volume == pytest.approx(1.5725140754556917)
 
     # We have 78 swaps for the duration
     assert len(oracle.buffer) == 78
@@ -107,7 +107,7 @@ def test_eth_usdc_price_single_thread(web3, usdc_eth_address):
 def test_eth_usdc_price_concurrent(web3, usdc_eth_address):
     """Calculate historical ETH price from Uniswap V3 pool."""
 
-    # Randomly chosen block range.
+    # Randomly chosen block range
     start_block = 14_000_000
     end_block = 14_000_100
 
@@ -134,11 +134,13 @@ def test_eth_usdc_price_concurrent(web3, usdc_eth_address):
     assert oldest.block_number == 14_000_000
     assert oldest.timestamp == datetime.datetime(2022, 1, 13, 22, 59, 55)
     assert oldest.price == pytest.approx(Decimal("3250.2861765942502643156"))
+    assert oldest.volume == pytest.approx(3.075302542833839)
 
     newest = oracle.get_newest()
     assert newest.block_number == 14_000_097
     assert newest.timestamp == datetime.datetime(2022, 1, 13, 23, 24, 40)
     assert newest.price == pytest.approx(Decimal("3259.0733672883275175991"))
+    assert newest.volume == pytest.approx(1.5725140754556917)
 
     # # We have 78 swaps for the duration
     assert len(oracle.buffer) == 78

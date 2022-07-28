@@ -18,7 +18,7 @@ from eth_defi.uniswap_v3.pool import PoolDetails, fetch_pool_details
 
 @dataclass
 class UniswapV3PriceOracleContext(LogContext):
-    """Hold data about tokens in in the pool"""
+    """Hold data about tokens in the pool"""
 
     pool: PoolDetails
 
@@ -37,17 +37,21 @@ def convert_swap_event_to_price_entry(log: dict) -> PriceEntry:
     assert log["address"] == context.pool.address.lower(), f"Got wrong source address for Swap event. Expected pool contract {context.pool.address}, got {log['address']}"
 
     swap_info: dict = decode_swap(log)
-    timestamp = datetime.datetime.utcfromtimestamp(log["timestamp"])
 
     price = context.pool.convert_price_to_human(
         swap_info["tick"],
         context.reverse_token_order,
     )
 
+    if context.reverse_token_order:
+        volume = abs(swap_info["amount1"]) / 10**context.pool.token1.decimals
+    else:
+        volume = abs(swap_info["amount0"]) / 10**context.pool.token0.decimals
+
     return PriceEntry(
-        timestamp=timestamp,
+        timestamp=datetime.datetime.utcfromtimestamp(log["timestamp"]),
         price=Decimal(price),
-        volume=None,  # TODO: figure out the volume
+        volume=volume,
         block_number=swap_info["block_number"],
         source=PriceSource.uniswap_v3_like_pool,
         pool_contract_address=swap_info["pool_contract_address"],
@@ -71,13 +75,36 @@ def update_price_oracle_concurrent(
 
     .. code-block: python
 
-        TODO
+        # Randomly chosen block range
+        start_block = 14_000_000
+        end_block = 14_000_100
+
+        pool_details = fetch_pool_details(web3, usdc_eth_address)
+        assert pool_details.token0.symbol == "USDC"
+        assert pool_details.token1.symbol == "WETH"
+
+        oracle = PriceOracle(
+            time_weighted_average_price,
+            max_age=PriceOracle.ANY_AGE,  # We are dealing with historical data
+            min_duration=datetime.timedelta(minutes=1),
+        )
+
+        update_price_oracle_concurrent(
+            oracle,
+            os.environ["ETHEREUM_JSON_RPC"],
+            usdc_eth_address,
+            start_block,
+            end_block,
+            reverse_token_order=True,  # we want the price of ETH
+        )
+
+        assert oracle.calculate_price() == pytest.approx(Decimal("3253.806086408162965922"))
 
     :param oracle:
         Price oracle to update
 
-    :param web3:
-        Web3 connection we use to fetch event data from JSON-RPC node
+    :param json_rpc_url:
+        JSON-RPC URL
 
     :param pool_contract_address:
         Pool contract address
@@ -90,6 +117,9 @@ def update_price_oracle_concurrent(
 
     :param reverse_token_order:
         If pair token0 is the quote token to calculate the price.
+
+    :param max_workers:
+        How many threads to allocate for JSON-RPC IO.
     """
     http_adapter = HTTPAdapter(pool_connections=max_workers, pool_maxsize=max_workers)
     web3_factory = TunedWeb3Factory(json_rpc_url, http_adapter)
@@ -142,7 +172,30 @@ def update_price_oracle_single_thread(
 
     .. code-block: python
 
-        TODO
+        # Randomly chosen block range
+        start_block = 14_000_000
+        end_block = 14_000_100
+
+        pool_details = fetch_pool_details(web3, usdc_eth_address)
+        assert pool_details.token0.symbol == "USDC"
+        assert pool_details.token1.symbol == "WETH"
+
+        oracle = PriceOracle(
+            time_weighted_average_price,
+            max_age=PriceOracle.ANY_AGE,  # We are dealing with historical data
+            min_duration=datetime.timedelta(minutes=1),
+        )
+
+        update_price_oracle_single_thread(
+            oracle,
+            web3,
+            usdc_eth_address,
+            start_block,
+            end_block,
+            reverse_token_order=True,  # we want the price of ETH
+        )
+
+        assert oracle.calculate_price() == pytest.approx(Decimal("3253.806086408162965922"))
 
     :param oracle:
         Price oracle to update
