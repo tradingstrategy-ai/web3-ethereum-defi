@@ -33,11 +33,13 @@ Uniswap v2 API
    :recursive:
 
    eth_defi.uniswap_v2.deployment
+   eth_defi.uniswap_v2.pair
    eth_defi.uniswap_v2.fees
    eth_defi.uniswap_v2.analysis
    eth_defi.uniswap_v2.utils
    eth_defi.uniswap_v2.swap
    eth_defi.uniswap_v2.liquidity
+   eth_defi.uniswap_v2.oracle
    eth_defi.uniswap_v2.token_tax
 
 Uniswap v3 API
@@ -54,6 +56,15 @@ Uniswap v3 API
    eth_defi.uniswap_v3.events
    eth_defi.uniswap_v3.price
    eth_defi.uniswap_v3.pool
+
+Price oracle
+------------
+
+.. autosummary::
+   :toctree: _autosummary_price_oracle
+   :recursive:
+
+   eth_defi.price_oracle.oracle
 
 Data research and science
 -------------------------

@@ -31,4 +31,3 @@ class JSONFileScanState(ScanState):
                 return True, int(last_block_text)
 
         return False, default_block
-
