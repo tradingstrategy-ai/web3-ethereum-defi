@@ -4,9 +4,13 @@ Live Uniswap v2 price with web3.py
 Below is an example script that displays the real-time price of Uniswap v2 compatible trading pair
 in a terminal.
 
-- Latest price
+- Display latest price
 
 - Time-weighted average price (TWAP)
+
+- Update the price for every new block in BNB Smart chain
+
+- Abort the application with CTRL+C
 
 Uniswap v2 compatible DEXes include
 
