@@ -12,17 +12,20 @@ for trading, wallets,automated test suites and backend integrations for EVM base
 * [Features](#features)
 * [Precompiled ABI file distribution](#precompiled-abi-file-distribution)
 * [Python usage](#python-usage)
-   * [Prerequisites](#prerequisites)
-   * [ERC-20 token example](#erc-20-token-example)
+* [Prerequisites](#prerequisites)
+* [Code examples](#code-examples)
+   * [Deploy and transfer ERC-20 token between wallets](#deploy-and-transfer-erc-20-token-between-wallets)
    * [Uniswap v2 trade example](#uniswap-v2-trade-example)
    * [Uniswap v2 price estimation example](#uniswap-v2-price-estimation-example)
-   * [How to use the library in your Python project](#how-to-use-the-library-in-your-python-project)
+* [How to use the library in your Python project](#how-to-use-the-library-in-your-python-project)
 * [Documentation](#documentation)
 * [Development and contributing](#development-and-contributing)
 * [Version history](#version-history)
 * [Social media](#social-media)
 * [Notes](#notes)
 * [History](#history)
+* [License](#license)
+
 
 ![Pepe chooses Web3-Ethereum-DeFi and Python](https://raw.githubusercontent.com/tradingstrategy-ai/web3-ethereum-defi/master/docs/source/_static/pepe.jpg)
 
@@ -80,14 +83,18 @@ There are no expectations on configuration files or folder structure.
 [Read the full API documentation](High-quality API documentation](https://web3-ethereum-defi.readthedocs.io/)).
 For code examples please see below.
 
-## Prerequisites
+# Prerequisites
 
 * Python 3.9 or higher
 * [Proficient in Python programming](https://wiki.python.org/moin/BeginnersGuide)
 * [Understanding of Web3.py library](https://web3py.readthedocs.io/en/stable/) 
 * [pytest basics](https://docs.pytest.org/)
 
-## ERC-20 token example
+# Code examples
+
+For more code examples, see [the tutorials section in the documentation](https://web3-ethereum-defi.readthedocs.io/tutorials/index.html).  
+
+## Deploy and transfer ERC-20 token between wallets
 
 To use the package to deploy a simple ERC-20 token in [pytest](https://docs.pytest.org/) testing:
 
@@ -232,9 +239,7 @@ usdc_per_eth = estimate_buy_price_decimals(
 assert usdc_per_eth == pytest.approx(Decimal(1706.82216820632059904))
 ```
 
-[See full example](https://github.com/tradingstrategy-ai/web3-ethereum-defi/blob/34a9e1b948a4ef5a620ee520b568c0fd27c75457/tests/test_uniswap_v2_pair.py#L243).
-
-## How to use the library in your Python project
+# How to use the library in your Python project
 
 Add `web3-ethereum-defi` as a development dependency:
 
