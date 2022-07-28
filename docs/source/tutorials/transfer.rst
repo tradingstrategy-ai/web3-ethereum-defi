@@ -120,7 +120,7 @@ Running
 
 Run the script:
 
-.. code-block::
+.. code-block:: shell
 
     python scripts/erc20-manual-transfer.py
 
