@@ -72,6 +72,12 @@ class PriceEntry:
     #: Can be used to remove data for blocks in unstable chain tip.
     block_hash: Optional[str] = None
 
+    #: Chain reorganisation helper.
+    #: This is set on the old event when we detect duplicate entry.
+    #: We never remove items from heap, but mark them deprecated.
+    #: Items are eventually cleaned up when they expire.
+    first_seen_at_block_number: Optional[int] = None
+
     def __post_init__(self):
         """Some basic data validation."""
         assert isinstance(self.timestamp, datetime.datetime)
@@ -90,6 +96,19 @@ class PriceEntry:
         """
         assert isinstance(other, PriceEntry)
         return self.block_number < other.block_number
+
+    def update_chain_reorg(self, new_entry: "PriceEntry"):
+        """Update entry data in the case of chain reorganisation.
+
+        TODO: We are not yet dealing with the situation if the transaction gets reorganisated
+        and rejected.
+        """
+
+        self.first_seen_at_block_number = self.block_number
+
+        # Only block number or block hash change, otherwise transactions are immutable
+        self.block_number = new_entry.block_number
+        self.block_hash = new_entry.block_hash
 
 
 class PriceFunction(Protocol):
@@ -169,6 +188,7 @@ class PriceOracle:
 
     def __init__(self,
                  price_function: PriceFunction,
+                 target_time_window: datetime.timedelta = datetime.timedelta(minutes=5),
                  min_duration: datetime.timedelta = datetime.timedelta(hours=1),
                  max_age: datetime.timedelta = datetime.timedelta(hours=4),
                  min_entries: int = 8,
@@ -182,8 +202,10 @@ class PriceOracle:
             What function we use to calculate the price based on the events.
             Defaults to time-weighted average price.
 
-        :param buffer_duration:
-            How much past data we need and keep to calculate the price.
+        :param target_time_window:
+            What is the target time window for us to calculate
+            the time function. Truncation will discard older data.
+            Only relevant for real-time price oracles.
 
         :param exchange_rate_oracle:
             If we depend on the secondary price data to calculate the price.
@@ -205,9 +227,40 @@ class PriceOracle:
         self.min_entries = min_entries
         self.max_age = max_age
 
+        self.target_time_window = target_time_window
+
         # Buffer of price events using heapq.
         # The oldest datetime.datetime is the first always the first entry.
         self.buffer: List[Tuple[datetime.datetime, PriceEntry]] = []
+
+        # In real-time mode,
+        # pairs might not have seen trades for a while,
+        # the last event in the buffer is valid, but old
+        # but we are still actively tracking blocks.
+        # Set the latest block timestamp to this entry
+        # to reflect the fact that we have fresh data.
+        self.last_refreshed_at: Optional[datetime.datetime] = None
+        self.last_refreshed_block_number: Optional[int] = None
+
+    def get_last_refreshed(self) -> datetime.datetime:
+        """When the oracle data was refreshed last time.
+
+        To figure out max age in real time tracking mode.
+        """
+
+        assert self.buffer
+
+        if self.last_refreshed_at:
+            return self.last_refreshed_at
+
+        return self.get_newest().timestamp
+
+    def update_last_refresh(self, block_number: int, timestamp: datetime.datetime):
+        """Update the last seen block."""
+        assert isinstance(block_number, int)
+        assert isinstance(timestamp, datetime.datetime)
+        self.last_refreshed_block_number = block_number
+        self.last_refreshed_at = timestamp
 
     def check_data_quality(self, now_: Optional[datetime.datetime] = None):
         """Raises one of PriceCalculationError subclasses if our data is not good enough to calculate the oracle price.
@@ -232,9 +285,10 @@ class PriceOracle:
             raise DataPeriodTooShort(f"The buffer has data for {self.get_buffer_duration()}")
 
         threshold = now_ - self.max_age
-        if self.get_newest().timestamp < threshold:
+        last_refresh = self.get_last_refreshed()
+        if last_refresh < threshold:
             raise DataTooOld(f"The data is too old (stale?).\n"
-                             f"The latest price entry is at {self.get_newest().timestamp}\n"
+                             f"The latest refresh is at {last_refresh}\n"
                              f"where oracle cut off for stale data is {threshold}")
 
     def calculate_price(self) -> Decimal:
@@ -251,12 +305,46 @@ class PriceOracle:
     def add_price_entry(self, evt: PriceEntry):
         """Add price entry to the ring buffer.
 
+        .. note::
+
+            It is not safe to call this function multiple times for the same event.
+
         Further reading
 
         - https://docs.python.org/3/library/heapq.html
         """
         assert isinstance(evt, PriceEntry)
         heapq.heappush(self.buffer, (evt.timestamp, evt))
+
+    def add_price_entry_reorg_safe(self, evt: PriceEntry) -> bool:
+        """Add price entry to the ring buffer with support for fixing chain reorganisations.
+
+        Transactions may hop between different blocks when the chain tip reorganises,
+        getting a new timestamp. In this case, we update the
+
+        .. note::
+
+            It is safe to call this function multiple times for the same event.
+
+        :return:
+            True if the transaction hopped to a different block
+        """
+        assert isinstance(evt, PriceEntry)
+        assert evt.tx_hash
+
+        existing = self.get_by_transaction_hash(evt.tx_hash)
+        if existing:
+            if existing.block_hash != evt.block_hash:
+                existing.update_chain_reorg(evt)
+        else:
+            heapq.heappush(self.buffer, (evt.timestamp, evt))
+
+    def get_by_transaction_hash(self, tx_hash: str) -> Optional[PriceEntry]:
+        """Get an event by transaction hash."""
+        for heap_index, entry in self.buffer:
+            if entry.tx_hash == tx_hash:
+                return entry
+        return None
 
     def get_newest(self) -> Optional[PriceEntry]:
         """Return the newest price entry."""
@@ -313,6 +401,26 @@ class PriceOracle:
                 source=source,
             )
             self.add_price_entry(evt)
+
+    def truncate_buffer(self, current_timestamp: datetime.datetime) -> int:
+        """Delete old data in the buffer that is no longer relevant for our price calculation.
+
+        :return:
+            Numbers of items that where discared
+        """
+
+        too_old = current_timestamp - self.target_time_window
+        to_be_deleted = []
+
+        for idx, tuple in enumerate(self.buffer):
+            timestamp, entry = tuple
+            if timestamp < too_old:
+                to_be_deleted.append(idx)
+
+        for idx in to_be_deleted:
+            del self.buffer[idx]
+
+        return len(to_be_deleted)
 
 
 def time_weighted_average_price(events: List[PriceEntry]) -> Decimal:

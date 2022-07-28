@@ -10,7 +10,6 @@ For further reading see:
 
 import logging
 import threading
-from dataclasses import dataclass
 from typing import Callable, Dict, Iterable, List, Optional, Protocol
 
 import futureproof
@@ -19,25 +18,11 @@ from futureproof import ThreadPoolExecutor
 from web3 import Web3
 from web3.contract import ContractEvent
 
+from eth_defi.event_reader.filter import Filter
 from eth_defi.event_reader.logresult import LogContext, LogResult
 from eth_defi.event_reader.web3worker import get_worker_web3
 
 logger = logging.getLogger(__name__)
-
-
-@dataclass
-class Filter:
-    """Internal filter used to match events."""
-
-    #: Preconstructed topic hash -> Event mapping
-    topics: Dict[str, ContractEvent]
-
-    #: Bloom filter to match block headers
-    #: TODO: Currently unsupported
-    bloom: Optional[BloomFilter]
-
-    #: Get events from a single contract only
-    contract_address: Optional[str] = None
 
 
 # For typing.Protocol see https://stackoverflow.com/questions/68472236/type-hint-for-callable-that-takes-kwargs
@@ -312,6 +297,9 @@ def read_events(
     :param filter:
         Pass a custom event filter for the readers
     """
+
+    assert type(start_block) == int
+    assert type(end_block) == int
 
     total_events = 0
 

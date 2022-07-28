@@ -3,7 +3,9 @@
 - Feature: generic price oracle implementation with configurable price function
 - Feature: time weighted average price (TWAP) price function for price oracle
 - Feature: price oracle implementation for Uniswap v2 pools
+- Feature: `update_live_price_feed` for real-time Uniswap v2 price oracles
 - Feature: `fetch_pair_details` to get info on Uniswap v2 pairs
+- API change: Factored event filter implementation to `eth_defi.reader.filter`
 
 # 0.10.0
 
