@@ -15,14 +15,14 @@ To run:
 .. code-block:: python
 
     export BNB_CHAIN_JSON_RPC="https://bsc-dataseed.binance.org/"
-    python scripts/live-price.py
+    python scripts/pancakeswap-live-price.py
 
 """
 import datetime
 import os
 import time
 
-from web3 import Web3, HTTPProvider
+from web3 import HTTPProvider, Web3
 from web3.middleware import geth_poa_middleware
 
 from eth_defi.price_oracle.oracle import PriceOracle, time_weighted_average_price
@@ -50,7 +50,7 @@ def main():
 
     oracle = PriceOracle(
         time_weighted_average_price,
-        max_age=datetime.timedelta(minutes=15),   # Crash if we data gets more stale than 15 minutes
+        max_age=datetime.timedelta(minutes=15),  # Crash if we data gets more stale than 15 minutes
         min_duration=datetime.timedelta(minutes=1),
     )
 
@@ -64,20 +64,11 @@ def main():
     initial_fetch_block_count = int(oracle.target_time_window / datetime.timedelta(seconds=block_time) * initial_fetch_safety_margin)
 
     print(f"Starting initial data fetch of {initial_fetch_block_count} blocks")
-    update_live_price_feed(
-        oracle,
-        web3,
-        pair_contract_address,
-        reverse_token_order=reverse_token_order,
-        lookback_block_count=initial_fetch_block_count)
+    update_live_price_feed(oracle, web3, pair_contract_address, reverse_token_order=reverse_token_order, lookback_block_count=initial_fetch_block_count)
 
     print(f"Starting live price feed, TWAP time window is set to {oracle.target_time_window}")
     while True:
-        stats = update_live_price_feed(
-            oracle,
-            web3,
-            pair_contract_address,
-            reverse_token_order=reverse_token_order)
+        stats = update_live_price_feed(oracle, web3, pair_contract_address, reverse_token_order=reverse_token_order)
 
         last_price = oracle.get_newest().price
         twap = oracle.calculate_price()
