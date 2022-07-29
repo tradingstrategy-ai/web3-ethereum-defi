@@ -9,9 +9,9 @@ import datetime
 import enum
 import heapq
 import statistics
-from decimal import Decimal
-from typing import Protocol, Optional, Dict, List, Tuple
 from dataclasses import dataclass
+from decimal import Decimal
+from typing import Dict, List, Optional, Protocol, Tuple
 
 
 class PriceSource(enum.Enum):
@@ -60,7 +60,7 @@ class PriceEntry:
     volume: Optional[Decimal] = None
 
     #: Uni v2 pair contract address or similar
-    pair_contract_address: Optional[str] = None
+    pool_contract_address: Optional[str] = None
 
     #: Block number where this transaction happened
     block_number: Optional[int] = None
@@ -186,13 +186,14 @@ class PriceOracle:
     #: An "infinite" place holder for max age
     ANY_AGE = datetime.timedelta(days=100 * 365)
 
-    def __init__(self,
-                 price_function: PriceFunction,
-                 target_time_window: datetime.timedelta = datetime.timedelta(minutes=5),
-                 min_duration: datetime.timedelta = datetime.timedelta(hours=1),
-                 max_age: datetime.timedelta = datetime.timedelta(hours=4),
-                 min_entries: int = 8,
-                 ):
+    def __init__(
+        self,
+        price_function: PriceFunction,
+        target_time_window: datetime.timedelta = datetime.timedelta(minutes=5),
+        min_duration: datetime.timedelta = datetime.timedelta(hours=1),
+        max_age: datetime.timedelta = datetime.timedelta(hours=4),
+        min_entries: int = 8,
+    ):
         """
         Create a new price oracle.
 
@@ -287,9 +288,7 @@ class PriceOracle:
         threshold = now_ - self.max_age
         last_refresh = self.get_last_refreshed()
         if last_refresh < threshold:
-            raise DataTooOld(f"The data is too old (stale?).\n"
-                             f"The latest refresh is at {last_refresh}\n"
-                             f"where oracle cut off for stale data is {threshold}")
+            raise DataTooOld(f"The data is too old (stale?).\n" f"The latest refresh is at {last_refresh}\n" f"where oracle cut off for stale data is {threshold}")
 
     def calculate_price(self) -> Decimal:
         """Calculate the price based on the data in the price data buffer.
@@ -364,10 +363,7 @@ class PriceOracle:
         assert self.buffer
         return self.get_newest().timestamp - self.get_oldest().timestamp
 
-    def feed_simple_data(
-            self,
-            data: Dict[datetime.datetime, Decimal],
-            source=PriceSource.unknown):
+    def feed_simple_data(self, data: Dict[datetime.datetime, Decimal], source=PriceSource.unknown):
         """Feed sample data to the price oracle from a Python dict.
 
         This method is mostly for testing: for actual
