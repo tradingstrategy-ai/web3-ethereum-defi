@@ -1,5 +1,6 @@
 """Price oracle implementation for Uniswap v3 pools."""
 import datetime
+from collections import Counter
 from dataclasses import dataclass
 from decimal import Decimal
 
@@ -8,7 +9,12 @@ from web3 import Web3
 
 from eth_defi.abi import get_contract
 from eth_defi.event_reader.logresult import LogContext
-from eth_defi.event_reader.reader import Filter, read_events, read_events_concurrent
+from eth_defi.event_reader.reader import (
+    Filter,
+    extract_timestamps_json_rpc,
+    read_events,
+    read_events_concurrent,
+)
 from eth_defi.event_reader.web3factory import TunedWeb3Factory
 from eth_defi.event_reader.web3worker import create_thread_pool_executor
 from eth_defi.price_oracle.oracle import PriceEntry, PriceOracle, PriceSource
@@ -244,3 +250,76 @@ def update_price_oracle_single_thread(
     ):
         entry = convert_swap_event_to_price_entry(log_result)
         oracle.add_price_entry(entry)
+
+
+def update_live_price_feed(
+    oracle: PriceOracle,
+    web3: Web3,
+    pool_contract_address: str,
+    reverse_token_order: bool = False,
+    lookback_block_count: int = 5,
+) -> Counter:
+    """Fetch live price of Uniswap v3 pool by listening to Sync event.
+
+    We use HTTP polling method, as HTTP polling is supported by free nodes.
+
+    .. warning::
+
+        We do not have bullet-proof logic to deal with minor chain reorgs.
+        Some transactions can hop blocks and be rejected in later blocks,
+        and we do not deal with this.
+        This is a simple example implementation and may not suitable
+        for production usage.
+
+    :return:
+        Debug stats
+
+    """
+
+    stats = Counter(
+        {
+            "created": 0,
+            "reorgs": 0,
+            "discarded": 0,
+        }
+    )
+
+    Pool = get_contract(web3, "uniswap_v3/UniswapV3Pool.json")
+    event_types = [Pool.events.Swap]
+
+    pool_details = fetch_pool_details(web3, pool_contract_address)
+    event_filter = Filter.create_filter(pool_contract_address, event_types)
+    log_context = UniswapV3PriceOracleContext(pool_details, reverse_token_order)
+
+    current_block = web3.eth.block_number
+    start_block = current_block - lookback_block_count
+    end_block = current_block
+
+    # Feed oracle with event data from JSON-RPC node
+    for log_result in read_events(
+        web3,
+        start_block,
+        end_block,
+        events=event_types,
+        notify=None,
+        chunk_size=100,
+        filter=event_filter,
+        context=log_context,
+    ):
+        entry = convert_swap_event_to_price_entry(log_result)
+        hopped = oracle.add_price_entry_reorg_safe(entry)
+        if hopped:
+            stats["reorgs"] += 1
+        else:
+            stats["created"] += 1
+
+    # Get the last block timestamp
+    timestamps = extract_timestamps_json_rpc(web3, end_block, end_block)
+    unix_timestamp = next(iter(timestamps.values()))
+    last_timestamp = datetime.datetime.utcfromtimestamp(unix_timestamp)
+    oracle.update_last_refresh(end_block, last_timestamp)
+
+    # Clean old data
+    stats["discarded"] = oracle.truncate_buffer(last_timestamp)
+
+    return stats
