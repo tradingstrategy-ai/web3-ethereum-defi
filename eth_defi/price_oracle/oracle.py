@@ -406,17 +406,11 @@ class PriceOracle:
         """
 
         too_old = current_timestamp - self.target_time_window
-        to_be_deleted = []
+        old_buffer_length = len(self.buffer)
 
-        for idx, tuple in enumerate(self.buffer):
-            timestamp, entry = tuple
-            if timestamp < too_old:
-                to_be_deleted.append(idx)
+        self.buffer = [entry for entry in self.buffer if entry[0] >= too_old]
 
-        for idx in to_be_deleted:
-            del self.buffer[idx]
-
-        return len(to_be_deleted)
+        return old_buffer_length - len(self.buffer)
 
 
 def time_weighted_average_price(events: List[PriceEntry]) -> Decimal:
