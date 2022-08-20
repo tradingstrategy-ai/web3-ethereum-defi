@@ -131,7 +131,11 @@ def fetch_erc20_balances_by_token_list(web3: Web3, owner: HexAddress, tokens: Se
     return balances
 
 
-def convert_balances_to_decimal(web3, raw_balances: Dict[HexAddress, int]) -> Dict[HexAddress, DecimalisedHolding]:
+def convert_balances_to_decimal(
+        web3,
+        raw_balances: Dict[HexAddress, int],
+        require_decimals=True,
+) -> Dict[HexAddress, DecimalisedHolding]:
     """Convert mapping of ERC-20 holdings to decimals.
 
     Issues a JSON-RPC call to fetch token data for each ERC-20 in the input dictionary.
@@ -143,7 +147,13 @@ def convert_balances_to_decimal(web3, raw_balances: Dict[HexAddress, int]) -> Di
         raw_balances = fetch_erc20_balances_by_token_list(web3, address, tokens)
         return convert_balances_to_decimal(web3, raw_balances)
 
-    :param raw_balances: Token address -> uint256 mappings
+    :param raw_balances:
+        Token address -> uint256 mappings
+
+    :param require_decimals:
+        Safety check to ensure ERC-20 tokens have valid decimals set.
+        Prevents some wrong addresses and broken tokens.
+
     :return: Token address -> `DecimalisedHolding` mappings
     """
 
@@ -156,6 +166,10 @@ def convert_balances_to_decimal(web3, raw_balances: Dict[HexAddress, int]) -> Di
     for address, raw_balance in raw_balances.items():
         contract = ERC20(address)
         decimals = contract.functions.decimals().call()
+
+        if require_decimals:
+            assert decimals > 0, f"ERC20.decimals() did not return a good value: {address}"
+
         res[address] = DecimalisedHolding(Decimal(raw_balance) / Decimal(10**decimals), decimals, contract)
 
     return res
