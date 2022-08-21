@@ -1,5 +1,9 @@
 # Current
 
+- TODO
+
+# 0.11
+
 - Feature: generic price oracle implementation with configurable price function
 - Feature: time weighted average price (TWAP) price function for price oracle
 - Feature: price oracle implementation for Uniswap v2 and v3 pools
