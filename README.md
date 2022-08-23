@@ -263,10 +263,15 @@ poetry add -D "web3-ethereum-defi[data]"
 - [Read changelog](https://github.com/tradingstrategy-ai/web3-ethereum-defi/blob/master/CHANGELOG.md).
 - [See releases](https://pypi.org/project/web3-ethereum-defi/#history).
 
-# Social media
+# Support 
 
 - [Join Discord for any questions](https://tradingstrategy.ai/community).
-- [Message us on Twitter](https://twitter.com/TradingProtocol)
+
+# Social media
+
+- [Follow on Twitter](https://twitter.com/TradingProtocol)
+- [Follow on Telegram](https://t.me/trading_protocol)
+- [Follow on LinkedIn](https://www.linkedin.com/company/trading-strategy/)
 
 # Notes
 
