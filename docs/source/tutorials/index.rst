@@ -7,6 +7,18 @@ Examples how to use web3.py and Web-Ethereum-Defi library
 
 * Data research with Jupyter Notebooks and Pandas
 
+Prerequisites
+-------------
+
+To run the scripts you need to be able to understand
+how Python packaging works and how to install additional modules.
+
+E.g.
+
+```shell
+pip install tdqm
+```
+
 .. toctree::
    :maxdepth: 1
 
