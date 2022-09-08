@@ -1,8 +1,8 @@
 Web3 Ethereum Defi Python documentation
 ========================================
 
-This is the API documentation for Python `web3-ethereum-defi` package.
-See `the project README for an overview <https://github.com/tradingstrategy-ai/web3-ethereum-defi>`_.
+This is the API documentation for Python `web3-ethereum-defi <https://github.com/tradingstrategy-ai/web3-ethereum-defi>`__ package.
+See `the project README for an overview <https://github.com/tradingstrategy-ai/web3-ethereum-defi>`__.
 
 More information
 ================
