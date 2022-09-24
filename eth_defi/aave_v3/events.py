@@ -253,7 +253,7 @@ def aave_v3_fetch_events_to_csv(
             if last_timestamp:
                 # Display progress with the date information
                 d = datetime.datetime.utcfromtimestamp(last_timestamp)
-                formatted_time = d.strftime("%d-%m-%Y")
+                formatted_time = d.strftime("%Y-%m-%d")
                 progress_bar.set_description(f"Block: {current_block:,}, events: {total_events:,}, time:{formatted_time}")
             else:
                 progress_bar.set_description(f"Block: {current_block:,}, events: {total_events:,}")
@@ -302,7 +302,6 @@ def aave_v3_fetch_events_to_csv(
     # Write remaining events, close files and print stats
     for event_name, buffer in buffers.items():
         if len(buffer["buffer"]) > 0:
-            # log_info(f'Writing buffer to file {len(buffer["buffer"])} events')
             for entry in buffer["buffer"]:
                 buffer["csv_writer"].writerow(entry)
                 buffer["total"] += 1

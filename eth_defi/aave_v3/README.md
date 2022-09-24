@@ -5,7 +5,7 @@ events to track interest rates.
 
 ## Aave v3 blockchain events
 
-The ReserveDataUpdated event in [ReserveLogic.sol](https://github.com/aave/aave-v3-core/blob/master/contracts/protocol/libraries/logic/ReserveLogic.sol)
+The ReserveDataUpdated event in [ReserveLogic.sol](https://github.com/aave/aave-v3-core/blob/v1.16.2/contracts/protocol/libraries/logic/ReserveLogic.sol#L31)
 (signature 804c9b842b2748a22bb64b345453a3de7ca54a6ca45ce00d415894979e22897a) is triggered whenever the interest rates of a reserve currency are updated.
 
 The event contains the following attributes:
@@ -52,7 +52,7 @@ To calculate accrued interest for a variable interest loan taken at T1 and paid 
     accrued_interest = payback_amount - relative_amount
 
 To calculate accrued interest for a stable interest loan, we need a slightly more complicated formula defined in
-https://github.com/aave/aave-v3-core/blob/master/contracts/protocol/libraries/math/MathUtils.sol#L51. The formula is adapted
+https://github.com/aave/aave-v3-core/blob/v1.16.2/contracts/protocol/libraries/math/MathUtils.sol#L51. The formula is adapted
 from Solidity to Python.
 
 All accrued interest calculations are implemented in rates.py.

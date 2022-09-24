@@ -1,7 +1,7 @@
 """Aave v3 constants."""
 import json
 import os
-from collections import namedtuple
+from typing import NamedTuple
 
 # Sources:
 # https://docs.aave.com/developers/deployed-contracts/v3-mainnet/polygon
@@ -11,25 +11,42 @@ from collections import namedtuple
 # https://docs.aave.com/developers/deployed-contracts/v3-mainnet/avalanche
 # https://docs.aave.com/developers/deployed-contracts/v3-mainnet/harmony
 
-AaveNetwork = namedtuple('AaveNetwork', [
-    'name',  # Network name
-    'pool_address',  # Aave v3 pool address
-    'pool_created_at_block',  # Block number when the pool was created
-    'token_contracts',  # Token contract information
-])
 
-AaveToken = namedtuple('AaveToken', [
-    'token_address',  # Address of the token contract
-    'deposit_address',  # Address of the AToken (deposit) contract
-    'variable_borrow_address',  # Address of the VariableDebtToken (variable borrow rate) contract
-    'stable_borrow_address',  # Address of the StableDebtToken (stable borrow rate) contract
-    'token_created_at_block',  # Block number when the token was created
-])
+class AaveNetwork(NamedTuple):
+    # Network name
+    name: str
+
+    # Aave v3 pool address
+    pool_address: str
+
+    # Block number when the pool was created
+    pool_created_at_block: int
+
+    # Token contract information
+    token_contracts: dict[str, 'AaveToken']
+
+
+class AaveToken(NamedTuple):
+    # Address of the token contract
+    token_address: str
+
+    # Address of the AToken (deposit) contract
+    deposit_address: str
+
+    # Address of the VariableDebtToken (variable borrow rate) contract
+    variable_borrow_address: str
+
+    # Address of the StableDebtToken (stable borrow rate) contract
+    stable_borrow_address: str
+
+    # Block number when the token was created
+    token_created_at_block: int
+
 
 # Map chain identifiers to Aave network parameters - autodetect parameters based on the Web3 provider's chain id
 # Note that the pool addresses are proxy addresses, not the actual contract addresses (but you can use them with the contract ABI)
 
-AAVE_V3_NETWORK_CHAINS: dict = {
+AAVE_V3_NETWORK_CHAINS: dict[int, str] = {
     137: 'polygon',
     10: 'optimism',
     42161: 'arbitrum',
@@ -42,7 +59,7 @@ AAVE_V3_NETWORK_CHAINS: dict = {
 # while we are watching v3 events from contract 0x794a61358D6845594F94dc1DB02A252b5b4814aD only. So we need to filter events by
 # the pool_address configured here.
 
-AAVE_V3_NETWORKS: dict = {
+AAVE_V3_NETWORKS: dict[str, AaveNetwork] = {
     # Polygon Mainnet
     'polygon': AaveNetwork(
         name='Polygon',
@@ -125,7 +142,7 @@ AAVE_V3_NETWORKS: dict = {
     ),
 }
 
-AAVE_V3_DEPOSIT_ADDRESS_TOKENS = {}  # autofill later
+AAVE_V3_DEPOSIT_ADDRESS_TOKENS: dict[str, str] = {}  # autofill later
 
 
 # Helper functions for reading JSON-RPC URLs and account addresses from an optional aave.json file.

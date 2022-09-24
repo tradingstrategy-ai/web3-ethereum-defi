@@ -390,7 +390,7 @@ def fetch_events_to_csv(
             if last_timestamp:
                 # Display progress with the date information
                 d = datetime.datetime.utcfromtimestamp(last_timestamp)
-                formatted_time = d.strftime("%d-%m-%Y")
+                formatted_time = d.strftime("%Y-%m-%d")
                 progress_bar.set_description(f"Block: {current_block:,}, events: {total_events:,}, time:{formatted_time}")
             else:
                 progress_bar.set_description(f"Block: {current_block:,}, events: {total_events:,}")
