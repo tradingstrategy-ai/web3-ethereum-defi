@@ -19,12 +19,19 @@ copy-uniswapv3-abi: uniswapv3
 	@find contracts/uniswap-v3-core/artifacts/contracts -iname "*.json" -not -iname "*.dbg.json" -exec cp {} eth_defi/abi/uniswap_v3 \;
 	@find contracts/uniswap-v3-periphery/artifacts/contracts -iname "*.json" -not -iname "*.dbg.json" -exec cp {} eth_defi/abi/uniswap_v3 \;
 
+# Copy Aave V3 contract ABIs from their NPM package, remove library placeholders (__$ $__)
+aavev3:
+	@(cd contracts/aave-v3 && npm install)
+	@mkdir -p eth_defi/abi/aave_v3
+	@find contracts/aave-v3/node_modules/@aave/core-v3/artifacts -iname "*.json" -not -iname "*.dbg.json" -exec cp {} eth_defi/abi/aave_v3 \;
+	@find eth_defi/abi/aave_v3 -iname "*.json" -exec sed -e 's/\$$__\|__\$$//g' -i {} \;
+
 clean:
 	@rm -rf contracts/sushiswap/artifacts/*
 	@rm -rf contracts/uniswap-v3-core/artifacts/*
 	@rm -rf contracts/uniswap-v3-periphery/artifacts/*
 
-all: clean-docs copy-sushi-abi copy-uniswapv3-abi build-docs
+all: clean-docs copy-sushi-abi copy-uniswapv3-abi aavev3 build-docs
 
 # Export the dependencies, so that Read the docs can build our API docs
 # See: https://github.com/readthedocs/readthedocs.org/issues/4912
