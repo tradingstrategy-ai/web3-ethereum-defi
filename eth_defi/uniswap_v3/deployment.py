@@ -175,7 +175,7 @@ def deploy_pool(
     """
 
     assert token0.address != token1.address
-    assert fee in DEFAULT_FEES, f"Default Uniswap v3 factory only allows 3 fee levels: {', '.join(map(str, DEFAULT_FEES))}"
+    assert fee in DEFAULT_FEES, f"Default Uniswap v3 factory only allows {len(DEFAULT_FEES)} fee levels: {', '.join(map(str, DEFAULT_FEES))}"
 
     factory = deployment.factory
     tx_hash = factory.functions.createPool(token0.address, token1.address, fee).transact({"from": deployer})
