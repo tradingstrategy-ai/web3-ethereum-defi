@@ -6,20 +6,24 @@ FOREVER_DEADLINE = 2**63
 MIN_TICK = -887272
 MAX_TICK = -MIN_TICK
 
-# https://github.com/Uniswap/v3-core/blob/v1.0.0/contracts/UniswapV3Factory.sol#L26-L31
-DEFAULT_FEES = [
-    500,
-    3_000,
-    10_000,
-]
 DEFAULT_TICK_SPACINGS = {
+    # 100 bps fee level wasn't defined in factory contract, but was added later by UNI governance
+    # https://etherscan.io/tx/0x5c84f89a67237db7500538b81af61ebd827c081302dd73a1c20c8f6efaaf4f3c#eventlog
+    100: 1,
+    # 3 default tick spacings as defined in v3 factory contract:
+    # https://github.com/Uniswap/v3-core/blob/v1.0.0/contracts/UniswapV3Factory.sol#L26-L31
     500: 10,
     3_000: 60,
     10_000: 200,
 }
 
+DEFAULT_FEES = list(DEFAULT_TICK_SPACINGS.keys())
 
+# address of factory deployed on Ethereum mainnet, Polygon, Optimism, Arbitrum, etc.
+# https://docs.uniswap.org/protocol/reference/deployments
 UNISWAP_V3_FACTORY_ADDRESS = "0x1F98431c8aD98523631AE4a59f267346ea31F984"
+
+# block when factory was deployed
 UNISWAP_V3_FACTORY_CREATED_AT_BLOCK = 12369621
 UNISWAP_V3_SUBGRAPH_URL = "https://api.thegraph.com/subgraphs/name/uniswap/uniswap-v3"
 
