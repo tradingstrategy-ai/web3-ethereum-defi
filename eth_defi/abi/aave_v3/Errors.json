@@ -1,0 +1,1142 @@
+{
+  "_format": "hh-sol-artifact-1",
+  "contractName": "Errors",
+  "sourceName": "contracts/protocol/libraries/helpers/Errors.sol",
+  "abi": [
+    {
+      "inputs": [],
+      "name": "ACL_ADMIN_CANNOT_BE_ZERO",
+      "outputs": [
+        {
+          "internalType": "string",
+          "name": "",
+          "type": "string"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "ADDRESSES_PROVIDER_ALREADY_ADDED",
+      "outputs": [
+        {
+          "internalType": "string",
+          "name": "",
+          "type": "string"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "ADDRESSES_PROVIDER_NOT_REGISTERED",
+      "outputs": [
+        {
+          "internalType": "string",
+          "name": "",
+          "type": "string"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "AMOUNT_BIGGER_THAN_MAX_LOAN_SIZE_STABLE",
+      "outputs": [
+        {
+          "internalType": "string",
+          "name": "",
+          "type": "string"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "ASSET_NOT_BORROWABLE_IN_ISOLATION",
+      "outputs": [
+        {
+          "internalType": "string",
+          "name": "",
+          "type": "string"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "ASSET_NOT_LISTED",
+      "outputs": [
+        {
+          "internalType": "string",
+          "name": "",
+          "type": "string"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "ATOKEN_SUPPLY_NOT_ZERO",
+      "outputs": [
+        {
+          "internalType": "string",
+          "name": "",
+          "type": "string"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "BORROWING_NOT_ENABLED",
+      "outputs": [
+        {
+          "internalType": "string",
+          "name": "",
+          "type": "string"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "BORROW_CAP_EXCEEDED",
+      "outputs": [
+        {
+          "internalType": "string",
+          "name": "",
+          "type": "string"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "BRIDGE_PROTOCOL_FEE_INVALID",
+      "outputs": [
+        {
+          "internalType": "string",
+          "name": "",
+          "type": "string"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "CALLER_MUST_BE_POOL",
+      "outputs": [
+        {
+          "internalType": "string",
+          "name": "",
+          "type": "string"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "CALLER_NOT_ASSET_LISTING_OR_POOL_ADMIN",
+      "outputs": [
+        {
+          "internalType": "string",
+          "name": "",
+          "type": "string"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "CALLER_NOT_ATOKEN",
+      "outputs": [
+        {
+          "internalType": "string",
+          "name": "",
+          "type": "string"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "CALLER_NOT_BRIDGE",
+      "outputs": [
+        {
+          "internalType": "string",
+          "name": "",
+          "type": "string"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "CALLER_NOT_EMERGENCY_ADMIN",
+      "outputs": [
+        {
+          "internalType": "string",
+          "name": "",
+          "type": "string"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "CALLER_NOT_POOL_ADMIN",
+      "outputs": [
+        {
+          "internalType": "string",
+          "name": "",
+          "type": "string"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "CALLER_NOT_POOL_CONFIGURATOR",
+      "outputs": [
+        {
+          "internalType": "string",
+          "name": "",
+          "type": "string"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "CALLER_NOT_POOL_OR_EMERGENCY_ADMIN",
+      "outputs": [
+        {
+          "internalType": "string",
+          "name": "",
+          "type": "string"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "CALLER_NOT_RISK_OR_POOL_ADMIN",
+      "outputs": [
+        {
+          "internalType": "string",
+          "name": "",
+          "type": "string"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "COLLATERAL_BALANCE_IS_ZERO",
+      "outputs": [
+        {
+          "internalType": "string",
+          "name": "",
+          "type": "string"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "COLLATERAL_CANNOT_BE_LIQUIDATED",
+      "outputs": [
+        {
+          "internalType": "string",
+          "name": "",
+          "type": "string"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "COLLATERAL_CANNOT_COVER_NEW_BORROW",
+      "outputs": [
+        {
+          "internalType": "string",
+          "name": "",
+          "type": "string"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "COLLATERAL_SAME_AS_BORROWING_CURRENCY",
+      "outputs": [
+        {
+          "internalType": "string",
+          "name": "",
+          "type": "string"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "DEBT_CEILING_EXCEEDED",
+      "outputs": [
+        {
+          "internalType": "string",
+          "name": "",
+          "type": "string"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "DEBT_CEILING_NOT_ZERO",
+      "outputs": [
+        {
+          "internalType": "string",
+          "name": "",
+          "type": "string"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "EMODE_CATEGORY_RESERVED",
+      "outputs": [
+        {
+          "internalType": "string",
+          "name": "",
+          "type": "string"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "FLASHLOAN_PREMIUM_INVALID",
+      "outputs": [
+        {
+          "internalType": "string",
+          "name": "",
+          "type": "string"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "HEALTH_FACTOR_LOWER_THAN_LIQUIDATION_THRESHOLD",
+      "outputs": [
+        {
+          "internalType": "string",
+          "name": "",
+          "type": "string"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "HEALTH_FACTOR_NOT_BELOW_THRESHOLD",
+      "outputs": [
+        {
+          "internalType": "string",
+          "name": "",
+          "type": "string"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "INCONSISTENT_EMODE_CATEGORY",
+      "outputs": [
+        {
+          "internalType": "string",
+          "name": "",
+          "type": "string"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "INCONSISTENT_FLASHLOAN_PARAMS",
+      "outputs": [
+        {
+          "internalType": "string",
+          "name": "",
+          "type": "string"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "INCONSISTENT_PARAMS_LENGTH",
+      "outputs": [
+        {
+          "internalType": "string",
+          "name": "",
+          "type": "string"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "INTEREST_RATE_REBALANCE_CONDITIONS_NOT_MET",
+      "outputs": [
+        {
+          "internalType": "string",
+          "name": "",
+          "type": "string"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "INVALID_ADDRESSES_PROVIDER",
+      "outputs": [
+        {
+          "internalType": "string",
+          "name": "",
+          "type": "string"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "INVALID_ADDRESSES_PROVIDER_ID",
+      "outputs": [
+        {
+          "internalType": "string",
+          "name": "",
+          "type": "string"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "INVALID_AMOUNT",
+      "outputs": [
+        {
+          "internalType": "string",
+          "name": "",
+          "type": "string"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "INVALID_BORROW_CAP",
+      "outputs": [
+        {
+          "internalType": "string",
+          "name": "",
+          "type": "string"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "INVALID_BURN_AMOUNT",
+      "outputs": [
+        {
+          "internalType": "string",
+          "name": "",
+          "type": "string"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "INVALID_DEBT_CEILING",
+      "outputs": [
+        {
+          "internalType": "string",
+          "name": "",
+          "type": "string"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "INVALID_DECIMALS",
+      "outputs": [
+        {
+          "internalType": "string",
+          "name": "",
+          "type": "string"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "INVALID_EMODE_CATEGORY",
+      "outputs": [
+        {
+          "internalType": "string",
+          "name": "",
+          "type": "string"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "INVALID_EMODE_CATEGORY_ASSIGNMENT",
+      "outputs": [
+        {
+          "internalType": "string",
+          "name": "",
+          "type": "string"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "INVALID_EMODE_CATEGORY_PARAMS",
+      "outputs": [
+        {
+          "internalType": "string",
+          "name": "",
+          "type": "string"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "INVALID_EXPIRATION",
+      "outputs": [
+        {
+          "internalType": "string",
+          "name": "",
+          "type": "string"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "INVALID_FLASHLOAN_EXECUTOR_RETURN",
+      "outputs": [
+        {
+          "internalType": "string",
+          "name": "",
+          "type": "string"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "INVALID_INTEREST_RATE_MODE_SELECTED",
+      "outputs": [
+        {
+          "internalType": "string",
+          "name": "",
+          "type": "string"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "INVALID_LIQUIDATION_PROTOCOL_FEE",
+      "outputs": [
+        {
+          "internalType": "string",
+          "name": "",
+          "type": "string"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "INVALID_LIQ_BONUS",
+      "outputs": [
+        {
+          "internalType": "string",
+          "name": "",
+          "type": "string"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "INVALID_LIQ_THRESHOLD",
+      "outputs": [
+        {
+          "internalType": "string",
+          "name": "",
+          "type": "string"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "INVALID_LTV",
+      "outputs": [
+        {
+          "internalType": "string",
+          "name": "",
+          "type": "string"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "INVALID_MINT_AMOUNT",
+      "outputs": [
+        {
+          "internalType": "string",
+          "name": "",
+          "type": "string"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "INVALID_OPTIMAL_STABLE_TO_TOTAL_DEBT_RATIO",
+      "outputs": [
+        {
+          "internalType": "string",
+          "name": "",
+          "type": "string"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "INVALID_OPTIMAL_USAGE_RATIO",
+      "outputs": [
+        {
+          "internalType": "string",
+          "name": "",
+          "type": "string"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "INVALID_RESERVE_FACTOR",
+      "outputs": [
+        {
+          "internalType": "string",
+          "name": "",
+          "type": "string"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "INVALID_RESERVE_INDEX",
+      "outputs": [
+        {
+          "internalType": "string",
+          "name": "",
+          "type": "string"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "INVALID_RESERVE_PARAMS",
+      "outputs": [
+        {
+          "internalType": "string",
+          "name": "",
+          "type": "string"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "INVALID_SIGNATURE",
+      "outputs": [
+        {
+          "internalType": "string",
+          "name": "",
+          "type": "string"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "INVALID_SUPPLY_CAP",
+      "outputs": [
+        {
+          "internalType": "string",
+          "name": "",
+          "type": "string"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "INVALID_UNBACKED_MINT_CAP",
+      "outputs": [
+        {
+          "internalType": "string",
+          "name": "",
+          "type": "string"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "LTV_VALIDATION_FAILED",
+      "outputs": [
+        {
+          "internalType": "string",
+          "name": "",
+          "type": "string"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "NOT_CONTRACT",
+      "outputs": [
+        {
+          "internalType": "string",
+          "name": "",
+          "type": "string"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "NOT_ENOUGH_AVAILABLE_USER_BALANCE",
+      "outputs": [
+        {
+          "internalType": "string",
+          "name": "",
+          "type": "string"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "NO_DEBT_OF_SELECTED_TYPE",
+      "outputs": [
+        {
+          "internalType": "string",
+          "name": "",
+          "type": "string"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "NO_EXPLICIT_AMOUNT_TO_REPAY_ON_BEHALF",
+      "outputs": [
+        {
+          "internalType": "string",
+          "name": "",
+          "type": "string"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "NO_MORE_RESERVES_ALLOWED",
+      "outputs": [
+        {
+          "internalType": "string",
+          "name": "",
+          "type": "string"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "NO_OUTSTANDING_STABLE_DEBT",
+      "outputs": [
+        {
+          "internalType": "string",
+          "name": "",
+          "type": "string"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "NO_OUTSTANDING_VARIABLE_DEBT",
+      "outputs": [
+        {
+          "internalType": "string",
+          "name": "",
+          "type": "string"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "OPERATION_NOT_SUPPORTED",
+      "outputs": [
+        {
+          "internalType": "string",
+          "name": "",
+          "type": "string"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "POOL_ADDRESSES_DO_NOT_MATCH",
+      "outputs": [
+        {
+          "internalType": "string",
+          "name": "",
+          "type": "string"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "PRICE_ORACLE_SENTINEL_CHECK_FAILED",
+      "outputs": [
+        {
+          "internalType": "string",
+          "name": "",
+          "type": "string"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "RESERVE_ALREADY_ADDED",
+      "outputs": [
+        {
+          "internalType": "string",
+          "name": "",
+          "type": "string"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "RESERVE_ALREADY_INITIALIZED",
+      "outputs": [
+        {
+          "internalType": "string",
+          "name": "",
+          "type": "string"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "RESERVE_FROZEN",
+      "outputs": [
+        {
+          "internalType": "string",
+          "name": "",
+          "type": "string"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "RESERVE_INACTIVE",
+      "outputs": [
+        {
+          "internalType": "string",
+          "name": "",
+          "type": "string"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "RESERVE_LIQUIDITY_NOT_ZERO",
+      "outputs": [
+        {
+          "internalType": "string",
+          "name": "",
+          "type": "string"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "RESERVE_PAUSED",
+      "outputs": [
+        {
+          "internalType": "string",
+          "name": "",
+          "type": "string"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "SAME_BLOCK_BORROW_REPAY",
+      "outputs": [
+        {
+          "internalType": "string",
+          "name": "",
+          "type": "string"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "SPECIFIED_CURRENCY_NOT_BORROWED_BY_USER",
+      "outputs": [
+        {
+          "internalType": "string",
+          "name": "",
+          "type": "string"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "STABLE_BORROWING_NOT_ENABLED",
+      "outputs": [
+        {
+          "internalType": "string",
+          "name": "",
+          "type": "string"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "STABLE_DEBT_NOT_ZERO",
+      "outputs": [
+        {
+          "internalType": "string",
+          "name": "",
+          "type": "string"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "SUPPLY_CAP_EXCEEDED",
+      "outputs": [
+        {
+          "internalType": "string",
+          "name": "",
+          "type": "string"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "UNBACKED_MINT_CAP_EXCEEDED",
+      "outputs": [
+        {
+          "internalType": "string",
+          "name": "",
+          "type": "string"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "UNDERLYING_BALANCE_ZERO",
+      "outputs": [
+        {
+          "internalType": "string",
+          "name": "",
+          "type": "string"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "UNDERLYING_CANNOT_BE_RESCUED",
+      "outputs": [
+        {
+          "internalType": "string",
+          "name": "",
+          "type": "string"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "USER_IN_ISOLATION_MODE",
+      "outputs": [
+        {
+          "internalType": "string",
+          "name": "",
+          "type": "string"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "VARIABLE_DEBT_SUPPLY_NOT_ZERO",
+      "outputs": [
+        {
+          "internalType": "string",
+          "name": "",
+          "type": "string"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "ZERO_ADDRESS_NOT_VALID",
+      "outputs": [
+        {
+          "internalType": "string",
+          "name": "",
+          "type": "string"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    }
+  ],
+  "bytecode": "0x611aff61003a600b82828239805160001a60731461002d57634e487b7160e01b600052600060045260246000fd5b30600052607381538281f3fe73000000000000000000000000000000000000000030146080604052600436106105d75760003560e01c8063895f7dc81161030d578063b87041c2116101a6578063dcc56db6116100f8578063f07f6785116100ac578063fa163a8311610086578063fa163a83146119a2578063fae82791146119de578063fd1828ff14611a1a57600080fd5b8063f07f6785146118ee578063f10727db1461192a578063f479ea111461196657600080fd5b8063e02f07ee116100dd578063e02f07ee1461183a578063e3fa20f514611876578063e4dd8b74146118b257600080fd5b8063dcc56db6146117c2578063dd1dd95f146117fe57600080fd5b8063cd23367c1161015a578063d6f9fcde11610134578063d6f9fcde1461170e578063d9adda851461174a578063dc191bd91461178657600080fd5b8063cd23367c1461165a578063d14bb17a14611696578063d1cd8b1d146116d257600080fd5b8063c08a11461161018b578063c08a1146146115a6578063c8638082146115e2578063c899301a1461161e57600080fd5b8063b87041c21461152e578063bad8308c1461156a57600080fd5b8063a3402a381161025f578063ac75323611610213578063b5e79366116101ed578063b5e793661461147a578063b68774e9146114b6578063b7f5e224146114f257600080fd5b8063ac753236146113c6578063b051005414611402578063b4a457301461143e57600080fd5b8063a8c9785311610244578063a8c9785314611312578063ab883ca01461134e578063abd351b11461138a57600080fd5b8063a3402a381461129a578063a4868dca146112d657600080fd5b80638f7722b2116102c157806399ce53f31161029b57806399ce53f3146111e6578063a2797c8014611222578063a2e976c61461125e57600080fd5b80638f7722b214611132578063952633c51461116e5780639527e9d9146111aa57600080fd5b80638a344000116102f25780638a3440001461107e5780638b8b98d7146110ba5780638eda46bd146110f657600080fd5b8063895f7dc81461100657806389c5d45f1461104257600080fd5b80634e3aed371161047f5780636b3f7cc7116103d157806374459b14116103855780637aa0767e1161035f5780637aa0767e14610f525780637fea6f3614610f8e5780638596aad514610fca57600080fd5b806374459b1414610e9e578063747fa55614610eda57806376ae8fca14610f1657600080fd5b8063712f536a116103b6578063712f536a14610dea57806373dea5e314610e26578063744465cc14610e6257600080fd5b80636b3f7cc714610d725780636cd3cfbc14610dae57600080fd5b8063570e35471161043357806361c111d21161040d57806361c111d214610cbe57806365a83bab14610cfa57806365e7ef4c14610d3657600080fd5b8063570e354714610c0a5780635d9c76c014610c4657806360c3de8014610c8257600080fd5b80634f77647b116104645780634f77647b14610b565780635126745014610b9257806352ba9dbe14610bce57600080fd5b80634e3aed3714610ade5780634ef999ff14610b1a57600080fd5b80632eed17e811610538578063471df685116104ec578063485c8ff6116104c6578063485c8ff614610a2a5780634d86f39314610a665780634e01e3c114610aa257600080fd5b8063471df6851461097657806347ba93d8146109b257806347cf1523146109ee57600080fd5b8063366eb54d1161051d578063366eb54d146108c257806337930782146108fe57806343e97c6b1461093a57600080fd5b80632eed17e81461084a578063335763de1461088657600080fd5b806322a734461161058f57806326e7b3121161057457806326e7b312146107965780632926c971146107d25780632c8e3b4c1461080e57600080fd5b806322a734461461071e57806326bbd0531461075a57600080fd5b806312dcade8116105c057806312dcade81461066a57806314dcfbbc146106a65780631abbb001146106e257600080fd5b8063084dfa0d146105dc57806311d7b0061461062e575b600080fd5b6106186040518060400160405280600281526020017f313800000000000000000000000000000000000000000000000000000000000081525081565b6040516106259190611a56565b60405180910390f35b6106186040518060400160405280600181526020017f390000000000000000000000000000000000000000000000000000000000000081525081565b6106186040518060400160405280600281526020017f313400000000000000000000000000000000000000000000000000000000000081525081565b6106186040518060400160405280600281526020017f383600000000000000000000000000000000000000000000000000000000000081525081565b6106186040518060400160405280600281526020017f383700000000000000000000000000000000000000000000000000000000000081525081565b6106186040518060400160405280600281526020017f343700000000000000000000000000000000000000000000000000000000000081525081565b6106186040518060400160405280600281526020017f363900000000000000000000000000000000000000000000000000000000000081525081565b6106186040518060400160405280600181526020017f330000000000000000000000000000000000000000000000000000000000000081525081565b6106186040518060400160405280600281526020017f343400000000000000000000000000000000000000000000000000000000000081525081565b6106186040518060400160405280600181526020017f350000000000000000000000000000000000000000000000000000000000000081525081565b6106186040518060400160405280600281526020017f353000000000000000000000000000000000000000000000000000000000000081525081565b6106186040518060400160405280600281526020017f323000000000000000000000000000000000000000000000000000000000000081525081565b6106186040518060400160405280600281526020017f333500000000000000000000000000000000000000000000000000000000000081525081565b6106186040518060400160405280600281526020017f313200000000000000000000000000000000000000000000000000000000000081525081565b6106186040518060400160405280600281526020017f353400000000000000000000000000000000000000000000000000000000000081525081565b6106186040518060400160405280600281526020017f323300000000000000000000000000000000000000000000000000000000000081525081565b6106186040518060400160405280600281526020017f373200000000000000000000000000000000000000000000000000000000000081525081565b6106186040518060400160405280600281526020017f323100000000000000000000000000000000000000000000000000000000000081525081565b6106186040518060400160405280600181526020017f320000000000000000000000000000000000000000000000000000000000000081525081565b6106186040518060400160405280600281526020017f333100000000000000000000000000000000000000000000000000000000000081525081565b6106186040518060400160405280600281526020017f333400000000000000000000000000000000000000000000000000000000000081525081565b6106186040518060400160405280600281526020017f383300000000000000000000000000000000000000000000000000000000000081525081565b6106186040518060400160405280600281526020017f333000000000000000000000000000000000000000000000000000000000000081525081565b6106186040518060400160405280600181526020017f360000000000000000000000000000000000000000000000000000000000000081525081565b6106186040518060400160405280600281526020017f323500000000000000000000000000000000000000000000000000000000000081525081565b6106186040518060400160405280600281526020017f323700000000000000000000000000000000000000000000000000000000000081525081565b6106186040518060400160405280600281526020017f343800000000000000000000000000000000000000000000000000000000000081525081565b6106186040518060400160405280600281526020017f313700000000000000000000000000000000000000000000000000000000000081525081565b6106186040518060400160405280600181526020017f380000000000000000000000000000000000000000000000000000000000000081525081565b6106186040518060400160405280600281526020017f313000000000000000000000000000000000000000000000000000000000000081525081565b6106186040518060400160405280600281526020017f353300000000000000000000000000000000000000000000000000000000000081525081565b6106186040518060400160405280600281526020017f353500000000000000000000000000000000000000000000000000000000000081525081565b6106186040518060400160405280600281526020017f353200000000000000000000000000000000000000000000000000000000000081525081565b6106186040518060400160405280600281526020017f323800000000000000000000000000000000000000000000000000000000000081525081565b6106186040518060400160405280600281526020017f343000000000000000000000000000000000000000000000000000000000000081525081565b6106186040518060400160405280600281526020017f343900000000000000000000000000000000000000000000000000000000000081525081565b6106186040518060400160405280600281526020017f363200000000000000000000000000000000000000000000000000000000000081525081565b6106186040518060400160405280600281526020017f343100000000000000000000000000000000000000000000000000000000000081525081565b6106186040518060400160405280600281526020017f313900000000000000000000000000000000000000000000000000000000000081525081565b6106186040518060400160405280600281526020017f313500000000000000000000000000000000000000000000000000000000000081525081565b6106186040518060400160405280600281526020017f323200000000000000000000000000000000000000000000000000000000000081525081565b6106186040518060400160405280600281526020017f313300000000000000000000000000000000000000000000000000000000000081525081565b6106186040518060400160405280600281526020017f363000000000000000000000000000000000000000000000000000000000000081525081565b6106186040518060400160405280600281526020017f343600000000000000000000000000000000000000000000000000000000000081525081565b6106186040518060400160405280600281526020017f333300000000000000000000000000000000000000000000000000000000000081525081565b6106186040518060400160405280600281526020017f333700000000000000000000000000000000000000000000000000000000000081525081565b6106186040518060400160405280600281526020017f383000000000000000000000000000000000000000000000000000000000000081525081565b6106186040518060400160405280600281526020017f373000000000000000000000000000000000000000000000000000000000000081525081565b6106186040518060400160405280600281526020017f353800000000000000000000000000000000000000000000000000000000000081525081565b6106186040518060400160405280600281526020017f343500000000000000000000000000000000000000000000000000000000000081525081565b6106186040518060400160405280600281526020017f363500000000000000000000000000000000000000000000000000000000000081525081565b6106186040518060400160405280600281526020017f363300000000000000000000000000000000000000000000000000000000000081525081565b6106186040518060400160405280600281526020017f343300000000000000000000000000000000000000000000000000000000000081525081565b6106186040518060400160405280600281526020017f313100000000000000000000000000000000000000000000000000000000000081525081565b6106186040518060400160405280600281526020017f373900000000000000000000000000000000000000000000000000000000000081525081565b6106186040518060400160405280600281526020017f363700000000000000000000000000000000000000000000000000000000000081525081565b6106186040518060400160405280600281526020017f373100000000000000000000000000000000000000000000000000000000000081525081565b6106186040518060400160405280600281526020017f383500000000000000000000000000000000000000000000000000000000000081525081565b6106186040518060400160405280600281526020017f323400000000000000000000000000000000000000000000000000000000000081525081565b6106186040518060400160405280600181526020017f310000000000000000000000000000000000000000000000000000000000000081525081565b6106186040518060400160405280600281526020017f353100000000000000000000000000000000000000000000000000000000000081525081565b6106186040518060400160405280600281526020017f343200000000000000000000000000000000000000000000000000000000000081525081565b6106186040518060400160405280600181526020017f340000000000000000000000000000000000000000000000000000000000000081525081565b6106186040518060400160405280600281526020017f323900000000000000000000000000000000000000000000000000000000000081525081565b6106186040518060400160405280600281526020017f333200000000000000000000000000000000000000000000000000000000000081525081565b6106186040518060400160405280600281526020017f353700000000000000000000000000000000000000000000000000000000000081525081565b6106186040518060400160405280600281526020017f373600000000000000000000000000000000000000000000000000000000000081525081565b6106186040518060400160405280600281526020017f373800000000000000000000000000000000000000000000000000000000000081525081565b6106186040518060400160405280600281526020017f353900000000000000000000000000000000000000000000000000000000000081525081565b6106186040518060400160405280600281526020017f383400000000000000000000000000000000000000000000000000000000000081525081565b6106186040518060400160405280600281526020017f383200000000000000000000000000000000000000000000000000000000000081525081565b6106186040518060400160405280600281526020017f373700000000000000000000000000000000000000000000000000000000000081525081565b6106186040518060400160405280600281526020017f373400000000000000000000000000000000000000000000000000000000000081525081565b6106186040518060400160405280600281526020017f363800000000000000000000000000000000000000000000000000000000000081525081565b6106186040518060400160405280600281526020017f363100000000000000000000000000000000000000000000000000000000000081525081565b6106186040518060400160405280600281526020017f333900000000000000000000000000000000000000000000000000000000000081525081565b6106186040518060400160405280600281526020017f373300000000000000000000000000000000000000000000000000000000000081525081565b6106186040518060400160405280600281526020017f363400000000000000000000000000000000000000000000000000000000000081525081565b6106186040518060400160405280600181526020017f370000000000000000000000000000000000000000000000000000000000000081525081565b6106186040518060400160405280600281526020017f333600000000000000000000000000000000000000000000000000000000000081525081565b6106186040518060400160405280600281526020017f383100000000000000000000000000000000000000000000000000000000000081525081565b6106186040518060400160405280600281526020017f333800000000000000000000000000000000000000000000000000000000000081525081565b6106186040518060400160405280600281526020017f353600000000000000000000000000000000000000000000000000000000000081525081565b6106186040518060400160405280600281526020017f313600000000000000000000000000000000000000000000000000000000000081525081565b6106186040518060400160405280600281526020017f363600000000000000000000000000000000000000000000000000000000000081525081565b6106186040518060400160405280600281526020017f323600000000000000000000000000000000000000000000000000000000000081525081565b6106186040518060400160405280600281526020017f373500000000000000000000000000000000000000000000000000000000000081525081565b600060208083528351808285015260005b81811015611a8357858101830151858201604001528201611a67565b81811115611a95576000604083870101525b50601f017fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe01692909201604001939250505056fea2646970667358221220cce59711d6ff088c10f30f1213d0ba7742c7707e1c18946020eec59e99c92d1764736f6c634300080a0033",
+  "deployedBytecode": "0x73000000000000000000000000000000000000000030146080604052600436106105d75760003560e01c8063895f7dc81161030d578063b87041c2116101a6578063dcc56db6116100f8578063f07f6785116100ac578063fa163a8311610086578063fa163a83146119a2578063fae82791146119de578063fd1828ff14611a1a57600080fd5b8063f07f6785146118ee578063f10727db1461192a578063f479ea111461196657600080fd5b8063e02f07ee116100dd578063e02f07ee1461183a578063e3fa20f514611876578063e4dd8b74146118b257600080fd5b8063dcc56db6146117c2578063dd1dd95f146117fe57600080fd5b8063cd23367c1161015a578063d6f9fcde11610134578063d6f9fcde1461170e578063d9adda851461174a578063dc191bd91461178657600080fd5b8063cd23367c1461165a578063d14bb17a14611696578063d1cd8b1d146116d257600080fd5b8063c08a11461161018b578063c08a1146146115a6578063c8638082146115e2578063c899301a1461161e57600080fd5b8063b87041c21461152e578063bad8308c1461156a57600080fd5b8063a3402a381161025f578063ac75323611610213578063b5e79366116101ed578063b5e793661461147a578063b68774e9146114b6578063b7f5e224146114f257600080fd5b8063ac753236146113c6578063b051005414611402578063b4a457301461143e57600080fd5b8063a8c9785311610244578063a8c9785314611312578063ab883ca01461134e578063abd351b11461138a57600080fd5b8063a3402a381461129a578063a4868dca146112d657600080fd5b80638f7722b2116102c157806399ce53f31161029b57806399ce53f3146111e6578063a2797c8014611222578063a2e976c61461125e57600080fd5b80638f7722b214611132578063952633c51461116e5780639527e9d9146111aa57600080fd5b80638a344000116102f25780638a3440001461107e5780638b8b98d7146110ba5780638eda46bd146110f657600080fd5b8063895f7dc81461100657806389c5d45f1461104257600080fd5b80634e3aed371161047f5780636b3f7cc7116103d157806374459b14116103855780637aa0767e1161035f5780637aa0767e14610f525780637fea6f3614610f8e5780638596aad514610fca57600080fd5b806374459b1414610e9e578063747fa55614610eda57806376ae8fca14610f1657600080fd5b8063712f536a116103b6578063712f536a14610dea57806373dea5e314610e26578063744465cc14610e6257600080fd5b80636b3f7cc714610d725780636cd3cfbc14610dae57600080fd5b8063570e35471161043357806361c111d21161040d57806361c111d214610cbe57806365a83bab14610cfa57806365e7ef4c14610d3657600080fd5b8063570e354714610c0a5780635d9c76c014610c4657806360c3de8014610c8257600080fd5b80634f77647b116104645780634f77647b14610b565780635126745014610b9257806352ba9dbe14610bce57600080fd5b80634e3aed3714610ade5780634ef999ff14610b1a57600080fd5b80632eed17e811610538578063471df685116104ec578063485c8ff6116104c6578063485c8ff614610a2a5780634d86f39314610a665780634e01e3c114610aa257600080fd5b8063471df6851461097657806347ba93d8146109b257806347cf1523146109ee57600080fd5b8063366eb54d1161051d578063366eb54d146108c257806337930782146108fe57806343e97c6b1461093a57600080fd5b80632eed17e81461084a578063335763de1461088657600080fd5b806322a734461161058f57806326e7b3121161057457806326e7b312146107965780632926c971146107d25780632c8e3b4c1461080e57600080fd5b806322a734461461071e57806326bbd0531461075a57600080fd5b806312dcade8116105c057806312dcade81461066a57806314dcfbbc146106a65780631abbb001146106e257600080fd5b8063084dfa0d146105dc57806311d7b0061461062e575b600080fd5b6106186040518060400160405280600281526020017f313800000000000000000000000000000000000000000000000000000000000081525081565b6040516106259190611a56565b60405180910390f35b6106186040518060400160405280600181526020017f390000000000000000000000000000000000000000000000000000000000000081525081565b6106186040518060400160405280600281526020017f313400000000000000000000000000000000000000000000000000000000000081525081565b6106186040518060400160405280600281526020017f383600000000000000000000000000000000000000000000000000000000000081525081565b6106186040518060400160405280600281526020017f383700000000000000000000000000000000000000000000000000000000000081525081565b6106186040518060400160405280600281526020017f343700000000000000000000000000000000000000000000000000000000000081525081565b6106186040518060400160405280600281526020017f363900000000000000000000000000000000000000000000000000000000000081525081565b6106186040518060400160405280600181526020017f330000000000000000000000000000000000000000000000000000000000000081525081565b6106186040518060400160405280600281526020017f343400000000000000000000000000000000000000000000000000000000000081525081565b6106186040518060400160405280600181526020017f350000000000000000000000000000000000000000000000000000000000000081525081565b6106186040518060400160405280600281526020017f353000000000000000000000000000000000000000000000000000000000000081525081565b6106186040518060400160405280600281526020017f323000000000000000000000000000000000000000000000000000000000000081525081565b6106186040518060400160405280600281526020017f333500000000000000000000000000000000000000000000000000000000000081525081565b6106186040518060400160405280600281526020017f313200000000000000000000000000000000000000000000000000000000000081525081565b6106186040518060400160405280600281526020017f353400000000000000000000000000000000000000000000000000000000000081525081565b6106186040518060400160405280600281526020017f323300000000000000000000000000000000000000000000000000000000000081525081565b6106186040518060400160405280600281526020017f373200000000000000000000000000000000000000000000000000000000000081525081565b6106186040518060400160405280600281526020017f323100000000000000000000000000000000000000000000000000000000000081525081565b6106186040518060400160405280600181526020017f320000000000000000000000000000000000000000000000000000000000000081525081565b6106186040518060400160405280600281526020017f333100000000000000000000000000000000000000000000000000000000000081525081565b6106186040518060400160405280600281526020017f333400000000000000000000000000000000000000000000000000000000000081525081565b6106186040518060400160405280600281526020017f383300000000000000000000000000000000000000000000000000000000000081525081565b6106186040518060400160405280600281526020017f333000000000000000000000000000000000000000000000000000000000000081525081565b6106186040518060400160405280600181526020017f360000000000000000000000000000000000000000000000000000000000000081525081565b6106186040518060400160405280600281526020017f323500000000000000000000000000000000000000000000000000000000000081525081565b6106186040518060400160405280600281526020017f323700000000000000000000000000000000000000000000000000000000000081525081565b6106186040518060400160405280600281526020017f343800000000000000000000000000000000000000000000000000000000000081525081565b6106186040518060400160405280600281526020017f313700000000000000000000000000000000000000000000000000000000000081525081565b6106186040518060400160405280600181526020017f380000000000000000000000000000000000000000000000000000000000000081525081565b6106186040518060400160405280600281526020017f313000000000000000000000000000000000000000000000000000000000000081525081565b6106186040518060400160405280600281526020017f353300000000000000000000000000000000000000000000000000000000000081525081565b6106186040518060400160405280600281526020017f353500000000000000000000000000000000000000000000000000000000000081525081565b6106186040518060400160405280600281526020017f353200000000000000000000000000000000000000000000000000000000000081525081565b6106186040518060400160405280600281526020017f323800000000000000000000000000000000000000000000000000000000000081525081565b6106186040518060400160405280600281526020017f343000000000000000000000000000000000000000000000000000000000000081525081565b6106186040518060400160405280600281526020017f343900000000000000000000000000000000000000000000000000000000000081525081565b6106186040518060400160405280600281526020017f363200000000000000000000000000000000000000000000000000000000000081525081565b6106186040518060400160405280600281526020017f343100000000000000000000000000000000000000000000000000000000000081525081565b6106186040518060400160405280600281526020017f313900000000000000000000000000000000000000000000000000000000000081525081565b6106186040518060400160405280600281526020017f313500000000000000000000000000000000000000000000000000000000000081525081565b6106186040518060400160405280600281526020017f323200000000000000000000000000000000000000000000000000000000000081525081565b6106186040518060400160405280600281526020017f313300000000000000000000000000000000000000000000000000000000000081525081565b6106186040518060400160405280600281526020017f363000000000000000000000000000000000000000000000000000000000000081525081565b6106186040518060400160405280600281526020017f343600000000000000000000000000000000000000000000000000000000000081525081565b6106186040518060400160405280600281526020017f333300000000000000000000000000000000000000000000000000000000000081525081565b6106186040518060400160405280600281526020017f333700000000000000000000000000000000000000000000000000000000000081525081565b6106186040518060400160405280600281526020017f383000000000000000000000000000000000000000000000000000000000000081525081565b6106186040518060400160405280600281526020017f373000000000000000000000000000000000000000000000000000000000000081525081565b6106186040518060400160405280600281526020017f353800000000000000000000000000000000000000000000000000000000000081525081565b6106186040518060400160405280600281526020017f343500000000000000000000000000000000000000000000000000000000000081525081565b6106186040518060400160405280600281526020017f363500000000000000000000000000000000000000000000000000000000000081525081565b6106186040518060400160405280600281526020017f363300000000000000000000000000000000000000000000000000000000000081525081565b6106186040518060400160405280600281526020017f343300000000000000000000000000000000000000000000000000000000000081525081565b6106186040518060400160405280600281526020017f313100000000000000000000000000000000000000000000000000000000000081525081565b6106186040518060400160405280600281526020017f373900000000000000000000000000000000000000000000000000000000000081525081565b6106186040518060400160405280600281526020017f363700000000000000000000000000000000000000000000000000000000000081525081565b6106186040518060400160405280600281526020017f373100000000000000000000000000000000000000000000000000000000000081525081565b6106186040518060400160405280600281526020017f383500000000000000000000000000000000000000000000000000000000000081525081565b6106186040518060400160405280600281526020017f323400000000000000000000000000000000000000000000000000000000000081525081565b6106186040518060400160405280600181526020017f310000000000000000000000000000000000000000000000000000000000000081525081565b6106186040518060400160405280600281526020017f353100000000000000000000000000000000000000000000000000000000000081525081565b6106186040518060400160405280600281526020017f343200000000000000000000000000000000000000000000000000000000000081525081565b6106186040518060400160405280600181526020017f340000000000000000000000000000000000000000000000000000000000000081525081565b6106186040518060400160405280600281526020017f323900000000000000000000000000000000000000000000000000000000000081525081565b6106186040518060400160405280600281526020017f333200000000000000000000000000000000000000000000000000000000000081525081565b6106186040518060400160405280600281526020017f353700000000000000000000000000000000000000000000000000000000000081525081565b6106186040518060400160405280600281526020017f373600000000000000000000000000000000000000000000000000000000000081525081565b6106186040518060400160405280600281526020017f373800000000000000000000000000000000000000000000000000000000000081525081565b6106186040518060400160405280600281526020017f353900000000000000000000000000000000000000000000000000000000000081525081565b6106186040518060400160405280600281526020017f383400000000000000000000000000000000000000000000000000000000000081525081565b6106186040518060400160405280600281526020017f383200000000000000000000000000000000000000000000000000000000000081525081565b6106186040518060400160405280600281526020017f373700000000000000000000000000000000000000000000000000000000000081525081565b6106186040518060400160405280600281526020017f373400000000000000000000000000000000000000000000000000000000000081525081565b6106186040518060400160405280600281526020017f363800000000000000000000000000000000000000000000000000000000000081525081565b6106186040518060400160405280600281526020017f363100000000000000000000000000000000000000000000000000000000000081525081565b6106186040518060400160405280600281526020017f333900000000000000000000000000000000000000000000000000000000000081525081565b6106186040518060400160405280600281526020017f373300000000000000000000000000000000000000000000000000000000000081525081565b6106186040518060400160405280600281526020017f363400000000000000000000000000000000000000000000000000000000000081525081565b6106186040518060400160405280600181526020017f370000000000000000000000000000000000000000000000000000000000000081525081565b6106186040518060400160405280600281526020017f333600000000000000000000000000000000000000000000000000000000000081525081565b6106186040518060400160405280600281526020017f383100000000000000000000000000000000000000000000000000000000000081525081565b6106186040518060400160405280600281526020017f333800000000000000000000000000000000000000000000000000000000000081525081565b6106186040518060400160405280600281526020017f353600000000000000000000000000000000000000000000000000000000000081525081565b6106186040518060400160405280600281526020017f313600000000000000000000000000000000000000000000000000000000000081525081565b6106186040518060400160405280600281526020017f363600000000000000000000000000000000000000000000000000000000000081525081565b6106186040518060400160405280600281526020017f323600000000000000000000000000000000000000000000000000000000000081525081565b6106186040518060400160405280600281526020017f373500000000000000000000000000000000000000000000000000000000000081525081565b600060208083528351808285015260005b81811015611a8357858101830151858201604001528201611a67565b81811115611a95576000604083870101525b50601f017fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe01692909201604001939250505056fea2646970667358221220cce59711d6ff088c10f30f1213d0ba7742c7707e1c18946020eec59e99c92d1764736f6c634300080a0033",
+  "linkReferences": {},
+  "deployedLinkReferences": {}
+}

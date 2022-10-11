@@ -1,0 +1,30 @@
+{
+  "_format": "hh-sol-artifact-1",
+  "contractName": "IsolationModeLogic",
+  "sourceName": "contracts/protocol/libraries/logic/IsolationModeLogic.sol",
+  "abi": [
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "asset",
+          "type": "address"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint256",
+          "name": "totalDebt",
+          "type": "uint256"
+        }
+      ],
+      "name": "IsolationModeTotalDebtUpdated",
+      "type": "event"
+    }
+  ],
+  "bytecode": "0x60566037600b82828239805160001a607314602a57634e487b7160e01b600052600060045260246000fd5b30600052607381538281f3fe73000000000000000000000000000000000000000030146080604052600080fdfea2646970667358221220cc9f11d93a1c80e396aaa2b8e573201bf433637db54a7fbbb0762089eb354cfc64736f6c634300080a0033",
+  "deployedBytecode": "0x73000000000000000000000000000000000000000030146080604052600080fdfea2646970667358221220cc9f11d93a1c80e396aaa2b8e573201bf433637db54a7fbbb0762089eb354cfc64736f6c634300080a0033",
+  "linkReferences": {},
+  "deployedLinkReferences": {}
+}

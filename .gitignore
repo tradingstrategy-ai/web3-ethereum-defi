@@ -22,8 +22,5 @@ uni-v2-last-block-state.txt
 
 *.csv
 
-# For now, don't store Aave v3 ABIs in the repository
-eth_defi/abi/aave_v3/
-
 # Ignore Aave v3 authentication file
 docs/source/tutorials/aave.json

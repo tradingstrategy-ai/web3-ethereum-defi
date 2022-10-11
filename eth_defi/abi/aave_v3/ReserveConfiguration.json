@@ -1,0 +1,37 @@
+{
+  "_format": "hh-sol-artifact-1",
+  "contractName": "ReserveConfiguration",
+  "sourceName": "contracts/protocol/libraries/configuration/ReserveConfiguration.sol",
+  "abi": [
+    {
+      "inputs": [],
+      "name": "DEBT_CEILING_DECIMALS",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "MAX_RESERVES_COUNT",
+      "outputs": [
+        {
+          "internalType": "uint16",
+          "name": "",
+          "type": "uint16"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    }
+  ],
+  "bytecode": "0x60ab610038600b82828239805160001a607314602b57634e487b7160e01b600052600060045260246000fd5b30600052607381538281f3fe7300000000000000000000000000000000000000003014608060405260043610603d5760003560e01c8063280d5de914604257806331b561ba14605c575b600080fd5b6049600281565b6040519081526020015b60405180910390f35b6063608081565b60405161ffff9091168152602001605356fea264697066735822122094611b11002fea5cd9f6eeb0692d7d9053d41406a12e1cb8afbc86d72c84bf6264736f6c634300080a0033",
+  "deployedBytecode": "0x7300000000000000000000000000000000000000003014608060405260043610603d5760003560e01c8063280d5de914604257806331b561ba14605c575b600080fd5b6049600281565b6040519081526020015b60405180910390f35b6063608081565b60405161ffff9091168152602001605356fea264697066735822122094611b11002fea5cd9f6eeb0692d7d9053d41406a12e1cb8afbc86d72c84bf6264736f6c634300080a0033",
+  "linkReferences": {},
+  "deployedLinkReferences": {}
+}
