@@ -19,6 +19,9 @@ class AaveNetwork(NamedTuple):
     # Aave v3 pool address
     pool_address: str
 
+    # Aave v3 pool configurator address
+    pool_configurator_address: str
+
     # Block number when the pool was created
     pool_created_at_block: int
 
