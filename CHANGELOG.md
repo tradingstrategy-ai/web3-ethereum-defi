@@ -1,6 +1,6 @@
-# Current
+# 0.11.1
 
-- TODO
+- Moving `nbsphinx` to optional dependency, was as core dependency by accident
 
 # 0.11
 
