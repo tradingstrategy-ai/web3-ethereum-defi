@@ -53,8 +53,13 @@ def user_1(web3) -> str:
 
 @pytest.fixture()
 def uniswap_v3(web3, deployer) -> UniswapV3Deployment:
-    """Uniswap v3 deployment."""
+    """Uniswap v3 deployment.
+
+    NOTE: Though Uniswap v3 later introduces 1 bps fee level, it wasn't
+    included in the original contract, so we need to enable it here
+    """
     deployment = deploy_uniswap_v3(web3, deployer)
+    deployment.factory.functions.enableFeeAmount(100, 1).transact({"from": deployer})
     return deployment
 
 
@@ -91,7 +96,7 @@ def test_create_pool_wrong_fee(
             fee=10,
         )
 
-        assert str(e) == "Default Uniswap v3 factory only allows 3 fee levels: 500, 3000, 10000"
+    assert str(e.value) == "Default Uniswap v3 factory only allows 4 fee levels: 100, 500, 3000, 10000"
 
 
 @pytest.mark.parametrize("fee", DEFAULT_FEES)
