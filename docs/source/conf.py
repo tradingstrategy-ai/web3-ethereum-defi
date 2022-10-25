@@ -55,6 +55,12 @@ autodoc_member_order = "bysource"
 
 autodoc_typehints = "description"
 
+# Needed to document DecideTrades
+# https://www.sphinx-doc.org/en/master/usage/extensions/autodoc.html#confval-autodoc_default_options
+autodoc_default_options = {
+    'special-members': ['__init__', '__call__']
+}
+
 autosummary_generate = True
 
 add_module_names = False
