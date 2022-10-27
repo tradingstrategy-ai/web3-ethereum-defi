@@ -55,11 +55,14 @@ autodoc_member_order = "bysource"
 
 autodoc_typehints = "description"
 
+# TODO: Autodoc does not like this option and gives hundreds of useless warnings
 # Needed to document DecideTrades
 # https://www.sphinx-doc.org/en/master/usage/extensions/autodoc.html#confval-autodoc_default_options
-autodoc_default_options = {
-    'special-members': "__init__, __call__"
-}
+#autodoc_default_options = {
+#    'special-members': "__init__, __call__"
+#}
+
+
 
 autosummary_generate = True
 

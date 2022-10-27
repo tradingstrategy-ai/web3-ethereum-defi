@@ -1,8 +1,12 @@
+.. meta::
+   :description: Uniswap and Aave Python APIs
+
 API documentation
 =================
 
 This is the API documentation for Python `web3-ethereum-defi` package.
 See `the project README for an overview <https://github.com/tradingstrategy-ai/web3-ethereum-defi>`_.
+
 
 Core API
 --------
@@ -57,6 +61,19 @@ Uniswap v3 API
    eth_defi.uniswap_v3.price
    eth_defi.uniswap_v3.pool
    eth_defi.uniswap_v2.oracle
+
+Aave v3 API
+-----------
+
+.. autosummary::
+   :toctree: _autosummary_aave_v3
+   :recursive:
+
+   eth_defi.aave_v3.balances
+   eth_defi.aave_v3.constants
+   eth_defi.aave_v3.events
+   eth_defi.aave_v3.rates
+
 
 Price oracle
 ------------
