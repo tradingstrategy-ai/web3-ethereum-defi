@@ -28,6 +28,16 @@ Make sure you checkout the submodules, as we include Uniswap, Sushiswap and othe
    cd web3-ethereum-defi
    git submodule update --init --recursive
 
+Prerequisites
+-------------
+
+* Pandoc (to build docs):
+
+.. code-block:: shell
+
+    brew install pandoc
+
+
 Install with Poetry
 -------------------
 
