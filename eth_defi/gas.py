@@ -86,7 +86,7 @@ def apply_gas(tx: dict, suggestion: GasPriceSuggestion):
         hot_wallet: LocalAccount
 
         # Move 10 tokens from deployer to user1
-        tx = token.functions.transfer(hot_wallet.address, 10 * 10**18).buildTransaction({
+        tx = token.functions.transfer(hot_wallet.address, 10 * 10**18).build_transaction({
             "from": hot_wallet.address,
             'chainId': web3.eth.chain_id,
             "gas": 150_000,  # 150k gas should be more than enough for ERC20.transfer()

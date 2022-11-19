@@ -38,7 +38,7 @@ def swap_with_slippage_protection(
             amount_in=usdc_amount_to_pay,
             max_slippage=50,  # 50 bps = 0.5%
         )
-        tx = swap_func.buildTransaction(
+        tx = swap_func.build_transaction(
             {
                 "from": hot_wallet_address,
                 "chainId": web3.eth.chain_id,
@@ -65,7 +65,7 @@ def swap_with_slippage_protection(
             amount_out=dai_amount_expected,
             max_slippage=100,  # 100 bps = 1%
         )
-        tx = swap_func.buildTransaction(
+        tx = swap_func.build_transaction(
             {
                 "from": hot_wallet_address,
                 "chainId": web3.eth.chain_id,
