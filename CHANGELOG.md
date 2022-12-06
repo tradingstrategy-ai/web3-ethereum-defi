@@ -1,3 +1,8 @@
+# Current
+
+- Adding Trader Joe compatibity. Unlike other clones, Trader Joe uses `Router.WAVAX` instead `Roueter.WETH`
+  for the native token variable.
+
 # 0.11.1
 
 - Moving `nbsphinx` to optional dependency, was as core dependency by accident
