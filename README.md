@@ -7,7 +7,7 @@
 # Web3-Ethereum-Defi
 
 This project contains common Ethereum smart contracts and utilities, 
-for trading, wallets,automated test suites and backend integrations for EVM based blockchains.  
+for trading, wallets, automated test suites and backend integrations for EVM based blockchains.  
 
 * [Features](#features)
 * [Precompiled ABI file distribution](#precompiled-abi-file-distribution)
@@ -47,37 +47,7 @@ Features include
 this project aims to explicit clean deployments and very fast test execution.
 * (More integrations to come)
 
-# Precompiled ABI file distribution
-
-The project provides a precompiled smart contract bundle, including ABI files, full source
-and debug maps, to make deploying test instances trivial.
-
-This package primarly supports Python, Web3.p3 and Brownie developers.
-For other programming languages and frameworks,
-you can [find precompiled Solidity smart contracts in abi folder](https://github.com/tradingstrategy-ai/web3-ethereum-defi/tree/master/eth_defi/abi).
-
-These files are good to go with any framework:
-* Web3.js
-* Ethers.js
-* Hardhat
-* Truffle
-* Web3j
-
-Each JSON file has `abi` and `bytecode` keys you need to deploy a contract.
-
-Just download and embed in your project. 
-The compiled source code files are mixture of MIT and GPL v2 license.
-
-# Python usage
-
-The Python support is available as `web3-ethereum-defi` Python package.
-
-The package depends only on [web3.py](github.com/ethereum/web3.py) and not others, like [Brownie](https://eth-brownie.readthedocs.io/).
-It grabs popular ABI files with their bytecode and compilation artifacts so that the contracts
-are easily deployable on any Ethereum tester interface. No Ganache is needed and everything
-can be executed on faster [eth-tester enginer](https://github.com/ethereum/eth-tester).
-
-Unlike Brownie, which is a framework, `web3-ethereum-defi` is a library. It is designed
+Unlike ApeWorX or Brownie, which are smart contracte development frameworks, `web3-ethereum-defi` is a library. It is designed
 to be included in any other Python application and you can only use bits of its that you need.
 There are no expectations on configuration files or folder structure.
 
@@ -86,10 +56,19 @@ For code examples please see below.
 
 # Prerequisites
 
-* Python 3.9 or higher
-* [Proficient in Python programming](https://wiki.python.org/moin/BeginnersGuide)
-* [Understanding of Web3.py library](https://web3py.readthedocs.io/en/stable/) 
-* [pytest basics](https://docs.pytest.org/)
+Please 
+
+* Have Python 3.9 or higher
+* [Be proficient in Python programming](https://wiki.python.org/moin/BeginnersGuide)
+* [Understand of Web3.py library](https://web3py.readthedocs.io/en/stable/) 
+* [Understand Pytest basics](https://docs.pytest.org/)
+
+# Install
+
+```shell
+# Install with Jupyter notebook and data access libraries
+pip install "web3-ethereum-defi[data]"
+```
 
 # Code examples
 

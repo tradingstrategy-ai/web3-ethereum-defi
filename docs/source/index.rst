@@ -27,5 +27,6 @@ Table of contents
    api/index
    tutorials/index
    development
+   troubleshooting
    related
 
