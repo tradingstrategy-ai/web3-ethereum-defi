@@ -2,6 +2,8 @@
 
 - Adding Trader Joe compatibility. Unlike other clones, Trader Joe uses `Router.WAVAX` instead `Roueter.WETH`
   for the native token variable.
+- Document BNB Chain "Limits exceeded" error - BNB Chain eth_getLogs have been 
+  disabled on public endpoints
 
 # 0.11.1
 
