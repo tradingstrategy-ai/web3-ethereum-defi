@@ -10,6 +10,7 @@ To run tests in this module:
 """
 import os
 
+import flaky
 import pytest
 from eth_account import Account
 from eth_account.signers.local import LocalAccount
@@ -76,6 +77,7 @@ def hot_wallet(user_1: LocalAccount, web3: Web3) -> HotWallet:
     return wallet
 
 
+@flaky.flaky()
 def test_bnb_chain_decode_tx(web3: Web3, large_busd_holder: HexAddress, hot_wallet: HotWallet):
     """Decoding transactions targeting BNB chain."""
 
