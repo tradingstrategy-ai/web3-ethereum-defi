@@ -14,7 +14,9 @@ import datetime
 import os
 from decimal import Decimal
 
+import flaky
 import pytest
+from eth_defi.middleware import http_retry_request_with_sleep_middleware
 from web3 import HTTPProvider, Web3
 from web3.middleware import geth_poa_middleware
 
@@ -38,6 +40,7 @@ def web3() -> Web3:
     # https://web3py.readthedocs.io/en/latest/web3.eth.account.html#read-a-private-key-from-an-environment-variable
     web3 = Web3(HTTPProvider(os.environ["BNB_CHAIN_JSON_RPC"]))
     web3.middleware_onion.clear()
+    web3.middleware_onion.inject(http_retry_request_with_sleep_middleware, layer=0)
     web3.middleware_onion.inject(geth_poa_middleware, layer=0)
     return web3
 
@@ -148,6 +151,7 @@ def test_too_narrow_time_window():
     os.environ.get("BNB_CHAIN_JSON_RPC") is None,
     reason="Set BNB_CHAIN_JSON_RPC environment variable to Binance Smart Chain node to run this test",
 )
+@flaky.flaky()
 def test_bnb_busd_price(web3, bnb_busd_address):
     """Calculate historical BNB price from PancakeSwap pool."""
 

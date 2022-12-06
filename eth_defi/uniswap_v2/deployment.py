@@ -27,6 +27,7 @@ from eth_defi.deploy import deploy_contract
 
 #: A constant to tell the trade won't expire
 from eth_defi.uniswap_v2.utils import pair_for, sort_tokens
+from web3.exceptions import ContractLogicError
 
 FOREVER_DEADLINE = 2**63
 
@@ -54,7 +55,13 @@ class UniswapV2Deployment:
 
     #: WETH/WBNB etc. wrapper contract address.
     #: `See the Solidity source code <https://github.com/sushiswap/sushiswap/blob/4fdfeb7dafe852e738c56f11a6cae855e2fc0046/contracts/mocks/WETH9Mock.sol>`__.
-    weth: Contract
+    #:
+    #: If the router contract ABI has renamed this variable from WETH to something else,
+    #: e.g. Trader Joe, this is left empty.
+    #:
+    #: TDOO: Allow to provision the exchange with different router ABI files.
+    #:
+    weth: Optional[Contract]
 
     #: Router address.
     #: New routers can be deployed to optimise trade routing and price impact.
@@ -72,6 +79,9 @@ class UniswapV2Deployment:
     #: Mints/burns new liquidity provider (LP) tokens.
     #: See `UniswapV2Pair` smartc contract for details.
     PairContract: Contract
+
+    def __repr__(self):
+        return f"<Uni v2 deployment chain:{self.web3.eth.chain_id} factory:{self.factory.address} router:{self.router.address}>"
 
     def pair_for(self, token_a: str, token_b: str) -> Tuple[ChecksumAddress, HexAddress, HexAddress]:
         """Calculate CREATE2 contract address for a trading pair."""
@@ -219,6 +229,7 @@ def fetch_deployment(
     factory_address: Union[HexAddress, str],
     router_address: Union[HexAddress, str],
     init_code_hash: Optional[Union[HexStr, str]] = None,
+    allow_different_weth_var = True,
 ) -> UniswapV2Deployment:
     """Construct Uniswap deployment based on on-chain data.
 
@@ -243,16 +254,35 @@ def fetch_deployment(
                 )
             return deployment
 
-    :param init_code_hash: Read init code hash from the caller. If not given call `pairCodeHash` (SushiSwap) on the factory.
+    :param init_code_hash:
+        Read init code hash from the caller. If not given call `pairCodeHash` (SushiSwap) on the factory.
+
+    :param allow_different_weth_var:
+        We assume Uniswap v2 ABI that has router.WETH() accessor.
+        Some DEXes like Trader Joe do not have it, using WAVAX
+        instead, needing a different ABI file.
+        If set (default) ignore this error and just have
+        `None` as the value for the wrapped token.
+
+    :return:
+        Data class representing Uniswap v3 exchange deployment
     """
     factory = get_deployed_contract(web3, "UniswapV2Factory.json", factory_address)
     # https://github.com/sushiswap/sushiswap/blob/4fdfeb7dafe852e738c56f11a6cae855e2fc0046/contracts/uniswapv2/UniswapV2Factory.sol#L26
     if init_code_hash is None:
         init_code_hash = factory.functions.pairCodeHash().call().hex()
     router = get_deployed_contract(web3, "UniswapV2Router02.json", router_address)
+
     # https://github.com/sushiswap/sushiswap/blob/4fdfeb7dafe852e738c56f11a6cae855e2fc0046/contracts/uniswapv2/UniswapV2Router02.sol#L17
-    weth_address = router.functions.WETH().call()
-    weth = get_deployed_contract(web3, "WETH9Mock.json", weth_address)
+    try:
+        weth_address = router.functions.WETH().call()
+        weth = get_deployed_contract(web3, "WETH9Mock.json", weth_address)
+    except ContractLogicError as e:
+        if not allow_different_weth_var:
+            raise e
+        weth_address = None
+        weth = None
+
     PairContract = get_contract(web3, "UniswapV2Pair.json")
     return UniswapV2Deployment(
         web3,
