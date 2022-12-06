@@ -1,6 +1,6 @@
 # Current
 
-- Adding Trader Joe compatibity. Unlike other clones, Trader Joe uses `Router.WAVAX` instead `Roueter.WETH`
+- Adding Trader Joe compatibility. Unlike other clones, Trader Joe uses `Router.WAVAX` instead `Roueter.WETH`
   for the native token variable.
 
 # 0.11.1

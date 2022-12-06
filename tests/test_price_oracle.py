@@ -14,6 +14,7 @@ import datetime
 import os
 from decimal import Decimal
 
+import flaky
 import pytest
 from web3 import HTTPProvider, Web3
 from web3.middleware import geth_poa_middleware
@@ -148,6 +149,7 @@ def test_too_narrow_time_window():
     os.environ.get("BNB_CHAIN_JSON_RPC") is None,
     reason="Set BNB_CHAIN_JSON_RPC environment variable to Binance Smart Chain node to run this test",
 )
+@flaky.flaky()
 def test_bnb_busd_price(web3, bnb_busd_address):
     """Calculate historical BNB price from PancakeSwap pool."""
 
