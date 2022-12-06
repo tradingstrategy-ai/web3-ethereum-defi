@@ -28,10 +28,12 @@ jobs:
         run: poetry run pytest
         env:
           BNB_CHAIN_JSON_RPC: ${{ secrets.BNB_CHAIN_JSON_RPC }}
-      - name: Run flake8
-        uses: reviewdog/action-flake8@v3
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
+      # Disabled for now
+      # https://github.com/reviewdog/action-flake8/issues/40
+      # - name: Run flake8
+      #  uses: reviewdog/action-flake8@v3
+      #  with:
+      #    github_token: ${{ secrets.GITHUB_TOKEN }}
   test-compile-abi:
     runs-on: ubuntu-latest
     steps:
