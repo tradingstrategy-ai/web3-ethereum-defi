@@ -1,3 +1,5 @@
+"""Chain reorganisation handling during the real-time OHLCV candle production."""
+
 import datetime
 from abc import abstractmethod
 from dataclasses import dataclass

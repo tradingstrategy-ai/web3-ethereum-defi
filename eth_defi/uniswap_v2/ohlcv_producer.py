@@ -15,6 +15,7 @@ from eth_defi.event_reader.web3worker import create_thread_pool_executor
 from eth_defi.uniswap_v2.pair import PairDetails
 
 from ..ohlcv.ohlcv_producer import OHLCVProducer, Trade
+from ..ohlcv.reorgmon import ReorganisationMonitor
 
 logger = logging.getLogger(__name__)
 
@@ -84,13 +85,15 @@ class UniswapV2OHLCVProducer(OHLCVProducer):
                  oracles: Dict[str, PriceOracle],
                  reorg_mon: ReorganisationMonitor,
                  data_retention_time: Optional[pd.Timedelta] = None,
+                 candle_size=pd.Timedelta(minutes=1),
                  threads=16,
                  chunk_size=100):
 
-        super(),__init__(
+        super().__init__(
             oracles=oracles,
             reorg_mon=reorg_mon,
             data_retention_time=data_retention_time,
+            candle_size=candle_size,
         )
 
         #: Pair address -> details mapping

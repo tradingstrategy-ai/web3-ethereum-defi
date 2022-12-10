@@ -64,6 +64,7 @@ class OHLCVProducer:
                  oracles: Dict[str, PriceOracle],
                  reorg_mon: ReorganisationMonitor,
                  data_retention_time: Optional[pd.Timedelta] = None,
+                 candle_size=pd.Timedelta(minutes=1),
                  ):
         """
         Create new real-time OHLCV tracker.
@@ -80,10 +81,14 @@ class OHLCVProducer:
         :param data_retention_time:
             Discard entries older than this to avoid
             filling the RAM.
+
+        :param candle_size:
+            The time duration of generated candles.
         """
         self.oracles = oracles
         self.data_retention_time = data_retention_time
         self.reorg_mon = reorg_mon
+        self.candle_size = candle_size
 
         # All event data is stored as dataframe.
         # 1. index is block_number

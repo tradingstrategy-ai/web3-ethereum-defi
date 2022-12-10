@@ -9,6 +9,7 @@ import datetime
 import enum
 import heapq
 import statistics
+from abc import abstractmethod
 from dataclasses import dataclass
 from decimal import Decimal
 from typing import Dict, List, Optional, Protocol, Tuple
@@ -141,7 +142,15 @@ class DataPeriodTooShort(PriceCalculationError):
     """We do not have enough events for a longer period of time."""
 
 
-class PriceOracle:
+class BaseOracle:
+    """Base class for price oracles."""
+
+    @abstractmethod
+    def calculate_price(self) -> Decimal:
+        pass
+
+
+class PriceOracle(BaseOracle):
     """Price oracle core.
 
     - Suitable for real-time price calculation for data coming over WebSockets
@@ -429,10 +438,10 @@ def time_weighted_average_price(events: List[PriceEntry]) -> Decimal:
     return statistics.mean(prices)
 
 
-class TrustedStablecoinOracle:
-    """Oracle that always gives 1 as a price."""
+class TrustedStablecoinOracle(BaseOracle):
+    """Return a price for a token we trust we can always redeem for 1 USD."""
 
-    STABLE_VALUE = Decimal(1)
+    STABLE_USD = Decimal(1)
 
     def calculate_price(self) -> Decimal:
-        return TrustedStablecoinOracle.STABLE_VALUE
+        return TrustedStablecoinOracle.STABLE_USD

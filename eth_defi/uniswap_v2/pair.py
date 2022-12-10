@@ -31,6 +31,22 @@ class PairDetails:
     #: If true then pair reads as token1 symbol - token0 symbol.
     reverse_token_order: Optional[bool] = None
 
+    def get_base_token(self):
+        """Get human-ordered base token."""
+        assert self.reverse_token_order is None, "Reverse token order flag must be check before this operation is possible"
+        if self.reverse_token_order:
+            return self.token1
+        else:
+            return self.token0
+
+    def get_quote_token(self):
+        """Get human-ordered quote token."""
+        assert self.reverse_token_order is None, "Reverse token order flag must be check before this operation is possible"
+        if self.reverse_token_order:
+            return self.token0
+        else:
+            return self.token1
+
     def convert_price_to_human(self,
                                reserve0: int,
                                reserve1: int,
@@ -61,7 +77,7 @@ class PairDetails:
 
 
 
-def fetch_pair_details(web3, pair_contact_address: Union[str, HexAddress]) -> PairDetails:
+def fetch_pair_details(web3, pair_contact_address: Union[str, HexAddress], reverse_token_order: Optional[bool]=None) -> PairDetails:
     """Get pair info for PancakeSwap, others.
 
     :param web3:
@@ -70,6 +86,10 @@ def fetch_pair_details(web3, pair_contact_address: Union[str, HexAddress]) -> Pa
     :param pair_contact_address:
         Smart contract address of trading pair
 
+    :param reverse_token_order:
+        Set the human readable token order.
+
+        See :py:class`PairDetails` for more info.
     """
     pool = get_deployed_contract(web3, "UniswapV2Pair.json", pair_contact_address)
     token0_address = pool.functions.token0().call()
