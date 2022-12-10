@@ -3,7 +3,7 @@
 """
 
 from dataclasses import dataclass
-from typing import Union
+from typing import Union, Optional
 
 from eth_typing import HexAddress
 
@@ -24,16 +24,33 @@ class PairDetails:
     #: One pair of tokens
     token1: TokenDetails
 
+    #: Store the human readable token order on this data.
+    #:
+    #: If false then pair reads as token0 symbol - token1 symbol.
+    #:
+    #: If true then pair reads as token1 symbol - token0 symbol.
+    reverse_token_order: Optional[bool] = None
+
     def convert_price_to_human(self,
                                reserve0: int,
                                reserve1: int,
-                               reverse_token_order=False):
+                               reverse_token_order=None):
         """Convert the price obtained through Sync event
 
         :param reverse_token_order:
             Decide token order for human (base, quote token) order.
             If set, assume quote token is token0.
+
+            IF set to None, use value from the data.
+
         """
+
+        if reverse_token_order is None:
+            reverse_token_order = self.reverse_token_order
+
+        if reverse_token_order is None:
+            reverse_token_order = False
+
         token0_amount = self.token0.convert_to_decimals(reserve0)
         token1_amount = self.token1.convert_to_decimals(reserve1)
 
@@ -41,6 +58,7 @@ class PairDetails:
             return token0_amount / token1_amount
         else:
             return token1_amount / token0_amount
+
 
 
 def fetch_pair_details(web3, pair_contact_address: Union[str, HexAddress]) -> PairDetails:

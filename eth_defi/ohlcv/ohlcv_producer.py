@@ -1,6 +1,8 @@
 import datetime
 import heapq
+from abc import abstractmethod
 from dataclasses import dataclass
+from decimal import Decimal
 from typing import Set, Dict, Optional, Tuple, List
 
 import pandas as pd
@@ -24,19 +26,24 @@ class Trade:
     timestamp: pd.Timestamp
     tx_hash: str
     log_index: int
-    value: float
-    exchange_rate: float
+
+    #: Trade price in quote token
+    price: Decimal
+
+    #: Trade amount in quote token
+    amount: Decimal
 
     @staticmethod
     def get_dataframe_columns() -> dict:
         fields = dict([
             ("pair", "string"),
+            ("block_number", "uint64"),
+            ("block_hash", "string"),
             ("timestamp", "datetime64[s]"),
             ("tx_hash", "string"),
             ("log_index", "uint32"),
-            ("block_number", "uint64"),
-            ("value", "float32"),
-            ("exchange_rate", "float32"),
+            ("price", "object"),
+            ("amount", "object"),
         ])
         return fields
 
@@ -54,7 +61,6 @@ class OHLCVProducer:
     """
 
     def __init__(self,
-                 pairs: Set[str],
                  oracles: Dict[str, PriceOracle],
                  reorg_mon: ReorganisationMonitor,
                  data_retention_time: Optional[pd.Timedelta] = None,
@@ -75,8 +81,6 @@ class OHLCVProducer:
             Discard entries older than this to avoid
             filling the RAM.
         """
-
-        self.pairs = pairs
         self.oracles = oracles
         self.data_retention_time = data_retention_time
         self.reorg_mon = reorg_mon
@@ -92,7 +96,7 @@ class OHLCVProducer:
         """Get the last block number for which we have good data."""
 
         if len(self.trades_df) == 0:
-            return Nune
+            return None
 
         return self.trades_df.iloc[-1]["block_number"]
 
@@ -127,6 +131,9 @@ class OHLCVProducer:
 
         self.trades_df.append(data)
 
+    def convert_to_dollars(self, pair_address: str):
+        pair = self.pa
+
     def truncate_reorganised_data(self, latest_good_block):
         self.trades_df.truncate(after=latest_good_block)
 
@@ -138,10 +145,13 @@ class OHLCVProducer:
         """
         reorg_resolution = self.reorg_mon.update_chain()
 
-        if reorg_resolution.purge_block_number:
-            self.truncate_reorganised_data(reorg_resolution.purge_block_number)
+        if reorg_resolution.latest_good_block:
+            self.truncate_reorganised_data(reorg_resolution.latest_good_block)
 
         return reorg_resolution.last_block_number
+
+    def convert_prices(self):
+        """Convert all raw token amount prices to something more digestible."""
 
     def perform_duty_cycle(self):
         """Update the candle data
@@ -153,6 +163,25 @@ class OHLCVProducer:
         3. Process and index data to candles
         """
         chain_last_block = self.check_reorganisations_and_purge()
+        our_last_block = self.get_last_block()
+        self.update_block_range(our_last_block, chain_last_block)
 
+    @abstractmethod
+    def update_block_range(self, start_block, end_block):
+        """Read data from the chain.
 
+        Add any new trades using :py:meth:`add_trades`
 
+        :raise ChainReorganisationDetected:
+            If blockchain detects minor reorganisation during the data ignestion
+        """
+
+    def convert_to_dollars(self, pair_address: str, price: Decimal) -> float:
+        """Get the trade price as dollars.
+
+        :raise ChainReorganisationDetected:
+            If blockchain detects minor reorganisation during the data ignestion
+        """
+
+        oracle = self.oracles[pair_address]
+        return float(oracle.calculate_price() * price)

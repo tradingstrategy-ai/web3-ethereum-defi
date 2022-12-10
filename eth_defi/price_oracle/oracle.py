@@ -427,3 +427,12 @@ def time_weighted_average_price(events: List[PriceEntry]) -> Decimal:
 
     prices = [e.price for e in events]
     return statistics.mean(prices)
+
+
+class TrustedStablecoinOracle:
+    """Oracle that always gives 1 as a price."""
+
+    STABLE_VALUE = Decimal(1)
+
+    def calculate_price(self) -> Decimal:
+        return TrustedStablecoinOracle.STABLE_VALUE
