@@ -171,6 +171,10 @@ class OHLCVProducer:
         our_last_block = self.get_last_block()
         self.update_block_range(our_last_block, chain_last_block)
 
+    def load_initial_buffer(self, block_count: int):
+        start_block, end_block = self.reorg_mon.load_initial_data(block_count)
+        self.update_block_range(start_block, end_block)
+
     @abstractmethod
     def update_block_range(self, start_block, end_block):
         """Read data from the chain.

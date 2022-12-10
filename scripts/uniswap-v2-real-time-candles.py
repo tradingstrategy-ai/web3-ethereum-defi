@@ -3,7 +3,7 @@
 import logging
 import os
 import sys
-
+import time
 
 import pandas as pd
 import requests
@@ -48,6 +48,14 @@ def main():
     # Set candle width
     candle_size = pd.Timedelta(minutes=1)
 
+    # We display data for the last 3 hours
+    window_size = pd.Timedelta(hours=0.5) / candle_size
+
+    # Polygon block time
+    block_time = pd.Timedelta(seconds=3)
+
+    initial_blocks_buffered = window_size / block_time
+
     ohlcv_producer = UniswapV2OHLCVProducer(
         pairs,
         web3_factory,
@@ -56,6 +64,11 @@ def main():
         candle_size=candle_size,
     )
 
+    ohlcv_producer.
+
+    while True:
+        ohlcv_producer.perform_duty_cycle()
+        time.sleep(1)
 
 
 if __name__ == "__main__":

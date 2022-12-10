@@ -3,7 +3,7 @@
 import datetime
 from abc import abstractmethod
 from dataclasses import dataclass
-from typing import Dict, Iterable, Optional
+from typing import Dict, Iterable, Optional, Tuple
 import logging
 
 from web3 import Web3
@@ -53,6 +53,16 @@ class ReorganisationMonitor:
         self.last_block = 0
         self.check_depth = check_depth
         self.max_cycle_tries = max_reorg_resolution_attempts
+
+    def load_initial_data(self, block_count: int) -> Tuple[int, int]:
+        """Get the inital block buffer filled up.
+
+        :return:
+            The initial block range to start to work with
+        """
+        end_block = self.get_last_block()
+        start_block = end_block - block_count
+        return start_block, end_block
 
     def add_block(self, record: BlockRecord):
         """Add new block to header tracking.
