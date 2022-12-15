@@ -1,7 +1,7 @@
 """Parquet dataset backed block header storage."""
 
 from pathlib import Path
-from typing import Tuple
+from typing import Tuple, Optional
 
 import pandas as pd
 import pyarrow as pa
@@ -9,6 +9,10 @@ import pyarrow.dataset as ds
 from pyarrow._dataset import FilenamePartitioning
 
 from .block_header_store import BlockHeaderStore
+
+
+class NoGapsWritten(Exception):
+    """Do not allow gaps in data."""
 
 
 class ParquetDatasetBlockHeaderStore(BlockHeaderStore):
@@ -41,8 +45,11 @@ class ParquetDatasetBlockHeaderStore(BlockHeaderStore):
 
         self.partitioning = part_scheme
 
-    def floor_block_number_to_partition(self, n) -> int:
-        return n // self.partition_size * self.partition_size
+    def floor_block_number_to_partition_start(self, n) -> int:
+        block_num = n // self.partition_size * self.partition_size
+        if block_num == 0:
+            return 1
+        return block_num
 
     def load(self, since_block_number: int = 0) -> pd.DataFrame:
         """Load data from parquet.
@@ -52,8 +59,9 @@ class ParquetDatasetBlockHeaderStore(BlockHeaderStore):
         """
         #dataset = ds.parquet_dataset(self.path, partitioning=self.partitioning)
         dataset = ds.dataset(self.path, partitioning=self.partitioning)
-        partition_start_block = self.floor_block_number_to_partition(since_block_number)
-        return dataset.to_table(filter=ds.field('partition') >= partition_start_block).to_pandas()
+        partition_start_block = self.floor_block_number_to_partition_start(since_block_number)
+        df = dataset.to_table(filter=ds.field('partition') >= partition_start_block).to_pandas()
+        return df
 
     def save(self, df: pd.DataFrame, since_block_number: int = 0):
         """Savea all data from parquet.
@@ -81,20 +89,39 @@ class ParquetDatasetBlockHeaderStore(BlockHeaderStore):
     def save_incremental(self, df: pd.DataFrame) -> Tuple[int, int]:
         """Write all partitions we are missing from the data.
 
+        - We need to write minimum two partitions
 
+        - There might be gaps in data we can write
+
+        - There might be gaps data on disk we have already written
+
+        - Do some heurestics what to write
         """
 
         last_written_block = self.peak_last_block()
-        last_block_number = df.iloc[-1]["block_number"]
-        first_block_needs_to_written = self.floor_block_number_to_partition(last_block_number) - self.partition_size
-        first_block_needs_to_written = max(1, first_block_needs_to_written)
-        self.save(df, first_block_needs_to_written)
-        return first_block_needs_to_written, last_block_number
+        if last_written_block:
+            last_written_partition_starts_at = self.floor_block_number_to_partition_start(last_written_block)
+        else:
+            last_written_partition_starts_at = 1
 
-    def peak_last_block(self) -> int:
+        last_block_number_data_has = df.iloc[-1]["block_number"]
+
+        minimum_partitioned_block_writer_needs = self.floor_block_number_to_partition_start(last_block_number_data_has) - self.partition_size
+        minimum_partitioned_block_writer_needs = max(1, minimum_partitioned_block_writer_needs)
+
+        write_starts_at = min(minimum_partitioned_block_writer_needs, last_written_partition_starts_at)
+
+        self.save(df, write_starts_at)
+        return write_starts_at, last_block_number_data_has
+
+    def peak_last_block(self) -> Optional[int]:
         """Return the last block number stored on the disk."""
         dataset = ds.dataset(self.path, partitioning=self.partitioning)
         fragments = list(dataset.get_fragments())
+
+        if not fragments:
+            return None
+
         last_fragment = fragments[-1]
         # TODO: How to select last row with pyarrow
         df = last_fragment.to_table().to_pandas()

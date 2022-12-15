@@ -63,7 +63,7 @@ class BlockHeader:
         }
 
     @staticmethod
-    def to_pandas(headers: Dict[str, list], partitioning_size: Optional[int]=None):
+    def to_pandas(headers: Dict[str, list], partition_size: Optional[int] = None):
         """Convert columnar header data to Pandas.
 
         .. note ::
@@ -73,7 +73,7 @@ class BlockHeader:
         :param headers:
             Raw block data to write.
 
-        :param partitioning_size:
+        :param partition_size:
             Create a key "partition" which each contains partitioning_size blocks.
             E.g. 100_000.
 
@@ -82,9 +82,10 @@ class BlockHeader:
         import pandas as pd
         # https://stackoverflow.com/a/64537577/315168
         df = pd.DataFrame.from_dict(headers, orient='columns')
-        if partitioning_size:
-            assert partitioning_size > 0
-            df["partition"] = df["block_number"].apply(lambda x: (x // partitioning_size) * partitioning_size)
+        if partition_size:
+            assert partition_size > 0
+            # First partition starts at 1, not 0
+            df["partition"] = df["block_number"].apply(lambda x: max((x // partition_size) * partition_size, 1))
         return df
 
 
