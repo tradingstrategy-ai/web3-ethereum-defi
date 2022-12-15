@@ -1,4 +1,0 @@
-
-
-
-class Timebar(enum.Enum):

@@ -445,3 +445,17 @@ class TrustedStablecoinOracle(BaseOracle):
 
     def calculate_price(self) -> Decimal:
         return TrustedStablecoinOracle.STABLE_USD
+
+
+class FixedPriceOracle(BaseOracle):
+    """Always use the same hardcoded exchange rate.
+
+    Most useful for unit testing.
+    """
+
+    def __init__(self, exchange_rate: Decimal):
+        self.exchange_rate = exchange_rate
+
+    def calculate_price(self) -> Decimal:
+        return self.exchange_rate
+
