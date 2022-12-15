@@ -143,6 +143,10 @@ def test_write_incremental():
         assert written_last == 2000
         assert store.peak_last_block() == 2000
 
+        # See we got all blocks
+        check_df = store.load()
+        assert len(check_df) == 2000
+
         # Fill few partitions
         headers = BlockHeader.generate_headers(
             30_000,
@@ -155,6 +159,10 @@ def test_write_incremental():
         assert written_first == 1
         assert written_last == 32_000
         assert store.peak_last_block() == 32_000
+
+        # See we got all blocks
+        check_df = store.load()
+        assert len(check_df) == 32_000
 
         # Fill few more partitions
         headers = BlockHeader.generate_headers(
@@ -169,6 +177,10 @@ def test_write_incremental():
         assert written_last == 62_000
         assert store.peak_last_block() == 62_000
 
+        # See we got all blocks
+        check_df = store.load()
+        assert len(check_df) == 62_000
+
         # Fill same of the current partition
         headers = BlockHeader.generate_headers(
             1000,
@@ -182,3 +194,6 @@ def test_write_incremental():
         assert written_last == 63_000
         assert store.peak_last_block() == 63_000
 
+        # See we got all blocks
+        check_df = store.load()
+        assert len(check_df) == 63_000
