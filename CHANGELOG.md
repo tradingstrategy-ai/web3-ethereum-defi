@@ -1,5 +1,11 @@
 # Current
 
+# 0.11.3
+
+- Add new PriceOracle types for unit testing
+- 
+# 0.11.2
+
 - Adding Trader Joe compatibility. Unlike other clones, Trader Joe uses `Router.WAVAX` instead `Roueter.WETH`
   for the native token variable.
 - Document BNB Chain "Limits exceeded" error - BNB Chain eth_getLogs have been 
