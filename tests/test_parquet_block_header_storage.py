@@ -8,7 +8,7 @@ import pandas as pd
 import pytest
 
 from eth_defi.event_reader.block_header_store import BlockHeader
-from eth_defi.event_reader.parquet_dataset_block_header_store import ParquetDatasetBlockHeaderStore
+from eth_defi.event_reader.parquet_dataset_block_header_store import ParquetDatasetBlockHeaderStore, NoGapsWritten
 
 try:
     import pyarrow
@@ -199,3 +199,29 @@ def test_write_incremental():
         # See we got all blocks
         check_df = store.load()
         assert len(check_df) == 63_000
+
+
+def test_write_no_gaps():
+    """Do not allow gaps in data."""
+
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        path = Path(tmp_dir)
+
+        partition_size = 10_000
+
+        store = ParquetDatasetBlockHeaderStore(path, partition_size=partition_size)
+
+        headers = BlockHeader.generate_headers(25000)
+        df = BlockHeader.to_pandas(headers, partition_size=partition_size)
+        store.save_incremental(df)
+        assert store.peak_last_block() == 25000
+
+        headers = BlockHeader.generate_headers(
+            1000,
+            start_block=headers["block_number"][-1] + 100,
+            start_time=headers["timestamp"][-1] + 12)
+
+        df2 = BlockHeader.to_pandas(headers, partition_size=partition_size)
+        df = pd.concat([df, df2])
+        with pytest.raises(NoGapsWritten):
+            store.save_incremental(df)
