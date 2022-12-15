@@ -84,6 +84,13 @@ class ParquetDatasetBlockHeaderStore(BlockHeaderStore):
         if since_block_number:
             df = df.loc[df.block_number >= since_block_number]
 
+        # Make sure we do not miss blocks
+        first_block = df.iloc[0]["block_number"]
+        last_block = df.iloc[-1]["block_number"]
+
+        if last_block - first_block + 1 != len(df):
+            raise NoGapsWritten(f"First block: {first_block:,}, last block: {last_block:,}, data length: {len(df):,}")
+
         table = pa.Table.from_pandas(df)
         ds.write_dataset(table,
                          self.path,
