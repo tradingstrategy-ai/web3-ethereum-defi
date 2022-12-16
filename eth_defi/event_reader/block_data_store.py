@@ -8,9 +8,11 @@ import pandas as pd
 
 
 class BlockDataStore(abc.ABC):
-    """Persistent storage interface to store processed data from blockchains.
+    """Persistent storage interface to store aby processed data from blockchains.
 
     Store any block data that is block oriented
+
+    - Input is indexed by the block number
 
     - Input and output as py:class:`pd.DataFrame`
 
@@ -60,10 +62,12 @@ class BlockDataStore(abc.ABC):
 
         - Needs to be written to keep partitions intact
 
-        :param:
+        Usually this is data worth of two partitions.
+
+        :param data:
             Must have column 'block_number'. Must have
-            column `partition` if partitioning is supportd.
+            column `partition` if partitioning is supported.
 
         :return:
-            Block range written (inclusive)
+            Block range written (inclusive).
         """
