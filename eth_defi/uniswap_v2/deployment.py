@@ -36,7 +36,7 @@ FOREVER_DEADLINE = 2**63
 INIT_CODE_HASH_MISSING = "0x01"
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class UniswapV2Deployment:
     """Uniswap v2 deployment description.
 
@@ -201,8 +201,8 @@ def deploy_trading_pair(
 
         router = deployment.router
 
-        assert token_a.functions.balanceOf(deployer).call() > liquidity_a
-        assert token_b.functions.balanceOf(deployer).call() > liquidity_b
+        assert token_a.functions.balanceOf(deployer).call() > liquidity_a, f"Cannot deploy, not enough tokens for {token_a}"
+        assert token_b.functions.balanceOf(deployer).call() > liquidity_b, f"Cannot deploy, not enough tokens for {token_b}"
 
         # Make sure there is allowance for ERC20.transferFrom()
         token_a.functions.approve(router.address, liquidity_a).transact({"from": deployer})

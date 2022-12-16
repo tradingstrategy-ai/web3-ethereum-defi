@@ -47,7 +47,7 @@ class TokenDetails:
     decimals: Optional[int] = None
 
     def __repr__(self):
-        return f"<{self.name} ({self.symbol}) at {self.contract.address}>"
+        return f"<{self.name} ({self.symbol}) at {self.contract.address}, {self.decimals} decimals>"
 
     @property
     def address(self) -> HexAddress:

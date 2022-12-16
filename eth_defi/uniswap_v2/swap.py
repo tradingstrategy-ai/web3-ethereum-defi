@@ -80,18 +80,48 @@ def swap_with_slippage_protection(
         tx_receipt = web3.eth.get_transaction_receipt(tx_hash)
         assert tx_receipt.status == 1
 
-    :param uniswap_v2_deployment: Uniswap v2 deployment
-    :param base_token: Base token of the trading pair
-    :param quote_token: Quote token of the trading pair
-    :param intermediate_token: Intermediate token which the swap can go through
-    :param recipient_address: Recipient's address
-    :param amount_in: How much of the quote token we want to pay, this has to be `None` if `amount_out` is specified
-    :param amount_out: How much of the base token we want to receive, this has to be `None` if `amount_in` is specified
-    :param max_slippage: Max slippage express in bps, default = 0.1 bps (0.001%)
-    :param fee: Trading fee express in bps, default = 30 bps (0.3%)
-    :param deadline: Time limit of the swap transaction, by default = forever (no deadline)
-    :return: Prepared swap function which can be used directly to build transaction
+    :param uniswap_v2_deployment:
+        Uniswap v2 deployment
+
+    :param base_token:
+        Base token of the trading pair
+
+    :param quote_token:
+        Quote token of the trading pair
+
+    :param intermediate_token:
+        Intermediate token which the swap can go through
+
+    :param recipient_address:
+        Recipient's address
+
+    :param amount_in:
+        How much of the quote token we want to pay, this has to be `None` if `amount_out` is specified.
+        Must be in raw quote token units.
+
+    :param amount_out:
+        How much of the base token we want to receive, this has to be `None` if `amount_in` is specified
+        Must be in raw base token units.
+
+    :param max_slippage:
+        Max slippage express in bps, default = 0.1 bps (0.001%)
+
+    :param fee:
+        Trading fee express in bps, default = 30 bps (0.3%)
+
+    :param deadline:
+        Time limit of the swap transaction, by default = forever (no deadline)
+
+    :return:
+        Prepared swap function which can be used directly to build transaction
     """
+
+    if amount_in:
+        assert type(amount_in) == int
+
+    if amount_out:
+        assert type(amount_out) == int
+
     assert max_slippage >= 0
     if max_slippage == 0:
         warnings.warn("The `max_slippage` is set to 0, this can potentially lead to reverted transaction. It's recommended to set use default max_slippage instead (0.1 bps) to ensure successful transaction")

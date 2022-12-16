@@ -11,7 +11,7 @@ from eth_defi.abi import get_deployed_contract
 from eth_defi.token import TokenDetails, fetch_erc20_details
 
 
-@dataclass
+@dataclass(frozen=True, slots=True)
 class PairDetails:
     """Uniswap v2 trading pair info."""
 
@@ -30,6 +30,9 @@ class PairDetails:
     #:
     #: If true then pair reads as token1 symbol - token0 symbol.
     reverse_token_order: Optional[bool] = None
+
+    def __repr__(self):
+        return f"<Pair {self.get_base_token()}={self.get_quote_token()} at {self.address}>"
 
     def get_base_token(self):
         """Get human-ordered base token."""
@@ -74,7 +77,6 @@ class PairDetails:
             return token0_amount / token1_amount
         else:
             return token1_amount / token0_amount
-
 
 
 def fetch_pair_details(web3, pair_contact_address: Union[str, HexAddress], reverse_token_order: Optional[bool]=None) -> PairDetails:
