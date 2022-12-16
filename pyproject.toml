@@ -13,7 +13,7 @@ packages = [
 ]
 
 [tool.poetry.dependencies]
-python = "^3.9"
+python = "^3.10"
 web3 = {extras = ["tester"], version = "^5.28.0"}
 Sphinx = {version = "^4.4.0", optional = true}
 sphinx-rtd-theme = {version = "^1.0.0", optional = true}
@@ -31,6 +31,7 @@ jupyter = {version = "^1.0.0", optional = true}
 matplotlib = {version = "^3.5.2", optional = true}
 plotly = {version = "^5.8.2", optional = true}
 furo = {version = "^2022.6.4.1", optional = true}
+pyarrow = {version = "^10.0.1", optional = true}
 
 [tool.poetry.dev-dependencies]
 pytest = "^6.2.5"
@@ -45,7 +46,7 @@ flaky = "^3.7.0"
 # See discussion https://github.com/python-poetry/poetry/issues/3348#issuecomment-726534462
 [tool.poetry.extras]
 docs = ["Sphinx", "sphinx-rtd-theme", "sphinx-sitemap", "sphinx-autodoc-typehints", "furo", "nbsphinx"]
-data = ["jupyter", "tqdm", "pandas", "gql", "matplotlib", "plotly"]
+data = ["jupyter", "tqdm", "pandas", "gql", "matplotlib", "plotly", "pyarrow"]
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]
