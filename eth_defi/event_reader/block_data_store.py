@@ -5,6 +5,7 @@ import abc
 from typing import Tuple
 
 import pandas as pd
+from pyparsing import Optional
 
 
 class BlockDataStore(abc.ABC):
@@ -70,4 +71,11 @@ class BlockDataStore(abc.ABC):
 
         :return:
             Block range written (inclusive).
+        """
+
+    def peak_last_block(self) -> Optional[int]:
+        """Get the block number of the last data entry stored.
+
+        :return:
+            None if the store is empty.
         """

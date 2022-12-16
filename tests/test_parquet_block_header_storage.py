@@ -8,7 +8,7 @@ import pandas as pd
 import pytest
 
 from eth_defi.event_reader.block_header import BlockHeader
-from eth_defi.event_reader.parquet_dataset_block_header_store import ParquetDatasetBlockDataStore, NoGapsWritten
+from eth_defi.event_reader.parquet_block_data_store import ParquetDatasetBlockDataStore, NoGapsWritten
 
 try:
     import pyarrow

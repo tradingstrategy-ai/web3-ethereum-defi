@@ -7,7 +7,7 @@ from typing import Tuple, Optional
 import pandas as pd
 import pyarrow as pa
 import pyarrow.dataset as ds
-from pyarrow._dataset import FilenamePartitioning
+from pyarrow.dataset import FilenamePartitioning
 
 from .block_data_store import BlockDataStore
 
@@ -20,12 +20,12 @@ class NoGapsWritten(Exception):
 
 
 class ParquetDatasetBlockDataStore(BlockDataStore):
-    """Store block headers as Parquet dataset.
+    """Store block data as Parquet dataset.
 
-    - Partitions are keyed by block number
+    - Partitions are keyed by block number.
 
     - Partitioning allows fast incremental updates,
-      by overwriting the last two partitions
+      by overwriting the last two partitions,
     """
 
     def __init__(self,
