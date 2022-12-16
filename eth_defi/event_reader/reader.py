@@ -150,7 +150,12 @@ def extract_events(
 
         for log in logs:
             block_hash = log["blockHash"]
-            block_number = int(log["blockNumber"], 16)
+            if type(log["blockNumber"]) == int:
+                # Ethereum tester
+                block_number = log["blockNumber"]
+            else:
+                # Normal node
+                block_number = int(log["blockNumber"], 16)
             # Retrofit our information to the dict
             event_signature = log["topics"][0]
             log["context"] = context

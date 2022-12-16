@@ -31,6 +31,15 @@ class PairDetails:
     #: If true then pair reads as token1 symbol - token0 symbol.
     reverse_token_order: Optional[bool] = None
 
+    def __eq__(self, other):
+        """Implemented for set()"""
+        assert isinstance(other, Uniswap)
+        return self.address == other.address
+
+    def __hash__(self) -> int:
+        """Implemented for set()"""
+        return int(self.address, 16)
+
     def __repr__(self):
         return f"<Pair {self.get_base_token()}={self.get_quote_token()} at {self.address}>"
 
