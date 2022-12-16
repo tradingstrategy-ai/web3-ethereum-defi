@@ -16,11 +16,11 @@ jobs:
       - name: Set up Python 3.10
         uses: actions/setup-python@v3
         with:
-          python-version: 3.10
+          python-version: "3.10"
           cache: 'poetry'
       - name: Install dependencies
         run: |
-          poetry env use '3.9'
+          poetry env use '3.10'
           poetry install -E data
       - name: Install Ganache
         run: yarn global add ganache
