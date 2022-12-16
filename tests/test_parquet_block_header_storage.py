@@ -7,8 +7,8 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
-from eth_defi.event_reader.block_header_store import BlockHeader
-from eth_defi.event_reader.parquet_dataset_block_header_store import ParquetDatasetBlockHeaderStore, NoGapsWritten
+from eth_defi.event_reader.block_header import BlockHeader
+from eth_defi.event_reader.parquet_dataset_block_header_store import ParquetDatasetBlockDataStore, NoGapsWritten
 
 try:
     import pyarrow
@@ -33,7 +33,7 @@ def test_write_store():
 
     with tempfile.TemporaryDirectory() as tmp_dir:
         path = Path(tmp_dir)
-        store = ParquetDatasetBlockHeaderStore(path)
+        store = ParquetDatasetBlockDataStore(path)
         store.save(df)
         assert os.path.exists(Path(tmp_dir, "1_part-0.parquet"))
         assert os.path.exists(Path(tmp_dir, "10000_part-0.parquet"))
@@ -52,7 +52,7 @@ def test_read_store():
 
     with tempfile.TemporaryDirectory() as tmp_dir:
         path = Path(tmp_dir)
-        store = ParquetDatasetBlockHeaderStore(path)
+        store = ParquetDatasetBlockDataStore(path)
         store.save(df)
 
         assert store.peak_last_block() == 25_000
@@ -81,7 +81,7 @@ def test_read_partial():
 
     with tempfile.TemporaryDirectory() as tmp_dir:
         path = Path(tmp_dir)
-        store = ParquetDatasetBlockHeaderStore(path, partition_size=partion_size)
+        store = ParquetDatasetBlockDataStore(path, partition_size=partion_size)
         store.save(df)
 
         # Load blocks 10,000 - 25,000
@@ -112,7 +112,7 @@ def test_peak_block():
 
     with tempfile.TemporaryDirectory() as tmp_dir:
         path = Path(tmp_dir)
-        store = ParquetDatasetBlockHeaderStore(path)
+        store = ParquetDatasetBlockDataStore(path)
         store.save(df)
         assert store.peak_last_block() == 25_000
 
@@ -126,7 +126,7 @@ def test_write_incremental():
 
         partition_size = 10_000
 
-        store = ParquetDatasetBlockHeaderStore(path, partition_size=partition_size)
+        store = ParquetDatasetBlockDataStore(path, partition_size=partition_size)
 
         headers = BlockHeader.generate_headers(1000)
         df = BlockHeader.to_pandas(headers, partition_size=partition_size)
@@ -209,7 +209,7 @@ def test_write_no_gaps():
 
         partition_size = 10_000
 
-        store = ParquetDatasetBlockHeaderStore(path, partition_size=partition_size)
+        store = ParquetDatasetBlockDataStore(path, partition_size=partition_size)
 
         headers = BlockHeader.generate_headers(25000)
         df = BlockHeader.to_pandas(headers, partition_size=partition_size)

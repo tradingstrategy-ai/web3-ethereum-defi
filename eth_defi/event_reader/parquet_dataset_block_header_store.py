@@ -9,7 +9,7 @@ import pyarrow as pa
 import pyarrow.dataset as ds
 from pyarrow._dataset import FilenamePartitioning
 
-from .block_header_store import BlockHeaderStore
+from .block_data_store import BlockDataStore
 
 
 logger = logging.getLogger(__name__)
@@ -19,7 +19,7 @@ class NoGapsWritten(Exception):
     """Do not allow gaps in data."""
 
 
-class ParquetDatasetBlockHeaderStore(BlockHeaderStore):
+class ParquetDatasetBlockDataStore(BlockDataStore):
     """Store block headers as Parquet dataset.
 
     - Partitions are keyed by block number

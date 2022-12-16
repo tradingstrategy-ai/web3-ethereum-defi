@@ -69,6 +69,12 @@ To use this package you need to
 pip install "web3-ethereum-defi[data]"
 ```
 
+```shell
+# Poetry version
+poetry add -E data web3-ethereum-defi
+```
+
+
 # Code examples
 
 For more code examples, see [the tutorials section in the documentation](https://web3-ethereum-defi.readthedocs.io/tutorials/index.html).  
