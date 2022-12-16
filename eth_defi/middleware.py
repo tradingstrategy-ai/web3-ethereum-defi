@@ -54,7 +54,7 @@ def exception_retry_middleware(
                 # https://github.com/python/mypy/issues/5349
                 except errors as e:  # type: ignore
                     if i < retries - 1:
-                        logger.warning("Encountered JSON-RPC retryable error %s when calling method %s, retrying in %f seconds", e, method, sleep)
+                        logger.warning("Encountered JSON-RPC retryable error %s when calling method %s, retrying in %f seconds, retry #%d", e, method, sleep, i)
                         time.sleep(sleep)
                         sleep *= backoff
                         continue
