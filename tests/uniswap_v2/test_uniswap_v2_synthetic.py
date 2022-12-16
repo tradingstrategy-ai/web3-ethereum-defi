@@ -7,25 +7,11 @@ from eth_account import Account
 from eth_account.signers.local import LocalAccount
 from hexbytes import HexBytes
 from web3 import EthereumTesterProvider, Web3
-from web3._utils.transactions import fill_nonce
-from web3.contract import Contract
 
 from eth_defi.token import create_token, TokenDetails, fetch_erc20_details
 from eth_defi.uniswap_v2.deployment import (
-    FOREVER_DEADLINE,
     UniswapV2Deployment,
-    deploy_trading_pair,
     deploy_uniswap_v2_like,
-)
-from eth_defi.uniswap_v2.fees import (
-    UniswapV2FeeCalculator,
-    estimate_buy_price,
-    estimate_buy_price_decimals,
-    estimate_buy_quantity,
-    estimate_buy_received_amount_raw,
-    estimate_sell_price,
-    estimate_sell_price_decimals,
-    estimate_sell_received_amount_raw,
 )
 from eth_defi.uniswap_v2.synthetic_data import generate_fake_uniswap_v2_data
 
@@ -102,14 +88,14 @@ def uniswap_v2(web3, deployer) -> UniswapV2Deployment:
 @pytest.fixture()
 def usdc(web3, deployer) -> TokenDetails:
     """Mock USDC token."""
-    token = create_token(web3, deployer, "USD Coin", "USDC", 100_000_000 * 10**6)
+    token = create_token(web3, deployer, "USD Coin", "USDC", 100_000_000 * 10**6, decimals=6)
     return fetch_erc20_details(web3, token.address)
 
 
 @pytest.fixture()
 def weth(uniswap_v2) -> TokenDetails:
     """Mock WETH token."""
-    return fetch_erc20_details(web3, uniswap_v2.weth.address)
+    return fetch_erc20_details(uniswap_v2.web3, uniswap_v2.weth.address)
 
 
 def test_generate_uniswap_v2_synthetic_data(uniswap_v2, deployer, weth, usdc):
@@ -122,5 +108,8 @@ def test_generate_uniswap_v2_synthetic_data(uniswap_v2, deployer, weth, usdc):
         usdc,
     )
 
-    import ipdb ; ipdb.set_trace()
-
+    assert stats["initial_price"] == pytest.approx(Decimal('1579.452855'))
+    assert stats["buys"] == 19
+    assert stats["sells"] == 25
+    assert stats["min_price"] == pytest.approx(Decimal('1580.833086'))
+    assert stats["max_price"] == pytest.approx(Decimal('1660.139237'))

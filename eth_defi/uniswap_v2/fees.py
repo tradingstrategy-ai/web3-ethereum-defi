@@ -388,13 +388,28 @@ def estimate_sell_price_decimals(
     Much like :py:func:`estimate_sell_price` but in/out is expressed as python Decimal units.
     Furthermore, no ERC-20 token contract needed ABI, but it is loaded by the function.
 
-    :param quantity: How much of the base token we want to sell
-    :param uniswap: Uniswap v2 deployment
-    :param base_token: Base token of the trading pair
-    :param quote_token: Quote token of the trading pair
-    :param fee: Trading fee express in bps, default = 30 bps (0.3%)
-    :param slippage: Slippage express in bps
-    :return: Expected quote token amount to receive
+    :param quantity:
+        How much of the base token we want to sell,
+        in token units (will be decimal autoconverted).
+
+    :param uniswap:
+        Uniswap v2 deployment
+
+    :param base_token:
+        Base token of the trading pair
+
+    :param quote_token:
+        Quote token of the trading pair
+
+    :param fee:
+        Trading fee express in bps, default = 30 bps (0.3%)
+
+    :param slippage:
+        Slippage express in bps
+
+    :return:
+        Expected quote token amount to receive in quota tokens (decimal converted).
+
     :raise TokenDetailError: If we have an issue with ERC-20 contracts
     """
 
