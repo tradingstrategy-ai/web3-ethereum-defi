@@ -8,11 +8,10 @@
 
 This project contains common Ethereum smart contracts and utilities, 
 for trading, wallets, automated test suites and backend integrations for EVM based blockchains.  
-
+ 
 * [Features](#features)
-* [Precompiled ABI file distribution](#precompiled-abi-file-distribution)
-* [Python usage](#python-usage)
 * [Prerequisites](#prerequisites)
+* [Install](#install)
 * [Code examples](#code-examples)
    * [Deploy and transfer ERC-20 token between wallets](#deploy-and-transfer-erc-20-token-between-wallets)
    * [Uniswap v2 trade example](#uniswap-v2-trade-example)
@@ -21,11 +20,11 @@ for trading, wallets, automated test suites and backend integrations for EVM bas
 * [Documentation](#documentation)
 * [Development and contributing](#development-and-contributing)
 * [Version history](#version-history)
+* [Support](#support)
 * [Social media](#social-media)
 * [Notes](#notes)
 * [History](#history)
 * [License](#license)
-
 
 ![Pepe chooses Web3-Ethereum-DeFi and Python](https://raw.githubusercontent.com/tradingstrategy-ai/web3-ethereum-defi/master/docs/source/_static/pepe.jpg)
 
@@ -56,9 +55,9 @@ For code examples please see below.
 
 # Prerequisites
 
-Please 
+To use this package you need to
 
-* Have Python 3.9 or higher
+* Have Python 3.10 or higher
 * [Be proficient in Python programming](https://wiki.python.org/moin/BeginnersGuide)
 * [Understand of Web3.py library](https://web3py.readthedocs.io/en/stable/) 
 * [Understand Pytest basics](https://docs.pytest.org/)
