@@ -1,7 +1,7 @@
 import logging
 import random
-from collections import Counter
 from decimal import Decimal
+from typing import Optional
 
 from eth_tester import EthereumTester
 from eth_typing import HexAddress
@@ -22,8 +22,9 @@ def generate_fake_uniswap_v2_data(
     deployer: HexAddress,
     base_token: TokenDetails,
     quote_token: TokenDetails,
-    base_liquidity=100 * 10**18,  # 100 ETH liquidity
-    quote_liquidity=1600 * 100 * 10**6,  # 170,000 USDC liquidity,
+    pair_address: Optional[str] = None,
+    base_liquidity: Optional[int] = None,
+    quote_liquidity: Optional[int] = None,
     number_of_blocks=int(5*60 / 12),  # 5 minutes, 12 sec block time
     block_time=12,  # 12 sec block time
     trades_per_block=3,  # Max 3 trades per block
@@ -42,6 +43,23 @@ def generate_fake_uniswap_v2_data(
 
     - Quote slow, around 2 trades per second,
       so use scarcely
+
+    .. note ::
+
+        Modified underlying :py:class:`EthereumTester`
+        and disables transaction auto mining.
+
+    :param number_of_blocks:
+        Number of new blocks and amount of trades we generate
+
+    :param pair_address:
+        Give the existing deployed pair or initial liquidity.
+
+    :param base_liquidity:
+        Liquidity added to the pool at start. Set to None to not to deploy.
+
+    :param quote_liquidity:
+        Liquidity added to the pool at start. Set to None to not to deploy.
 
     :return:
         Dictionary of some statistics about the generated trades
@@ -65,18 +83,24 @@ def generate_fake_uniswap_v2_data(
         "max_price": Decimal(-2**63),
     }
 
-    # Create the trading pair and add initial liquidity
-    pair_address = deploy_trading_pair(
-        web3,
-        deployer,
-        uniswap_v2,
-        base_token.contract,
-        quote_token.contract,
-        base_liquidity,
-        quote_liquidity
-    )
+    if base_liquidity and quote_liquidity:
 
-    pair_details = fetch_pair_details(web3, pair_address)
+        # Create the trading pair and add initial liquidity
+        pair_address = deploy_trading_pair(
+            web3,
+            deployer,
+            uniswap_v2,
+            base_token.contract,
+            quote_token.contract,
+            base_liquidity,
+            quote_liquidity
+        )
+        pair_details = fetch_pair_details(web3, pair_address)
+        logger.info("Deployed %s", pair_details)
+    else:
+        assert pair_address, "Give initial liquidity or pair address"
+        pair_details = fetch_pair_details(web3, pair_address)
+        logger.info("Trading on %s", pair_details)
 
     initial_price = estimate_sell_price_decimals(
         uniswap_v2,
@@ -85,9 +109,10 @@ def generate_fake_uniswap_v2_data(
         quantity=Decimal(1),
     )
 
-    logger.info("Deployed pair %s with initial price %s %s/%s", pair_details, initial_price, quote_token.symbol, base_token.symbol)
+    logger.info("Initial price %s %s/%s", initial_price, quote_token.symbol, base_token.symbol)
 
     stats["initial_price"] = initial_price
+    stats["pair_address"] = pair_address
 
     trader = deployer
 
