@@ -2,10 +2,9 @@
 
 """
 import abc
-from typing import Tuple
+from typing import Tuple, Optional
 
 import pandas as pd
-from pyparsing import Optional
 
 
 class BlockDataStore(abc.ABC):
@@ -38,6 +37,7 @@ class BlockDataStore(abc.ABC):
       This can be the block number rounded down to the nearest partition chunk.
     """
 
+    @abc.abstractmethod
     def load(self, since_block_number: int = 0) -> pd.DataFrame:
         """Load data from the store.
 
@@ -51,9 +51,11 @@ class BlockDataStore(abc.ABC):
             Data read from the store.
         """
 
+    @abc.abstractmethod
     def save(self, data: pd.DataFrame):
         """Save to the store."""
 
+    @abc.abstractmethod
     def save_incremental(self, data: pd.DataFrame) -> Tuple[int, int]:
         """Save the latest data to the store.
 
@@ -73,6 +75,7 @@ class BlockDataStore(abc.ABC):
             Block range written (inclusive).
         """
 
+    @abc.abstractmethod
     def peak_last_block(self) -> Optional[int]:
         """Get the block number of the last data entry stored.
 

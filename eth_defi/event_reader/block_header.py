@@ -1,5 +1,6 @@
-"""Block header data
+"""Block header data.
 
+Structures and helpers to maintain block header data.
 """
 
 import random
