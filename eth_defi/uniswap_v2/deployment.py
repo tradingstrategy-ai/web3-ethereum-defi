@@ -36,7 +36,7 @@ FOREVER_DEADLINE = 2**63
 INIT_CODE_HASH_MISSING = "0x01"
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class UniswapV2Deployment:
     """Uniswap v2 deployment description.
 
