@@ -108,13 +108,14 @@ def test_generate_uniswap_v2_synthetic_data(uniswap_v2, deployer, weth, usdc):
         usdc,
         base_liquidity=100 * 10**18,  # 100 ETH liquidity
         quote_liquidity=1600 * 100 * 10**6,  # 170,000 USDC liquidity,
+        number_of_blocks=3,
     )
 
-    assert stats["initial_price"] == pytest.approx(Decimal('1579.452855'))
-    assert stats["buys"] == 19
-    assert stats["sells"] == 25
-    assert stats["min_price"] == pytest.approx(Decimal('1580.833086'))
-    assert stats["max_price"] == pytest.approx(Decimal('1660.139237'))
+    assert stats["initial_price"] == pytest.approx(Decimal('1600'))
+    assert stats["buys"] == 1
+    assert stats["sells"] == 2
+    assert stats["min_price"] > 1400
+    assert stats["max_price"] < 1700
 
     # Do 1 block worth of more trades
     round_two = generate_fake_uniswap_v2_data(
@@ -126,7 +127,7 @@ def test_generate_uniswap_v2_synthetic_data(uniswap_v2, deployer, weth, usdc):
         number_of_blocks=1,
     )
 
-    assert round_two["initial_price"] == pytest.approx(Decimal('1660.756126'))
+    assert round_two["initial_price"] == pytest.approx(Decimal('1593.422429595317817472610032'))
     assert round_two["buys"] == 0
     assert round_two["sells"] == 1
 

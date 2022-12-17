@@ -70,6 +70,8 @@ def generate_fake_uniswap_v2_data(
         Dictionary of some statistics about the generated trades
     """
 
+    logger.info("Producting Uniswap v2 trades for %d blocks", number_of_blocks)
+
     random_gen = random.Random(random_seed)
 
     web3 = uniswap_v2.web3
@@ -100,19 +102,20 @@ def generate_fake_uniswap_v2_data(
             base_liquidity,
             quote_liquidity
         )
-        pair_details = fetch_pair_details(web3, pair_address)
-        logger.info("Deployed %s", pair_details)
+        logger.info("Deployed %s", pair_address)
     else:
         assert pair_address, "Give initial liquidity or pair address"
-        pair_details = fetch_pair_details(web3, pair_address)
-        logger.info("Trading on %s", pair_details)
 
-    initial_price = estimate_sell_price_decimals(
-        uniswap_v2,
-        base_token.address,
-        quote_token.address,
-        quantity=Decimal(1),
-    )
+        logger.info("Trading on %s", pair_address)
+
+    pair_details = fetch_pair_details(
+        web3,
+        pair_address,
+        base_token_address=base_token.address,
+        quote_token_address=quote_token.address)
+    assert pair_details.reverse_token_order is not None
+
+    initial_price = pair_details.get_current_mid_price()
 
     logger.info("Initial price %s %s/%s", initial_price, quote_token.symbol, base_token.symbol)
 
@@ -120,6 +123,7 @@ def generate_fake_uniswap_v2_data(
     stats["pair_address"] = pair_address
     stats["tx_hashes"] = []
 
+    # TODO: Make this an option later
     trader = deployer
 
     # Set infinite approvals
@@ -137,12 +141,7 @@ def generate_fake_uniswap_v2_data(
 
         # Price estimation is based on the pool state on the last mined block,
         # Estimate price for 1 quote token unit
-        price = estimate_sell_price_decimals(
-            uniswap_v2,
-            base_token.address,
-            quote_token.address,
-            quantity=Decimal(1),
-        )
+        price = pair_details.get_current_mid_price()
         stats["min_price"] = min(stats["min_price"], price)
         stats["max_price"] = max(stats["max_price"], price)
 
@@ -151,6 +150,7 @@ def generate_fake_uniswap_v2_data(
             # Guess trade direction and how much we are going to trade
             quote_amount = Decimal(random_gen.uniform(min_trade, max_trade))
 
+            # We route the swap opposite direction if it is sell
             if quote_amount > 0:
                 # Sell base token inventory
                 # Convert from quote to base amount
@@ -197,4 +197,5 @@ def generate_fake_uniswap_v2_data(
         #eth_tester.time_travel(next_timestamp)
         eth_tester.mine_block()
 
+    eth_tester.enable_auto_mine_transactions()
     return stats

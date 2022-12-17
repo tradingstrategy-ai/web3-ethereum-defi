@@ -54,7 +54,7 @@ class PairDetails:
 
     def get_base_token(self):
         """Get human-ordered base token."""
-        assert self.reverse_token_order is None, "Reverse token order flag must be check before this operation is possible"
+        assert self.reverse_token_order is not None, "Reverse token order flag must be check before this operation is possible"
         if self.reverse_token_order:
             return self.token1
         else:
@@ -62,7 +62,7 @@ class PairDetails:
 
     def get_quote_token(self):
         """Get human-ordered quote token."""
-        assert self.reverse_token_order is None, "Reverse token order flag must be check before this operation is possible"
+        assert self.reverse_token_order is not None, "Reverse token order flag must be check before this operation is possible"
         if self.reverse_token_order:
             return self.token0
         else:
@@ -112,7 +112,13 @@ class PairDetails:
         return self.convert_price_to_human(reserve0, reserve1, self.reverse_token_order)
 
 
-def fetch_pair_details(web3, pair_contact_address: Union[str, HexAddress], reverse_token_order: Optional[bool]=None) -> PairDetails:
+def fetch_pair_details(
+        web3,
+        pair_contact_address: Union[str, HexAddress],
+        reverse_token_order: Optional[bool] = None,
+        base_token_address: Optional[str] = None,
+        quote_token_address: Optional[str] = None,
+) -> PairDetails:
     """Get pair info for PancakeSwap, others.
 
     :param web3:
@@ -125,7 +131,19 @@ def fetch_pair_details(web3, pair_contact_address: Union[str, HexAddress], rever
         Set the human readable token order.
 
         See :py:class`PairDetails` for more info.
+
+    :param base_token_address:
+        Automatically determine token order from addresses.
+
+    :param quote_token_address:
+        Automatically determine token order from addresses.
+
     """
+
+    if base_token_address or quote_token_address:
+        assert reverse_token_order is None, f"Give either (base_token_address, quote_token_address) or reverse_token_order"
+        reverse_token_order = int(base_token_address, 16) > int(quote_token_address, 16)
+
     pool = get_deployed_contract(web3, "UniswapV2Pair.json", pair_contact_address)
     token0_address = pool.functions.token0().call()
     token1_address = pool.functions.token1().call()
