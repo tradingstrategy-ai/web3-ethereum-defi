@@ -3,9 +3,11 @@
 """
 
 from dataclasses import dataclass
+from decimal import Decimal
 from typing import Union, Optional
 
 from eth_typing import HexAddress
+from web3.contract import Contract
 
 from eth_defi.abi import get_deployed_contract
 from eth_defi.token import TokenDetails, fetch_erc20_details
@@ -15,8 +17,10 @@ from eth_defi.token import TokenDetails, fetch_erc20_details
 class PairDetails:
     """Uniswap v2 trading pair info."""
 
-    #: Pool address
-    address: HexAddress
+    #: Pool contract
+    #:
+    #: https://docs.uniswap.org/contracts/v2/reference/smart-contracts/pair#getreserves
+    contract: Contract
 
     #: One pair of tokens
     token0: TokenDetails
@@ -26,17 +30,31 @@ class PairDetails:
 
     #: Store the human readable token order on this data.
     #:
-    #: If false then pair reads as token0 symbol - token1 symbol.
+    #: If false then pair reads as token0 symbol (WETH) - token1 symbol (USDC).
     #:
-    #: If true then pair reads as token1 symbol - token0 symbol.
+    #: If true then pair reads as token1 symbol (USDC) - token0 symbol (WETH).
     reverse_token_order: Optional[bool] = None
+
+    def __eq__(self, other):
+        """Implemented for set()"""
+        assert isinstance(other, Uniswap)
+        return self.address == other.address
+
+    def __hash__(self) -> int:
+        """Implemented for set()"""
+        return int(self.address, 16)
 
     def __repr__(self):
         return f"<Pair {self.get_base_token()}={self.get_quote_token()} at {self.address}>"
 
+    @property
+    def address(self) -> HexAddress:
+        """Get pair contract address"""
+        return self.contract.address
+
     def get_base_token(self):
         """Get human-ordered base token."""
-        assert self.reverse_token_order is None, "Reverse token order flag must be check before this operation is possible"
+        assert self.reverse_token_order is not None, "Reverse token order flag must be check before this operation is possible"
         if self.reverse_token_order:
             return self.token1
         else:
@@ -44,7 +62,7 @@ class PairDetails:
 
     def get_quote_token(self):
         """Get human-ordered quote token."""
-        assert self.reverse_token_order is None, "Reverse token order flag must be check before this operation is possible"
+        assert self.reverse_token_order is not None, "Reverse token order flag must be check before this operation is possible"
         if self.reverse_token_order:
             return self.token0
         else:
@@ -78,8 +96,29 @@ class PairDetails:
         else:
             return token1_amount / token0_amount
 
+    def get_current_mid_price(self) -> Decimal:
+        """Return the price in this pool.
 
-def fetch_pair_details(web3, pair_contact_address: Union[str, HexAddress], reverse_token_order: Optional[bool]=None) -> PairDetails:
+        Calls `getReserves()` over JSON-RPC and calculate
+        the current price basede on the pair reserves.
+
+        See https://docs.uniswap.org/contracts/v2/reference/smart-contracts/pair#getreserves
+
+        :return:
+            Quote token / base token price in human digestible form
+        """
+        assert self.reverse_token_order is not None, "Reverse token order must be set to get the natural price"
+        reserve0, reserve1, timestamp = self.contract.functions.getReserves().call()
+        return self.convert_price_to_human(reserve0, reserve1, self.reverse_token_order)
+
+
+def fetch_pair_details(
+        web3,
+        pair_contact_address: Union[str, HexAddress],
+        reverse_token_order: Optional[bool] = None,
+        base_token_address: Optional[str] = None,
+        quote_token_address: Optional[str] = None,
+) -> PairDetails:
     """Get pair info for PancakeSwap, others.
 
     :param web3:
@@ -92,7 +131,19 @@ def fetch_pair_details(web3, pair_contact_address: Union[str, HexAddress], rever
         Set the human readable token order.
 
         See :py:class`PairDetails` for more info.
+
+    :param base_token_address:
+        Automatically determine token order from addresses.
+
+    :param quote_token_address:
+        Automatically determine token order from addresses.
+
     """
+
+    if base_token_address or quote_token_address:
+        assert reverse_token_order is None, f"Give either (base_token_address, quote_token_address) or reverse_token_order"
+        reverse_token_order = int(base_token_address, 16) > int(quote_token_address, 16)
+
     pool = get_deployed_contract(web3, "UniswapV2Pair.json", pair_contact_address)
     token0_address = pool.functions.token0().call()
     token1_address = pool.functions.token1().call()
@@ -101,7 +152,8 @@ def fetch_pair_details(web3, pair_contact_address: Union[str, HexAddress], rever
     token1 = fetch_erc20_details(web3, token1_address)
 
     return PairDetails(
-        pool.address,
+        pool,
         token0,
         token1,
+        reverse_token_order=reverse_token_order,
     )

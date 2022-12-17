@@ -21,8 +21,13 @@ from web3.contract import ContractEvent
 from eth_defi.event_reader.filter import Filter
 from eth_defi.event_reader.logresult import LogContext, LogResult
 from eth_defi.event_reader.web3worker import get_worker_web3
+from eth_defi.event_reader.conversion import convert_jsonrpc_value_to_int
 
 logger = logging.getLogger(__name__)
+
+
+class TimestampNotFound(Exception):
+    """Timestamp service does not have a timestasmp for a given block."""
 
 
 # For typing.Protocol see https://stackoverflow.com/questions/68472236/type-hint-for-callable-that-takes-kwargs
@@ -150,7 +155,7 @@ def extract_events(
 
         for log in logs:
             block_hash = log["blockHash"]
-            block_number = int(log["blockNumber"], 16)
+            block_number = convert_jsonrpc_value_to_int(log["blockNumber"])
             # Retrofit our information to the dict
             event_signature = log["topics"][0]
             log["context"] = context
@@ -158,7 +163,7 @@ def extract_events(
             try:
                 log["timestamp"] = timestamps[block_hash] if extract_timestamps else None
             except KeyError as e:
-                raise RuntimeError(f"Timestamp missing for block number {block_number:,}, hash {block_hash}, our timestamp table has {len(timestamps)} blocks") from e
+                raise TimestampNotFound(f"EVM event reader cannot match timestamp. Timestamp missing for block number {block_number:,}, hash {block_hash}, our timestamp table has {len(timestamps)} blocks") from e
             yield log
 
 
@@ -320,7 +325,7 @@ def read_events(
 
         last_of_chunk = min(end_block, block_num + chunk_size - 1)
 
-        # logger.info("Extracting %d - %d", block_num, last_of_chunk)
+        logger.debug("Extracting eth_getLogs from %d - %d", block_num, last_of_chunk)
 
         # Stream the events
         for event in extract_events(web3, block_num, last_of_chunk, filter, context, extract_timestamps):

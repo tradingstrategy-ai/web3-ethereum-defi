@@ -50,3 +50,19 @@ class TunedWeb3Factory(Web3Factory):
         web3.middleware_onion.inject(http_retry_request_with_sleep_middleware, layer=0)
 
         return web3
+
+
+class SimpleWeb3Factory:
+    """Single reusable Web3 connection.
+
+    - Does not work for multithreaded use cases, because Web3 object
+      with TCP/IP connection is not passable across thread or process boundaries
+
+    - Useful for testing
+    """
+
+    def __init__(self, web3: Web3):
+        self.web3 = web3
+
+    def __call__(self, context: LogContext) -> Web3:
+        return self.web3
