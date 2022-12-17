@@ -1,8 +1,10 @@
 # Current
 
-- Changed `PairDetails` interface to store the looked up `Pair` contract instance 
+- Added `generate_fake_uniswap_v2_data()` to generate synthetic Uniswap v2 trade feeds
 
-- Added `convert_jsonrpc_value_to_int()`
+- Improved `PairDetails` API, added `get_current_mid_price()` 
+
+- Added `convert_jsonrpc_value_to_int()` to deal differences between real JSON-RPC and EthereumTester
 
 # 0.11.3
 
