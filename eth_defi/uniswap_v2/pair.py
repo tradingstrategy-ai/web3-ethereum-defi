@@ -3,9 +3,11 @@
 """
 
 from dataclasses import dataclass
+from decimal import Decimal
 from typing import Union, Optional
 
 from eth_typing import HexAddress
+from web3.contract import Contract
 
 from eth_defi.abi import get_deployed_contract
 from eth_defi.token import TokenDetails, fetch_erc20_details
@@ -15,8 +17,10 @@ from eth_defi.token import TokenDetails, fetch_erc20_details
 class PairDetails:
     """Uniswap v2 trading pair info."""
 
-    #: Pool address
-    address: HexAddress
+    #: Pool contract
+    #:
+    #: https://docs.uniswap.org/contracts/v2/reference/smart-contracts/pair#getreserves
+    contract: Contract
 
     #: One pair of tokens
     token0: TokenDetails
@@ -26,9 +30,9 @@ class PairDetails:
 
     #: Store the human readable token order on this data.
     #:
-    #: If false then pair reads as token0 symbol - token1 symbol.
+    #: If false then pair reads as token0 symbol (WETH) - token1 symbol (USDC).
     #:
-    #: If true then pair reads as token1 symbol - token0 symbol.
+    #: If true then pair reads as token1 symbol (USDC) - token0 symbol (WETH).
     reverse_token_order: Optional[bool] = None
 
     def __eq__(self, other):
@@ -42,6 +46,11 @@ class PairDetails:
 
     def __repr__(self):
         return f"<Pair {self.get_base_token()}={self.get_quote_token()} at {self.address}>"
+
+    @property
+    def address(self) -> HexAddress:
+        """Get pair contract address"""
+        return self.contract.address
 
     def get_base_token(self):
         """Get human-ordered base token."""
@@ -87,6 +96,21 @@ class PairDetails:
         else:
             return token1_amount / token0_amount
 
+    def get_current_mid_price(self) -> Decimal:
+        """Return the price in this pool.
+
+        Calls `getReserves()` over JSON-RPC and calculate
+        the current price basede on the pair reserves.
+
+        See https://docs.uniswap.org/contracts/v2/reference/smart-contracts/pair#getreserves
+
+        :return:
+            Quote token / base token price in human digestible form
+        """
+        assert self.reverse_token_order is not None, "Reverse token order must be set to get the natural price"
+        reserve0, reserve1, timestamp = self.contract.functions.getReserves().call()
+        return self.convert_price_to_human(reserve0, reserve1, self.reverse_token_order)
+
 
 def fetch_pair_details(web3, pair_contact_address: Union[str, HexAddress], reverse_token_order: Optional[bool]=None) -> PairDetails:
     """Get pair info for PancakeSwap, others.
@@ -110,7 +134,8 @@ def fetch_pair_details(web3, pair_contact_address: Union[str, HexAddress], rever
     token1 = fetch_erc20_details(web3, token1_address)
 
     return PairDetails(
-        pool.address,
+        pool,
         token0,
         token1,
+        reverse_token_order=reverse_token_order,
     )

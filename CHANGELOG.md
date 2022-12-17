@@ -1,9 +1,13 @@
 # Current
 
+- Changed `PairDetails` interface to store the looked up `Pair` contract instance 
+
+- Added `convert_jsonrpc_value_to_int()`
+
 # 0.11.3
 
 - Add new PriceOracle types for unit testing
-- 
+
 # 0.11.2
 
 - Adding Trader Joe compatibility. Unlike other clones, Trader Joe uses `Router.WAVAX` instead `Roueter.WETH`

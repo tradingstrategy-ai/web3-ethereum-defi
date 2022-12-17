@@ -142,15 +142,21 @@ class DataPeriodTooShort(PriceCalculationError):
     """We do not have enough events for a longer period of time."""
 
 
-class BaseOracle:
+class BasePriceOracle:
     """Base class for price oracles."""
 
     @abstractmethod
-    def calculate_price(self) -> Decimal:
-        pass
+    def calculate_price(self, block_number: Optional[int] = None) -> Decimal:
+        """Get a price for the current block.
+
+        :param block_number:
+            Hint of what is the current block.
+            We do not support prices for historical blocks,
+            but we may cache the result of the previous block calculation for speedups.
+        """
 
 
-class PriceOracle(BaseOracle):
+class PriceOracle(BasePriceOracle):
     """Price oracle core.
 
     - Suitable for real-time price calculation for data coming over WebSockets
@@ -299,7 +305,7 @@ class PriceOracle(BaseOracle):
         if last_refresh < threshold:
             raise DataTooOld(f"The data is too old (stale?).\n" f"The latest refresh is at {last_refresh}\n" f"where oracle cut off for stale data is {threshold}")
 
-    def calculate_price(self) -> Decimal:
+    def calculate_price(self, block_number: Optional[int] = None) -> Decimal:
         """Calculate the price based on the data in the price data buffer.
 
         :raise PriceCalculationError:
@@ -438,16 +444,16 @@ def time_weighted_average_price(events: List[PriceEntry]) -> Decimal:
     return statistics.mean(prices)
 
 
-class TrustedStablecoinOracle(BaseOracle):
+class TrustedStablecoinOracle(BasePriceOracle):
     """Return a price for a token we trust we can always redeem for 1 USD."""
 
     STABLE_USD = Decimal(1)
 
-    def calculate_price(self) -> Decimal:
+    def calculate_price(self, block_number: Optional[int] = None) -> Decimal:
         return TrustedStablecoinOracle.STABLE_USD
 
 
-class FixedPriceOracle(BaseOracle):
+class FixedPriceOracle(BasePriceOracle):
     """Always use the same hardcoded exchange rate.
 
     Most useful for unit testing.
@@ -456,6 +462,6 @@ class FixedPriceOracle(BaseOracle):
     def __init__(self, exchange_rate: Decimal):
         self.exchange_rate = exchange_rate
 
-    def calculate_price(self) -> Decimal:
+    def calculate_price(self, block_number: Optional[int] = None) -> Decimal:
         return self.exchange_rate
 

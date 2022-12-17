@@ -46,12 +46,11 @@ from web3 import HTTPProvider, Web3
 
 from eth_defi.abi import get_contract
 from eth_defi.event_reader.conversion import convert_uint256_string_to_address, convert_uint256_bytes_to_address, \
-    decode_data, convert_int256_bytes_to_int
+    decode_data, convert_int256_bytes_to_int, convert_jsonrpc_value_to_int
 from eth_defi.event_reader.fast_json_rpc import patch_web3
 from eth_defi.event_reader.logresult import LogContext
 from eth_defi.event_reader.reader import read_events, LogResult
 from eth_defi.token import fetch_erc20_details, TokenDetails
-
 
 #: List of output columns to pairs.csv
 PAIR_FIELD_NAMES = [
@@ -153,7 +152,7 @@ def decode_pair_created(log: LogResult) -> dict:
     token1 = token_cache.get_token_info(web3, token1_address)
 
     data = {
-        "block_number": int(log["blockNumber"], 16),
+        "block_number": convert_jsonrpc_value_to_int(log["blockNumber"]),
         "timestamp": block_time.isoformat(),
         "tx_hash": log["transactionHash"],
         "log_index": int(log["logIndex"], 16),
@@ -200,7 +199,7 @@ def decode_swap(log: LogResult) -> dict:
     amount0_in, amount1_in, amount0_out, amount1_out = data_entries
 
     data = {
-        "block_number": int(log["blockNumber"], 16),
+        "block_number": convert_jsonrpc_value_to_int(log["blockNumber"]),
         "timestamp": block_time.isoformat(),
         "tx_hash": log["transactionHash"],
         "log_index": int(log["logIndex"], 16),

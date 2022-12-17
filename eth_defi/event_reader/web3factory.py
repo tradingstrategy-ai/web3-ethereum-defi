@@ -55,7 +55,8 @@ class TunedWeb3Factory(Web3Factory):
 class SimpleWeb3Factory:
     """Single reusable Web3 connection.
 
-    - Does not work for multithreaded use cases
+    - Does not work for multithreaded use cases, because Web3 object
+      with TCP/IP connection is not passable across thread or process boundaries
 
     - Useful for testing
     """

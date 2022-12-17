@@ -61,3 +61,20 @@ def convert_uint256_string_to_int(bytes32: str, *, signed: bool = False) -> int:
     assert bytes32.startswith("0x")
     raw = bytes.fromhex(bytes32[2:])
     return int.from_bytes(raw, "big", signed=signed)
+
+
+def convert_jsonrpc_value_to_int(val: str | int) -> int:
+    """Convert hex string or int to int.
+
+    Depending on the used JSON-RPC node,
+    they may return hex encoded values or JSON numbers
+    in JSON-RPC type. We need to be able to support both node and
+    do the compatibility hack here.
+    """
+
+    if type(val) == int:
+        # EthereumTester
+        return val
+
+    # Hex number
+    return int(val, 16)

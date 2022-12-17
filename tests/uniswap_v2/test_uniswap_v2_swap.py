@@ -18,6 +18,7 @@ from eth_defi.uniswap_v2.deployment import (
     deploy_uniswap_v2_like,
 )
 from eth_defi.uniswap_v2.fees import estimate_sell_price
+from eth_defi.uniswap_v2.pair import fetch_pair_details
 from eth_defi.uniswap_v2.swap import swap_with_slippage_protection
 
 
@@ -168,6 +169,78 @@ def test_buy_with_slippage_when_you_know_quote_amount(
     tx_hash = web3.eth.send_raw_transaction(signed_tx.rawTransaction)
     tx_receipt = web3.eth.get_transaction_receipt(tx_hash)
     assert tx_receipt.status == 1
+
+
+@pytest.mark.skip("Unfinished code")
+def test_sell_with_slippage_when_you_know_base_amount(
+    web3: Web3,
+    deployer: str,
+    hot_wallet: LocalAccount,
+    uniswap_v2: UniswapV2Deployment,
+    weth: Contract,
+    usdc: Contract,
+):
+    """Use local hot wallet to sell some WETH on Uniswap v2 using amount of ETH."""
+
+    # Create the trading pair and add initial liquidity
+    pair_address = deploy_trading_pair(
+        web3,
+        deployer,
+        uniswap_v2,
+        weth,
+        usdc,
+        10 * 10**18,  # 10 ETH liquidity
+        17_000 * 10**18,  # 17000 USDC liquidity
+    )
+
+    router = uniswap_v2.router
+    hw_address = hot_wallet.address
+
+    reverse_token_order = int(weth.address, 16) > int(usdc.address, 16)
+    pair = fetch_pair_details(web3, pair_address, reverse_token_order=reverse_token_order)
+
+    price_before_sell = pair.get_current_mid_price()
+
+    # Give hot wallet infinite approve to sell ETH
+    weth_amount_to_sell = 1 * 10**18
+    web3.eth.send_transaction({"from": deployer, "to": hw_address, "value": 1 * 10**18})
+    weth.functions.transfer(hw_address, weth_amount_to_sell).transact({"from": deployer})
+    weth.functions.approve(router.address, 2**256 - 1).transact({"from": hw_address})
+
+    # build transaction
+    # TODO: Need better function to sell with slippage protection
+    swap_func = swap_with_slippage_protection(
+        uniswap_v2_deployment=uniswap_v2,
+        recipient_address=hw_address,
+        base_token=weth,
+        quote_token=usdc,
+        amount_out=weth_amount_to_sell,
+        max_slippage=50,  # 50 bps = 0.5%
+    )
+    tx = swap_func.buildTransaction(
+        {
+            "from": hw_address,
+            "chainId": web3.eth.chain_id,
+            "gas": 350_000,  # estimate max 350k gas per swap
+        }
+    )
+    tx = fill_nonce(web3, tx)
+    gas_fees = estimate_gas_fees(web3)
+    apply_gas(tx, gas_fees)
+
+    # sign and broadcast
+    signed_tx = hot_wallet.sign_transaction(tx)
+    tx_hash = web3.eth.send_raw_transaction(signed_tx.rawTransaction)
+    tx_receipt = web3.eth.get_transaction_receipt(tx_hash)
+    if tx_receipt.status == 0:
+        revert_reason = fetch_transaction_revert_reason(web3, tx_hash)
+        raise AssertionError(f"Sell failed: {revert_reason}")
+    assert tx_receipt.status == 1, f"Sell transaction failed"
+
+    price_after_sell = pair.get_current_mid_price()
+
+    # selling should decrease the price
+    assert price_after_sell < price_before_sell
 
 
 def test_buy_with_slippage_when_you_know_base_amount(

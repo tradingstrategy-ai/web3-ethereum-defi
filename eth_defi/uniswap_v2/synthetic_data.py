@@ -8,7 +8,7 @@ from eth_typing import HexAddress
 from web3 import Web3, EthereumTesterProvider
 
 from eth_defi.token import TokenDetails
-from eth_defi.uniswap_v2.deployment import deploy_trading_pair, UniswapV2Deployment
+from eth_defi.uniswap_v2.deployment import deploy_trading_pair, UniswapV2Deployment, FOREVER_DEADLINE
 from eth_defi.uniswap_v2.fees import estimate_sell_price_decimals
 from eth_defi.uniswap_v2.pair import fetch_pair_details
 from eth_defi.uniswap_v2.swap import swap_with_slippage_protection
@@ -43,6 +43,11 @@ def generate_fake_uniswap_v2_data(
 
     - Quote slow, around 2 trades per second,
       so use scarcely
+
+      .. warning ::
+
+        trades_per_block = 1 seems to be the only method that works with EthereumTester,
+        otherwise you lose random transactions.
 
     .. note ::
 
@@ -113,12 +118,15 @@ def generate_fake_uniswap_v2_data(
 
     stats["initial_price"] = initial_price
     stats["pair_address"] = pair_address
+    stats["tx_hashes"] = []
 
     trader = deployer
 
     # Set infinite approvals
     base_token.contract.functions.approve(uniswap_v2.router.address, 2**256-1).transact({"from": trader})
     quote_token.contract.functions.approve(uniswap_v2.router.address, 2**256-1).transact({"from": trader})
+
+    assert base_token.contract.address != quote_token.contract.address
 
     eth_tester.disable_auto_mine_transactions()
 
@@ -127,64 +135,66 @@ def generate_fake_uniswap_v2_data(
         trade_count = random_gen.randint(0, trades_per_block)
         block_number = web3.eth.block_number
 
+        # Price estimation is based on the pool state on the last mined block,
+        # Estimate price for 1 quote token unit
+        price = estimate_sell_price_decimals(
+            uniswap_v2,
+            base_token.address,
+            quote_token.address,
+            quantity=Decimal(1),
+        )
+        stats["min_price"] = min(stats["min_price"], price)
+        stats["max_price"] = max(stats["max_price"], price)
+
         for trade in range(trade_count):
 
+            # Guess trade direction and how much we are going to trade
             quote_amount = Decimal(random_gen.uniform(min_trade, max_trade))
 
-            # Sell base token
-            price = estimate_sell_price_decimals(
-                uniswap_v2,
-                base_token.address,
-                quote_token.address,
-                quantity=Decimal(1),
-            )
-
             if quote_amount > 0:
-                # Sell base token
-
+                # Sell base token inventory
                 # Convert from quote to base amount
                 base_amount = quote_amount / price
-
-                logger.info("Selling %s at %s for %s %s, block %d", base_token.symbol, price, base_amount, base_token.symbol, block_number)
-
-                swap_func = swap_with_slippage_protection(
-                    uniswap_v2_deployment=uniswap_v2,
-                    recipient_address=trader,
-                    base_token=base_token.contract,
-                    quote_token=quote_token.contract,
-                    amount_out=base_token.convert_to_raw(base_amount),
-                    max_slippage=9999,  # 99%
-                )
-
+                amount0_in = pair_details.get_base_token().convert_to_raw(base_amount)
+                side = "Selling"
+                path = [base_token.address, quote_token.address]
                 stats["sells"] = stats["sells"] + 1
 
             else:
                 quote_amount = abs(quote_amount)
-                logger.info("Buying %s at %s for %s %s, block %d", base_token.symbol, price, quote_amount, quote_token.symbol, block_number)
-
-                # Buy base token
-                swap_func = swap_with_slippage_protection(
-                    uniswap_v2_deployment=uniswap_v2,
-                    recipient_address=trader,
-                    base_token=base_token.contract,
-                    quote_token=quote_token.contract,
-                    amount_in=quote_token.convert_to_raw(quote_amount),
-                    max_slippage=9999,  # 99%
-                )
-
-                stats["min_price"] = min(stats["min_price"], price)
-                stats["max_price"] = max(stats["max_price"], price)
+                side = "Buying"
+                amount0_in = pair_details.get_quote_token().convert_to_raw(quote_amount)
+                path = [quote_token.address, base_token.address]
                 stats["buys"] = stats["buys"] + 1
 
-            swap_func.transact(
-                {
-                    "from": trader,
-                    "gas": 350_000,  # estimate max 350k gas per swap
-                })
+            args = [
+                amount0_in,
+                0,
+                path,
+                trader,
+                FOREVER_DEADLINE,
+            ]
 
-        current_timestamp = eth_tester.get_block_by_number('pending')['timestamp']
-        next_timestamp = current_timestamp + block_time
-        eth_tester.time_travel(next_timestamp)
+            # What is the block range where we placed our swaps
+            if "first_block" not in stats:
+                stats["first_block"] = block_number + 1
+            stats["last_block"] = block_number + 1
+
+            tx_hash = uniswap_v2.router.functions.swapExactTokensForTokens(*args).transact({"from": trader})
+            stats["tx_hashes"].append(tx_hash)
+
+            logger.info("%s, token:%s at price:%s for amount:%s, block before mining %d, tx: %s",
+                        side,
+                        base_token.symbol,
+                        price,
+                        quote_amount,
+                        block_number,
+                        tx_hash.hex())
+
+        # Don't try to play with the block time, as it does not seem to work
+        #current_timestamp = eth_tester.get_block_by_number('pending')['timestamp']
+        #next_timestamp = current_timestamp + block_time
+        #eth_tester.time_travel(next_timestamp)
         eth_tester.mine_block()
 
     return stats
