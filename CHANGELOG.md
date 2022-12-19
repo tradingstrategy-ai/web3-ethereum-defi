@@ -1,9 +1,7 @@
 # Current
 
 - Added `generate_fake_uniswap_v2_data()` to generate synthetic Uniswap v2 trade feeds
-
-- Improved `PairDetails` API, added `get_current_mid_price()` 
-
+- Improved `PairDetails` API, added `get_current_mid_price()`
 - Added `convert_jsonrpc_value_to_int()` to deal differences between real JSON-RPC and EthereumTester
 
 # 0.11.3
