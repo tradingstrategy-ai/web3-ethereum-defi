@@ -49,6 +49,9 @@ class ParquetDatasetBlockDataStore(BlockDataStore):
 
         self.partitioning = part_scheme
 
+    def is_virgin(self) -> bool:
+        return not self.path.exists()
+
     def floor_block_number_to_partition_start(self, n) -> int:
         block_num = n // self.partition_size * self.partition_size
         if block_num == 0:
