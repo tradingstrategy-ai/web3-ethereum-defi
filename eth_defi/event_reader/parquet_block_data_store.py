@@ -100,7 +100,7 @@ class ParquetDatasetBlockDataStore(BlockDataStore):
             series = df["block_number"]
             for i in range(first_block, last_block):
                 if i not in series:
-                    raise NoGapsWritten(f"First block: {first_block:,}, last block: {last_block:,}, missing block: {i}")
+                    raise NoGapsWritten(f"Gap in block data detected. First block: {first_block:,}, last block: {last_block:,}, missing block: {i}")
 
         table = pa.Table.from_pandas(df)
         ds.write_dataset(table,

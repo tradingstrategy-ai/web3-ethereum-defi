@@ -45,7 +45,7 @@ class PairDetails:
         return int(self.address, 16)
 
     def __repr__(self):
-        return f"<Pair {self.get_base_token()}={self.get_quote_token()} at {self.address}>"
+        return f"<Pair {self.get_base_token().symbol}-{self.get_quote_token().symbol} at {self.address}>"
 
     @property
     def address(self) -> HexAddress:

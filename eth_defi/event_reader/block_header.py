@@ -91,6 +91,7 @@ class BlockHeader:
         import pandas as pd
         # https://stackoverflow.com/a/64537577/315168
         df = pd.DataFrame.from_dict(headers, orient='columns')
+        df.set_index(df["block_number"], inplace=True, drop=False)
         if partition_size:
             assert partition_size > 0
             # First partition starts at 1, not 0

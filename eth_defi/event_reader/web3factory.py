@@ -40,13 +40,13 @@ class TunedWeb3Factory(Web3Factory):
             Connection pooling for HTTPS.
 
             Parameters for `requests` library.
-            Default to pool size 4.
+            Default to pool size 10.
 
         """
         self.json_rpc_url = json_rpc_url
 
         if not http_adapter:
-            http_adapter = HTTPAdapter(pool_connections=4, pool_maxsize=4)
+            http_adapter = HTTPAdapter(pool_connections=10, pool_maxsize=10)
 
         self.http_adapter = http_adapter
 
