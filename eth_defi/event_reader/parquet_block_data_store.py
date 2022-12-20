@@ -72,14 +72,18 @@ class ParquetDatasetBlockDataStore(BlockDataStore):
         df = filtered_table.to_pandas()
         return df
 
-    def save(self, df: pd.DataFrame, since_block_number: int = 0):
-        """Savea all data from parquet.
+    def save(self, df: pd.DataFrame, since_block_number: int = 0, check_contains_all_blocks=True):
+        """Save all data from parquet.
 
         If there are existing block headers written, any data will be overwritten
         on per partition basis.
 
         :param since_block_number:
             Write only the latest data after this block number (inclusive)
+
+        :param check_contains_all_blocks:
+            Check that we have at least one data record for every block.
+            Note that trades might not happen on every block.
         """
 
         assert "partition" in df.columns
@@ -91,8 +95,12 @@ class ParquetDatasetBlockDataStore(BlockDataStore):
         first_block = df.iloc[0]["block_number"]
         last_block = df.iloc[-1]["block_number"]
 
-        if last_block - first_block + 1 != len(df):
-            raise NoGapsWritten(f"First block: {first_block:,}, last block: {last_block:,}, data length: {len(df):,}")
+        # Try to assert we do not write out bad data
+        if check_contains_all_blocks:
+            series = df["block_number"]
+            for i in range(first_block, last_block):
+                if i not in series:
+                    raise NoGapsWritten(f"First block: {first_block:,}, last block: {last_block:,}, missing block: {i}")
 
         table = pa.Table.from_pandas(df)
         ds.write_dataset(table,
