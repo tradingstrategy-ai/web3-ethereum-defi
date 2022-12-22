@@ -195,3 +195,55 @@ def test_buy_with_slippage_when_you_know_quote_amount(
     tx_hash = web3.eth.send_raw_transaction(signed_tx.rawTransaction)
     tx_receipt = web3.eth.get_transaction_receipt(tx_hash)
     assert tx_receipt.status == 1
+
+
+def test_sell_with_slippage_when_you_know_base_amount(
+    web3: Web3,
+    deployer: str,
+    uniswap_v3: UniswapV3Deployment,
+    weth: Contract,
+    usdc: Contract,
+    weth_usdc_pool: Contract,
+    hot_wallet: LocalAccount,
+    pool_trading_fee: int,
+):
+    """Use local hot wallet to sell a define amount of WETH on Uniswap v3."""
+
+    router = uniswap_v3.swap_router
+    hw_address = hot_wallet.address
+
+    # Give hot wallet some USDC to buy ETH (also some ETH as well to send tx)
+    web3.eth.send_transaction({"from": deployer, "to": hw_address, "value": 1 * 10**18})
+    weth_amount_to_sell = 1 * 10**18
+    weth.functions.transfer(hw_address, weth_amount_to_sell).transact({"from": deployer})
+    weth.functions.approve(router.address, 2 * 10**18).transact({"from": hw_address})
+
+    # build transaction
+    # note that we are selling WETH for USDC
+    # and swap direction is always from quote to base
+    # so quote_token is WETH and base_token is USDC in this case
+    swap_func = swap_with_slippage_protection(
+        uniswap_v3_deployment=uniswap_v3,
+        recipient_address=hw_address,
+        base_token=usdc,
+        quote_token=weth,
+        pool_fees=[pool_trading_fee],
+        amount_in=weth_amount_to_sell,
+        max_slippage=50,  # 50 bps = 0.5%
+    )
+    tx = swap_func.build_transaction(
+        {
+            "from": hw_address,
+            "chainId": web3.eth.chain_id,
+            "gas": 350_000,  # estimate max 350k gas per swap
+        }
+    )
+    tx = fill_nonce(web3, tx)
+    gas_fees = estimate_gas_fees(web3)
+    apply_gas(tx, gas_fees)
+
+    # sign and broadcast
+    signed_tx = hot_wallet.sign_transaction(tx)
+    tx_hash = web3.eth.send_raw_transaction(signed_tx.rawTransaction)
+    tx_receipt = web3.eth.get_transaction_receipt(tx_hash)
+    assert tx_receipt.status == 1

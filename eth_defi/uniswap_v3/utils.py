@@ -3,8 +3,6 @@ import math
 from typing import Tuple
 
 from eth_typing import HexAddress
-from gql import Client, gql
-from gql.transport.requests import RequestsHTTPTransport
 
 from eth_defi.uniswap_v3.constants import (
     DEFAULT_TICK_SPACINGS,
@@ -128,6 +126,9 @@ def get_token1_amount_in_range(liquidity, sp, sa):
 
 def run_graphql_query(query: str, *, variables: dict = {}, api_url=UNISWAP_V3_SUBGRAPH_URL) -> dict:
     """Run query on Uniswap v3 subgraph"""
+    from gql import Client, gql
+    from gql.transport.requests import RequestsHTTPTransport
+
     transport = RequestsHTTPTransport(url=api_url, verify=True, retries=3)
     graphql_client = Client(transport=transport, fetch_schema_from_transport=True)
 
