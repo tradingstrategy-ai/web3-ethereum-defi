@@ -38,6 +38,14 @@ class BlockDataStore(abc.ABC):
     """
 
     @abc.abstractmethod
+    def is_virgin(self) -> bool:
+        """Has this store any stored data.
+
+        :return:
+            There is data to load.
+        """
+
+    @abc.abstractmethod
     def load(self, since_block_number: int = 0) -> pd.DataFrame:
         """Load data from the store.
 

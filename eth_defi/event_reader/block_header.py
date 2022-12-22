@@ -87,11 +87,28 @@ class BlockHeader:
 
         :return:
         """
+        # Optional dependency
         import pandas as pd
         # https://stackoverflow.com/a/64537577/315168
         df = pd.DataFrame.from_dict(headers, orient='columns')
+        df.set_index(df["block_number"], inplace=True, drop=False)
         if partition_size:
             assert partition_size > 0
             # First partition starts at 1, not 0
             df["partition"] = df["block_number"].apply(lambda x: max((x // partition_size) * partition_size, 1))
         return df
+
+    @staticmethod
+    def from_pandas(df) -> Dict[int, "BlockHeader"]:
+        """Decode saved Pandas input.
+
+        """
+        # Optional dependency
+        import pandas as pd
+        assert isinstance(df, pd.DataFrame)
+        map = {}
+        for idx, row in df.iterrows():
+            record = BlockHeader(block_number=row.block_number, block_hash=row.block_hash, timestamp=row.timestamp)
+            map[record.block_number] = record
+        return map
+
