@@ -10,6 +10,7 @@ To run tests in this module:
 """
 import os
 
+import flaky
 import pytest
 from eth_account import Account
 from eth_account.signers.local import LocalAccount
@@ -26,7 +27,6 @@ pytestmark = pytest.mark.skipif(
 )
 
 
-@pytest.fixture(scope="module")
 def large_busd_holder() -> HexAddress:
     """A random account picked from BNB Smart chain that holds a lot of BUSD.
 
@@ -38,13 +38,11 @@ def large_busd_holder() -> HexAddress:
     return HexAddress(HexStr("0x8894E0a0c962CB723c1976a4421c95949bE2D4E3"))
 
 
-@pytest.fixture(scope="module")
 def user_1() -> LocalAccount:
     """Create a test account."""
     return Account.create()
 
 
-@pytest.fixture(scope="module")
 def user_2() -> LocalAccount:
     """User account.
 
@@ -53,7 +51,6 @@ def user_2() -> LocalAccount:
     return Account.create()
 
 
-@pytest.fixture(scope="module")
 def ganache_bnb_chain_fork(large_busd_holder, user_1, user_2) -> str:
     """Create a testable fork of live BNB chain.
 
@@ -73,6 +70,8 @@ def web3(ganache_bnb_chain_fork: str):
     return Web3(HTTPProvider(ganache_bnb_chain_fork))
 
 
+# Because of Ganache
+@flaky.flaky()
 def test_mainnet_fork_busd_details(web3: Web3, large_busd_holder: HexAddress, user_1: LocalAccount):
     """Checks BUSD deployment on BNB chain."""
     busd = fetch_erc20_details(web3, "0xe9e7CEA3DedcA5984780Bafc599bD69ADd087D56")
@@ -80,6 +79,8 @@ def test_mainnet_fork_busd_details(web3: Web3, large_busd_holder: HexAddress, us
     assert (busd.total_supply / (10**18)) > 1_000_000_000, "More than $1B BUSD minted"
 
 
+# Because of Ganache
+@flaky.flaky()
 def test_mainnet_fork_transfer_busd(web3: Web3, large_busd_holder: HexAddress, user_1: LocalAccount):
     """Forks the BNB chain mainnet and transfers from USDC to the user."""
 

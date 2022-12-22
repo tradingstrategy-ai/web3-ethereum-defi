@@ -23,10 +23,16 @@ from eth_defi.uniswap_v2.token_tax import TokenTaxInfo
 from eth_defi.uniswap_v2.deployment import UniswapV2Deployment, fetch_deployment
 
 # https://docs.pytest.org/en/latest/how-to/skipping.html#skip-all-test-functions-of-a-class-or-module
+#pytestmark = pytest.mark.skipif(
+#    os.environ.get("BNB_CHAIN_JSON_RPC") is None,
+#   reason="Set BNB_CHAIN_JSON_RPC environment variable to Binance Smart Chain node to run this test",
+#)
+
 pytestmark = pytest.mark.skipif(
     os.environ.get("BNB_CHAIN_JSON_RPC") is None,
     reason="Set BNB_CHAIN_JSON_RPC environment variable to Binance Smart Chain node to run this test",
 )
+
 
 
 @pytest.fixture(scope="module")
@@ -112,7 +118,6 @@ def uniswap(web3: Web3, pancakeswap_factory_v2: HexAddress, pancake_router: HexA
 
 # Because Ganache is such a crap and keeps randomly failing
 # @flaky.flaky(max_runs=5)
-@pytest.mark.skip(msg="Ganache is too flaky to test anything")
 def test_token_tax(uniswap: UniswapV2Deployment, large_busd_holder: HexAddress, seller: HexAddress,
                    elephant: HexAddress, busd: HexAddress):
 
@@ -130,7 +135,6 @@ def test_token_tax(uniswap: UniswapV2Deployment, large_busd_holder: HexAddress, 
     assert token_tax_info.sell_tax == pytest.approx(expected_elephant_tax_percent, rel=1e-4)
 
 
-@pytest.mark.skip(msg="Find a better low liquidity token to do a test swap")
 def test_low_liquidity_exception(uniswap: UniswapV2Deployment, large_busd_holder: HexAddress, seller: HexAddress,
                                  elephant: HexAddress, busd: HexAddress):
     buy_amount: float = 1e30
