@@ -140,7 +140,10 @@ def extract_events(
         "toBlock": hex(end_block),
     }
 
+    # Do the filtering by address.
+    # eth_getLogs gets single address or JSON list of addresses
     if filter.contract_address:
+        assert type(filter.contract_address) in (list, str), f"Got: {type(filter.contract_address)}"
         filter_params["address"] = filter.contract_address
 
     # logging.debug("Extracting logs %s", filter_params)
@@ -212,8 +215,8 @@ def read_events(
     web3: Web3,
     start_block: int,
     end_block: int,
-    events: List[ContractEvent],
-    notify: Optional[ProgressUpdate],
+    events: Optional[List[ContractEvent]] = None,
+    notify: Optional[ProgressUpdate] = None,
     chunk_size: int = 100,
     context: Optional[LogContext] = None,
     extract_timestamps: Optional[Callable] = extract_timestamps_json_rpc,
@@ -279,7 +282,9 @@ def read_events(
         Web3 instance
 
     :param events:
-        List of Web3.py contract event classes to scan for
+        List of Web3.py contract event classes to scan for.
+
+        Pass this or filter.
 
     :param notify:
         Optional callback to be called before starting to scan each chunk
@@ -301,6 +306,8 @@ def read_events(
 
     :param filter:
         Pass a custom event filter for the readers
+
+        Pass this or events.
     """
 
     assert type(start_block) == int
@@ -313,6 +320,7 @@ def read_events(
 
     # Construct our bloom filter
     if filter is None:
+        assert events is None, "Cannot pass both filter and events"
         filter = prepare_filter(events)
 
     last_timestamp = None
@@ -338,8 +346,8 @@ def read_events_concurrent(
     executor: ThreadPoolExecutor,
     start_block: int,
     end_block: int,
-    events: List[ContractEvent],
-    notify: Optional[ProgressUpdate],
+    events: Optional[List[ContractEvent]] = None,
+    notify: Optional[ProgressUpdate] = None,
     chunk_size: int = 100,
     context: Optional[LogContext] = None,
     extract_timestamps: Optional[Callable] = extract_timestamps_json_rpc,
@@ -429,11 +437,15 @@ def read_events_concurrent(
         Pass a custom event filter for the readers
     """
 
+    assert not executor._executor._shutdown, "ThreadPoolExecutor has been shut down"
+
     total_events = 0
 
     last_timestamp = None
 
+    # Construct our bloom filter
     if filter is None:
+        assert events is None, "Cannot pass both filter and events"
         filter = prepare_filter(events)
 
     # For futureproof usage see
