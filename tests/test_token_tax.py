@@ -28,10 +28,7 @@ from eth_defi.uniswap_v2.deployment import UniswapV2Deployment, fetch_deployment
 #   reason="Set BNB_CHAIN_JSON_RPC environment variable to Binance Smart Chain node to run this test",
 #)
 
-pytestmark = pytest.mark.skipif(
-    os.environ.get("BNB_CHAIN_JSON_RPC") is None,
-    reason="Set BNB_CHAIN_JSON_RPC environment variable to Binance Smart Chain node to run this test",
-)
+pytestmark = pytest.mark.skip("Ganache is so broken that these tests fail 80% of time")
 
 
 
