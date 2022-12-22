@@ -30,7 +30,31 @@ def swap_with_slippage_protection(
 
     .. code-block:: python
 
-        TODO
+        # build transaction to swap from USDC to WETH
+        swap_func = swap_with_slippage_protection(
+            uniswap_v3_deployment=uniswap_v3,
+            recipient_address=hot_wallet_address,
+            base_token=weth,
+            quote_token=usdc,
+            pool_fees=[weth_usdc_pool_trading_fee],
+            amount_in=usdc_amount_to_pay,
+            max_slippage=50,  # 50 bps = 0.5%
+        )
+        tx = swap_func.build_transaction(
+            {
+                "from": hot_wallet_address,
+                "chainId": web3.eth.chain_id,
+                "gas": 350_000,  # estimate max 350k gas per swap
+            }
+        )
+        tx = fill_nonce(web3, tx)
+        gas_fees = estimate_gas_fees(web3)
+        apply_gas(tx, gas_fees)
+
+        signed_tx = hot_wallet.sign_transaction(tx)
+        tx_hash = web3.eth.send_raw_transaction(signed_tx.rawTransaction)
+        tx_receipt = web3.eth.get_transaction_receipt(tx_hash)
+        assert tx_receipt.status == 1
 
     :param uniswap_v3_deployment: an instance of `UniswapV3Deployment`
     :param recipient_address: Recipient's address
@@ -59,7 +83,7 @@ def swap_with_slippage_protection(
     path = [quote_token.address, base_token.address]
     if intermediate_token:
         path = [quote_token.address, intermediate_token.address, base_token.address]
-    encoded_path = encode_path(path)
+    encoded_path = encode_path(path, pool_fees)
 
     if len(path) - 1 != len(pool_fees):
         raise ValueError(f"Expected {len(path) - 1} pool fees, got {len(pool_fees)}")
@@ -76,11 +100,13 @@ def swap_with_slippage_protection(
         )
 
         return router.functions.exactInput(
-            encoded_path,
-            recipient_address,
-            deadline,
-            amount_in,
-            estimated_min_amount_out,
+            (
+                encoded_path,
+                recipient_address,
+                deadline,
+                amount_in,
+                estimated_min_amount_out,
+            )
         )
     elif amount_out:
         if amount_in is not None:
@@ -94,9 +120,11 @@ def swap_with_slippage_protection(
         )
 
         return router.functions.exactOutput(
-            encoded_path,
-            recipient_address,
-            deadline,
-            amount_out,
-            estimated_max_amount_in,
+            (
+                encoded_path,
+                recipient_address,
+                deadline,
+                amount_out,
+                estimated_max_amount_in,
+            )
         )
