@@ -27,6 +27,7 @@ pytestmark = pytest.mark.skipif(
 )
 
 
+@pytest.fixture()
 def large_busd_holder() -> HexAddress:
     """A random account picked from BNB Smart chain that holds a lot of BUSD.
 
@@ -38,11 +39,13 @@ def large_busd_holder() -> HexAddress:
     return HexAddress(HexStr("0x8894E0a0c962CB723c1976a4421c95949bE2D4E3"))
 
 
+@pytest.fixture()
 def user_1() -> LocalAccount:
     """Create a test account."""
     return Account.create()
 
 
+@pytest.fixture()
 def user_2() -> LocalAccount:
     """User account.
 
@@ -51,6 +54,7 @@ def user_2() -> LocalAccount:
     return Account.create()
 
 
+@pytest.fixture()
 def ganache_bnb_chain_fork(large_busd_holder, user_1, user_2) -> str:
     """Create a testable fork of live BNB chain.
 
@@ -63,7 +67,7 @@ def ganache_bnb_chain_fork(large_busd_holder, user_1, user_2) -> str:
     launch.close()
 
 
-@pytest.fixture
+@pytest.fixture()
 def web3(ganache_bnb_chain_fork: str):
     """Set up a local unit testing blockchain."""
     # https://web3py.readthedocs.io/en/stable/examples.html#contract-unit-tests-in-python
