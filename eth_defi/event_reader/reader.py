@@ -158,16 +158,26 @@ def extract_events(
 
         for log in logs:
             block_hash = log["blockHash"]
-            block_number = convert_jsonrpc_value_to_int(log["blockNumber"])
+            block_number = int(log["blockNumber"], 16)
             # Retrofit our information to the dict
             event_signature = log["topics"][0]
             log["context"] = context
             log["event"] = filter.topics[event_signature]
-            try:
-                log["timestamp"] = timestamps[block_hash] if extract_timestamps else None
-            except KeyError as e:
-                raise TimestampNotFound(f"EVM event reader cannot match timestamp. Timestamp missing for block number {block_number:,}, hash {block_hash}, our timestamp table has {len(timestamps)} blocks") from e
-            yield log
+            if extract_timestamps:
+                try:
+                    log["timestamp"] = timestamps[block_hash]
+                except KeyError as e:
+                    # If the block hash is not found in the timestamps table, it could be due to a chain reorg.
+                    # In this case, we can try to retrieve the timestamp using the block number instead.
+                    try:
+                        block = web3.eth.getBlock(block_number)
+                        log["timestamp"] = block["timestamp"]
+                    except Exception as e:
+                        raise RuntimeError(
+                            f"Timestamp missing for block number {block_number:,}, hash {block_hash}, our timestamp table has {len(timestamps)} blocks"
+                        ) from e
+            else:
+                log["timestamp"] = None
 
 
 def extract_events_concurrent(
