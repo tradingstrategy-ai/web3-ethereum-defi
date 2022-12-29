@@ -91,7 +91,7 @@ def get_pool_fee(web3: Web3, pool_address: HexAddress):
     pool_details = fetch_pool_details(web3, pool_address)
     return pool_details.raw_fee
 
-def get_path_and_fees(
+def get_path_and_fees_quote_first(
     web3: Web3,
     base_token: HexAddress,
     quote_token: HexAddress,
@@ -118,6 +118,36 @@ def get_path_and_fees(
     else:
         path = [quote_token, base_token]
         fees = [quote_token_fee, base_token_fee]
+
+    return path, fees
+
+def get_path_and_fees_base_first(
+    web3: Web3,
+    base_token: HexAddress,
+    quote_token: HexAddress,
+    *,
+    intermediate_token: Optional[HexAddress] = None,
+    base_token_fee: Optional[int] = None,
+    quote_token_fee: Optional[int] = None,
+    intermediate_token_fee: Optional[int] = None
+):
+    """Helper function"""
+    # If trading fees are not provided, we must fetch since
+    # pool fees are dynamic in uniswap v3
+    if base_token_fee is None:
+        base_token_fee = get_pool_fee(web3, base_token)
+    if quote_token_fee is None:
+        quote_token_fee = get_pool_fee(web3, quote_token)
+    if intermediate_token is not None and intermediate_token_fee is None:
+        intermediate_token_fee = get_pool_fee(web3, intermediate_token)
+    
+    # get path and fees lists
+    if intermediate_token:
+        path = [base_token, intermediate_token, quote_token]
+        fees = [base_token_fee, intermediate_token_fee, quote_token_fee]
+    else:
+        path = [base_token, quote_token]
+        fees = [base_token_fee, quote_token_fee]
 
     return path, fees
 
@@ -153,7 +183,7 @@ def estimate_buy_quantity(
     :return: Expected base token to receive
     """
 
-    path, fees = get_path_and_fees(
+    path, fees = get_path_and_fees_quote_first(
             uniswap.web3,
             base_token,
             quote_token,
@@ -195,7 +225,7 @@ def estimate_buy_price(
     :return: Expected base token to receive
     """
 
-    path, fees = get_path_and_fees(
+    path, fees = get_path_and_fees_quote_first(
             uniswap.web3,
             base_token,
             quote_token,
@@ -239,7 +269,7 @@ def estimate_sell_price(
     :return: Expected base token to receive
     """
     
-    path, fees = get_path_and_fees(
+    path, fees = get_path_and_fees_base_first(
                 uniswap.web3,
                 base_token,
                 quote_token,
@@ -310,7 +340,7 @@ def estimate_buy_price_decimals(
     quantity_raw = quote.convert_to_raw(amount_out)
     price_helper = UniswapV3PriceHelper(uniswap)
 
-    path, fees = get_path_and_fees(
+    path, fees = get_path_and_fees_quote_first(
                 uniswap.web3,
                 base_token,
                 quote_token,
@@ -370,7 +400,7 @@ def estimate_sell_price_decimals(
     quantity_raw = base.convert_to_raw(amount_in)
     price_helper = UniswapV3PriceHelper(uniswap)
 
-    path, fees = get_path_and_fees(
+    path, fees = get_path_and_fees_base_first(
                 uniswap.web3,
                 base_token,
                 quote_token,
@@ -439,7 +469,7 @@ def estimate_buy_received_amount_raw(
     """
     price_helper = UniswapV3PriceHelper(uniswap)
 
-    path, fees = get_path_and_fees(
+    path, fees = get_path_and_fees_quote_first(
                 uniswap.web3,
                 base_token,
                 quote_token,
@@ -450,7 +480,7 @@ def estimate_buy_received_amount_raw(
             )
 
     # We will receive equal number of amounts as there are items in the path
-    return price_helper.get_amount_in(amount_out_raw, path, fees, slippage=slippage)
+    return price_helper.get_amount_out(amount_out_raw, path, fees, slippage=slippage)
 
 def estimate_sell_received_amount_raw(
     uniswap: UniswapV3Deployment,
@@ -506,7 +536,7 @@ def estimate_sell_received_amount_raw(
     """
     price_helper = UniswapV3PriceHelper(uniswap)
 
-    path, fees = get_path_and_fees(
+    path, fees = get_path_and_fees_base_first(
                 uniswap.web3,
                 base_token,
                 quote_token,
