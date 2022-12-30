@@ -13,6 +13,7 @@ To run tests in this module:
 import os
 
 import pytest
+import flaky
 from eth_account import Account
 from eth_account.signers.local import LocalAccount
 from eth_defi.revert_reason import fetch_transaction_revert_reason
@@ -83,6 +84,8 @@ def web3(user_1, ganache_bnb_chain_fork: str):
     return web3
 
 
+# Flaky because of use of Ganache
+@flaky.flaky()
 def test_revert_reason(web3: Web3, large_busd_holder: HexAddress, user_1: LocalAccount, user_2: LocalAccount):
     """Revert reason can be extracted from the transaction.
 
