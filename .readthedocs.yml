@@ -15,8 +15,4 @@ build:
 python:
   version: "3.10"
   install:
-    - method: pip
-      path: .
-      extra_requirements:
-        - docs
-        - data
+  - requirements: docs/requirements.txt

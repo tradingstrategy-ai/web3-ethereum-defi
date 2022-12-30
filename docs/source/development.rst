@@ -127,6 +127,24 @@ Pull requests
 
 For new feature requests, make sure your pull request satisfies the checklist below and enjoy merge party.
 
+Documentation dependencies
+--------------------------
+
+This repository uses `poetry` to manage dependencies, but Read The Docs,
+where docs are continuously build, only supports `pip`.
+
+To update dependencies for Read the docs run:
+
+.. code-block:: shell
+
+    poetry export \
+        --extras data \
+        --extras docs \
+        --without-hashes \
+        --format=requirements.txt > requirements.txt
+
+See `.readthedocs.yml` for further details.
+
 Pull request quality checklist
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
