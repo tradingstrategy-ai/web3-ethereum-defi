@@ -147,7 +147,7 @@ To update dependencies for Read the docs run:
 
 
     # Include self
-    echo "-e ." > docs/requirements.txt
+    echo "-e ." >> docs/requirements.txt
 
     # Check we generated a good file
     head docs/requirements.txt
