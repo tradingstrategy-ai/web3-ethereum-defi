@@ -23,13 +23,12 @@ from eth_defi.uniswap_v2.token_tax import TokenTaxInfo
 from eth_defi.uniswap_v2.deployment import UniswapV2Deployment, fetch_deployment
 
 # https://docs.pytest.org/en/latest/how-to/skipping.html#skip-all-test-functions-of-a-class-or-module
-#pytestmark = pytest.mark.skipif(
+# pytestmark = pytest.mark.skipif(
 #    os.environ.get("BNB_CHAIN_JSON_RPC") is None,
 #   reason="Set BNB_CHAIN_JSON_RPC environment variable to Binance Smart Chain node to run this test",
-#)
+# )
 
 pytestmark = pytest.mark.skip("Ganache is so broken that these tests fail 80% of time")
-
 
 
 @pytest.fixture(scope="module")
@@ -107,16 +106,14 @@ def busd() -> HexAddress:
 
 
 @pytest.fixture
-def uniswap(web3: Web3, pancakeswap_factory_v2: HexAddress, pancake_router: HexAddress,
-            pancake_code_hash: str) -> UniswapV2Deployment:
+def uniswap(web3: Web3, pancakeswap_factory_v2: HexAddress, pancake_router: HexAddress, pancake_code_hash: str) -> UniswapV2Deployment:
     """returns an instance of the pancakeswap router & factory deployment on bsc"""
     return fetch_deployment(web3, pancakeswap_factory_v2, pancake_router, pancake_code_hash)
 
 
 # Because Ganache is such a crap and keeps randomly failing
 # @flaky.flaky(max_runs=5)
-def test_token_tax(uniswap: UniswapV2Deployment, large_busd_holder: HexAddress, seller: HexAddress,
-                   elephant: HexAddress, busd: HexAddress):
+def test_token_tax(uniswap: UniswapV2Deployment, large_busd_holder: HexAddress, seller: HexAddress, elephant: HexAddress, busd: HexAddress):
 
     expected_elephant_tax_percent: float = 0.1
     buy_amount: float = 1
@@ -132,8 +129,7 @@ def test_token_tax(uniswap: UniswapV2Deployment, large_busd_holder: HexAddress, 
     assert token_tax_info.sell_tax == pytest.approx(expected_elephant_tax_percent, rel=1e-4)
 
 
-def test_low_liquidity_exception(uniswap: UniswapV2Deployment, large_busd_holder: HexAddress, seller: HexAddress,
-                                 elephant: HexAddress, busd: HexAddress):
+def test_low_liquidity_exception(uniswap: UniswapV2Deployment, large_busd_holder: HexAddress, seller: HexAddress, elephant: HexAddress, busd: HexAddress):
     buy_amount: float = 1e30
 
     with pytest.raises(SwapError):

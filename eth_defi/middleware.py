@@ -43,6 +43,7 @@ def exception_retry_middleware(
     See :py:func:`http_retry_request_with_sleep_middleware` for usage.
 
     """
+
     def middleware(method: RPCEndpoint, params: Any) -> RPCResponse:
         nonlocal sleep
 
@@ -67,6 +68,7 @@ def exception_retry_middleware(
             except Exception as e:
                 # Be verbose so that we know our whitelist is missing methods
                 raise RuntimeError(f"JSON-RPC failed for non-whitelisted method {method}: {e}") from e
+
     return middleware
 
 

@@ -93,7 +93,7 @@ Check that the tests of unmodified master branch pass:
 
 You should get all green.
 
-Some tests will be skipped, because they require full EVM nodes. JSON-ROPC needs to be configured through environment variables.
+Some tests will be skipped, because they require full EVM nodes. JSON-RPC needs to be configured through environment variables.
 
 You can also run tests with logging enabled to get more information:
 
@@ -108,6 +108,19 @@ This will
 - Set console logging level to `INFO`
 
 - Stop on the first failure
+
+Formatting code
+---------------
+
+The code uses `Python black <https://github.com/psf/black>`_ formatting with unlimited line length.
+
+To format any of your code:
+
+.. code-block:: shell
+
+    # Black comes in dev dependencies
+    poetry shell
+    black eth_defi tests
 
 Pull requests
 -------------

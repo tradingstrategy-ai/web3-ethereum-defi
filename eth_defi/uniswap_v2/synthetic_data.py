@@ -25,7 +25,7 @@ def generate_fake_uniswap_v2_data(
     pair_address: Optional[str] = None,
     base_liquidity: Optional[int] = None,
     quote_liquidity: Optional[int] = None,
-    number_of_blocks=int(5*60 / 12),  # 5 minutes, 12 sec block time
+    number_of_blocks=int(5 * 60 / 12),  # 5 minutes, 12 sec block time
     block_time=12,  # 12 sec block time
     trades_per_block=3,  # Max 3 trades per block
     min_trade=-500,  # Max sell 500 USD
@@ -87,32 +87,20 @@ def generate_fake_uniswap_v2_data(
         "sells": 0,
         "initial_price": Decimal(0),
         "min_price": Decimal(2**63),
-        "max_price": Decimal(-2**63),
+        "max_price": Decimal(-(2**63)),
     }
 
     if base_liquidity and quote_liquidity:
 
         # Create the trading pair and add initial liquidity
-        pair_address = deploy_trading_pair(
-            web3,
-            deployer,
-            uniswap_v2,
-            base_token.contract,
-            quote_token.contract,
-            base_liquidity,
-            quote_liquidity
-        )
+        pair_address = deploy_trading_pair(web3, deployer, uniswap_v2, base_token.contract, quote_token.contract, base_liquidity, quote_liquidity)
         logger.info("Deployed %s", pair_address)
     else:
         assert pair_address, "Give initial liquidity or pair address"
 
         logger.info("Trading on %s", pair_address)
 
-    pair_details = fetch_pair_details(
-        web3,
-        pair_address,
-        base_token_address=base_token.address,
-        quote_token_address=quote_token.address)
+    pair_details = fetch_pair_details(web3, pair_address, base_token_address=base_token.address, quote_token_address=quote_token.address)
     assert pair_details.reverse_token_order is not None
 
     initial_price = pair_details.get_current_mid_price()
@@ -127,8 +115,8 @@ def generate_fake_uniswap_v2_data(
     trader = deployer
 
     # Set infinite approvals
-    base_token.contract.functions.approve(uniswap_v2.router.address, 2**256-1).transact({"from": trader})
-    quote_token.contract.functions.approve(uniswap_v2.router.address, 2**256-1).transact({"from": trader})
+    base_token.contract.functions.approve(uniswap_v2.router.address, 2**256 - 1).transact({"from": trader})
+    quote_token.contract.functions.approve(uniswap_v2.router.address, 2**256 - 1).transact({"from": trader})
 
     assert base_token.contract.address != quote_token.contract.address
 
@@ -183,18 +171,12 @@ def generate_fake_uniswap_v2_data(
             tx_hash = uniswap_v2.router.functions.swapExactTokensForTokens(*args).transact({"from": trader})
             stats["tx_hashes"].append(tx_hash)
 
-            logger.info("%s, token:%s at price:%s for amount:%s, block before mining %d, tx: %s",
-                        side,
-                        base_token.symbol,
-                        price,
-                        quote_amount,
-                        block_number,
-                        tx_hash.hex())
+            logger.info("%s, token:%s at price:%s for amount:%s, block before mining %d, tx: %s", side, base_token.symbol, price, quote_amount, block_number, tx_hash.hex())
 
         # Don't try to play with the block time, as it does not seem to work
-        #current_timestamp = eth_tester.get_block_by_number('pending')['timestamp']
-        #next_timestamp = current_timestamp + block_time
-        #eth_tester.time_travel(next_timestamp)
+        # current_timestamp = eth_tester.get_block_by_number('pending')['timestamp']
+        # next_timestamp = current_timestamp + block_time
+        # eth_tester.time_travel(next_timestamp)
         eth_tester.mine_block()
 
     eth_tester.enable_auto_mine_transactions()

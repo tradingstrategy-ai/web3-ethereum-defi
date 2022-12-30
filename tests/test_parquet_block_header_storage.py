@@ -12,6 +12,7 @@ from eth_defi.event_reader.parquet_block_data_store import ParquetDatasetBlockDa
 
 try:
     import pyarrow
+
     HAS_PYARROW = True
 except ImportError:
     HAS_PYARROW = False
@@ -20,6 +21,7 @@ pytestmark = pytest.mark.skipif(
     HAS_PYARROW == False,
     reason="Need Pyarrow support to run these tests",
 )
+
 
 def test_write_store():
     """Write block headers to sharded Parquet dataset."""
@@ -133,10 +135,7 @@ def test_write_incremental():
         store.save_incremental(df)
         assert store.peak_last_block() == 1000
 
-        headers = BlockHeader.generate_headers(
-            1000,
-            start_block=headers["block_number"][-1] + 1,
-            start_time=headers["timestamp"][-1] + 12)
+        headers = BlockHeader.generate_headers(1000, start_block=headers["block_number"][-1] + 1, start_time=headers["timestamp"][-1] + 12)
 
         df2 = BlockHeader.to_pandas(headers, partition_size=partition_size)
         df = pd.concat([df, df2])
@@ -150,11 +149,7 @@ def test_write_incremental():
         assert len(check_df) == 2000
 
         # Fill few partitions
-        headers = BlockHeader.generate_headers(
-            30_000,
-            start_block=headers["block_number"][-1] + 1,
-            start_time=headers["timestamp"][-1] + 12
-        )
+        headers = BlockHeader.generate_headers(30_000, start_block=headers["block_number"][-1] + 1, start_time=headers["timestamp"][-1] + 12)
         df3 = BlockHeader.to_pandas(headers, partition_size=partition_size)
         df = pd.concat([df, df3])
         written_first, written_last = store.save_incremental(df)
@@ -167,11 +162,7 @@ def test_write_incremental():
         assert len(check_df) == 32_000
 
         # Fill few more partitions
-        headers = BlockHeader.generate_headers(
-            30_000,
-            start_block=headers["block_number"][-1] + 1,
-            start_time=headers["timestamp"][-1] + 12
-        )
+        headers = BlockHeader.generate_headers(30_000, start_block=headers["block_number"][-1] + 1, start_time=headers["timestamp"][-1] + 12)
         df4 = BlockHeader.to_pandas(headers, partition_size=partition_size)
         df = pd.concat([df, df4])
         written_first, written_last = store.save_incremental(df)
@@ -184,11 +175,7 @@ def test_write_incremental():
         assert len(check_df) == 62_000
 
         # Fill same of the current partition
-        headers = BlockHeader.generate_headers(
-            1000,
-            start_block=headers["block_number"][-1] + 1,
-            start_time=headers["timestamp"][-1] + 12
-        )
+        headers = BlockHeader.generate_headers(1000, start_block=headers["block_number"][-1] + 1, start_time=headers["timestamp"][-1] + 12)
         df4 = BlockHeader.to_pandas(headers, partition_size=partition_size)
         df = pd.concat([df, df4])
         written_first, written_last = store.save_incremental(df)
@@ -216,10 +203,7 @@ def test_write_no_gaps():
         store.save_incremental(df)
         assert store.peak_last_block() == 25000
 
-        headers = BlockHeader.generate_headers(
-            1000,
-            start_block=headers["block_number"][-1] + 100,
-            start_time=headers["timestamp"][-1] + 12)
+        headers = BlockHeader.generate_headers(1000, start_block=headers["block_number"][-1] + 100, start_time=headers["timestamp"][-1] + 12)
 
         df2 = BlockHeader.to_pandas(headers, partition_size=partition_size)
         df = pd.concat([df, df2])

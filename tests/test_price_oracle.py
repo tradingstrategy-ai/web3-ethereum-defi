@@ -21,22 +21,21 @@ from web3 import HTTPProvider, Web3
 from web3.middleware import geth_poa_middleware
 
 from eth_defi.event_reader.web3factory import TunedWeb3Factory
-from eth_defi.price_oracle.oracle import PriceOracle, time_weighted_average_price, NotEnoughData, DataTooOld, \
-    DataPeriodTooShort
+from eth_defi.price_oracle.oracle import PriceOracle, time_weighted_average_price, NotEnoughData, DataTooOld, DataPeriodTooShort
 from eth_defi.uniswap_v2.oracle import update_price_oracle_with_sync_events_single_thread
 from eth_defi.uniswap_v2.pair import fetch_pair_details
 
 
 @pytest.fixture
 def web3_factory() -> TunedWeb3Factory:
-    """Set up a Web3 connection generation factury """
+    """Set up a Web3 connection generation factury"""
     # https://web3py.readthedocs.io/en/latest/web3.eth.account.html#read-a-private-key-from-an-environment-variable
     return TunedWeb3Factory(os.environ["BNB_CHAIN_JSON_RPC"])
 
 
 @pytest.fixture
 def web3() -> Web3:
-    """Set up a Web3 connection generation factury """
+    """Set up a Web3 connection generation factury"""
     # https://web3py.readthedocs.io/en/latest/web3.eth.account.html#read-a-private-key-from-an-environment-variable
     web3 = Web3(HTTPProvider(os.environ["BNB_CHAIN_JSON_RPC"]))
     web3.middleware_onion.clear()
@@ -170,26 +169,20 @@ def test_bnb_busd_price(web3, bnb_busd_address):
         min_duration=datetime.timedelta(minutes=1),
     )
 
-    update_price_oracle_with_sync_events_single_thread(
-        oracle,
-        web3,
-        bnb_busd_address,
-        start_block,
-        end_block
-    )
+    update_price_oracle_with_sync_events_single_thread(oracle, web3, bnb_busd_address, start_block, end_block)
 
     oldest = oracle.get_oldest()
     assert oldest.block_number == 14_000_000
     assert oldest.timestamp == datetime.datetime(2022, 1, 2, 1, 18, 40)
-    assert oldest.price == pytest.approx(Decimal('523.9534812968516567053232758'))
+    assert oldest.price == pytest.approx(Decimal("523.9534812968516567053232758"))
 
     newest = oracle.get_newest()
     assert newest.block_number == 14_000_100
     assert newest.timestamp == datetime.datetime(2022, 1, 2, 1, 23, 40)
-    assert newest.price == pytest.approx(Decimal('523.6407772080559357061798420'))
+    assert newest.price == pytest.approx(Decimal("523.6407772080559357061798420"))
 
     # We have 556 swaps for the duration
     assert len(oracle.buffer) == 556
     assert oracle.get_buffer_duration() == datetime.timedelta(seconds=300)
 
-    assert oracle.calculate_price() == pytest.approx(Decimal('523.8243566658033237353702655'))
+    assert oracle.calculate_price() == pytest.approx(Decimal("523.8243566658033237353702655"))

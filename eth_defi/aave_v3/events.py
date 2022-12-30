@@ -49,7 +49,7 @@ class TokenCache(LogContext):
     def get_token_info(self, web3: Web3, address: str) -> TokenDetails:
         if address not in self.cache:
             details = fetch_erc20_details(web3, address, raise_on_error=False)
-            logging.warn(f'Fetched ERC20 details for {address}: {details}')
+            logging.warn(f"Fetched ERC20 details for {address}: {details}")
             self.cache[address] = details
         return self.cache[address]
 
@@ -137,15 +137,17 @@ def decode_reserve_data_updated(aave_network_name: str, log: LogResult) -> dict:
     liquidity_index = convert_int256_bytes_to_int(liquidity_index_raw)
     variable_borrow_index = convert_int256_bytes_to_int(variable_borrow_index_raw)
 
-    result.update({
-        "reserve": deposit_address,
-        "liquidity_rate": liquidity_rate,
-        "stable_borrow_rate": stable_borrow_rate,
-        "variable_borrow_rate": variable_borrow_rate,
-        "liquidity_index": liquidity_index,
-        "variable_borrow_index": variable_borrow_index,
-        "contract_address": log["address"],
-    })
+    result.update(
+        {
+            "reserve": deposit_address,
+            "liquidity_rate": liquidity_rate,
+            "stable_borrow_rate": stable_borrow_rate,
+            "variable_borrow_rate": variable_borrow_rate,
+            "liquidity_index": liquidity_index,
+            "variable_borrow_index": variable_borrow_index,
+            "contract_address": log["address"],
+        }
+    )
 
     # Detect token name from reserve address (None if not found)
     result["token"] = aave_v3_get_token_name_by_deposit_address(deposit_address)
@@ -294,7 +296,7 @@ def aave_v3_fetch_events_to_csv(
                 decoded_result = decode_function(aave_network_name, log_result)
                 # Note: decoded_result is None if the event is e.g. from Aave v2 contract
                 if decoded_result:
-                    logger.debug(f'Adding event to buffer: {event_name}')
+                    logger.debug(f"Adding event to buffer: {event_name}")
                     buffer.append(decoded_result)
             except Exception as e:
                 raise RuntimeError(f"Could not decode {log_result}") from e
