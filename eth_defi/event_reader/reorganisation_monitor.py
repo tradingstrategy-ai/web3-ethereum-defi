@@ -14,8 +14,7 @@ import pandas as pd
 from tqdm import tqdm
 from web3 import Web3
 
-from eth_defi.event_reader.block_header import BlockHeader
-
+from eth_defi.event_reader.block_header import BlockHeader, Timestamp
 
 logger = logging.getLogger(__name__)
 
@@ -198,7 +197,7 @@ class ReorganisationMonitor(ABC):
             assert self.last_block_read == block_number - 1, f"Blocks must be added in order. Last block we have: {self.last_block_read}, the new record is: {record}"
         self.last_block_read = block_number
 
-    def check_block_reorg(self, block_number: int, block_hash: str):
+    def check_block_reorg(self, block_number: int, block_hash: str) -> Optional[Timestamp]:
         """Check that newly read block matches our record.
 
         - Called during the event reader
@@ -220,6 +219,10 @@ class ReorganisationMonitor(ABC):
         if original_block is not None:
             if original_block.block_hash != block_hash:
                 raise ChainReorganisationDetected(block_number, original_block.block_hash, block_hash)
+
+            return original_block.timestamp
+
+        return None
 
     def truncate(self, latest_good_block: int):
         """Delete data after a block number because chain reorg happened.

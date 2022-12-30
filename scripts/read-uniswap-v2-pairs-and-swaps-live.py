@@ -36,6 +36,7 @@ import os
 import time
 from pathlib import Path
 import logging
+from typing import Dict
 
 import coloredlogs
 import requests
@@ -59,6 +60,8 @@ from eth_defi.token import fetch_erc20_details, TokenDetails
 
 
 #: List of output columns to pairs.csv
+from eth_defi.uniswap_v2.pair import PairDetails, fetch_pair_details
+
 PAIR_FIELD_NAMES = [
     'block_number',
     'timestamp',
@@ -90,93 +93,31 @@ SWAP_FIELD_NAMES = [
 logger = logging.getLogger(__name__)
 
 
-class TokenCache(LogContext):
-    """Manage cache of token data when doing PairCreated look-up.
+class BlockchainStateCache(LogContext):
+    """Manage cache of token and pair data.
 
-    Do not do extra requests for already known tokens.
+    - Read data from the chain state
+
+    - Store process in-memory for the duration of the session
     """
 
-    def __init__(self):
-        self.cache = {}
+    def __init__(self, web3: Web3):
+        self.web3 = web3
+        self.token_cache: Dict[str, TokenDetails] = {}
+        self.pair_cache: Dict[str, PairDetails] = {}
 
-    def get_token_info(self, web3: Web3, address: str) -> TokenDetails:
-        if address not in self.cache:
-            self.cache[address] = fetch_erc20_details(web3, address, raise_on_error=False)
-        return self.cache[address]
+    def get_token_details(self, address: str) -> TokenDetails:
+        if address not in self.token_cache:
+            self.token_cache[address] = fetch_erc20_details(self.web3, address, raise_on_error=False)
+        return self.token_cache[address]
 
-
-def save_state(state_fname, last_block):
-    """Saves the last block we have read."""
-    with open(state_fname, "wt") as f:
-        print(f"{last_block}", file=f)
-
-
-def restore_state(state_fname, default_block: int) -> int:
-    """Restore the last block we have processes."""
-    if os.path.exists(state_fname):
-        with open(state_fname, "rt") as f:
-            last_block_text = f.read()
-            return int(last_block_text)
-
-    return default_block
+    def get_pair_details(self, address: str) -> PairDetails:
+        if address not in self.pair_cache:
+            self.pair_cache[address] = fetch_pair_details(self.web3, address)
+        return self.pair_cache[address]
 
 
-def decode_pair_created(log: LogResult) -> dict:
-    """Process a pair created event.
-
-    This function does manually optimised high speed decoding of the event.
-
-    The event signature is:
-
-    .. code-block::
-
-        event PairCreated(address indexed token0, address indexed token1, address pair, uint);
-    """
-
-    # The raw log result looks like
-    # {'address': '0x5c69bee701ef814a2b6a3edd4b1652cb9cc5aa6f', 'blockHash': '0x359d1dc4f14f9a07cba3ae8416958978ce98f78ad7b8d505925dad9722081f04', 'blockNumber': '0x98b723', 'data': '0x000000000000000000000000b4e16d0168e52d35cacd2c6185b44281ec28c9dc0000000000000000000000000000000000000000000000000000000000000001', 'logIndex': '0x22', 'removed': False, 'topics': ['0x0d3648bd0f6ba80134a33ba9275ac585d9d315f0ad8355cddefde31afa28d0e9', '0x000000000000000000000000a0b86991c6218b36c1d19d4a2e9eb0ce3606eb48', '0x000000000000000000000000c02aaa39b223fe8d0a0e5c4f27ead9083c756cc2'], 'transactionHash': '0xd07cbde817318492092cc7a27b3064a69bd893c01cb593d6029683ffd290ab3a', 'transactionIndex': '0x26', 'event': <class 'web3._utils.datatypes.PairCreated'>, 'timestamp': 1588710145}
-
-    # Do additional lookup for the token data
-    web3 = log["event"].web3
-    token_cache: TokenCache = log["context"]
-
-    block_time = datetime.datetime.utcfromtimestamp(log["timestamp"])
-
-    # Any indexed Solidity event parameter will be in topics data.
-    # The first topics (0) is always the event signature.
-    token0_address = convert_uint256_string_to_address(log["topics"][1])
-    token1_address = convert_uint256_string_to_address(log["topics"][2])
-
-    factory_address = log["address"]
-
-    # Chop data blob to byte32 entries
-    data_entries = decode_data(log["data"])
-
-    # Any non-indexed Solidity event parameter will be in the data section.
-    pair_contract_address = convert_uint256_bytes_to_address(data_entries[0])
-    pair_count = int.from_bytes(data_entries[1], "big")
-
-    # Now enhanche data with token information
-    token0 = token_cache.get_token_info(web3, token0_address)
-    token1 = token_cache.get_token_info(web3, token1_address)
-
-    data = {
-        "block_number": convert_jsonrpc_value_to_int(log["blockNumber"]),
-        "timestamp": block_time.isoformat(),
-        "tx_hash": log["transactionHash"],
-        "log_index": int(log["logIndex"], 16),
-        "factory_contract_address": factory_address,
-        "pair_contract_address": pair_contract_address,
-        "pair_count_index": pair_count,
-        "token0_symbol": token0.symbol,
-        "token0_address": token0_address,
-        "token1_symbol": token1.symbol,
-        "token1_address": token1_address,
-    }
-    return data
-
-
-def decode_swap(log: LogResult) -> dict:
+def decode_swap(web3: Web3, cache: BlockchainStateCache, log: LogResult) -> dict:
     """Process swap event.
 
     This function does manually optimised high speed decoding of the event.
@@ -202,6 +143,8 @@ def decode_swap(log: LogResult) -> dict:
 
     pair_contract_address = log["address"]
 
+    pair_details = cache.get_pair_details(Web3.toChecksumAddress(pair_contract_address))
+
     # Chop data blob to byte32 entries
     data_entries = decode_data(log["data"])
 
@@ -217,15 +160,51 @@ def decode_swap(log: LogResult) -> dict:
         "amount1_in": convert_int256_bytes_to_int(amount1_in),
         "amount0_out": convert_int256_bytes_to_int(amount0_out),
         "amount1_out": convert_int256_bytes_to_int(amount1_out),
+        "pair_details": pair_details,
     }
     return data
+
+
+def format_swap(swap: dict) -> str:
+    """Write swap in human readable format.
+
+    - Two simplified format for swaps
+
+    - Complex output format for more complex swaps
+    """
+
+    pair: PairDetails = swap["pair_details"]
+    token0 = pair.token0
+    token1 = pair.token1
+    tx_hash = swap["tx_hash"]
+    block_number = swap["block_number"]
+
+    if swap["amount0_in"] and not swap["amount1_in"]:
+        token_in = token0
+        token_out = token1
+        amount_in = token0.convert_to_decimals(swap["amount0_in"])
+        amount_out = token1.convert_to_decimals(swap["amount1_out"])
+        return f"{block_number:,} {tx_hash} {amount_in} {token_in.symbol} -> {amount_out} {token_out.symbol}"
+    elif swap["amount1_in"] and not swap["amount0_in"]:
+        token_in = token1
+        token_out = token0
+        amount_in = token1.convert_to_decimals(swap["amount1_in"])
+        amount_out = token0.convert_to_decimals(swap["amount0_out"])
+        return f"{block_number:,} {tx_hash} {amount_in} {token_in.symbol} -> {amount_out} {token_out.symbol}"
+    else:
+        amount0_in = token0.convert_to_decimals(swap["amount0_in"])
+        amount1_in = token1.convert_to_decimals(swap["amount1_in"])
+        amount0_out = token0.convert_to_decimals(swap["amount0_out"])
+        amount1_out = token1.convert_to_decimals(swap["amount1_out"])
+        return f"{block_number:,} {tx_hash} {amount0_in} {token0.symbol}, {amount1_in} {token1.symbol} -> {amount0_out} {token0.symbol}, {amount1_out} {token1.symbol}"
 
 
 def setup_logging():
     level = os.environ.get("LOG_LEVEL", "info").upper()
 
-    fmt = "%(asctime)s %(name)-40s %(levelname)-8s %(message)s"
-    coloredlogs.install(level=level, fmt=fmt)
+    fmt = "%(asctime)s %(name)-44s %(levelname)-8s %(message)s"
+    date_fmt = "%H:%M:%S"
+    coloredlogs.install(level=level, fmt=fmt, date_fmt=date_fmt)
 
     logging.basicConfig(level=level, handlers=[logging.StreamHandler()])
 
@@ -281,15 +260,21 @@ def main():
     # Do the initial buffering of the blocks
     reorg_mon.load_initial_block_headers(initial_block_depth, tqdm=tqdm)
 
-    token_cache = TokenCache()
+    token_cache = BlockchainStateCache(web3)
 
     total_reorgs = 0
 
     filter = prepare_filter(events)
 
+    # Cache pair and token details read from the blockchain state
+    cache = BlockchainStateCache(web3)
+
     while True:
 
         try:
+
+            # Figure out the next good unscanned block range,
+            # and fetch block headers and timestamps for this block range
             chain_reorg_resolution = reorg_mon.update_chain()
 
             if chain_reorg_resolution.reorg_detected:
@@ -304,11 +289,15 @@ def main():
                     notify=None,
                     chunk_size=100,
                     context=token_cache,
+                    extract_timestamps=None,
+                    reorg_mon=reorg_mon,
             ):
                 if log_result["event"].event_name == "PairCreated":
                     logger.info(f"New pair created: {log_result}")
                 elif log_result["event"].event_name == "Swap":
-                    logger.info(f"Swap detected: {log_result}")
+                    swap = decode_swap(web3, cache, log_result)
+                    swap_fmt = format_swap(swap)
+                    logger.info("%s", swap_fmt)
                 else:
                     raise NotImplementedError()
         except ChainReorganisationDetected as e:
