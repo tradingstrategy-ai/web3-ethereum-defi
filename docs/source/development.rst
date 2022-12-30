@@ -133,7 +133,7 @@ Documentation dependencies
 This repository uses `poetry` to manage dependencies, but Read The Docs,
 where docs are continuously build, only supports `pip`.
 
-To update dependencies for Read the docs run:
+To update dependencies for Read the Docs run:
 
 .. code-block:: shell
 
