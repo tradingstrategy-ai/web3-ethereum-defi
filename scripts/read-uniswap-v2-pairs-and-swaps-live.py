@@ -20,6 +20,9 @@ To run for Polygon (and QuickSwap):
 
 .. code-block:: shell
 
+    # Need for nice output
+    pip install coloredlogs
+
     # Switch between INFO and DEBUG
     export LOG_LEVEL=INFO
     # Your Ethereum node RPC
@@ -34,6 +37,7 @@ import time
 from pathlib import Path
 import logging
 
+import coloredlogs
 import requests
 
 from tqdm import tqdm
@@ -48,7 +52,7 @@ from eth_defi.event_reader.conversion import convert_uint256_string_to_address, 
 from eth_defi.event_reader.csv_block_data_store import CSVDatasetBlockDataStore
 from eth_defi.event_reader.fast_json_rpc import patch_web3
 from eth_defi.event_reader.logresult import LogContext
-from eth_defi.event_reader.reader import read_events, LogResult
+from eth_defi.event_reader.reader import read_events, LogResult, prepare_filter
 from eth_defi.event_reader.reorganisation_monitor import ReorganisationMonitor, ChainReorganisationDetected, \
     JSONRPCReorganisationMonitor
 from eth_defi.token import fetch_erc20_details, TokenDetails
@@ -219,6 +223,10 @@ def decode_swap(log: LogResult) -> dict:
 
 def setup_logging():
     level = os.environ.get("LOG_LEVEL", "info").upper()
+
+    fmt = "%(asctime)s %(name)-40s %(levelname)-8s %(message)s"
+    coloredlogs.install(level=level, fmt=fmt)
+
     logging.basicConfig(level=level, handlers=[logging.StreamHandler()])
 
     # Mute noise
@@ -264,7 +272,7 @@ def main():
     else:
         logger.info("Starting with fresh block header store at %s", block_store.path)
 
-    initial_block_depth = 10
+    initial_block_depth = 25
 
     # Block time can be between 3 seconds to 12 seconds depending on
     # the EVM chain
@@ -275,20 +283,24 @@ def main():
 
     token_cache = TokenCache()
 
+    total_reorgs = 0
+
+    filter = prepare_filter(events)
+
     while True:
 
         try:
             chain_reorg_resolution = reorg_mon.update_chain()
 
-            if chain_reorg_resolution:
-                logger.info(f"Chain reorganisation updated: {chain_reorg_resolution}")
+            if chain_reorg_resolution.reorg_detected:
+                logger.info(f"Chain reorganisation data updated: {chain_reorg_resolution}")
 
             # Read specified events in block range
             for log_result in read_events(
                     web3,
                     start_block=chain_reorg_resolution.latest_block_with_good_data,
                     end_block=chain_reorg_resolution.last_live_block,
-                    events=events,
+                    filter=filter,
                     notify=None,
                     chunk_size=100,
                     context=token_cache,
@@ -302,9 +314,10 @@ def main():
         except ChainReorganisationDetected as e:
             # Chain reorganisation was detected during reading the events.
             # reorg_mon.update_chain() will detect the fork and purge bad state
-            logger.warning("Chain reorg event raised: %s", e)
+            total_reorgs += 1
+            logger.warning("Chain reorg event raised: %s, we have now detected %d chain reorganisations.", e, total_reorgs)
 
-        # Save the current block headers
+        # Save the current block headers on disk
         df = reorg_mon.to_pandas()
         block_store.save(df)
 

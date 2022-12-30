@@ -33,7 +33,7 @@ class ChainReorganisationResolution:
     reorg_detected: bool
 
     def __repr__(self):
-        return f"<reorg:{self.reorg_detected} last_live_block: {self.last_live_block}, latest_block_with_good_data:{self.latest_block_with_good_data}>"
+        return f"<reorg:{self.reorg_detected} last_live_block: {self.last_live_block:,}, latest_block_with_good_data:{self.latest_block_with_good_data:,}>"
 
 
 class ChainReorganisationDetected(Exception):
@@ -364,7 +364,15 @@ class JSONRPCReorganisationMonitor(ReorganisationMonitor):
 
         # Collect block timestamps from the headers
         for block_num in range(start_block, end_block + 1):
-            raw_result = web3.manager.request_blocking("eth_getBlockByNumber", (hex(block_num), False))
+            response_json = web3.manager._make_request("eth_getBlockByNumber", (hex(block_num), False))
+            raw_result = response_json["result"]
+
+            # Happens the chain tip and https://polygon-rpc.com/
+            # - likely the request routed to different backend node
+            if raw_result is None:
+                logger.debug("Abnormally terminated at block %d, chain tip unstable?", block_num)
+                break
+
             data_block_number = raw_result["number"]
             block_hash = raw_result["hash"]
 
