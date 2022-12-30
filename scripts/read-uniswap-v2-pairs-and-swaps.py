@@ -36,7 +36,6 @@ import csv
 import datetime
 import os
 import logging
-from pathlib import Path
 from typing import Optional
 
 import requests
@@ -48,7 +47,6 @@ from web3 import HTTPProvider, Web3
 from eth_defi.abi import get_contract
 from eth_defi.event_reader.conversion import convert_uint256_string_to_address, convert_uint256_bytes_to_address, \
     decode_data, convert_int256_bytes_to_int, convert_jsonrpc_value_to_int
-from eth_defi.event_reader.csv_block_data_store import CSVDatasetBlockDataStore
 from eth_defi.event_reader.fast_json_rpc import patch_web3
 from eth_defi.event_reader.logresult import LogContext
 from eth_defi.event_reader.reader import read_events, LogResult
@@ -245,12 +243,7 @@ def main():
 
     pairs_fname = "/tmp/uni-v2-pairs.csv"
     swaps_fname = "/tmp/uni-v2-swaps.csv"
-    chain_state_fname = "/tmp/uni-v2-last-block-state.csv"
-
-    block_store = CSVDatasetBlockDataStore(Path(chain_state_fname))
-
-    #
-    reorg_mon =
+    state_fname = "/tmp/uni-v2-last-block-state.txt"
 
     start_block = restore_state(state_fname, 10_000_835)  # # When Uni v2 was deployed
     end_block = web3.eth.block_number
