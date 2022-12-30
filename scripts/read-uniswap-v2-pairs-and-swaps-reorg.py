@@ -1,43 +1,23 @@
-"""Read all Uniswap pairs and their swaps in a blockchain.
+"""Live Uniswap v2 swap event monitor.
 
-Overview:
+- This is an modified example of `read-uniswap-v2-pairs-and-swaps.py` to support
+  chain reorganisations, thus suitable for live event reading.
 
-- Stateful: Can resume operation after CTRL+C or crash
+- It will print out live trade events for Uniswap v2 compatible exchange
 
-- Outputs two append only CSV files, `/tmp/uni-v2-pairs.csv` and `/tmp/uni-v2-swaps.csv`
+- This will also show how to track block headers on disk,
+  so that next start up is faster
 
-- Iterates through all the events using `read_events()` generator
-
-- Events can be pair creation or swap events
-
-- For pair creation events, we perform additional token lookups using Web3 connection
-
-- Demonstrates how to hand tune event decoding
-
-- The first PairCreated event is at Ethereum mainnet block is 10000835
-
-- The first swap event is at Ethereum mainnet block 10_008_566, 0x932cb88306450d481a0e43365a3ed832625b68f036e9887684ef6da594891366
-
-- Uniswap v2 deployment transaction https://bloxy.info/tx/0xc31d7e7e85cab1d38ce1b8ac17e821ccd47dbde00f9d57f2bd8613bff9428396
-
-To run:
-
-.. code-block:: shell
-
-    # Switch between INFO and DEBUG
-    export LOG_LEVEL=INFO
-    # Your Ethereum node RPC
-    export JSON_RPC_URL="https://xxx@vitalik.tradingstrategy.ai"
-    python scripts/read-uniswap-v2-pairs-and-swaps.py
-
+- This is a dummy example just showing how to build the live loop,
+  because how stores are constructed it is not good for processing
+  actual data
 
 """
-import csv
 import datetime
 import os
-import logging
+import time
 from pathlib import Path
-from typing import Optional
+import logging
 
 import requests
 
@@ -46,13 +26,16 @@ from tqdm import tqdm
 from web3 import HTTPProvider, Web3
 
 from eth_defi.abi import get_contract
+from eth_defi.event_reader.block_time import measure_block_time
 from eth_defi.event_reader.conversion import convert_uint256_string_to_address, convert_uint256_bytes_to_address, \
     decode_data, convert_int256_bytes_to_int, convert_jsonrpc_value_to_int
 from eth_defi.event_reader.csv_block_data_store import CSVDatasetBlockDataStore
 from eth_defi.event_reader.fast_json_rpc import patch_web3
 from eth_defi.event_reader.logresult import LogContext
 from eth_defi.event_reader.reader import read_events, LogResult
+from eth_defi.event_reader.reorganisation_monitor import ReorganisationMonitor, ChainReorganisationDetected
 from eth_defi.token import fetch_erc20_details, TokenDetails
+
 
 #: List of output columns to pairs.csv
 PAIR_FIELD_NAMES = [
@@ -81,6 +64,9 @@ SWAP_FIELD_NAMES = [
     "amount0_out",
     "amount1_out",
 ]
+
+
+logger = logging.getLogger(__name__)
 
 
 class TokenCache(LogContext):
@@ -214,14 +200,18 @@ def decode_swap(log: LogResult) -> dict:
     return data
 
 
-def main():
-
+def setup_logging():
     logging.basicConfig(level=os.environ["LOG_LEVEL"], handlers=[logging.StreamHandler()])
 
     # Mute noise
     logging.getLogger("web3.providers.HTTPProvider").setLevel(logging.WARNING)
     logging.getLogger("web3.RequestManager").setLevel(logging.WARNING)
     logging.getLogger("urllib3.connectionpool").setLevel(logging.WARNING)
+
+
+def main():
+
+    setup_logging()
 
     # HTTP 1.1 keep-alive
     session = requests.Session()
@@ -243,81 +233,61 @@ def main():
         Pair.events.Swap
     ]
 
-    pairs_fname = "/tmp/uni-v2-pairs.csv"
-    swaps_fname = "/tmp/uni-v2-swaps.csv"
-    chain_state_fname = "/tmp/uni-v2-last-block-state.csv"
+    block_store = CSVDatasetBlockDataStore(Path("/tmp/uni-v2-last-block-state.csv"))
 
-    block_store = CSVDatasetBlockDataStore(Path(chain_state_fname))
+    reorg_mon = ReorganisationMonitor()
+    if not block_store.is_virgin():
+        block_header_df = block_store.load()
+        reorg_mon.load_pandas(block_header_df)
+        logger.info("Loaded %d existing blocks", len(block_header_df))
+    else:
+        logger.info("Starting with fresh block header store")
 
-    #
-    reorg_mon =
+    initial_block_depth = 10
 
-    start_block = restore_state(state_fname, 10_000_835)  # # When Uni v2 was deployed
-    end_block = web3.eth.block_number
+    # Do the initial buffering of the blocks
+    reorg_mon.load_initial_block_headers(initial_block_depth, tqdm=tqdm)
 
-    max_blocks = end_block - start_block
-
-    pairs_event_buffer = []
-    swaps_event_buffer = []
+    # Block time can be between 3 seconds to 12 seconds depending on
+    # the EVM chain
+    block_time = measure_block_time(web3)
 
     token_cache = TokenCache()
 
-    print(f"Starting to read block range {start_block:,} - {end_block:,}")
+    while True:
 
-    with open(pairs_fname, 'a') as pairs_out, open(swaps_fname, 'a') as swaps_out:
+        try:
+            chain_reorg_resolution = reorg_mon.update_chain()
 
-        pairs_writer = csv.DictWriter(pairs_out, fieldnames=PAIR_FIELD_NAMES)
-        swaps_writer = csv.DictWriter(swaps_out, fieldnames=SWAP_FIELD_NAMES)
-
-        with tqdm(total=max_blocks) as progress_bar:
-
-            #  1. Update the progress bar
-            #  2. save any events in the buffer in to a file in one go
-            def update_progress(current_block, start_block, end_block, chunk_size: int, total_events: int, last_timestamp: Optional[int], context: TokenCache):
-                nonlocal pairs_event_buffer
-                nonlocal swaps_event_buffer
-                if last_timestamp:
-                    # Display progress with the date information
-                    d = datetime.datetime.utcfromtimestamp(last_timestamp)
-                    formatted_time = d.strftime("%d-%m-%Y")
-                    progress_bar.set_description(f"Block: {current_block:,}, events: {total_events:}, time:{formatted_time}")
-                else:
-                    progress_bar.set_description(f"Block: {current_block:,}, events: {total_events:,}")
-                progress_bar.update(chunk_size)
-
-                # Output scanned events
-                for entry in pairs_event_buffer:
-                    pairs_writer.writerow(entry)
-
-                for entry in swaps_event_buffer:
-                    swaps_writer.writerow(entry)
-
-                # Save the scan sate
-                save_state(state_fname, current_block - 1)
-
-                # Reset buffer
-                pairs_event_buffer = []
-                swaps_event_buffer = []
+            if chain_reorg_resolution:
+                logger.info(f"Chain reorganisation updated: {chain_reorg_resolution}")
 
             # Read specified events in block range
             for log_result in read_events(
                     web3,
-                    start_block,
-                    end_block,
-                    events,
-                    update_progress,
+                    start_block=chain_reorg_resolution.latest_block_with_good_data,
+                    end_block=chain_reorg_resolution.last_live_block,
+                    events=events,
+                    notify=None,
                     chunk_size=100,
                     context=token_cache,
             ):
-                # We are getting two kinds of log entries, pairs and swaps.
-                # Choose between where to store.
-                try:
-                    if log_result["event"].event_name == "PairCreated":
-                        pairs_event_buffer.append(decode_pair_created(log_result))
-                    elif log_result["event"].event_name == "Swap":
-                        swaps_event_buffer.append(decode_swap(log_result))
-                except Exception as e:
-                    raise RuntimeError(f"Could not decode {log_result}") from e
+                if log_result["event"].event_name == "PairCreated":
+                    logger.info(f"New pair created: {log_result}")
+                elif log_result["event"].event_name == "Swap":
+                    logger.info(f"Swap detected: {log_result}")
+                else:
+                    raise NotImplementedError()
+        except ChainReorganisationDetected as e:
+            # Chain reorganisation was detected during reading the events.
+            # reorg_mon.update_chain() will detect the fork and purge bad state
+            logger.warning("Chain reorg event raised: %s", e)
+
+        # Save the current block headers
+        df = reorg_mon.to_pandas()
+        block_store.save(df)
+
+        time.sleep(block_time)
 
 
 if __name__ == "__main__":

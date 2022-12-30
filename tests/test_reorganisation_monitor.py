@@ -35,6 +35,10 @@ def test_perform_chain_reorg():
     mock_chain.produce_blocks(100)
     assert mock_chain.get_last_block_live() == 100
 
+    reorg_resolution = mock_chain.update_chain()
+    assert reorg_resolution.last_live_block == 100
+    assert not reorg_resolution.reorg_detected
+
     # Trigger reorg by creating a changed block in the chain
     mock_chain.produce_fork(70)
 
@@ -52,28 +56,35 @@ def test_perform_chain_reorg():
     assert mock_chain.get_last_block_live() == 102
     assert mock_chain.get_last_block_read() == 102
 
+
 def test_incremental():
     """Simulate incremental 1 block updates."""
 
     mock_chain = MockChainAndReorganisationMonitor()
 
-    feed = SyntheticTradeFeed(
-        ["ETH-USD"],
-        {"ETH-USD": TrustedStablecoinOracle()},
-        mock_chain,
-    )
     mock_chain.produce_blocks(100)
     assert mock_chain.get_last_block_live() == 100
-    delta = feed.backfill_buffer(100, None)
-    assert delta.start_block
+    reorg_resolution = mock_chain.update_chain()
+    assert reorg_resolution.last_live_block == 100
+    assert not reorg_resolution.reorg_detected
 
     mock_chain.produce_blocks(1)
-    feed.perform_duty_cycle()
+    mock_chain.update_chain()
 
     mock_chain.produce_blocks(1)
-    feed.perform_duty_cycle()
+    mock_chain.update_chain()
 
     mock_chain.produce_blocks(1)
-    delta = feed.perform_duty_cycle()
+    mock_chain.update_chain()
 
-    assert delta.end_block == 103
+    reorg_resolution = mock_chain.update_chain()
+    assert reorg_resolution.last_live_block == 103
+
+    # Trigger reorg by creating a changed block in the chain
+    mock_chain.produce_fork(103)
+    mock_chain.produce_blocks(1)
+    reorg_resolution = mock_chain.update_chain()
+    assert reorg_resolution.reorg_detected
+    assert reorg_resolution.latest_block_with_good_data == 102
+    assert reorg_resolution.last_live_block == 104
+

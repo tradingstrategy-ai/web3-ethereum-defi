@@ -34,9 +34,8 @@ class CSVDatasetBlockDataStore(BlockDataStore):
 
         """
         assert isinstance(path, Path)
-        assert self.path.suffix == "csv"
         self.path = path
-
+        assert self.path.suffix == ".csv"
 
     def is_virgin(self) -> bool:
         return not self.path.exists()

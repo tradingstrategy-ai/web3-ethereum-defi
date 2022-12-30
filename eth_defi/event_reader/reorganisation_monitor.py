@@ -6,7 +6,7 @@ when nodes have not yet reached consensus on the chain tip around the world.
 
 import time
 from abc import abstractmethod
-from dataclasses import dataclass, asdict
+from dataclasses import dataclass, asdict, field
 from typing import Dict, Iterable, Tuple, Optional, Type, Callable
 import logging
 
@@ -31,6 +31,9 @@ class ChainReorganisationResolution:
 
     #: Did we detect any reorgs in this chycle
     reorg_detected: bool
+
+    def __repr__(self):
+        return f"<reorg:{self.reorg_detected} last_live_block: {self.last_live_block}, latest_block_with_good_data:{self.latest_block_with_good_data}>"
 
 
 class ChainReorganisationDetected(Exception):
@@ -57,6 +60,7 @@ class BlockNotAvailable(Exception):
     """Tried to ask timestamp data for a block that does not exist yet."""
 
 
+@dataclass()
 class ReorganisationMonitor:
     """Watch blockchain for reorgs.
 
@@ -67,22 +71,62 @@ class ReorganisationMonitor:
     - Also manages the service for block timestamp lookups
     """
 
-    def __init__(self, check_depth=200, max_reorg_resolution_attempts=10, reorg_wait_seconds=5):
-        self.block_map: Dict[int, BlockHeader] = {}
-        self.last_block_read: int = 0
-        self.check_depth = check_depth
-        self.reorg_wait_seconds = reorg_wait_seconds
-        self.max_cycle_tries = max_reorg_resolution_attempts
+    #: Internal buffer of our block data
+    #:
+    #: Block number -> Block header data
+    block_map: Dict[int, BlockHeader] = field(default_factory=dict)
+
+    #: Last block served by :py:meth:`update_chain` in the duty cycle
+    last_block_read: int = 0
+
+    #: How many blocks we replay from the blockchain to detect any chain organisations
+    #:
+    #: Done by :py:meth:`figure_reorganisation_and_new_blocks`.
+    #: Adjust this for your EVM chain.
+    check_depth: int = 20
+
+    #: How many times we try to re-read data from the blockchain in the case of reorganisation.
+    #:
+    #: If our node constantly feeds us changing data give up.
+    max_cycle_tries = 10
+
+    #: How long we allow our node to catch up in the case there has been a change in the chain tip.
+    #:
+    #: If our node constantly feeds us changing data give up.
+    reorg_wait_seconds = 5
 
     def has_data(self) -> bool:
         """Do we have any data available yet."""
         return len(self.block_map) > 0
 
-    def get_last_block_read(self):
+    def get_last_block_read(self) -> int:
+        """Get the number of the last block served by update_chain()."""
         return self.last_block_read
 
-    def load_initial_block_headers(self, block_count: int, tqdm: Optional[Type[tqdm]] = None, save_callable: Optional[Callable] = None) -> Tuple[int, int]:
-        """Get the inital block buffer filled up.
+    def get_block_by_number(self, block_number: int) -> BlockHeader:
+        """Get block header data for a specific block number from our memory buffer."""
+        return self.block_map.get(block_number)
+
+    def load_initial_block_headers(self,
+                                   block_count: Optional[int] = None,
+                                   start_block: Optional[int] = None,
+                                   tqdm: Optional[Type[tqdm]] = None,
+                                   save_callable: Optional[Callable] = None) -> Tuple[int, int]:
+        """Get the initial block buffer filled up.
+
+        You can call this during the application start up,
+        or when you start the chain. This interface is designed
+        to keep the application on hold until new blocks have been served.
+
+        :param block_count:
+            How many latest block to load
+
+            Give `start_block` or `block_count`.
+
+        :param start_block:
+            What is the first block to read.
+
+            Give `start_block` or `block_count`.
 
         :param tqdm:
             To display a progress bar
@@ -97,8 +141,14 @@ class ReorganisationMonitor:
         :return:
             The initial block range to start to work with
         """
+
         end_block = self.get_last_block_live()
-        start_block = max(end_block - block_count, 1)
+
+        if block_count:
+            assert not start_block, "Give block_cout or start_block"
+            start_block = max(end_block - block_count, 1)
+        else:
+            pass
 
         if len(self.block_map) > 0:
             # We have some initial data from the last (aborted) run,
@@ -151,7 +201,20 @@ class ReorganisationMonitor:
     def check_block_reorg(self, block_number: int, block_hash: str):
         """Check that newly read block matches our record.
 
-        If we do not have record, ignore.
+        - Called during the event reader
+
+        - Event reader gets the block number and hash with the event
+
+        - We have initial `block_map` in memory, previously buffered in
+
+        - We check if any of the blocks in the block map have different values
+          on our event produces -> in this case we know there has been a chain reorganisation
+
+        If we do not have records, ignore.
+
+        :raise ChainReorganisationDetected:
+            When any if the block data in our internal buffer
+            does not match those provided by events.
         """
         original_block = self.block_map.get(block_number)
         if original_block is not None:
@@ -182,9 +245,6 @@ class ReorganisationMonitor:
             if block.block_number not in self.block_map:
                 self.add_block(block)
 
-    def get_block_by_number(self, block_number: int) -> BlockHeader:
-        return self.block_map.get(block_number)
-
     def get_block_timestamp(self, block_number: int) -> int:
         """Return UNIX UTC timestamp of a block."""
 
@@ -204,7 +264,7 @@ class ReorganisationMonitor:
         return pd.Timestamp.utcfromtimestamp(ts).tz_localize(None)
 
     def update_chain(self) -> ChainReorganisationResolution:
-        """Attemp
+        """Update the internal memory buffer of block headers from the blockchain node.
 
         - Do several attempt to read data (as a fork can cause other forks can cause fork)
 
@@ -239,17 +299,34 @@ class ReorganisationMonitor:
 
         raise ReorganisationResolutionFailure(f"Gave up chain reorg resolution. Last block: {self.last_block_read}, attempts {self.max_cycle_tries}")
 
-    def to_pandas(self, partition_size: int) -> pd.DataFrame:
+    def to_pandas(self, partition_size: int = 0) -> pd.DataFrame:
         """Convert the data to Pandas DataFrame format for storing.
 
         :param partition_size:
             To partition the outgoing data.
+
+            Set 0 to ignore.
+
         """
         data = [asdict(h) for h in self.block_map.values()]
         return BlockHeader.to_pandas(data, partition_size)
 
+    def load_pandas(self, df: pd.DataFrame):
+        """Load block header data from Pandas data frame.
+
+        :param df:
+
+            Pandas DataFrame exported with :py:meth:`to_pandas`.
+        """
+        block_map = BlockHeader.from_pandas(df)
+        self.restore(block_map)
+
     def restore(self, block_map: dict):
-        """Restore the chain state from a saved data."""
+        """Restore the chain state from a saved data.
+
+        :param block_map:
+            Block number -> Block header dictionary
+        """
         assert type(block_map) == dict, f"Got: {type(block_map)}"
         self.block_map = block_map
         self.last_block_read = max(block_map.keys())
@@ -312,12 +389,15 @@ class MockChainAndReorganisationMonitor(ReorganisationMonitor):
     """
 
     def __init__(self, block_number: int = 1, block_duration_seconds=1):
-        super().__init__(reorg_wait_seconds=0)
+        super().__init__()
 
         #: Next available block number
         self.simulated_block_number = block_number
         self.simulated_blocks = {}
         self.block_duration_seconds = block_duration_seconds
+
+        # There is no external data, so we do not need to wait for anything
+        self.reorg_wait_seconds = 0
 
     def produce_blocks(self, block_count=1):
         """Populate the fake blocks in mock chain.
