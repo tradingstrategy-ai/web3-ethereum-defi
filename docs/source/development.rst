@@ -139,9 +139,9 @@ To update dependencies for Read the docs run:
 
     poetry update
     poetry export \
-        --dev \
-        --extras data \
-        --extras docs \
+        --with dev \
+        --with data \
+        --with docs \
         --without-hashes \
         --format=requirements.txt > docs/requirements.txt
 

@@ -18,7 +18,7 @@ web3 = {extras = ["tester"], version = "^5.28.0"}
 Sphinx = {version = "^4.5.0", optional = true}
 sphinx-rtd-theme = {version = "^1.0.0", optional = true}
 sphinx-sitemap = {version = "^2.2.0", optional = true}
-sphinx-autodoc-typehints = {version = "^1.16.0", extras = ["docs"], optional = true}
+sphinx-autodoc-typehints = {version = "^1.16.0", optional = true}
 psutil = "^5.9.0"
 eth-bloom = "^1.0.4"
 ujson = "^5.2.0"
@@ -26,12 +26,13 @@ futureproof = "^0.3.1"
 tqdm = {version = "^4.64.0", optional = true}
 pandas = {version = "^1.4.2", optional = true}
 gql = {extras = ["requests"], version = "^3.3.0", optional = true}
-nbsphinx = {version = "^0.8.9", extras = ["docs"], optional = true}
+nbsphinx = {version = "^0.8.9", optional = true}
 jupyter = {version = "^1.0.0", optional = true}
 matplotlib = {version = "^3.5.2", optional = true}
 plotly = {version = "^5.8.2", optional = true}
 furo = {version = "^2022.6.4.1", optional = true}
 pyarrow = {version = "^10.0.1", optional = true}
+setuptools = {version = "^65.6.3", optional = true}
 
 [tool.poetry.dev-dependencies]
 pytest = "^6.2.5"
@@ -41,12 +42,11 @@ sphinx-sitemap = "^2.2.0"
 ipdb = "^0.13.9"
 black = "^22.1.0"
 flake8 = "^4.0.1"
-
 flaky = "^3.7.0"
-setuptools = "^65.6.3"
+
 # See discussion https://github.com/python-poetry/poetry/issues/3348#issuecomment-726534462
 [tool.poetry.extras]
-docs = ["Sphinx", "sphinx-rtd-theme", "sphinx-sitemap", "sphinx-autodoc-typehints", "furo", "nbsphinx"]
+docs = ["Sphinx", "sphinx-rtd-theme", "sphinx-sitemap", "sphinx-autodoc-typehints", "furo", "nbsphinx", "setuptools"]
 data = ["jupyter", "tqdm", "pandas", "gql", "matplotlib", "plotly", "pyarrow"]
 
 [build-system]
