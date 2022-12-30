@@ -137,13 +137,19 @@ To update dependencies for Read the docs run:
 
 .. code-block:: shell
 
+    poetry update
     poetry export \
         --extras data \
         --extras docs \
         --without-hashes \
         --format=requirements.txt > requirements.txt
 
-See `.readthedocs.yml` for further details.
+    # Check we generated a good file
+    head requirements.txt
+
+
+- See `.readthedocs.yml` for further details.
+- See `Generating requirements.txt with Poetry <https://testdriven.io/tips/eb1fb0f9-3547-4ca2-b2a8-1c037ba856d8/>`__.
 
 Pull request quality checklist
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
