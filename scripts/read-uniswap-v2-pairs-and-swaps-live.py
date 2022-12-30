@@ -1,4 +1,7 @@
-"""Live Uniswap v2 swap event monitor.
+"""Live Uniswap v2 swap event monitor with chain reorganisation detection.
+
+- This example runs on free Polygon JSON-RPC nodes,
+  you do not need any self-hosted or commercial node service providers
 
 - This is an modified example of `read-uniswap-v2-pairs-and-swaps.py` to support
   chain reorganisations, thus suitable for live event reading.
@@ -11,6 +14,18 @@
 - This is a dummy example just showing how to build the live loop,
   because how stores are constructed it is not good for processing
   actual data
+
+
+To run for Polygon (and QuickSwap):
+
+.. code-block:: shell
+
+    # Switch between INFO and DEBUG
+    export LOG_LEVEL=INFO
+    # Your Ethereum node RPC
+    export JSON_RPC_URL="https://polygon-rpc.com"
+    python scripts/read-uniswap-v2-pairs-and-swaps-live.py
+
 
 """
 import datetime
@@ -26,6 +41,7 @@ from tqdm import tqdm
 from web3 import HTTPProvider, Web3
 
 from eth_defi.abi import get_contract
+from eth_defi.chain import install_chain_middleware
 from eth_defi.event_reader.block_time import measure_block_time
 from eth_defi.event_reader.conversion import convert_uint256_string_to_address, convert_uint256_bytes_to_address, \
     decode_data, convert_int256_bytes_to_int, convert_jsonrpc_value_to_int
@@ -33,7 +49,8 @@ from eth_defi.event_reader.csv_block_data_store import CSVDatasetBlockDataStore
 from eth_defi.event_reader.fast_json_rpc import patch_web3
 from eth_defi.event_reader.logresult import LogContext
 from eth_defi.event_reader.reader import read_events, LogResult
-from eth_defi.event_reader.reorganisation_monitor import ReorganisationMonitor, ChainReorganisationDetected
+from eth_defi.event_reader.reorganisation_monitor import ReorganisationMonitor, ChainReorganisationDetected, \
+    JSONRPCReorganisationMonitor
 from eth_defi.token import fetch_erc20_details, TokenDetails
 
 
@@ -201,7 +218,8 @@ def decode_swap(log: LogResult) -> dict:
 
 
 def setup_logging():
-    logging.basicConfig(level=os.environ["LOG_LEVEL"], handlers=[logging.StreamHandler()])
+    level = os.environ.get("LOG_LEVEL", "info").upper()
+    logging.basicConfig(level=level, handlers=[logging.StreamHandler()])
 
     # Mute noise
     logging.getLogger("web3.providers.HTTPProvider").setLevel(logging.WARNING)
@@ -224,6 +242,9 @@ def main():
 
     web3.middleware_onion.clear()
 
+    # Support Polygon
+    install_chain_middleware(web3)
+
     # Get contracts
     Factory = get_contract(web3, "UniswapV2Factory.json")
     Pair = get_contract(web3, "UniswapV2Pair.json")
@@ -235,22 +256,22 @@ def main():
 
     block_store = CSVDatasetBlockDataStore(Path("/tmp/uni-v2-last-block-state.csv"))
 
-    reorg_mon = ReorganisationMonitor()
+    reorg_mon = JSONRPCReorganisationMonitor(web3)
     if not block_store.is_virgin():
         block_header_df = block_store.load()
         reorg_mon.load_pandas(block_header_df)
-        logger.info("Loaded %d existing blocks", len(block_header_df))
+        logger.info("Loaded %d existing blocks from %s", len(block_header_df), block_store.path)
     else:
-        logger.info("Starting with fresh block header store")
+        logger.info("Starting with fresh block header store at %s", block_store.path)
 
     initial_block_depth = 10
-
-    # Do the initial buffering of the blocks
-    reorg_mon.load_initial_block_headers(initial_block_depth, tqdm=tqdm)
 
     # Block time can be between 3 seconds to 12 seconds depending on
     # the EVM chain
     block_time = measure_block_time(web3)
+
+    # Do the initial buffering of the blocks
+    reorg_mon.load_initial_block_headers(initial_block_depth, tqdm=tqdm)
 
     token_cache = TokenCache()
 

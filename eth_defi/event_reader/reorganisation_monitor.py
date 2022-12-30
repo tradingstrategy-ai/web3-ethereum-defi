@@ -5,7 +5,7 @@ when nodes have not yet reached consensus on the chain tip around the world.
 """
 
 import time
-from abc import abstractmethod
+from abc import abstractmethod, ABC
 from dataclasses import dataclass, asdict, field
 from typing import Dict, Iterable, Tuple, Optional, Type, Callable
 import logging
@@ -61,7 +61,7 @@ class BlockNotAvailable(Exception):
 
 
 @dataclass()
-class ReorganisationMonitor:
+class ReorganisationMonitor(ABC):
     """Watch blockchain for reorgs.
 
     - Maintain the state of the last read block
@@ -350,8 +350,8 @@ class ReorganisationMonitor:
 class JSONRPCReorganisationMonitor(ReorganisationMonitor):
     """Watch blockchain for reorgs using eth_getBlockByNumber JSON-RPC API."""
 
-    def __init__(self, web3: Web3, check_depth=200, max_reorg_resolution_attempts=10):
-        super().__init__(check_depth=check_depth, max_reorg_resolution_attempts=max_reorg_resolution_attempts)
+    def __init__(self, web3: Web3):
+        super().__init__()
         self.web3 = web3
 
     def get_last_block_live(self):
