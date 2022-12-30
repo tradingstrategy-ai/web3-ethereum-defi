@@ -145,6 +145,10 @@ To update dependencies for Read the docs run:
         --without-hashes \
         --format=requirements.txt > docs/requirements.txt
 
+
+    # Include self
+    echo "-e ." > docs/requirements.txt
+
     # Check we generated a good file
     head docs/requirements.txt
 
