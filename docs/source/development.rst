@@ -142,7 +142,7 @@ To update dependencies for Read the docs run:
         --extras data \
         --extras docs \
         --without-hashes \
-        --format=requirements.txt > requirements.txt
+        --format=requirements.txt > docs/requirements.txt
 
     # Check we generated a good file
     head requirements.txt
