@@ -13,7 +13,7 @@ build:
 # https://docs.readthedocs.io/en/stable/config-file/v2.html#build-beta-specification
 # https://github.com/readthedocs/readthedocs.org/issues/7554
 python:
-  version: 3.9
+  version: 3.10
   install:
     - method: pip
       path: .
