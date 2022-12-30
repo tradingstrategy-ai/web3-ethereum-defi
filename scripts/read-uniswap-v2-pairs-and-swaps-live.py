@@ -1,19 +1,24 @@
 """Live Uniswap v2 swap event monitor with chain reorganisation detection.
 
 - This example runs on free Polygon JSON-RPC nodes,
-  you do not need any self-hosted or commercial node service providers
+  you do not need any self-hosted or commercial node service providers.
 
 - This is an modified example of `read-uniswap-v2-pairs-and-swaps.py` to support
   chain reorganisations, thus suitable for live event reading.
 
-- It will print out live trade events for Uniswap v2 compatible exchange
+- It will print out live trade events for Uniswap v2 compatible exchange.
 
 - This will also show how to track block headers on disk,
-  so that next start up is faster
+  so that next start up is faster.
 
 - This is a dummy example just showing how to build the live loop,
   because how stores are constructed it is not good for processing
-  actual data
+  actual data.
+
+- Because pair and token details are dynamically fetched
+  when a swap for a pair is encountered for the first time,
+  the startup is a bit slow as the pair details cache
+  is warming up.
 
 
 To run for Polygon (and QuickSwap):
@@ -202,7 +207,7 @@ def format_swap(swap: dict) -> str:
 def setup_logging():
     level = os.environ.get("LOG_LEVEL", "info").upper()
 
-    fmt = "%(asctime)s %(name)-44s %(levelname)-8s %(message)s"
+    fmt = "%(asctime)s %(name)-44s %(message)s"
     date_fmt = "%H:%M:%S"
     coloredlogs.install(level=level, fmt=fmt, date_fmt=date_fmt)
 
@@ -251,14 +256,9 @@ def main():
     else:
         logger.info("Starting with fresh block header store at %s", block_store.path)
 
-    initial_block_depth = 25
-
     # Block time can be between 3 seconds to 12 seconds depending on
     # the EVM chain
     block_time = measure_block_time(web3)
-
-    # Do the initial buffering of the blocks
-    reorg_mon.load_initial_block_headers(initial_block_depth, tqdm=tqdm)
 
     token_cache = BlockchainStateCache(web3)
 
@@ -268,6 +268,9 @@ def main():
 
     # Cache pair and token details read from the blockchain state
     cache = BlockchainStateCache(web3)
+
+    stat_delay = 10
+    next_stat_print = time.time() + stat_delay
 
     while True:
 
@@ -283,7 +286,7 @@ def main():
             # Read specified events in block range
             for log_result in read_events(
                     web3,
-                    start_block=chain_reorg_resolution.latest_block_with_good_data,
+                    start_block=chain_reorg_resolution.latest_block_with_good_data+1,
                     end_block=chain_reorg_resolution.last_live_block,
                     filter=filter,
                     notify=None,
@@ -300,6 +303,15 @@ def main():
                     logger.info("%s", swap_fmt)
                 else:
                     raise NotImplementedError()
+
+            # Dump stats to the output
+            if time.time() > next_stat_print:
+                logger.info("**STATS** Reorgs detected: %d, block headers buffered: %d, pairs cached: %d",
+                            len(reorg_mon.block_map),
+                            total_reorgs,
+                            len(cache.pair_cache))
+                next_stat_print = time.time() + stat_delay
+
         except ChainReorganisationDetected as e:
             # Chain reorganisation was detected during reading the events.
             # reorg_mon.update_chain() will detect the fork and purge bad state
