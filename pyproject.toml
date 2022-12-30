@@ -33,7 +33,7 @@ plotly = {version = "^5.8.2", optional = true}
 furo = {version = "^2022.6.4.1", optional = true}
 pyarrow = {version = "^10.0.1", optional = true}
 
-[tool.poetry.group.dev.dependencies]
+[tool.poetry.dev-dependencies]
 pytest = "^6.2.5"
 pytest-mock = "^3.7.0"
 sphinx-rtd-theme = "^1.0.0"
