@@ -132,6 +132,8 @@ Documentation dependencies
 
 This repository uses `poetry` to manage dependencies, but Read The Docs,
 where docs are continuously build, only supports `pip`.
+You need to update Read the Docs dependencies manually
+if you update `pyproject.toml`.
 
 To update dependencies for Read the Docs run:
 
@@ -144,7 +146,6 @@ To update dependencies for Read the Docs run:
         --extras=docs \
         --without-hashes \
         --format=requirements.txt > docs/requirements.txt
-
 
     # Include self
     echo "-e ." >> docs/requirements.txt
