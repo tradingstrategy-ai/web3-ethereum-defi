@@ -139,6 +139,7 @@ To update dependencies for Read the docs run:
 
     poetry update
     poetry export \
+        --dev \
         --extras data \
         --extras docs \
         --without-hashes \

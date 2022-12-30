@@ -43,6 +43,7 @@ black = "^22.1.0"
 flake8 = "^4.0.1"
 
 flaky = "^3.7.0"
+setuptools = "^65.6.3"
 # See discussion https://github.com/python-poetry/poetry/issues/3348#issuecomment-726534462
 [tool.poetry.extras]
 docs = ["Sphinx", "sphinx-rtd-theme", "sphinx-sitemap", "sphinx-autodoc-typehints", "furo", "nbsphinx"]

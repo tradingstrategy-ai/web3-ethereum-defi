@@ -2496,7 +2496,7 @@ docs = ["Sphinx", "sphinx-rtd-theme", "sphinx-sitemap", "sphinx-autodoc-typehint
 [metadata]
 lock-version = "1.1"
 python-versions = "^3.10"
-content-hash = "52172dccfdd8e0063d2826bd1be0ebbb3832b683b5a7d6f54fc313c6fb90a18e"
+content-hash = "9d70d4da4ace6195944168300919f205fb11afea0351030e3239cbe5ac759a7d"
 
 [metadata.files]
 aiohttp = []
