@@ -1,11 +1,15 @@
-# Current
+# 0.12
 
 - Added `generate_fake_uniswap_v2_data()` to generate synthetic Uniswap v2 trade feeds
 - Improved `PairDetails` API, added `get_current_mid_price()`
+- Add `PairDetails.checksum_free_address` to shortcut getting lowercased Ethereum address
 - Added `convert_jsonrpc_value_to_int()` to deal differences between real JSON-RPC and EthereumTester
 - Add `install_chain_middleware()` and `install_retry_middleware()`
 - Add `measure_block_time()`
 - Add multiple contract address filtering to the event reader
+- Add `fetch_deployment` for Uniswap v3
+- Add `swap_with_slippage_protection` for Uniswap v3
+
 
 # 0.11.3
 
