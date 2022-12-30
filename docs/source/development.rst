@@ -145,7 +145,7 @@ To update dependencies for Read the docs run:
         --format=requirements.txt > docs/requirements.txt
 
     # Check we generated a good file
-    head requirements.txt
+    head docs/requirements.txt
 
 
 - See `.readthedocs.yml` for further details.
