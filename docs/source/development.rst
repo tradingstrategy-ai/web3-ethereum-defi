@@ -157,6 +157,8 @@ To update dependencies for Read the docs run:
 
 - See `Generating requirements.txt with Poetry <https://testdriven.io/tips/eb1fb0f9-3547-4ca2-b2a8-1c037ba856d8/>`__.
 
+- See `including your own package in pip requirements.txt list <https://stackoverflow.com/questions/51010251/what-does-e-in-requirements-txt-do>`__
+
 Pull request quality checklist
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
