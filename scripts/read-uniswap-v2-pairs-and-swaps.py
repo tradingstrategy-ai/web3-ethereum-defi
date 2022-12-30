@@ -243,7 +243,9 @@ def main():
 
     pairs_fname = "/tmp/uni-v2-pairs.csv"
     swaps_fname = "/tmp/uni-v2-swaps.csv"
-    state_fname = "/tmp/uni-v2-last-block-state.txt"
+    chain_state_fname = "/tmp/uni-v2-last-block-state.txt"
+
+    reorg_mon =
 
     start_block = restore_state(state_fname, 10_000_835)  # # When Uni v2 was deployed
     end_block = web3.eth.block_number

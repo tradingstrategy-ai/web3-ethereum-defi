@@ -1,4 +1,4 @@
-"""Parquet dataset backed block header storage."""
+"""Parquet dataset backed block data storage like block headers or trades."""
 
 import logging
 from pathlib import Path
