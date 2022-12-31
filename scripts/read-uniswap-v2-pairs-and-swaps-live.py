@@ -307,8 +307,8 @@ def main():
             # Dump stats to the output
             if time.time() > next_stat_print:
                 logger.info("**STATS** Reorgs detected: %d, block headers buffered: %d, pairs cached: %d",
-                            len(reorg_mon.block_map),
                             total_reorgs,
+                            len(reorg_mon.block_map),
                             len(cache.pair_cache))
                 next_stat_print = time.time() + stat_delay
 
