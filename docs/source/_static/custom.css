@@ -11,3 +11,8 @@
 .sidebar-container {
     width: 20em;
 }
+
+/* Fix next and previous nav at the bottom of the page */
+.page-info {
+    min-width: 200px;
+}

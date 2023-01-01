@@ -132,9 +132,9 @@ def fetch_erc20_balances_by_token_list(web3: Web3, owner: HexAddress, tokens: Se
 
 
 def convert_balances_to_decimal(
-        web3,
-        raw_balances: Dict[HexAddress, int],
-        require_decimals=True,
+    web3,
+    raw_balances: Dict[HexAddress, int],
+    require_decimals=True,
 ) -> Dict[HexAddress, DecimalisedHolding]:
     """Convert mapping of ERC-20 holdings to decimals.
 

@@ -20,5 +20,3 @@ def is_localhost_port_listening(port: int, host="localhost") -> bool:
     location = (host, port)
     result_of_check = a_socket.connect_ex(location)
     return result_of_check == 0
-
-

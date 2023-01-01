@@ -52,6 +52,11 @@ class PairDetails:
         """Get pair contract address"""
         return self.contract.address
 
+    @property
+    def checksum_free_address(self) -> str:
+        """Get pair contract address, all lowercase."""
+        return self.contract.address.lower()
+
     def get_base_token(self):
         """Get human-ordered base token."""
         assert self.reverse_token_order is not None, "Reverse token order flag must be check before this operation is possible"
@@ -68,10 +73,7 @@ class PairDetails:
         else:
             return self.token1
 
-    def convert_price_to_human(self,
-                               reserve0: int,
-                               reserve1: int,
-                               reverse_token_order=None):
+    def convert_price_to_human(self, reserve0: int, reserve1: int, reverse_token_order=None):
         """Convert the price obtained through Sync event
 
         :param reverse_token_order:
@@ -113,11 +115,11 @@ class PairDetails:
 
 
 def fetch_pair_details(
-        web3,
-        pair_contact_address: Union[str, HexAddress],
-        reverse_token_order: Optional[bool] = None,
-        base_token_address: Optional[str] = None,
-        quote_token_address: Optional[str] = None,
+    web3,
+    pair_contact_address: Union[str, HexAddress],
+    reverse_token_order: Optional[bool] = None,
+    base_token_address: Optional[str] = None,
+    quote_token_address: Optional[str] = None,
 ) -> PairDetails:
     """Get pair info for PancakeSwap, others.
 

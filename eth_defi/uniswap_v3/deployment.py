@@ -20,6 +20,7 @@ from typing import Optional
 from eth_typing import HexAddress
 from web3 import Web3
 from web3.contract import Contract
+from web3.exceptions import ContractLogicError
 
 from eth_defi.abi import get_abi_by_filename, get_contract, get_deployed_contract
 from eth_defi.deploy import deploy_contract
@@ -286,4 +287,43 @@ def _deploy_nft_position_descriptor(web3: Web3, deployer: HexAddress, weth: Cont
         NonfungibleTokenPositionDescriptor,
         deployer,
         weth.address,
+    )
+
+
+def fetch_deployment(
+    web3: Web3,
+    factory_address: HexAddress | str,
+    router_address: HexAddress | str,
+    position_manager_address: HexAddress | str,
+    quoter_address: HexAddress | str,
+) -> UniswapV3Deployment:
+    """Construct Uniswap v3 deployment based on on-chain data.
+
+    :param allow_different_weth_var:
+        We assume Uniswap v3 ABI that has router.WETH() accessor.
+        Some other DEXes might not have it.
+        If set (default) ignore this error and just have
+        `None` as the value for the wrapped token.
+
+    :return:
+        Data class representing Uniswap v3 exchange deployment
+    """
+    factory = get_deployed_contract(web3, "uniswap_v3/UniswapV3Factory.json", factory_address)
+    router = get_deployed_contract(web3, "uniswap_v3/SwapRouter.json", router_address)
+    position_manager = get_deployed_contract(web3, "uniswap_v3/NonfungiblePositionManager.json", position_manager_address)
+    quoter = get_deployed_contract(web3, "uniswap_v3/Quoter.json", quoter_address)
+    PoolContract = get_contract(web3, "uniswap_v3/PoolContract.json")
+
+    # https://github.com/Uniswap/v3-periphery/blob/6cce88e63e176af1ddb6cc56e029110289622317/contracts/SwapRouter.sol#L40
+    weth_address = router.functions.WETH().call()
+    weth = get_deployed_contract(web3, "WETH9Mock.json", weth_address)
+
+    return UniswapV3Deployment(
+        web3=web3,
+        factory=factory,
+        weth=weth,
+        swap_router=router,
+        position_manager=position_manager,
+        quoter=quoter,
+        PoolContract=PoolContract,
     )

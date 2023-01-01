@@ -28,10 +28,11 @@ class ParquetDatasetBlockDataStore(BlockDataStore):
       by overwriting the last two partitions,
     """
 
-    def __init__(self,
-                 path: Path,
-                 partition_size=100_000,
-                 ):
+    def __init__(
+        self,
+        path: Path,
+        partition_size=100_000,
+    ):
         """
 
         :param path:
@@ -43,9 +44,7 @@ class ParquetDatasetBlockDataStore(BlockDataStore):
         self.path = path
         self.partition_size = partition_size
 
-        part_scheme = FilenamePartitioning(
-            pa.schema([("partition", pa.uint32())])
-        )
+        part_scheme = FilenamePartitioning(pa.schema([("partition", pa.uint32())]))
 
         self.partitioning = part_scheme
 
@@ -64,11 +63,11 @@ class ParquetDatasetBlockDataStore(BlockDataStore):
         :param since_block_number:
             May return earlier rows than this if a block is a middle of a partition
         """
-        #dataset = ds.parquet_dataset(self.path, partitioning=self.partitioning)
+        # dataset = ds.parquet_dataset(self.path, partitioning=self.partitioning)
         dataset = ds.dataset(self.path, partitioning=self.partitioning)
         partition_start_block = self.floor_block_number_to_partition_start(since_block_number)
         # Load data only from the partitions we need
-        filtered_table = dataset.to_table(filter=ds.field('partition') >= partition_start_block)
+        filtered_table = dataset.to_table(filter=ds.field("partition") >= partition_start_block)
         df = filtered_table.to_pandas()
         return df
 
@@ -103,13 +102,14 @@ class ParquetDatasetBlockDataStore(BlockDataStore):
                     raise NoGapsWritten(f"Gap in block data detected. First block: {first_block:,}, last block: {last_block:,}, missing block: {i}")
 
         table = pa.Table.from_pandas(df)
-        ds.write_dataset(table,
-                         self.path,
-                         format="parquet",
-                         partitioning=self.partitioning,
-                         existing_data_behavior="overwrite_or_ignore",
-                         use_threads=False,
-                         )
+        ds.write_dataset(
+            table,
+            self.path,
+            format="parquet",
+            partitioning=self.partitioning,
+            existing_data_behavior="overwrite_or_ignore",
+            use_threads=False,
+        )
 
     def save_incremental(self, df: pd.DataFrame) -> Tuple[int, int]:
         """Write all partitions we are missing from the data.
@@ -153,6 +153,3 @@ class ParquetDatasetBlockDataStore(BlockDataStore):
         # TODO: How to select last row with pyarrow
         df = last_fragment.to_table().to_pandas()
         return df.iloc[-1]["block_number"]
-
-
-

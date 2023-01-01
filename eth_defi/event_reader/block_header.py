@@ -39,10 +39,7 @@ class BlockHeader:
         assert self.block_hash.startswith("0x")
 
     @staticmethod
-    def generate_headers(count: int,
-                         start_block: int = 1,
-                         start_time: float = 0,
-                         blocks_per_second: float = 12) -> Dict[str, list]:
+    def generate_headers(count: int, start_block: int = 1, start_time: float = 0, blocks_per_second: float = 12) -> Dict[str, list]:
         """Generate random block header data.
 
         Used for testing.
@@ -60,7 +57,7 @@ class BlockHeader:
         clock = start_time
         for i in range(start_block, start_block + count):
             block_number.append(i)
-            block_hash.append(hex(random.randint(2 ** 31, 2 ** 32)))
+            block_hash.append(hex(random.randint(2**31, 2**32)))
             timestamp.append(int(clock))
             clock += blocks_per_second
 
@@ -89,8 +86,9 @@ class BlockHeader:
         """
         # Optional dependency
         import pandas as pd
+
         # https://stackoverflow.com/a/64537577/315168
-        df = pd.DataFrame.from_dict(headers, orient='columns')
+        df = pd.DataFrame.from_dict(headers, orient="columns")
         df.set_index(df["block_number"], inplace=True, drop=False)
         if partition_size:
             assert partition_size > 0
@@ -100,15 +98,13 @@ class BlockHeader:
 
     @staticmethod
     def from_pandas(df) -> Dict[int, "BlockHeader"]:
-        """Decode saved Pandas input.
-
-        """
+        """Decode saved Pandas input."""
         # Optional dependency
         import pandas as pd
+
         assert isinstance(df, pd.DataFrame)
         map = {}
         for idx, row in df.iterrows():
             record = BlockHeader(block_number=row.block_number, block_hash=row.block_hash, timestamp=row.timestamp)
             map[record.block_number] = record
         return map
-

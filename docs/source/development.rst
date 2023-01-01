@@ -93,7 +93,7 @@ Check that the tests of unmodified master branch pass:
 
 You should get all green.
 
-Some tests will be skipped, because they require full EVM nodes. JSON-ROPC needs to be configured through environment variables.
+Some tests will be skipped, because they require full EVM nodes. JSON-RPC needs to be configured through environment variables.
 
 You can also run tests with logging enabled to get more information:
 
@@ -109,10 +109,56 @@ This will
 
 - Stop on the first failure
 
+Formatting code
+---------------
+
+The code uses `Python black <https://github.com/psf/black>`_ formatting with unlimited line length.
+
+To format any of your code:
+
+.. code-block:: shell
+
+    # Black comes in dev dependencies
+    poetry shell
+    black eth_defi tests
+
 Pull requests
 -------------
 
 For new feature requests, make sure your pull request satisfies the checklist below and enjoy merge party.
+
+Documentation dependencies
+--------------------------
+
+This repository uses `poetry` to manage dependencies, but Read The Docs,
+where docs are continuously build, only supports `pip`.
+You need to update Read the Docs dependencies manually
+if you update `pyproject.toml`.
+
+To update dependencies for Read the Docs run:
+
+.. code-block:: shell
+
+    poetry update
+    poetry export \
+        --with=dev \
+        --extras=data \
+        --extras=docs \
+        --without-hashes \
+        --format=requirements.txt > docs/requirements.txt
+
+    # Include self
+    echo "-e ." >> docs/requirements.txt
+
+    # Check we generated a good file
+    head docs/requirements.txt
+
+
+- See `.readthedocs.yml` for further details.
+
+- See `Generating requirements.txt with Poetry <https://testdriven.io/tips/eb1fb0f9-3547-4ca2-b2a8-1c037ba856d8/>`__.
+
+- See `including your own package in pip requirements.txt list <https://stackoverflow.com/questions/51010251/what-does-e-in-requirements-txt-do>`__
 
 Pull request quality checklist
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

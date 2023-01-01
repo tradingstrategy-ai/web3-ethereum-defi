@@ -464,4 +464,3 @@ class FixedPriceOracle(BasePriceOracle):
 
     def calculate_price(self, block_number: Optional[int] = None) -> Decimal:
         return self.exchange_rate
-

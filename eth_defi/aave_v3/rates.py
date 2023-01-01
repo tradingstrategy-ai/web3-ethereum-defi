@@ -53,28 +53,28 @@ def aave_v3_calculate_apr_apy_rates(df: DataFrame) -> DataFrame:
     """
     # First we convert the rates to floats and Decimals to preseve accuracy. Original numbers are huge 256-bit integer values multiplied with RAY.
     df = df.assign(
-        liquidity_rate_float=df['liquidity_rate'].apply(lambda value: float(Decimal(value) / RAY)),
-        variable_borrow_rate_float=df['variable_borrow_rate'].apply(lambda value: float(Decimal(value) / RAY)),
-        stable_borrow_rate_float=df['stable_borrow_rate'].apply(lambda value: float(Decimal(value) / RAY)),
-        liquidity_rate_dec=df['liquidity_rate'].apply(lambda value: Decimal(value) / RAY),
-        variable_borrow_rate_dec=df['variable_borrow_rate'].apply(lambda value: Decimal(value) / RAY),
-        stable_borrow_rate_dec=df['stable_borrow_rate'].apply(lambda value: Decimal(value) / RAY),
+        liquidity_rate_float=df["liquidity_rate"].apply(lambda value: float(Decimal(value) / RAY)),
+        variable_borrow_rate_float=df["variable_borrow_rate"].apply(lambda value: float(Decimal(value) / RAY)),
+        stable_borrow_rate_float=df["stable_borrow_rate"].apply(lambda value: float(Decimal(value) / RAY)),
+        liquidity_rate_dec=df["liquidity_rate"].apply(lambda value: Decimal(value) / RAY),
+        variable_borrow_rate_dec=df["variable_borrow_rate"].apply(lambda value: Decimal(value) / RAY),
+        stable_borrow_rate_dec=df["stable_borrow_rate"].apply(lambda value: Decimal(value) / RAY),
     )
 
     # And finally we can calculate APR/APY percent values according to Aave v3 formulas.
     df = df.assign(
-        deposit_apr=df['liquidity_rate_float'] * 100,
-        variable_borrow_apr=df['variable_borrow_rate_float'] * 100,
-        stable_borrow_apr=df['stable_borrow_rate_float'] * 100,
-        deposit_apy=df['liquidity_rate_dec'].apply(lambda value: float((((Decimal(1) + (value / SECONDS_PER_YEAR)) ** SECONDS_PER_YEAR) - Decimal(1)) * 100)),
-        variable_borrow_apy=df['variable_borrow_rate_dec'].apply(lambda value: float((((Decimal(1) + (value / SECONDS_PER_YEAR)) ** SECONDS_PER_YEAR) - Decimal(1)) * 100)),
-        stable_borrow_apy=df['stable_borrow_rate_dec'].apply(lambda value: float((((Decimal(1) + (value / SECONDS_PER_YEAR)) ** SECONDS_PER_YEAR) - Decimal(1)) * 100)),
+        deposit_apr=df["liquidity_rate_float"] * 100,
+        variable_borrow_apr=df["variable_borrow_rate_float"] * 100,
+        stable_borrow_apr=df["stable_borrow_rate_float"] * 100,
+        deposit_apy=df["liquidity_rate_dec"].apply(lambda value: float((((Decimal(1) + (value / SECONDS_PER_YEAR)) ** SECONDS_PER_YEAR) - Decimal(1)) * 100)),
+        variable_borrow_apy=df["variable_borrow_rate_dec"].apply(lambda value: float((((Decimal(1) + (value / SECONDS_PER_YEAR)) ** SECONDS_PER_YEAR) - Decimal(1)) * 100)),
+        stable_borrow_apy=df["stable_borrow_rate_dec"].apply(lambda value: float((((Decimal(1) + (value / SECONDS_PER_YEAR)) ** SECONDS_PER_YEAR) - Decimal(1)) * 100)),
     )
 
     return df
 
 
-def aave_v3_filter_by_token(df: DataFrame, token: str = '') -> DataFrame:
+def aave_v3_filter_by_token(df: DataFrame, token: str = "") -> DataFrame:
     """
     Filter the DataFrame by token. If token is empty, return the entire DataFrame.
     """
@@ -83,10 +83,10 @@ def aave_v3_filter_by_token(df: DataFrame, token: str = '') -> DataFrame:
         return df
     else:
         # Filter by token
-        return df.loc[df['token'] == token]
+        return df.loc[df["token"] == token]
 
 
-def aave_v3_calculate_ohlc(df: DataFrame, time_bucket: Timedelta, attribute: str | Tuple, token: str = '') -> DataFrame | Tuple:
+def aave_v3_calculate_ohlc(df: DataFrame, time_bucket: Timedelta, attribute: str | Tuple, token: str = "") -> DataFrame | Tuple:
     """
     Calculate OHLC (Open, High, Low, Close) values for a given time bucket (e.g. 1 day) and given attribute.
     Attribute can be e.g. deposit_apr, variable_borrow_apr, stable_borrow_apr, deposit_apy, variable_borrow_apy, stable_borrow_apy.
@@ -96,13 +96,13 @@ def aave_v3_calculate_ohlc(df: DataFrame, time_bucket: Timedelta, attribute: str
     df = aave_v3_filter_by_token(df, token)
     if isinstance(attribute, str):
         # Single attribute
-        return df[attribute].resample(time_bucket).ohlc(_method='ohlc')
+        return df[attribute].resample(time_bucket).ohlc(_method="ohlc")
     else:
         # Multiple attributes
-        return (df[attr].resample(time_bucket).ohlc(_method='ohlc') for attr in attribute)
+        return (df[attr].resample(time_bucket).ohlc(_method="ohlc") for attr in attribute)
 
 
-def aave_v3_calculate_mean(df: DataFrame, time_bucket: Timedelta, attribute: str | Tuple, token: str = '') -> DataFrame | Tuple:
+def aave_v3_calculate_mean(df: DataFrame, time_bucket: Timedelta, attribute: str | Tuple, token: str = "") -> DataFrame | Tuple:
     """
     Calculate mean values for a given time bucket (e.g. 1 day) and given attribute.
     Attribute can be e.g. deposit_apr, variable_borrow_apr, stable_borrow_apr, deposit_apy, variable_borrow_apy, stable_borrow_apy.
@@ -118,16 +118,16 @@ def aave_v3_calculate_mean(df: DataFrame, time_bucket: Timedelta, attribute: str
         return (df[attr].resample(time_bucket).mean() for attr in attribute)
 
 
-def aave_v3_filter_by_date_range(df: DataFrame, start_time: datetime, end_time: datetime = None, token: str = '') -> DataFrame:
+def aave_v3_filter_by_date_range(df: DataFrame, start_time: datetime, end_time: datetime = None, token: str = "") -> DataFrame:
     """
     Filter the DataFrame by date range suitable for interest calculation (loan start to loan end time)
     The DataFrame must be indexed by timestamp.
     If token is specified, also filters by token.
     """
     if end_time:
-        return aave_v3_filter_by_token(df, token).query('timestamp >= @start_time and timestamp <= @end_time')
+        return aave_v3_filter_by_token(df, token).query("timestamp >= @start_time and timestamp <= @end_time")
     else:
-        return aave_v3_filter_by_token(df, token).query('timestamp >= @start_time')
+        return aave_v3_filter_by_token(df, token).query("timestamp >= @start_time")
 
 
 def _calculate_compound_interest_multiplier(rate: Decimal, seconds: Decimal | float) -> Decimal:
@@ -152,7 +152,7 @@ def _calculate_compound_interest_multiplier(rate: Decimal, seconds: Decimal | fl
     return multiplier
 
 
-def aave_v3_calculate_accrued_interests(df: DataFrame, start_time: datetime, end_time: datetime, amount: Decimal, token: str = '') -> AaveAccruedInterests:
+def aave_v3_calculate_accrued_interests(df: DataFrame, start_time: datetime, end_time: datetime, amount: Decimal, token: str = "") -> AaveAccruedInterests:
     """
     Calculate total interest accrued for a given time period. The dataframe must be indexed by timestamp.
     Returns a tuple with actual start time, actual end time, and total interest accrued for a deposit, variable borrow debt, and stable borrow debt.
@@ -161,17 +161,17 @@ def aave_v3_calculate_accrued_interests(df: DataFrame, start_time: datetime, end
     df = aave_v3_filter_by_date_range(df, start_time, end_time, token)
 
     if len(df) <= 0:
-        raise ValueError('No data found in date range %s - %s' % (start_time, end_time))
+        raise ValueError("No data found in date range %s - %s" % (start_time, end_time))
 
     # Loan starts on first row of the DataFrame
     actual_start_time = df.index[0]
-    start_deposit_index = Decimal(df['liquidity_index'][0])
-    start_variable_borrow_index = Decimal(df['variable_borrow_index'][0])
+    start_deposit_index = Decimal(df["liquidity_index"][0])
+    start_variable_borrow_index = Decimal(df["variable_borrow_index"][0])
 
     # Loan ends on last row of the DataFrame
     actual_end_time = df.index[-1]
-    end_deposit_index = Decimal(df['liquidity_index'][-1])
-    end_variable_borrow_index = Decimal(df['variable_borrow_index'][-1])
+    end_deposit_index = Decimal(df["liquidity_index"][-1])
+    end_variable_borrow_index = Decimal(df["variable_borrow_index"][-1])
 
     # Calculate interest for deposit.
     # Based on balanceOf() https://github.com/aave/aave-v3-core/blob/v1.16.2/contracts/protocol/tokenization/AToken.sol#L131
@@ -185,7 +185,7 @@ def aave_v3_calculate_accrued_interests(df: DataFrame, start_time: datetime, end
 
     # Calculate interest for stable borrow. The applied interest rate is the stable borrow rate at the end of the loan.
     # Based on balanceOf() https://github.com/aave/aave-v3-core/blob/v1.16.2/contracts/protocol/tokenization/StableDebtToken.sol#L102
-    stable_borrow_interest = amount * _calculate_compound_interest_multiplier(Decimal(df['stable_borrow_rate'][-1]) / RAY, (actual_end_time - actual_start_time).total_seconds()) - amount
+    stable_borrow_interest = amount * _calculate_compound_interest_multiplier(Decimal(df["stable_borrow_rate"][-1]) / RAY, (actual_end_time - actual_start_time).total_seconds()) - amount
 
     return AaveAccruedInterests(
         actual_start_time=actual_start_time,
@@ -198,7 +198,8 @@ def aave_v3_calculate_accrued_interests(df: DataFrame, start_time: datetime, end
 
 # Simplified shortcut functions for calculating accrued interest
 
-def aave_v3_calculate_accrued_deposit_interest(df: DataFrame, start_time: datetime, end_time: datetime, amount: Decimal, token: str = '') -> AaveAccruedInterest:
+
+def aave_v3_calculate_accrued_deposit_interest(df: DataFrame, start_time: datetime, end_time: datetime, amount: Decimal, token: str = "") -> AaveAccruedInterest:
     result = aave_v3_calculate_accrued_interests(df, start_time, end_time, amount, token)
     return AaveAccruedInterest(
         actual_start_time=result.actual_start_time,
@@ -207,7 +208,7 @@ def aave_v3_calculate_accrued_deposit_interest(df: DataFrame, start_time: dateti
     )
 
 
-def aave_v3_calculate_accrued_variable_borrow_interest(df: DataFrame, start_time: datetime, end_time: datetime, amount: Decimal, token: str = '') -> AaveAccruedInterest:
+def aave_v3_calculate_accrued_variable_borrow_interest(df: DataFrame, start_time: datetime, end_time: datetime, amount: Decimal, token: str = "") -> AaveAccruedInterest:
     result = aave_v3_calculate_accrued_interests(df, start_time, end_time, amount, token)
     return AaveAccruedInterest(
         actual_start_time=result.actual_start_time,
@@ -216,7 +217,7 @@ def aave_v3_calculate_accrued_variable_borrow_interest(df: DataFrame, start_time
     )
 
 
-def aave_v3_calculate_accrued_stable_borrow_interest(df: DataFrame, start_time: datetime, end_time: datetime, amount: Decimal, token: str = '') -> AaveAccruedInterest:
+def aave_v3_calculate_accrued_stable_borrow_interest(df: DataFrame, start_time: datetime, end_time: datetime, amount: Decimal, token: str = "") -> AaveAccruedInterest:
     result = aave_v3_calculate_accrued_interests(df, start_time, end_time, amount, token)
     return AaveAccruedInterest(
         actual_start_time=result.actual_start_time,
