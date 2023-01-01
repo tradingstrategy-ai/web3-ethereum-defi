@@ -9,8 +9,8 @@ from eth_defi.token import fetch_erc20_details
 
 from web3 import Web3
 
-
 from typing import Optional
+
 
 class UniswapV3PriceHelper:
     def __init__(self, uniswap_v3: UniswapV3Deployment):
@@ -58,7 +58,9 @@ class UniswapV3PriceHelper:
         assert slippage >= 0
 
         encoded_path = encode_path(path, fees)
-        amount_out = self.deployment.quoter.functions.quoteExactInput(encoded_path, amount_in).call()
+        amount_out = self.deployment.quoter.functions.quoteExactInput(
+            encoded_path, amount_in
+        ).call()
 
         return int(amount_out * 10_000 // (10_000 + slippage))
 
@@ -82,14 +84,18 @@ class UniswapV3PriceHelper:
         assert slippage >= 0
 
         encoded_path = encode_path(path, fees, exact_output=True)
-        amount_in = self.deployment.quoter.functions.quoteExactOutput(encoded_path, amount_out).call()
+        amount_in = self.deployment.quoter.functions.quoteExactOutput(
+            encoded_path, amount_out
+        ).call()
 
         return int(amount_in * (10_000 + slippage) // 10_000)
+
 
 def get_pool_fee(web3: Web3, pool_address: HexAddress):
     """Helper function to get the swap fee of a Uniswap V3 like pool"""
     pool_details = fetch_pool_details(web3, pool_address)
     return pool_details.raw_fee
+
 
 def get_path_and_fees_quote_first(
     web3: Web3,
@@ -99,7 +105,7 @@ def get_path_and_fees_quote_first(
     intermediate_token: Optional[HexAddress] = None,
     base_token_fee: Optional[int] = None,
     quote_token_fee: Optional[int] = None,
-    intermediate_token_fee: Optional[int] = None
+    intermediate_token_fee: Optional[int] = None,
 ):
     """Helper function"""
     # If trading fees are not provided, we must fetch since
@@ -110,7 +116,7 @@ def get_path_and_fees_quote_first(
         quote_token_fee = get_pool_fee(web3, quote_token)
     if intermediate_token is not None and intermediate_token_fee is None:
         intermediate_token_fee = get_pool_fee(web3, intermediate_token)
-    
+
     # get path and fees lists
     if intermediate_token:
         path = [quote_token, intermediate_token, base_token]
@@ -121,6 +127,7 @@ def get_path_and_fees_quote_first(
 
     return path, fees
 
+
 def get_path_and_fees_base_first(
     web3: Web3,
     base_token: HexAddress,
@@ -129,7 +136,7 @@ def get_path_and_fees_base_first(
     intermediate_token: Optional[HexAddress] = None,
     base_token_fee: Optional[int] = None,
     quote_token_fee: Optional[int] = None,
-    intermediate_token_fee: Optional[int] = None
+    intermediate_token_fee: Optional[int] = None,
 ):
     """Helper function"""
     # If trading fees are not provided, we must fetch since
@@ -140,7 +147,7 @@ def get_path_and_fees_base_first(
         quote_token_fee = get_pool_fee(web3, quote_token)
     if intermediate_token is not None and intermediate_token_fee is None:
         intermediate_token_fee = get_pool_fee(web3, intermediate_token)
-    
+
     # get path and fees lists
     if intermediate_token:
         path = [base_token, intermediate_token, quote_token]
@@ -151,6 +158,7 @@ def get_path_and_fees_base_first(
 
     return path, fees
 
+
 def estimate_buy_quantity(
     uniswap: UniswapV3Deployment,
     base_token: HexAddress,
@@ -158,16 +166,16 @@ def estimate_buy_quantity(
     amount_in: int,
     *,
     web3: Optional[Web3] = None,
-    base_token_fee: Optional[int]=None,
-    quote_token_fee: Optional[int]=None,
-    slippage: Optional[float]=0,
+    base_token_fee: Optional[int] = None,
+    quote_token_fee: Optional[int] = None,
+    slippage: Optional[float] = 0,
     intermediate_token: Optional[HexAddress] = None,
-    intermediate_token_fee: Optional[int]=None,
+    intermediate_token_fee: Optional[int] = None,
 ) -> int:
     """Estimate how many tokens we are going to receive when doing a buy.
 
     Trading fees do not have to be provided. If not provided, the fees will be
-    fetched onchain. 
+    fetched onchain.
 
     Good for doing a price impact calculations.
 
@@ -184,17 +192,18 @@ def estimate_buy_quantity(
     """
 
     path, fees = get_path_and_fees_quote_first(
-            uniswap.web3,
-            base_token,
-            quote_token,
-            intermediate_token=intermediate_token,
-            base_token_fee=base_token_fee,
-            quote_token_fee=quote_token_fee,
-            intermediate_token_fee=intermediate_token_fee
-        )
-        
+        uniswap.web3,
+        base_token,
+        quote_token,
+        intermediate_token=intermediate_token,
+        base_token_fee=base_token_fee,
+        quote_token_fee=quote_token_fee,
+        intermediate_token_fee=intermediate_token_fee,
+    )
+
     price_helper = UniswapV3PriceHelper(uniswap)
     return price_helper.get_amount_out(amount_in, path, fees, slippage=slippage)
+
 
 def estimate_buy_price(
     uniswap: UniswapV3Deployment,
@@ -202,19 +211,19 @@ def estimate_buy_price(
     quote_token: HexAddress,
     amount_out: int,
     *,
-    base_token_fee: Optional[int]=None,
-    quote_token_fee: Optional[int]=None,
-    slippage: Optional[float]=0,
+    base_token_fee: Optional[int] = None,
+    quote_token_fee: Optional[int] = None,
+    slippage: Optional[float] = 0,
     intermediate_token: Optional[HexAddress] = None,
-    intermediate_token_fee: Optional[int]=None,
-)-> int:
+    intermediate_token_fee: Optional[int] = None,
+) -> int:
     """Estimate how much we are going to need to pay when doing buy.
 
     Calls the on-chain contract to get the current liquidity and estimates the
     the price based on it.
 
     Trading fees do not have to be provided. If not provided, the fees will be
-    fetched onchain. 
+    fetched onchain.
 
     :param uniswap: Uniswap v3 deployment
     :param base_token: Base token of the trading pair
@@ -226,17 +235,18 @@ def estimate_buy_price(
     """
 
     path, fees = get_path_and_fees_quote_first(
-            uniswap.web3,
-            base_token,
-            quote_token,
-            intermediate_token=intermediate_token,
-            base_token_fee=base_token_fee,
-            quote_token_fee=quote_token_fee,
-            intermediate_token_fee=intermediate_token_fee
-        )
-        
+        uniswap.web3,
+        base_token,
+        quote_token,
+        intermediate_token=intermediate_token,
+        base_token_fee=base_token_fee,
+        quote_token_fee=quote_token_fee,
+        intermediate_token_fee=intermediate_token_fee,
+    )
+
     price_helper = UniswapV3PriceHelper(uniswap)
     return price_helper.get_amount_in(amount_out, path, fees, slippage=slippage)
+
 
 def estimate_sell_price(
     uniswap: UniswapV3Deployment,
@@ -244,11 +254,11 @@ def estimate_sell_price(
     quote_token: HexAddress,
     amount_in: int,
     *,
-    base_token_fee: Optional[int]=None,
-    quote_token_fee: Optional[int]=None,
-    slippage: Optional[float]=0,
+    base_token_fee: Optional[int] = None,
+    quote_token_fee: Optional[int] = None,
+    slippage: Optional[float] = 0,
     intermediate_token: Optional[HexAddress] = None,
-    intermediate_token_fee: Optional[int]=None,
+    intermediate_token_fee: Optional[int] = None,
 ) -> int:
     """Estimate how much we are going to get paid when doing a sell.
 
@@ -256,7 +266,7 @@ def estimate_sell_price(
     the price based on it.
 
     Trading fees do not have to be provided. If not provided, the fees will be
-    fetched onchain. 
+    fetched onchain.
 
     TODO example for uni v3, see uni v2 equivalent
 
@@ -268,19 +278,20 @@ def estimate_sell_price(
     :param slippage: Slippage express in bps
     :return: Expected base token to receive
     """
-    
+
     path, fees = get_path_and_fees_base_first(
-                uniswap.web3,
-                base_token,
-                quote_token,
-                intermediate_token=intermediate_token,
-                base_token_fee=base_token_fee,
-                quote_token_fee=quote_token_fee,
-                intermediate_token_fee=intermediate_token_fee
-            )
-        
+        uniswap.web3,
+        base_token,
+        quote_token,
+        intermediate_token=intermediate_token,
+        base_token_fee=base_token_fee,
+        quote_token_fee=quote_token_fee,
+        intermediate_token_fee=intermediate_token_fee,
+    )
+
     price_helper = UniswapV3PriceHelper(uniswap)
     return price_helper.get_amount_out(amount_in, path, fees, slippage=slippage)
+
 
 def estimate_buy_price_decimals(
     uniswap: UniswapV3Deployment,
@@ -288,12 +299,12 @@ def estimate_buy_price_decimals(
     quote_token: HexAddress,
     amount_out: int,
     *,
-    base_token_fee: Optional[int]=None,
-    quote_token_fee: Optional[int]=None,
-    slippage: Optional[float]=0,
+    base_token_fee: Optional[int] = None,
+    quote_token_fee: Optional[int] = None,
+    slippage: Optional[float] = 0,
     intermediate_token: Optional[HexAddress] = None,
-    intermediate_token_fee: Optional[int]=None,
-)-> Decimal:
+    intermediate_token_fee: Optional[int] = None,
+) -> Decimal:
     """Estimate how much we are going to need to pay when doing buy.
 
     Much like :py:func:`estimate_buy_price` with the differences of
@@ -341,17 +352,18 @@ def estimate_buy_price_decimals(
     price_helper = UniswapV3PriceHelper(uniswap)
 
     path, fees = get_path_and_fees_quote_first(
-                uniswap.web3,
-                base_token,
-                quote_token,
-                intermediate_token=intermediate_token,
-                base_token_fee=base_token_fee,
-                quote_token_fee=quote_token_fee,
-                intermediate_token_fee=intermediate_token_fee
-            )
+        uniswap.web3,
+        base_token,
+        quote_token,
+        intermediate_token=intermediate_token,
+        base_token_fee=base_token_fee,
+        quote_token_fee=quote_token_fee,
+        intermediate_token_fee=intermediate_token_fee,
+    )
 
     in_raw = price_helper.get_amount_in(quantity_raw, path, fees, slippage=slippage)
     return quote.convert_to_decimals(in_raw)
+
 
 def estimate_sell_price_decimals(
     uniswap: UniswapV3Deployment,
@@ -359,11 +371,11 @@ def estimate_sell_price_decimals(
     quote_token: HexAddress,
     amount_in: int,
     *,
-    base_token_fee: Optional[int]=None,
-    quote_token_fee: Optional[int]=None,
-    slippage: Optional[float]=0,
+    base_token_fee: Optional[int] = None,
+    quote_token_fee: Optional[int] = None,
+    slippage: Optional[float] = 0,
     intermediate_token: Optional[HexAddress] = None,
-    intermediate_token_fee: Optional[int]=None,
+    intermediate_token_fee: Optional[int] = None,
 ) -> Decimal:
     """Estimate how much we are going to get paid when doing a sell.
 
@@ -401,17 +413,18 @@ def estimate_sell_price_decimals(
     price_helper = UniswapV3PriceHelper(uniswap)
 
     path, fees = get_path_and_fees_base_first(
-                uniswap.web3,
-                base_token,
-                quote_token,
-                intermediate_token=intermediate_token,
-                base_token_fee=base_token_fee,
-                quote_token_fee=quote_token_fee,
-                intermediate_token_fee=intermediate_token_fee
-            )
+        uniswap.web3,
+        base_token,
+        quote_token,
+        intermediate_token=intermediate_token,
+        base_token_fee=base_token_fee,
+        quote_token_fee=quote_token_fee,
+        intermediate_token_fee=intermediate_token_fee,
+    )
 
     out_raw = price_helper.get_amount_out(quantity_raw, path, fees, slippage=slippage)
     return quote.convert_to_decimals(out_raw)
+
 
 def estimate_buy_received_amount_raw(
     uniswap: UniswapV3Deployment,
@@ -419,11 +432,11 @@ def estimate_buy_received_amount_raw(
     quote_token: HexAddress,
     amount_out_raw: Decimal,
     *,
-    base_token_fee: Optional[int]=None,
-    quote_token_fee: Optional[int]=None,
-    slippage: Optional[float]=0,
+    base_token_fee: Optional[int] = None,
+    quote_token_fee: Optional[int] = None,
+    slippage: Optional[float] = 0,
     intermediate_token: Optional[HexAddress] = None,
-    intermediate_token_fee: Optional[int]=None,
+    intermediate_token_fee: Optional[int] = None,
 ) -> int:
     """Estimate how much we receive for a certain cash amount.
 
@@ -470,17 +483,18 @@ def estimate_buy_received_amount_raw(
     price_helper = UniswapV3PriceHelper(uniswap)
 
     path, fees = get_path_and_fees_quote_first(
-                uniswap.web3,
-                base_token,
-                quote_token,
-                intermediate_token=intermediate_token,
-                base_token_fee=base_token_fee,
-                quote_token_fee=quote_token_fee,
-                intermediate_token_fee=intermediate_token_fee
-            )
+        uniswap.web3,
+        base_token,
+        quote_token,
+        intermediate_token=intermediate_token,
+        base_token_fee=base_token_fee,
+        quote_token_fee=quote_token_fee,
+        intermediate_token_fee=intermediate_token_fee,
+    )
 
     # We will receive equal number of amounts as there are items in the path
     return price_helper.get_amount_out(amount_out_raw, path, fees, slippage=slippage)
+
 
 def estimate_sell_received_amount_raw(
     uniswap: UniswapV3Deployment,
@@ -488,11 +502,11 @@ def estimate_sell_received_amount_raw(
     quote_token: HexAddress,
     amount_in_raw: Decimal,
     *,
-    base_token_fee: Optional[int]=None,
-    quote_token_fee: Optional[int]=None,
-    slippage: Optional[float]=0,
+    base_token_fee: Optional[int] = None,
+    quote_token_fee: Optional[int] = None,
+    slippage: Optional[float] = 0,
     intermediate_token: Optional[HexAddress] = None,
-    intermediate_token_fee: Optional[int]=None,
+    intermediate_token_fee: Optional[int] = None,
 ) -> int:
     """Estimate how much cash we receive for a certain quantity of tokens sold.
 
@@ -537,14 +551,14 @@ def estimate_sell_received_amount_raw(
     price_helper = UniswapV3PriceHelper(uniswap)
 
     path, fees = get_path_and_fees_base_first(
-                uniswap.web3,
-                base_token,
-                quote_token,
-                intermediate_token=intermediate_token,
-                base_token_fee=base_token_fee,
-                quote_token_fee=quote_token_fee,
-                intermediate_token_fee=intermediate_token_fee
-            )
+        uniswap.web3,
+        base_token,
+        quote_token,
+        intermediate_token=intermediate_token,
+        base_token_fee=base_token_fee,
+        quote_token_fee=quote_token_fee,
+        intermediate_token_fee=intermediate_token_fee,
+    )
 
     # We will receive equal number of amounts as there are items in the path
     return price_helper.get_amount_out(amount_in_raw, path, fees, slippage=slippage)
