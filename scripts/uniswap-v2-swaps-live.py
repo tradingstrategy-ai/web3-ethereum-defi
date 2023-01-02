@@ -46,40 +46,22 @@ from typing import Dict
 import coloredlogs
 import requests
 
-from tqdm import tqdm
-
 from web3 import HTTPProvider, Web3
 
 from eth_defi.abi import get_contract
 from eth_defi.chain import install_chain_middleware
 from eth_defi.event_reader.block_time import measure_block_time
-from eth_defi.event_reader.conversion import convert_uint256_string_to_address, convert_uint256_bytes_to_address, \
+from eth_defi.event_reader.conversion import \
     decode_data, convert_int256_bytes_to_int, convert_jsonrpc_value_to_int
 from eth_defi.event_reader.csv_block_data_store import CSVDatasetBlockDataStore
 from eth_defi.event_reader.fast_json_rpc import patch_web3
 from eth_defi.event_reader.logresult import LogContext
 from eth_defi.event_reader.reader import read_events, LogResult, prepare_filter
-from eth_defi.event_reader.reorganisation_monitor import ReorganisationMonitor, ChainReorganisationDetected, \
+from eth_defi.event_reader.reorganisation_monitor import ChainReorganisationDetected, \
     JSONRPCReorganisationMonitor
 from eth_defi.token import fetch_erc20_details, TokenDetails
-
-
-#: List of output columns to pairs.csv
 from eth_defi.uniswap_v2.pair import PairDetails, fetch_pair_details
 
-PAIR_FIELD_NAMES = [
-    'block_number',
-    'timestamp',
-    'tx_hash',
-    'log_index',
-    'factory_contract_address',
-    'pair_contract_address',
-    'pair_count_index',
-    'token0_address',
-    'token0_symbol',
-    'token1_address',
-    'token1_symbol',
-]
 
 #: List of output columns to swaps.csv
 SWAP_FIELD_NAMES = [
