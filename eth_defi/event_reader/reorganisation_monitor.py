@@ -64,11 +64,31 @@ class BlockNotAvailable(Exception):
 class ReorganisationMonitor(ABC):
     """Watch blockchain for reorgs.
 
-    - Maintain the state of the last read block
+    Most EMV blockchains have several minor chain organisations per day,
+    when your node switched from one chain tip to another, due to
+    block propagation issues. Any application reading blockchain
+    event data must be able to detect such reorganisations
+    and purge incorrect data from their data feeds.
 
-    - Check block headers for chain reorganisations
+    - Abstract base class for different ways
+      to support chain reorganisations
 
-    - Also manages the service for block timestamp lookups
+    - Maintain the state where our blockchain read cursor is,
+      using :py:meth:`get_last_block_read`
+
+    - Ingest and maintain the state of the last read blocks
+      using :py:meth:`update_chain`
+
+    - Check block headers for chain reorganisations when
+      reading events from the chain using :py:meth:`check_block_reorg`
+
+    - Manages the service for block timestamp lookups,
+      :py:meth:`get_block_timestamp`
+
+    - Save and load block header state to disk cache,
+      because APIs are slow, using :py:meth:`load_pandas`
+      and :py:meth:`to_pandas`
+
     """
 
     #: Internal buffer of our block data
