@@ -1,3 +1,10 @@
+# Current
+
+- Added `ReorganisationMonitor` and `ChainReorganisationDetected` to deal with unstable chain tips when
+  doing event ignestion
+- Added `uniswap-v2-pairs-swap-live.py` example that shows real-time
+  swaps happening on QuickSwap (Polygon) in a terminal
+
 # 0.12
 
 - Added `generate_fake_uniswap_v2_data()` to generate synthetic Uniswap v2 trade feeds
