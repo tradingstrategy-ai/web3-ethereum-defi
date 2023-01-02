@@ -20,6 +20,7 @@ from web3.contract import ContractEvent
 
 from eth_defi.event_reader.filter import Filter
 from eth_defi.event_reader.logresult import LogContext, LogResult
+from eth_defi.event_reader.reorganisation_monitor import ReorganisationMonitor
 from eth_defi.event_reader.web3worker import get_worker_web3
 from eth_defi.event_reader.conversion import convert_jsonrpc_value_to_int
 
@@ -108,6 +109,7 @@ def extract_events(
     filter: Filter,
     context: Optional[LogContext] = None,
     extract_timestamps: Optional[Callable] = extract_timestamps_json_rpc,
+    reorg_mon: Optional[ReorganisationMonitor] = None,
 ) -> Iterable[LogResult]:
     """Perform eth_getLogs call over a block range.
 
@@ -126,9 +128,15 @@ def extract_events(
     :param context:
         Passed to the all generated logs
 
+    :param reorg_mon:
+        If passed, use this instance to monitor and raise chain reorganisation exceptions.
+
     :return:
         Iterable for the raw event data
     """
+
+    if reorg_mon:
+        assert extract_timestamps is None, "You cannot pass both reorg_mon and extract_timestamps"
 
     topics = list(filter.topics.keys())
 
@@ -155,6 +163,8 @@ def extract_events(
 
         if extract_timestamps is not None:
             timestamps = extract_timestamps(web3, start_block, end_block)
+        else:
+            timestamps = None
 
         for log in logs:
             block_hash = log["blockHash"]
@@ -163,10 +173,17 @@ def extract_events(
             event_signature = log["topics"][0]
             log["context"] = context
             log["event"] = filter.topics[event_signature]
-            try:
-                log["timestamp"] = timestamps[block_hash] if extract_timestamps else None
-            except KeyError as e:
-                raise TimestampNotFound(f"EVM event reader cannot match timestamp. Timestamp missing for block number {block_number:,}, hash {block_hash}, our timestamp table has {len(timestamps)} blocks") from e
+
+            if reorg_mon:
+                # Raises exception if chain tip has changed
+                timestamp = reorg_mon.check_block_reorg(block_number, block_hash)
+                assert timestamp is not None, f"Timestamp missing for block number {block_number}, hash {block_hash}"
+                log["timestamp"] = timestamp
+            else:
+                try:
+                    log["timestamp"] = timestamps[block_hash] if extract_timestamps else None
+                except KeyError as e:
+                    raise TimestampNotFound(f"EVM event reader cannot match timestamp. Timestamp missing for block number {block_number:,}, hash {block_hash}, our timestamp table has {len(timestamps)} blocks") from e
             yield log
 
 
@@ -221,6 +238,7 @@ def read_events(
     context: Optional[LogContext] = None,
     extract_timestamps: Optional[Callable] = extract_timestamps_json_rpc,
     filter: Optional[Filter] = None,
+    reorg_mon: Optional[ReorganisationMonitor] = None,
 ) -> Iterable[LogResult]:
     """Reads multiple events from the blockchain.
 
@@ -308,6 +326,10 @@ def read_events(
         Pass a custom event filter for the readers
 
         Pass this or events.
+
+    :param reorg_mon:
+        If passed, use this instance to monitor and raise chain reorganisation exceptions.
+
     """
 
     assert type(start_block) == int
@@ -336,7 +358,15 @@ def read_events(
         logger.debug("Extracting eth_getLogs from %d - %d", block_num, last_of_chunk)
 
         # Stream the events
-        for event in extract_events(web3, block_num, last_of_chunk, filter, context, extract_timestamps):
+        for event in extract_events(
+            web3,
+            block_num,
+            last_of_chunk,
+            filter,
+            context,
+            extract_timestamps,
+            reorg_mon,
+        ):
             last_timestamp = event.get("timestamp")
             total_events += 1
             yield event

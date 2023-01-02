@@ -105,7 +105,16 @@ Solidity event and log reader
    eth_defi.event_reader.logresult
    eth_defi.event_reader.conversion
    eth_defi.event_reader.fast_json_rpc
-
+   eth_defi.event_reader.block_header
+   eth_defi.event_reader.block_time
+   eth_defi.event_reader.block_data_store
+   eth_defi.event_reader.reorganisation_monitor
+   eth_defi.event_reader.parquet_block_data_store
+   eth_defi.event_reader.csv_block_data_store
+   eth_defi.event_reader.json_state
+   eth_defi.event_reader.web3factory
+   eth_defi.event_reader.web3worker
+   eth_defi.event_reader.state
 
 Indices and tables
 ------------------
