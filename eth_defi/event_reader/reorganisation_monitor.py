@@ -399,8 +399,8 @@ class MockChainAndReorganisationMonitor(ReorganisationMonitor):
     like a real blockchain.
     """
 
-    def __init__(self, block_number: int = 1, block_duration_seconds=1):
-        super().__init__()
+    def __init__(self, block_number: int = 1, block_duration_seconds=1, **kwargs):
+        super().__init__(**kwargs)
 
         #: Next available block number
         self.simulated_block_number = block_number

@@ -30,7 +30,7 @@ def test_synthetic_block_mon_find_reorgs_100_blocks():
 def test_perform_chain_reorg():
     """Simulate a chain reorganisation."""
 
-    mock_chain = MockChainAndReorganisationMonitor()
+    mock_chain = MockChainAndReorganisationMonitor(check_depth=100)
 
     mock_chain.produce_blocks(100)
     assert mock_chain.get_last_block_live() == 100
