@@ -359,12 +359,13 @@ def read_events(
 
         # Stream the events
         for event in extract_events(
-                web3,
-                block_num,
-                last_of_chunk, filter,
-                context,
-                extract_timestamps,
-                reorg_mon,
+            web3,
+            block_num,
+            last_of_chunk,
+            filter,
+            context,
+            extract_timestamps,
+            reorg_mon,
         ):
             last_timestamp = event.get("timestamp")
             total_events += 1

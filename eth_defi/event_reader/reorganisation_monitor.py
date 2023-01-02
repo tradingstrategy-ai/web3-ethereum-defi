@@ -11,7 +11,6 @@ from typing import Dict, Iterable, Tuple, Optional, Type, Callable
 import logging
 
 import pandas as pd
-from eth_typing import HexStr
 from hexbytes import HexBytes
 from tqdm import tqdm
 from web3 import Web3
@@ -108,11 +107,7 @@ class ReorganisationMonitor(ABC):
         """Get block header data for a specific block number from our memory buffer."""
         return self.block_map.get(block_number)
 
-    def load_initial_block_headers(self,
-                                   block_count: Optional[int] = None,
-                                   start_block: Optional[int] = None,
-                                   tqdm: Optional[Type[tqdm]] = None,
-                                   save_callable: Optional[Callable] = None) -> Tuple[int, int]:
+    def load_initial_block_headers(self, block_count: Optional[int] = None, start_block: Optional[int] = None, tqdm: Optional[Type[tqdm]] = None, save_callable: Optional[Callable] = None) -> Tuple[int, int]:
         """Get the initial block buffer filled up.
 
         You can call this during the application start up,
@@ -353,7 +348,11 @@ class ReorganisationMonitor(ABC):
 
 
 class JSONRPCReorganisationMonitor(ReorganisationMonitor):
-    """Watch blockchain for reorgs using eth_getBlockByNumber JSON-RPC API."""
+    """Watch blockchain for reorgs using eth_getBlockByNumber JSON-RPC API.
+
+    - Use expensive eth_getBlockByNumber call to download
+      block hash and timestamp from Ethereum compatible node
+    """
 
     def __init__(self, web3: Web3, **kwargs):
         super().__init__(**kwargs)
@@ -401,8 +400,10 @@ class JSONRPCReorganisationMonitor(ReorganisationMonitor):
 class MockChainAndReorganisationMonitor(ReorganisationMonitor):
     """A dummy reorganisation monitor for unit testing.
 
-    Simulate block production and chain reorgs by minor forks,
-    like a real blockchain.
+    - Simulate block production and chain reorgs by minor forks,
+      like a real blockchain.
+
+    - We get the explicit control to introduce simulated forks
     """
 
     def __init__(self, block_number: int = 1, block_duration_seconds=1, **kwargs):
@@ -445,4 +446,3 @@ class MockChainAndReorganisationMonitor(ReorganisationMonitor):
     def load(self, block_map: dict):
         self.simulated_blocks = block_map
         self.simulated_block_number = max(self.simulated_blocks.keys()) + 1
-

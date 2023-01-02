@@ -87,4 +87,3 @@ def test_incremental():
     assert reorg_resolution.reorg_detected
     assert reorg_resolution.latest_block_with_good_data == 102
     assert reorg_resolution.last_live_block == 104
-
