@@ -11,6 +11,8 @@ from typing import Dict, Iterable, Tuple, Optional, Type, Callable
 import logging
 
 import pandas as pd
+from eth_typing import HexStr
+from hexbytes import HexBytes
 from tqdm import tqdm
 from web3 import Web3
 
@@ -353,8 +355,8 @@ class ReorganisationMonitor(ABC):
 class JSONRPCReorganisationMonitor(ReorganisationMonitor):
     """Watch blockchain for reorgs using eth_getBlockByNumber JSON-RPC API."""
 
-    def __init__(self, web3: Web3):
-        super().__init__()
+    def __init__(self, web3: Web3, **kwargs):
+        super().__init__(**kwargs)
         self.web3 = web3
 
     def get_last_block_live(self):
@@ -377,7 +379,11 @@ class JSONRPCReorganisationMonitor(ReorganisationMonitor):
                 break
 
             data_block_number = raw_result["number"]
+
             block_hash = raw_result["hash"]
+            if isinstance(block_hash, HexBytes):
+                # Web3.py middleware madness
+                block_hash = block_hash.hex()
 
             if type(data_block_number) == str:
                 # Real node

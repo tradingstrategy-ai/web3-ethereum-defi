@@ -11,6 +11,8 @@ from typing import Dict, Optional, TypeAlias
 #:
 #: TODO: We might need float because high throughput chains like
 #: Solana have subsecond timestamps
+from eth_typing import HexStr
+
 Timestamp: TypeAlias = int
 
 
@@ -40,7 +42,7 @@ class BlockHeader:
 
     def __post_init__(self):
         assert type(self.block_number) == int
-        assert type(self.block_hash) == str
+        assert type(self.block_hash) == str, f"Got {type(self.block_hash)}"
         assert type(self.timestamp) == int
         assert self.block_hash.startswith("0x")
 
