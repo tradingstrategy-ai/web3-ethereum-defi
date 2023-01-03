@@ -5,6 +5,8 @@
 - Added `uniswap-v2-pairs-swap-live.py` example that shows real-time
   swaps happening on QuickSwap (Polygon) in a terminal
 - Add `has_graphql_support()` to detect GraphQL interface on GoEthereum
+- Add `GraphQLReorganisationMonitor` for very fast downloading
+  of block headers and timestamps using GoEthereum /graphql API 
 
 # 0.12
 
