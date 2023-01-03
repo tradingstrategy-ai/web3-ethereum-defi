@@ -5,7 +5,10 @@ In this module, we have helpers.
 """
 
 #: These chains need POA middleware
-from web3 import Web3
+from urllib.parse import urljoin
+
+import requests
+from web3 import Web3, HTTPProvider
 from web3.middleware import geth_poa_middleware
 
 from eth_defi.middleware import http_retry_request_with_sleep_middleware
@@ -33,3 +36,28 @@ def install_retry_middleware(web3: Web3):
     gracefully do exponential backoff retries.
     """
     web3.middleware_onion.inject(http_retry_request_with_sleep_middleware, layer=0)
+
+
+def has_graphql_support(provider: HTTPProvider) -> bool:
+    """Check if a node has GoEthereum GraphQL API turned on.
+
+
+    You can check if GraphQL has been turned on for your node with:
+
+    .. code-block:: shell
+
+        curl -X POST \
+            https://mynode.example.com/graphql \
+            -H "Content-Type: application/json" \
+            --data '{ "query": "query { block { number } }" }'
+
+    A valid response looks like::
+
+        {"data":{"block":{"number":16328259}}}
+    """
+
+    base_url = provider.endpoint_uri
+    graphql_url = urljoin(base_url, "graphql")
+    resp = requests.get(graphql_url)
+    return resp.status_code == 400
+
