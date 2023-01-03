@@ -90,20 +90,13 @@ class UniswapV3PriceHelper:
 
         return int(amount_in * (10_000 + slippage) // 10_000)
 
-
-def get_pool_fee(web3: Web3, pool_address: HexAddress):
-    """Helper function to get the swap fee of a Uniswap V3 like pool"""
-    pool_details = fetch_pool_details(web3, pool_address)
-    return pool_details.raw_fee
-
-
 def get_path_and_fees_quote_first(
     web3: Web3,
     base_token: HexAddress,
     quote_token: HexAddress,
     *,
     intermediate_token: Optional[HexAddress] = None,
-    base_token_fee: Optional[int] = None,
+    : Optional[int] = None,
     quote_token_fee: Optional[int] = None,
     intermediate_token_fee: Optional[int] = None,
 ):
@@ -158,24 +151,18 @@ def get_path_and_fees_base_first(
 
     return path, fees
 
+def validate_fee_list_length(path: list[HexAddress], fees: list):
+    assert len(fees) == len(path) - 1
 
 def estimate_buy_quantity(
     uniswap: UniswapV3Deployment,
-    base_token: HexAddress,
-    quote_token: HexAddress,
+    path: list[HexAddress],
+    fees: list,
     amount_in: int,
     *,
-    web3: Optional[Web3] = None,
-    base_token_fee: Optional[int] = None,
-    quote_token_fee: Optional[int] = None,
     slippage: Optional[float] = 0,
-    intermediate_token: Optional[HexAddress] = None,
-    intermediate_token_fee: Optional[int] = None,
 ) -> int:
     """Estimate how many tokens we are going to receive when doing a buy.
-
-    Trading fees do not have to be provided. If not provided, the fees will be
-    fetched onchain.
 
     Good for doing a price impact calculations.
 
@@ -184,8 +171,6 @@ def estimate_buy_quantity(
 
     :param amount_in: How much of the quote token we have to use
     :param uniswap: Uniswap v3 deployment
-    :param base_token: Base token of the trading pair
-    :param quote_token: Quote token of the trading pair
     :param fee: Trading fee express in bps, default = 30 bps (0.3%)
     :param slippage: Slippage express in bps
     :return: Expected base token to receive
