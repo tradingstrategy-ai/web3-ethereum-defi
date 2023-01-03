@@ -385,7 +385,7 @@ class JSONRPCReorganisationMonitor(ReorganisationMonitor):
 
     def fetch_block_data(self, start_block, end_block) -> Iterable[BlockHeader]:
         total = end_block - start_block
-        logger.info(f"Fetching block headers and timestamps for logs {start_block:,} - {end_block:,}, total {total:,} blocks")
+        logger.debug(f"Fetching block headers and timestamps for logs {start_block:,} - {end_block:,}, total {total:,} blocks")
         web3 = self.web3
 
         # Collect block timestamps from the headers
@@ -484,7 +484,7 @@ class GraphQLReorganisationMonitor(ReorganisationMonitor):
 
     def fetch_block_data(self, start_block, end_block) -> Iterable[BlockHeader]:
         total = end_block - start_block
-        logger.info(f"Fetching block headers and timestamps for logs {start_block:,} - {end_block:,}, total {total:,} blocks")
+        logger.debug(f"Fetching block headers and timestamps for logs {start_block:,} - {end_block:,}, total {total:,} blocks")
         from gql import gql
         query = gql(
             f"""
