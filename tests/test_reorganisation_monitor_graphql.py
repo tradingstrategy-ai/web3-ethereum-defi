@@ -7,10 +7,11 @@ from web3 import HTTPProvider
 from eth_defi.chain import has_graphql_support
 from eth_defi.event_reader.reorganisation_monitor import GraphQLReorganisationMonitor
 
-pytestmark =  pytest.mark.skipif(
+pytestmark = pytest.mark.skipif(
     os.environ.get("JSON_RPC_POLYGON_PRIVATE") is None,
     reason="Set JSON_RPC_POLYGON_PRIVATE environment variable to a privately configured Polygon node with GraphQL turned on",
 )
+
 
 def test_graphql_last_block():
     """Get last block num using GoEthereum GraphQL API."""

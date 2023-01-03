@@ -429,9 +429,7 @@ class GraphQLReorganisationMonitor(ReorganisationMonitor):
 
     """
 
-    def __init__(self,
-                 graphql_url: Optional[str] = None,
-                 provider: Optional[HTTPProvider] = None, **kwargs):
+    def __init__(self, graphql_url: Optional[str] = None, provider: Optional[HTTPProvider] = None, **kwargs):
         """
 
         :param graphql_url:
@@ -454,7 +452,9 @@ class GraphQLReorganisationMonitor(ReorganisationMonitor):
         from gql.transport.requests import RequestsHTTPTransport
 
         transport = RequestsHTTPTransport(
-            url=api_url, verify=True, retries=3,
+            url=api_url,
+            verify=True,
+            retries=3,
         )
         # Create a GraphQL client using the defined transport
         client = Client(transport=transport, fetch_schema_from_transport=True)
@@ -469,9 +469,11 @@ class GraphQLReorganisationMonitor(ReorganisationMonitor):
         from gql import gql
 
         # '{ "query": "query { block { number } }" }'
-        query = gql(f"""
+        query = gql(
+            f"""
             query {{ block {{ number }} }}
-        """)
+        """
+        )
         result = self.client.execute(query)
         # {'block': {'number': 37634011}}
         return result["block"]["number"]
@@ -482,7 +484,8 @@ class GraphQLReorganisationMonitor(ReorganisationMonitor):
 
         from gql import gql
 
-        query = gql(f"""
+        query = gql(
+            f"""
             query {{
                 blocks( from: {start_block}, to: {end_block} ) {{
                     number,
@@ -490,7 +493,8 @@ class GraphQLReorganisationMonitor(ReorganisationMonitor):
                     timestamp
                 }}
             }}
-        """)
+        """
+        )
         result = self.client.execute(query)
 
         for inp in result["blocks"]:
@@ -498,7 +502,6 @@ class GraphQLReorganisationMonitor(ReorganisationMonitor):
             hash = inp["hash"]
             timestamp = int(inp["timestamp"], 16)
             yield BlockHeader(block_number=number, block_hash=hash, timestamp=timestamp)
-
 
 
 class MockChainAndReorganisationMonitor(ReorganisationMonitor):
