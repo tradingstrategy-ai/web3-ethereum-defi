@@ -21,7 +21,8 @@ class PoolDetails:
     #: One pair of tokens
     token1: TokenDetails
 
-    #: Pool fee in BPS
+    #: Pool fee in uint24 (100*bps)
+    #: e.g. 0.3% = 30bps so raw_fee = 3000
     raw_fee: int
 
     #: Pool fee as % multiplier, 1 = 100%
