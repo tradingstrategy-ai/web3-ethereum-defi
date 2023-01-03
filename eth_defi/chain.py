@@ -60,4 +60,3 @@ def has_graphql_support(provider: HTTPProvider) -> bool:
     graphql_url = urljoin(base_url, "graphql")
     resp = requests.get(graphql_url)
     return resp.status_code == 400
-

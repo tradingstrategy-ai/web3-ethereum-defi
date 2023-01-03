@@ -9,11 +9,12 @@ from abc import abstractmethod, ABC
 from dataclasses import dataclass, asdict, field
 from typing import Dict, Iterable, Tuple, Optional, Type, Callable
 import logging
+from urllib.parse import urljoin
 
 import pandas as pd
 from hexbytes import HexBytes
 from tqdm import tqdm
-from web3 import Web3
+from web3 import Web3, HTTPProvider
 
 from eth_defi.event_reader.block_header import BlockHeader, Timestamp
 
@@ -415,6 +416,92 @@ class JSONRPCReorganisationMonitor(ReorganisationMonitor):
             record = BlockHeader(block_num, block_hash, timestamp)
             logger.debug("Fetched block record: %s, total %d transactions", record, len(raw_result["transactions"]))
             yield record
+
+
+class GraphQLReorganisationMonitor(ReorganisationMonitor):
+    """Watch blockchain for reorgs using GoEthereum /graphql API.
+
+    - This is ~10x - 100x faster than using JSON-RPC API
+
+    - See https://geth.ethereum.org/docs/interacting-with-geth/rpc/graphql
+      for details
+
+
+    """
+
+    def __init__(self, graphql_url: Optional[str] = None, provider: Optional[HTTPProvider] = None, **kwargs):
+        """
+
+        :param graphql_url:
+            Give this or existing HTTPProvider
+
+        :param provider:
+            Give this or graphql_url
+        """
+        super().__init__(**kwargs)
+
+        if provider:
+            assert not graphql_url
+            graphql_url = urljoin(provider.endpoint_uri, "/graphql")
+
+        logger.debug("Connecting to GraphQL endpoint %s", graphql_url)
+        self.client = self._create_client(graphql_url)
+
+    def _create_client(self, api_url):
+        from gql import Client
+        from gql.transport.requests import RequestsHTTPTransport
+
+        transport = RequestsHTTPTransport(
+            url=api_url,
+            verify=True,
+            retries=3,
+        )
+        # Create a GraphQL client using the defined transport
+        client = Client(transport=transport, fetch_schema_from_transport=True)
+        return client
+
+    def get_last_block_live(self) -> int:
+        """Get the chain tip using GraphQL.
+
+        - See https://geth.ethereum.org/docs/interacting-with-geth/rpc/graphql
+          for details
+        """
+        from gql import gql
+
+        # '{ "query": "query { block { number } }" }'
+        query = gql(
+            f"""
+            query {{ block {{ number }} }}
+        """
+        )
+        result = self.client.execute(query)
+        # {'block': {'number': 37634011}}
+        return result["block"]["number"]
+
+    def fetch_block_data(self, start_block, end_block) -> Iterable[BlockHeader]:
+        total = end_block - start_block
+        logger.info(f"Fetching block headers and timestamps for logs {start_block:,} - {end_block:,}, total {total:,} blocks")
+
+        from gql import gql
+
+        query = gql(
+            f"""
+            query {{
+                blocks( from: {start_block}, to: {end_block} ) {{
+                    number,
+                    hash, 
+                    timestamp
+                }}
+            }}
+        """
+        )
+        result = self.client.execute(query)
+
+        for inp in result["blocks"]:
+            number = inp["number"]
+            hash = inp["hash"]
+            timestamp = int(inp["timestamp"], 16)
+            yield BlockHeader(block_number=number, block_hash=hash, timestamp=timestamp)
 
 
 class MockChainAndReorganisationMonitor(ReorganisationMonitor):
