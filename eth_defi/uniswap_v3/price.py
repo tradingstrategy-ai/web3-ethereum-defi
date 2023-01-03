@@ -151,8 +151,10 @@ def get_path_and_fees_base_first(
 
     return path, fees
 
-def validate_fee_list_length(path: list[HexAddress], fees: list):
-    assert len(fees) == len(path) - 1
+def validate_fees(path: list[HexAddress], fees: list):
+    assert len(fees) == len(path) - 1, "either path list or fees list was specified incorrectly"
+    for fee in fees:
+        assert type(fee) == int, "swap fee must be specified as 100 * bps e.g. 0.3% = 30bps so use => 3000"
 
 def estimate_buy_quantity(
     uniswap: UniswapV3Deployment,
@@ -175,6 +177,8 @@ def estimate_buy_quantity(
     :param slippage: Slippage express in bps
     :return: Expected base token to receive
     """
+
+    validate_fee_list_length()
 
     path, fees = get_path_and_fees_quote_first(
         uniswap.web3,
