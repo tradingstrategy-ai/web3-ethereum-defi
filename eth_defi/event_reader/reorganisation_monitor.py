@@ -18,6 +18,7 @@ from web3 import Web3, HTTPProvider
 
 from eth_defi.event_reader.block_header import BlockHeader, Timestamp
 
+
 logger = logging.getLogger(__name__)
 
 
@@ -425,8 +426,6 @@ class GraphQLReorganisationMonitor(ReorganisationMonitor):
 
     - See https://geth.ethereum.org/docs/interacting-with-geth/rpc/graphql
       for details
-
-
     """
 
     def __init__(self, graphql_url: Optional[str] = None, provider: Optional[HTTPProvider] = None, **kwargs):
@@ -448,6 +447,11 @@ class GraphQLReorganisationMonitor(ReorganisationMonitor):
         self.client = self._create_client(graphql_url)
 
     def _create_client(self, api_url):
+        """Create GQL GraphQL client used in queries.
+
+        We turn on schema verification,
+        as GoEthereum seems to support this.
+        """
         from gql import Client
         from gql.transport.requests import RequestsHTTPTransport
 
@@ -481,9 +485,7 @@ class GraphQLReorganisationMonitor(ReorganisationMonitor):
     def fetch_block_data(self, start_block, end_block) -> Iterable[BlockHeader]:
         total = end_block - start_block
         logger.info(f"Fetching block headers and timestamps for logs {start_block:,} - {end_block:,}, total {total:,} blocks")
-
         from gql import gql
-
         query = gql(
             f"""
             query {{
@@ -543,10 +545,8 @@ class MockChainAndReorganisationMonitor(ReorganisationMonitor):
         return self.simulated_block_number - 1
 
     def fetch_block_data(self, start_block, end_block) -> Iterable[BlockHeader]:
-
         assert start_block > 0, "Cannot ask data for zero block"
         assert end_block <= self.get_last_block_live(), "Cannot ask data for blocks that are not produced yet"
-
         for i in range(start_block, end_block + 1):
             yield self.simulated_blocks[i]
 

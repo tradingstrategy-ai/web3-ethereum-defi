@@ -56,6 +56,8 @@ def has_graphql_support(provider: HTTPProvider) -> bool:
         {"data":{"block":{"number":16328259}}}
     """
 
+    assert isinstance(provider, HTTPProvider)
+
     base_url = provider.endpoint_uri
     graphql_url = urljoin(base_url, "graphql")
     resp = requests.get(graphql_url)
