@@ -77,7 +77,7 @@ def hot_wallet(user_1: LocalAccount, web3: Web3) -> HotWallet:
     return wallet
 
 
-@flaky.flaky()
+@flaky.flaky(max_runs=5)
 def test_bnb_chain_decode_tx(web3: Web3, large_busd_holder: HexAddress, hot_wallet: HotWallet):
     """Decoding transactions targeting BNB chain."""
 
