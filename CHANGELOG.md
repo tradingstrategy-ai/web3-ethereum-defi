@@ -1,5 +1,6 @@
 # Current
 
+- Fix: Duplicate events appearing when using the concurrent event reader
 - Added `ReorganisationMonitor` and `ChainReorganisationDetected` to deal with unstable chain tips when
   doing event ignestion
 - Added `uniswap-v2-pairs-swap-live.py` example that shows real-time
