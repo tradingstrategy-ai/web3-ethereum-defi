@@ -59,7 +59,7 @@ def convert_sync_log_result_to_price_entry(log: dict) -> PriceEntry:
         timestamp=timestamp,
         price=price,
         volume=None,  # For volume you would also need to get matching Swap() event
-        block_number=int(log["blockNumber"], 16),
+        block_number=log["blockNumber"],
         source=PriceSource.uniswap_v2_like_pool_sync_event,
         pool_contract_address=log["address"],
         block_hash=log["blockHash"],
