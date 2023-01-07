@@ -111,7 +111,7 @@ def test_generate_uniswap_v2_synthetic_data(uniswap_v2, deployer, weth, usdc):
         number_of_blocks=3,
     )
 
-    assert stats["initial_price"] == pytest.approx(Decimal('1600'))
+    assert stats["initial_price"] == pytest.approx(Decimal("1600"))
     assert stats["buys"] == 1
     assert stats["sells"] == 2
     assert stats["min_price"] > 1400
@@ -127,8 +127,6 @@ def test_generate_uniswap_v2_synthetic_data(uniswap_v2, deployer, weth, usdc):
         number_of_blocks=1,
     )
 
-    assert round_two["initial_price"] == pytest.approx(Decimal('1593.422429595317817472610032'))
+    assert round_two["initial_price"] == pytest.approx(Decimal("1593.422429595317817472610032"))
     assert round_two["buys"] == 0
     assert round_two["sells"] == 1
-
-

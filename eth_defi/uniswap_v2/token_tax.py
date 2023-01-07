@@ -84,61 +84,61 @@ class TokenTaxInfo:
 
 
 def estimate_token_taxes(
-        uniswap: UniswapV2Deployment,
-        base_token: HexAddress,
-        quote_token: HexAddress,
-        buy_account: HexAddress,
-        sell_account: HexAddress,
-        buy_amount: float,
-        approve=True,
-        quote_token_details: Optional[TokenDetails] = None,
-        base_token_details: Optional[TokenDetails] = None,
-        gas_limit: Optional[int] = None,
-        gas_price: Optional[int] = None,
+    uniswap: UniswapV2Deployment,
+    base_token: HexAddress,
+    quote_token: HexAddress,
+    buy_account: HexAddress,
+    sell_account: HexAddress,
+    buy_amount: float,
+    approve=True,
+    quote_token_details: Optional[TokenDetails] = None,
+    base_token_details: Optional[TokenDetails] = None,
+    gas_limit: Optional[int] = None,
+    gas_price: Optional[int] = None,
 ) -> TokenTaxInfo:
     """Estimates different token taxes for a token by running Ganache simulations for it.
 
-    :param uniswap:
-        Uniswap deployment on a Ganache mainnet fork.
-        Set up prior calling this function.
-        See `ganache.py` and `test_ganache.py` for more details.
+     :param uniswap:
+         Uniswap deployment on a Ganache mainnet fork.
+         Set up prior calling this function.
+         See `ganache.py` and `test_ganache.py` for more details.
 
-    :param base_token:
-        The token of which tax properties we are figuring out.
+     :param base_token:
+         The token of which tax properties we are figuring out.
 
-    :param quote_token:
-        Address of the quote token used for the trading pair. E.g. `BUDS`, `WBNB`
-        Based on this information we can derive Uniswap trading pair address.
+     :param quote_token:
+         Address of the quote token used for the trading pair. E.g. `BUDS`, `WBNB`
+         Based on this information we can derive Uniswap trading pair address.
 
-    :param buy_account:
-        The account that does initial buy to measure the buy tax.
-        This account must be loaded with gas money (ETH/BNB) and `quote_token`
-        for a purchase.
+     :param buy_account:
+         The account that does initial buy to measure the buy tax.
+         This account must be loaded with gas money (ETH/BNB) and `quote_token`
+         for a purchase.
 
-    :param sell_account:
-        The account that receives the token transfer and does the sell to measure the sell tax.
-        This account must be loaded with gas money for the sell.
+     :param sell_account:
+         The account that receives the token transfer and does the sell to measure the sell tax.
+         This account must be loaded with gas money for the sell.
 
-    :param approve:
-        Perform quote token approval before wap test
+     :param approve:
+         Perform quote token approval before wap test
 
-   :param base_token_details:
-        Pass base token details. If not given automatically fetch.
+    :param base_token_details:
+         Pass base token details. If not given automatically fetch.
 
-    :param quote_token_details:
-        Pass quote token details. If not given automatically fetch.
+     :param quote_token_details:
+         Pass quote token details. If not given automatically fetch.
 
-    :param gas_limit:
-        Use this gas limit for all transactions, so that
-        we do not need to call eth_estimateGas on the node.
+     :param gas_limit:
+         Use this gas limit for all transactions, so that
+         we do not need to call eth_estimateGas on the node.
 
-    :param gas_price:
-        Use this gas price for all transactions, so that
-        we do not need to call eth_estimateGas on the node.
+     :param gas_price:
+         Use this gas price for all transactions, so that
+         we do not need to call eth_estimateGas on the node.
 
-    :return:
-        ToxTaxInfo tells us what we figure out about taxes.
-        This can be later recorded to a database.
+     :return:
+         ToxTaxInfo tells us what we figure out about taxes.
+         This can be later recorded to a database.
     """
     web3: Web3 = uniswap.web3
     router = uniswap.router
@@ -167,8 +167,7 @@ def estimate_token_taxes(
 
     # approve router to spend tokens
     if approve:
-        quote_token.functions.approve(router.address, quote_token_details.convert_to_raw(buy_amount)).transact(
-            {"from": buy_account} | generic_tx_params)
+        quote_token.functions.approve(router.address, quote_token_details.convert_to_raw(buy_amount)).transact({"from": buy_account} | generic_tx_params)
 
     path = [quote_token.address, base_token.address]
     amountIn = quote_token_details.convert_to_raw(buy_amount)
@@ -178,13 +177,7 @@ def estimate_token_taxes(
     # Buy base_token with buy_account
     try:
         logger.info("Attempting to buy for path %s", path)
-        router.functions.swapExactTokensForTokensSupportingFeeOnTransferTokens(
-            amountIn,
-            0,
-            path,
-            buy_account,
-            FOREVER_DEADLINE
-        ).transact({"from": buy_account} | generic_tx_params)
+        router.functions.swapExactTokensForTokensSupportingFeeOnTransferTokens(amountIn, 0, path, buy_account, FOREVER_DEADLINE).transact({"from": buy_account} | generic_tx_params)
     except ContractLogicError as e:
         msg = str(e)
         if "TRANSFER_FAILED" in msg:
@@ -233,13 +226,7 @@ def estimate_token_taxes(
     try:
         # this method will revert in case of low liquidity of the token
         logger.info("Attempting to see for path %s", path)
-        router.functions.swapExactTokensForTokensSupportingFeeOnTransferTokens(
-            received_amt_by_seller,
-            0,
-            path,
-            sell_account,
-            FOREVER_DEADLINE
-        ).transact({"from": sell_account} | generic_tx_params)
+        router.functions.swapExactTokensForTokensSupportingFeeOnTransferTokens(received_amt_by_seller, 0, path, sell_account, FOREVER_DEADLINE).transact({"from": sell_account} | generic_tx_params)
     except ValueError as e:
         if "VM Exception while processing transaction: revert" in str(e):
             raise SellFailed(f"Could not sell {base_token_details.symbol} - {quote_token_details.symbol}: {e}") from e
@@ -257,5 +244,4 @@ def estimate_token_taxes(
         sell_tax = uniswap_price - received_amt_after_sell
         sell_tax_percent = (sell_tax / uniswap_price) if uniswap_price > 0 else 0
 
-    return TokenTaxInfo(base_token.address, quote_token.address, buy_tax_percent, transfer_tax_percent,
-                        sell_tax_percent)
+    return TokenTaxInfo(base_token.address, quote_token.address, buy_tax_percent, transfer_tax_percent, sell_tax_percent)

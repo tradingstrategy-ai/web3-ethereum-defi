@@ -34,5 +34,5 @@ To run:
     python scripts/read-uniswap-v2-pairs-and-swaps.py
 
 
-.. literalinclude:: ../../../scripts/read-uniswap-v2-pairs-and-swaps.py
+.. literalinclude:: ../../../scripts/uniswap-v2-pairs-and-swaps.py
    :language: python

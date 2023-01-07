@@ -117,10 +117,7 @@ def test_build_transaction_legacy(web3: Web3, deployer: str, hot_wallet_account)
     hot_wallet = HotWallet(hot_wallet_account)
     hot_wallet.sync_nonce(web3)
 
-    tx = token\
-        .functions\
-        .approve(deployer, 100)\
-        .buildTransaction({"from": hot_wallet.address})
+    tx = token.functions.approve(deployer, 100).buildTransaction({"from": hot_wallet.address})
 
     assert "gas" in tx
     apply_gas(tx, gas_fees)

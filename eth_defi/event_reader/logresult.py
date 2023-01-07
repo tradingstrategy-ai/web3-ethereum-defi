@@ -12,6 +12,7 @@ class LogContext:
 
     See `scripts/read-uniswap-v2-pairs-and-swaps.py` for an example.
     """
+
     pass
 
 

@@ -30,7 +30,7 @@ class TunedWeb3Factory(Web3Factory):
     across thread and process bounderies.
     """
 
-    def __init__(self, json_rpc_url: str, http_adapter: Optional[HTTPAdapter]=None):
+    def __init__(self, json_rpc_url: str, http_adapter: Optional[HTTPAdapter] = None):
         """Set up a factory.
 
         :param json_rpc_url:

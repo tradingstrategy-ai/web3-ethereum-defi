@@ -10,7 +10,7 @@ For further reading see:
 
 import logging
 import threading
-from typing import Callable, Dict, Iterable, List, Optional, Protocol
+from typing import Callable, Dict, Iterable, List, Optional, Protocol, Set
 
 import futureproof
 from eth_bloom import BloomFilter
@@ -21,6 +21,7 @@ from web3.contract import ContractEvent
 from eth_defi.event_reader.conversion import convert_jsonrpc_value_to_int
 from eth_defi.event_reader.filter import Filter
 from eth_defi.event_reader.logresult import LogContext, LogResult
+from eth_defi.event_reader.reorganisation_monitor import ReorganisationMonitor
 from eth_defi.event_reader.web3worker import get_worker_web3
 
 logger = logging.getLogger(__name__)
@@ -108,6 +109,7 @@ def extract_events(
     filter: Filter,
     context: Optional[LogContext] = None,
     extract_timestamps: Optional[Callable] = extract_timestamps_json_rpc,
+    reorg_mon: Optional[ReorganisationMonitor] = None,
 ) -> Iterable[LogResult]:
     """Perform eth_getLogs call over a block range.
 
@@ -126,9 +128,15 @@ def extract_events(
     :param context:
         Passed to the all generated logs
 
+    :param reorg_mon:
+        If passed, use this instance to monitor and raise chain reorganisation exceptions.
+
     :return:
         Iterable for the raw event data
     """
+
+    if reorg_mon:
+        assert extract_timestamps is None, "You cannot pass both reorg_mon and extract_timestamps"
 
     topics = list(filter.topics.keys())
 
@@ -155,6 +163,8 @@ def extract_events(
 
         if extract_timestamps is not None:
             timestamps = extract_timestamps(web3, start_block, end_block)
+        else:
+            timestamps = None
 
         for log in logs:
             block_hash = log["blockHash"]
@@ -163,10 +173,29 @@ def extract_events(
             event_signature = log["topics"][0]
             log["context"] = context
             log["event"] = filter.topics[event_signature]
-            try:
-                log["timestamp"] = timestamps[block_hash] if extract_timestamps else None
-            except KeyError as e:
-                raise TimestampNotFound(f"EVM event reader cannot match timestamp. Timestamp missing for block number {block_number:,}, hash {block_hash}, our timestamp table has {len(timestamps)} blocks") from e
+
+            # Can be hex string or integer (EthereumTester)
+            log["blockNumber"] = convert_jsonrpc_value_to_int(log["blockNumber"])
+
+            # Used for debugging if we are getting bad data from node
+            # or internally confused
+            log["chunk_id"] = start_block
+
+            if reorg_mon:
+                # Raises exception if chain tip has changed
+                timestamp = reorg_mon.check_block_reorg(block_number, block_hash)
+                assert timestamp is not None, f"Timestamp missing for block number {block_number}, hash {block_hash}"
+                log["timestamp"] = timestamp
+            else:
+                if timestamps:
+                    try:
+                        log["timestamp"] = timestamps[block_hash] if extract_timestamps else None
+                    except KeyError as e:
+                        raise TimestampNotFound(f"EVM event reader cannot match timestamp. Timestamp missing for block number {block_number:,}, hash {block_hash}, our timestamp table has {len(timestamps)} blocks") from e
+                else:
+                    # Not set, because reorg mon and timestamp extractor not provided,
+                    # the caller must do the timestamp resolution themselves
+                    log["timestamp"] = None
             yield log
 
 
@@ -221,6 +250,7 @@ def read_events(
     context: Optional[LogContext] = None,
     extract_timestamps: Optional[Callable] = extract_timestamps_json_rpc,
     filter: Optional[Filter] = None,
+    reorg_mon: Optional[ReorganisationMonitor] = None,
 ) -> Iterable[LogResult]:
     """Reads multiple events from the blockchain.
 
@@ -308,6 +338,10 @@ def read_events(
         Pass a custom event filter for the readers
 
         Pass this or events.
+
+    :param reorg_mon:
+        If passed, use this instance to monitor and raise chain reorganisation exceptions.
+
     """
 
     assert type(start_block) == int
@@ -336,7 +370,15 @@ def read_events(
         logger.debug("Extracting eth_getLogs from %d - %d", block_num, last_of_chunk)
 
         # Stream the events
-        for event in extract_events(web3, block_num, last_of_chunk, filter, context, extract_timestamps):
+        for event in extract_events(
+            web3,
+            block_num,
+            last_of_chunk,
+            filter,
+            context,
+            extract_timestamps,
+            reorg_mon,
+        ):
             last_timestamp = event.get("timestamp")
             total_events += 1
             yield event
@@ -352,6 +394,7 @@ def read_events_concurrent(
     context: Optional[LogContext] = None,
     extract_timestamps: Optional[Callable] = extract_timestamps_json_rpc,
     filter: Optional[Filter] = None,
+    reorg_mon: Optional[ReorganisationMonitor] = None,
 ) -> Iterable[LogResult]:
     """Reads multiple events from the blockchain parallel using a thread pool for IO.
 
@@ -435,6 +478,10 @@ def read_events_concurrent(
 
     :param filter:
         Pass a custom event filter for the readers
+
+    :param reorg_mon:
+        If passed, use this instance to monitor and raise chain reorganisation exceptions.
+
     """
 
     assert not executor._executor._shutdown, "ThreadPoolExecutor has been shut down"
@@ -442,6 +489,9 @@ def read_events_concurrent(
     total_events = 0
 
     last_timestamp = None
+
+    if extract_timestamps:
+        assert not reorg_mon, "Pass either extract_timestamps or reorg_mon"
 
     # Construct our bloom filter
     if filter is None:
@@ -458,7 +508,7 @@ def read_events_concurrent(
     completed_tasks: Dict[int, tuple] = {}
 
     for block_num in range(start_block, end_block + 1, chunk_size):
-        last_of_chunk = min(end_block, block_num + chunk_size)
+        last_of_chunk = min(end_block, block_num + chunk_size) - 1
         task_list[block_num] = (
             block_num,
             last_of_chunk,
@@ -467,10 +517,13 @@ def read_events_concurrent(
             extract_timestamps,
         )
 
-    # Run all tasks and handle backpressure
+    # Run all tasks and handle backpressure. Task manager
+    # will execute tasks as soon as there is room in the worker pool.
     tm.map(extract_events_concurrent, list(task_list.values()))
 
     logger.debug("Submitted %d tasks", len(task_list))
+
+    processed_chunks: Set[int]= set()
 
     # Complete the tasks.
     # Always guarantee the block order for the caller,
@@ -505,10 +558,31 @@ def read_events_concurrent(
 
                 log_results: List[LogResult] = task.result
 
-                logger.debug("Result is %s", log_results)
+                chunk_id = task.args[0]  # start_block
+                logger.debug("Completed chunk: %d, got %d results", chunk_id, len(log_results))
 
+                assert chunk_id not in processed_chunks, f"Duplicate chunk: {chunk_id}"
+                processed_chunks.add(chunk_id)
+
+                # Too naisy
+                # logger.debug("Result is %s", log_results)
+
+                # Pass through the logs and do timestamp resolution for them
+                #
                 for log in log_results:
-                    last_timestamp = log.get("timestamp")
+
+                    # Check that this event is not from an alternative chain tip
+                    if reorg_mon:
+                        timestamp = reorg_mon.check_block_reorg(
+                            convert_jsonrpc_value_to_int(log["blockNumber"]),
+                            log["blockHash"],
+                        )
+
+                        last_timestamp = log["timestamp"] = timestamp
+                    else:
+                        # Assume extracted with extract_timestamps_json_rpc
+                        last_timestamp = log.get("timestamp")
+
                     yield log
                     total_events += 1
 

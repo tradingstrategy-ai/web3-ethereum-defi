@@ -348,7 +348,9 @@ def fetch_events_to_csv(
     if restored:
         log_info(f"Restored previous scan state, data until block {restored_start_block:,}, we are skipping {restored_start_block - start_block:,} blocks out of {original_block_range:,} total")
     else:
-        log_info(f"No previous scan done, starting fresh from block {start_block:,}, total {original_block_range:,} blocks", )
+        log_info(
+            f"No previous scan done, starting fresh from block {start_block:,}, total {original_block_range:,} blocks",
+        )
 
     # Prepare local buffers and files.
     # Buffers is a context dictionary that is passed around

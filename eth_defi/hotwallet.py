@@ -17,6 +17,7 @@ logger = logging.getLogger(__name__)
 
 class SignedTransactionWithNonce(NamedTuple):
     """Helper class to pass around the used nonce when signing txs from the wallet."""
+
     rawTransaction: HexBytes
     hash: HexBytes
     r: int

@@ -86,9 +86,7 @@ class UniswapV2Deployment:
     def pair_for(self, token_a: str, token_b: str) -> Tuple[ChecksumAddress, HexAddress, HexAddress]:
         """Calculate CREATE2 contract address for a trading pair."""
         (token0, token1) = sort_tokens(token_a, token_b)
-        return (Web3.toChecksumAddress(pair_for(self.factory.address, token0, token1, self.init_code_hash)),
-                token0,
-                token1)
+        return (Web3.toChecksumAddress(pair_for(self.factory.address, token0, token1, self.init_code_hash)), token0, token1)
 
 
 def deploy_factory_sushi(web3: Web3, deployer: str) -> Contract:
@@ -229,7 +227,7 @@ def fetch_deployment(
     factory_address: Union[HexAddress, str],
     router_address: Union[HexAddress, str],
     init_code_hash: Optional[Union[HexStr, str]] = None,
-    allow_different_weth_var = True,
+    allow_different_weth_var=True,
 ) -> UniswapV2Deployment:
     """Construct Uniswap deployment based on on-chain data.
 

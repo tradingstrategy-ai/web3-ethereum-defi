@@ -56,9 +56,7 @@ class LiquidityResult:
             raise UnmatchedToken(f"Unknown pair token {token_address}, we have {self.token0} and {self.token1}")
 
 
-def get_liquidity(
-        web3: Web3,
-        pair_address: Union[HexAddress, str]) -> LiquidityResult:
+def get_liquidity(web3: Web3, pair_address: Union[HexAddress, str]) -> LiquidityResult:
     """Measure Uniswap v2 pool liquidity.
 
     :return: The current liquidity in the pool as (token0 liquidity, token1 liquidity) tuple.

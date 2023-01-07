@@ -10,11 +10,11 @@ import pandas as pd
 
 
 def convert_to_ohlcv_candles(
-        df: pd.DataFrame,
-        time_bucket: pd.Timedelta = pd.Timedelta("1D"),
-        price_column: str = "price",
-        value_column: str = "value",
-        timestamp_index_column: Optional[str] = "timestamp",
+    df: pd.DataFrame,
+    time_bucket: pd.Timedelta = pd.Timedelta("1D"),
+    price_column: str = "price",
+    value_column: str = "value",
+    timestamp_index_column: Optional[str] = "timestamp",
 ) -> pd.DataFrame:
     """Create OHLCV candles based on raw trade events.
 
@@ -60,6 +60,6 @@ def convert_to_ohlcv_candles(
         df[timestamp_index_column] = pd.to_datetime(df[timestamp_index_column])
         df = df.set_index(timestamp_index_column, drop=False)
 
-    candles = df[price_column].resample(time_bucket).ohlc(_method='ohlc')
+    candles = df[price_column].resample(time_bucket).ohlc(_method="ohlc")
     candles["volume"] = df[value_column].resample(time_bucket).sum()
     return candles
