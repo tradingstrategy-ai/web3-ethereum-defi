@@ -18,10 +18,10 @@ from futureproof import ThreadPoolExecutor
 from web3 import Web3
 from web3.contract import ContractEvent
 
+from eth_defi.event_reader.conversion import convert_jsonrpc_value_to_int
 from eth_defi.event_reader.filter import Filter
 from eth_defi.event_reader.logresult import LogContext, LogResult
 from eth_defi.event_reader.web3worker import get_worker_web3
-from eth_defi.event_reader.conversion import convert_jsonrpc_value_to_int
 
 logger = logging.getLogger(__name__)
 
