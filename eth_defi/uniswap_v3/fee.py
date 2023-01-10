@@ -1,7 +1,7 @@
 from enum import IntEnum
 
 
-class fee_tier(IntEnum):
+class FeeTier(IntEnum):
     """Different fee tiers for uniswap v3. Expressed as raw_fee value found on smart contracts."""
 
     #: 0.01% fee tier
@@ -16,7 +16,7 @@ class fee_tier(IntEnum):
     #: 1% fee tier
     fee_100bps = 10000
 
-    def convert_to_multiplier(self):
+    def convert_to_multiplier(self) -> float:
         """Returns float value of fee tier
-        e.g. if fee tier is fee_1bps -> returns 0.01"""
-        return self.value/1_000_000
+        e.g. if fee tier is fee_1bps -> returns 0.0001"""
+        return float(self.value)/1_000_000
