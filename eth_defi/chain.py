@@ -60,5 +60,9 @@ def has_graphql_support(provider: HTTPProvider) -> bool:
 
     base_url = provider.endpoint_uri
     graphql_url = urljoin(base_url, "graphql")
-    resp = requests.get(graphql_url)
-    return resp.status_code == 400
+    try:
+        resp = requests.get(graphql_url)
+        return resp.status_code == 400
+    except Exception as e:
+        # ConnectionError, etc.
+        return False

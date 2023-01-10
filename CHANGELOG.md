@@ -1,5 +1,9 @@
 # Current
 
+# 0.13.5
+
+- `has_graphql_support` made more robust
+
 # 0.13.4
 
 - Retry middleware fine tuning
