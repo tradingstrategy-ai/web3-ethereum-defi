@@ -1,6 +1,4 @@
 """Uniswap v3 price calculations."""
-from decimal import Decimal
-
 from eth_typing import HexAddress
 from eth_defi.uniswap_v3.deployment import UniswapV3Deployment
 from eth_defi.uniswap_v3.utils import encode_path
