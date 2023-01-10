@@ -109,10 +109,7 @@ def test_read_events_two_blocks(web3):
             start_block,
             end_block,
             events,
-            None,
             chunk_size=1000,
-            context=None,
-            extract_timestamps=None,
     ))
 
     blocks = [s["blockNumber"] for s in swaps]
@@ -148,10 +145,7 @@ def test_read_events_concurrent_two_blocks_concurrent(web3):
             start_block,
             end_block,
             events,
-            None,
             chunk_size=1000,
-            context=None,
-            extract_timestamps=None,
     ))
 
     blocks = [s["blockNumber"] for s in swaps]
