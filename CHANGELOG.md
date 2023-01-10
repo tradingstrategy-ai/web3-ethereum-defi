@@ -1,5 +1,9 @@
 # Current
 
+TODO
+
+# 0.13
+
 - Fix: Duplicate events appearing when using the concurrent event reader
 - Added `ReorganisationMonitor` and `ChainReorganisationDetected` to deal with unstable chain tips when
   doing event ignestion
