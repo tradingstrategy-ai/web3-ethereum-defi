@@ -9,6 +9,7 @@ from eth_defi.abi import get_contract
 from eth_defi.chain import install_chain_middleware
 from eth_defi.event_reader.reader import read_events, BadTimestampValueReturned, TimestampNotFound
 
+
 JSON_RPC_POLYGON = os.environ.get("JSON_RPC_POLYGON", "https://polygon-rpc.com")
 
 
@@ -32,8 +33,7 @@ def test_read_events_bad_timestamps():
         Factory.events.PairCreated,
     ]
 
-    # https://polygonscan.com//address/0x6e7a5fafcec6bb1e78bae2a1f0b612012bf14827
-
+    # Randomly deployed pair
     # https://polygonscan.com/tx/0x476c5eb54ca14908cd06a987150eed9fe8d3c5992db09657a4e5bd35e0acb03b
     start_block = 37898275
     end_block = 37898278
