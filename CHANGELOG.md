@@ -1,6 +1,8 @@
 # Current
 
-TODO
+# 0.13.4
+
+- Retry middleware fine tuning
 
 # 0.13.3
 
