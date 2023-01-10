@@ -5,7 +5,15 @@ Structures and helpers to maintain block header data.
 
 import random
 from dataclasses import dataclass
-from typing import Dict, Optional
+from typing import Dict, Optional, TypeAlias
+
+#: 32 bit uint UNIX UTC timestamp of the block
+#:
+#: TODO: We might need float because high throughput chains like
+#: Solana have subsecond timestamps
+from eth_typing import HexStr
+
+Timestamp: TypeAlias = int
 
 
 @dataclass(slots=True, frozen=True)
@@ -30,11 +38,11 @@ class BlockHeader:
     #:
     #: TODO: We might need float because high throughput chains like
     #: Solana have subsecond timestamps
-    timestamp: int
+    timestamp: Timestamp
 
     def __post_init__(self):
         assert type(self.block_number) == int
-        assert type(self.block_hash) == str
+        assert type(self.block_hash) == str, f"Got {type(self.block_hash)}"
         assert type(self.timestamp) == int
         assert self.block_hash.startswith("0x")
 
