@@ -9,10 +9,7 @@ from eth_defi.abi import get_contract
 from eth_defi.chain import install_chain_middleware
 from eth_defi.event_reader.reader import read_events, BadTimestampValueReturned, TimestampNotFound
 
-pytestmark = pytest.mark.skipif(
-    os.environ.get("JSON_RPC_POLYGON_PRIVATE") is None,
-    reason="Set JSON_RPC_POLYGON_PRIVATE environment variable to a privately configured Polygon node with GraphQL turned on",
-)
+JSON_RPC_POLYGON = os.environ.get("JSON_RPC_POLYGON", "https://polygon-rpc.com")
 
 
 def test_read_events_bad_timestamps():
@@ -21,9 +18,7 @@ def test_read_events_bad_timestamps():
     # HTTP 1.1 keep-alive
     session = requests.Session()
 
-    # This node needs to be able to provide really old logs
-    json_rpc_url = os.environ["JSON_RPC_POLYGON_PRIVATE"]
-    web3 = Web3(HTTPProvider(json_rpc_url, session=session))
+    web3 = Web3(HTTPProvider(JSON_RPC_POLYGON, session=session))
 
     web3.middleware_onion.clear()
 
