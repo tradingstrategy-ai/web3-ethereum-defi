@@ -25,10 +25,7 @@ def get_worker_web3() -> Web3:
     return _thread_local_storage.web3
 
 
-def create_thread_pool_executor(
-        factory: Web3Factory,
-        context: Optional[LogContext] = None,
-        max_workers=16) -> futureproof.ThreadPoolExecutor:
+def create_thread_pool_executor(factory: Web3Factory, context: Optional[LogContext] = None, max_workers=16) -> futureproof.ThreadPoolExecutor:
     """Create a thread pool executor.
 
     All pool members have the thread locals initialized at start,

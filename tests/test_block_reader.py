@@ -208,4 +208,3 @@ def test_read_events_concurrent():
     assert e["token1_symbol"] == "USDC"
     assert e["token0_symbol"] == "USDP"
     assert e["tx_hash"] == "0xb0621ca74cee9f540dda6d575f6a7b876133b42684c1259aaeb59c831410ccb2"
-

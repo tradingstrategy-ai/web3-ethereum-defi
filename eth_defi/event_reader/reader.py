@@ -524,7 +524,7 @@ def read_events_concurrent(
     completed_tasks: Dict[int, tuple] = {}
 
     for block_num in range(start_block, end_block + 1, chunk_size):
-        last_of_chunk = min(end_block, block_num + chunk_size -1)
+        last_of_chunk = min(end_block, block_num + chunk_size - 1)
 
         task_list[block_num] = (
             block_num,
@@ -540,7 +540,7 @@ def read_events_concurrent(
 
     logger.debug("Submitted %d tasks", len(task_list))
 
-    processed_chunks: Set[int]= set()
+    processed_chunks: Set[int] = set()
 
     # Complete the tasks.
     # Always guarantee the block order for the caller,
