@@ -1,6 +1,8 @@
 # Current
 
-TODO
+# 0.13.1
+
+- Fix `filter` and `event` assert in `read_events_concurrent()` 
 
 # 0.13
 

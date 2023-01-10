@@ -354,7 +354,7 @@ def read_events(
 
     # Construct our bloom filter
     if filter is None:
-        assert events is None, "Cannot pass both filter and events"
+        assert events is not None, "Cannot pass both filter and events"
         filter = prepare_filter(events)
 
     last_timestamp = None
@@ -495,7 +495,7 @@ def read_events_concurrent(
 
     # Construct our bloom filter
     if filter is None:
-        assert events is None, "Cannot pass both filter and events"
+        assert events is not None, "Cannot pass both filter and events"
         filter = prepare_filter(events)
 
     # For futureproof usage see
