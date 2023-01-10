@@ -517,7 +517,8 @@ def read_events_concurrent(
     completed_tasks: Dict[int, tuple] = {}
 
     for block_num in range(start_block, end_block + 1, chunk_size):
-        last_of_chunk = min(end_block, block_num + chunk_size) - 1
+        last_of_chunk = min(end_block, block_num + chunk_size -1)
+
         task_list[block_num] = (
             block_num,
             last_of_chunk,
