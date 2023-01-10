@@ -112,11 +112,12 @@ def test_read_events_two_blocks(web3):
             chunk_size=1000,
     ))
 
+    # Check that we get 3 events over 2 blocks
     blocks = [s["blockNumber"] for s in swaps]
-
     assert len(blocks) == 3
     assert min(blocks) == 37898275
     assert max(blocks) == 37898276
+
 
 
 def test_read_events_concurrent_two_blocks_concurrent(web3):
@@ -148,8 +149,8 @@ def test_read_events_concurrent_two_blocks_concurrent(web3):
             chunk_size=1000,
     ))
 
+    # Check that we get 3 events over 2 blocks
     blocks = [s["blockNumber"] for s in swaps]
-
     assert len(blocks) == 3
     assert min(blocks) == 37898275
     assert max(blocks) == 37898276
