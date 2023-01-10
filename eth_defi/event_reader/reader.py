@@ -167,6 +167,8 @@ def extract_events(
 
         if extract_timestamps is not None:
             timestamps = extract_timestamps(web3, start_block, end_block)
+            if timestamps is None:
+                raise BadTimestampValueReturned("extract_timestamps returned None")
         else:
             timestamps = None
 
@@ -191,7 +193,7 @@ def extract_events(
                 assert timestamp is not None, f"Timestamp missing for block number {block_number}, hash {block_hash}"
                 log["timestamp"] = timestamp
             else:
-                if timestamps:
+                if timestamps is not None:
                     try:
                         log["timestamp"] = timestamps[block_hash]
                         if type(log["timestamp"]) not in (int, float):
