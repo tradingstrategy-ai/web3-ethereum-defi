@@ -31,6 +31,10 @@ class TimestampNotFound(Exception):
     """Timestamp service does not have a timestasmp for a given block."""
 
 
+class BadTimestampValueReturned(Exception):
+    """Timestamp does not look good."""
+
+
 # For typing.Protocol see https://stackoverflow.com/questions/68472236/type-hint-for-callable-that-takes-kwargs
 class ProgressUpdate(Protocol):
     """Informs any listener about the state of an event scan.
@@ -163,6 +167,8 @@ def extract_events(
 
         if extract_timestamps is not None:
             timestamps = extract_timestamps(web3, start_block, end_block)
+            if timestamps is None:
+                raise BadTimestampValueReturned("extract_timestamps returned None")
         else:
             timestamps = None
 
@@ -187,15 +193,18 @@ def extract_events(
                 assert timestamp is not None, f"Timestamp missing for block number {block_number}, hash {block_hash}"
                 log["timestamp"] = timestamp
             else:
-                if timestamps:
+                if timestamps is not None:
                     try:
-                        log["timestamp"] = timestamps[block_hash] if extract_timestamps else None
+                        log["timestamp"] = timestamps[block_hash]
+                        if type(log["timestamp"]) not in (int, float):
+                            raise BadTimestampValueReturned(f"Timestamp was not int or float: {type(log['timestamp'])}: {type(log['timestamp'])}")
                     except KeyError as e:
                         raise TimestampNotFound(f"EVM event reader cannot match timestamp. Timestamp missing for block number {block_number:,}, hash {block_hash}, our timestamp table has {len(timestamps)} blocks") from e
                 else:
                     # Not set, because reorg mon and timestamp extractor not provided,
                     # the caller must do the timestamp resolution themselves
                     log["timestamp"] = None
+
             yield log
 
 

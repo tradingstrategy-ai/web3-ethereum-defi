@@ -2,6 +2,12 @@
 
 TODO
 
+# 0.13.2
+
+- Better test and exception coverage if bad `extract_timestamps`
+  is passed while reading events. This prevents the library
+  user to write a bad timestamp provider function.
+
 # 0.13.1
 
 - Fix `filter` and `event` assert in `read_events_concurrent()` 
