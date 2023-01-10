@@ -351,6 +351,9 @@ def read_events(
     :param reorg_mon:
         If passed, use this instance to monitor and raise chain reorganisation exceptions.
 
+    :return:
+        Iterate over :py:class:`LogResult` instances for each event matched in
+        the filter.
     """
 
     assert type(start_block) == int
@@ -490,6 +493,10 @@ def read_events_concurrent(
 
     :param reorg_mon:
         If passed, use this instance to monitor and raise chain reorganisation exceptions.
+
+    :return:
+        Iterate over :py:class:`LogResult` instances for each event matched in
+        the filter.
 
     """
 
