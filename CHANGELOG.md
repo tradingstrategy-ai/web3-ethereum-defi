@@ -2,6 +2,11 @@
 
 TODO
 
+# 0.13.3
+
+- Off by one fix in read_events_concurrent max block range
+- More event reader test coverage
+
 # 0.13.2
 
 - Better test and exception coverage if bad `extract_timestamps`
