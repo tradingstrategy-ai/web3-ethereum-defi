@@ -486,6 +486,7 @@ class GraphQLReorganisationMonitor(ReorganisationMonitor):
         total = end_block - start_block
         logger.debug(f"Fetching block headers and timestamps for logs {start_block:,} - {end_block:,}, total {total:,} blocks")
         from gql import gql
+
         query = gql(
             f"""
             query {{

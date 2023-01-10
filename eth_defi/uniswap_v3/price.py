@@ -58,9 +58,7 @@ class UniswapV3PriceHelper:
         assert slippage >= 0
 
         encoded_path = encode_path(path, fees)
-        amount_out = self.deployment.quoter.functions.quoteExactInput(
-            encoded_path, amount_in
-        ).call()
+        amount_out = self.deployment.quoter.functions.quoteExactInput(encoded_path, amount_in).call()
 
         return int(amount_out * 10_000 // (10_000 + slippage))
 
@@ -84,15 +82,14 @@ class UniswapV3PriceHelper:
         assert slippage >= 0
 
         encoded_path = encode_path(path, fees, exact_output=True)
-        amount_in = self.deployment.quoter.functions.quoteExactOutput(
-            encoded_path, amount_out
-        ).call()
+        amount_in = self.deployment.quoter.functions.quoteExactOutput(encoded_path, amount_out).call()
 
         return int(amount_in * (10_000 + slippage) // 10_000)
 
+
 def get_path_and_fees(pool0: PoolDetails, pool1: PoolDetails | None = None) -> tuple[list[HexAddress], list[int]]:
     """Given either one or two pools, constructs the path and fees list.
-    
+
     :param pool0:
         The first/only pool to be used in the swap
 
@@ -101,7 +98,7 @@ def get_path_and_fees(pool0: PoolDetails, pool1: PoolDetails | None = None) -> t
         token is being used for the swap
 
     :return:
-        path, fees 
+        path, fees
     """
 
     path = []
@@ -116,8 +113,9 @@ def get_path_and_fees(pool0: PoolDetails, pool1: PoolDetails | None = None) -> t
         assert pool0.token1 == pool1.token0, "pool0.token1 must be the same as pool1.token0"
         path.append(pool1.token1)
         fees.append(pool1.fee)
-    
+
     return path, fees
+
 
 def estimate_buy_quantity(
     uniswap: UniswapV3Deployment,
@@ -162,7 +160,7 @@ def estimate_buy_price(
     :param amount_out: How much of the base token we want to buy
     :param uniswap: Uniswap v3 deployment
     :param pool0: The first/only pool to be used in the swap
-    :param pool1: The second (optional) pool to be used in the swap. 
+    :param pool1: The second (optional) pool to be used in the swap.
         Only needs to be provided if an intemediary token is being used for the swap
     :param slippage: Slippage express in bps
     :return: Expected base token to receive
@@ -208,7 +206,7 @@ def estimate_buy_price_decimals(
     pool1: PoolDetails | None = None,
     slippage: Optional[float] = 0,
 ) -> Decimal:
-    """Estimate how much we are going to need to pay when doing buy.    
+    """Estimate how much we are going to need to pay when doing buy.
 
     :param amount_out: How much of the base token we want to buy
     :param uniswap: Uniswap v3 deployment
@@ -222,11 +220,7 @@ def estimate_buy_price_decimals(
 
     web3 = uniswap.web3
 
-    quote = (
-        fetch_erc20_details(web3, pool1.token1, raise_on_error=False)
-        if pool1
-        else fetch_erc20_details(web3, pool0.token1, raise_on_error=False)
-    )
+    quote = fetch_erc20_details(web3, pool1.token1, raise_on_error=False) if pool1 else fetch_erc20_details(web3, pool0.token1, raise_on_error=False)
     quantity_raw = quote.convert_to_raw(amount_out)
 
     path, fees = get_path_and_fees(pool0, pool1)
@@ -267,6 +261,7 @@ def estimate_sell_price_decimals(
 
     out_raw = price_helper.get_amount_out(quantity_raw, path, fees, slippage=slippage)
     return quote.convert_to_decimals(out_raw)
+
 
 def estimate_buy_received_amount_raw(
     uniswap: UniswapV3Deployment,

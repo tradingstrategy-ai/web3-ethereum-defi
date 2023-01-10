@@ -67,9 +67,10 @@ def fetch_pool_details(web3, pool_contact_address: Union[str, HexAddress]) -> Po
         raw_fee / 1_000_000,
     )
 
+
 def get_raw_fee_from_pool_address(web3, pool_contract_address: HexAddress):
     """Get the swap fee for a pool, given the pool contract address
-    
+
     :param web3:
         Web3 instance
 

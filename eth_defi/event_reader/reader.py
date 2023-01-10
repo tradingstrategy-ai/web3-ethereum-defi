@@ -523,7 +523,7 @@ def read_events_concurrent(
 
     logger.debug("Submitted %d tasks", len(task_list))
 
-    processed_chunks: Set[int]= set()
+    processed_chunks: Set[int] = set()
 
     # Complete the tasks.
     # Always guarantee the block order for the caller,

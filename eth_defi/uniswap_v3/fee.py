@@ -9,7 +9,7 @@ class FeeTier(IntEnum):
 
     #: 0.05% fee tier
     fee_5bps = 500
-    
+
     #: 0.30% fee tier
     fee_30bps = 3000
 
@@ -19,4 +19,4 @@ class FeeTier(IntEnum):
     def convert_to_multiplier(self) -> float:
         """Returns float value of fee tier
         e.g. if fee tier is fee_1bps -> returns 0.0001"""
-        return float(self.value)/1_000_000
+        return float(self.value) / 1_000_000
