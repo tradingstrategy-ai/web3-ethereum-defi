@@ -28,12 +28,23 @@ from web3.types import RPCEndpoint, RPCResponse
 logger = logging.getLogger(__name__)
 
 #: List of Web3 exceptions we know we should retry after some timeout
-DEFAULT_RETRYABLE_EXCEPTIONS = (ConnectionError, HTTPError, Timeout, TooManyRedirects,)
+DEFAULT_RETRYABLE_EXCEPTIONS = (
+    ConnectionError,
+    HTTPError,
+    Timeout,
+    TooManyRedirects,
+)
 
 #: List of HTTP status codes we know we might want to retry after a timeout
 #:
 #: Taken from https://stackoverflow.com/a/72302017/315168
-DEFAULT_RETRYABLE_HTTP_STATUS_CODES = (429, 500, 502, 503, 504, )
+DEFAULT_RETRYABLE_HTTP_STATUS_CODES = (
+    429,
+    500,
+    502,
+    503,
+    504,
+)
 
 
 def is_retryable_http_exception(
