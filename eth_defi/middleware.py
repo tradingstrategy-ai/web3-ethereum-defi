@@ -62,9 +62,7 @@ DEFAULT_RETRYABLE_HTTP_STATUS_CODES = (
 #:
 #: See GoEthereum error codes https://github.com/ethereum/go-ethereum/blob/master/rpc/errors.go
 #:
-DEFAULT_RETRYABLE_RPC_ERROR_CODES = (
-    -32603,
-)
+DEFAULT_RETRYABLE_RPC_ERROR_CODES = (-32603,)
 
 
 def is_retryable_http_exception(

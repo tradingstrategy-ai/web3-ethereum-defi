@@ -53,6 +53,5 @@ def test_with_retry(web3):
 
 def test_pokt_network_broken():
     """Test for Internal server error from Pokt relay."""
-    exc = ValueError({'message': 'Internal JSON-RPC error.', 'code': -32603})
+    exc = ValueError({"message": "Internal JSON-RPC error.", "code": -32603})
     assert is_retryable_http_exception(exc)
-
