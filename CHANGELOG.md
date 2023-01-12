@@ -1,5 +1,7 @@
 # Current
 
+- Attempt to overcome `ValueError: {'message': 'Internal JSON-RPC error.', 'code': -32603}` if served by a Pokt relat
+
 # 0.13.5
 
 - `has_graphql_support` made more robust
