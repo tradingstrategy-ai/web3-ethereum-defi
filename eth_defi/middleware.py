@@ -46,11 +46,30 @@ DEFAULT_RETRYABLE_HTTP_STATUS_CODES = (
     504,
 )
 
+#: List of ValueError status codes we know we might want to retry after a timeout
+#:
+#: This is a self-managed list curated by pain.
+#:
+#: JSON-RPC error might be mapped to :py:class:`ValueError`
+#: if nothing else is available.
+#:
+#: Example from Pokt Network:
+#:
+#: `ValueError: {'message': 'Internal JSON-RPC error.', 'code': -32603}`
+#:
+#: We assume this is a broken RPC node and Pokt will reroute the
+#: the next retried request to some other node.
+#:
+#: See GoEthereum error codes https://github.com/ethereum/go-ethereum/blob/master/rpc/errors.go
+#:
+DEFAULT_RETRYABLE_RPC_ERROR_CODES = (-32603,)
+
 
 def is_retryable_http_exception(
     exc: Exception,
     retryable_exceptions: Tuple[BaseException] = DEFAULT_RETRYABLE_EXCEPTIONS,
     retryable_status_codes: Collection[int] = DEFAULT_RETRYABLE_HTTP_STATUS_CODES,
+    retryable_rpc_error_codes: Collection[int] = DEFAULT_RETRYABLE_RPC_ERROR_CODES,
 ):
     """Helper to check retryable errors from JSON-RPC calls.
 
@@ -71,6 +90,17 @@ def is_retryable_http_exception(
         HTTP status codes we can retry. E.g. 429 Too Many requests.
     """
 
+    if isinstance(exc, ValueError):
+        # raise ValueError(response["error"])
+        # ValueError: {'message': 'Internal JSON-RPC error.', 'code': -32603}
+        if len(exc.args) > 0:
+            arg = exc.args[0]
+            if type(arg) == dict:
+                code = arg.get("code")
+                if code is None or type(code) != int:
+                    raise RuntimeError(f"Bad ValueError: {arg} - {exc}")
+                return code in retryable_rpc_error_codes
+
     if isinstance(exc, HTTPError):
         return exc.response.status_code in retryable_status_codes
 
@@ -85,6 +115,7 @@ def exception_retry_middleware(
     web3: "Web3",
     retryable_exceptions: Collection[Type[BaseException]],
     retryable_status_codes: Collection[int],
+    retryable_rpc_error_codes: Collection[int],
     retries: int = 10,
     sleep: int = 5,
     backoff: float = 1.6,
@@ -158,4 +189,5 @@ def http_retry_request_with_sleep_middleware(
         web3,
         DEFAULT_RETRYABLE_EXCEPTIONS,
         DEFAULT_RETRYABLE_HTTP_STATUS_CODES,
+        DEFAULT_RETRYABLE_RPC_ERROR_CODES,
     )
