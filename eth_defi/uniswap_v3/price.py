@@ -2,12 +2,6 @@
 from eth_typing import HexAddress
 from eth_defi.uniswap_v3.deployment import UniswapV3Deployment
 from eth_defi.uniswap_v3.utils import encode_path
-from eth_defi.uniswap_v3.pool import fetch_pool_details, PoolDetails
-from eth_defi.token import fetch_erc20_details
-
-from web3 import Web3
-
-from typing import Optional
 
 
 class UniswapV3PriceHelper:
