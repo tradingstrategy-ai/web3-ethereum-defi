@@ -50,7 +50,7 @@ Unlike ApeWorX or Brownie, which are smart contracte development frameworks, `we
 to be included in any other Python application and you can only use bits of its that you need.
 There are no expectations on configuration files or folder structure.
 
-[Read the full API documentation](High-quality API documentation](https://web3-ethereum-defi.readthedocs.io/)).
+[Read the full API documentation](https://web3-ethereum-defi.readthedocs.io/)).
 For code examples please see below.
 
 # Prerequisites
