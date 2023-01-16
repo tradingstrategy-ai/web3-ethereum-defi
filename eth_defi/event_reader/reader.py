@@ -24,6 +24,7 @@ from eth_defi.event_reader.reorganisation_monitor import ReorganisationMonitor
 from eth_defi.event_reader.web3worker import get_worker_web3
 from eth_defi.event_reader.conversion import convert_jsonrpc_value_to_int
 
+
 logger = logging.getLogger(__name__)
 
 
@@ -88,6 +89,9 @@ def extract_timestamps_json_rpc(
 
     Use slow JSON-RPC block headers call to get this information.
 
+    TODO: This is an old code path. This has been replaced by more robust
+    :py:class:`ReorganisationMonitor` implementation.
+
     :return:
         block hash -> UNIX timestamp mapping
     """
@@ -98,10 +102,9 @@ def extract_timestamps_json_rpc(
     # Collect block timestamps from the headers
     for block_num in range(start_block, end_block + 1):
         raw_result = web3.manager.request_blocking("eth_getBlockByNumber", (hex(block_num), False))
-        data_block_number = raw_result["number"]
-        assert type(data_block_number) == str, "Some automatic data conversion occured from JSON-RPC data. Make sure that you have cleared middleware onion for web3"
-        assert int(raw_result["number"], 16) == block_num
-        timestamps[raw_result["hash"]] = int(raw_result["timestamp"], 16)
+        data_block_number = convert_jsonrpc_value_to_int(raw_result["number"])
+        assert data_block_number == block_num, "Blockchain node did not give us the block we want"
+        timestamps[raw_result["hash"]] = convert_jsonrpc_value_to_int(raw_result["timestamp"])
 
     return timestamps
 
@@ -199,7 +202,11 @@ def extract_events(
                         if type(log["timestamp"]) not in (int, float):
                             raise BadTimestampValueReturned(f"Timestamp was not int or float: {type(log['timestamp'])}: {type(log['timestamp'])}")
                     except KeyError as e:
-                        raise TimestampNotFound(f"EVM event reader cannot match timestamp. Timestamp missing for block number {block_number:,}, hash {block_hash}, our timestamp table has {len(timestamps)} blocks") from e
+                        # Reorg mon would handle this natively
+                        raise TimestampNotFound(
+                            f"EVM event reader cannot match timestamp.\n"
+                            f"Timestamp missing for block number {block_number:,}, hash {block_hash}.\n"
+                            f" our timestamp table has {len(timestamps)} blocks.") from e
                 else:
                     # Not set, because reorg mon and timestamp extractor not provided,
                     # the caller must do the timestamp resolution themselves
