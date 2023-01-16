@@ -1,6 +1,7 @@
-# Current
+# 0.13.7
 
-TODO
+- Fix `extract_timestamps_json_rpc` to be compatible with both middlewared and non-middlewared JSON-RPC
+  request format (string hex numbers vs. converted ints).
 
 # 0.13.6
 
