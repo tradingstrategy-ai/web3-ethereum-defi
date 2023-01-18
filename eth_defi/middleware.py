@@ -113,11 +113,11 @@ def is_retryable_http_exception(
 def exception_retry_middleware(
     make_request: Callable[[RPCEndpoint, Any], RPCResponse],
     web3: "Web3",
-    retryable_exceptions: Collection[Type[BaseException]],
+    retryable_exceptions: Tuple[BaseException],
     retryable_status_codes: Collection[int],
     retryable_rpc_error_codes: Collection[int],
     retries: int = 10,
-    sleep: int = 5,
+    sleep: float = 5.0,
     backoff: float = 1.6,
 ) -> Callable[[RPCEndpoint, Any], RPCResponse]:
     """
@@ -131,6 +131,8 @@ def exception_retry_middleware(
     def middleware(method: RPCEndpoint, params: Any) -> Optional[RPCResponse]:
         nonlocal sleep
 
+        current_sleep = sleep
+
         # Check if the method is whitelisted
         if check_if_retry_on_failure(method):
             for i in range(retries):
@@ -138,11 +140,15 @@ def exception_retry_middleware(
                     return make_request(method, params)
                 # https://github.com/python/mypy/issues/5349
                 except Exception as e:  # type: ignore
-                    if is_retryable_http_exception(e, retryable_exceptions, retryable_status_codes):
+                    if is_retryable_http_exception(e,
+                            retryable_rpc_error_codes=retryable_rpc_error_codes,
+                            retryable_status_codes=retryable_status_codes,
+                            retryable_exceptions=retryable_exceptions,
+                            ):
                         if i < retries - 1:
-                            logger.warning("Encountered JSON-RPC retryable error %s when calling method %s, retrying in %f seconds, retry #%d", e, method, sleep, i)
-                            time.sleep(sleep)
-                            sleep *= backoff
+                            logger.warning("Encountered JSON-RPC retryable error %s when calling method %s, retrying in %f seconds, retry #%d", e, method, current_sleep, i)
+                            time.sleep(current_sleep)
+                            current_sleep *= backoff
                             continue
                         else:
                             raise  # Out of retries
@@ -187,7 +193,7 @@ def http_retry_request_with_sleep_middleware(
     return exception_retry_middleware(
         make_request,
         web3,
-        DEFAULT_RETRYABLE_EXCEPTIONS,
-        DEFAULT_RETRYABLE_HTTP_STATUS_CODES,
-        DEFAULT_RETRYABLE_RPC_ERROR_CODES,
+        retryable_exceptions=DEFAULT_RETRYABLE_EXCEPTIONS,
+        retryable_status_codes=DEFAULT_RETRYABLE_HTTP_STATUS_CODES,
+        retryable_rpc_error_codes=DEFAULT_RETRYABLE_RPC_ERROR_CODES,
     )
