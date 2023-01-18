@@ -11,7 +11,7 @@ Most for dealing with JSON-RPC unreliability issues with retries.
 
 from web3 import Web3
 import time
-from typing import Callable, Any, Collection, Type, Tuple, Optional
+from typing import Callable, Any, Collection, Type, Tuple, Optional, TypeAlias, Union
 import logging
 
 from requests.exceptions import (
@@ -27,8 +27,9 @@ from web3.types import RPCEndpoint, RPCResponse
 
 logger = logging.getLogger(__name__)
 
+
 #: List of Web3 exceptions we know we should retry after some timeout
-DEFAULT_RETRYABLE_EXCEPTIONS = (
+DEFAULT_RETRYABLE_EXCEPTIONS: Tuple[BaseException] = (
     ConnectionError,
     HTTPError,
     Timeout,
