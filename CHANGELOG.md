@@ -1,6 +1,6 @@
 # Current
 
-- TODO
+- Fix retry sleep not reset between function calls in `exception_retry_middleware`
 
 # 0.13.7
 

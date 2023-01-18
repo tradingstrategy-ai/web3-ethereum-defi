@@ -203,10 +203,7 @@ def extract_events(
                             raise BadTimestampValueReturned(f"Timestamp was not int or float: {type(log['timestamp'])}: {type(log['timestamp'])}")
                     except KeyError as e:
                         # Reorg mon would handle this natively
-                        raise TimestampNotFound(
-                            f"EVM event reader cannot match timestamp.\n"
-                            f"Timestamp missing for block number {block_number:,}, hash {block_hash}.\n"
-                            f" our timestamp table has {len(timestamps)} blocks.") from e
+                        raise TimestampNotFound(f"EVM event reader cannot match timestamp.\n" f"Timestamp missing for block number {block_number:,}, hash {block_hash}.\n" f" our timestamp table has {len(timestamps)} blocks.") from e
                 else:
                     # Not set, because reorg mon and timestamp extractor not provided,
                     # the caller must do the timestamp resolution themselves

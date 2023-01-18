@@ -11,7 +11,7 @@ Most for dealing with JSON-RPC unreliability issues with retries.
 
 from web3 import Web3
 import time
-from typing import Callable, Any, Collection, Type, Tuple, Optional
+from typing import Callable, Any, Collection, Type, Tuple, Optional, TypeAlias, Union
 import logging
 
 from requests.exceptions import (
@@ -27,8 +27,9 @@ from web3.types import RPCEndpoint, RPCResponse
 
 logger = logging.getLogger(__name__)
 
+
 #: List of Web3 exceptions we know we should retry after some timeout
-DEFAULT_RETRYABLE_EXCEPTIONS = (
+DEFAULT_RETRYABLE_EXCEPTIONS: Tuple[BaseException] = (
     ConnectionError,
     HTTPError,
     Timeout,
@@ -113,11 +114,11 @@ def is_retryable_http_exception(
 def exception_retry_middleware(
     make_request: Callable[[RPCEndpoint, Any], RPCResponse],
     web3: "Web3",
-    retryable_exceptions: Collection[Type[BaseException]],
+    retryable_exceptions: Tuple[BaseException],
     retryable_status_codes: Collection[int],
     retryable_rpc_error_codes: Collection[int],
     retries: int = 10,
-    sleep: int = 5,
+    sleep: float = 5.0,
     backoff: float = 1.6,
 ) -> Callable[[RPCEndpoint, Any], RPCResponse]:
     """
@@ -131,18 +132,26 @@ def exception_retry_middleware(
     def middleware(method: RPCEndpoint, params: Any) -> Optional[RPCResponse]:
         nonlocal sleep
 
-        # Check if the method is whitelisted
+        current_sleep = sleep
+
+        # Check if the RPC method is whitelisted for multiple retries
         if check_if_retry_on_failure(method):
+            # Try to recover from any JSON-RPC node error, sleep and try again
             for i in range(retries):
                 try:
                     return make_request(method, params)
                 # https://github.com/python/mypy/issues/5349
                 except Exception as e:  # type: ignore
-                    if is_retryable_http_exception(e, retryable_exceptions, retryable_status_codes):
+                    if is_retryable_http_exception(
+                        e,
+                        retryable_rpc_error_codes=retryable_rpc_error_codes,
+                        retryable_status_codes=retryable_status_codes,
+                        retryable_exceptions=retryable_exceptions,
+                    ):
                         if i < retries - 1:
-                            logger.warning("Encountered JSON-RPC retryable error %s when calling method %s, retrying in %f seconds, retry #%d", e, method, sleep, i)
-                            time.sleep(sleep)
-                            sleep *= backoff
+                            logger.warning("Encountered JSON-RPC retryable error %s when calling method %s, retrying in %f seconds, retry #%d", e, method, current_sleep, i)
+                            time.sleep(current_sleep)
+                            current_sleep *= backoff
                             continue
                         else:
                             raise  # Out of retries
@@ -187,7 +196,7 @@ def http_retry_request_with_sleep_middleware(
     return exception_retry_middleware(
         make_request,
         web3,
-        DEFAULT_RETRYABLE_EXCEPTIONS,
-        DEFAULT_RETRYABLE_HTTP_STATUS_CODES,
-        DEFAULT_RETRYABLE_RPC_ERROR_CODES,
+        retryable_exceptions=DEFAULT_RETRYABLE_EXCEPTIONS,
+        retryable_status_codes=DEFAULT_RETRYABLE_HTTP_STATUS_CODES,
+        retryable_rpc_error_codes=DEFAULT_RETRYABLE_RPC_ERROR_CODES,
     )
