@@ -13,7 +13,7 @@ TODO
 
 # 0.13.6
 
-- Attempt to overcome `ValueError: {'message': 'Internal JSON-RPC error.', 'code': -32603}` if served by a Pokt relat
+- Attempt to overcome `ValueError: {'message': 'Internal JSON-RPC error.', 'code': -32603}` if served by a Pokt relay
 
 # 0.13.5
 
