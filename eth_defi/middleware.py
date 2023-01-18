@@ -133,18 +133,20 @@ def exception_retry_middleware(
 
         current_sleep = sleep
 
-        # Check if the method is whitelisted
+        # Check if the RPC method is whitelisted for multiple retries
         if check_if_retry_on_failure(method):
+            # Try to recover from any JSON-RPC node error, sleep and try again
             for i in range(retries):
                 try:
                     return make_request(method, params)
                 # https://github.com/python/mypy/issues/5349
                 except Exception as e:  # type: ignore
-                    if is_retryable_http_exception(e,
-                            retryable_rpc_error_codes=retryable_rpc_error_codes,
-                            retryable_status_codes=retryable_status_codes,
-                            retryable_exceptions=retryable_exceptions,
-                            ):
+                    if is_retryable_http_exception(
+                        e,
+                        retryable_rpc_error_codes=retryable_rpc_error_codes,
+                        retryable_status_codes=retryable_status_codes,
+                        retryable_exceptions=retryable_exceptions,
+                    ):
                         if i < retries - 1:
                             logger.warning("Encountered JSON-RPC retryable error %s when calling method %s, retrying in %f seconds, retry #%d", e, method, current_sleep, i)
                             time.sleep(current_sleep)
