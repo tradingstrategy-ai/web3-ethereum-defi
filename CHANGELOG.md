@@ -1,5 +1,45 @@
 # Current
 
+TODO
+
+# 0.13.8
+
+- Fix retry sleep not reset between function calls in `exception_retry_middleware`
+
+# 0.13.7
+
+- Fix `extract_timestamps_json_rpc` to be compatible with both middlewared and non-middlewared JSON-RPC
+  request format (string hex numbers vs. converted ints).
+
+# 0.13.6
+
+- Attempt to overcome `ValueError: {'message': 'Internal JSON-RPC error.', 'code': -32603}` if served by a Pokt relay
+
+# 0.13.5
+
+- `has_graphql_support` made more robust
+
+# 0.13.4
+
+- Retry middleware fine tuning
+
+# 0.13.3
+
+- Off by one fix in read_events_concurrent max block range
+- More event reader test coverage
+
+# 0.13.2
+
+- Better test and exception coverage if bad `extract_timestamps`
+  is passed while reading events. This prevents the library
+  user to write a bad timestamp provider function.
+
+# 0.13.1
+
+- Fix `filter` and `event` assert in `read_events_concurrent()` 
+
+# 0.13
+
 - Fix: Duplicate events appearing when using the concurrent event reader
 - Added `ReorganisationMonitor` and `ChainReorganisationDetected` to deal with unstable chain tips when
   doing event ignestion

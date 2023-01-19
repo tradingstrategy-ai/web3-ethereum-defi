@@ -24,11 +24,16 @@ from eth_defi.event_reader.reorganisation_monitor import ReorganisationMonitor
 from eth_defi.event_reader.web3worker import get_worker_web3
 from eth_defi.event_reader.conversion import convert_jsonrpc_value_to_int
 
+
 logger = logging.getLogger(__name__)
 
 
 class TimestampNotFound(Exception):
     """Timestamp service does not have a timestasmp for a given block."""
+
+
+class BadTimestampValueReturned(Exception):
+    """Timestamp does not look good."""
 
 
 # For typing.Protocol see https://stackoverflow.com/questions/68472236/type-hint-for-callable-that-takes-kwargs
@@ -84,6 +89,9 @@ def extract_timestamps_json_rpc(
 
     Use slow JSON-RPC block headers call to get this information.
 
+    TODO: This is an old code path. This has been replaced by more robust
+    :py:class:`ReorganisationMonitor` implementation.
+
     :return:
         block hash -> UNIX timestamp mapping
     """
@@ -94,10 +102,9 @@ def extract_timestamps_json_rpc(
     # Collect block timestamps from the headers
     for block_num in range(start_block, end_block + 1):
         raw_result = web3.manager.request_blocking("eth_getBlockByNumber", (hex(block_num), False))
-        data_block_number = raw_result["number"]
-        assert type(data_block_number) == str, "Some automatic data conversion occured from JSON-RPC data. Make sure that you have cleared middleware onion for web3"
-        assert int(raw_result["number"], 16) == block_num
-        timestamps[raw_result["hash"]] = int(raw_result["timestamp"], 16)
+        data_block_number = convert_jsonrpc_value_to_int(raw_result["number"])
+        assert data_block_number == block_num, "Blockchain node did not give us the block we want"
+        timestamps[raw_result["hash"]] = convert_jsonrpc_value_to_int(raw_result["timestamp"])
 
     return timestamps
 
@@ -163,6 +170,8 @@ def extract_events(
 
         if extract_timestamps is not None:
             timestamps = extract_timestamps(web3, start_block, end_block)
+            if timestamps is None:
+                raise BadTimestampValueReturned("extract_timestamps returned None")
         else:
             timestamps = None
 
@@ -187,15 +196,19 @@ def extract_events(
                 assert timestamp is not None, f"Timestamp missing for block number {block_number}, hash {block_hash}"
                 log["timestamp"] = timestamp
             else:
-                if timestamps:
+                if timestamps is not None:
                     try:
-                        log["timestamp"] = timestamps[block_hash] if extract_timestamps else None
+                        log["timestamp"] = timestamps[block_hash]
+                        if type(log["timestamp"]) not in (int, float):
+                            raise BadTimestampValueReturned(f"Timestamp was not int or float: {type(log['timestamp'])}: {type(log['timestamp'])}")
                     except KeyError as e:
-                        raise TimestampNotFound(f"EVM event reader cannot match timestamp. Timestamp missing for block number {block_number:,}, hash {block_hash}, our timestamp table has {len(timestamps)} blocks") from e
+                        # Reorg mon would handle this natively
+                        raise TimestampNotFound(f"EVM event reader cannot match timestamp.\n" f"Timestamp missing for block number {block_number:,}, hash {block_hash}.\n" f" our timestamp table has {len(timestamps)} blocks.") from e
                 else:
                     # Not set, because reorg mon and timestamp extractor not provided,
                     # the caller must do the timestamp resolution themselves
                     log["timestamp"] = None
+
             yield log
 
 
@@ -342,6 +355,9 @@ def read_events(
     :param reorg_mon:
         If passed, use this instance to monitor and raise chain reorganisation exceptions.
 
+    :return:
+        Iterate over :py:class:`LogResult` instances for each event matched in
+        the filter.
     """
 
     assert type(start_block) == int
@@ -354,7 +370,7 @@ def read_events(
 
     # Construct our bloom filter
     if filter is None:
-        assert events is None, "Cannot pass both filter and events"
+        assert events is not None, "Cannot pass both filter and events"
         filter = prepare_filter(events)
 
     last_timestamp = None
@@ -482,6 +498,10 @@ def read_events_concurrent(
     :param reorg_mon:
         If passed, use this instance to monitor and raise chain reorganisation exceptions.
 
+    :return:
+        Iterate over :py:class:`LogResult` instances for each event matched in
+        the filter.
+
     """
 
     assert not executor._executor._shutdown, "ThreadPoolExecutor has been shut down"
@@ -495,7 +515,7 @@ def read_events_concurrent(
 
     # Construct our bloom filter
     if filter is None:
-        assert events is None, "Cannot pass both filter and events"
+        assert events is not None, "Cannot pass both filter and events"
         filter = prepare_filter(events)
 
     # For futureproof usage see
@@ -508,7 +528,8 @@ def read_events_concurrent(
     completed_tasks: Dict[int, tuple] = {}
 
     for block_num in range(start_block, end_block + 1, chunk_size):
-        last_of_chunk = min(end_block, block_num + chunk_size) - 1
+        last_of_chunk = min(end_block, block_num + chunk_size - 1)
+
         task_list[block_num] = (
             block_num,
             last_of_chunk,
