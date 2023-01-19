@@ -16,6 +16,7 @@ from eth_defi.middleware import http_retry_request_with_sleep_middleware
 POA_MIDDLEWARE_NEEDED_CHAIN_IDS = {
     56,  # BNB Chain
     137,  # Polygon
+    43114,  # Avalanche C-chain
 }
 
 

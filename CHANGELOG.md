@@ -2,6 +2,10 @@
 
 TODO
 
+# 0.13.9
+
+- Add middleware support for Avalanche C-chain
+
 # 0.13.8
 
 - Fix retry sleep not reset between function calls in `exception_retry_middleware`
