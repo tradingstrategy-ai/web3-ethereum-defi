@@ -312,10 +312,10 @@ def fetch_deployment(
     router = get_deployed_contract(web3, "uniswap_v3/SwapRouter.json", router_address)
     position_manager = get_deployed_contract(web3, "uniswap_v3/NonfungiblePositionManager.json", position_manager_address)
     quoter = get_deployed_contract(web3, "uniswap_v3/Quoter.json", quoter_address)
-    PoolContract = get_contract(web3, "uniswap_v3/PoolContract.json")
+    PoolContract = get_contract(web3, "uniswap_v3/UniswapV3Pool.json")
 
     # https://github.com/Uniswap/v3-periphery/blob/6cce88e63e176af1ddb6cc56e029110289622317/contracts/SwapRouter.sol#L40
-    weth_address = router.functions.WETH().call()
+    weth_address = router.functions.WETH9().call()
     weth = get_deployed_contract(web3, "WETH9Mock.json", weth_address)
 
     return UniswapV3Deployment(
