@@ -51,25 +51,23 @@ from web3 import HTTPProvider, Web3
 from eth_defi.abi import get_contract
 from eth_defi.chain import install_chain_middleware
 from eth_defi.event_reader.block_time import measure_block_time
-from eth_defi.event_reader.conversion import \
-    decode_data, convert_int256_bytes_to_int, convert_jsonrpc_value_to_int
+from eth_defi.event_reader.conversion import decode_data, convert_int256_bytes_to_int, convert_jsonrpc_value_to_int
 from eth_defi.event_reader.csv_block_data_store import CSVDatasetBlockDataStore
 from eth_defi.event_reader.fast_json_rpc import patch_web3
 from eth_defi.event_reader.logresult import LogContext
 from eth_defi.event_reader.reader import read_events, LogResult, prepare_filter
-from eth_defi.event_reader.reorganisation_monitor import ChainReorganisationDetected, \
-    JSONRPCReorganisationMonitor
+from eth_defi.event_reader.reorganisation_monitor import ChainReorganisationDetected, JSONRPCReorganisationMonitor
 from eth_defi.token import fetch_erc20_details, TokenDetails
 from eth_defi.uniswap_v2.pair import PairDetails, fetch_pair_details
 
 
 #: List of output columns to swaps.csv
 SWAP_FIELD_NAMES = [
-    'block_number',
-    'timestamp',
-    'tx_hash',
-    'log_index',
-    'pair_contract_address',
+    "block_number",
+    "timestamp",
+    "tx_hash",
+    "log_index",
+    "pair_contract_address",
     "amount0_in",
     "amount1_in",
     "amount0_out",
@@ -223,10 +221,7 @@ def main():
     Factory = get_contract(web3, "UniswapV2Factory.json")
     Pair = get_contract(web3, "UniswapV2Pair.json")
 
-    events = [
-        Factory.events.PairCreated,  # https://etherscan.io/txs?ea=0x5c69bee701ef814a2b6a3edd4b1652cb9cc5aa6f&topic0=0x0d3648bd0f6ba80134a33ba9275ac585d9d315f0ad8355cddefde31afa28d0e9
-        Pair.events.Swap
-    ]
+    events = [Factory.events.PairCreated, Pair.events.Swap]  # https://etherscan.io/txs?ea=0x5c69bee701ef814a2b6a3edd4b1652cb9cc5aa6f&topic0=0x0d3648bd0f6ba80134a33ba9275ac585d9d315f0ad8355cddefde31afa28d0e9
 
     block_store = CSVDatasetBlockDataStore(Path("/tmp/uni-v2-last-block-state.csv"))
 
@@ -267,15 +262,15 @@ def main():
 
             # Read specified events in block range
             for log_result in read_events(
-                    web3,
-                    start_block=chain_reorg_resolution.latest_block_with_good_data+1,
-                    end_block=chain_reorg_resolution.last_live_block,
-                    filter=filter,
-                    notify=None,
-                    chunk_size=100,
-                    context=token_cache,
-                    extract_timestamps=None,
-                    reorg_mon=reorg_mon,
+                web3,
+                start_block=chain_reorg_resolution.latest_block_with_good_data + 1,
+                end_block=chain_reorg_resolution.last_live_block,
+                filter=filter,
+                notify=None,
+                chunk_size=100,
+                context=token_cache,
+                extract_timestamps=None,
+                reorg_mon=reorg_mon,
             ):
                 if log_result["event"].event_name == "PairCreated":
                     logger.info(f"New pair created: {log_result}")
@@ -288,10 +283,7 @@ def main():
 
             # Dump stats to the output
             if time.time() > next_stat_print:
-                logger.info("**STATS** Reorgs detected: %d, block headers buffered: %d, pairs cached: %d",
-                            total_reorgs,
-                            len(reorg_mon.block_map),
-                            len(cache.pair_cache))
+                logger.info("**STATS** Reorgs detected: %d, block headers buffered: %d, pairs cached: %d", total_reorgs, len(reorg_mon.block_map), len(cache.pair_cache))
                 next_stat_print = time.time() + stat_delay
 
         except ChainReorganisationDetected as e:

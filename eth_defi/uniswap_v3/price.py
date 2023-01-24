@@ -47,7 +47,7 @@ class UniswapV3PriceHelper:
         :param slippage: Slippage express in bps
         """
         self.validate_args(path, fees, slippage, amount_in)
-        
+
         encoded_path = encode_path(path, fees)
         amount_out = self.deployment.quoter.functions.quoteExactInput(encoded_path, amount_in).call()
 
@@ -69,9 +69,7 @@ class UniswapV3PriceHelper:
         :param slippage: Slippage express in bps
         """
         self.validate_args(path, fees, slippage, amount_out)
-        
-        
-        
+
         encoded_path = encode_path(path, fees, exact_output=True)
         amount_in = self.deployment.quoter.functions.quoteExactOutput(encoded_path, amount_out).call()
 
