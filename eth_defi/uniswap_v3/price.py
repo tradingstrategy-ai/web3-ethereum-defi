@@ -46,9 +46,13 @@ class UniswapV3PriceHelper:
         :param fees: List of trading fees of the pools in the route
         :param slippage: Slippage express in bps
         """
-        assert len(path) >= 2
-        assert len(fees) == len(path) - 1
-        assert slippage >= 0
+        self.validate_args(path, fees, slippage)
+        
+        if type(amount_in) != int:
+            try:
+                amount_in = int(amount_in)
+            except:
+                raise TypeError("Incorrect type provided for amount_in. Failed to convert to int")
 
         encoded_path = encode_path(path, fees)
         amount_out = self.deployment.quoter.functions.quoteExactInput(encoded_path, amount_in).call()
@@ -70,11 +74,21 @@ class UniswapV3PriceHelper:
         :param fees: List of trading fees of the pools in the route
         :param slippage: Slippage express in bps
         """
-        assert len(path) >= 2
-        assert len(fees) == len(path) - 1
-        assert slippage >= 0
-
+        self.validate_args(path, fees, slippage)
+        
+        if type(amount_out) != int:
+            try:
+                amount_out = int(amount_out)
+            except:
+                raise TypeError("Incorrect type provided for amount_out. Failed to convert to int")
+        
         encoded_path = encode_path(path, fees, exact_output=True)
         amount_in = self.deployment.quoter.functions.quoteExactOutput(encoded_path, amount_out).call()
 
         return int(amount_in * (10_000 + slippage) // 10_000)
+
+    @staticmethod
+    def validate_args(path, fees, slippage):
+        assert len(path) >= 2
+        assert len(fees) == len(path) - 1
+        assert slippage >= 0
