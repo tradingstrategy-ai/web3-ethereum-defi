@@ -2,6 +2,7 @@
 import math
 from typing import Tuple
 
+from web3 import Web3
 from eth_typing import HexAddress
 
 from eth_defi.uniswap_v3.constants import (
