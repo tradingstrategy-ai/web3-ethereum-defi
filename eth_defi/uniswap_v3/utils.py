@@ -2,6 +2,7 @@
 import math
 from typing import Tuple
 
+from web3 import Web3
 from eth_typing import HexAddress
 
 from eth_defi.uniswap_v3.constants import (
@@ -60,6 +61,46 @@ def encode_path(
             encoded += int.to_bytes(fees[index], 3, "big")
 
     return encoded
+
+
+def decode_path(full_path_encoded: bytes) -> list:
+    """Decodes the path. A bit tricky. Thanks to https://degencode.substack.com/p/project-uniswapv3-mempool-watcher
+
+    :param full_path_encoded:
+    Encoded path as returned from router.decode_function_input (bytes)
+
+    :returns:
+    fully decoded path array including addresses and fees
+    """
+
+    assert type(full_path_encoded == bytes), "encoded path must be provided as bytes"
+    
+    path_pos = 0
+    full_path_decoded = []
+    # read alternating 20 and 3 byte chunks from the encoded path,
+    # store each address (hex) and fee (int)
+
+    byte_length = 20
+    while True:
+        # stop at the end
+        if path_pos == len(full_path_encoded):
+            break
+        elif byte_length == 20 and len(full_path_encoded) >= path_pos + byte_length:
+            address = full_path_encoded[path_pos : path_pos + byte_length].hex()
+            full_path_decoded.append(Web3.toChecksumAddress(address))
+        elif byte_length == 3 and len(full_path_encoded) >= path_pos + byte_length:
+            fee = int(
+                full_path_encoded[path_pos : path_pos + byte_length].hex(),
+                16,
+            )
+            full_path_decoded.append(fee)
+        else:
+            raise IndexError("Bad path")
+
+        path_pos += byte_length
+        byte_length = 3 if byte_length == 20 else 20
+
+    return full_path_decoded
 
 
 def get_min_tick(fee: int) -> int:

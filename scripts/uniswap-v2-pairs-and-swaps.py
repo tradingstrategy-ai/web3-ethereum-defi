@@ -45,8 +45,7 @@ from tqdm import tqdm
 from web3 import HTTPProvider, Web3
 
 from eth_defi.abi import get_contract
-from eth_defi.event_reader.conversion import convert_uint256_string_to_address, convert_uint256_bytes_to_address, \
-    decode_data, convert_int256_bytes_to_int, convert_jsonrpc_value_to_int
+from eth_defi.event_reader.conversion import convert_uint256_string_to_address, convert_uint256_bytes_to_address, decode_data, convert_int256_bytes_to_int, convert_jsonrpc_value_to_int
 from eth_defi.event_reader.fast_json_rpc import patch_web3
 from eth_defi.event_reader.logresult import LogContext
 from eth_defi.event_reader.reader import read_events, LogResult
@@ -54,26 +53,26 @@ from eth_defi.token import fetch_erc20_details, TokenDetails
 
 #: List of output columns to pairs.csv
 PAIR_FIELD_NAMES = [
-    'block_number',
-    'timestamp',
-    'tx_hash',
-    'log_index',
-    'factory_contract_address',
-    'pair_contract_address',
-    'pair_count_index',
-    'token0_address',
-    'token0_symbol',
-    'token1_address',
-    'token1_symbol',
+    "block_number",
+    "timestamp",
+    "tx_hash",
+    "log_index",
+    "factory_contract_address",
+    "pair_contract_address",
+    "pair_count_index",
+    "token0_address",
+    "token0_symbol",
+    "token1_address",
+    "token1_symbol",
 ]
 
 #: List of output columns to swaps.csv
 SWAP_FIELD_NAMES = [
-    'block_number',
-    'timestamp',
-    'tx_hash',
-    'log_index',
-    'pair_contract_address',
+    "block_number",
+    "timestamp",
+    "tx_hash",
+    "log_index",
+    "pair_contract_address",
     "amount0_in",
     "amount1_in",
     "amount0_out",
@@ -236,10 +235,7 @@ def main():
     Factory = get_contract(web3, "UniswapV2Factory.json")
     Pair = get_contract(web3, "UniswapV2Pair.json")
 
-    events = [
-        Factory.events.PairCreated,  # https://etherscan.io/txs?ea=0x5c69bee701ef814a2b6a3edd4b1652cb9cc5aa6f&topic0=0x0d3648bd0f6ba80134a33ba9275ac585d9d315f0ad8355cddefde31afa28d0e9
-        Pair.events.Swap
-    ]
+    events = [Factory.events.PairCreated, Pair.events.Swap]  # https://etherscan.io/txs?ea=0x5c69bee701ef814a2b6a3edd4b1652cb9cc5aa6f&topic0=0x0d3648bd0f6ba80134a33ba9275ac585d9d315f0ad8355cddefde31afa28d0e9
 
     pairs_fname = "/tmp/uni-v2-pairs.csv"
     swaps_fname = "/tmp/uni-v2-swaps.csv"
@@ -257,7 +253,7 @@ def main():
 
     print(f"Starting to read block range {start_block:,} - {end_block:,}")
 
-    with open(pairs_fname, 'a') as pairs_out, open(swaps_fname, 'a') as swaps_out:
+    with open(pairs_fname, "a") as pairs_out, open(swaps_fname, "a") as swaps_out:
 
         pairs_writer = csv.DictWriter(pairs_out, fieldnames=PAIR_FIELD_NAMES)
         swaps_writer = csv.DictWriter(swaps_out, fieldnames=SWAP_FIELD_NAMES)
@@ -294,13 +290,13 @@ def main():
 
             # Read specified events in block range
             for log_result in read_events(
-                    web3,
-                    start_block,
-                    end_block,
-                    events,
-                    update_progress,
-                    chunk_size=100,
-                    context=token_cache,
+                web3,
+                start_block,
+                end_block,
+                events,
+                update_progress,
+                chunk_size=100,
+                context=token_cache,
             ):
                 # We are getting two kinds of log entries, pairs and swaps.
                 # Choose between where to store.

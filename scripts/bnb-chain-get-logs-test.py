@@ -40,8 +40,10 @@ TIMEOUT = 30.0
 
 
 def print_roundtrip(response, *args, **kwargs):
-    format_headers = lambda d: '\n'.join(f'{k}: {v}' for k, v in d.items())
-    print(textwrap.dedent('''
+    format_headers = lambda d: "\n".join(f"{k}: {v}" for k, v in d.items())
+    print(
+        textwrap.dedent(
+            """
         ---------------- request ----------------
         {req.method} {req.url}
         {reqhdrs}
@@ -52,12 +54,14 @@ def print_roundtrip(response, *args, **kwargs):
         {reshdrs}
 
         {res.text}
-    ''').format(
-        req=response.request,
-        res=response,
-        reqhdrs=format_headers(response.request.headers),
-        reshdrs=format_headers(response.headers),
-    ))
+    """
+        ).format(
+            req=response.request,
+            res=response,
+            reqhdrs=format_headers(response.request.headers),
+            reshdrs=format_headers(response.headers),
+        )
+    )
 
 
 def main():
@@ -67,7 +71,7 @@ def main():
     json_rpc_url = os.environ["JSON_RPC_BINANCE"]
 
     session = requests.Session()
-    session.hooks['response'].append(print_roundtrip)
+    session.hooks["response"].append(print_roundtrip)
 
     web3 = Web3(HTTPProvider(json_rpc_url, request_kwargs={"timeout": TIMEOUT}, session=session))
     web3.middleware_onion.clear()
