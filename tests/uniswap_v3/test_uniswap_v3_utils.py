@@ -78,7 +78,7 @@ def test_encode_path(path, fees, is_exact_output, expected_encoded_path):
             ]
         ),
         (
-            b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x03\x00\x01\xf4\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x02\x00\x0b\xb8\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01',
+            b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x00\x0b\xb8\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x02\x00\x01\xf4\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x03',
             [
                 "0x0000000000000000000000000000000000000001",
                 3000,
@@ -92,11 +92,7 @@ def test_encode_path(path, fees, is_exact_output, expected_encoded_path):
 def test_decode_path(encoded_path: bytes, decoded_path: list):
     
     assert type(encoded_path == bytes)
-    decoded = decode_path(encoded_path)
+    _decoded_path = decode_path(encoded_path)
     
     for i in range(len(decoded_path)):
-        assert decoded[i] == decoded_path[i]
-    
-    assert decoded_path[0] == '0xF2E246BB76DF876Cef8b38ae84130F4F55De395b'
-    assert decoded_path[1] == 3000
-    assert decoded_path[2] == '0xB9816fC57977D5A786E654c7CF76767be63b966e'
+        assert _decoded_path[i] == decoded_path[i]
