@@ -72,6 +72,8 @@ def decode_path(full_path_encoded: bytes) -> list:
     fully decoded path array including addresses and fees
     """
 
+    assert type(full_path_encoded == bytes), "encoded path must be provided as bytes"
+    
     path_pos = 0
     full_path_decoded = []
     # read alternating 20 and 3 byte chunks from the encoded path,
