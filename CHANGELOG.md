@@ -1,6 +1,8 @@
 # Current
 
-TODO
+# 0.13.10
+
+- Uniswap v3 fixes
 
 # 0.13.9
 
