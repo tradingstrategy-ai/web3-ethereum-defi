@@ -1,12 +1,10 @@
-# Current
-
 # 0.13.11
 
 - Add Uniswap V3 decode_path method 
 
 # 0.13.10
 
-- Uniswap V3 minor additions
+- Uniswap v3 fixes
 
 # 0.13.9
 
