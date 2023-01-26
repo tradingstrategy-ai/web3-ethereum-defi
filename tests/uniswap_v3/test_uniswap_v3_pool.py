@@ -1,4 +1,6 @@
 """Test Uniswap v3 liquidity pool."""
+import pprint
+
 import pytest
 from web3 import EthereumTesterProvider, Web3
 from web3.contract import Contract
@@ -8,6 +10,8 @@ from eth_defi.uniswap_v3.constants import DEFAULT_FEES
 from eth_defi.uniswap_v3.deployment import (
     UniswapV3Deployment,
     add_liquidity,
+    increase_liquidity,
+    decrease_liquidity,
     deploy_pool,
     deploy_uniswap_v3,
 )
@@ -161,7 +165,7 @@ def test_create_pool_with_initial_liquidity(
         upper_tick=200,
     )
 
-    # successfull
+    # successful
     assert tx_receipt.status == 1
 
     # [6617184536, 6617184536, 0, 0, 89874, 1020847100762815390390123822295304634368, 1654638644, True]
@@ -177,6 +181,69 @@ def test_create_pool_with_initial_liquidity(
     # other tick should not be initialized
     *_, init = pool.functions.ticks(lower_tick - 60).call()
     assert init is False
+
+
+def test_create_pool_with_increase_decrease_liquidity(
+    web3: Web3,
+    deployer: str,
+    uniswap_v3: UniswapV3Deployment,
+    weth: Contract,
+    usdc: Contract,
+    ):
+    """Increase and decrease liquidity of a mock pool on Uniswap v3."""
+    pool = deploy_pool(
+        web3,
+        deployer,
+        deployment=uniswap_v3,
+        token0=weth,
+        token1=usdc,
+        fee=3000,
+    )
+
+    initial_amount0 = 1_000_000
+    initial_amount1 = 20_000_000
+
+    tx_receipt, lower_tick, upper_tick = add_liquidity(
+        web3,
+        deployer,
+        deployment=uniswap_v3,
+        pool=pool,
+        amount0=initial_amount0,
+        amount1=initial_amount1,
+        lower_tick=100,
+        upper_tick=200,
+    )
+
+    # successful
+    assert tx_receipt.status == 1
+
+    # The IncreaseLiquidity event is emitted with both mint and increaseLiquidity
+    # https://github.com/Uniswap/v3-periphery/blob/main/contracts/interfaces/INonfungiblePositionManager.sol
+    increase_liquidity_event = uniswap_v3.position_manager.events.IncreaseLiquidity().processReceipt(tx_receipt)
+    token_id = increase_liquidity_event[0].args.tokenId
+    liquidity_before_increase = increase_liquidity_event[0].args.liquidity
+
+    # add more liquidity
+    tx_receipt = increase_liquidity(
+        web3,
+        deployer,
+        token_id,
+        deployment=uniswap_v3,
+        amount0=100,
+        amount1=100,
+    )
+
+    assert tx_receipt.status == 1
+
+    increase_liquidity_event = uniswap_v3.position_manager.events.IncreaseLiquidity().processReceipt(tx_receipt)
+    liquidity_added = increase_liquidity_event[0].args.liquidity
+
+    assert liquidity_added > 0
+
+    # get current liquidity for this token_id
+    current_position_details = uniswap_v3.position_manager.functions.positions(token_id).call()
+    current_position_liquidity = current_position_details[7]
+    assert current_position_liquidity == liquidity_added + liquidity_before_increase
 
 
 def test_fetch_pool_details(

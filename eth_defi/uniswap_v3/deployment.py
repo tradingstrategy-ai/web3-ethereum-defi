@@ -31,6 +31,7 @@ from eth_defi.uniswap_v3.constants import (
     UNISWAP_V3_FACTORY_DEPLOYMENT_DATA,
 )
 from eth_defi.uniswap_v3.utils import encode_sqrt_ratio_x96, get_nearest_usable_tick
+from eth_defi.uniswap_v3.pool import fetch_pool_details
 
 
 @dataclass(frozen=True)
@@ -264,6 +265,66 @@ def add_liquidity(
     tx_receipt = web3.eth.get_transaction_receipt(tx_hash)
 
     return tx_receipt, lower_tick, upper_tick
+
+
+def increase_liquidity(
+    web3: Web3,
+    deployer: HexAddress, # TODO: rename to position_owner
+    position_id: int,
+    deployment: UniswapV3Deployment,
+    amount0: int,
+    amount1: int,
+) -> dict:
+    """
+    Increase liquidity in an existing Uniswap V3 position.
+    `See Uniswap V3 documentation for details <https://docs.uniswap.org/contracts/v3/reference/periphery/interfaces/INonfungiblePositionManager>`_.
+
+    :param web3:
+    :param deployer:
+    :param position_id:
+    :param deployment:
+    :param amount0:
+    :param amount1:
+    :return:
+    """
+    # get the pool from the position manager and factory
+    position_manager = deployment.position_manager
+
+    # returns: [nonce, operator, token0, token1, fee, tickLower, tickUpper,
+    # liquidity, feeGrowthInside0, feeGrowthInside1, tokensOwed0, tokensOwed1]
+    position_details = position_manager.functions.positions(position_id).call()  # get pool contract address
+
+    # get the pool address from token0_address, token1_address, and fee
+    pool_address = deployment.factory.functions.getPool(position_details[2], position_details[3], position_details[4]).call()
+    # make sure the returned address is not 0x0  (that means it does not exist)
+    assert '0x0000000000000000000000000000000000000000' != pool_address
+
+    pool_details = fetch_pool_details(web3, pool_address) # type PoolDetails contains token0, token1 which are type: TokenDetails
+
+    # make sure there is sufficient balance to cover the increase.
+    assert pool_details.token0.contract.functions.balanceOf(deployer).call() > amount0
+    assert pool_details.token1.contract.functions.balanceOf(deployer).call() > amount1
+
+    pool_details.token0.contract.functions.approve(position_manager.address, amount0).transact({"from": deployer})
+    pool_details.token1.contract.functions.approve(position_manager.address, amount1).transact({"from": deployer})
+
+    tx_hash = position_manager.functions.increaseLiquidity(
+        (
+            position_id,
+            amount0,
+            amount1,
+            0,  # TODO: [] make these optional arguments # min amount0 desired, this is used as safety check
+            0,  # min amount1 desired, this is used as safety check
+            FOREVER_DEADLINE,
+        )
+    ).transact({"from": deployer})
+    tx_receipt = web3.eth.get_transaction_receipt(tx_hash)
+
+    return tx_receipt
+
+
+def decrease_liquidity():
+    pass
 
 
 def _deploy_nft_position_descriptor(web3: Web3, deployer: HexAddress, weth: Contract):
