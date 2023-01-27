@@ -223,6 +223,14 @@ def test_create_pool_with_increase_decrease_liquidity(
     token_id = increase_liquidity_event[0].args.tokenId
     liquidity_before_increase = increase_liquidity_event[0].args.liquidity
 
+    token0_balance_before = weth.functions.balanceOf(deployer).call()
+    token1_balance_before = usdc.functions.balanceOf(deployer).call()
+    print('\n')
+    print('pool liquidity before increase: ', pool.functions.ticks(lower_tick).call())
+    print('pool liquidity before increase: ', pool.functions.ticks(upper_tick).call())
+    print('token0_balance_before increaseLiquidity: ', token0_balance_before)
+    print('token1_balance_before increaseLiquidity: ', token1_balance_before)
+
     # add more liquidity
     tx_receipt = increase_liquidity(
         web3,
@@ -237,13 +245,54 @@ def test_create_pool_with_increase_decrease_liquidity(
 
     increase_liquidity_event = uniswap_v3.position_manager.events.IncreaseLiquidity().processReceipt(tx_receipt)
     liquidity_added = increase_liquidity_event[0].args.liquidity
+    print('increase_liquidity: ', increase_liquidity_event[0].args)
 
     assert liquidity_added > 0
 
     # get current liquidity for this token_id
-    current_position_details = uniswap_v3.position_manager.functions.positions(token_id).call()
-    current_position_liquidity = current_position_details[7]
+    *_, current_position_liquidity, _, _, _, _ = uniswap_v3.position_manager.functions.positions(token_id).call()
     assert current_position_liquidity == liquidity_added + liquidity_before_increase
+
+    # decrease liquidity and check that token values were credited to our account
+    liquidity_before_decrease = current_position_liquidity
+    liquidity_withdrawl = 50_000
+
+    token0_balance_before = weth.functions.balanceOf(deployer).call()
+    token1_balance_before2 = usdc.functions.balanceOf(deployer).call()
+    print('pool liquidity before decrease: ', pool.functions.ticks(lower_tick).call())
+    print('pool liquidity before decrease: ', pool.functions.ticks(upper_tick).call())
+    print('token0_balance_before: ', token0_balance_before)
+    print('token1_balance_before: ', token1_balance_before2)
+
+    # remove some liquidity
+    tx_receipt = decrease_liquidity(
+        web3,
+        deployer,
+        token_id,
+        deployment=uniswap_v3,
+        liquidity_decrease_amount=liquidity_withdrawl,
+    )
+    assert tx_receipt.status == 1
+
+    decrease_liquidity_event = uniswap_v3.position_manager.events.DecreaseLiquidity().processReceipt(tx_receipt)
+    liquidity_reduction_amount = decrease_liquidity_event[0].args.liquidity
+    token0_received = decrease_liquidity_event[0].args.amount0
+    token1_received = decrease_liquidity_event[0].args.amount1
+
+    print(decrease_liquidity_event[0].args)
+    assert liquidity_reduction_amount > 0
+    assert token0_received > 0 or token1_received > 0
+
+    *_, current_position_liquidity, _, _, _, _ = uniswap_v3.position_manager.functions.positions(token_id).call()
+    assert current_position_liquidity == liquidity_before_decrease - liquidity_withdrawl
+
+    # finally ensure we received the tokens in our wallet
+    token0_balance_after = weth.functions.balanceOf(deployer).call()
+    token1_balance_after = usdc.functions.balanceOf(deployer).call()
+    print('pool liquidity after decrease: ', pool.functions.ticks(lower_tick).call())
+    print('pool liquidity after decrease: ', pool.functions.ticks(upper_tick).call())
+    print('token0_balance_after: ', token0_balance_after)
+    print('token1_balance_after: ', token1_balance_after)
 
 
 def test_fetch_pool_details(
