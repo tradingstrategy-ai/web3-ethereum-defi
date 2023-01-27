@@ -46,7 +46,7 @@ Features include
 this project aims to explicit clean deployments and very fast test execution.
 * (More integrations to come)
 
-Unlike ApeWorX or Brownie, which are smart contracte development frameworks, `web3-ethereum-defi` is a library. It is designed
+Unlike ApeWorX or Brownie, which are smart contract development frameworks, `web3-ethereum-defi` is a library. It is designed
 to be included in any other Python application and you can only use bits of its that you need.
 There are no expectations on configuration files or folder structure.
 
