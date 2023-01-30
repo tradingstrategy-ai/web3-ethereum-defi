@@ -10,14 +10,17 @@ Examples how to use web3.py and Web-Ethereum-Defi library
 Prerequisites
 -------------
 
+Make sure you know how to install packages (pip, poetry)
+and use Python virtual environments.
+
 To run the scripts you need to be able to understand
 how Python packaging works and how to install additional modules.
 
-E.g.
+Install the package with data addons:
 
-```shell
-pip install tdqm
-```
+.. code-block:: shell
+
+    pip install "web3-ethereum-defi[data]"
 
 .. toctree::
    :maxdepth: 1
