@@ -36,7 +36,7 @@ To run:
     # Switch between INFO and DEBUG
     export LOG_LEVEL=INFO
     # Your Ethereum node RPC
-    export JSON_RPC_URL="https://xxx@vitalik.tradingstrategy.ai"
+    export JSON_RPC_URL="https://xxx@mynode.example.com"
     python scripts/read-uniswap-v2-pairs-and-swaps.py
 
 
