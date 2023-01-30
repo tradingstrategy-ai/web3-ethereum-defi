@@ -22,6 +22,9 @@ Install the package with data addons:
 
     pip install "web3-ethereum-defi[data]"
 
+Example tutorials
+-----------------
+
 .. toctree::
    :maxdepth: 1
 
