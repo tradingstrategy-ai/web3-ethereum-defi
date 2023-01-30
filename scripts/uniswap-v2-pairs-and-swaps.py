@@ -39,6 +39,7 @@ import logging
 from typing import Optional
 
 import requests
+from eth_defi.chain import install_chain_middleware
 
 from tqdm import tqdm
 
@@ -230,6 +231,8 @@ def main():
     patch_web3(web3)
 
     web3.middleware_onion.clear()
+
+    install_chain_middleware(web3)
 
     # Get contracts
     Factory = get_contract(web3, "UniswapV2Factory.json")

@@ -1,5 +1,5 @@
-How to display live swaps for Uniswap v2 compatible exchange
-------------------------------------------------------------
+Live swaps for Uniswap v2 compatible DEXes
+------------------------------------------
 
 This is an example code for showing live swaps happening
 on Uniswap v2 compatible examples. In this example

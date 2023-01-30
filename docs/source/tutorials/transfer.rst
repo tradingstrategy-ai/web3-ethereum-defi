@@ -1,5 +1,5 @@
-How to transfer ERC-20 token with web3.py
------------------------------------------
+Transfer ERC-20 token with web3.py
+----------------------------------
 
 This is a tutorial how to transfer ERC-20 token in Python
 with `web3-ethereum-defi <https://github.com/tradingstrategy-ai/web3-ethereum-defi>`_ package.

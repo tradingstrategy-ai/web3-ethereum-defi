@@ -1,7 +1,8 @@
-How to read Solidity events fast with web3.py
+Reading historical Uniswap v2 swaps and pairs
 ---------------------------------------------
 
-This is an example how to efficiently read all Uniswap pairs and their swaps in a blockchain.
+This is an example how to efficiently read all Uniswap pairs and their swaps in a blockchain,
+using :py:mod:`eth_defi.event_reader` module.
 
 Overview:
 
@@ -22,6 +23,11 @@ Overview:
 - The first swap event is at Ethereum mainnet block 10_008_566, 0x932cb88306450d481a0e43365a3ed832625b68f036e9887684ef6da594891366
 
 - Uniswap v2 deployment transaction https://bloxy.info/tx/0xc31d7e7e85cab1d38ce1b8ac17e821ccd47dbde00f9d57f2bd8613bff9428396
+
+.. note ::
+
+    This reader uses a single thread. For speedupds, see the
+    `concurrent reader version of the script on Github <https://github.com/tradingstrategy-ai/web3-ethereum-defi/blob/master/scripts/uniswap-v2-pairs-and-swaps-concurrent.py>`__.
 
 To run:
 
