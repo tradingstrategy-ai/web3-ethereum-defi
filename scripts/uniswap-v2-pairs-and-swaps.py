@@ -213,7 +213,7 @@ def decode_swap(log: LogResult) -> dict:
 
 def main():
 
-    logging.basicConfig(level=os.environ["LOG_LEVEL"], handlers=[logging.StreamHandler()])
+    logging.basicConfig(level=os.environ.get("LOG_LEVEL", "info").upper(), handlers=[logging.StreamHandler()])
 
     # Mute noise
     logging.getLogger("web3.providers.HTTPProvider").setLevel(logging.WARNING)
