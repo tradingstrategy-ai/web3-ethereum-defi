@@ -61,7 +61,8 @@ def swap_with_slippage_protection(
     :param base_token: Base token of the trading pair
     :param quote_token: Quote token of the trading pair
     :param intermediate_token: Intermediate token which the swap can go through
-    :param pool_fees: List of all pools' trading fees in the path
+    :param pool_fees: List of all pools' trading fees in the path. Each fee is \
+        specified as BPS * 10_000 
     :param amount_in: How much of the quote token we want to pay, this has to be `None` if `amount_out` is specified
     :param amount_out: How much of the base token we want to receive, this has to be `None` if `amount_in` is specified
     :param max_slippage: Max slippage express in bps, default = 0.1 bps (0.001%)
@@ -77,10 +78,11 @@ def swap_with_slippage_protection(
     if max_slippage == 0:
         warnings.warn("max_slippage is set to 0, this can potentially lead to reverted transaction. It's recommended to set use default max_slippage instead (0.1 bps) to ensure successful transaction")
     
-    assert (pool_fees > 1 and type(pool_fees) == int), "pool_fees must be passed as int. BPS x 10,000"
-      
     if type(pool_fees) == int:
         pool_fees = [pool_fees]
+    
+    for fee in pool_fees:
+        assert (fee > 1), "pool_fees must be passed as int. BPS x 10_000"
 
     router = uniswap_v3_deployment.swap_router
     price_helper = UniswapV3PriceHelper(uniswap_v3_deployment)
