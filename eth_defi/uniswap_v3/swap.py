@@ -80,9 +80,11 @@ def swap_with_slippage_protection(
     
     if type(pool_fees) == int:
         pool_fees = [pool_fees]
+    elif type(pool_fees) != list:
+        raise ValueError("pool_fees must be passed as an int or int list. Each fee is BPS x 100")
     
     for fee in pool_fees:
-        assert (fee > 1), "pool_fees must be passed as int. BPS x 10_000"
+        assert (fee > 1 and type(fee) == int), "pool_fees must be passed as an int or int list. Each fee is BPS x 100"
 
     router = uniswap_v3_deployment.swap_router
     price_helper = UniswapV3PriceHelper(uniswap_v3_deployment)
