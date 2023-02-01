@@ -233,57 +233,6 @@ def test_buy_with_slippage_when_you_know_quote_amount(
     assert tx_receipt.status == 1
 
 
-def test_buy_with_slippage_fee_as_int(
-    web3: Web3,
-    deployer: str,
-    uniswap_v3: UniswapV3Deployment,
-    weth: Contract,
-    usdc: Contract,
-    weth_usdc_pool: Contract,
-    hot_wallet: LocalAccount,
-    pool_trading_fee: int,
-):
-    """Use local hot wallet to buy as much as possible WETH on Uniswap v3 using
-    define amout of mock USDC.
-    """
-
-    router = uniswap_v3.swap_router
-    hw_address = hot_wallet.address
-
-    # Give hot wallet some USDC to buy ETH (also some ETH as well to send tx)
-    web3.eth.send_transaction({"from": deployer, "to": hw_address, "value": 1 * 10**18})
-    usdc_amount_to_pay = 500 * 10**18
-    usdc.functions.transfer(hw_address, usdc_amount_to_pay).transact({"from": deployer})
-    usdc.functions.approve(router.address, usdc_amount_to_pay).transact({"from": hw_address})
-
-    # build transaction
-    swap_func = swap_with_slippage_protection(
-        uniswap_v3_deployment=uniswap_v3,
-        recipient_address=hw_address,
-        base_token=weth,
-        quote_token=usdc,
-        pool_fees=pool_trading_fee,
-        amount_in=usdc_amount_to_pay,
-        max_slippage=50,  # 50 bps = 0.5%
-    )
-    tx = swap_func.build_transaction(
-        {
-            "from": hw_address,
-            "chainId": web3.eth.chain_id,
-            "gas": 350_000,  # estimate max 350k gas per swap
-        }
-    )
-    tx = fill_nonce(web3, tx)
-    gas_fees = estimate_gas_fees(web3)
-    apply_gas(tx, gas_fees)
-
-    # sign and broadcast
-    signed_tx = hot_wallet.sign_transaction(tx)
-    tx_hash = web3.eth.send_raw_transaction(signed_tx.rawTransaction)
-    tx_receipt = web3.eth.get_transaction_receipt(tx_hash)
-    assert tx_receipt.status == 1
-
-
 def test_sell_three_way_with_slippage_when_you_know_base_amount(
     web3: Web3,
     deployer: str,
@@ -430,3 +379,126 @@ def test_swap_slippage_revert(
     # confirm the revert reason
     reason = fetch_transaction_revert_reason(web3, tx_hash)
     assert "Too little received" in reason
+
+
+def test_buy_with_slippage_fee_as_int(
+    web3: Web3,
+    deployer: str,
+    uniswap_v3: UniswapV3Deployment,
+    weth: Contract,
+    usdc: Contract,
+    weth_usdc_pool: Contract,
+    hot_wallet: LocalAccount,
+    pool_trading_fee: int,
+):
+    """Use local hot wallet to buy as much as possible WETH on Uniswap v3 using
+    define amout of mock USDC.
+    """
+
+    router = uniswap_v3.swap_router
+    hw_address = hot_wallet.address
+
+    # Give hot wallet some USDC to buy ETH (also some ETH as well to send tx)
+    web3.eth.send_transaction({"from": deployer, "to": hw_address, "value": 1 * 10**18})
+    usdc_amount_to_pay = 500 * 10**18
+    usdc.functions.transfer(hw_address, usdc_amount_to_pay).transact({"from": deployer})
+    usdc.functions.approve(router.address, usdc_amount_to_pay).transact({"from": hw_address})
+
+    # build transaction
+    swap_func = swap_with_slippage_protection(
+        uniswap_v3_deployment=uniswap_v3,
+        recipient_address=hw_address,
+        base_token=weth,
+        quote_token=usdc,
+        pool_fees=pool_trading_fee,
+        amount_in=usdc_amount_to_pay,
+        max_slippage=50,  # 50 bps = 0.5%
+    )
+    tx = swap_func.build_transaction(
+        {
+            "from": hw_address,
+            "chainId": web3.eth.chain_id,
+            "gas": 350_000,  # estimate max 350k gas per swap
+        }
+    )
+    tx = fill_nonce(web3, tx)
+    gas_fees = estimate_gas_fees(web3)
+    apply_gas(tx, gas_fees)
+
+    # sign and broadcast
+    signed_tx = hot_wallet.sign_transaction(tx)
+    tx_hash = web3.eth.send_raw_transaction(signed_tx.rawTransaction)
+    tx_receipt = web3.eth.get_transaction_receipt(tx_hash)
+    assert tx_receipt.status == 1
+
+
+def test_buy_with_slippage_fee_as_float(
+    web3: Web3,
+    deployer: str,
+    uniswap_v3: UniswapV3Deployment,
+    weth: Contract,
+    usdc: Contract,
+    weth_usdc_pool: Contract,
+    hot_wallet: LocalAccount,
+):
+    """Use local hot wallet to buy as much as possible WETH on Uniswap v3 using
+    define amout of mock USDC.
+
+    This test is expected to revert
+    """
+    with pytest.raises(ValueError):
+        router = uniswap_v3.swap_router
+        hw_address = hot_wallet.address
+
+        # Give hot wallet some USDC to buy ETH (also some ETH as well to send tx)
+        web3.eth.send_transaction({"from": deployer, "to": hw_address, "value": 1 * 10**18})
+        usdc_amount_to_pay = 500 * 10**18
+        usdc.functions.transfer(hw_address, usdc_amount_to_pay).transact({"from": deployer})
+        usdc.functions.approve(router.address, usdc_amount_to_pay).transact({"from": hw_address})
+
+        # build transaction
+        swap_func = swap_with_slippage_protection(
+            uniswap_v3_deployment=uniswap_v3,
+            recipient_address=hw_address,
+            base_token=weth,
+            quote_token=usdc,
+            pool_fees=0.003,
+            amount_in=usdc_amount_to_pay,
+            max_slippage=50,  # 50 bps = 0.5%
+        )
+
+
+def test_buy_with_slippage_fee_as_float_list(
+    web3: Web3,
+    deployer: str,
+    uniswap_v3: UniswapV3Deployment,
+    weth: Contract,
+    usdc: Contract,
+    weth_usdc_pool: Contract,
+    hot_wallet: LocalAccount,
+):
+    """Use local hot wallet to buy as much as possible WETH on Uniswap v3 using
+    define amout of mock USDC.
+
+    This test is expected to revert
+    """
+    with pytest.raises(AssertionError):
+        router = uniswap_v3.swap_router
+        hw_address = hot_wallet.address
+
+        # Give hot wallet some USDC to buy ETH (also some ETH as well to send tx)
+        web3.eth.send_transaction({"from": deployer, "to": hw_address, "value": 1 * 10**18})
+        usdc_amount_to_pay = 500 * 10**18
+        usdc.functions.transfer(hw_address, usdc_amount_to_pay).transact({"from": deployer})
+        usdc.functions.approve(router.address, usdc_amount_to_pay).transact({"from": hw_address})
+
+        # build transaction
+        swap_func = swap_with_slippage_protection(
+            uniswap_v3_deployment=uniswap_v3,
+            recipient_address=hw_address,
+            base_token=weth,
+            quote_token=usdc,
+            pool_fees=[0.003],
+            amount_in=usdc_amount_to_pay,
+            max_slippage=50,  # 50 bps = 0.5%
+        )
