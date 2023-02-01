@@ -16,7 +16,7 @@ def swap_with_slippage_protection(
     recipient_address: HexAddress,
     base_token: Contract,
     quote_token: Contract,
-    pool_fees: list[float] | float,
+    pool_fees: list[int] | int,
     intermediate_token: Contract | None = None,
     max_slippage: float = 0.1,
     amount_in: int | None = None,
@@ -76,8 +76,10 @@ def swap_with_slippage_protection(
 
     if max_slippage == 0:
         warnings.warn("max_slippage is set to 0, this can potentially lead to reverted transaction. It's recommended to set use default max_slippage instead (0.1 bps) to ensure successful transaction")
-        
-    if type(pool_fees) == float:
+    
+    assert (pool_fees > 1 and type(pool_fees) == int), "pool_fees must be passed as int. BPS x 10,000"
+      
+    if type(pool_fees) == int:
         pool_fees = [pool_fees]
 
     router = uniswap_v3_deployment.swap_router
