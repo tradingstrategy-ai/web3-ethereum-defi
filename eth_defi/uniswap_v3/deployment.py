@@ -327,3 +327,22 @@ def fetch_deployment(
         quoter=quoter,
         PoolContract=PoolContract,
     )
+
+def mock_partial_deployment_for_analysis(web3: Web3, router_address: str):
+    """Only need swap_router and PoolContract?"""
+    
+    factory = None
+    swap_router = get_deployed_contract(web3, "uniswap_v3/SwapRouter.json", router_address)
+    weth = None
+    position_manager = None
+    quoter = None
+    PoolContract = get_contract(web3, "uniswap_v3/UniswapV3Pool.json")
+    return UniswapV3Deployment(
+        web3,
+        factory,
+        weth,
+        swap_router,
+        position_manager,
+        quoter,
+        PoolContract,
+    )
