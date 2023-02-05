@@ -1,63 +1,15 @@
 """Uniswap v2 individual trade analysis."""
-from dataclasses import dataclass
 from decimal import Decimal
-from typing import List, Optional, Union
+from typing import Union
 
 from eth_defi.revert_reason import fetch_transaction_revert_reason
-from eth_typing import HexAddress
 from web3 import Web3
 from web3.logs import DISCARD
 
 from eth_defi.abi import get_transaction_data_field
 from eth_defi.token import fetch_erc20_details
 from eth_defi.uniswap_v2.deployment import UniswapV2Deployment
-
-
-@dataclass
-class TradeResult:
-    """A base class for Success/Fail trade result."""
-
-    #: How many units of gas we burned
-    gas_used: int
-
-    #: What as the gas price used in wei.
-    #: Set to `0` if not available.
-    effective_gas_price: int
-
-    def get_effective_gas_price_gwei(self) -> Decimal:
-        return Decimal(self.effective_gas_price) / Decimal(10**9)
-
-
-@dataclass
-class TradeSuccess(TradeResult):
-    """Describe the result of a successful Uniswap swap."""
-
-    #: Routing path that was used for this trade
-    path: List[HexAddress]
-
-    amount_in: int
-    amount_out_min: int
-    amount_out: int
-
-    #: Overall price paid as in token (first in the path) to out token (last in the path).
-    #: Price includes any fees paid during the order routing path.
-    #: Note that you get inverse price, if you route ETH-USD or USD-ETH e.g. are you doing buy or sell.
-    price: Decimal
-
-    # Token information book keeping
-    amount_in_decimals: int
-    amount_out_decimals: int
-
-
-@dataclass
-class TradeFail(TradeResult):
-    """Describe the result of a failed Uniswap swap.
-
-    The transaction reverted for a reason or another.
-    """
-
-    #: Revert reason if we managed to extract one
-    revert_reason: Optional[str] = None
+from eth_defi.trade import TradeFail, TradeSuccess
 
 
 def analyse_trade_by_hash(web3: Web3, uniswap: UniswapV2Deployment, tx_hash: str) -> Union[TradeSuccess, TradeFail]:
