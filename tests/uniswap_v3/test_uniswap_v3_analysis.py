@@ -1,0 +1,169 @@
+
+import pytest
+from decimal import Decimal
+
+from eth_tester import EthereumTester
+from eth_typing import HexAddress
+from web3 import EthereumTesterProvider, Web3
+from web3.contract import Contract
+
+from eth_defi.uniswap_v3.constants import FOREVER_DEADLINE, MIN_TICK, MAX_TICK
+from eth_defi.token import create_token
+from eth_defi.trade import TradeFail, TradeSuccess
+from eth_defi.uniswap_v3.analysis import analyse_trade_by_receipt
+from eth_defi.uniswap_v3.utils import get_default_tick_range, encode_path
+from eth_defi.uniswap_v3.deployment import (
+    UniswapV3Deployment,
+    deploy_pool,
+    deploy_uniswap_v3,
+    add_liquidity
+)
+
+
+WETH_USDC_FEE = 3000
+
+
+@pytest.fixture
+def tester_provider():
+    # https://web3py.readthedocs.io/en/stable/examples.html#contract-unit-tests-in-python
+    return EthereumTesterProvider()
+
+
+@pytest.fixture
+def eth_tester(tester_provider) -> EthereumTester:
+    # https://web3py.readthedocs.io/en/stable/examples.html#contract-unit-tests-in-python
+    return tester_provider.ethereum_tester
+
+
+@pytest.fixture
+def web3(tester_provider):
+    """Set up a local unit testing blockchain."""
+    # https://web3py.readthedocs.io/en/stable/examples.html#contract-unit-tests-in-python
+    return Web3(tester_provider)
+
+
+@pytest.fixture()
+def deployer(web3) -> str:
+    """Deploy account.
+
+    Do some account allocation for tests.
+    """
+    return web3.eth.accounts[0]
+
+
+@pytest.fixture()
+def user_1(web3) -> str:
+    """User account.
+
+    Do some account allocation for tests.
+    """
+    return web3.eth.accounts[1]
+
+
+@pytest.fixture()
+def user_2(web3) -> str:
+    """User account.
+
+    Do some account allocation for tests.
+    """
+    return web3.eth.accounts[2]
+
+
+@pytest.fixture()
+def uniswap_v3(web3, deployer) -> UniswapV3Deployment:
+    """Uniswap v2 deployment."""
+    deployment = deploy_uniswap_v3(web3, deployer)
+    return deployment
+
+
+@pytest.fixture()
+def usdc(web3, deployer) -> Contract:
+    """Mock USDC token.
+
+    Note that this token has 18 decimals instead of 6 of real USDC.
+    """
+    token = create_token(web3, deployer, "USD Coin", "USDC", 10_000_000 * 10**6, 6)
+    return token
+
+
+@pytest.fixture()
+def weth(uniswap_v3: UniswapV3Deployment) -> Contract:
+    """Mock WETH token."""
+    return uniswap_v3.weth
+
+
+@pytest.fixture
+def weth_usdc_uniswap_trading_pair(web3, deployer, uniswap_v3, weth_token, usdc_token) -> HexAddress:
+    """ETH-USDC pool with 1.7M liquidity."""
+    min_tick, max_tick = get_default_tick_range(WETH_USDC_FEE)
+    
+    pool_contract = deploy_pool(
+        web3,
+        deployer,
+        deployment=uniswap_v3,
+        token0=weth_token,
+        token1=usdc_token,
+        fee=WETH_USDC_FEE
+    )
+    
+    add_liquidity(
+        web3,
+        deployer,
+        deployment=uniswap_v3,
+        pool=pool_contract,
+        amount0=1000 * 10**18,  # 1000 ETH liquidity
+        amount1=1_700_000 * 10**6,  # 1.7M USDC liquidity
+        lower_tick=min_tick,
+        upper_tick=max_tick
+    )
+    return pool_contract.address
+
+
+def test_analyse_by_recept(web3: Web3, deployer: str, user_1: str, uniswap_v3: UniswapV3Deployment, weth: Contract, usdc: Contract):
+    """Aanlyse a Uniswap v2 trade by receipt."""
+
+    router = uniswap_v3.swap_router
+
+    # Give user_1 some cash to buy ETH and approve it on the router
+    usdc_amount_to_pay = 500 * 10**6
+    usdc.functions.transfer(user_1, usdc_amount_to_pay).transact({"from": deployer})
+    usdc.functions.approve(router.address, usdc_amount_to_pay).transact({"from": user_1})
+
+    # Perform a swap USDC->WETH
+    path = [usdc.address, weth.address]  # Path tell how the swap is routed
+    # https://docs.uniswap.org/protocol/V2/reference/smart-contracts/router-02#swapexacttokensfortokens
+    router.functions.exactInput(
+        (
+            encode_path(path, [WETH_USDC_FEE]),
+            user_1,
+            FOREVER_DEADLINE,
+            usdc_amount_to_pay,
+            0,
+        )
+    ).transact({"from": user_1})
+
+    all_weth_amount = weth.functions.balanceOf(user_1).call()
+    weth.functions.approve(router.address, all_weth_amount).transact({"from": user_1})
+
+    # Perform the reverse swap WETH->USDC
+    reverse_path = [weth.address, usdc.address]  # Path tell how the swap is routed
+    tx_hash = router.functions.exactInput(
+        (
+            encode_path(reverse_path, [WETH_USDC_FEE]),
+            user_1,
+            FOREVER_DEADLINE,
+            all_weth_amount,
+            0
+        )
+    ).transact({"from": user_1})
+
+    tx = web3.eth.get_transaction(tx_hash)
+    receipt = web3.eth.get_transaction_receipt(tx_hash)
+
+    # user_1 has less than 500 USDC left to loses in the LP fees
+    analysis = analyse_trade_by_receipt(web3, uniswap_v3, tx, tx_hash, receipt)
+    assert isinstance(analysis, TradeSuccess)
+    assert analysis.price == pytest.approx(Decimal("1744.899124998896692270848706"))
+    assert analysis.get_effective_gas_price_gwei() == 1
+    assert analysis.amount_out_decimals == 6
+    assert analysis.amount_in_decimals == 18
