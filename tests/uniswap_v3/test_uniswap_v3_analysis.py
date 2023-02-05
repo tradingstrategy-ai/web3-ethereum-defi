@@ -20,9 +20,6 @@ from eth_defi.uniswap_v3.deployment import (
 )
 
 
-WETH_USDC_FEE = 3000
-
-
 @pytest.fixture
 def tester_provider():
     # https://web3py.readthedocs.io/en/stable/examples.html#contract-unit-tests-in-python
@@ -92,10 +89,16 @@ def weth(uniswap_v3: UniswapV3Deployment) -> Contract:
     return uniswap_v3.weth
 
 
+@pytest.fixture()
+def weth_usdc_fee() -> int:
+    """Get fee for weth_usdc trading pool on Uniswap v3 (fake)"""
+    return 3000
+
+
 @pytest.fixture
-def weth_usdc_uniswap_trading_pair(web3, deployer, uniswap_v3, weth_token, usdc_token) -> HexAddress:
+def weth_usdc_uniswap_trading_pair(web3, deployer, uniswap_v3, weth_token, usdc_token, weth_usdc_fee) -> HexAddress:
     """ETH-USDC pool with 1.7M liquidity."""
-    min_tick, max_tick = get_default_tick_range(WETH_USDC_FEE)
+    min_tick, max_tick = get_default_tick_range(weth_usdc_fee)
     
     pool_contract = deploy_pool(
         web3,
@@ -103,7 +106,7 @@ def weth_usdc_uniswap_trading_pair(web3, deployer, uniswap_v3, weth_token, usdc_
         deployment=uniswap_v3,
         token0=weth_token,
         token1=usdc_token,
-        fee=WETH_USDC_FEE
+        fee=weth_usdc_fee
     )
     
     add_liquidity(
@@ -119,7 +122,7 @@ def weth_usdc_uniswap_trading_pair(web3, deployer, uniswap_v3, weth_token, usdc_
     return pool_contract.address
 
 
-def test_analyse_by_recept(web3: Web3, deployer: str, user_1: str, uniswap_v3: UniswapV3Deployment, weth: Contract, usdc: Contract):
+def test_analyse_by_recept(web3: Web3, deployer: str, user_1: str, uniswap_v3: UniswapV3Deployment, weth: Contract, usdc: Contract, weth_usdc_fee):
     """Aanlyse a Uniswap v2 trade by receipt."""
 
     router = uniswap_v3.swap_router
@@ -131,10 +134,12 @@ def test_analyse_by_recept(web3: Web3, deployer: str, user_1: str, uniswap_v3: U
 
     # Perform a swap USDC->WETH
     path = [usdc.address, weth.address]  # Path tell how the swap is routed
+    encoded_path = encode_path(path, [weth_usdc_fee])
+    
     # https://docs.uniswap.org/protocol/V2/reference/smart-contracts/router-02#swapexacttokensfortokens
     router.functions.exactInput(
         (
-            encode_path(path, [WETH_USDC_FEE]),
+            encoded_path,
             user_1,
             FOREVER_DEADLINE,
             usdc_amount_to_pay,
@@ -149,7 +154,7 @@ def test_analyse_by_recept(web3: Web3, deployer: str, user_1: str, uniswap_v3: U
     reverse_path = [weth.address, usdc.address]  # Path tell how the swap is routed
     tx_hash = router.functions.exactInput(
         (
-            encode_path(reverse_path, [WETH_USDC_FEE]),
+            encode_path(reverse_path, [weth_usdc_fee]),
             user_1,
             FOREVER_DEADLINE,
             all_weth_amount,
