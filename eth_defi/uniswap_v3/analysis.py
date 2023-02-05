@@ -12,26 +12,30 @@ from eth_defi.token import fetch_erc20_details
 from eth_defi.uniswap_v3.price import UniswapV3PriceHelper
 from eth_defi.uniswap_v3.utils import tick_to_price
 
-from tradeexecutor.state.identifier import TradingPairIdentifier
 
-def mock_partial_deployment_for_analysis(web3: Web3, router_address: str):
-    """Only need swap_router and PoolContract?"""
+def get_input_args(params: tuple) -> dict:	
+    """Names and decodes input arguments from router.decode_function_input()	
+    Note there is no support yet for SwapRouter02, it does not accept a deadline parameter	
+    See: https://docs.uniswap.org/contracts/v3/reference/periphery/interfaces/ISwapRouter#exactinputparams	
+    	
+    :params:	
+    params from router.decode_function_input	
+    	
+    :returns:	
+    Dict of exactInputParams as specified in the link above	
+    """	
+
+    full_path_decoded = decode_path(params[0])	
+
+    # TODO: add support for SwapRouter02 which does not accept deadline parameter	
+    return {	
+        "path": full_path_decoded,	
+        "recipient": params[1],	
+        "deadline": params[2],	
+        "amountIn": params[3],	
+        "amountOutMinimum": params[4]	
+    }
     
-    factory = None
-    swap_router = get_deployed_contract(web3, "uniswap_v3/SwapRouter.json", router_address)
-    weth = None
-    position_manager = None
-    quoter = None
-    PoolContract = get_contract(web3, "uniswap_v3/UniswapV3Pool.json")
-    return UniswapV3Deployment(
-        web3,
-        factory,
-        weth,
-        swap_router,
-        position_manager,
-        quoter,
-        PoolContract,
-    )
       
 def analyse_trade_by_receipt(web3: Web3, uniswap: UniswapV3Deployment, tx: dict, tx_hash: str, tx_receipt: dict) -> TradeSuccess | TradeFail:
     """
@@ -112,26 +116,3 @@ def analyse_trade_by_receipt(web3: Web3, uniswap: UniswapV3Deployment, tx: dict,
         in_token_details.decimals,
         out_token_details.decimals,
     )
-    
-def get_current_price(web3: Web3, uniswap: UniswapV3Deployment, pair: TradingPairIdentifier, quantity=Decimal(1)) -> float:
-    """Get a price from Uniswap v3 pool, assuming you are selling 1 unit of base token.
-    See see eth_defi.uniswap_v2.fees.estimate_sell_price_decimals
-    
-    Does decimal adjustment.
-    :return: Price in quote token.
-    """
-    
-    quantity_raw = pair.base.convert_to_raw_amount(quantity)
-    
-    path = [pair.base.checksum_address,  pair.quote.checksum_address] 
-    fees = [pair.fee]
-    assert fees, "no fees in pair"        
-        
-    price_helper = UniswapV3PriceHelper(uniswap)
-    out_raw = price_helper.get_amount_out(
-        amount_in=quantity_raw,
-        path=path,
-        fees=fees
-    )
-    
-    return float(pair.quote.convert_to_decimal(out_raw))
