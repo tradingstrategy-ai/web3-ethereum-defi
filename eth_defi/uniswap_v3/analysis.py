@@ -6,7 +6,7 @@ from web3.logs import DISCARD
 from eth_defi.abi import get_transaction_data_field
 from eth_defi.uniswap_v3.deployment import UniswapV3Deployment
 from eth_defi.uniswap_v3.utils import decode_path
-from eth_defi.uniswap_v2.analysis import TradeSuccess, TradeFail # TODO move to some other module since also used in V3
+from eth_defi.trade import TradeSuccess, TradeFail
 from eth_defi.revert_reason import fetch_transaction_revert_reason
 from eth_defi.token import fetch_erc20_details
 from eth_defi.uniswap_v3.utils import tick_to_price
