@@ -32,29 +32,6 @@ def mock_partial_deployment_for_analysis(web3: Web3, router_address: str):
         quoter,
         PoolContract,
     )
-
-def get_input_args(params: tuple) -> dict:
-    """Names and decodes input arguments from router.decode_function_input()
-    Note there is no support yet for SwapRouter02, it does not accept a deadline parameter
-    See: https://docs.uniswap.org/contracts/v3/reference/periphery/interfaces/ISwapRouter#exactinputparams
-    
-    :params:
-    params from router.decode_function_input
-    
-    :returns:
-    Dict of exactInputParams as specified in the link above
-    """
-    
-    full_path_decoded = decode_path(params[0])
-    
-    # TODO: add support for SwapRouter02 which does not accept deadline parameter
-    return {
-        "path": full_path_decoded,
-        "recipient": params[1],
-        "deadline": params[2],
-        "amountIn": params[3],
-        "amountOutMinimum": params[4]
-    }
       
 def analyse_trade_by_receipt(web3: Web3, uniswap: UniswapV3Deployment, tx: dict, tx_hash: str, tx_receipt: dict) -> TradeSuccess | TradeFail:
     """
