@@ -31,6 +31,7 @@ from eth_defi.uniswap_v3.constants import (
     UNISWAP_V3_FACTORY_DEPLOYMENT_DATA,
 )
 from eth_defi.uniswap_v3.utils import encode_sqrt_ratio_x96, get_nearest_usable_tick
+from eth_defi.uniswap_v3.pool import fetch_pool_details
 
 
 @dataclass(frozen=True)
@@ -266,6 +267,107 @@ def add_liquidity(
     return tx_receipt, lower_tick, upper_tick
 
 
+def increase_liquidity(
+    web3: Web3,
+    position_owner: HexAddress,
+    position_id: int,
+    deployment: UniswapV3Deployment,
+    amount0: int,
+    amount1: int,
+    amount0_min: int = 0,
+    amount1_min: int = 0,
+) -> dict:
+    """
+    Increase liquidity in an existing Uniswap V3 position.
+    `See Uniswap V3 documentation for details <https://docs.uniswap.org/contracts/v3/reference/periphery/interfaces/INonfungiblePositionManager>`_.
+
+    :param web3: Web3 instance
+    :param position_owner: The address of the position_owner.
+    :param position_id:  The id of the position to be increased, should be a positive integer.
+    :param deployment: Uniswap v3 deployment
+    :param amount0: Amount of `token0` to be added
+    :param amount1: Amount of `token1` to be added
+    :param amount0_min: min amount0 desired, this is used as slippage check
+    :param amount1_min: min amount1 desired, this is used as slippage check
+    :return: tx_receipt: Transaction receipt of the increaseLiquidity transaction
+    """
+    # get the pool from the position manager and factory
+    position_manager = deployment.position_manager
+
+    # returns: [nonce, operator, token0, token1, fee, tickLower, tickUpper,
+    # liquidity, feeGrowthInside0, feeGrowthInside1, tokensOwed0, tokensOwed1]
+    position_details = position_manager.functions.positions(position_id).call()  # get pool contract address
+    print(position_details)
+
+    # get the pool address from token0_address, token1_address, and fee
+    pool_address = deployment.factory.functions.getPool(position_details[2], position_details[3], position_details[4]).call()
+    # make sure the returned address is not 0x0  (that means it does not exist)
+    assert "0x0000000000000000000000000000000000000000" != pool_address
+
+    pool_details = fetch_pool_details(web3, pool_address)
+
+    # make sure there is sufficient balance to cover the increase.
+    assert pool_details.token0.contract.functions.balanceOf(position_owner).call() > amount0
+    assert pool_details.token1.contract.functions.balanceOf(position_owner).call() > amount1
+
+    pool_details.token0.contract.functions.approve(position_manager.address, amount0).transact({"from": position_owner})
+    pool_details.token1.contract.functions.approve(position_manager.address, amount1).transact({"from": position_owner})
+
+    tx_hash = position_manager.functions.increaseLiquidity(
+        (
+            position_id,
+            amount0,
+            amount1,
+            amount0_min,
+            amount1_min,
+            FOREVER_DEADLINE,
+        )
+    ).transact({"from": position_owner})
+    tx_receipt = web3.eth.get_transaction_receipt(tx_hash)
+
+    return tx_receipt
+
+
+def decrease_liquidity(
+    web3: Web3,
+    position_owner: HexAddress,
+    position_id: int,
+    deployment: UniswapV3Deployment,
+    liquidity_decrease_amount: int,
+    amount0_min: int = 0,
+    amount1_min: int = 0,
+) -> dict:
+    """
+    Decrease liquidity in an existing Uniswap V3 position.
+    `See Uniswap V3 documentation for details <https://docs.uniswap.org/contracts/v3/reference/periphery/interfaces/INonfungiblePositionManager>`_.
+
+    :param web3: Web3 instance
+    :param position_owner: The address of the position_owner.
+    :param position_id:  The id of the position to be decreased, should be a positive integer.
+    :param deployment: Uniswap v3 deployment
+    :param liquidity_decrease_amount: The amount of liquidity we want to reduce our position by.
+    :param amount0_min: Optional min amount0 desired, this is used as slippage check.  Default is 0.
+    :param amount1_min: Optional min amount1 desired, this is used as slippage check.  Default is 0.
+    :return: tx_receipt: Transaction receipt of the decreaseLiquidity transaction
+    """
+    # check to make sure we have sufficient liquidity to meet decrease amount
+    *_, liquidity, _, _, _, _ = deployment.position_manager.functions.positions(position_id).call()
+    assert liquidity >= liquidity_decrease_amount
+
+    tx_hash = deployment.position_manager.functions.decreaseLiquidity(
+        (
+            position_id,
+            liquidity_decrease_amount,
+            amount0_min,
+            amount1_min,
+            FOREVER_DEADLINE,
+        )
+    ).transact({"from": position_owner})
+    tx_receipt = web3.eth.get_transaction_receipt(tx_hash)
+
+    return tx_receipt
+
+
 def _deploy_nft_position_descriptor(web3: Web3, deployer: HexAddress, weth: Contract):
     """Deploy NFT position descriptor.
 
@@ -328,9 +430,10 @@ def fetch_deployment(
         PoolContract=PoolContract,
     )
 
+
 def mock_partial_deployment_for_analysis(web3: Web3, router_address: str):
     """Only need swap_router and PoolContract?"""
-    
+
     factory = None
     swap_router = get_deployed_contract(web3, "uniswap_v3/SwapRouter.json", router_address)
     weth = None

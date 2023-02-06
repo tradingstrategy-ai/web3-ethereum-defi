@@ -48,6 +48,7 @@ class RPCRequestError(Exception):
     """Lifted from Brownie."""
 
 
+#: Mappings between Anvil command line parameters and our internal argument names
 CLI_FLAGS = {
     "port": "--port",
     "host": "--host",
@@ -87,7 +88,8 @@ def _launch(cmd: str, **kwargs) -> Tuple[psutil.Popen, List[str]]:
     return psutil.Popen(cmd_list, stdin=DEVNULL, stdout=out, stderr=out), cmd_list
 
 
-def _request(method: str, args: List) -> int:
+def _request(web3: Web3, method: str, args: List) -> int:
+    """Make a request to special named EVM JSON-RPC endpoint."""
     try:
         response = web3.provider.make_request(method, args)  # type: ignore
         if "result" in response:
@@ -95,39 +97,6 @@ def _request(method: str, args: List) -> int:
     except (AttributeError, RequestsConnectionError):
         raise RPCRequestError("Web3 is not connected.")
     raise RPCRequestError(response["error"]["message"])
-
-
-def sleep(seconds: int) -> int:
-    _request("evm_increaseTime", [hex(seconds)])
-    return seconds
-
-
-def mine(timestamp: Optional[int] = None) -> None:
-    if timestamp:
-        _request("evm_setNextBlockTimestamp", [timestamp])
-    _request("evm_mine", [1])
-
-
-def snapshot() -> int:
-    return _request("evm_snapshot", [])
-
-
-def revert(snapshot_id: int) -> None:
-    _request("evm_revert", [snapshot_id])
-
-
-def unlock_account(web3: Web3, address: str):
-    """Make Anvil mainnet fork to accept transactions to any Ethereum account.
-
-    This is even when we do not have a private key for the account.
-
-    :param web3:
-        Web3 instance
-
-    :param address:
-        Account to unlock
-    """
-    web3.provider.make_request("anvil_impersonateAccount", [address])  # type: ignore
 
 
 @dataclass
@@ -370,3 +339,40 @@ def fork_network_anvil(
         unlock_account(web3, account)
 
     return AnvilLaunch(port, final_cmd, url, process)
+
+
+def unlock_account(web3: Web3, address: str):
+    """Make Anvil mainnet fork to accept transactions to any Ethereum account.
+
+    This is even when we do not have a private key for the account.
+
+    :param web3:
+        Web3 instance
+
+    :param address:
+        Account to unlock
+    """
+    web3.provider.make_request("anvil_impersonateAccount", [address])  # type: ignore
+
+
+def sleep(web3: Web3, seconds: int) -> int:
+    """Call emv_increaseTime on Anvil"""
+    _request(web3, "evm_increaseTime", [hex(seconds)])
+    return seconds
+
+
+def mine(web3: Web3, timestamp: Optional[int] = None) -> None:
+    """Call evm_setNextBlockTimestamp on Anvil"""
+    if timestamp:
+        _request(web3, "evm_setNextBlockTimestamp", [timestamp])
+    _request(web3, "evm_mine", [1])
+
+
+def snapshot(web3: Web3) -> int:
+    """Call evm_snapshot on Anvil"""
+    return _request(web3, "evm_snapshot", [])
+
+
+def revert(web3: Web3, snapshot_id: int) -> None:
+    """Call evm_revert on Anvil"""
+    _request(web3, "evm_revert", [snapshot_id])
