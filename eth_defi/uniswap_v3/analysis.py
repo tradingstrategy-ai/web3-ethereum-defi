@@ -97,12 +97,8 @@ def analyse_trade_by_receipt(web3: Web3, uniswap: UniswapV3Deployment, tx: dict,
     in_token_details = fetch_erc20_details(web3, path[0])
     out_token_details = fetch_erc20_details(web3, path[-1])
 
-    # amount_out_cleaned = Decimal(amount_out) / Decimal(10**out_token_details.decimals)
-    # amount_in_cleaned = Decimal(amount_in) / Decimal(10**in_token_details.decimals)
-    # price = amount_out_cleaned / amount_in_cleaned
-
     # see https://stackoverflow.com/a/74619134
-    raw_price = tick_to_price(tick)    
+    raw_price = tick_to_price(tick)  
 
     return TradeSuccess(
         gas_used,
