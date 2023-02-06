@@ -21,7 +21,7 @@ Full traceback of the issue::
 
     Traceback (most recent call last):
       File "/Users/moo/code/ts/eth-hentai/tests/manual_bnb_chain_build_transaction.py", line 34, in <module>
-        ).buildTransaction({
+        ).build_transaction({
       File "/Users/moo/Library/Caches/pypoetry/virtualenvs/eth-hentai-kAuIg3tj-py3.10/lib/python3.10/site-packages/web3/contract.py", line 1079, in buildTransaction
         return build_transaction_for_function(
       File "/Users/moo/Library/Caches/pypoetry/virtualenvs/eth-hentai-kAuIg3tj-py3.10/lib/python3.10/site-packages/web3/contract.py", line 1648, in build_transaction_for_function
@@ -81,7 +81,7 @@ print(f"Default gas price given by the node is: {default_gas_price_strategy}")
 web3.eth.set_gas_price_strategy(node_default_gas_price_strategy)
 
 token = get_deployed_contract(web3, "ERC20MockDecimals.json", busd_token)
-tx = token.functions.transfer(received_address, amount,).buildTransaction(
+tx = token.functions.transfer(received_address, amount,).build_transaction(
     {
         "chainId": web3.eth.chain_id,
         "gas": 100_000,  # Estimate max 100k per approval
