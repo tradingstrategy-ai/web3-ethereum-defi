@@ -5,8 +5,6 @@ is a blazing-fast local testnet node implementation in Rust. Anvil may be used a
 
 - Anvil is mostly used in mainnet fork test cases
 
-This code has been lifted from Bronwnie project.
-
 To install Anvil:
 
 .. code-block:: shell
@@ -17,6 +15,7 @@ To install Anvil:
 
 This will install `foundryup`, `anvil` at `~/.foundry/bin` and adds the folder to your shell rc file `PATH`.
 
+This code was originally lifted from Brownie project.
 """
 
 import logging
@@ -25,13 +24,13 @@ import time
 import warnings
 from dataclasses import dataclass
 from subprocess import DEVNULL, PIPE
-from typing import Dict, List, Optional, Union
+from typing import Dict, List, Optional, Union, Tuple
 
 import psutil
 import requests
 from psutil import NoSuchProcess
 
-from eth_defi.utils import is_localhost_port_listening
+from eth_defi.utils import is_localhost_port_listening, shutdown_hard
 from eth_typing import HexAddress
 from requests.exceptions import ConnectionError as RequestsConnectionError
 from web3 import Web3, HTTPProvider
@@ -41,7 +40,7 @@ logger = logging.getLogger(__name__)
 
 
 
-class InvalidArgumentWarning(Exception):
+class InvalidArgumentWarning(Warning):
     """Lifted from Brownie. """
 
 
@@ -57,10 +56,11 @@ CLI_FLAGS = {
     "chain_id": "--chain-id",
     "default_balance": "--balance",
     "gas_limit": "--gas-limit",
+    "block_time": "--block-time",
 }
 
 
-def _launch(cmd: str, **kwargs: Dict) -> None:
+def _launch(cmd: str, **kwargs: Dict) -> Tuple[psutil.Popen, List[str]]:
     """Launches the RPC client.
 
     Args:
@@ -80,10 +80,11 @@ def _launch(cmd: str, **kwargs: Dict) -> None:
                 f'"{key}" with value "{value}".',
                 InvalidArgumentWarning,
             )
-    print(f"\nLaunching '{' '.join(cmd_list)}'...")
+    final_cmd_str = ' '.join(cmd_list)
+    print(f"\nLaunching '{final_cmd_str}'...")
     out = DEVNULL if sys.platform == "win32" else PIPE
 
-    return psutil.Popen(cmd_list, stdin=DEVNULL, stdout=out, stderr=out)
+    return psutil.Popen(cmd_list, stdin=DEVNULL, stdout=out, stderr=out), cmd_list
 
 
 def on_connection() -> None:
@@ -121,7 +122,7 @@ def revert(snapshot_id: int) -> None:
     _request("evm_revert", [snapshot_id])
 
 
-def unlock_account(address: str) -> None:
+def unlock_account(web3: Web3, address: str) -> None:
     web3.provider.make_request("anvil_impersonateAccount", [address])  # type: ignore
 
 
@@ -144,50 +145,38 @@ class AnvilLaunch:
     #: UNIX process that we opened
     process: psutil.Popen
 
-    def close(self, verbose=False, block=True, block_timeout=30):
-        """Kill the anvil process.
+    def close(self, verbose=False, block=True, block_timeout=30) -> Tuple[str, str]:
+        """Close the background Anvil process.
 
-        Anvil is pretty hard to kill, so keep killing it until it dies and the port is free again.
+        :param verbose:
+            Dump Anvil messages to logging
 
-        :param block: Block the execution until Anvil has terminated
-        :param block_timeout: How long we give for Anvil to clean up after itself
-        :param verbose: If set, dump anything in Anvil stdout to the Python logging using level `INFO`.
+        :param block:
+            Block the execution until anvil is gone
+
+        :param block_timeout:
+
+
+        :return:
+            stdout, stderr as string
         """
-
-        process = self.process
-        if verbose:
-            # TODO: This does not seem to work on macOS,
-            # but is fine on Ubuntu on Github CI
-            logger.info("Dumping Anvil output")
-            if process.poll() is not None:
-                output = process.communicate()[0].decode("utf-8")
-                for line in output.split("\n"):
-                    logger.info(line)
-
-        # process.terminate()
-        # Hahahahah, this is Anvil, do you think terminate signal is enough
-        try:
-            process.kill()
-        except NoSuchProcess:
-            raise AssertionError("Anvil died on its own :(")
-
-        if block:
-            deadline = time.time() + 30
-            while time.time() < deadline:
-                if not is_localhost_port_listening(self.port):
-                    # Port released, assume Anvil is gone
-                    return
-
-            raise AssertionError(f"Could not terminate Anvil in {block_timeout} seconds")
+        stdout, stderr = shutdown_hard(
+            self.process,
+            verbose=verbose,
+            block=block,
+            block_timeout=block_timeout,
+            check_port=self.port,
+        )
+        logger.info("Anvil shutdown %s", self.json_rpc_url)
+        return stdout, stderr
 
 
 def fork_network_anvil(
-    json_rpc_url: str,
+    fork_url: str,
     unlocked_addresses: List[Union[HexAddress, str]] = [],
     cmd="anvil",
     port=19999,
     block_time=0,
-    quiet=False,
     launch_wait_seconds=20.0,
 ) -> AnvilLaunch:
     """Creates the Anvil "fork" of given JSON-RPC endpoint.
@@ -221,10 +210,10 @@ def fork_network_anvil(
 
 
         @pytest.fixture()
-        def Anvil_bnb_chain_fork(large_busd_holder) -> str:
+        def anvil_bnb_chain_fork(large_busd_holder) -> str:
             # Create a testable fork of live BNB chain.
             mainnet_rpc = os.environ["BNB_CHAIN_JSON_RPC"]
-            launch = fork_network(
+            launch = fork_network_anvil(
                 mainnet_rpc,
                 unlocked_addresses=[large_busd_holder])
             yield launch.json_rpc_url
@@ -233,13 +222,12 @@ def fork_network_anvil(
 
 
         @pytest.fixture
-        def web3(Anvil_bnb_chain_fork: str):
+        def web3(anvil_bnb_chain_fork: str):
             # Set up a local unit testing blockchain
-            return Web3(HTTPProvider(Anvil_bnb_chain_fork))
+            return Web3(HTTPProvider(anvil_bnb_chain_fork))
 
 
         def test_mainnet_fork_transfer_busd(web3: Web3, large_busd_holder: HexAddress, user_1: LocalAccount):
-
             # BUSD deployment on BNB chain
             # https://bscscan.com/token/0xe9e7cea3dedca5984780bafc599bd69add087d56
             busd_details = fetch_erc20_details(web3, "0xe9e7CEA3DedcA5984780Bafc599bD69ADd087D56")
@@ -260,8 +248,8 @@ def fork_network_anvil(
 
     .. code-block:: python
 
-            mainnet_rpc = os.environ["POLYGON_JSON_RPC"]
-            launch = fork_network(mainnet_rpc, evm_version="istanbul")
+            mainnet_rpc = "https://polygon-rpc.com"
+            launch = fork_network(mainnet_rpc)
 
     If `anvil` refuses to terminate properly, you can kill a process by a port with:
 
@@ -278,39 +266,41 @@ def fork_network_anvil(
 
     For public JSON-RPC endpoints check
 
-    - `BNB chain documentation <https://docs.binance.org/smart-chain/developer/rpc.html>`_
-
     - `ethereumnodes.com <https://ethereumnodes.com/>`_
 
-    :param cmd: Override `anvil` command. If not given we look up from `PATH`.
-    :param json_rpc_url: HTTP JSON-RPC URL of the network we want to fork
-    :param unlocked_addresses: List of addresses of which ownership we take to allow test code to transact as them
-    :param port: Localhost port we bind for Anvil JSON-RPC
-    :param launch_wait_seconds: How long we wait anvil to start until giving up
-    :param evm_version: "london" for the default hard fork
+    :param cmd:
+        Override `anvil` command. If not given we look up from `PATH`.
+
+    :param fork_url:
+        HTTP JSON-RPC URL of the network we want to fork
+
+    :param unlocked_addresses:
+        List of addresses of which ownership we take to allow test code to transact as them
+
+    :param port:
+        Localhost port we bind for Anvil JSON-RPC
+
+    :param launch_wait_seconds:
+        How long we wait anvil to start until giving up
+
     :param block_time:
         How long Anvil takes to mine a block. Default is zero and any RPC transaction
         will immediately return with the transaction inclusion.
         Set to `1` so that you can poll the transaction as you would do with
         a live JSON-RPC node.
-    :param quiet:
-        Disable extensive logging. If there is a lot of Anvil logging it seems to crash
-        on Github CI.
-
     """
 
-    assert not is_localhost_port_listening(port), f"localhost port {port} occupied - you might have a zombie Anvil process around"
+    assert not is_localhost_port_listening(port), f"localhost port {port} occupied.\n" \
+                                                  f"You might have a zombie Anvil process around.\n" \
+                                                  f"Use kill -SIGKILL $(lsof -ti:{port}) to kill"
 
     url = f"http://localhost:{port}"
 
     process, final_cmd = _launch(
         cmd,
         port=port,
-        fork=json_rpc_url,
-        unlock=unlocked_addresses,
-        evm_version=evm_version,
+        fork=fork_url,
         block_time=block_time,
-        quiet=quiet,
     )
 
     # Wait until Anvil is responsive
@@ -320,13 +310,8 @@ def fork_network_anvil(
     # Use short 1.0s HTTP read timeout here - otherwise requests will wa-it > 10s if something is wrong
     web3 = Web3(HTTPProvider(url, request_kwargs={"timeout": 1.0}))
     while time.time() < timeout:
-        if process.poll() is not None:
-            output = process.communicate()[0].decode("utf-8")
-            for line in output.split("\n"):
-                logger.error(line)
-            raise AssertionError(f"anvil died on launch, used command was {final_cmd}")
-
         try:
+            # See if web3 RPC works
             current_block = web3.eth.block_number
             break
         except (requests.exceptions.ConnectionError, requests.exceptions.ReadTimeout):
@@ -335,19 +320,23 @@ def fork_network_anvil(
             continue
 
     if current_block is None:
-
-        if process.poll() is not None:
-            output = process.communicate()[0].decode("utf-8")
-            for line in output.split("\n"):
-                logger.error(line)
-            raise AssertionError(f"anvil died on launch, used command was {final_cmd}")
-
         logger.error("Could not read the latest block from anvil within %f seconds", launch_wait_seconds)
-        raise AssertionError(f"Could not connect to anvil {cmd}: at {url}")
+        shutdown_hard(
+            process,
+            verbose=True,
+            block=True,
+            check_port=port,
+        )
+
+        raise AssertionError(f"Could not read block number from Anvil after the launch {cmd}: at {url}")
 
     chain_id = web3.eth.chain_id
 
     # Use f-string for a thousand separator formatting
-    logger.info(f"anvil forked network %d, the current block is {current_block:,}, Anvil JSON-RPC is %s", chain_id, url)
+    logger.info(f"anvil forked network {chain_id}, the current block is {current_block:,}, Anvil JSON-RPC is {url}")
+
+    # Perform unlock accounts for all accounts
+    for account in unlocked_addresses:
+        unlock_account(web3, account)
 
     return AnvilLaunch(port, final_cmd, url, process)

@@ -9,21 +9,22 @@ To run tests in this module:
 
 """
 import os
+import shutil
 
-import flaky
 import pytest
 from eth_account import Account
 from eth_account.signers.local import LocalAccount
 from eth_typing import HexAddress, HexStr
 from web3 import HTTPProvider, Web3
 
-from eth_defi.ganache import fork_network
+from eth_defi.anvil import fork_network_anvil, _launch
+from eth_defi.chain import install_chain_middleware
 from eth_defi.token import fetch_erc20_details
 
 # https://docs.pytest.org/en/latest/how-to/skipping.html#skip-all-test-functions-of-a-class-or-module
 pytestmark = pytest.mark.skipif(
-    os.environ.get("BNB_CHAIN_JSON_RPC") is None,
-    reason="Set BNB_CHAIN_JSON_RPC environment variable to Binance Smart Chain node to run this test",
+    (os.environ.get("BNB_CHAIN_JSON_RPC") is None) or (shutil.which("anvil") is None),
+    reason="Set BNB_CHAIN_JSON_RPC env install anvil command to run these tests",
 )
 
 
@@ -55,23 +56,44 @@ def user_2() -> LocalAccount:
 
 
 @pytest.fixture()
-def ganache_bnb_chain_fork(large_busd_holder, user_1, user_2) -> str:
+def anvil_bnb_chain_fork(request, large_busd_holder, user_1, user_2) -> str:
     """Create a testable fork of live BNB chain.
 
     :return: JSON-RPC URL for Web3
     """
     mainnet_rpc = os.environ["BNB_CHAIN_JSON_RPC"]
     launch = fork_network_anvil(mainnet_rpc, unlocked_addresses=[large_busd_holder])
-    yield launch.json_rpc_url
-    # Wind down Ganache process after the test is complete
-    launch.close()
+    try:
+        yield launch.json_rpc_url
+    finally:
+        # Wind down Anvil process after the test is complete
+        launch.close(verbose=True)
 
 
 @pytest.fixture()
-def web3(ganache_bnb_chain_fork: str):
+def web3(anvil_bnb_chain_fork: str):
     """Set up a local unit testing blockchain."""
     # https://web3py.readthedocs.io/en/stable/examples.html#contract-unit-tests-in-python
-    return Web3(HTTPProvider(ganache_bnb_chain_fork))
+    web3 =  Web3(HTTPProvider(anvil_bnb_chain_fork))
+    # Anvil needs POA middlware if parent chain needs POA middleware
+    install_chain_middleware(web3)
+    return web3
+
+
+def test_anvil_output():
+    """Read anvil output from stdout."""
+    #mainnet_rpc = os.environ["BNB_CHAIN_JSON_RPC"]
+    #process, cmd = _launch("anvil")
+
+    mainnet_rpc = os.environ["BNB_CHAIN_JSON_RPC"]
+    launch = fork_network_anvil(mainnet_rpc)
+    stdout, stderr = launch.close(verbose=True)
+    assert "https://github.com/foundry-rs/foundry" in stdout, f"Did not see the market string in stdout: {stdout}"
+
+
+def test_anvil_forked_chain_id(web3: Web3):
+    """Anvil pipes through the forked chain id."""
+    assert web3.eth.chain_id == 56
 
 
 def test_anvil_fork_busd_details(web3: Web3, large_busd_holder: HexAddress, user_1: LocalAccount):
