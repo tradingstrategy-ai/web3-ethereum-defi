@@ -1,23 +1,22 @@
-
-import pytest
 from decimal import Decimal
 
+import pytest
 from eth_tester import EthereumTester
 from eth_typing import HexAddress
 from web3 import EthereumTesterProvider, Web3
 from web3.contract import Contract
 
-from eth_defi.uniswap_v3.constants import FOREVER_DEADLINE, MIN_TICK, MAX_TICK
 from eth_defi.token import create_token
 from eth_defi.trade import TradeFail, TradeSuccess
 from eth_defi.uniswap_v3.analysis import analyse_trade_by_receipt
-from eth_defi.uniswap_v3.utils import get_default_tick_range, encode_path
+from eth_defi.uniswap_v3.constants import FOREVER_DEADLINE, MAX_TICK, MIN_TICK
 from eth_defi.uniswap_v3.deployment import (
     UniswapV3Deployment,
+    add_liquidity,
     deploy_pool,
     deploy_uniswap_v3,
-    add_liquidity
 )
+from eth_defi.uniswap_v3.utils import encode_path, get_default_tick_range
 
 
 @pytest.fixture
@@ -96,19 +95,19 @@ def weth_usdc_fee() -> int:
 
 
 @pytest.fixture
-def weth_usdc_uniswap_trading_pair(web3, deployer, uniswap_v3, weth_token, usdc_token, weth_usdc_fee) -> HexAddress:
+def weth_usdc_pool(web3, deployer, uniswap_v3, weth, usdc, weth_usdc_fee) -> HexAddress:
     """ETH-USDC pool with 1.7M liquidity."""
     min_tick, max_tick = get_default_tick_range(weth_usdc_fee)
-    
+
     pool_contract = deploy_pool(
         web3,
         deployer,
         deployment=uniswap_v3,
-        token0=weth_token,
-        token1=usdc_token,
-        fee=weth_usdc_fee
+        token0=weth,
+        token1=usdc,
+        fee=weth_usdc_fee,
     )
-    
+
     add_liquidity(
         web3,
         deployer,
@@ -117,13 +116,22 @@ def weth_usdc_uniswap_trading_pair(web3, deployer, uniswap_v3, weth_token, usdc_
         amount0=1000 * 10**18,  # 1000 ETH liquidity
         amount1=1_700_000 * 10**6,  # 1.7M USDC liquidity
         lower_tick=min_tick,
-        upper_tick=max_tick
+        upper_tick=max_tick,
     )
-    return pool_contract.address
+    return pool_contract
 
 
-def test_analyse_by_recept(web3: Web3, deployer: str, user_1: str, uniswap_v3: UniswapV3Deployment, weth: Contract, usdc: Contract, weth_usdc_fee):
-    """Aanlyse a Uniswap v2 trade by receipt."""
+def test_analyse_by_recept(
+    web3: Web3,
+    deployer: str,
+    user_1: str,
+    uniswap_v3: UniswapV3Deployment,
+    weth: Contract,
+    usdc: Contract,
+    weth_usdc_pool: Contract,
+    weth_usdc_fee: int,
+):
+    """Analyse a Uniswap v3 trade by receipt."""
 
     router = uniswap_v3.swap_router
 
@@ -135,14 +143,13 @@ def test_analyse_by_recept(web3: Web3, deployer: str, user_1: str, uniswap_v3: U
     # Perform a swap USDC->WETH
     path = [usdc.address, weth.address]  # Path tell how the swap is routed
     encoded_path = encode_path(path, [weth_usdc_fee])
-    
-    # https://docs.uniswap.org/protocol/V2/reference/smart-contracts/router-02#swapexacttokensfortokens
+
     router.functions.exactInput(
         (
             encoded_path,
             user_1,
             FOREVER_DEADLINE,
-            usdc_amount_to_pay,
+            10 * 10**6,
             0,
         )
     ).transact({"from": user_1})
@@ -157,8 +164,8 @@ def test_analyse_by_recept(web3: Web3, deployer: str, user_1: str, uniswap_v3: U
             encode_path(reverse_path, [weth_usdc_fee]),
             user_1,
             FOREVER_DEADLINE,
-            all_weth_amount,
-            0
+            all_weth_amount - 1000,
+            0,
         )
     ).transact({"from": user_1})
 
@@ -168,7 +175,7 @@ def test_analyse_by_recept(web3: Web3, deployer: str, user_1: str, uniswap_v3: U
     # user_1 has less than 500 USDC left to loses in the LP fees
     analysis = analyse_trade_by_receipt(web3, uniswap_v3, tx, tx_hash, receipt)
     assert isinstance(analysis, TradeSuccess)
-    assert analysis.price == pytest.approx(Decimal("1744.899124998896692270848706"))
+    assert analysis.price == pytest.approx(1744.899124998896692270848706)  # FIXME
     assert analysis.get_effective_gas_price_gwei() == 1
     assert analysis.amount_out_decimals == 6
     assert analysis.amount_in_decimals == 18
