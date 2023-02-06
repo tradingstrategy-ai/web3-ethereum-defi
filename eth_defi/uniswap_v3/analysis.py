@@ -99,7 +99,8 @@ def analyse_trade_by_receipt(web3: Web3, uniswap: UniswapV3Deployment, tx: dict,
 
     # see https://stackoverflow.com/a/74619134
     raw_price = tick_to_price(tick)  
-
+    price = raw_price / 10 ** (out_token_details.decimals - in_token_details.decimals)
+    
     return TradeSuccess(
         gas_used,
         effective_gas_price,
@@ -107,7 +108,7 @@ def analyse_trade_by_receipt(web3: Web3, uniswap: UniswapV3Deployment, tx: dict,
         amount_in,
         amount_out_min,
         abs(amount_out),
-        raw_price,
+        price,
         in_token_details.decimals,
         out_token_details.decimals,
     )

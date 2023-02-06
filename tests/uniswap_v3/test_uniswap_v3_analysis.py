@@ -174,8 +174,9 @@ def test_analyse_by_recept(
 
     # user_1 has less than 500 USDC left to loses in the LP fees
     analysis = analyse_trade_by_receipt(web3, uniswap_v3, tx, tx_hash, receipt)
+
     assert isinstance(analysis, TradeSuccess)
-    assert analysis.price == pytest.approx(1744.899124998896692270848706)  # FIXME
+    assert analysis.price == pytest.approx(1699.9102484539058)
     assert analysis.get_effective_gas_price_gwei() == 1
     assert analysis.amount_out_decimals == 6
     assert analysis.amount_in_decimals == 18
