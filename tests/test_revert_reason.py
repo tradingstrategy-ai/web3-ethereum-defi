@@ -24,6 +24,7 @@ from eth_account.signers.local import LocalAccount
 
 from eth_defi.anvil import fork_network_anvil
 from eth_defi.chain import install_chain_middleware
+from eth_defi.gas import node_default_gas_price_strategy
 from eth_defi.revert_reason import fetch_transaction_revert_reason
 from eth_defi.confirmation import wait_transactions_to_complete
 from eth_typing import HexAddress, HexStr
@@ -74,7 +75,7 @@ def anvil_bnb_chain_fork(request, large_busd_holder) -> str:
     launch = fork_network_anvil(
         mainnet_rpc,
         unlocked_addresses=[large_busd_holder],
-        block_time=1
+        block_time=1,
     )
     try:
         yield launch.json_rpc_url
@@ -90,6 +91,7 @@ def web3(anvil_bnb_chain_fork: str, user_1):
     web3 = Web3(HTTPProvider(anvil_bnb_chain_fork))
     install_chain_middleware(web3)
     web3.middleware_onion.add(construct_sign_and_send_raw_middleware(user_1))
+    web3.eth.set_gas_price_strategy(node_default_gas_price_strategy)
     return web3
 
 
@@ -120,4 +122,4 @@ def test_revert_reason(web3: Web3, large_busd_holder: HexAddress, user_1: LocalA
     assert receipt.status == 0
 
     reason = fetch_transaction_revert_reason(web3, tx_hash)
-    assert reason == "VM Exception while processing transaction: revert BEP20: transfer amount exceeds balance"
+    assert reason == "execution reverted: BEP20: transfer amount exceeds balance"

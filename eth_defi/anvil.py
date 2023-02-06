@@ -53,6 +53,7 @@ CLI_FLAGS = {
     "host": "--host",
     "fork": "--fork-url",
     "fork_block": "--fork-block-number",
+    "hardfork": "--hardfork",
     "chain_id": "--chain-id",
     "default_balance": "--balance",
     "gas_limit": "--gas-limit",
