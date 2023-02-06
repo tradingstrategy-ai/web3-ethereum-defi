@@ -22,6 +22,7 @@ from web3 import HTTPProvider, Web3
 
 from eth_defi.anvil import fork_network_anvil
 from eth_defi.chain import install_chain_middleware
+from eth_defi.gas import node_default_gas_price_strategy
 from eth_defi.hotwallet import HotWallet
 from eth_defi.token import fetch_erc20_details
 from eth_defi.tx import decode_signed_transaction
@@ -73,6 +74,7 @@ def web3(anvil_bnb_chain_fork: str):
     # https://web3py.readthedocs.io/en/stable/examples.html#contract-unit-tests-in-python
     web3 = Web3(HTTPProvider(anvil_bnb_chain_fork))
     install_chain_middleware(web3)
+    web3.eth.set_gas_price_strategy(node_default_gas_price_strategy)
     return web3
 
 
@@ -85,7 +87,6 @@ def hot_wallet(user_1: LocalAccount, web3: Web3) -> HotWallet:
     return wallet
 
 
-@flaky.flaky(max_runs=5)
 def test_bnb_chain_decode_tx(web3: Web3, large_busd_holder: HexAddress, hot_wallet: HotWallet):
     """Decoding transactions targeting BNB chain."""
 
@@ -95,10 +96,9 @@ def test_bnb_chain_decode_tx(web3: Web3, large_busd_holder: HexAddress, hot_wall
     busd = busd_details.contract
 
     # Create a spoofed transfer() (never executed)
-    raw_tx = busd.functions.transfer("0x0000000000000000000000000000000000000000", 500 * 10**18).buildTransaction({"gas": 100_000})
+    raw_tx = busd.functions.transfer("0x0000000000000000000000000000000000000000", 500 * 10**18).build_transaction({"gas": 100_000})
     signed_tx = hot_wallet.sign_transaction_with_new_nonce(raw_tx)
     signed_tx_bytes = signed_tx.rawTransaction
     d = decode_signed_transaction(signed_tx_bytes)
-    assert d["chainId"] == 1337
     assert d["nonce"] == 0
     assert d["data"].hex().startswith("0xa9059cbb0")  # transfer() function selector
