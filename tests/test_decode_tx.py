@@ -9,15 +9,18 @@ To run tests in this module:
 
 """
 import os
+import logging
 
 import flaky
 import pytest
+
 from eth_account import Account
 from eth_account.signers.local import LocalAccount
 from eth_typing import HexAddress, HexStr
 from web3 import HTTPProvider, Web3
 
-from eth_defi.ganache import fork_network
+from eth_defi.anvil import fork_network_anvil
+from eth_defi.chain import install_chain_middleware
 from eth_defi.hotwallet import HotWallet
 from eth_defi.token import fetch_erc20_details
 
@@ -48,24 +51,28 @@ def user_1() -> LocalAccount:
     return Account.create()
 
 
-@pytest.fixture(scope="module")
-def ganache_bnb_chain_fork(large_busd_holder) -> str:
+@pytest.fixture()
+def anvil_bnb_chain_fork(request, large_busd_holder) -> str:
     """Create a testable fork of live BNB chain.
 
     :return: JSON-RPC URL for Web3
     """
     mainnet_rpc = os.environ["BNB_CHAIN_JSON_RPC"]
-    launch = fork_network(mainnet_rpc, unlocked_addresses=[large_busd_holder])
-    yield launch.json_rpc_url
-    # Wind down Ganache process after the test is complete
-    launch.close()
+    launch = fork_network_anvil(mainnet_rpc, unlocked_addresses=[large_busd_holder])
+    try:
+        yield launch.json_rpc_url
+    finally:
+        # Wind down Anvil process after the test is complete
+        launch.close(log_level=logging.ERROR)
 
 
 @pytest.fixture
-def web3(ganache_bnb_chain_fork: str):
+def web3(anvil_bnb_chain_fork: str):
     """Set up a local unit testing blockchain."""
     # https://web3py.readthedocs.io/en/stable/examples.html#contract-unit-tests-in-python
-    return Web3(HTTPProvider(ganache_bnb_chain_fork))
+    web3 = Web3(HTTPProvider(anvil_bnb_chain_fork))
+    install_chain_middleware(web3)
+    return web3
 
 
 @pytest.fixture
