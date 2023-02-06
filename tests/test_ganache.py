@@ -21,10 +21,10 @@ from eth_defi.ganache import fork_network
 from eth_defi.token import fetch_erc20_details
 
 # https://docs.pytest.org/en/latest/how-to/skipping.html#skip-all-test-functions-of-a-class-or-module
-#pytestmark = pytest.mark.skipif(
+# pytestmark = pytest.mark.skipif(
 #    os.environ.get("BNB_CHAIN_JSON_RPC") is None,
 #    reason="Set BNB_CHAIN_JSON_RPC environment variable to Binance Smart Chain node to run this test",
-#)
+# )
 
 pytestmark = pytest.mark.skip(reason="Ganache is broken so horribly that do not even try to run tests as part of a normal suite")
 

@@ -1,6 +1,6 @@
 # Current
 
-- Replace `ganache` with `anvil` for mainnet fork solution. Anvil is much more stable
+- Replace `ganache` with `anvil` as the mainnet fork solution. Anvil is much more stable
   than Ganache what comes to JSON-RPC. Anvil is much faster. You can now call
   [fork_network_anvil](https://web3-ethereum-defi.readthedocs.io/api/_autosummary/eth_defi.anvil.html#module-eth_defi.anvil) that is a drop-in replacement for old
   Ganache based `fork_network`.

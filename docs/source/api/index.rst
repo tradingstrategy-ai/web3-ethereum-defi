@@ -58,6 +58,7 @@ Uniswap v3 API
    eth_defi.uniswap_v3.constants
    eth_defi.uniswap_v3.utils
    eth_defi.uniswap_v3.liquidity
+   eth_defi.uniswap_v3.analysis
    eth_defi.uniswap_v3.events
    eth_defi.uniswap_v3.price
    eth_defi.uniswap_v3.pool
