@@ -1,7 +1,7 @@
 [tool.poetry]
 name = "web3-ethereum-defi"
-version = "0.13.11"
-description = "DeFi integration library for smart contracts, DeFi trading (Uniswap, PancakeSwap), Ethereum JSON-RPC, EVM transactions and automated test suites."
+version = "0.14"
+description = "Integrate DeFi trading and and analytics for Uniswap, Aave, PancakeSwap, Trader Joe, QuickSwap and many others."
 authors = ["Mikko Ohtamaa <mikko@tradingstrategy.ai>"]
 license = "MIT"
 homepage = "https://tradingstrategy.ai"

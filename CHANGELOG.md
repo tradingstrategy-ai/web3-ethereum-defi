@@ -1,4 +1,4 @@
-# Current
+# 0.14
 
 - Replace `ganache` with `anvil` as the mainnet fork solution. Anvil is much more stable
   than Ganache what comes to JSON-RPC. Anvil is much faster. You can now call
