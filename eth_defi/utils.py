@@ -2,10 +2,10 @@
 import logging
 import socket
 import time
-from typing import Optional
+from typing import Optional, Tuple
 
 import psutil
-from psutil import Process, NoSuchProcess
+
 
 logger = logging.getLogger(__name__)
 
@@ -32,11 +32,11 @@ def is_localhost_port_listening(port: int, host="localhost") -> bool:
 
 def shutdown_hard(
         process: psutil.Popen,
-        verbose=False,
+        log_level: Optional[int] = None,
         block=True,
         block_timeout=30,
         check_port: Optional[int] = None,
-) -> Tuple[str, str]:
+) -> Tuple[bytes, bytes]:
     """Kill Psutil process.
 
     - First gracefully
@@ -56,7 +56,7 @@ def shutdown_hard(
     :param block_timeout:
         How long we give for process to clean up after itself
 
-    :param verbose:
+    :param log_level:
         If set, dump anything in Anvil stdout to the Python logging using level `INFO`.
 
     :param check_port:
@@ -66,23 +66,22 @@ def shutdown_hard(
         stdout, stderr as string
     """
 
-    stdout = ""
-    stderr = ""
+    stdout = b""
+    stderr = b""
 
-    if verbose:
-        # TODO: This does not seem to work on macOS,
-        # but is fine on Ubuntu on Github CI
+    if process.poll() is None:
+        # Still alive, we need to kill to read the output
+        process.kill()
 
-        if process.poll() is None:
-            # Still alive, we need to kill to read the output
-            process.kill()
+    for line in process.stdout.readlines():
+        stdout += line
+        if log_level is not None:
+            logger._log(log_level, "stdout: %s", line.decode("utf-8").strip())
 
-        for line in process.stdout.readlines():
-            stdout += line
-            logger.info("stdout: %s", line.decode("utf-8").strip())
-        for line in process.stderr.readlines():
-            stderr += line
-            logger.info("stderr: %s", line.decode("utf-8").strip())
+    for line in process.stderr.readlines():
+        stderr += line
+        if log_level is not None:
+            logger._log(log_level, "stderr: %s", line.decode("utf-8").strip())
 
     if block:
         assert check_port is not None, "Give check_port to block the execution"
@@ -90,8 +89,8 @@ def shutdown_hard(
         while time.time() < deadline:
             if not is_localhost_port_listening(check_port):
                 # Port released, assume Anvil/Ganache is gone
-                return
+                return stdout, stderr
 
-        raise AssertionError(f"Could not terminate Anvil in {block_timeout} seconds")
+        raise AssertionError(f"Could not terminate Anvil in {block_timeout} seconds, stdout is %d bytes, stderr is %d bytes", len(stdout), len(stderr))
 
     return stdout, stderr

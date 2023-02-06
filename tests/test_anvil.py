@@ -8,6 +8,7 @@ To run tests in this module:
     pytest -k test_ganache
 
 """
+import logging
 import os
 import shutil
 
@@ -17,7 +18,7 @@ from eth_account.signers.local import LocalAccount
 from eth_typing import HexAddress, HexStr
 from web3 import HTTPProvider, Web3
 
-from eth_defi.anvil import fork_network_anvil, _launch
+from eth_defi.anvil import fork_network_anvil
 from eth_defi.chain import install_chain_middleware
 from eth_defi.token import fetch_erc20_details
 
@@ -67,7 +68,7 @@ def anvil_bnb_chain_fork(request, large_busd_holder, user_1, user_2) -> str:
         yield launch.json_rpc_url
     finally:
         # Wind down Anvil process after the test is complete
-        launch.close(verbose=True)
+        launch.close(log_level=logging.ERROR)
 
 
 @pytest.fixture()
@@ -87,8 +88,8 @@ def test_anvil_output():
 
     mainnet_rpc = os.environ["BNB_CHAIN_JSON_RPC"]
     launch = fork_network_anvil(mainnet_rpc)
-    stdout, stderr = launch.close(verbose=True)
-    assert "https://github.com/foundry-rs/foundry" in stdout, f"Did not see the market string in stdout: {stdout}"
+    stdout, stderr = launch.close()
+    assert b"https://github.com/foundry-rs/foundry" in stdout, f"Did not see the market string in stdout: {stdout}"
 
 
 def test_anvil_forked_chain_id(web3: Web3):

@@ -145,24 +145,24 @@ class AnvilLaunch:
     #: UNIX process that we opened
     process: psutil.Popen
 
-    def close(self, verbose=False, block=True, block_timeout=30) -> Tuple[str, str]:
+    def close(self, log_level: Optional[int] = None, block=True, block_timeout=30) -> Tuple[bytes, bytes]:
         """Close the background Anvil process.
 
-        :param verbose:
+        :param log_level:
             Dump Anvil messages to logging
 
         :param block:
             Block the execution until anvil is gone
 
         :param block_timeout:
-
+            How long time we try to kill Anvil until giving up.
 
         :return:
-            stdout, stderr as string
+            Anvil stdout, stderr as string
         """
         stdout, stderr = shutdown_hard(
             self.process,
-            verbose=verbose,
+            log_level=log_level,
             block=block,
             block_timeout=block_timeout,
             check_port=self.port,
@@ -175,9 +175,10 @@ def fork_network_anvil(
     fork_url: str,
     unlocked_addresses: List[Union[HexAddress, str]] = [],
     cmd="anvil",
-    port=19999,
+    port: int = 19999,
     block_time=0,
     launch_wait_seconds=20.0,
+    attempts=3,
 ) -> AnvilLaunch:
     """Creates the Anvil "fork" of given JSON-RPC endpoint.
 
@@ -288,6 +289,13 @@ def fork_network_anvil(
         will immediately return with the transaction inclusion.
         Set to `1` so that you can poll the transaction as you would do with
         a live JSON-RPC node.
+
+    :param attempts:
+        How many attempts we do to start anvil.
+
+        Anvil start may fail without any output. This could be because the given JSON-RPC
+        node is throttling your API requests. In this case we just try few more times
+        again.
     """
 
     assert not is_localhost_port_listening(port), f"localhost port {port} occupied.\n" \
@@ -296,39 +304,61 @@ def fork_network_anvil(
 
     url = f"http://localhost:{port}"
 
-    process, final_cmd = _launch(
-        cmd,
-        port=port,
-        fork=fork_url,
-        block_time=block_time,
-    )
+    attemps_left = attempts
 
-    # Wait until Anvil is responsive
-    timeout = time.time() + launch_wait_seconds
-    current_block = None
+    while attemps_left > 0:
 
-    # Use short 1.0s HTTP read timeout here - otherwise requests will wa-it > 10s if something is wrong
-    web3 = Web3(HTTPProvider(url, request_kwargs={"timeout": 1.0}))
-    while time.time() < timeout:
-        try:
-            # See if web3 RPC works
-            current_block = web3.eth.block_number
-            break
-        except (requests.exceptions.ConnectionError, requests.exceptions.ReadTimeout):
-            # requests.exceptions.ConnectionError: ('Connection aborted.', ConnectionResetError(54, 'Connection reset by peer'))
-            time.sleep(0.1)
-            continue
-
-    if current_block is None:
-        logger.error("Could not read the latest block from anvil within %f seconds", launch_wait_seconds)
-        shutdown_hard(
-            process,
-            verbose=True,
-            block=True,
-            check_port=port,
+        process, final_cmd = _launch(
+            cmd,
+            port=port,
+            fork=fork_url,
+            block_time=block_time,
         )
 
-        raise AssertionError(f"Could not read block number from Anvil after the launch {cmd}: at {url}")
+        # Wait until Anvil is responsive
+        timeout = time.time() + launch_wait_seconds
+        current_block = None
+
+        # Use short 1.0s HTTP read timeout here - otherwise requests will wa-it > 10s if something is wrong
+
+        web3 = Web3(HTTPProvider(url, request_kwargs={"timeout": 1.0}))
+        while time.time() < timeout:
+
+            if process.poll() is not None:
+                # Anvil crashed - hopefully got some output
+                raise AssertionError("anvil process did not start up")
+
+            try:
+                # See if web3 RPC works
+                current_block = web3.eth.block_number
+                break
+            except (requests.exceptions.ConnectionError, requests.exceptions.ReadTimeout) as e:
+                logger.info("Anvil not ready, got exception %s", e)
+                # requests.exceptions.ConnectionError: ('Connection aborted.', ConnectionResetError(54, 'Connection reset by peer'))
+                time.sleep(0.1)
+                continue
+
+        if current_block is None:
+            logger.error("Could not read the latest block from anvil %s within %f seconds, shutting down and dumping output",
+                            url,
+                            launch_wait_seconds)
+            stdout, stderr = shutdown_hard(
+                process,
+                log_level=logging.ERROR,
+                block=True,
+                check_port=port,
+            )
+
+            if len(stdout) == 0:
+                attemps_left -= 1
+                if attemps_left > 0:
+                    logger.info("anvil did not start properly, try again, attempts left %d", attemps_left)
+                    continue
+
+            raise AssertionError(f"Could not read block number from Anvil after the launch {cmd}: at {url}, stdout is {len(stdout)} bytes, stderr is {len(stderr)} bytes")
+        else:
+            # We have succesful launch
+            break
 
     chain_id = web3.eth.chain_id
 
