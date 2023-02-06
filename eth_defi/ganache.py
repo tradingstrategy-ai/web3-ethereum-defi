@@ -269,6 +269,11 @@ def fork_network(
 ) -> GanacheLaunch:
     """Creates the ganache "fork" of given JSON-RPC endpoint.
 
+    .. warning::
+
+        This function is not recommended due to stability issues with Ganache.
+        Use :py:func:`eth_defi.anvil.fork_network_anvil` instead.
+
     Forking a mainnet is common way to test against live deployments.
     This function invokes `ganache-cli` command and tells it to fork a given JSON-RPC endpoint.
 

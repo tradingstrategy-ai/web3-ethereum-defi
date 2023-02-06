@@ -40,7 +40,6 @@ from web3 import Web3, HTTPProvider
 logger = logging.getLogger(__name__)
 
 
-
 class InvalidArgumentWarning(Warning):
     """Lifted from Brownie. """
 
@@ -117,7 +116,17 @@ def revert(snapshot_id: int) -> None:
     _request("evm_revert", [snapshot_id])
 
 
-def unlock_account(web3: Web3, address: str) -> None:
+def unlock_account(web3: Web3, address: str):
+    """Make Anvil mainnet fork to accept transactions to any Ethereum account.
+
+    This is even when we do not have a private key for the account.
+
+    :param web3:
+        Web3 instance
+
+    :param address:
+        Account to unlock
+    """
     web3.provider.make_request("anvil_impersonateAccount", [address])  # type: ignore
 
 
@@ -294,6 +303,8 @@ def fork_network_anvil(
     attempts_left = attempts
     process = None
     final_cmd = None
+    current_block = 0
+    web3 = None
 
     while attempts_left > 0:
 
@@ -306,7 +317,6 @@ def fork_network_anvil(
 
         # Wait until Anvil is responsive
         timeout = time.time() + launch_wait_seconds
-        current_block = None
 
         # Use short 1.0s HTTP read timeout here - otherwise requests will wa-it > 10s if something is wrong
 
@@ -346,7 +356,7 @@ def fork_network_anvil(
 
             raise AssertionError(f"Could not read block number from Anvil after the launch {cmd}: at {url}, stdout is {len(stdout)} bytes, stderr is {len(stderr)} bytes")
         else:
-            # We have succesful launch
+            # We have a successful launch
             break
 
     chain_id = web3.eth.chain_id
