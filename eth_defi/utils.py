@@ -39,11 +39,12 @@ def shutdown_hard(
 ) -> Tuple[bytes, bytes]:
     """Kill Psutil process.
 
-    - First gracefully
-
-    - Then heavily
+    - Straight out OS `SIGKILL` a process
 
     - Log output if necessary
+
+    - Use port listening to check that the process goes down
+      and frees its ports
 
     :param process:
         Process to kill
