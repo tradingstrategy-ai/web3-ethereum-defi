@@ -2,8 +2,9 @@
 
 # 0.13.12
 
-- Add `analysis.py` for Uniswap V3
-- Add `mock_partial_deployment` function
+- Add `analysis.py` for Uniswap V3 and relevant tests
+- Add `mock_partial_deployment` function for V3
+- Abstract `TradeResult`, `TradeSuccess`, and `TradeFailure` out of Uniswap V2 and into eth_defi.trade, since also used in Uniswap V3
 
 # 0.13.11
 
