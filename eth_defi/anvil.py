@@ -356,19 +356,23 @@ def unlock_account(web3: Web3, address: str):
 
 
 def sleep(web3: Web3, seconds: int) -> int:
+    """Call emv_increaseTime on Anvil"""
     _request(web3, "evm_increaseTime", [hex(seconds)])
     return seconds
 
 
 def mine(web3: Web3, timestamp: Optional[int] = None) -> None:
+    """Call evm_setNextBlockTimestamp on Anvil"""
     if timestamp:
         _request(web3, "evm_setNextBlockTimestamp", [timestamp])
     _request(web3, "evm_mine", [1])
 
 
 def snapshot(web3: Web3) -> int:
-    return _request("evm_snapshot", [])
+    """Call evm_snapshot on Anvil"""
+    return _request(web3, "evm_snapshot", [])
 
 
 def revert(web3: Web3, snapshot_id: int) -> None:
+    """Call evm_revert on Anvil"""
     _request(web3, "evm_revert", [snapshot_id])
