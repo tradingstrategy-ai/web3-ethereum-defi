@@ -34,7 +34,6 @@ pytestmark = pytest.mark.skipif(
 )
 
 
-
 @pytest.fixture(scope="module")
 def large_busd_holder() -> HexAddress:
     """A random account picked from BNB Smart chain that holds a lot of BUSD.
