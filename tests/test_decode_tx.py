@@ -12,7 +12,6 @@ import os
 import logging
 import shutil
 
-import flaky
 import pytest
 
 from eth_account import Account
