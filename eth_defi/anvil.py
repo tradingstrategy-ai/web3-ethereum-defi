@@ -28,7 +28,6 @@ from typing import Dict, List, Optional, Union, Tuple
 
 import psutil
 import requests
-from psutil import NoSuchProcess
 
 from eth_defi.utils import is_localhost_port_listening, shutdown_hard
 from eth_typing import HexAddress
@@ -85,12 +84,6 @@ def _launch(cmd: str, **kwargs: Dict) -> Tuple[psutil.Popen, List[str]]:
     out = DEVNULL if sys.platform == "win32" else PIPE
 
     return psutil.Popen(cmd_list, stdin=DEVNULL, stdout=out, stderr=out), cmd_list
-
-
-def on_connection() -> None:
-    # set gas limit to the same as the forked network
-    gas_limit = web3.eth.get_block("latest").gasLimit
-    web3.provider.make_request("evm_setBlockGasLimit", [hex(gas_limit)])  # type: ignore
 
 
 def _request(method: str, args: List) -> int:
@@ -186,12 +179,9 @@ def fork_network_anvil(
     This function invokes `anvil` command and tells it to fork a given JSON-RPC endpoint.
 
     A subprocess is started on the background. To stop this process, call :py:meth:`eth_defi.Anvil.AnvilLaunch.close`.
+
     This function waits `launch_wait_seconds` in order to `anvil` process to start
     and complete the chain fork.
-
-    .. note ::
-
-        Currently only supports HTTP JSON-RPC connections.
 
     .. warning ::
 
@@ -202,72 +192,67 @@ def fork_network_anvil(
     account we control:
 
     .. code-block:: python
-
-        @pytest.fixture()
+        
+        pytest.fixture()
         def large_busd_holder() -> HexAddress:
-            # A random account picked from BNB Smart chain that holds a lot of BUSD.
+            # An onchain address with BUSD balance
             # Binance Hot Wallet 6
             return HexAddress(HexStr("0x8894E0a0c962CB723c1976a4421c95949bE2D4E3"))
-
+        
+        
+        @pytest.fixture()
+        def user_1() -> LocalAccount:
+            # Create a test account
+            return Account.create()
+    
 
         @pytest.fixture()
-        def anvil_bnb_chain_fork(large_busd_holder) -> str:
-            # Create a testable fork of live BNB chain.
+        def anvil_bnb_chain_fork(request, large_busd_holder, user_1, user_2) -> str:
+             # Create a testable fork of live BNB chain.
             mainnet_rpc = os.environ["BNB_CHAIN_JSON_RPC"]
-            launch = fork_network_anvil(
-                mainnet_rpc,
-                unlocked_addresses=[large_busd_holder])
-            yield launch.json_rpc_url
-            # Wind down Anvil process after the test is complete
-            launch.close()
-
-
-        @pytest.fixture
+            launch = fork_network_anvil(mainnet_rpc, unlocked_addresses=[large_busd_holder])
+            try:
+                yield launch.json_rpc_url
+            finally:
+                # Wind down Anvil process after the test is complete
+                launch.close(log_level=logging.ERROR)
+    
+    
+        @pytest.fixture()
         def web3(anvil_bnb_chain_fork: str):
             # Set up a local unit testing blockchain
-            return Web3(HTTPProvider(anvil_bnb_chain_fork))
-
-
-        def test_mainnet_fork_transfer_busd(web3: Web3, large_busd_holder: HexAddress, user_1: LocalAccount):
+            # https://web3py.readthedocs.io/en/stable/examples.html#contract-unit-tests-in-python
+            web3 =  Web3(HTTPProvider(anvil_bnb_chain_fork))
+            # Anvil needs POA middlware if parent chain needs POA middleware
+            install_chain_middleware(web3)
+            return web3
+        
+        def test_anvil_fork_transfer_busd(web3: Web3, large_busd_holder: HexAddress, user_1: LocalAccount):
+            # Forks the BNB chain mainnet and transfers from USDC to the user.
+        
             # BUSD deployment on BNB chain
             # https://bscscan.com/token/0xe9e7cea3dedca5984780bafc599bd69add087d56
             busd_details = fetch_erc20_details(web3, "0xe9e7CEA3DedcA5984780Bafc599bD69ADd087D56")
             busd = busd_details.contract
-
+        
             # Transfer 500 BUSD to the user 1
-            tx_hash = busd.functions.transfer(user_1.address, 500*10**18).transact({"from": large_busd_holder})
-
-            # Because Anvil has instamine turned on by default, we do not need to wait for the transaction
+            tx_hash = busd.functions.transfer(user_1.address, 500 * 10**18).transact({"from": large_busd_holder})
+        
+            # Because Ganache has instamine turned on by default, we do not need to wait for the transaction
             receipt = web3.eth.get_transaction_receipt(tx_hash)
             assert receipt.status == 1, "BUSD transfer reverted"
+        
+            assert busd.functions.balanceOf(user_1.address).call() == 500 * 10**18
 
-            assert busd.functions.balanceOf(user_1.address).call() == 500*10**18
 
-    `See the full example in tests source code <https://github.com/tradingstrategy-ai/web3-ethereum-defi/blob/master/tests/test_Anvil.py>`_.
+    `See the full example in tests source code <https://github.com/tradingstrategy-ai/web3-ethereum-defi/blob/master/tests/test_anvil.py>`_.
 
-    Polygon needs to set a specific EVM version:
-
-    .. code-block:: python
-
-            mainnet_rpc = "https://polygon-rpc.com"
-            launch = fork_network(mainnet_rpc)
-
-    If `anvil` refuses to terminate properly, you can kill a process by a port with:
+    If `anvil` refuses to terminate properly, you can kill a process by a port in your terminal:
 
     .. code-block:: shell
 
         # Kill any process listening to localhost:19999
         kill -SIGKILL $(lsof -ti:19999)
-
-    This function uses Python logging subsystem. If you want to see error/info/debug logs with `pytest` you can do:
-
-    .. code-block:: shell
-
-        pytest --log-cli-level=debug
-
-    For public JSON-RPC endpoints check
-
-    - `ethereumnodes.com <https://ethereumnodes.com/>`_
 
     :param cmd:
         Override `anvil` command. If not given we look up from `PATH`.
@@ -295,7 +280,7 @@ def fork_network_anvil(
 
         Anvil start may fail without any output. This could be because the given JSON-RPC
         node is throttling your API requests. In this case we just try few more times
-        again.
+        again by killing the Anvil process and starting it again.
     """
 
     assert not is_localhost_port_listening(port), f"localhost port {port} occupied.\n" \
@@ -305,6 +290,8 @@ def fork_network_anvil(
     url = f"http://localhost:{port}"
 
     attemps_left = attempts
+    process = None
+    final_cmd = None
 
     while attemps_left > 0:
 
