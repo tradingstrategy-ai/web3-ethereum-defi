@@ -189,7 +189,7 @@ def test_create_pool_with_increase_decrease_liquidity(
     uniswap_v3: UniswapV3Deployment,
     weth: Contract,
     usdc: Contract,
-    ):
+):
     """Increase and decrease liquidity of a mock pool on Uniswap v3."""
     pool = deploy_pool(
         web3,

@@ -302,7 +302,7 @@ def increase_liquidity(
     # get the pool address from token0_address, token1_address, and fee
     pool_address = deployment.factory.functions.getPool(position_details[2], position_details[3], position_details[4]).call()
     # make sure the returned address is not 0x0  (that means it does not exist)
-    assert '0x0000000000000000000000000000000000000000' != pool_address
+    assert "0x0000000000000000000000000000000000000000" != pool_address
 
     pool_details = fetch_pool_details(web3, pool_address)
 
@@ -329,13 +329,13 @@ def increase_liquidity(
 
 
 def decrease_liquidity(
-        web3: Web3,
-        position_owner: HexAddress,
-        position_id: int,
-        deployment: UniswapV3Deployment,
-        liquidity_decrease_amount: int,
-        amount0_min: int = 0,
-        amount1_min: int = 0,
+    web3: Web3,
+    position_owner: HexAddress,
+    position_id: int,
+    deployment: UniswapV3Deployment,
+    liquidity_decrease_amount: int,
+    amount0_min: int = 0,
+    amount1_min: int = 0,
 ) -> dict:
     """
     Decrease liquidity in an existing Uniswap V3 position.
@@ -430,9 +430,10 @@ def fetch_deployment(
         PoolContract=PoolContract,
     )
 
+
 def mock_partial_deployment_for_analysis(web3: Web3, router_address: str):
     """Only need swap_router and PoolContract?"""
-    
+
     factory = None
     swap_router = get_deployed_contract(web3, "uniswap_v3/SwapRouter.json", router_address)
     weth = None
