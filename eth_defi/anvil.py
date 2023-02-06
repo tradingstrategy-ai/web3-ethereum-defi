@@ -174,7 +174,7 @@ def fork_network_anvil(
 
     .. code-block:: python
 
-        pytest.fixture()
+        @pytest.fixture()
         def large_busd_holder() -> HexAddress:
             # An onchain address with BUSD balance
             # Binance Hot Wallet 6
