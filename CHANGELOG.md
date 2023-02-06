@@ -4,6 +4,7 @@
   than Ganache what comes to JSON-RPC. Anvil is much faster. You can now call
   [fork_network_anvil]() that is a drop-in replacement for old
   Ganache based `fork_network`.
+- Move internal test suite to use Anvil instead of Ganache
 
 # 0.13.11
 
