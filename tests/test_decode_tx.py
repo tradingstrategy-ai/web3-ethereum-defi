@@ -10,6 +10,7 @@ To run tests in this module:
 """
 import os
 import logging
+import shutil
 
 import flaky
 import pytest
@@ -23,14 +24,15 @@ from eth_defi.anvil import fork_network_anvil
 from eth_defi.chain import install_chain_middleware
 from eth_defi.hotwallet import HotWallet
 from eth_defi.token import fetch_erc20_details
-
-# https://docs.pytest.org/en/latest/how-to/skipping.html#skip-all-test-functions-of-a-class-or-module
 from eth_defi.tx import decode_signed_transaction
 
+
+# https://docs.pytest.org/en/latest/how-to/skipping.html#skip-all-test-functions-of-a-class-or-module
 pytestmark = pytest.mark.skipif(
-    os.environ.get("BNB_CHAIN_JSON_RPC") is None,
-    reason="Set BNB_CHAIN_JSON_RPC environment variable to Binance Smart Chain node to run this test",
+    (os.environ.get("BNB_CHAIN_JSON_RPC") is None) or (shutil.which("anvil") is None),
+    reason="Set BNB_CHAIN_JSON_RPC env install anvil command to run these tests",
 )
+
 
 
 @pytest.fixture(scope="module")

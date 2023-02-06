@@ -183,6 +183,7 @@ def fork_network_anvil(
     block_time=0,
     launch_wait_seconds=20.0,
     attempts=3,
+    hardfork="berlin",
 ) -> AnvilLaunch:
     """Creates the Anvil mainnet fork using a given JSON-RPC endpoint.
 
@@ -292,6 +293,9 @@ def fork_network_anvil(
         Anvil launch may fail without any output. This could be because the given JSON-RPC
         node is throttling your API requests. In this case we just try few more times
         again by killing the Anvil process and starting it again.
+
+    :param hardfork:
+        EVM version to use
     """
 
     assert not is_localhost_port_listening(port), f"localhost port {port} occupied.\n" \
@@ -313,6 +317,7 @@ def fork_network_anvil(
             port=port,
             fork=fork_url,
             block_time=block_time,
+            hardfork=hardfork,
         )
 
         # Wait until Anvil is responsive
