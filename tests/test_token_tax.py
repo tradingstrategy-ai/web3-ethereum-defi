@@ -8,27 +8,27 @@ To run tests in this module:
     pytest -k test_token_tax
 
 """
+import logging
 import os
+import shutil
 
-import flaky
 import pytest
 from eth_typing import HexAddress, HexStr
 from web3 import HTTPProvider, Web3
 
+from eth_defi.anvil import fork_network_anvil
+from eth_defi.chain import install_chain_middleware
 from eth_defi.token import fetch_erc20_details
-from eth_defi.uniswap_v2.token_tax import estimate_token_taxes, SwapError
+from eth_defi.uniswap_v2.token_tax import estimate_token_taxes, SwapError, TransferFromError
 
-from eth_defi.ganache import fork_network
 from eth_defi.uniswap_v2.token_tax import TokenTaxInfo
 from eth_defi.uniswap_v2.deployment import UniswapV2Deployment, fetch_deployment
 
 # https://docs.pytest.org/en/latest/how-to/skipping.html#skip-all-test-functions-of-a-class-or-module
-# pytestmark = pytest.mark.skipif(
-#    os.environ.get("BNB_CHAIN_JSON_RPC") is None,
-#   reason="Set BNB_CHAIN_JSON_RPC environment variable to Binance Smart Chain node to run this test",
-# )
-
-pytestmark = pytest.mark.skip("Ganache is so broken that these tests fail 80% of time")
+pytestmark = pytest.mark.skipif(
+    (os.environ.get("BNB_CHAIN_JSON_RPC") is None) or (shutil.which("anvil") is None),
+    reason="Set BNB_CHAIN_JSON_RPC env install anvil command to run these tests",
+)
 
 
 @pytest.fixture(scope="module")
@@ -43,24 +43,28 @@ def large_busd_holder() -> HexAddress:
     return HexAddress(HexStr("0x8894E0a0c962CB723c1976a4421c95949bE2D4E3"))
 
 
-@pytest.fixture(scope="module")
-def ganache_bnb_chain_fork(large_busd_holder) -> str:
+@pytest.fixture()
+def anvil_bnb_chain_fork(request, large_busd_holder) -> str:
     """Create a testable fork of live BNB chain.
 
     :return: JSON-RPC URL for Web3
     """
     mainnet_rpc = os.environ["BNB_CHAIN_JSON_RPC"]
-    launch = fork_network(mainnet_rpc, unlocked_addresses=[large_busd_holder])
-    yield launch.json_rpc_url
-    # Wind down Ganache process after the test is complete
-    launch.close()
+    launch = fork_network_anvil(mainnet_rpc, unlocked_addresses=[large_busd_holder])
+    try:
+        yield launch.json_rpc_url
+    finally:
+        # Wind down Anvil process after the test is complete
+        launch.close(log_level=logging.ERROR)
 
 
 @pytest.fixture
-def web3(ganache_bnb_chain_fork: str):
+def web3(anvil_bnb_chain_fork: str):
     """Set up a local unit testing blockchain."""
     # https://web3py.readthedocs.io/en/stable/examples.html#contract-unit-tests-in-python
-    return Web3(HTTPProvider(ganache_bnb_chain_fork))
+    web3 = Web3(HTTPProvider(anvil_bnb_chain_fork))
+    install_chain_middleware(web3)
+    return web3
 
 
 @pytest.fixture
@@ -129,8 +133,8 @@ def test_token_tax(uniswap: UniswapV2Deployment, large_busd_holder: HexAddress, 
     assert token_tax_info.sell_tax == pytest.approx(expected_elephant_tax_percent, rel=1e-4)
 
 
-def test_low_liquidity_exception(uniswap: UniswapV2Deployment, large_busd_holder: HexAddress, seller: HexAddress, elephant: HexAddress, busd: HexAddress):
+def test_not_enough_tokens_to_buy(uniswap: UniswapV2Deployment, large_busd_holder: HexAddress, seller: HexAddress, elephant: HexAddress, busd: HexAddress):
+    """There are not enough tokens to buy"""
     buy_amount: float = 1e30
-
-    with pytest.raises(SwapError):
+    with pytest.raises(TransferFromError):
         estimate_token_taxes(uniswap, elephant, busd, large_busd_holder, seller, buy_amount)

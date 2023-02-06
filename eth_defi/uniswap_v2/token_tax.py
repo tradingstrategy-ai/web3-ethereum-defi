@@ -180,7 +180,7 @@ def estimate_token_taxes(
         router.functions.swapExactTokensForTokensSupportingFeeOnTransferTokens(amountIn, 0, path, buy_account, FOREVER_DEADLINE).transact({"from": buy_account} | generic_tx_params)
     except ContractLogicError as e:
         msg = str(e)
-        if "TRANSFER_FAILED" in msg:
+        if "TRANSFER_FAILED" in msg or "TRANSFER_FROM_FAILED" in msg:
             raise TransferFromError(f"Token does not co-operate:{base_token_details.symbol} - {quote_token_details.symbol}, {e} to router {router.address}") from e
         raise
     except Exception as e:
