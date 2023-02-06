@@ -1,7 +1,9 @@
 """Anvil integration.
 
-`Anvil <https://github.com/foundry-rs/foundry/blob/master/anvil/README.md>`__
-is a blazing-fast local testnet node implementation in Rust. Anvil may be used as an alternative to Anvil.
+- `Anvil <https://github.com/foundry-rs/foundry/blob/master/anvil/README.md>`__
+  is a blazing-fast local testnet node implementation in Rust.
+
+- Anvil may be used as an alternative to Ganache.
 
 - Anvil is mostly used in mainnet fork test cases
 
@@ -59,7 +61,7 @@ CLI_FLAGS = {
 }
 
 
-def _launch(cmd: str, **kwargs: Dict) -> Tuple[psutil.Popen, List[str]]:
+def _launch(cmd: str, **kwargs) -> Tuple[psutil.Popen, List[str]]:
     """Launches the RPC client.
 
     Args:
@@ -173,9 +175,9 @@ def fork_network_anvil(
     launch_wait_seconds=20.0,
     attempts=3,
 ) -> AnvilLaunch:
-    """Creates the Anvil "fork" of given JSON-RPC endpoint.
+    """Creates the Anvil mainnet fork using a given JSON-RPC endpoint.
 
-    Forking a mainnet is common way to test against live deployments.
+    Forking a mainnet is a common way to test against live deployments.
     This function invokes `anvil` command and tells it to fork a given JSON-RPC endpoint.
 
     A subprocess is started on the background. To stop this process, call :py:meth:`eth_defi.Anvil.AnvilLaunch.close`.
@@ -278,7 +280,7 @@ def fork_network_anvil(
     :param attempts:
         How many attempts we do to start anvil.
 
-        Anvil start may fail without any output. This could be because the given JSON-RPC
+        Anvil launch may fail without any output. This could be because the given JSON-RPC
         node is throttling your API requests. In this case we just try few more times
         again by killing the Anvil process and starting it again.
     """
@@ -289,11 +291,11 @@ def fork_network_anvil(
 
     url = f"http://localhost:{port}"
 
-    attemps_left = attempts
+    attempts_left = attempts
     process = None
     final_cmd = None
 
-    while attemps_left > 0:
+    while attempts_left > 0:
 
         process, final_cmd = _launch(
             cmd,
@@ -337,9 +339,9 @@ def fork_network_anvil(
             )
 
             if len(stdout) == 0:
-                attemps_left -= 1
-                if attemps_left > 0:
-                    logger.info("anvil did not start properly, try again, attempts left %d", attemps_left)
+                attempts_left -= 1
+                if attempts_left > 0:
+                    logger.info("anvil did not start properly, try again, attempts left %d", attempts_left)
                     continue
 
             raise AssertionError(f"Could not read block number from Anvil after the launch {cmd}: at {url}, stdout is {len(stdout)} bytes, stderr is {len(stderr)} bytes")
