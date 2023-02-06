@@ -159,7 +159,7 @@ def fork_network_anvil(
     Forking a mainnet is a common way to test against live deployments.
     This function invokes `anvil` command and tells it to fork a given JSON-RPC endpoint.
 
-    A subprocess is started on the background. To stop this process, call :py:meth:`eth_defi.Anvil.AnvilLaunch.close`.
+    A subprocess is started on the background. To stop this process, call :py:meth:`eth_defi.anvil.AnvilLaunch.close`.
 
     This function waits `launch_wait_seconds` in order to `anvil` process to start
     and complete the chain fork.
