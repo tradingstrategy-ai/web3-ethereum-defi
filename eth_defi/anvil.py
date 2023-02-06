@@ -41,11 +41,11 @@ logger = logging.getLogger(__name__)
 
 
 class InvalidArgumentWarning(Warning):
-    """Lifted from Brownie. """
+    """Lifted from Brownie."""
 
 
 class RPCRequestError(Exception):
-    """Lifted from Brownie. """
+    """Lifted from Brownie."""
 
 
 CLI_FLAGS = {
@@ -53,6 +53,7 @@ CLI_FLAGS = {
     "host": "--host",
     "fork": "--fork-url",
     "fork_block": "--fork-block-number",
+    "hardfork": "--hardfork",
     "chain_id": "--chain-id",
     "default_balance": "--balance",
     "gas_limit": "--gas-limit",
@@ -76,11 +77,10 @@ def _launch(cmd: str, **kwargs) -> Tuple[psutil.Popen, List[str]]:
             cmd_list.extend([CLI_FLAGS[key], str(value)])
         except KeyError:
             warnings.warn(
-                f"Ignoring invalid commandline setting for anvil: "
-                f'"{key}" with value "{value}".',
+                f"Ignoring invalid commandline setting for anvil: " f'"{key}" with value "{value}".',
                 InvalidArgumentWarning,
             )
-    final_cmd_str = ' '.join(cmd_list)
+    final_cmd_str = " ".join(cmd_list)
     logger.info("Launching anvil: %s", final_cmd_str)
     out = DEVNULL if sys.platform == "win32" else PIPE
 
@@ -183,6 +183,7 @@ def fork_network_anvil(
     block_time=0,
     launch_wait_seconds=20.0,
     attempts=3,
+    hardfork="berlin",
 ) -> AnvilLaunch:
     """Creates the Anvil mainnet fork using a given JSON-RPC endpoint.
 
@@ -203,19 +204,19 @@ def fork_network_anvil(
     account we control:
 
     .. code-block:: python
-        
+
         pytest.fixture()
         def large_busd_holder() -> HexAddress:
             # An onchain address with BUSD balance
             # Binance Hot Wallet 6
             return HexAddress(HexStr("0x8894E0a0c962CB723c1976a4421c95949bE2D4E3"))
-        
-        
+
+
         @pytest.fixture()
         def user_1() -> LocalAccount:
             # Create a test account
             return Account.create()
-    
+
 
         @pytest.fixture()
         def anvil_bnb_chain_fork(request, large_busd_holder, user_1, user_2) -> str:
@@ -227,8 +228,8 @@ def fork_network_anvil(
             finally:
                 # Wind down Anvil process after the test is complete
                 launch.close(log_level=logging.ERROR)
-    
-    
+
+
         @pytest.fixture()
         def web3(anvil_bnb_chain_fork: str):
             # Set up a local unit testing blockchain
@@ -237,22 +238,22 @@ def fork_network_anvil(
             # Anvil needs POA middlware if parent chain needs POA middleware
             install_chain_middleware(web3)
             return web3
-        
+
         def test_anvil_fork_transfer_busd(web3: Web3, large_busd_holder: HexAddress, user_1: LocalAccount):
             # Forks the BNB chain mainnet and transfers from USDC to the user.
-        
+
             # BUSD deployment on BNB chain
             # https://bscscan.com/token/0xe9e7cea3dedca5984780bafc599bd69add087d56
             busd_details = fetch_erc20_details(web3, "0xe9e7CEA3DedcA5984780Bafc599bD69ADd087D56")
             busd = busd_details.contract
-        
+
             # Transfer 500 BUSD to the user 1
             tx_hash = busd.functions.transfer(user_1.address, 500 * 10**18).transact({"from": large_busd_holder})
-        
+
             # Because Ganache has instamine turned on by default, we do not need to wait for the transaction
             receipt = web3.eth.get_transaction_receipt(tx_hash)
             assert receipt.status == 1, "BUSD transfer reverted"
-        
+
             assert busd.functions.balanceOf(user_1.address).call() == 500 * 10**18
 
 
@@ -292,11 +293,12 @@ def fork_network_anvil(
         Anvil launch may fail without any output. This could be because the given JSON-RPC
         node is throttling your API requests. In this case we just try few more times
         again by killing the Anvil process and starting it again.
+
+    :param hardfork:
+        EVM version to use
     """
 
-    assert not is_localhost_port_listening(port), f"localhost port {port} occupied.\n" \
-                                                  f"You might have a zombie Anvil process around.\n" \
-                                                  f"Use kill -SIGKILL $(lsof -ti:{port}) to kill"
+    assert not is_localhost_port_listening(port), f"localhost port {port} occupied.\n" f"You might have a zombie Anvil process around.\n" f"Use kill -SIGKILL $(lsof -ti:{port}) to kill"
 
     url = f"http://localhost:{port}"
 
@@ -313,6 +315,7 @@ def fork_network_anvil(
             port=port,
             fork=fork_url,
             block_time=block_time,
+            hardfork=hardfork,
         )
 
         # Wait until Anvil is responsive
@@ -338,9 +341,7 @@ def fork_network_anvil(
                 continue
 
         if current_block is None:
-            logger.error("Could not read the latest block from anvil %s within %f seconds, shutting down and dumping output",
-                            url,
-                            launch_wait_seconds)
+            logger.error("Could not read the latest block from anvil %s within %f seconds, shutting down and dumping output", url, launch_wait_seconds)
             stdout, stderr = shutdown_hard(
                 process,
                 log_level=logging.ERROR,

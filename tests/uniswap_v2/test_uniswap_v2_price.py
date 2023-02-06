@@ -513,7 +513,7 @@ def test_swap_price_from_hot_wallet(
         path,
         hw_address,
         FOREVER_DEADLINE,
-    ).buildTransaction({"from": hw_address})
+    ).build_transaction({"from": hw_address})
 
     # prepare and sign tx
     tx = fill_nonce(web3, tx)

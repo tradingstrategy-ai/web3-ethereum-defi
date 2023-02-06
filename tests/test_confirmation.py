@@ -73,8 +73,8 @@ def test_wait_txs_parallel(web3: Web3, eth_tester, deployer: HexAddress, hot_wal
 
     # Create a raw transaction
     # Move 10 tokens from deployer to user1
-    # https://web3py.readthedocs.io/en/stable/contracts.html?highlight=buildTransaction#web3.contract.ContractFunction.buildTransaction
-    tx1 = token.functions.transfer(hot_wallet.address, 10 * 10**18).buildTransaction(
+    # https://web3py.readthedocs.io/en/stable/contracts.html?highlight=buildTransaction#web3.contract.ContractFunction.build_transaction
+    tx1 = token.functions.transfer(hot_wallet.address, 10 * 10**18).build_transaction(
         {
             "from": hot_wallet.address,
             "chainId": web3.eth.chain_id,
@@ -82,7 +82,7 @@ def test_wait_txs_parallel(web3: Web3, eth_tester, deployer: HexAddress, hot_wal
         }
     )
 
-    tx2 = token.functions.transfer(hot_wallet.address, 10 * 10**18).buildTransaction(
+    tx2 = token.functions.transfer(hot_wallet.address, 10 * 10**18).build_transaction(
         {
             "from": hot_wallet.address,
             "chainId": web3.eth.chain_id,
@@ -119,8 +119,8 @@ def test_broadcast_and_wait(web3: Web3, eth_tester, deployer: HexAddress, hot_wa
 
     # Create a raw transaction
     # Move 10 tokens from deployer to user1
-    # https://web3py.readthedocs.io/en/stable/contracts.html?highlight=buildTransaction#web3.contract.ContractFunction.buildTransaction
-    tx1 = token.functions.transfer(hot_wallet.address, 10 * 10**18).buildTransaction(
+    # https://web3py.readthedocs.io/en/stable/contracts.html?highlight=buildTransaction#web3.contract.ContractFunction.build_transaction
+    tx1 = token.functions.transfer(hot_wallet.address, 10 * 10**18).build_transaction(
         {
             "from": hot_wallet.address,
             "chainId": web3.eth.chain_id,
@@ -128,7 +128,7 @@ def test_broadcast_and_wait(web3: Web3, eth_tester, deployer: HexAddress, hot_wa
         }
     )
 
-    tx2 = token.functions.transfer(hot_wallet.address, 10 * 10**18).buildTransaction(
+    tx2 = token.functions.transfer(hot_wallet.address, 10 * 10**18).build_transaction(
         {
             "from": hot_wallet.address,
             "chainId": web3.eth.chain_id,

@@ -31,11 +31,11 @@ def is_localhost_port_listening(port: int, host="localhost") -> bool:
 
 
 def shutdown_hard(
-        process: psutil.Popen,
-        log_level: Optional[int] = None,
-        block=True,
-        block_timeout=30,
-        check_port: Optional[int] = None,
+    process: psutil.Popen,
+    log_level: Optional[int] = None,
+    block=True,
+    block_timeout=30,
+    check_port: Optional[int] = None,
 ) -> Tuple[bytes, bytes]:
     """Kill Psutil process.
 

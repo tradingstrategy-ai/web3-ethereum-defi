@@ -10,26 +10,31 @@ To run tests in this module:
     pytest -k test_revert_reason
 
 """
+import logging
 import os
+import shutil
 
 import pytest
-import flaky
+
+from web3 import HTTPProvider, Web3
+from web3.middleware import construct_sign_and_send_raw_middleware
+
 from eth_account import Account
 from eth_account.signers.local import LocalAccount
+
+from eth_defi.anvil import fork_network_anvil
+from eth_defi.chain import install_chain_middleware
+from eth_defi.gas import node_default_gas_price_strategy
 from eth_defi.revert_reason import fetch_transaction_revert_reason
 from eth_defi.confirmation import wait_transactions_to_complete
 from eth_typing import HexAddress, HexStr
-from web3 import HTTPProvider, Web3
-
-from eth_defi.ganache import fork_network
 from eth_defi.token import fetch_erc20_details
 
-# https://docs.pytest.org/en/latest/how-to/skipping.html#skip-all-test-functions-of-a-class-or-module
-from web3.middleware import construct_sign_and_send_raw_middleware
 
+# https://docs.pytest.org/en/latest/how-to/skipping.html#skip-all-test-functions-of-a-class-or-module
 pytestmark = pytest.mark.skipif(
-    os.environ.get("BNB_CHAIN_JSON_RPC") is None,
-    reason="Set BNB_CHAIN_JSON_RPC environment variable to Binance Smart Chain node to run this test",
+    (os.environ.get("BNB_CHAIN_JSON_RPC") is None) or (shutil.which("anvil") is None),
+    reason="Set BNB_CHAIN_JSON_RPC env install anvil command to run these tests",
 )
 
 
@@ -60,32 +65,36 @@ def user_2() -> LocalAccount:
     return Account.create()
 
 
-@pytest.fixture(scope="module")
-def ganache_bnb_chain_fork(large_busd_holder, user_1, user_2) -> str:
+@pytest.fixture()
+def anvil_bnb_chain_fork(request, large_busd_holder) -> str:
     """Create a testable fork of live BNB chain.
-
-    We use 1 second block time, so that Ganache revert reason logic works correctly.
 
     :return: JSON-RPC URL for Web3
     """
     mainnet_rpc = os.environ["BNB_CHAIN_JSON_RPC"]
-    launch = fork_network(mainnet_rpc, unlocked_addresses=[large_busd_holder], block_time=1)
-    yield launch.json_rpc_url
-    # Wind down Ganache process after the test is complete
-    launch.close()
+    launch = fork_network_anvil(
+        mainnet_rpc,
+        unlocked_addresses=[large_busd_holder],
+        block_time=1,
+    )
+    try:
+        yield launch.json_rpc_url
+    finally:
+        # Wind down Anvil process after the test is complete
+        launch.close(log_level=logging.ERROR)
 
 
 @pytest.fixture
-def web3(user_1, ganache_bnb_chain_fork: str):
+def web3(anvil_bnb_chain_fork: str, user_1):
     """Set up a local unit testing blockchain."""
-    # https://web3py.readthedocs.io/en/latest/web3.eth.account.html#read-a-private-key-from-an-environment-variable
-    web3 = Web3(HTTPProvider(ganache_bnb_chain_fork))
+    # https://web3py.readthedocs.io/en/stable/examples.html#contract-unit-tests-in-python
+    web3 = Web3(HTTPProvider(anvil_bnb_chain_fork))
+    install_chain_middleware(web3)
     web3.middleware_onion.add(construct_sign_and_send_raw_middleware(user_1))
+    web3.eth.set_gas_price_strategy(node_default_gas_price_strategy)
     return web3
 
 
-# Flaky because of use of Ganache
-@flaky.flaky()
 def test_revert_reason(web3: Web3, large_busd_holder: HexAddress, user_1: LocalAccount, user_2: LocalAccount):
     """Revert reason can be extracted from the transaction.
 
@@ -113,4 +122,4 @@ def test_revert_reason(web3: Web3, large_busd_holder: HexAddress, user_1: LocalA
     assert receipt.status == 0
 
     reason = fetch_transaction_revert_reason(web3, tx_hash)
-    assert reason == "VM Exception while processing transaction: revert BEP20: transfer amount exceeds balance"
+    assert reason == "execution reverted: BEP20: transfer amount exceeds balance"

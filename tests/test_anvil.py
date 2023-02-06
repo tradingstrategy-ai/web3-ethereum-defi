@@ -75,7 +75,7 @@ def anvil_bnb_chain_fork(request, large_busd_holder, user_1, user_2) -> str:
 def web3(anvil_bnb_chain_fork: str):
     """Set up a local unit testing blockchain."""
     # https://web3py.readthedocs.io/en/stable/examples.html#contract-unit-tests-in-python
-    web3 =  Web3(HTTPProvider(anvil_bnb_chain_fork))
+    web3 = Web3(HTTPProvider(anvil_bnb_chain_fork))
     # Anvil needs POA middlware if parent chain needs POA middleware
     install_chain_middleware(web3)
     return web3
@@ -83,8 +83,8 @@ def web3(anvil_bnb_chain_fork: str):
 
 def test_anvil_output():
     """Read anvil output from stdout."""
-    #mainnet_rpc = os.environ["BNB_CHAIN_JSON_RPC"]
-    #process, cmd = _launch("anvil")
+    # mainnet_rpc = os.environ["BNB_CHAIN_JSON_RPC"]
+    # process, cmd = _launch("anvil")
 
     mainnet_rpc = os.environ["BNB_CHAIN_JSON_RPC"]
     launch = fork_network_anvil(mainnet_rpc)

@@ -153,7 +153,7 @@ def test_buy_with_slippage_when_you_know_quote_amount(
         amount_in=usdc_amount_to_pay,
         max_slippage=50,  # 50 bps = 0.5%
     )
-    tx = swap_func.buildTransaction(
+    tx = swap_func.build_transaction(
         {
             "from": hw_address,
             "chainId": web3.eth.chain_id,
@@ -217,7 +217,7 @@ def test_sell_with_slippage_when_you_know_base_amount(
         amount_out=weth_amount_to_sell,
         max_slippage=50,  # 50 bps = 0.5%
     )
-    tx = swap_func.buildTransaction(
+    tx = swap_func.build_transaction(
         {
             "from": hw_address,
             "chainId": web3.eth.chain_id,
@@ -286,7 +286,7 @@ def test_buy_with_slippage_when_you_know_base_amount(
         max_slippage=50,  # 50 bps = 0.5%
     )
 
-    tx = swap_func.buildTransaction(
+    tx = swap_func.build_transaction(
         {
             "from": hw_address,
             "chainId": web3.eth.chain_id,
@@ -362,7 +362,7 @@ def test_swap_revert_with_slippage_protection(
     )
 
     # prepare a swap USDC->WETH
-    tx1 = swap_func.buildTransaction(
+    tx1 = swap_func.build_transaction(
         {
             "from": hw_address,
             "chainId": web3.eth.chain_id,
@@ -457,7 +457,7 @@ def test_sell_three_way_with_slippage_protection(
         amount_in=usdc_amount_to_pay,
         intermediate_token=weth,
     )
-    tx = swap_func.buildTransaction(
+    tx = swap_func.build_transaction(
         {
             "from": hw_address,
             "chainId": web3.eth.chain_id,
@@ -485,7 +485,7 @@ def test_sell_three_way_with_slippage_protection(
             intermediate_token=weth,
             max_slippage=0,
         )
-    tx = swap_func.buildTransaction(
+    tx = swap_func.build_transaction(
         {
             "from": hw_address,
             "chainId": web3.eth.chain_id,
@@ -572,7 +572,7 @@ def test_swap_three_way_revert(
         max_slippage=100,  # 100 bps = 1%
     )
 
-    tx1 = swap_func.buildTransaction(
+    tx1 = swap_func.build_transaction(
         {
             "from": hw_address,
             "chainId": web3.eth.chain_id,

@@ -78,8 +78,8 @@ def test_raw_transaction_with_gas(web3: Web3, eth_tester, deployer: HexAddress, 
 
     # Create a raw transaction
     # Move 10 tokens from deployer to user1
-    # https://web3py.readthedocs.io/en/stable/contracts.html?highlight=buildTransaction#web3.contract.ContractFunction.buildTransaction
-    tx = token.functions.transfer(hot_wallet_account.address, 10 * 10**18).buildTransaction(
+    # https://web3py.readthedocs.io/en/stable/contracts.html?highlight=buildTransaction#web3.contract.ContractFunction.build_transaction
+    tx = token.functions.transfer(hot_wallet_account.address, 10 * 10**18).build_transaction(
         {
             "from": hot_wallet_account.address,
             "chainId": web3.eth.chain_id,
@@ -117,7 +117,7 @@ def test_build_transaction_legacy(web3: Web3, deployer: str, hot_wallet_account)
     hot_wallet = HotWallet(hot_wallet_account)
     hot_wallet.sync_nonce(web3)
 
-    tx = token.functions.approve(deployer, 100).buildTransaction({"from": hot_wallet.address})
+    tx = token.functions.approve(deployer, 100).build_transaction({"from": hot_wallet.address})
 
     assert "gas" in tx
     apply_gas(tx, gas_fees)
