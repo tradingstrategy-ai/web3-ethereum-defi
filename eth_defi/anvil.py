@@ -5,7 +5,10 @@
 
 - Anvil may be used as an alternative to Ganache.
 
-- Anvil is mostly used in mainnet fork test cases
+- Anvil is mostly used in mainnet fork test cases.
+
+- Anvil is part of `Foundry <https://github.com/foundry-rs/foundry>`__,
+  a toolkit for Ethereum application development.
 
 To install Anvil:
 
