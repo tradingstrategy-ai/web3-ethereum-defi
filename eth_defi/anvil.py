@@ -81,7 +81,7 @@ def _launch(cmd: str, **kwargs) -> Tuple[psutil.Popen, List[str]]:
                 InvalidArgumentWarning,
             )
     final_cmd_str = ' '.join(cmd_list)
-    print(f"\nLaunching '{final_cmd_str}'...")
+    logger.info("Launching anvil: %s", final_cmd_str)
     out = DEVNULL if sys.platform == "win32" else PIPE
 
     return psutil.Popen(cmd_list, stdin=DEVNULL, stdout=out, stderr=out), cmd_list
