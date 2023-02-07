@@ -1,4 +1,4 @@
-Transfer ERC-20 token with web3.py
+ERC-20 token transfer with web3.py
 ----------------------------------
 
 This is a tutorial how to transfer ERC-20 token in Python
