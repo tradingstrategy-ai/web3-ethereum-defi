@@ -30,7 +30,14 @@ def get_input_args(params: tuple) -> dict:
     return {"path": full_path_decoded, "recipient": params[1], "deadline": params[2], "amountIn": params[3], "amountOutMinimum": params[4]}
 
 
-def analyse_trade_by_receipt(web3: Web3, uniswap: UniswapV3Deployment, tx: dict, tx_hash: str, tx_receipt: dict) -> TradeSuccess | TradeFail:
+def analyse_trade_by_receipt(
+    web3: Web3, 
+    uniswap: UniswapV3Deployment,
+    tx: dict,
+    tx_hash: str,
+    tx_receipt: dict,
+    reverse_order: bool = False
+) -> TradeSuccess | TradeFail:
     """ """
 
     pool = uniswap.PoolContract
@@ -92,7 +99,11 @@ def analyse_trade_by_receipt(web3: Web3, uniswap: UniswapV3Deployment, tx: dict,
 
     # see https://stackoverflow.com/a/74619134
     raw_price = tick_to_price(tick)
-    price = raw_price / 10 ** (out_token_details.decimals - in_token_details.decimals)
+    
+    if reverse_order:
+        price = raw_price / 10 ** (in_token_details.decimals - out_token_details.decimals)
+    else:
+        price = raw_price / 10 ** (out_token_details.decimals - in_token_details.decimals)
 
     return TradeSuccess(
         gas_used,
