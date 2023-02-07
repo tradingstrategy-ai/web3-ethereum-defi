@@ -1,5 +1,5 @@
-Live swaps for Uniswap v2 compatible DEXes
-------------------------------------------
+Uniswap v2 and compatible read live swaps
+-----------------------------------------
 
 This is an example code for showing live swaps happening
 on Uniswap v2 compatible examples. In this example
