@@ -9,8 +9,7 @@ good free RPC nodes.
 - This example runs on free Polygon JSON-RPC nodes,
   you do not need any self-hosted or commercial node service providers.
 
-- This is an modified example of `read-uniswap-v2-pairs-and-swaps.py` to support
-  chain reorganisations, thus suitable for live event reading.
+- This is an modified example of `read-uniswap-v2-pairs-and-swaps.py` to gracefully handle  chain reorganisations, thus the code is suitable for live event reading. It should also support low quality JSON-RPC nodes that may give different replies between API requests.
 
 - It will print out live trade events for Uniswap v2 compatible exchange.
 
