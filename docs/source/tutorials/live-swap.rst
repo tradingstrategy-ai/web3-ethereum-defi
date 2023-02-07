@@ -1,5 +1,5 @@
-Uniswap v2 and compatible read live swaps
------------------------------------------
+Uniswap v2 reading real-time swaps and new pairs
+------------------------------------------------
 
 This is an example code for showing live swaps happening
 on Uniswap v2 compatible examples. In this example
