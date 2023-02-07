@@ -1,5 +1,5 @@
-Reading historical Uniswap v2 swaps and pairs
----------------------------------------------
+Uniswap v2 historial swaps and pairs
+------------------------------------
 
 This is an example how to efficiently read all Uniswap pairs and their swaps in a blockchain,
 using :py:mod:`eth_defi.event_reader` module.
