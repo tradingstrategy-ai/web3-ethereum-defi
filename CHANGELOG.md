@@ -1,3 +1,7 @@
+# 0.14.1
+
+- Fix price bug in Uniswap V3 analysis
+
 # 0.14
 
 - Replace `ganache` with `anvil` as the mainnet fork solution. Anvil is much more stable
