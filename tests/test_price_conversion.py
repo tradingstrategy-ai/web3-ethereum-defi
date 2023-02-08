@@ -41,10 +41,3 @@ def test_methods():
     print(price1)
     print(price2)
     
-    price1, price2 = get_prices(-201937, 18, 6, True)
-    
-    print(price1)
-    print(price2)
-
-
-
