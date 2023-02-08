@@ -20,6 +20,8 @@ To install Anvil:
 
 This will install `foundryup`, `anvil` at `~/.foundry/bin` and adds the folder to your shell rc file `PATH`.
 
+For more information see `Anvil reference <https://book.getfoundry.sh/reference/anvil/>`__.
+
 This code was originally lifted from Brownie project.
 """
 
@@ -259,9 +261,11 @@ def fork_network_anvil(
         How long we wait anvil to start until giving up
 
     :param block_time:
+
         How long Anvil takes to mine a block. Default is zero and any RPC transaction
         will immediately return with the transaction inclusion.
-        Set to `1` so that you can poll the transaction as you would do with
+
+        Set to `1` or higher so that you can poll the transaction as you would do with
         a live JSON-RPC node.
 
     :param attempts:
@@ -285,14 +289,22 @@ def fork_network_anvil(
     current_block = 0
     web3 = None
 
+    # https://book.getfoundry.sh/reference/anvil/
+    args = dict(
+        port=port,
+        fork=fork_url,
+        hardfork=hardfork,
+    )
+
+    if block_time not in (0, None):
+        assert block_time > 0, f"Got bad block time {block_time}"
+        args["block_time"] = block_time
+
     while attempts_left > 0:
 
         process, final_cmd = _launch(
             cmd,
-            port=port,
-            fork=fork_url,
-            block_time=block_time,
-            hardfork=hardfork,
+            **args,
         )
 
         # Wait until Anvil is responsive
