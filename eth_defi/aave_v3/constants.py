@@ -150,6 +150,15 @@ AAVE_V3_NETWORKS: dict[str, AaveNetwork] = {
             "WETH": AaveToken(token_address="0x6983D1E6DEf3690C4d616b13597A09e6193EA013", deposit_address="0xe50fA9b3c56FfB159cB0FCA61F5c9D750e8128c8", variable_borrow_address="0x0c84331e39d6658Cd6e6b9ba04736cC4c4734351", stable_borrow_address="0xD8Ad37849950903571df17049516a5CD4cbE55F6", token_created_at_block=7907933),  # https://explorer.harmony.one/address/0x6983D1E6DEf3690C4d616b13597A09e6193EA013
         },
     ),
+    # Ethereum Mainnet
+    # https://etherscan.io/tx/0xf2089a3c2a24f512214691c5a51dd57d1a5545758486360f3a1e24547723525d
+    "ethereum": AaveNetwork(
+        name="Ethereum",
+        pool_address="0x87870Bca3F3fD6335C3F4ce8392D69350B4fA4E2",
+        pool_configurator_address="0x64b761D848206f447Fe2dd461b0c635Ec39EbB27",
+        pool_created_at_block=16291127,
+        token_contracts={},
+    ),
 }
 
 AAVE_V3_DEPOSIT_ADDRESS_TOKENS: dict[str, str] = {}  # autofill later
