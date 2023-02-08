@@ -12,7 +12,7 @@ from eth_defi.uniswap_v2.deployment import UniswapV2Deployment
 from eth_defi.trade import TradeFail, TradeSuccess
 
 
-def analyse_trade_by_hash(web3: Web3, uniswap: UniswapV2Deployment, tx_hash: str) -> Union[TradeSuccess, TradeFail]:
+def analyse_trade_by_hash(web3: Web3, uniswap: UniswapV2Deployment, tx_hash: str, reverse_order: bool = False) -> Union[TradeSuccess, TradeFail]:
     """Analyse details of a Uniswap trade based on a transaction id.
 
     Analyses trade fees, etc. based on the event signatures in the transaction.
@@ -50,10 +50,10 @@ def analyse_trade_by_hash(web3: Web3, uniswap: UniswapV2Deployment, tx_hash: str
 
     tx = web3.eth.get_transaction(tx_hash)
     tx_receipt = web3.eth.get_transaction_receipt(tx_hash)
-    return analyse_trade_by_receipt(web3, uniswap, tx, tx_hash, tx_receipt)
+    return analyse_trade_by_receipt(web3, uniswap, tx, tx_hash, tx_receipt, reverse_order)
 
 
-def analyse_trade_by_receipt(web3: Web3, uniswap: UniswapV2Deployment, tx: dict, tx_hash: str, tx_receipt: dict) -> Union[TradeSuccess, TradeFail]:
+def analyse_trade_by_receipt(web3: Web3, uniswap: UniswapV2Deployment, tx: dict, tx_hash: str, tx_receipt: dict, reverse_order: bool = False) -> Union[TradeSuccess, TradeFail]:
     """Analyse details of a Uniswap trade based on already received receipt.
 
     See also :py:func:`analyse_trade_by_hash`.
@@ -145,7 +145,10 @@ def analyse_trade_by_receipt(web3: Web3, uniswap: UniswapV2Deployment, tx: dict,
     amount_out_cleaned = Decimal(amount_out) / Decimal(10**out_token_details.decimals)
     amount_in_cleaned = Decimal(amount_in) / Decimal(10**in_token_details.decimals)
 
-    price = amount_out_cleaned / amount_in_cleaned
+    if reverse_order:
+        price = amount_in_cleaned / amount_out_cleaned
+    else:
+        price = amount_out_cleaned / amount_in_cleaned
 
     return TradeSuccess(
         gas_used,
