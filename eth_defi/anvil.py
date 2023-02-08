@@ -177,6 +177,10 @@ def fork_network_anvil(
 
     .. code-block:: python
 
+        from eth_defi.anvil import fork_network_anvil
+        from eth_defi.chain import install_chain_middleware
+        from eth_defi.gas import node_default_gas_price_strategy
+
         @pytest.fixture()
         def large_busd_holder() -> HexAddress:
             # An onchain address with BUSD balance
@@ -209,6 +213,7 @@ def fork_network_anvil(
             web3 =  Web3(HTTPProvider(anvil_bnb_chain_fork))
             # Anvil needs POA middlware if parent chain needs POA middleware
             install_chain_middleware(web3)
+            web3.eth.set_gas_price_strategy(node_default_gas_price_strategy)
             return web3
 
         def test_anvil_fork_transfer_busd(web3: Web3, large_busd_holder: HexAddress, user_1: LocalAccount):
