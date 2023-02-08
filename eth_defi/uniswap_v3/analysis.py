@@ -115,4 +115,4 @@ def analyse_trade_by_receipt(
         price,
         in_token_details.decimals,
         out_token_details.decimals,
-    )
+    ), raw_price
