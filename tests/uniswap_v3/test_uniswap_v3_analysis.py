@@ -121,7 +121,7 @@ def weth_usdc_pool(web3, deployer, uniswap_v3, weth, usdc, weth_usdc_fee) -> Hex
     return pool_contract
 
 
-def test_analyse_by_recept(
+def test_analyse_by_receipt(
     web3: Web3,
     deployer: str,
     user_1: str,
