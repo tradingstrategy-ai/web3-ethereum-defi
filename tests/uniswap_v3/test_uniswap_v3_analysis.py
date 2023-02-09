@@ -121,7 +121,7 @@ def weth_usdc_pool(web3, deployer, uniswap_v3, weth, usdc, weth_usdc_fee) -> Hex
     return pool_contract
 
 
-def test_analyse_by_recept(
+def test_analyse_by_receipt(
     web3: Web3,
     deployer: str,
     user_1: str,
@@ -144,7 +144,7 @@ def test_analyse_by_recept(
     path = [usdc.address, weth.address]  # Path tell how the swap is routed
     encoded_path = encode_path(path, [weth_usdc_fee])
 
-    router.functions.exactInput(
+    tx_hash = router.functions.exactInput(
         (
             encoded_path,
             user_1,
@@ -153,6 +153,17 @@ def test_analyse_by_recept(
             0,
         )
     ).transact({"from": user_1})
+
+    tx = web3.eth.get_transaction(tx_hash)
+    receipt = web3.eth.get_transaction_receipt(tx_hash)
+
+    # user_1 has less than 500 USDC left to loses in the LP fees
+    analysis = analyse_trade_by_receipt(web3, uniswap_v3, tx, tx_hash, receipt)
+    assert isinstance(analysis, TradeSuccess)
+    assert analysis.price == pytest.approx(1699.9102484539058)
+    assert analysis.get_effective_gas_price_gwei() == 1
+    assert analysis.amount_out_decimals == 18
+    assert analysis.amount_in_decimals == 6
 
     all_weth_amount = weth.functions.balanceOf(user_1).call()
     weth.functions.approve(router.address, all_weth_amount).transact({"from": user_1})
