@@ -1,3 +1,8 @@
+# 0.14.1
+
+- Add Ethereum to `AAVE_V3_NETWORKS` configuration
+- Fix price calculation in Uniswap v3 `analysis.py`
+
 # 0.14
 
 - Replace `ganache` with `anvil` as the mainnet fork solution. Anvil is much more stable
