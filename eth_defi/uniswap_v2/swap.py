@@ -115,6 +115,8 @@ def swap_with_slippage_protection(
     :return:
         Prepared swap function which can be used directly to build transaction
     """
+    
+    assert fee, "fee must be non-zero"
 
     if amount_in:
         assert type(amount_in) == int
