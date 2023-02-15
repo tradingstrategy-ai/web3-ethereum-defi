@@ -68,6 +68,9 @@ def swap_with_slippage_protection(
     :param deadline: Time limit of the swap transaction, by default = forever (no deadline)
     :return: Prepared swap function which can be used directly to build transaction
     """
+    for fee in pool_fees:
+        assert fee > 0, "fee must be non-zero"
+    
     if not amount_in and not amount_out:
         raise ValueError("amount_in is specified, amount_out has to be None")
 
