@@ -62,7 +62,9 @@ Uniswap v3 API
    eth_defi.uniswap_v3.events
    eth_defi.uniswap_v3.price
    eth_defi.uniswap_v3.pool
+   eth_defi.uniswap_v3.swap
    eth_defi.uniswap_v2.oracle
+
 
 Aave v3 API
 -----------
