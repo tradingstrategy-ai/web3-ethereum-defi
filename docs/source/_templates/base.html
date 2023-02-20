@@ -9,6 +9,11 @@
 
     {%- if metatags %}{{ metatags }}{% endif -%}
 
+    {# Make sure all pages have a description or Bing does not like us #}
+    {% if 'content="description"' not in metatags %}
+      <meta name="description" content="Web3-Ethereum-DeFi Python API documentation">
+    {% endif %}
+
     {%- block linktags %}
         {%- if hasdoc('about') -%}
           <link rel="author" title="{{ _('About these documents') }}" href="{{ pathto('about') }}" />
