@@ -32,7 +32,14 @@ enzyme:
 	@(cd contracts/enzyme && pnpm install)
 	@(cd contracts/enzyme && pnpm compile)
 	@mkdir -p eth_defi/abi/enzyme
-	@find contracts/enzyme/packages/protocol/artifacts/contracts/release -iname "*.json" -not -iname "*.dbg.json" -exec cp {} eth_defi/abi/enzyme \;
+	@find contracts/enzyme/packages/protocol/artifacts/contracts/release -iname "*.json" -exec cp {} eth_defi/abi/enzyme \;
+
+# Compile and copy dHEDGE
+# npm install also compiles the contracts here
+dhedge:
+	@(cd contracts/dhedge && npm install)
+	@find contracts/dhedge/abi -iname "*.json" -exec cp {} eth_defi/abi/dhegde \;
+
 
 clean:
 	@rm -rf contracts/sushiswap/artifacts/*
