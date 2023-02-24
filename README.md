@@ -51,8 +51,8 @@ Features include
 * [Trading](https://web3-ethereum-defi.readthedocs.io/api/index.html)
 * [Loans](https://web3-ethereum-defi.readthedocs.io/api/index.html)
 * [ERC-20 token issuance and manipulation](https://web3-ethereum-defi.readthedocs.io/en/latest/_autosummary/eth_defi.token.html#module-eth_defi.token)
-* 
-We support 
+
+Web3-Ethereum-Defi supports 
 
 * Uniswap (both v2 and v3)
 * Sushi
@@ -60,6 +60,7 @@ We support
 * Enzyme Protocol
 * dHEDGE Protocol
 * More integrations to come
+* Over 600 precompiled Solidity ABI files 
 
 [Read the full API documentation](https://web3-ethereum-defi.readthedocs.io/)).
 For code examples please see below.
