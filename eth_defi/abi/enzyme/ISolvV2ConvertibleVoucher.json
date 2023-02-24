@@ -1,0 +1,302 @@
+{
+  "_format": "hh-sol-artifact-1",
+  "contractName": "ISolvV2ConvertibleVoucher",
+  "sourceName": "contracts/release/interfaces/ISolvV2ConvertibleVoucher.sol",
+  "abi": [
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "_to",
+          "type": "address"
+        },
+        {
+          "internalType": "uint256",
+          "name": "_tokenId",
+          "type": "uint256"
+        }
+      ],
+      "name": "approve",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "_tokenId",
+          "type": "uint256"
+        },
+        {
+          "internalType": "address",
+          "name": "_to",
+          "type": "address"
+        },
+        {
+          "internalType": "uint256",
+          "name": "_claimUnits",
+          "type": "uint256"
+        }
+      ],
+      "name": "claimTo",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "convertiblePool",
+      "outputs": [
+        {
+          "internalType": "address",
+          "name": "convertiblePool_",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "_issuer",
+          "type": "address"
+        },
+        {
+          "internalType": "address",
+          "name": "_fundCurrency",
+          "type": "address"
+        },
+        {
+          "internalType": "uint128",
+          "name": "_lowestPrice",
+          "type": "uint128"
+        },
+        {
+          "internalType": "uint128",
+          "name": "_highestPrice",
+          "type": "uint128"
+        },
+        {
+          "internalType": "uint64",
+          "name": "_effectiveTime",
+          "type": "uint64"
+        },
+        {
+          "internalType": "uint64",
+          "name": "_maturity",
+          "type": "uint64"
+        },
+        {
+          "internalType": "uint8",
+          "name": "_collateralType",
+          "type": "uint8"
+        }
+      ],
+      "name": "getSlot",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "slot_",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "_slot",
+          "type": "uint256"
+        }
+      ],
+      "name": "getSlotDetail",
+      "outputs": [
+        {
+          "components": [
+            {
+              "internalType": "address",
+              "name": "issuer",
+              "type": "address"
+            },
+            {
+              "internalType": "address",
+              "name": "fundCurrency",
+              "type": "address"
+            },
+            {
+              "internalType": "uint256",
+              "name": "totalValue",
+              "type": "uint256"
+            },
+            {
+              "internalType": "uint128",
+              "name": "lowestPrice",
+              "type": "uint128"
+            },
+            {
+              "internalType": "uint128",
+              "name": "highestPrice",
+              "type": "uint128"
+            },
+            {
+              "internalType": "uint128",
+              "name": "settlePrice",
+              "type": "uint128"
+            },
+            {
+              "internalType": "uint64",
+              "name": "effectiveTime",
+              "type": "uint64"
+            },
+            {
+              "internalType": "uint64",
+              "name": "maturity",
+              "type": "uint64"
+            },
+            {
+              "internalType": "enum ISolvV2ConvertiblePool.CollateralType",
+              "name": "collateralType",
+              "type": "uint8"
+            },
+            {
+              "internalType": "bool",
+              "name": "isIssuerRefunded",
+              "type": "bool"
+            },
+            {
+              "internalType": "bool",
+              "name": "isIssuerWithdrawn",
+              "type": "bool"
+            },
+            {
+              "internalType": "bool",
+              "name": "isClaimed",
+              "type": "bool"
+            },
+            {
+              "internalType": "bool",
+              "name": "isValid",
+              "type": "bool"
+            }
+          ],
+          "internalType": "struct ISolvV2ConvertiblePool.SlotDetail",
+          "name": "slotDetail_",
+          "type": "tuple"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "nextTokenId",
+      "outputs": [
+        {
+          "internalType": "uint32",
+          "name": "nextTokenId_",
+          "type": "uint32"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "_tokenId",
+          "type": "uint256"
+        }
+      ],
+      "name": "ownerOf",
+      "outputs": [
+        {
+          "internalType": "address",
+          "name": "owner_",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "_tokenId",
+          "type": "uint256"
+        }
+      ],
+      "name": "slotOf",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "slotId_",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "underlying",
+      "outputs": [
+        {
+          "internalType": "address",
+          "name": "underlying_",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "tokenId_",
+          "type": "uint256"
+        }
+      ],
+      "name": "unitsInToken",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "units_",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "_tokenId",
+          "type": "uint256"
+        }
+      ],
+      "name": "voucherSlotMapping",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "slotId_",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    }
+  ],
+  "bytecode": "0x",
+  "deployedBytecode": "0x",
+  "linkReferences": {},
+  "deployedLinkReferences": {}
+}

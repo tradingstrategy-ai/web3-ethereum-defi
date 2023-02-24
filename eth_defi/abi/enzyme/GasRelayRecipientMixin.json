@@ -1,0 +1,37 @@
+{
+  "_format": "hh-sol-artifact-1",
+  "contractName": "GasRelayRecipientMixin",
+  "sourceName": "contracts/release/infrastructure/gas-relayer/GasRelayRecipientMixin.sol",
+  "abi": [
+    {
+      "inputs": [],
+      "name": "getGasRelayPaymasterFactory",
+      "outputs": [
+        {
+          "internalType": "address",
+          "name": "gasRelayPaymasterFactory_",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "getGasRelayTrustedForwarder",
+      "outputs": [
+        {
+          "internalType": "address",
+          "name": "trustedForwarder_",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    }
+  ],
+  "bytecode": "0x",
+  "deployedBytecode": "0x",
+  "linkReferences": {},
+  "deployedLinkReferences": {}
+}

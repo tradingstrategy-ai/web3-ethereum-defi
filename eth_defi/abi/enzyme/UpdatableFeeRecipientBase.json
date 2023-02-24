@@ -1,0 +1,67 @@
+{
+  "_format": "hh-sol-artifact-1",
+  "contractName": "UpdatableFeeRecipientBase",
+  "sourceName": "contracts/release/extensions/fee-manager/fees/utils/UpdatableFeeRecipientBase.sol",
+  "abi": [
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "comptrollerProxy",
+          "type": "address"
+        },
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "recipient",
+          "type": "address"
+        }
+      ],
+      "name": "RecipientSetForFund",
+      "type": "event"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "_comptrollerProxy",
+          "type": "address"
+        }
+      ],
+      "name": "getRecipientForFund",
+      "outputs": [
+        {
+          "internalType": "address",
+          "name": "recipient_",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "_comptrollerProxy",
+          "type": "address"
+        },
+        {
+          "internalType": "address",
+          "name": "_recipient",
+          "type": "address"
+        }
+      ],
+      "name": "setRecipientForFund",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    }
+  ],
+  "bytecode": "0x",
+  "deployedBytecode": "0x",
+  "linkReferences": {},
+  "deployedLinkReferences": {}
+}

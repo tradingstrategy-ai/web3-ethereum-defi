@@ -1,0 +1,27 @@
+{
+  "_format": "hh-sol-artifact-1",
+  "contractName": "AaveV3ActionsMixin",
+  "sourceName": "contracts/release/extensions/integration-manager/integrations/utils/actions/AaveV3ActionsMixin.sol",
+  "abi": [
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "_pool",
+          "type": "address"
+        },
+        {
+          "internalType": "uint16",
+          "name": "_referralCode",
+          "type": "uint16"
+        }
+      ],
+      "stateMutability": "nonpayable",
+      "type": "constructor"
+    }
+  ],
+  "bytecode": "0x",
+  "deployedBytecode": "0x",
+  "linkReferences": {},
+  "deployedLinkReferences": {}
+}

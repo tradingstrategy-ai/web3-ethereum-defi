@@ -1,0 +1,25 @@
+{
+  "_format": "hh-sol-artifact-1",
+  "contractName": "ICEther",
+  "sourceName": "contracts/release/interfaces/ICEther.sol",
+  "abi": [
+    {
+      "inputs": [],
+      "name": "mint",
+      "outputs": [],
+      "stateMutability": "payable",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "repayBorrow",
+      "outputs": [],
+      "stateMutability": "payable",
+      "type": "function"
+    }
+  ],
+  "bytecode": "0x",
+  "deployedBytecode": "0x",
+  "linkReferences": {},
+  "deployedLinkReferences": {}
+}

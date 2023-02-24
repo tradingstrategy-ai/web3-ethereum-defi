@@ -1,0 +1,419 @@
+{
+  "_format": "hh-sol-artifact-1",
+  "contractName": "IZeroExV2",
+  "sourceName": "contracts/release/interfaces/IZeroExV2.sol",
+  "abi": [
+    {
+      "inputs": [],
+      "name": "ZRX_ASSET_DATA",
+      "outputs": [
+        {
+          "internalType": "bytes",
+          "name": "",
+          "type": "bytes"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "components": [
+            {
+              "internalType": "address",
+              "name": "makerAddress",
+              "type": "address"
+            },
+            {
+              "internalType": "address",
+              "name": "takerAddress",
+              "type": "address"
+            },
+            {
+              "internalType": "address",
+              "name": "feeRecipientAddress",
+              "type": "address"
+            },
+            {
+              "internalType": "address",
+              "name": "senderAddress",
+              "type": "address"
+            },
+            {
+              "internalType": "uint256",
+              "name": "makerAssetAmount",
+              "type": "uint256"
+            },
+            {
+              "internalType": "uint256",
+              "name": "takerAssetAmount",
+              "type": "uint256"
+            },
+            {
+              "internalType": "uint256",
+              "name": "makerFee",
+              "type": "uint256"
+            },
+            {
+              "internalType": "uint256",
+              "name": "takerFee",
+              "type": "uint256"
+            },
+            {
+              "internalType": "uint256",
+              "name": "expirationTimeSeconds",
+              "type": "uint256"
+            },
+            {
+              "internalType": "uint256",
+              "name": "salt",
+              "type": "uint256"
+            },
+            {
+              "internalType": "bytes",
+              "name": "makerAssetData",
+              "type": "bytes"
+            },
+            {
+              "internalType": "bytes",
+              "name": "takerAssetData",
+              "type": "bytes"
+            }
+          ],
+          "internalType": "struct IZeroExV2.Order",
+          "name": "",
+          "type": "tuple"
+        }
+      ],
+      "name": "cancelOrder",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bytes32",
+          "name": "",
+          "type": "bytes32"
+        }
+      ],
+      "name": "cancelled",
+      "outputs": [
+        {
+          "internalType": "bool",
+          "name": "",
+          "type": "bool"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "components": [
+            {
+              "internalType": "address",
+              "name": "makerAddress",
+              "type": "address"
+            },
+            {
+              "internalType": "address",
+              "name": "takerAddress",
+              "type": "address"
+            },
+            {
+              "internalType": "address",
+              "name": "feeRecipientAddress",
+              "type": "address"
+            },
+            {
+              "internalType": "address",
+              "name": "senderAddress",
+              "type": "address"
+            },
+            {
+              "internalType": "uint256",
+              "name": "makerAssetAmount",
+              "type": "uint256"
+            },
+            {
+              "internalType": "uint256",
+              "name": "takerAssetAmount",
+              "type": "uint256"
+            },
+            {
+              "internalType": "uint256",
+              "name": "makerFee",
+              "type": "uint256"
+            },
+            {
+              "internalType": "uint256",
+              "name": "takerFee",
+              "type": "uint256"
+            },
+            {
+              "internalType": "uint256",
+              "name": "expirationTimeSeconds",
+              "type": "uint256"
+            },
+            {
+              "internalType": "uint256",
+              "name": "salt",
+              "type": "uint256"
+            },
+            {
+              "internalType": "bytes",
+              "name": "makerAssetData",
+              "type": "bytes"
+            },
+            {
+              "internalType": "bytes",
+              "name": "takerAssetData",
+              "type": "bytes"
+            }
+          ],
+          "internalType": "struct IZeroExV2.Order",
+          "name": "",
+          "type": "tuple"
+        },
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        },
+        {
+          "internalType": "bytes",
+          "name": "",
+          "type": "bytes"
+        }
+      ],
+      "name": "fillOrder",
+      "outputs": [
+        {
+          "components": [
+            {
+              "internalType": "uint256",
+              "name": "makerAssetFilledAmount",
+              "type": "uint256"
+            },
+            {
+              "internalType": "uint256",
+              "name": "takerAssetFilledAmount",
+              "type": "uint256"
+            },
+            {
+              "internalType": "uint256",
+              "name": "makerFeePaid",
+              "type": "uint256"
+            },
+            {
+              "internalType": "uint256",
+              "name": "takerFeePaid",
+              "type": "uint256"
+            }
+          ],
+          "internalType": "struct IZeroExV2.FillResults",
+          "name": "",
+          "type": "tuple"
+        }
+      ],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bytes32",
+          "name": "",
+          "type": "bytes32"
+        }
+      ],
+      "name": "filled",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bytes4",
+          "name": "",
+          "type": "bytes4"
+        }
+      ],
+      "name": "getAssetProxy",
+      "outputs": [
+        {
+          "internalType": "address",
+          "name": "",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "components": [
+            {
+              "internalType": "address",
+              "name": "makerAddress",
+              "type": "address"
+            },
+            {
+              "internalType": "address",
+              "name": "takerAddress",
+              "type": "address"
+            },
+            {
+              "internalType": "address",
+              "name": "feeRecipientAddress",
+              "type": "address"
+            },
+            {
+              "internalType": "address",
+              "name": "senderAddress",
+              "type": "address"
+            },
+            {
+              "internalType": "uint256",
+              "name": "makerAssetAmount",
+              "type": "uint256"
+            },
+            {
+              "internalType": "uint256",
+              "name": "takerAssetAmount",
+              "type": "uint256"
+            },
+            {
+              "internalType": "uint256",
+              "name": "makerFee",
+              "type": "uint256"
+            },
+            {
+              "internalType": "uint256",
+              "name": "takerFee",
+              "type": "uint256"
+            },
+            {
+              "internalType": "uint256",
+              "name": "expirationTimeSeconds",
+              "type": "uint256"
+            },
+            {
+              "internalType": "uint256",
+              "name": "salt",
+              "type": "uint256"
+            },
+            {
+              "internalType": "bytes",
+              "name": "makerAssetData",
+              "type": "bytes"
+            },
+            {
+              "internalType": "bytes",
+              "name": "takerAssetData",
+              "type": "bytes"
+            }
+          ],
+          "internalType": "struct IZeroExV2.Order",
+          "name": "",
+          "type": "tuple"
+        }
+      ],
+      "name": "getOrderInfo",
+      "outputs": [
+        {
+          "components": [
+            {
+              "internalType": "uint8",
+              "name": "orderStatus",
+              "type": "uint8"
+            },
+            {
+              "internalType": "bytes32",
+              "name": "orderHash",
+              "type": "bytes32"
+            },
+            {
+              "internalType": "uint256",
+              "name": "orderTakerAssetFilledAmount",
+              "type": "uint256"
+            }
+          ],
+          "internalType": "struct IZeroExV2.OrderInfo",
+          "name": "",
+          "type": "tuple"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bytes32",
+          "name": "",
+          "type": "bytes32"
+        },
+        {
+          "internalType": "address",
+          "name": "",
+          "type": "address"
+        },
+        {
+          "internalType": "bytes",
+          "name": "",
+          "type": "bytes"
+        }
+      ],
+      "name": "isValidSignature",
+      "outputs": [
+        {
+          "internalType": "bool",
+          "name": "",
+          "type": "bool"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bytes32",
+          "name": "",
+          "type": "bytes32"
+        },
+        {
+          "internalType": "address",
+          "name": "",
+          "type": "address"
+        },
+        {
+          "internalType": "bytes",
+          "name": "",
+          "type": "bytes"
+        }
+      ],
+      "name": "preSign",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    }
+  ],
+  "bytecode": "0x",
+  "deployedBytecode": "0x",
+  "linkReferences": {},
+  "deployedLinkReferences": {}
+}

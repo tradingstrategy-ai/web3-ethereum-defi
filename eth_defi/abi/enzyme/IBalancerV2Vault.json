@@ -1,0 +1,256 @@
+{
+  "_format": "hh-sol-artifact-1",
+  "contractName": "IBalancerV2Vault",
+  "sourceName": "contracts/release/interfaces/IBalancerV2Vault.sol",
+  "abi": [
+    {
+      "inputs": [
+        {
+          "internalType": "enum IBalancerV2Vault.SwapKind",
+          "name": "_kind",
+          "type": "uint8"
+        },
+        {
+          "components": [
+            {
+              "internalType": "bytes32",
+              "name": "poolId",
+              "type": "bytes32"
+            },
+            {
+              "internalType": "uint256",
+              "name": "assetInIndex",
+              "type": "uint256"
+            },
+            {
+              "internalType": "uint256",
+              "name": "assetOutIndex",
+              "type": "uint256"
+            },
+            {
+              "internalType": "uint256",
+              "name": "amount",
+              "type": "uint256"
+            },
+            {
+              "internalType": "bytes",
+              "name": "userData",
+              "type": "bytes"
+            }
+          ],
+          "internalType": "struct IBalancerV2Vault.BatchSwapStep[]",
+          "name": "_swaps",
+          "type": "tuple[]"
+        },
+        {
+          "internalType": "address[]",
+          "name": "_assets",
+          "type": "address[]"
+        },
+        {
+          "components": [
+            {
+              "internalType": "address",
+              "name": "sender",
+              "type": "address"
+            },
+            {
+              "internalType": "bool",
+              "name": "fromInternalBalance",
+              "type": "bool"
+            },
+            {
+              "internalType": "address payable",
+              "name": "recipient",
+              "type": "address"
+            },
+            {
+              "internalType": "bool",
+              "name": "toInternalBalance",
+              "type": "bool"
+            }
+          ],
+          "internalType": "struct IBalancerV2Vault.FundManagement",
+          "name": "_funds",
+          "type": "tuple"
+        },
+        {
+          "internalType": "int256[]",
+          "name": "_limits",
+          "type": "int256[]"
+        },
+        {
+          "internalType": "uint256",
+          "name": "_deadline",
+          "type": "uint256"
+        }
+      ],
+      "name": "batchSwap",
+      "outputs": [
+        {
+          "internalType": "int256[]",
+          "name": "assetDeltas_",
+          "type": "int256[]"
+        }
+      ],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bytes32",
+          "name": "_poolId",
+          "type": "bytes32"
+        },
+        {
+          "internalType": "address",
+          "name": "_sender",
+          "type": "address"
+        },
+        {
+          "internalType": "address payable",
+          "name": "_recipient",
+          "type": "address"
+        },
+        {
+          "components": [
+            {
+              "internalType": "address[]",
+              "name": "assets",
+              "type": "address[]"
+            },
+            {
+              "internalType": "uint256[]",
+              "name": "limits",
+              "type": "uint256[]"
+            },
+            {
+              "internalType": "bytes",
+              "name": "userData",
+              "type": "bytes"
+            },
+            {
+              "internalType": "bool",
+              "name": "useInternalBalance",
+              "type": "bool"
+            }
+          ],
+          "internalType": "struct IBalancerV2Vault.PoolBalanceChange",
+          "name": "_request",
+          "type": "tuple"
+        }
+      ],
+      "name": "exitPool",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bytes32",
+          "name": "_poolId",
+          "type": "bytes32"
+        }
+      ],
+      "name": "getPoolTokens",
+      "outputs": [
+        {
+          "internalType": "address[]",
+          "name": "tokens_",
+          "type": "address[]"
+        },
+        {
+          "internalType": "uint256[]",
+          "name": "balances_",
+          "type": "uint256[]"
+        },
+        {
+          "internalType": "uint256",
+          "name": "lastChangeBlock_",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bytes32",
+          "name": "_poolId",
+          "type": "bytes32"
+        },
+        {
+          "internalType": "address",
+          "name": "_sender",
+          "type": "address"
+        },
+        {
+          "internalType": "address",
+          "name": "_recipient",
+          "type": "address"
+        },
+        {
+          "components": [
+            {
+              "internalType": "address[]",
+              "name": "assets",
+              "type": "address[]"
+            },
+            {
+              "internalType": "uint256[]",
+              "name": "limits",
+              "type": "uint256[]"
+            },
+            {
+              "internalType": "bytes",
+              "name": "userData",
+              "type": "bytes"
+            },
+            {
+              "internalType": "bool",
+              "name": "useInternalBalance",
+              "type": "bool"
+            }
+          ],
+          "internalType": "struct IBalancerV2Vault.PoolBalanceChange",
+          "name": "_request",
+          "type": "tuple"
+        }
+      ],
+      "name": "joinPool",
+      "outputs": [],
+      "stateMutability": "payable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "_sender",
+          "type": "address"
+        },
+        {
+          "internalType": "address",
+          "name": "_relayer",
+          "type": "address"
+        },
+        {
+          "internalType": "bool",
+          "name": "_approved",
+          "type": "bool"
+        }
+      ],
+      "name": "setRelayerApproval",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    }
+  ],
+  "bytecode": "0x",
+  "deployedBytecode": "0x",
+  "linkReferences": {},
+  "deployedLinkReferences": {}
+}

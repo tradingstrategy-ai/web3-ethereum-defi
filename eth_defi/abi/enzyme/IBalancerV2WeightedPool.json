@@ -1,0 +1,50 @@
+{
+  "_format": "hh-sol-artifact-1",
+  "contractName": "IBalancerV2WeightedPool",
+  "sourceName": "contracts/release/interfaces/IBalancerV2WeightedPool.sol",
+  "abi": [
+    {
+      "inputs": [],
+      "name": "getInvariant",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "invariant_",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "getNormalizedWeights",
+      "outputs": [
+        {
+          "internalType": "uint256[]",
+          "name": "weights_",
+          "type": "uint256[]"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "getPoolId",
+      "outputs": [
+        {
+          "internalType": "bytes32",
+          "name": "poolId_",
+          "type": "bytes32"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    }
+  ],
+  "bytecode": "0x",
+  "deployedBytecode": "0x",
+  "linkReferences": {},
+  "deployedLinkReferences": {}
+}

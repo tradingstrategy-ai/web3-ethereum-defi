@@ -1,0 +1,10 @@
+{
+  "_format": "hh-sol-artifact-1",
+  "contractName": "ConvexVotingPositionDataDecoder",
+  "sourceName": "contracts/release/extensions/external-position-manager/external-positions/convex-voting/ConvexVotingPositionDataDecoder.sol",
+  "abi": [],
+  "bytecode": "0x",
+  "deployedBytecode": "0x",
+  "linkReferences": {},
+  "deployedLinkReferences": {}
+}

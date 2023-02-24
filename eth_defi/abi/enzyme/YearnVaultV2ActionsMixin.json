@@ -1,0 +1,10 @@
+{
+  "_format": "hh-sol-artifact-1",
+  "contractName": "YearnVaultV2ActionsMixin",
+  "sourceName": "contracts/release/extensions/integration-manager/integrations/utils/actions/YearnVaultV2ActionsMixin.sol",
+  "abi": [],
+  "bytecode": "0x",
+  "deployedBytecode": "0x",
+  "linkReferences": {},
+  "deployedLinkReferences": {}
+}

@@ -1,0 +1,101 @@
+{
+  "_format": "hh-sol-artifact-1",
+  "contractName": "SinglePeggedDerivativePriceFeedBase",
+  "sourceName": "contracts/release/infrastructure/price-feeds/derivatives/feeds/utils/SinglePeggedDerivativePriceFeedBase.sol",
+  "abi": [
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "_derivative",
+          "type": "address"
+        },
+        {
+          "internalType": "address",
+          "name": "_underlying",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "nonpayable",
+      "type": "constructor"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "_derivative",
+          "type": "address"
+        },
+        {
+          "internalType": "uint256",
+          "name": "_derivativeAmount",
+          "type": "uint256"
+        }
+      ],
+      "name": "calcUnderlyingValues",
+      "outputs": [
+        {
+          "internalType": "address[]",
+          "name": "underlyings_",
+          "type": "address[]"
+        },
+        {
+          "internalType": "uint256[]",
+          "name": "underlyingAmounts_",
+          "type": "uint256[]"
+        }
+      ],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "getDerivative",
+      "outputs": [
+        {
+          "internalType": "address",
+          "name": "derivative_",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "getUnderlying",
+      "outputs": [
+        {
+          "internalType": "address",
+          "name": "underlying_",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "_asset",
+          "type": "address"
+        }
+      ],
+      "name": "isSupportedAsset",
+      "outputs": [
+        {
+          "internalType": "bool",
+          "name": "isSupported_",
+          "type": "bool"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    }
+  ],
+  "bytecode": "0x",
+  "deployedBytecode": "0x",
+  "linkReferences": {},
+  "deployedLinkReferences": {}
+}

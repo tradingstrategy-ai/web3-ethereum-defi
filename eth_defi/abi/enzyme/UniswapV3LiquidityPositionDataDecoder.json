@@ -1,0 +1,10 @@
+{
+  "_format": "hh-sol-artifact-1",
+  "contractName": "UniswapV3LiquidityPositionDataDecoder",
+  "sourceName": "contracts/release/extensions/external-position-manager/external-positions/uniswap-v3-liquidity/UniswapV3LiquidityPositionDataDecoder.sol",
+  "abi": [],
+  "bytecode": "0x",
+  "deployedBytecode": "0x",
+  "linkReferences": {},
+  "deployedLinkReferences": {}
+}

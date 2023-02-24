@@ -1,0 +1,35 @@
+{
+  "_format": "hh-sol-artifact-1",
+  "contractName": "CurveLiquidityActionsMixin",
+  "sourceName": "contracts/release/extensions/integration-manager/integrations/utils/actions/CurveLiquidityActionsMixin.sol",
+  "abi": [
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "_wrappedNativeAsset",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "nonpayable",
+      "type": "constructor"
+    },
+    {
+      "inputs": [],
+      "name": "getCurveLiquidityWrappedNativeAsset",
+      "outputs": [
+        {
+          "internalType": "address",
+          "name": "addressProvider_",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    }
+  ],
+  "bytecode": "0x",
+  "deployedBytecode": "0x",
+  "linkReferences": {},
+  "deployedLinkReferences": {}
+}

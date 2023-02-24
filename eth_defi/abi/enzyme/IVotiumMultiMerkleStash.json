@@ -1,0 +1,51 @@
+{
+  "_format": "hh-sol-artifact-1",
+  "contractName": "IVotiumMultiMerkleStash",
+  "sourceName": "contracts/release/interfaces/IVotiumMultiMerkleStash.sol",
+  "abi": [
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "",
+          "type": "address"
+        },
+        {
+          "components": [
+            {
+              "internalType": "address",
+              "name": "token",
+              "type": "address"
+            },
+            {
+              "internalType": "uint256",
+              "name": "index",
+              "type": "uint256"
+            },
+            {
+              "internalType": "uint256",
+              "name": "amount",
+              "type": "uint256"
+            },
+            {
+              "internalType": "bytes32[]",
+              "name": "merkleProof",
+              "type": "bytes32[]"
+            }
+          ],
+          "internalType": "struct IVotiumMultiMerkleStash.ClaimParam[]",
+          "name": "",
+          "type": "tuple[]"
+        }
+      ],
+      "name": "claimMulti",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    }
+  ],
+  "bytecode": "0x",
+  "deployedBytecode": "0x",
+  "linkReferences": {},
+  "deployedLinkReferences": {}
+}

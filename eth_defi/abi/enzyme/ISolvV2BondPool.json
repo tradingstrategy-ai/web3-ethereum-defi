@@ -1,0 +1,223 @@
+{
+  "_format": "hh-sol-artifact-1",
+  "contractName": "ISolvV2BondPool",
+  "sourceName": "contracts/release/interfaces/ISolvV2BondPool.sol",
+  "abi": [
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "_issuer",
+          "type": "address"
+        }
+      ],
+      "name": "getIssuerSlots",
+      "outputs": [
+        {
+          "internalType": "uint256[]",
+          "name": "slots_",
+          "type": "uint256[]"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "_slot",
+          "type": "uint256"
+        }
+      ],
+      "name": "getSettlePrice",
+      "outputs": [
+        {
+          "internalType": "uint128",
+          "name": "settlePrice_",
+          "type": "uint128"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "_slot",
+          "type": "uint256"
+        }
+      ],
+      "name": "getSlotDetail",
+      "outputs": [
+        {
+          "components": [
+            {
+              "internalType": "address",
+              "name": "issuer",
+              "type": "address"
+            },
+            {
+              "internalType": "address",
+              "name": "fundCurrency",
+              "type": "address"
+            },
+            {
+              "internalType": "uint256",
+              "name": "totalValue",
+              "type": "uint256"
+            },
+            {
+              "internalType": "uint128",
+              "name": "lowestPrice",
+              "type": "uint128"
+            },
+            {
+              "internalType": "uint128",
+              "name": "highestPrice",
+              "type": "uint128"
+            },
+            {
+              "internalType": "uint128",
+              "name": "settlePrice",
+              "type": "uint128"
+            },
+            {
+              "internalType": "uint64",
+              "name": "effectiveTime",
+              "type": "uint64"
+            },
+            {
+              "internalType": "uint64",
+              "name": "maturity",
+              "type": "uint64"
+            },
+            {
+              "internalType": "enum ISolvV2BondPool.CollateralType",
+              "name": "collateralType",
+              "type": "uint8"
+            },
+            {
+              "internalType": "bool",
+              "name": "isIssuerRefunded",
+              "type": "bool"
+            },
+            {
+              "internalType": "bool",
+              "name": "isIssuerWithdrawn",
+              "type": "bool"
+            },
+            {
+              "internalType": "bool",
+              "name": "isClaimed",
+              "type": "bool"
+            },
+            {
+              "internalType": "bool",
+              "name": "isValid",
+              "type": "bool"
+            }
+          ],
+          "internalType": "struct ISolvV2BondPool.SlotDetail",
+          "name": "slotDetail_",
+          "type": "tuple"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "_slot",
+          "type": "uint256"
+        }
+      ],
+      "name": "getWithdrawableAmount",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "withdrawTokenAmount_",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "_slot",
+          "type": "uint256"
+        }
+      ],
+      "name": "refund",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "_slotId",
+          "type": "uint256"
+        },
+        {
+          "internalType": "address",
+          "name": "_currency",
+          "type": "address"
+        }
+      ],
+      "name": "slotBalances",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "balance_",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "valueDecimals",
+      "outputs": [
+        {
+          "internalType": "uint8",
+          "name": "decimals_",
+          "type": "uint8"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "_slot",
+          "type": "uint256"
+        }
+      ],
+      "name": "withdraw",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "withdrawTokenAmount_",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    }
+  ],
+  "bytecode": "0x",
+  "deployedBytecode": "0x",
+  "linkReferences": {},
+  "deployedLinkReferences": {}
+}

@@ -1,0 +1,10 @@
+{
+  "_format": "hh-sol-artifact-1",
+  "contractName": "IdleV4ActionsMixin",
+  "sourceName": "contracts/release/extensions/integration-manager/integrations/utils/actions/IdleV4ActionsMixin.sol",
+  "abi": [],
+  "bytecode": "0x",
+  "deployedBytecode": "0x",
+  "linkReferences": {},
+  "deployedLinkReferences": {}
+}

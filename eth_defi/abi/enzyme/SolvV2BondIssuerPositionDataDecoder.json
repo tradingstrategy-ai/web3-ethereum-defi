@@ -1,0 +1,10 @@
+{
+  "_format": "hh-sol-artifact-1",
+  "contractName": "SolvV2BondIssuerPositionDataDecoder",
+  "sourceName": "contracts/release/extensions/external-position-manager/external-positions/solv-v2-bond-issuer/SolvV2BondIssuerPositionDataDecoder.sol",
+  "abi": [],
+  "bytecode": "0x",
+  "deployedBytecode": "0x",
+  "linkReferences": {},
+  "deployedLinkReferences": {}
+}

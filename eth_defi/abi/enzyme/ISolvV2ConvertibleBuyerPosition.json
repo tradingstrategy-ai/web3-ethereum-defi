@@ -1,0 +1,98 @@
+{
+  "_format": "hh-sol-artifact-1",
+  "contractName": "ISolvV2ConvertibleBuyerPosition",
+  "sourceName": "contracts/release/extensions/external-position-manager/external-positions/solv-v2-convertible-buyer/ISolvV2ConvertibleBuyerPosition.sol",
+  "abi": [
+    {
+      "inputs": [],
+      "name": "getDebtAssets",
+      "outputs": [
+        {
+          "internalType": "address[]",
+          "name": "",
+          "type": "address[]"
+        },
+        {
+          "internalType": "uint256[]",
+          "name": "",
+          "type": "uint256[]"
+        }
+      ],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "getManagedAssets",
+      "outputs": [
+        {
+          "internalType": "address[]",
+          "name": "",
+          "type": "address[]"
+        },
+        {
+          "internalType": "uint256[]",
+          "name": "",
+          "type": "uint256[]"
+        }
+      ],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "getSales",
+      "outputs": [
+        {
+          "components": [
+            {
+              "internalType": "uint24",
+              "name": "saleId",
+              "type": "uint24"
+            },
+            {
+              "internalType": "address",
+              "name": "currency",
+              "type": "address"
+            }
+          ],
+          "internalType": "struct SolvV2ConvertibleBuyerPositionLibBase1.Sale[]",
+          "name": "sales_",
+          "type": "tuple[]"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bytes",
+          "name": "",
+          "type": "bytes"
+        }
+      ],
+      "name": "init",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bytes",
+          "name": "",
+          "type": "bytes"
+        }
+      ],
+      "name": "receiveCallFromVault",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    }
+  ],
+  "bytecode": "0x",
+  "deployedBytecode": "0x",
+  "linkReferences": {},
+  "deployedLinkReferences": {}
+}

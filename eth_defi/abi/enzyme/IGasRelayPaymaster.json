@@ -1,0 +1,312 @@
+{
+  "_format": "hh-sol-artifact-1",
+  "contractName": "IGasRelayPaymaster",
+  "sourceName": "contracts/release/infrastructure/gas-relayer/IGasRelayPaymaster.sol",
+  "abi": [
+    {
+      "inputs": [],
+      "name": "deposit",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "getGasAndDataLimits",
+      "outputs": [
+        {
+          "components": [
+            {
+              "internalType": "uint256",
+              "name": "acceptanceBudget",
+              "type": "uint256"
+            },
+            {
+              "internalType": "uint256",
+              "name": "preRelayedCallGasLimit",
+              "type": "uint256"
+            },
+            {
+              "internalType": "uint256",
+              "name": "postRelayedCallGasLimit",
+              "type": "uint256"
+            },
+            {
+              "internalType": "uint256",
+              "name": "calldataSizeLimit",
+              "type": "uint256"
+            }
+          ],
+          "internalType": "struct IGsnPaymaster.GasAndDataLimits",
+          "name": "limits",
+          "type": "tuple"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "getHubAddr",
+      "outputs": [
+        {
+          "internalType": "address",
+          "name": "",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "getRelayHubDeposit",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bytes",
+          "name": "context",
+          "type": "bytes"
+        },
+        {
+          "internalType": "bool",
+          "name": "success",
+          "type": "bool"
+        },
+        {
+          "internalType": "uint256",
+          "name": "gasUseWithoutPost",
+          "type": "uint256"
+        },
+        {
+          "components": [
+            {
+              "internalType": "uint256",
+              "name": "gasPrice",
+              "type": "uint256"
+            },
+            {
+              "internalType": "uint256",
+              "name": "pctRelayFee",
+              "type": "uint256"
+            },
+            {
+              "internalType": "uint256",
+              "name": "baseRelayFee",
+              "type": "uint256"
+            },
+            {
+              "internalType": "address",
+              "name": "relayWorker",
+              "type": "address"
+            },
+            {
+              "internalType": "address",
+              "name": "paymaster",
+              "type": "address"
+            },
+            {
+              "internalType": "address",
+              "name": "forwarder",
+              "type": "address"
+            },
+            {
+              "internalType": "bytes",
+              "name": "paymasterData",
+              "type": "bytes"
+            },
+            {
+              "internalType": "uint256",
+              "name": "clientId",
+              "type": "uint256"
+            }
+          ],
+          "internalType": "struct IGsnTypes.RelayData",
+          "name": "relayData",
+          "type": "tuple"
+        }
+      ],
+      "name": "postRelayedCall",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "components": [
+            {
+              "components": [
+                {
+                  "internalType": "address",
+                  "name": "from",
+                  "type": "address"
+                },
+                {
+                  "internalType": "address",
+                  "name": "to",
+                  "type": "address"
+                },
+                {
+                  "internalType": "uint256",
+                  "name": "value",
+                  "type": "uint256"
+                },
+                {
+                  "internalType": "uint256",
+                  "name": "gas",
+                  "type": "uint256"
+                },
+                {
+                  "internalType": "uint256",
+                  "name": "nonce",
+                  "type": "uint256"
+                },
+                {
+                  "internalType": "bytes",
+                  "name": "data",
+                  "type": "bytes"
+                },
+                {
+                  "internalType": "uint256",
+                  "name": "validUntil",
+                  "type": "uint256"
+                }
+              ],
+              "internalType": "struct IGsnForwarder.ForwardRequest",
+              "name": "request",
+              "type": "tuple"
+            },
+            {
+              "components": [
+                {
+                  "internalType": "uint256",
+                  "name": "gasPrice",
+                  "type": "uint256"
+                },
+                {
+                  "internalType": "uint256",
+                  "name": "pctRelayFee",
+                  "type": "uint256"
+                },
+                {
+                  "internalType": "uint256",
+                  "name": "baseRelayFee",
+                  "type": "uint256"
+                },
+                {
+                  "internalType": "address",
+                  "name": "relayWorker",
+                  "type": "address"
+                },
+                {
+                  "internalType": "address",
+                  "name": "paymaster",
+                  "type": "address"
+                },
+                {
+                  "internalType": "address",
+                  "name": "forwarder",
+                  "type": "address"
+                },
+                {
+                  "internalType": "bytes",
+                  "name": "paymasterData",
+                  "type": "bytes"
+                },
+                {
+                  "internalType": "uint256",
+                  "name": "clientId",
+                  "type": "uint256"
+                }
+              ],
+              "internalType": "struct IGsnTypes.RelayData",
+              "name": "relayData",
+              "type": "tuple"
+            }
+          ],
+          "internalType": "struct IGsnTypes.RelayRequest",
+          "name": "relayRequest",
+          "type": "tuple"
+        },
+        {
+          "internalType": "bytes",
+          "name": "signature",
+          "type": "bytes"
+        },
+        {
+          "internalType": "bytes",
+          "name": "approvalData",
+          "type": "bytes"
+        },
+        {
+          "internalType": "uint256",
+          "name": "maxPossibleGas",
+          "type": "uint256"
+        }
+      ],
+      "name": "preRelayedCall",
+      "outputs": [
+        {
+          "internalType": "bytes",
+          "name": "context",
+          "type": "bytes"
+        },
+        {
+          "internalType": "bool",
+          "name": "rejectOnRecipientRevert",
+          "type": "bool"
+        }
+      ],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "trustedForwarder",
+      "outputs": [
+        {
+          "internalType": "address",
+          "name": "",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "versionPaymaster",
+      "outputs": [
+        {
+          "internalType": "string",
+          "name": "",
+          "type": "string"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "withdrawBalance",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    }
+  ],
+  "bytecode": "0x",
+  "deployedBytecode": "0x",
+  "linkReferences": {},
+  "deployedLinkReferences": {}
+}

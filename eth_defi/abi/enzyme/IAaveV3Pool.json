@@ -1,0 +1,165 @@
+{
+  "_format": "hh-sol-artifact-1",
+  "contractName": "IAaveV3Pool",
+  "sourceName": "contracts/release/interfaces/IAaveV3Pool.sol",
+  "abi": [
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "_asset",
+          "type": "address"
+        }
+      ],
+      "name": "getReserveData",
+      "outputs": [
+        {
+          "components": [
+            {
+              "components": [
+                {
+                  "internalType": "uint256",
+                  "name": "data",
+                  "type": "uint256"
+                }
+              ],
+              "internalType": "struct IAaveV3Pool.ReserveConfigurationMap",
+              "name": "configuration",
+              "type": "tuple"
+            },
+            {
+              "internalType": "uint128",
+              "name": "liquidityIndex",
+              "type": "uint128"
+            },
+            {
+              "internalType": "uint128",
+              "name": "currentLiquidityRate",
+              "type": "uint128"
+            },
+            {
+              "internalType": "uint128",
+              "name": "variableBorrowIndex",
+              "type": "uint128"
+            },
+            {
+              "internalType": "uint128",
+              "name": "currentVariableBorrowRate",
+              "type": "uint128"
+            },
+            {
+              "internalType": "uint128",
+              "name": "currentStableBorrowRate",
+              "type": "uint128"
+            },
+            {
+              "internalType": "uint40",
+              "name": "lastUpdateTimestamp",
+              "type": "uint40"
+            },
+            {
+              "internalType": "uint16",
+              "name": "id",
+              "type": "uint16"
+            },
+            {
+              "internalType": "address",
+              "name": "aTokenAddress",
+              "type": "address"
+            },
+            {
+              "internalType": "address",
+              "name": "stableDebtTokenAddress",
+              "type": "address"
+            },
+            {
+              "internalType": "address",
+              "name": "variableDebtTokenAddress",
+              "type": "address"
+            },
+            {
+              "internalType": "address",
+              "name": "interestRateStrategyAddress",
+              "type": "address"
+            },
+            {
+              "internalType": "uint128",
+              "name": "accruedToTreasury",
+              "type": "uint128"
+            },
+            {
+              "internalType": "uint128",
+              "name": "unbacked",
+              "type": "uint128"
+            },
+            {
+              "internalType": "uint128",
+              "name": "isolationModeTotalDebt",
+              "type": "uint128"
+            }
+          ],
+          "internalType": "struct IAaveV3Pool.ReserveData",
+          "name": "reserveData_",
+          "type": "tuple"
+        }
+      ],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "_underlying",
+          "type": "address"
+        },
+        {
+          "internalType": "uint256",
+          "name": "_amount",
+          "type": "uint256"
+        },
+        {
+          "internalType": "address",
+          "name": "_to",
+          "type": "address"
+        },
+        {
+          "internalType": "uint16",
+          "name": "_referralCode",
+          "type": "uint16"
+        }
+      ],
+      "name": "supply",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "_underlying",
+          "type": "address"
+        },
+        {
+          "internalType": "uint256",
+          "name": "_amount",
+          "type": "uint256"
+        },
+        {
+          "internalType": "address",
+          "name": "_to",
+          "type": "address"
+        }
+      ],
+      "name": "withdraw",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    }
+  ],
+  "bytecode": "0x",
+  "deployedBytecode": "0x",
+  "linkReferences": {},
+  "deployedLinkReferences": {}
+}

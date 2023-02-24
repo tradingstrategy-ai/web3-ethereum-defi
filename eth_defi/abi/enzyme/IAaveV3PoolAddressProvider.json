@@ -1,0 +1,24 @@
+{
+  "_format": "hh-sol-artifact-1",
+  "contractName": "IAaveV3PoolAddressProvider",
+  "sourceName": "contracts/release/interfaces/IAaveV3PoolAddressProvider.sol",
+  "abi": [
+    {
+      "inputs": [],
+      "name": "getPool",
+      "outputs": [
+        {
+          "internalType": "address",
+          "name": "pool_",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    }
+  ],
+  "bytecode": "0x",
+  "deployedBytecode": "0x",
+  "linkReferences": {},
+  "deployedLinkReferences": {}
+}

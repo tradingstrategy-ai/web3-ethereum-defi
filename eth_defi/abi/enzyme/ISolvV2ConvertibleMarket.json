@@ -1,0 +1,356 @@
+{
+  "_format": "hh-sol-artifact-1",
+  "contractName": "ISolvV2ConvertibleMarket",
+  "sourceName": "contracts/release/interfaces/ISolvV2ConvertibleMarket.sol",
+  "abi": [
+    {
+      "inputs": [
+        {
+          "internalType": "uint24",
+          "name": "_saleId",
+          "type": "uint24"
+        },
+        {
+          "internalType": "uint256",
+          "name": "_amount",
+          "type": "uint256"
+        }
+      ],
+      "name": "buyByAmount",
+      "outputs": [
+        {
+          "internalType": "uint128",
+          "name": "units_",
+          "type": "uint128"
+        }
+      ],
+      "stateMutability": "payable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint24",
+          "name": "_saleId",
+          "type": "uint24"
+        },
+        {
+          "internalType": "uint128",
+          "name": "_units",
+          "type": "uint128"
+        }
+      ],
+      "name": "buyByUnits",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "amount_",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint128",
+          "name": "fee_",
+          "type": "uint128"
+        }
+      ],
+      "stateMutability": "payable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint24",
+          "name": "_saleId",
+          "type": "uint24"
+        }
+      ],
+      "name": "getPrice",
+      "outputs": [
+        {
+          "internalType": "uint128",
+          "name": "price_",
+          "type": "uint128"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "_voucher",
+          "type": "address"
+        }
+      ],
+      "name": "markets",
+      "outputs": [
+        {
+          "components": [
+            {
+              "internalType": "bool",
+              "name": "isValid",
+              "type": "bool"
+            },
+            {
+              "internalType": "uint128",
+              "name": "precision",
+              "type": "uint128"
+            },
+            {
+              "internalType": "enum ISolvV2ConvertibleMarket.FeeType",
+              "name": "feeType",
+              "type": "uint8"
+            },
+            {
+              "internalType": "enum ISolvV2ConvertibleMarket.FeePayType",
+              "name": "feePayType",
+              "type": "uint8"
+            },
+            {
+              "internalType": "uint128",
+              "name": "feeAmount",
+              "type": "uint128"
+            },
+            {
+              "internalType": "uint16",
+              "name": "feeRate",
+              "type": "uint16"
+            }
+          ],
+          "internalType": "struct ISolvV2ConvertibleMarket.Market",
+          "name": "market_",
+          "type": "tuple"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "_voucher",
+          "type": "address"
+        },
+        {
+          "internalType": "uint24",
+          "name": "_tokenId",
+          "type": "uint24"
+        },
+        {
+          "internalType": "address",
+          "name": "_currency",
+          "type": "address"
+        },
+        {
+          "internalType": "uint128",
+          "name": "_min",
+          "type": "uint128"
+        },
+        {
+          "internalType": "uint128",
+          "name": "_max",
+          "type": "uint128"
+        },
+        {
+          "internalType": "uint32",
+          "name": "_startTime",
+          "type": "uint32"
+        },
+        {
+          "internalType": "bool",
+          "name": "_useAllowList",
+          "type": "bool"
+        },
+        {
+          "internalType": "uint128",
+          "name": "_highest",
+          "type": "uint128"
+        },
+        {
+          "internalType": "uint128",
+          "name": "_lowest",
+          "type": "uint128"
+        },
+        {
+          "internalType": "uint32",
+          "name": "_duration",
+          "type": "uint32"
+        },
+        {
+          "internalType": "uint32",
+          "name": "_interval",
+          "type": "uint32"
+        }
+      ],
+      "name": "publishDecliningPrice",
+      "outputs": [
+        {
+          "internalType": "uint24",
+          "name": "saleId_",
+          "type": "uint24"
+        }
+      ],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "_voucher",
+          "type": "address"
+        },
+        {
+          "internalType": "uint24",
+          "name": "_tokenId",
+          "type": "uint24"
+        },
+        {
+          "internalType": "address",
+          "name": "_currency",
+          "type": "address"
+        },
+        {
+          "internalType": "uint128",
+          "name": "_min",
+          "type": "uint128"
+        },
+        {
+          "internalType": "uint128",
+          "name": "_max",
+          "type": "uint128"
+        },
+        {
+          "internalType": "uint32",
+          "name": "_startTime",
+          "type": "uint32"
+        },
+        {
+          "internalType": "bool",
+          "name": "_useAllowList",
+          "type": "bool"
+        },
+        {
+          "internalType": "uint128",
+          "name": "_price",
+          "type": "uint128"
+        }
+      ],
+      "name": "publishFixedPrice",
+      "outputs": [
+        {
+          "internalType": "uint24",
+          "name": "saleId_",
+          "type": "uint24"
+        }
+      ],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint24",
+          "name": "_saleId",
+          "type": "uint24"
+        }
+      ],
+      "name": "remove",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint24",
+          "name": "_saleId",
+          "type": "uint24"
+        }
+      ],
+      "name": "sales",
+      "outputs": [
+        {
+          "components": [
+            {
+              "internalType": "uint24",
+              "name": "saleId",
+              "type": "uint24"
+            },
+            {
+              "internalType": "uint24",
+              "name": "tokenId",
+              "type": "uint24"
+            },
+            {
+              "internalType": "uint32",
+              "name": "startTime",
+              "type": "uint32"
+            },
+            {
+              "internalType": "address",
+              "name": "seller",
+              "type": "address"
+            },
+            {
+              "internalType": "enum ISolvV2ConvertibleMarket.PriceType",
+              "name": "priceType",
+              "type": "uint8"
+            },
+            {
+              "internalType": "uint128",
+              "name": "total",
+              "type": "uint128"
+            },
+            {
+              "internalType": "uint128",
+              "name": "units",
+              "type": "uint128"
+            },
+            {
+              "internalType": "uint128",
+              "name": "min",
+              "type": "uint128"
+            },
+            {
+              "internalType": "uint128",
+              "name": "max",
+              "type": "uint128"
+            },
+            {
+              "internalType": "address",
+              "name": "voucher",
+              "type": "address"
+            },
+            {
+              "internalType": "address",
+              "name": "currency",
+              "type": "address"
+            },
+            {
+              "internalType": "bool",
+              "name": "useAllowList",
+              "type": "bool"
+            },
+            {
+              "internalType": "bool",
+              "name": "isValid",
+              "type": "bool"
+            }
+          ],
+          "internalType": "struct ISolvV2ConvertibleMarket.Sale",
+          "name": "sale_",
+          "type": "tuple"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    }
+  ],
+  "bytecode": "0x",
+  "deployedBytecode": "0x",
+  "linkReferences": {},
+  "deployedLinkReferences": {}
+}

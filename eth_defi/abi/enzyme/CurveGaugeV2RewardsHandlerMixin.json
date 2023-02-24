@@ -1,0 +1,53 @@
+{
+  "_format": "hh-sol-artifact-1",
+  "contractName": "CurveGaugeV2RewardsHandlerMixin",
+  "sourceName": "contracts/release/extensions/integration-manager/integrations/utils/actions/CurveGaugeV2RewardsHandlerMixin.sol",
+  "abi": [
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "_minter",
+          "type": "address"
+        },
+        {
+          "internalType": "address",
+          "name": "_crvToken",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "nonpayable",
+      "type": "constructor"
+    },
+    {
+      "inputs": [],
+      "name": "getCurveGaugeV2RewardsHandlerCrvToken",
+      "outputs": [
+        {
+          "internalType": "address",
+          "name": "crvToken_",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "getCurveGaugeV2RewardsHandlerMinter",
+      "outputs": [
+        {
+          "internalType": "address",
+          "name": "minter_",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    }
+  ],
+  "bytecode": "0x",
+  "deployedBytecode": "0x",
+  "linkReferences": {},
+  "deployedLinkReferences": {}
+}

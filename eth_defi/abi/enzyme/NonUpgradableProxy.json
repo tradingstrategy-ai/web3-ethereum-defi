@@ -1,0 +1,31 @@
+{
+  "_format": "hh-sol-artifact-1",
+  "contractName": "NonUpgradableProxy",
+  "sourceName": "contracts/release/utils/NonUpgradableProxy.sol",
+  "abi": [
+    {
+      "inputs": [
+        {
+          "internalType": "bytes",
+          "name": "_constructData",
+          "type": "bytes"
+        },
+        {
+          "internalType": "address",
+          "name": "_contractLogic",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "nonpayable",
+      "type": "constructor"
+    },
+    {
+      "stateMutability": "payable",
+      "type": "fallback"
+    }
+  ],
+  "bytecode": "0x",
+  "deployedBytecode": "0x",
+  "linkReferences": {},
+  "deployedLinkReferences": {}
+}

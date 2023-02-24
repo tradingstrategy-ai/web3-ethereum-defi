@@ -1,0 +1,83 @@
+{
+  "_format": "hh-sol-artifact-1",
+  "contractName": "NominatedOwnerMixin",
+  "sourceName": "contracts/release/utils/NominatedOwnerMixin.sol",
+  "abi": [
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "nominatedOwner",
+          "type": "address"
+        }
+      ],
+      "name": "NominatedOwnerSet",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": false,
+          "internalType": "address",
+          "name": "owner",
+          "type": "address"
+        }
+      ],
+      "name": "OwnerSet",
+      "type": "event"
+    },
+    {
+      "inputs": [],
+      "name": "claimOwnership",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "getNominatedOwner",
+      "outputs": [
+        {
+          "internalType": "address",
+          "name": "nominatedOwner_",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "getOwner",
+      "outputs": [
+        {
+          "internalType": "address",
+          "name": "owner_",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "_nextNominatedOwner",
+          "type": "address"
+        }
+      ],
+      "name": "setNominatedOwner",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    }
+  ],
+  "bytecode": "0x",
+  "deployedBytecode": "0x",
+  "linkReferences": {},
+  "deployedLinkReferences": {}
+}

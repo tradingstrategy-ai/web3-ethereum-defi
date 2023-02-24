@@ -1,0 +1,30 @@
+{
+  "_format": "hh-sol-artifact-1",
+  "contractName": "ILidoSteth",
+  "sourceName": "contracts/release/interfaces/ILidoSteth.sol",
+  "abi": [
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "_sharesAmount",
+          "type": "uint256"
+        }
+      ],
+      "name": "getPooledEthByShares",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "ethAmount_",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    }
+  ],
+  "bytecode": "0x",
+  "deployedBytecode": "0x",
+  "linkReferences": {},
+  "deployedLinkReferences": {}
+}

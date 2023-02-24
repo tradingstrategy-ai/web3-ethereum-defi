@@ -1,0 +1,174 @@
+{
+  "_format": "hh-sol-artifact-1",
+  "contractName": "ICompoundV3Configurator",
+  "sourceName": "contracts/release/interfaces/ICompoundV3Configurator.sol",
+  "abi": [
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "_cToken",
+          "type": "address"
+        }
+      ],
+      "name": "getConfiguration",
+      "outputs": [
+        {
+          "components": [
+            {
+              "internalType": "address",
+              "name": "governor",
+              "type": "address"
+            },
+            {
+              "internalType": "address",
+              "name": "pauseGuardian",
+              "type": "address"
+            },
+            {
+              "internalType": "address",
+              "name": "baseToken",
+              "type": "address"
+            },
+            {
+              "internalType": "address",
+              "name": "baseTokenPriceFeed",
+              "type": "address"
+            },
+            {
+              "internalType": "address",
+              "name": "extensionDelegate",
+              "type": "address"
+            },
+            {
+              "internalType": "uint64",
+              "name": "supplyKink",
+              "type": "uint64"
+            },
+            {
+              "internalType": "uint64",
+              "name": "supplyPerYearInterestRateSlopeLow",
+              "type": "uint64"
+            },
+            {
+              "internalType": "uint64",
+              "name": "supplyPerYearInterestRateSlopeHigh",
+              "type": "uint64"
+            },
+            {
+              "internalType": "uint64",
+              "name": "supplyPerYearInterestRateBase",
+              "type": "uint64"
+            },
+            {
+              "internalType": "uint64",
+              "name": "borrowKink",
+              "type": "uint64"
+            },
+            {
+              "internalType": "uint64",
+              "name": "borrowPerYearInterestRateSlopeLow",
+              "type": "uint64"
+            },
+            {
+              "internalType": "uint64",
+              "name": "borrowPerYearInterestRateSlopeHigh",
+              "type": "uint64"
+            },
+            {
+              "internalType": "uint64",
+              "name": "borrowPerYearInterestRateBase",
+              "type": "uint64"
+            },
+            {
+              "internalType": "uint64",
+              "name": "storeFrontPriceFactor",
+              "type": "uint64"
+            },
+            {
+              "internalType": "uint64",
+              "name": "trackingIndexScale",
+              "type": "uint64"
+            },
+            {
+              "internalType": "uint64",
+              "name": "baseTrackingSupplySpeed",
+              "type": "uint64"
+            },
+            {
+              "internalType": "uint64",
+              "name": "baseTrackingBorrowSpeed",
+              "type": "uint64"
+            },
+            {
+              "internalType": "uint104",
+              "name": "baseMinForRewards",
+              "type": "uint104"
+            },
+            {
+              "internalType": "uint104",
+              "name": "baseBorrowMin",
+              "type": "uint104"
+            },
+            {
+              "internalType": "uint104",
+              "name": "targetReserves",
+              "type": "uint104"
+            },
+            {
+              "components": [
+                {
+                  "internalType": "address",
+                  "name": "asset",
+                  "type": "address"
+                },
+                {
+                  "internalType": "address",
+                  "name": "priceFeed",
+                  "type": "address"
+                },
+                {
+                  "internalType": "uint8",
+                  "name": "decimals",
+                  "type": "uint8"
+                },
+                {
+                  "internalType": "uint64",
+                  "name": "borrowCollateralFactor",
+                  "type": "uint64"
+                },
+                {
+                  "internalType": "uint64",
+                  "name": "liquidateCollateralFactor",
+                  "type": "uint64"
+                },
+                {
+                  "internalType": "uint64",
+                  "name": "liquidationFactor",
+                  "type": "uint64"
+                },
+                {
+                  "internalType": "uint128",
+                  "name": "supplyCap",
+                  "type": "uint128"
+                }
+              ],
+              "internalType": "struct ICompoundV3Configurator.AssetConfig[]",
+              "name": "assetConfigs",
+              "type": "tuple[]"
+            }
+          ],
+          "internalType": "struct ICompoundV3Configurator.Configuration",
+          "name": "configuration_",
+          "type": "tuple"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    }
+  ],
+  "bytecode": "0x",
+  "deployedBytecode": "0x",
+  "linkReferences": {},
+  "deployedLinkReferences": {}
+}

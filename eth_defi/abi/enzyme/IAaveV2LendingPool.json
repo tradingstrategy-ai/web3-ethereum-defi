@@ -1,0 +1,223 @@
+{
+  "_format": "hh-sol-artifact-1",
+  "contractName": "IAaveV2LendingPool",
+  "sourceName": "contracts/release/interfaces/IAaveV2LendingPool.sol",
+  "abi": [
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "_underlying",
+          "type": "address"
+        },
+        {
+          "internalType": "uint256",
+          "name": "_amount",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "_rateMode",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint16",
+          "name": "_referralCode",
+          "type": "uint16"
+        },
+        {
+          "internalType": "address",
+          "name": "_to",
+          "type": "address"
+        }
+      ],
+      "name": "borrow",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "_underlying",
+          "type": "address"
+        },
+        {
+          "internalType": "uint256",
+          "name": "_amount",
+          "type": "uint256"
+        },
+        {
+          "internalType": "address",
+          "name": "_to",
+          "type": "address"
+        },
+        {
+          "internalType": "uint16",
+          "name": "_referralCode",
+          "type": "uint16"
+        }
+      ],
+      "name": "deposit",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "_asset",
+          "type": "address"
+        }
+      ],
+      "name": "getReserveData",
+      "outputs": [
+        {
+          "components": [
+            {
+              "components": [
+                {
+                  "internalType": "uint256",
+                  "name": "data",
+                  "type": "uint256"
+                }
+              ],
+              "internalType": "struct IAaveV2LendingPool.ReserveConfigurationMap",
+              "name": "configuration",
+              "type": "tuple"
+            },
+            {
+              "internalType": "uint128",
+              "name": "liquidityIndex",
+              "type": "uint128"
+            },
+            {
+              "internalType": "uint128",
+              "name": "variableBorrowIndex",
+              "type": "uint128"
+            },
+            {
+              "internalType": "uint128",
+              "name": "currentLiquidityRate",
+              "type": "uint128"
+            },
+            {
+              "internalType": "uint128",
+              "name": "currentVariableBorrowRate",
+              "type": "uint128"
+            },
+            {
+              "internalType": "uint128",
+              "name": "currentStableBorrowRate",
+              "type": "uint128"
+            },
+            {
+              "internalType": "uint40",
+              "name": "lastUpdateTimestamp",
+              "type": "uint40"
+            },
+            {
+              "internalType": "address",
+              "name": "aTokenAddress",
+              "type": "address"
+            },
+            {
+              "internalType": "address",
+              "name": "stableDebtTokenAddress",
+              "type": "address"
+            },
+            {
+              "internalType": "address",
+              "name": "variableDebtTokenAddress",
+              "type": "address"
+            },
+            {
+              "internalType": "address",
+              "name": "interestRateStrategyAddress",
+              "type": "address"
+            },
+            {
+              "internalType": "uint8",
+              "name": "id",
+              "type": "uint8"
+            }
+          ],
+          "internalType": "struct IAaveV2LendingPool.ReserveData",
+          "name": "reserveData_",
+          "type": "tuple"
+        }
+      ],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "_underlying",
+          "type": "address"
+        },
+        {
+          "internalType": "uint256",
+          "name": "_amount",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "_rateMode",
+          "type": "uint256"
+        },
+        {
+          "internalType": "address",
+          "name": "_to",
+          "type": "address"
+        }
+      ],
+      "name": "repay",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "actualAmount_",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "_underlying",
+          "type": "address"
+        },
+        {
+          "internalType": "uint256",
+          "name": "_amount",
+          "type": "uint256"
+        },
+        {
+          "internalType": "address",
+          "name": "_to",
+          "type": "address"
+        }
+      ],
+      "name": "withdraw",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "actualAmount_",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    }
+  ],
+  "bytecode": "0x",
+  "deployedBytecode": "0x",
+  "linkReferences": {},
+  "deployedLinkReferences": {}
+}

@@ -1,0 +1,441 @@
+{
+  "_format": "hh-sol-artifact-1",
+  "contractName": "INotionalV2Router",
+  "sourceName": "contracts/release/interfaces/INotionalV2Router.sol",
+  "abi": [
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "_account",
+          "type": "address"
+        },
+        {
+          "components": [
+            {
+              "internalType": "enum INotionalV2Router.DepositActionType",
+              "name": "actionType",
+              "type": "uint8"
+            },
+            {
+              "internalType": "uint16",
+              "name": "currencyId",
+              "type": "uint16"
+            },
+            {
+              "internalType": "uint256",
+              "name": "depositActionAmount",
+              "type": "uint256"
+            },
+            {
+              "internalType": "uint256",
+              "name": "withdrawAmountInternalPrecision",
+              "type": "uint256"
+            },
+            {
+              "internalType": "bool",
+              "name": "withdrawEntireCashBalance",
+              "type": "bool"
+            },
+            {
+              "internalType": "bool",
+              "name": "redeemToUnderlying",
+              "type": "bool"
+            },
+            {
+              "internalType": "bytes32[]",
+              "name": "trades",
+              "type": "bytes32[]"
+            }
+          ],
+          "internalType": "struct INotionalV2Router.BalanceActionWithTrades[]",
+          "name": "_actions",
+          "type": "tuple[]"
+        }
+      ],
+      "name": "batchBalanceAndTradeAction",
+      "outputs": [],
+      "stateMutability": "payable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "_account",
+          "type": "address"
+        },
+        {
+          "internalType": "uint16",
+          "name": "_currencyId",
+          "type": "uint16"
+        },
+        {
+          "internalType": "uint256",
+          "name": "_amountExternalPrecision",
+          "type": "uint256"
+        }
+      ],
+      "name": "depositUnderlyingToken",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "payable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "_account",
+          "type": "address"
+        }
+      ],
+      "name": "getAccount",
+      "outputs": [
+        {
+          "components": [
+            {
+              "internalType": "uint40",
+              "name": "nextSettleTime",
+              "type": "uint40"
+            },
+            {
+              "internalType": "bytes1",
+              "name": "hasDebt",
+              "type": "bytes1"
+            },
+            {
+              "internalType": "uint8",
+              "name": "assetArrayLength",
+              "type": "uint8"
+            },
+            {
+              "internalType": "uint16",
+              "name": "bitmapCurrencyId",
+              "type": "uint16"
+            },
+            {
+              "internalType": "bytes18",
+              "name": "activeCurrencies",
+              "type": "bytes18"
+            }
+          ],
+          "internalType": "struct INotionalV2Router.AccountContext",
+          "name": "accountContext_",
+          "type": "tuple"
+        },
+        {
+          "components": [
+            {
+              "internalType": "uint16",
+              "name": "currencyId",
+              "type": "uint16"
+            },
+            {
+              "internalType": "int256",
+              "name": "cashBalance",
+              "type": "int256"
+            },
+            {
+              "internalType": "int256",
+              "name": "nTokenBalance",
+              "type": "int256"
+            },
+            {
+              "internalType": "uint256",
+              "name": "lastClaimTime",
+              "type": "uint256"
+            },
+            {
+              "internalType": "uint256",
+              "name": "accountIncentiveDebt",
+              "type": "uint256"
+            }
+          ],
+          "internalType": "struct INotionalV2Router.AccountBalance[]",
+          "name": "accountBalances_",
+          "type": "tuple[]"
+        },
+        {
+          "components": [
+            {
+              "internalType": "uint256",
+              "name": "currencyId",
+              "type": "uint256"
+            },
+            {
+              "internalType": "uint256",
+              "name": "maturity",
+              "type": "uint256"
+            },
+            {
+              "internalType": "uint256",
+              "name": "assetType",
+              "type": "uint256"
+            },
+            {
+              "internalType": "int256",
+              "name": "notional",
+              "type": "int256"
+            },
+            {
+              "internalType": "uint256",
+              "name": "storageSlot",
+              "type": "uint256"
+            },
+            {
+              "internalType": "enum INotionalV2Router.AssetStorageState",
+              "name": "storageState",
+              "type": "uint8"
+            }
+          ],
+          "internalType": "struct INotionalV2Router.PortfolioAsset[]",
+          "name": "portfolio_",
+          "type": "tuple[]"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint16",
+          "name": "_currencyId",
+          "type": "uint16"
+        },
+        {
+          "internalType": "address",
+          "name": "_account",
+          "type": "address"
+        }
+      ],
+      "name": "getAccountBalance",
+      "outputs": [
+        {
+          "internalType": "int256",
+          "name": "cashBalance_",
+          "type": "int256"
+        },
+        {
+          "internalType": "int256",
+          "name": "nTokenBalance_",
+          "type": "int256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "lastClaimTime_",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "_account",
+          "type": "address"
+        }
+      ],
+      "name": "getAccountPortfolio",
+      "outputs": [
+        {
+          "components": [
+            {
+              "internalType": "uint256",
+              "name": "currencyId",
+              "type": "uint256"
+            },
+            {
+              "internalType": "uint256",
+              "name": "maturity",
+              "type": "uint256"
+            },
+            {
+              "internalType": "uint256",
+              "name": "assetType",
+              "type": "uint256"
+            },
+            {
+              "internalType": "int256",
+              "name": "notional",
+              "type": "int256"
+            },
+            {
+              "internalType": "uint256",
+              "name": "storageSlot",
+              "type": "uint256"
+            },
+            {
+              "internalType": "enum INotionalV2Router.AssetStorageState",
+              "name": "storageState",
+              "type": "uint8"
+            }
+          ],
+          "internalType": "struct INotionalV2Router.PortfolioAsset[]",
+          "name": "portfolio_",
+          "type": "tuple[]"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint16",
+          "name": "_currencyId",
+          "type": "uint16"
+        }
+      ],
+      "name": "getCurrency",
+      "outputs": [
+        {
+          "components": [
+            {
+              "internalType": "address",
+              "name": "tokenAddress",
+              "type": "address"
+            },
+            {
+              "internalType": "bool",
+              "name": "hasTransferFee",
+              "type": "bool"
+            },
+            {
+              "internalType": "int256",
+              "name": "decimals",
+              "type": "int256"
+            },
+            {
+              "internalType": "enum INotionalV2Router.TokenType",
+              "name": "tokenType",
+              "type": "uint8"
+            },
+            {
+              "internalType": "uint256",
+              "name": "maxCollateralBalance",
+              "type": "uint256"
+            }
+          ],
+          "internalType": "struct INotionalV2Router.Token",
+          "name": "assetToken_",
+          "type": "tuple"
+        },
+        {
+          "components": [
+            {
+              "internalType": "address",
+              "name": "tokenAddress",
+              "type": "address"
+            },
+            {
+              "internalType": "bool",
+              "name": "hasTransferFee",
+              "type": "bool"
+            },
+            {
+              "internalType": "int256",
+              "name": "decimals",
+              "type": "int256"
+            },
+            {
+              "internalType": "enum INotionalV2Router.TokenType",
+              "name": "tokenType",
+              "type": "uint8"
+            },
+            {
+              "internalType": "uint256",
+              "name": "maxCollateralBalance",
+              "type": "uint256"
+            }
+          ],
+          "internalType": "struct INotionalV2Router.Token",
+          "name": "underlyingToken_",
+          "type": "tuple"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint16",
+          "name": "_currencyId",
+          "type": "uint16"
+        },
+        {
+          "internalType": "uint256",
+          "name": "_maturity",
+          "type": "uint256"
+        },
+        {
+          "internalType": "int256",
+          "name": "_notional",
+          "type": "int256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "_blockTime",
+          "type": "uint256"
+        },
+        {
+          "internalType": "bool",
+          "name": "_riskAdjusted",
+          "type": "bool"
+        }
+      ],
+      "name": "getPresentfCashValue",
+      "outputs": [
+        {
+          "internalType": "int256",
+          "name": "presentValue_",
+          "type": "int256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint16",
+          "name": "_currencyId",
+          "type": "uint16"
+        },
+        {
+          "internalType": "uint88",
+          "name": "_amountInternalPrecision",
+          "type": "uint88"
+        },
+        {
+          "internalType": "bool",
+          "name": "_redeemToUnderlying",
+          "type": "bool"
+        }
+      ],
+      "name": "withdraw",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "amount_",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    }
+  ],
+  "bytecode": "0x",
+  "deployedBytecode": "0x",
+  "linkReferences": {},
+  "deployedLinkReferences": {}
+}
