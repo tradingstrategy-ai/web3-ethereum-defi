@@ -1,0 +1,351 @@
+{
+  "_format": "hh-sol-artifact-1",
+  "contractName": "ISolvV2InitialConvertibleOfferingMarket",
+  "sourceName": "contracts/release/interfaces/ISolvV2InitialConvertibleOfferingMarket.sol",
+  "abi": [
+    {
+      "inputs": [
+        {
+          "internalType": "uint24",
+          "name": "_offeringId",
+          "type": "uint24"
+        },
+        {
+          "internalType": "uint128",
+          "name": "_units",
+          "type": "uint128"
+        }
+      ],
+      "name": "buy",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "amount_",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint128",
+          "name": "fee_",
+          "type": "uint128"
+        }
+      ],
+      "stateMutability": "payable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint24",
+          "name": "_offeringId",
+          "type": "uint24"
+        }
+      ],
+      "name": "getPrice",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "price_",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "_voucher",
+          "type": "address"
+        }
+      ],
+      "name": "markets",
+      "outputs": [
+        {
+          "components": [
+            {
+              "internalType": "enum ISolvV2InitialConvertibleOfferingMarket.VoucherType",
+              "name": "voucherType",
+              "type": "uint8"
+            },
+            {
+              "internalType": "address",
+              "name": "voucherPool",
+              "type": "address"
+            },
+            {
+              "internalType": "address",
+              "name": "asset",
+              "type": "address"
+            },
+            {
+              "internalType": "uint8",
+              "name": "decimals",
+              "type": "uint8"
+            },
+            {
+              "internalType": "uint16",
+              "name": "feeRate",
+              "type": "uint16"
+            },
+            {
+              "internalType": "bool",
+              "name": "onlyManangerOffer",
+              "type": "bool"
+            },
+            {
+              "internalType": "bool",
+              "name": "isValid",
+              "type": "bool"
+            }
+          ],
+          "internalType": "struct ISolvV2InitialConvertibleOfferingMarket.Market",
+          "name": "market_",
+          "type": "tuple"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint24",
+          "name": "_offeringId",
+          "type": "uint24"
+        }
+      ],
+      "name": "mintParameters",
+      "outputs": [
+        {
+          "components": [
+            {
+              "internalType": "uint128",
+              "name": "lowestPrice",
+              "type": "uint128"
+            },
+            {
+              "internalType": "uint128",
+              "name": "highestPrice",
+              "type": "uint128"
+            },
+            {
+              "internalType": "uint128",
+              "name": "tokenInAmount",
+              "type": "uint128"
+            },
+            {
+              "internalType": "uint64",
+              "name": "effectiveTime",
+              "type": "uint64"
+            },
+            {
+              "internalType": "uint64",
+              "name": "maturity",
+              "type": "uint64"
+            }
+          ],
+          "internalType": "struct ISolvV2InitialConvertibleOfferingMarket.MintParameter",
+          "name": "mintParameter_",
+          "type": "tuple"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "_voucher",
+          "type": "address"
+        },
+        {
+          "internalType": "address",
+          "name": "_currency",
+          "type": "address"
+        },
+        {
+          "internalType": "uint128",
+          "name": "_min",
+          "type": "uint128"
+        },
+        {
+          "internalType": "uint128",
+          "name": "_max",
+          "type": "uint128"
+        },
+        {
+          "internalType": "uint32",
+          "name": "_startTime",
+          "type": "uint32"
+        },
+        {
+          "internalType": "uint32",
+          "name": "_endTime",
+          "type": "uint32"
+        },
+        {
+          "internalType": "bool",
+          "name": "_useAllowList",
+          "type": "bool"
+        },
+        {
+          "internalType": "enum ISolvV2InitialConvertibleOfferingMarket.PriceType",
+          "name": "_priceType",
+          "type": "uint8"
+        },
+        {
+          "internalType": "bytes",
+          "name": "_priceData",
+          "type": "bytes"
+        },
+        {
+          "components": [
+            {
+              "internalType": "uint128",
+              "name": "lowestPrice",
+              "type": "uint128"
+            },
+            {
+              "internalType": "uint128",
+              "name": "highestPrice",
+              "type": "uint128"
+            },
+            {
+              "internalType": "uint128",
+              "name": "tokenInAmount",
+              "type": "uint128"
+            },
+            {
+              "internalType": "uint64",
+              "name": "effectiveTime",
+              "type": "uint64"
+            },
+            {
+              "internalType": "uint64",
+              "name": "maturity",
+              "type": "uint64"
+            }
+          ],
+          "internalType": "struct ISolvV2InitialConvertibleOfferingMarket.MintParameter",
+          "name": "_mintParameter",
+          "type": "tuple"
+        }
+      ],
+      "name": "offer",
+      "outputs": [
+        {
+          "internalType": "uint24",
+          "name": "offeringId_",
+          "type": "uint24"
+        }
+      ],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint24",
+          "name": "_offerId",
+          "type": "uint24"
+        }
+      ],
+      "name": "offerings",
+      "outputs": [
+        {
+          "components": [
+            {
+              "internalType": "uint24",
+              "name": "offeringId",
+              "type": "uint24"
+            },
+            {
+              "internalType": "uint32",
+              "name": "startTime",
+              "type": "uint32"
+            },
+            {
+              "internalType": "uint32",
+              "name": "endTime",
+              "type": "uint32"
+            },
+            {
+              "internalType": "enum ISolvV2InitialConvertibleOfferingMarket.PriceType",
+              "name": "priceType",
+              "type": "uint8"
+            },
+            {
+              "internalType": "uint128",
+              "name": "totalUnits",
+              "type": "uint128"
+            },
+            {
+              "internalType": "uint128",
+              "name": "units",
+              "type": "uint128"
+            },
+            {
+              "internalType": "uint128",
+              "name": "min",
+              "type": "uint128"
+            },
+            {
+              "internalType": "uint128",
+              "name": "max",
+              "type": "uint128"
+            },
+            {
+              "internalType": "address",
+              "name": "voucher",
+              "type": "address"
+            },
+            {
+              "internalType": "address",
+              "name": "currency",
+              "type": "address"
+            },
+            {
+              "internalType": "address",
+              "name": "issuer",
+              "type": "address"
+            },
+            {
+              "internalType": "bool",
+              "name": "useAllowList",
+              "type": "bool"
+            },
+            {
+              "internalType": "bool",
+              "name": "isValid",
+              "type": "bool"
+            }
+          ],
+          "internalType": "struct ISolvV2InitialConvertibleOfferingMarket.Offering",
+          "name": "offering_",
+          "type": "tuple"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint24",
+          "name": "_offeringId",
+          "type": "uint24"
+        }
+      ],
+      "name": "remove",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    }
+  ],
+  "bytecode": "0x",
+  "deployedBytecode": "0x",
+  "linkReferences": {},
+  "deployedLinkReferences": {}
+}

@@ -1,0 +1,40 @@
+{
+  "_format": "hh-sol-artifact-1",
+  "contractName": "IAaveV2ProtocolDataProvider",
+  "sourceName": "contracts/release/interfaces/IAaveV2ProtocolDataProvider.sol",
+  "abi": [
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "_underlying",
+          "type": "address"
+        }
+      ],
+      "name": "getReserveTokensAddresses",
+      "outputs": [
+        {
+          "internalType": "address",
+          "name": "aToken_",
+          "type": "address"
+        },
+        {
+          "internalType": "address",
+          "name": "stableDebtToken_",
+          "type": "address"
+        },
+        {
+          "internalType": "address",
+          "name": "variableDebtToken_",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    }
+  ],
+  "bytecode": "0x",
+  "deployedBytecode": "0x",
+  "linkReferences": {},
+  "deployedLinkReferences": {}
+}

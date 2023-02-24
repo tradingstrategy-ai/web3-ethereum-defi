@@ -26,6 +26,21 @@ aavev3:
 	@find contracts/aave-v3/node_modules/@aave/core-v3/artifacts -iname "*.json" -not -iname "*.dbg.json" -exec cp {} eth_defi/abi/aave_v3 \;
 	@find eth_defi/abi/aave_v3 -iname "*.json" -exec sed -e 's/\$$__\|__\$$//g' -i {} \;
 
+# Compile and copy Enzyme contract ABIs from their Github repository
+# Needs pnpm: curl -fsSL https://get.pnpm.io/install.sh | sh -
+enzyme:
+	@(cd contracts/enzyme && pnpm install)
+	@(cd contracts/enzyme && pnpm compile)
+	@mkdir -p eth_defi/abi/enzyme
+	@find contracts/enzyme/packages/protocol/artifacts/contracts/release -iname "*.json" -exec cp {} eth_defi/abi/enzyme \;
+
+# Compile and copy dHEDGE
+# npm install also compiles the contracts here
+dhedge:
+	@(cd contracts/dhedge && npm install)
+	@find contracts/dhedge/abi -iname "*.json" -exec cp {} eth_defi/abi/dhegde \;
+
+
 clean:
 	@rm -rf contracts/sushiswap/artifacts/*
 	@rm -rf contracts/uniswap-v3-core/artifacts/*

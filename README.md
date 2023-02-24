@@ -9,6 +9,7 @@
 This project contains common Ethereum smart contracts and utilities, 
 for trading, wallets, automated test suites and backend integrations for EVM based blockchains.  
  
+* [Use Cases](#use-cases)
 * [Features](#features)
 * [Prerequisites](#prerequisites)
 * [Install](#install)
@@ -30,6 +31,14 @@ for trading, wallets, automated test suites and backend integrations for EVM bas
 
 **Pepe chooses web3-ethereum-defi and Python**.
 
+# Use Cases
+
+* Web3 development
+* DeFi trading
+* Market data services
+* On-chain data research
+* Ethereum integration: token payments, hot wallets, monitors and such 
+
 # Features
 
 Features include 
@@ -37,18 +46,20 @@ Features include
 * [Made for 99% developers](https://future.a16z.com/software-development-building-for-99-developers/)
 * [High-quality API documentation](https://web3-ethereum-defi.readthedocs.io/)
 * [Fully type hinted](https://web3-ethereum-defi.readthedocs.io/) for good developer experience
-* [ERC-20 token issuance and manipulation](https://web3-ethereum-defi.readthedocs.io/en/latest/_autosummary/eth_defi.token.html#module-eth_defi.token)
-* [Uniswap v2 tools](https://github.com/sushiswap/sushiswap): deployment, trading, price estimation for Sushiswap, PancakeSwape, QuickSwap, Trader Joe, others
-* [Uniswap v3 tools](https://web3-ethereum-defi.readthedocs.io/api/index.html#uniswap-v3-api)
 * [Parallel transaction execution](https://web3-ethereum-defi.readthedocs.io/en/latest/_autosummary/eth_defi.txmonitor.html)
-* [Mainnet forking with ganache-cli](https://web3-ethereum-defi.readthedocs.io/en/latest/_autosummary/eth_defi.ganache.fork_network.html#eth_defi.ganache.fork_network)
-* As opposite to slower and messier [mainnet forking workflows](https://www.quicknode.com/guides/web3-sdks/how-to-fork-ethereum-blockchain-with-ganache), 
-this project aims to explicit clean deployments and very fast test execution.
-* (More integrations to come)
+* [Mainnet forking with Anvil](https://web3-ethereum-defi.readthedocs.io/api/_autosummary/eth_defi.anvil.html#module-eth_defi.anvil)
+* [Trading](https://web3-ethereum-defi.readthedocs.io/api/index.html)
+* [Loans](https://web3-ethereum-defi.readthedocs.io/api/index.html)
+* [ERC-20 token issuance and manipulation](https://web3-ethereum-defi.readthedocs.io/en/latest/_autosummary/eth_defi.token.html#module-eth_defi.token)
+* 
+We support 
 
-Unlike ApeWorX or Brownie, which are smart contract development frameworks, `web3-ethereum-defi` is a library. It is designed
-to be included in any other Python application and you can only use bits of its that you need.
-There are no expectations on configuration files or folder structure.
+* Uniswap (both v2 and v3)
+* Sushi
+* Aave 
+* Enzyme Protocol
+* dHEDGE Protocol
+* More integrations to come
 
 [Read the full API documentation](https://web3-ethereum-defi.readthedocs.io/)).
 For code examples please see below.
@@ -237,7 +248,8 @@ poetry add -D "web3-ethereum-defi[data]"
 
 # Documentation
 
-- [Browse Sphinx API documentation](https://web3-ethereum-defi.readthedocs.io/).
+- [Browse API documentation](https://web3-ethereum-defi.readthedocs.io/).
+- [Browse tutorials](https://web3-ethereum-defi.readthedocs.io/tutorials/index.html).
 
 # Development and contributing
 
@@ -257,12 +269,6 @@ poetry add -D "web3-ethereum-defi[data]"
 - [Follow on Twitter](https://twitter.com/TradingProtocol)
 - [Follow on Telegram](https://t.me/trading_protocol)
 - [Follow on LinkedIn](https://www.linkedin.com/company/trading-strategy/)
-
-# Notes
-
-Currently there is no [Brownie](https://eth-brownie.readthedocs.io/) support.
-To support Brownie, one would need to figure out how to import an existing Hardhat
-based project (Sushiswap) to Brownie project format.
 
 # History
 

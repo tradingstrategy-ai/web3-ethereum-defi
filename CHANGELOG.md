@@ -1,7 +1,8 @@
 # Current
 
-- TODO
-- 
+- Adding Enzyme Protocol ABI files and compile commands
+- Adding dHEDGE Protocol ABI files and compile commands
+
 # 0.14.1
 
 - Add Ethereum to `AAVE_V3_NETWORKS` configuration

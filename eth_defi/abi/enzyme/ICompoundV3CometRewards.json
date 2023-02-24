@@ -1,0 +1,70 @@
+{
+  "_format": "hh-sol-artifact-1",
+  "contractName": "ICompoundV3CometRewards",
+  "sourceName": "contracts/release/interfaces/ICompoundV3CometRewards.sol",
+  "abi": [
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "_cToken",
+          "type": "address"
+        },
+        {
+          "internalType": "address",
+          "name": "_src",
+          "type": "address"
+        },
+        {
+          "internalType": "bool",
+          "name": "_shouldAccrue",
+          "type": "bool"
+        }
+      ],
+      "name": "claim",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "_cToken",
+          "type": "address"
+        }
+      ],
+      "name": "rewardConfig",
+      "outputs": [
+        {
+          "components": [
+            {
+              "internalType": "address",
+              "name": "token",
+              "type": "address"
+            },
+            {
+              "internalType": "uint64",
+              "name": "rescaleFactor",
+              "type": "uint64"
+            },
+            {
+              "internalType": "bool",
+              "name": "shouldUpscale",
+              "type": "bool"
+            }
+          ],
+          "internalType": "struct ICompoundV3CometRewards.RewardConfig",
+          "name": "rewardConfig_",
+          "type": "tuple"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    }
+  ],
+  "bytecode": "0x",
+  "deployedBytecode": "0x",
+  "linkReferences": {},
+  "deployedLinkReferences": {}
+}

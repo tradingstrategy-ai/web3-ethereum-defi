@@ -1,0 +1,30 @@
+{
+  "_format": "hh-sol-artifact-1",
+  "contractName": "IMapleV2ProxyFactory",
+  "sourceName": "contracts/release/interfaces/IMapleV2ProxyFactory.sol",
+  "abi": [
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "instance_",
+          "type": "address"
+        }
+      ],
+      "name": "isInstance",
+      "outputs": [
+        {
+          "internalType": "bool",
+          "name": "isInstance_",
+          "type": "bool"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    }
+  ],
+  "bytecode": "0x",
+  "deployedBytecode": "0x",
+  "linkReferences": {},
+  "deployedLinkReferences": {}
+}

@@ -1,0 +1,63 @@
+{
+  "_format": "hh-sol-artifact-1",
+  "contractName": "ParaSwapV5ActionsMixin",
+  "sourceName": "contracts/release/extensions/integration-manager/integrations/utils/actions/ParaSwapV5ActionsMixin.sol",
+  "abi": [
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "_augustusSwapper",
+          "type": "address"
+        },
+        {
+          "internalType": "address",
+          "name": "_tokenTransferProxy",
+          "type": "address"
+        },
+        {
+          "internalType": "address",
+          "name": "_feePartner",
+          "type": "address"
+        },
+        {
+          "internalType": "uint256",
+          "name": "_feePercent",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "nonpayable",
+      "type": "constructor"
+    },
+    {
+      "inputs": [],
+      "name": "getParaSwapV5AugustusSwapper",
+      "outputs": [
+        {
+          "internalType": "address",
+          "name": "augustusSwapper_",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "getParaSwapV5TokenTransferProxy",
+      "outputs": [
+        {
+          "internalType": "address",
+          "name": "tokenTransferProxy_",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    }
+  ],
+  "bytecode": "0x",
+  "deployedBytecode": "0x",
+  "linkReferences": {},
+  "deployedLinkReferences": {}
+}

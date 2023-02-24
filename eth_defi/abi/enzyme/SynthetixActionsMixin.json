@@ -1,0 +1,89 @@
+{
+  "_format": "hh-sol-artifact-1",
+  "contractName": "SynthetixActionsMixin",
+  "sourceName": "contracts/release/extensions/integration-manager/integrations/utils/actions/SynthetixActionsMixin.sol",
+  "abi": [
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "_originator",
+          "type": "address"
+        },
+        {
+          "internalType": "address",
+          "name": "_redeemer",
+          "type": "address"
+        },
+        {
+          "internalType": "address",
+          "name": "_synthetix",
+          "type": "address"
+        },
+        {
+          "internalType": "bytes32",
+          "name": "_trackingCode",
+          "type": "bytes32"
+        }
+      ],
+      "stateMutability": "nonpayable",
+      "type": "constructor"
+    },
+    {
+      "inputs": [],
+      "name": "getSynthetix",
+      "outputs": [
+        {
+          "internalType": "address",
+          "name": "synthetix_",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "getSynthetixOriginator",
+      "outputs": [
+        {
+          "internalType": "address",
+          "name": "synthetixOriginator_",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "getSynthetixRedeemer",
+      "outputs": [
+        {
+          "internalType": "address",
+          "name": "synthetixRedeemer_",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "getSynthetixTrackingCode",
+      "outputs": [
+        {
+          "internalType": "bytes32",
+          "name": "synthetixTrackingCode_",
+          "type": "bytes32"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    }
+  ],
+  "bytecode": "0x",
+  "deployedBytecode": "0x",
+  "linkReferences": {},
+  "deployedLinkReferences": {}
+}

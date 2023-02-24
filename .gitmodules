@@ -7,3 +7,9 @@
 [submodule "uniswap-v3-periphery"]
 	path = contracts/uniswap-v3-periphery
 	url = https://github.com/Uniswap/v3-periphery.git
+[submodule "contracts/enzyme"]
+	path = contracts/enzyme
+	url = https://github.com/enzymefinance/protocol.git
+[submodule "contracts/dhedge"]
+	path = contracts/dhedge
+	url = https://github.com/dhedge/V2-Public.git
