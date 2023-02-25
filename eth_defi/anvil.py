@@ -31,16 +31,15 @@ import time
 import warnings
 from dataclasses import dataclass
 from subprocess import DEVNULL, PIPE
-from typing import Dict, List, Optional, Union, Tuple
+from typing import List, Optional, Tuple, Union
 
 import psutil
 import requests
-
-from eth_defi.utils import is_localhost_port_listening, shutdown_hard
 from eth_typing import HexAddress
 from requests.exceptions import ConnectionError as RequestsConnectionError
-from web3 import Web3, HTTPProvider
+from web3 import HTTPProvider, Web3
 
+from eth_defi.utils import is_localhost_port_listening, shutdown_hard
 
 logger = logging.getLogger(__name__)
 
@@ -157,7 +156,7 @@ def fork_network_anvil(
     block_time=0,
     launch_wait_seconds=20.0,
     attempts=3,
-    hardfork="berlin",
+    hardfork="london",
 ) -> AnvilLaunch:
     """Creates the Anvil mainnet fork using a given JSON-RPC endpoint.
 
