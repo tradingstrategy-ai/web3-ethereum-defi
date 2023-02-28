@@ -19,10 +19,12 @@ from web3 import HTTPProvider, Web3
 from eth_defi.anvil import fork_network_anvil
 from eth_defi.chain import install_chain_middleware
 from eth_defi.token import fetch_erc20_details
-from eth_defi.uniswap_v2.token_tax import estimate_token_taxes, SwapError, TransferFromError
-
-from eth_defi.uniswap_v2.token_tax import TokenTaxInfo
 from eth_defi.uniswap_v2.deployment import UniswapV2Deployment, fetch_deployment
+from eth_defi.uniswap_v2.token_tax import (
+    TokenTaxInfo,
+    TransferFromError,
+    estimate_token_taxes,
+)
 
 # https://docs.pytest.org/en/latest/how-to/skipping.html#skip-all-test-functions-of-a-class-or-module
 pytestmark = pytest.mark.skipif(
