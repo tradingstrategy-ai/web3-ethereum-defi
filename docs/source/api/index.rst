@@ -15,6 +15,7 @@ Core API
    :toctree: _autosummary
    :recursive:
 
+   eth_defi.chain
    eth_defi.token
    eth_defi.balances
    eth_defi.abi
