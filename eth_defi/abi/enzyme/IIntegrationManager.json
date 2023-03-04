@@ -76,19 +76,19 @@
   },
   "ast": {
     "absolutePath": "contracts/release/extensions/integration-manager/IIntegrationManager.sol",
-    "id": 40700,
+    "id": 8866,
     "exportedSymbols": {
       "IIntegrationManager": [
-        40699
+        8865
       ]
     },
     "nodeType": "SourceUnit",
-    "src": "255:289:157",
+    "src": "255:289:31",
     "nodes": [
       {
-        "id": 40693,
+        "id": 8859,
         "nodeType": "PragmaDirective",
-        "src": "255:23:157",
+        "src": "255:23:31",
         "nodes": [],
         "literals": [
           "solidity",
@@ -97,34 +97,34 @@
         ]
       },
       {
-        "id": 40699,
+        "id": 8865,
         "nodeType": "ContractDefinition",
-        "src": "423:120:157",
+        "src": "423:120:31",
         "nodes": [
           {
-            "id": 40698,
+            "id": 8864,
             "nodeType": "EnumDefinition",
-            "src": "459:82:157",
+            "src": "459:82:31",
             "nodes": [],
             "canonicalName": "IIntegrationManager.SpendAssetsHandleType",
             "members": [
               {
-                "id": 40695,
+                "id": 8861,
                 "name": "None",
                 "nodeType": "EnumValue",
-                "src": "496:4:157"
+                "src": "496:4:31"
               },
               {
-                "id": 40696,
+                "id": 8862,
                 "name": "Approve",
                 "nodeType": "EnumValue",
-                "src": "510:7:157"
+                "src": "510:7:31"
               },
               {
-                "id": 40697,
+                "id": 8863,
                 "name": "Transfer",
                 "nodeType": "EnumValue",
-                "src": "527:8:157"
+                "src": "527:8:31"
               }
             ],
             "name": "SpendAssetsHandleType"
@@ -135,20 +135,20 @@
         "contractDependencies": [],
         "contractKind": "interface",
         "documentation": {
-          "id": 40694,
+          "id": 8860,
           "nodeType": "StructuredDocumentation",
-          "src": "280:143:157",
+          "src": "280:143:31",
           "text": "@title IIntegrationManager interface\n @author Enzyme Council <security@enzyme.finance>\n @notice Interface for the IntegrationManager"
         },
         "fullyImplemented": true,
         "linearizedBaseContracts": [
-          40699
+          8865
         ],
         "name": "IIntegrationManager",
-        "scope": 40700
+        "scope": 8866
       }
     ],
     "license": "GPL-3.0"
   },
-  "id": 157
+  "id": 31
 }

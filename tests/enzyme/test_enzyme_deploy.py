@@ -19,7 +19,7 @@ def test_deploy_enzyme(
         usdc: Contract,
         usdc_usd_mock_chainlink_aggregator: Contract,
 ):
-    """Test Enzyme deployment."""
+    """Deploy Enzyme protocol, single USDC nominated vault and buy in."""
 
     deployment = EnzymeDeployment.deploy_core(
         web3,
@@ -30,26 +30,30 @@ def test_deploy_enzyme(
 
     # Create a vault for user 1
     # where we nominate everything in USDC
-
     deployment.add_primitive(
         usdc,
         usdc_usd_mock_chainlink_aggregator,
         RateAsset.USD,
     )
 
-    comptroller_proxy, vault = deployment.create_new_vault(
+    comptroller, vault = deployment.create_new_vault(
         user_1,
         usdc,
     )
 
+    assert comptroller.functions.getDenominationAsset().call() == usdc.address
+    assert vault.functions.getTrackedAssets().call() == [usdc.address]
+
     # User 2 buys into the vault
-
+    # See Shares.sol
+    #
+    # Buy shares for 500 USDC, receive min share
     usdc.functions.transfer(user_2, 500*10**6).transact({"from": deployer})
-    usdc.functions.transfer(user_2, 500*10**6).transact({"from": deployer})
+    usdc.functions.approve(comptroller.address, 500*10**6).transact({"from": user_2})
+    comptroller.functions.buyShares(500*10**6, 1).transact({"from": user_2})
 
-
-
-
-
+    # See user 2 received shares
+    balance = vault.functions.balanceOf(user_2).call()
+    assert balance == 500*10**6
 
 

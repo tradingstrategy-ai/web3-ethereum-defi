@@ -25,9 +25,9 @@ aavev3:
 # Compile and copy Enzyme contract ABIs from their Github repository
 # Needs pnpm: curl -fsSL https://get.pnpm.io/install.sh | sh -
 enzyme:
-	@@rm eth_defi/abi/enzyme/*.json
+	@rm -f eth_defi/abi/enzyme/*.json || false
 	@(cd contracts/enzyme && pnpm install)
-	@(cd contracts/enzyme && pnpm compile)
+	@(cd contracts/enzyme && forge build)
 	@mkdir -p eth_defi/abi/enzyme
 	@find contracts/enzyme/artifacts -iname "*.json" -exec cp {} eth_defi/abi/enzyme \;
 

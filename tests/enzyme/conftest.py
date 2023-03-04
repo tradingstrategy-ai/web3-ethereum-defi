@@ -49,14 +49,15 @@ def anvil() -> AnvilLaunch:
 
 
 @pytest.fixture
-def web3(anvil: AnvilLaunch) -> Web3:
+def web3() -> Web3:
     """Set up the Anvil Web3 connection.
 
     Also perform the Anvil state reset for each test.
     """
-    web3 = Web3(HTTPProvider(anvil.json_rpc_url))
-    snapshot_id = "0x0"
-    make_anvil_custom_rpc_request(web3, "evm_revert", [snapshot_id])
+    tester = EthereumTesterProvider()
+    web3 = Web3(tester)
+    # snapshot_id = "0x0"
+    # make_anvil_custom_rpc_request(web3, "evm_revert", [snapshot_id])
     return web3
 
 

@@ -186,19 +186,19 @@
   },
   "ast": {
     "absolutePath": "contracts/release/extensions/integration-manager/integrations/IIntegrationAdapter.sol",
-    "id": 41722,
+    "id": 8894,
     "exportedSymbols": {
       "IIntegrationAdapter": [
-        41721
+        8893
       ]
     },
     "nodeType": "SourceUnit",
-    "src": "255:707:159",
+    "src": "255:707:32",
     "nodes": [
       {
-        "id": 41695,
+        "id": 8867,
         "nodeType": "PragmaDirective",
-        "src": "255:23:159",
+        "src": "255:23:32",
         "nodes": [],
         "literals": [
           "solidity",
@@ -207,26 +207,26 @@
         ]
       },
       {
-        "id": 41696,
+        "id": 8868,
         "nodeType": "ImportDirective",
-        "src": "280:36:159",
+        "src": "280:36:32",
         "nodes": [],
         "absolutePath": "contracts/release/extensions/integration-manager/IIntegrationManager.sol",
         "file": "../IIntegrationManager.sol",
-        "scope": 41722,
-        "sourceUnit": 40700,
+        "scope": 8894,
+        "sourceUnit": 8866,
         "symbolAliases": [],
         "unitAlias": ""
       },
       {
-        "id": 41721,
+        "id": 8893,
         "nodeType": "ContractDefinition",
-        "src": "463:498:159",
+        "src": "463:498:32",
         "nodes": [
           {
-            "id": 41720,
+            "id": 8892,
             "nodeType": "FunctionDefinition",
-            "src": "499:460:159",
+            "src": "499:460:32",
             "nodes": [],
             "documentation": null,
             "functionSelector": "c54efee5",
@@ -236,18 +236,18 @@
             "name": "parseAssetsForAction",
             "overrides": null,
             "parameters": {
-              "id": 41704,
+              "id": 8876,
               "nodeType": "ParameterList",
               "parameters": [
                 {
                   "constant": false,
-                  "id": 41699,
+                  "id": 8871,
                   "mutability": "mutable",
                   "name": "_vaultProxy",
                   "nodeType": "VariableDeclaration",
                   "overrides": null,
-                  "scope": 41720,
-                  "src": "538:19:159",
+                  "scope": 8892,
+                  "src": "538:19:32",
                   "stateVariable": false,
                   "storageLocation": "default",
                   "typeDescriptions": {
@@ -255,10 +255,10 @@
                     "typeString": "address"
                   },
                   "typeName": {
-                    "id": 41698,
+                    "id": 8870,
                     "name": "address",
                     "nodeType": "ElementaryTypeName",
-                    "src": "538:7:159",
+                    "src": "538:7:32",
                     "stateMutability": "nonpayable",
                     "typeDescriptions": {
                       "typeIdentifier": "t_address",
@@ -270,13 +270,13 @@
                 },
                 {
                   "constant": false,
-                  "id": 41701,
+                  "id": 8873,
                   "mutability": "mutable",
                   "name": "_selector",
                   "nodeType": "VariableDeclaration",
                   "overrides": null,
-                  "scope": 41720,
-                  "src": "567:16:159",
+                  "scope": 8892,
+                  "src": "567:16:32",
                   "stateVariable": false,
                   "storageLocation": "default",
                   "typeDescriptions": {
@@ -284,10 +284,10 @@
                     "typeString": "bytes4"
                   },
                   "typeName": {
-                    "id": 41700,
+                    "id": 8872,
                     "name": "bytes4",
                     "nodeType": "ElementaryTypeName",
-                    "src": "567:6:159",
+                    "src": "567:6:32",
                     "typeDescriptions": {
                       "typeIdentifier": "t_bytes4",
                       "typeString": "bytes4"
@@ -298,13 +298,13 @@
                 },
                 {
                   "constant": false,
-                  "id": 41703,
+                  "id": 8875,
                   "mutability": "mutable",
                   "name": "_encodedCallArgs",
                   "nodeType": "VariableDeclaration",
                   "overrides": null,
-                  "scope": 41720,
-                  "src": "593:31:159",
+                  "scope": 8892,
+                  "src": "593:31:32",
                   "stateVariable": false,
                   "storageLocation": "calldata",
                   "typeDescriptions": {
@@ -312,10 +312,10 @@
                     "typeString": "bytes"
                   },
                   "typeName": {
-                    "id": 41702,
+                    "id": 8874,
                     "name": "bytes",
                     "nodeType": "ElementaryTypeName",
-                    "src": "593:5:159",
+                    "src": "593:5:32",
                     "typeDescriptions": {
                       "typeIdentifier": "t_bytes_storage_ptr",
                       "typeString": "bytes"
@@ -325,36 +325,36 @@
                   "visibility": "internal"
                 }
               ],
-              "src": "528:102:159"
+              "src": "528:102:32"
             },
             "returnParameters": {
-              "id": 41719,
+              "id": 8891,
               "nodeType": "ParameterList",
               "parameters": [
                 {
                   "constant": false,
-                  "id": 41706,
+                  "id": 8878,
                   "mutability": "mutable",
                   "name": "spendAssetsHandleType_",
                   "nodeType": "VariableDeclaration",
                   "overrides": null,
-                  "scope": 41720,
-                  "src": "691:64:159",
+                  "scope": 8892,
+                  "src": "691:64:32",
                   "stateVariable": false,
                   "storageLocation": "default",
                   "typeDescriptions": {
-                    "typeIdentifier": "t_enum$_SpendAssetsHandleType_$40698",
+                    "typeIdentifier": "t_enum$_SpendAssetsHandleType_$8864",
                     "typeString": "enum IIntegrationManager.SpendAssetsHandleType"
                   },
                   "typeName": {
                     "contractScope": null,
-                    "id": 41705,
+                    "id": 8877,
                     "name": "IIntegrationManager.SpendAssetsHandleType",
                     "nodeType": "UserDefinedTypeName",
-                    "referencedDeclaration": 40698,
-                    "src": "691:41:159",
+                    "referencedDeclaration": 8864,
+                    "src": "691:41:32",
                     "typeDescriptions": {
-                      "typeIdentifier": "t_enum$_SpendAssetsHandleType_$40698",
+                      "typeIdentifier": "t_enum$_SpendAssetsHandleType_$8864",
                       "typeString": "enum IIntegrationManager.SpendAssetsHandleType"
                     }
                   },
@@ -363,13 +363,13 @@
                 },
                 {
                   "constant": false,
-                  "id": 41709,
+                  "id": 8881,
                   "mutability": "mutable",
                   "name": "spendAssets_",
                   "nodeType": "VariableDeclaration",
                   "overrides": null,
-                  "scope": 41720,
-                  "src": "769:29:159",
+                  "scope": 8892,
+                  "src": "769:29:32",
                   "stateVariable": false,
                   "storageLocation": "memory",
                   "typeDescriptions": {
@@ -378,20 +378,20 @@
                   },
                   "typeName": {
                     "baseType": {
-                      "id": 41707,
+                      "id": 8879,
                       "name": "address",
                       "nodeType": "ElementaryTypeName",
-                      "src": "769:7:159",
+                      "src": "769:7:32",
                       "stateMutability": "nonpayable",
                       "typeDescriptions": {
                         "typeIdentifier": "t_address",
                         "typeString": "address"
                       }
                     },
-                    "id": 41708,
+                    "id": 8880,
                     "length": null,
                     "nodeType": "ArrayTypeName",
-                    "src": "769:9:159",
+                    "src": "769:9:32",
                     "typeDescriptions": {
                       "typeIdentifier": "t_array$_t_address_$dyn_storage_ptr",
                       "typeString": "address[]"
@@ -402,13 +402,13 @@
                 },
                 {
                   "constant": false,
-                  "id": 41712,
+                  "id": 8884,
                   "mutability": "mutable",
                   "name": "spendAssetAmounts_",
                   "nodeType": "VariableDeclaration",
                   "overrides": null,
-                  "scope": 41720,
-                  "src": "812:35:159",
+                  "scope": 8892,
+                  "src": "812:35:32",
                   "stateVariable": false,
                   "storageLocation": "memory",
                   "typeDescriptions": {
@@ -417,19 +417,19 @@
                   },
                   "typeName": {
                     "baseType": {
-                      "id": 41710,
+                      "id": 8882,
                       "name": "uint256",
                       "nodeType": "ElementaryTypeName",
-                      "src": "812:7:159",
+                      "src": "812:7:32",
                       "typeDescriptions": {
                         "typeIdentifier": "t_uint256",
                         "typeString": "uint256"
                       }
                     },
-                    "id": 41711,
+                    "id": 8883,
                     "length": null,
                     "nodeType": "ArrayTypeName",
-                    "src": "812:9:159",
+                    "src": "812:9:32",
                     "typeDescriptions": {
                       "typeIdentifier": "t_array$_t_uint256_$dyn_storage_ptr",
                       "typeString": "uint256[]"
@@ -440,13 +440,13 @@
                 },
                 {
                   "constant": false,
-                  "id": 41715,
+                  "id": 8887,
                   "mutability": "mutable",
                   "name": "incomingAssets_",
                   "nodeType": "VariableDeclaration",
                   "overrides": null,
-                  "scope": 41720,
-                  "src": "861:32:159",
+                  "scope": 8892,
+                  "src": "861:32:32",
                   "stateVariable": false,
                   "storageLocation": "memory",
                   "typeDescriptions": {
@@ -455,20 +455,20 @@
                   },
                   "typeName": {
                     "baseType": {
-                      "id": 41713,
+                      "id": 8885,
                       "name": "address",
                       "nodeType": "ElementaryTypeName",
-                      "src": "861:7:159",
+                      "src": "861:7:32",
                       "stateMutability": "nonpayable",
                       "typeDescriptions": {
                         "typeIdentifier": "t_address",
                         "typeString": "address"
                       }
                     },
-                    "id": 41714,
+                    "id": 8886,
                     "length": null,
                     "nodeType": "ArrayTypeName",
-                    "src": "861:9:159",
+                    "src": "861:9:32",
                     "typeDescriptions": {
                       "typeIdentifier": "t_array$_t_address_$dyn_storage_ptr",
                       "typeString": "address[]"
@@ -479,13 +479,13 @@
                 },
                 {
                   "constant": false,
-                  "id": 41718,
+                  "id": 8890,
                   "mutability": "mutable",
                   "name": "minIncomingAssetAmounts_",
                   "nodeType": "VariableDeclaration",
                   "overrides": null,
-                  "scope": 41720,
-                  "src": "907:41:159",
+                  "scope": 8892,
+                  "src": "907:41:32",
                   "stateVariable": false,
                   "storageLocation": "memory",
                   "typeDescriptions": {
@@ -494,19 +494,19 @@
                   },
                   "typeName": {
                     "baseType": {
-                      "id": 41716,
+                      "id": 8888,
                       "name": "uint256",
                       "nodeType": "ElementaryTypeName",
-                      "src": "907:7:159",
+                      "src": "907:7:32",
                       "typeDescriptions": {
                         "typeIdentifier": "t_uint256",
                         "typeString": "uint256"
                       }
                     },
-                    "id": 41717,
+                    "id": 8889,
                     "length": null,
                     "nodeType": "ArrayTypeName",
-                    "src": "907:9:159",
+                    "src": "907:9:32",
                     "typeDescriptions": {
                       "typeIdentifier": "t_array$_t_uint256_$dyn_storage_ptr",
                       "typeString": "uint256[]"
@@ -516,9 +516,9 @@
                   "visibility": "internal"
                 }
               ],
-              "src": "677:281:159"
+              "src": "677:281:32"
             },
-            "scope": 41721,
+            "scope": 8893,
             "stateMutability": "view",
             "virtual": false,
             "visibility": "external"
@@ -529,20 +529,20 @@
         "contractDependencies": [],
         "contractKind": "interface",
         "documentation": {
-          "id": 41697,
+          "id": 8869,
           "nodeType": "StructuredDocumentation",
-          "src": "318:145:159",
+          "src": "318:145:32",
           "text": "@title Integration Adapter interface\n @author Enzyme Council <security@enzyme.finance>\n @notice Interface for all integration adapters"
         },
         "fullyImplemented": false,
         "linearizedBaseContracts": [
-          41721
+          8893
         ],
         "name": "IIntegrationAdapter",
-        "scope": 41722
+        "scope": 8894
       }
     ],
     "license": "GPL-3.0"
   },
-  "id": 159
+  "id": 32
 }

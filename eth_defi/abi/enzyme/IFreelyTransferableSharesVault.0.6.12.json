@@ -106,19 +106,19 @@
   },
   "ast": {
     "absolutePath": "contracts/persistent/vault/interfaces/IFreelyTransferableSharesVault.sol",
-    "id": 11741,
+    "id": 220,
     "exportedSymbols": {
       "IFreelyTransferableSharesVault": [
-        11740
+        219
       ]
     },
     "nodeType": "SourceUnit",
-    "src": "255:462:71",
+    "src": "255:462:4",
     "nodes": [
       {
-        "id": 11733,
+        "id": 212,
         "nodeType": "PragmaDirective",
-        "src": "255:32:71",
+        "src": "255:32:4",
         "nodes": [],
         "literals": [
           "solidity",
@@ -131,14 +131,14 @@
         ]
       },
       {
-        "id": 11740,
+        "id": 219,
         "nodeType": "ContractDefinition",
-        "src": "546:170:71",
+        "src": "546:170:4",
         "nodes": [
           {
-            "id": 11739,
+            "id": 218,
             "nodeType": "FunctionDefinition",
-            "src": "593:121:71",
+            "src": "593:121:4",
             "nodes": [],
             "documentation": null,
             "functionSelector": "28c2ad9c",
@@ -148,24 +148,24 @@
             "name": "sharesAreFreelyTransferable",
             "overrides": null,
             "parameters": {
-              "id": 11735,
+              "id": 214,
               "nodeType": "ParameterList",
               "parameters": [],
-              "src": "629:2:71"
+              "src": "629:2:4"
             },
             "returnParameters": {
-              "id": 11738,
+              "id": 217,
               "nodeType": "ParameterList",
               "parameters": [
                 {
                   "constant": false,
-                  "id": 11737,
+                  "id": 216,
                   "mutability": "mutable",
                   "name": "sharesAreFreelyTransferable_",
                   "nodeType": "VariableDeclaration",
                   "overrides": null,
-                  "scope": 11739,
-                  "src": "679:33:71",
+                  "scope": 218,
+                  "src": "679:33:4",
                   "stateVariable": false,
                   "storageLocation": "default",
                   "typeDescriptions": {
@@ -173,10 +173,10 @@
                     "typeString": "bool"
                   },
                   "typeName": {
-                    "id": 11736,
+                    "id": 215,
                     "name": "bool",
                     "nodeType": "ElementaryTypeName",
-                    "src": "679:4:71",
+                    "src": "679:4:4",
                     "typeDescriptions": {
                       "typeIdentifier": "t_bool",
                       "typeString": "bool"
@@ -186,9 +186,9 @@
                   "visibility": "internal"
                 }
               ],
-              "src": "678:35:71"
+              "src": "678:35:4"
             },
-            "scope": 11740,
+            "scope": 219,
             "stateMutability": "view",
             "virtual": false,
             "visibility": "external"
@@ -199,20 +199,20 @@
         "contractDependencies": [],
         "contractKind": "interface",
         "documentation": {
-          "id": 11734,
+          "id": 213,
           "nodeType": "StructuredDocumentation",
-          "src": "289:257:71",
+          "src": "289:257:4",
           "text": "@title IFreelyTransferableSharesVault Interface\n @author Enzyme Council <security@enzyme.finance>\n @notice Provides the interface for determining whether a vault's shares\n are guaranteed to be freely transferable.\n @dev DO NOT EDIT CONTRACT"
         },
         "fullyImplemented": false,
         "linearizedBaseContracts": [
-          11740
+          219
         ],
         "name": "IFreelyTransferableSharesVault",
-        "scope": 11741
+        "scope": 220
       }
     ],
     "license": "GPL-3.0"
   },
-  "id": 71
+  "id": 4
 }

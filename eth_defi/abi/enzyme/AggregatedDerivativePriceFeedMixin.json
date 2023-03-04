@@ -200,19 +200,19 @@
   },
   "ast": {
     "absolutePath": "contracts/release/infrastructure/price-feeds/derivatives/AggregatedDerivativePriceFeedMixin.sol",
-    "id": 62400,
+    "id": 11917,
     "exportedSymbols": {
       "AggregatedDerivativePriceFeedMixin": [
-        62399
+        11916
       ]
     },
     "nodeType": "SourceUnit",
-    "src": "255:3792:234",
+    "src": "255:3792:50",
     "nodes": [
       {
-        "id": 62188,
+        "id": 11705,
         "nodeType": "PragmaDirective",
-        "src": "255:23:234",
+        "src": "255:23:50",
         "nodes": [],
         "literals": [
           "solidity",
@@ -221,44 +221,44 @@
         ]
       },
       {
-        "id": 62189,
+        "id": 11706,
         "nodeType": "ImportDirective",
-        "src": "280:36:234",
+        "src": "280:36:50",
         "nodes": [],
         "absolutePath": "contracts/release/infrastructure/price-feeds/derivatives/IDerivativePriceFeed.sol",
         "file": "./IDerivativePriceFeed.sol",
-        "scope": 62400,
-        "sourceUnit": 62424,
+        "scope": 11917,
+        "sourceUnit": 11941,
         "symbolAliases": [],
         "unitAlias": ""
       },
       {
-        "id": 62399,
+        "id": 11916,
         "nodeType": "ContractDefinition",
-        "src": "561:3485:234",
+        "src": "561:3485:50",
         "nodes": [
           {
-            "id": 62196,
+            "id": 11713,
             "nodeType": "EventDefinition",
-            "src": "620:69:234",
+            "src": "620:69:50",
             "nodes": [],
             "anonymous": false,
             "documentation": null,
             "name": "DerivativeAdded",
             "parameters": {
-              "id": 62195,
+              "id": 11712,
               "nodeType": "ParameterList",
               "parameters": [
                 {
                   "constant": false,
-                  "id": 62192,
+                  "id": 11709,
                   "indexed": true,
                   "mutability": "mutable",
                   "name": "derivative",
                   "nodeType": "VariableDeclaration",
                   "overrides": null,
-                  "scope": 62196,
-                  "src": "642:26:234",
+                  "scope": 11713,
+                  "src": "642:26:50",
                   "stateVariable": false,
                   "storageLocation": "default",
                   "typeDescriptions": {
@@ -266,10 +266,10 @@
                     "typeString": "address"
                   },
                   "typeName": {
-                    "id": 62191,
+                    "id": 11708,
                     "name": "address",
                     "nodeType": "ElementaryTypeName",
-                    "src": "642:7:234",
+                    "src": "642:7:50",
                     "stateMutability": "nonpayable",
                     "typeDescriptions": {
                       "typeIdentifier": "t_address",
@@ -281,14 +281,14 @@
                 },
                 {
                   "constant": false,
-                  "id": 62194,
+                  "id": 11711,
                   "indexed": false,
                   "mutability": "mutable",
                   "name": "priceFeed",
                   "nodeType": "VariableDeclaration",
                   "overrides": null,
-                  "scope": 62196,
-                  "src": "670:17:234",
+                  "scope": 11713,
+                  "src": "670:17:50",
                   "stateVariable": false,
                   "storageLocation": "default",
                   "typeDescriptions": {
@@ -296,10 +296,10 @@
                     "typeString": "address"
                   },
                   "typeName": {
-                    "id": 62193,
+                    "id": 11710,
                     "name": "address",
                     "nodeType": "ElementaryTypeName",
-                    "src": "670:7:234",
+                    "src": "670:7:50",
                     "stateMutability": "nonpayable",
                     "typeDescriptions": {
                       "typeIdentifier": "t_address",
@@ -310,31 +310,31 @@
                   "visibility": "internal"
                 }
               ],
-              "src": "641:47:234"
+              "src": "641:47:50"
             }
           },
           {
-            "id": 62200,
+            "id": 11717,
             "nodeType": "EventDefinition",
-            "src": "695:52:234",
+            "src": "695:52:50",
             "nodes": [],
             "anonymous": false,
             "documentation": null,
             "name": "DerivativeRemoved",
             "parameters": {
-              "id": 62199,
+              "id": 11716,
               "nodeType": "ParameterList",
               "parameters": [
                 {
                   "constant": false,
-                  "id": 62198,
+                  "id": 11715,
                   "indexed": true,
                   "mutability": "mutable",
                   "name": "derivative",
                   "nodeType": "VariableDeclaration",
                   "overrides": null,
-                  "scope": 62200,
-                  "src": "719:26:234",
+                  "scope": 11717,
+                  "src": "719:26:50",
                   "stateVariable": false,
                   "storageLocation": "default",
                   "typeDescriptions": {
@@ -342,10 +342,10 @@
                     "typeString": "address"
                   },
                   "typeName": {
-                    "id": 62197,
+                    "id": 11714,
                     "name": "address",
                     "nodeType": "ElementaryTypeName",
-                    "src": "719:7:234",
+                    "src": "719:7:50",
                     "stateMutability": "nonpayable",
                     "typeDescriptions": {
                       "typeIdentifier": "t_address",
@@ -356,19 +356,19 @@
                   "visibility": "internal"
                 }
               ],
-              "src": "718:28:234"
+              "src": "718:28:50"
             }
           },
           {
-            "id": 62204,
+            "id": 11721,
             "nodeType": "VariableDeclaration",
-            "src": "753:57:234",
+            "src": "753:57:50",
             "nodes": [],
             "constant": false,
             "mutability": "mutable",
             "name": "derivativeToPriceFeed",
             "overrides": null,
-            "scope": 62399,
+            "scope": 11916,
             "stateVariable": true,
             "storageLocation": "default",
             "typeDescriptions": {
@@ -376,28 +376,28 @@
               "typeString": "mapping(address => address)"
             },
             "typeName": {
-              "id": 62203,
+              "id": 11720,
               "keyType": {
-                "id": 62201,
+                "id": 11718,
                 "name": "address",
                 "nodeType": "ElementaryTypeName",
-                "src": "761:7:234",
+                "src": "761:7:50",
                 "typeDescriptions": {
                   "typeIdentifier": "t_address",
                   "typeString": "address"
                 }
               },
               "nodeType": "Mapping",
-              "src": "753:27:234",
+              "src": "753:27:50",
               "typeDescriptions": {
                 "typeIdentifier": "t_mapping$_t_address_$_t_address_$",
                 "typeString": "mapping(address => address)"
               },
               "valueType": {
-                "id": 62202,
+                "id": 11719,
                 "name": "address",
                 "nodeType": "ElementaryTypeName",
-                "src": "772:7:234",
+                "src": "772:7:50",
                 "stateMutability": "nonpayable",
                 "typeDescriptions": {
                   "typeIdentifier": "t_address",
@@ -409,30 +409,30 @@
             "visibility": "private"
           },
           {
-            "id": 62243,
+            "id": 11760,
             "nodeType": "FunctionDefinition",
-            "src": "1127:581:234",
+            "src": "1127:581:50",
             "nodes": [],
             "body": {
-              "id": 62242,
+              "id": 11759,
               "nodeType": "Block",
-              "src": "1313:395:234",
+              "src": "1313:395:50",
               "nodes": [],
               "statements": [
                 {
                   "assignments": [
-                    62219
+                    11736
                   ],
                   "declarations": [
                     {
                       "constant": false,
-                      "id": 62219,
+                      "id": 11736,
                       "mutability": "mutable",
                       "name": "derivativePriceFeed",
                       "nodeType": "VariableDeclaration",
                       "overrides": null,
-                      "scope": 62242,
-                      "src": "1323:27:234",
+                      "scope": 11759,
+                      "src": "1323:27:50",
                       "stateVariable": false,
                       "storageLocation": "default",
                       "typeDescriptions": {
@@ -440,10 +440,10 @@
                         "typeString": "address"
                       },
                       "typeName": {
-                        "id": 62218,
+                        "id": 11735,
                         "name": "address",
                         "nodeType": "ElementaryTypeName",
-                        "src": "1323:7:234",
+                        "src": "1323:7:50",
                         "stateMutability": "nonpayable",
                         "typeDescriptions": {
                           "typeIdentifier": "t_address",
@@ -454,18 +454,18 @@
                       "visibility": "internal"
                     }
                   ],
-                  "id": 62223,
+                  "id": 11740,
                   "initialValue": {
                     "argumentTypes": null,
                     "arguments": [
                       {
                         "argumentTypes": null,
-                        "id": 62221,
+                        "id": 11738,
                         "name": "_derivative",
                         "nodeType": "Identifier",
                         "overloadedDeclarations": [],
-                        "referencedDeclaration": 62207,
-                        "src": "1379:11:234",
+                        "referencedDeclaration": 11724,
+                        "src": "1379:11:50",
                         "typeDescriptions": {
                           "typeIdentifier": "t_address",
                           "typeString": "address"
@@ -479,18 +479,18 @@
                           "typeString": "address"
                         }
                       ],
-                      "id": 62220,
+                      "id": 11737,
                       "name": "getPriceFeedForDerivative",
                       "nodeType": "Identifier",
                       "overloadedDeclarations": [],
-                      "referencedDeclaration": 62398,
-                      "src": "1353:25:234",
+                      "referencedDeclaration": 11915,
+                      "src": "1353:25:50",
                       "typeDescriptions": {
                         "typeIdentifier": "t_function_internal_view$_t_address_$returns$_t_address_$",
                         "typeString": "function (address) view returns (address)"
                       }
                     },
-                    "id": 62222,
+                    "id": 11739,
                     "isConstant": false,
                     "isLValue": false,
                     "isPure": false,
@@ -498,7 +498,7 @@
                     "lValueRequested": false,
                     "names": [],
                     "nodeType": "FunctionCall",
-                    "src": "1353:38:234",
+                    "src": "1353:38:50",
                     "tryCall": false,
                     "typeDescriptions": {
                       "typeIdentifier": "t_address",
@@ -506,7 +506,7 @@
                     }
                   },
                   "nodeType": "VariableDeclarationStatement",
-                  "src": "1323:68:234"
+                  "src": "1323:68:50"
                 },
                 {
                   "expression": {
@@ -518,19 +518,19 @@
                           "typeIdentifier": "t_address",
                           "typeString": "address"
                         },
-                        "id": 62230,
+                        "id": 11747,
                         "isConstant": false,
                         "isLValue": false,
                         "isPure": false,
                         "lValueRequested": false,
                         "leftExpression": {
                           "argumentTypes": null,
-                          "id": 62225,
+                          "id": 11742,
                           "name": "derivativePriceFeed",
                           "nodeType": "Identifier",
                           "overloadedDeclarations": [],
-                          "referencedDeclaration": 62219,
-                          "src": "1422:19:234",
+                          "referencedDeclaration": 11736,
+                          "src": "1422:19:50",
                           "typeDescriptions": {
                             "typeIdentifier": "t_address",
                             "typeString": "address"
@@ -544,14 +544,14 @@
                             {
                               "argumentTypes": null,
                               "hexValue": "30",
-                              "id": 62228,
+                              "id": 11745,
                               "isConstant": false,
                               "isLValue": false,
                               "isPure": true,
                               "kind": "number",
                               "lValueRequested": false,
                               "nodeType": "Literal",
-                              "src": "1453:1:234",
+                              "src": "1453:1:50",
                               "subdenomination": null,
                               "typeDescriptions": {
                                 "typeIdentifier": "t_rational_0_by_1",
@@ -567,29 +567,29 @@
                                 "typeString": "int_const 0"
                               }
                             ],
-                            "id": 62227,
+                            "id": 11744,
                             "isConstant": false,
                             "isLValue": false,
                             "isPure": true,
                             "lValueRequested": false,
                             "nodeType": "ElementaryTypeNameExpression",
-                            "src": "1445:7:234",
+                            "src": "1445:7:50",
                             "typeDescriptions": {
                               "typeIdentifier": "t_type$_t_address_$",
                               "typeString": "type(address)"
                             },
                             "typeName": {
-                              "id": 62226,
+                              "id": 11743,
                               "name": "address",
                               "nodeType": "ElementaryTypeName",
-                              "src": "1445:7:234",
+                              "src": "1445:7:50",
                               "typeDescriptions": {
                                 "typeIdentifier": null,
                                 "typeString": null
                               }
                             }
                           },
-                          "id": 62229,
+                          "id": 11746,
                           "isConstant": false,
                           "isLValue": false,
                           "isPure": true,
@@ -597,14 +597,14 @@
                           "lValueRequested": false,
                           "names": [],
                           "nodeType": "FunctionCall",
-                          "src": "1445:10:234",
+                          "src": "1445:10:50",
                           "tryCall": false,
                           "typeDescriptions": {
                             "typeIdentifier": "t_address_payable",
                             "typeString": "address payable"
                           }
                         },
-                        "src": "1422:33:234",
+                        "src": "1422:33:50",
                         "typeDescriptions": {
                           "typeIdentifier": "t_bool",
                           "typeString": "bool"
@@ -613,14 +613,14 @@
                       {
                         "argumentTypes": null,
                         "hexValue": "63616c63556e6465726c79696e6756616c7565733a205f64657269766174697665206973206e6f7420737570706f72746564",
-                        "id": 62231,
+                        "id": 11748,
                         "isConstant": false,
                         "isLValue": false,
                         "isPure": true,
                         "kind": "string",
                         "lValueRequested": false,
                         "nodeType": "Literal",
-                        "src": "1469:52:234",
+                        "src": "1469:52:50",
                         "subdenomination": null,
                         "typeDescriptions": {
                           "typeIdentifier": "t_stringliteral_0b24fbaed7f44e3be54ed57c2fc2dec44a3ced3bacb0e6b4c32a556999291e31",
@@ -640,7 +640,7 @@
                           "typeString": "literal_string \"calcUnderlyingValues: _derivative is not supported\""
                         }
                       ],
-                      "id": 62224,
+                      "id": 11741,
                       "name": "require",
                       "nodeType": "Identifier",
                       "overloadedDeclarations": [
@@ -648,13 +648,13 @@
                         -18
                       ],
                       "referencedDeclaration": -18,
-                      "src": "1401:7:234",
+                      "src": "1401:7:50",
                       "typeDescriptions": {
                         "typeIdentifier": "t_function_require_pure$_t_bool_$_t_string_memory_ptr_$returns$__$",
                         "typeString": "function (bool,string memory) pure"
                       }
                     },
-                    "id": 62232,
+                    "id": 11749,
                     "isConstant": false,
                     "isLValue": false,
                     "isPure": false,
@@ -662,16 +662,16 @@
                     "lValueRequested": false,
                     "names": [],
                     "nodeType": "FunctionCall",
-                    "src": "1401:130:234",
+                    "src": "1401:130:50",
                     "tryCall": false,
                     "typeDescriptions": {
                       "typeIdentifier": "t_tuple$__$",
                       "typeString": "tuple()"
                     }
                   },
-                  "id": 62233,
+                  "id": 11750,
                   "nodeType": "ExpressionStatement",
-                  "src": "1401:130:234"
+                  "src": "1401:130:50"
                 },
                 {
                   "expression": {
@@ -679,12 +679,12 @@
                     "arguments": [
                       {
                         "argumentTypes": null,
-                        "id": 62238,
+                        "id": 11755,
                         "name": "_derivative",
                         "nodeType": "Identifier",
                         "overloadedDeclarations": [],
-                        "referencedDeclaration": 62207,
-                        "src": "1641:11:234",
+                        "referencedDeclaration": 11724,
+                        "src": "1641:11:50",
                         "typeDescriptions": {
                           "typeIdentifier": "t_address",
                           "typeString": "address"
@@ -692,12 +692,12 @@
                       },
                       {
                         "argumentTypes": null,
-                        "id": 62239,
+                        "id": 11756,
                         "name": "_derivativeAmount",
                         "nodeType": "Identifier",
                         "overloadedDeclarations": [],
-                        "referencedDeclaration": 62209,
-                        "src": "1670:17:234",
+                        "referencedDeclaration": 11726,
+                        "src": "1670:17:50",
                         "typeDescriptions": {
                           "typeIdentifier": "t_uint256",
                           "typeString": "uint256"
@@ -720,12 +720,12 @@
                         "arguments": [
                           {
                             "argumentTypes": null,
-                            "id": 62235,
+                            "id": 11752,
                             "name": "derivativePriceFeed",
                             "nodeType": "Identifier",
                             "overloadedDeclarations": [],
-                            "referencedDeclaration": 62219,
-                            "src": "1582:19:234",
+                            "referencedDeclaration": 11736,
+                            "src": "1582:19:50",
                             "typeDescriptions": {
                               "typeIdentifier": "t_address",
                               "typeString": "address"
@@ -739,18 +739,18 @@
                               "typeString": "address"
                             }
                           ],
-                          "id": 62234,
+                          "id": 11751,
                           "name": "IDerivativePriceFeed",
                           "nodeType": "Identifier",
                           "overloadedDeclarations": [],
-                          "referencedDeclaration": 62423,
-                          "src": "1561:20:234",
+                          "referencedDeclaration": 11940,
+                          "src": "1561:20:50",
                           "typeDescriptions": {
-                            "typeIdentifier": "t_type$_t_contract$_IDerivativePriceFeed_$62423_$",
+                            "typeIdentifier": "t_type$_t_contract$_IDerivativePriceFeed_$11940_$",
                             "typeString": "type(contract IDerivativePriceFeed)"
                           }
                         },
-                        "id": 62236,
+                        "id": 11753,
                         "isConstant": false,
                         "isLValue": false,
                         "isPure": false,
@@ -758,28 +758,28 @@
                         "lValueRequested": false,
                         "names": [],
                         "nodeType": "FunctionCall",
-                        "src": "1561:41:234",
+                        "src": "1561:41:50",
                         "tryCall": false,
                         "typeDescriptions": {
-                          "typeIdentifier": "t_contract$_IDerivativePriceFeed_$62423",
+                          "typeIdentifier": "t_contract$_IDerivativePriceFeed_$11940",
                           "typeString": "contract IDerivativePriceFeed"
                         }
                       },
-                      "id": 62237,
+                      "id": 11754,
                       "isConstant": false,
                       "isLValue": false,
                       "isPure": false,
                       "lValueRequested": false,
                       "memberName": "calcUnderlyingValues",
                       "nodeType": "MemberAccess",
-                      "referencedDeclaration": 62415,
-                      "src": "1561:62:234",
+                      "referencedDeclaration": 11932,
+                      "src": "1561:62:50",
                       "typeDescriptions": {
                         "typeIdentifier": "t_function_external_nonpayable$_t_address_$_t_uint256_$returns$_t_array$_t_address_$dyn_memory_ptr_$_t_array$_t_uint256_$dyn_memory_ptr_$",
                         "typeString": "function (address,uint256) external returns (address[] memory,uint256[] memory)"
                       }
                     },
-                    "id": 62240,
+                    "id": 11757,
                     "isConstant": false,
                     "isLValue": false,
                     "isPure": false,
@@ -787,24 +787,24 @@
                     "lValueRequested": false,
                     "names": [],
                     "nodeType": "FunctionCall",
-                    "src": "1561:140:234",
+                    "src": "1561:140:50",
                     "tryCall": false,
                     "typeDescriptions": {
                       "typeIdentifier": "t_tuple$_t_array$_t_address_$dyn_memory_ptr_$_t_array$_t_uint256_$dyn_memory_ptr_$",
                       "typeString": "tuple(address[] memory,uint256[] memory)"
                     }
                   },
-                  "functionReturnParameters": 62217,
-                  "id": 62241,
+                  "functionReturnParameters": 11734,
+                  "id": 11758,
                   "nodeType": "Return",
-                  "src": "1542:159:234"
+                  "src": "1542:159:50"
                 }
               ]
             },
             "documentation": {
-              "id": 62205,
+              "id": 11722,
               "nodeType": "StructuredDocumentation",
-              "src": "817:305:234",
+              "src": "817:305:50",
               "text": "@notice Gets the rates for 1 unit of the derivative to its underlying assets\n @param _derivative The derivative for which to get the rates\n @return underlyings_ The underlying assets for the _derivative\n @return underlyingAmounts_ The rates for the _derivative to the underlyings_"
             },
             "implemented": true,
@@ -813,18 +813,18 @@
             "name": "__calcUnderlyingValues",
             "overrides": null,
             "parameters": {
-              "id": 62210,
+              "id": 11727,
               "nodeType": "ParameterList",
               "parameters": [
                 {
                   "constant": false,
-                  "id": 62207,
+                  "id": 11724,
                   "mutability": "mutable",
                   "name": "_derivative",
                   "nodeType": "VariableDeclaration",
                   "overrides": null,
-                  "scope": 62243,
-                  "src": "1159:19:234",
+                  "scope": 11760,
+                  "src": "1159:19:50",
                   "stateVariable": false,
                   "storageLocation": "default",
                   "typeDescriptions": {
@@ -832,10 +832,10 @@
                     "typeString": "address"
                   },
                   "typeName": {
-                    "id": 62206,
+                    "id": 11723,
                     "name": "address",
                     "nodeType": "ElementaryTypeName",
-                    "src": "1159:7:234",
+                    "src": "1159:7:50",
                     "stateMutability": "nonpayable",
                     "typeDescriptions": {
                       "typeIdentifier": "t_address",
@@ -847,13 +847,13 @@
                 },
                 {
                   "constant": false,
-                  "id": 62209,
+                  "id": 11726,
                   "mutability": "mutable",
                   "name": "_derivativeAmount",
                   "nodeType": "VariableDeclaration",
                   "overrides": null,
-                  "scope": 62243,
-                  "src": "1180:25:234",
+                  "scope": 11760,
+                  "src": "1180:25:50",
                   "stateVariable": false,
                   "storageLocation": "default",
                   "typeDescriptions": {
@@ -861,10 +861,10 @@
                     "typeString": "uint256"
                   },
                   "typeName": {
-                    "id": 62208,
+                    "id": 11725,
                     "name": "uint256",
                     "nodeType": "ElementaryTypeName",
-                    "src": "1180:7:234",
+                    "src": "1180:7:50",
                     "typeDescriptions": {
                       "typeIdentifier": "t_uint256",
                       "typeString": "uint256"
@@ -874,21 +874,21 @@
                   "visibility": "internal"
                 }
               ],
-              "src": "1158:48:234"
+              "src": "1158:48:50"
             },
             "returnParameters": {
-              "id": 62217,
+              "id": 11734,
               "nodeType": "ParameterList",
               "parameters": [
                 {
                   "constant": false,
-                  "id": 62213,
+                  "id": 11730,
                   "mutability": "mutable",
                   "name": "underlyings_",
                   "nodeType": "VariableDeclaration",
                   "overrides": null,
-                  "scope": 62243,
-                  "src": "1241:29:234",
+                  "scope": 11760,
+                  "src": "1241:29:50",
                   "stateVariable": false,
                   "storageLocation": "memory",
                   "typeDescriptions": {
@@ -897,20 +897,20 @@
                   },
                   "typeName": {
                     "baseType": {
-                      "id": 62211,
+                      "id": 11728,
                       "name": "address",
                       "nodeType": "ElementaryTypeName",
-                      "src": "1241:7:234",
+                      "src": "1241:7:50",
                       "stateMutability": "nonpayable",
                       "typeDescriptions": {
                         "typeIdentifier": "t_address",
                         "typeString": "address"
                       }
                     },
-                    "id": 62212,
+                    "id": 11729,
                     "length": null,
                     "nodeType": "ArrayTypeName",
-                    "src": "1241:9:234",
+                    "src": "1241:9:50",
                     "typeDescriptions": {
                       "typeIdentifier": "t_array$_t_address_$dyn_storage_ptr",
                       "typeString": "address[]"
@@ -921,13 +921,13 @@
                 },
                 {
                   "constant": false,
-                  "id": 62216,
+                  "id": 11733,
                   "mutability": "mutable",
                   "name": "underlyingAmounts_",
                   "nodeType": "VariableDeclaration",
                   "overrides": null,
-                  "scope": 62243,
-                  "src": "1272:35:234",
+                  "scope": 11760,
+                  "src": "1272:35:50",
                   "stateVariable": false,
                   "storageLocation": "memory",
                   "typeDescriptions": {
@@ -936,19 +936,19 @@
                   },
                   "typeName": {
                     "baseType": {
-                      "id": 62214,
+                      "id": 11731,
                       "name": "uint256",
                       "nodeType": "ElementaryTypeName",
-                      "src": "1272:7:234",
+                      "src": "1272:7:50",
                       "typeDescriptions": {
                         "typeIdentifier": "t_uint256",
                         "typeString": "uint256"
                       }
                     },
-                    "id": 62215,
+                    "id": 11732,
                     "length": null,
                     "nodeType": "ArrayTypeName",
-                    "src": "1272:9:234",
+                    "src": "1272:9:50",
                     "typeDescriptions": {
                       "typeIdentifier": "t_array$_t_uint256_$dyn_storage_ptr",
                       "typeString": "uint256[]"
@@ -958,22 +958,22 @@
                   "visibility": "internal"
                 }
               ],
-              "src": "1240:68:234"
+              "src": "1240:68:50"
             },
-            "scope": 62399,
+            "scope": 11916,
             "stateMutability": "nonpayable",
             "virtual": false,
             "visibility": "internal"
           },
           {
-            "id": 62318,
+            "id": 11835,
             "nodeType": "FunctionDefinition",
-            "src": "2028:727:234",
+            "src": "2028:727:50",
             "nodes": [],
             "body": {
-              "id": 62317,
+              "id": 11834,
               "nodeType": "Block",
-              "src": "2136:619:234",
+              "src": "2136:619:50",
               "nodes": [],
               "statements": [
                 {
@@ -986,7 +986,7 @@
                           "typeIdentifier": "t_uint256",
                           "typeString": "uint256"
                         },
-                        "id": 62258,
+                        "id": 11775,
                         "isConstant": false,
                         "isLValue": false,
                         "isPure": false,
@@ -995,18 +995,18 @@
                           "argumentTypes": null,
                           "expression": {
                             "argumentTypes": null,
-                            "id": 62254,
+                            "id": 11771,
                             "name": "_derivatives",
                             "nodeType": "Identifier",
                             "overloadedDeclarations": [],
-                            "referencedDeclaration": 62247,
-                            "src": "2167:12:234",
+                            "referencedDeclaration": 11764,
+                            "src": "2167:12:50",
                             "typeDescriptions": {
                               "typeIdentifier": "t_array$_t_address_$dyn_memory_ptr",
                               "typeString": "address[] memory"
                             }
                           },
-                          "id": 62255,
+                          "id": 11772,
                           "isConstant": false,
                           "isLValue": false,
                           "isPure": false,
@@ -1014,7 +1014,7 @@
                           "memberName": "length",
                           "nodeType": "MemberAccess",
                           "referencedDeclaration": null,
-                          "src": "2167:19:234",
+                          "src": "2167:19:50",
                           "typeDescriptions": {
                             "typeIdentifier": "t_uint256",
                             "typeString": "uint256"
@@ -1026,18 +1026,18 @@
                           "argumentTypes": null,
                           "expression": {
                             "argumentTypes": null,
-                            "id": 62256,
+                            "id": 11773,
                             "name": "_priceFeeds",
                             "nodeType": "Identifier",
                             "overloadedDeclarations": [],
-                            "referencedDeclaration": 62250,
-                            "src": "2190:11:234",
+                            "referencedDeclaration": 11767,
+                            "src": "2190:11:50",
                             "typeDescriptions": {
                               "typeIdentifier": "t_array$_t_address_$dyn_memory_ptr",
                               "typeString": "address[] memory"
                             }
                           },
-                          "id": 62257,
+                          "id": 11774,
                           "isConstant": false,
                           "isLValue": false,
                           "isPure": false,
@@ -1045,13 +1045,13 @@
                           "memberName": "length",
                           "nodeType": "MemberAccess",
                           "referencedDeclaration": null,
-                          "src": "2190:18:234",
+                          "src": "2190:18:50",
                           "typeDescriptions": {
                             "typeIdentifier": "t_uint256",
                             "typeString": "uint256"
                           }
                         },
-                        "src": "2167:41:234",
+                        "src": "2167:41:50",
                         "typeDescriptions": {
                           "typeIdentifier": "t_bool",
                           "typeString": "bool"
@@ -1060,14 +1060,14 @@
                       {
                         "argumentTypes": null,
                         "hexValue": "5f5f61646444657269766174697665733a20556e657175616c205f646572697661746976657320616e64205f70726963654665656473206172726179206c656e67746873",
-                        "id": 62259,
+                        "id": 11776,
                         "isConstant": false,
                         "isLValue": false,
                         "isPure": true,
                         "kind": "string",
                         "lValueRequested": false,
                         "nodeType": "Literal",
-                        "src": "2222:70:234",
+                        "src": "2222:70:50",
                         "subdenomination": null,
                         "typeDescriptions": {
                           "typeIdentifier": "t_stringliteral_cf3e0bdb22f1cfd58edf6ef68733c17505d44a5e7a48a6cf1d94b599e21c524f",
@@ -1087,7 +1087,7 @@
                           "typeString": "literal_string \"__addDerivatives: Unequal _derivatives and _priceFeeds array lengths\""
                         }
                       ],
-                      "id": 62253,
+                      "id": 11770,
                       "name": "require",
                       "nodeType": "Identifier",
                       "overloadedDeclarations": [
@@ -1095,13 +1095,13 @@
                         -18
                       ],
                       "referencedDeclaration": -18,
-                      "src": "2146:7:234",
+                      "src": "2146:7:50",
                       "typeDescriptions": {
                         "typeIdentifier": "t_function_require_pure$_t_bool_$_t_string_memory_ptr_$returns$__$",
                         "typeString": "function (bool,string memory) pure"
                       }
                     },
-                    "id": 62260,
+                    "id": 11777,
                     "isConstant": false,
                     "isLValue": false,
                     "isPure": false,
@@ -1109,22 +1109,22 @@
                     "lValueRequested": false,
                     "names": [],
                     "nodeType": "FunctionCall",
-                    "src": "2146:156:234",
+                    "src": "2146:156:50",
                     "tryCall": false,
                     "typeDescriptions": {
                       "typeIdentifier": "t_tuple$__$",
                       "typeString": "tuple()"
                     }
                   },
-                  "id": 62261,
+                  "id": 11778,
                   "nodeType": "ExpressionStatement",
-                  "src": "2146:156:234"
+                  "src": "2146:156:50"
                 },
                 {
                   "body": {
-                    "id": 62315,
+                    "id": 11832,
                     "nodeType": "Block",
-                    "src": "2363:386:234",
+                    "src": "2363:386:50",
                     "statements": [
                       {
                         "expression": {
@@ -1136,7 +1136,7 @@
                                 "typeIdentifier": "t_address",
                                 "typeString": "address"
                               },
-                              "id": 62283,
+                              "id": 11800,
                               "isConstant": false,
                               "isLValue": false,
                               "isPure": false,
@@ -1148,26 +1148,26 @@
                                     "argumentTypes": null,
                                     "baseExpression": {
                                       "argumentTypes": null,
-                                      "id": 62275,
+                                      "id": 11792,
                                       "name": "_derivatives",
                                       "nodeType": "Identifier",
                                       "overloadedDeclarations": [],
-                                      "referencedDeclaration": 62247,
-                                      "src": "2428:12:234",
+                                      "referencedDeclaration": 11764,
+                                      "src": "2428:12:50",
                                       "typeDescriptions": {
                                         "typeIdentifier": "t_array$_t_address_$dyn_memory_ptr",
                                         "typeString": "address[] memory"
                                       }
                                     },
-                                    "id": 62277,
+                                    "id": 11794,
                                     "indexExpression": {
                                       "argumentTypes": null,
-                                      "id": 62276,
+                                      "id": 11793,
                                       "name": "i",
                                       "nodeType": "Identifier",
                                       "overloadedDeclarations": [],
-                                      "referencedDeclaration": 62263,
-                                      "src": "2441:1:234",
+                                      "referencedDeclaration": 11780,
+                                      "src": "2441:1:50",
                                       "typeDescriptions": {
                                         "typeIdentifier": "t_uint256",
                                         "typeString": "uint256"
@@ -1178,7 +1178,7 @@
                                     "isPure": false,
                                     "lValueRequested": false,
                                     "nodeType": "IndexAccess",
-                                    "src": "2428:15:234",
+                                    "src": "2428:15:50",
                                     "typeDescriptions": {
                                       "typeIdentifier": "t_address",
                                       "typeString": "address"
@@ -1192,18 +1192,18 @@
                                       "typeString": "address"
                                     }
                                   ],
-                                  "id": 62274,
+                                  "id": 11791,
                                   "name": "getPriceFeedForDerivative",
                                   "nodeType": "Identifier",
                                   "overloadedDeclarations": [],
-                                  "referencedDeclaration": 62398,
-                                  "src": "2402:25:234",
+                                  "referencedDeclaration": 11915,
+                                  "src": "2402:25:50",
                                   "typeDescriptions": {
                                     "typeIdentifier": "t_function_internal_view$_t_address_$returns$_t_address_$",
                                     "typeString": "function (address) view returns (address)"
                                   }
                                 },
-                                "id": 62278,
+                                "id": 11795,
                                 "isConstant": false,
                                 "isLValue": false,
                                 "isPure": false,
@@ -1211,7 +1211,7 @@
                                 "lValueRequested": false,
                                 "names": [],
                                 "nodeType": "FunctionCall",
-                                "src": "2402:42:234",
+                                "src": "2402:42:50",
                                 "tryCall": false,
                                 "typeDescriptions": {
                                   "typeIdentifier": "t_address",
@@ -1226,14 +1226,14 @@
                                   {
                                     "argumentTypes": null,
                                     "hexValue": "30",
-                                    "id": 62281,
+                                    "id": 11798,
                                     "isConstant": false,
                                     "isLValue": false,
                                     "isPure": true,
                                     "kind": "number",
                                     "lValueRequested": false,
                                     "nodeType": "Literal",
-                                    "src": "2456:1:234",
+                                    "src": "2456:1:50",
                                     "subdenomination": null,
                                     "typeDescriptions": {
                                       "typeIdentifier": "t_rational_0_by_1",
@@ -1249,29 +1249,29 @@
                                       "typeString": "int_const 0"
                                     }
                                   ],
-                                  "id": 62280,
+                                  "id": 11797,
                                   "isConstant": false,
                                   "isLValue": false,
                                   "isPure": true,
                                   "lValueRequested": false,
                                   "nodeType": "ElementaryTypeNameExpression",
-                                  "src": "2448:7:234",
+                                  "src": "2448:7:50",
                                   "typeDescriptions": {
                                     "typeIdentifier": "t_type$_t_address_$",
                                     "typeString": "type(address)"
                                   },
                                   "typeName": {
-                                    "id": 62279,
+                                    "id": 11796,
                                     "name": "address",
                                     "nodeType": "ElementaryTypeName",
-                                    "src": "2448:7:234",
+                                    "src": "2448:7:50",
                                     "typeDescriptions": {
                                       "typeIdentifier": null,
                                       "typeString": null
                                     }
                                   }
                                 },
-                                "id": 62282,
+                                "id": 11799,
                                 "isConstant": false,
                                 "isLValue": false,
                                 "isPure": true,
@@ -1279,14 +1279,14 @@
                                 "lValueRequested": false,
                                 "names": [],
                                 "nodeType": "FunctionCall",
-                                "src": "2448:10:234",
+                                "src": "2448:10:50",
                                 "tryCall": false,
                                 "typeDescriptions": {
                                   "typeIdentifier": "t_address_payable",
                                   "typeString": "address payable"
                                 }
                               },
-                              "src": "2402:56:234",
+                              "src": "2402:56:50",
                               "typeDescriptions": {
                                 "typeIdentifier": "t_bool",
                                 "typeString": "bool"
@@ -1295,14 +1295,14 @@
                             {
                               "argumentTypes": null,
                               "hexValue": "5f5f61646444657269766174697665733a20416c7265616479206164646564",
-                              "id": 62284,
+                              "id": 11801,
                               "isConstant": false,
                               "isLValue": false,
                               "isPure": true,
                               "kind": "string",
                               "lValueRequested": false,
                               "nodeType": "Literal",
-                              "src": "2476:33:234",
+                              "src": "2476:33:50",
                               "subdenomination": null,
                               "typeDescriptions": {
                                 "typeIdentifier": "t_stringliteral_9b86ebe0e4b55a763344097e48f423eb02ce3cd60341d4c2b3f1af8e175e6bd6",
@@ -1322,7 +1322,7 @@
                                 "typeString": "literal_string \"__addDerivatives: Already added\""
                               }
                             ],
-                            "id": 62273,
+                            "id": 11790,
                             "name": "require",
                             "nodeType": "Identifier",
                             "overloadedDeclarations": [
@@ -1330,13 +1330,13 @@
                               -18
                             ],
                             "referencedDeclaration": -18,
-                            "src": "2377:7:234",
+                            "src": "2377:7:50",
                             "typeDescriptions": {
                               "typeIdentifier": "t_function_require_pure$_t_bool_$_t_string_memory_ptr_$returns$__$",
                               "typeString": "function (bool,string memory) pure"
                             }
                           },
-                          "id": 62285,
+                          "id": 11802,
                           "isConstant": false,
                           "isLValue": false,
                           "isPure": false,
@@ -1344,16 +1344,16 @@
                           "lValueRequested": false,
                           "names": [],
                           "nodeType": "FunctionCall",
-                          "src": "2377:146:234",
+                          "src": "2377:146:50",
                           "tryCall": false,
                           "typeDescriptions": {
                             "typeIdentifier": "t_tuple$__$",
                             "typeString": "tuple()"
                           }
                         },
-                        "id": 62286,
+                        "id": 11803,
                         "nodeType": "ExpressionStatement",
-                        "src": "2377:146:234"
+                        "src": "2377:146:50"
                       },
                       {
                         "expression": {
@@ -1363,26 +1363,26 @@
                               "argumentTypes": null,
                               "baseExpression": {
                                 "argumentTypes": null,
-                                "id": 62288,
+                                "id": 11805,
                                 "name": "_derivatives",
                                 "nodeType": "Identifier",
                                 "overloadedDeclarations": [],
-                                "referencedDeclaration": 62247,
-                                "src": "2568:12:234",
+                                "referencedDeclaration": 11764,
+                                "src": "2568:12:50",
                                 "typeDescriptions": {
                                   "typeIdentifier": "t_array$_t_address_$dyn_memory_ptr",
                                   "typeString": "address[] memory"
                                 }
                               },
-                              "id": 62290,
+                              "id": 11807,
                               "indexExpression": {
                                 "argumentTypes": null,
-                                "id": 62289,
+                                "id": 11806,
                                 "name": "i",
                                 "nodeType": "Identifier",
                                 "overloadedDeclarations": [],
-                                "referencedDeclaration": 62263,
-                                "src": "2581:1:234",
+                                "referencedDeclaration": 11780,
+                                "src": "2581:1:50",
                                 "typeDescriptions": {
                                   "typeIdentifier": "t_uint256",
                                   "typeString": "uint256"
@@ -1393,7 +1393,7 @@
                               "isPure": false,
                               "lValueRequested": false,
                               "nodeType": "IndexAccess",
-                              "src": "2568:15:234",
+                              "src": "2568:15:50",
                               "typeDescriptions": {
                                 "typeIdentifier": "t_address",
                                 "typeString": "address"
@@ -1403,26 +1403,26 @@
                               "argumentTypes": null,
                               "baseExpression": {
                                 "argumentTypes": null,
-                                "id": 62291,
+                                "id": 11808,
                                 "name": "_priceFeeds",
                                 "nodeType": "Identifier",
                                 "overloadedDeclarations": [],
-                                "referencedDeclaration": 62250,
-                                "src": "2585:11:234",
+                                "referencedDeclaration": 11767,
+                                "src": "2585:11:50",
                                 "typeDescriptions": {
                                   "typeIdentifier": "t_array$_t_address_$dyn_memory_ptr",
                                   "typeString": "address[] memory"
                                 }
                               },
-                              "id": 62293,
+                              "id": 11810,
                               "indexExpression": {
                                 "argumentTypes": null,
-                                "id": 62292,
+                                "id": 11809,
                                 "name": "i",
                                 "nodeType": "Identifier",
                                 "overloadedDeclarations": [],
-                                "referencedDeclaration": 62263,
-                                "src": "2597:1:234",
+                                "referencedDeclaration": 11780,
+                                "src": "2597:1:50",
                                 "typeDescriptions": {
                                   "typeIdentifier": "t_uint256",
                                   "typeString": "uint256"
@@ -1433,7 +1433,7 @@
                               "isPure": false,
                               "lValueRequested": false,
                               "nodeType": "IndexAccess",
-                              "src": "2585:14:234",
+                              "src": "2585:14:50",
                               "typeDescriptions": {
                                 "typeIdentifier": "t_address",
                                 "typeString": "address"
@@ -1451,18 +1451,18 @@
                                 "typeString": "address"
                               }
                             ],
-                            "id": 62287,
+                            "id": 11804,
                             "name": "__validateDerivativePriceFeed",
                             "nodeType": "Identifier",
                             "overloadedDeclarations": [],
-                            "referencedDeclaration": 62385,
-                            "src": "2538:29:234",
+                            "referencedDeclaration": 11902,
+                            "src": "2538:29:50",
                             "typeDescriptions": {
                               "typeIdentifier": "t_function_internal_view$_t_address_$_t_address_$returns$__$",
                               "typeString": "function (address,address) view"
                             }
                           },
-                          "id": 62294,
+                          "id": 11811,
                           "isConstant": false,
                           "isLValue": false,
                           "isPure": false,
@@ -1470,21 +1470,21 @@
                           "lValueRequested": false,
                           "names": [],
                           "nodeType": "FunctionCall",
-                          "src": "2538:62:234",
+                          "src": "2538:62:50",
                           "tryCall": false,
                           "typeDescriptions": {
                             "typeIdentifier": "t_tuple$__$",
                             "typeString": "tuple()"
                           }
                         },
-                        "id": 62295,
+                        "id": 11812,
                         "nodeType": "ExpressionStatement",
-                        "src": "2538:62:234"
+                        "src": "2538:62:50"
                       },
                       {
                         "expression": {
                           "argumentTypes": null,
-                          "id": 62304,
+                          "id": 11821,
                           "isConstant": false,
                           "isLValue": false,
                           "isPure": false,
@@ -1493,42 +1493,42 @@
                             "argumentTypes": null,
                             "baseExpression": {
                               "argumentTypes": null,
-                              "id": 62296,
+                              "id": 11813,
                               "name": "derivativeToPriceFeed",
                               "nodeType": "Identifier",
                               "overloadedDeclarations": [],
-                              "referencedDeclaration": 62204,
-                              "src": "2615:21:234",
+                              "referencedDeclaration": 11721,
+                              "src": "2615:21:50",
                               "typeDescriptions": {
                                 "typeIdentifier": "t_mapping$_t_address_$_t_address_$",
                                 "typeString": "mapping(address => address)"
                               }
                             },
-                            "id": 62300,
+                            "id": 11817,
                             "indexExpression": {
                               "argumentTypes": null,
                               "baseExpression": {
                                 "argumentTypes": null,
-                                "id": 62297,
+                                "id": 11814,
                                 "name": "_derivatives",
                                 "nodeType": "Identifier",
                                 "overloadedDeclarations": [],
-                                "referencedDeclaration": 62247,
-                                "src": "2637:12:234",
+                                "referencedDeclaration": 11764,
+                                "src": "2637:12:50",
                                 "typeDescriptions": {
                                   "typeIdentifier": "t_array$_t_address_$dyn_memory_ptr",
                                   "typeString": "address[] memory"
                                 }
                               },
-                              "id": 62299,
+                              "id": 11816,
                               "indexExpression": {
                                 "argumentTypes": null,
-                                "id": 62298,
+                                "id": 11815,
                                 "name": "i",
                                 "nodeType": "Identifier",
                                 "overloadedDeclarations": [],
-                                "referencedDeclaration": 62263,
-                                "src": "2650:1:234",
+                                "referencedDeclaration": 11780,
+                                "src": "2650:1:50",
                                 "typeDescriptions": {
                                   "typeIdentifier": "t_uint256",
                                   "typeString": "uint256"
@@ -1539,7 +1539,7 @@
                               "isPure": false,
                               "lValueRequested": false,
                               "nodeType": "IndexAccess",
-                              "src": "2637:15:234",
+                              "src": "2637:15:50",
                               "typeDescriptions": {
                                 "typeIdentifier": "t_address",
                                 "typeString": "address"
@@ -1550,7 +1550,7 @@
                             "isPure": false,
                             "lValueRequested": true,
                             "nodeType": "IndexAccess",
-                            "src": "2615:38:234",
+                            "src": "2615:38:50",
                             "typeDescriptions": {
                               "typeIdentifier": "t_address",
                               "typeString": "address"
@@ -1562,26 +1562,26 @@
                             "argumentTypes": null,
                             "baseExpression": {
                               "argumentTypes": null,
-                              "id": 62301,
+                              "id": 11818,
                               "name": "_priceFeeds",
                               "nodeType": "Identifier",
                               "overloadedDeclarations": [],
-                              "referencedDeclaration": 62250,
-                              "src": "2656:11:234",
+                              "referencedDeclaration": 11767,
+                              "src": "2656:11:50",
                               "typeDescriptions": {
                                 "typeIdentifier": "t_array$_t_address_$dyn_memory_ptr",
                                 "typeString": "address[] memory"
                               }
                             },
-                            "id": 62303,
+                            "id": 11820,
                             "indexExpression": {
                               "argumentTypes": null,
-                              "id": 62302,
+                              "id": 11819,
                               "name": "i",
                               "nodeType": "Identifier",
                               "overloadedDeclarations": [],
-                              "referencedDeclaration": 62263,
-                              "src": "2668:1:234",
+                              "referencedDeclaration": 11780,
+                              "src": "2668:1:50",
                               "typeDescriptions": {
                                 "typeIdentifier": "t_uint256",
                                 "typeString": "uint256"
@@ -1592,21 +1592,21 @@
                             "isPure": false,
                             "lValueRequested": false,
                             "nodeType": "IndexAccess",
-                            "src": "2656:14:234",
+                            "src": "2656:14:50",
                             "typeDescriptions": {
                               "typeIdentifier": "t_address",
                               "typeString": "address"
                             }
                           },
-                          "src": "2615:55:234",
+                          "src": "2615:55:50",
                           "typeDescriptions": {
                             "typeIdentifier": "t_address",
                             "typeString": "address"
                           }
                         },
-                        "id": 62305,
+                        "id": 11822,
                         "nodeType": "ExpressionStatement",
-                        "src": "2615:55:234"
+                        "src": "2615:55:50"
                       },
                       {
                         "eventCall": {
@@ -1616,26 +1616,26 @@
                               "argumentTypes": null,
                               "baseExpression": {
                                 "argumentTypes": null,
-                                "id": 62307,
+                                "id": 11824,
                                 "name": "_derivatives",
                                 "nodeType": "Identifier",
                                 "overloadedDeclarations": [],
-                                "referencedDeclaration": 62247,
-                                "src": "2706:12:234",
+                                "referencedDeclaration": 11764,
+                                "src": "2706:12:50",
                                 "typeDescriptions": {
                                   "typeIdentifier": "t_array$_t_address_$dyn_memory_ptr",
                                   "typeString": "address[] memory"
                                 }
                               },
-                              "id": 62309,
+                              "id": 11826,
                               "indexExpression": {
                                 "argumentTypes": null,
-                                "id": 62308,
+                                "id": 11825,
                                 "name": "i",
                                 "nodeType": "Identifier",
                                 "overloadedDeclarations": [],
-                                "referencedDeclaration": 62263,
-                                "src": "2719:1:234",
+                                "referencedDeclaration": 11780,
+                                "src": "2719:1:50",
                                 "typeDescriptions": {
                                   "typeIdentifier": "t_uint256",
                                   "typeString": "uint256"
@@ -1646,7 +1646,7 @@
                               "isPure": false,
                               "lValueRequested": false,
                               "nodeType": "IndexAccess",
-                              "src": "2706:15:234",
+                              "src": "2706:15:50",
                               "typeDescriptions": {
                                 "typeIdentifier": "t_address",
                                 "typeString": "address"
@@ -1656,26 +1656,26 @@
                               "argumentTypes": null,
                               "baseExpression": {
                                 "argumentTypes": null,
-                                "id": 62310,
+                                "id": 11827,
                                 "name": "_priceFeeds",
                                 "nodeType": "Identifier",
                                 "overloadedDeclarations": [],
-                                "referencedDeclaration": 62250,
-                                "src": "2723:11:234",
+                                "referencedDeclaration": 11767,
+                                "src": "2723:11:50",
                                 "typeDescriptions": {
                                   "typeIdentifier": "t_array$_t_address_$dyn_memory_ptr",
                                   "typeString": "address[] memory"
                                 }
                               },
-                              "id": 62312,
+                              "id": 11829,
                               "indexExpression": {
                                 "argumentTypes": null,
-                                "id": 62311,
+                                "id": 11828,
                                 "name": "i",
                                 "nodeType": "Identifier",
                                 "overloadedDeclarations": [],
-                                "referencedDeclaration": 62263,
-                                "src": "2735:1:234",
+                                "referencedDeclaration": 11780,
+                                "src": "2735:1:50",
                                 "typeDescriptions": {
                                   "typeIdentifier": "t_uint256",
                                   "typeString": "uint256"
@@ -1686,7 +1686,7 @@
                               "isPure": false,
                               "lValueRequested": false,
                               "nodeType": "IndexAccess",
-                              "src": "2723:14:234",
+                              "src": "2723:14:50",
                               "typeDescriptions": {
                                 "typeIdentifier": "t_address",
                                 "typeString": "address"
@@ -1704,18 +1704,18 @@
                                 "typeString": "address"
                               }
                             ],
-                            "id": 62306,
+                            "id": 11823,
                             "name": "DerivativeAdded",
                             "nodeType": "Identifier",
                             "overloadedDeclarations": [],
-                            "referencedDeclaration": 62196,
-                            "src": "2690:15:234",
+                            "referencedDeclaration": 11713,
+                            "src": "2690:15:50",
                             "typeDescriptions": {
                               "typeIdentifier": "t_function_event_nonpayable$_t_address_$_t_address_$returns$__$",
                               "typeString": "function (address,address)"
                             }
                           },
-                          "id": 62313,
+                          "id": 11830,
                           "isConstant": false,
                           "isLValue": false,
                           "isPure": false,
@@ -1723,16 +1723,16 @@
                           "lValueRequested": false,
                           "names": [],
                           "nodeType": "FunctionCall",
-                          "src": "2690:48:234",
+                          "src": "2690:48:50",
                           "tryCall": false,
                           "typeDescriptions": {
                             "typeIdentifier": "t_tuple$__$",
                             "typeString": "tuple()"
                           }
                         },
-                        "id": 62314,
+                        "id": 11831,
                         "nodeType": "EmitStatement",
-                        "src": "2685:53:234"
+                        "src": "2685:53:50"
                       }
                     ]
                   },
@@ -1742,19 +1742,19 @@
                       "typeIdentifier": "t_uint256",
                       "typeString": "uint256"
                     },
-                    "id": 62269,
+                    "id": 11786,
                     "isConstant": false,
                     "isLValue": false,
                     "isPure": false,
                     "lValueRequested": false,
                     "leftExpression": {
                       "argumentTypes": null,
-                      "id": 62266,
+                      "id": 11783,
                       "name": "i",
                       "nodeType": "Identifier",
                       "overloadedDeclarations": [],
-                      "referencedDeclaration": 62263,
-                      "src": "2333:1:234",
+                      "referencedDeclaration": 11780,
+                      "src": "2333:1:50",
                       "typeDescriptions": {
                         "typeIdentifier": "t_uint256",
                         "typeString": "uint256"
@@ -1766,18 +1766,18 @@
                       "argumentTypes": null,
                       "expression": {
                         "argumentTypes": null,
-                        "id": 62267,
+                        "id": 11784,
                         "name": "_derivatives",
                         "nodeType": "Identifier",
                         "overloadedDeclarations": [],
-                        "referencedDeclaration": 62247,
-                        "src": "2337:12:234",
+                        "referencedDeclaration": 11764,
+                        "src": "2337:12:50",
                         "typeDescriptions": {
                           "typeIdentifier": "t_array$_t_address_$dyn_memory_ptr",
                           "typeString": "address[] memory"
                         }
                       },
-                      "id": 62268,
+                      "id": 11785,
                       "isConstant": false,
                       "isLValue": false,
                       "isPure": false,
@@ -1785,33 +1785,33 @@
                       "memberName": "length",
                       "nodeType": "MemberAccess",
                       "referencedDeclaration": null,
-                      "src": "2337:19:234",
+                      "src": "2337:19:50",
                       "typeDescriptions": {
                         "typeIdentifier": "t_uint256",
                         "typeString": "uint256"
                       }
                     },
-                    "src": "2333:23:234",
+                    "src": "2333:23:50",
                     "typeDescriptions": {
                       "typeIdentifier": "t_bool",
                       "typeString": "bool"
                     }
                   },
-                  "id": 62316,
+                  "id": 11833,
                   "initializationExpression": {
                     "assignments": [
-                      62263
+                      11780
                     ],
                     "declarations": [
                       {
                         "constant": false,
-                        "id": 62263,
+                        "id": 11780,
                         "mutability": "mutable",
                         "name": "i",
                         "nodeType": "VariableDeclaration",
                         "overrides": null,
-                        "scope": 62316,
-                        "src": "2318:9:234",
+                        "scope": 11833,
+                        "src": "2318:9:50",
                         "stateVariable": false,
                         "storageLocation": "default",
                         "typeDescriptions": {
@@ -1819,10 +1819,10 @@
                           "typeString": "uint256"
                         },
                         "typeName": {
-                          "id": 62262,
+                          "id": 11779,
                           "name": "uint256",
                           "nodeType": "ElementaryTypeName",
-                          "src": "2318:7:234",
+                          "src": "2318:7:50",
                           "typeDescriptions": {
                             "typeIdentifier": "t_uint256",
                             "typeString": "uint256"
@@ -1832,18 +1832,18 @@
                         "visibility": "internal"
                       }
                     ],
-                    "id": 62265,
+                    "id": 11782,
                     "initialValue": {
                       "argumentTypes": null,
                       "hexValue": "30",
-                      "id": 62264,
+                      "id": 11781,
                       "isConstant": false,
                       "isLValue": false,
                       "isPure": true,
                       "kind": "number",
                       "lValueRequested": false,
                       "nodeType": "Literal",
-                      "src": "2330:1:234",
+                      "src": "2330:1:50",
                       "subdenomination": null,
                       "typeDescriptions": {
                         "typeIdentifier": "t_rational_0_by_1",
@@ -1852,12 +1852,12 @@
                       "value": "0"
                     },
                     "nodeType": "VariableDeclarationStatement",
-                    "src": "2318:13:234"
+                    "src": "2318:13:50"
                   },
                   "loopExpression": {
                     "expression": {
                       "argumentTypes": null,
-                      "id": 62271,
+                      "id": 11788,
                       "isConstant": false,
                       "isLValue": false,
                       "isPure": false,
@@ -1865,15 +1865,15 @@
                       "nodeType": "UnaryOperation",
                       "operator": "++",
                       "prefix": false,
-                      "src": "2358:3:234",
+                      "src": "2358:3:50",
                       "subExpression": {
                         "argumentTypes": null,
-                        "id": 62270,
+                        "id": 11787,
                         "name": "i",
                         "nodeType": "Identifier",
                         "overloadedDeclarations": [],
-                        "referencedDeclaration": 62263,
-                        "src": "2358:1:234",
+                        "referencedDeclaration": 11780,
+                        "src": "2358:1:50",
                         "typeDescriptions": {
                           "typeIdentifier": "t_uint256",
                           "typeString": "uint256"
@@ -1884,19 +1884,19 @@
                         "typeString": "uint256"
                       }
                     },
-                    "id": 62272,
+                    "id": 11789,
                     "nodeType": "ExpressionStatement",
-                    "src": "2358:3:234"
+                    "src": "2358:3:50"
                   },
                   "nodeType": "ForStatement",
-                  "src": "2313:436:234"
+                  "src": "2313:436:50"
                 }
               ]
             },
             "documentation": {
-              "id": 62244,
+              "id": 11761,
               "nodeType": "StructuredDocumentation",
-              "src": "1808:215:234",
+              "src": "1808:215:50",
               "text": "@notice Adds a list of derivatives with the given price feed values\n @param _derivatives The derivatives to add\n @param _priceFeeds The ordered price feeds corresponding to the list of _derivatives"
             },
             "implemented": true,
@@ -1905,18 +1905,18 @@
             "name": "__addDerivatives",
             "overrides": null,
             "parameters": {
-              "id": 62251,
+              "id": 11768,
               "nodeType": "ParameterList",
               "parameters": [
                 {
                   "constant": false,
-                  "id": 62247,
+                  "id": 11764,
                   "mutability": "mutable",
                   "name": "_derivatives",
                   "nodeType": "VariableDeclaration",
                   "overrides": null,
-                  "scope": 62318,
-                  "src": "2054:29:234",
+                  "scope": 11835,
+                  "src": "2054:29:50",
                   "stateVariable": false,
                   "storageLocation": "memory",
                   "typeDescriptions": {
@@ -1925,20 +1925,20 @@
                   },
                   "typeName": {
                     "baseType": {
-                      "id": 62245,
+                      "id": 11762,
                       "name": "address",
                       "nodeType": "ElementaryTypeName",
-                      "src": "2054:7:234",
+                      "src": "2054:7:50",
                       "stateMutability": "nonpayable",
                       "typeDescriptions": {
                         "typeIdentifier": "t_address",
                         "typeString": "address"
                       }
                     },
-                    "id": 62246,
+                    "id": 11763,
                     "length": null,
                     "nodeType": "ArrayTypeName",
-                    "src": "2054:9:234",
+                    "src": "2054:9:50",
                     "typeDescriptions": {
                       "typeIdentifier": "t_array$_t_address_$dyn_storage_ptr",
                       "typeString": "address[]"
@@ -1949,13 +1949,13 @@
                 },
                 {
                   "constant": false,
-                  "id": 62250,
+                  "id": 11767,
                   "mutability": "mutable",
                   "name": "_priceFeeds",
                   "nodeType": "VariableDeclaration",
                   "overrides": null,
-                  "scope": 62318,
-                  "src": "2085:28:234",
+                  "scope": 11835,
+                  "src": "2085:28:50",
                   "stateVariable": false,
                   "storageLocation": "memory",
                   "typeDescriptions": {
@@ -1964,20 +1964,20 @@
                   },
                   "typeName": {
                     "baseType": {
-                      "id": 62248,
+                      "id": 11765,
                       "name": "address",
                       "nodeType": "ElementaryTypeName",
-                      "src": "2085:7:234",
+                      "src": "2085:7:50",
                       "stateMutability": "nonpayable",
                       "typeDescriptions": {
                         "typeIdentifier": "t_address",
                         "typeString": "address"
                       }
                     },
-                    "id": 62249,
+                    "id": 11766,
                     "length": null,
                     "nodeType": "ArrayTypeName",
-                    "src": "2085:9:234",
+                    "src": "2085:9:50",
                     "typeDescriptions": {
                       "typeIdentifier": "t_array$_t_address_$dyn_storage_ptr",
                       "typeString": "address[]"
@@ -1987,35 +1987,35 @@
                   "visibility": "internal"
                 }
               ],
-              "src": "2053:61:234"
+              "src": "2053:61:50"
             },
             "returnParameters": {
-              "id": 62252,
+              "id": 11769,
               "nodeType": "ParameterList",
               "parameters": [],
-              "src": "2136:0:234"
+              "src": "2136:0:50"
             },
-            "scope": 62399,
+            "scope": 11916,
             "stateMutability": "nonpayable",
             "virtual": false,
             "visibility": "internal"
           },
           {
-            "id": 62366,
+            "id": 11883,
             "nodeType": "FunctionDefinition",
-            "src": "2861:432:234",
+            "src": "2861:432:50",
             "nodes": [],
             "body": {
-              "id": 62365,
+              "id": 11882,
               "nodeType": "Block",
-              "src": "2930:363:234",
+              "src": "2930:363:50",
               "nodes": [],
               "statements": [
                 {
                   "body": {
-                    "id": 62363,
+                    "id": 11880,
                     "nodeType": "Block",
-                    "src": "2990:297:234",
+                    "src": "2990:297:50",
                     "statements": [
                       {
                         "expression": {
@@ -2027,7 +2027,7 @@
                                 "typeIdentifier": "t_address",
                                 "typeString": "address"
                               },
-                              "id": 62346,
+                              "id": 11863,
                               "isConstant": false,
                               "isLValue": false,
                               "isPure": false,
@@ -2039,26 +2039,26 @@
                                     "argumentTypes": null,
                                     "baseExpression": {
                                       "argumentTypes": null,
-                                      "id": 62338,
+                                      "id": 11855,
                                       "name": "_derivatives",
                                       "nodeType": "Identifier",
                                       "overloadedDeclarations": [],
-                                      "referencedDeclaration": 62322,
-                                      "src": "3055:12:234",
+                                      "referencedDeclaration": 11839,
+                                      "src": "3055:12:50",
                                       "typeDescriptions": {
                                         "typeIdentifier": "t_array$_t_address_$dyn_memory_ptr",
                                         "typeString": "address[] memory"
                                       }
                                     },
-                                    "id": 62340,
+                                    "id": 11857,
                                     "indexExpression": {
                                       "argumentTypes": null,
-                                      "id": 62339,
+                                      "id": 11856,
                                       "name": "i",
                                       "nodeType": "Identifier",
                                       "overloadedDeclarations": [],
-                                      "referencedDeclaration": 62326,
-                                      "src": "3068:1:234",
+                                      "referencedDeclaration": 11843,
+                                      "src": "3068:1:50",
                                       "typeDescriptions": {
                                         "typeIdentifier": "t_uint256",
                                         "typeString": "uint256"
@@ -2069,7 +2069,7 @@
                                     "isPure": false,
                                     "lValueRequested": false,
                                     "nodeType": "IndexAccess",
-                                    "src": "3055:15:234",
+                                    "src": "3055:15:50",
                                     "typeDescriptions": {
                                       "typeIdentifier": "t_address",
                                       "typeString": "address"
@@ -2083,18 +2083,18 @@
                                       "typeString": "address"
                                     }
                                   ],
-                                  "id": 62337,
+                                  "id": 11854,
                                   "name": "getPriceFeedForDerivative",
                                   "nodeType": "Identifier",
                                   "overloadedDeclarations": [],
-                                  "referencedDeclaration": 62398,
-                                  "src": "3029:25:234",
+                                  "referencedDeclaration": 11915,
+                                  "src": "3029:25:50",
                                   "typeDescriptions": {
                                     "typeIdentifier": "t_function_internal_view$_t_address_$returns$_t_address_$",
                                     "typeString": "function (address) view returns (address)"
                                   }
                                 },
-                                "id": 62341,
+                                "id": 11858,
                                 "isConstant": false,
                                 "isLValue": false,
                                 "isPure": false,
@@ -2102,7 +2102,7 @@
                                 "lValueRequested": false,
                                 "names": [],
                                 "nodeType": "FunctionCall",
-                                "src": "3029:42:234",
+                                "src": "3029:42:50",
                                 "tryCall": false,
                                 "typeDescriptions": {
                                   "typeIdentifier": "t_address",
@@ -2117,14 +2117,14 @@
                                   {
                                     "argumentTypes": null,
                                     "hexValue": "30",
-                                    "id": 62344,
+                                    "id": 11861,
                                     "isConstant": false,
                                     "isLValue": false,
                                     "isPure": true,
                                     "kind": "number",
                                     "lValueRequested": false,
                                     "nodeType": "Literal",
-                                    "src": "3083:1:234",
+                                    "src": "3083:1:50",
                                     "subdenomination": null,
                                     "typeDescriptions": {
                                       "typeIdentifier": "t_rational_0_by_1",
@@ -2140,29 +2140,29 @@
                                       "typeString": "int_const 0"
                                     }
                                   ],
-                                  "id": 62343,
+                                  "id": 11860,
                                   "isConstant": false,
                                   "isLValue": false,
                                   "isPure": true,
                                   "lValueRequested": false,
                                   "nodeType": "ElementaryTypeNameExpression",
-                                  "src": "3075:7:234",
+                                  "src": "3075:7:50",
                                   "typeDescriptions": {
                                     "typeIdentifier": "t_type$_t_address_$",
                                     "typeString": "type(address)"
                                   },
                                   "typeName": {
-                                    "id": 62342,
+                                    "id": 11859,
                                     "name": "address",
                                     "nodeType": "ElementaryTypeName",
-                                    "src": "3075:7:234",
+                                    "src": "3075:7:50",
                                     "typeDescriptions": {
                                       "typeIdentifier": null,
                                       "typeString": null
                                     }
                                   }
                                 },
-                                "id": 62345,
+                                "id": 11862,
                                 "isConstant": false,
                                 "isLValue": false,
                                 "isPure": true,
@@ -2170,14 +2170,14 @@
                                 "lValueRequested": false,
                                 "names": [],
                                 "nodeType": "FunctionCall",
-                                "src": "3075:10:234",
+                                "src": "3075:10:50",
                                 "tryCall": false,
                                 "typeDescriptions": {
                                   "typeIdentifier": "t_address_payable",
                                   "typeString": "address payable"
                                 }
                               },
-                              "src": "3029:56:234",
+                              "src": "3029:56:50",
                               "typeDescriptions": {
                                 "typeIdentifier": "t_bool",
                                 "typeString": "bool"
@@ -2186,14 +2186,14 @@
                             {
                               "argumentTypes": null,
                               "hexValue": "72656d6f766544657269766174697665733a2044657269766174697665206e6f7420796574206164646564",
-                              "id": 62347,
+                              "id": 11864,
                               "isConstant": false,
                               "isLValue": false,
                               "isPure": true,
                               "kind": "string",
                               "lValueRequested": false,
                               "nodeType": "Literal",
-                              "src": "3103:45:234",
+                              "src": "3103:45:50",
                               "subdenomination": null,
                               "typeDescriptions": {
                                 "typeIdentifier": "t_stringliteral_88d90d5103facf312751f0b290438bf3ac4b561e4262a9f10988f5502699e84e",
@@ -2213,7 +2213,7 @@
                                 "typeString": "literal_string \"removeDerivatives: Derivative not yet added\""
                               }
                             ],
-                            "id": 62336,
+                            "id": 11853,
                             "name": "require",
                             "nodeType": "Identifier",
                             "overloadedDeclarations": [
@@ -2221,13 +2221,13 @@
                               -18
                             ],
                             "referencedDeclaration": -18,
-                            "src": "3004:7:234",
+                            "src": "3004:7:50",
                             "typeDescriptions": {
                               "typeIdentifier": "t_function_require_pure$_t_bool_$_t_string_memory_ptr_$returns$__$",
                               "typeString": "function (bool,string memory) pure"
                             }
                           },
-                          "id": 62348,
+                          "id": 11865,
                           "isConstant": false,
                           "isLValue": false,
                           "isPure": false,
@@ -2235,21 +2235,21 @@
                           "lValueRequested": false,
                           "names": [],
                           "nodeType": "FunctionCall",
-                          "src": "3004:158:234",
+                          "src": "3004:158:50",
                           "tryCall": false,
                           "typeDescriptions": {
                             "typeIdentifier": "t_tuple$__$",
                             "typeString": "tuple()"
                           }
                         },
-                        "id": 62349,
+                        "id": 11866,
                         "nodeType": "ExpressionStatement",
-                        "src": "3004:158:234"
+                        "src": "3004:158:50"
                       },
                       {
                         "expression": {
                           "argumentTypes": null,
-                          "id": 62355,
+                          "id": 11872,
                           "isConstant": false,
                           "isLValue": false,
                           "isPure": false,
@@ -2257,47 +2257,47 @@
                           "nodeType": "UnaryOperation",
                           "operator": "delete",
                           "prefix": true,
-                          "src": "3177:45:234",
+                          "src": "3177:45:50",
                           "subExpression": {
                             "argumentTypes": null,
                             "baseExpression": {
                               "argumentTypes": null,
-                              "id": 62350,
+                              "id": 11867,
                               "name": "derivativeToPriceFeed",
                               "nodeType": "Identifier",
                               "overloadedDeclarations": [],
-                              "referencedDeclaration": 62204,
-                              "src": "3184:21:234",
+                              "referencedDeclaration": 11721,
+                              "src": "3184:21:50",
                               "typeDescriptions": {
                                 "typeIdentifier": "t_mapping$_t_address_$_t_address_$",
                                 "typeString": "mapping(address => address)"
                               }
                             },
-                            "id": 62354,
+                            "id": 11871,
                             "indexExpression": {
                               "argumentTypes": null,
                               "baseExpression": {
                                 "argumentTypes": null,
-                                "id": 62351,
+                                "id": 11868,
                                 "name": "_derivatives",
                                 "nodeType": "Identifier",
                                 "overloadedDeclarations": [],
-                                "referencedDeclaration": 62322,
-                                "src": "3206:12:234",
+                                "referencedDeclaration": 11839,
+                                "src": "3206:12:50",
                                 "typeDescriptions": {
                                   "typeIdentifier": "t_array$_t_address_$dyn_memory_ptr",
                                   "typeString": "address[] memory"
                                 }
                               },
-                              "id": 62353,
+                              "id": 11870,
                               "indexExpression": {
                                 "argumentTypes": null,
-                                "id": 62352,
+                                "id": 11869,
                                 "name": "i",
                                 "nodeType": "Identifier",
                                 "overloadedDeclarations": [],
-                                "referencedDeclaration": 62326,
-                                "src": "3219:1:234",
+                                "referencedDeclaration": 11843,
+                                "src": "3219:1:50",
                                 "typeDescriptions": {
                                   "typeIdentifier": "t_uint256",
                                   "typeString": "uint256"
@@ -2308,7 +2308,7 @@
                               "isPure": false,
                               "lValueRequested": false,
                               "nodeType": "IndexAccess",
-                              "src": "3206:15:234",
+                              "src": "3206:15:50",
                               "typeDescriptions": {
                                 "typeIdentifier": "t_address",
                                 "typeString": "address"
@@ -2319,7 +2319,7 @@
                             "isPure": false,
                             "lValueRequested": true,
                             "nodeType": "IndexAccess",
-                            "src": "3184:38:234",
+                            "src": "3184:38:50",
                             "typeDescriptions": {
                               "typeIdentifier": "t_address",
                               "typeString": "address"
@@ -2330,9 +2330,9 @@
                             "typeString": "tuple()"
                           }
                         },
-                        "id": 62356,
+                        "id": 11873,
                         "nodeType": "ExpressionStatement",
-                        "src": "3177:45:234"
+                        "src": "3177:45:50"
                       },
                       {
                         "eventCall": {
@@ -2342,26 +2342,26 @@
                               "argumentTypes": null,
                               "baseExpression": {
                                 "argumentTypes": null,
-                                "id": 62358,
+                                "id": 11875,
                                 "name": "_derivatives",
                                 "nodeType": "Identifier",
                                 "overloadedDeclarations": [],
-                                "referencedDeclaration": 62322,
-                                "src": "3260:12:234",
+                                "referencedDeclaration": 11839,
+                                "src": "3260:12:50",
                                 "typeDescriptions": {
                                   "typeIdentifier": "t_array$_t_address_$dyn_memory_ptr",
                                   "typeString": "address[] memory"
                                 }
                               },
-                              "id": 62360,
+                              "id": 11877,
                               "indexExpression": {
                                 "argumentTypes": null,
-                                "id": 62359,
+                                "id": 11876,
                                 "name": "i",
                                 "nodeType": "Identifier",
                                 "overloadedDeclarations": [],
-                                "referencedDeclaration": 62326,
-                                "src": "3273:1:234",
+                                "referencedDeclaration": 11843,
+                                "src": "3273:1:50",
                                 "typeDescriptions": {
                                   "typeIdentifier": "t_uint256",
                                   "typeString": "uint256"
@@ -2372,7 +2372,7 @@
                               "isPure": false,
                               "lValueRequested": false,
                               "nodeType": "IndexAccess",
-                              "src": "3260:15:234",
+                              "src": "3260:15:50",
                               "typeDescriptions": {
                                 "typeIdentifier": "t_address",
                                 "typeString": "address"
@@ -2386,18 +2386,18 @@
                                 "typeString": "address"
                               }
                             ],
-                            "id": 62357,
+                            "id": 11874,
                             "name": "DerivativeRemoved",
                             "nodeType": "Identifier",
                             "overloadedDeclarations": [],
-                            "referencedDeclaration": 62200,
-                            "src": "3242:17:234",
+                            "referencedDeclaration": 11717,
+                            "src": "3242:17:50",
                             "typeDescriptions": {
                               "typeIdentifier": "t_function_event_nonpayable$_t_address_$returns$__$",
                               "typeString": "function (address)"
                             }
                           },
-                          "id": 62361,
+                          "id": 11878,
                           "isConstant": false,
                           "isLValue": false,
                           "isPure": false,
@@ -2405,16 +2405,16 @@
                           "lValueRequested": false,
                           "names": [],
                           "nodeType": "FunctionCall",
-                          "src": "3242:34:234",
+                          "src": "3242:34:50",
                           "tryCall": false,
                           "typeDescriptions": {
                             "typeIdentifier": "t_tuple$__$",
                             "typeString": "tuple()"
                           }
                         },
-                        "id": 62362,
+                        "id": 11879,
                         "nodeType": "EmitStatement",
-                        "src": "3237:39:234"
+                        "src": "3237:39:50"
                       }
                     ]
                   },
@@ -2424,19 +2424,19 @@
                       "typeIdentifier": "t_uint256",
                       "typeString": "uint256"
                     },
-                    "id": 62332,
+                    "id": 11849,
                     "isConstant": false,
                     "isLValue": false,
                     "isPure": false,
                     "lValueRequested": false,
                     "leftExpression": {
                       "argumentTypes": null,
-                      "id": 62329,
+                      "id": 11846,
                       "name": "i",
                       "nodeType": "Identifier",
                       "overloadedDeclarations": [],
-                      "referencedDeclaration": 62326,
-                      "src": "2960:1:234",
+                      "referencedDeclaration": 11843,
+                      "src": "2960:1:50",
                       "typeDescriptions": {
                         "typeIdentifier": "t_uint256",
                         "typeString": "uint256"
@@ -2448,18 +2448,18 @@
                       "argumentTypes": null,
                       "expression": {
                         "argumentTypes": null,
-                        "id": 62330,
+                        "id": 11847,
                         "name": "_derivatives",
                         "nodeType": "Identifier",
                         "overloadedDeclarations": [],
-                        "referencedDeclaration": 62322,
-                        "src": "2964:12:234",
+                        "referencedDeclaration": 11839,
+                        "src": "2964:12:50",
                         "typeDescriptions": {
                           "typeIdentifier": "t_array$_t_address_$dyn_memory_ptr",
                           "typeString": "address[] memory"
                         }
                       },
-                      "id": 62331,
+                      "id": 11848,
                       "isConstant": false,
                       "isLValue": false,
                       "isPure": false,
@@ -2467,33 +2467,33 @@
                       "memberName": "length",
                       "nodeType": "MemberAccess",
                       "referencedDeclaration": null,
-                      "src": "2964:19:234",
+                      "src": "2964:19:50",
                       "typeDescriptions": {
                         "typeIdentifier": "t_uint256",
                         "typeString": "uint256"
                       }
                     },
-                    "src": "2960:23:234",
+                    "src": "2960:23:50",
                     "typeDescriptions": {
                       "typeIdentifier": "t_bool",
                       "typeString": "bool"
                     }
                   },
-                  "id": 62364,
+                  "id": 11881,
                   "initializationExpression": {
                     "assignments": [
-                      62326
+                      11843
                     ],
                     "declarations": [
                       {
                         "constant": false,
-                        "id": 62326,
+                        "id": 11843,
                         "mutability": "mutable",
                         "name": "i",
                         "nodeType": "VariableDeclaration",
                         "overrides": null,
-                        "scope": 62364,
-                        "src": "2945:9:234",
+                        "scope": 11881,
+                        "src": "2945:9:50",
                         "stateVariable": false,
                         "storageLocation": "default",
                         "typeDescriptions": {
@@ -2501,10 +2501,10 @@
                           "typeString": "uint256"
                         },
                         "typeName": {
-                          "id": 62325,
+                          "id": 11842,
                           "name": "uint256",
                           "nodeType": "ElementaryTypeName",
-                          "src": "2945:7:234",
+                          "src": "2945:7:50",
                           "typeDescriptions": {
                             "typeIdentifier": "t_uint256",
                             "typeString": "uint256"
@@ -2514,18 +2514,18 @@
                         "visibility": "internal"
                       }
                     ],
-                    "id": 62328,
+                    "id": 11845,
                     "initialValue": {
                       "argumentTypes": null,
                       "hexValue": "30",
-                      "id": 62327,
+                      "id": 11844,
                       "isConstant": false,
                       "isLValue": false,
                       "isPure": true,
                       "kind": "number",
                       "lValueRequested": false,
                       "nodeType": "Literal",
-                      "src": "2957:1:234",
+                      "src": "2957:1:50",
                       "subdenomination": null,
                       "typeDescriptions": {
                         "typeIdentifier": "t_rational_0_by_1",
@@ -2534,12 +2534,12 @@
                       "value": "0"
                     },
                     "nodeType": "VariableDeclarationStatement",
-                    "src": "2945:13:234"
+                    "src": "2945:13:50"
                   },
                   "loopExpression": {
                     "expression": {
                       "argumentTypes": null,
-                      "id": 62334,
+                      "id": 11851,
                       "isConstant": false,
                       "isLValue": false,
                       "isPure": false,
@@ -2547,15 +2547,15 @@
                       "nodeType": "UnaryOperation",
                       "operator": "++",
                       "prefix": false,
-                      "src": "2985:3:234",
+                      "src": "2985:3:50",
                       "subExpression": {
                         "argumentTypes": null,
-                        "id": 62333,
+                        "id": 11850,
                         "name": "i",
                         "nodeType": "Identifier",
                         "overloadedDeclarations": [],
-                        "referencedDeclaration": 62326,
-                        "src": "2985:1:234",
+                        "referencedDeclaration": 11843,
+                        "src": "2985:1:50",
                         "typeDescriptions": {
                           "typeIdentifier": "t_uint256",
                           "typeString": "uint256"
@@ -2566,19 +2566,19 @@
                         "typeString": "uint256"
                       }
                     },
-                    "id": 62335,
+                    "id": 11852,
                     "nodeType": "ExpressionStatement",
-                    "src": "2985:3:234"
+                    "src": "2985:3:50"
                   },
                   "nodeType": "ForStatement",
-                  "src": "2940:347:234"
+                  "src": "2940:347:50"
                 }
               ]
             },
             "documentation": {
-              "id": 62319,
+              "id": 11836,
               "nodeType": "StructuredDocumentation",
-              "src": "2761:95:234",
+              "src": "2761:95:50",
               "text": "@notice Removes a list of derivatives\n @param _derivatives The derivatives to remove"
             },
             "implemented": true,
@@ -2587,18 +2587,18 @@
             "name": "__removeDerivatives",
             "overrides": null,
             "parameters": {
-              "id": 62323,
+              "id": 11840,
               "nodeType": "ParameterList",
               "parameters": [
                 {
                   "constant": false,
-                  "id": 62322,
+                  "id": 11839,
                   "mutability": "mutable",
                   "name": "_derivatives",
                   "nodeType": "VariableDeclaration",
                   "overrides": null,
-                  "scope": 62366,
-                  "src": "2890:29:234",
+                  "scope": 11883,
+                  "src": "2890:29:50",
                   "stateVariable": false,
                   "storageLocation": "memory",
                   "typeDescriptions": {
@@ -2607,20 +2607,20 @@
                   },
                   "typeName": {
                     "baseType": {
-                      "id": 62320,
+                      "id": 11837,
                       "name": "address",
                       "nodeType": "ElementaryTypeName",
-                      "src": "2890:7:234",
+                      "src": "2890:7:50",
                       "stateMutability": "nonpayable",
                       "typeDescriptions": {
                         "typeIdentifier": "t_address",
                         "typeString": "address"
                       }
                     },
-                    "id": 62321,
+                    "id": 11838,
                     "length": null,
                     "nodeType": "ArrayTypeName",
-                    "src": "2890:9:234",
+                    "src": "2890:9:50",
                     "typeDescriptions": {
                       "typeIdentifier": "t_array$_t_address_$dyn_storage_ptr",
                       "typeString": "address[]"
@@ -2630,28 +2630,28 @@
                   "visibility": "internal"
                 }
               ],
-              "src": "2889:31:234"
+              "src": "2889:31:50"
             },
             "returnParameters": {
-              "id": 62324,
+              "id": 11841,
               "nodeType": "ParameterList",
               "parameters": [],
-              "src": "2930:0:234"
+              "src": "2930:0:50"
             },
-            "scope": 62399,
+            "scope": 11916,
             "stateMutability": "nonpayable",
             "virtual": false,
             "visibility": "internal"
           },
           {
-            "id": 62385,
+            "id": 11902,
             "nodeType": "FunctionDefinition",
-            "src": "3381:272:234",
+            "src": "3381:272:50",
             "nodes": [],
             "body": {
-              "id": 62384,
+              "id": 11901,
               "nodeType": "Block",
-              "src": "3474:179:234",
+              "src": "3474:179:50",
               "nodes": [],
               "statements": [
                 {
@@ -2663,12 +2663,12 @@
                         "arguments": [
                           {
                             "argumentTypes": null,
-                            "id": 62379,
+                            "id": 11896,
                             "name": "_derivative",
                             "nodeType": "Identifier",
                             "overloadedDeclarations": [],
-                            "referencedDeclaration": 62369,
-                            "src": "3555:11:234",
+                            "referencedDeclaration": 11886,
+                            "src": "3555:11:50",
                             "typeDescriptions": {
                               "typeIdentifier": "t_address",
                               "typeString": "address"
@@ -2687,12 +2687,12 @@
                             "arguments": [
                               {
                                 "argumentTypes": null,
-                                "id": 62376,
+                                "id": 11893,
                                 "name": "_priceFeed",
                                 "nodeType": "Identifier",
                                 "overloadedDeclarations": [],
-                                "referencedDeclaration": 62371,
-                                "src": "3526:10:234",
+                                "referencedDeclaration": 11888,
+                                "src": "3526:10:50",
                                 "typeDescriptions": {
                                   "typeIdentifier": "t_address",
                                   "typeString": "address"
@@ -2706,18 +2706,18 @@
                                   "typeString": "address"
                                 }
                               ],
-                              "id": 62375,
+                              "id": 11892,
                               "name": "IDerivativePriceFeed",
                               "nodeType": "Identifier",
                               "overloadedDeclarations": [],
-                              "referencedDeclaration": 62423,
-                              "src": "3505:20:234",
+                              "referencedDeclaration": 11940,
+                              "src": "3505:20:50",
                               "typeDescriptions": {
-                                "typeIdentifier": "t_type$_t_contract$_IDerivativePriceFeed_$62423_$",
+                                "typeIdentifier": "t_type$_t_contract$_IDerivativePriceFeed_$11940_$",
                                 "typeString": "type(contract IDerivativePriceFeed)"
                               }
                             },
-                            "id": 62377,
+                            "id": 11894,
                             "isConstant": false,
                             "isLValue": false,
                             "isPure": false,
@@ -2725,28 +2725,28 @@
                             "lValueRequested": false,
                             "names": [],
                             "nodeType": "FunctionCall",
-                            "src": "3505:32:234",
+                            "src": "3505:32:50",
                             "tryCall": false,
                             "typeDescriptions": {
-                              "typeIdentifier": "t_contract$_IDerivativePriceFeed_$62423",
+                              "typeIdentifier": "t_contract$_IDerivativePriceFeed_$11940",
                               "typeString": "contract IDerivativePriceFeed"
                             }
                           },
-                          "id": 62378,
+                          "id": 11895,
                           "isConstant": false,
                           "isLValue": false,
                           "isPure": false,
                           "lValueRequested": false,
                           "memberName": "isSupportedAsset",
                           "nodeType": "MemberAccess",
-                          "referencedDeclaration": 62422,
-                          "src": "3505:49:234",
+                          "referencedDeclaration": 11939,
+                          "src": "3505:49:50",
                           "typeDescriptions": {
                             "typeIdentifier": "t_function_external_view$_t_address_$returns$_t_bool_$",
                             "typeString": "function (address) view external returns (bool)"
                           }
                         },
-                        "id": 62380,
+                        "id": 11897,
                         "isConstant": false,
                         "isLValue": false,
                         "isPure": false,
@@ -2754,7 +2754,7 @@
                         "lValueRequested": false,
                         "names": [],
                         "nodeType": "FunctionCall",
-                        "src": "3505:62:234",
+                        "src": "3505:62:50",
                         "tryCall": false,
                         "typeDescriptions": {
                           "typeIdentifier": "t_bool",
@@ -2764,14 +2764,14 @@
                       {
                         "argumentTypes": null,
                         "hexValue": "5f5f76616c6964617465446572697661746976655072696365466565643a20556e737570706f727465642064657269766174697665",
-                        "id": 62381,
+                        "id": 11898,
                         "isConstant": false,
                         "isLValue": false,
                         "isPure": true,
                         "kind": "string",
                         "lValueRequested": false,
                         "nodeType": "Literal",
-                        "src": "3581:55:234",
+                        "src": "3581:55:50",
                         "subdenomination": null,
                         "typeDescriptions": {
                           "typeIdentifier": "t_stringliteral_b8efd90a54287fec1ed8b2957e3af76730421adc4cddfa851a2178840c512907",
@@ -2791,7 +2791,7 @@
                           "typeString": "literal_string \"__validateDerivativePriceFeed: Unsupported derivative\""
                         }
                       ],
-                      "id": 62374,
+                      "id": 11891,
                       "name": "require",
                       "nodeType": "Identifier",
                       "overloadedDeclarations": [
@@ -2799,13 +2799,13 @@
                         -18
                       ],
                       "referencedDeclaration": -18,
-                      "src": "3484:7:234",
+                      "src": "3484:7:50",
                       "typeDescriptions": {
                         "typeIdentifier": "t_function_require_pure$_t_bool_$_t_string_memory_ptr_$returns$__$",
                         "typeString": "function (bool,string memory) pure"
                       }
                     },
-                    "id": 62382,
+                    "id": 11899,
                     "isConstant": false,
                     "isLValue": false,
                     "isPure": false,
@@ -2813,23 +2813,23 @@
                     "lValueRequested": false,
                     "names": [],
                     "nodeType": "FunctionCall",
-                    "src": "3484:162:234",
+                    "src": "3484:162:50",
                     "tryCall": false,
                     "typeDescriptions": {
                       "typeIdentifier": "t_tuple$__$",
                       "typeString": "tuple()"
                     }
                   },
-                  "id": 62383,
+                  "id": 11900,
                   "nodeType": "ExpressionStatement",
-                  "src": "3484:162:234"
+                  "src": "3484:162:50"
                 }
               ]
             },
             "documentation": {
-              "id": 62367,
+              "id": 11884,
               "nodeType": "StructuredDocumentation",
-              "src": "3325:51:234",
+              "src": "3325:51:50",
               "text": "@dev Helper to validate a derivative price feed"
             },
             "implemented": true,
@@ -2838,18 +2838,18 @@
             "name": "__validateDerivativePriceFeed",
             "overrides": null,
             "parameters": {
-              "id": 62372,
+              "id": 11889,
               "nodeType": "ParameterList",
               "parameters": [
                 {
                   "constant": false,
-                  "id": 62369,
+                  "id": 11886,
                   "mutability": "mutable",
                   "name": "_derivative",
                   "nodeType": "VariableDeclaration",
                   "overrides": null,
-                  "scope": 62385,
-                  "src": "3420:19:234",
+                  "scope": 11902,
+                  "src": "3420:19:50",
                   "stateVariable": false,
                   "storageLocation": "default",
                   "typeDescriptions": {
@@ -2857,10 +2857,10 @@
                     "typeString": "address"
                   },
                   "typeName": {
-                    "id": 62368,
+                    "id": 11885,
                     "name": "address",
                     "nodeType": "ElementaryTypeName",
-                    "src": "3420:7:234",
+                    "src": "3420:7:50",
                     "stateMutability": "nonpayable",
                     "typeDescriptions": {
                       "typeIdentifier": "t_address",
@@ -2872,13 +2872,13 @@
                 },
                 {
                   "constant": false,
-                  "id": 62371,
+                  "id": 11888,
                   "mutability": "mutable",
                   "name": "_priceFeed",
                   "nodeType": "VariableDeclaration",
                   "overrides": null,
-                  "scope": 62385,
-                  "src": "3441:18:234",
+                  "scope": 11902,
+                  "src": "3441:18:50",
                   "stateVariable": false,
                   "storageLocation": "default",
                   "typeDescriptions": {
@@ -2886,10 +2886,10 @@
                     "typeString": "address"
                   },
                   "typeName": {
-                    "id": 62370,
+                    "id": 11887,
                     "name": "address",
                     "nodeType": "ElementaryTypeName",
-                    "src": "3441:7:234",
+                    "src": "3441:7:50",
                     "stateMutability": "nonpayable",
                     "typeDescriptions": {
                       "typeIdentifier": "t_address",
@@ -2900,28 +2900,28 @@
                   "visibility": "internal"
                 }
               ],
-              "src": "3419:41:234"
+              "src": "3419:41:50"
             },
             "returnParameters": {
-              "id": 62373,
+              "id": 11890,
               "nodeType": "ParameterList",
               "parameters": [],
-              "src": "3474:0:234"
+              "src": "3474:0:50"
             },
-            "scope": 62399,
+            "scope": 11916,
             "stateMutability": "view",
             "virtual": false,
             "visibility": "private"
           },
           {
-            "id": 62398,
+            "id": 11915,
             "nodeType": "FunctionDefinition",
-            "src": "3861:183:234",
+            "src": "3861:183:50",
             "nodes": [],
             "body": {
-              "id": 62397,
+              "id": 11914,
               "nodeType": "Block",
-              "src": "3986:58:234",
+              "src": "3986:58:50",
               "nodes": [],
               "statements": [
                 {
@@ -2929,26 +2929,26 @@
                     "argumentTypes": null,
                     "baseExpression": {
                       "argumentTypes": null,
-                      "id": 62393,
+                      "id": 11910,
                       "name": "derivativeToPriceFeed",
                       "nodeType": "Identifier",
                       "overloadedDeclarations": [],
-                      "referencedDeclaration": 62204,
-                      "src": "4003:21:234",
+                      "referencedDeclaration": 11721,
+                      "src": "4003:21:50",
                       "typeDescriptions": {
                         "typeIdentifier": "t_mapping$_t_address_$_t_address_$",
                         "typeString": "mapping(address => address)"
                       }
                     },
-                    "id": 62395,
+                    "id": 11912,
                     "indexExpression": {
                       "argumentTypes": null,
-                      "id": 62394,
+                      "id": 11911,
                       "name": "_derivative",
                       "nodeType": "Identifier",
                       "overloadedDeclarations": [],
-                      "referencedDeclaration": 62388,
-                      "src": "4025:11:234",
+                      "referencedDeclaration": 11905,
+                      "src": "4025:11:50",
                       "typeDescriptions": {
                         "typeIdentifier": "t_address",
                         "typeString": "address"
@@ -2959,23 +2959,23 @@
                     "isPure": false,
                     "lValueRequested": false,
                     "nodeType": "IndexAccess",
-                    "src": "4003:34:234",
+                    "src": "4003:34:50",
                     "typeDescriptions": {
                       "typeIdentifier": "t_address",
                       "typeString": "address"
                     }
                   },
-                  "functionReturnParameters": 62392,
-                  "id": 62396,
+                  "functionReturnParameters": 11909,
+                  "id": 11913,
                   "nodeType": "Return",
-                  "src": "3996:41:234"
+                  "src": "3996:41:50"
                 }
               ]
             },
             "documentation": {
-              "id": 62386,
+              "id": 11903,
               "nodeType": "StructuredDocumentation",
-              "src": "3732:124:234",
+              "src": "3732:124:50",
               "text": "@notice Gets the registered price feed for a given derivative\n @return priceFeed_ The price feed contract address"
             },
             "functionSelector": "68e81c6d",
@@ -2985,18 +2985,18 @@
             "name": "getPriceFeedForDerivative",
             "overrides": null,
             "parameters": {
-              "id": 62389,
+              "id": 11906,
               "nodeType": "ParameterList",
               "parameters": [
                 {
                   "constant": false,
-                  "id": 62388,
+                  "id": 11905,
                   "mutability": "mutable",
                   "name": "_derivative",
                   "nodeType": "VariableDeclaration",
                   "overrides": null,
-                  "scope": 62398,
-                  "src": "3896:19:234",
+                  "scope": 11915,
+                  "src": "3896:19:50",
                   "stateVariable": false,
                   "storageLocation": "default",
                   "typeDescriptions": {
@@ -3004,10 +3004,10 @@
                     "typeString": "address"
                   },
                   "typeName": {
-                    "id": 62387,
+                    "id": 11904,
                     "name": "address",
                     "nodeType": "ElementaryTypeName",
-                    "src": "3896:7:234",
+                    "src": "3896:7:50",
                     "stateMutability": "nonpayable",
                     "typeDescriptions": {
                       "typeIdentifier": "t_address",
@@ -3018,21 +3018,21 @@
                   "visibility": "internal"
                 }
               ],
-              "src": "3895:21:234"
+              "src": "3895:21:50"
             },
             "returnParameters": {
-              "id": 62392,
+              "id": 11909,
               "nodeType": "ParameterList",
               "parameters": [
                 {
                   "constant": false,
-                  "id": 62391,
+                  "id": 11908,
                   "mutability": "mutable",
                   "name": "priceFeed_",
                   "nodeType": "VariableDeclaration",
                   "overrides": null,
-                  "scope": 62398,
-                  "src": "3962:18:234",
+                  "scope": 11915,
+                  "src": "3962:18:50",
                   "stateVariable": false,
                   "storageLocation": "default",
                   "typeDescriptions": {
@@ -3040,10 +3040,10 @@
                     "typeString": "address"
                   },
                   "typeName": {
-                    "id": 62390,
+                    "id": 11907,
                     "name": "address",
                     "nodeType": "ElementaryTypeName",
-                    "src": "3962:7:234",
+                    "src": "3962:7:50",
                     "stateMutability": "nonpayable",
                     "typeDescriptions": {
                       "typeIdentifier": "t_address",
@@ -3054,9 +3054,9 @@
                   "visibility": "internal"
                 }
               ],
-              "src": "3961:20:234"
+              "src": "3961:20:50"
             },
-            "scope": 62399,
+            "scope": 11916,
             "stateMutability": "view",
             "virtual": false,
             "visibility": "public"
@@ -3067,20 +3067,20 @@
         "contractDependencies": [],
         "contractKind": "contract",
         "documentation": {
-          "id": 62190,
+          "id": 11707,
           "nodeType": "StructuredDocumentation",
-          "src": "318:243:234",
+          "src": "318:243:50",
           "text": "@title AggregatedDerivativePriceFeedMixin Contract\n @author Enzyme Council <security@enzyme.finance>\n @notice Aggregates multiple derivative price feeds (e.g., Compound, Chai) and dispatches\n rate requests to the appropriate feed"
         },
         "fullyImplemented": true,
         "linearizedBaseContracts": [
-          62399
+          11916
         ],
         "name": "AggregatedDerivativePriceFeedMixin",
-        "scope": 62400
+        "scope": 11917
       }
     ],
     "license": "GPL-3.0"
   },
-  "id": 234
+  "id": 50
 }

@@ -252,31 +252,31 @@
   },
   "ast": {
     "absolutePath": "contracts/release/extensions/external-position-manager/external-positions/compound-debt/ICompoundDebtPosition.sol",
-    "id": 24709,
+    "id": 7805,
     "exportedSymbols": {
       "ICompoundDebtPosition": [
-        24708
+        7804
       ]
     },
     "nodeType": "SourceUnit",
-    "src": "253:531:101",
+    "src": "253:531:27",
     "nodes": [
       {
-        "id": 24690,
+        "id": 7786,
         "nodeType": "ImportDirective",
-        "src": "253:76:101",
+        "src": "253:76:27",
         "nodes": [],
         "absolutePath": "contracts/persistent/external-positions/IExternalPosition.sol",
         "file": "../../../../../persistent/external-positions/IExternalPosition.sol",
-        "scope": 24709,
-        "sourceUnit": 5115,
+        "scope": 7805,
+        "sourceUnit": 950,
         "symbolAliases": [],
         "unitAlias": ""
       },
       {
-        "id": 24691,
+        "id": 7787,
         "nodeType": "PragmaDirective",
-        "src": "331:23:101",
+        "src": "331:23:27",
         "nodes": [],
         "literals": [
           "solidity",
@@ -285,54 +285,54 @@
         ]
       },
       {
-        "id": 24708,
+        "id": 7804,
         "nodeType": "ContractDefinition",
-        "src": "452:331:101",
+        "src": "452:331:27",
         "nodes": [
           {
-            "id": 24700,
+            "id": 7796,
             "nodeType": "EnumDefinition",
-            "src": "511:140:101",
+            "src": "511:140:27",
             "nodes": [],
             "canonicalName": "ICompoundDebtPosition.ExternalPositionActions",
             "members": [
               {
-                "id": 24695,
+                "id": 7791,
                 "name": "AddCollateral",
                 "nodeType": "EnumValue",
-                "src": "550:13:101"
+                "src": "550:13:27"
               },
               {
-                "id": 24696,
+                "id": 7792,
                 "name": "RemoveCollateral",
                 "nodeType": "EnumValue",
-                "src": "573:16:101"
+                "src": "573:16:27"
               },
               {
-                "id": 24697,
+                "id": 7793,
                 "name": "Borrow",
                 "nodeType": "EnumValue",
-                "src": "599:6:101"
+                "src": "599:6:27"
               },
               {
-                "id": 24698,
+                "id": 7794,
                 "name": "RepayBorrow",
                 "nodeType": "EnumValue",
-                "src": "615:11:101"
+                "src": "615:11:27"
               },
               {
-                "id": 24699,
+                "id": 7795,
                 "name": "ClaimComp",
                 "nodeType": "EnumValue",
-                "src": "636:9:101"
+                "src": "636:9:27"
               }
             ],
             "name": "ExternalPositionActions"
           },
           {
-            "id": 24707,
+            "id": 7803,
             "nodeType": "FunctionDefinition",
-            "src": "657:124:101",
+            "src": "657:124:27",
             "nodes": [],
             "documentation": null,
             "functionSelector": "d889378e",
@@ -342,18 +342,18 @@
             "name": "getCTokenFromBorrowedAsset",
             "overrides": null,
             "parameters": {
-              "id": 24703,
+              "id": 7799,
               "nodeType": "ParameterList",
               "parameters": [
                 {
                   "constant": false,
-                  "id": 24702,
+                  "id": 7798,
                   "mutability": "mutable",
                   "name": "_borrowedAsset",
                   "nodeType": "VariableDeclaration",
                   "overrides": null,
-                  "scope": 24707,
-                  "src": "693:22:101",
+                  "scope": 7803,
+                  "src": "693:22:27",
                   "stateVariable": false,
                   "storageLocation": "default",
                   "typeDescriptions": {
@@ -361,10 +361,10 @@
                     "typeString": "address"
                   },
                   "typeName": {
-                    "id": 24701,
+                    "id": 7797,
                     "name": "address",
                     "nodeType": "ElementaryTypeName",
-                    "src": "693:7:101",
+                    "src": "693:7:27",
                     "stateMutability": "nonpayable",
                     "typeDescriptions": {
                       "typeIdentifier": "t_address",
@@ -375,21 +375,21 @@
                   "visibility": "internal"
                 }
               ],
-              "src": "692:24:101"
+              "src": "692:24:27"
             },
             "returnParameters": {
-              "id": 24706,
+              "id": 7802,
               "nodeType": "ParameterList",
               "parameters": [
                 {
                   "constant": false,
-                  "id": 24705,
+                  "id": 7801,
                   "mutability": "mutable",
                   "name": "cToken_",
                   "nodeType": "VariableDeclaration",
                   "overrides": null,
-                  "scope": 24707,
-                  "src": "764:15:101",
+                  "scope": 7803,
+                  "src": "764:15:27",
                   "stateVariable": false,
                   "storageLocation": "default",
                   "typeDescriptions": {
@@ -397,10 +397,10 @@
                     "typeString": "address"
                   },
                   "typeName": {
-                    "id": 24704,
+                    "id": 7800,
                     "name": "address",
                     "nodeType": "ElementaryTypeName",
-                    "src": "764:7:101",
+                    "src": "764:7:27",
                     "stateMutability": "nonpayable",
                     "typeDescriptions": {
                       "typeIdentifier": "t_address",
@@ -411,9 +411,9 @@
                   "visibility": "internal"
                 }
               ],
-              "src": "763:17:101"
+              "src": "763:17:27"
             },
-            "scope": 24708,
+            "scope": 7804,
             "stateMutability": "view",
             "virtual": false,
             "visibility": "external"
@@ -425,41 +425,41 @@
             "arguments": null,
             "baseName": {
               "contractScope": null,
-              "id": 24693,
+              "id": 7789,
               "name": "IExternalPosition",
               "nodeType": "UserDefinedTypeName",
-              "referencedDeclaration": 5114,
-              "src": "487:17:101",
+              "referencedDeclaration": 949,
+              "src": "487:17:27",
               "typeDescriptions": {
-                "typeIdentifier": "t_contract$_IExternalPosition_$5114",
+                "typeIdentifier": "t_contract$_IExternalPosition_$949",
                 "typeString": "contract IExternalPosition"
               }
             },
-            "id": 24694,
+            "id": 7790,
             "nodeType": "InheritanceSpecifier",
-            "src": "487:17:101"
+            "src": "487:17:27"
           }
         ],
         "contractDependencies": [
-          5114
+          949
         ],
         "contractKind": "interface",
         "documentation": {
-          "id": 24692,
+          "id": 7788,
           "nodeType": "StructuredDocumentation",
-          "src": "356:96:101",
+          "src": "356:96:27",
           "text": "@title ICompoundDebtPosition Interface\n @author Enzyme Council <security@enzyme.finance>"
         },
         "fullyImplemented": false,
         "linearizedBaseContracts": [
-          24708,
-          5114
+          7804,
+          949
         ],
         "name": "ICompoundDebtPosition",
-        "scope": 24709
+        "scope": 7805
       }
     ],
     "license": "GPL-3.0"
   },
-  "id": 101
+  "id": 27
 }

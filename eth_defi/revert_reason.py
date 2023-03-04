@@ -18,6 +18,16 @@ from eth_defi.abi import get_transaction_data_field
 logger = logging.getLogger(__name__)
 
 
+class TransactionReverted(Exception):
+    """Python exception to signal a transaction error with a good revert reason.
+
+    See :py:func:`eth_defi.middleware.revert_reason_middleware`.
+    """
+
+    def get_solidity_reason_message(self) -> str:
+        return self.args[0]
+
+
 def fetch_transaction_revert_reason(
     web3: Web3,
     tx_hash: Union[HexBytes, str],
