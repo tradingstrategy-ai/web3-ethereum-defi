@@ -84,11 +84,16 @@ class EnzymeDeployment:
             aggregator: Contract,
             rate_asset: RateAsset,
         ):
-        """Add a a primitive."""
+        """Add a a primitive.
+
+        - See ValueInterpreter.sol
+
+        - See ChainlinkPriceFeedMixin.sol
+        """
         assert isinstance(rate_asset, RateAsset)
         value_interpreter = self.contracts.ValueInterpreter
-        primitives = [token]
-        aggregators = [aggregator]
+        primitives = [token.address]
+        aggregators = [aggregator.address]
         rate_assets = [rate_asset.value]
         value_interpreter.functions.addPrimitives(primitives, aggregators, rate_assets).transact({"from": self.deployer})
 

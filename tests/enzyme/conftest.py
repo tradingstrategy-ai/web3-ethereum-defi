@@ -133,6 +133,7 @@ def weth_usdc_mock_chainlink_aggregator(web3, deployer) -> Contract:
     aggregator = deploy_contract(
         web3,
         "MockChainlinkAggregator.json",
+        deployer,
     )
     aggregator.functions.setValue(1600 * 10**18).transact({"from": deployer})
     return aggregator
@@ -147,6 +148,7 @@ def usdc_usd_mock_chainlink_aggregator(web3, deployer) -> Contract:
     aggregator = deploy_contract(
         web3,
         "MockChainlinkAggregator.json",
+        deployer,
     )
     aggregator.functions.setValue(1 * 10**6).transact({"from": deployer})
     return aggregator

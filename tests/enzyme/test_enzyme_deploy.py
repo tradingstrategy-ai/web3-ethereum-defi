@@ -37,7 +37,7 @@ def test_deploy_enzyme(
         RateAsset.USD,
     )
 
-    comptroller_proxy, deployment.create_new_vault(
+    comptroller_proxy, vault = deployment.create_new_vault(
         user_1,
         usdc,
     )
@@ -45,8 +45,8 @@ def test_deploy_enzyme(
     # User 2 buys into the vault
 
     usdc.functions.transfer(user_2, 500*10**6).transact({"from": deployer})
+    usdc.functions.transfer(user_2, 500*10**6).transact({"from": deployer})
 
-    comptroller =
 
 
 

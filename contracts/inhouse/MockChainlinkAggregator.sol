@@ -17,9 +17,7 @@ interface IChainlinkAggregator {
         );
 }
 
-
 contract MockChainlinkAggregator is IChainlinkAggregator {
-
     int256 answer;
     uint256 updatedAt;
 
@@ -28,13 +26,7 @@ contract MockChainlinkAggregator is IChainlinkAggregator {
         updatedAt = block.timestamp;
     }
 
-    function latestRoundData() {
+    function latestRoundData() external override view returns (uint80, int256, uint256, uint256, uint80) {
         return (0, answer, 0, updatedAt, 0);
-    } external view returns (
-            uint80,
-            int256,
-            uint256,
-            uint256,
-            uint80
-        );
+    }
 }

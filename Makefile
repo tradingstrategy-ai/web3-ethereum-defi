@@ -3,10 +3,6 @@ sushi-and-inhouse:
 	# Get our mock up contracts to the compiler bundle
 	@cp contracts/inhouse/* contracts/sushiswap/contracts
 	@(cd contracts/sushiswap && yarn install && yarn build) > /dev/null
-	@echo "Sushi is ready"
-
-# Extract all compilation artifacts from Sushi to our abi/ dump
-copy-sushi-abi: sushi-and-inhouse
 	@find contracts/sushiswap/artifacts/contracts -iname "*.json" -not -iname "*.dbg.json" -exec cp {} eth_defi/abi \;
 
 # Compile v3 core and periphery
@@ -49,7 +45,7 @@ clean:
 # Compile all contracts we are using
 #
 # Move ABI files to within a Python package for PyPi distribution
-compile-projects-and-prepare-abi: copy-sushi-abi copy-uniswapv3-abi aavev3 enzyme dhedge
+compile-projects-and-prepare-abi: sushi-and-inhouse copy-uniswapv3-abi aavev3 enzyme dhedge
 
 all: clean-docs compile-projects-and-prepare-abi build-docs
 
