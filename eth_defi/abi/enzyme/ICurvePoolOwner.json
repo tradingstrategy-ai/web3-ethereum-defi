@@ -1,7 +1,4 @@
 {
-  "_format": "hh-sol-artifact-1",
-  "contractName": "ICurvePoolOwner",
-  "sourceName": "contracts/release/interfaces/ICurvePoolOwner.sol",
   "abi": [
     {
       "inputs": [
@@ -17,8 +14,201 @@
       "type": "function"
     }
   ],
-  "bytecode": "0x",
-  "deployedBytecode": "0x",
-  "linkReferences": {},
-  "deployedLinkReferences": {}
+  "bytecode": {
+    "object": "0x",
+    "sourceMap": "",
+    "linkReferences": {}
+  },
+  "deployedBytecode": {
+    "object": "0x",
+    "sourceMap": "",
+    "linkReferences": {}
+  },
+  "methodIdentifiers": {
+    "withdraw_admin_fees(address)": "e4e67c0f"
+  },
+  "rawMetadata": "{\"compiler\":{\"version\":\"0.6.12+commit.27d51765\"},\"language\":\"Solidity\",\"output\":{\"abi\":[{\"inputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"name\":\"withdraw_admin_fees\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"}],\"devdoc\":{\"author\":\"Enzyme Council <security@enzyme.finance>\",\"kind\":\"dev\",\"methods\":{},\"title\":\"ICurvePoolOwner interface\",\"version\":1},\"userdoc\":{\"kind\":\"user\",\"methods\":{},\"version\":1}},\"settings\":{\"compilationTarget\":{\"contracts/release/interfaces/ICurvePoolOwner.sol\":\"ICurvePoolOwner\"},\"evmVersion\":\"istanbul\",\"libraries\":{},\"metadata\":{\"bytecodeHash\":\"none\"},\"optimizer\":{\"details\":{\"constantOptimizer\":true,\"cse\":true,\"deduplicate\":true,\"jumpdestRemover\":true,\"orderLiterals\":true,\"peephole\":true,\"yul\":false},\"runs\":200},\"remappings\":[\":@enzyme/=contracts/\",\":@openzeppelin-solc-0.7/=node_modules/@openzeppelin-solc-0.7/\",\":@openzeppelin/=node_modules/@openzeppelin/\",\":@uniswap/=node_modules/@uniswap/\",\":base64-sol/=node_modules/base64-sol/\",\":ds-test/=lib/forge-std/lib/ds-test/src/\",\":forge-std/=lib/forge-std/src/\",\":hardhat-deploy/=node_modules/hardhat-deploy/\",\":hardhat/=node_modules/hardhat/\"]},\"sources\":{\"contracts/release/interfaces/ICurvePoolOwner.sol\":{\"keccak256\":\"0x42a03eb0d757153add18d4f42b5b464041056e23f6965a48705088ddd213c336\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://a4166f75c4c80b8f069ae2b8cfe9bda2babca27fd30b239e30606eca69f8878c\",\"dweb:/ipfs/QmYNULkXYTaKQUiCA8htR9KbCkK5YhrHfJgKtBqXiNPt9R\"]}},\"version\":1}",
+  "metadata": {
+    "compiler": {
+      "version": "0.6.12+commit.27d51765"
+    },
+    "language": "Solidity",
+    "output": {
+      "abi": [
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "",
+              "type": "address"
+            }
+          ],
+          "stateMutability": "nonpayable",
+          "type": "function",
+          "name": "withdraw_admin_fees"
+        }
+      ],
+      "devdoc": {
+        "kind": "dev",
+        "methods": {},
+        "version": 1
+      },
+      "userdoc": {
+        "kind": "user",
+        "methods": {},
+        "version": 1
+      }
+    },
+    "settings": {
+      "remappings": [
+        ":@enzyme/=contracts/",
+        ":@openzeppelin-solc-0.7/=node_modules/@openzeppelin-solc-0.7/",
+        ":@openzeppelin/=node_modules/@openzeppelin/",
+        ":@uniswap/=node_modules/@uniswap/",
+        ":base64-sol/=node_modules/base64-sol/",
+        ":ds-test/=lib/forge-std/lib/ds-test/src/",
+        ":forge-std/=lib/forge-std/src/",
+        ":hardhat-deploy/=node_modules/hardhat-deploy/",
+        ":hardhat/=node_modules/hardhat/"
+      ],
+      "optimizer": {
+        "runs": 200,
+        "details": {
+          "peephole": true,
+          "jumpdestRemover": true,
+          "orderLiterals": true,
+          "deduplicate": true,
+          "cse": true,
+          "constantOptimizer": true,
+          "yul": false
+        }
+      },
+      "metadata": {
+        "bytecodeHash": "none"
+      },
+      "compilationTarget": {
+        "contracts/release/interfaces/ICurvePoolOwner.sol": "ICurvePoolOwner"
+      },
+      "libraries": {}
+    },
+    "sources": {
+      "contracts/release/interfaces/ICurvePoolOwner.sol": {
+        "keccak256": "0x42a03eb0d757153add18d4f42b5b464041056e23f6965a48705088ddd213c336",
+        "urls": [
+          "bzz-raw://a4166f75c4c80b8f069ae2b8cfe9bda2babca27fd30b239e30606eca69f8878c",
+          "dweb:/ipfs/QmYNULkXYTaKQUiCA8htR9KbCkK5YhrHfJgKtBqXiNPt9R"
+        ],
+        "license": "GPL-3.0"
+      }
+    },
+    "version": 1
+  },
+  "ast": {
+    "absolutePath": "contracts/release/interfaces/ICurvePoolOwner.sol",
+    "id": 71630,
+    "exportedSymbols": {
+      "ICurvePoolOwner": [
+        71629
+      ]
+    },
+    "nodeType": "SourceUnit",
+    "src": "255:197:295",
+    "nodes": [
+      {
+        "id": 71622,
+        "nodeType": "PragmaDirective",
+        "src": "255:23:295",
+        "nodes": [],
+        "literals": [
+          "solidity",
+          "0.6",
+          ".12"
+        ]
+      },
+      {
+        "id": 71629,
+        "nodeType": "ContractDefinition",
+        "src": "370:81:295",
+        "nodes": [
+          {
+            "id": 71628,
+            "nodeType": "FunctionDefinition",
+            "src": "402:47:295",
+            "nodes": [],
+            "documentation": null,
+            "functionSelector": "e4e67c0f",
+            "implemented": false,
+            "kind": "function",
+            "modifiers": [],
+            "name": "withdraw_admin_fees",
+            "overrides": null,
+            "parameters": {
+              "id": 71626,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 71625,
+                  "mutability": "mutable",
+                  "name": "",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 71628,
+                  "src": "431:7:295",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 71624,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "431:7:295",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "430:9:295"
+            },
+            "returnParameters": {
+              "id": 71627,
+              "nodeType": "ParameterList",
+              "parameters": [],
+              "src": "448:0:295"
+            },
+            "scope": 71629,
+            "stateMutability": "nonpayable",
+            "virtual": false,
+            "visibility": "external"
+          }
+        ],
+        "abstract": false,
+        "baseContracts": [],
+        "contractDependencies": [],
+        "contractKind": "interface",
+        "documentation": {
+          "id": 71623,
+          "nodeType": "StructuredDocumentation",
+          "src": "280:90:295",
+          "text": "@title ICurvePoolOwner interface\n @author Enzyme Council <security@enzyme.finance>"
+        },
+        "fullyImplemented": false,
+        "linearizedBaseContracts": [
+          71629
+        ],
+        "name": "ICurvePoolOwner",
+        "scope": 71630
+      }
+    ],
+    "license": "GPL-3.0"
+  },
+  "id": 295
 }

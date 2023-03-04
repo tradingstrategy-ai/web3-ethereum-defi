@@ -1,0 +1,642 @@
+{
+  "abi": [
+    {
+      "inputs": [],
+      "name": "factory",
+      "outputs": [
+        {
+          "internalType": "address",
+          "name": "factory_",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "pool",
+      "outputs": [
+        {
+          "internalType": "address",
+          "name": "pool_",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "poolDelegate",
+      "outputs": [
+        {
+          "internalType": "address",
+          "name": "poolDelegate_",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "_liquidityCap",
+          "type": "uint256"
+        }
+      ],
+      "name": "setLiquidityCap",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "totalAssets",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "totalAssets_",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "withdrawalManager",
+      "outputs": [
+        {
+          "internalType": "address",
+          "name": "withdrawalManager_",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    }
+  ],
+  "bytecode": {
+    "object": "0x",
+    "sourceMap": "",
+    "linkReferences": {}
+  },
+  "deployedBytecode": {
+    "object": "0x",
+    "sourceMap": "",
+    "linkReferences": {}
+  },
+  "methodIdentifiers": {
+    "factory()": "c45a0155",
+    "pool()": "16f0115b",
+    "poolDelegate()": "4046af2b",
+    "setLiquidityCap(uint256)": "7b99adb1",
+    "totalAssets()": "01e1d114",
+    "withdrawalManager()": "82fe535a"
+  },
+  "rawMetadata": "{\"compiler\":{\"version\":\"0.6.12+commit.27d51765\"},\"language\":\"Solidity\",\"output\":{\"abi\":[{\"inputs\":[],\"name\":\"factory\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"factory_\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"pool\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"pool_\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"poolDelegate\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"poolDelegate_\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_liquidityCap\",\"type\":\"uint256\"}],\"name\":\"setLiquidityCap\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"totalAssets\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"totalAssets_\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"withdrawalManager\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"withdrawalManager_\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"}],\"devdoc\":{\"author\":\"Enzyme Council <security@enzyme.finance>\",\"kind\":\"dev\",\"methods\":{},\"title\":\"ITestMapleV2PoolManager Interface\",\"version\":1},\"userdoc\":{\"kind\":\"user\",\"methods\":{},\"version\":1}},\"settings\":{\"compilationTarget\":{\"contracts/test/interfaces/ITestMapleV2PoolManager.sol\":\"ITestMapleV2PoolManager\"},\"evmVersion\":\"istanbul\",\"libraries\":{},\"metadata\":{\"bytecodeHash\":\"none\"},\"optimizer\":{\"details\":{\"constantOptimizer\":true,\"cse\":true,\"deduplicate\":true,\"jumpdestRemover\":true,\"orderLiterals\":true,\"peephole\":true,\"yul\":false},\"runs\":200},\"remappings\":[\":@enzyme/=contracts/\",\":@openzeppelin-solc-0.7/=node_modules/@openzeppelin-solc-0.7/\",\":@openzeppelin/=node_modules/@openzeppelin/\",\":@uniswap/=node_modules/@uniswap/\",\":base64-sol/=node_modules/base64-sol/\",\":ds-test/=lib/forge-std/lib/ds-test/src/\",\":forge-std/=lib/forge-std/src/\",\":hardhat-deploy/=node_modules/hardhat-deploy/\",\":hardhat/=node_modules/hardhat/\"]},\"sources\":{\"contracts/test/interfaces/ITestMapleV2PoolManager.sol\":{\"keccak256\":\"0xab062d54efc8d5b15f0c15989a510d14f4e306732498a08b6d0ebc24dedfa4b3\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://3dadceaa173989f72353127a43d5694a5a1016ec1596586d0fa196cb25fb45ab\",\"dweb:/ipfs/QmUjmMrncBtYFAEoxANDByzMdmKvu7mxQ7oN1MKTAzWedu\"]}},\"version\":1}",
+  "metadata": {
+    "compiler": {
+      "version": "0.6.12+commit.27d51765"
+    },
+    "language": "Solidity",
+    "output": {
+      "abi": [
+        {
+          "inputs": [],
+          "stateMutability": "view",
+          "type": "function",
+          "name": "factory",
+          "outputs": [
+            {
+              "internalType": "address",
+              "name": "factory_",
+              "type": "address"
+            }
+          ]
+        },
+        {
+          "inputs": [],
+          "stateMutability": "view",
+          "type": "function",
+          "name": "pool",
+          "outputs": [
+            {
+              "internalType": "address",
+              "name": "pool_",
+              "type": "address"
+            }
+          ]
+        },
+        {
+          "inputs": [],
+          "stateMutability": "view",
+          "type": "function",
+          "name": "poolDelegate",
+          "outputs": [
+            {
+              "internalType": "address",
+              "name": "poolDelegate_",
+              "type": "address"
+            }
+          ]
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "uint256",
+              "name": "_liquidityCap",
+              "type": "uint256"
+            }
+          ],
+          "stateMutability": "nonpayable",
+          "type": "function",
+          "name": "setLiquidityCap"
+        },
+        {
+          "inputs": [],
+          "stateMutability": "view",
+          "type": "function",
+          "name": "totalAssets",
+          "outputs": [
+            {
+              "internalType": "uint256",
+              "name": "totalAssets_",
+              "type": "uint256"
+            }
+          ]
+        },
+        {
+          "inputs": [],
+          "stateMutability": "view",
+          "type": "function",
+          "name": "withdrawalManager",
+          "outputs": [
+            {
+              "internalType": "address",
+              "name": "withdrawalManager_",
+              "type": "address"
+            }
+          ]
+        }
+      ],
+      "devdoc": {
+        "kind": "dev",
+        "methods": {},
+        "version": 1
+      },
+      "userdoc": {
+        "kind": "user",
+        "methods": {},
+        "version": 1
+      }
+    },
+    "settings": {
+      "remappings": [
+        ":@enzyme/=contracts/",
+        ":@openzeppelin-solc-0.7/=node_modules/@openzeppelin-solc-0.7/",
+        ":@openzeppelin/=node_modules/@openzeppelin/",
+        ":@uniswap/=node_modules/@uniswap/",
+        ":base64-sol/=node_modules/base64-sol/",
+        ":ds-test/=lib/forge-std/lib/ds-test/src/",
+        ":forge-std/=lib/forge-std/src/",
+        ":hardhat-deploy/=node_modules/hardhat-deploy/",
+        ":hardhat/=node_modules/hardhat/"
+      ],
+      "optimizer": {
+        "runs": 200,
+        "details": {
+          "peephole": true,
+          "jumpdestRemover": true,
+          "orderLiterals": true,
+          "deduplicate": true,
+          "cse": true,
+          "constantOptimizer": true,
+          "yul": false
+        }
+      },
+      "metadata": {
+        "bytecodeHash": "none"
+      },
+      "compilationTarget": {
+        "contracts/test/interfaces/ITestMapleV2PoolManager.sol": "ITestMapleV2PoolManager"
+      },
+      "libraries": {}
+    },
+    "sources": {
+      "contracts/test/interfaces/ITestMapleV2PoolManager.sol": {
+        "keccak256": "0xab062d54efc8d5b15f0c15989a510d14f4e306732498a08b6d0ebc24dedfa4b3",
+        "urls": [
+          "bzz-raw://3dadceaa173989f72353127a43d5694a5a1016ec1596586d0fa196cb25fb45ab",
+          "dweb:/ipfs/QmUjmMrncBtYFAEoxANDByzMdmKvu7mxQ7oN1MKTAzWedu"
+        ],
+        "license": "GPL-3.0"
+      }
+    },
+    "version": 1
+  },
+  "ast": {
+    "absolutePath": "contracts/test/interfaces/ITestMapleV2PoolManager.sol",
+    "id": 80881,
+    "exportedSymbols": {
+      "ITestMapleV2PoolManager": [
+        80880
+      ]
+    },
+    "nodeType": "SourceUnit",
+    "src": "255:585:410",
+    "nodes": [
+      {
+        "id": 80848,
+        "nodeType": "PragmaDirective",
+        "src": "255:23:410",
+        "nodes": [],
+        "literals": [
+          "solidity",
+          "0.6",
+          ".12"
+        ]
+      },
+      {
+        "id": 80880,
+        "nodeType": "ContractDefinition",
+        "src": "378:461:410",
+        "nodes": [
+          {
+            "id": 80854,
+            "nodeType": "FunctionDefinition",
+            "src": "418:60:410",
+            "nodes": [],
+            "documentation": null,
+            "functionSelector": "c45a0155",
+            "implemented": false,
+            "kind": "function",
+            "modifiers": [],
+            "name": "factory",
+            "overrides": null,
+            "parameters": {
+              "id": 80850,
+              "nodeType": "ParameterList",
+              "parameters": [],
+              "src": "434:2:410"
+            },
+            "returnParameters": {
+              "id": 80853,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 80852,
+                  "mutability": "mutable",
+                  "name": "factory_",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 80854,
+                  "src": "460:16:410",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 80851,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "460:7:410",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "459:18:410"
+            },
+            "scope": 80880,
+            "stateMutability": "view",
+            "virtual": false,
+            "visibility": "external"
+          },
+          {
+            "id": 80859,
+            "nodeType": "FunctionDefinition",
+            "src": "484:54:410",
+            "nodes": [],
+            "documentation": null,
+            "functionSelector": "16f0115b",
+            "implemented": false,
+            "kind": "function",
+            "modifiers": [],
+            "name": "pool",
+            "overrides": null,
+            "parameters": {
+              "id": 80855,
+              "nodeType": "ParameterList",
+              "parameters": [],
+              "src": "497:2:410"
+            },
+            "returnParameters": {
+              "id": 80858,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 80857,
+                  "mutability": "mutable",
+                  "name": "pool_",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 80859,
+                  "src": "523:13:410",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 80856,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "523:7:410",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "522:15:410"
+            },
+            "scope": 80880,
+            "stateMutability": "view",
+            "virtual": false,
+            "visibility": "external"
+          },
+          {
+            "id": 80864,
+            "nodeType": "FunctionDefinition",
+            "src": "544:70:410",
+            "nodes": [],
+            "documentation": null,
+            "functionSelector": "4046af2b",
+            "implemented": false,
+            "kind": "function",
+            "modifiers": [],
+            "name": "poolDelegate",
+            "overrides": null,
+            "parameters": {
+              "id": 80860,
+              "nodeType": "ParameterList",
+              "parameters": [],
+              "src": "565:2:410"
+            },
+            "returnParameters": {
+              "id": 80863,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 80862,
+                  "mutability": "mutable",
+                  "name": "poolDelegate_",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 80864,
+                  "src": "591:21:410",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 80861,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "591:7:410",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "590:23:410"
+            },
+            "scope": 80880,
+            "stateMutability": "view",
+            "virtual": false,
+            "visibility": "external"
+          },
+          {
+            "id": 80869,
+            "nodeType": "FunctionDefinition",
+            "src": "620:57:410",
+            "nodes": [],
+            "documentation": null,
+            "functionSelector": "7b99adb1",
+            "implemented": false,
+            "kind": "function",
+            "modifiers": [],
+            "name": "setLiquidityCap",
+            "overrides": null,
+            "parameters": {
+              "id": 80867,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 80866,
+                  "mutability": "mutable",
+                  "name": "_liquidityCap",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 80869,
+                  "src": "645:21:410",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_uint256",
+                    "typeString": "uint256"
+                  },
+                  "typeName": {
+                    "id": 80865,
+                    "name": "uint256",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "645:7:410",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_uint256",
+                      "typeString": "uint256"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "644:23:410"
+            },
+            "returnParameters": {
+              "id": 80868,
+              "nodeType": "ParameterList",
+              "parameters": [],
+              "src": "676:0:410"
+            },
+            "scope": 80880,
+            "stateMutability": "nonpayable",
+            "virtual": false,
+            "visibility": "external"
+          },
+          {
+            "id": 80874,
+            "nodeType": "FunctionDefinition",
+            "src": "683:68:410",
+            "nodes": [],
+            "documentation": null,
+            "functionSelector": "01e1d114",
+            "implemented": false,
+            "kind": "function",
+            "modifiers": [],
+            "name": "totalAssets",
+            "overrides": null,
+            "parameters": {
+              "id": 80870,
+              "nodeType": "ParameterList",
+              "parameters": [],
+              "src": "703:2:410"
+            },
+            "returnParameters": {
+              "id": 80873,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 80872,
+                  "mutability": "mutable",
+                  "name": "totalAssets_",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 80874,
+                  "src": "729:20:410",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_uint256",
+                    "typeString": "uint256"
+                  },
+                  "typeName": {
+                    "id": 80871,
+                    "name": "uint256",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "729:7:410",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_uint256",
+                      "typeString": "uint256"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "728:22:410"
+            },
+            "scope": 80880,
+            "stateMutability": "view",
+            "virtual": false,
+            "visibility": "external"
+          },
+          {
+            "id": 80879,
+            "nodeType": "FunctionDefinition",
+            "src": "757:80:410",
+            "nodes": [],
+            "documentation": null,
+            "functionSelector": "82fe535a",
+            "implemented": false,
+            "kind": "function",
+            "modifiers": [],
+            "name": "withdrawalManager",
+            "overrides": null,
+            "parameters": {
+              "id": 80875,
+              "nodeType": "ParameterList",
+              "parameters": [],
+              "src": "783:2:410"
+            },
+            "returnParameters": {
+              "id": 80878,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 80877,
+                  "mutability": "mutable",
+                  "name": "withdrawalManager_",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 80879,
+                  "src": "809:26:410",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 80876,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "809:7:410",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "808:28:410"
+            },
+            "scope": 80880,
+            "stateMutability": "view",
+            "virtual": false,
+            "visibility": "external"
+          }
+        ],
+        "abstract": false,
+        "baseContracts": [],
+        "contractDependencies": [],
+        "contractKind": "interface",
+        "documentation": {
+          "id": 80849,
+          "nodeType": "StructuredDocumentation",
+          "src": "280:98:410",
+          "text": "@title ITestMapleV2PoolManager Interface\n @author Enzyme Council <security@enzyme.finance>"
+        },
+        "fullyImplemented": false,
+        "linearizedBaseContracts": [
+          80880
+        ],
+        "name": "ITestMapleV2PoolManager",
+        "scope": 80881
+      }
+    ],
+    "license": "GPL-3.0"
+  },
+  "id": 410
+}

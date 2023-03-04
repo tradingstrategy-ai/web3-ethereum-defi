@@ -1,0 +1,408 @@
+{
+  "abi": [
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "_CR",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "_numTrials",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "_inputRandomSeed",
+          "type": "uint256"
+        }
+      ],
+      "name": "getApproxHint",
+      "outputs": [
+        {
+          "internalType": "address",
+          "name": "hintAddress_",
+          "type": "address"
+        },
+        {
+          "internalType": "uint256",
+          "name": "diff_",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "latestRandomSeed_",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    }
+  ],
+  "bytecode": {
+    "object": "0x",
+    "sourceMap": "",
+    "linkReferences": {}
+  },
+  "deployedBytecode": {
+    "object": "0x",
+    "sourceMap": "",
+    "linkReferences": {}
+  },
+  "methodIdentifiers": {
+    "getApproxHint(uint256,uint256,uint256)": "7b41bdbe"
+  },
+  "rawMetadata": "{\"compiler\":{\"version\":\"0.6.12+commit.27d51765\"},\"language\":\"Solidity\",\"output\":{\"abi\":[{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_CR\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"_numTrials\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"_inputRandomSeed\",\"type\":\"uint256\"}],\"name\":\"getApproxHint\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"hintAddress_\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"diff_\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"latestRandomSeed_\",\"type\":\"uint256\"}],\"stateMutability\":\"nonpayable\",\"type\":\"function\"}],\"devdoc\":{\"author\":\"Enzyme Council <security@enzyme.finance>\",\"kind\":\"dev\",\"methods\":{},\"title\":\"ITestLiquityHintHelper Interface\",\"version\":1},\"userdoc\":{\"kind\":\"user\",\"methods\":{},\"version\":1}},\"settings\":{\"compilationTarget\":{\"contracts/test/interfaces/ITestLiquityHintHelper.sol\":\"ITestLiquityHintHelper\"},\"evmVersion\":\"istanbul\",\"libraries\":{},\"metadata\":{\"bytecodeHash\":\"none\"},\"optimizer\":{\"details\":{\"constantOptimizer\":true,\"cse\":true,\"deduplicate\":true,\"jumpdestRemover\":true,\"orderLiterals\":true,\"peephole\":true,\"yul\":false},\"runs\":200},\"remappings\":[\":@enzyme/=contracts/\",\":@openzeppelin-solc-0.7/=node_modules/@openzeppelin-solc-0.7/\",\":@openzeppelin/=node_modules/@openzeppelin/\",\":@uniswap/=node_modules/@uniswap/\",\":base64-sol/=node_modules/base64-sol/\",\":ds-test/=lib/forge-std/lib/ds-test/src/\",\":forge-std/=lib/forge-std/src/\",\":hardhat-deploy/=node_modules/hardhat-deploy/\",\":hardhat/=node_modules/hardhat/\"]},\"sources\":{\"contracts/test/interfaces/ITestLiquityHintHelper.sol\":{\"keccak256\":\"0x65fbc100c7bde72c39b6687956187fda1e8f11ffba8997a851c4f777075a1e9e\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://abbb575473229129cf1ab55d4c4d207b3ea27d23545a897c37ef5cc43068b99c\",\"dweb:/ipfs/QmY4mYzYrpfjPrg2tk2zn4KmACzvtbksioNweZJ1jrtJt5\"]}},\"version\":1}",
+  "metadata": {
+    "compiler": {
+      "version": "0.6.12+commit.27d51765"
+    },
+    "language": "Solidity",
+    "output": {
+      "abi": [
+        {
+          "inputs": [
+            {
+              "internalType": "uint256",
+              "name": "_CR",
+              "type": "uint256"
+            },
+            {
+              "internalType": "uint256",
+              "name": "_numTrials",
+              "type": "uint256"
+            },
+            {
+              "internalType": "uint256",
+              "name": "_inputRandomSeed",
+              "type": "uint256"
+            }
+          ],
+          "stateMutability": "nonpayable",
+          "type": "function",
+          "name": "getApproxHint",
+          "outputs": [
+            {
+              "internalType": "address",
+              "name": "hintAddress_",
+              "type": "address"
+            },
+            {
+              "internalType": "uint256",
+              "name": "diff_",
+              "type": "uint256"
+            },
+            {
+              "internalType": "uint256",
+              "name": "latestRandomSeed_",
+              "type": "uint256"
+            }
+          ]
+        }
+      ],
+      "devdoc": {
+        "kind": "dev",
+        "methods": {},
+        "version": 1
+      },
+      "userdoc": {
+        "kind": "user",
+        "methods": {},
+        "version": 1
+      }
+    },
+    "settings": {
+      "remappings": [
+        ":@enzyme/=contracts/",
+        ":@openzeppelin-solc-0.7/=node_modules/@openzeppelin-solc-0.7/",
+        ":@openzeppelin/=node_modules/@openzeppelin/",
+        ":@uniswap/=node_modules/@uniswap/",
+        ":base64-sol/=node_modules/base64-sol/",
+        ":ds-test/=lib/forge-std/lib/ds-test/src/",
+        ":forge-std/=lib/forge-std/src/",
+        ":hardhat-deploy/=node_modules/hardhat-deploy/",
+        ":hardhat/=node_modules/hardhat/"
+      ],
+      "optimizer": {
+        "runs": 200,
+        "details": {
+          "peephole": true,
+          "jumpdestRemover": true,
+          "orderLiterals": true,
+          "deduplicate": true,
+          "cse": true,
+          "constantOptimizer": true,
+          "yul": false
+        }
+      },
+      "metadata": {
+        "bytecodeHash": "none"
+      },
+      "compilationTarget": {
+        "contracts/test/interfaces/ITestLiquityHintHelper.sol": "ITestLiquityHintHelper"
+      },
+      "libraries": {}
+    },
+    "sources": {
+      "contracts/test/interfaces/ITestLiquityHintHelper.sol": {
+        "keccak256": "0x65fbc100c7bde72c39b6687956187fda1e8f11ffba8997a851c4f777075a1e9e",
+        "urls": [
+          "bzz-raw://abbb575473229129cf1ab55d4c4d207b3ea27d23545a897c37ef5cc43068b99c",
+          "dweb:/ipfs/QmY4mYzYrpfjPrg2tk2zn4KmACzvtbksioNweZJ1jrtJt5"
+        ],
+        "license": "GPL-3.0"
+      }
+    },
+    "version": 1
+  },
+  "ast": {
+    "absolutePath": "contracts/test/interfaces/ITestLiquityHintHelper.sol",
+    "id": 80758,
+    "exportedSymbols": {
+      "ITestLiquityHintHelper": [
+        80757
+      ]
+    },
+    "nodeType": "SourceUnit",
+    "src": "253:420:404",
+    "nodes": [
+      {
+        "id": 80740,
+        "nodeType": "PragmaDirective",
+        "src": "253:23:404",
+        "nodes": [],
+        "literals": [
+          "solidity",
+          "0.6",
+          ".12"
+        ]
+      },
+      {
+        "id": 80757,
+        "nodeType": "ContractDefinition",
+        "src": "375:297:404",
+        "nodes": [
+          {
+            "id": 80756,
+            "nodeType": "FunctionDefinition",
+            "src": "414:256:404",
+            "nodes": [],
+            "documentation": null,
+            "functionSelector": "7b41bdbe",
+            "implemented": false,
+            "kind": "function",
+            "modifiers": [],
+            "name": "getApproxHint",
+            "overrides": null,
+            "parameters": {
+              "id": 80748,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 80743,
+                  "mutability": "mutable",
+                  "name": "_CR",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 80756,
+                  "src": "446:11:404",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_uint256",
+                    "typeString": "uint256"
+                  },
+                  "typeName": {
+                    "id": 80742,
+                    "name": "uint256",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "446:7:404",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_uint256",
+                      "typeString": "uint256"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 80745,
+                  "mutability": "mutable",
+                  "name": "_numTrials",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 80756,
+                  "src": "467:18:404",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_uint256",
+                    "typeString": "uint256"
+                  },
+                  "typeName": {
+                    "id": 80744,
+                    "name": "uint256",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "467:7:404",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_uint256",
+                      "typeString": "uint256"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 80747,
+                  "mutability": "mutable",
+                  "name": "_inputRandomSeed",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 80756,
+                  "src": "495:24:404",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_uint256",
+                    "typeString": "uint256"
+                  },
+                  "typeName": {
+                    "id": 80746,
+                    "name": "uint256",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "495:7:404",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_uint256",
+                      "typeString": "uint256"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "436:89:404"
+            },
+            "returnParameters": {
+              "id": 80755,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 80750,
+                  "mutability": "mutable",
+                  "name": "hintAddress_",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 80756,
+                  "src": "573:20:404",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 80749,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "573:7:404",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 80752,
+                  "mutability": "mutable",
+                  "name": "diff_",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 80756,
+                  "src": "607:13:404",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_uint256",
+                    "typeString": "uint256"
+                  },
+                  "typeName": {
+                    "id": 80751,
+                    "name": "uint256",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "607:7:404",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_uint256",
+                      "typeString": "uint256"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 80754,
+                  "mutability": "mutable",
+                  "name": "latestRandomSeed_",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 80756,
+                  "src": "634:25:404",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_uint256",
+                    "typeString": "uint256"
+                  },
+                  "typeName": {
+                    "id": 80753,
+                    "name": "uint256",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "634:7:404",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_uint256",
+                      "typeString": "uint256"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "559:110:404"
+            },
+            "scope": 80757,
+            "stateMutability": "nonpayable",
+            "virtual": false,
+            "visibility": "external"
+          }
+        ],
+        "abstract": false,
+        "baseContracts": [],
+        "contractDependencies": [],
+        "contractKind": "interface",
+        "documentation": {
+          "id": 80741,
+          "nodeType": "StructuredDocumentation",
+          "src": "278:97:404",
+          "text": "@title ITestLiquityHintHelper Interface\n @author Enzyme Council <security@enzyme.finance>"
+        },
+        "fullyImplemented": false,
+        "linearizedBaseContracts": [
+          80757
+        ],
+        "name": "ITestLiquityHintHelper",
+        "scope": 80758
+      }
+    ],
+    "license": "GPL-3.0"
+  },
+  "id": 404
+}

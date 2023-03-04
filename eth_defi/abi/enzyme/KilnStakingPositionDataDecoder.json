@@ -1,10 +1,781 @@
 {
-  "_format": "hh-sol-artifact-1",
-  "contractName": "KilnStakingPositionDataDecoder",
-  "sourceName": "contracts/release/extensions/external-position-manager/external-positions/kiln-staking/KilnStakingPositionDataDecoder.sol",
   "abi": [],
-  "bytecode": "0x",
-  "deployedBytecode": "0x",
-  "linkReferences": {},
-  "deployedLinkReferences": {}
+  "bytecode": {
+    "object": "0x",
+    "sourceMap": "",
+    "linkReferences": {}
+  },
+  "deployedBytecode": {
+    "object": "0x",
+    "sourceMap": "",
+    "linkReferences": {}
+  },
+  "methodIdentifiers": {},
+  "rawMetadata": "{\"compiler\":{\"version\":\"0.6.12+commit.27d51765\"},\"language\":\"Solidity\",\"output\":{\"abi\":[],\"devdoc\":{\"author\":\"Enzyme Council <security@enzyme.finance>\",\"kind\":\"dev\",\"methods\":{},\"title\":\"KilnStakingPositionDataDecoder Contract\",\"version\":1},\"userdoc\":{\"kind\":\"user\",\"methods\":{},\"notice\":\"Abstract contract containing data decodings for KilnStakingPosition payloads\",\"version\":1}},\"settings\":{\"compilationTarget\":{\"contracts/release/extensions/external-position-manager/external-positions/kiln-staking/KilnStakingPositionDataDecoder.sol\":\"KilnStakingPositionDataDecoder\"},\"evmVersion\":\"istanbul\",\"libraries\":{},\"metadata\":{\"bytecodeHash\":\"none\"},\"optimizer\":{\"details\":{\"constantOptimizer\":true,\"cse\":true,\"deduplicate\":true,\"jumpdestRemover\":true,\"orderLiterals\":true,\"peephole\":true,\"yul\":false},\"runs\":200},\"remappings\":[\":@enzyme/=contracts/\",\":@openzeppelin-solc-0.7/=node_modules/@openzeppelin-solc-0.7/\",\":@openzeppelin/=node_modules/@openzeppelin/\",\":@uniswap/=node_modules/@uniswap/\",\":base64-sol/=node_modules/base64-sol/\",\":ds-test/=lib/forge-std/lib/ds-test/src/\",\":forge-std/=lib/forge-std/src/\",\":hardhat-deploy/=node_modules/hardhat-deploy/\",\":hardhat/=node_modules/hardhat/\"]},\"sources\":{\"contracts/persistent/external-positions/IExternalPosition.sol\":{\"keccak256\":\"0x00e6ea9721e5fd1e72215e4c744306097d7f8b1a834cced5d65a17a924f750ad\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://2ad763df961067233f8631d1cd386a0cf41f8e83e419ace84ec4424214db8efa\",\"dweb:/ipfs/QmNVZCeyA9uqKrhBeCAmTVswWybN9TQAxngVPZUZZ6X4dM\"]},\"contracts/release/extensions/external-position-manager/external-positions/kiln-staking/IKilnStakingPosition.sol\":{\"keccak256\":\"0x9facf417e97f2d726add64ee197cdba0dffb97f5a2806039efb6c5ee86721083\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://6071ecdb5de558d450b56be1b578b4d5938753fa256d61772310ed9700af6aa4\",\"dweb:/ipfs/QmYe2BstewfYqFosCNsrtzo1ctF3hmheb8NyM6A3SsN3y5\"]},\"contracts/release/extensions/external-position-manager/external-positions/kiln-staking/KilnStakingPositionDataDecoder.sol\":{\"keccak256\":\"0x558647201f7b6e4cc86493a965898adffbe012221e252b5cfc177065847d744a\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://df1beacc102597c734883b1744c157ea9391197797a98fb0f96cf4a16b01c6be\",\"dweb:/ipfs/QmTU5m4shGWdoAqj7F1zHTdctAHwmjMT29agoS6PqTtwxo\"]}},\"version\":1}",
+  "metadata": {
+    "compiler": {
+      "version": "0.6.12+commit.27d51765"
+    },
+    "language": "Solidity",
+    "output": {
+      "abi": [],
+      "devdoc": {
+        "kind": "dev",
+        "methods": {},
+        "version": 1
+      },
+      "userdoc": {
+        "kind": "user",
+        "methods": {},
+        "version": 1
+      }
+    },
+    "settings": {
+      "remappings": [
+        ":@enzyme/=contracts/",
+        ":@openzeppelin-solc-0.7/=node_modules/@openzeppelin-solc-0.7/",
+        ":@openzeppelin/=node_modules/@openzeppelin/",
+        ":@uniswap/=node_modules/@uniswap/",
+        ":base64-sol/=node_modules/base64-sol/",
+        ":ds-test/=lib/forge-std/lib/ds-test/src/",
+        ":forge-std/=lib/forge-std/src/",
+        ":hardhat-deploy/=node_modules/hardhat-deploy/",
+        ":hardhat/=node_modules/hardhat/"
+      ],
+      "optimizer": {
+        "runs": 200,
+        "details": {
+          "peephole": true,
+          "jumpdestRemover": true,
+          "orderLiterals": true,
+          "deduplicate": true,
+          "cse": true,
+          "constantOptimizer": true,
+          "yul": false
+        }
+      },
+      "metadata": {
+        "bytecodeHash": "none"
+      },
+      "compilationTarget": {
+        "contracts/release/extensions/external-position-manager/external-positions/kiln-staking/KilnStakingPositionDataDecoder.sol": "KilnStakingPositionDataDecoder"
+      },
+      "libraries": {}
+    },
+    "sources": {
+      "contracts/persistent/external-positions/IExternalPosition.sol": {
+        "keccak256": "0x00e6ea9721e5fd1e72215e4c744306097d7f8b1a834cced5d65a17a924f750ad",
+        "urls": [
+          "bzz-raw://2ad763df961067233f8631d1cd386a0cf41f8e83e419ace84ec4424214db8efa",
+          "dweb:/ipfs/QmNVZCeyA9uqKrhBeCAmTVswWybN9TQAxngVPZUZZ6X4dM"
+        ],
+        "license": "GPL-3.0"
+      },
+      "contracts/release/extensions/external-position-manager/external-positions/kiln-staking/IKilnStakingPosition.sol": {
+        "keccak256": "0x9facf417e97f2d726add64ee197cdba0dffb97f5a2806039efb6c5ee86721083",
+        "urls": [
+          "bzz-raw://6071ecdb5de558d450b56be1b578b4d5938753fa256d61772310ed9700af6aa4",
+          "dweb:/ipfs/QmYe2BstewfYqFosCNsrtzo1ctF3hmheb8NyM6A3SsN3y5"
+        ],
+        "license": "GPL-3.0"
+      },
+      "contracts/release/extensions/external-position-manager/external-positions/kiln-staking/KilnStakingPositionDataDecoder.sol": {
+        "keccak256": "0x558647201f7b6e4cc86493a965898adffbe012221e252b5cfc177065847d744a",
+        "urls": [
+          "bzz-raw://df1beacc102597c734883b1744c157ea9391197797a98fb0f96cf4a16b01c6be",
+          "dweb:/ipfs/QmTU5m4shGWdoAqj7F1zHTdctAHwmjMT29agoS6PqTtwxo"
+        ],
+        "license": "GPL-3.0"
+      }
+    },
+    "version": 1
+  },
+  "ast": {
+    "absolutePath": "contracts/release/extensions/external-position-manager/external-positions/kiln-staking/KilnStakingPositionDataDecoder.sol",
+    "id": 25460,
+    "exportedSymbols": {
+      "KilnStakingPositionDataDecoder": [
+        25459
+      ]
+    },
+    "nodeType": "SourceUnit",
+    "src": "253:1023:107",
+    "nodes": [
+      {
+        "id": 25408,
+        "nodeType": "PragmaDirective",
+        "src": "253:23:107",
+        "nodes": [],
+        "literals": [
+          "solidity",
+          "0.6",
+          ".12"
+        ]
+      },
+      {
+        "id": 25409,
+        "nodeType": "PragmaDirective",
+        "src": "277:33:107",
+        "nodes": [],
+        "literals": [
+          "experimental",
+          "ABIEncoderV2"
+        ]
+      },
+      {
+        "id": 25410,
+        "nodeType": "ImportDirective",
+        "src": "312:36:107",
+        "nodes": [],
+        "absolutePath": "contracts/release/extensions/external-position-manager/external-positions/kiln-staking/IKilnStakingPosition.sol",
+        "file": "./IKilnStakingPosition.sol",
+        "scope": 25460,
+        "sourceUnit": 25407,
+        "symbolAliases": [],
+        "unitAlias": ""
+      },
+      {
+        "id": 25459,
+        "nodeType": "ContractDefinition",
+        "src": "543:732:107",
+        "nodes": [
+          {
+            "id": 25437,
+            "nodeType": "FunctionDefinition",
+            "src": "598:369:107",
+            "nodes": [],
+            "body": {
+              "id": 25436,
+              "nodeType": "Block",
+              "src": "864:103:107",
+              "nodes": [],
+              "statements": [
+                {
+                  "expression": {
+                    "argumentTypes": null,
+                    "arguments": [
+                      {
+                        "argumentTypes": null,
+                        "id": 25425,
+                        "name": "_actionArgs",
+                        "nodeType": "Identifier",
+                        "overloadedDeclarations": [],
+                        "referencedDeclaration": 25413,
+                        "src": "892:11:107",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_bytes_memory_ptr",
+                          "typeString": "bytes memory"
+                        }
+                      },
+                      {
+                        "argumentTypes": null,
+                        "components": [
+                          {
+                            "argumentTypes": null,
+                            "id": 25427,
+                            "isConstant": false,
+                            "isLValue": false,
+                            "isPure": true,
+                            "lValueRequested": false,
+                            "nodeType": "ElementaryTypeNameExpression",
+                            "src": "906:7:107",
+                            "typeDescriptions": {
+                              "typeIdentifier": "t_type$_t_address_$",
+                              "typeString": "type(address)"
+                            },
+                            "typeName": {
+                              "id": 25426,
+                              "name": "address",
+                              "nodeType": "ElementaryTypeName",
+                              "src": "906:7:107",
+                              "typeDescriptions": {
+                                "typeIdentifier": null,
+                                "typeString": null
+                              }
+                            }
+                          },
+                          {
+                            "argumentTypes": null,
+                            "baseExpression": {
+                              "argumentTypes": null,
+                              "id": 25429,
+                              "isConstant": false,
+                              "isLValue": false,
+                              "isPure": true,
+                              "lValueRequested": false,
+                              "nodeType": "ElementaryTypeNameExpression",
+                              "src": "915:5:107",
+                              "typeDescriptions": {
+                                "typeIdentifier": "t_type$_t_bytes_storage_ptr_$",
+                                "typeString": "type(bytes storage pointer)"
+                              },
+                              "typeName": {
+                                "id": 25428,
+                                "name": "bytes",
+                                "nodeType": "ElementaryTypeName",
+                                "src": "915:5:107",
+                                "typeDescriptions": {
+                                  "typeIdentifier": null,
+                                  "typeString": null
+                                }
+                              }
+                            },
+                            "id": 25430,
+                            "indexExpression": null,
+                            "isConstant": false,
+                            "isLValue": false,
+                            "isPure": true,
+                            "lValueRequested": false,
+                            "nodeType": "IndexAccess",
+                            "src": "915:7:107",
+                            "typeDescriptions": {
+                              "typeIdentifier": "t_type$_t_array$_t_bytes_memory_ptr_$dyn_memory_ptr_$",
+                              "typeString": "type(bytes memory[] memory)"
+                            }
+                          },
+                          {
+                            "argumentTypes": null,
+                            "expression": {
+                              "argumentTypes": null,
+                              "id": 25431,
+                              "name": "IKilnStakingPosition",
+                              "nodeType": "Identifier",
+                              "overloadedDeclarations": [],
+                              "referencedDeclaration": 25406,
+                              "src": "924:20:107",
+                              "typeDescriptions": {
+                                "typeIdentifier": "t_type$_t_contract$_IKilnStakingPosition_$25406_$",
+                                "typeString": "type(contract IKilnStakingPosition)"
+                              }
+                            },
+                            "id": 25432,
+                            "isConstant": false,
+                            "isLValue": false,
+                            "isPure": false,
+                            "lValueRequested": false,
+                            "memberName": "ClaimFeeTypes",
+                            "nodeType": "MemberAccess",
+                            "referencedDeclaration": 25405,
+                            "src": "924:34:107",
+                            "typeDescriptions": {
+                              "typeIdentifier": "t_type$_t_enum$_ClaimFeeTypes_$25405_$",
+                              "typeString": "type(enum IKilnStakingPosition.ClaimFeeTypes)"
+                            }
+                          }
+                        ],
+                        "id": 25433,
+                        "isConstant": false,
+                        "isInlineArray": false,
+                        "isLValue": false,
+                        "isPure": false,
+                        "lValueRequested": false,
+                        "nodeType": "TupleExpression",
+                        "src": "905:54:107",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_tuple$_t_type$_t_address_$_$_t_type$_t_array$_t_bytes_memory_ptr_$dyn_memory_ptr_$_$_t_type$_t_enum$_ClaimFeeTypes_$25405_$_$",
+                          "typeString": "tuple(type(address),type(bytes memory[] memory),type(enum IKilnStakingPosition.ClaimFeeTypes))"
+                        }
+                      }
+                    ],
+                    "expression": {
+                      "argumentTypes": [
+                        {
+                          "typeIdentifier": "t_bytes_memory_ptr",
+                          "typeString": "bytes memory"
+                        },
+                        {
+                          "typeIdentifier": "t_tuple$_t_type$_t_address_$_$_t_type$_t_array$_t_bytes_memory_ptr_$dyn_memory_ptr_$_$_t_type$_t_enum$_ClaimFeeTypes_$25405_$_$",
+                          "typeString": "tuple(type(address),type(bytes memory[] memory),type(enum IKilnStakingPosition.ClaimFeeTypes))"
+                        }
+                      ],
+                      "expression": {
+                        "argumentTypes": null,
+                        "id": 25423,
+                        "name": "abi",
+                        "nodeType": "Identifier",
+                        "overloadedDeclarations": [],
+                        "referencedDeclaration": -1,
+                        "src": "881:3:107",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_magic_abi",
+                          "typeString": "abi"
+                        }
+                      },
+                      "id": 25424,
+                      "isConstant": false,
+                      "isLValue": false,
+                      "isPure": true,
+                      "lValueRequested": false,
+                      "memberName": "decode",
+                      "nodeType": "MemberAccess",
+                      "referencedDeclaration": null,
+                      "src": "881:10:107",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_function_abidecode_pure$__$returns$__$",
+                        "typeString": "function () pure"
+                      }
+                    },
+                    "id": 25434,
+                    "isConstant": false,
+                    "isLValue": false,
+                    "isPure": false,
+                    "kind": "functionCall",
+                    "lValueRequested": false,
+                    "names": [],
+                    "nodeType": "FunctionCall",
+                    "src": "881:79:107",
+                    "tryCall": false,
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_tuple$_t_address_payable_$_t_array$_t_bytes_memory_ptr_$dyn_memory_ptr_$_t_enum$_ClaimFeeTypes_$25405_$",
+                      "typeString": "tuple(address payable,bytes memory[] memory,enum IKilnStakingPosition.ClaimFeeTypes)"
+                    }
+                  },
+                  "functionReturnParameters": 25422,
+                  "id": 25435,
+                  "nodeType": "Return",
+                  "src": "874:86:107"
+                }
+              ]
+            },
+            "documentation": null,
+            "implemented": true,
+            "kind": "function",
+            "modifiers": [],
+            "name": "__decodeClaimFeesAction",
+            "overrides": null,
+            "parameters": {
+              "id": 25414,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 25413,
+                  "mutability": "mutable",
+                  "name": "_actionArgs",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 25437,
+                  "src": "631:24:107",
+                  "stateVariable": false,
+                  "storageLocation": "memory",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_bytes_memory_ptr",
+                    "typeString": "bytes"
+                  },
+                  "typeName": {
+                    "id": 25412,
+                    "name": "bytes",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "631:5:107",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_bytes_storage_ptr",
+                      "typeString": "bytes"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "630:26:107"
+            },
+            "returnParameters": {
+              "id": 25422,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 25416,
+                  "mutability": "mutable",
+                  "name": "stakingContractAddress_",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 25437,
+                  "src": "717:31:107",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 25415,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "717:7:107",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 25419,
+                  "mutability": "mutable",
+                  "name": "publicKeys_",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 25437,
+                  "src": "762:26:107",
+                  "stateVariable": false,
+                  "storageLocation": "memory",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_array$_t_bytes_memory_ptr_$dyn_memory_ptr",
+                    "typeString": "bytes[]"
+                  },
+                  "typeName": {
+                    "baseType": {
+                      "id": 25417,
+                      "name": "bytes",
+                      "nodeType": "ElementaryTypeName",
+                      "src": "762:5:107",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_bytes_storage_ptr",
+                        "typeString": "bytes"
+                      }
+                    },
+                    "id": 25418,
+                    "length": null,
+                    "nodeType": "ArrayTypeName",
+                    "src": "762:7:107",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_array$_t_bytes_storage_$dyn_storage_ptr",
+                      "typeString": "bytes[]"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 25421,
+                  "mutability": "mutable",
+                  "name": "claimFeeType",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 25437,
+                  "src": "802:47:107",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_enum$_ClaimFeeTypes_$25405",
+                    "typeString": "enum IKilnStakingPosition.ClaimFeeTypes"
+                  },
+                  "typeName": {
+                    "contractScope": null,
+                    "id": 25420,
+                    "name": "IKilnStakingPosition.ClaimFeeTypes",
+                    "nodeType": "UserDefinedTypeName",
+                    "referencedDeclaration": 25405,
+                    "src": "802:34:107",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_enum$_ClaimFeeTypes_$25405",
+                      "typeString": "enum IKilnStakingPosition.ClaimFeeTypes"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "703:156:107"
+            },
+            "scope": 25459,
+            "stateMutability": "pure",
+            "virtual": false,
+            "visibility": "internal"
+          },
+          {
+            "id": 25458,
+            "nodeType": "FunctionDefinition",
+            "src": "1037:236:107",
+            "nodes": [],
+            "body": {
+              "id": 25457,
+              "nodeType": "Block",
+              "src": "1206:67:107",
+              "nodes": [],
+              "statements": [
+                {
+                  "expression": {
+                    "argumentTypes": null,
+                    "arguments": [
+                      {
+                        "argumentTypes": null,
+                        "id": 25449,
+                        "name": "_actionArgs",
+                        "nodeType": "Identifier",
+                        "overloadedDeclarations": [],
+                        "referencedDeclaration": 25440,
+                        "src": "1234:11:107",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_bytes_memory_ptr",
+                          "typeString": "bytes memory"
+                        }
+                      },
+                      {
+                        "argumentTypes": null,
+                        "components": [
+                          {
+                            "argumentTypes": null,
+                            "id": 25451,
+                            "isConstant": false,
+                            "isLValue": false,
+                            "isPure": true,
+                            "lValueRequested": false,
+                            "nodeType": "ElementaryTypeNameExpression",
+                            "src": "1248:7:107",
+                            "typeDescriptions": {
+                              "typeIdentifier": "t_type$_t_address_$",
+                              "typeString": "type(address)"
+                            },
+                            "typeName": {
+                              "id": 25450,
+                              "name": "address",
+                              "nodeType": "ElementaryTypeName",
+                              "src": "1248:7:107",
+                              "typeDescriptions": {
+                                "typeIdentifier": null,
+                                "typeString": null
+                              }
+                            }
+                          },
+                          {
+                            "argumentTypes": null,
+                            "id": 25453,
+                            "isConstant": false,
+                            "isLValue": false,
+                            "isPure": true,
+                            "lValueRequested": false,
+                            "nodeType": "ElementaryTypeNameExpression",
+                            "src": "1257:7:107",
+                            "typeDescriptions": {
+                              "typeIdentifier": "t_type$_t_uint256_$",
+                              "typeString": "type(uint256)"
+                            },
+                            "typeName": {
+                              "id": 25452,
+                              "name": "uint256",
+                              "nodeType": "ElementaryTypeName",
+                              "src": "1257:7:107",
+                              "typeDescriptions": {
+                                "typeIdentifier": null,
+                                "typeString": null
+                              }
+                            }
+                          }
+                        ],
+                        "id": 25454,
+                        "isConstant": false,
+                        "isInlineArray": false,
+                        "isLValue": false,
+                        "isPure": true,
+                        "lValueRequested": false,
+                        "nodeType": "TupleExpression",
+                        "src": "1247:18:107",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_tuple$_t_type$_t_address_$_$_t_type$_t_uint256_$_$",
+                          "typeString": "tuple(type(address),type(uint256))"
+                        }
+                      }
+                    ],
+                    "expression": {
+                      "argumentTypes": [
+                        {
+                          "typeIdentifier": "t_bytes_memory_ptr",
+                          "typeString": "bytes memory"
+                        },
+                        {
+                          "typeIdentifier": "t_tuple$_t_type$_t_address_$_$_t_type$_t_uint256_$_$",
+                          "typeString": "tuple(type(address),type(uint256))"
+                        }
+                      ],
+                      "expression": {
+                        "argumentTypes": null,
+                        "id": 25447,
+                        "name": "abi",
+                        "nodeType": "Identifier",
+                        "overloadedDeclarations": [],
+                        "referencedDeclaration": -1,
+                        "src": "1223:3:107",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_magic_abi",
+                          "typeString": "abi"
+                        }
+                      },
+                      "id": 25448,
+                      "isConstant": false,
+                      "isLValue": false,
+                      "isPure": true,
+                      "lValueRequested": false,
+                      "memberName": "decode",
+                      "nodeType": "MemberAccess",
+                      "referencedDeclaration": null,
+                      "src": "1223:10:107",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_function_abidecode_pure$__$returns$__$",
+                        "typeString": "function () pure"
+                      }
+                    },
+                    "id": 25455,
+                    "isConstant": false,
+                    "isLValue": false,
+                    "isPure": false,
+                    "kind": "functionCall",
+                    "lValueRequested": false,
+                    "names": [],
+                    "nodeType": "FunctionCall",
+                    "src": "1223:43:107",
+                    "tryCall": false,
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_tuple$_t_address_payable_$_t_uint256_$",
+                      "typeString": "tuple(address payable,uint256)"
+                    }
+                  },
+                  "functionReturnParameters": 25446,
+                  "id": 25456,
+                  "nodeType": "Return",
+                  "src": "1216:50:107"
+                }
+              ]
+            },
+            "documentation": {
+              "id": 25438,
+              "nodeType": "StructuredDocumentation",
+              "src": "973:59:107",
+              "text": "@dev Helper to decode args used during the Stake action"
+            },
+            "implemented": true,
+            "kind": "function",
+            "modifiers": [],
+            "name": "__decodeStakeActionArgs",
+            "overrides": null,
+            "parameters": {
+              "id": 25441,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 25440,
+                  "mutability": "mutable",
+                  "name": "_actionArgs",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 25458,
+                  "src": "1070:24:107",
+                  "stateVariable": false,
+                  "storageLocation": "memory",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_bytes_memory_ptr",
+                    "typeString": "bytes"
+                  },
+                  "typeName": {
+                    "id": 25439,
+                    "name": "bytes",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "1070:5:107",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_bytes_storage_ptr",
+                      "typeString": "bytes"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "1069:26:107"
+            },
+            "returnParameters": {
+              "id": 25446,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 25443,
+                  "mutability": "mutable",
+                  "name": "stakingContractAddress_",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 25458,
+                  "src": "1143:31:107",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 25442,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "1143:7:107",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 25445,
+                  "mutability": "mutable",
+                  "name": "validatorAmount_",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 25458,
+                  "src": "1176:24:107",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_uint256",
+                    "typeString": "uint256"
+                  },
+                  "typeName": {
+                    "id": 25444,
+                    "name": "uint256",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "1176:7:107",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_uint256",
+                      "typeString": "uint256"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "1142:59:107"
+            },
+            "scope": 25459,
+            "stateMutability": "pure",
+            "virtual": false,
+            "visibility": "internal"
+          }
+        ],
+        "abstract": true,
+        "baseContracts": [],
+        "contractDependencies": [],
+        "contractKind": "contract",
+        "documentation": {
+          "id": 25411,
+          "nodeType": "StructuredDocumentation",
+          "src": "350:193:107",
+          "text": "@title KilnStakingPositionDataDecoder Contract\n @author Enzyme Council <security@enzyme.finance>\n @notice Abstract contract containing data decodings for KilnStakingPosition payloads"
+        },
+        "fullyImplemented": true,
+        "linearizedBaseContracts": [
+          25459
+        ],
+        "name": "KilnStakingPositionDataDecoder",
+        "scope": 25460
+      }
+    ],
+    "license": "GPL-3.0"
+  },
+  "id": 107
 }

@@ -56,7 +56,19 @@ def get_contract(web3: Web3, fname: str, bytecode: Optional[str] = None) -> Type
     """
     contract_interface = get_abi_by_filename(fname)
     abi = contract_interface["abi"]
-    bytecode = bytecode if bytecode is not None else contract_interface["bytecode"]
+
+    if bytecode is None:
+        # Pick up bytecode from ABI description
+        bytecode = contract_interface["bytecode"]
+        if type(bytecode) == dict:
+            # Sol 0.8 / Forge?
+            # Contains keys object, sourceMap, linkReferences
+            bytecode = bytecode["object"]
+        else:
+            # Sol 0.6 / legacy
+            # Bytecode hex is directly in the key.
+            pass
+
     Contract = web3.eth.contract(abi=abi, bytecode=bytecode)
     return Contract
 

@@ -1,0 +1,473 @@
+{
+  "abi": [
+    {
+      "inputs": [],
+      "name": "getAccessor",
+      "outputs": [
+        {
+          "internalType": "address",
+          "name": "accessor_",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "getCreator",
+      "outputs": [
+        {
+          "internalType": "address",
+          "name": "creator_",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "getMigrator",
+      "outputs": [
+        {
+          "internalType": "address",
+          "name": "migrator_",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "getOwner",
+      "outputs": [
+        {
+          "internalType": "address",
+          "name": "owner_",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    }
+  ],
+  "bytecode": {
+    "object": "0x",
+    "sourceMap": "",
+    "linkReferences": {}
+  },
+  "deployedBytecode": {
+    "object": "0x",
+    "sourceMap": "",
+    "linkReferences": {}
+  },
+  "methodIdentifiers": {
+    "getAccessor()": "5a53e348",
+    "getCreator()": "0ee2cb10",
+    "getMigrator()": "cd63d578",
+    "getOwner()": "893d20e8"
+  },
+  "rawMetadata": "{\"compiler\":{\"version\":\"0.8.17+commit.8df45f5f\"},\"language\":\"Solidity\",\"output\":{\"abi\":[{\"inputs\":[],\"name\":\"getAccessor\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"accessor_\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getCreator\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"creator_\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getMigrator\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"migrator_\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getOwner\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"owner_\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"}],\"devdoc\":{\"author\":\"Enzyme Council <security@enzyme.finance>\",\"details\":\"DO NOT EDIT CONTRACT\",\"kind\":\"dev\",\"methods\":{},\"title\":\"IVaultCore interface\",\"version\":1},\"userdoc\":{\"kind\":\"user\",\"methods\":{},\"notice\":\"Interface for getters of core vault storage\",\"version\":1}},\"settings\":{\"compilationTarget\":{\"contracts/persistent/vault/interfaces/IVaultCore.sol\":\"IVaultCore\"},\"evmVersion\":\"london\",\"libraries\":{},\"metadata\":{\"bytecodeHash\":\"none\"},\"optimizer\":{\"details\":{\"constantOptimizer\":true,\"cse\":true,\"deduplicate\":true,\"inliner\":true,\"jumpdestRemover\":true,\"orderLiterals\":true,\"peephole\":true,\"yul\":false},\"runs\":200},\"remappings\":[\":@enzyme/=contracts/\",\":@openzeppelin-solc-0.7/=node_modules/@openzeppelin-solc-0.7/\",\":@openzeppelin/=node_modules/@openzeppelin/\",\":@uniswap/=node_modules/@uniswap/\",\":base64-sol/=node_modules/base64-sol/\",\":ds-test/=lib/forge-std/lib/ds-test/src/\",\":forge-std/=lib/forge-std/src/\",\":hardhat-deploy/=node_modules/hardhat-deploy/\",\":hardhat/=node_modules/hardhat/\"]},\"sources\":{\"contracts/persistent/vault/interfaces/IVaultCore.sol\":{\"keccak256\":\"0x646cfaf06e2ffa1ab36f25e972b5ca18deba1ed80493cfd787608c8bd07b5f46\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://76ff14bb89bf277b1bbfac32fcdeb2057245a87cf8f494819d2b52257a0ae6c5\",\"dweb:/ipfs/QmSNj436Y4WiKw4Y2PqrcJVWqF95NJNGtncXQXUvAu5iVg\"]}},\"version\":1}",
+  "metadata": {
+    "compiler": {
+      "version": "0.8.17+commit.8df45f5f"
+    },
+    "language": "Solidity",
+    "output": {
+      "abi": [
+        {
+          "inputs": [],
+          "stateMutability": "view",
+          "type": "function",
+          "name": "getAccessor",
+          "outputs": [
+            {
+              "internalType": "address",
+              "name": "accessor_",
+              "type": "address"
+            }
+          ]
+        },
+        {
+          "inputs": [],
+          "stateMutability": "view",
+          "type": "function",
+          "name": "getCreator",
+          "outputs": [
+            {
+              "internalType": "address",
+              "name": "creator_",
+              "type": "address"
+            }
+          ]
+        },
+        {
+          "inputs": [],
+          "stateMutability": "view",
+          "type": "function",
+          "name": "getMigrator",
+          "outputs": [
+            {
+              "internalType": "address",
+              "name": "migrator_",
+              "type": "address"
+            }
+          ]
+        },
+        {
+          "inputs": [],
+          "stateMutability": "view",
+          "type": "function",
+          "name": "getOwner",
+          "outputs": [
+            {
+              "internalType": "address",
+              "name": "owner_",
+              "type": "address"
+            }
+          ]
+        }
+      ],
+      "devdoc": {
+        "kind": "dev",
+        "methods": {},
+        "version": 1
+      },
+      "userdoc": {
+        "kind": "user",
+        "methods": {},
+        "version": 1
+      }
+    },
+    "settings": {
+      "remappings": [
+        ":@enzyme/=contracts/",
+        ":@openzeppelin-solc-0.7/=node_modules/@openzeppelin-solc-0.7/",
+        ":@openzeppelin/=node_modules/@openzeppelin/",
+        ":@uniswap/=node_modules/@uniswap/",
+        ":base64-sol/=node_modules/base64-sol/",
+        ":ds-test/=lib/forge-std/lib/ds-test/src/",
+        ":forge-std/=lib/forge-std/src/",
+        ":hardhat-deploy/=node_modules/hardhat-deploy/",
+        ":hardhat/=node_modules/hardhat/"
+      ],
+      "optimizer": {
+        "runs": 200,
+        "details": {
+          "peephole": true,
+          "inliner": true,
+          "jumpdestRemover": true,
+          "orderLiterals": true,
+          "deduplicate": true,
+          "cse": true,
+          "constantOptimizer": true,
+          "yul": false
+        }
+      },
+      "metadata": {
+        "bytecodeHash": "none"
+      },
+      "compilationTarget": {
+        "contracts/persistent/vault/interfaces/IVaultCore.sol": "IVaultCore"
+      },
+      "libraries": {}
+    },
+    "sources": {
+      "contracts/persistent/vault/interfaces/IVaultCore.sol": {
+        "keccak256": "0x646cfaf06e2ffa1ab36f25e972b5ca18deba1ed80493cfd787608c8bd07b5f46",
+        "urls": [
+          "bzz-raw://76ff14bb89bf277b1bbfac32fcdeb2057245a87cf8f494819d2b52257a0ae6c5",
+          "dweb:/ipfs/QmSNj436Y4WiKw4Y2PqrcJVWqF95NJNGtncXQXUvAu5iVg"
+        ],
+        "license": "GPL-3.0"
+      }
+    },
+    "version": 1
+  },
+  "ast": {
+    "absolutePath": "contracts/persistent/vault/interfaces/IVaultCore.sol",
+    "id": 74,
+    "exportedSymbols": {
+      "IVaultCore": [
+        73
+      ]
+    },
+    "nodeType": "SourceUnit",
+    "src": "255:505:3",
+    "nodes": [
+      {
+        "id": 51,
+        "nodeType": "PragmaDirective",
+        "src": "255:32:3",
+        "nodes": [],
+        "literals": [
+          "solidity",
+          ">=",
+          "0.6",
+          ".12",
+          "<",
+          "0.9",
+          ".0"
+        ]
+      },
+      {
+        "id": 73,
+        "nodeType": "ContractDefinition",
+        "src": "460:299:3",
+        "nodes": [
+          {
+            "id": 57,
+            "nodeType": "FunctionDefinition",
+            "src": "487:65:3",
+            "nodes": [],
+            "functionSelector": "5a53e348",
+            "implemented": false,
+            "kind": "function",
+            "modifiers": [],
+            "name": "getAccessor",
+            "nameLocation": "496:11:3",
+            "parameters": {
+              "id": 53,
+              "nodeType": "ParameterList",
+              "parameters": [],
+              "src": "507:2:3"
+            },
+            "returnParameters": {
+              "id": 56,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 55,
+                  "mutability": "mutable",
+                  "name": "accessor_",
+                  "nameLocation": "541:9:3",
+                  "nodeType": "VariableDeclaration",
+                  "scope": 57,
+                  "src": "533:17:3",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 54,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "533:7:3",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "visibility": "internal"
+                }
+              ],
+              "src": "532:19:3"
+            },
+            "scope": 73,
+            "stateMutability": "view",
+            "virtual": false,
+            "visibility": "external"
+          },
+          {
+            "id": 62,
+            "nodeType": "FunctionDefinition",
+            "src": "558:63:3",
+            "nodes": [],
+            "functionSelector": "0ee2cb10",
+            "implemented": false,
+            "kind": "function",
+            "modifiers": [],
+            "name": "getCreator",
+            "nameLocation": "567:10:3",
+            "parameters": {
+              "id": 58,
+              "nodeType": "ParameterList",
+              "parameters": [],
+              "src": "577:2:3"
+            },
+            "returnParameters": {
+              "id": 61,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 60,
+                  "mutability": "mutable",
+                  "name": "creator_",
+                  "nameLocation": "611:8:3",
+                  "nodeType": "VariableDeclaration",
+                  "scope": 62,
+                  "src": "603:16:3",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 59,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "603:7:3",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "visibility": "internal"
+                }
+              ],
+              "src": "602:18:3"
+            },
+            "scope": 73,
+            "stateMutability": "view",
+            "virtual": false,
+            "visibility": "external"
+          },
+          {
+            "id": 67,
+            "nodeType": "FunctionDefinition",
+            "src": "627:65:3",
+            "nodes": [],
+            "functionSelector": "cd63d578",
+            "implemented": false,
+            "kind": "function",
+            "modifiers": [],
+            "name": "getMigrator",
+            "nameLocation": "636:11:3",
+            "parameters": {
+              "id": 63,
+              "nodeType": "ParameterList",
+              "parameters": [],
+              "src": "647:2:3"
+            },
+            "returnParameters": {
+              "id": 66,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 65,
+                  "mutability": "mutable",
+                  "name": "migrator_",
+                  "nameLocation": "681:9:3",
+                  "nodeType": "VariableDeclaration",
+                  "scope": 67,
+                  "src": "673:17:3",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 64,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "673:7:3",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "visibility": "internal"
+                }
+              ],
+              "src": "672:19:3"
+            },
+            "scope": 73,
+            "stateMutability": "view",
+            "virtual": false,
+            "visibility": "external"
+          },
+          {
+            "id": 72,
+            "nodeType": "FunctionDefinition",
+            "src": "698:59:3",
+            "nodes": [],
+            "functionSelector": "893d20e8",
+            "implemented": false,
+            "kind": "function",
+            "modifiers": [],
+            "name": "getOwner",
+            "nameLocation": "707:8:3",
+            "parameters": {
+              "id": 68,
+              "nodeType": "ParameterList",
+              "parameters": [],
+              "src": "715:2:3"
+            },
+            "returnParameters": {
+              "id": 71,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 70,
+                  "mutability": "mutable",
+                  "name": "owner_",
+                  "nameLocation": "749:6:3",
+                  "nodeType": "VariableDeclaration",
+                  "scope": 72,
+                  "src": "741:14:3",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 69,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "741:7:3",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "visibility": "internal"
+                }
+              ],
+              "src": "740:16:3"
+            },
+            "scope": 73,
+            "stateMutability": "view",
+            "virtual": false,
+            "visibility": "external"
+          }
+        ],
+        "abstract": false,
+        "baseContracts": [],
+        "canonicalName": "IVaultCore",
+        "contractDependencies": [],
+        "contractKind": "interface",
+        "documentation": {
+          "id": 52,
+          "nodeType": "StructuredDocumentation",
+          "src": "289:171:3",
+          "text": "@title IVaultCore interface\n @author Enzyme Council <security@enzyme.finance>\n @notice Interface for getters of core vault storage\n @dev DO NOT EDIT CONTRACT"
+        },
+        "fullyImplemented": false,
+        "linearizedBaseContracts": [
+          73
+        ],
+        "name": "IVaultCore",
+        "nameLocation": "470:10:3",
+        "scope": 74,
+        "usedErrors": []
+      }
+    ],
+    "license": "GPL-3.0"
+  },
+  "id": 3
+}

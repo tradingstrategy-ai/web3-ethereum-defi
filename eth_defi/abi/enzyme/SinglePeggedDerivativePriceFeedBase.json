@@ -1,7 +1,4 @@
 {
-  "_format": "hh-sol-artifact-1",
-  "contractName": "SinglePeggedDerivativePriceFeedBase",
-  "sourceName": "contracts/release/infrastructure/price-feeds/derivatives/feeds/utils/SinglePeggedDerivativePriceFeedBase.sol",
   "abi": [
     {
       "inputs": [
@@ -94,8 +91,1921 @@
       "type": "function"
     }
   ],
-  "bytecode": "0x",
-  "deployedBytecode": "0x",
-  "linkReferences": {},
-  "deployedLinkReferences": {}
+  "bytecode": {
+    "object": "0x",
+    "sourceMap": "",
+    "linkReferences": {}
+  },
+  "deployedBytecode": {
+    "object": "0x",
+    "sourceMap": "",
+    "linkReferences": {}
+  },
+  "methodIdentifiers": {
+    "calcUnderlyingValues(address,uint256)": "727212f6",
+    "getDerivative()": "6d4a681a",
+    "getUnderlying()": "9816f473",
+    "isSupportedAsset(address)": "9be918e6"
+  },
+  "rawMetadata": "{\"compiler\":{\"version\":\"0.6.12+commit.27d51765\"},\"language\":\"Solidity\",\"output\":{\"abi\":[{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_derivative\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"_underlying\",\"type\":\"address\"}],\"stateMutability\":\"nonpayable\",\"type\":\"constructor\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_derivative\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"_derivativeAmount\",\"type\":\"uint256\"}],\"name\":\"calcUnderlyingValues\",\"outputs\":[{\"internalType\":\"address[]\",\"name\":\"underlyings_\",\"type\":\"address[]\"},{\"internalType\":\"uint256[]\",\"name\":\"underlyingAmounts_\",\"type\":\"uint256[]\"}],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getDerivative\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"derivative_\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getUnderlying\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"underlying_\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_asset\",\"type\":\"address\"}],\"name\":\"isSupportedAsset\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"isSupported_\",\"type\":\"bool\"}],\"stateMutability\":\"view\",\"type\":\"function\"}],\"devdoc\":{\"author\":\"Enzyme Council <security@enzyme.finance>\",\"kind\":\"dev\",\"methods\":{\"calcUnderlyingValues(address,uint256)\":{\"params\":{\"_derivative\":\"The derivative to convert\",\"_derivativeAmount\":\"The amount of the derivative to convert\"},\"returns\":{\"underlyingAmounts_\":\"The amount of each underlying asset for the equivalent derivative amount\",\"underlyings_\":\"The underlying assets for the _derivative\"}},\"getDerivative()\":{\"returns\":{\"derivative_\":\"The `DERIVATIVE` variable value\"}},\"getUnderlying()\":{\"returns\":{\"underlying_\":\"The `UNDERLYING` variable value\"}},\"isSupportedAsset(address)\":{\"params\":{\"_asset\":\"The asset to check\"},\"returns\":{\"isSupported_\":\"True if the asset is supported\"}}},\"title\":\"SinglePeggedDerivativePriceFeedBase Contract\",\"version\":1},\"userdoc\":{\"kind\":\"user\",\"methods\":{\"calcUnderlyingValues(address,uint256)\":{\"notice\":\"Converts a given amount of a derivative to its underlying asset values\"},\"getDerivative()\":{\"notice\":\"Gets the `DERIVATIVE` variable value\"},\"getUnderlying()\":{\"notice\":\"Gets the `UNDERLYING` variable value\"},\"isSupportedAsset(address)\":{\"notice\":\"Checks if an asset is supported by the price feed\"}},\"notice\":\"Price feed base for any single derivative that is pegged 1:1 to its underlying\",\"version\":1}},\"settings\":{\"compilationTarget\":{\"contracts/release/infrastructure/price-feeds/derivatives/feeds/utils/SinglePeggedDerivativePriceFeedBase.sol\":\"SinglePeggedDerivativePriceFeedBase\"},\"evmVersion\":\"istanbul\",\"libraries\":{},\"metadata\":{\"bytecodeHash\":\"none\"},\"optimizer\":{\"details\":{\"constantOptimizer\":true,\"cse\":true,\"deduplicate\":true,\"jumpdestRemover\":true,\"orderLiterals\":true,\"peephole\":true,\"yul\":false},\"runs\":200},\"remappings\":[\":@enzyme/=contracts/\",\":@openzeppelin-solc-0.7/=node_modules/@openzeppelin-solc-0.7/\",\":@openzeppelin/=node_modules/@openzeppelin/\",\":@uniswap/=node_modules/@uniswap/\",\":base64-sol/=node_modules/base64-sol/\",\":ds-test/=lib/forge-std/lib/ds-test/src/\",\":forge-std/=lib/forge-std/src/\",\":hardhat-deploy/=node_modules/hardhat-deploy/\",\":hardhat/=node_modules/hardhat/\"]},\"sources\":{\"contracts/release/infrastructure/price-feeds/derivatives/IDerivativePriceFeed.sol\":{\"keccak256\":\"0x5abbc57ccbf28b2c27a0ee496f0a949a0039912975e8f9a65312d884edd05332\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://9cfb87b8df1f3f58c556907e2a9cc197fa5bb90ad9bc9d4717e95fd63258d80e\",\"dweb:/ipfs/QmWxLvfq9NNJJZueeHD5EYWdRwrgzmrVdLUqp9Ta7A9ccK\"]},\"contracts/release/infrastructure/price-feeds/derivatives/feeds/utils/SinglePeggedDerivativePriceFeedBase.sol\":{\"keccak256\":\"0xcbcb93a3c4ad003660705d351aa9741174add393ca99fe2cf9346d6d4a055479\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://cb3e7a9d4972928ff1ba55de58285e910a88563ce0be81a7813c5c9bc9966dd9\",\"dweb:/ipfs/QmSWntaSEGdhgmBsFRbRLrpfbt4Fs5gZ2rFMEQ7eBNdjq9\"]},\"node_modules/@openzeppelin/contracts/math/SafeMath.sol\":{\"keccak256\":\"0xcc78a17dd88fa5a2edc60c8489e2f405c0913b377216a5b26b35656b2d0dab52\",\"license\":\"MIT\",\"urls\":[\"bzz-raw://526dc85e1f9b9b45830e202568d267d93dde7a4fcccf4ad7798dadcd92304d3c\",\"dweb:/ipfs/QmaoXMB972J3cSDLtBq3xBo4jLwqD2uzXTwujtSPqkYVhR\"]},\"node_modules/@openzeppelin/contracts/token/ERC20/ERC20.sol\":{\"keccak256\":\"0xca0c2396dbeb3503b51abf4248ebf77a1461edad513c01529df51850a012bee3\",\"license\":\"MIT\",\"urls\":[\"bzz-raw://991b44ff44e0496e8554a90f4c0512c28faed45104d40430019f3c67ea67740e\",\"dweb:/ipfs/Qmc3nRapVbcctELoZS5qe17zLkFB3bETBfwzCTMF1CSuGE\"]},\"node_modules/@openzeppelin/contracts/token/ERC20/IERC20.sol\":{\"keccak256\":\"0x5f02220344881ce43204ae4a6281145a67bc52c2bb1290a791857df3d19d78f5\",\"license\":\"MIT\",\"urls\":[\"bzz-raw://24427744bd3e6cb73c17010119af12a318289c0253a4d9acb8576c9fb3797b08\",\"dweb:/ipfs/QmTLDqpKRBuxGxRAmjgXt9AkXyACW3MtKzi7PYjm5iMfGC\"]},\"node_modules/@openzeppelin/contracts/utils/Context.sol\":{\"keccak256\":\"0x8d3cb350f04ff49cfb10aef08d87f19dcbaecc8027b0bed12f3275cd12f38cf0\",\"license\":\"MIT\",\"urls\":[\"bzz-raw://ded47ec7c96750f9bd04bbbc84f659992d4ba901cb7b532a52cd468272cf378f\",\"dweb:/ipfs/QmfBrGtQP7rZEqEg6Wz6jh2N2Kukpj1z5v3CGWmAqrzm96\"]}},\"version\":1}",
+  "metadata": {
+    "compiler": {
+      "version": "0.6.12+commit.27d51765"
+    },
+    "language": "Solidity",
+    "output": {
+      "abi": [
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "_derivative",
+              "type": "address"
+            },
+            {
+              "internalType": "address",
+              "name": "_underlying",
+              "type": "address"
+            }
+          ],
+          "stateMutability": "nonpayable",
+          "type": "constructor"
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "_derivative",
+              "type": "address"
+            },
+            {
+              "internalType": "uint256",
+              "name": "_derivativeAmount",
+              "type": "uint256"
+            }
+          ],
+          "stateMutability": "nonpayable",
+          "type": "function",
+          "name": "calcUnderlyingValues",
+          "outputs": [
+            {
+              "internalType": "address[]",
+              "name": "underlyings_",
+              "type": "address[]"
+            },
+            {
+              "internalType": "uint256[]",
+              "name": "underlyingAmounts_",
+              "type": "uint256[]"
+            }
+          ]
+        },
+        {
+          "inputs": [],
+          "stateMutability": "view",
+          "type": "function",
+          "name": "getDerivative",
+          "outputs": [
+            {
+              "internalType": "address",
+              "name": "derivative_",
+              "type": "address"
+            }
+          ]
+        },
+        {
+          "inputs": [],
+          "stateMutability": "view",
+          "type": "function",
+          "name": "getUnderlying",
+          "outputs": [
+            {
+              "internalType": "address",
+              "name": "underlying_",
+              "type": "address"
+            }
+          ]
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "_asset",
+              "type": "address"
+            }
+          ],
+          "stateMutability": "view",
+          "type": "function",
+          "name": "isSupportedAsset",
+          "outputs": [
+            {
+              "internalType": "bool",
+              "name": "isSupported_",
+              "type": "bool"
+            }
+          ]
+        }
+      ],
+      "devdoc": {
+        "kind": "dev",
+        "methods": {
+          "calcUnderlyingValues(address,uint256)": {
+            "params": {
+              "_derivative": "The derivative to convert",
+              "_derivativeAmount": "The amount of the derivative to convert"
+            },
+            "returns": {
+              "underlyingAmounts_": "The amount of each underlying asset for the equivalent derivative amount",
+              "underlyings_": "The underlying assets for the _derivative"
+            }
+          },
+          "getDerivative()": {
+            "returns": {
+              "derivative_": "The `DERIVATIVE` variable value"
+            }
+          },
+          "getUnderlying()": {
+            "returns": {
+              "underlying_": "The `UNDERLYING` variable value"
+            }
+          },
+          "isSupportedAsset(address)": {
+            "params": {
+              "_asset": "The asset to check"
+            },
+            "returns": {
+              "isSupported_": "True if the asset is supported"
+            }
+          }
+        },
+        "version": 1
+      },
+      "userdoc": {
+        "kind": "user",
+        "methods": {
+          "calcUnderlyingValues(address,uint256)": {
+            "notice": "Converts a given amount of a derivative to its underlying asset values"
+          },
+          "getDerivative()": {
+            "notice": "Gets the `DERIVATIVE` variable value"
+          },
+          "getUnderlying()": {
+            "notice": "Gets the `UNDERLYING` variable value"
+          },
+          "isSupportedAsset(address)": {
+            "notice": "Checks if an asset is supported by the price feed"
+          }
+        },
+        "version": 1
+      }
+    },
+    "settings": {
+      "remappings": [
+        ":@enzyme/=contracts/",
+        ":@openzeppelin-solc-0.7/=node_modules/@openzeppelin-solc-0.7/",
+        ":@openzeppelin/=node_modules/@openzeppelin/",
+        ":@uniswap/=node_modules/@uniswap/",
+        ":base64-sol/=node_modules/base64-sol/",
+        ":ds-test/=lib/forge-std/lib/ds-test/src/",
+        ":forge-std/=lib/forge-std/src/",
+        ":hardhat-deploy/=node_modules/hardhat-deploy/",
+        ":hardhat/=node_modules/hardhat/"
+      ],
+      "optimizer": {
+        "runs": 200,
+        "details": {
+          "peephole": true,
+          "jumpdestRemover": true,
+          "orderLiterals": true,
+          "deduplicate": true,
+          "cse": true,
+          "constantOptimizer": true,
+          "yul": false
+        }
+      },
+      "metadata": {
+        "bytecodeHash": "none"
+      },
+      "compilationTarget": {
+        "contracts/release/infrastructure/price-feeds/derivatives/feeds/utils/SinglePeggedDerivativePriceFeedBase.sol": "SinglePeggedDerivativePriceFeedBase"
+      },
+      "libraries": {}
+    },
+    "sources": {
+      "contracts/release/infrastructure/price-feeds/derivatives/IDerivativePriceFeed.sol": {
+        "keccak256": "0x5abbc57ccbf28b2c27a0ee496f0a949a0039912975e8f9a65312d884edd05332",
+        "urls": [
+          "bzz-raw://9cfb87b8df1f3f58c556907e2a9cc197fa5bb90ad9bc9d4717e95fd63258d80e",
+          "dweb:/ipfs/QmWxLvfq9NNJJZueeHD5EYWdRwrgzmrVdLUqp9Ta7A9ccK"
+        ],
+        "license": "GPL-3.0"
+      },
+      "contracts/release/infrastructure/price-feeds/derivatives/feeds/utils/SinglePeggedDerivativePriceFeedBase.sol": {
+        "keccak256": "0xcbcb93a3c4ad003660705d351aa9741174add393ca99fe2cf9346d6d4a055479",
+        "urls": [
+          "bzz-raw://cb3e7a9d4972928ff1ba55de58285e910a88563ce0be81a7813c5c9bc9966dd9",
+          "dweb:/ipfs/QmSWntaSEGdhgmBsFRbRLrpfbt4Fs5gZ2rFMEQ7eBNdjq9"
+        ],
+        "license": "GPL-3.0"
+      },
+      "node_modules/@openzeppelin/contracts/math/SafeMath.sol": {
+        "keccak256": "0xcc78a17dd88fa5a2edc60c8489e2f405c0913b377216a5b26b35656b2d0dab52",
+        "urls": [
+          "bzz-raw://526dc85e1f9b9b45830e202568d267d93dde7a4fcccf4ad7798dadcd92304d3c",
+          "dweb:/ipfs/QmaoXMB972J3cSDLtBq3xBo4jLwqD2uzXTwujtSPqkYVhR"
+        ],
+        "license": "MIT"
+      },
+      "node_modules/@openzeppelin/contracts/token/ERC20/ERC20.sol": {
+        "keccak256": "0xca0c2396dbeb3503b51abf4248ebf77a1461edad513c01529df51850a012bee3",
+        "urls": [
+          "bzz-raw://991b44ff44e0496e8554a90f4c0512c28faed45104d40430019f3c67ea67740e",
+          "dweb:/ipfs/Qmc3nRapVbcctELoZS5qe17zLkFB3bETBfwzCTMF1CSuGE"
+        ],
+        "license": "MIT"
+      },
+      "node_modules/@openzeppelin/contracts/token/ERC20/IERC20.sol": {
+        "keccak256": "0x5f02220344881ce43204ae4a6281145a67bc52c2bb1290a791857df3d19d78f5",
+        "urls": [
+          "bzz-raw://24427744bd3e6cb73c17010119af12a318289c0253a4d9acb8576c9fb3797b08",
+          "dweb:/ipfs/QmTLDqpKRBuxGxRAmjgXt9AkXyACW3MtKzi7PYjm5iMfGC"
+        ],
+        "license": "MIT"
+      },
+      "node_modules/@openzeppelin/contracts/utils/Context.sol": {
+        "keccak256": "0x8d3cb350f04ff49cfb10aef08d87f19dcbaecc8027b0bed12f3275cd12f38cf0",
+        "urls": [
+          "bzz-raw://ded47ec7c96750f9bd04bbbc84f659992d4ba901cb7b532a52cd468272cf378f",
+          "dweb:/ipfs/QmfBrGtQP7rZEqEg6Wz6jh2N2Kukpj1z5v3CGWmAqrzm96"
+        ],
+        "license": "MIT"
+      }
+    },
+    "version": 1
+  },
+  "ast": {
+    "absolutePath": "contracts/release/infrastructure/price-feeds/derivatives/feeds/utils/SinglePeggedDerivativePriceFeedBase.sol",
+    "id": 66368,
+    "exportedSymbols": {
+      "SinglePeggedDerivativePriceFeedBase": [
+        66367
+      ]
+    },
+    "nodeType": "SourceUnit",
+    "src": "255:2541:251",
+    "nodes": [
+      {
+        "id": 66239,
+        "nodeType": "PragmaDirective",
+        "src": "255:23:251",
+        "nodes": [],
+        "literals": [
+          "solidity",
+          "0.6",
+          ".12"
+        ]
+      },
+      {
+        "id": 66240,
+        "nodeType": "ImportDirective",
+        "src": "280:55:251",
+        "nodes": [],
+        "absolutePath": "node_modules/@openzeppelin/contracts/token/ERC20/ERC20.sol",
+        "file": "@openzeppelin/contracts/token/ERC20/ERC20.sol",
+        "scope": 66368,
+        "sourceUnit": 83382,
+        "symbolAliases": [],
+        "unitAlias": ""
+      },
+      {
+        "id": 66241,
+        "nodeType": "ImportDirective",
+        "src": "336:40:251",
+        "nodes": [],
+        "absolutePath": "contracts/release/infrastructure/price-feeds/derivatives/IDerivativePriceFeed.sol",
+        "file": "../../IDerivativePriceFeed.sol",
+        "scope": 66368,
+        "sourceUnit": 62424,
+        "symbolAliases": [],
+        "unitAlias": ""
+      },
+      {
+        "id": 66367,
+        "nodeType": "ContractDefinition",
+        "src": "578:2217:251",
+        "nodes": [
+          {
+            "id": 66246,
+            "nodeType": "VariableDeclaration",
+            "src": "662:36:251",
+            "nodes": [],
+            "constant": false,
+            "mutability": "immutable",
+            "name": "DERIVATIVE",
+            "overrides": null,
+            "scope": 66367,
+            "stateVariable": true,
+            "storageLocation": "default",
+            "typeDescriptions": {
+              "typeIdentifier": "t_address",
+              "typeString": "address"
+            },
+            "typeName": {
+              "id": 66245,
+              "name": "address",
+              "nodeType": "ElementaryTypeName",
+              "src": "662:7:251",
+              "stateMutability": "nonpayable",
+              "typeDescriptions": {
+                "typeIdentifier": "t_address",
+                "typeString": "address"
+              }
+            },
+            "value": null,
+            "visibility": "private"
+          },
+          {
+            "id": 66248,
+            "nodeType": "VariableDeclaration",
+            "src": "704:36:251",
+            "nodes": [],
+            "constant": false,
+            "mutability": "immutable",
+            "name": "UNDERLYING",
+            "overrides": null,
+            "scope": 66367,
+            "stateVariable": true,
+            "storageLocation": "default",
+            "typeDescriptions": {
+              "typeIdentifier": "t_address",
+              "typeString": "address"
+            },
+            "typeName": {
+              "id": 66247,
+              "name": "address",
+              "nodeType": "ElementaryTypeName",
+              "src": "704:7:251",
+              "stateMutability": "nonpayable",
+              "typeDescriptions": {
+                "typeIdentifier": "t_address",
+                "typeString": "address"
+              }
+            },
+            "value": null,
+            "visibility": "private"
+          },
+          {
+            "id": 66279,
+            "nodeType": "FunctionDefinition",
+            "src": "747:285:251",
+            "nodes": [],
+            "body": {
+              "id": 66278,
+              "nodeType": "Block",
+              "src": "808:224:251",
+              "nodes": [],
+              "statements": [
+                {
+                  "expression": {
+                    "argumentTypes": null,
+                    "arguments": [
+                      {
+                        "argumentTypes": null,
+                        "commonType": {
+                          "typeIdentifier": "t_uint8",
+                          "typeString": "uint8"
+                        },
+                        "id": 66266,
+                        "isConstant": false,
+                        "isLValue": false,
+                        "isPure": false,
+                        "lValueRequested": false,
+                        "leftExpression": {
+                          "argumentTypes": null,
+                          "arguments": [],
+                          "expression": {
+                            "argumentTypes": [],
+                            "expression": {
+                              "argumentTypes": null,
+                              "arguments": [
+                                {
+                                  "argumentTypes": null,
+                                  "id": 66257,
+                                  "name": "_derivative",
+                                  "nodeType": "Identifier",
+                                  "overloadedDeclarations": [],
+                                  "referencedDeclaration": 66250,
+                                  "src": "845:11:251",
+                                  "typeDescriptions": {
+                                    "typeIdentifier": "t_address",
+                                    "typeString": "address"
+                                  }
+                                }
+                              ],
+                              "expression": {
+                                "argumentTypes": [
+                                  {
+                                    "typeIdentifier": "t_address",
+                                    "typeString": "address"
+                                  }
+                                ],
+                                "id": 66256,
+                                "name": "ERC20",
+                                "nodeType": "Identifier",
+                                "overloadedDeclarations": [],
+                                "referencedDeclaration": 83381,
+                                "src": "839:5:251",
+                                "typeDescriptions": {
+                                  "typeIdentifier": "t_type$_t_contract$_ERC20_$83381_$",
+                                  "typeString": "type(contract ERC20)"
+                                }
+                              },
+                              "id": 66258,
+                              "isConstant": false,
+                              "isLValue": false,
+                              "isPure": false,
+                              "kind": "typeConversion",
+                              "lValueRequested": false,
+                              "names": [],
+                              "nodeType": "FunctionCall",
+                              "src": "839:18:251",
+                              "tryCall": false,
+                              "typeDescriptions": {
+                                "typeIdentifier": "t_contract$_ERC20_$83381",
+                                "typeString": "contract ERC20"
+                              }
+                            },
+                            "id": 66259,
+                            "isConstant": false,
+                            "isLValue": false,
+                            "isPure": false,
+                            "lValueRequested": false,
+                            "memberName": "decimals",
+                            "nodeType": "MemberAccess",
+                            "referencedDeclaration": 82957,
+                            "src": "839:27:251",
+                            "typeDescriptions": {
+                              "typeIdentifier": "t_function_external_view$__$returns$_t_uint8_$",
+                              "typeString": "function () view external returns (uint8)"
+                            }
+                          },
+                          "id": 66260,
+                          "isConstant": false,
+                          "isLValue": false,
+                          "isPure": false,
+                          "kind": "functionCall",
+                          "lValueRequested": false,
+                          "names": [],
+                          "nodeType": "FunctionCall",
+                          "src": "839:29:251",
+                          "tryCall": false,
+                          "typeDescriptions": {
+                            "typeIdentifier": "t_uint8",
+                            "typeString": "uint8"
+                          }
+                        },
+                        "nodeType": "BinaryOperation",
+                        "operator": "==",
+                        "rightExpression": {
+                          "argumentTypes": null,
+                          "arguments": [],
+                          "expression": {
+                            "argumentTypes": [],
+                            "expression": {
+                              "argumentTypes": null,
+                              "arguments": [
+                                {
+                                  "argumentTypes": null,
+                                  "id": 66262,
+                                  "name": "_underlying",
+                                  "nodeType": "Identifier",
+                                  "overloadedDeclarations": [],
+                                  "referencedDeclaration": 66252,
+                                  "src": "878:11:251",
+                                  "typeDescriptions": {
+                                    "typeIdentifier": "t_address",
+                                    "typeString": "address"
+                                  }
+                                }
+                              ],
+                              "expression": {
+                                "argumentTypes": [
+                                  {
+                                    "typeIdentifier": "t_address",
+                                    "typeString": "address"
+                                  }
+                                ],
+                                "id": 66261,
+                                "name": "ERC20",
+                                "nodeType": "Identifier",
+                                "overloadedDeclarations": [],
+                                "referencedDeclaration": 83381,
+                                "src": "872:5:251",
+                                "typeDescriptions": {
+                                  "typeIdentifier": "t_type$_t_contract$_ERC20_$83381_$",
+                                  "typeString": "type(contract ERC20)"
+                                }
+                              },
+                              "id": 66263,
+                              "isConstant": false,
+                              "isLValue": false,
+                              "isPure": false,
+                              "kind": "typeConversion",
+                              "lValueRequested": false,
+                              "names": [],
+                              "nodeType": "FunctionCall",
+                              "src": "872:18:251",
+                              "tryCall": false,
+                              "typeDescriptions": {
+                                "typeIdentifier": "t_contract$_ERC20_$83381",
+                                "typeString": "contract ERC20"
+                              }
+                            },
+                            "id": 66264,
+                            "isConstant": false,
+                            "isLValue": false,
+                            "isPure": false,
+                            "lValueRequested": false,
+                            "memberName": "decimals",
+                            "nodeType": "MemberAccess",
+                            "referencedDeclaration": 82957,
+                            "src": "872:27:251",
+                            "typeDescriptions": {
+                              "typeIdentifier": "t_function_external_view$__$returns$_t_uint8_$",
+                              "typeString": "function () view external returns (uint8)"
+                            }
+                          },
+                          "id": 66265,
+                          "isConstant": false,
+                          "isLValue": false,
+                          "isPure": false,
+                          "kind": "functionCall",
+                          "lValueRequested": false,
+                          "names": [],
+                          "nodeType": "FunctionCall",
+                          "src": "872:29:251",
+                          "tryCall": false,
+                          "typeDescriptions": {
+                            "typeIdentifier": "t_uint8",
+                            "typeString": "uint8"
+                          }
+                        },
+                        "src": "839:62:251",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_bool",
+                          "typeString": "bool"
+                        }
+                      },
+                      {
+                        "argumentTypes": null,
+                        "hexValue": "636f6e7374727563746f723a20556e657175616c20646563696d616c73",
+                        "id": 66267,
+                        "isConstant": false,
+                        "isLValue": false,
+                        "isPure": true,
+                        "kind": "string",
+                        "lValueRequested": false,
+                        "nodeType": "Literal",
+                        "src": "915:31:251",
+                        "subdenomination": null,
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_stringliteral_9d84b12f538f4394afbb577339fcffbdefd8b660d20d34052fa14b8de4ee1d0b",
+                          "typeString": "literal_string \"constructor: Unequal decimals\""
+                        },
+                        "value": "constructor: Unequal decimals"
+                      }
+                    ],
+                    "expression": {
+                      "argumentTypes": [
+                        {
+                          "typeIdentifier": "t_bool",
+                          "typeString": "bool"
+                        },
+                        {
+                          "typeIdentifier": "t_stringliteral_9d84b12f538f4394afbb577339fcffbdefd8b660d20d34052fa14b8de4ee1d0b",
+                          "typeString": "literal_string \"constructor: Unequal decimals\""
+                        }
+                      ],
+                      "id": 66255,
+                      "name": "require",
+                      "nodeType": "Identifier",
+                      "overloadedDeclarations": [
+                        -18,
+                        -18
+                      ],
+                      "referencedDeclaration": -18,
+                      "src": "818:7:251",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_function_require_pure$_t_bool_$_t_string_memory_ptr_$returns$__$",
+                        "typeString": "function (bool,string memory) pure"
+                      }
+                    },
+                    "id": 66268,
+                    "isConstant": false,
+                    "isLValue": false,
+                    "isPure": false,
+                    "kind": "functionCall",
+                    "lValueRequested": false,
+                    "names": [],
+                    "nodeType": "FunctionCall",
+                    "src": "818:138:251",
+                    "tryCall": false,
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_tuple$__$",
+                      "typeString": "tuple()"
+                    }
+                  },
+                  "id": 66269,
+                  "nodeType": "ExpressionStatement",
+                  "src": "818:138:251"
+                },
+                {
+                  "expression": {
+                    "argumentTypes": null,
+                    "id": 66272,
+                    "isConstant": false,
+                    "isLValue": false,
+                    "isPure": false,
+                    "lValueRequested": false,
+                    "leftHandSide": {
+                      "argumentTypes": null,
+                      "id": 66270,
+                      "name": "DERIVATIVE",
+                      "nodeType": "Identifier",
+                      "overloadedDeclarations": [],
+                      "referencedDeclaration": 66246,
+                      "src": "967:10:251",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_address",
+                        "typeString": "address"
+                      }
+                    },
+                    "nodeType": "Assignment",
+                    "operator": "=",
+                    "rightHandSide": {
+                      "argumentTypes": null,
+                      "id": 66271,
+                      "name": "_derivative",
+                      "nodeType": "Identifier",
+                      "overloadedDeclarations": [],
+                      "referencedDeclaration": 66250,
+                      "src": "980:11:251",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_address",
+                        "typeString": "address"
+                      }
+                    },
+                    "src": "967:24:251",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "id": 66273,
+                  "nodeType": "ExpressionStatement",
+                  "src": "967:24:251"
+                },
+                {
+                  "expression": {
+                    "argumentTypes": null,
+                    "id": 66276,
+                    "isConstant": false,
+                    "isLValue": false,
+                    "isPure": false,
+                    "lValueRequested": false,
+                    "leftHandSide": {
+                      "argumentTypes": null,
+                      "id": 66274,
+                      "name": "UNDERLYING",
+                      "nodeType": "Identifier",
+                      "overloadedDeclarations": [],
+                      "referencedDeclaration": 66248,
+                      "src": "1001:10:251",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_address",
+                        "typeString": "address"
+                      }
+                    },
+                    "nodeType": "Assignment",
+                    "operator": "=",
+                    "rightHandSide": {
+                      "argumentTypes": null,
+                      "id": 66275,
+                      "name": "_underlying",
+                      "nodeType": "Identifier",
+                      "overloadedDeclarations": [],
+                      "referencedDeclaration": 66252,
+                      "src": "1014:11:251",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_address",
+                        "typeString": "address"
+                      }
+                    },
+                    "src": "1001:24:251",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "id": 66277,
+                  "nodeType": "ExpressionStatement",
+                  "src": "1001:24:251"
+                }
+              ]
+            },
+            "documentation": null,
+            "implemented": true,
+            "kind": "constructor",
+            "modifiers": [],
+            "name": "",
+            "overrides": null,
+            "parameters": {
+              "id": 66253,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 66250,
+                  "mutability": "mutable",
+                  "name": "_derivative",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 66279,
+                  "src": "759:19:251",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 66249,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "759:7:251",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 66252,
+                  "mutability": "mutable",
+                  "name": "_underlying",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 66279,
+                  "src": "780:19:251",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 66251,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "780:7:251",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "758:42:251"
+            },
+            "returnParameters": {
+              "id": 66254,
+              "nodeType": "ParameterList",
+              "parameters": [],
+              "src": "808:0:251"
+            },
+            "scope": 66367,
+            "stateMutability": "nonpayable",
+            "virtual": false,
+            "visibility": "public"
+          },
+          {
+            "id": 66334,
+            "nodeType": "FunctionDefinition",
+            "src": "1430:538:251",
+            "nodes": [],
+            "body": {
+              "id": 66333,
+              "nodeType": "Block",
+              "src": "1631:337:251",
+              "nodes": [],
+              "statements": [
+                {
+                  "expression": {
+                    "argumentTypes": null,
+                    "arguments": [
+                      {
+                        "argumentTypes": null,
+                        "arguments": [
+                          {
+                            "argumentTypes": null,
+                            "id": 66296,
+                            "name": "_derivative",
+                            "nodeType": "Identifier",
+                            "overloadedDeclarations": [],
+                            "referencedDeclaration": 66282,
+                            "src": "1666:11:251",
+                            "typeDescriptions": {
+                              "typeIdentifier": "t_address",
+                              "typeString": "address"
+                            }
+                          }
+                        ],
+                        "expression": {
+                          "argumentTypes": [
+                            {
+                              "typeIdentifier": "t_address",
+                              "typeString": "address"
+                            }
+                          ],
+                          "id": 66295,
+                          "name": "isSupportedAsset",
+                          "nodeType": "Identifier",
+                          "overloadedDeclarations": [],
+                          "referencedDeclaration": 66348,
+                          "src": "1649:16:251",
+                          "typeDescriptions": {
+                            "typeIdentifier": "t_function_internal_view$_t_address_$returns$_t_bool_$",
+                            "typeString": "function (address) view returns (bool)"
+                          }
+                        },
+                        "id": 66297,
+                        "isConstant": false,
+                        "isLValue": false,
+                        "isPure": false,
+                        "kind": "functionCall",
+                        "lValueRequested": false,
+                        "names": [],
+                        "nodeType": "FunctionCall",
+                        "src": "1649:29:251",
+                        "tryCall": false,
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_bool",
+                          "typeString": "bool"
+                        }
+                      },
+                      {
+                        "argumentTypes": null,
+                        "hexValue": "63616c63556e6465726c79696e6756616c7565733a204e6f74206120737570706f727465642064657269766174697665",
+                        "id": 66298,
+                        "isConstant": false,
+                        "isLValue": false,
+                        "isPure": true,
+                        "kind": "string",
+                        "lValueRequested": false,
+                        "nodeType": "Literal",
+                        "src": "1680:50:251",
+                        "subdenomination": null,
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_stringliteral_818491b144be262a3dc092de5616680dd0e9827f473ebba82cfd42d4d1690d68",
+                          "typeString": "literal_string \"calcUnderlyingValues: Not a supported derivative\""
+                        },
+                        "value": "calcUnderlyingValues: Not a supported derivative"
+                      }
+                    ],
+                    "expression": {
+                      "argumentTypes": [
+                        {
+                          "typeIdentifier": "t_bool",
+                          "typeString": "bool"
+                        },
+                        {
+                          "typeIdentifier": "t_stringliteral_818491b144be262a3dc092de5616680dd0e9827f473ebba82cfd42d4d1690d68",
+                          "typeString": "literal_string \"calcUnderlyingValues: Not a supported derivative\""
+                        }
+                      ],
+                      "id": 66294,
+                      "name": "require",
+                      "nodeType": "Identifier",
+                      "overloadedDeclarations": [
+                        -18,
+                        -18
+                      ],
+                      "referencedDeclaration": -18,
+                      "src": "1641:7:251",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_function_require_pure$_t_bool_$_t_string_memory_ptr_$returns$__$",
+                        "typeString": "function (bool,string memory) pure"
+                      }
+                    },
+                    "id": 66299,
+                    "isConstant": false,
+                    "isLValue": false,
+                    "isPure": false,
+                    "kind": "functionCall",
+                    "lValueRequested": false,
+                    "names": [],
+                    "nodeType": "FunctionCall",
+                    "src": "1641:90:251",
+                    "tryCall": false,
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_tuple$__$",
+                      "typeString": "tuple()"
+                    }
+                  },
+                  "id": 66300,
+                  "nodeType": "ExpressionStatement",
+                  "src": "1641:90:251"
+                },
+                {
+                  "expression": {
+                    "argumentTypes": null,
+                    "id": 66307,
+                    "isConstant": false,
+                    "isLValue": false,
+                    "isPure": false,
+                    "lValueRequested": false,
+                    "leftHandSide": {
+                      "argumentTypes": null,
+                      "id": 66301,
+                      "name": "underlyings_",
+                      "nodeType": "Identifier",
+                      "overloadedDeclarations": [],
+                      "referencedDeclaration": 66289,
+                      "src": "1742:12:251",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_array$_t_address_$dyn_memory_ptr",
+                        "typeString": "address[] memory"
+                      }
+                    },
+                    "nodeType": "Assignment",
+                    "operator": "=",
+                    "rightHandSide": {
+                      "argumentTypes": null,
+                      "arguments": [
+                        {
+                          "argumentTypes": null,
+                          "hexValue": "31",
+                          "id": 66305,
+                          "isConstant": false,
+                          "isLValue": false,
+                          "isPure": true,
+                          "kind": "number",
+                          "lValueRequested": false,
+                          "nodeType": "Literal",
+                          "src": "1771:1:251",
+                          "subdenomination": null,
+                          "typeDescriptions": {
+                            "typeIdentifier": "t_rational_1_by_1",
+                            "typeString": "int_const 1"
+                          },
+                          "value": "1"
+                        }
+                      ],
+                      "expression": {
+                        "argumentTypes": [
+                          {
+                            "typeIdentifier": "t_rational_1_by_1",
+                            "typeString": "int_const 1"
+                          }
+                        ],
+                        "id": 66304,
+                        "isConstant": false,
+                        "isLValue": false,
+                        "isPure": true,
+                        "lValueRequested": false,
+                        "nodeType": "NewExpression",
+                        "src": "1757:13:251",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_function_objectcreation_pure$_t_uint256_$returns$_t_array$_t_address_$dyn_memory_ptr_$",
+                          "typeString": "function (uint256) pure returns (address[] memory)"
+                        },
+                        "typeName": {
+                          "baseType": {
+                            "id": 66302,
+                            "name": "address",
+                            "nodeType": "ElementaryTypeName",
+                            "src": "1761:7:251",
+                            "stateMutability": "nonpayable",
+                            "typeDescriptions": {
+                              "typeIdentifier": "t_address",
+                              "typeString": "address"
+                            }
+                          },
+                          "id": 66303,
+                          "length": null,
+                          "nodeType": "ArrayTypeName",
+                          "src": "1761:9:251",
+                          "typeDescriptions": {
+                            "typeIdentifier": "t_array$_t_address_$dyn_storage_ptr",
+                            "typeString": "address[]"
+                          }
+                        }
+                      },
+                      "id": 66306,
+                      "isConstant": false,
+                      "isLValue": false,
+                      "isPure": true,
+                      "kind": "functionCall",
+                      "lValueRequested": false,
+                      "names": [],
+                      "nodeType": "FunctionCall",
+                      "src": "1757:16:251",
+                      "tryCall": false,
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_array$_t_address_$dyn_memory_ptr",
+                        "typeString": "address[] memory"
+                      }
+                    },
+                    "src": "1742:31:251",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_array$_t_address_$dyn_memory_ptr",
+                      "typeString": "address[] memory"
+                    }
+                  },
+                  "id": 66308,
+                  "nodeType": "ExpressionStatement",
+                  "src": "1742:31:251"
+                },
+                {
+                  "expression": {
+                    "argumentTypes": null,
+                    "id": 66313,
+                    "isConstant": false,
+                    "isLValue": false,
+                    "isPure": false,
+                    "lValueRequested": false,
+                    "leftHandSide": {
+                      "argumentTypes": null,
+                      "baseExpression": {
+                        "argumentTypes": null,
+                        "id": 66309,
+                        "name": "underlyings_",
+                        "nodeType": "Identifier",
+                        "overloadedDeclarations": [],
+                        "referencedDeclaration": 66289,
+                        "src": "1783:12:251",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_array$_t_address_$dyn_memory_ptr",
+                          "typeString": "address[] memory"
+                        }
+                      },
+                      "id": 66311,
+                      "indexExpression": {
+                        "argumentTypes": null,
+                        "hexValue": "30",
+                        "id": 66310,
+                        "isConstant": false,
+                        "isLValue": false,
+                        "isPure": true,
+                        "kind": "number",
+                        "lValueRequested": false,
+                        "nodeType": "Literal",
+                        "src": "1796:1:251",
+                        "subdenomination": null,
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_rational_0_by_1",
+                          "typeString": "int_const 0"
+                        },
+                        "value": "0"
+                      },
+                      "isConstant": false,
+                      "isLValue": true,
+                      "isPure": false,
+                      "lValueRequested": true,
+                      "nodeType": "IndexAccess",
+                      "src": "1783:15:251",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_address",
+                        "typeString": "address"
+                      }
+                    },
+                    "nodeType": "Assignment",
+                    "operator": "=",
+                    "rightHandSide": {
+                      "argumentTypes": null,
+                      "id": 66312,
+                      "name": "UNDERLYING",
+                      "nodeType": "Identifier",
+                      "overloadedDeclarations": [],
+                      "referencedDeclaration": 66248,
+                      "src": "1801:10:251",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_address",
+                        "typeString": "address"
+                      }
+                    },
+                    "src": "1783:28:251",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "id": 66314,
+                  "nodeType": "ExpressionStatement",
+                  "src": "1783:28:251"
+                },
+                {
+                  "expression": {
+                    "argumentTypes": null,
+                    "id": 66321,
+                    "isConstant": false,
+                    "isLValue": false,
+                    "isPure": false,
+                    "lValueRequested": false,
+                    "leftHandSide": {
+                      "argumentTypes": null,
+                      "id": 66315,
+                      "name": "underlyingAmounts_",
+                      "nodeType": "Identifier",
+                      "overloadedDeclarations": [],
+                      "referencedDeclaration": 66292,
+                      "src": "1821:18:251",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_array$_t_uint256_$dyn_memory_ptr",
+                        "typeString": "uint256[] memory"
+                      }
+                    },
+                    "nodeType": "Assignment",
+                    "operator": "=",
+                    "rightHandSide": {
+                      "argumentTypes": null,
+                      "arguments": [
+                        {
+                          "argumentTypes": null,
+                          "hexValue": "31",
+                          "id": 66319,
+                          "isConstant": false,
+                          "isLValue": false,
+                          "isPure": true,
+                          "kind": "number",
+                          "lValueRequested": false,
+                          "nodeType": "Literal",
+                          "src": "1856:1:251",
+                          "subdenomination": null,
+                          "typeDescriptions": {
+                            "typeIdentifier": "t_rational_1_by_1",
+                            "typeString": "int_const 1"
+                          },
+                          "value": "1"
+                        }
+                      ],
+                      "expression": {
+                        "argumentTypes": [
+                          {
+                            "typeIdentifier": "t_rational_1_by_1",
+                            "typeString": "int_const 1"
+                          }
+                        ],
+                        "id": 66318,
+                        "isConstant": false,
+                        "isLValue": false,
+                        "isPure": true,
+                        "lValueRequested": false,
+                        "nodeType": "NewExpression",
+                        "src": "1842:13:251",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_function_objectcreation_pure$_t_uint256_$returns$_t_array$_t_uint256_$dyn_memory_ptr_$",
+                          "typeString": "function (uint256) pure returns (uint256[] memory)"
+                        },
+                        "typeName": {
+                          "baseType": {
+                            "id": 66316,
+                            "name": "uint256",
+                            "nodeType": "ElementaryTypeName",
+                            "src": "1846:7:251",
+                            "typeDescriptions": {
+                              "typeIdentifier": "t_uint256",
+                              "typeString": "uint256"
+                            }
+                          },
+                          "id": 66317,
+                          "length": null,
+                          "nodeType": "ArrayTypeName",
+                          "src": "1846:9:251",
+                          "typeDescriptions": {
+                            "typeIdentifier": "t_array$_t_uint256_$dyn_storage_ptr",
+                            "typeString": "uint256[]"
+                          }
+                        }
+                      },
+                      "id": 66320,
+                      "isConstant": false,
+                      "isLValue": false,
+                      "isPure": true,
+                      "kind": "functionCall",
+                      "lValueRequested": false,
+                      "names": [],
+                      "nodeType": "FunctionCall",
+                      "src": "1842:16:251",
+                      "tryCall": false,
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_array$_t_uint256_$dyn_memory_ptr",
+                        "typeString": "uint256[] memory"
+                      }
+                    },
+                    "src": "1821:37:251",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_array$_t_uint256_$dyn_memory_ptr",
+                      "typeString": "uint256[] memory"
+                    }
+                  },
+                  "id": 66322,
+                  "nodeType": "ExpressionStatement",
+                  "src": "1821:37:251"
+                },
+                {
+                  "expression": {
+                    "argumentTypes": null,
+                    "id": 66327,
+                    "isConstant": false,
+                    "isLValue": false,
+                    "isPure": false,
+                    "lValueRequested": false,
+                    "leftHandSide": {
+                      "argumentTypes": null,
+                      "baseExpression": {
+                        "argumentTypes": null,
+                        "id": 66323,
+                        "name": "underlyingAmounts_",
+                        "nodeType": "Identifier",
+                        "overloadedDeclarations": [],
+                        "referencedDeclaration": 66292,
+                        "src": "1868:18:251",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_array$_t_uint256_$dyn_memory_ptr",
+                          "typeString": "uint256[] memory"
+                        }
+                      },
+                      "id": 66325,
+                      "indexExpression": {
+                        "argumentTypes": null,
+                        "hexValue": "30",
+                        "id": 66324,
+                        "isConstant": false,
+                        "isLValue": false,
+                        "isPure": true,
+                        "kind": "number",
+                        "lValueRequested": false,
+                        "nodeType": "Literal",
+                        "src": "1887:1:251",
+                        "subdenomination": null,
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_rational_0_by_1",
+                          "typeString": "int_const 0"
+                        },
+                        "value": "0"
+                      },
+                      "isConstant": false,
+                      "isLValue": true,
+                      "isPure": false,
+                      "lValueRequested": true,
+                      "nodeType": "IndexAccess",
+                      "src": "1868:21:251",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_uint256",
+                        "typeString": "uint256"
+                      }
+                    },
+                    "nodeType": "Assignment",
+                    "operator": "=",
+                    "rightHandSide": {
+                      "argumentTypes": null,
+                      "id": 66326,
+                      "name": "_derivativeAmount",
+                      "nodeType": "Identifier",
+                      "overloadedDeclarations": [],
+                      "referencedDeclaration": 66284,
+                      "src": "1892:17:251",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_uint256",
+                        "typeString": "uint256"
+                      }
+                    },
+                    "src": "1868:41:251",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_uint256",
+                      "typeString": "uint256"
+                    }
+                  },
+                  "id": 66328,
+                  "nodeType": "ExpressionStatement",
+                  "src": "1868:41:251"
+                },
+                {
+                  "expression": {
+                    "argumentTypes": null,
+                    "components": [
+                      {
+                        "argumentTypes": null,
+                        "id": 66329,
+                        "name": "underlyings_",
+                        "nodeType": "Identifier",
+                        "overloadedDeclarations": [],
+                        "referencedDeclaration": 66289,
+                        "src": "1928:12:251",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_array$_t_address_$dyn_memory_ptr",
+                          "typeString": "address[] memory"
+                        }
+                      },
+                      {
+                        "argumentTypes": null,
+                        "id": 66330,
+                        "name": "underlyingAmounts_",
+                        "nodeType": "Identifier",
+                        "overloadedDeclarations": [],
+                        "referencedDeclaration": 66292,
+                        "src": "1942:18:251",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_array$_t_uint256_$dyn_memory_ptr",
+                          "typeString": "uint256[] memory"
+                        }
+                      }
+                    ],
+                    "id": 66331,
+                    "isConstant": false,
+                    "isInlineArray": false,
+                    "isLValue": false,
+                    "isPure": false,
+                    "lValueRequested": false,
+                    "nodeType": "TupleExpression",
+                    "src": "1927:34:251",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_tuple$_t_array$_t_address_$dyn_memory_ptr_$_t_array$_t_uint256_$dyn_memory_ptr_$",
+                      "typeString": "tuple(address[] memory,uint256[] memory)"
+                    }
+                  },
+                  "functionReturnParameters": 66293,
+                  "id": 66332,
+                  "nodeType": "Return",
+                  "src": "1920:41:251"
+                }
+              ]
+            },
+            "baseFunctions": [
+              62415
+            ],
+            "documentation": {
+              "id": 66280,
+              "nodeType": "StructuredDocumentation",
+              "src": "1038:387:251",
+              "text": "@notice Converts a given amount of a derivative to its underlying asset values\n @param _derivative The derivative to convert\n @param _derivativeAmount The amount of the derivative to convert\n @return underlyings_ The underlying assets for the _derivative\n @return underlyingAmounts_ The amount of each underlying asset for the equivalent derivative amount"
+            },
+            "functionSelector": "727212f6",
+            "implemented": true,
+            "kind": "function",
+            "modifiers": [],
+            "name": "calcUnderlyingValues",
+            "overrides": {
+              "id": 66286,
+              "nodeType": "OverrideSpecifier",
+              "overrides": [],
+              "src": "1533:8:251"
+            },
+            "parameters": {
+              "id": 66285,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 66282,
+                  "mutability": "mutable",
+                  "name": "_derivative",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 66334,
+                  "src": "1460:19:251",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 66281,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "1460:7:251",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 66284,
+                  "mutability": "mutable",
+                  "name": "_derivativeAmount",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 66334,
+                  "src": "1481:25:251",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_uint256",
+                    "typeString": "uint256"
+                  },
+                  "typeName": {
+                    "id": 66283,
+                    "name": "uint256",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "1481:7:251",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_uint256",
+                      "typeString": "uint256"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "1459:48:251"
+            },
+            "returnParameters": {
+              "id": 66293,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 66289,
+                  "mutability": "mutable",
+                  "name": "underlyings_",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 66334,
+                  "src": "1559:29:251",
+                  "stateVariable": false,
+                  "storageLocation": "memory",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_array$_t_address_$dyn_memory_ptr",
+                    "typeString": "address[]"
+                  },
+                  "typeName": {
+                    "baseType": {
+                      "id": 66287,
+                      "name": "address",
+                      "nodeType": "ElementaryTypeName",
+                      "src": "1559:7:251",
+                      "stateMutability": "nonpayable",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_address",
+                        "typeString": "address"
+                      }
+                    },
+                    "id": 66288,
+                    "length": null,
+                    "nodeType": "ArrayTypeName",
+                    "src": "1559:9:251",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_array$_t_address_$dyn_storage_ptr",
+                      "typeString": "address[]"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 66292,
+                  "mutability": "mutable",
+                  "name": "underlyingAmounts_",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 66334,
+                  "src": "1590:35:251",
+                  "stateVariable": false,
+                  "storageLocation": "memory",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_array$_t_uint256_$dyn_memory_ptr",
+                    "typeString": "uint256[]"
+                  },
+                  "typeName": {
+                    "baseType": {
+                      "id": 66290,
+                      "name": "uint256",
+                      "nodeType": "ElementaryTypeName",
+                      "src": "1590:7:251",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_uint256",
+                        "typeString": "uint256"
+                      }
+                    },
+                    "id": 66291,
+                    "length": null,
+                    "nodeType": "ArrayTypeName",
+                    "src": "1590:9:251",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_array$_t_uint256_$dyn_storage_ptr",
+                      "typeString": "uint256[]"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "1558:68:251"
+            },
+            "scope": 66367,
+            "stateMutability": "nonpayable",
+            "virtual": false,
+            "visibility": "external"
+          },
+          {
+            "id": 66348,
+            "nodeType": "FunctionDefinition",
+            "src": "2141:135:251",
+            "nodes": [],
+            "body": {
+              "id": 66347,
+              "nodeType": "Block",
+              "src": "2232:44:251",
+              "nodes": [],
+              "statements": [
+                {
+                  "expression": {
+                    "argumentTypes": null,
+                    "commonType": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    },
+                    "id": 66345,
+                    "isConstant": false,
+                    "isLValue": false,
+                    "isPure": false,
+                    "lValueRequested": false,
+                    "leftExpression": {
+                      "argumentTypes": null,
+                      "id": 66343,
+                      "name": "_asset",
+                      "nodeType": "Identifier",
+                      "overloadedDeclarations": [],
+                      "referencedDeclaration": 66337,
+                      "src": "2249:6:251",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_address",
+                        "typeString": "address"
+                      }
+                    },
+                    "nodeType": "BinaryOperation",
+                    "operator": "==",
+                    "rightExpression": {
+                      "argumentTypes": null,
+                      "id": 66344,
+                      "name": "DERIVATIVE",
+                      "nodeType": "Identifier",
+                      "overloadedDeclarations": [],
+                      "referencedDeclaration": 66246,
+                      "src": "2259:10:251",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_address",
+                        "typeString": "address"
+                      }
+                    },
+                    "src": "2249:20:251",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_bool",
+                      "typeString": "bool"
+                    }
+                  },
+                  "functionReturnParameters": 66342,
+                  "id": 66346,
+                  "nodeType": "Return",
+                  "src": "2242:27:251"
+                }
+              ]
+            },
+            "baseFunctions": [
+              62422
+            ],
+            "documentation": {
+              "id": 66335,
+              "nodeType": "StructuredDocumentation",
+              "src": "1974:162:251",
+              "text": "@notice Checks if an asset is supported by the price feed\n @param _asset The asset to check\n @return isSupported_ True if the asset is supported"
+            },
+            "functionSelector": "9be918e6",
+            "implemented": true,
+            "kind": "function",
+            "modifiers": [],
+            "name": "isSupportedAsset",
+            "overrides": {
+              "id": 66339,
+              "nodeType": "OverrideSpecifier",
+              "overrides": [],
+              "src": "2195:8:251"
+            },
+            "parameters": {
+              "id": 66338,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 66337,
+                  "mutability": "mutable",
+                  "name": "_asset",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 66348,
+                  "src": "2167:14:251",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 66336,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "2167:7:251",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "2166:16:251"
+            },
+            "returnParameters": {
+              "id": 66342,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 66341,
+                  "mutability": "mutable",
+                  "name": "isSupported_",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 66348,
+                  "src": "2213:17:251",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_bool",
+                    "typeString": "bool"
+                  },
+                  "typeName": {
+                    "id": 66340,
+                    "name": "bool",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "2213:4:251",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_bool",
+                      "typeString": "bool"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "2212:19:251"
+            },
+            "scope": 66367,
+            "stateMutability": "view",
+            "virtual": false,
+            "visibility": "public"
+          },
+          {
+            "id": 66357,
+            "nodeType": "FunctionDefinition",
+            "src": "2468:103:251",
+            "nodes": [],
+            "body": {
+              "id": 66356,
+              "nodeType": "Block",
+              "src": "2537:34:251",
+              "nodes": [],
+              "statements": [
+                {
+                  "expression": {
+                    "argumentTypes": null,
+                    "id": 66354,
+                    "name": "DERIVATIVE",
+                    "nodeType": "Identifier",
+                    "overloadedDeclarations": [],
+                    "referencedDeclaration": 66246,
+                    "src": "2554:10:251",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "functionReturnParameters": 66353,
+                  "id": 66355,
+                  "nodeType": "Return",
+                  "src": "2547:17:251"
+                }
+              ]
+            },
+            "documentation": {
+              "id": 66349,
+              "nodeType": "StructuredDocumentation",
+              "src": "2355:108:251",
+              "text": "@notice Gets the `DERIVATIVE` variable value\n @return derivative_ The `DERIVATIVE` variable value"
+            },
+            "functionSelector": "6d4a681a",
+            "implemented": true,
+            "kind": "function",
+            "modifiers": [],
+            "name": "getDerivative",
+            "overrides": null,
+            "parameters": {
+              "id": 66350,
+              "nodeType": "ParameterList",
+              "parameters": [],
+              "src": "2490:2:251"
+            },
+            "returnParameters": {
+              "id": 66353,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 66352,
+                  "mutability": "mutable",
+                  "name": "derivative_",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 66357,
+                  "src": "2516:19:251",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 66351,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "2516:7:251",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "2515:21:251"
+            },
+            "scope": 66367,
+            "stateMutability": "view",
+            "virtual": false,
+            "visibility": "external"
+          },
+          {
+            "id": 66366,
+            "nodeType": "FunctionDefinition",
+            "src": "2690:103:251",
+            "nodes": [],
+            "body": {
+              "id": 66365,
+              "nodeType": "Block",
+              "src": "2759:34:251",
+              "nodes": [],
+              "statements": [
+                {
+                  "expression": {
+                    "argumentTypes": null,
+                    "id": 66363,
+                    "name": "UNDERLYING",
+                    "nodeType": "Identifier",
+                    "overloadedDeclarations": [],
+                    "referencedDeclaration": 66248,
+                    "src": "2776:10:251",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "functionReturnParameters": 66362,
+                  "id": 66364,
+                  "nodeType": "Return",
+                  "src": "2769:17:251"
+                }
+              ]
+            },
+            "documentation": {
+              "id": 66358,
+              "nodeType": "StructuredDocumentation",
+              "src": "2577:108:251",
+              "text": "@notice Gets the `UNDERLYING` variable value\n @return underlying_ The `UNDERLYING` variable value"
+            },
+            "functionSelector": "9816f473",
+            "implemented": true,
+            "kind": "function",
+            "modifiers": [],
+            "name": "getUnderlying",
+            "overrides": null,
+            "parameters": {
+              "id": 66359,
+              "nodeType": "ParameterList",
+              "parameters": [],
+              "src": "2712:2:251"
+            },
+            "returnParameters": {
+              "id": 66362,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 66361,
+                  "mutability": "mutable",
+                  "name": "underlying_",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 66366,
+                  "src": "2738:19:251",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 66360,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "2738:7:251",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "2737:21:251"
+            },
+            "scope": 66367,
+            "stateMutability": "view",
+            "virtual": false,
+            "visibility": "external"
+          }
+        ],
+        "abstract": true,
+        "baseContracts": [
+          {
+            "arguments": null,
+            "baseName": {
+              "contractScope": null,
+              "id": 66243,
+              "name": "IDerivativePriceFeed",
+              "nodeType": "UserDefinedTypeName",
+              "referencedDeclaration": 62423,
+              "src": "635:20:251",
+              "typeDescriptions": {
+                "typeIdentifier": "t_contract$_IDerivativePriceFeed_$62423",
+                "typeString": "contract IDerivativePriceFeed"
+              }
+            },
+            "id": 66244,
+            "nodeType": "InheritanceSpecifier",
+            "src": "635:20:251"
+          }
+        ],
+        "contractDependencies": [
+          62423
+        ],
+        "contractKind": "contract",
+        "documentation": {
+          "id": 66242,
+          "nodeType": "StructuredDocumentation",
+          "src": "378:200:251",
+          "text": "@title SinglePeggedDerivativePriceFeedBase Contract\n @author Enzyme Council <security@enzyme.finance>\n @notice Price feed base for any single derivative that is pegged 1:1 to its underlying"
+        },
+        "fullyImplemented": true,
+        "linearizedBaseContracts": [
+          66367,
+          62423
+        ],
+        "name": "SinglePeggedDerivativePriceFeedBase",
+        "scope": 66368
+      }
+    ],
+    "license": "GPL-3.0"
+  },
+  "id": 251
 }

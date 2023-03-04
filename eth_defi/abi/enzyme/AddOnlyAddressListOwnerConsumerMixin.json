@@ -1,0 +1,1204 @@
+{
+  "abi": [
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "_addressListRegistry",
+          "type": "address"
+        },
+        {
+          "internalType": "uint256",
+          "name": "_listId",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "nonpayable",
+      "type": "constructor"
+    }
+  ],
+  "bytecode": {
+    "object": "0x",
+    "sourceMap": "",
+    "linkReferences": {}
+  },
+  "deployedBytecode": {
+    "object": "0x",
+    "sourceMap": "",
+    "linkReferences": {}
+  },
+  "methodIdentifiers": {},
+  "rawMetadata": "{\"compiler\":{\"version\":\"0.6.12+commit.27d51765\"},\"language\":\"Solidity\",\"output\":{\"abi\":[{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_addressListRegistry\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"_listId\",\"type\":\"uint256\"}],\"stateMutability\":\"nonpayable\",\"type\":\"constructor\"}],\"devdoc\":{\"author\":\"Enzyme Council <security@enzyme.finance>\",\"kind\":\"dev\",\"methods\":{},\"title\":\"AddOnlyAddressListOwnerConsumerMixin Contract\",\"version\":1},\"userdoc\":{\"kind\":\"user\",\"methods\":{},\"notice\":\"Mixin contract for interacting with a contract that inherits `AddOnlyAddressListOwnerBase`\",\"version\":1}},\"settings\":{\"compilationTarget\":{\"contracts/persistent/address-list-registry/address-list-owners/utils/AddOnlyAddressListOwnerConsumerMixin.sol\":\"AddOnlyAddressListOwnerConsumerMixin\"},\"evmVersion\":\"istanbul\",\"libraries\":{},\"metadata\":{\"bytecodeHash\":\"none\"},\"optimizer\":{\"details\":{\"constantOptimizer\":true,\"cse\":true,\"deduplicate\":true,\"jumpdestRemover\":true,\"orderLiterals\":true,\"peephole\":true,\"yul\":false},\"runs\":200},\"remappings\":[\":@enzyme/=contracts/\",\":@openzeppelin-solc-0.7/=node_modules/@openzeppelin-solc-0.7/\",\":@openzeppelin/=node_modules/@openzeppelin/\",\":@uniswap/=node_modules/@uniswap/\",\":base64-sol/=node_modules/base64-sol/\",\":ds-test/=lib/forge-std/lib/ds-test/src/\",\":forge-std/=lib/forge-std/src/\",\":hardhat-deploy/=node_modules/hardhat-deploy/\",\":hardhat/=node_modules/hardhat/\"]},\"sources\":{\"contracts/persistent/address-list-registry/AddressListRegistry.sol\":{\"keccak256\":\"0xf00a9e376e3ec2a223f463f71c15ee3af3642dd028bc3762440e316b760c8048\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://01986c9327b5dfbfac21316dced6d68727931ddde1278ed1342d878004f984b9\",\"dweb:/ipfs/QmdXkFaUU43JqMTYEREbWa129rohdqN7GXy7mVRpjCfSLD\"]},\"contracts/persistent/address-list-registry/address-list-owners/utils/AddOnlyAddressListOwnerBase.sol\":{\"keccak256\":\"0xd3b355f8146b7df79e4537b021379a237d6620c0bdec25e9d96f2b741864909a\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://fcddc5b1dcbe7588943492a5d62ede92f23c46db0bf523267fda0ba9e8acafb5\",\"dweb:/ipfs/QmRssFbEBCRwELD7pvnU7GWoZzxfZocys4sFW33VL71jpt\"]},\"contracts/persistent/address-list-registry/address-list-owners/utils/AddOnlyAddressListOwnerConsumerMixin.sol\":{\"keccak256\":\"0x7eb3ee3ecc65e36bc8b6201e99d42d37bb932e85a5b24afb141a23a469cf8b6e\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://42bb22f3d4b3f2fed39b313cbb81c929d204f07f5ae49f7dc464b44d861d51e5\",\"dweb:/ipfs/QmaMgdLB4zGdZvR5ohexnKoAHdjX7xoM5h8J2ExffyFZG6\"]},\"contracts/persistent/dispatcher/IDispatcher.sol\":{\"keccak256\":\"0x0e6b0e6cf325d4f6332b8eb2b3c446b2ef3ca8456bdf0d12318d0fd9e90aeb30\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://2f159223517ca72c36852d90e45cc53d1840861d6e1a2a37f7901d7e48bc94d0\",\"dweb:/ipfs/QmZKZnppYFEF8hdTxbA1g3NgWMopwHRey5KdzyJXNGgCUJ\"]}},\"version\":1}",
+  "metadata": {
+    "compiler": {
+      "version": "0.6.12+commit.27d51765"
+    },
+    "language": "Solidity",
+    "output": {
+      "abi": [
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "_addressListRegistry",
+              "type": "address"
+            },
+            {
+              "internalType": "uint256",
+              "name": "_listId",
+              "type": "uint256"
+            }
+          ],
+          "stateMutability": "nonpayable",
+          "type": "constructor"
+        }
+      ],
+      "devdoc": {
+        "kind": "dev",
+        "methods": {},
+        "version": 1
+      },
+      "userdoc": {
+        "kind": "user",
+        "methods": {},
+        "version": 1
+      }
+    },
+    "settings": {
+      "remappings": [
+        ":@enzyme/=contracts/",
+        ":@openzeppelin-solc-0.7/=node_modules/@openzeppelin-solc-0.7/",
+        ":@openzeppelin/=node_modules/@openzeppelin/",
+        ":@uniswap/=node_modules/@uniswap/",
+        ":base64-sol/=node_modules/base64-sol/",
+        ":ds-test/=lib/forge-std/lib/ds-test/src/",
+        ":forge-std/=lib/forge-std/src/",
+        ":hardhat-deploy/=node_modules/hardhat-deploy/",
+        ":hardhat/=node_modules/hardhat/"
+      ],
+      "optimizer": {
+        "runs": 200,
+        "details": {
+          "peephole": true,
+          "jumpdestRemover": true,
+          "orderLiterals": true,
+          "deduplicate": true,
+          "cse": true,
+          "constantOptimizer": true,
+          "yul": false
+        }
+      },
+      "metadata": {
+        "bytecodeHash": "none"
+      },
+      "compilationTarget": {
+        "contracts/persistent/address-list-registry/address-list-owners/utils/AddOnlyAddressListOwnerConsumerMixin.sol": "AddOnlyAddressListOwnerConsumerMixin"
+      },
+      "libraries": {}
+    },
+    "sources": {
+      "contracts/persistent/address-list-registry/AddressListRegistry.sol": {
+        "keccak256": "0xf00a9e376e3ec2a223f463f71c15ee3af3642dd028bc3762440e316b760c8048",
+        "urls": [
+          "bzz-raw://01986c9327b5dfbfac21316dced6d68727931ddde1278ed1342d878004f984b9",
+          "dweb:/ipfs/QmdXkFaUU43JqMTYEREbWa129rohdqN7GXy7mVRpjCfSLD"
+        ],
+        "license": "GPL-3.0"
+      },
+      "contracts/persistent/address-list-registry/address-list-owners/utils/AddOnlyAddressListOwnerBase.sol": {
+        "keccak256": "0xd3b355f8146b7df79e4537b021379a237d6620c0bdec25e9d96f2b741864909a",
+        "urls": [
+          "bzz-raw://fcddc5b1dcbe7588943492a5d62ede92f23c46db0bf523267fda0ba9e8acafb5",
+          "dweb:/ipfs/QmRssFbEBCRwELD7pvnU7GWoZzxfZocys4sFW33VL71jpt"
+        ],
+        "license": "GPL-3.0"
+      },
+      "contracts/persistent/address-list-registry/address-list-owners/utils/AddOnlyAddressListOwnerConsumerMixin.sol": {
+        "keccak256": "0x7eb3ee3ecc65e36bc8b6201e99d42d37bb932e85a5b24afb141a23a469cf8b6e",
+        "urls": [
+          "bzz-raw://42bb22f3d4b3f2fed39b313cbb81c929d204f07f5ae49f7dc464b44d861d51e5",
+          "dweb:/ipfs/QmaMgdLB4zGdZvR5ohexnKoAHdjX7xoM5h8J2ExffyFZG6"
+        ],
+        "license": "GPL-3.0"
+      },
+      "contracts/persistent/dispatcher/IDispatcher.sol": {
+        "keccak256": "0x0e6b0e6cf325d4f6332b8eb2b3c446b2ef3ca8456bdf0d12318d0fd9e90aeb30",
+        "urls": [
+          "bzz-raw://2f159223517ca72c36852d90e45cc53d1840861d6e1a2a37f7901d7e48bc94d0",
+          "dweb:/ipfs/QmZKZnppYFEF8hdTxbA1g3NgWMopwHRey5KdzyJXNGgCUJ"
+        ],
+        "license": "GPL-3.0"
+      }
+    },
+    "version": 1
+  },
+  "ast": {
+    "absolutePath": "contracts/persistent/address-list-registry/address-list-owners/utils/AddOnlyAddressListOwnerConsumerMixin.sol",
+    "id": 2918,
+    "exportedSymbols": {
+      "AddOnlyAddressListOwnerConsumerMixin": [
+        2917
+      ]
+    },
+    "nodeType": "SourceUnit",
+    "src": "255:1489:15",
+    "nodes": [
+      {
+        "id": 2836,
+        "nodeType": "PragmaDirective",
+        "src": "255:23:15",
+        "nodes": [],
+        "literals": [
+          "solidity",
+          "0.6",
+          ".12"
+        ]
+      },
+      {
+        "id": 2837,
+        "nodeType": "ImportDirective",
+        "src": "280:39:15",
+        "nodes": [],
+        "absolutePath": "contracts/persistent/address-list-registry/AddressListRegistry.sol",
+        "file": "../../AddressListRegistry.sol",
+        "scope": 2918,
+        "sourceUnit": 2481,
+        "symbolAliases": [],
+        "unitAlias": ""
+      },
+      {
+        "id": 2838,
+        "nodeType": "ImportDirective",
+        "src": "320:43:15",
+        "nodes": [],
+        "absolutePath": "contracts/persistent/address-list-registry/address-list-owners/utils/AddOnlyAddressListOwnerBase.sol",
+        "file": "./AddOnlyAddressListOwnerBase.sol",
+        "scope": 2918,
+        "sourceUnit": 2835,
+        "symbolAliases": [],
+        "unitAlias": ""
+      },
+      {
+        "id": 2917,
+        "nodeType": "ContractDefinition",
+        "src": "578:1165:15",
+        "nodes": [
+          {
+            "id": 2841,
+            "nodeType": "VariableDeclaration",
+            "src": "639:69:15",
+            "nodes": [],
+            "constant": false,
+            "mutability": "immutable",
+            "name": "ADDRESS_LIST_REGISTRY_CONTRACT",
+            "overrides": null,
+            "scope": 2917,
+            "stateVariable": true,
+            "storageLocation": "default",
+            "typeDescriptions": {
+              "typeIdentifier": "t_contract$_AddressListRegistry_$2480",
+              "typeString": "contract AddressListRegistry"
+            },
+            "typeName": {
+              "contractScope": null,
+              "id": 2840,
+              "name": "AddressListRegistry",
+              "nodeType": "UserDefinedTypeName",
+              "referencedDeclaration": 2480,
+              "src": "639:19:15",
+              "typeDescriptions": {
+                "typeIdentifier": "t_contract$_AddressListRegistry_$2480",
+                "typeString": "contract AddressListRegistry"
+              }
+            },
+            "value": null,
+            "visibility": "internal"
+          },
+          {
+            "id": 2843,
+            "nodeType": "VariableDeclaration",
+            "src": "714:34:15",
+            "nodes": [],
+            "constant": false,
+            "mutability": "immutable",
+            "name": "LIST_ID",
+            "overrides": null,
+            "scope": 2917,
+            "stateVariable": true,
+            "storageLocation": "default",
+            "typeDescriptions": {
+              "typeIdentifier": "t_uint256",
+              "typeString": "uint256"
+            },
+            "typeName": {
+              "id": 2842,
+              "name": "uint256",
+              "nodeType": "ElementaryTypeName",
+              "src": "714:7:15",
+              "typeDescriptions": {
+                "typeIdentifier": "t_uint256",
+                "typeString": "uint256"
+              }
+            },
+            "value": null,
+            "visibility": "internal"
+          },
+          {
+            "id": 2845,
+            "nodeType": "VariableDeclaration",
+            "src": "754:66:15",
+            "nodes": [],
+            "constant": false,
+            "mutability": "immutable",
+            "name": "LIST_OWNER_CONTRACT",
+            "overrides": null,
+            "scope": 2917,
+            "stateVariable": true,
+            "storageLocation": "default",
+            "typeDescriptions": {
+              "typeIdentifier": "t_contract$_AddOnlyAddressListOwnerBase_$2834",
+              "typeString": "contract AddOnlyAddressListOwnerBase"
+            },
+            "typeName": {
+              "contractScope": null,
+              "id": 2844,
+              "name": "AddOnlyAddressListOwnerBase",
+              "nodeType": "UserDefinedTypeName",
+              "referencedDeclaration": 2834,
+              "src": "754:27:15",
+              "typeDescriptions": {
+                "typeIdentifier": "t_contract$_AddOnlyAddressListOwnerBase_$2834",
+                "typeString": "contract AddOnlyAddressListOwnerBase"
+              }
+            },
+            "value": null,
+            "visibility": "internal"
+          },
+          {
+            "id": 2878,
+            "nodeType": "FunctionDefinition",
+            "src": "827:348:15",
+            "nodes": [],
+            "body": {
+              "id": 2877,
+              "nodeType": "Block",
+              "src": "893:282:15",
+              "nodes": [],
+              "statements": [
+                {
+                  "expression": {
+                    "argumentTypes": null,
+                    "id": 2856,
+                    "isConstant": false,
+                    "isLValue": false,
+                    "isPure": false,
+                    "lValueRequested": false,
+                    "leftHandSide": {
+                      "argumentTypes": null,
+                      "id": 2852,
+                      "name": "ADDRESS_LIST_REGISTRY_CONTRACT",
+                      "nodeType": "Identifier",
+                      "overloadedDeclarations": [],
+                      "referencedDeclaration": 2841,
+                      "src": "903:30:15",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_contract$_AddressListRegistry_$2480",
+                        "typeString": "contract AddressListRegistry"
+                      }
+                    },
+                    "nodeType": "Assignment",
+                    "operator": "=",
+                    "rightHandSide": {
+                      "argumentTypes": null,
+                      "arguments": [
+                        {
+                          "argumentTypes": null,
+                          "id": 2854,
+                          "name": "_addressListRegistry",
+                          "nodeType": "Identifier",
+                          "overloadedDeclarations": [],
+                          "referencedDeclaration": 2847,
+                          "src": "956:20:15",
+                          "typeDescriptions": {
+                            "typeIdentifier": "t_address",
+                            "typeString": "address"
+                          }
+                        }
+                      ],
+                      "expression": {
+                        "argumentTypes": [
+                          {
+                            "typeIdentifier": "t_address",
+                            "typeString": "address"
+                          }
+                        ],
+                        "id": 2853,
+                        "name": "AddressListRegistry",
+                        "nodeType": "Identifier",
+                        "overloadedDeclarations": [],
+                        "referencedDeclaration": 2480,
+                        "src": "936:19:15",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_type$_t_contract$_AddressListRegistry_$2480_$",
+                          "typeString": "type(contract AddressListRegistry)"
+                        }
+                      },
+                      "id": 2855,
+                      "isConstant": false,
+                      "isLValue": false,
+                      "isPure": false,
+                      "kind": "typeConversion",
+                      "lValueRequested": false,
+                      "names": [],
+                      "nodeType": "FunctionCall",
+                      "src": "936:41:15",
+                      "tryCall": false,
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_contract$_AddressListRegistry_$2480",
+                        "typeString": "contract AddressListRegistry"
+                      }
+                    },
+                    "src": "903:74:15",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_contract$_AddressListRegistry_$2480",
+                      "typeString": "contract AddressListRegistry"
+                    }
+                  },
+                  "id": 2857,
+                  "nodeType": "ExpressionStatement",
+                  "src": "903:74:15"
+                },
+                {
+                  "expression": {
+                    "argumentTypes": null,
+                    "id": 2860,
+                    "isConstant": false,
+                    "isLValue": false,
+                    "isPure": false,
+                    "lValueRequested": false,
+                    "leftHandSide": {
+                      "argumentTypes": null,
+                      "id": 2858,
+                      "name": "LIST_ID",
+                      "nodeType": "Identifier",
+                      "overloadedDeclarations": [],
+                      "referencedDeclaration": 2843,
+                      "src": "987:7:15",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_uint256",
+                        "typeString": "uint256"
+                      }
+                    },
+                    "nodeType": "Assignment",
+                    "operator": "=",
+                    "rightHandSide": {
+                      "argumentTypes": null,
+                      "id": 2859,
+                      "name": "_listId",
+                      "nodeType": "Identifier",
+                      "overloadedDeclarations": [],
+                      "referencedDeclaration": 2849,
+                      "src": "997:7:15",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_uint256",
+                        "typeString": "uint256"
+                      }
+                    },
+                    "src": "987:17:15",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_uint256",
+                      "typeString": "uint256"
+                    }
+                  },
+                  "id": 2861,
+                  "nodeType": "ExpressionStatement",
+                  "src": "987:17:15"
+                },
+                {
+                  "assignments": [
+                    2863
+                  ],
+                  "declarations": [
+                    {
+                      "constant": false,
+                      "id": 2863,
+                      "mutability": "mutable",
+                      "name": "listOwner",
+                      "nodeType": "VariableDeclaration",
+                      "overrides": null,
+                      "scope": 2877,
+                      "src": "1015:17:15",
+                      "stateVariable": false,
+                      "storageLocation": "default",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_address",
+                        "typeString": "address"
+                      },
+                      "typeName": {
+                        "id": 2862,
+                        "name": "address",
+                        "nodeType": "ElementaryTypeName",
+                        "src": "1015:7:15",
+                        "stateMutability": "nonpayable",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_address",
+                          "typeString": "address"
+                        }
+                      },
+                      "value": null,
+                      "visibility": "internal"
+                    }
+                  ],
+                  "id": 2870,
+                  "initialValue": {
+                    "argumentTypes": null,
+                    "arguments": [
+                      {
+                        "argumentTypes": null,
+                        "id": 2868,
+                        "name": "_listId",
+                        "nodeType": "Identifier",
+                        "overloadedDeclarations": [],
+                        "referencedDeclaration": 2849,
+                        "src": "1090:7:15",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_uint256",
+                          "typeString": "uint256"
+                        }
+                      }
+                    ],
+                    "expression": {
+                      "argumentTypes": [
+                        {
+                          "typeIdentifier": "t_uint256",
+                          "typeString": "uint256"
+                        }
+                      ],
+                      "expression": {
+                        "argumentTypes": null,
+                        "arguments": [
+                          {
+                            "argumentTypes": null,
+                            "id": 2865,
+                            "name": "_addressListRegistry",
+                            "nodeType": "Identifier",
+                            "overloadedDeclarations": [],
+                            "referencedDeclaration": 2847,
+                            "src": "1055:20:15",
+                            "typeDescriptions": {
+                              "typeIdentifier": "t_address",
+                              "typeString": "address"
+                            }
+                          }
+                        ],
+                        "expression": {
+                          "argumentTypes": [
+                            {
+                              "typeIdentifier": "t_address",
+                              "typeString": "address"
+                            }
+                          ],
+                          "id": 2864,
+                          "name": "AddressListRegistry",
+                          "nodeType": "Identifier",
+                          "overloadedDeclarations": [],
+                          "referencedDeclaration": 2480,
+                          "src": "1035:19:15",
+                          "typeDescriptions": {
+                            "typeIdentifier": "t_type$_t_contract$_AddressListRegistry_$2480_$",
+                            "typeString": "type(contract AddressListRegistry)"
+                          }
+                        },
+                        "id": 2866,
+                        "isConstant": false,
+                        "isLValue": false,
+                        "isPure": false,
+                        "kind": "typeConversion",
+                        "lValueRequested": false,
+                        "names": [],
+                        "nodeType": "FunctionCall",
+                        "src": "1035:41:15",
+                        "tryCall": false,
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_contract$_AddressListRegistry_$2480",
+                          "typeString": "contract AddressListRegistry"
+                        }
+                      },
+                      "id": 2867,
+                      "isConstant": false,
+                      "isLValue": false,
+                      "isPure": false,
+                      "lValueRequested": false,
+                      "memberName": "getListOwner",
+                      "nodeType": "MemberAccess",
+                      "referencedDeclaration": 2447,
+                      "src": "1035:54:15",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_function_external_view$_t_uint256_$returns$_t_address_$",
+                        "typeString": "function (uint256) view external returns (address)"
+                      }
+                    },
+                    "id": 2869,
+                    "isConstant": false,
+                    "isLValue": false,
+                    "isPure": false,
+                    "kind": "functionCall",
+                    "lValueRequested": false,
+                    "names": [],
+                    "nodeType": "FunctionCall",
+                    "src": "1035:63:15",
+                    "tryCall": false,
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "nodeType": "VariableDeclarationStatement",
+                  "src": "1015:83:15"
+                },
+                {
+                  "expression": {
+                    "argumentTypes": null,
+                    "id": 2875,
+                    "isConstant": false,
+                    "isLValue": false,
+                    "isPure": false,
+                    "lValueRequested": false,
+                    "leftHandSide": {
+                      "argumentTypes": null,
+                      "id": 2871,
+                      "name": "LIST_OWNER_CONTRACT",
+                      "nodeType": "Identifier",
+                      "overloadedDeclarations": [],
+                      "referencedDeclaration": 2845,
+                      "src": "1108:19:15",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_contract$_AddOnlyAddressListOwnerBase_$2834",
+                        "typeString": "contract AddOnlyAddressListOwnerBase"
+                      }
+                    },
+                    "nodeType": "Assignment",
+                    "operator": "=",
+                    "rightHandSide": {
+                      "argumentTypes": null,
+                      "arguments": [
+                        {
+                          "argumentTypes": null,
+                          "id": 2873,
+                          "name": "listOwner",
+                          "nodeType": "Identifier",
+                          "overloadedDeclarations": [],
+                          "referencedDeclaration": 2863,
+                          "src": "1158:9:15",
+                          "typeDescriptions": {
+                            "typeIdentifier": "t_address",
+                            "typeString": "address"
+                          }
+                        }
+                      ],
+                      "expression": {
+                        "argumentTypes": [
+                          {
+                            "typeIdentifier": "t_address",
+                            "typeString": "address"
+                          }
+                        ],
+                        "id": 2872,
+                        "name": "AddOnlyAddressListOwnerBase",
+                        "nodeType": "Identifier",
+                        "overloadedDeclarations": [],
+                        "referencedDeclaration": 2834,
+                        "src": "1130:27:15",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_type$_t_contract$_AddOnlyAddressListOwnerBase_$2834_$",
+                          "typeString": "type(contract AddOnlyAddressListOwnerBase)"
+                        }
+                      },
+                      "id": 2874,
+                      "isConstant": false,
+                      "isLValue": false,
+                      "isPure": false,
+                      "kind": "typeConversion",
+                      "lValueRequested": false,
+                      "names": [],
+                      "nodeType": "FunctionCall",
+                      "src": "1130:38:15",
+                      "tryCall": false,
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_contract$_AddOnlyAddressListOwnerBase_$2834",
+                        "typeString": "contract AddOnlyAddressListOwnerBase"
+                      }
+                    },
+                    "src": "1108:60:15",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_contract$_AddOnlyAddressListOwnerBase_$2834",
+                      "typeString": "contract AddOnlyAddressListOwnerBase"
+                    }
+                  },
+                  "id": 2876,
+                  "nodeType": "ExpressionStatement",
+                  "src": "1108:60:15"
+                }
+              ]
+            },
+            "documentation": null,
+            "implemented": true,
+            "kind": "constructor",
+            "modifiers": [],
+            "name": "",
+            "overrides": null,
+            "parameters": {
+              "id": 2850,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 2847,
+                  "mutability": "mutable",
+                  "name": "_addressListRegistry",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 2878,
+                  "src": "839:28:15",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 2846,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "839:7:15",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 2849,
+                  "mutability": "mutable",
+                  "name": "_listId",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 2878,
+                  "src": "869:15:15",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_uint256",
+                    "typeString": "uint256"
+                  },
+                  "typeName": {
+                    "id": 2848,
+                    "name": "uint256",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "869:7:15",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_uint256",
+                      "typeString": "uint256"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "838:47:15"
+            },
+            "returnParameters": {
+              "id": 2851,
+              "nodeType": "ParameterList",
+              "parameters": [],
+              "src": "893:0:15"
+            },
+            "scope": 2917,
+            "stateMutability": "nonpayable",
+            "virtual": false,
+            "visibility": "public"
+          },
+          {
+            "id": 2916,
+            "nodeType": "FunctionDefinition",
+            "src": "1430:311:15",
+            "nodes": [],
+            "body": {
+              "id": 2915,
+              "nodeType": "Block",
+              "src": "1502:239:15",
+              "nodes": [],
+              "statements": [
+                {
+                  "condition": {
+                    "argumentTypes": null,
+                    "id": 2889,
+                    "isConstant": false,
+                    "isLValue": false,
+                    "isPure": false,
+                    "lValueRequested": false,
+                    "nodeType": "UnaryOperation",
+                    "operator": "!",
+                    "prefix": true,
+                    "src": "1516:56:15",
+                    "subExpression": {
+                      "argumentTypes": null,
+                      "arguments": [
+                        {
+                          "argumentTypes": null,
+                          "id": 2886,
+                          "name": "LIST_ID",
+                          "nodeType": "Identifier",
+                          "overloadedDeclarations": [],
+                          "referencedDeclaration": 2843,
+                          "src": "1557:7:15",
+                          "typeDescriptions": {
+                            "typeIdentifier": "t_uint256",
+                            "typeString": "uint256"
+                          }
+                        },
+                        {
+                          "argumentTypes": null,
+                          "id": 2887,
+                          "name": "_item",
+                          "nodeType": "Identifier",
+                          "overloadedDeclarations": [],
+                          "referencedDeclaration": 2881,
+                          "src": "1566:5:15",
+                          "typeDescriptions": {
+                            "typeIdentifier": "t_address",
+                            "typeString": "address"
+                          }
+                        }
+                      ],
+                      "expression": {
+                        "argumentTypes": [
+                          {
+                            "typeIdentifier": "t_uint256",
+                            "typeString": "uint256"
+                          },
+                          {
+                            "typeIdentifier": "t_address",
+                            "typeString": "address"
+                          }
+                        ],
+                        "expression": {
+                          "argumentTypes": null,
+                          "id": 2884,
+                          "name": "ADDRESS_LIST_REGISTRY_CONTRACT",
+                          "nodeType": "Identifier",
+                          "overloadedDeclarations": [],
+                          "referencedDeclaration": 2841,
+                          "src": "1517:30:15",
+                          "typeDescriptions": {
+                            "typeIdentifier": "t_contract$_AddressListRegistry_$2480",
+                            "typeString": "contract AddressListRegistry"
+                          }
+                        },
+                        "id": 2885,
+                        "isConstant": false,
+                        "isLValue": false,
+                        "isPure": false,
+                        "lValueRequested": false,
+                        "memberName": "isInList",
+                        "nodeType": "MemberAccess",
+                        "referencedDeclaration": 2479,
+                        "src": "1517:39:15",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_function_external_view$_t_uint256_$_t_address_$returns$_t_bool_$",
+                          "typeString": "function (uint256,address) view external returns (bool)"
+                        }
+                      },
+                      "id": 2888,
+                      "isConstant": false,
+                      "isLValue": false,
+                      "isPure": false,
+                      "kind": "functionCall",
+                      "lValueRequested": false,
+                      "names": [],
+                      "nodeType": "FunctionCall",
+                      "src": "1517:55:15",
+                      "tryCall": false,
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_bool",
+                        "typeString": "bool"
+                      }
+                    },
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_bool",
+                      "typeString": "bool"
+                    }
+                  },
+                  "falseBody": null,
+                  "id": 2914,
+                  "nodeType": "IfStatement",
+                  "src": "1512:223:15",
+                  "trueBody": {
+                    "id": 2913,
+                    "nodeType": "Block",
+                    "src": "1574:161:15",
+                    "statements": [
+                      {
+                        "assignments": [
+                          2894
+                        ],
+                        "declarations": [
+                          {
+                            "constant": false,
+                            "id": 2894,
+                            "mutability": "mutable",
+                            "name": "items",
+                            "nodeType": "VariableDeclaration",
+                            "overrides": null,
+                            "scope": 2913,
+                            "src": "1588:22:15",
+                            "stateVariable": false,
+                            "storageLocation": "memory",
+                            "typeDescriptions": {
+                              "typeIdentifier": "t_array$_t_address_$dyn_memory_ptr",
+                              "typeString": "address[]"
+                            },
+                            "typeName": {
+                              "baseType": {
+                                "id": 2892,
+                                "name": "address",
+                                "nodeType": "ElementaryTypeName",
+                                "src": "1588:7:15",
+                                "typeDescriptions": {
+                                  "typeIdentifier": "t_address",
+                                  "typeString": "address"
+                                }
+                              },
+                              "id": 2893,
+                              "length": null,
+                              "nodeType": "ArrayTypeName",
+                              "src": "1588:9:15",
+                              "typeDescriptions": {
+                                "typeIdentifier": "t_array$_t_address_$dyn_storage_ptr",
+                                "typeString": "address[]"
+                              }
+                            },
+                            "value": null,
+                            "visibility": "internal"
+                          }
+                        ],
+                        "id": 2900,
+                        "initialValue": {
+                          "argumentTypes": null,
+                          "arguments": [
+                            {
+                              "argumentTypes": null,
+                              "hexValue": "31",
+                              "id": 2898,
+                              "isConstant": false,
+                              "isLValue": false,
+                              "isPure": true,
+                              "kind": "number",
+                              "lValueRequested": false,
+                              "nodeType": "Literal",
+                              "src": "1627:1:15",
+                              "subdenomination": null,
+                              "typeDescriptions": {
+                                "typeIdentifier": "t_rational_1_by_1",
+                                "typeString": "int_const 1"
+                              },
+                              "value": "1"
+                            }
+                          ],
+                          "expression": {
+                            "argumentTypes": [
+                              {
+                                "typeIdentifier": "t_rational_1_by_1",
+                                "typeString": "int_const 1"
+                              }
+                            ],
+                            "id": 2897,
+                            "isConstant": false,
+                            "isLValue": false,
+                            "isPure": true,
+                            "lValueRequested": false,
+                            "nodeType": "NewExpression",
+                            "src": "1613:13:15",
+                            "typeDescriptions": {
+                              "typeIdentifier": "t_function_objectcreation_pure$_t_uint256_$returns$_t_array$_t_address_$dyn_memory_ptr_$",
+                              "typeString": "function (uint256) pure returns (address[] memory)"
+                            },
+                            "typeName": {
+                              "baseType": {
+                                "id": 2895,
+                                "name": "address",
+                                "nodeType": "ElementaryTypeName",
+                                "src": "1617:7:15",
+                                "stateMutability": "nonpayable",
+                                "typeDescriptions": {
+                                  "typeIdentifier": "t_address",
+                                  "typeString": "address"
+                                }
+                              },
+                              "id": 2896,
+                              "length": null,
+                              "nodeType": "ArrayTypeName",
+                              "src": "1617:9:15",
+                              "typeDescriptions": {
+                                "typeIdentifier": "t_array$_t_address_$dyn_storage_ptr",
+                                "typeString": "address[]"
+                              }
+                            }
+                          },
+                          "id": 2899,
+                          "isConstant": false,
+                          "isLValue": false,
+                          "isPure": true,
+                          "kind": "functionCall",
+                          "lValueRequested": false,
+                          "names": [],
+                          "nodeType": "FunctionCall",
+                          "src": "1613:16:15",
+                          "tryCall": false,
+                          "typeDescriptions": {
+                            "typeIdentifier": "t_array$_t_address_$dyn_memory_ptr",
+                            "typeString": "address[] memory"
+                          }
+                        },
+                        "nodeType": "VariableDeclarationStatement",
+                        "src": "1588:41:15"
+                      },
+                      {
+                        "expression": {
+                          "argumentTypes": null,
+                          "id": 2905,
+                          "isConstant": false,
+                          "isLValue": false,
+                          "isPure": false,
+                          "lValueRequested": false,
+                          "leftHandSide": {
+                            "argumentTypes": null,
+                            "baseExpression": {
+                              "argumentTypes": null,
+                              "id": 2901,
+                              "name": "items",
+                              "nodeType": "Identifier",
+                              "overloadedDeclarations": [],
+                              "referencedDeclaration": 2894,
+                              "src": "1643:5:15",
+                              "typeDescriptions": {
+                                "typeIdentifier": "t_array$_t_address_$dyn_memory_ptr",
+                                "typeString": "address[] memory"
+                              }
+                            },
+                            "id": 2903,
+                            "indexExpression": {
+                              "argumentTypes": null,
+                              "hexValue": "30",
+                              "id": 2902,
+                              "isConstant": false,
+                              "isLValue": false,
+                              "isPure": true,
+                              "kind": "number",
+                              "lValueRequested": false,
+                              "nodeType": "Literal",
+                              "src": "1649:1:15",
+                              "subdenomination": null,
+                              "typeDescriptions": {
+                                "typeIdentifier": "t_rational_0_by_1",
+                                "typeString": "int_const 0"
+                              },
+                              "value": "0"
+                            },
+                            "isConstant": false,
+                            "isLValue": true,
+                            "isPure": false,
+                            "lValueRequested": true,
+                            "nodeType": "IndexAccess",
+                            "src": "1643:8:15",
+                            "typeDescriptions": {
+                              "typeIdentifier": "t_address",
+                              "typeString": "address"
+                            }
+                          },
+                          "nodeType": "Assignment",
+                          "operator": "=",
+                          "rightHandSide": {
+                            "argumentTypes": null,
+                            "id": 2904,
+                            "name": "_item",
+                            "nodeType": "Identifier",
+                            "overloadedDeclarations": [],
+                            "referencedDeclaration": 2881,
+                            "src": "1654:5:15",
+                            "typeDescriptions": {
+                              "typeIdentifier": "t_address",
+                              "typeString": "address"
+                            }
+                          },
+                          "src": "1643:16:15",
+                          "typeDescriptions": {
+                            "typeIdentifier": "t_address",
+                            "typeString": "address"
+                          }
+                        },
+                        "id": 2906,
+                        "nodeType": "ExpressionStatement",
+                        "src": "1643:16:15"
+                      },
+                      {
+                        "expression": {
+                          "argumentTypes": null,
+                          "arguments": [
+                            {
+                              "argumentTypes": null,
+                              "id": 2910,
+                              "name": "items",
+                              "nodeType": "Identifier",
+                              "overloadedDeclarations": [],
+                              "referencedDeclaration": 2894,
+                              "src": "1718:5:15",
+                              "typeDescriptions": {
+                                "typeIdentifier": "t_array$_t_address_$dyn_memory_ptr",
+                                "typeString": "address[] memory"
+                              }
+                            }
+                          ],
+                          "expression": {
+                            "argumentTypes": [
+                              {
+                                "typeIdentifier": "t_array$_t_address_$dyn_memory_ptr",
+                                "typeString": "address[] memory"
+                              }
+                            ],
+                            "expression": {
+                              "argumentTypes": null,
+                              "id": 2907,
+                              "name": "LIST_OWNER_CONTRACT",
+                              "nodeType": "Identifier",
+                              "overloadedDeclarations": [],
+                              "referencedDeclaration": 2845,
+                              "src": "1674:19:15",
+                              "typeDescriptions": {
+                                "typeIdentifier": "t_contract$_AddOnlyAddressListOwnerBase_$2834",
+                                "typeString": "contract AddOnlyAddressListOwnerBase"
+                              }
+                            },
+                            "id": 2909,
+                            "isConstant": false,
+                            "isLValue": false,
+                            "isPure": false,
+                            "lValueRequested": false,
+                            "memberName": "addValidatedItemsToList",
+                            "nodeType": "MemberAccess",
+                            "referencedDeclaration": 2826,
+                            "src": "1674:43:15",
+                            "typeDescriptions": {
+                              "typeIdentifier": "t_function_external_nonpayable$_t_array$_t_address_$dyn_memory_ptr_$returns$__$",
+                              "typeString": "function (address[] memory) external"
+                            }
+                          },
+                          "id": 2911,
+                          "isConstant": false,
+                          "isLValue": false,
+                          "isPure": false,
+                          "kind": "functionCall",
+                          "lValueRequested": false,
+                          "names": [],
+                          "nodeType": "FunctionCall",
+                          "src": "1674:50:15",
+                          "tryCall": false,
+                          "typeDescriptions": {
+                            "typeIdentifier": "t_tuple$__$",
+                            "typeString": "tuple()"
+                          }
+                        },
+                        "id": 2912,
+                        "nodeType": "ExpressionStatement",
+                        "src": "1674:50:15"
+                      }
+                    ]
+                  }
+                }
+              ]
+            },
+            "documentation": {
+              "id": 2879,
+              "nodeType": "StructuredDocumentation",
+              "src": "1181:244:15",
+              "text": "@dev Helper to lookup an item's existence and then attempt to add it.\n AddOnlyAddressListOwnerBase.addValidatedItemsToList() performs validation on the item\n via the __validateItems() implementation of its inheriting contract."
+            },
+            "implemented": true,
+            "kind": "function",
+            "modifiers": [],
+            "name": "__validateAndAddListItemIfUnregistered",
+            "overrides": null,
+            "parameters": {
+              "id": 2882,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 2881,
+                  "mutability": "mutable",
+                  "name": "_item",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 2916,
+                  "src": "1478:13:15",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 2880,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "1478:7:15",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "1477:15:15"
+            },
+            "returnParameters": {
+              "id": 2883,
+              "nodeType": "ParameterList",
+              "parameters": [],
+              "src": "1502:0:15"
+            },
+            "scope": 2917,
+            "stateMutability": "nonpayable",
+            "virtual": false,
+            "visibility": "internal"
+          }
+        ],
+        "abstract": true,
+        "baseContracts": [],
+        "contractDependencies": [],
+        "contractKind": "contract",
+        "documentation": {
+          "id": 2839,
+          "nodeType": "StructuredDocumentation",
+          "src": "365:213:15",
+          "text": "@title AddOnlyAddressListOwnerConsumerMixin Contract\n @author Enzyme Council <security@enzyme.finance>\n @notice Mixin contract for interacting with a contract that inherits `AddOnlyAddressListOwnerBase`"
+        },
+        "fullyImplemented": true,
+        "linearizedBaseContracts": [
+          2917
+        ],
+        "name": "AddOnlyAddressListOwnerConsumerMixin",
+        "scope": 2918
+      }
+    ],
+    "license": "GPL-3.0"
+  },
+  "id": 15
+}

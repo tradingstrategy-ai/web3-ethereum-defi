@@ -1,0 +1,823 @@
+{
+  "abi": [
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "_vaultProxy",
+          "type": "address"
+        },
+        {
+          "internalType": "address",
+          "name": "_depositAsset",
+          "type": "address"
+        },
+        {
+          "internalType": "uint256",
+          "name": "_depositAssetAmount",
+          "type": "uint256"
+        }
+      ],
+      "name": "formatDepositCall",
+      "outputs": [
+        {
+          "internalType": "address",
+          "name": "target_",
+          "type": "address"
+        },
+        {
+          "internalType": "bytes",
+          "name": "payload_",
+          "type": "bytes"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "_vaultProxy",
+          "type": "address"
+        },
+        {
+          "internalType": "address",
+          "name": "_recipient",
+          "type": "address"
+        },
+        {
+          "internalType": "address",
+          "name": "_asset",
+          "type": "address"
+        },
+        {
+          "internalType": "uint256",
+          "name": "_amount",
+          "type": "uint256"
+        },
+        {
+          "internalType": "bool",
+          "name": "_amountIsShares",
+          "type": "bool"
+        }
+      ],
+      "name": "formatSingleAssetRedemptionCall",
+      "outputs": [
+        {
+          "internalType": "address",
+          "name": "target_",
+          "type": "address"
+        },
+        {
+          "internalType": "bytes",
+          "name": "payload_",
+          "type": "bytes"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "_vaultProxy",
+          "type": "address"
+        },
+        {
+          "internalType": "address",
+          "name": "_recipientToValidate",
+          "type": "address"
+        },
+        {
+          "internalType": "uint256",
+          "name": "_sharesAmountToValidate",
+          "type": "uint256"
+        },
+        {
+          "internalType": "address",
+          "name": "_redeemContract",
+          "type": "address"
+        },
+        {
+          "internalType": "bytes4",
+          "name": "_redeemSelector",
+          "type": "bytes4"
+        },
+        {
+          "internalType": "bytes",
+          "name": "_redeemData",
+          "type": "bytes"
+        }
+      ],
+      "name": "isValidRedeemSharesCall",
+      "outputs": [
+        {
+          "internalType": "bool",
+          "name": "isValid_",
+          "type": "bool"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    }
+  ],
+  "bytecode": {
+    "object": "0x",
+    "sourceMap": "",
+    "linkReferences": {}
+  },
+  "deployedBytecode": {
+    "object": "0x",
+    "sourceMap": "",
+    "linkReferences": {}
+  },
+  "methodIdentifiers": {
+    "formatDepositCall(address,address,uint256)": "7f180433",
+    "formatSingleAssetRedemptionCall(address,address,address,uint256,bool)": "2441593c",
+    "isValidRedeemSharesCall(address,address,uint256,address,bytes4,bytes)": "5d4755dc"
+  },
+  "rawMetadata": "{\"compiler\":{\"version\":\"0.6.12+commit.27d51765\"},\"language\":\"Solidity\",\"output\":{\"abi\":[{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_vaultProxy\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"_depositAsset\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"_depositAssetAmount\",\"type\":\"uint256\"}],\"name\":\"formatDepositCall\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"target_\",\"type\":\"address\"},{\"internalType\":\"bytes\",\"name\":\"payload_\",\"type\":\"bytes\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_vaultProxy\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"_recipient\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"_asset\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"_amount\",\"type\":\"uint256\"},{\"internalType\":\"bool\",\"name\":\"_amountIsShares\",\"type\":\"bool\"}],\"name\":\"formatSingleAssetRedemptionCall\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"target_\",\"type\":\"address\"},{\"internalType\":\"bytes\",\"name\":\"payload_\",\"type\":\"bytes\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_vaultProxy\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"_recipientToValidate\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"_sharesAmountToValidate\",\"type\":\"uint256\"},{\"internalType\":\"address\",\"name\":\"_redeemContract\",\"type\":\"address\"},{\"internalType\":\"bytes4\",\"name\":\"_redeemSelector\",\"type\":\"bytes4\"},{\"internalType\":\"bytes\",\"name\":\"_redeemData\",\"type\":\"bytes\"}],\"name\":\"isValidRedeemSharesCall\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"isValid_\",\"type\":\"bool\"}],\"stateMutability\":\"view\",\"type\":\"function\"}],\"devdoc\":{\"author\":\"Enzyme Council <security@enzyme.finance>\",\"details\":\"Each interface should inherit the previous interface, e.g., `IGlobalConfig2 is IGlobalConfig1`\",\"kind\":\"dev\",\"methods\":{},\"title\":\"IGlobalConfig2 Interface\",\"version\":1},\"userdoc\":{\"kind\":\"user\",\"methods\":{},\"version\":1}},\"settings\":{\"compilationTarget\":{\"contracts/persistent/global-config/interfaces/IGlobalConfig2.sol\":\"IGlobalConfig2\"},\"evmVersion\":\"istanbul\",\"libraries\":{},\"metadata\":{\"bytecodeHash\":\"none\"},\"optimizer\":{\"details\":{\"constantOptimizer\":true,\"cse\":true,\"deduplicate\":true,\"jumpdestRemover\":true,\"orderLiterals\":true,\"peephole\":true,\"yul\":false},\"runs\":200},\"remappings\":[\":@enzyme/=contracts/\",\":@openzeppelin-solc-0.7/=node_modules/@openzeppelin-solc-0.7/\",\":@openzeppelin/=node_modules/@openzeppelin/\",\":@uniswap/=node_modules/@uniswap/\",\":base64-sol/=node_modules/base64-sol/\",\":ds-test/=lib/forge-std/lib/ds-test/src/\",\":forge-std/=lib/forge-std/src/\",\":hardhat-deploy/=node_modules/hardhat-deploy/\",\":hardhat/=node_modules/hardhat/\"]},\"sources\":{\"contracts/persistent/global-config/interfaces/IGlobalConfig1.sol\":{\"keccak256\":\"0x7b643513fd8e1a3aadc476536785a925fb7c032c21e385e69e562abff531a646\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://682cce7a4c7316ab7aa39361dff84646ba8c89ad26f2c706a4b2940f8ab27205\",\"dweb:/ipfs/QmTtyfPn3M8ErCs8zuhT4NrZiL4CAUyv37os37HebYuGA8\"]},\"contracts/persistent/global-config/interfaces/IGlobalConfig2.sol\":{\"keccak256\":\"0x98c55513d3903864848be0d1159ec7703f23b1119ca10da17c109417e06cc171\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://c6a92d9afd1167d4f560d66ec98c3137f224db743fc3b6c412d5617be97168b9\",\"dweb:/ipfs/QmZbDacG1C1dsQ9tx3BgAH9nTp4zfWYF1YDRYVbcgcKob4\"]}},\"version\":1}",
+  "metadata": {
+    "compiler": {
+      "version": "0.6.12+commit.27d51765"
+    },
+    "language": "Solidity",
+    "output": {
+      "abi": [
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "_vaultProxy",
+              "type": "address"
+            },
+            {
+              "internalType": "address",
+              "name": "_depositAsset",
+              "type": "address"
+            },
+            {
+              "internalType": "uint256",
+              "name": "_depositAssetAmount",
+              "type": "uint256"
+            }
+          ],
+          "stateMutability": "view",
+          "type": "function",
+          "name": "formatDepositCall",
+          "outputs": [
+            {
+              "internalType": "address",
+              "name": "target_",
+              "type": "address"
+            },
+            {
+              "internalType": "bytes",
+              "name": "payload_",
+              "type": "bytes"
+            }
+          ]
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "_vaultProxy",
+              "type": "address"
+            },
+            {
+              "internalType": "address",
+              "name": "_recipient",
+              "type": "address"
+            },
+            {
+              "internalType": "address",
+              "name": "_asset",
+              "type": "address"
+            },
+            {
+              "internalType": "uint256",
+              "name": "_amount",
+              "type": "uint256"
+            },
+            {
+              "internalType": "bool",
+              "name": "_amountIsShares",
+              "type": "bool"
+            }
+          ],
+          "stateMutability": "view",
+          "type": "function",
+          "name": "formatSingleAssetRedemptionCall",
+          "outputs": [
+            {
+              "internalType": "address",
+              "name": "target_",
+              "type": "address"
+            },
+            {
+              "internalType": "bytes",
+              "name": "payload_",
+              "type": "bytes"
+            }
+          ]
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "_vaultProxy",
+              "type": "address"
+            },
+            {
+              "internalType": "address",
+              "name": "_recipientToValidate",
+              "type": "address"
+            },
+            {
+              "internalType": "uint256",
+              "name": "_sharesAmountToValidate",
+              "type": "uint256"
+            },
+            {
+              "internalType": "address",
+              "name": "_redeemContract",
+              "type": "address"
+            },
+            {
+              "internalType": "bytes4",
+              "name": "_redeemSelector",
+              "type": "bytes4"
+            },
+            {
+              "internalType": "bytes",
+              "name": "_redeemData",
+              "type": "bytes"
+            }
+          ],
+          "stateMutability": "view",
+          "type": "function",
+          "name": "isValidRedeemSharesCall",
+          "outputs": [
+            {
+              "internalType": "bool",
+              "name": "isValid_",
+              "type": "bool"
+            }
+          ]
+        }
+      ],
+      "devdoc": {
+        "kind": "dev",
+        "methods": {},
+        "version": 1
+      },
+      "userdoc": {
+        "kind": "user",
+        "methods": {},
+        "version": 1
+      }
+    },
+    "settings": {
+      "remappings": [
+        ":@enzyme/=contracts/",
+        ":@openzeppelin-solc-0.7/=node_modules/@openzeppelin-solc-0.7/",
+        ":@openzeppelin/=node_modules/@openzeppelin/",
+        ":@uniswap/=node_modules/@uniswap/",
+        ":base64-sol/=node_modules/base64-sol/",
+        ":ds-test/=lib/forge-std/lib/ds-test/src/",
+        ":forge-std/=lib/forge-std/src/",
+        ":hardhat-deploy/=node_modules/hardhat-deploy/",
+        ":hardhat/=node_modules/hardhat/"
+      ],
+      "optimizer": {
+        "runs": 200,
+        "details": {
+          "peephole": true,
+          "jumpdestRemover": true,
+          "orderLiterals": true,
+          "deduplicate": true,
+          "cse": true,
+          "constantOptimizer": true,
+          "yul": false
+        }
+      },
+      "metadata": {
+        "bytecodeHash": "none"
+      },
+      "compilationTarget": {
+        "contracts/persistent/global-config/interfaces/IGlobalConfig2.sol": "IGlobalConfig2"
+      },
+      "libraries": {}
+    },
+    "sources": {
+      "contracts/persistent/global-config/interfaces/IGlobalConfig1.sol": {
+        "keccak256": "0x7b643513fd8e1a3aadc476536785a925fb7c032c21e385e69e562abff531a646",
+        "urls": [
+          "bzz-raw://682cce7a4c7316ab7aa39361dff84646ba8c89ad26f2c706a4b2940f8ab27205",
+          "dweb:/ipfs/QmTtyfPn3M8ErCs8zuhT4NrZiL4CAUyv37os37HebYuGA8"
+        ],
+        "license": "GPL-3.0"
+      },
+      "contracts/persistent/global-config/interfaces/IGlobalConfig2.sol": {
+        "keccak256": "0x98c55513d3903864848be0d1159ec7703f23b1119ca10da17c109417e06cc171",
+        "urls": [
+          "bzz-raw://c6a92d9afd1167d4f560d66ec98c3137f224db743fc3b6c412d5617be97168b9",
+          "dweb:/ipfs/QmZbDacG1C1dsQ9tx3BgAH9nTp4zfWYF1YDRYVbcgcKob4"
+        ],
+        "license": "GPL-3.0"
+      }
+    },
+    "version": 1
+  },
+  "ast": {
+    "absolutePath": "contracts/persistent/global-config/interfaces/IGlobalConfig2.sol",
+    "id": 6222,
+    "exportedSymbols": {
+      "IGlobalConfig2": [
+        6221
+      ]
+    },
+    "nodeType": "SourceUnit",
+    "src": "255:751:44",
+    "nodes": [
+      {
+        "id": 6186,
+        "nodeType": "PragmaDirective",
+        "src": "255:23:44",
+        "nodes": [],
+        "literals": [
+          "solidity",
+          "0.6",
+          ".12"
+        ]
+      },
+      {
+        "id": 6187,
+        "nodeType": "ImportDirective",
+        "src": "280:30:44",
+        "nodes": [],
+        "absolutePath": "contracts/persistent/global-config/interfaces/IGlobalConfig1.sol",
+        "file": "./IGlobalConfig1.sol",
+        "scope": 6222,
+        "sourceUnit": 6185,
+        "symbolAliases": [],
+        "unitAlias": ""
+      },
+      {
+        "id": 6221,
+        "nodeType": "ContractDefinition",
+        "src": "509:496:44",
+        "nodes": [
+          {
+            "id": 6203,
+            "nodeType": "FunctionDefinition",
+            "src": "558:193:44",
+            "nodes": [],
+            "documentation": null,
+            "functionSelector": "7f180433",
+            "implemented": false,
+            "kind": "function",
+            "modifiers": [],
+            "name": "formatDepositCall",
+            "overrides": null,
+            "parameters": {
+              "id": 6197,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 6192,
+                  "mutability": "mutable",
+                  "name": "_vaultProxy",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 6203,
+                  "src": "594:19:44",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 6191,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "594:7:44",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 6194,
+                  "mutability": "mutable",
+                  "name": "_depositAsset",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 6203,
+                  "src": "623:21:44",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 6193,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "623:7:44",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 6196,
+                  "mutability": "mutable",
+                  "name": "_depositAssetAmount",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 6203,
+                  "src": "654:27:44",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_uint256",
+                    "typeString": "uint256"
+                  },
+                  "typeName": {
+                    "id": 6195,
+                    "name": "uint256",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "654:7:44",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_uint256",
+                      "typeString": "uint256"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "584:103:44"
+            },
+            "returnParameters": {
+              "id": 6202,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 6199,
+                  "mutability": "mutable",
+                  "name": "target_",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 6203,
+                  "src": "711:15:44",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 6198,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "711:7:44",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 6201,
+                  "mutability": "mutable",
+                  "name": "payload_",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 6203,
+                  "src": "728:21:44",
+                  "stateVariable": false,
+                  "storageLocation": "memory",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_bytes_memory_ptr",
+                    "typeString": "bytes"
+                  },
+                  "typeName": {
+                    "id": 6200,
+                    "name": "bytes",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "728:5:44",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_bytes_storage_ptr",
+                      "typeString": "bytes"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "710:40:44"
+            },
+            "scope": 6221,
+            "stateMutability": "view",
+            "virtual": false,
+            "visibility": "external"
+          },
+          {
+            "id": 6220,
+            "nodeType": "FunctionDefinition",
+            "src": "757:246:44",
+            "nodes": [],
+            "documentation": null,
+            "functionSelector": "2441593c",
+            "implemented": false,
+            "kind": "function",
+            "modifiers": [],
+            "name": "formatSingleAssetRedemptionCall",
+            "overrides": null,
+            "parameters": {
+              "id": 6214,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 6205,
+                  "mutability": "mutable",
+                  "name": "_vaultProxy",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 6220,
+                  "src": "807:19:44",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 6204,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "807:7:44",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 6207,
+                  "mutability": "mutable",
+                  "name": "_recipient",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 6220,
+                  "src": "836:18:44",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 6206,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "836:7:44",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 6209,
+                  "mutability": "mutable",
+                  "name": "_asset",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 6220,
+                  "src": "864:14:44",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 6208,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "864:7:44",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 6211,
+                  "mutability": "mutable",
+                  "name": "_amount",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 6220,
+                  "src": "888:15:44",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_uint256",
+                    "typeString": "uint256"
+                  },
+                  "typeName": {
+                    "id": 6210,
+                    "name": "uint256",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "888:7:44",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_uint256",
+                      "typeString": "uint256"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 6213,
+                  "mutability": "mutable",
+                  "name": "_amountIsShares",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 6220,
+                  "src": "913:20:44",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_bool",
+                    "typeString": "bool"
+                  },
+                  "typeName": {
+                    "id": 6212,
+                    "name": "bool",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "913:4:44",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_bool",
+                      "typeString": "bool"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "797:142:44"
+            },
+            "returnParameters": {
+              "id": 6219,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 6216,
+                  "mutability": "mutable",
+                  "name": "target_",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 6220,
+                  "src": "963:15:44",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 6215,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "963:7:44",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 6218,
+                  "mutability": "mutable",
+                  "name": "payload_",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 6220,
+                  "src": "980:21:44",
+                  "stateVariable": false,
+                  "storageLocation": "memory",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_bytes_memory_ptr",
+                    "typeString": "bytes"
+                  },
+                  "typeName": {
+                    "id": 6217,
+                    "name": "bytes",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "980:5:44",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_bytes_storage_ptr",
+                      "typeString": "bytes"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "962:40:44"
+            },
+            "scope": 6221,
+            "stateMutability": "view",
+            "virtual": false,
+            "visibility": "external"
+          }
+        ],
+        "abstract": false,
+        "baseContracts": [
+          {
+            "arguments": null,
+            "baseName": {
+              "contractScope": null,
+              "id": 6189,
+              "name": "IGlobalConfig1",
+              "nodeType": "UserDefinedTypeName",
+              "referencedDeclaration": 6184,
+              "src": "537:14:44",
+              "typeDescriptions": {
+                "typeIdentifier": "t_contract$_IGlobalConfig1_$6184",
+                "typeString": "contract IGlobalConfig1"
+              }
+            },
+            "id": 6190,
+            "nodeType": "InheritanceSpecifier",
+            "src": "537:14:44"
+          }
+        ],
+        "contractDependencies": [
+          6184
+        ],
+        "contractKind": "interface",
+        "documentation": {
+          "id": 6188,
+          "nodeType": "StructuredDocumentation",
+          "src": "312:197:44",
+          "text": "@title IGlobalConfig2 Interface\n @author Enzyme Council <security@enzyme.finance>\n @dev Each interface should inherit the previous interface,\n e.g., `IGlobalConfig2 is IGlobalConfig1`"
+        },
+        "fullyImplemented": false,
+        "linearizedBaseContracts": [
+          6221,
+          6184
+        ],
+        "name": "IGlobalConfig2",
+        "scope": 6222
+      }
+    ],
+    "license": "GPL-3.0"
+  },
+  "id": 44
+}

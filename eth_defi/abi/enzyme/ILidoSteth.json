@@ -1,7 +1,4 @@
 {
-  "_format": "hh-sol-artifact-1",
-  "contractName": "ILidoSteth",
-  "sourceName": "contracts/release/interfaces/ILidoSteth.sol",
   "abi": [
     {
       "inputs": [
@@ -23,8 +20,236 @@
       "type": "function"
     }
   ],
-  "bytecode": "0x",
-  "deployedBytecode": "0x",
-  "linkReferences": {},
-  "deployedLinkReferences": {}
+  "bytecode": {
+    "object": "0x",
+    "sourceMap": "",
+    "linkReferences": {}
+  },
+  "deployedBytecode": {
+    "object": "0x",
+    "sourceMap": "",
+    "linkReferences": {}
+  },
+  "methodIdentifiers": {
+    "getPooledEthByShares(uint256)": "7a28fb88"
+  },
+  "rawMetadata": "{\"compiler\":{\"version\":\"0.6.12+commit.27d51765\"},\"language\":\"Solidity\",\"output\":{\"abi\":[{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_sharesAmount\",\"type\":\"uint256\"}],\"name\":\"getPooledEthByShares\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"ethAmount_\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"}],\"devdoc\":{\"author\":\"Enzyme Council <security@enzyme.finance>\",\"kind\":\"dev\",\"methods\":{},\"title\":\"ILidoSteth Interface\",\"version\":1},\"userdoc\":{\"kind\":\"user\",\"methods\":{},\"version\":1}},\"settings\":{\"compilationTarget\":{\"contracts/release/interfaces/ILidoSteth.sol\":\"ILidoSteth\"},\"evmVersion\":\"istanbul\",\"libraries\":{},\"metadata\":{\"bytecodeHash\":\"none\"},\"optimizer\":{\"details\":{\"constantOptimizer\":true,\"cse\":true,\"deduplicate\":true,\"jumpdestRemover\":true,\"orderLiterals\":true,\"peephole\":true,\"yul\":false},\"runs\":200},\"remappings\":[\":@enzyme/=contracts/\",\":@openzeppelin-solc-0.7/=node_modules/@openzeppelin-solc-0.7/\",\":@openzeppelin/=node_modules/@openzeppelin/\",\":@uniswap/=node_modules/@uniswap/\",\":base64-sol/=node_modules/base64-sol/\",\":ds-test/=lib/forge-std/lib/ds-test/src/\",\":forge-std/=lib/forge-std/src/\",\":hardhat-deploy/=node_modules/hardhat-deploy/\",\":hardhat/=node_modules/hardhat/\"]},\"sources\":{\"contracts/release/interfaces/ILidoSteth.sol\":{\"keccak256\":\"0xd58a94e3dd12b2057c8305c0b82536fc1696304440e97f70d990dc7748d0e510\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://2bf61ea7bdbee6f5e5f52a4448de259cf5276c9d46e0597c1e3577f82e4db536\",\"dweb:/ipfs/QmQun767E67degew5JEw49qBtyQYh3bt34spZ1mowbUdEH\"]}},\"version\":1}",
+  "metadata": {
+    "compiler": {
+      "version": "0.6.12+commit.27d51765"
+    },
+    "language": "Solidity",
+    "output": {
+      "abi": [
+        {
+          "inputs": [
+            {
+              "internalType": "uint256",
+              "name": "_sharesAmount",
+              "type": "uint256"
+            }
+          ],
+          "stateMutability": "view",
+          "type": "function",
+          "name": "getPooledEthByShares",
+          "outputs": [
+            {
+              "internalType": "uint256",
+              "name": "ethAmount_",
+              "type": "uint256"
+            }
+          ]
+        }
+      ],
+      "devdoc": {
+        "kind": "dev",
+        "methods": {},
+        "version": 1
+      },
+      "userdoc": {
+        "kind": "user",
+        "methods": {},
+        "version": 1
+      }
+    },
+    "settings": {
+      "remappings": [
+        ":@enzyme/=contracts/",
+        ":@openzeppelin-solc-0.7/=node_modules/@openzeppelin-solc-0.7/",
+        ":@openzeppelin/=node_modules/@openzeppelin/",
+        ":@uniswap/=node_modules/@uniswap/",
+        ":base64-sol/=node_modules/base64-sol/",
+        ":ds-test/=lib/forge-std/lib/ds-test/src/",
+        ":forge-std/=lib/forge-std/src/",
+        ":hardhat-deploy/=node_modules/hardhat-deploy/",
+        ":hardhat/=node_modules/hardhat/"
+      ],
+      "optimizer": {
+        "runs": 200,
+        "details": {
+          "peephole": true,
+          "jumpdestRemover": true,
+          "orderLiterals": true,
+          "deduplicate": true,
+          "cse": true,
+          "constantOptimizer": true,
+          "yul": false
+        }
+      },
+      "metadata": {
+        "bytecodeHash": "none"
+      },
+      "compilationTarget": {
+        "contracts/release/interfaces/ILidoSteth.sol": "ILidoSteth"
+      },
+      "libraries": {}
+    },
+    "sources": {
+      "contracts/release/interfaces/ILidoSteth.sol": {
+        "keccak256": "0xd58a94e3dd12b2057c8305c0b82536fc1696304440e97f70d990dc7748d0e510",
+        "urls": [
+          "bzz-raw://2bf61ea7bdbee6f5e5f52a4448de259cf5276c9d46e0597c1e3577f82e4db536",
+          "dweb:/ipfs/QmQun767E67degew5JEw49qBtyQYh3bt34spZ1mowbUdEH"
+        ],
+        "license": "GPL-3.0"
+      }
+    },
+    "version": 1
+  },
+  "ast": {
+    "absolutePath": "contracts/release/interfaces/ILidoSteth.sol",
+    "id": 72118,
+    "exportedSymbols": {
+      "ILidoSteth": [
+        72117
+      ]
+    },
+    "nodeType": "SourceUnit",
+    "src": "255:260:309",
+    "nodes": [
+      {
+        "id": 72108,
+        "nodeType": "PragmaDirective",
+        "src": "255:23:309",
+        "nodes": [],
+        "literals": [
+          "solidity",
+          "0.6",
+          ".12"
+        ]
+      },
+      {
+        "id": 72117,
+        "nodeType": "ContractDefinition",
+        "src": "365:149:309",
+        "nodes": [
+          {
+            "id": 72116,
+            "nodeType": "FunctionDefinition",
+            "src": "392:120:309",
+            "nodes": [],
+            "documentation": null,
+            "functionSelector": "7a28fb88",
+            "implemented": false,
+            "kind": "function",
+            "modifiers": [],
+            "name": "getPooledEthByShares",
+            "overrides": null,
+            "parameters": {
+              "id": 72112,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 72111,
+                  "mutability": "mutable",
+                  "name": "_sharesAmount",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 72116,
+                  "src": "422:21:309",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_uint256",
+                    "typeString": "uint256"
+                  },
+                  "typeName": {
+                    "id": 72110,
+                    "name": "uint256",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "422:7:309",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_uint256",
+                      "typeString": "uint256"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "421:23:309"
+            },
+            "returnParameters": {
+              "id": 72115,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 72114,
+                  "mutability": "mutable",
+                  "name": "ethAmount_",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 72116,
+                  "src": "492:18:309",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_uint256",
+                    "typeString": "uint256"
+                  },
+                  "typeName": {
+                    "id": 72113,
+                    "name": "uint256",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "492:7:309",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_uint256",
+                      "typeString": "uint256"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "491:20:309"
+            },
+            "scope": 72117,
+            "stateMutability": "view",
+            "virtual": false,
+            "visibility": "external"
+          }
+        ],
+        "abstract": false,
+        "baseContracts": [],
+        "contractDependencies": [],
+        "contractKind": "interface",
+        "documentation": {
+          "id": 72109,
+          "nodeType": "StructuredDocumentation",
+          "src": "280:85:309",
+          "text": "@title ILidoSteth Interface\n @author Enzyme Council <security@enzyme.finance>"
+        },
+        "fullyImplemented": false,
+        "linearizedBaseContracts": [
+          72117
+        ],
+        "name": "ILidoSteth",
+        "scope": 72118
+      }
+    ],
+    "license": "GPL-3.0"
+  },
+  "id": 309
 }

@@ -1,0 +1,290 @@
+{
+  "abi": [
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "_underlying",
+          "type": "address"
+        },
+        {
+          "internalType": "uint64",
+          "name": "_maturity",
+          "type": "uint64"
+        },
+        {
+          "internalType": "int256",
+          "name": "_price",
+          "type": "int256"
+        }
+      ],
+      "name": "_setPrice",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    }
+  ],
+  "bytecode": {
+    "object": "0x",
+    "sourceMap": "",
+    "linkReferences": {}
+  },
+  "deployedBytecode": {
+    "object": "0x",
+    "sourceMap": "",
+    "linkReferences": {}
+  },
+  "methodIdentifiers": {
+    "_setPrice(address,uint64,int256)": "898606fd"
+  },
+  "rawMetadata": "{\"compiler\":{\"version\":\"0.6.12+commit.27d51765\"},\"language\":\"Solidity\",\"output\":{\"abi\":[{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_underlying\",\"type\":\"address\"},{\"internalType\":\"uint64\",\"name\":\"_maturity\",\"type\":\"uint64\"},{\"internalType\":\"int256\",\"name\":\"_price\",\"type\":\"int256\"}],\"name\":\"_setPrice\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"}],\"devdoc\":{\"author\":\"Enzyme Council <security@enzyme.finance>\",\"kind\":\"dev\",\"methods\":{},\"title\":\"ITestSolvV2ConvertibleManualPriceOracle Interface\",\"version\":1},\"userdoc\":{\"kind\":\"user\",\"methods\":{},\"notice\":\"A test interface for Solv V2 Manual Price Oracle\",\"version\":1}},\"settings\":{\"compilationTarget\":{\"contracts/test/interfaces/ITestSolvV2ConvertibleManualPriceOracle.sol\":\"ITestSolvV2ConvertibleManualPriceOracle\"},\"evmVersion\":\"istanbul\",\"libraries\":{},\"metadata\":{\"bytecodeHash\":\"none\"},\"optimizer\":{\"details\":{\"constantOptimizer\":true,\"cse\":true,\"deduplicate\":true,\"jumpdestRemover\":true,\"orderLiterals\":true,\"peephole\":true,\"yul\":false},\"runs\":200},\"remappings\":[\":@enzyme/=contracts/\",\":@openzeppelin-solc-0.7/=node_modules/@openzeppelin-solc-0.7/\",\":@openzeppelin/=node_modules/@openzeppelin/\",\":@uniswap/=node_modules/@uniswap/\",\":base64-sol/=node_modules/base64-sol/\",\":ds-test/=lib/forge-std/lib/ds-test/src/\",\":forge-std/=lib/forge-std/src/\",\":hardhat-deploy/=node_modules/hardhat-deploy/\",\":hardhat/=node_modules/hardhat/\"]},\"sources\":{\"contracts/test/interfaces/ITestSolvV2ConvertibleManualPriceOracle.sol\":{\"keccak256\":\"0x1d6286dbc6ced8a537391570b786ae5108417b9263e5df655d0b49b0d6c47dd0\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://52731e5cbc4d49bdcf416da21f9e6ae594c054ac706810412cfda9f0e638b7c2\",\"dweb:/ipfs/QmVPV7WB9mTuUDeQSKTKa7tg8JS26FD2acAqj62S2kymam\"]}},\"version\":1}",
+  "metadata": {
+    "compiler": {
+      "version": "0.6.12+commit.27d51765"
+    },
+    "language": "Solidity",
+    "output": {
+      "abi": [
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "_underlying",
+              "type": "address"
+            },
+            {
+              "internalType": "uint64",
+              "name": "_maturity",
+              "type": "uint64"
+            },
+            {
+              "internalType": "int256",
+              "name": "_price",
+              "type": "int256"
+            }
+          ],
+          "stateMutability": "nonpayable",
+          "type": "function",
+          "name": "_setPrice"
+        }
+      ],
+      "devdoc": {
+        "kind": "dev",
+        "methods": {},
+        "version": 1
+      },
+      "userdoc": {
+        "kind": "user",
+        "methods": {},
+        "version": 1
+      }
+    },
+    "settings": {
+      "remappings": [
+        ":@enzyme/=contracts/",
+        ":@openzeppelin-solc-0.7/=node_modules/@openzeppelin-solc-0.7/",
+        ":@openzeppelin/=node_modules/@openzeppelin/",
+        ":@uniswap/=node_modules/@uniswap/",
+        ":base64-sol/=node_modules/base64-sol/",
+        ":ds-test/=lib/forge-std/lib/ds-test/src/",
+        ":forge-std/=lib/forge-std/src/",
+        ":hardhat-deploy/=node_modules/hardhat-deploy/",
+        ":hardhat/=node_modules/hardhat/"
+      ],
+      "optimizer": {
+        "runs": 200,
+        "details": {
+          "peephole": true,
+          "jumpdestRemover": true,
+          "orderLiterals": true,
+          "deduplicate": true,
+          "cse": true,
+          "constantOptimizer": true,
+          "yul": false
+        }
+      },
+      "metadata": {
+        "bytecodeHash": "none"
+      },
+      "compilationTarget": {
+        "contracts/test/interfaces/ITestSolvV2ConvertibleManualPriceOracle.sol": "ITestSolvV2ConvertibleManualPriceOracle"
+      },
+      "libraries": {}
+    },
+    "sources": {
+      "contracts/test/interfaces/ITestSolvV2ConvertibleManualPriceOracle.sol": {
+        "keccak256": "0x1d6286dbc6ced8a537391570b786ae5108417b9263e5df655d0b49b0d6c47dd0",
+        "urls": [
+          "bzz-raw://52731e5cbc4d49bdcf416da21f9e6ae594c054ac706810412cfda9f0e638b7c2",
+          "dweb:/ipfs/QmVPV7WB9mTuUDeQSKTKa7tg8JS26FD2acAqj62S2kymam"
+        ],
+        "license": "GPL-3.0"
+      }
+    },
+    "version": 1
+  },
+  "ast": {
+    "absolutePath": "contracts/test/interfaces/ITestSolvV2ConvertibleManualPriceOracle.sol",
+    "id": 81211,
+    "exportedSymbols": {
+      "ITestSolvV2ConvertibleManualPriceOracle": [
+        81210
+      ]
+    },
+    "nodeType": "SourceUnit",
+    "src": "253:371:419",
+    "nodes": [
+      {
+        "id": 81199,
+        "nodeType": "PragmaDirective",
+        "src": "253:23:419",
+        "nodes": [],
+        "literals": [
+          "solidity",
+          "0.6",
+          ".12"
+        ]
+      },
+      {
+        "id": 81210,
+        "nodeType": "ContractDefinition",
+        "src": "453:170:419",
+        "nodes": [
+          {
+            "id": 81209,
+            "nodeType": "FunctionDefinition",
+            "src": "509:112:419",
+            "nodes": [],
+            "documentation": null,
+            "functionSelector": "898606fd",
+            "implemented": false,
+            "kind": "function",
+            "modifiers": [],
+            "name": "_setPrice",
+            "overrides": null,
+            "parameters": {
+              "id": 81207,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 81202,
+                  "mutability": "mutable",
+                  "name": "_underlying",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 81209,
+                  "src": "537:19:419",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 81201,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "537:7:419",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 81204,
+                  "mutability": "mutable",
+                  "name": "_maturity",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 81209,
+                  "src": "566:16:419",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_uint64",
+                    "typeString": "uint64"
+                  },
+                  "typeName": {
+                    "id": 81203,
+                    "name": "uint64",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "566:6:419",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_uint64",
+                      "typeString": "uint64"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 81206,
+                  "mutability": "mutable",
+                  "name": "_price",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 81209,
+                  "src": "592:13:419",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_int256",
+                    "typeString": "int256"
+                  },
+                  "typeName": {
+                    "id": 81205,
+                    "name": "int256",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "592:6:419",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_int256",
+                      "typeString": "int256"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "527:84:419"
+            },
+            "returnParameters": {
+              "id": 81208,
+              "nodeType": "ParameterList",
+              "parameters": [],
+              "src": "620:0:419"
+            },
+            "scope": 81210,
+            "stateMutability": "nonpayable",
+            "virtual": false,
+            "visibility": "external"
+          }
+        ],
+        "abstract": false,
+        "baseContracts": [],
+        "contractDependencies": [],
+        "contractKind": "interface",
+        "documentation": {
+          "id": 81200,
+          "nodeType": "StructuredDocumentation",
+          "src": "278:175:419",
+          "text": "@title ITestSolvV2ConvertibleManualPriceOracle Interface\n @author Enzyme Council <security@enzyme.finance>\n @notice A test interface for Solv V2 Manual Price Oracle"
+        },
+        "fullyImplemented": false,
+        "linearizedBaseContracts": [
+          81210
+        ],
+        "name": "ITestSolvV2ConvertibleManualPriceOracle",
+        "scope": 81211
+      }
+    ],
+    "license": "GPL-3.0"
+  },
+  "id": 419
+}

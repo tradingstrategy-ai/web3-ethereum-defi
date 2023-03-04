@@ -1,7 +1,4 @@
 {
-  "_format": "hh-sol-artifact-1",
-  "contractName": "IConvexVlCvxExtraRewardDistribution",
-  "sourceName": "contracts/release/interfaces/IConvexVlCvxExtraRewardDistribution.sol",
   "abi": [
     {
       "inputs": [
@@ -22,8 +19,235 @@
       "type": "function"
     }
   ],
-  "bytecode": "0x",
-  "deployedBytecode": "0x",
-  "linkReferences": {},
-  "deployedLinkReferences": {}
+  "bytecode": {
+    "object": "0x",
+    "sourceMap": "",
+    "linkReferences": {}
+  },
+  "deployedBytecode": {
+    "object": "0x",
+    "sourceMap": "",
+    "linkReferences": {}
+  },
+  "methodIdentifiers": {
+    "getReward(address,address)": "6b091695"
+  },
+  "rawMetadata": "{\"compiler\":{\"version\":\"0.6.12+commit.27d51765\"},\"language\":\"Solidity\",\"output\":{\"abi\":[{\"inputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"name\":\"getReward\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"}],\"devdoc\":{\"author\":\"Enzyme Council <security@enzyme.finance>\",\"kind\":\"dev\",\"methods\":{},\"title\":\"IConvexVlCvxExtraRewardDistribution Interface\",\"version\":1},\"userdoc\":{\"kind\":\"user\",\"methods\":{},\"version\":1}},\"settings\":{\"compilationTarget\":{\"contracts/release/interfaces/IConvexVlCvxExtraRewardDistribution.sol\":\"IConvexVlCvxExtraRewardDistribution\"},\"evmVersion\":\"istanbul\",\"libraries\":{},\"metadata\":{\"bytecodeHash\":\"none\"},\"optimizer\":{\"details\":{\"constantOptimizer\":true,\"cse\":true,\"deduplicate\":true,\"jumpdestRemover\":true,\"orderLiterals\":true,\"peephole\":true,\"yul\":false},\"runs\":200},\"remappings\":[\":@enzyme/=contracts/\",\":@openzeppelin-solc-0.7/=node_modules/@openzeppelin-solc-0.7/\",\":@openzeppelin/=node_modules/@openzeppelin/\",\":@uniswap/=node_modules/@uniswap/\",\":base64-sol/=node_modules/base64-sol/\",\":ds-test/=lib/forge-std/lib/ds-test/src/\",\":forge-std/=lib/forge-std/src/\",\":hardhat-deploy/=node_modules/hardhat-deploy/\",\":hardhat/=node_modules/hardhat/\"]},\"sources\":{\"contracts/release/interfaces/IConvexVlCvxExtraRewardDistribution.sol\":{\"keccak256\":\"0x0696b9b5f485b3924c1b2136d459aefd3b051bf066a8f813e7b3454a1fcb318b\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://aa2c4e6754a04a251f3bcf18dd3447bdade22e403356312dc142469b53ab3a07\",\"dweb:/ipfs/QmeZRGgxy6aihqT25mgWZsDb9ghicYqj9rjTNcqYC51YhM\"]}},\"version\":1}",
+  "metadata": {
+    "compiler": {
+      "version": "0.6.12+commit.27d51765"
+    },
+    "language": "Solidity",
+    "output": {
+      "abi": [
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "",
+              "type": "address"
+            },
+            {
+              "internalType": "address",
+              "name": "",
+              "type": "address"
+            }
+          ],
+          "stateMutability": "nonpayable",
+          "type": "function",
+          "name": "getReward"
+        }
+      ],
+      "devdoc": {
+        "kind": "dev",
+        "methods": {},
+        "version": 1
+      },
+      "userdoc": {
+        "kind": "user",
+        "methods": {},
+        "version": 1
+      }
+    },
+    "settings": {
+      "remappings": [
+        ":@enzyme/=contracts/",
+        ":@openzeppelin-solc-0.7/=node_modules/@openzeppelin-solc-0.7/",
+        ":@openzeppelin/=node_modules/@openzeppelin/",
+        ":@uniswap/=node_modules/@uniswap/",
+        ":base64-sol/=node_modules/base64-sol/",
+        ":ds-test/=lib/forge-std/lib/ds-test/src/",
+        ":forge-std/=lib/forge-std/src/",
+        ":hardhat-deploy/=node_modules/hardhat-deploy/",
+        ":hardhat/=node_modules/hardhat/"
+      ],
+      "optimizer": {
+        "runs": 200,
+        "details": {
+          "peephole": true,
+          "jumpdestRemover": true,
+          "orderLiterals": true,
+          "deduplicate": true,
+          "cse": true,
+          "constantOptimizer": true,
+          "yul": false
+        }
+      },
+      "metadata": {
+        "bytecodeHash": "none"
+      },
+      "compilationTarget": {
+        "contracts/release/interfaces/IConvexVlCvxExtraRewardDistribution.sol": "IConvexVlCvxExtraRewardDistribution"
+      },
+      "libraries": {}
+    },
+    "sources": {
+      "contracts/release/interfaces/IConvexVlCvxExtraRewardDistribution.sol": {
+        "keccak256": "0x0696b9b5f485b3924c1b2136d459aefd3b051bf066a8f813e7b3454a1fcb318b",
+        "urls": [
+          "bzz-raw://aa2c4e6754a04a251f3bcf18dd3447bdade22e403356312dc142469b53ab3a07",
+          "dweb:/ipfs/QmeZRGgxy6aihqT25mgWZsDb9ghicYqj9rjTNcqYC51YhM"
+        ],
+        "license": "GPL-3.0"
+      }
+    },
+    "version": 1
+  },
+  "ast": {
+    "absolutePath": "contracts/release/interfaces/IConvexVlCvxExtraRewardDistribution.sol",
+    "id": 71520,
+    "exportedSymbols": {
+      "IConvexVlCvxExtraRewardDistribution": [
+        71519
+      ]
+    },
+    "nodeType": "SourceUnit",
+    "src": "253:236:289",
+    "nodes": [
+      {
+        "id": 71510,
+        "nodeType": "PragmaDirective",
+        "src": "253:23:289",
+        "nodes": [],
+        "literals": [
+          "solidity",
+          "0.6",
+          ".12"
+        ]
+      },
+      {
+        "id": 71519,
+        "nodeType": "ContractDefinition",
+        "src": "388:100:289",
+        "nodes": [
+          {
+            "id": 71518,
+            "nodeType": "FunctionDefinition",
+            "src": "440:46:289",
+            "nodes": [],
+            "documentation": null,
+            "functionSelector": "6b091695",
+            "implemented": false,
+            "kind": "function",
+            "modifiers": [],
+            "name": "getReward",
+            "overrides": null,
+            "parameters": {
+              "id": 71516,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 71513,
+                  "mutability": "mutable",
+                  "name": "",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 71518,
+                  "src": "459:7:289",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 71512,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "459:7:289",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 71515,
+                  "mutability": "mutable",
+                  "name": "",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 71518,
+                  "src": "468:7:289",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 71514,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "468:7:289",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "458:18:289"
+            },
+            "returnParameters": {
+              "id": 71517,
+              "nodeType": "ParameterList",
+              "parameters": [],
+              "src": "485:0:289"
+            },
+            "scope": 71519,
+            "stateMutability": "nonpayable",
+            "virtual": false,
+            "visibility": "external"
+          }
+        ],
+        "abstract": false,
+        "baseContracts": [],
+        "contractDependencies": [],
+        "contractKind": "interface",
+        "documentation": {
+          "id": 71511,
+          "nodeType": "StructuredDocumentation",
+          "src": "278:110:289",
+          "text": "@title IConvexVlCvxExtraRewardDistribution Interface\n @author Enzyme Council <security@enzyme.finance>"
+        },
+        "fullyImplemented": false,
+        "linearizedBaseContracts": [
+          71519
+        ],
+        "name": "IConvexVlCvxExtraRewardDistribution",
+        "scope": 71520
+      }
+    ],
+    "license": "GPL-3.0"
+  },
+  "id": 289
 }

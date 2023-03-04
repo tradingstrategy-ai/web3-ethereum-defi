@@ -1,0 +1,549 @@
+{
+  "abi": [
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "_user",
+          "type": "address"
+        }
+      ],
+      "name": "balanceOf",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "amount_",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "checkpointEpoch",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "_account",
+          "type": "address"
+        },
+        {
+          "internalType": "bool",
+          "name": "_stake",
+          "type": "bool"
+        }
+      ],
+      "name": "getReward",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "_user",
+          "type": "address"
+        }
+      ],
+      "name": "lockedBalanceOf",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "amount_",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    }
+  ],
+  "bytecode": {
+    "object": "0x",
+    "sourceMap": "",
+    "linkReferences": {}
+  },
+  "deployedBytecode": {
+    "object": "0x",
+    "sourceMap": "",
+    "linkReferences": {}
+  },
+  "methodIdentifiers": {
+    "balanceOf(address)": "70a08231",
+    "checkpointEpoch()": "c1009f4b",
+    "getReward(address,bool)": "7050ccd9",
+    "lockedBalanceOf(address)": "59355736"
+  },
+  "rawMetadata": "{\"compiler\":{\"version\":\"0.6.12+commit.27d51765\"},\"language\":\"Solidity\",\"output\":{\"abi\":[{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_user\",\"type\":\"address\"}],\"name\":\"balanceOf\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"amount_\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"checkpointEpoch\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_account\",\"type\":\"address\"},{\"internalType\":\"bool\",\"name\":\"_stake\",\"type\":\"bool\"}],\"name\":\"getReward\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_user\",\"type\":\"address\"}],\"name\":\"lockedBalanceOf\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"amount_\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"}],\"devdoc\":{\"author\":\"Enzyme Council <security@enzyme.finance>\",\"kind\":\"dev\",\"methods\":{},\"title\":\"ITestConvexCvxLocker Interface\",\"version\":1},\"userdoc\":{\"kind\":\"user\",\"methods\":{},\"version\":1}},\"settings\":{\"compilationTarget\":{\"contracts/test/interfaces/ITestConvexCvxLocker.sol\":\"ITestConvexCvxLocker\"},\"evmVersion\":\"istanbul\",\"libraries\":{},\"metadata\":{\"bytecodeHash\":\"none\"},\"optimizer\":{\"details\":{\"constantOptimizer\":true,\"cse\":true,\"deduplicate\":true,\"jumpdestRemover\":true,\"orderLiterals\":true,\"peephole\":true,\"yul\":false},\"runs\":200},\"remappings\":[\":@enzyme/=contracts/\",\":@openzeppelin-solc-0.7/=node_modules/@openzeppelin-solc-0.7/\",\":@openzeppelin/=node_modules/@openzeppelin/\",\":@uniswap/=node_modules/@uniswap/\",\":base64-sol/=node_modules/base64-sol/\",\":ds-test/=lib/forge-std/lib/ds-test/src/\",\":forge-std/=lib/forge-std/src/\",\":hardhat-deploy/=node_modules/hardhat-deploy/\",\":hardhat/=node_modules/hardhat/\"]},\"sources\":{\"contracts/test/interfaces/ITestConvexCvxLocker.sol\":{\"keccak256\":\"0x3a73e2b2c4cac7ea1aaa2d49eb95e852ff666ed17087483beade8fceb514f48f\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://c6d107e0205e1b0da169cbf2b2bd8c866d557b59e650f4b05f2100397e885ab1\",\"dweb:/ipfs/QmSTVcCsUJ9BT8SGHpVSC4YEUGTsGkW5DUWzRV5mbZsUiN\"]}},\"version\":1}",
+  "metadata": {
+    "compiler": {
+      "version": "0.6.12+commit.27d51765"
+    },
+    "language": "Solidity",
+    "output": {
+      "abi": [
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "_user",
+              "type": "address"
+            }
+          ],
+          "stateMutability": "view",
+          "type": "function",
+          "name": "balanceOf",
+          "outputs": [
+            {
+              "internalType": "uint256",
+              "name": "amount_",
+              "type": "uint256"
+            }
+          ]
+        },
+        {
+          "inputs": [],
+          "stateMutability": "nonpayable",
+          "type": "function",
+          "name": "checkpointEpoch"
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "_account",
+              "type": "address"
+            },
+            {
+              "internalType": "bool",
+              "name": "_stake",
+              "type": "bool"
+            }
+          ],
+          "stateMutability": "nonpayable",
+          "type": "function",
+          "name": "getReward"
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "_user",
+              "type": "address"
+            }
+          ],
+          "stateMutability": "view",
+          "type": "function",
+          "name": "lockedBalanceOf",
+          "outputs": [
+            {
+              "internalType": "uint256",
+              "name": "amount_",
+              "type": "uint256"
+            }
+          ]
+        }
+      ],
+      "devdoc": {
+        "kind": "dev",
+        "methods": {},
+        "version": 1
+      },
+      "userdoc": {
+        "kind": "user",
+        "methods": {},
+        "version": 1
+      }
+    },
+    "settings": {
+      "remappings": [
+        ":@enzyme/=contracts/",
+        ":@openzeppelin-solc-0.7/=node_modules/@openzeppelin-solc-0.7/",
+        ":@openzeppelin/=node_modules/@openzeppelin/",
+        ":@uniswap/=node_modules/@uniswap/",
+        ":base64-sol/=node_modules/base64-sol/",
+        ":ds-test/=lib/forge-std/lib/ds-test/src/",
+        ":forge-std/=lib/forge-std/src/",
+        ":hardhat-deploy/=node_modules/hardhat-deploy/",
+        ":hardhat/=node_modules/hardhat/"
+      ],
+      "optimizer": {
+        "runs": 200,
+        "details": {
+          "peephole": true,
+          "jumpdestRemover": true,
+          "orderLiterals": true,
+          "deduplicate": true,
+          "cse": true,
+          "constantOptimizer": true,
+          "yul": false
+        }
+      },
+      "metadata": {
+        "bytecodeHash": "none"
+      },
+      "compilationTarget": {
+        "contracts/test/interfaces/ITestConvexCvxLocker.sol": "ITestConvexCvxLocker"
+      },
+      "libraries": {}
+    },
+    "sources": {
+      "contracts/test/interfaces/ITestConvexCvxLocker.sol": {
+        "keccak256": "0x3a73e2b2c4cac7ea1aaa2d49eb95e852ff666ed17087483beade8fceb514f48f",
+        "urls": [
+          "bzz-raw://c6d107e0205e1b0da169cbf2b2bd8c866d557b59e650f4b05f2100397e885ab1",
+          "dweb:/ipfs/QmSTVcCsUJ9BT8SGHpVSC4YEUGTsGkW5DUWzRV5mbZsUiN"
+        ],
+        "license": "GPL-3.0"
+      }
+    },
+    "version": 1
+  },
+  "ast": {
+    "absolutePath": "contracts/test/interfaces/ITestConvexCvxLocker.sol",
+    "id": 80323,
+    "exportedSymbols": {
+      "ITestConvexCvxLocker": [
+        80322
+      ]
+    },
+    "nodeType": "SourceUnit",
+    "src": "253:427:389",
+    "nodes": [
+      {
+        "id": 80296,
+        "nodeType": "PragmaDirective",
+        "src": "253:23:389",
+        "nodes": [],
+        "literals": [
+          "solidity",
+          "0.6",
+          ".12"
+        ]
+      },
+      {
+        "id": 80322,
+        "nodeType": "ContractDefinition",
+        "src": "373:306:389",
+        "nodes": [
+          {
+            "id": 80304,
+            "nodeType": "FunctionDefinition",
+            "src": "410:74:389",
+            "nodes": [],
+            "documentation": null,
+            "functionSelector": "70a08231",
+            "implemented": false,
+            "kind": "function",
+            "modifiers": [],
+            "name": "balanceOf",
+            "overrides": null,
+            "parameters": {
+              "id": 80300,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 80299,
+                  "mutability": "mutable",
+                  "name": "_user",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 80304,
+                  "src": "429:13:389",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 80298,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "429:7:389",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "428:15:389"
+            },
+            "returnParameters": {
+              "id": 80303,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 80302,
+                  "mutability": "mutable",
+                  "name": "amount_",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 80304,
+                  "src": "467:15:389",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_uint256",
+                    "typeString": "uint256"
+                  },
+                  "typeName": {
+                    "id": 80301,
+                    "name": "uint256",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "467:7:389",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_uint256",
+                      "typeString": "uint256"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "466:17:389"
+            },
+            "scope": 80322,
+            "stateMutability": "view",
+            "virtual": false,
+            "visibility": "external"
+          },
+          {
+            "id": 80307,
+            "nodeType": "FunctionDefinition",
+            "src": "490:36:389",
+            "nodes": [],
+            "documentation": null,
+            "functionSelector": "c1009f4b",
+            "implemented": false,
+            "kind": "function",
+            "modifiers": [],
+            "name": "checkpointEpoch",
+            "overrides": null,
+            "parameters": {
+              "id": 80305,
+              "nodeType": "ParameterList",
+              "parameters": [],
+              "src": "514:2:389"
+            },
+            "returnParameters": {
+              "id": 80306,
+              "nodeType": "ParameterList",
+              "parameters": [],
+              "src": "525:0:389"
+            },
+            "scope": 80322,
+            "stateMutability": "nonpayable",
+            "virtual": false,
+            "visibility": "external"
+          },
+          {
+            "id": 80314,
+            "nodeType": "FunctionDefinition",
+            "src": "532:59:389",
+            "nodes": [],
+            "documentation": null,
+            "functionSelector": "7050ccd9",
+            "implemented": false,
+            "kind": "function",
+            "modifiers": [],
+            "name": "getReward",
+            "overrides": null,
+            "parameters": {
+              "id": 80312,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 80309,
+                  "mutability": "mutable",
+                  "name": "_account",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 80314,
+                  "src": "551:16:389",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 80308,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "551:7:389",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 80311,
+                  "mutability": "mutable",
+                  "name": "_stake",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 80314,
+                  "src": "569:11:389",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_bool",
+                    "typeString": "bool"
+                  },
+                  "typeName": {
+                    "id": 80310,
+                    "name": "bool",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "569:4:389",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_bool",
+                      "typeString": "bool"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "550:31:389"
+            },
+            "returnParameters": {
+              "id": 80313,
+              "nodeType": "ParameterList",
+              "parameters": [],
+              "src": "590:0:389"
+            },
+            "scope": 80322,
+            "stateMutability": "nonpayable",
+            "virtual": false,
+            "visibility": "external"
+          },
+          {
+            "id": 80321,
+            "nodeType": "FunctionDefinition",
+            "src": "597:80:389",
+            "nodes": [],
+            "documentation": null,
+            "functionSelector": "59355736",
+            "implemented": false,
+            "kind": "function",
+            "modifiers": [],
+            "name": "lockedBalanceOf",
+            "overrides": null,
+            "parameters": {
+              "id": 80317,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 80316,
+                  "mutability": "mutable",
+                  "name": "_user",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 80321,
+                  "src": "622:13:389",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 80315,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "622:7:389",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "621:15:389"
+            },
+            "returnParameters": {
+              "id": 80320,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 80319,
+                  "mutability": "mutable",
+                  "name": "amount_",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 80321,
+                  "src": "660:15:389",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_uint256",
+                    "typeString": "uint256"
+                  },
+                  "typeName": {
+                    "id": 80318,
+                    "name": "uint256",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "660:7:389",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_uint256",
+                      "typeString": "uint256"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "659:17:389"
+            },
+            "scope": 80322,
+            "stateMutability": "view",
+            "virtual": false,
+            "visibility": "external"
+          }
+        ],
+        "abstract": false,
+        "baseContracts": [],
+        "contractDependencies": [],
+        "contractKind": "interface",
+        "documentation": {
+          "id": 80297,
+          "nodeType": "StructuredDocumentation",
+          "src": "278:95:389",
+          "text": "@title ITestConvexCvxLocker Interface\n @author Enzyme Council <security@enzyme.finance>"
+        },
+        "fullyImplemented": false,
+        "linearizedBaseContracts": [
+          80322
+        ],
+        "name": "ITestConvexCvxLocker",
+        "scope": 80323
+      }
+    ],
+    "license": "GPL-3.0"
+  },
+  "id": 389
+}

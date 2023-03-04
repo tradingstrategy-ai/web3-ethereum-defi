@@ -1,0 +1,312 @@
+{
+  "abi": [
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "indexer",
+          "type": "address"
+        }
+      ],
+      "name": "IndexerAdded",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "indexer",
+          "type": "address"
+        }
+      ],
+      "name": "IndexerRemoved",
+      "type": "event"
+    }
+  ],
+  "bytecode": {
+    "object": "0x6080604052348015600f57600080fd5b50601680601d6000396000f3fe6080604052600080fdfea164736f6c634300060c000a",
+    "sourceMap": "808:182:38:-:0;;;;;;;;;;;;;;;;;;;",
+    "linkReferences": {}
+  },
+  "deployedBytecode": {
+    "object": "0x6080604052600080fdfea164736f6c634300060c000a",
+    "sourceMap": "808:182:38:-:0;;;;;",
+    "linkReferences": {}
+  },
+  "methodIdentifiers": {},
+  "rawMetadata": "{\"compiler\":{\"version\":\"0.6.12+commit.27d51765\"},\"language\":\"Solidity\",\"output\":{\"abi\":[{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"indexer\",\"type\":\"address\"}],\"name\":\"IndexerAdded\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"indexer\",\"type\":\"address\"}],\"name\":\"IndexerRemoved\",\"type\":\"event\"}],\"devdoc\":{\"author\":\"Enzyme Council <security@enzyme.finance>\",\"details\":\"DO NOT EDIT CONTRACT. If new events or storage are necessary, they should be added to a numbered TheGraphDelegationPositionLibBaseXXX that inherits the previous base. e.g., `TheGraphDelegationPositionLibBase2 is TheGraphDelegationPositionLibBase1`\",\"kind\":\"dev\",\"methods\":{},\"title\":\"TheGraphDelegationPositionLibBase1 Contract\",\"version\":1},\"userdoc\":{\"kind\":\"user\",\"methods\":{},\"notice\":\"A persistent contract containing all required storage variables and required functions for a TheGraphDelegationPositionLib implementation\",\"version\":1}},\"settings\":{\"compilationTarget\":{\"contracts/persistent/external-positions/the-graph-delegation/TheGraphDelegationPositionLibBase1.sol\":\"TheGraphDelegationPositionLibBase1\"},\"evmVersion\":\"istanbul\",\"libraries\":{},\"metadata\":{\"bytecodeHash\":\"none\"},\"optimizer\":{\"details\":{\"constantOptimizer\":true,\"cse\":true,\"deduplicate\":true,\"jumpdestRemover\":true,\"orderLiterals\":true,\"peephole\":true,\"yul\":false},\"runs\":200},\"remappings\":[\":@enzyme/=contracts/\",\":@openzeppelin-solc-0.7/=node_modules/@openzeppelin-solc-0.7/\",\":@openzeppelin/=node_modules/@openzeppelin/\",\":@uniswap/=node_modules/@uniswap/\",\":base64-sol/=node_modules/base64-sol/\",\":ds-test/=lib/forge-std/lib/ds-test/src/\",\":forge-std/=lib/forge-std/src/\",\":hardhat-deploy/=node_modules/hardhat-deploy/\",\":hardhat/=node_modules/hardhat/\"]},\"sources\":{\"contracts/persistent/external-positions/the-graph-delegation/TheGraphDelegationPositionLibBase1.sol\":{\"keccak256\":\"0x0b86382089c180d325fa0af6f21194d58fa7b0089cb12fc135c009a280541ae0\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://1d216e8bf303fbd7a570d49c5aa9e1cd9f2aef27ef6abb9a8258fde42038549b\",\"dweb:/ipfs/QmbrFJoEjBe7eEDUGM34VySE5VQnQwHzZ1rfEvo5qa4kq2\"]}},\"version\":1}",
+  "metadata": {
+    "compiler": {
+      "version": "0.6.12+commit.27d51765"
+    },
+    "language": "Solidity",
+    "output": {
+      "abi": [
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "indexer",
+              "type": "address",
+              "indexed": true
+            }
+          ],
+          "type": "event",
+          "name": "IndexerAdded",
+          "anonymous": false
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "indexer",
+              "type": "address",
+              "indexed": true
+            }
+          ],
+          "type": "event",
+          "name": "IndexerRemoved",
+          "anonymous": false
+        }
+      ],
+      "devdoc": {
+        "kind": "dev",
+        "methods": {},
+        "version": 1
+      },
+      "userdoc": {
+        "kind": "user",
+        "methods": {},
+        "version": 1
+      }
+    },
+    "settings": {
+      "remappings": [
+        ":@enzyme/=contracts/",
+        ":@openzeppelin-solc-0.7/=node_modules/@openzeppelin-solc-0.7/",
+        ":@openzeppelin/=node_modules/@openzeppelin/",
+        ":@uniswap/=node_modules/@uniswap/",
+        ":base64-sol/=node_modules/base64-sol/",
+        ":ds-test/=lib/forge-std/lib/ds-test/src/",
+        ":forge-std/=lib/forge-std/src/",
+        ":hardhat-deploy/=node_modules/hardhat-deploy/",
+        ":hardhat/=node_modules/hardhat/"
+      ],
+      "optimizer": {
+        "runs": 200,
+        "details": {
+          "peephole": true,
+          "jumpdestRemover": true,
+          "orderLiterals": true,
+          "deduplicate": true,
+          "cse": true,
+          "constantOptimizer": true,
+          "yul": false
+        }
+      },
+      "metadata": {
+        "bytecodeHash": "none"
+      },
+      "compilationTarget": {
+        "contracts/persistent/external-positions/the-graph-delegation/TheGraphDelegationPositionLibBase1.sol": "TheGraphDelegationPositionLibBase1"
+      },
+      "libraries": {}
+    },
+    "sources": {
+      "contracts/persistent/external-positions/the-graph-delegation/TheGraphDelegationPositionLibBase1.sol": {
+        "keccak256": "0x0b86382089c180d325fa0af6f21194d58fa7b0089cb12fc135c009a280541ae0",
+        "urls": [
+          "bzz-raw://1d216e8bf303fbd7a570d49c5aa9e1cd9f2aef27ef6abb9a8258fde42038549b",
+          "dweb:/ipfs/QmbrFJoEjBe7eEDUGM34VySE5VQnQwHzZ1rfEvo5qa4kq2"
+        ],
+        "license": "GPL-3.0"
+      }
+    },
+    "version": 1
+  },
+  "ast": {
+    "absolutePath": "contracts/persistent/external-positions/the-graph-delegation/TheGraphDelegationPositionLibBase1.sol",
+    "id": 5659,
+    "exportedSymbols": {
+      "TheGraphDelegationPositionLibBase1": [
+        5658
+      ]
+    },
+    "nodeType": "SourceUnit",
+    "src": "255:736:38",
+    "nodes": [
+      {
+        "id": 5645,
+        "nodeType": "PragmaDirective",
+        "src": "255:23:38",
+        "nodes": [],
+        "literals": [
+          "solidity",
+          "0.6",
+          ".12"
+        ]
+      },
+      {
+        "id": 5658,
+        "nodeType": "ContractDefinition",
+        "src": "808:182:38",
+        "nodes": [
+          {
+            "id": 5650,
+            "nodeType": "EventDefinition",
+            "src": "858:44:38",
+            "nodes": [],
+            "anonymous": false,
+            "documentation": null,
+            "name": "IndexerAdded",
+            "parameters": {
+              "id": 5649,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 5648,
+                  "indexed": true,
+                  "mutability": "mutable",
+                  "name": "indexer",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 5650,
+                  "src": "877:23:38",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 5647,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "877:7:38",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "876:25:38"
+            }
+          },
+          {
+            "id": 5654,
+            "nodeType": "EventDefinition",
+            "src": "908:46:38",
+            "nodes": [],
+            "anonymous": false,
+            "documentation": null,
+            "name": "IndexerRemoved",
+            "parameters": {
+              "id": 5653,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 5652,
+                  "indexed": true,
+                  "mutability": "mutable",
+                  "name": "indexer",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 5654,
+                  "src": "929:23:38",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 5651,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "929:7:38",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "928:25:38"
+            }
+          },
+          {
+            "id": 5657,
+            "nodeType": "VariableDeclaration",
+            "src": "960:27:38",
+            "nodes": [],
+            "constant": false,
+            "mutability": "mutable",
+            "name": "indexers",
+            "overrides": null,
+            "scope": 5658,
+            "stateVariable": true,
+            "storageLocation": "default",
+            "typeDescriptions": {
+              "typeIdentifier": "t_array$_t_address_$dyn_storage",
+              "typeString": "address[]"
+            },
+            "typeName": {
+              "baseType": {
+                "id": 5655,
+                "name": "address",
+                "nodeType": "ElementaryTypeName",
+                "src": "960:7:38",
+                "stateMutability": "nonpayable",
+                "typeDescriptions": {
+                  "typeIdentifier": "t_address",
+                  "typeString": "address"
+                }
+              },
+              "id": 5656,
+              "length": null,
+              "nodeType": "ArrayTypeName",
+              "src": "960:9:38",
+              "typeDescriptions": {
+                "typeIdentifier": "t_array$_t_address_$dyn_storage_ptr",
+                "typeString": "address[]"
+              }
+            },
+            "value": null,
+            "visibility": "internal"
+          }
+        ],
+        "abstract": false,
+        "baseContracts": [],
+        "contractDependencies": [],
+        "contractKind": "contract",
+        "documentation": {
+          "id": 5646,
+          "nodeType": "StructuredDocumentation",
+          "src": "280:527:38",
+          "text": "@title TheGraphDelegationPositionLibBase1 Contract\n @author Enzyme Council <security@enzyme.finance>\n @notice A persistent contract containing all required storage variables and\n required functions for a TheGraphDelegationPositionLib implementation\n @dev DO NOT EDIT CONTRACT. If new events or storage are necessary, they should be added to\n a numbered TheGraphDelegationPositionLibBaseXXX that inherits the previous base.\n e.g., `TheGraphDelegationPositionLibBase2 is TheGraphDelegationPositionLibBase1`"
+        },
+        "fullyImplemented": true,
+        "linearizedBaseContracts": [
+          5658
+        ],
+        "name": "TheGraphDelegationPositionLibBase1",
+        "scope": 5659
+      }
+    ],
+    "license": "GPL-3.0"
+  },
+  "id": 38
+}

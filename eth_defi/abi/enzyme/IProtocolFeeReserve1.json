@@ -1,0 +1,331 @@
+{
+  "abi": [
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "_sharesAmount",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "_mlnValue",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "_gav",
+          "type": "uint256"
+        }
+      ],
+      "name": "buyBackSharesViaTrustedVaultProxy",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "mlnAmountToBurn_",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    }
+  ],
+  "bytecode": {
+    "object": "0x",
+    "sourceMap": "",
+    "linkReferences": {}
+  },
+  "deployedBytecode": {
+    "object": "0x",
+    "sourceMap": "",
+    "linkReferences": {}
+  },
+  "methodIdentifiers": {
+    "buyBackSharesViaTrustedVaultProxy(uint256,uint256,uint256)": "96c45aec"
+  },
+  "rawMetadata": "{\"compiler\":{\"version\":\"0.6.12+commit.27d51765\"},\"language\":\"Solidity\",\"output\":{\"abi\":[{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_sharesAmount\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"_mlnValue\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"_gav\",\"type\":\"uint256\"}],\"name\":\"buyBackSharesViaTrustedVaultProxy\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"mlnAmountToBurn_\",\"type\":\"uint256\"}],\"stateMutability\":\"nonpayable\",\"type\":\"function\"}],\"devdoc\":{\"author\":\"Enzyme Council <security@enzyme.finance>\",\"details\":\"Each interface should inherit the previous interface, e.g., `IProtocolFeeReserve2 is IProtocolFeeReserve1`\",\"kind\":\"dev\",\"methods\":{},\"title\":\"IProtocolFeeReserve1 Interface\",\"version\":1},\"userdoc\":{\"kind\":\"user\",\"methods\":{},\"version\":1}},\"settings\":{\"compilationTarget\":{\"contracts/persistent/protocol-fee-reserve/interfaces/IProtocolFeeReserve1.sol\":\"IProtocolFeeReserve1\"},\"evmVersion\":\"istanbul\",\"libraries\":{},\"metadata\":{\"bytecodeHash\":\"none\"},\"optimizer\":{\"details\":{\"constantOptimizer\":true,\"cse\":true,\"deduplicate\":true,\"jumpdestRemover\":true,\"orderLiterals\":true,\"peephole\":true,\"yul\":false},\"runs\":200},\"remappings\":[\":@enzyme/=contracts/\",\":@openzeppelin-solc-0.7/=node_modules/@openzeppelin-solc-0.7/\",\":@openzeppelin/=node_modules/@openzeppelin/\",\":@uniswap/=node_modules/@uniswap/\",\":base64-sol/=node_modules/base64-sol/\",\":ds-test/=lib/forge-std/lib/ds-test/src/\",\":forge-std/=lib/forge-std/src/\",\":hardhat-deploy/=node_modules/hardhat-deploy/\",\":hardhat/=node_modules/hardhat/\"]},\"sources\":{\"contracts/persistent/protocol-fee-reserve/interfaces/IProtocolFeeReserve1.sol\":{\"keccak256\":\"0x2728878c423db523bc95189137e8c58d2d7db9f56bbd5c6b1f988c08b551fbab\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://3b0df1d2eb74151265d03ab91a7c341f7beca475dd2f4d669052dbc4ee2c06ac\",\"dweb:/ipfs/QmVx1cgrxQNYfdK1Kn15pcgqf79Uw8bF3U6i7F2HG2rj6G\"]}},\"version\":1}",
+  "metadata": {
+    "compiler": {
+      "version": "0.6.12+commit.27d51765"
+    },
+    "language": "Solidity",
+    "output": {
+      "abi": [
+        {
+          "inputs": [
+            {
+              "internalType": "uint256",
+              "name": "_sharesAmount",
+              "type": "uint256"
+            },
+            {
+              "internalType": "uint256",
+              "name": "_mlnValue",
+              "type": "uint256"
+            },
+            {
+              "internalType": "uint256",
+              "name": "_gav",
+              "type": "uint256"
+            }
+          ],
+          "stateMutability": "nonpayable",
+          "type": "function",
+          "name": "buyBackSharesViaTrustedVaultProxy",
+          "outputs": [
+            {
+              "internalType": "uint256",
+              "name": "mlnAmountToBurn_",
+              "type": "uint256"
+            }
+          ]
+        }
+      ],
+      "devdoc": {
+        "kind": "dev",
+        "methods": {},
+        "version": 1
+      },
+      "userdoc": {
+        "kind": "user",
+        "methods": {},
+        "version": 1
+      }
+    },
+    "settings": {
+      "remappings": [
+        ":@enzyme/=contracts/",
+        ":@openzeppelin-solc-0.7/=node_modules/@openzeppelin-solc-0.7/",
+        ":@openzeppelin/=node_modules/@openzeppelin/",
+        ":@uniswap/=node_modules/@uniswap/",
+        ":base64-sol/=node_modules/base64-sol/",
+        ":ds-test/=lib/forge-std/lib/ds-test/src/",
+        ":forge-std/=lib/forge-std/src/",
+        ":hardhat-deploy/=node_modules/hardhat-deploy/",
+        ":hardhat/=node_modules/hardhat/"
+      ],
+      "optimizer": {
+        "runs": 200,
+        "details": {
+          "peephole": true,
+          "jumpdestRemover": true,
+          "orderLiterals": true,
+          "deduplicate": true,
+          "cse": true,
+          "constantOptimizer": true,
+          "yul": false
+        }
+      },
+      "metadata": {
+        "bytecodeHash": "none"
+      },
+      "compilationTarget": {
+        "contracts/persistent/protocol-fee-reserve/interfaces/IProtocolFeeReserve1.sol": "IProtocolFeeReserve1"
+      },
+      "libraries": {}
+    },
+    "sources": {
+      "contracts/persistent/protocol-fee-reserve/interfaces/IProtocolFeeReserve1.sol": {
+        "keccak256": "0x2728878c423db523bc95189137e8c58d2d7db9f56bbd5c6b1f988c08b551fbab",
+        "urls": [
+          "bzz-raw://3b0df1d2eb74151265d03ab91a7c341f7beca475dd2f4d669052dbc4ee2c06ac",
+          "dweb:/ipfs/QmVx1cgrxQNYfdK1Kn15pcgqf79Uw8bF3U6i7F2HG2rj6G"
+        ],
+        "license": "GPL-3.0"
+      }
+    },
+    "version": 1
+  },
+  "ast": {
+    "absolutePath": "contracts/persistent/protocol-fee-reserve/interfaces/IProtocolFeeReserve1.sol",
+    "id": 7374,
+    "exportedSymbols": {
+      "IProtocolFeeReserve1": [
+        7373
+      ]
+    },
+    "nodeType": "SourceUnit",
+    "src": "255:453:55",
+    "nodes": [
+      {
+        "id": 7360,
+        "nodeType": "PragmaDirective",
+        "src": "255:23:55",
+        "nodes": [],
+        "literals": [
+          "solidity",
+          "0.6",
+          ".12"
+        ]
+      },
+      {
+        "id": 7373,
+        "nodeType": "ContractDefinition",
+        "src": "495:212:55",
+        "nodes": [
+          {
+            "id": 7372,
+            "nodeType": "FunctionDefinition",
+            "src": "532:173:55",
+            "nodes": [],
+            "documentation": null,
+            "functionSelector": "96c45aec",
+            "implemented": false,
+            "kind": "function",
+            "modifiers": [],
+            "name": "buyBackSharesViaTrustedVaultProxy",
+            "overrides": null,
+            "parameters": {
+              "id": 7368,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 7363,
+                  "mutability": "mutable",
+                  "name": "_sharesAmount",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 7372,
+                  "src": "584:21:55",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_uint256",
+                    "typeString": "uint256"
+                  },
+                  "typeName": {
+                    "id": 7362,
+                    "name": "uint256",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "584:7:55",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_uint256",
+                      "typeString": "uint256"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 7365,
+                  "mutability": "mutable",
+                  "name": "_mlnValue",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 7372,
+                  "src": "615:17:55",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_uint256",
+                    "typeString": "uint256"
+                  },
+                  "typeName": {
+                    "id": 7364,
+                    "name": "uint256",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "615:7:55",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_uint256",
+                      "typeString": "uint256"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 7367,
+                  "mutability": "mutable",
+                  "name": "_gav",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 7372,
+                  "src": "642:12:55",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_uint256",
+                    "typeString": "uint256"
+                  },
+                  "typeName": {
+                    "id": 7366,
+                    "name": "uint256",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "642:7:55",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_uint256",
+                      "typeString": "uint256"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "574:86:55"
+            },
+            "returnParameters": {
+              "id": 7371,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 7370,
+                  "mutability": "mutable",
+                  "name": "mlnAmountToBurn_",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 7372,
+                  "src": "679:24:55",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_uint256",
+                    "typeString": "uint256"
+                  },
+                  "typeName": {
+                    "id": 7369,
+                    "name": "uint256",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "679:7:55",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_uint256",
+                      "typeString": "uint256"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "678:26:55"
+            },
+            "scope": 7373,
+            "stateMutability": "nonpayable",
+            "virtual": false,
+            "visibility": "external"
+          }
+        ],
+        "abstract": false,
+        "baseContracts": [],
+        "contractDependencies": [],
+        "contractKind": "interface",
+        "documentation": {
+          "id": 7361,
+          "nodeType": "StructuredDocumentation",
+          "src": "280:215:55",
+          "text": "@title IProtocolFeeReserve1 Interface\n @author Enzyme Council <security@enzyme.finance>\n @dev Each interface should inherit the previous interface,\n e.g., `IProtocolFeeReserve2 is IProtocolFeeReserve1`"
+        },
+        "fullyImplemented": false,
+        "linearizedBaseContracts": [
+          7373
+        ],
+        "name": "IProtocolFeeReserve1",
+        "scope": 7374
+      }
+    ],
+    "license": "GPL-3.0"
+  },
+  "id": 55
+}

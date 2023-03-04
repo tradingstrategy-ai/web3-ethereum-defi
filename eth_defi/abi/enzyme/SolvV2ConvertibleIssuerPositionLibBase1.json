@@ -1,0 +1,533 @@
+{
+  "abi": [
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "voucher",
+          "type": "address"
+        }
+      ],
+      "name": "IssuedVoucherAdded",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "voucher",
+          "type": "address"
+        }
+      ],
+      "name": "IssuedVoucherRemoved",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "uint24",
+          "name": "offerId",
+          "type": "uint24"
+        }
+      ],
+      "name": "OfferAdded",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "uint24",
+          "name": "offerId",
+          "type": "uint24"
+        }
+      ],
+      "name": "OfferRemoved",
+      "type": "event"
+    }
+  ],
+  "bytecode": {
+    "object": "0x6080604052348015600f57600080fd5b50601680601d6000396000f3fe6080604052600080fdfea164736f6c634300060c000a",
+    "sourceMap": "966:377:37:-:0;;;;;;;;;;;;;;;;;;;",
+    "linkReferences": {}
+  },
+  "deployedBytecode": {
+    "object": "0x6080604052600080fdfea164736f6c634300060c000a",
+    "sourceMap": "966:377:37:-:0;;;;;",
+    "linkReferences": {}
+  },
+  "methodIdentifiers": {},
+  "rawMetadata": "{\"compiler\":{\"version\":\"0.6.12+commit.27d51765\"},\"language\":\"Solidity\",\"output\":{\"abi\":[{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"voucher\",\"type\":\"address\"}],\"name\":\"IssuedVoucherAdded\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"voucher\",\"type\":\"address\"}],\"name\":\"IssuedVoucherRemoved\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"uint24\",\"name\":\"offerId\",\"type\":\"uint24\"}],\"name\":\"OfferAdded\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"uint24\",\"name\":\"offerId\",\"type\":\"uint24\"}],\"name\":\"OfferRemoved\",\"type\":\"event\"}],\"devdoc\":{\"author\":\"Enzyme Council <security@enzyme.finance>\",\"details\":\"DO NOT EDIT CONTRACT. If new events or storage are necessary, they should be added to a numbered SolvV2ConvertibleIssuerPositionLibBaseXXX that inherits the previous base. e.g., `SolvV2ConvertibleIssuerPositionLibBase2 is SolvV2ConvertibleIssuerPositionLibBase1`\",\"kind\":\"dev\",\"methods\":{},\"title\":\"SolvV2ConvertibleIssuerPositionLibBase1 Contract\",\"version\":1},\"userdoc\":{\"kind\":\"user\",\"methods\":{},\"notice\":\"A persistent contract containing all required storage variables and required functions for a SolvV2ConvertibleIssuerPositionLib implementation\",\"version\":1}},\"settings\":{\"compilationTarget\":{\"contracts/persistent/external-positions/solv-v2-convertible-issuer/SolvV2ConvertibleIssuerPositionLibBase1.sol\":\"SolvV2ConvertibleIssuerPositionLibBase1\"},\"evmVersion\":\"istanbul\",\"libraries\":{},\"metadata\":{\"bytecodeHash\":\"none\"},\"optimizer\":{\"details\":{\"constantOptimizer\":true,\"cse\":true,\"deduplicate\":true,\"jumpdestRemover\":true,\"orderLiterals\":true,\"peephole\":true,\"yul\":false},\"runs\":200},\"remappings\":[\":@enzyme/=contracts/\",\":@openzeppelin-solc-0.7/=node_modules/@openzeppelin-solc-0.7/\",\":@openzeppelin/=node_modules/@openzeppelin/\",\":@uniswap/=node_modules/@uniswap/\",\":base64-sol/=node_modules/base64-sol/\",\":ds-test/=lib/forge-std/lib/ds-test/src/\",\":forge-std/=lib/forge-std/src/\",\":hardhat-deploy/=node_modules/hardhat-deploy/\",\":hardhat/=node_modules/hardhat/\"]},\"sources\":{\"contracts/persistent/external-positions/solv-v2-convertible-issuer/SolvV2ConvertibleIssuerPositionLibBase1.sol\":{\"keccak256\":\"0x35fe67bf530be402aa73b3d23747e07d00ba5d36d30a9ca7e3d9f910f95b5528\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://d75931a5213dd4a7a1d24f85b3568c6c1188985215964606a7757f1961ac99bb\",\"dweb:/ipfs/QmWd2ESTAF7HuHmCqYScD1yDG66f8kkRCGy11Bm44wadDH\"]},\"contracts/release/interfaces/ISolvV2ConvertiblePool.sol\":{\"keccak256\":\"0x1943f59f09537f176ae398ae51184c9c69e8c366e74f2e7d2f02326c35e6fde7\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://cc239c228406fa50ec4f40a44af9438efdeb63338846a65d5864c61a643e037b\",\"dweb:/ipfs/QmZhYZoKUAPtksVygGhetvP6Yvu4UAsCpiHAqbPWLtpVJC\"]},\"contracts/release/interfaces/ISolvV2ConvertibleVoucher.sol\":{\"keccak256\":\"0xebec2ad1a5024a1958a558378dfde09cebe998609caa718f13b0088a0347a630\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://fa18447e3accb03306a9904d2d2247c8cadca34a9bc87ca585e6b0646f0814d7\",\"dweb:/ipfs/QmNyrXdUZqbYyDyEu6RyQXttD4mpETd6fFS1UiL2PVDnXf\"]}},\"version\":1}",
+  "metadata": {
+    "compiler": {
+      "version": "0.6.12+commit.27d51765"
+    },
+    "language": "Solidity",
+    "output": {
+      "abi": [
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "voucher",
+              "type": "address",
+              "indexed": true
+            }
+          ],
+          "type": "event",
+          "name": "IssuedVoucherAdded",
+          "anonymous": false
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "voucher",
+              "type": "address",
+              "indexed": true
+            }
+          ],
+          "type": "event",
+          "name": "IssuedVoucherRemoved",
+          "anonymous": false
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "uint24",
+              "name": "offerId",
+              "type": "uint24",
+              "indexed": true
+            }
+          ],
+          "type": "event",
+          "name": "OfferAdded",
+          "anonymous": false
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "uint24",
+              "name": "offerId",
+              "type": "uint24",
+              "indexed": true
+            }
+          ],
+          "type": "event",
+          "name": "OfferRemoved",
+          "anonymous": false
+        }
+      ],
+      "devdoc": {
+        "kind": "dev",
+        "methods": {},
+        "version": 1
+      },
+      "userdoc": {
+        "kind": "user",
+        "methods": {},
+        "version": 1
+      }
+    },
+    "settings": {
+      "remappings": [
+        ":@enzyme/=contracts/",
+        ":@openzeppelin-solc-0.7/=node_modules/@openzeppelin-solc-0.7/",
+        ":@openzeppelin/=node_modules/@openzeppelin/",
+        ":@uniswap/=node_modules/@uniswap/",
+        ":base64-sol/=node_modules/base64-sol/",
+        ":ds-test/=lib/forge-std/lib/ds-test/src/",
+        ":forge-std/=lib/forge-std/src/",
+        ":hardhat-deploy/=node_modules/hardhat-deploy/",
+        ":hardhat/=node_modules/hardhat/"
+      ],
+      "optimizer": {
+        "runs": 200,
+        "details": {
+          "peephole": true,
+          "jumpdestRemover": true,
+          "orderLiterals": true,
+          "deduplicate": true,
+          "cse": true,
+          "constantOptimizer": true,
+          "yul": false
+        }
+      },
+      "metadata": {
+        "bytecodeHash": "none"
+      },
+      "compilationTarget": {
+        "contracts/persistent/external-positions/solv-v2-convertible-issuer/SolvV2ConvertibleIssuerPositionLibBase1.sol": "SolvV2ConvertibleIssuerPositionLibBase1"
+      },
+      "libraries": {}
+    },
+    "sources": {
+      "contracts/persistent/external-positions/solv-v2-convertible-issuer/SolvV2ConvertibleIssuerPositionLibBase1.sol": {
+        "keccak256": "0x35fe67bf530be402aa73b3d23747e07d00ba5d36d30a9ca7e3d9f910f95b5528",
+        "urls": [
+          "bzz-raw://d75931a5213dd4a7a1d24f85b3568c6c1188985215964606a7757f1961ac99bb",
+          "dweb:/ipfs/QmWd2ESTAF7HuHmCqYScD1yDG66f8kkRCGy11Bm44wadDH"
+        ],
+        "license": "GPL-3.0"
+      },
+      "contracts/release/interfaces/ISolvV2ConvertiblePool.sol": {
+        "keccak256": "0x1943f59f09537f176ae398ae51184c9c69e8c366e74f2e7d2f02326c35e6fde7",
+        "urls": [
+          "bzz-raw://cc239c228406fa50ec4f40a44af9438efdeb63338846a65d5864c61a643e037b",
+          "dweb:/ipfs/QmZhYZoKUAPtksVygGhetvP6Yvu4UAsCpiHAqbPWLtpVJC"
+        ],
+        "license": "GPL-3.0"
+      },
+      "contracts/release/interfaces/ISolvV2ConvertibleVoucher.sol": {
+        "keccak256": "0xebec2ad1a5024a1958a558378dfde09cebe998609caa718f13b0088a0347a630",
+        "urls": [
+          "bzz-raw://fa18447e3accb03306a9904d2d2247c8cadca34a9bc87ca585e6b0646f0814d7",
+          "dweb:/ipfs/QmNyrXdUZqbYyDyEu6RyQXttD4mpETd6fFS1UiL2PVDnXf"
+        ],
+        "license": "GPL-3.0"
+      }
+    },
+    "version": 1
+  },
+  "ast": {
+    "absolutePath": "contracts/persistent/external-positions/solv-v2-convertible-issuer/SolvV2ConvertibleIssuerPositionLibBase1.sol",
+    "id": 5644,
+    "exportedSymbols": {
+      "SolvV2ConvertibleIssuerPositionLibBase1": [
+        5643
+      ]
+    },
+    "nodeType": "SourceUnit",
+    "src": "255:1089:37",
+    "nodes": [
+      {
+        "id": 5617,
+        "nodeType": "PragmaDirective",
+        "src": "255:23:37",
+        "nodes": [],
+        "literals": [
+          "solidity",
+          "0.6",
+          ".12"
+        ]
+      },
+      {
+        "id": 5618,
+        "nodeType": "ImportDirective",
+        "src": "280:64:37",
+        "nodes": [],
+        "absolutePath": "contracts/release/interfaces/ISolvV2ConvertiblePool.sol",
+        "file": "../../../release/interfaces/ISolvV2ConvertiblePool.sol",
+        "scope": 5644,
+        "sourceUnit": 73076,
+        "symbolAliases": [],
+        "unitAlias": ""
+      },
+      {
+        "id": 5619,
+        "nodeType": "ImportDirective",
+        "src": "345:67:37",
+        "nodes": [],
+        "absolutePath": "contracts/release/interfaces/ISolvV2ConvertibleVoucher.sol",
+        "file": "../../../release/interfaces/ISolvV2ConvertibleVoucher.sol",
+        "scope": 5644,
+        "sourceUnit": 73167,
+        "symbolAliases": [],
+        "unitAlias": ""
+      },
+      {
+        "id": 5643,
+        "nodeType": "ContractDefinition",
+        "src": "966:377:37",
+        "nodes": [
+          {
+            "id": 5624,
+            "nodeType": "EventDefinition",
+            "src": "1021:50:37",
+            "nodes": [],
+            "anonymous": false,
+            "documentation": null,
+            "name": "IssuedVoucherAdded",
+            "parameters": {
+              "id": 5623,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 5622,
+                  "indexed": true,
+                  "mutability": "mutable",
+                  "name": "voucher",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 5624,
+                  "src": "1046:23:37",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 5621,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "1046:7:37",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "1045:25:37"
+            }
+          },
+          {
+            "id": 5628,
+            "nodeType": "EventDefinition",
+            "src": "1077:52:37",
+            "nodes": [],
+            "anonymous": false,
+            "documentation": null,
+            "name": "IssuedVoucherRemoved",
+            "parameters": {
+              "id": 5627,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 5626,
+                  "indexed": true,
+                  "mutability": "mutable",
+                  "name": "voucher",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 5628,
+                  "src": "1104:23:37",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 5625,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "1104:7:37",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "1103:25:37"
+            }
+          },
+          {
+            "id": 5632,
+            "nodeType": "EventDefinition",
+            "src": "1135:41:37",
+            "nodes": [],
+            "anonymous": false,
+            "documentation": null,
+            "name": "OfferAdded",
+            "parameters": {
+              "id": 5631,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 5630,
+                  "indexed": true,
+                  "mutability": "mutable",
+                  "name": "offerId",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 5632,
+                  "src": "1152:22:37",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_uint24",
+                    "typeString": "uint24"
+                  },
+                  "typeName": {
+                    "id": 5629,
+                    "name": "uint24",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "1152:6:37",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_uint24",
+                      "typeString": "uint24"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "1151:24:37"
+            }
+          },
+          {
+            "id": 5636,
+            "nodeType": "EventDefinition",
+            "src": "1182:43:37",
+            "nodes": [],
+            "anonymous": false,
+            "documentation": null,
+            "name": "OfferRemoved",
+            "parameters": {
+              "id": 5635,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 5634,
+                  "indexed": true,
+                  "mutability": "mutable",
+                  "name": "offerId",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 5636,
+                  "src": "1201:22:37",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_uint24",
+                    "typeString": "uint24"
+                  },
+                  "typeName": {
+                    "id": 5633,
+                    "name": "uint24",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "1201:6:37",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_uint24",
+                      "typeString": "uint24"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "1200:24:37"
+            }
+          },
+          {
+            "id": 5639,
+            "nodeType": "VariableDeclaration",
+            "src": "1254:33:37",
+            "nodes": [],
+            "constant": false,
+            "mutability": "mutable",
+            "name": "issuedVouchers",
+            "overrides": null,
+            "scope": 5643,
+            "stateVariable": true,
+            "storageLocation": "default",
+            "typeDescriptions": {
+              "typeIdentifier": "t_array$_t_address_$dyn_storage",
+              "typeString": "address[]"
+            },
+            "typeName": {
+              "baseType": {
+                "id": 5637,
+                "name": "address",
+                "nodeType": "ElementaryTypeName",
+                "src": "1254:7:37",
+                "stateMutability": "nonpayable",
+                "typeDescriptions": {
+                  "typeIdentifier": "t_address",
+                  "typeString": "address"
+                }
+              },
+              "id": 5638,
+              "length": null,
+              "nodeType": "ArrayTypeName",
+              "src": "1254:9:37",
+              "typeDescriptions": {
+                "typeIdentifier": "t_array$_t_address_$dyn_storage_ptr",
+                "typeString": "address[]"
+              }
+            },
+            "value": null,
+            "visibility": "internal"
+          },
+          {
+            "id": 5642,
+            "nodeType": "VariableDeclaration",
+            "src": "1316:24:37",
+            "nodes": [],
+            "constant": false,
+            "mutability": "mutable",
+            "name": "offers",
+            "overrides": null,
+            "scope": 5643,
+            "stateVariable": true,
+            "storageLocation": "default",
+            "typeDescriptions": {
+              "typeIdentifier": "t_array$_t_uint24_$dyn_storage",
+              "typeString": "uint24[]"
+            },
+            "typeName": {
+              "baseType": {
+                "id": 5640,
+                "name": "uint24",
+                "nodeType": "ElementaryTypeName",
+                "src": "1316:6:37",
+                "typeDescriptions": {
+                  "typeIdentifier": "t_uint24",
+                  "typeString": "uint24"
+                }
+              },
+              "id": 5641,
+              "length": null,
+              "nodeType": "ArrayTypeName",
+              "src": "1316:8:37",
+              "typeDescriptions": {
+                "typeIdentifier": "t_array$_t_uint24_$dyn_storage_ptr",
+                "typeString": "uint24[]"
+              }
+            },
+            "value": null,
+            "visibility": "internal"
+          }
+        ],
+        "abstract": false,
+        "baseContracts": [],
+        "contractDependencies": [],
+        "contractKind": "contract",
+        "documentation": {
+          "id": 5620,
+          "nodeType": "StructuredDocumentation",
+          "src": "414:552:37",
+          "text": "@title SolvV2ConvertibleIssuerPositionLibBase1 Contract\n @author Enzyme Council <security@enzyme.finance>\n @notice A persistent contract containing all required storage variables and\n required functions for a SolvV2ConvertibleIssuerPositionLib implementation\n @dev DO NOT EDIT CONTRACT. If new events or storage are necessary, they should be added to\n a numbered SolvV2ConvertibleIssuerPositionLibBaseXXX that inherits the previous base.\n e.g., `SolvV2ConvertibleIssuerPositionLibBase2 is SolvV2ConvertibleIssuerPositionLibBase1`"
+        },
+        "fullyImplemented": true,
+        "linearizedBaseContracts": [
+          5643
+        ],
+        "name": "SolvV2ConvertibleIssuerPositionLibBase1",
+        "scope": 5644
+      }
+    ],
+    "license": "GPL-3.0"
+  },
+  "id": 37
+}

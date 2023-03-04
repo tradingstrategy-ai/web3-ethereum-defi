@@ -1,0 +1,399 @@
+{
+  "abi": [
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "_cToken",
+          "type": "address"
+        }
+      ],
+      "name": "rewardConfig",
+      "outputs": [
+        {
+          "components": [
+            {
+              "internalType": "address",
+              "name": "token",
+              "type": "address"
+            },
+            {
+              "internalType": "uint64",
+              "name": "rescaleFactor",
+              "type": "uint64"
+            },
+            {
+              "internalType": "bool",
+              "name": "shouldUpscale",
+              "type": "bool"
+            }
+          ],
+          "internalType": "struct ITestCompoundV3CometRewards.RewardConfig",
+          "name": "rewardConfig_",
+          "type": "tuple"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    }
+  ],
+  "bytecode": {
+    "object": "0x",
+    "sourceMap": "",
+    "linkReferences": {}
+  },
+  "deployedBytecode": {
+    "object": "0x",
+    "sourceMap": "",
+    "linkReferences": {}
+  },
+  "methodIdentifiers": {
+    "rewardConfig(address)": "2289b6b8"
+  },
+  "rawMetadata": "{\"compiler\":{\"version\":\"0.6.12+commit.27d51765\"},\"language\":\"Solidity\",\"output\":{\"abi\":[{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_cToken\",\"type\":\"address\"}],\"name\":\"rewardConfig\",\"outputs\":[{\"components\":[{\"internalType\":\"address\",\"name\":\"token\",\"type\":\"address\"},{\"internalType\":\"uint64\",\"name\":\"rescaleFactor\",\"type\":\"uint64\"},{\"internalType\":\"bool\",\"name\":\"shouldUpscale\",\"type\":\"bool\"}],\"internalType\":\"struct ITestCompoundV3CometRewards.RewardConfig\",\"name\":\"rewardConfig_\",\"type\":\"tuple\"}],\"stateMutability\":\"view\",\"type\":\"function\"}],\"devdoc\":{\"author\":\"Enzyme Council <security@enzyme.finance>\",\"kind\":\"dev\",\"methods\":{},\"title\":\"ITestCompoundV3CometRewards Interface\",\"version\":1},\"userdoc\":{\"kind\":\"user\",\"methods\":{},\"version\":1}},\"settings\":{\"compilationTarget\":{\"contracts/test/interfaces/ITestCompoundV3CometRewards.sol\":\"ITestCompoundV3CometRewards\"},\"evmVersion\":\"istanbul\",\"libraries\":{},\"metadata\":{\"bytecodeHash\":\"none\"},\"optimizer\":{\"details\":{\"constantOptimizer\":true,\"cse\":true,\"deduplicate\":true,\"jumpdestRemover\":true,\"orderLiterals\":true,\"peephole\":true,\"yul\":false},\"runs\":200},\"remappings\":[\":@enzyme/=contracts/\",\":@openzeppelin-solc-0.7/=node_modules/@openzeppelin-solc-0.7/\",\":@openzeppelin/=node_modules/@openzeppelin/\",\":@uniswap/=node_modules/@uniswap/\",\":base64-sol/=node_modules/base64-sol/\",\":ds-test/=lib/forge-std/lib/ds-test/src/\",\":forge-std/=lib/forge-std/src/\",\":hardhat-deploy/=node_modules/hardhat-deploy/\",\":hardhat/=node_modules/hardhat/\"]},\"sources\":{\"contracts/test/interfaces/ITestCompoundV3CometRewards.sol\":{\"keccak256\":\"0xdcd7cfae1f4ee7a364056f970e0832ce31c99b365c83d8e67bdfe917bdac2ba6\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://6e82298c7af6ca97527b30fccedca6224167c76f7cb599ab5ef1cf68b49e4b34\",\"dweb:/ipfs/QmNSzgaJjuWG1V4jeyZjMLXM6uiMbeHMeceK8fyF9BGrZx\"]}},\"version\":1}",
+  "metadata": {
+    "compiler": {
+      "version": "0.6.12+commit.27d51765"
+    },
+    "language": "Solidity",
+    "output": {
+      "abi": [
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "_cToken",
+              "type": "address"
+            }
+          ],
+          "stateMutability": "view",
+          "type": "function",
+          "name": "rewardConfig",
+          "outputs": [
+            {
+              "internalType": "struct ITestCompoundV3CometRewards.RewardConfig",
+              "name": "rewardConfig_",
+              "type": "tuple",
+              "components": [
+                {
+                  "internalType": "address",
+                  "name": "token",
+                  "type": "address"
+                },
+                {
+                  "internalType": "uint64",
+                  "name": "rescaleFactor",
+                  "type": "uint64"
+                },
+                {
+                  "internalType": "bool",
+                  "name": "shouldUpscale",
+                  "type": "bool"
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "devdoc": {
+        "kind": "dev",
+        "methods": {},
+        "version": 1
+      },
+      "userdoc": {
+        "kind": "user",
+        "methods": {},
+        "version": 1
+      }
+    },
+    "settings": {
+      "remappings": [
+        ":@enzyme/=contracts/",
+        ":@openzeppelin-solc-0.7/=node_modules/@openzeppelin-solc-0.7/",
+        ":@openzeppelin/=node_modules/@openzeppelin/",
+        ":@uniswap/=node_modules/@uniswap/",
+        ":base64-sol/=node_modules/base64-sol/",
+        ":ds-test/=lib/forge-std/lib/ds-test/src/",
+        ":forge-std/=lib/forge-std/src/",
+        ":hardhat-deploy/=node_modules/hardhat-deploy/",
+        ":hardhat/=node_modules/hardhat/"
+      ],
+      "optimizer": {
+        "runs": 200,
+        "details": {
+          "peephole": true,
+          "jumpdestRemover": true,
+          "orderLiterals": true,
+          "deduplicate": true,
+          "cse": true,
+          "constantOptimizer": true,
+          "yul": false
+        }
+      },
+      "metadata": {
+        "bytecodeHash": "none"
+      },
+      "compilationTarget": {
+        "contracts/test/interfaces/ITestCompoundV3CometRewards.sol": "ITestCompoundV3CometRewards"
+      },
+      "libraries": {}
+    },
+    "sources": {
+      "contracts/test/interfaces/ITestCompoundV3CometRewards.sol": {
+        "keccak256": "0xdcd7cfae1f4ee7a364056f970e0832ce31c99b365c83d8e67bdfe917bdac2ba6",
+        "urls": [
+          "bzz-raw://6e82298c7af6ca97527b30fccedca6224167c76f7cb599ab5ef1cf68b49e4b34",
+          "dweb:/ipfs/QmNSzgaJjuWG1V4jeyZjMLXM6uiMbeHMeceK8fyF9BGrZx"
+        ],
+        "license": "GPL-3.0"
+      }
+    },
+    "version": 1
+  },
+  "ast": {
+    "absolutePath": "contracts/test/interfaces/ITestCompoundV3CometRewards.sol",
+    "id": 80228,
+    "exportedSymbols": {
+      "ITestCompoundV3CometRewards": [
+        80227
+      ]
+    },
+    "nodeType": "SourceUnit",
+    "src": "255:443:385",
+    "nodes": [
+      {
+        "id": 80210,
+        "nodeType": "PragmaDirective",
+        "src": "255:23:385",
+        "nodes": [],
+        "literals": [
+          "solidity",
+          "0.6",
+          ".12"
+        ]
+      },
+      {
+        "id": 80211,
+        "nodeType": "PragmaDirective",
+        "src": "279:33:385",
+        "nodes": [],
+        "literals": [
+          "experimental",
+          "ABIEncoderV2"
+        ]
+      },
+      {
+        "id": 80227,
+        "nodeType": "ContractDefinition",
+        "src": "416:281:385",
+        "nodes": [
+          {
+            "id": 80219,
+            "nodeType": "StructDefinition",
+            "src": "460:108:385",
+            "nodes": [],
+            "canonicalName": "ITestCompoundV3CometRewards.RewardConfig",
+            "members": [
+              {
+                "constant": false,
+                "id": 80214,
+                "mutability": "mutable",
+                "name": "token",
+                "nodeType": "VariableDeclaration",
+                "overrides": null,
+                "scope": 80219,
+                "src": "490:13:385",
+                "stateVariable": false,
+                "storageLocation": "default",
+                "typeDescriptions": {
+                  "typeIdentifier": "t_address",
+                  "typeString": "address"
+                },
+                "typeName": {
+                  "id": 80213,
+                  "name": "address",
+                  "nodeType": "ElementaryTypeName",
+                  "src": "490:7:385",
+                  "stateMutability": "nonpayable",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  }
+                },
+                "value": null,
+                "visibility": "internal"
+              },
+              {
+                "constant": false,
+                "id": 80216,
+                "mutability": "mutable",
+                "name": "rescaleFactor",
+                "nodeType": "VariableDeclaration",
+                "overrides": null,
+                "scope": 80219,
+                "src": "513:20:385",
+                "stateVariable": false,
+                "storageLocation": "default",
+                "typeDescriptions": {
+                  "typeIdentifier": "t_uint64",
+                  "typeString": "uint64"
+                },
+                "typeName": {
+                  "id": 80215,
+                  "name": "uint64",
+                  "nodeType": "ElementaryTypeName",
+                  "src": "513:6:385",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_uint64",
+                    "typeString": "uint64"
+                  }
+                },
+                "value": null,
+                "visibility": "internal"
+              },
+              {
+                "constant": false,
+                "id": 80218,
+                "mutability": "mutable",
+                "name": "shouldUpscale",
+                "nodeType": "VariableDeclaration",
+                "overrides": null,
+                "scope": 80219,
+                "src": "543:18:385",
+                "stateVariable": false,
+                "storageLocation": "default",
+                "typeDescriptions": {
+                  "typeIdentifier": "t_bool",
+                  "typeString": "bool"
+                },
+                "typeName": {
+                  "id": 80217,
+                  "name": "bool",
+                  "nodeType": "ElementaryTypeName",
+                  "src": "543:4:385",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_bool",
+                    "typeString": "bool"
+                  }
+                },
+                "value": null,
+                "visibility": "internal"
+              }
+            ],
+            "name": "RewardConfig",
+            "scope": 80227,
+            "visibility": "public"
+          },
+          {
+            "id": 80226,
+            "nodeType": "FunctionDefinition",
+            "src": "574:121:385",
+            "nodes": [],
+            "documentation": null,
+            "functionSelector": "2289b6b8",
+            "implemented": false,
+            "kind": "function",
+            "modifiers": [],
+            "name": "rewardConfig",
+            "overrides": null,
+            "parameters": {
+              "id": 80222,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 80221,
+                  "mutability": "mutable",
+                  "name": "_cToken",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 80226,
+                  "src": "596:15:385",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 80220,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "596:7:385",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "595:17:385"
+            },
+            "returnParameters": {
+              "id": 80225,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 80224,
+                  "mutability": "mutable",
+                  "name": "rewardConfig_",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 80226,
+                  "src": "660:33:385",
+                  "stateVariable": false,
+                  "storageLocation": "memory",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_struct$_RewardConfig_$80219_memory_ptr",
+                    "typeString": "struct ITestCompoundV3CometRewards.RewardConfig"
+                  },
+                  "typeName": {
+                    "contractScope": null,
+                    "id": 80223,
+                    "name": "RewardConfig",
+                    "nodeType": "UserDefinedTypeName",
+                    "referencedDeclaration": 80219,
+                    "src": "660:12:385",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_struct$_RewardConfig_$80219_storage_ptr",
+                      "typeString": "struct ITestCompoundV3CometRewards.RewardConfig"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "659:35:385"
+            },
+            "scope": 80227,
+            "stateMutability": "view",
+            "virtual": false,
+            "visibility": "external"
+          }
+        ],
+        "abstract": false,
+        "baseContracts": [],
+        "contractDependencies": [],
+        "contractKind": "interface",
+        "documentation": {
+          "id": 80212,
+          "nodeType": "StructuredDocumentation",
+          "src": "314:102:385",
+          "text": "@title ITestCompoundV3CometRewards Interface\n @author Enzyme Council <security@enzyme.finance>"
+        },
+        "fullyImplemented": false,
+        "linearizedBaseContracts": [
+          80227
+        ],
+        "name": "ITestCompoundV3CometRewards",
+        "scope": 80228
+      }
+    ],
+    "license": "GPL-3.0"
+  },
+  "id": 385
+}

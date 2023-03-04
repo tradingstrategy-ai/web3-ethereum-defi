@@ -1,7 +1,4 @@
 {
-  "_format": "hh-sol-artifact-1",
-  "contractName": "IBeaconProxyFactory",
-  "sourceName": "contracts/release/utils/beacon-proxy/IBeaconProxyFactory.sol",
   "abi": [
     {
       "inputs": [
@@ -49,8 +46,365 @@
       "type": "function"
     }
   ],
-  "bytecode": "0x",
-  "deployedBytecode": "0x",
-  "linkReferences": {},
-  "deployedLinkReferences": {}
+  "bytecode": {
+    "object": "0x",
+    "sourceMap": "",
+    "linkReferences": {}
+  },
+  "deployedBytecode": {
+    "object": "0x",
+    "sourceMap": "",
+    "linkReferences": {}
+  },
+  "methodIdentifiers": {
+    "deployProxy(bytes)": "0c0872f5",
+    "getCanonicalLib()": "98a7c4c7",
+    "setCanonicalLib(address)": "d0ac1a8d"
+  },
+  "rawMetadata": "{\"compiler\":{\"version\":\"0.6.12+commit.27d51765\"},\"language\":\"Solidity\",\"output\":{\"abi\":[{\"inputs\":[{\"internalType\":\"bytes\",\"name\":\"_constructData\",\"type\":\"bytes\"}],\"name\":\"deployProxy\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"proxy_\",\"type\":\"address\"}],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getCanonicalLib\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_canonicalLib\",\"type\":\"address\"}],\"name\":\"setCanonicalLib\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"}],\"devdoc\":{\"author\":\"Enzyme Council <security@enzyme.finance>\",\"kind\":\"dev\",\"methods\":{},\"title\":\"IBeaconProxyFactory interface\",\"version\":1},\"userdoc\":{\"kind\":\"user\",\"methods\":{},\"version\":1}},\"settings\":{\"compilationTarget\":{\"contracts/release/utils/beacon-proxy/IBeaconProxyFactory.sol\":\"IBeaconProxyFactory\"},\"evmVersion\":\"istanbul\",\"libraries\":{},\"metadata\":{\"bytecodeHash\":\"none\"},\"optimizer\":{\"details\":{\"constantOptimizer\":true,\"cse\":true,\"deduplicate\":true,\"jumpdestRemover\":true,\"orderLiterals\":true,\"peephole\":true,\"yul\":false},\"runs\":200},\"remappings\":[\":@enzyme/=contracts/\",\":@openzeppelin-solc-0.7/=node_modules/@openzeppelin-solc-0.7/\",\":@openzeppelin/=node_modules/@openzeppelin/\",\":@uniswap/=node_modules/@uniswap/\",\":base64-sol/=node_modules/base64-sol/\",\":ds-test/=lib/forge-std/lib/ds-test/src/\",\":forge-std/=lib/forge-std/src/\",\":hardhat-deploy/=node_modules/hardhat-deploy/\",\":hardhat/=node_modules/hardhat/\"]},\"sources\":{\"contracts/release/utils/beacon-proxy/IBeacon.sol\":{\"keccak256\":\"0x27a585523828a67a1a7c84eadd22b3056e8ffc51ab71992fd97c9ffb4239eeb2\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://da6aab223fcf84060c63266f743443f5bece3cd1b3131c29db925f2c2671cb39\",\"dweb:/ipfs/Qmd4LvTJHhF6KeRN77ykk5KuV1U7y5ka9gvHChqkg2145V\"]},\"contracts/release/utils/beacon-proxy/IBeaconProxyFactory.sol\":{\"keccak256\":\"0x747e53725f5dbe419893ea447df4f33a3b25d99aae5b724aa1b9778cec1a26bc\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://af89093638cb2a72b2760233a4f3e600bed766fa7938f35f0664b86954b313be\",\"dweb:/ipfs/QmXhqBFHrKYHc5DLtyPqEy9FG8F94Wz63tp9Px9P873isG\"]}},\"version\":1}",
+  "metadata": {
+    "compiler": {
+      "version": "0.6.12+commit.27d51765"
+    },
+    "language": "Solidity",
+    "output": {
+      "abi": [
+        {
+          "inputs": [
+            {
+              "internalType": "bytes",
+              "name": "_constructData",
+              "type": "bytes"
+            }
+          ],
+          "stateMutability": "nonpayable",
+          "type": "function",
+          "name": "deployProxy",
+          "outputs": [
+            {
+              "internalType": "address",
+              "name": "proxy_",
+              "type": "address"
+            }
+          ]
+        },
+        {
+          "inputs": [],
+          "stateMutability": "view",
+          "type": "function",
+          "name": "getCanonicalLib",
+          "outputs": [
+            {
+              "internalType": "address",
+              "name": "",
+              "type": "address"
+            }
+          ]
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "_canonicalLib",
+              "type": "address"
+            }
+          ],
+          "stateMutability": "nonpayable",
+          "type": "function",
+          "name": "setCanonicalLib"
+        }
+      ],
+      "devdoc": {
+        "kind": "dev",
+        "methods": {},
+        "version": 1
+      },
+      "userdoc": {
+        "kind": "user",
+        "methods": {},
+        "version": 1
+      }
+    },
+    "settings": {
+      "remappings": [
+        ":@enzyme/=contracts/",
+        ":@openzeppelin-solc-0.7/=node_modules/@openzeppelin-solc-0.7/",
+        ":@openzeppelin/=node_modules/@openzeppelin/",
+        ":@uniswap/=node_modules/@uniswap/",
+        ":base64-sol/=node_modules/base64-sol/",
+        ":ds-test/=lib/forge-std/lib/ds-test/src/",
+        ":forge-std/=lib/forge-std/src/",
+        ":hardhat-deploy/=node_modules/hardhat-deploy/",
+        ":hardhat/=node_modules/hardhat/"
+      ],
+      "optimizer": {
+        "runs": 200,
+        "details": {
+          "peephole": true,
+          "jumpdestRemover": true,
+          "orderLiterals": true,
+          "deduplicate": true,
+          "cse": true,
+          "constantOptimizer": true,
+          "yul": false
+        }
+      },
+      "metadata": {
+        "bytecodeHash": "none"
+      },
+      "compilationTarget": {
+        "contracts/release/utils/beacon-proxy/IBeaconProxyFactory.sol": "IBeaconProxyFactory"
+      },
+      "libraries": {}
+    },
+    "sources": {
+      "contracts/release/utils/beacon-proxy/IBeacon.sol": {
+        "keccak256": "0x27a585523828a67a1a7c84eadd22b3056e8ffc51ab71992fd97c9ffb4239eeb2",
+        "urls": [
+          "bzz-raw://da6aab223fcf84060c63266f743443f5bece3cd1b3131c29db925f2c2671cb39",
+          "dweb:/ipfs/Qmd4LvTJHhF6KeRN77ykk5KuV1U7y5ka9gvHChqkg2145V"
+        ],
+        "license": "GPL-3.0"
+      },
+      "contracts/release/utils/beacon-proxy/IBeaconProxyFactory.sol": {
+        "keccak256": "0x747e53725f5dbe419893ea447df4f33a3b25d99aae5b724aa1b9778cec1a26bc",
+        "urls": [
+          "bzz-raw://af89093638cb2a72b2760233a4f3e600bed766fa7938f35f0664b86954b313be",
+          "dweb:/ipfs/QmXhqBFHrKYHc5DLtyPqEy9FG8F94Wz63tp9Px9P873isG"
+        ],
+        "license": "GPL-3.0"
+      }
+    },
+    "version": 1
+  },
+  "ast": {
+    "absolutePath": "contracts/release/utils/beacon-proxy/IBeaconProxyFactory.sol",
+    "id": 79712,
+    "exportedSymbols": {
+      "IBeaconProxyFactory": [
+        79711
+      ]
+    },
+    "nodeType": "SourceUnit",
+    "src": "255:341:367",
+    "nodes": [
+      {
+        "id": 79694,
+        "nodeType": "ImportDirective",
+        "src": "255:23:367",
+        "nodes": [],
+        "absolutePath": "contracts/release/utils/beacon-proxy/IBeacon.sol",
+        "file": "./IBeacon.sol",
+        "scope": 79712,
+        "sourceUnit": 79693,
+        "symbolAliases": [],
+        "unitAlias": ""
+      },
+      {
+        "id": 79695,
+        "nodeType": "PragmaDirective",
+        "src": "280:23:367",
+        "nodes": [],
+        "literals": [
+          "solidity",
+          "0.6",
+          ".12"
+        ]
+      },
+      {
+        "id": 79711,
+        "nodeType": "ContractDefinition",
+        "src": "399:196:367",
+        "nodes": [
+          {
+            "id": 79705,
+            "nodeType": "FunctionDefinition",
+            "src": "446:84:367",
+            "nodes": [],
+            "documentation": null,
+            "functionSelector": "0c0872f5",
+            "implemented": false,
+            "kind": "function",
+            "modifiers": [],
+            "name": "deployProxy",
+            "overrides": null,
+            "parameters": {
+              "id": 79701,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 79700,
+                  "mutability": "mutable",
+                  "name": "_constructData",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 79705,
+                  "src": "467:27:367",
+                  "stateVariable": false,
+                  "storageLocation": "memory",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_bytes_memory_ptr",
+                    "typeString": "bytes"
+                  },
+                  "typeName": {
+                    "id": 79699,
+                    "name": "bytes",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "467:5:367",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_bytes_storage_ptr",
+                      "typeString": "bytes"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "466:29:367"
+            },
+            "returnParameters": {
+              "id": 79704,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 79703,
+                  "mutability": "mutable",
+                  "name": "proxy_",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 79705,
+                  "src": "514:14:367",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 79702,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "514:7:367",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "513:16:367"
+            },
+            "scope": 79711,
+            "stateMutability": "nonpayable",
+            "virtual": false,
+            "visibility": "external"
+          },
+          {
+            "id": 79710,
+            "nodeType": "FunctionDefinition",
+            "src": "536:57:367",
+            "nodes": [],
+            "documentation": null,
+            "functionSelector": "d0ac1a8d",
+            "implemented": false,
+            "kind": "function",
+            "modifiers": [],
+            "name": "setCanonicalLib",
+            "overrides": null,
+            "parameters": {
+              "id": 79708,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 79707,
+                  "mutability": "mutable",
+                  "name": "_canonicalLib",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 79710,
+                  "src": "561:21:367",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 79706,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "561:7:367",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "560:23:367"
+            },
+            "returnParameters": {
+              "id": 79709,
+              "nodeType": "ParameterList",
+              "parameters": [],
+              "src": "592:0:367"
+            },
+            "scope": 79711,
+            "stateMutability": "nonpayable",
+            "virtual": false,
+            "visibility": "external"
+          }
+        ],
+        "abstract": false,
+        "baseContracts": [
+          {
+            "arguments": null,
+            "baseName": {
+              "contractScope": null,
+              "id": 79697,
+              "name": "IBeacon",
+              "nodeType": "UserDefinedTypeName",
+              "referencedDeclaration": 79692,
+              "src": "432:7:367",
+              "typeDescriptions": {
+                "typeIdentifier": "t_contract$_IBeacon_$79692",
+                "typeString": "contract IBeacon"
+              }
+            },
+            "id": 79698,
+            "nodeType": "InheritanceSpecifier",
+            "src": "432:7:367"
+          }
+        ],
+        "contractDependencies": [
+          79692
+        ],
+        "contractKind": "interface",
+        "documentation": {
+          "id": 79696,
+          "nodeType": "StructuredDocumentation",
+          "src": "305:94:367",
+          "text": "@title IBeaconProxyFactory interface\n @author Enzyme Council <security@enzyme.finance>"
+        },
+        "fullyImplemented": false,
+        "linearizedBaseContracts": [
+          79711,
+          79692
+        ],
+        "name": "IBeaconProxyFactory",
+        "scope": 79712
+      }
+    ],
+    "license": "GPL-3.0"
+  },
+  "id": 367
 }

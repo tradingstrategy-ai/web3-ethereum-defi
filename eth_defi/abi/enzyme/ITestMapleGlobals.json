@@ -1,0 +1,214 @@
+{
+  "abi": [
+    {
+      "inputs": [],
+      "name": "lpCooldownPeriod",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "period_",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    }
+  ],
+  "bytecode": {
+    "object": "0x",
+    "sourceMap": "",
+    "linkReferences": {}
+  },
+  "deployedBytecode": {
+    "object": "0x",
+    "sourceMap": "",
+    "linkReferences": {}
+  },
+  "methodIdentifiers": {
+    "lpCooldownPeriod()": "dd02e0ec"
+  },
+  "rawMetadata": "{\"compiler\":{\"version\":\"0.6.12+commit.27d51765\"},\"language\":\"Solidity\",\"output\":{\"abi\":[{\"inputs\":[],\"name\":\"lpCooldownPeriod\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"period_\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"}],\"devdoc\":{\"author\":\"Enzyme Council <security@enzyme.finance>\",\"kind\":\"dev\",\"methods\":{},\"title\":\"ITestMapleGlobals Interface\",\"version\":1},\"userdoc\":{\"kind\":\"user\",\"methods\":{},\"version\":1}},\"settings\":{\"compilationTarget\":{\"contracts/test/interfaces/ITestMapleGlobals.sol\":\"ITestMapleGlobals\"},\"evmVersion\":\"istanbul\",\"libraries\":{},\"metadata\":{\"bytecodeHash\":\"none\"},\"optimizer\":{\"details\":{\"constantOptimizer\":true,\"cse\":true,\"deduplicate\":true,\"jumpdestRemover\":true,\"orderLiterals\":true,\"peephole\":true,\"yul\":false},\"runs\":200},\"remappings\":[\":@enzyme/=contracts/\",\":@openzeppelin-solc-0.7/=node_modules/@openzeppelin-solc-0.7/\",\":@openzeppelin/=node_modules/@openzeppelin/\",\":@uniswap/=node_modules/@uniswap/\",\":base64-sol/=node_modules/base64-sol/\",\":ds-test/=lib/forge-std/lib/ds-test/src/\",\":forge-std/=lib/forge-std/src/\",\":hardhat-deploy/=node_modules/hardhat-deploy/\",\":hardhat/=node_modules/hardhat/\"]},\"sources\":{\"contracts/test/interfaces/ITestMapleGlobals.sol\":{\"keccak256\":\"0x29664f1d0a225484e787e379aecc8e6b3b01f6f81b0d9a3ab8152c1237665efb\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://e9094ded2293d3422ddd3cfb6f2a5ca2c739148d166154fcfa96823f45c72793\",\"dweb:/ipfs/QmfHWCEgnXqbVj6Nw9h26TaQfQB7oqXJs8d7TDy81kxVt6\"]}},\"version\":1}",
+  "metadata": {
+    "compiler": {
+      "version": "0.6.12+commit.27d51765"
+    },
+    "language": "Solidity",
+    "output": {
+      "abi": [
+        {
+          "inputs": [],
+          "stateMutability": "view",
+          "type": "function",
+          "name": "lpCooldownPeriod",
+          "outputs": [
+            {
+              "internalType": "uint256",
+              "name": "period_",
+              "type": "uint256"
+            }
+          ]
+        }
+      ],
+      "devdoc": {
+        "kind": "dev",
+        "methods": {},
+        "version": 1
+      },
+      "userdoc": {
+        "kind": "user",
+        "methods": {},
+        "version": 1
+      }
+    },
+    "settings": {
+      "remappings": [
+        ":@enzyme/=contracts/",
+        ":@openzeppelin-solc-0.7/=node_modules/@openzeppelin-solc-0.7/",
+        ":@openzeppelin/=node_modules/@openzeppelin/",
+        ":@uniswap/=node_modules/@uniswap/",
+        ":base64-sol/=node_modules/base64-sol/",
+        ":ds-test/=lib/forge-std/lib/ds-test/src/",
+        ":forge-std/=lib/forge-std/src/",
+        ":hardhat-deploy/=node_modules/hardhat-deploy/",
+        ":hardhat/=node_modules/hardhat/"
+      ],
+      "optimizer": {
+        "runs": 200,
+        "details": {
+          "peephole": true,
+          "jumpdestRemover": true,
+          "orderLiterals": true,
+          "deduplicate": true,
+          "cse": true,
+          "constantOptimizer": true,
+          "yul": false
+        }
+      },
+      "metadata": {
+        "bytecodeHash": "none"
+      },
+      "compilationTarget": {
+        "contracts/test/interfaces/ITestMapleGlobals.sol": "ITestMapleGlobals"
+      },
+      "libraries": {}
+    },
+    "sources": {
+      "contracts/test/interfaces/ITestMapleGlobals.sol": {
+        "keccak256": "0x29664f1d0a225484e787e379aecc8e6b3b01f6f81b0d9a3ab8152c1237665efb",
+        "urls": [
+          "bzz-raw://e9094ded2293d3422ddd3cfb6f2a5ca2c739148d166154fcfa96823f45c72793",
+          "dweb:/ipfs/QmfHWCEgnXqbVj6Nw9h26TaQfQB7oqXJs8d7TDy81kxVt6"
+        ],
+        "license": "GPL-3.0"
+      }
+    },
+    "version": 1
+  },
+  "ast": {
+    "absolutePath": "contracts/test/interfaces/ITestMapleGlobals.sol",
+    "id": 80795,
+    "exportedSymbols": {
+      "ITestMapleGlobals": [
+        80794
+      ]
+    },
+    "nodeType": "SourceUnit",
+    "src": "255:222:407",
+    "nodes": [
+      {
+        "id": 80787,
+        "nodeType": "PragmaDirective",
+        "src": "255:23:407",
+        "nodes": [],
+        "literals": [
+          "solidity",
+          "0.6",
+          ".12"
+        ]
+      },
+      {
+        "id": 80794,
+        "nodeType": "ContractDefinition",
+        "src": "372:104:407",
+        "nodes": [
+          {
+            "id": 80793,
+            "nodeType": "FunctionDefinition",
+            "src": "406:68:407",
+            "nodes": [],
+            "documentation": null,
+            "functionSelector": "dd02e0ec",
+            "implemented": false,
+            "kind": "function",
+            "modifiers": [],
+            "name": "lpCooldownPeriod",
+            "overrides": null,
+            "parameters": {
+              "id": 80789,
+              "nodeType": "ParameterList",
+              "parameters": [],
+              "src": "431:2:407"
+            },
+            "returnParameters": {
+              "id": 80792,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 80791,
+                  "mutability": "mutable",
+                  "name": "period_",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 80793,
+                  "src": "457:15:407",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_uint256",
+                    "typeString": "uint256"
+                  },
+                  "typeName": {
+                    "id": 80790,
+                    "name": "uint256",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "457:7:407",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_uint256",
+                      "typeString": "uint256"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "456:17:407"
+            },
+            "scope": 80794,
+            "stateMutability": "view",
+            "virtual": false,
+            "visibility": "external"
+          }
+        ],
+        "abstract": false,
+        "baseContracts": [],
+        "contractDependencies": [],
+        "contractKind": "interface",
+        "documentation": {
+          "id": 80788,
+          "nodeType": "StructuredDocumentation",
+          "src": "280:92:407",
+          "text": "@title ITestMapleGlobals Interface\n @author Enzyme Council <security@enzyme.finance>"
+        },
+        "fullyImplemented": false,
+        "linearizedBaseContracts": [
+          80794
+        ],
+        "name": "ITestMapleGlobals",
+        "scope": 80795
+      }
+    ],
+    "license": "GPL-3.0"
+  },
+  "id": 407
+}

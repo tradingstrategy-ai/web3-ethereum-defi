@@ -1,0 +1,710 @@
+{
+  "abi": [
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "to",
+          "type": "address"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint256",
+          "name": "amount",
+          "type": "uint256"
+        }
+      ],
+      "name": "MlnTokenBalanceWithdrawn",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": false,
+          "internalType": "address",
+          "name": "nextProtocolFeeReserveLib",
+          "type": "address"
+        }
+      ],
+      "name": "ProtocolFeeReserveLibSet",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "vaultProxy",
+          "type": "address"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint256",
+          "name": "sharesAmount",
+          "type": "uint256"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint256",
+          "name": "mlnValue",
+          "type": "uint256"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint256",
+          "name": "mlnBurned",
+          "type": "uint256"
+        }
+      ],
+      "name": "SharesBoughtBack",
+      "type": "event"
+    },
+    {
+      "inputs": [],
+      "name": "getDispatcher",
+      "outputs": [
+        {
+          "internalType": "address",
+          "name": "dispatcher_",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "getProtocolFeeReserveLib",
+      "outputs": [
+        {
+          "internalType": "address",
+          "name": "protocolFeeReserveLib_",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "_dispatcher",
+          "type": "address"
+        }
+      ],
+      "name": "init",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "proxiableUUID",
+      "outputs": [
+        {
+          "internalType": "bytes32",
+          "name": "uuid_",
+          "type": "bytes32"
+        }
+      ],
+      "stateMutability": "pure",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "_nextProtocolFeeReserveLib",
+          "type": "address"
+        }
+      ],
+      "name": "setProtocolFeeReserveLib",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    }
+  ],
+  "bytecode": {
+    "object": "0x",
+    "sourceMap": "",
+    "linkReferences": {}
+  },
+  "deployedBytecode": {
+    "object": "0x",
+    "sourceMap": "",
+    "linkReferences": {}
+  },
+  "methodIdentifiers": {
+    "getDispatcher()": "ebb3d589",
+    "getProtocolFeeReserveLib()": "b3e2546b",
+    "init(address)": "19ab453c",
+    "proxiableUUID()": "52d1902d",
+    "setProtocolFeeReserveLib(address)": "c75a882a"
+  },
+  "rawMetadata": "{\"compiler\":{\"version\":\"0.6.12+commit.27d51765\"},\"language\":\"Solidity\",\"output\":{\"abi\":[{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"to\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\"}],\"name\":\"MlnTokenBalanceWithdrawn\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"address\",\"name\":\"nextProtocolFeeReserveLib\",\"type\":\"address\"}],\"name\":\"ProtocolFeeReserveLibSet\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"vaultProxy\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"sharesAmount\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"mlnValue\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"mlnBurned\",\"type\":\"uint256\"}],\"name\":\"SharesBoughtBack\",\"type\":\"event\"},{\"inputs\":[],\"name\":\"getDispatcher\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"dispatcher_\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getProtocolFeeReserveLib\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"protocolFeeReserveLib_\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_dispatcher\",\"type\":\"address\"}],\"name\":\"init\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"proxiableUUID\",\"outputs\":[{\"internalType\":\"bytes32\",\"name\":\"uuid_\",\"type\":\"bytes32\"}],\"stateMutability\":\"pure\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_nextProtocolFeeReserveLib\",\"type\":\"address\"}],\"name\":\"setProtocolFeeReserveLib\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"}],\"devdoc\":{\"author\":\"Enzyme Council <security@enzyme.finance>\",\"details\":\"Each next base implementation inherits the previous base implementation, e.g., `ProtocolFeeReserveLibBase2 is ProtocolFeeReserveLibBase1` DO NOT EDIT CONTRACT.\",\"kind\":\"dev\",\"methods\":{\"getDispatcher()\":{\"returns\":{\"dispatcher_\":\"The `dispatcher` variable value\"}},\"getProtocolFeeReserveLib()\":{\"returns\":{\"protocolFeeReserveLib_\":\"The address of the ProtocolFeeReserveLib target\"}},\"init(address)\":{\"details\":\"Serves as a pseudo-constructor\",\"params\":{\"_dispatcher\":\"The Dispatcher contract\"}},\"proxiableUUID()\":{\"returns\":{\"uuid_\":\"The bytes32 hash representing the UUID\"}},\"setProtocolFeeReserveLib(address)\":{\"details\":\"This function is absolutely critical. __updateCodeAddress() validates that the target is a valid Proxiable contract instance. Does not block _nextProtocolFeeReserveLib from being the same as the current ProtocolFeeReserveLib\",\"params\":{\"_nextProtocolFeeReserveLib\":\"The address to set as the ProtocolFeeReserveLib\"}}},\"title\":\"ProtocolFeeReserveLibBase1 Contract\",\"version\":1},\"userdoc\":{\"kind\":\"user\",\"methods\":{\"getDispatcher()\":{\"notice\":\"Gets the `dispatcher` variable\"},\"getProtocolFeeReserveLib()\":{\"notice\":\"Gets the ProtocolFeeReserveLib target for the ProtocolFeeReserveProxy\"},\"init(address)\":{\"notice\":\"Initializes the ProtocolFeeReserveProxy with core configuration\"},\"proxiableUUID()\":{\"notice\":\"Returns a unique bytes32 hash for ProtocolFeeReserveLib instances\"},\"setProtocolFeeReserveLib(address)\":{\"notice\":\"Sets the ProtocolFeeReserveLib target for the ProtocolFeeReserveProxy\"}},\"notice\":\"A base implementation for ProtocolFeeReserveLib\",\"version\":1}},\"settings\":{\"compilationTarget\":{\"contracts/persistent/protocol-fee-reserve/bases/ProtocolFeeReserveLibBase1.sol\":\"ProtocolFeeReserveLibBase1\"},\"evmVersion\":\"istanbul\",\"libraries\":{},\"metadata\":{\"bytecodeHash\":\"none\"},\"optimizer\":{\"details\":{\"constantOptimizer\":true,\"cse\":true,\"deduplicate\":true,\"jumpdestRemover\":true,\"orderLiterals\":true,\"peephole\":true,\"yul\":false},\"runs\":200},\"remappings\":[\":@enzyme/=contracts/\",\":@openzeppelin-solc-0.7/=node_modules/@openzeppelin-solc-0.7/\",\":@openzeppelin/=node_modules/@openzeppelin/\",\":@uniswap/=node_modules/@uniswap/\",\":base64-sol/=node_modules/base64-sol/\",\":ds-test/=lib/forge-std/lib/ds-test/src/\",\":forge-std/=lib/forge-std/src/\",\":hardhat-deploy/=node_modules/hardhat-deploy/\",\":hardhat/=node_modules/hardhat/\"]},\"sources\":{\"contracts/persistent/dispatcher/IDispatcher.sol\":{\"keccak256\":\"0x0e6b0e6cf325d4f6332b8eb2b3c446b2ef3ca8456bdf0d12318d0fd9e90aeb30\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://2f159223517ca72c36852d90e45cc53d1840861d6e1a2a37f7901d7e48bc94d0\",\"dweb:/ipfs/QmZKZnppYFEF8hdTxbA1g3NgWMopwHRey5KdzyJXNGgCUJ\"]},\"contracts/persistent/protocol-fee-reserve/bases/ProtocolFeeReserveLibBase1.sol\":{\"keccak256\":\"0x06b6f8ad9599628e932275a3cdf189197f4ecc6eabedcd19cbcffa8e8e84c92c\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://460a870f1f55f3afee3d966af8f3a17d29558215d2147822accde9e0cd3ec5f1\",\"dweb:/ipfs/QmPxmw28R9PNzymXrA9Jpo353ZT7DFxVn9vciy5rh9xQ2x\"]},\"contracts/persistent/protocol-fee-reserve/bases/ProtocolFeeReserveLibBaseCore.sol\":{\"keccak256\":\"0xf3f0ab84492ace625caae9572cbf3dc25f7a9ccdfee67d38fa8e6c4a2c679a92\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://8b32274866f86ec7f13cc2349da3136d80a7a5968dfbad2361fd47d6013ed83f\",\"dweb:/ipfs/QmaWGGkaCfzckGfzSACzyL1Jyw2n24iT1oHZw8jTw9pb9Z\"]},\"contracts/persistent/protocol-fee-reserve/utils/ProtocolFeeProxyConstants.sol\":{\"keccak256\":\"0x2ae2574c42812a6c7dedc69f37176132d7f55c36ca22672a56b3240a164de7ea\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://1debdcb650ec03dff95ca515206e4850b5fcdb5bb9151cc88019135fee8651f8\",\"dweb:/ipfs/Qmea7QFovEcXGPVSZp8NcAkEzWo94ejUkcwxT7Z9ybWFPe\"]},\"contracts/persistent/protocol-fee-reserve/utils/ProxiableProtocolFeeReserveLib.sol\":{\"keccak256\":\"0xefc9befd638e13010c556c2d691949a3ce51171de8007e2daa536b368ad78868\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://fb6d3f317ec683b1e6b31984bbf65d6d727e7b3f9057917b9f3b5c03f90eb7fd\",\"dweb:/ipfs/QmWmQKoMgavRRMbMEGhX5qGvxfpDkLfwEgUEqYsnAxTt6T\"]}},\"version\":1}",
+  "metadata": {
+    "compiler": {
+      "version": "0.6.12+commit.27d51765"
+    },
+    "language": "Solidity",
+    "output": {
+      "abi": [
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "to",
+              "type": "address",
+              "indexed": true
+            },
+            {
+              "internalType": "uint256",
+              "name": "amount",
+              "type": "uint256",
+              "indexed": false
+            }
+          ],
+          "type": "event",
+          "name": "MlnTokenBalanceWithdrawn",
+          "anonymous": false
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "nextProtocolFeeReserveLib",
+              "type": "address",
+              "indexed": false
+            }
+          ],
+          "type": "event",
+          "name": "ProtocolFeeReserveLibSet",
+          "anonymous": false
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "vaultProxy",
+              "type": "address",
+              "indexed": true
+            },
+            {
+              "internalType": "uint256",
+              "name": "sharesAmount",
+              "type": "uint256",
+              "indexed": false
+            },
+            {
+              "internalType": "uint256",
+              "name": "mlnValue",
+              "type": "uint256",
+              "indexed": false
+            },
+            {
+              "internalType": "uint256",
+              "name": "mlnBurned",
+              "type": "uint256",
+              "indexed": false
+            }
+          ],
+          "type": "event",
+          "name": "SharesBoughtBack",
+          "anonymous": false
+        },
+        {
+          "inputs": [],
+          "stateMutability": "view",
+          "type": "function",
+          "name": "getDispatcher",
+          "outputs": [
+            {
+              "internalType": "address",
+              "name": "dispatcher_",
+              "type": "address"
+            }
+          ]
+        },
+        {
+          "inputs": [],
+          "stateMutability": "view",
+          "type": "function",
+          "name": "getProtocolFeeReserveLib",
+          "outputs": [
+            {
+              "internalType": "address",
+              "name": "protocolFeeReserveLib_",
+              "type": "address"
+            }
+          ]
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "_dispatcher",
+              "type": "address"
+            }
+          ],
+          "stateMutability": "nonpayable",
+          "type": "function",
+          "name": "init"
+        },
+        {
+          "inputs": [],
+          "stateMutability": "pure",
+          "type": "function",
+          "name": "proxiableUUID",
+          "outputs": [
+            {
+              "internalType": "bytes32",
+              "name": "uuid_",
+              "type": "bytes32"
+            }
+          ]
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "_nextProtocolFeeReserveLib",
+              "type": "address"
+            }
+          ],
+          "stateMutability": "nonpayable",
+          "type": "function",
+          "name": "setProtocolFeeReserveLib"
+        }
+      ],
+      "devdoc": {
+        "kind": "dev",
+        "methods": {
+          "getDispatcher()": {
+            "returns": {
+              "dispatcher_": "The `dispatcher` variable value"
+            }
+          },
+          "getProtocolFeeReserveLib()": {
+            "returns": {
+              "protocolFeeReserveLib_": "The address of the ProtocolFeeReserveLib target"
+            }
+          },
+          "init(address)": {
+            "details": "Serves as a pseudo-constructor",
+            "params": {
+              "_dispatcher": "The Dispatcher contract"
+            }
+          },
+          "proxiableUUID()": {
+            "returns": {
+              "uuid_": "The bytes32 hash representing the UUID"
+            }
+          },
+          "setProtocolFeeReserveLib(address)": {
+            "details": "This function is absolutely critical. __updateCodeAddress() validates that the target is a valid Proxiable contract instance. Does not block _nextProtocolFeeReserveLib from being the same as the current ProtocolFeeReserveLib",
+            "params": {
+              "_nextProtocolFeeReserveLib": "The address to set as the ProtocolFeeReserveLib"
+            }
+          }
+        },
+        "version": 1
+      },
+      "userdoc": {
+        "kind": "user",
+        "methods": {
+          "getDispatcher()": {
+            "notice": "Gets the `dispatcher` variable"
+          },
+          "getProtocolFeeReserveLib()": {
+            "notice": "Gets the ProtocolFeeReserveLib target for the ProtocolFeeReserveProxy"
+          },
+          "init(address)": {
+            "notice": "Initializes the ProtocolFeeReserveProxy with core configuration"
+          },
+          "proxiableUUID()": {
+            "notice": "Returns a unique bytes32 hash for ProtocolFeeReserveLib instances"
+          },
+          "setProtocolFeeReserveLib(address)": {
+            "notice": "Sets the ProtocolFeeReserveLib target for the ProtocolFeeReserveProxy"
+          }
+        },
+        "version": 1
+      }
+    },
+    "settings": {
+      "remappings": [
+        ":@enzyme/=contracts/",
+        ":@openzeppelin-solc-0.7/=node_modules/@openzeppelin-solc-0.7/",
+        ":@openzeppelin/=node_modules/@openzeppelin/",
+        ":@uniswap/=node_modules/@uniswap/",
+        ":base64-sol/=node_modules/base64-sol/",
+        ":ds-test/=lib/forge-std/lib/ds-test/src/",
+        ":forge-std/=lib/forge-std/src/",
+        ":hardhat-deploy/=node_modules/hardhat-deploy/",
+        ":hardhat/=node_modules/hardhat/"
+      ],
+      "optimizer": {
+        "runs": 200,
+        "details": {
+          "peephole": true,
+          "jumpdestRemover": true,
+          "orderLiterals": true,
+          "deduplicate": true,
+          "cse": true,
+          "constantOptimizer": true,
+          "yul": false
+        }
+      },
+      "metadata": {
+        "bytecodeHash": "none"
+      },
+      "compilationTarget": {
+        "contracts/persistent/protocol-fee-reserve/bases/ProtocolFeeReserveLibBase1.sol": "ProtocolFeeReserveLibBase1"
+      },
+      "libraries": {}
+    },
+    "sources": {
+      "contracts/persistent/dispatcher/IDispatcher.sol": {
+        "keccak256": "0x0e6b0e6cf325d4f6332b8eb2b3c446b2ef3ca8456bdf0d12318d0fd9e90aeb30",
+        "urls": [
+          "bzz-raw://2f159223517ca72c36852d90e45cc53d1840861d6e1a2a37f7901d7e48bc94d0",
+          "dweb:/ipfs/QmZKZnppYFEF8hdTxbA1g3NgWMopwHRey5KdzyJXNGgCUJ"
+        ],
+        "license": "GPL-3.0"
+      },
+      "contracts/persistent/protocol-fee-reserve/bases/ProtocolFeeReserveLibBase1.sol": {
+        "keccak256": "0x06b6f8ad9599628e932275a3cdf189197f4ecc6eabedcd19cbcffa8e8e84c92c",
+        "urls": [
+          "bzz-raw://460a870f1f55f3afee3d966af8f3a17d29558215d2147822accde9e0cd3ec5f1",
+          "dweb:/ipfs/QmPxmw28R9PNzymXrA9Jpo353ZT7DFxVn9vciy5rh9xQ2x"
+        ],
+        "license": "GPL-3.0"
+      },
+      "contracts/persistent/protocol-fee-reserve/bases/ProtocolFeeReserveLibBaseCore.sol": {
+        "keccak256": "0xf3f0ab84492ace625caae9572cbf3dc25f7a9ccdfee67d38fa8e6c4a2c679a92",
+        "urls": [
+          "bzz-raw://8b32274866f86ec7f13cc2349da3136d80a7a5968dfbad2361fd47d6013ed83f",
+          "dweb:/ipfs/QmaWGGkaCfzckGfzSACzyL1Jyw2n24iT1oHZw8jTw9pb9Z"
+        ],
+        "license": "GPL-3.0"
+      },
+      "contracts/persistent/protocol-fee-reserve/utils/ProtocolFeeProxyConstants.sol": {
+        "keccak256": "0x2ae2574c42812a6c7dedc69f37176132d7f55c36ca22672a56b3240a164de7ea",
+        "urls": [
+          "bzz-raw://1debdcb650ec03dff95ca515206e4850b5fcdb5bb9151cc88019135fee8651f8",
+          "dweb:/ipfs/Qmea7QFovEcXGPVSZp8NcAkEzWo94ejUkcwxT7Z9ybWFPe"
+        ],
+        "license": "GPL-3.0"
+      },
+      "contracts/persistent/protocol-fee-reserve/utils/ProxiableProtocolFeeReserveLib.sol": {
+        "keccak256": "0xefc9befd638e13010c556c2d691949a3ce51171de8007e2daa536b368ad78868",
+        "urls": [
+          "bzz-raw://fb6d3f317ec683b1e6b31984bbf65d6d727e7b3f9057917b9f3b5c03f90eb7fd",
+          "dweb:/ipfs/QmWmQKoMgavRRMbMEGhX5qGvxfpDkLfwEgUEqYsnAxTt6T"
+        ],
+        "license": "GPL-3.0"
+      }
+    },
+    "version": 1
+  },
+  "ast": {
+    "absolutePath": "contracts/persistent/protocol-fee-reserve/bases/ProtocolFeeReserveLibBase1.sol",
+    "id": 7265,
+    "exportedSymbols": {
+      "ProtocolFeeReserveLibBase1": [
+        7264
+      ]
+    },
+    "nodeType": "SourceUnit",
+    "src": "255:717:53",
+    "nodes": [
+      {
+        "id": 7243,
+        "nodeType": "PragmaDirective",
+        "src": "255:23:53",
+        "nodes": [],
+        "literals": [
+          "solidity",
+          "0.6",
+          ".12"
+        ]
+      },
+      {
+        "id": 7244,
+        "nodeType": "ImportDirective",
+        "src": "280:45:53",
+        "nodes": [],
+        "absolutePath": "contracts/persistent/protocol-fee-reserve/bases/ProtocolFeeReserveLibBaseCore.sol",
+        "file": "./ProtocolFeeReserveLibBaseCore.sol",
+        "scope": 7265,
+        "sourceUnit": 7359,
+        "symbolAliases": [],
+        "unitAlias": ""
+      },
+      {
+        "id": 7264,
+        "nodeType": "ContractDefinition",
+        "src": "664:307:53",
+        "nodes": [
+          {
+            "id": 7253,
+            "nodeType": "EventDefinition",
+            "src": "748:67:53",
+            "nodes": [],
+            "anonymous": false,
+            "documentation": null,
+            "name": "MlnTokenBalanceWithdrawn",
+            "parameters": {
+              "id": 7252,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 7249,
+                  "indexed": true,
+                  "mutability": "mutable",
+                  "name": "to",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 7253,
+                  "src": "779:18:53",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 7248,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "779:7:53",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 7251,
+                  "indexed": false,
+                  "mutability": "mutable",
+                  "name": "amount",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 7253,
+                  "src": "799:14:53",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_uint256",
+                    "typeString": "uint256"
+                  },
+                  "typeName": {
+                    "id": 7250,
+                    "name": "uint256",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "799:7:53",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_uint256",
+                      "typeString": "uint256"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "778:36:53"
+            }
+          },
+          {
+            "id": 7263,
+            "nodeType": "EventDefinition",
+            "src": "821:148:53",
+            "nodes": [],
+            "anonymous": false,
+            "documentation": null,
+            "name": "SharesBoughtBack",
+            "parameters": {
+              "id": 7262,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 7255,
+                  "indexed": true,
+                  "mutability": "mutable",
+                  "name": "vaultProxy",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 7263,
+                  "src": "853:26:53",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 7254,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "853:7:53",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 7257,
+                  "indexed": false,
+                  "mutability": "mutable",
+                  "name": "sharesAmount",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 7263,
+                  "src": "889:20:53",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_uint256",
+                    "typeString": "uint256"
+                  },
+                  "typeName": {
+                    "id": 7256,
+                    "name": "uint256",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "889:7:53",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_uint256",
+                      "typeString": "uint256"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 7259,
+                  "indexed": false,
+                  "mutability": "mutable",
+                  "name": "mlnValue",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 7263,
+                  "src": "919:16:53",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_uint256",
+                    "typeString": "uint256"
+                  },
+                  "typeName": {
+                    "id": 7258,
+                    "name": "uint256",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "919:7:53",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_uint256",
+                      "typeString": "uint256"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 7261,
+                  "indexed": false,
+                  "mutability": "mutable",
+                  "name": "mlnBurned",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 7263,
+                  "src": "945:17:53",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_uint256",
+                    "typeString": "uint256"
+                  },
+                  "typeName": {
+                    "id": 7260,
+                    "name": "uint256",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "945:7:53",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_uint256",
+                      "typeString": "uint256"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "843:125:53"
+            }
+          }
+        ],
+        "abstract": true,
+        "baseContracts": [
+          {
+            "arguments": null,
+            "baseName": {
+              "contractScope": null,
+              "id": 7246,
+              "name": "ProtocolFeeReserveLibBaseCore",
+              "nodeType": "UserDefinedTypeName",
+              "referencedDeclaration": 7358,
+              "src": "712:29:53",
+              "typeDescriptions": {
+                "typeIdentifier": "t_contract$_ProtocolFeeReserveLibBaseCore_$7358",
+                "typeString": "contract ProtocolFeeReserveLibBaseCore"
+              }
+            },
+            "id": 7247,
+            "nodeType": "InheritanceSpecifier",
+            "src": "712:29:53"
+          }
+        ],
+        "contractDependencies": [
+          7358,
+          7383,
+          7421
+        ],
+        "contractKind": "contract",
+        "documentation": {
+          "id": 7245,
+          "nodeType": "StructuredDocumentation",
+          "src": "327:337:53",
+          "text": "@title ProtocolFeeReserveLibBase1 Contract\n @author Enzyme Council <security@enzyme.finance>\n @notice A base implementation for ProtocolFeeReserveLib\n @dev Each next base implementation inherits the previous base implementation,\n e.g., `ProtocolFeeReserveLibBase2 is ProtocolFeeReserveLibBase1`\n DO NOT EDIT CONTRACT."
+        },
+        "fullyImplemented": true,
+        "linearizedBaseContracts": [
+          7264,
+          7358,
+          7421,
+          7383
+        ],
+        "name": "ProtocolFeeReserveLibBase1",
+        "scope": 7265
+      }
+    ],
+    "license": "GPL-3.0"
+  },
+  "id": 53
+}

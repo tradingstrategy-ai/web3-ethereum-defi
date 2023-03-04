@@ -1,0 +1,989 @@
+{
+  "abi": [
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "_to",
+          "type": "address"
+        },
+        {
+          "internalType": "uint256",
+          "name": "_tokenId",
+          "type": "uint256"
+        }
+      ],
+      "name": "approve",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "_issuer",
+          "type": "address"
+        },
+        {
+          "internalType": "address",
+          "name": "_fundCurrency",
+          "type": "address"
+        },
+        {
+          "internalType": "uint128",
+          "name": "_lowestPrice",
+          "type": "uint128"
+        },
+        {
+          "internalType": "uint128",
+          "name": "_highestPrice",
+          "type": "uint128"
+        },
+        {
+          "internalType": "uint64",
+          "name": "_effectiveTime",
+          "type": "uint64"
+        },
+        {
+          "internalType": "uint64",
+          "name": "_maturity",
+          "type": "uint64"
+        }
+      ],
+      "name": "getSlot",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "slot_",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "_slot",
+          "type": "uint256"
+        }
+      ],
+      "name": "getSlotDetail",
+      "outputs": [
+        {
+          "components": [
+            {
+              "internalType": "address",
+              "name": "issuer",
+              "type": "address"
+            },
+            {
+              "internalType": "address",
+              "name": "fundCurrency",
+              "type": "address"
+            },
+            {
+              "internalType": "uint256",
+              "name": "totalValue",
+              "type": "uint256"
+            },
+            {
+              "internalType": "uint128",
+              "name": "lowestPrice",
+              "type": "uint128"
+            },
+            {
+              "internalType": "uint128",
+              "name": "highestPrice",
+              "type": "uint128"
+            },
+            {
+              "internalType": "uint128",
+              "name": "settlePrice",
+              "type": "uint128"
+            },
+            {
+              "internalType": "uint64",
+              "name": "effectiveTime",
+              "type": "uint64"
+            },
+            {
+              "internalType": "uint64",
+              "name": "maturity",
+              "type": "uint64"
+            },
+            {
+              "internalType": "enum ITestSolvV2BondPool.CollateralType",
+              "name": "collateralType",
+              "type": "uint8"
+            },
+            {
+              "internalType": "bool",
+              "name": "isIssuerRefunded",
+              "type": "bool"
+            },
+            {
+              "internalType": "bool",
+              "name": "isIssuerWithdrawn",
+              "type": "bool"
+            },
+            {
+              "internalType": "bool",
+              "name": "isClaimed",
+              "type": "bool"
+            },
+            {
+              "internalType": "bool",
+              "name": "isValid",
+              "type": "bool"
+            }
+          ],
+          "internalType": "struct ITestSolvV2BondPool.SlotDetail",
+          "name": "slotDetail_",
+          "type": "tuple"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "_tokenId",
+          "type": "uint256"
+        }
+      ],
+      "name": "ownerOf",
+      "outputs": [
+        {
+          "internalType": "address",
+          "name": "owner_",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    }
+  ],
+  "bytecode": {
+    "object": "0x",
+    "sourceMap": "",
+    "linkReferences": {}
+  },
+  "deployedBytecode": {
+    "object": "0x",
+    "sourceMap": "",
+    "linkReferences": {}
+  },
+  "methodIdentifiers": {
+    "approve(address,uint256)": "095ea7b3",
+    "getSlot(address,address,uint128,uint128,uint64,uint64)": "9576dd8f",
+    "getSlotDetail(uint256)": "d3ceafb9",
+    "ownerOf(uint256)": "6352211e"
+  },
+  "rawMetadata": "{\"compiler\":{\"version\":\"0.6.12+commit.27d51765\"},\"language\":\"Solidity\",\"output\":{\"abi\":[{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_to\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"_tokenId\",\"type\":\"uint256\"}],\"name\":\"approve\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_issuer\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"_fundCurrency\",\"type\":\"address\"},{\"internalType\":\"uint128\",\"name\":\"_lowestPrice\",\"type\":\"uint128\"},{\"internalType\":\"uint128\",\"name\":\"_highestPrice\",\"type\":\"uint128\"},{\"internalType\":\"uint64\",\"name\":\"_effectiveTime\",\"type\":\"uint64\"},{\"internalType\":\"uint64\",\"name\":\"_maturity\",\"type\":\"uint64\"}],\"name\":\"getSlot\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"slot_\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_slot\",\"type\":\"uint256\"}],\"name\":\"getSlotDetail\",\"outputs\":[{\"components\":[{\"internalType\":\"address\",\"name\":\"issuer\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"fundCurrency\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"totalValue\",\"type\":\"uint256\"},{\"internalType\":\"uint128\",\"name\":\"lowestPrice\",\"type\":\"uint128\"},{\"internalType\":\"uint128\",\"name\":\"highestPrice\",\"type\":\"uint128\"},{\"internalType\":\"uint128\",\"name\":\"settlePrice\",\"type\":\"uint128\"},{\"internalType\":\"uint64\",\"name\":\"effectiveTime\",\"type\":\"uint64\"},{\"internalType\":\"uint64\",\"name\":\"maturity\",\"type\":\"uint64\"},{\"internalType\":\"enum ITestSolvV2BondPool.CollateralType\",\"name\":\"collateralType\",\"type\":\"uint8\"},{\"internalType\":\"bool\",\"name\":\"isIssuerRefunded\",\"type\":\"bool\"},{\"internalType\":\"bool\",\"name\":\"isIssuerWithdrawn\",\"type\":\"bool\"},{\"internalType\":\"bool\",\"name\":\"isClaimed\",\"type\":\"bool\"},{\"internalType\":\"bool\",\"name\":\"isValid\",\"type\":\"bool\"}],\"internalType\":\"struct ITestSolvV2BondPool.SlotDetail\",\"name\":\"slotDetail_\",\"type\":\"tuple\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_tokenId\",\"type\":\"uint256\"}],\"name\":\"ownerOf\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"owner_\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"}],\"devdoc\":{\"author\":\"Enzyme Council <security@enzyme.finance>\",\"details\":\"Source: https://github.com/solv-finance/solv-v2-ivo/blob/main/vouchers/bond-voucher/contracts/BondVoucher.sol\",\"kind\":\"dev\",\"methods\":{},\"title\":\"ITestSolvV2BondVoucher Interface\",\"version\":1},\"userdoc\":{\"kind\":\"user\",\"methods\":{},\"notice\":\"A test interface for Solv V2 Bond Pool\",\"version\":1}},\"settings\":{\"compilationTarget\":{\"contracts/test/interfaces/ITestSolvV2BondVoucher.sol\":\"ITestSolvV2BondVoucher\"},\"evmVersion\":\"istanbul\",\"libraries\":{},\"metadata\":{\"bytecodeHash\":\"none\"},\"optimizer\":{\"details\":{\"constantOptimizer\":true,\"cse\":true,\"deduplicate\":true,\"jumpdestRemover\":true,\"orderLiterals\":true,\"peephole\":true,\"yul\":false},\"runs\":200},\"remappings\":[\":@enzyme/=contracts/\",\":@openzeppelin-solc-0.7/=node_modules/@openzeppelin-solc-0.7/\",\":@openzeppelin/=node_modules/@openzeppelin/\",\":@uniswap/=node_modules/@uniswap/\",\":base64-sol/=node_modules/base64-sol/\",\":ds-test/=lib/forge-std/lib/ds-test/src/\",\":forge-std/=lib/forge-std/src/\",\":hardhat-deploy/=node_modules/hardhat-deploy/\",\":hardhat/=node_modules/hardhat/\"]},\"sources\":{\"contracts/test/interfaces/ITestSolvV2BondPool.sol\":{\"keccak256\":\"0x8720aea52aea0b5807817c425cd35251b265aabf7c11bf818586d35652cc42a2\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://6ed12719f95591e987ff7b9c8a5d1ffe2108b46f05d145855ae7babe858dbd8c\",\"dweb:/ipfs/QmaGsdC949YmnkLERieUzrftNasbv9ztNA5B581Y58WTHg\"]},\"contracts/test/interfaces/ITestSolvV2BondVoucher.sol\":{\"keccak256\":\"0x8c0fbef3c499f89ffada3470e43132b4d30515190051e125a63fb03ad31d48a0\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://944e6fd43fbe0908e1235df6c6c3ccce80aefdbbf3ce704beb786464f80b6aea\",\"dweb:/ipfs/QmPZhsdMi95BFbiv8zJDanEHTphrzDShJMMmyjKT4wKLbE\"]}},\"version\":1}",
+  "metadata": {
+    "compiler": {
+      "version": "0.6.12+commit.27d51765"
+    },
+    "language": "Solidity",
+    "output": {
+      "abi": [
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "_to",
+              "type": "address"
+            },
+            {
+              "internalType": "uint256",
+              "name": "_tokenId",
+              "type": "uint256"
+            }
+          ],
+          "stateMutability": "nonpayable",
+          "type": "function",
+          "name": "approve"
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "_issuer",
+              "type": "address"
+            },
+            {
+              "internalType": "address",
+              "name": "_fundCurrency",
+              "type": "address"
+            },
+            {
+              "internalType": "uint128",
+              "name": "_lowestPrice",
+              "type": "uint128"
+            },
+            {
+              "internalType": "uint128",
+              "name": "_highestPrice",
+              "type": "uint128"
+            },
+            {
+              "internalType": "uint64",
+              "name": "_effectiveTime",
+              "type": "uint64"
+            },
+            {
+              "internalType": "uint64",
+              "name": "_maturity",
+              "type": "uint64"
+            }
+          ],
+          "stateMutability": "view",
+          "type": "function",
+          "name": "getSlot",
+          "outputs": [
+            {
+              "internalType": "uint256",
+              "name": "slot_",
+              "type": "uint256"
+            }
+          ]
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "uint256",
+              "name": "_slot",
+              "type": "uint256"
+            }
+          ],
+          "stateMutability": "view",
+          "type": "function",
+          "name": "getSlotDetail",
+          "outputs": [
+            {
+              "internalType": "struct ITestSolvV2BondPool.SlotDetail",
+              "name": "slotDetail_",
+              "type": "tuple",
+              "components": [
+                {
+                  "internalType": "address",
+                  "name": "issuer",
+                  "type": "address"
+                },
+                {
+                  "internalType": "address",
+                  "name": "fundCurrency",
+                  "type": "address"
+                },
+                {
+                  "internalType": "uint256",
+                  "name": "totalValue",
+                  "type": "uint256"
+                },
+                {
+                  "internalType": "uint128",
+                  "name": "lowestPrice",
+                  "type": "uint128"
+                },
+                {
+                  "internalType": "uint128",
+                  "name": "highestPrice",
+                  "type": "uint128"
+                },
+                {
+                  "internalType": "uint128",
+                  "name": "settlePrice",
+                  "type": "uint128"
+                },
+                {
+                  "internalType": "uint64",
+                  "name": "effectiveTime",
+                  "type": "uint64"
+                },
+                {
+                  "internalType": "uint64",
+                  "name": "maturity",
+                  "type": "uint64"
+                },
+                {
+                  "internalType": "enum ITestSolvV2BondPool.CollateralType",
+                  "name": "collateralType",
+                  "type": "uint8"
+                },
+                {
+                  "internalType": "bool",
+                  "name": "isIssuerRefunded",
+                  "type": "bool"
+                },
+                {
+                  "internalType": "bool",
+                  "name": "isIssuerWithdrawn",
+                  "type": "bool"
+                },
+                {
+                  "internalType": "bool",
+                  "name": "isClaimed",
+                  "type": "bool"
+                },
+                {
+                  "internalType": "bool",
+                  "name": "isValid",
+                  "type": "bool"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "uint256",
+              "name": "_tokenId",
+              "type": "uint256"
+            }
+          ],
+          "stateMutability": "view",
+          "type": "function",
+          "name": "ownerOf",
+          "outputs": [
+            {
+              "internalType": "address",
+              "name": "owner_",
+              "type": "address"
+            }
+          ]
+        }
+      ],
+      "devdoc": {
+        "kind": "dev",
+        "methods": {},
+        "version": 1
+      },
+      "userdoc": {
+        "kind": "user",
+        "methods": {},
+        "version": 1
+      }
+    },
+    "settings": {
+      "remappings": [
+        ":@enzyme/=contracts/",
+        ":@openzeppelin-solc-0.7/=node_modules/@openzeppelin-solc-0.7/",
+        ":@openzeppelin/=node_modules/@openzeppelin/",
+        ":@uniswap/=node_modules/@uniswap/",
+        ":base64-sol/=node_modules/base64-sol/",
+        ":ds-test/=lib/forge-std/lib/ds-test/src/",
+        ":forge-std/=lib/forge-std/src/",
+        ":hardhat-deploy/=node_modules/hardhat-deploy/",
+        ":hardhat/=node_modules/hardhat/"
+      ],
+      "optimizer": {
+        "runs": 200,
+        "details": {
+          "peephole": true,
+          "jumpdestRemover": true,
+          "orderLiterals": true,
+          "deduplicate": true,
+          "cse": true,
+          "constantOptimizer": true,
+          "yul": false
+        }
+      },
+      "metadata": {
+        "bytecodeHash": "none"
+      },
+      "compilationTarget": {
+        "contracts/test/interfaces/ITestSolvV2BondVoucher.sol": "ITestSolvV2BondVoucher"
+      },
+      "libraries": {}
+    },
+    "sources": {
+      "contracts/test/interfaces/ITestSolvV2BondPool.sol": {
+        "keccak256": "0x8720aea52aea0b5807817c425cd35251b265aabf7c11bf818586d35652cc42a2",
+        "urls": [
+          "bzz-raw://6ed12719f95591e987ff7b9c8a5d1ffe2108b46f05d145855ae7babe858dbd8c",
+          "dweb:/ipfs/QmaGsdC949YmnkLERieUzrftNasbv9ztNA5B581Y58WTHg"
+        ],
+        "license": "GPL-3.0"
+      },
+      "contracts/test/interfaces/ITestSolvV2BondVoucher.sol": {
+        "keccak256": "0x8c0fbef3c499f89ffada3470e43132b4d30515190051e125a63fb03ad31d48a0",
+        "urls": [
+          "bzz-raw://944e6fd43fbe0908e1235df6c6c3ccce80aefdbbf3ce704beb786464f80b6aea",
+          "dweb:/ipfs/QmPZhsdMi95BFbiv8zJDanEHTphrzDShJMMmyjKT4wKLbE"
+        ],
+        "license": "GPL-3.0"
+      }
+    },
+    "version": 1
+  },
+  "ast": {
+    "absolutePath": "contracts/test/interfaces/ITestSolvV2BondVoucher.sol",
+    "id": 81198,
+    "exportedSymbols": {
+      "ITestSolvV2BondVoucher": [
+        81197
+      ]
+    },
+    "nodeType": "SourceUnit",
+    "src": "253:925:418",
+    "nodes": [
+      {
+        "id": 81155,
+        "nodeType": "PragmaDirective",
+        "src": "253:23:418",
+        "nodes": [],
+        "literals": [
+          "solidity",
+          "0.6",
+          ".12"
+        ]
+      },
+      {
+        "id": 81156,
+        "nodeType": "PragmaDirective",
+        "src": "277:33:418",
+        "nodes": [],
+        "literals": [
+          "experimental",
+          "ABIEncoderV2"
+        ]
+      },
+      {
+        "id": 81157,
+        "nodeType": "ImportDirective",
+        "src": "312:35:418",
+        "nodes": [],
+        "absolutePath": "contracts/test/interfaces/ITestSolvV2BondPool.sol",
+        "file": "./ITestSolvV2BondPool.sol",
+        "scope": 81198,
+        "sourceUnit": 81125,
+        "symbolAliases": [],
+        "unitAlias": ""
+      },
+      {
+        "id": 81197,
+        "nodeType": "ContractDefinition",
+        "src": "616:561:418",
+        "nodes": [
+          {
+            "id": 81165,
+            "nodeType": "FunctionDefinition",
+            "src": "655:57:418",
+            "nodes": [],
+            "documentation": null,
+            "functionSelector": "095ea7b3",
+            "implemented": false,
+            "kind": "function",
+            "modifiers": [],
+            "name": "approve",
+            "overrides": null,
+            "parameters": {
+              "id": 81163,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 81160,
+                  "mutability": "mutable",
+                  "name": "_to",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 81165,
+                  "src": "672:11:418",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 81159,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "672:7:418",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 81162,
+                  "mutability": "mutable",
+                  "name": "_tokenId",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 81165,
+                  "src": "685:16:418",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_uint256",
+                    "typeString": "uint256"
+                  },
+                  "typeName": {
+                    "id": 81161,
+                    "name": "uint256",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "685:7:418",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_uint256",
+                      "typeString": "uint256"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "671:31:418"
+            },
+            "returnParameters": {
+              "id": 81164,
+              "nodeType": "ParameterList",
+              "parameters": [],
+              "src": "711:0:418"
+            },
+            "scope": 81197,
+            "stateMutability": "nonpayable",
+            "virtual": false,
+            "visibility": "external"
+          },
+          {
+            "id": 81182,
+            "nodeType": "FunctionDefinition",
+            "src": "718:235:418",
+            "nodes": [],
+            "documentation": null,
+            "functionSelector": "9576dd8f",
+            "implemented": false,
+            "kind": "function",
+            "modifiers": [],
+            "name": "getSlot",
+            "overrides": null,
+            "parameters": {
+              "id": 81178,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 81167,
+                  "mutability": "mutable",
+                  "name": "_issuer",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 81182,
+                  "src": "744:15:418",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 81166,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "744:7:418",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 81169,
+                  "mutability": "mutable",
+                  "name": "_fundCurrency",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 81182,
+                  "src": "769:21:418",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 81168,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "769:7:418",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 81171,
+                  "mutability": "mutable",
+                  "name": "_lowestPrice",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 81182,
+                  "src": "800:20:418",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_uint128",
+                    "typeString": "uint128"
+                  },
+                  "typeName": {
+                    "id": 81170,
+                    "name": "uint128",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "800:7:418",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_uint128",
+                      "typeString": "uint128"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 81173,
+                  "mutability": "mutable",
+                  "name": "_highestPrice",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 81182,
+                  "src": "830:21:418",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_uint128",
+                    "typeString": "uint128"
+                  },
+                  "typeName": {
+                    "id": 81172,
+                    "name": "uint128",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "830:7:418",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_uint128",
+                      "typeString": "uint128"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 81175,
+                  "mutability": "mutable",
+                  "name": "_effectiveTime",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 81182,
+                  "src": "861:21:418",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_uint64",
+                    "typeString": "uint64"
+                  },
+                  "typeName": {
+                    "id": 81174,
+                    "name": "uint64",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "861:6:418",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_uint64",
+                      "typeString": "uint64"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 81177,
+                  "mutability": "mutable",
+                  "name": "_maturity",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 81182,
+                  "src": "892:16:418",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_uint64",
+                    "typeString": "uint64"
+                  },
+                  "typeName": {
+                    "id": 81176,
+                    "name": "uint64",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "892:6:418",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_uint64",
+                      "typeString": "uint64"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "734:180:418"
+            },
+            "returnParameters": {
+              "id": 81181,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 81180,
+                  "mutability": "mutable",
+                  "name": "slot_",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 81182,
+                  "src": "938:13:418",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_uint256",
+                    "typeString": "uint256"
+                  },
+                  "typeName": {
+                    "id": 81179,
+                    "name": "uint256",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "938:7:418",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_uint256",
+                      "typeString": "uint256"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "937:15:418"
+            },
+            "scope": 81197,
+            "stateMutability": "view",
+            "virtual": false,
+            "visibility": "external"
+          },
+          {
+            "id": 81189,
+            "nodeType": "FunctionDefinition",
+            "src": "959:136:418",
+            "nodes": [],
+            "documentation": null,
+            "functionSelector": "d3ceafb9",
+            "implemented": false,
+            "kind": "function",
+            "modifiers": [],
+            "name": "getSlotDetail",
+            "overrides": null,
+            "parameters": {
+              "id": 81185,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 81184,
+                  "mutability": "mutable",
+                  "name": "_slot",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 81189,
+                  "src": "982:13:418",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_uint256",
+                    "typeString": "uint256"
+                  },
+                  "typeName": {
+                    "id": 81183,
+                    "name": "uint256",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "982:7:418",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_uint256",
+                      "typeString": "uint256"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "981:15:418"
+            },
+            "returnParameters": {
+              "id": 81188,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 81187,
+                  "mutability": "mutable",
+                  "name": "slotDetail_",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 81189,
+                  "src": "1044:49:418",
+                  "stateVariable": false,
+                  "storageLocation": "memory",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_struct$_SlotDetail_$81094_memory_ptr",
+                    "typeString": "struct ITestSolvV2BondPool.SlotDetail"
+                  },
+                  "typeName": {
+                    "contractScope": null,
+                    "id": 81186,
+                    "name": "ITestSolvV2BondPool.SlotDetail",
+                    "nodeType": "UserDefinedTypeName",
+                    "referencedDeclaration": 81094,
+                    "src": "1044:30:418",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_struct$_SlotDetail_$81094_storage_ptr",
+                      "typeString": "struct ITestSolvV2BondPool.SlotDetail"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "1043:51:418"
+            },
+            "scope": 81197,
+            "stateMutability": "view",
+            "virtual": false,
+            "visibility": "external"
+          },
+          {
+            "id": 81196,
+            "nodeType": "FunctionDefinition",
+            "src": "1101:74:418",
+            "nodes": [],
+            "documentation": null,
+            "functionSelector": "6352211e",
+            "implemented": false,
+            "kind": "function",
+            "modifiers": [],
+            "name": "ownerOf",
+            "overrides": null,
+            "parameters": {
+              "id": 81192,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 81191,
+                  "mutability": "mutable",
+                  "name": "_tokenId",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 81196,
+                  "src": "1118:16:418",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_uint256",
+                    "typeString": "uint256"
+                  },
+                  "typeName": {
+                    "id": 81190,
+                    "name": "uint256",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "1118:7:418",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_uint256",
+                      "typeString": "uint256"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "1117:18:418"
+            },
+            "returnParameters": {
+              "id": 81195,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 81194,
+                  "mutability": "mutable",
+                  "name": "owner_",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 81196,
+                  "src": "1159:14:418",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 81193,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "1159:7:418",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "1158:16:418"
+            },
+            "scope": 81197,
+            "stateMutability": "view",
+            "virtual": false,
+            "visibility": "external"
+          }
+        ],
+        "abstract": false,
+        "baseContracts": [],
+        "contractDependencies": [],
+        "contractKind": "interface",
+        "documentation": {
+          "id": 81158,
+          "nodeType": "StructuredDocumentation",
+          "src": "349:267:418",
+          "text": "@title ITestSolvV2BondVoucher Interface\n @author Enzyme Council <security@enzyme.finance>\n @notice A test interface for Solv V2 Bond Pool\n @dev Source: https://github.com/solv-finance/solv-v2-ivo/blob/main/vouchers/bond-voucher/contracts/BondVoucher.sol"
+        },
+        "fullyImplemented": false,
+        "linearizedBaseContracts": [
+          81197
+        ],
+        "name": "ITestSolvV2BondVoucher",
+        "scope": 81198
+      }
+    ],
+    "license": "GPL-3.0"
+  },
+  "id": 418
+}

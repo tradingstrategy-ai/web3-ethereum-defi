@@ -1,0 +1,295 @@
+{
+  "abi": [
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "_delegator",
+          "type": "address"
+        },
+        {
+          "internalType": "bytes32",
+          "name": "_id",
+          "type": "bytes32"
+        }
+      ],
+      "name": "delegation",
+      "outputs": [
+        {
+          "internalType": "address",
+          "name": "delegate_",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    }
+  ],
+  "bytecode": {
+    "object": "0x",
+    "sourceMap": "",
+    "linkReferences": {}
+  },
+  "deployedBytecode": {
+    "object": "0x",
+    "sourceMap": "",
+    "linkReferences": {}
+  },
+  "methodIdentifiers": {
+    "delegation(address,bytes32)": "74c6c454"
+  },
+  "rawMetadata": "{\"compiler\":{\"version\":\"0.6.12+commit.27d51765\"},\"language\":\"Solidity\",\"output\":{\"abi\":[{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_delegator\",\"type\":\"address\"},{\"internalType\":\"bytes32\",\"name\":\"_id\",\"type\":\"bytes32\"}],\"name\":\"delegation\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"delegate_\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"}],\"devdoc\":{\"author\":\"Enzyme Council <security@enzyme.finance>\",\"kind\":\"dev\",\"methods\":{},\"title\":\"ITestSnapshotDelegateRegistry Interface\",\"version\":1},\"userdoc\":{\"kind\":\"user\",\"methods\":{},\"version\":1}},\"settings\":{\"compilationTarget\":{\"contracts/test/interfaces/ITestSnapshotDelegateRegistry.sol\":\"ITestSnapshotDelegateRegistry\"},\"evmVersion\":\"istanbul\",\"libraries\":{},\"metadata\":{\"bytecodeHash\":\"none\"},\"optimizer\":{\"details\":{\"constantOptimizer\":true,\"cse\":true,\"deduplicate\":true,\"jumpdestRemover\":true,\"orderLiterals\":true,\"peephole\":true,\"yul\":false},\"runs\":200},\"remappings\":[\":@enzyme/=contracts/\",\":@openzeppelin-solc-0.7/=node_modules/@openzeppelin-solc-0.7/\",\":@openzeppelin/=node_modules/@openzeppelin/\",\":@uniswap/=node_modules/@uniswap/\",\":base64-sol/=node_modules/base64-sol/\",\":ds-test/=lib/forge-std/lib/ds-test/src/\",\":forge-std/=lib/forge-std/src/\",\":hardhat-deploy/=node_modules/hardhat-deploy/\",\":hardhat/=node_modules/hardhat/\"]},\"sources\":{\"contracts/test/interfaces/ITestSnapshotDelegateRegistry.sol\":{\"keccak256\":\"0x0148fb6e498156a76486bcdd95716456f3afa9a143d55374db5cc1901620cf4c\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://7bf8ed7a52bd161a53e041bb02fffc84d00ac9631e0f7bd82b315e601f5440bd\",\"dweb:/ipfs/QmciqmQQbJ3fSyXM47qV6JWWdJAybBjim97XaVWdtA3MxL\"]}},\"version\":1}",
+  "metadata": {
+    "compiler": {
+      "version": "0.6.12+commit.27d51765"
+    },
+    "language": "Solidity",
+    "output": {
+      "abi": [
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "_delegator",
+              "type": "address"
+            },
+            {
+              "internalType": "bytes32",
+              "name": "_id",
+              "type": "bytes32"
+            }
+          ],
+          "stateMutability": "view",
+          "type": "function",
+          "name": "delegation",
+          "outputs": [
+            {
+              "internalType": "address",
+              "name": "delegate_",
+              "type": "address"
+            }
+          ]
+        }
+      ],
+      "devdoc": {
+        "kind": "dev",
+        "methods": {},
+        "version": 1
+      },
+      "userdoc": {
+        "kind": "user",
+        "methods": {},
+        "version": 1
+      }
+    },
+    "settings": {
+      "remappings": [
+        ":@enzyme/=contracts/",
+        ":@openzeppelin-solc-0.7/=node_modules/@openzeppelin-solc-0.7/",
+        ":@openzeppelin/=node_modules/@openzeppelin/",
+        ":@uniswap/=node_modules/@uniswap/",
+        ":base64-sol/=node_modules/base64-sol/",
+        ":ds-test/=lib/forge-std/lib/ds-test/src/",
+        ":forge-std/=lib/forge-std/src/",
+        ":hardhat-deploy/=node_modules/hardhat-deploy/",
+        ":hardhat/=node_modules/hardhat/"
+      ],
+      "optimizer": {
+        "runs": 200,
+        "details": {
+          "peephole": true,
+          "jumpdestRemover": true,
+          "orderLiterals": true,
+          "deduplicate": true,
+          "cse": true,
+          "constantOptimizer": true,
+          "yul": false
+        }
+      },
+      "metadata": {
+        "bytecodeHash": "none"
+      },
+      "compilationTarget": {
+        "contracts/test/interfaces/ITestSnapshotDelegateRegistry.sol": "ITestSnapshotDelegateRegistry"
+      },
+      "libraries": {}
+    },
+    "sources": {
+      "contracts/test/interfaces/ITestSnapshotDelegateRegistry.sol": {
+        "keccak256": "0x0148fb6e498156a76486bcdd95716456f3afa9a143d55374db5cc1901620cf4c",
+        "urls": [
+          "bzz-raw://7bf8ed7a52bd161a53e041bb02fffc84d00ac9631e0f7bd82b315e601f5440bd",
+          "dweb:/ipfs/QmciqmQQbJ3fSyXM47qV6JWWdJAybBjim97XaVWdtA3MxL"
+        ],
+        "license": "GPL-3.0"
+      }
+    },
+    "version": 1
+  },
+  "ast": {
+    "absolutePath": "contracts/test/interfaces/ITestSnapshotDelegateRegistry.sol",
+    "id": 81046,
+    "exportedSymbols": {
+      "ITestSnapshotDelegateRegistry": [
+        81045
+      ]
+    },
+    "nodeType": "SourceUnit",
+    "src": "253:273:414",
+    "nodes": [
+      {
+        "id": 81034,
+        "nodeType": "PragmaDirective",
+        "src": "253:23:414",
+        "nodes": [],
+        "literals": [
+          "solidity",
+          "0.6",
+          ".12"
+        ]
+      },
+      {
+        "id": 81045,
+        "nodeType": "ContractDefinition",
+        "src": "382:143:414",
+        "nodes": [
+          {
+            "id": 81044,
+            "nodeType": "FunctionDefinition",
+            "src": "428:95:414",
+            "nodes": [],
+            "documentation": null,
+            "functionSelector": "74c6c454",
+            "implemented": false,
+            "kind": "function",
+            "modifiers": [],
+            "name": "delegation",
+            "overrides": null,
+            "parameters": {
+              "id": 81040,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 81037,
+                  "mutability": "mutable",
+                  "name": "_delegator",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 81044,
+                  "src": "448:18:414",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 81036,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "448:7:414",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 81039,
+                  "mutability": "mutable",
+                  "name": "_id",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 81044,
+                  "src": "468:11:414",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_bytes32",
+                    "typeString": "bytes32"
+                  },
+                  "typeName": {
+                    "id": 81038,
+                    "name": "bytes32",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "468:7:414",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_bytes32",
+                      "typeString": "bytes32"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "447:33:414"
+            },
+            "returnParameters": {
+              "id": 81043,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 81042,
+                  "mutability": "mutable",
+                  "name": "delegate_",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 81044,
+                  "src": "504:17:414",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 81041,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "504:7:414",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "503:19:414"
+            },
+            "scope": 81045,
+            "stateMutability": "view",
+            "virtual": false,
+            "visibility": "external"
+          }
+        ],
+        "abstract": false,
+        "baseContracts": [],
+        "contractDependencies": [],
+        "contractKind": "interface",
+        "documentation": {
+          "id": 81035,
+          "nodeType": "StructuredDocumentation",
+          "src": "278:104:414",
+          "text": "@title ITestSnapshotDelegateRegistry Interface\n @author Enzyme Council <security@enzyme.finance>"
+        },
+        "fullyImplemented": false,
+        "linearizedBaseContracts": [
+          81045
+        ],
+        "name": "ITestSnapshotDelegateRegistry",
+        "scope": 81046
+      }
+    ],
+    "license": "GPL-3.0"
+  },
+  "id": 414
+}

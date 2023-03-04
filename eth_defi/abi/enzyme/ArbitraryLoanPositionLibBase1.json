@@ -1,0 +1,771 @@
+{
+  "abi": [
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": false,
+          "internalType": "uint256",
+          "name": "borrowableAmount",
+          "type": "uint256"
+        }
+      ],
+      "name": "BorrowableAmountUpdated",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [],
+      "name": "LoanClosed",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "borrower",
+          "type": "address"
+        },
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "loanAsset",
+          "type": "address"
+        },
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "accountingModule",
+          "type": "address"
+        },
+        {
+          "indexed": false,
+          "internalType": "bytes32",
+          "name": "description",
+          "type": "bytes32"
+        }
+      ],
+      "name": "LoanConfigured",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": false,
+          "internalType": "uint256",
+          "name": "totalBorrowed",
+          "type": "uint256"
+        }
+      ],
+      "name": "TotalBorrowedUpdated",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": false,
+          "internalType": "uint256",
+          "name": "totalRepaid",
+          "type": "uint256"
+        }
+      ],
+      "name": "TotalRepaidUpdated",
+      "type": "event"
+    }
+  ],
+  "bytecode": {
+    "object": "0x",
+    "sourceMap": "",
+    "linkReferences": {}
+  },
+  "deployedBytecode": {
+    "object": "0x",
+    "sourceMap": "",
+    "linkReferences": {}
+  },
+  "methodIdentifiers": {},
+  "rawMetadata": "{\"compiler\":{\"version\":\"0.6.12+commit.27d51765\"},\"language\":\"Solidity\",\"output\":{\"abi\":[{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"borrowableAmount\",\"type\":\"uint256\"}],\"name\":\"BorrowableAmountUpdated\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[],\"name\":\"LoanClosed\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"borrower\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"loanAsset\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"accountingModule\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"bytes32\",\"name\":\"description\",\"type\":\"bytes32\"}],\"name\":\"LoanConfigured\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"totalBorrowed\",\"type\":\"uint256\"}],\"name\":\"TotalBorrowedUpdated\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"totalRepaid\",\"type\":\"uint256\"}],\"name\":\"TotalRepaidUpdated\",\"type\":\"event\"}],\"devdoc\":{\"author\":\"Enzyme Council <security@enzyme.finance>\",\"details\":\"DO NOT EDIT CONTRACT (with exception of OracleType noted below). If new events or storage are necessary, they should be added to a numbered ArbitraryLoanPositionLibBaseXXX that inherits the previous base. e.g., `ArbitraryLoanPositionLibBase2 is ArbitraryLoanPositionLibBase1`\",\"kind\":\"dev\",\"methods\":{},\"title\":\"ArbitraryLoanPositionLibBase1 Contract\",\"version\":1},\"userdoc\":{\"kind\":\"user\",\"methods\":{},\"notice\":\"A persistent contract containing all required storage variables and required functions for a ArbitraryLoanPositionLib implementation\",\"version\":1}},\"settings\":{\"compilationTarget\":{\"contracts/persistent/external-positions/arbitrary-loan/ArbitraryLoanPositionLibBase1.sol\":\"ArbitraryLoanPositionLibBase1\"},\"evmVersion\":\"istanbul\",\"libraries\":{},\"metadata\":{\"bytecodeHash\":\"none\"},\"optimizer\":{\"details\":{\"constantOptimizer\":true,\"cse\":true,\"deduplicate\":true,\"jumpdestRemover\":true,\"orderLiterals\":true,\"peephole\":true,\"yul\":false},\"runs\":200},\"remappings\":[\":@enzyme/=contracts/\",\":@openzeppelin-solc-0.7/=node_modules/@openzeppelin-solc-0.7/\",\":@openzeppelin/=node_modules/@openzeppelin/\",\":@uniswap/=node_modules/@uniswap/\",\":base64-sol/=node_modules/base64-sol/\",\":ds-test/=lib/forge-std/lib/ds-test/src/\",\":forge-std/=lib/forge-std/src/\",\":hardhat-deploy/=node_modules/hardhat-deploy/\",\":hardhat/=node_modules/hardhat/\"]},\"sources\":{\"contracts/persistent/external-positions/arbitrary-loan/ArbitraryLoanPositionLibBase1.sol\":{\"keccak256\":\"0xa2ade9413265102ceb73d9ade641687ae3c4bb56b867abe5596fb68f00ac0730\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://f5da2100ab79e090bf1ac2dd7cb0fd8852eef7dd062a730c3c63ca5243379b2e\",\"dweb:/ipfs/QmSM6BMxwF8FTbvd1vMw9CevJhB6EoT7athSFzXV1Bpmeg\"]}},\"version\":1}",
+  "metadata": {
+    "compiler": {
+      "version": "0.6.12+commit.27d51765"
+    },
+    "language": "Solidity",
+    "output": {
+      "abi": [
+        {
+          "inputs": [
+            {
+              "internalType": "uint256",
+              "name": "borrowableAmount",
+              "type": "uint256",
+              "indexed": false
+            }
+          ],
+          "type": "event",
+          "name": "BorrowableAmountUpdated",
+          "anonymous": false
+        },
+        {
+          "inputs": [],
+          "type": "event",
+          "name": "LoanClosed",
+          "anonymous": false
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "borrower",
+              "type": "address",
+              "indexed": true
+            },
+            {
+              "internalType": "address",
+              "name": "loanAsset",
+              "type": "address",
+              "indexed": true
+            },
+            {
+              "internalType": "address",
+              "name": "accountingModule",
+              "type": "address",
+              "indexed": true
+            },
+            {
+              "internalType": "bytes32",
+              "name": "description",
+              "type": "bytes32",
+              "indexed": false
+            }
+          ],
+          "type": "event",
+          "name": "LoanConfigured",
+          "anonymous": false
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "uint256",
+              "name": "totalBorrowed",
+              "type": "uint256",
+              "indexed": false
+            }
+          ],
+          "type": "event",
+          "name": "TotalBorrowedUpdated",
+          "anonymous": false
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "uint256",
+              "name": "totalRepaid",
+              "type": "uint256",
+              "indexed": false
+            }
+          ],
+          "type": "event",
+          "name": "TotalRepaidUpdated",
+          "anonymous": false
+        }
+      ],
+      "devdoc": {
+        "kind": "dev",
+        "methods": {},
+        "version": 1
+      },
+      "userdoc": {
+        "kind": "user",
+        "methods": {},
+        "version": 1
+      }
+    },
+    "settings": {
+      "remappings": [
+        ":@enzyme/=contracts/",
+        ":@openzeppelin-solc-0.7/=node_modules/@openzeppelin-solc-0.7/",
+        ":@openzeppelin/=node_modules/@openzeppelin/",
+        ":@uniswap/=node_modules/@uniswap/",
+        ":base64-sol/=node_modules/base64-sol/",
+        ":ds-test/=lib/forge-std/lib/ds-test/src/",
+        ":forge-std/=lib/forge-std/src/",
+        ":hardhat-deploy/=node_modules/hardhat-deploy/",
+        ":hardhat/=node_modules/hardhat/"
+      ],
+      "optimizer": {
+        "runs": 200,
+        "details": {
+          "peephole": true,
+          "jumpdestRemover": true,
+          "orderLiterals": true,
+          "deduplicate": true,
+          "cse": true,
+          "constantOptimizer": true,
+          "yul": false
+        }
+      },
+      "metadata": {
+        "bytecodeHash": "none"
+      },
+      "compilationTarget": {
+        "contracts/persistent/external-positions/arbitrary-loan/ArbitraryLoanPositionLibBase1.sol": "ArbitraryLoanPositionLibBase1"
+      },
+      "libraries": {}
+    },
+    "sources": {
+      "contracts/persistent/external-positions/arbitrary-loan/ArbitraryLoanPositionLibBase1.sol": {
+        "keccak256": "0xa2ade9413265102ceb73d9ade641687ae3c4bb56b867abe5596fb68f00ac0730",
+        "urls": [
+          "bzz-raw://f5da2100ab79e090bf1ac2dd7cb0fd8852eef7dd062a730c3c63ca5243379b2e",
+          "dweb:/ipfs/QmSM6BMxwF8FTbvd1vMw9CevJhB6EoT7athSFzXV1Bpmeg"
+        ],
+        "license": "GPL-3.0"
+      }
+    },
+    "version": 1
+  },
+  "ast": {
+    "absolutePath": "contracts/persistent/external-positions/arbitrary-loan/ArbitraryLoanPositionLibBase1.sol",
+    "id": 5201,
+    "exportedSymbols": {
+      "ArbitraryLoanPositionLibBase1": [
+        5200
+      ]
+    },
+    "nodeType": "SourceUnit",
+    "src": "255:1269:28",
+    "nodes": [
+      {
+        "id": 5160,
+        "nodeType": "PragmaDirective",
+        "src": "255:23:28",
+        "nodes": [],
+        "literals": [
+          "solidity",
+          "0.6",
+          ".12"
+        ]
+      },
+      {
+        "id": 5200,
+        "nodeType": "ContractDefinition",
+        "src": "829:694:28",
+        "nodes": [
+          {
+            "id": 5165,
+            "nodeType": "EventDefinition",
+            "src": "883:56:28",
+            "nodes": [],
+            "anonymous": false,
+            "documentation": null,
+            "name": "BorrowableAmountUpdated",
+            "parameters": {
+              "id": 5164,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 5163,
+                  "indexed": false,
+                  "mutability": "mutable",
+                  "name": "borrowableAmount",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 5165,
+                  "src": "913:24:28",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_uint256",
+                    "typeString": "uint256"
+                  },
+                  "typeName": {
+                    "id": 5162,
+                    "name": "uint256",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "913:7:28",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_uint256",
+                      "typeString": "uint256"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "912:26:28"
+            }
+          },
+          {
+            "id": 5167,
+            "nodeType": "EventDefinition",
+            "src": "945:19:28",
+            "nodes": [],
+            "anonymous": false,
+            "documentation": null,
+            "name": "LoanClosed",
+            "parameters": {
+              "id": 5166,
+              "nodeType": "ParameterList",
+              "parameters": [],
+              "src": "961:2:28"
+            }
+          },
+          {
+            "id": 5177,
+            "nodeType": "EventDefinition",
+            "src": "970:167:28",
+            "nodes": [],
+            "anonymous": false,
+            "documentation": null,
+            "name": "LoanConfigured",
+            "parameters": {
+              "id": 5176,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 5169,
+                  "indexed": true,
+                  "mutability": "mutable",
+                  "name": "borrower",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 5177,
+                  "src": "1000:24:28",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 5168,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "1000:7:28",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 5171,
+                  "indexed": true,
+                  "mutability": "mutable",
+                  "name": "loanAsset",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 5177,
+                  "src": "1034:25:28",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 5170,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "1034:7:28",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 5173,
+                  "indexed": true,
+                  "mutability": "mutable",
+                  "name": "accountingModule",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 5177,
+                  "src": "1069:32:28",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 5172,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "1069:7:28",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 5175,
+                  "indexed": false,
+                  "mutability": "mutable",
+                  "name": "description",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 5177,
+                  "src": "1111:19:28",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_bytes32",
+                    "typeString": "bytes32"
+                  },
+                  "typeName": {
+                    "id": 5174,
+                    "name": "bytes32",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "1111:7:28",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_bytes32",
+                      "typeString": "bytes32"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "990:146:28"
+            }
+          },
+          {
+            "id": 5181,
+            "nodeType": "EventDefinition",
+            "src": "1143:50:28",
+            "nodes": [],
+            "anonymous": false,
+            "documentation": null,
+            "name": "TotalBorrowedUpdated",
+            "parameters": {
+              "id": 5180,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 5179,
+                  "indexed": false,
+                  "mutability": "mutable",
+                  "name": "totalBorrowed",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 5181,
+                  "src": "1170:21:28",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_uint256",
+                    "typeString": "uint256"
+                  },
+                  "typeName": {
+                    "id": 5178,
+                    "name": "uint256",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "1170:7:28",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_uint256",
+                      "typeString": "uint256"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "1169:23:28"
+            }
+          },
+          {
+            "id": 5185,
+            "nodeType": "EventDefinition",
+            "src": "1199:46:28",
+            "nodes": [],
+            "anonymous": false,
+            "documentation": null,
+            "name": "TotalRepaidUpdated",
+            "parameters": {
+              "id": 5184,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 5183,
+                  "indexed": false,
+                  "mutability": "mutable",
+                  "name": "totalRepaid",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 5185,
+                  "src": "1224:19:28",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_uint256",
+                    "typeString": "uint256"
+                  },
+                  "typeName": {
+                    "id": 5182,
+                    "name": "uint256",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "1224:7:28",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_uint256",
+                      "typeString": "uint256"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "1223:21:28"
+            }
+          },
+          {
+            "id": 5187,
+            "nodeType": "VariableDeclaration",
+            "src": "1251:33:28",
+            "nodes": [],
+            "constant": false,
+            "mutability": "mutable",
+            "name": "accountingModule",
+            "overrides": null,
+            "scope": 5200,
+            "stateVariable": true,
+            "storageLocation": "default",
+            "typeDescriptions": {
+              "typeIdentifier": "t_address",
+              "typeString": "address"
+            },
+            "typeName": {
+              "id": 5186,
+              "name": "address",
+              "nodeType": "ElementaryTypeName",
+              "src": "1251:7:28",
+              "stateMutability": "nonpayable",
+              "typeDescriptions": {
+                "typeIdentifier": "t_address",
+                "typeString": "address"
+              }
+            },
+            "value": null,
+            "visibility": "internal"
+          },
+          {
+            "id": 5189,
+            "nodeType": "VariableDeclaration",
+            "src": "1290:25:28",
+            "nodes": [],
+            "constant": false,
+            "mutability": "mutable",
+            "name": "borrower",
+            "overrides": null,
+            "scope": 5200,
+            "stateVariable": true,
+            "storageLocation": "default",
+            "typeDescriptions": {
+              "typeIdentifier": "t_address",
+              "typeString": "address"
+            },
+            "typeName": {
+              "id": 5188,
+              "name": "address",
+              "nodeType": "ElementaryTypeName",
+              "src": "1290:7:28",
+              "stateMutability": "nonpayable",
+              "typeDescriptions": {
+                "typeIdentifier": "t_address",
+                "typeString": "address"
+              }
+            },
+            "value": null,
+            "visibility": "internal"
+          },
+          {
+            "id": 5191,
+            "nodeType": "VariableDeclaration",
+            "src": "1321:33:28",
+            "nodes": [],
+            "constant": false,
+            "mutability": "mutable",
+            "name": "borrowableAmount",
+            "overrides": null,
+            "scope": 5200,
+            "stateVariable": true,
+            "storageLocation": "default",
+            "typeDescriptions": {
+              "typeIdentifier": "t_uint256",
+              "typeString": "uint256"
+            },
+            "typeName": {
+              "id": 5190,
+              "name": "uint256",
+              "nodeType": "ElementaryTypeName",
+              "src": "1321:7:28",
+              "typeDescriptions": {
+                "typeIdentifier": "t_uint256",
+                "typeString": "uint256"
+              }
+            },
+            "value": null,
+            "visibility": "internal"
+          },
+          {
+            "id": 5193,
+            "nodeType": "VariableDeclaration",
+            "src": "1378:30:28",
+            "nodes": [],
+            "constant": false,
+            "mutability": "mutable",
+            "name": "totalBorrowed",
+            "overrides": null,
+            "scope": 5200,
+            "stateVariable": true,
+            "storageLocation": "default",
+            "typeDescriptions": {
+              "typeIdentifier": "t_uint128",
+              "typeString": "uint128"
+            },
+            "typeName": {
+              "id": 5192,
+              "name": "uint128",
+              "nodeType": "ElementaryTypeName",
+              "src": "1378:7:28",
+              "typeDescriptions": {
+                "typeIdentifier": "t_uint128",
+                "typeString": "uint128"
+              }
+            },
+            "value": null,
+            "visibility": "internal"
+          },
+          {
+            "id": 5195,
+            "nodeType": "VariableDeclaration",
+            "src": "1414:28:28",
+            "nodes": [],
+            "constant": false,
+            "mutability": "mutable",
+            "name": "totalRepaid",
+            "overrides": null,
+            "scope": 5200,
+            "stateVariable": true,
+            "storageLocation": "default",
+            "typeDescriptions": {
+              "typeIdentifier": "t_uint128",
+              "typeString": "uint128"
+            },
+            "typeName": {
+              "id": 5194,
+              "name": "uint128",
+              "nodeType": "ElementaryTypeName",
+              "src": "1414:7:28",
+              "typeDescriptions": {
+                "typeIdentifier": "t_uint128",
+                "typeString": "uint128"
+              }
+            },
+            "value": null,
+            "visibility": "internal"
+          },
+          {
+            "id": 5197,
+            "nodeType": "VariableDeclaration",
+            "src": "1466:26:28",
+            "nodes": [],
+            "constant": false,
+            "mutability": "mutable",
+            "name": "loanAsset",
+            "overrides": null,
+            "scope": 5200,
+            "stateVariable": true,
+            "storageLocation": "default",
+            "typeDescriptions": {
+              "typeIdentifier": "t_address",
+              "typeString": "address"
+            },
+            "typeName": {
+              "id": 5196,
+              "name": "address",
+              "nodeType": "ElementaryTypeName",
+              "src": "1466:7:28",
+              "stateMutability": "nonpayable",
+              "typeDescriptions": {
+                "typeIdentifier": "t_address",
+                "typeString": "address"
+              }
+            },
+            "value": null,
+            "visibility": "internal"
+          },
+          {
+            "id": 5199,
+            "nodeType": "VariableDeclaration",
+            "src": "1498:22:28",
+            "nodes": [],
+            "constant": false,
+            "mutability": "mutable",
+            "name": "isClosed",
+            "overrides": null,
+            "scope": 5200,
+            "stateVariable": true,
+            "storageLocation": "default",
+            "typeDescriptions": {
+              "typeIdentifier": "t_bool",
+              "typeString": "bool"
+            },
+            "typeName": {
+              "id": 5198,
+              "name": "bool",
+              "nodeType": "ElementaryTypeName",
+              "src": "1498:4:28",
+              "typeDescriptions": {
+                "typeIdentifier": "t_bool",
+                "typeString": "bool"
+              }
+            },
+            "value": null,
+            "visibility": "internal"
+          }
+        ],
+        "abstract": true,
+        "baseContracts": [],
+        "contractDependencies": [],
+        "contractKind": "contract",
+        "documentation": {
+          "id": 5161,
+          "nodeType": "StructuredDocumentation",
+          "src": "280:549:28",
+          "text": "@title ArbitraryLoanPositionLibBase1 Contract\n @author Enzyme Council <security@enzyme.finance>\n @notice A persistent contract containing all required storage variables and\n required functions for a ArbitraryLoanPositionLib implementation\n @dev DO NOT EDIT CONTRACT (with exception of OracleType noted below).\n If new events or storage are necessary, they should be added to\n a numbered ArbitraryLoanPositionLibBaseXXX that inherits the previous base.\n e.g., `ArbitraryLoanPositionLibBase2 is ArbitraryLoanPositionLibBase1`"
+        },
+        "fullyImplemented": true,
+        "linearizedBaseContracts": [
+          5200
+        ],
+        "name": "ArbitraryLoanPositionLibBase1",
+        "scope": 5201
+      }
+    ],
+    "license": "GPL-3.0"
+  },
+  "id": 28
+}

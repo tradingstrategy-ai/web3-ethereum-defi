@@ -1,0 +1,338 @@
+{
+  "abi": [
+    {
+      "inputs": [],
+      "name": "owner",
+      "outputs": [
+        {
+          "internalType": "address",
+          "name": "owner_",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "_token",
+          "type": "address"
+        },
+        {
+          "internalType": "bytes32",
+          "name": "_merkleRoot",
+          "type": "bytes32"
+        }
+      ],
+      "name": "updateMerkleRoot",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    }
+  ],
+  "bytecode": {
+    "object": "0x",
+    "sourceMap": "",
+    "linkReferences": {}
+  },
+  "deployedBytecode": {
+    "object": "0x",
+    "sourceMap": "",
+    "linkReferences": {}
+  },
+  "methodIdentifiers": {
+    "owner()": "8da5cb5b",
+    "updateMerkleRoot(address,bytes32)": "e786818e"
+  },
+  "rawMetadata": "{\"compiler\":{\"version\":\"0.6.12+commit.27d51765\"},\"language\":\"Solidity\",\"output\":{\"abi\":[{\"inputs\":[],\"name\":\"owner\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"owner_\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_token\",\"type\":\"address\"},{\"internalType\":\"bytes32\",\"name\":\"_merkleRoot\",\"type\":\"bytes32\"}],\"name\":\"updateMerkleRoot\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"}],\"devdoc\":{\"author\":\"Enzyme Council <security@enzyme.finance>\",\"kind\":\"dev\",\"methods\":{},\"title\":\"ITestVotiumMultiMerkleStash Interface\",\"version\":1},\"userdoc\":{\"kind\":\"user\",\"methods\":{},\"version\":1}},\"settings\":{\"compilationTarget\":{\"contracts/test/interfaces/ITestVotiumMultiMerkleStash.sol\":\"ITestVotiumMultiMerkleStash\"},\"evmVersion\":\"istanbul\",\"libraries\":{},\"metadata\":{\"bytecodeHash\":\"none\"},\"optimizer\":{\"details\":{\"constantOptimizer\":true,\"cse\":true,\"deduplicate\":true,\"jumpdestRemover\":true,\"orderLiterals\":true,\"peephole\":true,\"yul\":false},\"runs\":200},\"remappings\":[\":@enzyme/=contracts/\",\":@openzeppelin-solc-0.7/=node_modules/@openzeppelin-solc-0.7/\",\":@openzeppelin/=node_modules/@openzeppelin/\",\":@uniswap/=node_modules/@uniswap/\",\":base64-sol/=node_modules/base64-sol/\",\":ds-test/=lib/forge-std/lib/ds-test/src/\",\":forge-std/=lib/forge-std/src/\",\":hardhat-deploy/=node_modules/hardhat-deploy/\",\":hardhat/=node_modules/hardhat/\"]},\"sources\":{\"contracts/test/interfaces/ITestVotiumMultiMerkleStash.sol\":{\"keccak256\":\"0x7cae486c7755f86bb892f31bcb6b7711b4767f380dda79fd5ffe041377fdf041\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://cdd56141fb86ad9b7a98c25e21e1d6eb8726bebd4432deccc7f89927fd3fe919\",\"dweb:/ipfs/QmYnzRqdJ6xz9UecXTQraEYTi2fYZoXfq78ai1shxfCNNr\"]}},\"version\":1}",
+  "metadata": {
+    "compiler": {
+      "version": "0.6.12+commit.27d51765"
+    },
+    "language": "Solidity",
+    "output": {
+      "abi": [
+        {
+          "inputs": [],
+          "stateMutability": "view",
+          "type": "function",
+          "name": "owner",
+          "outputs": [
+            {
+              "internalType": "address",
+              "name": "owner_",
+              "type": "address"
+            }
+          ]
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "_token",
+              "type": "address"
+            },
+            {
+              "internalType": "bytes32",
+              "name": "_merkleRoot",
+              "type": "bytes32"
+            }
+          ],
+          "stateMutability": "nonpayable",
+          "type": "function",
+          "name": "updateMerkleRoot"
+        }
+      ],
+      "devdoc": {
+        "kind": "dev",
+        "methods": {},
+        "version": 1
+      },
+      "userdoc": {
+        "kind": "user",
+        "methods": {},
+        "version": 1
+      }
+    },
+    "settings": {
+      "remappings": [
+        ":@enzyme/=contracts/",
+        ":@openzeppelin-solc-0.7/=node_modules/@openzeppelin-solc-0.7/",
+        ":@openzeppelin/=node_modules/@openzeppelin/",
+        ":@uniswap/=node_modules/@uniswap/",
+        ":base64-sol/=node_modules/base64-sol/",
+        ":ds-test/=lib/forge-std/lib/ds-test/src/",
+        ":forge-std/=lib/forge-std/src/",
+        ":hardhat-deploy/=node_modules/hardhat-deploy/",
+        ":hardhat/=node_modules/hardhat/"
+      ],
+      "optimizer": {
+        "runs": 200,
+        "details": {
+          "peephole": true,
+          "jumpdestRemover": true,
+          "orderLiterals": true,
+          "deduplicate": true,
+          "cse": true,
+          "constantOptimizer": true,
+          "yul": false
+        }
+      },
+      "metadata": {
+        "bytecodeHash": "none"
+      },
+      "compilationTarget": {
+        "contracts/test/interfaces/ITestVotiumMultiMerkleStash.sol": "ITestVotiumMultiMerkleStash"
+      },
+      "libraries": {}
+    },
+    "sources": {
+      "contracts/test/interfaces/ITestVotiumMultiMerkleStash.sol": {
+        "keccak256": "0x7cae486c7755f86bb892f31bcb6b7711b4767f380dda79fd5ffe041377fdf041",
+        "urls": [
+          "bzz-raw://cdd56141fb86ad9b7a98c25e21e1d6eb8726bebd4432deccc7f89927fd3fe919",
+          "dweb:/ipfs/QmYnzRqdJ6xz9UecXTQraEYTi2fYZoXfq78ai1shxfCNNr"
+        ],
+        "license": "GPL-3.0"
+      }
+    },
+    "version": 1
+  },
+  "ast": {
+    "absolutePath": "contracts/test/interfaces/ITestVotiumMultiMerkleStash.sol",
+    "id": 81920,
+    "exportedSymbols": {
+      "ITestVotiumMultiMerkleStash": [
+        81919
+      ]
+    },
+    "nodeType": "SourceUnit",
+    "src": "253:308:432",
+    "nodes": [
+      {
+        "id": 81905,
+        "nodeType": "PragmaDirective",
+        "src": "253:23:432",
+        "nodes": [],
+        "literals": [
+          "solidity",
+          "0.6",
+          ".12"
+        ]
+      },
+      {
+        "id": 81919,
+        "nodeType": "ContractDefinition",
+        "src": "380:180:432",
+        "nodes": [
+          {
+            "id": 81911,
+            "nodeType": "FunctionDefinition",
+            "src": "424:56:432",
+            "nodes": [],
+            "documentation": null,
+            "functionSelector": "8da5cb5b",
+            "implemented": false,
+            "kind": "function",
+            "modifiers": [],
+            "name": "owner",
+            "overrides": null,
+            "parameters": {
+              "id": 81907,
+              "nodeType": "ParameterList",
+              "parameters": [],
+              "src": "438:2:432"
+            },
+            "returnParameters": {
+              "id": 81910,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 81909,
+                  "mutability": "mutable",
+                  "name": "owner_",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 81911,
+                  "src": "464:14:432",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 81908,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "464:7:432",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "463:16:432"
+            },
+            "scope": 81919,
+            "stateMutability": "view",
+            "virtual": false,
+            "visibility": "external"
+          },
+          {
+            "id": 81918,
+            "nodeType": "FunctionDefinition",
+            "src": "486:72:432",
+            "nodes": [],
+            "documentation": null,
+            "functionSelector": "e786818e",
+            "implemented": false,
+            "kind": "function",
+            "modifiers": [],
+            "name": "updateMerkleRoot",
+            "overrides": null,
+            "parameters": {
+              "id": 81916,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 81913,
+                  "mutability": "mutable",
+                  "name": "_token",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 81918,
+                  "src": "512:14:432",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 81912,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "512:7:432",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 81915,
+                  "mutability": "mutable",
+                  "name": "_merkleRoot",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 81918,
+                  "src": "528:19:432",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_bytes32",
+                    "typeString": "bytes32"
+                  },
+                  "typeName": {
+                    "id": 81914,
+                    "name": "bytes32",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "528:7:432",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_bytes32",
+                      "typeString": "bytes32"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "511:37:432"
+            },
+            "returnParameters": {
+              "id": 81917,
+              "nodeType": "ParameterList",
+              "parameters": [],
+              "src": "557:0:432"
+            },
+            "scope": 81919,
+            "stateMutability": "nonpayable",
+            "virtual": false,
+            "visibility": "external"
+          }
+        ],
+        "abstract": false,
+        "baseContracts": [],
+        "contractDependencies": [],
+        "contractKind": "interface",
+        "documentation": {
+          "id": 81906,
+          "nodeType": "StructuredDocumentation",
+          "src": "278:102:432",
+          "text": "@title ITestVotiumMultiMerkleStash Interface\n @author Enzyme Council <security@enzyme.finance>"
+        },
+        "fullyImplemented": false,
+        "linearizedBaseContracts": [
+          81919
+        ],
+        "name": "ITestVotiumMultiMerkleStash",
+        "scope": 81920
+      }
+    ],
+    "license": "GPL-3.0"
+  },
+  "id": 432
+}

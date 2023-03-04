@@ -1,0 +1,653 @@
+{
+  "abi": [
+    {
+      "inputs": [],
+      "name": "proxiableUUID",
+      "outputs": [
+        {
+          "internalType": "bytes32",
+          "name": "uuid_",
+          "type": "bytes32"
+        }
+      ],
+      "stateMutability": "pure",
+      "type": "function"
+    }
+  ],
+  "bytecode": {
+    "object": "0x",
+    "sourceMap": "",
+    "linkReferences": {}
+  },
+  "deployedBytecode": {
+    "object": "0x",
+    "sourceMap": "",
+    "linkReferences": {}
+  },
+  "methodIdentifiers": {
+    "proxiableUUID()": "52d1902d"
+  },
+  "rawMetadata": "{\"compiler\":{\"version\":\"0.6.12+commit.27d51765\"},\"language\":\"Solidity\",\"output\":{\"abi\":[{\"inputs\":[],\"name\":\"proxiableUUID\",\"outputs\":[{\"internalType\":\"bytes32\",\"name\":\"uuid_\",\"type\":\"bytes32\"}],\"stateMutability\":\"pure\",\"type\":\"function\"}],\"devdoc\":{\"author\":\"Enzyme Council <security@enzyme.finance>\",\"details\":\"The recommended implementation of the target of a proxy according to EIP-1822 and EIP-1967 See: https://eips.ethereum.org/EIPS/eip-1822 See: https://eips.ethereum.org/EIPS/eip-1967\",\"kind\":\"dev\",\"methods\":{\"proxiableUUID()\":{\"returns\":{\"uuid_\":\"The bytes32 hash representing the UUID\"}}},\"title\":\"ProxiableGlobalConfigLib Contract\",\"version\":1},\"userdoc\":{\"kind\":\"user\",\"methods\":{\"proxiableUUID()\":{\"notice\":\"Returns a unique bytes32 hash for GlobalConfigLib instances\"}},\"notice\":\"A contract that defines the upgrade behavior for GlobalConfigLib instances\",\"version\":1}},\"settings\":{\"compilationTarget\":{\"contracts/persistent/global-config/utils/ProxiableGlobalConfigLib.sol\":\"ProxiableGlobalConfigLib\"},\"evmVersion\":\"istanbul\",\"libraries\":{},\"metadata\":{\"bytecodeHash\":\"none\"},\"optimizer\":{\"details\":{\"constantOptimizer\":true,\"cse\":true,\"deduplicate\":true,\"jumpdestRemover\":true,\"orderLiterals\":true,\"peephole\":true,\"yul\":false},\"runs\":200},\"remappings\":[\":@enzyme/=contracts/\",\":@openzeppelin-solc-0.7/=node_modules/@openzeppelin-solc-0.7/\",\":@openzeppelin/=node_modules/@openzeppelin/\",\":@uniswap/=node_modules/@uniswap/\",\":base64-sol/=node_modules/base64-sol/\",\":ds-test/=lib/forge-std/lib/ds-test/src/\",\":forge-std/=lib/forge-std/src/\",\":hardhat-deploy/=node_modules/hardhat-deploy/\",\":hardhat/=node_modules/hardhat/\"]},\"sources\":{\"contracts/persistent/global-config/utils/GlobalConfigProxyConstants.sol\":{\"keccak256\":\"0xb11c84a6cb9c26eb96abc7d38c57adb374415834daba8122d92264f9e19b5eb3\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://6ad1cc0ba02e40b990408389d73c13ec69ac0cecd5447bb1826b505bcf671925\",\"dweb:/ipfs/QmP96nzpGLvY7eBqK4ictUAtnNq822rJuwbezSqC2BDsev\"]},\"contracts/persistent/global-config/utils/ProxiableGlobalConfigLib.sol\":{\"keccak256\":\"0x41386d6e4b676c73f461c12bef0bb01267a44b28bf8d8591269589c9a763daeb\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://578fbe03f5e56b06fca2485fafadb2a87da8703b93145e17325b131e224acb34\",\"dweb:/ipfs/QmY6Y8ZhfBZhfVD6ATj5jyFRSQfw7woRA9robZfzh1ev1G\"]}},\"version\":1}",
+  "metadata": {
+    "compiler": {
+      "version": "0.6.12+commit.27d51765"
+    },
+    "language": "Solidity",
+    "output": {
+      "abi": [
+        {
+          "inputs": [],
+          "stateMutability": "pure",
+          "type": "function",
+          "name": "proxiableUUID",
+          "outputs": [
+            {
+              "internalType": "bytes32",
+              "name": "uuid_",
+              "type": "bytes32"
+            }
+          ]
+        }
+      ],
+      "devdoc": {
+        "kind": "dev",
+        "methods": {
+          "proxiableUUID()": {
+            "returns": {
+              "uuid_": "The bytes32 hash representing the UUID"
+            }
+          }
+        },
+        "version": 1
+      },
+      "userdoc": {
+        "kind": "user",
+        "methods": {
+          "proxiableUUID()": {
+            "notice": "Returns a unique bytes32 hash for GlobalConfigLib instances"
+          }
+        },
+        "version": 1
+      }
+    },
+    "settings": {
+      "remappings": [
+        ":@enzyme/=contracts/",
+        ":@openzeppelin-solc-0.7/=node_modules/@openzeppelin-solc-0.7/",
+        ":@openzeppelin/=node_modules/@openzeppelin/",
+        ":@uniswap/=node_modules/@uniswap/",
+        ":base64-sol/=node_modules/base64-sol/",
+        ":ds-test/=lib/forge-std/lib/ds-test/src/",
+        ":forge-std/=lib/forge-std/src/",
+        ":hardhat-deploy/=node_modules/hardhat-deploy/",
+        ":hardhat/=node_modules/hardhat/"
+      ],
+      "optimizer": {
+        "runs": 200,
+        "details": {
+          "peephole": true,
+          "jumpdestRemover": true,
+          "orderLiterals": true,
+          "deduplicate": true,
+          "cse": true,
+          "constantOptimizer": true,
+          "yul": false
+        }
+      },
+      "metadata": {
+        "bytecodeHash": "none"
+      },
+      "compilationTarget": {
+        "contracts/persistent/global-config/utils/ProxiableGlobalConfigLib.sol": "ProxiableGlobalConfigLib"
+      },
+      "libraries": {}
+    },
+    "sources": {
+      "contracts/persistent/global-config/utils/GlobalConfigProxyConstants.sol": {
+        "keccak256": "0xb11c84a6cb9c26eb96abc7d38c57adb374415834daba8122d92264f9e19b5eb3",
+        "urls": [
+          "bzz-raw://6ad1cc0ba02e40b990408389d73c13ec69ac0cecd5447bb1826b505bcf671925",
+          "dweb:/ipfs/QmP96nzpGLvY7eBqK4ictUAtnNq822rJuwbezSqC2BDsev"
+        ],
+        "license": "GPL-3.0"
+      },
+      "contracts/persistent/global-config/utils/ProxiableGlobalConfigLib.sol": {
+        "keccak256": "0x41386d6e4b676c73f461c12bef0bb01267a44b28bf8d8591269589c9a763daeb",
+        "urls": [
+          "bzz-raw://578fbe03f5e56b06fca2485fafadb2a87da8703b93145e17325b131e224acb34",
+          "dweb:/ipfs/QmY6Y8ZhfBZhfVD6ATj5jyFRSQfw7woRA9robZfzh1ev1G"
+        ],
+        "license": "GPL-3.0"
+      }
+    },
+    "version": 1
+  },
+  "ast": {
+    "absolutePath": "contracts/persistent/global-config/utils/ProxiableGlobalConfigLib.sol",
+    "id": 6323,
+    "exportedSymbols": {
+      "ProxiableGlobalConfigLib": [
+        6322
+      ]
+    },
+    "nodeType": "SourceUnit",
+    "src": "253:1260:47",
+    "nodes": [
+      {
+        "id": 6286,
+        "nodeType": "PragmaDirective",
+        "src": "253:23:47",
+        "nodes": [],
+        "literals": [
+          "solidity",
+          "0.6",
+          ".12"
+        ]
+      },
+      {
+        "id": 6287,
+        "nodeType": "ImportDirective",
+        "src": "278:42:47",
+        "nodes": [],
+        "absolutePath": "contracts/persistent/global-config/utils/GlobalConfigProxyConstants.sol",
+        "file": "./GlobalConfigProxyConstants.sol",
+        "scope": 6323,
+        "sourceUnit": 6285,
+        "symbolAliases": [],
+        "unitAlias": ""
+      },
+      {
+        "id": 6322,
+        "nodeType": "ContractDefinition",
+        "src": "705:807:47",
+        "nodes": [
+          {
+            "id": 6312,
+            "nodeType": "FunctionDefinition",
+            "src": "872:387:47",
+            "nodes": [],
+            "body": {
+              "id": 6311,
+              "nodeType": "Block",
+              "src": "940:319:47",
+              "nodes": [],
+              "statements": [
+                {
+                  "expression": {
+                    "argumentTypes": null,
+                    "arguments": [
+                      {
+                        "argumentTypes": null,
+                        "commonType": {
+                          "typeIdentifier": "t_bytes32",
+                          "typeString": "bytes32"
+                        },
+                        "id": 6306,
+                        "isConstant": false,
+                        "isLValue": false,
+                        "isPure": false,
+                        "lValueRequested": false,
+                        "leftExpression": {
+                          "argumentTypes": null,
+                          "arguments": [],
+                          "expression": {
+                            "argumentTypes": [],
+                            "expression": {
+                              "argumentTypes": null,
+                              "arguments": [
+                                {
+                                  "argumentTypes": null,
+                                  "id": 6298,
+                                  "name": "_nextGlobalConfigLib",
+                                  "nodeType": "Identifier",
+                                  "overloadedDeclarations": [],
+                                  "referencedDeclaration": 6293,
+                                  "src": "996:20:47",
+                                  "typeDescriptions": {
+                                    "typeIdentifier": "t_address",
+                                    "typeString": "address"
+                                  }
+                                }
+                              ],
+                              "expression": {
+                                "argumentTypes": [
+                                  {
+                                    "typeIdentifier": "t_address",
+                                    "typeString": "address"
+                                  }
+                                ],
+                                "id": 6297,
+                                "name": "ProxiableGlobalConfigLib",
+                                "nodeType": "Identifier",
+                                "overloadedDeclarations": [],
+                                "referencedDeclaration": 6322,
+                                "src": "971:24:47",
+                                "typeDescriptions": {
+                                  "typeIdentifier": "t_type$_t_contract$_ProxiableGlobalConfigLib_$6322_$",
+                                  "typeString": "type(contract ProxiableGlobalConfigLib)"
+                                }
+                              },
+                              "id": 6299,
+                              "isConstant": false,
+                              "isLValue": false,
+                              "isPure": false,
+                              "kind": "typeConversion",
+                              "lValueRequested": false,
+                              "names": [],
+                              "nodeType": "FunctionCall",
+                              "src": "971:46:47",
+                              "tryCall": false,
+                              "typeDescriptions": {
+                                "typeIdentifier": "t_contract$_ProxiableGlobalConfigLib_$6322",
+                                "typeString": "contract ProxiableGlobalConfigLib"
+                              }
+                            },
+                            "id": 6300,
+                            "isConstant": false,
+                            "isLValue": false,
+                            "isPure": false,
+                            "lValueRequested": false,
+                            "memberName": "proxiableUUID",
+                            "nodeType": "MemberAccess",
+                            "referencedDeclaration": 6321,
+                            "src": "971:60:47",
+                            "typeDescriptions": {
+                              "typeIdentifier": "t_function_external_pure$__$returns$_t_bytes32_$",
+                              "typeString": "function () pure external returns (bytes32)"
+                            }
+                          },
+                          "id": 6301,
+                          "isConstant": false,
+                          "isLValue": false,
+                          "isPure": false,
+                          "kind": "functionCall",
+                          "lValueRequested": false,
+                          "names": [],
+                          "nodeType": "FunctionCall",
+                          "src": "971:62:47",
+                          "tryCall": false,
+                          "typeDescriptions": {
+                            "typeIdentifier": "t_bytes32",
+                            "typeString": "bytes32"
+                          }
+                        },
+                        "nodeType": "BinaryOperation",
+                        "operator": "==",
+                        "rightExpression": {
+                          "argumentTypes": null,
+                          "arguments": [
+                            {
+                              "argumentTypes": null,
+                              "id": 6304,
+                              "name": "EIP_1822_PROXIABLE_UUID",
+                              "nodeType": "Identifier",
+                              "overloadedDeclarations": [],
+                              "referencedDeclaration": 6280,
+                              "src": "1061:23:47",
+                              "typeDescriptions": {
+                                "typeIdentifier": "t_bytes32",
+                                "typeString": "bytes32"
+                              }
+                            }
+                          ],
+                          "expression": {
+                            "argumentTypes": [
+                              {
+                                "typeIdentifier": "t_bytes32",
+                                "typeString": "bytes32"
+                              }
+                            ],
+                            "id": 6303,
+                            "isConstant": false,
+                            "isLValue": false,
+                            "isPure": true,
+                            "lValueRequested": false,
+                            "nodeType": "ElementaryTypeNameExpression",
+                            "src": "1053:7:47",
+                            "typeDescriptions": {
+                              "typeIdentifier": "t_type$_t_bytes32_$",
+                              "typeString": "type(bytes32)"
+                            },
+                            "typeName": {
+                              "id": 6302,
+                              "name": "bytes32",
+                              "nodeType": "ElementaryTypeName",
+                              "src": "1053:7:47",
+                              "typeDescriptions": {
+                                "typeIdentifier": null,
+                                "typeString": null
+                              }
+                            }
+                          },
+                          "id": 6305,
+                          "isConstant": false,
+                          "isLValue": false,
+                          "isPure": true,
+                          "kind": "typeConversion",
+                          "lValueRequested": false,
+                          "names": [],
+                          "nodeType": "FunctionCall",
+                          "src": "1053:32:47",
+                          "tryCall": false,
+                          "typeDescriptions": {
+                            "typeIdentifier": "t_bytes32",
+                            "typeString": "bytes32"
+                          }
+                        },
+                        "src": "971:114:47",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_bool",
+                          "typeString": "bool"
+                        }
+                      },
+                      {
+                        "argumentTypes": null,
+                        "hexValue": "5f5f757064617465436f6465416464726573733a205f6e657874476c6f62616c436f6e6669674c6962206e6f7420636f6d70617469626c65",
+                        "id": 6307,
+                        "isConstant": false,
+                        "isLValue": false,
+                        "isPure": true,
+                        "kind": "string",
+                        "lValueRequested": false,
+                        "nodeType": "Literal",
+                        "src": "1099:58:47",
+                        "subdenomination": null,
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_stringliteral_8b96e413e74586aac6af11653d92d22694db90b618f0fbfaf3ff65b746d82cf2",
+                          "typeString": "literal_string \"__updateCodeAddress: _nextGlobalConfigLib not compatible\""
+                        },
+                        "value": "__updateCodeAddress: _nextGlobalConfigLib not compatible"
+                      }
+                    ],
+                    "expression": {
+                      "argumentTypes": [
+                        {
+                          "typeIdentifier": "t_bool",
+                          "typeString": "bool"
+                        },
+                        {
+                          "typeIdentifier": "t_stringliteral_8b96e413e74586aac6af11653d92d22694db90b618f0fbfaf3ff65b746d82cf2",
+                          "typeString": "literal_string \"__updateCodeAddress: _nextGlobalConfigLib not compatible\""
+                        }
+                      ],
+                      "id": 6296,
+                      "name": "require",
+                      "nodeType": "Identifier",
+                      "overloadedDeclarations": [
+                        -18,
+                        -18
+                      ],
+                      "referencedDeclaration": -18,
+                      "src": "950:7:47",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_function_require_pure$_t_bool_$_t_string_memory_ptr_$returns$__$",
+                        "typeString": "function (bool,string memory) pure"
+                      }
+                    },
+                    "id": 6308,
+                    "isConstant": false,
+                    "isLValue": false,
+                    "isPure": false,
+                    "kind": "functionCall",
+                    "lValueRequested": false,
+                    "names": [],
+                    "nodeType": "FunctionCall",
+                    "src": "950:217:47",
+                    "tryCall": false,
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_tuple$__$",
+                      "typeString": "tuple()"
+                    }
+                  },
+                  "id": 6309,
+                  "nodeType": "ExpressionStatement",
+                  "src": "950:217:47"
+                },
+                {
+                  "AST": {
+                    "nodeType": "YulBlock",
+                    "src": "1186:67:47",
+                    "statements": [
+                      {
+                        "expression": {
+                          "arguments": [
+                            {
+                              "name": "EIP_1967_SLOT",
+                              "nodeType": "YulIdentifier",
+                              "src": "1207:13:47"
+                            },
+                            {
+                              "name": "_nextGlobalConfigLib",
+                              "nodeType": "YulIdentifier",
+                              "src": "1222:20:47"
+                            }
+                          ],
+                          "functionName": {
+                            "name": "sstore",
+                            "nodeType": "YulIdentifier",
+                            "src": "1200:6:47"
+                          },
+                          "nodeType": "YulFunctionCall",
+                          "src": "1200:43:47"
+                        },
+                        "nodeType": "YulExpressionStatement",
+                        "src": "1200:43:47"
+                      }
+                    ]
+                  },
+                  "evmVersion": "istanbul",
+                  "externalReferences": [
+                    {
+                      "declaration": 6283,
+                      "isOffset": false,
+                      "isSlot": false,
+                      "src": "1207:13:47",
+                      "valueSize": 1
+                    },
+                    {
+                      "declaration": 6293,
+                      "isOffset": false,
+                      "isSlot": false,
+                      "src": "1222:20:47",
+                      "valueSize": 1
+                    }
+                  ],
+                  "id": 6310,
+                  "nodeType": "InlineAssembly",
+                  "src": "1177:76:47"
+                }
+              ]
+            },
+            "documentation": {
+              "id": 6291,
+              "nodeType": "StructuredDocumentation",
+              "src": "784:83:47",
+              "text": "@dev Updates the target of the proxy to be the contract at _nextGlobalConfigLib"
+            },
+            "implemented": true,
+            "kind": "function",
+            "modifiers": [],
+            "name": "__updateCodeAddress",
+            "overrides": null,
+            "parameters": {
+              "id": 6294,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 6293,
+                  "mutability": "mutable",
+                  "name": "_nextGlobalConfigLib",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 6312,
+                  "src": "901:28:47",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 6292,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "901:7:47",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "900:30:47"
+            },
+            "returnParameters": {
+              "id": 6295,
+              "nodeType": "ParameterList",
+              "parameters": [],
+              "src": "940:0:47"
+            },
+            "scope": 6322,
+            "stateMutability": "nonpayable",
+            "virtual": false,
+            "visibility": "internal"
+          },
+          {
+            "id": 6321,
+            "nodeType": "FunctionDefinition",
+            "src": "1402:108:47",
+            "nodes": [],
+            "body": {
+              "id": 6320,
+              "nodeType": "Block",
+              "src": "1463:47:47",
+              "nodes": [],
+              "statements": [
+                {
+                  "expression": {
+                    "argumentTypes": null,
+                    "id": 6318,
+                    "name": "EIP_1822_PROXIABLE_UUID",
+                    "nodeType": "Identifier",
+                    "overloadedDeclarations": [],
+                    "referencedDeclaration": 6280,
+                    "src": "1480:23:47",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_bytes32",
+                      "typeString": "bytes32"
+                    }
+                  },
+                  "functionReturnParameters": 6317,
+                  "id": 6319,
+                  "nodeType": "Return",
+                  "src": "1473:30:47"
+                }
+              ]
+            },
+            "documentation": {
+              "id": 6313,
+              "nodeType": "StructuredDocumentation",
+              "src": "1265:132:47",
+              "text": "@notice Returns a unique bytes32 hash for GlobalConfigLib instances\n @return uuid_ The bytes32 hash representing the UUID"
+            },
+            "functionSelector": "52d1902d",
+            "implemented": true,
+            "kind": "function",
+            "modifiers": [],
+            "name": "proxiableUUID",
+            "overrides": null,
+            "parameters": {
+              "id": 6314,
+              "nodeType": "ParameterList",
+              "parameters": [],
+              "src": "1424:2:47"
+            },
+            "returnParameters": {
+              "id": 6317,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 6316,
+                  "mutability": "mutable",
+                  "name": "uuid_",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 6321,
+                  "src": "1448:13:47",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_bytes32",
+                    "typeString": "bytes32"
+                  },
+                  "typeName": {
+                    "id": 6315,
+                    "name": "bytes32",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "1448:7:47",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_bytes32",
+                      "typeString": "bytes32"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "1447:15:47"
+            },
+            "scope": 6322,
+            "stateMutability": "pure",
+            "virtual": false,
+            "visibility": "public"
+          }
+        ],
+        "abstract": true,
+        "baseContracts": [
+          {
+            "arguments": null,
+            "baseName": {
+              "contractScope": null,
+              "id": 6289,
+              "name": "GlobalConfigProxyConstants",
+              "nodeType": "UserDefinedTypeName",
+              "referencedDeclaration": 6284,
+              "src": "751:26:47",
+              "typeDescriptions": {
+                "typeIdentifier": "t_contract$_GlobalConfigProxyConstants_$6284",
+                "typeString": "contract GlobalConfigProxyConstants"
+              }
+            },
+            "id": 6290,
+            "nodeType": "InheritanceSpecifier",
+            "src": "751:26:47"
+          }
+        ],
+        "contractDependencies": [
+          6284
+        ],
+        "contractKind": "contract",
+        "documentation": {
+          "id": 6288,
+          "nodeType": "StructuredDocumentation",
+          "src": "322:383:47",
+          "text": "@title ProxiableGlobalConfigLib Contract\n @author Enzyme Council <security@enzyme.finance>\n @notice A contract that defines the upgrade behavior for GlobalConfigLib instances\n @dev The recommended implementation of the target of a proxy according to EIP-1822 and EIP-1967\n See: https://eips.ethereum.org/EIPS/eip-1822\n See: https://eips.ethereum.org/EIPS/eip-1967"
+        },
+        "fullyImplemented": true,
+        "linearizedBaseContracts": [
+          6322,
+          6284
+        ],
+        "name": "ProxiableGlobalConfigLib",
+        "scope": 6323
+      }
+    ],
+    "license": "GPL-3.0"
+  },
+  "id": 47
+}

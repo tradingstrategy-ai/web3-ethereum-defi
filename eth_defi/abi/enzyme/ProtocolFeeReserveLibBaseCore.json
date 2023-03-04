@@ -1,0 +1,1540 @@
+{
+  "abi": [
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": false,
+          "internalType": "address",
+          "name": "nextProtocolFeeReserveLib",
+          "type": "address"
+        }
+      ],
+      "name": "ProtocolFeeReserveLibSet",
+      "type": "event"
+    },
+    {
+      "inputs": [],
+      "name": "getDispatcher",
+      "outputs": [
+        {
+          "internalType": "address",
+          "name": "dispatcher_",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "getProtocolFeeReserveLib",
+      "outputs": [
+        {
+          "internalType": "address",
+          "name": "protocolFeeReserveLib_",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "_dispatcher",
+          "type": "address"
+        }
+      ],
+      "name": "init",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "proxiableUUID",
+      "outputs": [
+        {
+          "internalType": "bytes32",
+          "name": "uuid_",
+          "type": "bytes32"
+        }
+      ],
+      "stateMutability": "pure",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "_nextProtocolFeeReserveLib",
+          "type": "address"
+        }
+      ],
+      "name": "setProtocolFeeReserveLib",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    }
+  ],
+  "bytecode": {
+    "object": "0x",
+    "sourceMap": "",
+    "linkReferences": {}
+  },
+  "deployedBytecode": {
+    "object": "0x",
+    "sourceMap": "",
+    "linkReferences": {}
+  },
+  "methodIdentifiers": {
+    "getDispatcher()": "ebb3d589",
+    "getProtocolFeeReserveLib()": "b3e2546b",
+    "init(address)": "19ab453c",
+    "proxiableUUID()": "52d1902d",
+    "setProtocolFeeReserveLib(address)": "c75a882a"
+  },
+  "rawMetadata": "{\"compiler\":{\"version\":\"0.6.12+commit.27d51765\"},\"language\":\"Solidity\",\"output\":{\"abi\":[{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"address\",\"name\":\"nextProtocolFeeReserveLib\",\"type\":\"address\"}],\"name\":\"ProtocolFeeReserveLibSet\",\"type\":\"event\"},{\"inputs\":[],\"name\":\"getDispatcher\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"dispatcher_\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getProtocolFeeReserveLib\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"protocolFeeReserveLib_\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_dispatcher\",\"type\":\"address\"}],\"name\":\"init\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"proxiableUUID\",\"outputs\":[{\"internalType\":\"bytes32\",\"name\":\"uuid_\",\"type\":\"bytes32\"}],\"stateMutability\":\"pure\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_nextProtocolFeeReserveLib\",\"type\":\"address\"}],\"name\":\"setProtocolFeeReserveLib\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"}],\"devdoc\":{\"author\":\"Enzyme Council <security@enzyme.finance>\",\"details\":\"To be inherited by the first ProtocolFeeReserveLibBase implementation only. DO NOT EDIT CONTRACT.\",\"kind\":\"dev\",\"methods\":{\"getDispatcher()\":{\"returns\":{\"dispatcher_\":\"The `dispatcher` variable value\"}},\"getProtocolFeeReserveLib()\":{\"returns\":{\"protocolFeeReserveLib_\":\"The address of the ProtocolFeeReserveLib target\"}},\"init(address)\":{\"details\":\"Serves as a pseudo-constructor\",\"params\":{\"_dispatcher\":\"The Dispatcher contract\"}},\"proxiableUUID()\":{\"returns\":{\"uuid_\":\"The bytes32 hash representing the UUID\"}},\"setProtocolFeeReserveLib(address)\":{\"details\":\"This function is absolutely critical. __updateCodeAddress() validates that the target is a valid Proxiable contract instance. Does not block _nextProtocolFeeReserveLib from being the same as the current ProtocolFeeReserveLib\",\"params\":{\"_nextProtocolFeeReserveLib\":\"The address to set as the ProtocolFeeReserveLib\"}}},\"title\":\"ProtocolFeeReserveLibBaseCore Contract\",\"version\":1},\"userdoc\":{\"kind\":\"user\",\"methods\":{\"getDispatcher()\":{\"notice\":\"Gets the `dispatcher` variable\"},\"getProtocolFeeReserveLib()\":{\"notice\":\"Gets the ProtocolFeeReserveLib target for the ProtocolFeeReserveProxy\"},\"init(address)\":{\"notice\":\"Initializes the ProtocolFeeReserveProxy with core configuration\"},\"proxiableUUID()\":{\"notice\":\"Returns a unique bytes32 hash for ProtocolFeeReserveLib instances\"},\"setProtocolFeeReserveLib(address)\":{\"notice\":\"Sets the ProtocolFeeReserveLib target for the ProtocolFeeReserveProxy\"}},\"notice\":\"The core implementation of ProtocolFeeReserveLib\",\"version\":1}},\"settings\":{\"compilationTarget\":{\"contracts/persistent/protocol-fee-reserve/bases/ProtocolFeeReserveLibBaseCore.sol\":\"ProtocolFeeReserveLibBaseCore\"},\"evmVersion\":\"istanbul\",\"libraries\":{},\"metadata\":{\"bytecodeHash\":\"none\"},\"optimizer\":{\"details\":{\"constantOptimizer\":true,\"cse\":true,\"deduplicate\":true,\"jumpdestRemover\":true,\"orderLiterals\":true,\"peephole\":true,\"yul\":false},\"runs\":200},\"remappings\":[\":@enzyme/=contracts/\",\":@openzeppelin-solc-0.7/=node_modules/@openzeppelin-solc-0.7/\",\":@openzeppelin/=node_modules/@openzeppelin/\",\":@uniswap/=node_modules/@uniswap/\",\":base64-sol/=node_modules/base64-sol/\",\":ds-test/=lib/forge-std/lib/ds-test/src/\",\":forge-std/=lib/forge-std/src/\",\":hardhat-deploy/=node_modules/hardhat-deploy/\",\":hardhat/=node_modules/hardhat/\"]},\"sources\":{\"contracts/persistent/dispatcher/IDispatcher.sol\":{\"keccak256\":\"0x0e6b0e6cf325d4f6332b8eb2b3c446b2ef3ca8456bdf0d12318d0fd9e90aeb30\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://2f159223517ca72c36852d90e45cc53d1840861d6e1a2a37f7901d7e48bc94d0\",\"dweb:/ipfs/QmZKZnppYFEF8hdTxbA1g3NgWMopwHRey5KdzyJXNGgCUJ\"]},\"contracts/persistent/protocol-fee-reserve/bases/ProtocolFeeReserveLibBaseCore.sol\":{\"keccak256\":\"0xf3f0ab84492ace625caae9572cbf3dc25f7a9ccdfee67d38fa8e6c4a2c679a92\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://8b32274866f86ec7f13cc2349da3136d80a7a5968dfbad2361fd47d6013ed83f\",\"dweb:/ipfs/QmaWGGkaCfzckGfzSACzyL1Jyw2n24iT1oHZw8jTw9pb9Z\"]},\"contracts/persistent/protocol-fee-reserve/utils/ProtocolFeeProxyConstants.sol\":{\"keccak256\":\"0x2ae2574c42812a6c7dedc69f37176132d7f55c36ca22672a56b3240a164de7ea\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://1debdcb650ec03dff95ca515206e4850b5fcdb5bb9151cc88019135fee8651f8\",\"dweb:/ipfs/Qmea7QFovEcXGPVSZp8NcAkEzWo94ejUkcwxT7Z9ybWFPe\"]},\"contracts/persistent/protocol-fee-reserve/utils/ProxiableProtocolFeeReserveLib.sol\":{\"keccak256\":\"0xefc9befd638e13010c556c2d691949a3ce51171de8007e2daa536b368ad78868\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://fb6d3f317ec683b1e6b31984bbf65d6d727e7b3f9057917b9f3b5c03f90eb7fd\",\"dweb:/ipfs/QmWmQKoMgavRRMbMEGhX5qGvxfpDkLfwEgUEqYsnAxTt6T\"]}},\"version\":1}",
+  "metadata": {
+    "compiler": {
+      "version": "0.6.12+commit.27d51765"
+    },
+    "language": "Solidity",
+    "output": {
+      "abi": [
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "nextProtocolFeeReserveLib",
+              "type": "address",
+              "indexed": false
+            }
+          ],
+          "type": "event",
+          "name": "ProtocolFeeReserveLibSet",
+          "anonymous": false
+        },
+        {
+          "inputs": [],
+          "stateMutability": "view",
+          "type": "function",
+          "name": "getDispatcher",
+          "outputs": [
+            {
+              "internalType": "address",
+              "name": "dispatcher_",
+              "type": "address"
+            }
+          ]
+        },
+        {
+          "inputs": [],
+          "stateMutability": "view",
+          "type": "function",
+          "name": "getProtocolFeeReserveLib",
+          "outputs": [
+            {
+              "internalType": "address",
+              "name": "protocolFeeReserveLib_",
+              "type": "address"
+            }
+          ]
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "_dispatcher",
+              "type": "address"
+            }
+          ],
+          "stateMutability": "nonpayable",
+          "type": "function",
+          "name": "init"
+        },
+        {
+          "inputs": [],
+          "stateMutability": "pure",
+          "type": "function",
+          "name": "proxiableUUID",
+          "outputs": [
+            {
+              "internalType": "bytes32",
+              "name": "uuid_",
+              "type": "bytes32"
+            }
+          ]
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "_nextProtocolFeeReserveLib",
+              "type": "address"
+            }
+          ],
+          "stateMutability": "nonpayable",
+          "type": "function",
+          "name": "setProtocolFeeReserveLib"
+        }
+      ],
+      "devdoc": {
+        "kind": "dev",
+        "methods": {
+          "getDispatcher()": {
+            "returns": {
+              "dispatcher_": "The `dispatcher` variable value"
+            }
+          },
+          "getProtocolFeeReserveLib()": {
+            "returns": {
+              "protocolFeeReserveLib_": "The address of the ProtocolFeeReserveLib target"
+            }
+          },
+          "init(address)": {
+            "details": "Serves as a pseudo-constructor",
+            "params": {
+              "_dispatcher": "The Dispatcher contract"
+            }
+          },
+          "proxiableUUID()": {
+            "returns": {
+              "uuid_": "The bytes32 hash representing the UUID"
+            }
+          },
+          "setProtocolFeeReserveLib(address)": {
+            "details": "This function is absolutely critical. __updateCodeAddress() validates that the target is a valid Proxiable contract instance. Does not block _nextProtocolFeeReserveLib from being the same as the current ProtocolFeeReserveLib",
+            "params": {
+              "_nextProtocolFeeReserveLib": "The address to set as the ProtocolFeeReserveLib"
+            }
+          }
+        },
+        "version": 1
+      },
+      "userdoc": {
+        "kind": "user",
+        "methods": {
+          "getDispatcher()": {
+            "notice": "Gets the `dispatcher` variable"
+          },
+          "getProtocolFeeReserveLib()": {
+            "notice": "Gets the ProtocolFeeReserveLib target for the ProtocolFeeReserveProxy"
+          },
+          "init(address)": {
+            "notice": "Initializes the ProtocolFeeReserveProxy with core configuration"
+          },
+          "proxiableUUID()": {
+            "notice": "Returns a unique bytes32 hash for ProtocolFeeReserveLib instances"
+          },
+          "setProtocolFeeReserveLib(address)": {
+            "notice": "Sets the ProtocolFeeReserveLib target for the ProtocolFeeReserveProxy"
+          }
+        },
+        "version": 1
+      }
+    },
+    "settings": {
+      "remappings": [
+        ":@enzyme/=contracts/",
+        ":@openzeppelin-solc-0.7/=node_modules/@openzeppelin-solc-0.7/",
+        ":@openzeppelin/=node_modules/@openzeppelin/",
+        ":@uniswap/=node_modules/@uniswap/",
+        ":base64-sol/=node_modules/base64-sol/",
+        ":ds-test/=lib/forge-std/lib/ds-test/src/",
+        ":forge-std/=lib/forge-std/src/",
+        ":hardhat-deploy/=node_modules/hardhat-deploy/",
+        ":hardhat/=node_modules/hardhat/"
+      ],
+      "optimizer": {
+        "runs": 200,
+        "details": {
+          "peephole": true,
+          "jumpdestRemover": true,
+          "orderLiterals": true,
+          "deduplicate": true,
+          "cse": true,
+          "constantOptimizer": true,
+          "yul": false
+        }
+      },
+      "metadata": {
+        "bytecodeHash": "none"
+      },
+      "compilationTarget": {
+        "contracts/persistent/protocol-fee-reserve/bases/ProtocolFeeReserveLibBaseCore.sol": "ProtocolFeeReserveLibBaseCore"
+      },
+      "libraries": {}
+    },
+    "sources": {
+      "contracts/persistent/dispatcher/IDispatcher.sol": {
+        "keccak256": "0x0e6b0e6cf325d4f6332b8eb2b3c446b2ef3ca8456bdf0d12318d0fd9e90aeb30",
+        "urls": [
+          "bzz-raw://2f159223517ca72c36852d90e45cc53d1840861d6e1a2a37f7901d7e48bc94d0",
+          "dweb:/ipfs/QmZKZnppYFEF8hdTxbA1g3NgWMopwHRey5KdzyJXNGgCUJ"
+        ],
+        "license": "GPL-3.0"
+      },
+      "contracts/persistent/protocol-fee-reserve/bases/ProtocolFeeReserveLibBaseCore.sol": {
+        "keccak256": "0xf3f0ab84492ace625caae9572cbf3dc25f7a9ccdfee67d38fa8e6c4a2c679a92",
+        "urls": [
+          "bzz-raw://8b32274866f86ec7f13cc2349da3136d80a7a5968dfbad2361fd47d6013ed83f",
+          "dweb:/ipfs/QmaWGGkaCfzckGfzSACzyL1Jyw2n24iT1oHZw8jTw9pb9Z"
+        ],
+        "license": "GPL-3.0"
+      },
+      "contracts/persistent/protocol-fee-reserve/utils/ProtocolFeeProxyConstants.sol": {
+        "keccak256": "0x2ae2574c42812a6c7dedc69f37176132d7f55c36ca22672a56b3240a164de7ea",
+        "urls": [
+          "bzz-raw://1debdcb650ec03dff95ca515206e4850b5fcdb5bb9151cc88019135fee8651f8",
+          "dweb:/ipfs/Qmea7QFovEcXGPVSZp8NcAkEzWo94ejUkcwxT7Z9ybWFPe"
+        ],
+        "license": "GPL-3.0"
+      },
+      "contracts/persistent/protocol-fee-reserve/utils/ProxiableProtocolFeeReserveLib.sol": {
+        "keccak256": "0xefc9befd638e13010c556c2d691949a3ce51171de8007e2daa536b368ad78868",
+        "urls": [
+          "bzz-raw://fb6d3f317ec683b1e6b31984bbf65d6d727e7b3f9057917b9f3b5c03f90eb7fd",
+          "dweb:/ipfs/QmWmQKoMgavRRMbMEGhX5qGvxfpDkLfwEgUEqYsnAxTt6T"
+        ],
+        "license": "GPL-3.0"
+      }
+    },
+    "version": 1
+  },
+  "ast": {
+    "absolutePath": "contracts/persistent/protocol-fee-reserve/bases/ProtocolFeeReserveLibBaseCore.sol",
+    "id": 7359,
+    "exportedSymbols": {
+      "ProtocolFeeReserveLibBaseCore": [
+        7358
+      ]
+    },
+    "nodeType": "SourceUnit",
+    "src": "255:2597:54",
+    "nodes": [
+      {
+        "id": 7266,
+        "nodeType": "PragmaDirective",
+        "src": "255:23:54",
+        "nodes": [],
+        "literals": [
+          "solidity",
+          "0.6",
+          ".12"
+        ]
+      },
+      {
+        "id": 7267,
+        "nodeType": "ImportDirective",
+        "src": "280:42:54",
+        "nodes": [],
+        "absolutePath": "contracts/persistent/dispatcher/IDispatcher.sol",
+        "file": "../../dispatcher/IDispatcher.sol",
+        "scope": 7359,
+        "sourceUnit": 4531,
+        "symbolAliases": [],
+        "unitAlias": ""
+      },
+      {
+        "id": 7268,
+        "nodeType": "ImportDirective",
+        "src": "323:53:54",
+        "nodes": [],
+        "absolutePath": "contracts/persistent/protocol-fee-reserve/utils/ProxiableProtocolFeeReserveLib.sol",
+        "file": "../utils/ProxiableProtocolFeeReserveLib.sol",
+        "scope": 7359,
+        "sourceUnit": 7422,
+        "symbolAliases": [],
+        "unitAlias": ""
+      },
+      {
+        "id": 7358,
+        "nodeType": "ContractDefinition",
+        "src": "653:2198:54",
+        "nodes": [
+          {
+            "id": 7275,
+            "nodeType": "EventDefinition",
+            "src": "741:66:54",
+            "nodes": [],
+            "anonymous": false,
+            "documentation": null,
+            "name": "ProtocolFeeReserveLibSet",
+            "parameters": {
+              "id": 7274,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 7273,
+                  "indexed": false,
+                  "mutability": "mutable",
+                  "name": "nextProtocolFeeReserveLib",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 7275,
+                  "src": "772:33:54",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 7272,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "772:7:54",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "771:35:54"
+            }
+          },
+          {
+            "id": 7277,
+            "nodeType": "VariableDeclaration",
+            "src": "813:26:54",
+            "nodes": [],
+            "constant": false,
+            "mutability": "mutable",
+            "name": "dispatcher",
+            "overrides": null,
+            "scope": 7358,
+            "stateVariable": true,
+            "storageLocation": "default",
+            "typeDescriptions": {
+              "typeIdentifier": "t_address",
+              "typeString": "address"
+            },
+            "typeName": {
+              "id": 7276,
+              "name": "address",
+              "nodeType": "ElementaryTypeName",
+              "src": "813:7:54",
+              "stateMutability": "nonpayable",
+              "typeDescriptions": {
+                "typeIdentifier": "t_address",
+                "typeString": "address"
+              }
+            },
+            "value": null,
+            "visibility": "private"
+          },
+          {
+            "id": 7294,
+            "nodeType": "ModifierDefinition",
+            "src": "846:208:54",
+            "nodes": [],
+            "body": {
+              "id": 7293,
+              "nodeType": "Block",
+              "src": "877:177:54",
+              "nodes": [],
+              "statements": [
+                {
+                  "expression": {
+                    "argumentTypes": null,
+                    "arguments": [
+                      {
+                        "argumentTypes": null,
+                        "commonType": {
+                          "typeIdentifier": "t_address",
+                          "typeString": "address"
+                        },
+                        "id": 7288,
+                        "isConstant": false,
+                        "isLValue": false,
+                        "isPure": false,
+                        "lValueRequested": false,
+                        "leftExpression": {
+                          "argumentTypes": null,
+                          "expression": {
+                            "argumentTypes": null,
+                            "id": 7280,
+                            "name": "msg",
+                            "nodeType": "Identifier",
+                            "overloadedDeclarations": [],
+                            "referencedDeclaration": -15,
+                            "src": "908:3:54",
+                            "typeDescriptions": {
+                              "typeIdentifier": "t_magic_message",
+                              "typeString": "msg"
+                            }
+                          },
+                          "id": 7281,
+                          "isConstant": false,
+                          "isLValue": false,
+                          "isPure": false,
+                          "lValueRequested": false,
+                          "memberName": "sender",
+                          "nodeType": "MemberAccess",
+                          "referencedDeclaration": null,
+                          "src": "908:10:54",
+                          "typeDescriptions": {
+                            "typeIdentifier": "t_address_payable",
+                            "typeString": "address payable"
+                          }
+                        },
+                        "nodeType": "BinaryOperation",
+                        "operator": "==",
+                        "rightExpression": {
+                          "argumentTypes": null,
+                          "arguments": [],
+                          "expression": {
+                            "argumentTypes": [],
+                            "expression": {
+                              "argumentTypes": null,
+                              "arguments": [
+                                {
+                                  "argumentTypes": null,
+                                  "arguments": [],
+                                  "expression": {
+                                    "argumentTypes": [],
+                                    "id": 7283,
+                                    "name": "getDispatcher",
+                                    "nodeType": "Identifier",
+                                    "overloadedDeclarations": [],
+                                    "referencedDeclaration": 7347,
+                                    "src": "934:13:54",
+                                    "typeDescriptions": {
+                                      "typeIdentifier": "t_function_internal_view$__$returns$_t_address_$",
+                                      "typeString": "function () view returns (address)"
+                                    }
+                                  },
+                                  "id": 7284,
+                                  "isConstant": false,
+                                  "isLValue": false,
+                                  "isPure": false,
+                                  "kind": "functionCall",
+                                  "lValueRequested": false,
+                                  "names": [],
+                                  "nodeType": "FunctionCall",
+                                  "src": "934:15:54",
+                                  "tryCall": false,
+                                  "typeDescriptions": {
+                                    "typeIdentifier": "t_address",
+                                    "typeString": "address"
+                                  }
+                                }
+                              ],
+                              "expression": {
+                                "argumentTypes": [
+                                  {
+                                    "typeIdentifier": "t_address",
+                                    "typeString": "address"
+                                  }
+                                ],
+                                "id": 7282,
+                                "name": "IDispatcher",
+                                "nodeType": "Identifier",
+                                "overloadedDeclarations": [],
+                                "referencedDeclaration": 4530,
+                                "src": "922:11:54",
+                                "typeDescriptions": {
+                                  "typeIdentifier": "t_type$_t_contract$_IDispatcher_$4530_$",
+                                  "typeString": "type(contract IDispatcher)"
+                                }
+                              },
+                              "id": 7285,
+                              "isConstant": false,
+                              "isLValue": false,
+                              "isPure": false,
+                              "kind": "typeConversion",
+                              "lValueRequested": false,
+                              "names": [],
+                              "nodeType": "FunctionCall",
+                              "src": "922:28:54",
+                              "tryCall": false,
+                              "typeDescriptions": {
+                                "typeIdentifier": "t_contract$_IDispatcher_$4530",
+                                "typeString": "contract IDispatcher"
+                              }
+                            },
+                            "id": 7286,
+                            "isConstant": false,
+                            "isLValue": false,
+                            "isPure": false,
+                            "lValueRequested": false,
+                            "memberName": "getOwner",
+                            "nodeType": "MemberAccess",
+                            "referencedDeclaration": 4469,
+                            "src": "922:37:54",
+                            "typeDescriptions": {
+                              "typeIdentifier": "t_function_external_view$__$returns$_t_address_$",
+                              "typeString": "function () view external returns (address)"
+                            }
+                          },
+                          "id": 7287,
+                          "isConstant": false,
+                          "isLValue": false,
+                          "isPure": false,
+                          "kind": "functionCall",
+                          "lValueRequested": false,
+                          "names": [],
+                          "nodeType": "FunctionCall",
+                          "src": "922:39:54",
+                          "tryCall": false,
+                          "typeDescriptions": {
+                            "typeIdentifier": "t_address",
+                            "typeString": "address"
+                          }
+                        },
+                        "src": "908:53:54",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_bool",
+                          "typeString": "bool"
+                        }
+                      },
+                      {
+                        "argumentTypes": null,
+                        "hexValue": "4f6e6c79207468652044697370617463686572206f776e65722063616e2063616c6c20746869732066756e6374696f6e",
+                        "id": 7289,
+                        "isConstant": false,
+                        "isLValue": false,
+                        "isPure": true,
+                        "kind": "string",
+                        "lValueRequested": false,
+                        "nodeType": "Literal",
+                        "src": "975:50:54",
+                        "subdenomination": null,
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_stringliteral_b26307d211bca2e7a7079def6cac3ed50abae334e67e1c9d6638e91673eb70aa",
+                          "typeString": "literal_string \"Only the Dispatcher owner can call this function\""
+                        },
+                        "value": "Only the Dispatcher owner can call this function"
+                      }
+                    ],
+                    "expression": {
+                      "argumentTypes": [
+                        {
+                          "typeIdentifier": "t_bool",
+                          "typeString": "bool"
+                        },
+                        {
+                          "typeIdentifier": "t_stringliteral_b26307d211bca2e7a7079def6cac3ed50abae334e67e1c9d6638e91673eb70aa",
+                          "typeString": "literal_string \"Only the Dispatcher owner can call this function\""
+                        }
+                      ],
+                      "id": 7279,
+                      "name": "require",
+                      "nodeType": "Identifier",
+                      "overloadedDeclarations": [
+                        -18,
+                        -18
+                      ],
+                      "referencedDeclaration": -18,
+                      "src": "887:7:54",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_function_require_pure$_t_bool_$_t_string_memory_ptr_$returns$__$",
+                        "typeString": "function (bool,string memory) pure"
+                      }
+                    },
+                    "id": 7290,
+                    "isConstant": false,
+                    "isLValue": false,
+                    "isPure": false,
+                    "kind": "functionCall",
+                    "lValueRequested": false,
+                    "names": [],
+                    "nodeType": "FunctionCall",
+                    "src": "887:148:54",
+                    "tryCall": false,
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_tuple$__$",
+                      "typeString": "tuple()"
+                    }
+                  },
+                  "id": 7291,
+                  "nodeType": "ExpressionStatement",
+                  "src": "887:148:54"
+                },
+                {
+                  "id": 7292,
+                  "nodeType": "PlaceholderStatement",
+                  "src": "1046:1:54"
+                }
+              ]
+            },
+            "documentation": null,
+            "name": "onlyDispatcherOwner",
+            "overrides": null,
+            "parameters": {
+              "id": 7278,
+              "nodeType": "ParameterList",
+              "parameters": [],
+              "src": "874:2:54"
+            },
+            "virtual": false,
+            "visibility": "internal"
+          },
+          {
+            "id": 7321,
+            "nodeType": "FunctionDefinition",
+            "src": "1235:237:54",
+            "nodes": [],
+            "body": {
+              "id": 7320,
+              "nodeType": "Block",
+              "src": "1279:193:54",
+              "nodes": [],
+              "statements": [
+                {
+                  "expression": {
+                    "argumentTypes": null,
+                    "arguments": [
+                      {
+                        "argumentTypes": null,
+                        "commonType": {
+                          "typeIdentifier": "t_address",
+                          "typeString": "address"
+                        },
+                        "id": 7307,
+                        "isConstant": false,
+                        "isLValue": false,
+                        "isPure": false,
+                        "lValueRequested": false,
+                        "leftExpression": {
+                          "argumentTypes": null,
+                          "arguments": [],
+                          "expression": {
+                            "argumentTypes": [],
+                            "id": 7301,
+                            "name": "getDispatcher",
+                            "nodeType": "Identifier",
+                            "overloadedDeclarations": [],
+                            "referencedDeclaration": 7347,
+                            "src": "1297:13:54",
+                            "typeDescriptions": {
+                              "typeIdentifier": "t_function_internal_view$__$returns$_t_address_$",
+                              "typeString": "function () view returns (address)"
+                            }
+                          },
+                          "id": 7302,
+                          "isConstant": false,
+                          "isLValue": false,
+                          "isPure": false,
+                          "kind": "functionCall",
+                          "lValueRequested": false,
+                          "names": [],
+                          "nodeType": "FunctionCall",
+                          "src": "1297:15:54",
+                          "tryCall": false,
+                          "typeDescriptions": {
+                            "typeIdentifier": "t_address",
+                            "typeString": "address"
+                          }
+                        },
+                        "nodeType": "BinaryOperation",
+                        "operator": "==",
+                        "rightExpression": {
+                          "argumentTypes": null,
+                          "arguments": [
+                            {
+                              "argumentTypes": null,
+                              "hexValue": "30",
+                              "id": 7305,
+                              "isConstant": false,
+                              "isLValue": false,
+                              "isPure": true,
+                              "kind": "number",
+                              "lValueRequested": false,
+                              "nodeType": "Literal",
+                              "src": "1324:1:54",
+                              "subdenomination": null,
+                              "typeDescriptions": {
+                                "typeIdentifier": "t_rational_0_by_1",
+                                "typeString": "int_const 0"
+                              },
+                              "value": "0"
+                            }
+                          ],
+                          "expression": {
+                            "argumentTypes": [
+                              {
+                                "typeIdentifier": "t_rational_0_by_1",
+                                "typeString": "int_const 0"
+                              }
+                            ],
+                            "id": 7304,
+                            "isConstant": false,
+                            "isLValue": false,
+                            "isPure": true,
+                            "lValueRequested": false,
+                            "nodeType": "ElementaryTypeNameExpression",
+                            "src": "1316:7:54",
+                            "typeDescriptions": {
+                              "typeIdentifier": "t_type$_t_address_$",
+                              "typeString": "type(address)"
+                            },
+                            "typeName": {
+                              "id": 7303,
+                              "name": "address",
+                              "nodeType": "ElementaryTypeName",
+                              "src": "1316:7:54",
+                              "typeDescriptions": {
+                                "typeIdentifier": null,
+                                "typeString": null
+                              }
+                            }
+                          },
+                          "id": 7306,
+                          "isConstant": false,
+                          "isLValue": false,
+                          "isPure": true,
+                          "kind": "typeConversion",
+                          "lValueRequested": false,
+                          "names": [],
+                          "nodeType": "FunctionCall",
+                          "src": "1316:10:54",
+                          "tryCall": false,
+                          "typeDescriptions": {
+                            "typeIdentifier": "t_address_payable",
+                            "typeString": "address payable"
+                          }
+                        },
+                        "src": "1297:29:54",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_bool",
+                          "typeString": "bool"
+                        }
+                      },
+                      {
+                        "argumentTypes": null,
+                        "hexValue": "696e69743a2050726f787920616c726561647920696e697469616c697a6564",
+                        "id": 7308,
+                        "isConstant": false,
+                        "isLValue": false,
+                        "isPure": true,
+                        "kind": "string",
+                        "lValueRequested": false,
+                        "nodeType": "Literal",
+                        "src": "1328:33:54",
+                        "subdenomination": null,
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_stringliteral_597c1bdce70cb6b5fac660ec67cb3a938c4a58d4a1d496af0c6d88a15485936f",
+                          "typeString": "literal_string \"init: Proxy already initialized\""
+                        },
+                        "value": "init: Proxy already initialized"
+                      }
+                    ],
+                    "expression": {
+                      "argumentTypes": [
+                        {
+                          "typeIdentifier": "t_bool",
+                          "typeString": "bool"
+                        },
+                        {
+                          "typeIdentifier": "t_stringliteral_597c1bdce70cb6b5fac660ec67cb3a938c4a58d4a1d496af0c6d88a15485936f",
+                          "typeString": "literal_string \"init: Proxy already initialized\""
+                        }
+                      ],
+                      "id": 7300,
+                      "name": "require",
+                      "nodeType": "Identifier",
+                      "overloadedDeclarations": [
+                        -18,
+                        -18
+                      ],
+                      "referencedDeclaration": -18,
+                      "src": "1289:7:54",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_function_require_pure$_t_bool_$_t_string_memory_ptr_$returns$__$",
+                        "typeString": "function (bool,string memory) pure"
+                      }
+                    },
+                    "id": 7309,
+                    "isConstant": false,
+                    "isLValue": false,
+                    "isPure": false,
+                    "kind": "functionCall",
+                    "lValueRequested": false,
+                    "names": [],
+                    "nodeType": "FunctionCall",
+                    "src": "1289:73:54",
+                    "tryCall": false,
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_tuple$__$",
+                      "typeString": "tuple()"
+                    }
+                  },
+                  "id": 7310,
+                  "nodeType": "ExpressionStatement",
+                  "src": "1289:73:54"
+                },
+                {
+                  "expression": {
+                    "argumentTypes": null,
+                    "id": 7313,
+                    "isConstant": false,
+                    "isLValue": false,
+                    "isPure": false,
+                    "lValueRequested": false,
+                    "leftHandSide": {
+                      "argumentTypes": null,
+                      "id": 7311,
+                      "name": "dispatcher",
+                      "nodeType": "Identifier",
+                      "overloadedDeclarations": [],
+                      "referencedDeclaration": 7277,
+                      "src": "1373:10:54",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_address",
+                        "typeString": "address"
+                      }
+                    },
+                    "nodeType": "Assignment",
+                    "operator": "=",
+                    "rightHandSide": {
+                      "argumentTypes": null,
+                      "id": 7312,
+                      "name": "_dispatcher",
+                      "nodeType": "Identifier",
+                      "overloadedDeclarations": [],
+                      "referencedDeclaration": 7297,
+                      "src": "1386:11:54",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_address",
+                        "typeString": "address"
+                      }
+                    },
+                    "src": "1373:24:54",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "id": 7314,
+                  "nodeType": "ExpressionStatement",
+                  "src": "1373:24:54"
+                },
+                {
+                  "eventCall": {
+                    "argumentTypes": null,
+                    "arguments": [
+                      {
+                        "argumentTypes": null,
+                        "arguments": [],
+                        "expression": {
+                          "argumentTypes": [],
+                          "id": 7316,
+                          "name": "getProtocolFeeReserveLib",
+                          "nodeType": "Identifier",
+                          "overloadedDeclarations": [],
+                          "referencedDeclaration": 7357,
+                          "src": "1438:24:54",
+                          "typeDescriptions": {
+                            "typeIdentifier": "t_function_internal_view$__$returns$_t_address_$",
+                            "typeString": "function () view returns (address)"
+                          }
+                        },
+                        "id": 7317,
+                        "isConstant": false,
+                        "isLValue": false,
+                        "isPure": false,
+                        "kind": "functionCall",
+                        "lValueRequested": false,
+                        "names": [],
+                        "nodeType": "FunctionCall",
+                        "src": "1438:26:54",
+                        "tryCall": false,
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_address",
+                          "typeString": "address"
+                        }
+                      }
+                    ],
+                    "expression": {
+                      "argumentTypes": [
+                        {
+                          "typeIdentifier": "t_address",
+                          "typeString": "address"
+                        }
+                      ],
+                      "id": 7315,
+                      "name": "ProtocolFeeReserveLibSet",
+                      "nodeType": "Identifier",
+                      "overloadedDeclarations": [],
+                      "referencedDeclaration": 7275,
+                      "src": "1413:24:54",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_function_event_nonpayable$_t_address_$returns$__$",
+                        "typeString": "function (address)"
+                      }
+                    },
+                    "id": 7318,
+                    "isConstant": false,
+                    "isLValue": false,
+                    "isPure": false,
+                    "kind": "functionCall",
+                    "lValueRequested": false,
+                    "names": [],
+                    "nodeType": "FunctionCall",
+                    "src": "1413:52:54",
+                    "tryCall": false,
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_tuple$__$",
+                      "typeString": "tuple()"
+                    }
+                  },
+                  "id": 7319,
+                  "nodeType": "EmitStatement",
+                  "src": "1408:57:54"
+                }
+              ]
+            },
+            "documentation": {
+              "id": 7295,
+              "nodeType": "StructuredDocumentation",
+              "src": "1060:170:54",
+              "text": "@notice Initializes the ProtocolFeeReserveProxy with core configuration\n @param _dispatcher The Dispatcher contract\n @dev Serves as a pseudo-constructor"
+            },
+            "functionSelector": "19ab453c",
+            "implemented": true,
+            "kind": "function",
+            "modifiers": [],
+            "name": "init",
+            "overrides": null,
+            "parameters": {
+              "id": 7298,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 7297,
+                  "mutability": "mutable",
+                  "name": "_dispatcher",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 7321,
+                  "src": "1249:19:54",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 7296,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "1249:7:54",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "1248:21:54"
+            },
+            "returnParameters": {
+              "id": 7299,
+              "nodeType": "ParameterList",
+              "parameters": [],
+              "src": "1279:0:54"
+            },
+            "scope": 7358,
+            "stateMutability": "nonpayable",
+            "virtual": false,
+            "visibility": "external"
+          },
+          {
+            "id": 7338,
+            "nodeType": "FunctionDefinition",
+            "src": "1908:251:54",
+            "nodes": [],
+            "body": {
+              "id": 7337,
+              "nodeType": "Block",
+              "src": "2027:132:54",
+              "nodes": [],
+              "statements": [
+                {
+                  "expression": {
+                    "argumentTypes": null,
+                    "arguments": [
+                      {
+                        "argumentTypes": null,
+                        "id": 7330,
+                        "name": "_nextProtocolFeeReserveLib",
+                        "nodeType": "Identifier",
+                        "overloadedDeclarations": [],
+                        "referencedDeclaration": 7324,
+                        "src": "2057:26:54",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_address",
+                          "typeString": "address"
+                        }
+                      }
+                    ],
+                    "expression": {
+                      "argumentTypes": [
+                        {
+                          "typeIdentifier": "t_address",
+                          "typeString": "address"
+                        }
+                      ],
+                      "id": 7329,
+                      "name": "__updateCodeAddress",
+                      "nodeType": "Identifier",
+                      "overloadedDeclarations": [],
+                      "referencedDeclaration": 7411,
+                      "src": "2037:19:54",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_function_internal_nonpayable$_t_address_$returns$__$",
+                        "typeString": "function (address)"
+                      }
+                    },
+                    "id": 7331,
+                    "isConstant": false,
+                    "isLValue": false,
+                    "isPure": false,
+                    "kind": "functionCall",
+                    "lValueRequested": false,
+                    "names": [],
+                    "nodeType": "FunctionCall",
+                    "src": "2037:47:54",
+                    "tryCall": false,
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_tuple$__$",
+                      "typeString": "tuple()"
+                    }
+                  },
+                  "id": 7332,
+                  "nodeType": "ExpressionStatement",
+                  "src": "2037:47:54"
+                },
+                {
+                  "eventCall": {
+                    "argumentTypes": null,
+                    "arguments": [
+                      {
+                        "argumentTypes": null,
+                        "id": 7334,
+                        "name": "_nextProtocolFeeReserveLib",
+                        "nodeType": "Identifier",
+                        "overloadedDeclarations": [],
+                        "referencedDeclaration": 7324,
+                        "src": "2125:26:54",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_address",
+                          "typeString": "address"
+                        }
+                      }
+                    ],
+                    "expression": {
+                      "argumentTypes": [
+                        {
+                          "typeIdentifier": "t_address",
+                          "typeString": "address"
+                        }
+                      ],
+                      "id": 7333,
+                      "name": "ProtocolFeeReserveLibSet",
+                      "nodeType": "Identifier",
+                      "overloadedDeclarations": [],
+                      "referencedDeclaration": 7275,
+                      "src": "2100:24:54",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_function_event_nonpayable$_t_address_$returns$__$",
+                        "typeString": "function (address)"
+                      }
+                    },
+                    "id": 7335,
+                    "isConstant": false,
+                    "isLValue": false,
+                    "isPure": false,
+                    "kind": "functionCall",
+                    "lValueRequested": false,
+                    "names": [],
+                    "nodeType": "FunctionCall",
+                    "src": "2100:52:54",
+                    "tryCall": false,
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_tuple$__$",
+                      "typeString": "tuple()"
+                    }
+                  },
+                  "id": 7336,
+                  "nodeType": "EmitStatement",
+                  "src": "2095:57:54"
+                }
+              ]
+            },
+            "documentation": {
+              "id": 7322,
+              "nodeType": "StructuredDocumentation",
+              "src": "1478:425:54",
+              "text": "@notice Sets the ProtocolFeeReserveLib target for the ProtocolFeeReserveProxy\n @param _nextProtocolFeeReserveLib The address to set as the ProtocolFeeReserveLib\n @dev This function is absolutely critical. __updateCodeAddress() validates that the\n target is a valid Proxiable contract instance.\n Does not block _nextProtocolFeeReserveLib from being the same as the current ProtocolFeeReserveLib"
+            },
+            "functionSelector": "c75a882a",
+            "implemented": true,
+            "kind": "function",
+            "modifiers": [
+              {
+                "arguments": null,
+                "id": 7327,
+                "modifierName": {
+                  "argumentTypes": null,
+                  "id": 7326,
+                  "name": "onlyDispatcherOwner",
+                  "nodeType": "Identifier",
+                  "overloadedDeclarations": [],
+                  "referencedDeclaration": 7294,
+                  "src": "2003:19:54",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_modifier$__$",
+                    "typeString": "modifier ()"
+                  }
+                },
+                "nodeType": "ModifierInvocation",
+                "src": "2003:19:54"
+              }
+            ],
+            "name": "setProtocolFeeReserveLib",
+            "overrides": null,
+            "parameters": {
+              "id": 7325,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 7324,
+                  "mutability": "mutable",
+                  "name": "_nextProtocolFeeReserveLib",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 7338,
+                  "src": "1942:34:54",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 7323,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "1942:7:54",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "1941:36:54"
+            },
+            "returnParameters": {
+              "id": 7328,
+              "nodeType": "ParameterList",
+              "parameters": [],
+              "src": "2027:0:54"
+            },
+            "scope": 7358,
+            "stateMutability": "nonpayable",
+            "virtual": false,
+            "visibility": "external"
+          },
+          {
+            "id": 7347,
+            "nodeType": "FunctionDefinition",
+            "src": "2345:101:54",
+            "nodes": [],
+            "body": {
+              "id": 7346,
+              "nodeType": "Block",
+              "src": "2412:34:54",
+              "nodes": [],
+              "statements": [
+                {
+                  "expression": {
+                    "argumentTypes": null,
+                    "id": 7344,
+                    "name": "dispatcher",
+                    "nodeType": "Identifier",
+                    "overloadedDeclarations": [],
+                    "referencedDeclaration": 7277,
+                    "src": "2429:10:54",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "functionReturnParameters": 7343,
+                  "id": 7345,
+                  "nodeType": "Return",
+                  "src": "2422:17:54"
+                }
+              ]
+            },
+            "documentation": {
+              "id": 7339,
+              "nodeType": "StructuredDocumentation",
+              "src": "2238:102:54",
+              "text": "@notice Gets the `dispatcher` variable\n @return dispatcher_ The `dispatcher` variable value"
+            },
+            "functionSelector": "ebb3d589",
+            "implemented": true,
+            "kind": "function",
+            "modifiers": [],
+            "name": "getDispatcher",
+            "overrides": null,
+            "parameters": {
+              "id": 7340,
+              "nodeType": "ParameterList",
+              "parameters": [],
+              "src": "2367:2:54"
+            },
+            "returnParameters": {
+              "id": 7343,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 7342,
+                  "mutability": "mutable",
+                  "name": "dispatcher_",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 7347,
+                  "src": "2391:19:54",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 7341,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "2391:7:54",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "2390:21:54"
+            },
+            "scope": 7358,
+            "stateMutability": "view",
+            "virtual": false,
+            "visibility": "public"
+          },
+          {
+            "id": 7357,
+            "nodeType": "FunctionDefinition",
+            "src": "2625:224:54",
+            "nodes": [],
+            "body": {
+              "id": 7356,
+              "nodeType": "Block",
+              "src": "2714:135:54",
+              "nodes": [],
+              "statements": [
+                {
+                  "AST": {
+                    "nodeType": "YulBlock",
+                    "src": "2733:70:54",
+                    "statements": [
+                      {
+                        "nodeType": "YulAssignment",
+                        "src": "2747:46:54",
+                        "value": {
+                          "arguments": [
+                            {
+                              "name": "EIP_1967_SLOT",
+                              "nodeType": "YulIdentifier",
+                              "src": "2779:13:54"
+                            }
+                          ],
+                          "functionName": {
+                            "name": "sload",
+                            "nodeType": "YulIdentifier",
+                            "src": "2773:5:54"
+                          },
+                          "nodeType": "YulFunctionCall",
+                          "src": "2773:20:54"
+                        },
+                        "variableNames": [
+                          {
+                            "name": "protocolFeeReserveLib_",
+                            "nodeType": "YulIdentifier",
+                            "src": "2747:22:54"
+                          }
+                        ]
+                      }
+                    ]
+                  },
+                  "evmVersion": "istanbul",
+                  "externalReferences": [
+                    {
+                      "declaration": 7382,
+                      "isOffset": false,
+                      "isSlot": false,
+                      "src": "2779:13:54",
+                      "valueSize": 1
+                    },
+                    {
+                      "declaration": 7351,
+                      "isOffset": false,
+                      "isSlot": false,
+                      "src": "2747:22:54",
+                      "valueSize": 1
+                    }
+                  ],
+                  "id": 7353,
+                  "nodeType": "InlineAssembly",
+                  "src": "2724:79:54"
+                },
+                {
+                  "expression": {
+                    "argumentTypes": null,
+                    "id": 7354,
+                    "name": "protocolFeeReserveLib_",
+                    "nodeType": "Identifier",
+                    "overloadedDeclarations": [],
+                    "referencedDeclaration": 7351,
+                    "src": "2820:22:54",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "functionReturnParameters": 7352,
+                  "id": 7355,
+                  "nodeType": "Return",
+                  "src": "2813:29:54"
+                }
+              ]
+            },
+            "documentation": {
+              "id": 7348,
+              "nodeType": "StructuredDocumentation",
+              "src": "2452:168:54",
+              "text": "@notice Gets the ProtocolFeeReserveLib target for the ProtocolFeeReserveProxy\n @return protocolFeeReserveLib_ The address of the ProtocolFeeReserveLib target"
+            },
+            "functionSelector": "b3e2546b",
+            "implemented": true,
+            "kind": "function",
+            "modifiers": [],
+            "name": "getProtocolFeeReserveLib",
+            "overrides": null,
+            "parameters": {
+              "id": 7349,
+              "nodeType": "ParameterList",
+              "parameters": [],
+              "src": "2658:2:54"
+            },
+            "returnParameters": {
+              "id": 7352,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 7351,
+                  "mutability": "mutable",
+                  "name": "protocolFeeReserveLib_",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 7357,
+                  "src": "2682:30:54",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 7350,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "2682:7:54",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "2681:32:54"
+            },
+            "scope": 7358,
+            "stateMutability": "view",
+            "virtual": false,
+            "visibility": "public"
+          }
+        ],
+        "abstract": true,
+        "baseContracts": [
+          {
+            "arguments": null,
+            "baseName": {
+              "contractScope": null,
+              "id": 7270,
+              "name": "ProxiableProtocolFeeReserveLib",
+              "nodeType": "UserDefinedTypeName",
+              "referencedDeclaration": 7421,
+              "src": "704:30:54",
+              "typeDescriptions": {
+                "typeIdentifier": "t_contract$_ProxiableProtocolFeeReserveLib_$7421",
+                "typeString": "contract ProxiableProtocolFeeReserveLib"
+              }
+            },
+            "id": 7271,
+            "nodeType": "InheritanceSpecifier",
+            "src": "704:30:54"
+          }
+        ],
+        "contractDependencies": [
+          7383,
+          7421
+        ],
+        "contractKind": "contract",
+        "documentation": {
+          "id": 7269,
+          "nodeType": "StructuredDocumentation",
+          "src": "378:275:54",
+          "text": "@title ProtocolFeeReserveLibBaseCore Contract\n @author Enzyme Council <security@enzyme.finance>\n @notice The core implementation of ProtocolFeeReserveLib\n @dev To be inherited by the first ProtocolFeeReserveLibBase implementation only.\n DO NOT EDIT CONTRACT."
+        },
+        "fullyImplemented": true,
+        "linearizedBaseContracts": [
+          7358,
+          7421,
+          7383
+        ],
+        "name": "ProtocolFeeReserveLibBaseCore",
+        "scope": 7359
+      }
+    ],
+    "license": "GPL-3.0"
+  },
+  "id": 54
+}

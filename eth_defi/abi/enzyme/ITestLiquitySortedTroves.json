@@ -1,0 +1,373 @@
+{
+  "abi": [
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "_NCIR",
+          "type": "uint256"
+        },
+        {
+          "internalType": "address",
+          "name": "_prevId",
+          "type": "address"
+        },
+        {
+          "internalType": "address",
+          "name": "_nextId",
+          "type": "address"
+        }
+      ],
+      "name": "findInsertPosition",
+      "outputs": [
+        {
+          "internalType": "address",
+          "name": "upperHint_",
+          "type": "address"
+        },
+        {
+          "internalType": "address",
+          "name": "lowerHint_",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    }
+  ],
+  "bytecode": {
+    "object": "0x",
+    "sourceMap": "",
+    "linkReferences": {}
+  },
+  "deployedBytecode": {
+    "object": "0x",
+    "sourceMap": "",
+    "linkReferences": {}
+  },
+  "methodIdentifiers": {
+    "findInsertPosition(uint256,address,address)": "416980dc"
+  },
+  "rawMetadata": "{\"compiler\":{\"version\":\"0.6.12+commit.27d51765\"},\"language\":\"Solidity\",\"output\":{\"abi\":[{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_NCIR\",\"type\":\"uint256\"},{\"internalType\":\"address\",\"name\":\"_prevId\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"_nextId\",\"type\":\"address\"}],\"name\":\"findInsertPosition\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"upperHint_\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"lowerHint_\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"}],\"devdoc\":{\"author\":\"Enzyme Council <security@enzyme.finance>\",\"kind\":\"dev\",\"methods\":{},\"title\":\"ITestLiquitySortedTroves Interface\",\"version\":1},\"userdoc\":{\"kind\":\"user\",\"methods\":{},\"version\":1}},\"settings\":{\"compilationTarget\":{\"contracts/test/interfaces/ITestLiquitySortedTroves.sol\":\"ITestLiquitySortedTroves\"},\"evmVersion\":\"istanbul\",\"libraries\":{},\"metadata\":{\"bytecodeHash\":\"none\"},\"optimizer\":{\"details\":{\"constantOptimizer\":true,\"cse\":true,\"deduplicate\":true,\"jumpdestRemover\":true,\"orderLiterals\":true,\"peephole\":true,\"yul\":false},\"runs\":200},\"remappings\":[\":@enzyme/=contracts/\",\":@openzeppelin-solc-0.7/=node_modules/@openzeppelin-solc-0.7/\",\":@openzeppelin/=node_modules/@openzeppelin/\",\":@uniswap/=node_modules/@uniswap/\",\":base64-sol/=node_modules/base64-sol/\",\":ds-test/=lib/forge-std/lib/ds-test/src/\",\":forge-std/=lib/forge-std/src/\",\":hardhat-deploy/=node_modules/hardhat-deploy/\",\":hardhat/=node_modules/hardhat/\"]},\"sources\":{\"contracts/test/interfaces/ITestLiquitySortedTroves.sol\":{\"keccak256\":\"0xc15fe7560fcf0da69a67373f9814dc0f4db3b7e9a8bc89f27a846db40fc59e87\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://5a13d1794b5826136825a042271f49a160bdc0e74a67f54eb3fed7a3738d31fb\",\"dweb:/ipfs/QmQSaL5LknXik8YHmyJAyPXKxTEk6snBHiqN8vX2mcedqL\"]}},\"version\":1}",
+  "metadata": {
+    "compiler": {
+      "version": "0.6.12+commit.27d51765"
+    },
+    "language": "Solidity",
+    "output": {
+      "abi": [
+        {
+          "inputs": [
+            {
+              "internalType": "uint256",
+              "name": "_NCIR",
+              "type": "uint256"
+            },
+            {
+              "internalType": "address",
+              "name": "_prevId",
+              "type": "address"
+            },
+            {
+              "internalType": "address",
+              "name": "_nextId",
+              "type": "address"
+            }
+          ],
+          "stateMutability": "view",
+          "type": "function",
+          "name": "findInsertPosition",
+          "outputs": [
+            {
+              "internalType": "address",
+              "name": "upperHint_",
+              "type": "address"
+            },
+            {
+              "internalType": "address",
+              "name": "lowerHint_",
+              "type": "address"
+            }
+          ]
+        }
+      ],
+      "devdoc": {
+        "kind": "dev",
+        "methods": {},
+        "version": 1
+      },
+      "userdoc": {
+        "kind": "user",
+        "methods": {},
+        "version": 1
+      }
+    },
+    "settings": {
+      "remappings": [
+        ":@enzyme/=contracts/",
+        ":@openzeppelin-solc-0.7/=node_modules/@openzeppelin-solc-0.7/",
+        ":@openzeppelin/=node_modules/@openzeppelin/",
+        ":@uniswap/=node_modules/@uniswap/",
+        ":base64-sol/=node_modules/base64-sol/",
+        ":ds-test/=lib/forge-std/lib/ds-test/src/",
+        ":forge-std/=lib/forge-std/src/",
+        ":hardhat-deploy/=node_modules/hardhat-deploy/",
+        ":hardhat/=node_modules/hardhat/"
+      ],
+      "optimizer": {
+        "runs": 200,
+        "details": {
+          "peephole": true,
+          "jumpdestRemover": true,
+          "orderLiterals": true,
+          "deduplicate": true,
+          "cse": true,
+          "constantOptimizer": true,
+          "yul": false
+        }
+      },
+      "metadata": {
+        "bytecodeHash": "none"
+      },
+      "compilationTarget": {
+        "contracts/test/interfaces/ITestLiquitySortedTroves.sol": "ITestLiquitySortedTroves"
+      },
+      "libraries": {}
+    },
+    "sources": {
+      "contracts/test/interfaces/ITestLiquitySortedTroves.sol": {
+        "keccak256": "0xc15fe7560fcf0da69a67373f9814dc0f4db3b7e9a8bc89f27a846db40fc59e87",
+        "urls": [
+          "bzz-raw://5a13d1794b5826136825a042271f49a160bdc0e74a67f54eb3fed7a3738d31fb",
+          "dweb:/ipfs/QmQSaL5LknXik8YHmyJAyPXKxTEk6snBHiqN8vX2mcedqL"
+        ],
+        "license": "GPL-3.0"
+      }
+    },
+    "version": 1
+  },
+  "ast": {
+    "absolutePath": "contracts/test/interfaces/ITestLiquitySortedTroves.sol",
+    "id": 80775,
+    "exportedSymbols": {
+      "ITestLiquitySortedTroves": [
+        80774
+      ]
+    },
+    "nodeType": "SourceUnit",
+    "src": "253:338:405",
+    "nodes": [
+      {
+        "id": 80759,
+        "nodeType": "PragmaDirective",
+        "src": "253:23:405",
+        "nodes": [],
+        "literals": [
+          "solidity",
+          "0.6",
+          ".12"
+        ]
+      },
+      {
+        "id": 80774,
+        "nodeType": "ContractDefinition",
+        "src": "377:213:405",
+        "nodes": [
+          {
+            "id": 80773,
+            "nodeType": "FunctionDefinition",
+            "src": "418:170:405",
+            "nodes": [],
+            "documentation": null,
+            "functionSelector": "416980dc",
+            "implemented": false,
+            "kind": "function",
+            "modifiers": [],
+            "name": "findInsertPosition",
+            "overrides": null,
+            "parameters": {
+              "id": 80767,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 80762,
+                  "mutability": "mutable",
+                  "name": "_NCIR",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 80773,
+                  "src": "455:13:405",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_uint256",
+                    "typeString": "uint256"
+                  },
+                  "typeName": {
+                    "id": 80761,
+                    "name": "uint256",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "455:7:405",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_uint256",
+                      "typeString": "uint256"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 80764,
+                  "mutability": "mutable",
+                  "name": "_prevId",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 80773,
+                  "src": "478:15:405",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 80763,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "478:7:405",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 80766,
+                  "mutability": "mutable",
+                  "name": "_nextId",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 80773,
+                  "src": "503:15:405",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 80765,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "503:7:405",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "445:79:405"
+            },
+            "returnParameters": {
+              "id": 80772,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 80769,
+                  "mutability": "mutable",
+                  "name": "upperHint_",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 80773,
+                  "src": "548:18:405",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 80768,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "548:7:405",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 80771,
+                  "mutability": "mutable",
+                  "name": "lowerHint_",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 80773,
+                  "src": "568:18:405",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 80770,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "568:7:405",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "547:40:405"
+            },
+            "scope": 80774,
+            "stateMutability": "view",
+            "virtual": false,
+            "visibility": "external"
+          }
+        ],
+        "abstract": false,
+        "baseContracts": [],
+        "contractDependencies": [],
+        "contractKind": "interface",
+        "documentation": {
+          "id": 80760,
+          "nodeType": "StructuredDocumentation",
+          "src": "278:99:405",
+          "text": "@title ITestLiquitySortedTroves Interface\n @author Enzyme Council <security@enzyme.finance>"
+        },
+        "fullyImplemented": false,
+        "linearizedBaseContracts": [
+          80774
+        ],
+        "name": "ITestLiquitySortedTroves",
+        "scope": 80775
+      }
+    ],
+    "license": "GPL-3.0"
+  },
+  "id": 405
+}

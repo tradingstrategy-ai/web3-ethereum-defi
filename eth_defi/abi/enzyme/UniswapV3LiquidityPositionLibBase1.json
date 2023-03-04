@@ -1,0 +1,394 @@
+{
+  "abi": [
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "uint256",
+          "name": "tokenId",
+          "type": "uint256"
+        }
+      ],
+      "name": "NFTPositionAdded",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "uint256",
+          "name": "tokenId",
+          "type": "uint256"
+        }
+      ],
+      "name": "NFTPositionRemoved",
+      "type": "event"
+    }
+  ],
+  "bytecode": {
+    "object": "0x",
+    "sourceMap": "",
+    "linkReferences": {}
+  },
+  "deployedBytecode": {
+    "object": "0x",
+    "sourceMap": "",
+    "linkReferences": {}
+  },
+  "methodIdentifiers": {},
+  "rawMetadata": "{\"compiler\":{\"version\":\"0.7.6+commit.7338295f\"},\"language\":\"Solidity\",\"output\":{\"abi\":[{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"uint256\",\"name\":\"tokenId\",\"type\":\"uint256\"}],\"name\":\"NFTPositionAdded\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"uint256\",\"name\":\"tokenId\",\"type\":\"uint256\"}],\"name\":\"NFTPositionRemoved\",\"type\":\"event\"}],\"devdoc\":{\"author\":\"Enzyme Council <security@enzyme.finance>\",\"details\":\"DO NOT EDIT CONTRACT. If new events or storage are necessary, they should be added to a numbered UniswapV3LiquidityPositionLibBaseXXX that inherits the previous base. e.g., `UniswapV3LiquidityPositionLibBase2 is UniswapV3LiquidityPositionLibBase1`\",\"kind\":\"dev\",\"methods\":{},\"title\":\"UniswapV3LiquidityPositionLibBase1 Contract\",\"version\":1},\"userdoc\":{\"kind\":\"user\",\"methods\":{},\"notice\":\"A persistent contract containing all required storage variables and required functions for a UniswapV3LiquidityPositionLib implementation\",\"version\":1}},\"settings\":{\"compilationTarget\":{\"contracts/persistent/external-positions/uniswap-v3-liquidity/UniswapV3LiquidityPositionLibBase1.sol\":\"UniswapV3LiquidityPositionLibBase1\"},\"evmVersion\":\"istanbul\",\"libraries\":{},\"metadata\":{\"bytecodeHash\":\"none\"},\"optimizer\":{\"details\":{\"constantOptimizer\":true,\"cse\":true,\"deduplicate\":true,\"jumpdestRemover\":true,\"orderLiterals\":true,\"peephole\":true,\"yul\":false},\"runs\":200},\"remappings\":[\":@enzyme/=contracts/\",\":@openzeppelin-solc-0.7/=node_modules/@openzeppelin-solc-0.7/\",\":@openzeppelin/=node_modules/@openzeppelin/\",\":@uniswap/=node_modules/@uniswap/\",\":base64-sol/=node_modules/base64-sol/\",\":ds-test/=lib/forge-std/lib/ds-test/src/\",\":forge-std/=lib/forge-std/src/\",\":hardhat-deploy/=node_modules/hardhat-deploy/\",\":hardhat/=node_modules/hardhat/\"]},\"sources\":{\"contracts/persistent/external-positions/uniswap-v3-liquidity/UniswapV3LiquidityPositionLibBase1.sol\":{\"keccak256\":\"0x9d16f0c4b687b70bbfc5b1f6f400035f2d827b5eabe775e6fee376dc9fd4eacf\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://2db1ca704caa193ba223636b334e2d387107020c9b75e7c26981e459e42803ed\",\"dweb:/ipfs/QmZHgwJzuiBHs1WAhDNX6CqrT2TBL8Hb9fXK9jubm2fzBP\"]}},\"version\":1}",
+  "metadata": {
+    "compiler": {
+      "version": "0.7.6+commit.7338295f"
+    },
+    "language": "Solidity",
+    "output": {
+      "abi": [
+        {
+          "inputs": [
+            {
+              "internalType": "uint256",
+              "name": "tokenId",
+              "type": "uint256",
+              "indexed": true
+            }
+          ],
+          "type": "event",
+          "name": "NFTPositionAdded",
+          "anonymous": false
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "uint256",
+              "name": "tokenId",
+              "type": "uint256",
+              "indexed": true
+            }
+          ],
+          "type": "event",
+          "name": "NFTPositionRemoved",
+          "anonymous": false
+        }
+      ],
+      "devdoc": {
+        "kind": "dev",
+        "methods": {},
+        "version": 1
+      },
+      "userdoc": {
+        "kind": "user",
+        "methods": {},
+        "version": 1
+      }
+    },
+    "settings": {
+      "remappings": [
+        ":@enzyme/=contracts/",
+        ":@openzeppelin-solc-0.7/=node_modules/@openzeppelin-solc-0.7/",
+        ":@openzeppelin/=node_modules/@openzeppelin/",
+        ":@uniswap/=node_modules/@uniswap/",
+        ":base64-sol/=node_modules/base64-sol/",
+        ":ds-test/=lib/forge-std/lib/ds-test/src/",
+        ":forge-std/=lib/forge-std/src/",
+        ":hardhat-deploy/=node_modules/hardhat-deploy/",
+        ":hardhat/=node_modules/hardhat/"
+      ],
+      "optimizer": {
+        "runs": 200,
+        "details": {
+          "peephole": true,
+          "jumpdestRemover": true,
+          "orderLiterals": true,
+          "deduplicate": true,
+          "cse": true,
+          "constantOptimizer": true,
+          "yul": false
+        }
+      },
+      "metadata": {
+        "bytecodeHash": "none"
+      },
+      "compilationTarget": {
+        "contracts/persistent/external-positions/uniswap-v3-liquidity/UniswapV3LiquidityPositionLibBase1.sol": "UniswapV3LiquidityPositionLibBase1"
+      },
+      "libraries": {}
+    },
+    "sources": {
+      "contracts/persistent/external-positions/uniswap-v3-liquidity/UniswapV3LiquidityPositionLibBase1.sol": {
+        "keccak256": "0x9d16f0c4b687b70bbfc5b1f6f400035f2d827b5eabe775e6fee376dc9fd4eacf",
+        "urls": [
+          "bzz-raw://2db1ca704caa193ba223636b334e2d387107020c9b75e7c26981e459e42803ed",
+          "dweb:/ipfs/QmZHgwJzuiBHs1WAhDNX6CqrT2TBL8Hb9fXK9jubm2fzBP"
+        ],
+        "license": "GPL-3.0"
+      }
+    },
+    "version": 1
+  },
+  "ast": {
+    "absolutePath": "contracts/persistent/external-positions/uniswap-v3-liquidity/UniswapV3LiquidityPositionLibBase1.sol",
+    "id": 23,
+    "exportedSymbols": {
+      "UniswapV3LiquidityPositionLibBase1": [
+        22
+      ]
+    },
+    "nodeType": "SourceUnit",
+    "src": "255:861:0",
+    "nodes": [
+      {
+        "id": 1,
+        "nodeType": "PragmaDirective",
+        "src": "255:22:0",
+        "nodes": [],
+        "literals": [
+          "solidity",
+          "0.7",
+          ".6"
+        ]
+      },
+      {
+        "id": 22,
+        "nodeType": "ContractDefinition",
+        "src": "806:309:0",
+        "nodes": [
+          {
+            "id": 6,
+            "nodeType": "EventDefinition",
+            "src": "865:48:0",
+            "nodes": [],
+            "anonymous": false,
+            "name": "NFTPositionAdded",
+            "parameters": {
+              "id": 5,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 4,
+                  "indexed": true,
+                  "mutability": "mutable",
+                  "name": "tokenId",
+                  "nodeType": "VariableDeclaration",
+                  "scope": 6,
+                  "src": "888:23:0",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_uint256",
+                    "typeString": "uint256"
+                  },
+                  "typeName": {
+                    "id": 3,
+                    "name": "uint256",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "888:7:0",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_uint256",
+                      "typeString": "uint256"
+                    }
+                  },
+                  "visibility": "internal"
+                }
+              ],
+              "src": "887:25:0"
+            }
+          },
+          {
+            "id": 10,
+            "nodeType": "EventDefinition",
+            "src": "919:50:0",
+            "nodes": [],
+            "anonymous": false,
+            "name": "NFTPositionRemoved",
+            "parameters": {
+              "id": 9,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 8,
+                  "indexed": true,
+                  "mutability": "mutable",
+                  "name": "tokenId",
+                  "nodeType": "VariableDeclaration",
+                  "scope": 10,
+                  "src": "944:23:0",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_uint256",
+                    "typeString": "uint256"
+                  },
+                  "typeName": {
+                    "id": 7,
+                    "name": "uint256",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "944:7:0",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_uint256",
+                      "typeString": "uint256"
+                    }
+                  },
+                  "visibility": "internal"
+                }
+              ],
+              "src": "943:25:0"
+            }
+          },
+          {
+            "id": 13,
+            "nodeType": "VariableDeclaration",
+            "src": "975:25:0",
+            "nodes": [],
+            "constant": false,
+            "mutability": "mutable",
+            "name": "nftIds",
+            "scope": 22,
+            "stateVariable": true,
+            "storageLocation": "default",
+            "typeDescriptions": {
+              "typeIdentifier": "t_array$_t_uint256_$dyn_storage",
+              "typeString": "uint256[]"
+            },
+            "typeName": {
+              "baseType": {
+                "id": 11,
+                "name": "uint256",
+                "nodeType": "ElementaryTypeName",
+                "src": "975:7:0",
+                "typeDescriptions": {
+                  "typeIdentifier": "t_uint256",
+                  "typeString": "uint256"
+                }
+              },
+              "id": 12,
+              "nodeType": "ArrayTypeName",
+              "src": "975:9:0",
+              "typeDescriptions": {
+                "typeIdentifier": "t_array$_t_uint256_$dyn_storage_ptr",
+                "typeString": "uint256[]"
+              }
+            },
+            "visibility": "internal"
+          },
+          {
+            "id": 17,
+            "nodeType": "VariableDeclaration",
+            "src": "1006:50:0",
+            "nodes": [],
+            "constant": false,
+            "mutability": "mutable",
+            "name": "nftIdToToken0",
+            "scope": 22,
+            "stateVariable": true,
+            "storageLocation": "default",
+            "typeDescriptions": {
+              "typeIdentifier": "t_mapping$_t_uint256_$_t_address_$",
+              "typeString": "mapping(uint256 => address)"
+            },
+            "typeName": {
+              "id": 16,
+              "keyType": {
+                "id": 14,
+                "name": "uint256",
+                "nodeType": "ElementaryTypeName",
+                "src": "1014:7:0",
+                "typeDescriptions": {
+                  "typeIdentifier": "t_uint256",
+                  "typeString": "uint256"
+                }
+              },
+              "nodeType": "Mapping",
+              "src": "1006:27:0",
+              "typeDescriptions": {
+                "typeIdentifier": "t_mapping$_t_uint256_$_t_address_$",
+                "typeString": "mapping(uint256 => address)"
+              },
+              "valueType": {
+                "id": 15,
+                "name": "address",
+                "nodeType": "ElementaryTypeName",
+                "src": "1025:7:0",
+                "stateMutability": "nonpayable",
+                "typeDescriptions": {
+                  "typeIdentifier": "t_address",
+                  "typeString": "address"
+                }
+              }
+            },
+            "visibility": "internal"
+          },
+          {
+            "id": 21,
+            "nodeType": "VariableDeclaration",
+            "src": "1062:50:0",
+            "nodes": [],
+            "constant": false,
+            "mutability": "mutable",
+            "name": "nftIdToToken1",
+            "scope": 22,
+            "stateVariable": true,
+            "storageLocation": "default",
+            "typeDescriptions": {
+              "typeIdentifier": "t_mapping$_t_uint256_$_t_address_$",
+              "typeString": "mapping(uint256 => address)"
+            },
+            "typeName": {
+              "id": 20,
+              "keyType": {
+                "id": 18,
+                "name": "uint256",
+                "nodeType": "ElementaryTypeName",
+                "src": "1070:7:0",
+                "typeDescriptions": {
+                  "typeIdentifier": "t_uint256",
+                  "typeString": "uint256"
+                }
+              },
+              "nodeType": "Mapping",
+              "src": "1062:27:0",
+              "typeDescriptions": {
+                "typeIdentifier": "t_mapping$_t_uint256_$_t_address_$",
+                "typeString": "mapping(uint256 => address)"
+              },
+              "valueType": {
+                "id": 19,
+                "name": "address",
+                "nodeType": "ElementaryTypeName",
+                "src": "1081:7:0",
+                "stateMutability": "nonpayable",
+                "typeDescriptions": {
+                  "typeIdentifier": "t_address",
+                  "typeString": "address"
+                }
+              }
+            },
+            "visibility": "internal"
+          }
+        ],
+        "abstract": true,
+        "baseContracts": [],
+        "contractDependencies": [],
+        "contractKind": "contract",
+        "documentation": {
+          "id": 2,
+          "nodeType": "StructuredDocumentation",
+          "src": "279:527:0",
+          "text": "@title UniswapV3LiquidityPositionLibBase1 Contract\n @author Enzyme Council <security@enzyme.finance>\n @notice A persistent contract containing all required storage variables and\n required functions for a UniswapV3LiquidityPositionLib implementation\n @dev DO NOT EDIT CONTRACT. If new events or storage are necessary, they should be added to\n a numbered UniswapV3LiquidityPositionLibBaseXXX that inherits the previous base.\n e.g., `UniswapV3LiquidityPositionLibBase2 is UniswapV3LiquidityPositionLibBase1`"
+        },
+        "fullyImplemented": true,
+        "linearizedBaseContracts": [
+          22
+        ],
+        "name": "UniswapV3LiquidityPositionLibBase1",
+        "scope": 23
+      }
+    ],
+    "license": "GPL-3.0"
+  },
+  "id": 0
+}

@@ -1,0 +1,300 @@
+{
+  "abi": [
+    {
+      "inputs": [],
+      "name": "getExternalPositionType",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "getVaultProxy",
+      "outputs": [
+        {
+          "internalType": "address",
+          "name": "",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    }
+  ],
+  "bytecode": {
+    "object": "0x",
+    "sourceMap": "",
+    "linkReferences": {}
+  },
+  "deployedBytecode": {
+    "object": "0x",
+    "sourceMap": "",
+    "linkReferences": {}
+  },
+  "methodIdentifiers": {
+    "getExternalPositionType()": "12bc0a44",
+    "getVaultProxy()": "c9809187"
+  },
+  "rawMetadata": "{\"compiler\":{\"version\":\"0.6.12+commit.27d51765\"},\"language\":\"Solidity\",\"output\":{\"abi\":[{\"inputs\":[],\"name\":\"getExternalPositionType\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getVaultProxy\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"}],\"devdoc\":{\"author\":\"Enzyme Council <security@enzyme.finance>\",\"kind\":\"dev\",\"methods\":{},\"title\":\"IExternalPositionProxy interface\",\"version\":1},\"userdoc\":{\"kind\":\"user\",\"methods\":{},\"notice\":\"An interface for publicly accessible functions on the ExternalPositionProxy\",\"version\":1}},\"settings\":{\"compilationTarget\":{\"contracts/persistent/external-positions/IExternalPositionProxy.sol\":\"IExternalPositionProxy\"},\"evmVersion\":\"istanbul\",\"libraries\":{},\"metadata\":{\"bytecodeHash\":\"none\"},\"optimizer\":{\"details\":{\"constantOptimizer\":true,\"cse\":true,\"deduplicate\":true,\"jumpdestRemover\":true,\"orderLiterals\":true,\"peephole\":true,\"yul\":false},\"runs\":200},\"remappings\":[\":@enzyme/=contracts/\",\":@openzeppelin-solc-0.7/=node_modules/@openzeppelin-solc-0.7/\",\":@openzeppelin/=node_modules/@openzeppelin/\",\":@uniswap/=node_modules/@uniswap/\",\":base64-sol/=node_modules/base64-sol/\",\":ds-test/=lib/forge-std/lib/ds-test/src/\",\":forge-std/=lib/forge-std/src/\",\":hardhat-deploy/=node_modules/hardhat-deploy/\",\":hardhat/=node_modules/hardhat/\"]},\"sources\":{\"contracts/persistent/external-positions/IExternalPositionProxy.sol\":{\"keccak256\":\"0xc74e623dbdc949df49e9cef31e0f958b17c715d89198dbbc1754d8f9c21e90de\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://074daf0a9f4e667964e6d50039986e3d792860cdece05d21e3606d33358a02b2\",\"dweb:/ipfs/QmVHXiKry9fYfjSNd6dxmtSr7DubNJvYJTNXtLDKGer2xH\"]}},\"version\":1}",
+  "metadata": {
+    "compiler": {
+      "version": "0.6.12+commit.27d51765"
+    },
+    "language": "Solidity",
+    "output": {
+      "abi": [
+        {
+          "inputs": [],
+          "stateMutability": "view",
+          "type": "function",
+          "name": "getExternalPositionType",
+          "outputs": [
+            {
+              "internalType": "uint256",
+              "name": "",
+              "type": "uint256"
+            }
+          ]
+        },
+        {
+          "inputs": [],
+          "stateMutability": "view",
+          "type": "function",
+          "name": "getVaultProxy",
+          "outputs": [
+            {
+              "internalType": "address",
+              "name": "",
+              "type": "address"
+            }
+          ]
+        }
+      ],
+      "devdoc": {
+        "kind": "dev",
+        "methods": {},
+        "version": 1
+      },
+      "userdoc": {
+        "kind": "user",
+        "methods": {},
+        "version": 1
+      }
+    },
+    "settings": {
+      "remappings": [
+        ":@enzyme/=contracts/",
+        ":@openzeppelin-solc-0.7/=node_modules/@openzeppelin-solc-0.7/",
+        ":@openzeppelin/=node_modules/@openzeppelin/",
+        ":@uniswap/=node_modules/@uniswap/",
+        ":base64-sol/=node_modules/base64-sol/",
+        ":ds-test/=lib/forge-std/lib/ds-test/src/",
+        ":forge-std/=lib/forge-std/src/",
+        ":hardhat-deploy/=node_modules/hardhat-deploy/",
+        ":hardhat/=node_modules/hardhat/"
+      ],
+      "optimizer": {
+        "runs": 200,
+        "details": {
+          "peephole": true,
+          "jumpdestRemover": true,
+          "orderLiterals": true,
+          "deduplicate": true,
+          "cse": true,
+          "constantOptimizer": true,
+          "yul": false
+        }
+      },
+      "metadata": {
+        "bytecodeHash": "none"
+      },
+      "compilationTarget": {
+        "contracts/persistent/external-positions/IExternalPositionProxy.sol": "IExternalPositionProxy"
+      },
+      "libraries": {}
+    },
+    "sources": {
+      "contracts/persistent/external-positions/IExternalPositionProxy.sol": {
+        "keccak256": "0xc74e623dbdc949df49e9cef31e0f958b17c715d89198dbbc1754d8f9c21e90de",
+        "urls": [
+          "bzz-raw://074daf0a9f4e667964e6d50039986e3d792860cdece05d21e3606d33358a02b2",
+          "dweb:/ipfs/QmVHXiKry9fYfjSNd6dxmtSr7DubNJvYJTNXtLDKGer2xH"
+        ],
+        "license": "GPL-3.0"
+      }
+    },
+    "version": 1
+  },
+  "ast": {
+    "absolutePath": "contracts/persistent/external-positions/IExternalPositionProxy.sol",
+    "id": 5129,
+    "exportedSymbols": {
+      "IExternalPositionProxy": [
+        5128
+      ]
+    },
+    "nodeType": "SourceUnit",
+    "src": "253:382:26",
+    "nodes": [
+      {
+        "id": 5116,
+        "nodeType": "PragmaDirective",
+        "src": "253:23:26",
+        "nodes": [],
+        "literals": [
+          "solidity",
+          "0.6",
+          ".12"
+        ]
+      },
+      {
+        "id": 5128,
+        "nodeType": "ContractDefinition",
+        "src": "463:171:26",
+        "nodes": [
+          {
+            "id": 5122,
+            "nodeType": "FunctionDefinition",
+            "src": "502:67:26",
+            "nodes": [],
+            "documentation": null,
+            "functionSelector": "12bc0a44",
+            "implemented": false,
+            "kind": "function",
+            "modifiers": [],
+            "name": "getExternalPositionType",
+            "overrides": null,
+            "parameters": {
+              "id": 5118,
+              "nodeType": "ParameterList",
+              "parameters": [],
+              "src": "534:2:26"
+            },
+            "returnParameters": {
+              "id": 5121,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 5120,
+                  "mutability": "mutable",
+                  "name": "",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 5122,
+                  "src": "560:7:26",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_uint256",
+                    "typeString": "uint256"
+                  },
+                  "typeName": {
+                    "id": 5119,
+                    "name": "uint256",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "560:7:26",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_uint256",
+                      "typeString": "uint256"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "559:9:26"
+            },
+            "scope": 5128,
+            "stateMutability": "view",
+            "virtual": false,
+            "visibility": "external"
+          },
+          {
+            "id": 5127,
+            "nodeType": "FunctionDefinition",
+            "src": "575:57:26",
+            "nodes": [],
+            "documentation": null,
+            "functionSelector": "c9809187",
+            "implemented": false,
+            "kind": "function",
+            "modifiers": [],
+            "name": "getVaultProxy",
+            "overrides": null,
+            "parameters": {
+              "id": 5123,
+              "nodeType": "ParameterList",
+              "parameters": [],
+              "src": "597:2:26"
+            },
+            "returnParameters": {
+              "id": 5126,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 5125,
+                  "mutability": "mutable",
+                  "name": "",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 5127,
+                  "src": "623:7:26",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 5124,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "623:7:26",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "622:9:26"
+            },
+            "scope": 5128,
+            "stateMutability": "view",
+            "virtual": false,
+            "visibility": "external"
+          }
+        ],
+        "abstract": false,
+        "baseContracts": [],
+        "contractDependencies": [],
+        "contractKind": "interface",
+        "documentation": {
+          "id": 5117,
+          "nodeType": "StructuredDocumentation",
+          "src": "278:185:26",
+          "text": "@title IExternalPositionProxy interface\n @author Enzyme Council <security@enzyme.finance>\n @notice An interface for publicly accessible functions on the ExternalPositionProxy"
+        },
+        "fullyImplemented": false,
+        "linearizedBaseContracts": [
+          5128
+        ],
+        "name": "IExternalPositionProxy",
+        "scope": 5129
+      }
+    ],
+    "license": "GPL-3.0"
+  },
+  "id": 26
+}

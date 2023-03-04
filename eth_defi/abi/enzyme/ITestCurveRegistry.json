@@ -1,0 +1,412 @@
+{
+  "abi": [
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "_pool",
+          "type": "address"
+        }
+      ],
+      "name": "get_coins",
+      "outputs": [
+        {
+          "internalType": "address[8]",
+          "name": "coins_",
+          "type": "address[8]"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "_pool",
+          "type": "address"
+        }
+      ],
+      "name": "get_lp_token",
+      "outputs": [
+        {
+          "internalType": "address",
+          "name": "token_",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    }
+  ],
+  "bytecode": {
+    "object": "0x",
+    "sourceMap": "",
+    "linkReferences": {}
+  },
+  "deployedBytecode": {
+    "object": "0x",
+    "sourceMap": "",
+    "linkReferences": {}
+  },
+  "methodIdentifiers": {
+    "get_coins(address)": "9ac90d3d",
+    "get_lp_token(address)": "37951049"
+  },
+  "rawMetadata": "{\"compiler\":{\"version\":\"0.6.12+commit.27d51765\"},\"language\":\"Solidity\",\"output\":{\"abi\":[{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_pool\",\"type\":\"address\"}],\"name\":\"get_coins\",\"outputs\":[{\"internalType\":\"address[8]\",\"name\":\"coins_\",\"type\":\"address[8]\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_pool\",\"type\":\"address\"}],\"name\":\"get_lp_token\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"token_\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"}],\"devdoc\":{\"author\":\"Enzyme Council <security@enzyme.finance>\",\"kind\":\"dev\",\"methods\":{},\"title\":\"ITestCurveRegistry Interface\",\"version\":1},\"userdoc\":{\"kind\":\"user\",\"methods\":{},\"version\":1}},\"settings\":{\"compilationTarget\":{\"contracts/test/interfaces/ITestCurveRegistry.sol\":\"ITestCurveRegistry\"},\"evmVersion\":\"istanbul\",\"libraries\":{},\"metadata\":{\"bytecodeHash\":\"none\"},\"optimizer\":{\"details\":{\"constantOptimizer\":true,\"cse\":true,\"deduplicate\":true,\"jumpdestRemover\":true,\"orderLiterals\":true,\"peephole\":true,\"yul\":false},\"runs\":200},\"remappings\":[\":@enzyme/=contracts/\",\":@openzeppelin-solc-0.7/=node_modules/@openzeppelin-solc-0.7/\",\":@openzeppelin/=node_modules/@openzeppelin/\",\":@uniswap/=node_modules/@uniswap/\",\":base64-sol/=node_modules/base64-sol/\",\":ds-test/=lib/forge-std/lib/ds-test/src/\",\":forge-std/=lib/forge-std/src/\",\":hardhat-deploy/=node_modules/hardhat-deploy/\",\":hardhat/=node_modules/hardhat/\"]},\"sources\":{\"contracts/test/interfaces/ITestCurveRegistry.sol\":{\"keccak256\":\"0xad8563492fb2961af342dc5ed6cf790f27d152a3afb11aaca1d53a63c0164f1c\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://c1d5e5c7fa646ed4dcfe581de849b55e61b70c9950acf38992ad57813510d3e2\",\"dweb:/ipfs/QmWwSvABsg9JdRx6sMpKTD214DNYQCCV4Hyz4d9Ddioyff\"]}},\"version\":1}",
+  "metadata": {
+    "compiler": {
+      "version": "0.6.12+commit.27d51765"
+    },
+    "language": "Solidity",
+    "output": {
+      "abi": [
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "_pool",
+              "type": "address"
+            }
+          ],
+          "stateMutability": "view",
+          "type": "function",
+          "name": "get_coins",
+          "outputs": [
+            {
+              "internalType": "address[8]",
+              "name": "coins_",
+              "type": "address[8]"
+            }
+          ]
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "_pool",
+              "type": "address"
+            }
+          ],
+          "stateMutability": "view",
+          "type": "function",
+          "name": "get_lp_token",
+          "outputs": [
+            {
+              "internalType": "address",
+              "name": "token_",
+              "type": "address"
+            }
+          ]
+        }
+      ],
+      "devdoc": {
+        "kind": "dev",
+        "methods": {},
+        "version": 1
+      },
+      "userdoc": {
+        "kind": "user",
+        "methods": {},
+        "version": 1
+      }
+    },
+    "settings": {
+      "remappings": [
+        ":@enzyme/=contracts/",
+        ":@openzeppelin-solc-0.7/=node_modules/@openzeppelin-solc-0.7/",
+        ":@openzeppelin/=node_modules/@openzeppelin/",
+        ":@uniswap/=node_modules/@uniswap/",
+        ":base64-sol/=node_modules/base64-sol/",
+        ":ds-test/=lib/forge-std/lib/ds-test/src/",
+        ":forge-std/=lib/forge-std/src/",
+        ":hardhat-deploy/=node_modules/hardhat-deploy/",
+        ":hardhat/=node_modules/hardhat/"
+      ],
+      "optimizer": {
+        "runs": 200,
+        "details": {
+          "peephole": true,
+          "jumpdestRemover": true,
+          "orderLiterals": true,
+          "deduplicate": true,
+          "cse": true,
+          "constantOptimizer": true,
+          "yul": false
+        }
+      },
+      "metadata": {
+        "bytecodeHash": "none"
+      },
+      "compilationTarget": {
+        "contracts/test/interfaces/ITestCurveRegistry.sol": "ITestCurveRegistry"
+      },
+      "libraries": {}
+    },
+    "sources": {
+      "contracts/test/interfaces/ITestCurveRegistry.sol": {
+        "keccak256": "0xad8563492fb2961af342dc5ed6cf790f27d152a3afb11aaca1d53a63c0164f1c",
+        "urls": [
+          "bzz-raw://c1d5e5c7fa646ed4dcfe581de849b55e61b70c9950acf38992ad57813510d3e2",
+          "dweb:/ipfs/QmWwSvABsg9JdRx6sMpKTD214DNYQCCV4Hyz4d9Ddioyff"
+        ],
+        "license": "GPL-3.0"
+      }
+    },
+    "version": 1
+  },
+  "ast": {
+    "absolutePath": "contracts/test/interfaces/ITestCurveRegistry.sol",
+    "id": 80430,
+    "exportedSymbols": {
+      "ITestCurveRegistry": [
+        80429
+      ]
+    },
+    "nodeType": "SourceUnit",
+    "src": "253:321:394",
+    "nodes": [
+      {
+        "id": 80411,
+        "nodeType": "PragmaDirective",
+        "src": "253:23:394",
+        "nodes": [],
+        "literals": [
+          "solidity",
+          "0.6",
+          ".12"
+        ]
+      },
+      {
+        "id": 80429,
+        "nodeType": "ContractDefinition",
+        "src": "371:202:394",
+        "nodes": [
+          {
+            "id": 80421,
+            "nodeType": "FunctionDefinition",
+            "src": "406:83:394",
+            "nodes": [],
+            "documentation": null,
+            "functionSelector": "9ac90d3d",
+            "implemented": false,
+            "kind": "function",
+            "modifiers": [],
+            "name": "get_coins",
+            "overrides": null,
+            "parameters": {
+              "id": 80415,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 80414,
+                  "mutability": "mutable",
+                  "name": "_pool",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 80421,
+                  "src": "425:13:394",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 80413,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "425:7:394",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "424:15:394"
+            },
+            "returnParameters": {
+              "id": 80420,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 80419,
+                  "mutability": "mutable",
+                  "name": "coins_",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 80421,
+                  "src": "463:24:394",
+                  "stateVariable": false,
+                  "storageLocation": "memory",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_array$_t_address_$8_memory_ptr",
+                    "typeString": "address[8]"
+                  },
+                  "typeName": {
+                    "baseType": {
+                      "id": 80416,
+                      "name": "address",
+                      "nodeType": "ElementaryTypeName",
+                      "src": "463:7:394",
+                      "stateMutability": "nonpayable",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_address",
+                        "typeString": "address"
+                      }
+                    },
+                    "id": 80418,
+                    "length": {
+                      "argumentTypes": null,
+                      "hexValue": "38",
+                      "id": 80417,
+                      "isConstant": false,
+                      "isLValue": false,
+                      "isPure": true,
+                      "kind": "number",
+                      "lValueRequested": false,
+                      "nodeType": "Literal",
+                      "src": "471:1:394",
+                      "subdenomination": null,
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_rational_8_by_1",
+                        "typeString": "int_const 8"
+                      },
+                      "value": "8"
+                    },
+                    "nodeType": "ArrayTypeName",
+                    "src": "463:10:394",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_array$_t_address_$8_storage_ptr",
+                      "typeString": "address[8]"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "462:26:394"
+            },
+            "scope": 80429,
+            "stateMutability": "view",
+            "virtual": false,
+            "visibility": "external"
+          },
+          {
+            "id": 80428,
+            "nodeType": "FunctionDefinition",
+            "src": "495:76:394",
+            "nodes": [],
+            "documentation": null,
+            "functionSelector": "37951049",
+            "implemented": false,
+            "kind": "function",
+            "modifiers": [],
+            "name": "get_lp_token",
+            "overrides": null,
+            "parameters": {
+              "id": 80424,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 80423,
+                  "mutability": "mutable",
+                  "name": "_pool",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 80428,
+                  "src": "517:13:394",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 80422,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "517:7:394",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "516:15:394"
+            },
+            "returnParameters": {
+              "id": 80427,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 80426,
+                  "mutability": "mutable",
+                  "name": "token_",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 80428,
+                  "src": "555:14:394",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 80425,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "555:7:394",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "554:16:394"
+            },
+            "scope": 80429,
+            "stateMutability": "view",
+            "virtual": false,
+            "visibility": "external"
+          }
+        ],
+        "abstract": false,
+        "baseContracts": [],
+        "contractDependencies": [],
+        "contractKind": "interface",
+        "documentation": {
+          "id": 80412,
+          "nodeType": "StructuredDocumentation",
+          "src": "278:93:394",
+          "text": "@title ITestCurveRegistry Interface\n @author Enzyme Council <security@enzyme.finance>"
+        },
+        "fullyImplemented": false,
+        "linearizedBaseContracts": [
+          80429
+        ],
+        "name": "ITestCurveRegistry",
+        "scope": 80430
+      }
+    ],
+    "license": "GPL-3.0"
+  },
+  "id": 394
+}

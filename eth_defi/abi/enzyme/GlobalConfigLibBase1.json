@@ -1,0 +1,591 @@
+{
+  "abi": [
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": false,
+          "internalType": "address",
+          "name": "nextGlobalConfigLib",
+          "type": "address"
+        }
+      ],
+      "name": "GlobalConfigLibSet",
+      "type": "event"
+    },
+    {
+      "inputs": [],
+      "name": "getDispatcher",
+      "outputs": [
+        {
+          "internalType": "address",
+          "name": "dispatcher_",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "getGlobalConfigLib",
+      "outputs": [
+        {
+          "internalType": "address",
+          "name": "globalConfigLib_",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "_dispatcher",
+          "type": "address"
+        }
+      ],
+      "name": "init",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "proxiableUUID",
+      "outputs": [
+        {
+          "internalType": "bytes32",
+          "name": "uuid_",
+          "type": "bytes32"
+        }
+      ],
+      "stateMutability": "pure",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "_nextGlobalConfigLib",
+          "type": "address"
+        }
+      ],
+      "name": "setGlobalConfigLib",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    }
+  ],
+  "bytecode": {
+    "object": "0x",
+    "sourceMap": "",
+    "linkReferences": {}
+  },
+  "deployedBytecode": {
+    "object": "0x",
+    "sourceMap": "",
+    "linkReferences": {}
+  },
+  "methodIdentifiers": {
+    "getDispatcher()": "ebb3d589",
+    "getGlobalConfigLib()": "9528ee16",
+    "init(address)": "19ab453c",
+    "proxiableUUID()": "52d1902d",
+    "setGlobalConfigLib(address)": "43233f01"
+  },
+  "rawMetadata": "{\"compiler\":{\"version\":\"0.6.12+commit.27d51765\"},\"language\":\"Solidity\",\"output\":{\"abi\":[{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"address\",\"name\":\"nextGlobalConfigLib\",\"type\":\"address\"}],\"name\":\"GlobalConfigLibSet\",\"type\":\"event\"},{\"inputs\":[],\"name\":\"getDispatcher\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"dispatcher_\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getGlobalConfigLib\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"globalConfigLib_\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_dispatcher\",\"type\":\"address\"}],\"name\":\"init\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"proxiableUUID\",\"outputs\":[{\"internalType\":\"bytes32\",\"name\":\"uuid_\",\"type\":\"bytes32\"}],\"stateMutability\":\"pure\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_nextGlobalConfigLib\",\"type\":\"address\"}],\"name\":\"setGlobalConfigLib\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"}],\"devdoc\":{\"author\":\"Enzyme Council <security@enzyme.finance>\",\"details\":\"Each next base implementation inherits the previous base implementation, e.g., `GlobalConfigLibBase2 is GlobalConfigLibBase1` DO NOT EDIT CONTRACT.\",\"kind\":\"dev\",\"methods\":{\"getDispatcher()\":{\"returns\":{\"dispatcher_\":\"The `dispatcher` variable value\"}},\"getGlobalConfigLib()\":{\"returns\":{\"globalConfigLib_\":\"The address of the GlobalConfigLib target\"}},\"init(address)\":{\"details\":\"Serves as a pseudo-constructor\",\"params\":{\"_dispatcher\":\"The Dispatcher contract\"}},\"proxiableUUID()\":{\"returns\":{\"uuid_\":\"The bytes32 hash representing the UUID\"}},\"setGlobalConfigLib(address)\":{\"details\":\"This function is absolutely critical. __updateCodeAddress() validates that the target is a valid Proxiable contract instance. Does not block _nextGlobalConfigLib from being the same as the current GlobalConfigLib\",\"params\":{\"_nextGlobalConfigLib\":\"The address to set as the GlobalConfigLib\"}}},\"title\":\"GlobalConfigLibBase1 Contract\",\"version\":1},\"userdoc\":{\"kind\":\"user\",\"methods\":{\"getDispatcher()\":{\"notice\":\"Gets the `dispatcher` variable\"},\"getGlobalConfigLib()\":{\"notice\":\"Gets the GlobalConfigLib target for the GlobalConfigProxy\"},\"init(address)\":{\"notice\":\"Initializes the GlobalConfigProxy with core configuration\"},\"proxiableUUID()\":{\"notice\":\"Returns a unique bytes32 hash for GlobalConfigLib instances\"},\"setGlobalConfigLib(address)\":{\"notice\":\"Sets the GlobalConfigLib target for the GlobalConfigProxy\"}},\"notice\":\"A base implementation for GlobalConfigLib\",\"version\":1}},\"settings\":{\"compilationTarget\":{\"contracts/persistent/global-config/bases/GlobalConfigLibBase1.sol\":\"GlobalConfigLibBase1\"},\"evmVersion\":\"istanbul\",\"libraries\":{},\"metadata\":{\"bytecodeHash\":\"none\"},\"optimizer\":{\"details\":{\"constantOptimizer\":true,\"cse\":true,\"deduplicate\":true,\"jumpdestRemover\":true,\"orderLiterals\":true,\"peephole\":true,\"yul\":false},\"runs\":200},\"remappings\":[\":@enzyme/=contracts/\",\":@openzeppelin-solc-0.7/=node_modules/@openzeppelin-solc-0.7/\",\":@openzeppelin/=node_modules/@openzeppelin/\",\":@uniswap/=node_modules/@uniswap/\",\":base64-sol/=node_modules/base64-sol/\",\":ds-test/=lib/forge-std/lib/ds-test/src/\",\":forge-std/=lib/forge-std/src/\",\":hardhat-deploy/=node_modules/hardhat-deploy/\",\":hardhat/=node_modules/hardhat/\"]},\"sources\":{\"contracts/persistent/dispatcher/IDispatcher.sol\":{\"keccak256\":\"0x0e6b0e6cf325d4f6332b8eb2b3c446b2ef3ca8456bdf0d12318d0fd9e90aeb30\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://2f159223517ca72c36852d90e45cc53d1840861d6e1a2a37f7901d7e48bc94d0\",\"dweb:/ipfs/QmZKZnppYFEF8hdTxbA1g3NgWMopwHRey5KdzyJXNGgCUJ\"]},\"contracts/persistent/global-config/bases/GlobalConfigLibBase1.sol\":{\"keccak256\":\"0xb273a1e9da6b52e3eb95817f6717cf5cef86d94af88c72a69ce1271bb42b0d34\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://13344679dabc570dfd253a1a70be06ea92a1f0f112fb7591a84c0abf99e3ebdb\",\"dweb:/ipfs/QmVvS1313uTkGPengqW1SoUgwWFw8ck2UgesqaQnyzTnef\"]},\"contracts/persistent/global-config/bases/GlobalConfigLibBaseCore.sol\":{\"keccak256\":\"0xea8032f9c8e165a3fb972b728555f830106f4b78d1666a7f2d5eb6423be38027\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://03b5db53e8ec2863be8b0b07df91126e3f264a80e0fed9580cc98b09d6b66a4a\",\"dweb:/ipfs/QmY93xvmAJkLmSeywx4TCcXHsv8BWahk1mK9ECtdmx9B7u\"]},\"contracts/persistent/global-config/utils/GlobalConfigProxyConstants.sol\":{\"keccak256\":\"0xb11c84a6cb9c26eb96abc7d38c57adb374415834daba8122d92264f9e19b5eb3\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://6ad1cc0ba02e40b990408389d73c13ec69ac0cecd5447bb1826b505bcf671925\",\"dweb:/ipfs/QmP96nzpGLvY7eBqK4ictUAtnNq822rJuwbezSqC2BDsev\"]},\"contracts/persistent/global-config/utils/ProxiableGlobalConfigLib.sol\":{\"keccak256\":\"0x41386d6e4b676c73f461c12bef0bb01267a44b28bf8d8591269589c9a763daeb\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://578fbe03f5e56b06fca2485fafadb2a87da8703b93145e17325b131e224acb34\",\"dweb:/ipfs/QmY6Y8ZhfBZhfVD6ATj5jyFRSQfw7woRA9robZfzh1ev1G\"]}},\"version\":1}",
+  "metadata": {
+    "compiler": {
+      "version": "0.6.12+commit.27d51765"
+    },
+    "language": "Solidity",
+    "output": {
+      "abi": [
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "nextGlobalConfigLib",
+              "type": "address",
+              "indexed": false
+            }
+          ],
+          "type": "event",
+          "name": "GlobalConfigLibSet",
+          "anonymous": false
+        },
+        {
+          "inputs": [],
+          "stateMutability": "view",
+          "type": "function",
+          "name": "getDispatcher",
+          "outputs": [
+            {
+              "internalType": "address",
+              "name": "dispatcher_",
+              "type": "address"
+            }
+          ]
+        },
+        {
+          "inputs": [],
+          "stateMutability": "view",
+          "type": "function",
+          "name": "getGlobalConfigLib",
+          "outputs": [
+            {
+              "internalType": "address",
+              "name": "globalConfigLib_",
+              "type": "address"
+            }
+          ]
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "_dispatcher",
+              "type": "address"
+            }
+          ],
+          "stateMutability": "nonpayable",
+          "type": "function",
+          "name": "init"
+        },
+        {
+          "inputs": [],
+          "stateMutability": "pure",
+          "type": "function",
+          "name": "proxiableUUID",
+          "outputs": [
+            {
+              "internalType": "bytes32",
+              "name": "uuid_",
+              "type": "bytes32"
+            }
+          ]
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "_nextGlobalConfigLib",
+              "type": "address"
+            }
+          ],
+          "stateMutability": "nonpayable",
+          "type": "function",
+          "name": "setGlobalConfigLib"
+        }
+      ],
+      "devdoc": {
+        "kind": "dev",
+        "methods": {
+          "getDispatcher()": {
+            "returns": {
+              "dispatcher_": "The `dispatcher` variable value"
+            }
+          },
+          "getGlobalConfigLib()": {
+            "returns": {
+              "globalConfigLib_": "The address of the GlobalConfigLib target"
+            }
+          },
+          "init(address)": {
+            "details": "Serves as a pseudo-constructor",
+            "params": {
+              "_dispatcher": "The Dispatcher contract"
+            }
+          },
+          "proxiableUUID()": {
+            "returns": {
+              "uuid_": "The bytes32 hash representing the UUID"
+            }
+          },
+          "setGlobalConfigLib(address)": {
+            "details": "This function is absolutely critical. __updateCodeAddress() validates that the target is a valid Proxiable contract instance. Does not block _nextGlobalConfigLib from being the same as the current GlobalConfigLib",
+            "params": {
+              "_nextGlobalConfigLib": "The address to set as the GlobalConfigLib"
+            }
+          }
+        },
+        "version": 1
+      },
+      "userdoc": {
+        "kind": "user",
+        "methods": {
+          "getDispatcher()": {
+            "notice": "Gets the `dispatcher` variable"
+          },
+          "getGlobalConfigLib()": {
+            "notice": "Gets the GlobalConfigLib target for the GlobalConfigProxy"
+          },
+          "init(address)": {
+            "notice": "Initializes the GlobalConfigProxy with core configuration"
+          },
+          "proxiableUUID()": {
+            "notice": "Returns a unique bytes32 hash for GlobalConfigLib instances"
+          },
+          "setGlobalConfigLib(address)": {
+            "notice": "Sets the GlobalConfigLib target for the GlobalConfigProxy"
+          }
+        },
+        "version": 1
+      }
+    },
+    "settings": {
+      "remappings": [
+        ":@enzyme/=contracts/",
+        ":@openzeppelin-solc-0.7/=node_modules/@openzeppelin-solc-0.7/",
+        ":@openzeppelin/=node_modules/@openzeppelin/",
+        ":@uniswap/=node_modules/@uniswap/",
+        ":base64-sol/=node_modules/base64-sol/",
+        ":ds-test/=lib/forge-std/lib/ds-test/src/",
+        ":forge-std/=lib/forge-std/src/",
+        ":hardhat-deploy/=node_modules/hardhat-deploy/",
+        ":hardhat/=node_modules/hardhat/"
+      ],
+      "optimizer": {
+        "runs": 200,
+        "details": {
+          "peephole": true,
+          "jumpdestRemover": true,
+          "orderLiterals": true,
+          "deduplicate": true,
+          "cse": true,
+          "constantOptimizer": true,
+          "yul": false
+        }
+      },
+      "metadata": {
+        "bytecodeHash": "none"
+      },
+      "compilationTarget": {
+        "contracts/persistent/global-config/bases/GlobalConfigLibBase1.sol": "GlobalConfigLibBase1"
+      },
+      "libraries": {}
+    },
+    "sources": {
+      "contracts/persistent/dispatcher/IDispatcher.sol": {
+        "keccak256": "0x0e6b0e6cf325d4f6332b8eb2b3c446b2ef3ca8456bdf0d12318d0fd9e90aeb30",
+        "urls": [
+          "bzz-raw://2f159223517ca72c36852d90e45cc53d1840861d6e1a2a37f7901d7e48bc94d0",
+          "dweb:/ipfs/QmZKZnppYFEF8hdTxbA1g3NgWMopwHRey5KdzyJXNGgCUJ"
+        ],
+        "license": "GPL-3.0"
+      },
+      "contracts/persistent/global-config/bases/GlobalConfigLibBase1.sol": {
+        "keccak256": "0xb273a1e9da6b52e3eb95817f6717cf5cef86d94af88c72a69ce1271bb42b0d34",
+        "urls": [
+          "bzz-raw://13344679dabc570dfd253a1a70be06ea92a1f0f112fb7591a84c0abf99e3ebdb",
+          "dweb:/ipfs/QmVvS1313uTkGPengqW1SoUgwWFw8ck2UgesqaQnyzTnef"
+        ],
+        "license": "GPL-3.0"
+      },
+      "contracts/persistent/global-config/bases/GlobalConfigLibBaseCore.sol": {
+        "keccak256": "0xea8032f9c8e165a3fb972b728555f830106f4b78d1666a7f2d5eb6423be38027",
+        "urls": [
+          "bzz-raw://03b5db53e8ec2863be8b0b07df91126e3f264a80e0fed9580cc98b09d6b66a4a",
+          "dweb:/ipfs/QmY93xvmAJkLmSeywx4TCcXHsv8BWahk1mK9ECtdmx9B7u"
+        ],
+        "license": "GPL-3.0"
+      },
+      "contracts/persistent/global-config/utils/GlobalConfigProxyConstants.sol": {
+        "keccak256": "0xb11c84a6cb9c26eb96abc7d38c57adb374415834daba8122d92264f9e19b5eb3",
+        "urls": [
+          "bzz-raw://6ad1cc0ba02e40b990408389d73c13ec69ac0cecd5447bb1826b505bcf671925",
+          "dweb:/ipfs/QmP96nzpGLvY7eBqK4ictUAtnNq822rJuwbezSqC2BDsev"
+        ],
+        "license": "GPL-3.0"
+      },
+      "contracts/persistent/global-config/utils/ProxiableGlobalConfigLib.sol": {
+        "keccak256": "0x41386d6e4b676c73f461c12bef0bb01267a44b28bf8d8591269589c9a763daeb",
+        "urls": [
+          "bzz-raw://578fbe03f5e56b06fca2485fafadb2a87da8703b93145e17325b131e224acb34",
+          "dweb:/ipfs/QmY6Y8ZhfBZhfVD6ATj5jyFRSQfw7woRA9robZfzh1ev1G"
+        ],
+        "license": "GPL-3.0"
+      }
+    },
+    "version": 1
+  },
+  "ast": {
+    "absolutePath": "contracts/persistent/global-config/bases/GlobalConfigLibBase1.sol",
+    "id": 6070,
+    "exportedSymbols": {
+      "GlobalConfigLibBase1": [
+        6069
+      ]
+    },
+    "nodeType": "SourceUnit",
+    "src": "255:696:41",
+    "nodes": [
+      {
+        "id": 6052,
+        "nodeType": "PragmaDirective",
+        "src": "255:23:41",
+        "nodes": [],
+        "literals": [
+          "solidity",
+          "0.6",
+          ".12"
+        ]
+      },
+      {
+        "id": 6053,
+        "nodeType": "ImportDirective",
+        "src": "280:39:41",
+        "nodes": [],
+        "absolutePath": "contracts/persistent/global-config/bases/GlobalConfigLibBaseCore.sol",
+        "file": "./GlobalConfigLibBaseCore.sol",
+        "scope": 6070,
+        "sourceUnit": 6164,
+        "symbolAliases": [],
+        "unitAlias": ""
+      },
+      {
+        "id": 6069,
+        "nodeType": "ContractDefinition",
+        "src": "634:316:41",
+        "nodes": [
+          {
+            "id": 6059,
+            "nodeType": "VariableDeclaration",
+            "src": "706:106:41",
+            "nodes": [],
+            "constant": true,
+            "mutability": "constant",
+            "name": "NO_VALIDATION_DUMMY_ADDRESS",
+            "overrides": null,
+            "scope": 6069,
+            "stateVariable": true,
+            "storageLocation": "default",
+            "typeDescriptions": {
+              "typeIdentifier": "t_address",
+              "typeString": "address"
+            },
+            "typeName": {
+              "id": 6057,
+              "name": "address",
+              "nodeType": "ElementaryTypeName",
+              "src": "706:7:41",
+              "stateMutability": "nonpayable",
+              "typeDescriptions": {
+                "typeIdentifier": "t_address",
+                "typeString": "address"
+              }
+            },
+            "value": {
+              "argumentTypes": null,
+              "hexValue": "307830303030303030303030303030303030303030303030303030303030303030303030303061616161",
+              "id": 6058,
+              "isConstant": false,
+              "isLValue": false,
+              "isPure": true,
+              "kind": "number",
+              "lValueRequested": false,
+              "nodeType": "Literal",
+              "src": "770:42:41",
+              "subdenomination": null,
+              "typeDescriptions": {
+                "typeIdentifier": "t_address_payable",
+                "typeString": "address payable"
+              },
+              "value": "0x000000000000000000000000000000000000aaaa"
+            },
+            "visibility": "internal"
+          },
+          {
+            "id": 6068,
+            "nodeType": "VariableDeclaration",
+            "src": "871:76:41",
+            "nodes": [],
+            "constant": true,
+            "mutability": "constant",
+            "name": "NO_VALIDATION_DUMMY_AMOUNT",
+            "overrides": null,
+            "scope": 6069,
+            "stateVariable": true,
+            "storageLocation": "default",
+            "typeDescriptions": {
+              "typeIdentifier": "t_uint256",
+              "typeString": "uint256"
+            },
+            "typeName": {
+              "id": 6060,
+              "name": "uint256",
+              "nodeType": "ElementaryTypeName",
+              "src": "871:7:41",
+              "typeDescriptions": {
+                "typeIdentifier": "t_uint256",
+                "typeString": "uint256"
+              }
+            },
+            "value": {
+              "argumentTypes": null,
+              "commonType": {
+                "typeIdentifier": "t_uint256",
+                "typeString": "uint256"
+              },
+              "id": 6067,
+              "isConstant": false,
+              "isLValue": false,
+              "isPure": true,
+              "lValueRequested": false,
+              "leftExpression": {
+                "argumentTypes": null,
+                "expression": {
+                  "argumentTypes": null,
+                  "arguments": [
+                    {
+                      "argumentTypes": null,
+                      "id": 6063,
+                      "isConstant": false,
+                      "isLValue": false,
+                      "isPure": true,
+                      "lValueRequested": false,
+                      "nodeType": "ElementaryTypeNameExpression",
+                      "src": "931:7:41",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_type$_t_uint256_$",
+                        "typeString": "type(uint256)"
+                      },
+                      "typeName": {
+                        "id": 6062,
+                        "name": "uint256",
+                        "nodeType": "ElementaryTypeName",
+                        "src": "931:7:41",
+                        "typeDescriptions": {
+                          "typeIdentifier": null,
+                          "typeString": null
+                        }
+                      }
+                    }
+                  ],
+                  "expression": {
+                    "argumentTypes": [
+                      {
+                        "typeIdentifier": "t_type$_t_uint256_$",
+                        "typeString": "type(uint256)"
+                      }
+                    ],
+                    "id": 6061,
+                    "name": "type",
+                    "nodeType": "Identifier",
+                    "overloadedDeclarations": [],
+                    "referencedDeclaration": -27,
+                    "src": "926:4:41",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_function_metatype_pure$__$returns$__$",
+                      "typeString": "function () pure"
+                    }
+                  },
+                  "id": 6064,
+                  "isConstant": false,
+                  "isLValue": false,
+                  "isPure": true,
+                  "kind": "functionCall",
+                  "lValueRequested": false,
+                  "names": [],
+                  "nodeType": "FunctionCall",
+                  "src": "926:13:41",
+                  "tryCall": false,
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_magic_meta_type_t_uint256",
+                    "typeString": "type(uint256)"
+                  }
+                },
+                "id": 6065,
+                "isConstant": false,
+                "isLValue": false,
+                "isPure": true,
+                "lValueRequested": false,
+                "memberName": "max",
+                "nodeType": "MemberAccess",
+                "referencedDeclaration": null,
+                "src": "926:17:41",
+                "typeDescriptions": {
+                  "typeIdentifier": "t_uint256",
+                  "typeString": "uint256"
+                }
+              },
+              "nodeType": "BinaryOperation",
+              "operator": "-",
+              "rightExpression": {
+                "argumentTypes": null,
+                "hexValue": "31",
+                "id": 6066,
+                "isConstant": false,
+                "isLValue": false,
+                "isPure": true,
+                "kind": "number",
+                "lValueRequested": false,
+                "nodeType": "Literal",
+                "src": "946:1:41",
+                "subdenomination": null,
+                "typeDescriptions": {
+                  "typeIdentifier": "t_rational_1_by_1",
+                  "typeString": "int_const 1"
+                },
+                "value": "1"
+              },
+              "src": "926:21:41",
+              "typeDescriptions": {
+                "typeIdentifier": "t_uint256",
+                "typeString": "uint256"
+              }
+            },
+            "visibility": "internal"
+          }
+        ],
+        "abstract": true,
+        "baseContracts": [
+          {
+            "arguments": null,
+            "baseName": {
+              "contractScope": null,
+              "id": 6055,
+              "name": "GlobalConfigLibBaseCore",
+              "nodeType": "UserDefinedTypeName",
+              "referencedDeclaration": 6163,
+              "src": "676:23:41",
+              "typeDescriptions": {
+                "typeIdentifier": "t_contract$_GlobalConfigLibBaseCore_$6163",
+                "typeString": "contract GlobalConfigLibBaseCore"
+              }
+            },
+            "id": 6056,
+            "nodeType": "InheritanceSpecifier",
+            "src": "676:23:41"
+          }
+        ],
+        "contractDependencies": [
+          6163,
+          6284,
+          6322
+        ],
+        "contractKind": "contract",
+        "documentation": {
+          "id": 6054,
+          "nodeType": "StructuredDocumentation",
+          "src": "321:313:41",
+          "text": "@title GlobalConfigLibBase1 Contract\n @author Enzyme Council <security@enzyme.finance>\n @notice A base implementation for GlobalConfigLib\n @dev Each next base implementation inherits the previous base implementation,\n e.g., `GlobalConfigLibBase2 is GlobalConfigLibBase1`\n DO NOT EDIT CONTRACT."
+        },
+        "fullyImplemented": true,
+        "linearizedBaseContracts": [
+          6069,
+          6163,
+          6322,
+          6284
+        ],
+        "name": "GlobalConfigLibBase1",
+        "scope": 6070
+      }
+    ],
+    "license": "GPL-3.0"
+  },
+  "id": 41
+}

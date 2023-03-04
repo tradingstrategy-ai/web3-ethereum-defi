@@ -1,0 +1,812 @@
+{
+  "abi": [
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "_owner",
+          "type": "address"
+        }
+      ],
+      "name": "exitCycleId",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "exitCycleId_",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "getCurrentConfig",
+      "outputs": [
+        {
+          "components": [
+            {
+              "internalType": "uint64",
+              "name": "initialCycleId",
+              "type": "uint64"
+            },
+            {
+              "internalType": "uint64",
+              "name": "initialCycleTime",
+              "type": "uint64"
+            },
+            {
+              "internalType": "uint64",
+              "name": "cycleDuration",
+              "type": "uint64"
+            },
+            {
+              "internalType": "uint64",
+              "name": "windowDuration",
+              "type": "uint64"
+            }
+          ],
+          "internalType": "struct ITestMapleV2WithdrawalManager.CycleConfig",
+          "name": "config_",
+          "type": "tuple"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "_cycleId",
+          "type": "uint256"
+        }
+      ],
+      "name": "getWindowAtId",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "windowStart_",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "windowEnd_",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "_account",
+          "type": "address"
+        }
+      ],
+      "name": "lockedShares",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "lockedShares_",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    }
+  ],
+  "bytecode": {
+    "object": "0x",
+    "sourceMap": "",
+    "linkReferences": {}
+  },
+  "deployedBytecode": {
+    "object": "0x",
+    "sourceMap": "",
+    "linkReferences": {}
+  },
+  "methodIdentifiers": {
+    "exitCycleId(address)": "e46ceaa3",
+    "getCurrentConfig()": "4308aec1",
+    "getWindowAtId(uint256)": "438d09c6",
+    "lockedShares(address)": "e336ac44"
+  },
+  "rawMetadata": "{\"compiler\":{\"version\":\"0.6.12+commit.27d51765\"},\"language\":\"Solidity\",\"output\":{\"abi\":[{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_owner\",\"type\":\"address\"}],\"name\":\"exitCycleId\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"exitCycleId_\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getCurrentConfig\",\"outputs\":[{\"components\":[{\"internalType\":\"uint64\",\"name\":\"initialCycleId\",\"type\":\"uint64\"},{\"internalType\":\"uint64\",\"name\":\"initialCycleTime\",\"type\":\"uint64\"},{\"internalType\":\"uint64\",\"name\":\"cycleDuration\",\"type\":\"uint64\"},{\"internalType\":\"uint64\",\"name\":\"windowDuration\",\"type\":\"uint64\"}],\"internalType\":\"struct ITestMapleV2WithdrawalManager.CycleConfig\",\"name\":\"config_\",\"type\":\"tuple\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_cycleId\",\"type\":\"uint256\"}],\"name\":\"getWindowAtId\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"windowStart_\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"windowEnd_\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_account\",\"type\":\"address\"}],\"name\":\"lockedShares\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"lockedShares_\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"}],\"devdoc\":{\"author\":\"Enzyme Council <security@enzyme.finance>\",\"kind\":\"dev\",\"methods\":{},\"title\":\"ITestMapleV2WithdrawalManager Interface\",\"version\":1},\"userdoc\":{\"kind\":\"user\",\"methods\":{},\"version\":1}},\"settings\":{\"compilationTarget\":{\"contracts/test/interfaces/ITestMapleV2WithdrawalManager.sol\":\"ITestMapleV2WithdrawalManager\"},\"evmVersion\":\"istanbul\",\"libraries\":{},\"metadata\":{\"bytecodeHash\":\"none\"},\"optimizer\":{\"details\":{\"constantOptimizer\":true,\"cse\":true,\"deduplicate\":true,\"jumpdestRemover\":true,\"orderLiterals\":true,\"peephole\":true,\"yul\":false},\"runs\":200},\"remappings\":[\":@enzyme/=contracts/\",\":@openzeppelin-solc-0.7/=node_modules/@openzeppelin-solc-0.7/\",\":@openzeppelin/=node_modules/@openzeppelin/\",\":@uniswap/=node_modules/@uniswap/\",\":base64-sol/=node_modules/base64-sol/\",\":ds-test/=lib/forge-std/lib/ds-test/src/\",\":forge-std/=lib/forge-std/src/\",\":hardhat-deploy/=node_modules/hardhat-deploy/\",\":hardhat/=node_modules/hardhat/\"]},\"sources\":{\"contracts/test/interfaces/ITestMapleV2WithdrawalManager.sol\":{\"keccak256\":\"0x466c04673f17b9ba9fd12b006839256bd6aea3f87846ca7f86d65fedf08ae17a\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://f5768c1c44e8c177566fcb723b9db50f05511640c4ea0b21757868035d1e7ea5\",\"dweb:/ipfs/QmTEaWB3dPwr3od5b82sEukZwJyZE5PwgzprkHKbRpDDyt\"]}},\"version\":1}",
+  "metadata": {
+    "compiler": {
+      "version": "0.6.12+commit.27d51765"
+    },
+    "language": "Solidity",
+    "output": {
+      "abi": [
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "_owner",
+              "type": "address"
+            }
+          ],
+          "stateMutability": "view",
+          "type": "function",
+          "name": "exitCycleId",
+          "outputs": [
+            {
+              "internalType": "uint256",
+              "name": "exitCycleId_",
+              "type": "uint256"
+            }
+          ]
+        },
+        {
+          "inputs": [],
+          "stateMutability": "view",
+          "type": "function",
+          "name": "getCurrentConfig",
+          "outputs": [
+            {
+              "internalType": "struct ITestMapleV2WithdrawalManager.CycleConfig",
+              "name": "config_",
+              "type": "tuple",
+              "components": [
+                {
+                  "internalType": "uint64",
+                  "name": "initialCycleId",
+                  "type": "uint64"
+                },
+                {
+                  "internalType": "uint64",
+                  "name": "initialCycleTime",
+                  "type": "uint64"
+                },
+                {
+                  "internalType": "uint64",
+                  "name": "cycleDuration",
+                  "type": "uint64"
+                },
+                {
+                  "internalType": "uint64",
+                  "name": "windowDuration",
+                  "type": "uint64"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "uint256",
+              "name": "_cycleId",
+              "type": "uint256"
+            }
+          ],
+          "stateMutability": "view",
+          "type": "function",
+          "name": "getWindowAtId",
+          "outputs": [
+            {
+              "internalType": "uint256",
+              "name": "windowStart_",
+              "type": "uint256"
+            },
+            {
+              "internalType": "uint256",
+              "name": "windowEnd_",
+              "type": "uint256"
+            }
+          ]
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "_account",
+              "type": "address"
+            }
+          ],
+          "stateMutability": "view",
+          "type": "function",
+          "name": "lockedShares",
+          "outputs": [
+            {
+              "internalType": "uint256",
+              "name": "lockedShares_",
+              "type": "uint256"
+            }
+          ]
+        }
+      ],
+      "devdoc": {
+        "kind": "dev",
+        "methods": {},
+        "version": 1
+      },
+      "userdoc": {
+        "kind": "user",
+        "methods": {},
+        "version": 1
+      }
+    },
+    "settings": {
+      "remappings": [
+        ":@enzyme/=contracts/",
+        ":@openzeppelin-solc-0.7/=node_modules/@openzeppelin-solc-0.7/",
+        ":@openzeppelin/=node_modules/@openzeppelin/",
+        ":@uniswap/=node_modules/@uniswap/",
+        ":base64-sol/=node_modules/base64-sol/",
+        ":ds-test/=lib/forge-std/lib/ds-test/src/",
+        ":forge-std/=lib/forge-std/src/",
+        ":hardhat-deploy/=node_modules/hardhat-deploy/",
+        ":hardhat/=node_modules/hardhat/"
+      ],
+      "optimizer": {
+        "runs": 200,
+        "details": {
+          "peephole": true,
+          "jumpdestRemover": true,
+          "orderLiterals": true,
+          "deduplicate": true,
+          "cse": true,
+          "constantOptimizer": true,
+          "yul": false
+        }
+      },
+      "metadata": {
+        "bytecodeHash": "none"
+      },
+      "compilationTarget": {
+        "contracts/test/interfaces/ITestMapleV2WithdrawalManager.sol": "ITestMapleV2WithdrawalManager"
+      },
+      "libraries": {}
+    },
+    "sources": {
+      "contracts/test/interfaces/ITestMapleV2WithdrawalManager.sol": {
+        "keccak256": "0x466c04673f17b9ba9fd12b006839256bd6aea3f87846ca7f86d65fedf08ae17a",
+        "urls": [
+          "bzz-raw://f5768c1c44e8c177566fcb723b9db50f05511640c4ea0b21757868035d1e7ea5",
+          "dweb:/ipfs/QmTEaWB3dPwr3od5b82sEukZwJyZE5PwgzprkHKbRpDDyt"
+        ],
+        "license": "GPL-3.0"
+      }
+    },
+    "version": 1
+  },
+  "ast": {
+    "absolutePath": "contracts/test/interfaces/ITestMapleV2WithdrawalManager.sol",
+    "id": 80934,
+    "exportedSymbols": {
+      "ITestMapleV2WithdrawalManager": [
+        80933
+      ]
+    },
+    "nodeType": "SourceUnit",
+    "src": "255:764:412",
+    "nodes": [
+      {
+        "id": 80893,
+        "nodeType": "PragmaDirective",
+        "src": "255:23:412",
+        "nodes": [],
+        "literals": [
+          "solidity",
+          "0.6",
+          ".12"
+        ]
+      },
+      {
+        "id": 80894,
+        "nodeType": "PragmaDirective",
+        "src": "279:33:412",
+        "nodes": [],
+        "literals": [
+          "experimental",
+          "ABIEncoderV2"
+        ]
+      },
+      {
+        "id": 80933,
+        "nodeType": "ContractDefinition",
+        "src": "418:600:412",
+        "nodes": [
+          {
+            "id": 80904,
+            "nodeType": "StructDefinition",
+            "src": "464:151:412",
+            "nodes": [],
+            "canonicalName": "ITestMapleV2WithdrawalManager.CycleConfig",
+            "members": [
+              {
+                "constant": false,
+                "id": 80897,
+                "mutability": "mutable",
+                "name": "initialCycleId",
+                "nodeType": "VariableDeclaration",
+                "overrides": null,
+                "scope": 80904,
+                "src": "493:21:412",
+                "stateVariable": false,
+                "storageLocation": "default",
+                "typeDescriptions": {
+                  "typeIdentifier": "t_uint64",
+                  "typeString": "uint64"
+                },
+                "typeName": {
+                  "id": 80896,
+                  "name": "uint64",
+                  "nodeType": "ElementaryTypeName",
+                  "src": "493:6:412",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_uint64",
+                    "typeString": "uint64"
+                  }
+                },
+                "value": null,
+                "visibility": "internal"
+              },
+              {
+                "constant": false,
+                "id": 80899,
+                "mutability": "mutable",
+                "name": "initialCycleTime",
+                "nodeType": "VariableDeclaration",
+                "overrides": null,
+                "scope": 80904,
+                "src": "524:23:412",
+                "stateVariable": false,
+                "storageLocation": "default",
+                "typeDescriptions": {
+                  "typeIdentifier": "t_uint64",
+                  "typeString": "uint64"
+                },
+                "typeName": {
+                  "id": 80898,
+                  "name": "uint64",
+                  "nodeType": "ElementaryTypeName",
+                  "src": "524:6:412",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_uint64",
+                    "typeString": "uint64"
+                  }
+                },
+                "value": null,
+                "visibility": "internal"
+              },
+              {
+                "constant": false,
+                "id": 80901,
+                "mutability": "mutable",
+                "name": "cycleDuration",
+                "nodeType": "VariableDeclaration",
+                "overrides": null,
+                "scope": 80904,
+                "src": "557:20:412",
+                "stateVariable": false,
+                "storageLocation": "default",
+                "typeDescriptions": {
+                  "typeIdentifier": "t_uint64",
+                  "typeString": "uint64"
+                },
+                "typeName": {
+                  "id": 80900,
+                  "name": "uint64",
+                  "nodeType": "ElementaryTypeName",
+                  "src": "557:6:412",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_uint64",
+                    "typeString": "uint64"
+                  }
+                },
+                "value": null,
+                "visibility": "internal"
+              },
+              {
+                "constant": false,
+                "id": 80903,
+                "mutability": "mutable",
+                "name": "windowDuration",
+                "nodeType": "VariableDeclaration",
+                "overrides": null,
+                "scope": 80904,
+                "src": "587:21:412",
+                "stateVariable": false,
+                "storageLocation": "default",
+                "typeDescriptions": {
+                  "typeIdentifier": "t_uint64",
+                  "typeString": "uint64"
+                },
+                "typeName": {
+                  "id": 80902,
+                  "name": "uint64",
+                  "nodeType": "ElementaryTypeName",
+                  "src": "587:6:412",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_uint64",
+                    "typeString": "uint64"
+                  }
+                },
+                "value": null,
+                "visibility": "internal"
+              }
+            ],
+            "name": "CycleConfig",
+            "scope": 80933,
+            "visibility": "public"
+          },
+          {
+            "id": 80911,
+            "nodeType": "FunctionDefinition",
+            "src": "621:82:412",
+            "nodes": [],
+            "documentation": null,
+            "functionSelector": "e46ceaa3",
+            "implemented": false,
+            "kind": "function",
+            "modifiers": [],
+            "name": "exitCycleId",
+            "overrides": null,
+            "parameters": {
+              "id": 80907,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 80906,
+                  "mutability": "mutable",
+                  "name": "_owner",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 80911,
+                  "src": "642:14:412",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 80905,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "642:7:412",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "641:16:412"
+            },
+            "returnParameters": {
+              "id": 80910,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 80909,
+                  "mutability": "mutable",
+                  "name": "exitCycleId_",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 80911,
+                  "src": "681:20:412",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_uint256",
+                    "typeString": "uint256"
+                  },
+                  "typeName": {
+                    "id": 80908,
+                    "name": "uint256",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "681:7:412",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_uint256",
+                      "typeString": "uint256"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "680:22:412"
+            },
+            "scope": 80933,
+            "stateMutability": "view",
+            "virtual": false,
+            "visibility": "external"
+          },
+          {
+            "id": 80916,
+            "nodeType": "FunctionDefinition",
+            "src": "709:79:412",
+            "nodes": [],
+            "documentation": null,
+            "functionSelector": "4308aec1",
+            "implemented": false,
+            "kind": "function",
+            "modifiers": [],
+            "name": "getCurrentConfig",
+            "overrides": null,
+            "parameters": {
+              "id": 80912,
+              "nodeType": "ParameterList",
+              "parameters": [],
+              "src": "734:2:412"
+            },
+            "returnParameters": {
+              "id": 80915,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 80914,
+                  "mutability": "mutable",
+                  "name": "config_",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 80916,
+                  "src": "760:26:412",
+                  "stateVariable": false,
+                  "storageLocation": "memory",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_struct$_CycleConfig_$80904_memory_ptr",
+                    "typeString": "struct ITestMapleV2WithdrawalManager.CycleConfig"
+                  },
+                  "typeName": {
+                    "contractScope": null,
+                    "id": 80913,
+                    "name": "CycleConfig",
+                    "nodeType": "UserDefinedTypeName",
+                    "referencedDeclaration": 80904,
+                    "src": "760:11:412",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_struct$_CycleConfig_$80904_storage_ptr",
+                      "typeString": "struct ITestMapleV2WithdrawalManager.CycleConfig"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "759:28:412"
+            },
+            "scope": 80933,
+            "stateMutability": "view",
+            "virtual": false,
+            "visibility": "external"
+          },
+          {
+            "id": 80925,
+            "nodeType": "FunctionDefinition",
+            "src": "794:130:412",
+            "nodes": [],
+            "documentation": null,
+            "functionSelector": "438d09c6",
+            "implemented": false,
+            "kind": "function",
+            "modifiers": [],
+            "name": "getWindowAtId",
+            "overrides": null,
+            "parameters": {
+              "id": 80919,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 80918,
+                  "mutability": "mutable",
+                  "name": "_cycleId",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 80925,
+                  "src": "817:16:412",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_uint256",
+                    "typeString": "uint256"
+                  },
+                  "typeName": {
+                    "id": 80917,
+                    "name": "uint256",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "817:7:412",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_uint256",
+                      "typeString": "uint256"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "816:18:412"
+            },
+            "returnParameters": {
+              "id": 80924,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 80921,
+                  "mutability": "mutable",
+                  "name": "windowStart_",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 80925,
+                  "src": "882:20:412",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_uint256",
+                    "typeString": "uint256"
+                  },
+                  "typeName": {
+                    "id": 80920,
+                    "name": "uint256",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "882:7:412",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_uint256",
+                      "typeString": "uint256"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 80923,
+                  "mutability": "mutable",
+                  "name": "windowEnd_",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 80925,
+                  "src": "904:18:412",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_uint256",
+                    "typeString": "uint256"
+                  },
+                  "typeName": {
+                    "id": 80922,
+                    "name": "uint256",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "904:7:412",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_uint256",
+                      "typeString": "uint256"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "881:42:412"
+            },
+            "scope": 80933,
+            "stateMutability": "view",
+            "virtual": false,
+            "visibility": "external"
+          },
+          {
+            "id": 80932,
+            "nodeType": "FunctionDefinition",
+            "src": "930:86:412",
+            "nodes": [],
+            "documentation": null,
+            "functionSelector": "e336ac44",
+            "implemented": false,
+            "kind": "function",
+            "modifiers": [],
+            "name": "lockedShares",
+            "overrides": null,
+            "parameters": {
+              "id": 80928,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 80927,
+                  "mutability": "mutable",
+                  "name": "_account",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 80932,
+                  "src": "952:16:412",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 80926,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "952:7:412",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "951:18:412"
+            },
+            "returnParameters": {
+              "id": 80931,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 80930,
+                  "mutability": "mutable",
+                  "name": "lockedShares_",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 80932,
+                  "src": "993:21:412",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_uint256",
+                    "typeString": "uint256"
+                  },
+                  "typeName": {
+                    "id": 80929,
+                    "name": "uint256",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "993:7:412",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_uint256",
+                      "typeString": "uint256"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "992:23:412"
+            },
+            "scope": 80933,
+            "stateMutability": "view",
+            "virtual": false,
+            "visibility": "external"
+          }
+        ],
+        "abstract": false,
+        "baseContracts": [],
+        "contractDependencies": [],
+        "contractKind": "interface",
+        "documentation": {
+          "id": 80895,
+          "nodeType": "StructuredDocumentation",
+          "src": "314:104:412",
+          "text": "@title ITestMapleV2WithdrawalManager Interface\n @author Enzyme Council <security@enzyme.finance>"
+        },
+        "fullyImplemented": false,
+        "linearizedBaseContracts": [
+          80933
+        ],
+        "name": "ITestMapleV2WithdrawalManager",
+        "scope": 80934
+      }
+    ],
+    "license": "GPL-3.0"
+  },
+  "id": 412
+}

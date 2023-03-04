@@ -1,0 +1,224 @@
+{
+  "abi": [
+    {
+      "inputs": [
+        {
+          "internalType": "address[]",
+          "name": "_items",
+          "type": "address[]"
+        }
+      ],
+      "name": "addValidatedItemsToList",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    }
+  ],
+  "bytecode": {
+    "object": "0x",
+    "sourceMap": "",
+    "linkReferences": {}
+  },
+  "deployedBytecode": {
+    "object": "0x",
+    "sourceMap": "",
+    "linkReferences": {}
+  },
+  "methodIdentifiers": {
+    "addValidatedItemsToList(address[])": "a8f0bc41"
+  },
+  "rawMetadata": "{\"compiler\":{\"version\":\"0.6.12+commit.27d51765\"},\"language\":\"Solidity\",\"output\":{\"abi\":[{\"inputs\":[{\"internalType\":\"address[]\",\"name\":\"_items\",\"type\":\"address[]\"}],\"name\":\"addValidatedItemsToList\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"}],\"devdoc\":{\"author\":\"Enzyme Council <security@enzyme.finance>\",\"kind\":\"dev\",\"methods\":{},\"title\":\"ITestAddOnlyAddressListOwner Interface\",\"version\":1},\"userdoc\":{\"kind\":\"user\",\"methods\":{},\"version\":1}},\"settings\":{\"compilationTarget\":{\"contracts/test/interfaces/ITestAddOnlyAddressListOwner.sol\":\"ITestAddOnlyAddressListOwner\"},\"evmVersion\":\"istanbul\",\"libraries\":{},\"metadata\":{\"bytecodeHash\":\"none\"},\"optimizer\":{\"details\":{\"constantOptimizer\":true,\"cse\":true,\"deduplicate\":true,\"jumpdestRemover\":true,\"orderLiterals\":true,\"peephole\":true,\"yul\":false},\"runs\":200},\"remappings\":[\":@enzyme/=contracts/\",\":@openzeppelin-solc-0.7/=node_modules/@openzeppelin-solc-0.7/\",\":@openzeppelin/=node_modules/@openzeppelin/\",\":@uniswap/=node_modules/@uniswap/\",\":base64-sol/=node_modules/base64-sol/\",\":ds-test/=lib/forge-std/lib/ds-test/src/\",\":forge-std/=lib/forge-std/src/\",\":hardhat-deploy/=node_modules/hardhat-deploy/\",\":hardhat/=node_modules/hardhat/\"]},\"sources\":{\"contracts/test/interfaces/ITestAddOnlyAddressListOwner.sol\":{\"keccak256\":\"0x45b3a4101ca66faa04cabcaef54d6493a56e7a483e0a8d225b8464d60179f12a\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://37b7a8dc2dc0ab3ca6cb0cc3c43e15ea205a75e175095db0466605aeaab2e369\",\"dweb:/ipfs/QmWqYJNaQrPN5uf9D5QQFU3k1BYATD4Cz8aVJuVGsPTik3\"]}},\"version\":1}",
+  "metadata": {
+    "compiler": {
+      "version": "0.6.12+commit.27d51765"
+    },
+    "language": "Solidity",
+    "output": {
+      "abi": [
+        {
+          "inputs": [
+            {
+              "internalType": "address[]",
+              "name": "_items",
+              "type": "address[]"
+            }
+          ],
+          "stateMutability": "nonpayable",
+          "type": "function",
+          "name": "addValidatedItemsToList"
+        }
+      ],
+      "devdoc": {
+        "kind": "dev",
+        "methods": {},
+        "version": 1
+      },
+      "userdoc": {
+        "kind": "user",
+        "methods": {},
+        "version": 1
+      }
+    },
+    "settings": {
+      "remappings": [
+        ":@enzyme/=contracts/",
+        ":@openzeppelin-solc-0.7/=node_modules/@openzeppelin-solc-0.7/",
+        ":@openzeppelin/=node_modules/@openzeppelin/",
+        ":@uniswap/=node_modules/@uniswap/",
+        ":base64-sol/=node_modules/base64-sol/",
+        ":ds-test/=lib/forge-std/lib/ds-test/src/",
+        ":forge-std/=lib/forge-std/src/",
+        ":hardhat-deploy/=node_modules/hardhat-deploy/",
+        ":hardhat/=node_modules/hardhat/"
+      ],
+      "optimizer": {
+        "runs": 200,
+        "details": {
+          "peephole": true,
+          "jumpdestRemover": true,
+          "orderLiterals": true,
+          "deduplicate": true,
+          "cse": true,
+          "constantOptimizer": true,
+          "yul": false
+        }
+      },
+      "metadata": {
+        "bytecodeHash": "none"
+      },
+      "compilationTarget": {
+        "contracts/test/interfaces/ITestAddOnlyAddressListOwner.sol": "ITestAddOnlyAddressListOwner"
+      },
+      "libraries": {}
+    },
+    "sources": {
+      "contracts/test/interfaces/ITestAddOnlyAddressListOwner.sol": {
+        "keccak256": "0x45b3a4101ca66faa04cabcaef54d6493a56e7a483e0a8d225b8464d60179f12a",
+        "urls": [
+          "bzz-raw://37b7a8dc2dc0ab3ca6cb0cc3c43e15ea205a75e175095db0466605aeaab2e369",
+          "dweb:/ipfs/QmWqYJNaQrPN5uf9D5QQFU3k1BYATD4Cz8aVJuVGsPTik3"
+        ],
+        "license": "GPL-3.0"
+      }
+    },
+    "version": 1
+  },
+  "ast": {
+    "absolutePath": "contracts/test/interfaces/ITestAddOnlyAddressListOwner.sol",
+    "id": 80006,
+    "exportedSymbols": {
+      "ITestAddOnlyAddressListOwner": [
+        80005
+      ]
+    },
+    "nodeType": "SourceUnit",
+    "src": "255:245:378",
+    "nodes": [
+      {
+        "id": 79997,
+        "nodeType": "PragmaDirective",
+        "src": "255:23:378",
+        "nodes": [],
+        "literals": [
+          "solidity",
+          "0.6",
+          ".12"
+        ]
+      },
+      {
+        "id": 80005,
+        "nodeType": "ContractDefinition",
+        "src": "383:116:378",
+        "nodes": [
+          {
+            "id": 80004,
+            "nodeType": "FunctionDefinition",
+            "src": "428:69:378",
+            "nodes": [],
+            "documentation": null,
+            "functionSelector": "a8f0bc41",
+            "implemented": false,
+            "kind": "function",
+            "modifiers": [],
+            "name": "addValidatedItemsToList",
+            "overrides": null,
+            "parameters": {
+              "id": 80002,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 80001,
+                  "mutability": "mutable",
+                  "name": "_items",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 80004,
+                  "src": "461:25:378",
+                  "stateVariable": false,
+                  "storageLocation": "calldata",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_array$_t_address_$dyn_calldata_ptr",
+                    "typeString": "address[]"
+                  },
+                  "typeName": {
+                    "baseType": {
+                      "id": 79999,
+                      "name": "address",
+                      "nodeType": "ElementaryTypeName",
+                      "src": "461:7:378",
+                      "stateMutability": "nonpayable",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_address",
+                        "typeString": "address"
+                      }
+                    },
+                    "id": 80000,
+                    "length": null,
+                    "nodeType": "ArrayTypeName",
+                    "src": "461:9:378",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_array$_t_address_$dyn_storage_ptr",
+                      "typeString": "address[]"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "460:27:378"
+            },
+            "returnParameters": {
+              "id": 80003,
+              "nodeType": "ParameterList",
+              "parameters": [],
+              "src": "496:0:378"
+            },
+            "scope": 80005,
+            "stateMutability": "nonpayable",
+            "virtual": false,
+            "visibility": "external"
+          }
+        ],
+        "abstract": false,
+        "baseContracts": [],
+        "contractDependencies": [],
+        "contractKind": "interface",
+        "documentation": {
+          "id": 79998,
+          "nodeType": "StructuredDocumentation",
+          "src": "280:103:378",
+          "text": "@title ITestAddOnlyAddressListOwner Interface\n @author Enzyme Council <security@enzyme.finance>"
+        },
+        "fullyImplemented": false,
+        "linearizedBaseContracts": [
+          80005
+        ],
+        "name": "ITestAddOnlyAddressListOwner",
+        "scope": 80006
+      }
+    ],
+    "license": "GPL-3.0"
+  },
+  "id": 378
+}

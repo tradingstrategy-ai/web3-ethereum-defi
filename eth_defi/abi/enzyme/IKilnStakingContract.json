@@ -1,7 +1,4 @@
 {
-  "_format": "hh-sol-artifact-1",
-  "contractName": "IKilnStakingContract",
-  "sourceName": "contracts/release/interfaces/IKilnStakingContract.sol",
   "abi": [
     {
       "inputs": [],
@@ -69,8 +66,486 @@
       "type": "function"
     }
   ],
-  "bytecode": "0x",
-  "deployedBytecode": "0x",
-  "linkReferences": {},
-  "deployedLinkReferences": {}
+  "bytecode": {
+    "object": "0x",
+    "sourceMap": "",
+    "linkReferences": {}
+  },
+  "deployedBytecode": {
+    "object": "0x",
+    "sourceMap": "",
+    "linkReferences": {}
+  },
+  "methodIdentifiers": {
+    "deposit()": "d0e30db0",
+    "getWithdrawer(bytes)": "e00cb6ca",
+    "withdraw(bytes)": "0968f264",
+    "withdrawCLFee(bytes)": "2ba03a79",
+    "withdrawELFee(bytes)": "bf509bd4"
+  },
+  "rawMetadata": "{\"compiler\":{\"version\":\"0.6.12+commit.27d51765\"},\"language\":\"Solidity\",\"output\":{\"abi\":[{\"inputs\":[],\"name\":\"deposit\",\"outputs\":[],\"stateMutability\":\"payable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes\",\"name\":\"_publicKey\",\"type\":\"bytes\"}],\"name\":\"getWithdrawer\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"withdrawer_\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes\",\"name\":\"_publicKey\",\"type\":\"bytes\"}],\"name\":\"withdraw\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes\",\"name\":\"_publicKey\",\"type\":\"bytes\"}],\"name\":\"withdrawCLFee\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes\",\"name\":\"_publicKey\",\"type\":\"bytes\"}],\"name\":\"withdrawELFee\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"}],\"devdoc\":{\"author\":\"Enzyme Council <security@enzyme.finance>\",\"kind\":\"dev\",\"methods\":{},\"title\":\"IKilnStakingContract Interface\",\"version\":1},\"userdoc\":{\"kind\":\"user\",\"methods\":{},\"version\":1}},\"settings\":{\"compilationTarget\":{\"contracts/release/interfaces/IKilnStakingContract.sol\":\"IKilnStakingContract\"},\"evmVersion\":\"istanbul\",\"libraries\":{},\"metadata\":{\"bytecodeHash\":\"none\"},\"optimizer\":{\"details\":{\"constantOptimizer\":true,\"cse\":true,\"deduplicate\":true,\"jumpdestRemover\":true,\"orderLiterals\":true,\"peephole\":true,\"yul\":false},\"runs\":200},\"remappings\":[\":@enzyme/=contracts/\",\":@openzeppelin-solc-0.7/=node_modules/@openzeppelin-solc-0.7/\",\":@openzeppelin/=node_modules/@openzeppelin/\",\":@uniswap/=node_modules/@uniswap/\",\":base64-sol/=node_modules/base64-sol/\",\":ds-test/=lib/forge-std/lib/ds-test/src/\",\":forge-std/=lib/forge-std/src/\",\":hardhat-deploy/=node_modules/hardhat-deploy/\",\":hardhat/=node_modules/hardhat/\"]},\"sources\":{\"contracts/release/interfaces/IKilnStakingContract.sol\":{\"keccak256\":\"0x6a8db9fe50daa7b148422a0ce3cecfa91918a0a089fa9c8a90e883e1a06aca96\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://d64bc97472ac5fa432c715d0a25a0d12265bba0d996a153c7c8125484d73c484\",\"dweb:/ipfs/QmaXZa1sJhKM3JMJBYHnk9mAm3rqbU3UH1c1U9Rvsfbvfp\"]}},\"version\":1}",
+  "metadata": {
+    "compiler": {
+      "version": "0.6.12+commit.27d51765"
+    },
+    "language": "Solidity",
+    "output": {
+      "abi": [
+        {
+          "inputs": [],
+          "stateMutability": "payable",
+          "type": "function",
+          "name": "deposit"
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "bytes",
+              "name": "_publicKey",
+              "type": "bytes"
+            }
+          ],
+          "stateMutability": "view",
+          "type": "function",
+          "name": "getWithdrawer",
+          "outputs": [
+            {
+              "internalType": "address",
+              "name": "withdrawer_",
+              "type": "address"
+            }
+          ]
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "bytes",
+              "name": "_publicKey",
+              "type": "bytes"
+            }
+          ],
+          "stateMutability": "nonpayable",
+          "type": "function",
+          "name": "withdraw"
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "bytes",
+              "name": "_publicKey",
+              "type": "bytes"
+            }
+          ],
+          "stateMutability": "nonpayable",
+          "type": "function",
+          "name": "withdrawCLFee"
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "bytes",
+              "name": "_publicKey",
+              "type": "bytes"
+            }
+          ],
+          "stateMutability": "nonpayable",
+          "type": "function",
+          "name": "withdrawELFee"
+        }
+      ],
+      "devdoc": {
+        "kind": "dev",
+        "methods": {},
+        "version": 1
+      },
+      "userdoc": {
+        "kind": "user",
+        "methods": {},
+        "version": 1
+      }
+    },
+    "settings": {
+      "remappings": [
+        ":@enzyme/=contracts/",
+        ":@openzeppelin-solc-0.7/=node_modules/@openzeppelin-solc-0.7/",
+        ":@openzeppelin/=node_modules/@openzeppelin/",
+        ":@uniswap/=node_modules/@uniswap/",
+        ":base64-sol/=node_modules/base64-sol/",
+        ":ds-test/=lib/forge-std/lib/ds-test/src/",
+        ":forge-std/=lib/forge-std/src/",
+        ":hardhat-deploy/=node_modules/hardhat-deploy/",
+        ":hardhat/=node_modules/hardhat/"
+      ],
+      "optimizer": {
+        "runs": 200,
+        "details": {
+          "peephole": true,
+          "jumpdestRemover": true,
+          "orderLiterals": true,
+          "deduplicate": true,
+          "cse": true,
+          "constantOptimizer": true,
+          "yul": false
+        }
+      },
+      "metadata": {
+        "bytecodeHash": "none"
+      },
+      "compilationTarget": {
+        "contracts/release/interfaces/IKilnStakingContract.sol": "IKilnStakingContract"
+      },
+      "libraries": {}
+    },
+    "sources": {
+      "contracts/release/interfaces/IKilnStakingContract.sol": {
+        "keccak256": "0x6a8db9fe50daa7b148422a0ce3cecfa91918a0a089fa9c8a90e883e1a06aca96",
+        "urls": [
+          "bzz-raw://d64bc97472ac5fa432c715d0a25a0d12265bba0d996a153c7c8125484d73c484",
+          "dweb:/ipfs/QmaXZa1sJhKM3JMJBYHnk9mAm3rqbU3UH1c1U9Rvsfbvfp"
+        ],
+        "license": "GPL-3.0"
+      }
+    },
+    "version": 1
+  },
+  "ast": {
+    "absolutePath": "contracts/release/interfaces/IKilnStakingContract.sol",
+    "id": 72107,
+    "exportedSymbols": {
+      "IKilnStakingContract": [
+        72106
+      ]
+    },
+    "nodeType": "SourceUnit",
+    "src": "255:486:308",
+    "nodes": [
+      {
+        "id": 72079,
+        "nodeType": "PragmaDirective",
+        "src": "255:23:308",
+        "nodes": [],
+        "literals": [
+          "solidity",
+          "0.6",
+          ".12"
+        ]
+      },
+      {
+        "id": 72106,
+        "nodeType": "ContractDefinition",
+        "src": "375:365:308",
+        "nodes": [
+          {
+            "id": 72083,
+            "nodeType": "FunctionDefinition",
+            "src": "412:36:308",
+            "nodes": [],
+            "documentation": null,
+            "functionSelector": "d0e30db0",
+            "implemented": false,
+            "kind": "function",
+            "modifiers": [],
+            "name": "deposit",
+            "overrides": null,
+            "parameters": {
+              "id": 72081,
+              "nodeType": "ParameterList",
+              "parameters": [],
+              "src": "428:2:308"
+            },
+            "returnParameters": {
+              "id": 72082,
+              "nodeType": "ParameterList",
+              "parameters": [],
+              "src": "447:0:308"
+            },
+            "scope": 72106,
+            "stateMutability": "payable",
+            "virtual": false,
+            "visibility": "external"
+          },
+          {
+            "id": 72090,
+            "nodeType": "FunctionDefinition",
+            "src": "454:94:308",
+            "nodes": [],
+            "documentation": null,
+            "functionSelector": "e00cb6ca",
+            "implemented": false,
+            "kind": "function",
+            "modifiers": [],
+            "name": "getWithdrawer",
+            "overrides": null,
+            "parameters": {
+              "id": 72086,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 72085,
+                  "mutability": "mutable",
+                  "name": "_publicKey",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 72090,
+                  "src": "477:25:308",
+                  "stateVariable": false,
+                  "storageLocation": "calldata",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_bytes_calldata_ptr",
+                    "typeString": "bytes"
+                  },
+                  "typeName": {
+                    "id": 72084,
+                    "name": "bytes",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "477:5:308",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_bytes_storage_ptr",
+                      "typeString": "bytes"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "476:27:308"
+            },
+            "returnParameters": {
+              "id": 72089,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 72088,
+                  "mutability": "mutable",
+                  "name": "withdrawer_",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 72090,
+                  "src": "527:19:308",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 72087,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "527:7:308",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "526:21:308"
+            },
+            "scope": 72106,
+            "stateMutability": "view",
+            "virtual": false,
+            "visibility": "external"
+          },
+          {
+            "id": 72095,
+            "nodeType": "FunctionDefinition",
+            "src": "554:54:308",
+            "nodes": [],
+            "documentation": null,
+            "functionSelector": "0968f264",
+            "implemented": false,
+            "kind": "function",
+            "modifiers": [],
+            "name": "withdraw",
+            "overrides": null,
+            "parameters": {
+              "id": 72093,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 72092,
+                  "mutability": "mutable",
+                  "name": "_publicKey",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 72095,
+                  "src": "572:25:308",
+                  "stateVariable": false,
+                  "storageLocation": "calldata",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_bytes_calldata_ptr",
+                    "typeString": "bytes"
+                  },
+                  "typeName": {
+                    "id": 72091,
+                    "name": "bytes",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "572:5:308",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_bytes_storage_ptr",
+                      "typeString": "bytes"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "571:27:308"
+            },
+            "returnParameters": {
+              "id": 72094,
+              "nodeType": "ParameterList",
+              "parameters": [],
+              "src": "607:0:308"
+            },
+            "scope": 72106,
+            "stateMutability": "nonpayable",
+            "virtual": false,
+            "visibility": "external"
+          },
+          {
+            "id": 72100,
+            "nodeType": "FunctionDefinition",
+            "src": "614:59:308",
+            "nodes": [],
+            "documentation": null,
+            "functionSelector": "2ba03a79",
+            "implemented": false,
+            "kind": "function",
+            "modifiers": [],
+            "name": "withdrawCLFee",
+            "overrides": null,
+            "parameters": {
+              "id": 72098,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 72097,
+                  "mutability": "mutable",
+                  "name": "_publicKey",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 72100,
+                  "src": "637:25:308",
+                  "stateVariable": false,
+                  "storageLocation": "calldata",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_bytes_calldata_ptr",
+                    "typeString": "bytes"
+                  },
+                  "typeName": {
+                    "id": 72096,
+                    "name": "bytes",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "637:5:308",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_bytes_storage_ptr",
+                      "typeString": "bytes"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "636:27:308"
+            },
+            "returnParameters": {
+              "id": 72099,
+              "nodeType": "ParameterList",
+              "parameters": [],
+              "src": "672:0:308"
+            },
+            "scope": 72106,
+            "stateMutability": "nonpayable",
+            "virtual": false,
+            "visibility": "external"
+          },
+          {
+            "id": 72105,
+            "nodeType": "FunctionDefinition",
+            "src": "679:59:308",
+            "nodes": [],
+            "documentation": null,
+            "functionSelector": "bf509bd4",
+            "implemented": false,
+            "kind": "function",
+            "modifiers": [],
+            "name": "withdrawELFee",
+            "overrides": null,
+            "parameters": {
+              "id": 72103,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 72102,
+                  "mutability": "mutable",
+                  "name": "_publicKey",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 72105,
+                  "src": "702:25:308",
+                  "stateVariable": false,
+                  "storageLocation": "calldata",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_bytes_calldata_ptr",
+                    "typeString": "bytes"
+                  },
+                  "typeName": {
+                    "id": 72101,
+                    "name": "bytes",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "702:5:308",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_bytes_storage_ptr",
+                      "typeString": "bytes"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "701:27:308"
+            },
+            "returnParameters": {
+              "id": 72104,
+              "nodeType": "ParameterList",
+              "parameters": [],
+              "src": "737:0:308"
+            },
+            "scope": 72106,
+            "stateMutability": "nonpayable",
+            "virtual": false,
+            "visibility": "external"
+          }
+        ],
+        "abstract": false,
+        "baseContracts": [],
+        "contractDependencies": [],
+        "contractKind": "interface",
+        "documentation": {
+          "id": 72080,
+          "nodeType": "StructuredDocumentation",
+          "src": "280:95:308",
+          "text": "@title IKilnStakingContract Interface\n @author Enzyme Council <security@enzyme.finance>"
+        },
+        "fullyImplemented": false,
+        "linearizedBaseContracts": [
+          72106
+        ],
+        "name": "IKilnStakingContract",
+        "scope": 72107
+      }
+    ],
+    "license": "GPL-3.0"
+  },
+  "id": 308
 }

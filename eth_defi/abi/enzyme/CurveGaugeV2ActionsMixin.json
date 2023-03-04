@@ -1,10 +1,2212 @@
 {
-  "_format": "hh-sol-artifact-1",
-  "contractName": "CurveGaugeV2ActionsMixin",
-  "sourceName": "contracts/release/extensions/integration-manager/integrations/utils/actions/CurveGaugeV2ActionsMixin.sol",
   "abi": [],
-  "bytecode": "0x",
-  "deployedBytecode": "0x",
-  "linkReferences": {},
-  "deployedLinkReferences": {}
+  "bytecode": {
+    "object": "0x",
+    "sourceMap": "",
+    "linkReferences": {}
+  },
+  "deployedBytecode": {
+    "object": "0x",
+    "sourceMap": "",
+    "linkReferences": {}
+  },
+  "methodIdentifiers": {},
+  "rawMetadata": "{\"compiler\":{\"version\":\"0.6.12+commit.27d51765\"},\"language\":\"Solidity\",\"output\":{\"abi\":[],\"devdoc\":{\"author\":\"Enzyme Council <security@enzyme.finance>\",\"kind\":\"dev\",\"methods\":{},\"title\":\"CurveGaugeV2ActionsMixin Contract\",\"version\":1},\"userdoc\":{\"kind\":\"user\",\"methods\":{},\"notice\":\"Mixin contract for interacting with any Curve LiquidityGaugeV2 contract\",\"version\":1}},\"settings\":{\"compilationTarget\":{\"contracts/release/extensions/integration-manager/integrations/utils/actions/CurveGaugeV2ActionsMixin.sol\":\"CurveGaugeV2ActionsMixin\"},\"evmVersion\":\"istanbul\",\"libraries\":{},\"metadata\":{\"bytecodeHash\":\"none\"},\"optimizer\":{\"details\":{\"constantOptimizer\":true,\"cse\":true,\"deduplicate\":true,\"jumpdestRemover\":true,\"orderLiterals\":true,\"peephole\":true,\"yul\":false},\"runs\":200},\"remappings\":[\":@enzyme/=contracts/\",\":@openzeppelin-solc-0.7/=node_modules/@openzeppelin-solc-0.7/\",\":@openzeppelin/=node_modules/@openzeppelin/\",\":@uniswap/=node_modules/@uniswap/\",\":base64-sol/=node_modules/base64-sol/\",\":ds-test/=lib/forge-std/lib/ds-test/src/\",\":forge-std/=lib/forge-std/src/\",\":hardhat-deploy/=node_modules/hardhat-deploy/\",\":hardhat/=node_modules/hardhat/\"]},\"sources\":{\"contracts/release/extensions/integration-manager/integrations/utils/actions/CurveGaugeV2ActionsMixin.sol\":{\"keccak256\":\"0xb297d967916d8560814b5d85ca8abedacf7d3c414390a0eb1179aa3adaa9be1b\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://97b52856086845cdfe9ddcd6e0be1eb72658a6775ab3cec97c4aa4d5477d28f3\",\"dweb:/ipfs/QmccHa8AXHZ4TiBu9225cxi6RgT6SskhgmUFzEJmgzE625\"]},\"contracts/release/interfaces/ICurveLiquidityGaugeV2.sol\":{\"keccak256\":\"0x0fbd9bdd7d7df1cd92c065ae3e62f1767d80914f086a0f146a2c9874aa7d4e30\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://7ed9ee21be1e5c6e6caf3abd0a092410c50614239c72a361612e3d71a649e6e1\",\"dweb:/ipfs/QmZgGgbPsWAiMwnPiimNGgFN6ZnaqcUkRSsSpnQi1MtBNs\"]},\"contracts/release/utils/AssetHelpers.sol\":{\"keccak256\":\"0x01825f9b744f0bdbbcbed59503845b46e31b67ab510d53d4834c22967e12fc5f\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://a6937098b8b5e2238c5d2617d4c7870b61eb3dc6b24e38a6d037353f92a7db4b\",\"dweb:/ipfs/QmXfdWqtc4Dyn4ShhCc6ZZscApMZWtSaonvikwemhczb5E\"]},\"node_modules/@openzeppelin/contracts/math/SafeMath.sol\":{\"keccak256\":\"0xcc78a17dd88fa5a2edc60c8489e2f405c0913b377216a5b26b35656b2d0dab52\",\"license\":\"MIT\",\"urls\":[\"bzz-raw://526dc85e1f9b9b45830e202568d267d93dde7a4fcccf4ad7798dadcd92304d3c\",\"dweb:/ipfs/QmaoXMB972J3cSDLtBq3xBo4jLwqD2uzXTwujtSPqkYVhR\"]},\"node_modules/@openzeppelin/contracts/token/ERC20/ERC20.sol\":{\"keccak256\":\"0xca0c2396dbeb3503b51abf4248ebf77a1461edad513c01529df51850a012bee3\",\"license\":\"MIT\",\"urls\":[\"bzz-raw://991b44ff44e0496e8554a90f4c0512c28faed45104d40430019f3c67ea67740e\",\"dweb:/ipfs/Qmc3nRapVbcctELoZS5qe17zLkFB3bETBfwzCTMF1CSuGE\"]},\"node_modules/@openzeppelin/contracts/token/ERC20/IERC20.sol\":{\"keccak256\":\"0x5f02220344881ce43204ae4a6281145a67bc52c2bb1290a791857df3d19d78f5\",\"license\":\"MIT\",\"urls\":[\"bzz-raw://24427744bd3e6cb73c17010119af12a318289c0253a4d9acb8576c9fb3797b08\",\"dweb:/ipfs/QmTLDqpKRBuxGxRAmjgXt9AkXyACW3MtKzi7PYjm5iMfGC\"]},\"node_modules/@openzeppelin/contracts/token/ERC20/SafeERC20.sol\":{\"keccak256\":\"0xf12dfbe97e6276980b83d2830bb0eb75e0cf4f3e626c2471137f82158ae6a0fc\",\"license\":\"MIT\",\"urls\":[\"bzz-raw://b3a849c2d95e85463909e5b5c920b13e7a11216ca14127085e16d22b9379d52a\",\"dweb:/ipfs/QmUg3CZDbCCcQdroEpexBy5ZFd5vD1UWijWQq9qHZjtJNQ\"]},\"node_modules/@openzeppelin/contracts/utils/Address.sol\":{\"keccak256\":\"0x28911e614500ae7c607a432a709d35da25f3bc5ddc8bd12b278b66358070c0ea\",\"license\":\"MIT\",\"urls\":[\"bzz-raw://256c8c8af5eb072bc473226ab2b2187149b8fc04f5f4a4820db22527f5ce8e3c\",\"dweb:/ipfs/QmRvi5BhnL7Rxf85KrJhwM6RRhukm4tzoctRdgQEheNyiN\"]},\"node_modules/@openzeppelin/contracts/utils/Context.sol\":{\"keccak256\":\"0x8d3cb350f04ff49cfb10aef08d87f19dcbaecc8027b0bed12f3275cd12f38cf0\",\"license\":\"MIT\",\"urls\":[\"bzz-raw://ded47ec7c96750f9bd04bbbc84f659992d4ba901cb7b532a52cd468272cf378f\",\"dweb:/ipfs/QmfBrGtQP7rZEqEg6Wz6jh2N2Kukpj1z5v3CGWmAqrzm96\"]}},\"version\":1}",
+  "metadata": {
+    "compiler": {
+      "version": "0.6.12+commit.27d51765"
+    },
+    "language": "Solidity",
+    "output": {
+      "abi": [],
+      "devdoc": {
+        "kind": "dev",
+        "methods": {},
+        "version": 1
+      },
+      "userdoc": {
+        "kind": "user",
+        "methods": {},
+        "version": 1
+      }
+    },
+    "settings": {
+      "remappings": [
+        ":@enzyme/=contracts/",
+        ":@openzeppelin-solc-0.7/=node_modules/@openzeppelin-solc-0.7/",
+        ":@openzeppelin/=node_modules/@openzeppelin/",
+        ":@uniswap/=node_modules/@uniswap/",
+        ":base64-sol/=node_modules/base64-sol/",
+        ":ds-test/=lib/forge-std/lib/ds-test/src/",
+        ":forge-std/=lib/forge-std/src/",
+        ":hardhat-deploy/=node_modules/hardhat-deploy/",
+        ":hardhat/=node_modules/hardhat/"
+      ],
+      "optimizer": {
+        "runs": 200,
+        "details": {
+          "peephole": true,
+          "jumpdestRemover": true,
+          "orderLiterals": true,
+          "deduplicate": true,
+          "cse": true,
+          "constantOptimizer": true,
+          "yul": false
+        }
+      },
+      "metadata": {
+        "bytecodeHash": "none"
+      },
+      "compilationTarget": {
+        "contracts/release/extensions/integration-manager/integrations/utils/actions/CurveGaugeV2ActionsMixin.sol": "CurveGaugeV2ActionsMixin"
+      },
+      "libraries": {}
+    },
+    "sources": {
+      "contracts/release/extensions/integration-manager/integrations/utils/actions/CurveGaugeV2ActionsMixin.sol": {
+        "keccak256": "0xb297d967916d8560814b5d85ca8abedacf7d3c414390a0eb1179aa3adaa9be1b",
+        "urls": [
+          "bzz-raw://97b52856086845cdfe9ddcd6e0be1eb72658a6775ab3cec97c4aa4d5477d28f3",
+          "dweb:/ipfs/QmccHa8AXHZ4TiBu9225cxi6RgT6SskhgmUFzEJmgzE625"
+        ],
+        "license": "GPL-3.0"
+      },
+      "contracts/release/interfaces/ICurveLiquidityGaugeV2.sol": {
+        "keccak256": "0x0fbd9bdd7d7df1cd92c065ae3e62f1767d80914f086a0f146a2c9874aa7d4e30",
+        "urls": [
+          "bzz-raw://7ed9ee21be1e5c6e6caf3abd0a092410c50614239c72a361612e3d71a649e6e1",
+          "dweb:/ipfs/QmZgGgbPsWAiMwnPiimNGgFN6ZnaqcUkRSsSpnQi1MtBNs"
+        ],
+        "license": "GPL-3.0"
+      },
+      "contracts/release/utils/AssetHelpers.sol": {
+        "keccak256": "0x01825f9b744f0bdbbcbed59503845b46e31b67ab510d53d4834c22967e12fc5f",
+        "urls": [
+          "bzz-raw://a6937098b8b5e2238c5d2617d4c7870b61eb3dc6b24e38a6d037353f92a7db4b",
+          "dweb:/ipfs/QmXfdWqtc4Dyn4ShhCc6ZZscApMZWtSaonvikwemhczb5E"
+        ],
+        "license": "GPL-3.0"
+      },
+      "node_modules/@openzeppelin/contracts/math/SafeMath.sol": {
+        "keccak256": "0xcc78a17dd88fa5a2edc60c8489e2f405c0913b377216a5b26b35656b2d0dab52",
+        "urls": [
+          "bzz-raw://526dc85e1f9b9b45830e202568d267d93dde7a4fcccf4ad7798dadcd92304d3c",
+          "dweb:/ipfs/QmaoXMB972J3cSDLtBq3xBo4jLwqD2uzXTwujtSPqkYVhR"
+        ],
+        "license": "MIT"
+      },
+      "node_modules/@openzeppelin/contracts/token/ERC20/ERC20.sol": {
+        "keccak256": "0xca0c2396dbeb3503b51abf4248ebf77a1461edad513c01529df51850a012bee3",
+        "urls": [
+          "bzz-raw://991b44ff44e0496e8554a90f4c0512c28faed45104d40430019f3c67ea67740e",
+          "dweb:/ipfs/Qmc3nRapVbcctELoZS5qe17zLkFB3bETBfwzCTMF1CSuGE"
+        ],
+        "license": "MIT"
+      },
+      "node_modules/@openzeppelin/contracts/token/ERC20/IERC20.sol": {
+        "keccak256": "0x5f02220344881ce43204ae4a6281145a67bc52c2bb1290a791857df3d19d78f5",
+        "urls": [
+          "bzz-raw://24427744bd3e6cb73c17010119af12a318289c0253a4d9acb8576c9fb3797b08",
+          "dweb:/ipfs/QmTLDqpKRBuxGxRAmjgXt9AkXyACW3MtKzi7PYjm5iMfGC"
+        ],
+        "license": "MIT"
+      },
+      "node_modules/@openzeppelin/contracts/token/ERC20/SafeERC20.sol": {
+        "keccak256": "0xf12dfbe97e6276980b83d2830bb0eb75e0cf4f3e626c2471137f82158ae6a0fc",
+        "urls": [
+          "bzz-raw://b3a849c2d95e85463909e5b5c920b13e7a11216ca14127085e16d22b9379d52a",
+          "dweb:/ipfs/QmUg3CZDbCCcQdroEpexBy5ZFd5vD1UWijWQq9qHZjtJNQ"
+        ],
+        "license": "MIT"
+      },
+      "node_modules/@openzeppelin/contracts/utils/Address.sol": {
+        "keccak256": "0x28911e614500ae7c607a432a709d35da25f3bc5ddc8bd12b278b66358070c0ea",
+        "urls": [
+          "bzz-raw://256c8c8af5eb072bc473226ab2b2187149b8fc04f5f4a4820db22527f5ce8e3c",
+          "dweb:/ipfs/QmRvi5BhnL7Rxf85KrJhwM6RRhukm4tzoctRdgQEheNyiN"
+        ],
+        "license": "MIT"
+      },
+      "node_modules/@openzeppelin/contracts/utils/Context.sol": {
+        "keccak256": "0x8d3cb350f04ff49cfb10aef08d87f19dcbaecc8027b0bed12f3275cd12f38cf0",
+        "urls": [
+          "bzz-raw://ded47ec7c96750f9bd04bbbc84f659992d4ba901cb7b532a52cd468272cf378f",
+          "dweb:/ipfs/QmfBrGtQP7rZEqEg6Wz6jh2N2Kukpj1z5v3CGWmAqrzm96"
+        ],
+        "license": "MIT"
+      }
+    },
+    "version": 1
+  },
+  "ast": {
+    "absolutePath": "contracts/release/extensions/integration-manager/integrations/utils/actions/CurveGaugeV2ActionsMixin.sol",
+    "id": 50789,
+    "exportedSymbols": {
+      "CurveGaugeV2ActionsMixin": [
+        50788
+      ]
+    },
+    "nodeType": "SourceUnit",
+    "src": "255:2067:187",
+    "nodes": [
+      {
+        "id": 50627,
+        "nodeType": "PragmaDirective",
+        "src": "255:23:187",
+        "nodes": [],
+        "literals": [
+          "solidity",
+          "0.6",
+          ".12"
+        ]
+      },
+      {
+        "id": 50628,
+        "nodeType": "ImportDirective",
+        "src": "280:62:187",
+        "nodes": [],
+        "absolutePath": "contracts/release/interfaces/ICurveLiquidityGaugeV2.sol",
+        "file": "../../../../../interfaces/ICurveLiquidityGaugeV2.sol",
+        "scope": 50789,
+        "sourceUnit": 71573,
+        "symbolAliases": [],
+        "unitAlias": ""
+      },
+      {
+        "id": 50629,
+        "nodeType": "ImportDirective",
+        "src": "343:47:187",
+        "nodes": [],
+        "absolutePath": "contracts/release/utils/AssetHelpers.sol",
+        "file": "../../../../../utils/AssetHelpers.sol",
+        "scope": 50789,
+        "sourceUnit": 77344,
+        "symbolAliases": [],
+        "unitAlias": ""
+      },
+      {
+        "id": 50788,
+        "nodeType": "ContractDefinition",
+        "src": "574:1747:187",
+        "nodes": [
+          {
+            "id": 50635,
+            "nodeType": "VariableDeclaration",
+            "src": "639:55:187",
+            "nodes": [],
+            "constant": true,
+            "mutability": "constant",
+            "name": "CURVE_GAUGE_V2_MAX_REWARDS",
+            "overrides": null,
+            "scope": 50788,
+            "stateVariable": true,
+            "storageLocation": "default",
+            "typeDescriptions": {
+              "typeIdentifier": "t_uint256",
+              "typeString": "uint256"
+            },
+            "typeName": {
+              "id": 50633,
+              "name": "uint256",
+              "nodeType": "ElementaryTypeName",
+              "src": "639:7:187",
+              "typeDescriptions": {
+                "typeIdentifier": "t_uint256",
+                "typeString": "uint256"
+              }
+            },
+            "value": {
+              "argumentTypes": null,
+              "hexValue": "38",
+              "id": 50634,
+              "isConstant": false,
+              "isLValue": false,
+              "isPure": true,
+              "kind": "number",
+              "lValueRequested": false,
+              "nodeType": "Literal",
+              "src": "693:1:187",
+              "subdenomination": null,
+              "typeDescriptions": {
+                "typeIdentifier": "t_rational_8_by_1",
+                "typeString": "int_const 8"
+              },
+              "value": "8"
+            },
+            "visibility": "private"
+          },
+          {
+            "id": 50651,
+            "nodeType": "FunctionDefinition",
+            "src": "752:148:187",
+            "nodes": [],
+            "body": {
+              "id": 50650,
+              "nodeType": "Block",
+              "src": "830:70:187",
+              "nodes": [],
+              "statements": [
+                {
+                  "expression": {
+                    "argumentTypes": null,
+                    "arguments": [
+                      {
+                        "argumentTypes": null,
+                        "id": 50647,
+                        "name": "_target",
+                        "nodeType": "Identifier",
+                        "overloadedDeclarations": [],
+                        "referencedDeclaration": 50640,
+                        "src": "885:7:187",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_address",
+                          "typeString": "address"
+                        }
+                      }
+                    ],
+                    "expression": {
+                      "argumentTypes": [
+                        {
+                          "typeIdentifier": "t_address",
+                          "typeString": "address"
+                        }
+                      ],
+                      "expression": {
+                        "argumentTypes": null,
+                        "arguments": [
+                          {
+                            "argumentTypes": null,
+                            "id": 50644,
+                            "name": "_gauge",
+                            "nodeType": "Identifier",
+                            "overloadedDeclarations": [],
+                            "referencedDeclaration": 50638,
+                            "src": "863:6:187",
+                            "typeDescriptions": {
+                              "typeIdentifier": "t_address",
+                              "typeString": "address"
+                            }
+                          }
+                        ],
+                        "expression": {
+                          "argumentTypes": [
+                            {
+                              "typeIdentifier": "t_address",
+                              "typeString": "address"
+                            }
+                          ],
+                          "id": 50643,
+                          "name": "ICurveLiquidityGaugeV2",
+                          "nodeType": "Identifier",
+                          "overloadedDeclarations": [],
+                          "referencedDeclaration": 71572,
+                          "src": "840:22:187",
+                          "typeDescriptions": {
+                            "typeIdentifier": "t_type$_t_contract$_ICurveLiquidityGaugeV2_$71572_$",
+                            "typeString": "type(contract ICurveLiquidityGaugeV2)"
+                          }
+                        },
+                        "id": 50645,
+                        "isConstant": false,
+                        "isLValue": false,
+                        "isPure": false,
+                        "kind": "typeConversion",
+                        "lValueRequested": false,
+                        "names": [],
+                        "nodeType": "FunctionCall",
+                        "src": "840:30:187",
+                        "tryCall": false,
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_contract$_ICurveLiquidityGaugeV2_$71572",
+                          "typeString": "contract ICurveLiquidityGaugeV2"
+                        }
+                      },
+                      "id": 50646,
+                      "isConstant": false,
+                      "isLValue": false,
+                      "isPure": false,
+                      "lValueRequested": false,
+                      "memberName": "claim_rewards",
+                      "nodeType": "MemberAccess",
+                      "referencedDeclaration": 71552,
+                      "src": "840:44:187",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_function_external_nonpayable$_t_address_$returns$__$",
+                        "typeString": "function (address) external"
+                      }
+                    },
+                    "id": 50648,
+                    "isConstant": false,
+                    "isLValue": false,
+                    "isPure": false,
+                    "kind": "functionCall",
+                    "lValueRequested": false,
+                    "names": [],
+                    "nodeType": "FunctionCall",
+                    "src": "840:53:187",
+                    "tryCall": false,
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_tuple$__$",
+                      "typeString": "tuple()"
+                    }
+                  },
+                  "id": 50649,
+                  "nodeType": "ExpressionStatement",
+                  "src": "840:53:187"
+                }
+              ]
+            },
+            "documentation": {
+              "id": 50636,
+              "nodeType": "StructuredDocumentation",
+              "src": "701:46:187",
+              "text": "@dev Helper to claim pool-specific rewards"
+            },
+            "implemented": true,
+            "kind": "function",
+            "modifiers": [],
+            "name": "__curveGaugeV2ClaimRewards",
+            "overrides": null,
+            "parameters": {
+              "id": 50641,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 50638,
+                  "mutability": "mutable",
+                  "name": "_gauge",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 50651,
+                  "src": "788:14:187",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 50637,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "788:7:187",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 50640,
+                  "mutability": "mutable",
+                  "name": "_target",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 50651,
+                  "src": "804:15:187",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 50639,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "804:7:187",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "787:33:187"
+            },
+            "returnParameters": {
+              "id": 50642,
+              "nodeType": "ParameterList",
+              "parameters": [],
+              "src": "830:0:187"
+            },
+            "scope": 50788,
+            "stateMutability": "nonpayable",
+            "virtual": false,
+            "visibility": "internal"
+          },
+          {
+            "id": 50743,
+            "nodeType": "FunctionDefinition",
+            "src": "970:859:187",
+            "nodes": [],
+            "body": {
+              "id": 50742,
+              "nodeType": "Block",
+              "src": "1110:719:187",
+              "nodes": [],
+              "statements": [
+                {
+                  "assignments": [
+                    50664
+                  ],
+                  "declarations": [
+                    {
+                      "constant": false,
+                      "id": 50664,
+                      "mutability": "mutable",
+                      "name": "lpRewardsTokensWithEmpties",
+                      "nodeType": "VariableDeclaration",
+                      "overrides": null,
+                      "scope": 50742,
+                      "src": "1120:43:187",
+                      "stateVariable": false,
+                      "storageLocation": "memory",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_array$_t_address_$dyn_memory_ptr",
+                        "typeString": "address[]"
+                      },
+                      "typeName": {
+                        "baseType": {
+                          "id": 50662,
+                          "name": "address",
+                          "nodeType": "ElementaryTypeName",
+                          "src": "1120:7:187",
+                          "typeDescriptions": {
+                            "typeIdentifier": "t_address",
+                            "typeString": "address"
+                          }
+                        },
+                        "id": 50663,
+                        "length": null,
+                        "nodeType": "ArrayTypeName",
+                        "src": "1120:9:187",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_array$_t_address_$dyn_storage_ptr",
+                          "typeString": "address[]"
+                        }
+                      },
+                      "value": null,
+                      "visibility": "internal"
+                    }
+                  ],
+                  "id": 50670,
+                  "initialValue": {
+                    "argumentTypes": null,
+                    "arguments": [
+                      {
+                        "argumentTypes": null,
+                        "id": 50668,
+                        "name": "CURVE_GAUGE_V2_MAX_REWARDS",
+                        "nodeType": "Identifier",
+                        "overloadedDeclarations": [],
+                        "referencedDeclaration": 50635,
+                        "src": "1180:26:187",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_uint256",
+                          "typeString": "uint256"
+                        }
+                      }
+                    ],
+                    "expression": {
+                      "argumentTypes": [
+                        {
+                          "typeIdentifier": "t_uint256",
+                          "typeString": "uint256"
+                        }
+                      ],
+                      "id": 50667,
+                      "isConstant": false,
+                      "isLValue": false,
+                      "isPure": true,
+                      "lValueRequested": false,
+                      "nodeType": "NewExpression",
+                      "src": "1166:13:187",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_function_objectcreation_pure$_t_uint256_$returns$_t_array$_t_address_$dyn_memory_ptr_$",
+                        "typeString": "function (uint256) pure returns (address[] memory)"
+                      },
+                      "typeName": {
+                        "baseType": {
+                          "id": 50665,
+                          "name": "address",
+                          "nodeType": "ElementaryTypeName",
+                          "src": "1170:7:187",
+                          "stateMutability": "nonpayable",
+                          "typeDescriptions": {
+                            "typeIdentifier": "t_address",
+                            "typeString": "address"
+                          }
+                        },
+                        "id": 50666,
+                        "length": null,
+                        "nodeType": "ArrayTypeName",
+                        "src": "1170:9:187",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_array$_t_address_$dyn_storage_ptr",
+                          "typeString": "address[]"
+                        }
+                      }
+                    },
+                    "id": 50669,
+                    "isConstant": false,
+                    "isLValue": false,
+                    "isPure": true,
+                    "kind": "functionCall",
+                    "lValueRequested": false,
+                    "names": [],
+                    "nodeType": "FunctionCall",
+                    "src": "1166:41:187",
+                    "tryCall": false,
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_array$_t_address_$dyn_memory_ptr",
+                      "typeString": "address[] memory"
+                    }
+                  },
+                  "nodeType": "VariableDeclarationStatement",
+                  "src": "1120:87:187"
+                },
+                {
+                  "assignments": [
+                    50672
+                  ],
+                  "declarations": [
+                    {
+                      "constant": false,
+                      "id": 50672,
+                      "mutability": "mutable",
+                      "name": "rewardsTokensCount",
+                      "nodeType": "VariableDeclaration",
+                      "overrides": null,
+                      "scope": 50742,
+                      "src": "1217:26:187",
+                      "stateVariable": false,
+                      "storageLocation": "default",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_uint256",
+                        "typeString": "uint256"
+                      },
+                      "typeName": {
+                        "id": 50671,
+                        "name": "uint256",
+                        "nodeType": "ElementaryTypeName",
+                        "src": "1217:7:187",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_uint256",
+                          "typeString": "uint256"
+                        }
+                      },
+                      "value": null,
+                      "visibility": "internal"
+                    }
+                  ],
+                  "id": 50673,
+                  "initialValue": null,
+                  "nodeType": "VariableDeclarationStatement",
+                  "src": "1217:26:187"
+                },
+                {
+                  "body": {
+                    "id": 50711,
+                    "nodeType": "Block",
+                    "src": "1306:296:187",
+                    "statements": [
+                      {
+                        "assignments": [
+                          50684
+                        ],
+                        "declarations": [
+                          {
+                            "constant": false,
+                            "id": 50684,
+                            "mutability": "mutable",
+                            "name": "rewardToken",
+                            "nodeType": "VariableDeclaration",
+                            "overrides": null,
+                            "scope": 50711,
+                            "src": "1320:19:187",
+                            "stateVariable": false,
+                            "storageLocation": "default",
+                            "typeDescriptions": {
+                              "typeIdentifier": "t_address",
+                              "typeString": "address"
+                            },
+                            "typeName": {
+                              "id": 50683,
+                              "name": "address",
+                              "nodeType": "ElementaryTypeName",
+                              "src": "1320:7:187",
+                              "stateMutability": "nonpayable",
+                              "typeDescriptions": {
+                                "typeIdentifier": "t_address",
+                                "typeString": "address"
+                              }
+                            },
+                            "value": null,
+                            "visibility": "internal"
+                          }
+                        ],
+                        "id": 50691,
+                        "initialValue": {
+                          "argumentTypes": null,
+                          "arguments": [
+                            {
+                              "argumentTypes": null,
+                              "id": 50689,
+                              "name": "i",
+                              "nodeType": "Identifier",
+                              "overloadedDeclarations": [],
+                              "referencedDeclaration": 50675,
+                              "src": "1387:1:187",
+                              "typeDescriptions": {
+                                "typeIdentifier": "t_uint256",
+                                "typeString": "uint256"
+                              }
+                            }
+                          ],
+                          "expression": {
+                            "argumentTypes": [
+                              {
+                                "typeIdentifier": "t_uint256",
+                                "typeString": "uint256"
+                              }
+                            ],
+                            "expression": {
+                              "argumentTypes": null,
+                              "arguments": [
+                                {
+                                  "argumentTypes": null,
+                                  "id": 50686,
+                                  "name": "_gauge",
+                                  "nodeType": "Identifier",
+                                  "overloadedDeclarations": [],
+                                  "referencedDeclaration": 50654,
+                                  "src": "1365:6:187",
+                                  "typeDescriptions": {
+                                    "typeIdentifier": "t_address",
+                                    "typeString": "address"
+                                  }
+                                }
+                              ],
+                              "expression": {
+                                "argumentTypes": [
+                                  {
+                                    "typeIdentifier": "t_address",
+                                    "typeString": "address"
+                                  }
+                                ],
+                                "id": 50685,
+                                "name": "ICurveLiquidityGaugeV2",
+                                "nodeType": "Identifier",
+                                "overloadedDeclarations": [],
+                                "referencedDeclaration": 71572,
+                                "src": "1342:22:187",
+                                "typeDescriptions": {
+                                  "typeIdentifier": "t_type$_t_contract$_ICurveLiquidityGaugeV2_$71572_$",
+                                  "typeString": "type(contract ICurveLiquidityGaugeV2)"
+                                }
+                              },
+                              "id": 50687,
+                              "isConstant": false,
+                              "isLValue": false,
+                              "isPure": false,
+                              "kind": "typeConversion",
+                              "lValueRequested": false,
+                              "names": [],
+                              "nodeType": "FunctionCall",
+                              "src": "1342:30:187",
+                              "tryCall": false,
+                              "typeDescriptions": {
+                                "typeIdentifier": "t_contract$_ICurveLiquidityGaugeV2_$71572",
+                                "typeString": "contract ICurveLiquidityGaugeV2"
+                              }
+                            },
+                            "id": 50688,
+                            "isConstant": false,
+                            "isLValue": false,
+                            "isPure": false,
+                            "lValueRequested": false,
+                            "memberName": "reward_tokens",
+                            "nodeType": "MemberAccess",
+                            "referencedDeclaration": 71566,
+                            "src": "1342:44:187",
+                            "typeDescriptions": {
+                              "typeIdentifier": "t_function_external_view$_t_uint256_$returns$_t_address_$",
+                              "typeString": "function (uint256) view external returns (address)"
+                            }
+                          },
+                          "id": 50690,
+                          "isConstant": false,
+                          "isLValue": false,
+                          "isPure": false,
+                          "kind": "functionCall",
+                          "lValueRequested": false,
+                          "names": [],
+                          "nodeType": "FunctionCall",
+                          "src": "1342:47:187",
+                          "tryCall": false,
+                          "typeDescriptions": {
+                            "typeIdentifier": "t_address",
+                            "typeString": "address"
+                          }
+                        },
+                        "nodeType": "VariableDeclarationStatement",
+                        "src": "1320:69:187"
+                      },
+                      {
+                        "condition": {
+                          "argumentTypes": null,
+                          "commonType": {
+                            "typeIdentifier": "t_address",
+                            "typeString": "address"
+                          },
+                          "id": 50697,
+                          "isConstant": false,
+                          "isLValue": false,
+                          "isPure": false,
+                          "lValueRequested": false,
+                          "leftExpression": {
+                            "argumentTypes": null,
+                            "id": 50692,
+                            "name": "rewardToken",
+                            "nodeType": "Identifier",
+                            "overloadedDeclarations": [],
+                            "referencedDeclaration": 50684,
+                            "src": "1407:11:187",
+                            "typeDescriptions": {
+                              "typeIdentifier": "t_address",
+                              "typeString": "address"
+                            }
+                          },
+                          "nodeType": "BinaryOperation",
+                          "operator": "!=",
+                          "rightExpression": {
+                            "argumentTypes": null,
+                            "arguments": [
+                              {
+                                "argumentTypes": null,
+                                "hexValue": "30",
+                                "id": 50695,
+                                "isConstant": false,
+                                "isLValue": false,
+                                "isPure": true,
+                                "kind": "number",
+                                "lValueRequested": false,
+                                "nodeType": "Literal",
+                                "src": "1430:1:187",
+                                "subdenomination": null,
+                                "typeDescriptions": {
+                                  "typeIdentifier": "t_rational_0_by_1",
+                                  "typeString": "int_const 0"
+                                },
+                                "value": "0"
+                              }
+                            ],
+                            "expression": {
+                              "argumentTypes": [
+                                {
+                                  "typeIdentifier": "t_rational_0_by_1",
+                                  "typeString": "int_const 0"
+                                }
+                              ],
+                              "id": 50694,
+                              "isConstant": false,
+                              "isLValue": false,
+                              "isPure": true,
+                              "lValueRequested": false,
+                              "nodeType": "ElementaryTypeNameExpression",
+                              "src": "1422:7:187",
+                              "typeDescriptions": {
+                                "typeIdentifier": "t_type$_t_address_$",
+                                "typeString": "type(address)"
+                              },
+                              "typeName": {
+                                "id": 50693,
+                                "name": "address",
+                                "nodeType": "ElementaryTypeName",
+                                "src": "1422:7:187",
+                                "typeDescriptions": {
+                                  "typeIdentifier": null,
+                                  "typeString": null
+                                }
+                              }
+                            },
+                            "id": 50696,
+                            "isConstant": false,
+                            "isLValue": false,
+                            "isPure": true,
+                            "kind": "typeConversion",
+                            "lValueRequested": false,
+                            "names": [],
+                            "nodeType": "FunctionCall",
+                            "src": "1422:10:187",
+                            "tryCall": false,
+                            "typeDescriptions": {
+                              "typeIdentifier": "t_address_payable",
+                              "typeString": "address payable"
+                            }
+                          },
+                          "src": "1407:25:187",
+                          "typeDescriptions": {
+                            "typeIdentifier": "t_bool",
+                            "typeString": "bool"
+                          }
+                        },
+                        "falseBody": {
+                          "id": 50709,
+                          "nodeType": "Block",
+                          "src": "1554:38:187",
+                          "statements": [
+                            {
+                              "id": 50708,
+                              "nodeType": "Break",
+                              "src": "1572:5:187"
+                            }
+                          ]
+                        },
+                        "id": 50710,
+                        "nodeType": "IfStatement",
+                        "src": "1403:189:187",
+                        "trueBody": {
+                          "id": 50707,
+                          "nodeType": "Block",
+                          "src": "1434:114:187",
+                          "statements": [
+                            {
+                              "expression": {
+                                "argumentTypes": null,
+                                "id": 50702,
+                                "isConstant": false,
+                                "isLValue": false,
+                                "isPure": false,
+                                "lValueRequested": false,
+                                "leftHandSide": {
+                                  "argumentTypes": null,
+                                  "baseExpression": {
+                                    "argumentTypes": null,
+                                    "id": 50698,
+                                    "name": "lpRewardsTokensWithEmpties",
+                                    "nodeType": "Identifier",
+                                    "overloadedDeclarations": [],
+                                    "referencedDeclaration": 50664,
+                                    "src": "1452:26:187",
+                                    "typeDescriptions": {
+                                      "typeIdentifier": "t_array$_t_address_$dyn_memory_ptr",
+                                      "typeString": "address[] memory"
+                                    }
+                                  },
+                                  "id": 50700,
+                                  "indexExpression": {
+                                    "argumentTypes": null,
+                                    "id": 50699,
+                                    "name": "i",
+                                    "nodeType": "Identifier",
+                                    "overloadedDeclarations": [],
+                                    "referencedDeclaration": 50675,
+                                    "src": "1479:1:187",
+                                    "typeDescriptions": {
+                                      "typeIdentifier": "t_uint256",
+                                      "typeString": "uint256"
+                                    }
+                                  },
+                                  "isConstant": false,
+                                  "isLValue": true,
+                                  "isPure": false,
+                                  "lValueRequested": true,
+                                  "nodeType": "IndexAccess",
+                                  "src": "1452:29:187",
+                                  "typeDescriptions": {
+                                    "typeIdentifier": "t_address",
+                                    "typeString": "address"
+                                  }
+                                },
+                                "nodeType": "Assignment",
+                                "operator": "=",
+                                "rightHandSide": {
+                                  "argumentTypes": null,
+                                  "id": 50701,
+                                  "name": "rewardToken",
+                                  "nodeType": "Identifier",
+                                  "overloadedDeclarations": [],
+                                  "referencedDeclaration": 50684,
+                                  "src": "1484:11:187",
+                                  "typeDescriptions": {
+                                    "typeIdentifier": "t_address",
+                                    "typeString": "address"
+                                  }
+                                },
+                                "src": "1452:43:187",
+                                "typeDescriptions": {
+                                  "typeIdentifier": "t_address",
+                                  "typeString": "address"
+                                }
+                              },
+                              "id": 50703,
+                              "nodeType": "ExpressionStatement",
+                              "src": "1452:43:187"
+                            },
+                            {
+                              "expression": {
+                                "argumentTypes": null,
+                                "id": 50705,
+                                "isConstant": false,
+                                "isLValue": false,
+                                "isPure": false,
+                                "lValueRequested": false,
+                                "nodeType": "UnaryOperation",
+                                "operator": "++",
+                                "prefix": false,
+                                "src": "1513:20:187",
+                                "subExpression": {
+                                  "argumentTypes": null,
+                                  "id": 50704,
+                                  "name": "rewardsTokensCount",
+                                  "nodeType": "Identifier",
+                                  "overloadedDeclarations": [],
+                                  "referencedDeclaration": 50672,
+                                  "src": "1513:18:187",
+                                  "typeDescriptions": {
+                                    "typeIdentifier": "t_uint256",
+                                    "typeString": "uint256"
+                                  }
+                                },
+                                "typeDescriptions": {
+                                  "typeIdentifier": "t_uint256",
+                                  "typeString": "uint256"
+                                }
+                              },
+                              "id": 50706,
+                              "nodeType": "ExpressionStatement",
+                              "src": "1513:20:187"
+                            }
+                          ]
+                        }
+                      }
+                    ]
+                  },
+                  "condition": {
+                    "argumentTypes": null,
+                    "commonType": {
+                      "typeIdentifier": "t_uint256",
+                      "typeString": "uint256"
+                    },
+                    "id": 50679,
+                    "isConstant": false,
+                    "isLValue": false,
+                    "isPure": false,
+                    "lValueRequested": false,
+                    "leftExpression": {
+                      "argumentTypes": null,
+                      "id": 50677,
+                      "name": "i",
+                      "nodeType": "Identifier",
+                      "overloadedDeclarations": [],
+                      "referencedDeclaration": 50675,
+                      "src": "1269:1:187",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_uint256",
+                        "typeString": "uint256"
+                      }
+                    },
+                    "nodeType": "BinaryOperation",
+                    "operator": "<",
+                    "rightExpression": {
+                      "argumentTypes": null,
+                      "id": 50678,
+                      "name": "CURVE_GAUGE_V2_MAX_REWARDS",
+                      "nodeType": "Identifier",
+                      "overloadedDeclarations": [],
+                      "referencedDeclaration": 50635,
+                      "src": "1273:26:187",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_uint256",
+                        "typeString": "uint256"
+                      }
+                    },
+                    "src": "1269:30:187",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_bool",
+                      "typeString": "bool"
+                    }
+                  },
+                  "id": 50712,
+                  "initializationExpression": {
+                    "assignments": [
+                      50675
+                    ],
+                    "declarations": [
+                      {
+                        "constant": false,
+                        "id": 50675,
+                        "mutability": "mutable",
+                        "name": "i",
+                        "nodeType": "VariableDeclaration",
+                        "overrides": null,
+                        "scope": 50712,
+                        "src": "1258:9:187",
+                        "stateVariable": false,
+                        "storageLocation": "default",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_uint256",
+                          "typeString": "uint256"
+                        },
+                        "typeName": {
+                          "id": 50674,
+                          "name": "uint256",
+                          "nodeType": "ElementaryTypeName",
+                          "src": "1258:7:187",
+                          "typeDescriptions": {
+                            "typeIdentifier": "t_uint256",
+                            "typeString": "uint256"
+                          }
+                        },
+                        "value": null,
+                        "visibility": "internal"
+                      }
+                    ],
+                    "id": 50676,
+                    "initialValue": null,
+                    "nodeType": "VariableDeclarationStatement",
+                    "src": "1258:9:187"
+                  },
+                  "loopExpression": {
+                    "expression": {
+                      "argumentTypes": null,
+                      "id": 50681,
+                      "isConstant": false,
+                      "isLValue": false,
+                      "isPure": false,
+                      "lValueRequested": false,
+                      "nodeType": "UnaryOperation",
+                      "operator": "++",
+                      "prefix": false,
+                      "src": "1301:3:187",
+                      "subExpression": {
+                        "argumentTypes": null,
+                        "id": 50680,
+                        "name": "i",
+                        "nodeType": "Identifier",
+                        "overloadedDeclarations": [],
+                        "referencedDeclaration": 50675,
+                        "src": "1301:1:187",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_uint256",
+                          "typeString": "uint256"
+                        }
+                      },
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_uint256",
+                        "typeString": "uint256"
+                      }
+                    },
+                    "id": 50682,
+                    "nodeType": "ExpressionStatement",
+                    "src": "1301:3:187"
+                  },
+                  "nodeType": "ForStatement",
+                  "src": "1253:349:187"
+                },
+                {
+                  "expression": {
+                    "argumentTypes": null,
+                    "id": 50719,
+                    "isConstant": false,
+                    "isLValue": false,
+                    "isPure": false,
+                    "lValueRequested": false,
+                    "leftHandSide": {
+                      "argumentTypes": null,
+                      "id": 50713,
+                      "name": "rewardsTokens_",
+                      "nodeType": "Identifier",
+                      "overloadedDeclarations": [],
+                      "referencedDeclaration": 50658,
+                      "src": "1612:14:187",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_array$_t_address_$dyn_memory_ptr",
+                        "typeString": "address[] memory"
+                      }
+                    },
+                    "nodeType": "Assignment",
+                    "operator": "=",
+                    "rightHandSide": {
+                      "argumentTypes": null,
+                      "arguments": [
+                        {
+                          "argumentTypes": null,
+                          "id": 50717,
+                          "name": "rewardsTokensCount",
+                          "nodeType": "Identifier",
+                          "overloadedDeclarations": [],
+                          "referencedDeclaration": 50672,
+                          "src": "1643:18:187",
+                          "typeDescriptions": {
+                            "typeIdentifier": "t_uint256",
+                            "typeString": "uint256"
+                          }
+                        }
+                      ],
+                      "expression": {
+                        "argumentTypes": [
+                          {
+                            "typeIdentifier": "t_uint256",
+                            "typeString": "uint256"
+                          }
+                        ],
+                        "id": 50716,
+                        "isConstant": false,
+                        "isLValue": false,
+                        "isPure": true,
+                        "lValueRequested": false,
+                        "nodeType": "NewExpression",
+                        "src": "1629:13:187",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_function_objectcreation_pure$_t_uint256_$returns$_t_array$_t_address_$dyn_memory_ptr_$",
+                          "typeString": "function (uint256) pure returns (address[] memory)"
+                        },
+                        "typeName": {
+                          "baseType": {
+                            "id": 50714,
+                            "name": "address",
+                            "nodeType": "ElementaryTypeName",
+                            "src": "1633:7:187",
+                            "stateMutability": "nonpayable",
+                            "typeDescriptions": {
+                              "typeIdentifier": "t_address",
+                              "typeString": "address"
+                            }
+                          },
+                          "id": 50715,
+                          "length": null,
+                          "nodeType": "ArrayTypeName",
+                          "src": "1633:9:187",
+                          "typeDescriptions": {
+                            "typeIdentifier": "t_array$_t_address_$dyn_storage_ptr",
+                            "typeString": "address[]"
+                          }
+                        }
+                      },
+                      "id": 50718,
+                      "isConstant": false,
+                      "isLValue": false,
+                      "isPure": false,
+                      "kind": "functionCall",
+                      "lValueRequested": false,
+                      "names": [],
+                      "nodeType": "FunctionCall",
+                      "src": "1629:33:187",
+                      "tryCall": false,
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_array$_t_address_$dyn_memory_ptr",
+                        "typeString": "address[] memory"
+                      }
+                    },
+                    "src": "1612:50:187",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_array$_t_address_$dyn_memory_ptr",
+                      "typeString": "address[] memory"
+                    }
+                  },
+                  "id": 50720,
+                  "nodeType": "ExpressionStatement",
+                  "src": "1612:50:187"
+                },
+                {
+                  "body": {
+                    "id": 50738,
+                    "nodeType": "Block",
+                    "src": "1717:74:187",
+                    "statements": [
+                      {
+                        "expression": {
+                          "argumentTypes": null,
+                          "id": 50736,
+                          "isConstant": false,
+                          "isLValue": false,
+                          "isPure": false,
+                          "lValueRequested": false,
+                          "leftHandSide": {
+                            "argumentTypes": null,
+                            "baseExpression": {
+                              "argumentTypes": null,
+                              "id": 50730,
+                              "name": "rewardsTokens_",
+                              "nodeType": "Identifier",
+                              "overloadedDeclarations": [],
+                              "referencedDeclaration": 50658,
+                              "src": "1731:14:187",
+                              "typeDescriptions": {
+                                "typeIdentifier": "t_array$_t_address_$dyn_memory_ptr",
+                                "typeString": "address[] memory"
+                              }
+                            },
+                            "id": 50732,
+                            "indexExpression": {
+                              "argumentTypes": null,
+                              "id": 50731,
+                              "name": "i",
+                              "nodeType": "Identifier",
+                              "overloadedDeclarations": [],
+                              "referencedDeclaration": 50722,
+                              "src": "1746:1:187",
+                              "typeDescriptions": {
+                                "typeIdentifier": "t_uint256",
+                                "typeString": "uint256"
+                              }
+                            },
+                            "isConstant": false,
+                            "isLValue": true,
+                            "isPure": false,
+                            "lValueRequested": true,
+                            "nodeType": "IndexAccess",
+                            "src": "1731:17:187",
+                            "typeDescriptions": {
+                              "typeIdentifier": "t_address",
+                              "typeString": "address"
+                            }
+                          },
+                          "nodeType": "Assignment",
+                          "operator": "=",
+                          "rightHandSide": {
+                            "argumentTypes": null,
+                            "baseExpression": {
+                              "argumentTypes": null,
+                              "id": 50733,
+                              "name": "lpRewardsTokensWithEmpties",
+                              "nodeType": "Identifier",
+                              "overloadedDeclarations": [],
+                              "referencedDeclaration": 50664,
+                              "src": "1751:26:187",
+                              "typeDescriptions": {
+                                "typeIdentifier": "t_array$_t_address_$dyn_memory_ptr",
+                                "typeString": "address[] memory"
+                              }
+                            },
+                            "id": 50735,
+                            "indexExpression": {
+                              "argumentTypes": null,
+                              "id": 50734,
+                              "name": "i",
+                              "nodeType": "Identifier",
+                              "overloadedDeclarations": [],
+                              "referencedDeclaration": 50722,
+                              "src": "1778:1:187",
+                              "typeDescriptions": {
+                                "typeIdentifier": "t_uint256",
+                                "typeString": "uint256"
+                              }
+                            },
+                            "isConstant": false,
+                            "isLValue": true,
+                            "isPure": false,
+                            "lValueRequested": false,
+                            "nodeType": "IndexAccess",
+                            "src": "1751:29:187",
+                            "typeDescriptions": {
+                              "typeIdentifier": "t_address",
+                              "typeString": "address"
+                            }
+                          },
+                          "src": "1731:49:187",
+                          "typeDescriptions": {
+                            "typeIdentifier": "t_address",
+                            "typeString": "address"
+                          }
+                        },
+                        "id": 50737,
+                        "nodeType": "ExpressionStatement",
+                        "src": "1731:49:187"
+                      }
+                    ]
+                  },
+                  "condition": {
+                    "argumentTypes": null,
+                    "commonType": {
+                      "typeIdentifier": "t_uint256",
+                      "typeString": "uint256"
+                    },
+                    "id": 50726,
+                    "isConstant": false,
+                    "isLValue": false,
+                    "isPure": false,
+                    "lValueRequested": false,
+                    "leftExpression": {
+                      "argumentTypes": null,
+                      "id": 50724,
+                      "name": "i",
+                      "nodeType": "Identifier",
+                      "overloadedDeclarations": [],
+                      "referencedDeclaration": 50722,
+                      "src": "1688:1:187",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_uint256",
+                        "typeString": "uint256"
+                      }
+                    },
+                    "nodeType": "BinaryOperation",
+                    "operator": "<",
+                    "rightExpression": {
+                      "argumentTypes": null,
+                      "id": 50725,
+                      "name": "rewardsTokensCount",
+                      "nodeType": "Identifier",
+                      "overloadedDeclarations": [],
+                      "referencedDeclaration": 50672,
+                      "src": "1692:18:187",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_uint256",
+                        "typeString": "uint256"
+                      }
+                    },
+                    "src": "1688:22:187",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_bool",
+                      "typeString": "bool"
+                    }
+                  },
+                  "id": 50739,
+                  "initializationExpression": {
+                    "assignments": [
+                      50722
+                    ],
+                    "declarations": [
+                      {
+                        "constant": false,
+                        "id": 50722,
+                        "mutability": "mutable",
+                        "name": "i",
+                        "nodeType": "VariableDeclaration",
+                        "overrides": null,
+                        "scope": 50739,
+                        "src": "1677:9:187",
+                        "stateVariable": false,
+                        "storageLocation": "default",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_uint256",
+                          "typeString": "uint256"
+                        },
+                        "typeName": {
+                          "id": 50721,
+                          "name": "uint256",
+                          "nodeType": "ElementaryTypeName",
+                          "src": "1677:7:187",
+                          "typeDescriptions": {
+                            "typeIdentifier": "t_uint256",
+                            "typeString": "uint256"
+                          }
+                        },
+                        "value": null,
+                        "visibility": "internal"
+                      }
+                    ],
+                    "id": 50723,
+                    "initialValue": null,
+                    "nodeType": "VariableDeclarationStatement",
+                    "src": "1677:9:187"
+                  },
+                  "loopExpression": {
+                    "expression": {
+                      "argumentTypes": null,
+                      "id": 50728,
+                      "isConstant": false,
+                      "isLValue": false,
+                      "isPure": false,
+                      "lValueRequested": false,
+                      "nodeType": "UnaryOperation",
+                      "operator": "++",
+                      "prefix": false,
+                      "src": "1712:3:187",
+                      "subExpression": {
+                        "argumentTypes": null,
+                        "id": 50727,
+                        "name": "i",
+                        "nodeType": "Identifier",
+                        "overloadedDeclarations": [],
+                        "referencedDeclaration": 50722,
+                        "src": "1712:1:187",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_uint256",
+                          "typeString": "uint256"
+                        }
+                      },
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_uint256",
+                        "typeString": "uint256"
+                      }
+                    },
+                    "id": 50729,
+                    "nodeType": "ExpressionStatement",
+                    "src": "1712:3:187"
+                  },
+                  "nodeType": "ForStatement",
+                  "src": "1672:119:187"
+                },
+                {
+                  "expression": {
+                    "argumentTypes": null,
+                    "id": 50740,
+                    "name": "rewardsTokens_",
+                    "nodeType": "Identifier",
+                    "overloadedDeclarations": [],
+                    "referencedDeclaration": 50658,
+                    "src": "1808:14:187",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_array$_t_address_$dyn_memory_ptr",
+                      "typeString": "address[] memory"
+                    }
+                  },
+                  "functionReturnParameters": 50659,
+                  "id": 50741,
+                  "nodeType": "Return",
+                  "src": "1801:21:187"
+                }
+              ]
+            },
+            "documentation": {
+              "id": 50652,
+              "nodeType": "StructuredDocumentation",
+              "src": "906:59:187",
+              "text": "@dev Helper to get list of pool-specific rewards tokens"
+            },
+            "implemented": true,
+            "kind": "function",
+            "modifiers": [],
+            "name": "__curveGaugeV2GetRewardsTokens",
+            "overrides": null,
+            "parameters": {
+              "id": 50655,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 50654,
+                  "mutability": "mutable",
+                  "name": "_gauge",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 50743,
+                  "src": "1010:14:187",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 50653,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "1010:7:187",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "1009:16:187"
+            },
+            "returnParameters": {
+              "id": 50659,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 50658,
+                  "mutability": "mutable",
+                  "name": "rewardsTokens_",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 50743,
+                  "src": "1073:31:187",
+                  "stateVariable": false,
+                  "storageLocation": "memory",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_array$_t_address_$dyn_memory_ptr",
+                    "typeString": "address[]"
+                  },
+                  "typeName": {
+                    "baseType": {
+                      "id": 50656,
+                      "name": "address",
+                      "nodeType": "ElementaryTypeName",
+                      "src": "1073:7:187",
+                      "stateMutability": "nonpayable",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_address",
+                        "typeString": "address"
+                      }
+                    },
+                    "id": 50657,
+                    "length": null,
+                    "nodeType": "ArrayTypeName",
+                    "src": "1073:9:187",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_array$_t_address_$dyn_storage_ptr",
+                      "typeString": "address[]"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "1072:33:187"
+            },
+            "scope": 50788,
+            "stateMutability": "view",
+            "virtual": false,
+            "visibility": "internal"
+          },
+          {
+            "id": 50771,
+            "nodeType": "FunctionDefinition",
+            "src": "1874:260:187",
+            "nodes": [],
+            "body": {
+              "id": 50770,
+              "nodeType": "Block",
+              "src": "1993:141:187",
+              "nodes": [],
+              "statements": [
+                {
+                  "expression": {
+                    "argumentTypes": null,
+                    "arguments": [
+                      {
+                        "argumentTypes": null,
+                        "id": 50754,
+                        "name": "_lpToken",
+                        "nodeType": "Identifier",
+                        "overloadedDeclarations": [],
+                        "referencedDeclaration": 50748,
+                        "src": "2029:8:187",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_address",
+                          "typeString": "address"
+                        }
+                      },
+                      {
+                        "argumentTypes": null,
+                        "id": 50755,
+                        "name": "_gauge",
+                        "nodeType": "Identifier",
+                        "overloadedDeclarations": [],
+                        "referencedDeclaration": 50746,
+                        "src": "2039:6:187",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_address",
+                          "typeString": "address"
+                        }
+                      },
+                      {
+                        "argumentTypes": null,
+                        "id": 50756,
+                        "name": "_amount",
+                        "nodeType": "Identifier",
+                        "overloadedDeclarations": [],
+                        "referencedDeclaration": 50750,
+                        "src": "2047:7:187",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_uint256",
+                          "typeString": "uint256"
+                        }
+                      }
+                    ],
+                    "expression": {
+                      "argumentTypes": [
+                        {
+                          "typeIdentifier": "t_address",
+                          "typeString": "address"
+                        },
+                        {
+                          "typeIdentifier": "t_address",
+                          "typeString": "address"
+                        },
+                        {
+                          "typeIdentifier": "t_uint256",
+                          "typeString": "uint256"
+                        }
+                      ],
+                      "id": 50753,
+                      "name": "__approveAssetMaxAsNeeded",
+                      "nodeType": "Identifier",
+                      "overloadedDeclarations": [],
+                      "referencedDeclaration": 77232,
+                      "src": "2003:25:187",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_function_internal_nonpayable$_t_address_$_t_address_$_t_uint256_$returns$__$",
+                        "typeString": "function (address,address,uint256)"
+                      }
+                    },
+                    "id": 50757,
+                    "isConstant": false,
+                    "isLValue": false,
+                    "isPure": false,
+                    "kind": "functionCall",
+                    "lValueRequested": false,
+                    "names": [],
+                    "nodeType": "FunctionCall",
+                    "src": "2003:52:187",
+                    "tryCall": false,
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_tuple$__$",
+                      "typeString": "tuple()"
+                    }
+                  },
+                  "id": 50758,
+                  "nodeType": "ExpressionStatement",
+                  "src": "2003:52:187"
+                },
+                {
+                  "expression": {
+                    "argumentTypes": null,
+                    "arguments": [
+                      {
+                        "argumentTypes": null,
+                        "id": 50763,
+                        "name": "_amount",
+                        "nodeType": "Identifier",
+                        "overloadedDeclarations": [],
+                        "referencedDeclaration": 50750,
+                        "src": "2104:7:187",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_uint256",
+                          "typeString": "uint256"
+                        }
+                      },
+                      {
+                        "argumentTypes": null,
+                        "arguments": [
+                          {
+                            "argumentTypes": null,
+                            "id": 50766,
+                            "name": "this",
+                            "nodeType": "Identifier",
+                            "overloadedDeclarations": [],
+                            "referencedDeclaration": -28,
+                            "src": "2121:4:187",
+                            "typeDescriptions": {
+                              "typeIdentifier": "t_contract$_CurveGaugeV2ActionsMixin_$50788",
+                              "typeString": "contract CurveGaugeV2ActionsMixin"
+                            }
+                          }
+                        ],
+                        "expression": {
+                          "argumentTypes": [
+                            {
+                              "typeIdentifier": "t_contract$_CurveGaugeV2ActionsMixin_$50788",
+                              "typeString": "contract CurveGaugeV2ActionsMixin"
+                            }
+                          ],
+                          "id": 50765,
+                          "isConstant": false,
+                          "isLValue": false,
+                          "isPure": true,
+                          "lValueRequested": false,
+                          "nodeType": "ElementaryTypeNameExpression",
+                          "src": "2113:7:187",
+                          "typeDescriptions": {
+                            "typeIdentifier": "t_type$_t_address_$",
+                            "typeString": "type(address)"
+                          },
+                          "typeName": {
+                            "id": 50764,
+                            "name": "address",
+                            "nodeType": "ElementaryTypeName",
+                            "src": "2113:7:187",
+                            "typeDescriptions": {
+                              "typeIdentifier": null,
+                              "typeString": null
+                            }
+                          }
+                        },
+                        "id": 50767,
+                        "isConstant": false,
+                        "isLValue": false,
+                        "isPure": false,
+                        "kind": "typeConversion",
+                        "lValueRequested": false,
+                        "names": [],
+                        "nodeType": "FunctionCall",
+                        "src": "2113:13:187",
+                        "tryCall": false,
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_address",
+                          "typeString": "address"
+                        }
+                      }
+                    ],
+                    "expression": {
+                      "argumentTypes": [
+                        {
+                          "typeIdentifier": "t_uint256",
+                          "typeString": "uint256"
+                        },
+                        {
+                          "typeIdentifier": "t_address",
+                          "typeString": "address"
+                        }
+                      ],
+                      "expression": {
+                        "argumentTypes": null,
+                        "arguments": [
+                          {
+                            "argumentTypes": null,
+                            "id": 50760,
+                            "name": "_gauge",
+                            "nodeType": "Identifier",
+                            "overloadedDeclarations": [],
+                            "referencedDeclaration": 50746,
+                            "src": "2088:6:187",
+                            "typeDescriptions": {
+                              "typeIdentifier": "t_address",
+                              "typeString": "address"
+                            }
+                          }
+                        ],
+                        "expression": {
+                          "argumentTypes": [
+                            {
+                              "typeIdentifier": "t_address",
+                              "typeString": "address"
+                            }
+                          ],
+                          "id": 50759,
+                          "name": "ICurveLiquidityGaugeV2",
+                          "nodeType": "Identifier",
+                          "overloadedDeclarations": [],
+                          "referencedDeclaration": 71572,
+                          "src": "2065:22:187",
+                          "typeDescriptions": {
+                            "typeIdentifier": "t_type$_t_contract$_ICurveLiquidityGaugeV2_$71572_$",
+                            "typeString": "type(contract ICurveLiquidityGaugeV2)"
+                          }
+                        },
+                        "id": 50761,
+                        "isConstant": false,
+                        "isLValue": false,
+                        "isPure": false,
+                        "kind": "typeConversion",
+                        "lValueRequested": false,
+                        "names": [],
+                        "nodeType": "FunctionCall",
+                        "src": "2065:30:187",
+                        "tryCall": false,
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_contract$_ICurveLiquidityGaugeV2_$71572",
+                          "typeString": "contract ICurveLiquidityGaugeV2"
+                        }
+                      },
+                      "id": 50762,
+                      "isConstant": false,
+                      "isLValue": false,
+                      "isPure": false,
+                      "lValueRequested": false,
+                      "memberName": "deposit",
+                      "nodeType": "MemberAccess",
+                      "referencedDeclaration": 71559,
+                      "src": "2065:38:187",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_function_external_nonpayable$_t_uint256_$_t_address_$returns$__$",
+                        "typeString": "function (uint256,address) external"
+                      }
+                    },
+                    "id": 50768,
+                    "isConstant": false,
+                    "isLValue": false,
+                    "isPure": false,
+                    "kind": "functionCall",
+                    "lValueRequested": false,
+                    "names": [],
+                    "nodeType": "FunctionCall",
+                    "src": "2065:62:187",
+                    "tryCall": false,
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_tuple$__$",
+                      "typeString": "tuple()"
+                    }
+                  },
+                  "id": 50769,
+                  "nodeType": "ExpressionStatement",
+                  "src": "2065:62:187"
+                }
+              ]
+            },
+            "documentation": {
+              "id": 50744,
+              "nodeType": "StructuredDocumentation",
+              "src": "1835:34:187",
+              "text": "@dev Helper to stake LP tokens"
+            },
+            "implemented": true,
+            "kind": "function",
+            "modifiers": [],
+            "name": "__curveGaugeV2Stake",
+            "overrides": null,
+            "parameters": {
+              "id": 50751,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 50746,
+                  "mutability": "mutable",
+                  "name": "_gauge",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 50771,
+                  "src": "1912:14:187",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 50745,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "1912:7:187",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 50748,
+                  "mutability": "mutable",
+                  "name": "_lpToken",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 50771,
+                  "src": "1936:16:187",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 50747,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "1936:7:187",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 50750,
+                  "mutability": "mutable",
+                  "name": "_amount",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 50771,
+                  "src": "1962:15:187",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_uint256",
+                    "typeString": "uint256"
+                  },
+                  "typeName": {
+                    "id": 50749,
+                    "name": "uint256",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "1962:7:187",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_uint256",
+                      "typeString": "uint256"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "1902:81:187"
+            },
+            "returnParameters": {
+              "id": 50752,
+              "nodeType": "ParameterList",
+              "parameters": [],
+              "src": "1993:0:187"
+            },
+            "scope": 50788,
+            "stateMutability": "nonpayable",
+            "virtual": false,
+            "visibility": "internal"
+          },
+          {
+            "id": 50787,
+            "nodeType": "FunctionDefinition",
+            "src": "2181:138:187",
+            "nodes": [],
+            "body": {
+              "id": 50786,
+              "nodeType": "Block",
+              "src": "2254:65:187",
+              "nodes": [],
+              "statements": [
+                {
+                  "expression": {
+                    "argumentTypes": null,
+                    "arguments": [
+                      {
+                        "argumentTypes": null,
+                        "id": 50783,
+                        "name": "_amount",
+                        "nodeType": "Identifier",
+                        "overloadedDeclarations": [],
+                        "referencedDeclaration": 50776,
+                        "src": "2304:7:187",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_uint256",
+                          "typeString": "uint256"
+                        }
+                      }
+                    ],
+                    "expression": {
+                      "argumentTypes": [
+                        {
+                          "typeIdentifier": "t_uint256",
+                          "typeString": "uint256"
+                        }
+                      ],
+                      "expression": {
+                        "argumentTypes": null,
+                        "arguments": [
+                          {
+                            "argumentTypes": null,
+                            "id": 50780,
+                            "name": "_gauge",
+                            "nodeType": "Identifier",
+                            "overloadedDeclarations": [],
+                            "referencedDeclaration": 50774,
+                            "src": "2287:6:187",
+                            "typeDescriptions": {
+                              "typeIdentifier": "t_address",
+                              "typeString": "address"
+                            }
+                          }
+                        ],
+                        "expression": {
+                          "argumentTypes": [
+                            {
+                              "typeIdentifier": "t_address",
+                              "typeString": "address"
+                            }
+                          ],
+                          "id": 50779,
+                          "name": "ICurveLiquidityGaugeV2",
+                          "nodeType": "Identifier",
+                          "overloadedDeclarations": [],
+                          "referencedDeclaration": 71572,
+                          "src": "2264:22:187",
+                          "typeDescriptions": {
+                            "typeIdentifier": "t_type$_t_contract$_ICurveLiquidityGaugeV2_$71572_$",
+                            "typeString": "type(contract ICurveLiquidityGaugeV2)"
+                          }
+                        },
+                        "id": 50781,
+                        "isConstant": false,
+                        "isLValue": false,
+                        "isPure": false,
+                        "kind": "typeConversion",
+                        "lValueRequested": false,
+                        "names": [],
+                        "nodeType": "FunctionCall",
+                        "src": "2264:30:187",
+                        "tryCall": false,
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_contract$_ICurveLiquidityGaugeV2_$71572",
+                          "typeString": "contract ICurveLiquidityGaugeV2"
+                        }
+                      },
+                      "id": 50782,
+                      "isConstant": false,
+                      "isLValue": false,
+                      "isPure": false,
+                      "lValueRequested": false,
+                      "memberName": "withdraw",
+                      "nodeType": "MemberAccess",
+                      "referencedDeclaration": 71571,
+                      "src": "2264:39:187",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_function_external_nonpayable$_t_uint256_$returns$__$",
+                        "typeString": "function (uint256) external"
+                      }
+                    },
+                    "id": 50784,
+                    "isConstant": false,
+                    "isLValue": false,
+                    "isPure": false,
+                    "kind": "functionCall",
+                    "lValueRequested": false,
+                    "names": [],
+                    "nodeType": "FunctionCall",
+                    "src": "2264:48:187",
+                    "tryCall": false,
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_tuple$__$",
+                      "typeString": "tuple()"
+                    }
+                  },
+                  "id": 50785,
+                  "nodeType": "ExpressionStatement",
+                  "src": "2264:48:187"
+                }
+              ]
+            },
+            "documentation": {
+              "id": 50772,
+              "nodeType": "StructuredDocumentation",
+              "src": "2140:36:187",
+              "text": "@dev Helper to unstake LP tokens"
+            },
+            "implemented": true,
+            "kind": "function",
+            "modifiers": [],
+            "name": "__curveGaugeV2Unstake",
+            "overrides": null,
+            "parameters": {
+              "id": 50777,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 50774,
+                  "mutability": "mutable",
+                  "name": "_gauge",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 50787,
+                  "src": "2212:14:187",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 50773,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "2212:7:187",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 50776,
+                  "mutability": "mutable",
+                  "name": "_amount",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 50787,
+                  "src": "2228:15:187",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_uint256",
+                    "typeString": "uint256"
+                  },
+                  "typeName": {
+                    "id": 50775,
+                    "name": "uint256",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "2228:7:187",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_uint256",
+                      "typeString": "uint256"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "2211:33:187"
+            },
+            "returnParameters": {
+              "id": 50778,
+              "nodeType": "ParameterList",
+              "parameters": [],
+              "src": "2254:0:187"
+            },
+            "scope": 50788,
+            "stateMutability": "nonpayable",
+            "virtual": false,
+            "visibility": "internal"
+          }
+        ],
+        "abstract": true,
+        "baseContracts": [
+          {
+            "arguments": null,
+            "baseName": {
+              "contractScope": null,
+              "id": 50631,
+              "name": "AssetHelpers",
+              "nodeType": "UserDefinedTypeName",
+              "referencedDeclaration": 77343,
+              "src": "620:12:187",
+              "typeDescriptions": {
+                "typeIdentifier": "t_contract$_AssetHelpers_$77343",
+                "typeString": "contract AssetHelpers"
+              }
+            },
+            "id": 50632,
+            "nodeType": "InheritanceSpecifier",
+            "src": "620:12:187"
+          }
+        ],
+        "contractDependencies": [
+          77343
+        ],
+        "contractKind": "contract",
+        "documentation": {
+          "id": 50630,
+          "nodeType": "StructuredDocumentation",
+          "src": "392:182:187",
+          "text": "@title CurveGaugeV2ActionsMixin Contract\n @author Enzyme Council <security@enzyme.finance>\n @notice Mixin contract for interacting with any Curve LiquidityGaugeV2 contract"
+        },
+        "fullyImplemented": true,
+        "linearizedBaseContracts": [
+          50788,
+          77343
+        ],
+        "name": "CurveGaugeV2ActionsMixin",
+        "scope": 50789
+      }
+    ],
+    "license": "GPL-3.0"
+  },
+  "id": 187
 }

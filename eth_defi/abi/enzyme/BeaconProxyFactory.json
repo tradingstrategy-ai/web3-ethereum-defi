@@ -1,7 +1,4 @@
 {
-  "_format": "hh-sol-artifact-1",
-  "contractName": "BeaconProxyFactory",
-  "sourceName": "contracts/release/utils/beacon-proxy/BeaconProxyFactory.sol",
   "abi": [
     {
       "inputs": [
@@ -111,8 +108,1709 @@
       "type": "function"
     }
   ],
-  "bytecode": "0x",
-  "deployedBytecode": "0x",
-  "linkReferences": {},
-  "deployedLinkReferences": {}
+  "bytecode": {
+    "object": "0x",
+    "sourceMap": "",
+    "linkReferences": {}
+  },
+  "deployedBytecode": {
+    "object": "0x",
+    "sourceMap": "",
+    "linkReferences": {}
+  },
+  "methodIdentifiers": {
+    "deployProxy(bytes)": "0c0872f5",
+    "getCanonicalLib()": "98a7c4c7",
+    "getOwner()": "893d20e8",
+    "setCanonicalLib(address)": "d0ac1a8d"
+  },
+  "rawMetadata": "{\"compiler\":{\"version\":\"0.6.12+commit.27d51765\"},\"language\":\"Solidity\",\"output\":{\"abi\":[{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_canonicalLib\",\"type\":\"address\"}],\"stateMutability\":\"nonpayable\",\"type\":\"constructor\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"address\",\"name\":\"nextCanonicalLib\",\"type\":\"address\"}],\"name\":\"CanonicalLibSet\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"caller\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"address\",\"name\":\"proxy\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"bytes\",\"name\":\"constructData\",\"type\":\"bytes\"}],\"name\":\"ProxyDeployed\",\"type\":\"event\"},{\"inputs\":[{\"internalType\":\"bytes\",\"name\":\"_constructData\",\"type\":\"bytes\"}],\"name\":\"deployProxy\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"proxy_\",\"type\":\"address\"}],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getCanonicalLib\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"canonicalLib_\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getOwner\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"owner_\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_nextCanonicalLib\",\"type\":\"address\"}],\"name\":\"setCanonicalLib\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"}],\"devdoc\":{\"author\":\"Enzyme Council <security@enzyme.finance>\",\"kind\":\"dev\",\"methods\":{\"deployProxy(bytes)\":{\"params\":{\"_constructData\":\"The constructor data with which to call `init()` on the deployed proxy\"},\"returns\":{\"proxy_\":\"The proxy address\"}},\"getCanonicalLib()\":{\"returns\":{\"canonicalLib_\":\"The canonical lib\"}},\"getOwner()\":{\"returns\":{\"owner_\":\"The contract owner\"}},\"setCanonicalLib(address)\":{\"params\":{\"_nextCanonicalLib\":\"The next canonical lib\"}}},\"title\":\"BeaconProxyFactory Contract\",\"version\":1},\"userdoc\":{\"kind\":\"user\",\"methods\":{\"deployProxy(bytes)\":{\"notice\":\"Deploys a new proxy instance\"},\"getCanonicalLib()\":{\"notice\":\"Gets the canonical lib used by all proxies\"},\"getOwner()\":{\"notice\":\"Gets the contract owner\"},\"setCanonicalLib(address)\":{\"notice\":\"Sets the next canonical lib used by all proxies\"}},\"notice\":\"Factory contract that deploys beacon proxies\",\"version\":1}},\"settings\":{\"compilationTarget\":{\"contracts/release/utils/beacon-proxy/BeaconProxyFactory.sol\":\"BeaconProxyFactory\"},\"evmVersion\":\"istanbul\",\"libraries\":{},\"metadata\":{\"bytecodeHash\":\"none\"},\"optimizer\":{\"details\":{\"constantOptimizer\":true,\"cse\":true,\"deduplicate\":true,\"jumpdestRemover\":true,\"orderLiterals\":true,\"peephole\":true,\"yul\":false},\"runs\":200},\"remappings\":[\":@enzyme/=contracts/\",\":@openzeppelin-solc-0.7/=node_modules/@openzeppelin-solc-0.7/\",\":@openzeppelin/=node_modules/@openzeppelin/\",\":@uniswap/=node_modules/@uniswap/\",\":base64-sol/=node_modules/base64-sol/\",\":ds-test/=lib/forge-std/lib/ds-test/src/\",\":forge-std/=lib/forge-std/src/\",\":hardhat-deploy/=node_modules/hardhat-deploy/\",\":hardhat/=node_modules/hardhat/\"]},\"sources\":{\"contracts/release/utils/beacon-proxy/BeaconProxy.sol\":{\"keccak256\":\"0x7a0a6c511a30434a9b329226b0cf1a05ec426ddbfc4e1d9b9083978ee4cf6d53\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://692d3a116ecf306f20a3d29dc70846099ce46ba281524a502336325a6cd05667\",\"dweb:/ipfs/QmTGxmDWMcMtGEsPLzVB8eyK3WDqaCwoChuc24RXuSzwVb\"]},\"contracts/release/utils/beacon-proxy/BeaconProxyFactory.sol\":{\"keccak256\":\"0xd35fa5134e3a8694ed1dbbc8dcd4b4d5b459608c23097a95984e1b98af3e64d9\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://1c008f83ac64b316479406cbf0287593a810d453825a2f669b5810c51429f9fc\",\"dweb:/ipfs/QmNtdtcWGZFpnb3LsshwV5BiM5H1Vz8SGpoqMchUyfuhQx\"]},\"contracts/release/utils/beacon-proxy/IBeacon.sol\":{\"keccak256\":\"0x27a585523828a67a1a7c84eadd22b3056e8ffc51ab71992fd97c9ffb4239eeb2\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://da6aab223fcf84060c63266f743443f5bece3cd1b3131c29db925f2c2671cb39\",\"dweb:/ipfs/Qmd4LvTJHhF6KeRN77ykk5KuV1U7y5ka9gvHChqkg2145V\"]},\"contracts/release/utils/beacon-proxy/IBeaconProxyFactory.sol\":{\"keccak256\":\"0x747e53725f5dbe419893ea447df4f33a3b25d99aae5b724aa1b9778cec1a26bc\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://af89093638cb2a72b2760233a4f3e600bed766fa7938f35f0664b86954b313be\",\"dweb:/ipfs/QmXhqBFHrKYHc5DLtyPqEy9FG8F94Wz63tp9Px9P873isG\"]}},\"version\":1}",
+  "metadata": {
+    "compiler": {
+      "version": "0.6.12+commit.27d51765"
+    },
+    "language": "Solidity",
+    "output": {
+      "abi": [
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "_canonicalLib",
+              "type": "address"
+            }
+          ],
+          "stateMutability": "nonpayable",
+          "type": "constructor"
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "nextCanonicalLib",
+              "type": "address",
+              "indexed": false
+            }
+          ],
+          "type": "event",
+          "name": "CanonicalLibSet",
+          "anonymous": false
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "caller",
+              "type": "address",
+              "indexed": true
+            },
+            {
+              "internalType": "address",
+              "name": "proxy",
+              "type": "address",
+              "indexed": false
+            },
+            {
+              "internalType": "bytes",
+              "name": "constructData",
+              "type": "bytes",
+              "indexed": false
+            }
+          ],
+          "type": "event",
+          "name": "ProxyDeployed",
+          "anonymous": false
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "bytes",
+              "name": "_constructData",
+              "type": "bytes"
+            }
+          ],
+          "stateMutability": "nonpayable",
+          "type": "function",
+          "name": "deployProxy",
+          "outputs": [
+            {
+              "internalType": "address",
+              "name": "proxy_",
+              "type": "address"
+            }
+          ]
+        },
+        {
+          "inputs": [],
+          "stateMutability": "view",
+          "type": "function",
+          "name": "getCanonicalLib",
+          "outputs": [
+            {
+              "internalType": "address",
+              "name": "canonicalLib_",
+              "type": "address"
+            }
+          ]
+        },
+        {
+          "inputs": [],
+          "stateMutability": "view",
+          "type": "function",
+          "name": "getOwner",
+          "outputs": [
+            {
+              "internalType": "address",
+              "name": "owner_",
+              "type": "address"
+            }
+          ]
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "_nextCanonicalLib",
+              "type": "address"
+            }
+          ],
+          "stateMutability": "nonpayable",
+          "type": "function",
+          "name": "setCanonicalLib"
+        }
+      ],
+      "devdoc": {
+        "kind": "dev",
+        "methods": {
+          "deployProxy(bytes)": {
+            "params": {
+              "_constructData": "The constructor data with which to call `init()` on the deployed proxy"
+            },
+            "returns": {
+              "proxy_": "The proxy address"
+            }
+          },
+          "getCanonicalLib()": {
+            "returns": {
+              "canonicalLib_": "The canonical lib"
+            }
+          },
+          "getOwner()": {
+            "returns": {
+              "owner_": "The contract owner"
+            }
+          },
+          "setCanonicalLib(address)": {
+            "params": {
+              "_nextCanonicalLib": "The next canonical lib"
+            }
+          }
+        },
+        "version": 1
+      },
+      "userdoc": {
+        "kind": "user",
+        "methods": {
+          "deployProxy(bytes)": {
+            "notice": "Deploys a new proxy instance"
+          },
+          "getCanonicalLib()": {
+            "notice": "Gets the canonical lib used by all proxies"
+          },
+          "getOwner()": {
+            "notice": "Gets the contract owner"
+          },
+          "setCanonicalLib(address)": {
+            "notice": "Sets the next canonical lib used by all proxies"
+          }
+        },
+        "version": 1
+      }
+    },
+    "settings": {
+      "remappings": [
+        ":@enzyme/=contracts/",
+        ":@openzeppelin-solc-0.7/=node_modules/@openzeppelin-solc-0.7/",
+        ":@openzeppelin/=node_modules/@openzeppelin/",
+        ":@uniswap/=node_modules/@uniswap/",
+        ":base64-sol/=node_modules/base64-sol/",
+        ":ds-test/=lib/forge-std/lib/ds-test/src/",
+        ":forge-std/=lib/forge-std/src/",
+        ":hardhat-deploy/=node_modules/hardhat-deploy/",
+        ":hardhat/=node_modules/hardhat/"
+      ],
+      "optimizer": {
+        "runs": 200,
+        "details": {
+          "peephole": true,
+          "jumpdestRemover": true,
+          "orderLiterals": true,
+          "deduplicate": true,
+          "cse": true,
+          "constantOptimizer": true,
+          "yul": false
+        }
+      },
+      "metadata": {
+        "bytecodeHash": "none"
+      },
+      "compilationTarget": {
+        "contracts/release/utils/beacon-proxy/BeaconProxyFactory.sol": "BeaconProxyFactory"
+      },
+      "libraries": {}
+    },
+    "sources": {
+      "contracts/release/utils/beacon-proxy/BeaconProxy.sol": {
+        "keccak256": "0x7a0a6c511a30434a9b329226b0cf1a05ec426ddbfc4e1d9b9083978ee4cf6d53",
+        "urls": [
+          "bzz-raw://692d3a116ecf306f20a3d29dc70846099ce46ba281524a502336325a6cd05667",
+          "dweb:/ipfs/QmTGxmDWMcMtGEsPLzVB8eyK3WDqaCwoChuc24RXuSzwVb"
+        ],
+        "license": "GPL-3.0"
+      },
+      "contracts/release/utils/beacon-proxy/BeaconProxyFactory.sol": {
+        "keccak256": "0xd35fa5134e3a8694ed1dbbc8dcd4b4d5b459608c23097a95984e1b98af3e64d9",
+        "urls": [
+          "bzz-raw://1c008f83ac64b316479406cbf0287593a810d453825a2f669b5810c51429f9fc",
+          "dweb:/ipfs/QmNtdtcWGZFpnb3LsshwV5BiM5H1Vz8SGpoqMchUyfuhQx"
+        ],
+        "license": "GPL-3.0"
+      },
+      "contracts/release/utils/beacon-proxy/IBeacon.sol": {
+        "keccak256": "0x27a585523828a67a1a7c84eadd22b3056e8ffc51ab71992fd97c9ffb4239eeb2",
+        "urls": [
+          "bzz-raw://da6aab223fcf84060c63266f743443f5bece3cd1b3131c29db925f2c2671cb39",
+          "dweb:/ipfs/Qmd4LvTJHhF6KeRN77ykk5KuV1U7y5ka9gvHChqkg2145V"
+        ],
+        "license": "GPL-3.0"
+      },
+      "contracts/release/utils/beacon-proxy/IBeaconProxyFactory.sol": {
+        "keccak256": "0x747e53725f5dbe419893ea447df4f33a3b25d99aae5b724aa1b9778cec1a26bc",
+        "urls": [
+          "bzz-raw://af89093638cb2a72b2760233a4f3e600bed766fa7938f35f0664b86954b313be",
+          "dweb:/ipfs/QmXhqBFHrKYHc5DLtyPqEy9FG8F94Wz63tp9Px9P873isG"
+        ],
+        "license": "GPL-3.0"
+      }
+    },
+    "version": 1
+  },
+  "ast": {
+    "absolutePath": "contracts/release/utils/beacon-proxy/BeaconProxyFactory.sol",
+    "id": 79684,
+    "exportedSymbols": {
+      "BeaconProxyFactory": [
+        79683
+      ]
+    },
+    "nodeType": "SourceUnit",
+    "src": "255:2011:365",
+    "nodes": [
+      {
+        "id": 79568,
+        "nodeType": "PragmaDirective",
+        "src": "255:23:365",
+        "nodes": [],
+        "literals": [
+          "solidity",
+          "0.6",
+          ".12"
+        ]
+      },
+      {
+        "id": 79569,
+        "nodeType": "ImportDirective",
+        "src": "280:27:365",
+        "nodes": [],
+        "absolutePath": "contracts/release/utils/beacon-proxy/BeaconProxy.sol",
+        "file": "./BeaconProxy.sol",
+        "scope": 79684,
+        "sourceUnit": 79567,
+        "symbolAliases": [],
+        "unitAlias": ""
+      },
+      {
+        "id": 79570,
+        "nodeType": "ImportDirective",
+        "src": "308:35:365",
+        "nodes": [],
+        "absolutePath": "contracts/release/utils/beacon-proxy/IBeaconProxyFactory.sol",
+        "file": "./IBeaconProxyFactory.sol",
+        "scope": 79684,
+        "sourceUnit": 79712,
+        "symbolAliases": [],
+        "unitAlias": ""
+      },
+      {
+        "id": 79683,
+        "nodeType": "ContractDefinition",
+        "src": "494:1771:365",
+        "nodes": [
+          {
+            "id": 79577,
+            "nodeType": "EventDefinition",
+            "src": "560:48:365",
+            "nodes": [],
+            "anonymous": false,
+            "documentation": null,
+            "name": "CanonicalLibSet",
+            "parameters": {
+              "id": 79576,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 79575,
+                  "indexed": false,
+                  "mutability": "mutable",
+                  "name": "nextCanonicalLib",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 79577,
+                  "src": "582:24:365",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 79574,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "582:7:365",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "581:26:365"
+            }
+          },
+          {
+            "id": 79585,
+            "nodeType": "EventDefinition",
+            "src": "614:80:365",
+            "nodes": [],
+            "anonymous": false,
+            "documentation": null,
+            "name": "ProxyDeployed",
+            "parameters": {
+              "id": 79584,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 79579,
+                  "indexed": true,
+                  "mutability": "mutable",
+                  "name": "caller",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 79585,
+                  "src": "634:22:365",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 79578,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "634:7:365",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 79581,
+                  "indexed": false,
+                  "mutability": "mutable",
+                  "name": "proxy",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 79585,
+                  "src": "658:13:365",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 79580,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "658:7:365",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 79583,
+                  "indexed": false,
+                  "mutability": "mutable",
+                  "name": "constructData",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 79585,
+                  "src": "673:19:365",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_bytes_memory_ptr",
+                    "typeString": "bytes"
+                  },
+                  "typeName": {
+                    "id": 79582,
+                    "name": "bytes",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "673:5:365",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_bytes_storage_ptr",
+                      "typeString": "bytes"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "633:60:365"
+            }
+          },
+          {
+            "id": 79587,
+            "nodeType": "VariableDeclaration",
+            "src": "700:28:365",
+            "nodes": [],
+            "constant": false,
+            "mutability": "mutable",
+            "name": "canonicalLib",
+            "overrides": null,
+            "scope": 79683,
+            "stateVariable": true,
+            "storageLocation": "default",
+            "typeDescriptions": {
+              "typeIdentifier": "t_address",
+              "typeString": "address"
+            },
+            "typeName": {
+              "id": 79586,
+              "name": "address",
+              "nodeType": "ElementaryTypeName",
+              "src": "700:7:365",
+              "stateMutability": "nonpayable",
+              "typeDescriptions": {
+                "typeIdentifier": "t_address",
+                "typeString": "address"
+              }
+            },
+            "value": null,
+            "visibility": "private"
+          },
+          {
+            "id": 79597,
+            "nodeType": "FunctionDefinition",
+            "src": "735:91:365",
+            "nodes": [],
+            "body": {
+              "id": 79596,
+              "nodeType": "Block",
+              "src": "777:49:365",
+              "nodes": [],
+              "statements": [
+                {
+                  "expression": {
+                    "argumentTypes": null,
+                    "arguments": [
+                      {
+                        "argumentTypes": null,
+                        "id": 79593,
+                        "name": "_canonicalLib",
+                        "nodeType": "Identifier",
+                        "overloadedDeclarations": [],
+                        "referencedDeclaration": 79589,
+                        "src": "805:13:365",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_address",
+                          "typeString": "address"
+                        }
+                      }
+                    ],
+                    "expression": {
+                      "argumentTypes": [
+                        {
+                          "typeIdentifier": "t_address",
+                          "typeString": "address"
+                        }
+                      ],
+                      "id": 79592,
+                      "name": "__setCanonicalLib",
+                      "nodeType": "Identifier",
+                      "overloadedDeclarations": [],
+                      "referencedDeclaration": 79682,
+                      "src": "787:17:365",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_function_internal_nonpayable$_t_address_$returns$__$",
+                        "typeString": "function (address)"
+                      }
+                    },
+                    "id": 79594,
+                    "isConstant": false,
+                    "isLValue": false,
+                    "isPure": false,
+                    "kind": "functionCall",
+                    "lValueRequested": false,
+                    "names": [],
+                    "nodeType": "FunctionCall",
+                    "src": "787:32:365",
+                    "tryCall": false,
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_tuple$__$",
+                      "typeString": "tuple()"
+                    }
+                  },
+                  "id": 79595,
+                  "nodeType": "ExpressionStatement",
+                  "src": "787:32:365"
+                }
+              ]
+            },
+            "documentation": null,
+            "implemented": true,
+            "kind": "constructor",
+            "modifiers": [],
+            "name": "",
+            "overrides": null,
+            "parameters": {
+              "id": 79590,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 79589,
+                  "mutability": "mutable",
+                  "name": "_canonicalLib",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 79597,
+                  "src": "747:21:365",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 79588,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "747:7:365",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "746:23:365"
+            },
+            "returnParameters": {
+              "id": 79591,
+              "nodeType": "ParameterList",
+              "parameters": [],
+              "src": "777:0:365"
+            },
+            "scope": 79683,
+            "stateMutability": "nonpayable",
+            "virtual": false,
+            "visibility": "public"
+          },
+          {
+            "id": 79630,
+            "nodeType": "FunctionDefinition",
+            "src": "1019:261:365",
+            "nodes": [],
+            "body": {
+              "id": 79629,
+              "nodeType": "Block",
+              "src": "1110:170:365",
+              "nodes": [],
+              "statements": [
+                {
+                  "expression": {
+                    "argumentTypes": null,
+                    "id": 79618,
+                    "isConstant": false,
+                    "isLValue": false,
+                    "isPure": false,
+                    "lValueRequested": false,
+                    "leftHandSide": {
+                      "argumentTypes": null,
+                      "id": 79606,
+                      "name": "proxy_",
+                      "nodeType": "Identifier",
+                      "overloadedDeclarations": [],
+                      "referencedDeclaration": 79604,
+                      "src": "1120:6:365",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_address",
+                        "typeString": "address"
+                      }
+                    },
+                    "nodeType": "Assignment",
+                    "operator": "=",
+                    "rightHandSide": {
+                      "argumentTypes": null,
+                      "arguments": [
+                        {
+                          "argumentTypes": null,
+                          "arguments": [
+                            {
+                              "argumentTypes": null,
+                              "id": 79611,
+                              "name": "_constructData",
+                              "nodeType": "Identifier",
+                              "overloadedDeclarations": [],
+                              "referencedDeclaration": 79600,
+                              "src": "1153:14:365",
+                              "typeDescriptions": {
+                                "typeIdentifier": "t_bytes_memory_ptr",
+                                "typeString": "bytes memory"
+                              }
+                            },
+                            {
+                              "argumentTypes": null,
+                              "arguments": [
+                                {
+                                  "argumentTypes": null,
+                                  "id": 79614,
+                                  "name": "this",
+                                  "nodeType": "Identifier",
+                                  "overloadedDeclarations": [],
+                                  "referencedDeclaration": -28,
+                                  "src": "1177:4:365",
+                                  "typeDescriptions": {
+                                    "typeIdentifier": "t_contract$_BeaconProxyFactory_$79683",
+                                    "typeString": "contract BeaconProxyFactory"
+                                  }
+                                }
+                              ],
+                              "expression": {
+                                "argumentTypes": [
+                                  {
+                                    "typeIdentifier": "t_contract$_BeaconProxyFactory_$79683",
+                                    "typeString": "contract BeaconProxyFactory"
+                                  }
+                                ],
+                                "id": 79613,
+                                "isConstant": false,
+                                "isLValue": false,
+                                "isPure": true,
+                                "lValueRequested": false,
+                                "nodeType": "ElementaryTypeNameExpression",
+                                "src": "1169:7:365",
+                                "typeDescriptions": {
+                                  "typeIdentifier": "t_type$_t_address_$",
+                                  "typeString": "type(address)"
+                                },
+                                "typeName": {
+                                  "id": 79612,
+                                  "name": "address",
+                                  "nodeType": "ElementaryTypeName",
+                                  "src": "1169:7:365",
+                                  "typeDescriptions": {
+                                    "typeIdentifier": null,
+                                    "typeString": null
+                                  }
+                                }
+                              },
+                              "id": 79615,
+                              "isConstant": false,
+                              "isLValue": false,
+                              "isPure": false,
+                              "kind": "typeConversion",
+                              "lValueRequested": false,
+                              "names": [],
+                              "nodeType": "FunctionCall",
+                              "src": "1169:13:365",
+                              "tryCall": false,
+                              "typeDescriptions": {
+                                "typeIdentifier": "t_address",
+                                "typeString": "address"
+                              }
+                            }
+                          ],
+                          "expression": {
+                            "argumentTypes": [
+                              {
+                                "typeIdentifier": "t_bytes_memory_ptr",
+                                "typeString": "bytes memory"
+                              },
+                              {
+                                "typeIdentifier": "t_address",
+                                "typeString": "address"
+                              }
+                            ],
+                            "id": 79610,
+                            "isConstant": false,
+                            "isLValue": false,
+                            "isPure": false,
+                            "lValueRequested": false,
+                            "nodeType": "NewExpression",
+                            "src": "1137:15:365",
+                            "typeDescriptions": {
+                              "typeIdentifier": "t_function_creation_nonpayable$_t_bytes_memory_ptr_$_t_address_$returns$_t_contract$_BeaconProxy_$79566_$",
+                              "typeString": "function (bytes memory,address) returns (contract BeaconProxy)"
+                            },
+                            "typeName": {
+                              "contractScope": null,
+                              "id": 79609,
+                              "name": "BeaconProxy",
+                              "nodeType": "UserDefinedTypeName",
+                              "referencedDeclaration": 79566,
+                              "src": "1141:11:365",
+                              "typeDescriptions": {
+                                "typeIdentifier": "t_contract$_BeaconProxy_$79566",
+                                "typeString": "contract BeaconProxy"
+                              }
+                            }
+                          },
+                          "id": 79616,
+                          "isConstant": false,
+                          "isLValue": false,
+                          "isPure": false,
+                          "kind": "functionCall",
+                          "lValueRequested": false,
+                          "names": [],
+                          "nodeType": "FunctionCall",
+                          "src": "1137:46:365",
+                          "tryCall": false,
+                          "typeDescriptions": {
+                            "typeIdentifier": "t_contract$_BeaconProxy_$79566",
+                            "typeString": "contract BeaconProxy"
+                          }
+                        }
+                      ],
+                      "expression": {
+                        "argumentTypes": [
+                          {
+                            "typeIdentifier": "t_contract$_BeaconProxy_$79566",
+                            "typeString": "contract BeaconProxy"
+                          }
+                        ],
+                        "id": 79608,
+                        "isConstant": false,
+                        "isLValue": false,
+                        "isPure": true,
+                        "lValueRequested": false,
+                        "nodeType": "ElementaryTypeNameExpression",
+                        "src": "1129:7:365",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_type$_t_address_$",
+                          "typeString": "type(address)"
+                        },
+                        "typeName": {
+                          "id": 79607,
+                          "name": "address",
+                          "nodeType": "ElementaryTypeName",
+                          "src": "1129:7:365",
+                          "typeDescriptions": {
+                            "typeIdentifier": null,
+                            "typeString": null
+                          }
+                        }
+                      },
+                      "id": 79617,
+                      "isConstant": false,
+                      "isLValue": false,
+                      "isPure": false,
+                      "kind": "typeConversion",
+                      "lValueRequested": false,
+                      "names": [],
+                      "nodeType": "FunctionCall",
+                      "src": "1129:55:365",
+                      "tryCall": false,
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_address_payable",
+                        "typeString": "address payable"
+                      }
+                    },
+                    "src": "1120:64:365",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "id": 79619,
+                  "nodeType": "ExpressionStatement",
+                  "src": "1120:64:365"
+                },
+                {
+                  "eventCall": {
+                    "argumentTypes": null,
+                    "arguments": [
+                      {
+                        "argumentTypes": null,
+                        "expression": {
+                          "argumentTypes": null,
+                          "id": 79621,
+                          "name": "msg",
+                          "nodeType": "Identifier",
+                          "overloadedDeclarations": [],
+                          "referencedDeclaration": -15,
+                          "src": "1214:3:365",
+                          "typeDescriptions": {
+                            "typeIdentifier": "t_magic_message",
+                            "typeString": "msg"
+                          }
+                        },
+                        "id": 79622,
+                        "isConstant": false,
+                        "isLValue": false,
+                        "isPure": false,
+                        "lValueRequested": false,
+                        "memberName": "sender",
+                        "nodeType": "MemberAccess",
+                        "referencedDeclaration": null,
+                        "src": "1214:10:365",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_address_payable",
+                          "typeString": "address payable"
+                        }
+                      },
+                      {
+                        "argumentTypes": null,
+                        "id": 79623,
+                        "name": "proxy_",
+                        "nodeType": "Identifier",
+                        "overloadedDeclarations": [],
+                        "referencedDeclaration": 79604,
+                        "src": "1226:6:365",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_address",
+                          "typeString": "address"
+                        }
+                      },
+                      {
+                        "argumentTypes": null,
+                        "id": 79624,
+                        "name": "_constructData",
+                        "nodeType": "Identifier",
+                        "overloadedDeclarations": [],
+                        "referencedDeclaration": 79600,
+                        "src": "1234:14:365",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_bytes_memory_ptr",
+                          "typeString": "bytes memory"
+                        }
+                      }
+                    ],
+                    "expression": {
+                      "argumentTypes": [
+                        {
+                          "typeIdentifier": "t_address_payable",
+                          "typeString": "address payable"
+                        },
+                        {
+                          "typeIdentifier": "t_address",
+                          "typeString": "address"
+                        },
+                        {
+                          "typeIdentifier": "t_bytes_memory_ptr",
+                          "typeString": "bytes memory"
+                        }
+                      ],
+                      "id": 79620,
+                      "name": "ProxyDeployed",
+                      "nodeType": "Identifier",
+                      "overloadedDeclarations": [],
+                      "referencedDeclaration": 79585,
+                      "src": "1200:13:365",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_function_event_nonpayable$_t_address_$_t_address_$_t_bytes_memory_ptr_$returns$__$",
+                        "typeString": "function (address,address,bytes memory)"
+                      }
+                    },
+                    "id": 79625,
+                    "isConstant": false,
+                    "isLValue": false,
+                    "isPure": false,
+                    "kind": "functionCall",
+                    "lValueRequested": false,
+                    "names": [],
+                    "nodeType": "FunctionCall",
+                    "src": "1200:49:365",
+                    "tryCall": false,
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_tuple$__$",
+                      "typeString": "tuple()"
+                    }
+                  },
+                  "id": 79626,
+                  "nodeType": "EmitStatement",
+                  "src": "1195:54:365"
+                },
+                {
+                  "expression": {
+                    "argumentTypes": null,
+                    "id": 79627,
+                    "name": "proxy_",
+                    "nodeType": "Identifier",
+                    "overloadedDeclarations": [],
+                    "referencedDeclaration": 79604,
+                    "src": "1267:6:365",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "functionReturnParameters": 79605,
+                  "id": 79628,
+                  "nodeType": "Return",
+                  "src": "1260:13:365"
+                }
+              ]
+            },
+            "baseFunctions": [
+              79705
+            ],
+            "documentation": {
+              "id": 79598,
+              "nodeType": "StructuredDocumentation",
+              "src": "832:182:365",
+              "text": "@notice Deploys a new proxy instance\n @param _constructData The constructor data with which to call `init()` on the deployed proxy\n @return proxy_ The proxy address"
+            },
+            "functionSelector": "0c0872f5",
+            "implemented": true,
+            "kind": "function",
+            "modifiers": [],
+            "name": "deployProxy",
+            "overrides": {
+              "id": 79602,
+              "nodeType": "OverrideSpecifier",
+              "overrides": [],
+              "src": "1076:8:365"
+            },
+            "parameters": {
+              "id": 79601,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 79600,
+                  "mutability": "mutable",
+                  "name": "_constructData",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 79630,
+                  "src": "1040:27:365",
+                  "stateVariable": false,
+                  "storageLocation": "memory",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_bytes_memory_ptr",
+                    "typeString": "bytes"
+                  },
+                  "typeName": {
+                    "id": 79599,
+                    "name": "bytes",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "1040:5:365",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_bytes_storage_ptr",
+                      "typeString": "bytes"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "1039:29:365"
+            },
+            "returnParameters": {
+              "id": 79605,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 79604,
+                  "mutability": "mutable",
+                  "name": "proxy_",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 79630,
+                  "src": "1094:14:365",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 79603,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "1094:7:365",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "1093:16:365"
+            },
+            "scope": 79683,
+            "stateMutability": "nonpayable",
+            "virtual": false,
+            "visibility": "public"
+          },
+          {
+            "id": 79640,
+            "nodeType": "FunctionDefinition",
+            "src": "1393:116:365",
+            "nodes": [],
+            "body": {
+              "id": 79639,
+              "nodeType": "Block",
+              "src": "1473:36:365",
+              "nodes": [],
+              "statements": [
+                {
+                  "expression": {
+                    "argumentTypes": null,
+                    "id": 79637,
+                    "name": "canonicalLib",
+                    "nodeType": "Identifier",
+                    "overloadedDeclarations": [],
+                    "referencedDeclaration": 79587,
+                    "src": "1490:12:365",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "functionReturnParameters": 79636,
+                  "id": 79638,
+                  "nodeType": "Return",
+                  "src": "1483:19:365"
+                }
+              ]
+            },
+            "baseFunctions": [
+              79691
+            ],
+            "documentation": {
+              "id": 79631,
+              "nodeType": "StructuredDocumentation",
+              "src": "1286:102:365",
+              "text": "@notice Gets the canonical lib used by all proxies\n @return canonicalLib_ The canonical lib"
+            },
+            "functionSelector": "98a7c4c7",
+            "implemented": true,
+            "kind": "function",
+            "modifiers": [],
+            "name": "getCanonicalLib",
+            "overrides": {
+              "id": 79633,
+              "nodeType": "OverrideSpecifier",
+              "overrides": [],
+              "src": "1432:8:365"
+            },
+            "parameters": {
+              "id": 79632,
+              "nodeType": "ParameterList",
+              "parameters": [],
+              "src": "1417:2:365"
+            },
+            "returnParameters": {
+              "id": 79636,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 79635,
+                  "mutability": "mutable",
+                  "name": "canonicalLib_",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 79640,
+                  "src": "1450:21:365",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 79634,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "1450:7:365",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "1449:23:365"
+            },
+            "scope": 79683,
+            "stateMutability": "view",
+            "virtual": false,
+            "visibility": "public"
+          },
+          {
+            "id": 79646,
+            "nodeType": "FunctionDefinition",
+            "src": "1597:65:365",
+            "nodes": [],
+            "documentation": {
+              "id": 79641,
+              "nodeType": "StructuredDocumentation",
+              "src": "1515:77:365",
+              "text": "@notice Gets the contract owner\n @return owner_ The contract owner"
+            },
+            "functionSelector": "893d20e8",
+            "implemented": false,
+            "kind": "function",
+            "modifiers": [],
+            "name": "getOwner",
+            "overrides": null,
+            "parameters": {
+              "id": 79642,
+              "nodeType": "ParameterList",
+              "parameters": [],
+              "src": "1614:2:365"
+            },
+            "returnParameters": {
+              "id": 79645,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 79644,
+                  "mutability": "mutable",
+                  "name": "owner_",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 79646,
+                  "src": "1646:14:365",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 79643,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "1646:7:365",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "1645:16:365"
+            },
+            "scope": 79683,
+            "stateMutability": "view",
+            "virtual": true,
+            "visibility": "public"
+          },
+          {
+            "id": 79667,
+            "nodeType": "FunctionDefinition",
+            "src": "1788:257:365",
+            "nodes": [],
+            "body": {
+              "id": 79666,
+              "nodeType": "Block",
+              "src": "1856:189:365",
+              "nodes": [],
+              "statements": [
+                {
+                  "expression": {
+                    "argumentTypes": null,
+                    "arguments": [
+                      {
+                        "argumentTypes": null,
+                        "commonType": {
+                          "typeIdentifier": "t_address",
+                          "typeString": "address"
+                        },
+                        "id": 79658,
+                        "isConstant": false,
+                        "isLValue": false,
+                        "isPure": false,
+                        "lValueRequested": false,
+                        "leftExpression": {
+                          "argumentTypes": null,
+                          "expression": {
+                            "argumentTypes": null,
+                            "id": 79654,
+                            "name": "msg",
+                            "nodeType": "Identifier",
+                            "overloadedDeclarations": [],
+                            "referencedDeclaration": -15,
+                            "src": "1887:3:365",
+                            "typeDescriptions": {
+                              "typeIdentifier": "t_magic_message",
+                              "typeString": "msg"
+                            }
+                          },
+                          "id": 79655,
+                          "isConstant": false,
+                          "isLValue": false,
+                          "isPure": false,
+                          "lValueRequested": false,
+                          "memberName": "sender",
+                          "nodeType": "MemberAccess",
+                          "referencedDeclaration": null,
+                          "src": "1887:10:365",
+                          "typeDescriptions": {
+                            "typeIdentifier": "t_address_payable",
+                            "typeString": "address payable"
+                          }
+                        },
+                        "nodeType": "BinaryOperation",
+                        "operator": "==",
+                        "rightExpression": {
+                          "argumentTypes": null,
+                          "arguments": [],
+                          "expression": {
+                            "argumentTypes": [],
+                            "id": 79656,
+                            "name": "getOwner",
+                            "nodeType": "Identifier",
+                            "overloadedDeclarations": [],
+                            "referencedDeclaration": 79646,
+                            "src": "1901:8:365",
+                            "typeDescriptions": {
+                              "typeIdentifier": "t_function_internal_view$__$returns$_t_address_$",
+                              "typeString": "function () view returns (address)"
+                            }
+                          },
+                          "id": 79657,
+                          "isConstant": false,
+                          "isLValue": false,
+                          "isPure": false,
+                          "kind": "functionCall",
+                          "lValueRequested": false,
+                          "names": [],
+                          "nodeType": "FunctionCall",
+                          "src": "1901:10:365",
+                          "tryCall": false,
+                          "typeDescriptions": {
+                            "typeIdentifier": "t_address",
+                            "typeString": "address"
+                          }
+                        },
+                        "src": "1887:24:365",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_bool",
+                          "typeString": "bool"
+                        }
+                      },
+                      {
+                        "argumentTypes": null,
+                        "hexValue": "73657443616e6f6e6963616c4c69623a204f6e6c7920746865206f776e65722063616e2063616c6c20746869732066756e6374696f6e",
+                        "id": 79659,
+                        "isConstant": false,
+                        "isLValue": false,
+                        "isPure": true,
+                        "kind": "string",
+                        "lValueRequested": false,
+                        "nodeType": "Literal",
+                        "src": "1925:56:365",
+                        "subdenomination": null,
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_stringliteral_b25accff4748175b1e91baa6846b17a26f05bf6e33cb01e62233899c6d75d134",
+                          "typeString": "literal_string \"setCanonicalLib: Only the owner can call this function\""
+                        },
+                        "value": "setCanonicalLib: Only the owner can call this function"
+                      }
+                    ],
+                    "expression": {
+                      "argumentTypes": [
+                        {
+                          "typeIdentifier": "t_bool",
+                          "typeString": "bool"
+                        },
+                        {
+                          "typeIdentifier": "t_stringliteral_b25accff4748175b1e91baa6846b17a26f05bf6e33cb01e62233899c6d75d134",
+                          "typeString": "literal_string \"setCanonicalLib: Only the owner can call this function\""
+                        }
+                      ],
+                      "id": 79653,
+                      "name": "require",
+                      "nodeType": "Identifier",
+                      "overloadedDeclarations": [
+                        -18,
+                        -18
+                      ],
+                      "referencedDeclaration": -18,
+                      "src": "1866:7:365",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_function_require_pure$_t_bool_$_t_string_memory_ptr_$returns$__$",
+                        "typeString": "function (bool,string memory) pure"
+                      }
+                    },
+                    "id": 79660,
+                    "isConstant": false,
+                    "isLValue": false,
+                    "isPure": false,
+                    "kind": "functionCall",
+                    "lValueRequested": false,
+                    "names": [],
+                    "nodeType": "FunctionCall",
+                    "src": "1866:125:365",
+                    "tryCall": false,
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_tuple$__$",
+                      "typeString": "tuple()"
+                    }
+                  },
+                  "id": 79661,
+                  "nodeType": "ExpressionStatement",
+                  "src": "1866:125:365"
+                },
+                {
+                  "expression": {
+                    "argumentTypes": null,
+                    "arguments": [
+                      {
+                        "argumentTypes": null,
+                        "id": 79663,
+                        "name": "_nextCanonicalLib",
+                        "nodeType": "Identifier",
+                        "overloadedDeclarations": [],
+                        "referencedDeclaration": 79649,
+                        "src": "2020:17:365",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_address",
+                          "typeString": "address"
+                        }
+                      }
+                    ],
+                    "expression": {
+                      "argumentTypes": [
+                        {
+                          "typeIdentifier": "t_address",
+                          "typeString": "address"
+                        }
+                      ],
+                      "id": 79662,
+                      "name": "__setCanonicalLib",
+                      "nodeType": "Identifier",
+                      "overloadedDeclarations": [],
+                      "referencedDeclaration": 79682,
+                      "src": "2002:17:365",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_function_internal_nonpayable$_t_address_$returns$__$",
+                        "typeString": "function (address)"
+                      }
+                    },
+                    "id": 79664,
+                    "isConstant": false,
+                    "isLValue": false,
+                    "isPure": false,
+                    "kind": "functionCall",
+                    "lValueRequested": false,
+                    "names": [],
+                    "nodeType": "FunctionCall",
+                    "src": "2002:36:365",
+                    "tryCall": false,
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_tuple$__$",
+                      "typeString": "tuple()"
+                    }
+                  },
+                  "id": 79665,
+                  "nodeType": "ExpressionStatement",
+                  "src": "2002:36:365"
+                }
+              ]
+            },
+            "baseFunctions": [
+              79710
+            ],
+            "documentation": {
+              "id": 79647,
+              "nodeType": "StructuredDocumentation",
+              "src": "1668:115:365",
+              "text": "@notice Sets the next canonical lib used by all proxies\n @param _nextCanonicalLib The next canonical lib"
+            },
+            "functionSelector": "d0ac1a8d",
+            "implemented": true,
+            "kind": "function",
+            "modifiers": [],
+            "name": "setCanonicalLib",
+            "overrides": {
+              "id": 79651,
+              "nodeType": "OverrideSpecifier",
+              "overrides": [],
+              "src": "1847:8:365"
+            },
+            "parameters": {
+              "id": 79650,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 79649,
+                  "mutability": "mutable",
+                  "name": "_nextCanonicalLib",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 79667,
+                  "src": "1813:25:365",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 79648,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "1813:7:365",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "1812:27:365"
+            },
+            "returnParameters": {
+              "id": 79652,
+              "nodeType": "ParameterList",
+              "parameters": [],
+              "src": "1856:0:365"
+            },
+            "scope": 79683,
+            "stateMutability": "nonpayable",
+            "virtual": false,
+            "visibility": "public"
+          },
+          {
+            "id": 79682,
+            "nodeType": "FunctionDefinition",
+            "src": "2101:162:365",
+            "nodes": [],
+            "body": {
+              "id": 79681,
+              "nodeType": "Block",
+              "src": "2164:99:365",
+              "nodes": [],
+              "statements": [
+                {
+                  "expression": {
+                    "argumentTypes": null,
+                    "id": 79675,
+                    "isConstant": false,
+                    "isLValue": false,
+                    "isPure": false,
+                    "lValueRequested": false,
+                    "leftHandSide": {
+                      "argumentTypes": null,
+                      "id": 79673,
+                      "name": "canonicalLib",
+                      "nodeType": "Identifier",
+                      "overloadedDeclarations": [],
+                      "referencedDeclaration": 79587,
+                      "src": "2174:12:365",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_address",
+                        "typeString": "address"
+                      }
+                    },
+                    "nodeType": "Assignment",
+                    "operator": "=",
+                    "rightHandSide": {
+                      "argumentTypes": null,
+                      "id": 79674,
+                      "name": "_nextCanonicalLib",
+                      "nodeType": "Identifier",
+                      "overloadedDeclarations": [],
+                      "referencedDeclaration": 79670,
+                      "src": "2189:17:365",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_address",
+                        "typeString": "address"
+                      }
+                    },
+                    "src": "2174:32:365",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "id": 79676,
+                  "nodeType": "ExpressionStatement",
+                  "src": "2174:32:365"
+                },
+                {
+                  "eventCall": {
+                    "argumentTypes": null,
+                    "arguments": [
+                      {
+                        "argumentTypes": null,
+                        "id": 79678,
+                        "name": "_nextCanonicalLib",
+                        "nodeType": "Identifier",
+                        "overloadedDeclarations": [],
+                        "referencedDeclaration": 79670,
+                        "src": "2238:17:365",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_address",
+                          "typeString": "address"
+                        }
+                      }
+                    ],
+                    "expression": {
+                      "argumentTypes": [
+                        {
+                          "typeIdentifier": "t_address",
+                          "typeString": "address"
+                        }
+                      ],
+                      "id": 79677,
+                      "name": "CanonicalLibSet",
+                      "nodeType": "Identifier",
+                      "overloadedDeclarations": [],
+                      "referencedDeclaration": 79577,
+                      "src": "2222:15:365",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_function_event_nonpayable$_t_address_$returns$__$",
+                        "typeString": "function (address)"
+                      }
+                    },
+                    "id": 79679,
+                    "isConstant": false,
+                    "isLValue": false,
+                    "isPure": false,
+                    "kind": "functionCall",
+                    "lValueRequested": false,
+                    "names": [],
+                    "nodeType": "FunctionCall",
+                    "src": "2222:34:365",
+                    "tryCall": false,
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_tuple$__$",
+                      "typeString": "tuple()"
+                    }
+                  },
+                  "id": 79680,
+                  "nodeType": "EmitStatement",
+                  "src": "2217:39:365"
+                }
+              ]
+            },
+            "documentation": {
+              "id": 79668,
+              "nodeType": "StructuredDocumentation",
+              "src": "2051:45:365",
+              "text": "@dev Helper to set the next canonical lib"
+            },
+            "implemented": true,
+            "kind": "function",
+            "modifiers": [],
+            "name": "__setCanonicalLib",
+            "overrides": null,
+            "parameters": {
+              "id": 79671,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 79670,
+                  "mutability": "mutable",
+                  "name": "_nextCanonicalLib",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 79682,
+                  "src": "2128:25:365",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 79669,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "2128:7:365",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "2127:27:365"
+            },
+            "returnParameters": {
+              "id": 79672,
+              "nodeType": "ParameterList",
+              "parameters": [],
+              "src": "2164:0:365"
+            },
+            "scope": 79683,
+            "stateMutability": "nonpayable",
+            "virtual": false,
+            "visibility": "internal"
+          }
+        ],
+        "abstract": true,
+        "baseContracts": [
+          {
+            "arguments": null,
+            "baseName": {
+              "contractScope": null,
+              "id": 79572,
+              "name": "IBeaconProxyFactory",
+              "nodeType": "UserDefinedTypeName",
+              "referencedDeclaration": 79711,
+              "src": "534:19:365",
+              "typeDescriptions": {
+                "typeIdentifier": "t_contract$_IBeaconProxyFactory_$79711",
+                "typeString": "contract IBeaconProxyFactory"
+              }
+            },
+            "id": 79573,
+            "nodeType": "InheritanceSpecifier",
+            "src": "534:19:365"
+          }
+        ],
+        "contractDependencies": [
+          79566,
+          79692,
+          79711
+        ],
+        "contractKind": "contract",
+        "documentation": {
+          "id": 79571,
+          "nodeType": "StructuredDocumentation",
+          "src": "345:149:365",
+          "text": "@title BeaconProxyFactory Contract\n @author Enzyme Council <security@enzyme.finance>\n @notice Factory contract that deploys beacon proxies"
+        },
+        "fullyImplemented": false,
+        "linearizedBaseContracts": [
+          79683,
+          79711,
+          79692
+        ],
+        "name": "BeaconProxyFactory",
+        "scope": 79684
+      }
+    ],
+    "license": "GPL-3.0"
+  },
+  "id": 365
 }

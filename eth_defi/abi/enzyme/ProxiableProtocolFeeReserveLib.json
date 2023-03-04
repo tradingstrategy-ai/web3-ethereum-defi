@@ -1,0 +1,653 @@
+{
+  "abi": [
+    {
+      "inputs": [],
+      "name": "proxiableUUID",
+      "outputs": [
+        {
+          "internalType": "bytes32",
+          "name": "uuid_",
+          "type": "bytes32"
+        }
+      ],
+      "stateMutability": "pure",
+      "type": "function"
+    }
+  ],
+  "bytecode": {
+    "object": "0x",
+    "sourceMap": "",
+    "linkReferences": {}
+  },
+  "deployedBytecode": {
+    "object": "0x",
+    "sourceMap": "",
+    "linkReferences": {}
+  },
+  "methodIdentifiers": {
+    "proxiableUUID()": "52d1902d"
+  },
+  "rawMetadata": "{\"compiler\":{\"version\":\"0.6.12+commit.27d51765\"},\"language\":\"Solidity\",\"output\":{\"abi\":[{\"inputs\":[],\"name\":\"proxiableUUID\",\"outputs\":[{\"internalType\":\"bytes32\",\"name\":\"uuid_\",\"type\":\"bytes32\"}],\"stateMutability\":\"pure\",\"type\":\"function\"}],\"devdoc\":{\"author\":\"Enzyme Council <security@enzyme.finance>\",\"details\":\"The recommended implementation of the target of a proxy according to EIP-1822 and EIP-1967 See: https://eips.ethereum.org/EIPS/eip-1822 See: https://eips.ethereum.org/EIPS/eip-1967\",\"kind\":\"dev\",\"methods\":{\"proxiableUUID()\":{\"returns\":{\"uuid_\":\"The bytes32 hash representing the UUID\"}}},\"title\":\"ProxiableProtocolFeeReserveLib Contract\",\"version\":1},\"userdoc\":{\"kind\":\"user\",\"methods\":{\"proxiableUUID()\":{\"notice\":\"Returns a unique bytes32 hash for ProtocolFeeReserveLib instances\"}},\"notice\":\"A contract that defines the upgrade behavior for ProtocolFeeReserveLib instances\",\"version\":1}},\"settings\":{\"compilationTarget\":{\"contracts/persistent/protocol-fee-reserve/utils/ProxiableProtocolFeeReserveLib.sol\":\"ProxiableProtocolFeeReserveLib\"},\"evmVersion\":\"istanbul\",\"libraries\":{},\"metadata\":{\"bytecodeHash\":\"none\"},\"optimizer\":{\"details\":{\"constantOptimizer\":true,\"cse\":true,\"deduplicate\":true,\"jumpdestRemover\":true,\"orderLiterals\":true,\"peephole\":true,\"yul\":false},\"runs\":200},\"remappings\":[\":@enzyme/=contracts/\",\":@openzeppelin-solc-0.7/=node_modules/@openzeppelin-solc-0.7/\",\":@openzeppelin/=node_modules/@openzeppelin/\",\":@uniswap/=node_modules/@uniswap/\",\":base64-sol/=node_modules/base64-sol/\",\":ds-test/=lib/forge-std/lib/ds-test/src/\",\":forge-std/=lib/forge-std/src/\",\":hardhat-deploy/=node_modules/hardhat-deploy/\",\":hardhat/=node_modules/hardhat/\"]},\"sources\":{\"contracts/persistent/protocol-fee-reserve/utils/ProtocolFeeProxyConstants.sol\":{\"keccak256\":\"0x2ae2574c42812a6c7dedc69f37176132d7f55c36ca22672a56b3240a164de7ea\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://1debdcb650ec03dff95ca515206e4850b5fcdb5bb9151cc88019135fee8651f8\",\"dweb:/ipfs/Qmea7QFovEcXGPVSZp8NcAkEzWo94ejUkcwxT7Z9ybWFPe\"]},\"contracts/persistent/protocol-fee-reserve/utils/ProxiableProtocolFeeReserveLib.sol\":{\"keccak256\":\"0xefc9befd638e13010c556c2d691949a3ce51171de8007e2daa536b368ad78868\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://fb6d3f317ec683b1e6b31984bbf65d6d727e7b3f9057917b9f3b5c03f90eb7fd\",\"dweb:/ipfs/QmWmQKoMgavRRMbMEGhX5qGvxfpDkLfwEgUEqYsnAxTt6T\"]}},\"version\":1}",
+  "metadata": {
+    "compiler": {
+      "version": "0.6.12+commit.27d51765"
+    },
+    "language": "Solidity",
+    "output": {
+      "abi": [
+        {
+          "inputs": [],
+          "stateMutability": "pure",
+          "type": "function",
+          "name": "proxiableUUID",
+          "outputs": [
+            {
+              "internalType": "bytes32",
+              "name": "uuid_",
+              "type": "bytes32"
+            }
+          ]
+        }
+      ],
+      "devdoc": {
+        "kind": "dev",
+        "methods": {
+          "proxiableUUID()": {
+            "returns": {
+              "uuid_": "The bytes32 hash representing the UUID"
+            }
+          }
+        },
+        "version": 1
+      },
+      "userdoc": {
+        "kind": "user",
+        "methods": {
+          "proxiableUUID()": {
+            "notice": "Returns a unique bytes32 hash for ProtocolFeeReserveLib instances"
+          }
+        },
+        "version": 1
+      }
+    },
+    "settings": {
+      "remappings": [
+        ":@enzyme/=contracts/",
+        ":@openzeppelin-solc-0.7/=node_modules/@openzeppelin-solc-0.7/",
+        ":@openzeppelin/=node_modules/@openzeppelin/",
+        ":@uniswap/=node_modules/@uniswap/",
+        ":base64-sol/=node_modules/base64-sol/",
+        ":ds-test/=lib/forge-std/lib/ds-test/src/",
+        ":forge-std/=lib/forge-std/src/",
+        ":hardhat-deploy/=node_modules/hardhat-deploy/",
+        ":hardhat/=node_modules/hardhat/"
+      ],
+      "optimizer": {
+        "runs": 200,
+        "details": {
+          "peephole": true,
+          "jumpdestRemover": true,
+          "orderLiterals": true,
+          "deduplicate": true,
+          "cse": true,
+          "constantOptimizer": true,
+          "yul": false
+        }
+      },
+      "metadata": {
+        "bytecodeHash": "none"
+      },
+      "compilationTarget": {
+        "contracts/persistent/protocol-fee-reserve/utils/ProxiableProtocolFeeReserveLib.sol": "ProxiableProtocolFeeReserveLib"
+      },
+      "libraries": {}
+    },
+    "sources": {
+      "contracts/persistent/protocol-fee-reserve/utils/ProtocolFeeProxyConstants.sol": {
+        "keccak256": "0x2ae2574c42812a6c7dedc69f37176132d7f55c36ca22672a56b3240a164de7ea",
+        "urls": [
+          "bzz-raw://1debdcb650ec03dff95ca515206e4850b5fcdb5bb9151cc88019135fee8651f8",
+          "dweb:/ipfs/Qmea7QFovEcXGPVSZp8NcAkEzWo94ejUkcwxT7Z9ybWFPe"
+        ],
+        "license": "GPL-3.0"
+      },
+      "contracts/persistent/protocol-fee-reserve/utils/ProxiableProtocolFeeReserveLib.sol": {
+        "keccak256": "0xefc9befd638e13010c556c2d691949a3ce51171de8007e2daa536b368ad78868",
+        "urls": [
+          "bzz-raw://fb6d3f317ec683b1e6b31984bbf65d6d727e7b3f9057917b9f3b5c03f90eb7fd",
+          "dweb:/ipfs/QmWmQKoMgavRRMbMEGhX5qGvxfpDkLfwEgUEqYsnAxTt6T"
+        ],
+        "license": "GPL-3.0"
+      }
+    },
+    "version": 1
+  },
+  "ast": {
+    "absolutePath": "contracts/persistent/protocol-fee-reserve/utils/ProxiableProtocolFeeReserveLib.sol",
+    "id": 7422,
+    "exportedSymbols": {
+      "ProxiableProtocolFeeReserveLib": [
+        7421
+      ]
+    },
+    "nodeType": "SourceUnit",
+    "src": "255:1318:57",
+    "nodes": [
+      {
+        "id": 7385,
+        "nodeType": "ImportDirective",
+        "src": "255:41:57",
+        "nodes": [],
+        "absolutePath": "contracts/persistent/protocol-fee-reserve/utils/ProtocolFeeProxyConstants.sol",
+        "file": "./ProtocolFeeProxyConstants.sol",
+        "scope": 7422,
+        "sourceUnit": 7384,
+        "symbolAliases": [],
+        "unitAlias": ""
+      },
+      {
+        "id": 7386,
+        "nodeType": "PragmaDirective",
+        "src": "298:23:57",
+        "nodes": [],
+        "literals": [
+          "solidity",
+          "0.6",
+          ".12"
+        ]
+      },
+      {
+        "id": 7421,
+        "nodeType": "ContractDefinition",
+        "src": "718:854:57",
+        "nodes": [
+          {
+            "id": 7411,
+            "nodeType": "FunctionDefinition",
+            "src": "896:417:57",
+            "nodes": [],
+            "body": {
+              "id": 7410,
+              "nodeType": "Block",
+              "src": "970:343:57",
+              "nodes": [],
+              "statements": [
+                {
+                  "expression": {
+                    "argumentTypes": null,
+                    "arguments": [
+                      {
+                        "argumentTypes": null,
+                        "commonType": {
+                          "typeIdentifier": "t_bytes32",
+                          "typeString": "bytes32"
+                        },
+                        "id": 7405,
+                        "isConstant": false,
+                        "isLValue": false,
+                        "isPure": false,
+                        "lValueRequested": false,
+                        "leftExpression": {
+                          "argumentTypes": null,
+                          "arguments": [],
+                          "expression": {
+                            "argumentTypes": [],
+                            "expression": {
+                              "argumentTypes": null,
+                              "arguments": [
+                                {
+                                  "argumentTypes": null,
+                                  "id": 7397,
+                                  "name": "_nextProtocolFeeReserveLib",
+                                  "nodeType": "Identifier",
+                                  "overloadedDeclarations": [],
+                                  "referencedDeclaration": 7392,
+                                  "src": "1032:26:57",
+                                  "typeDescriptions": {
+                                    "typeIdentifier": "t_address",
+                                    "typeString": "address"
+                                  }
+                                }
+                              ],
+                              "expression": {
+                                "argumentTypes": [
+                                  {
+                                    "typeIdentifier": "t_address",
+                                    "typeString": "address"
+                                  }
+                                ],
+                                "id": 7396,
+                                "name": "ProxiableProtocolFeeReserveLib",
+                                "nodeType": "Identifier",
+                                "overloadedDeclarations": [],
+                                "referencedDeclaration": 7421,
+                                "src": "1001:30:57",
+                                "typeDescriptions": {
+                                  "typeIdentifier": "t_type$_t_contract$_ProxiableProtocolFeeReserveLib_$7421_$",
+                                  "typeString": "type(contract ProxiableProtocolFeeReserveLib)"
+                                }
+                              },
+                              "id": 7398,
+                              "isConstant": false,
+                              "isLValue": false,
+                              "isPure": false,
+                              "kind": "typeConversion",
+                              "lValueRequested": false,
+                              "names": [],
+                              "nodeType": "FunctionCall",
+                              "src": "1001:58:57",
+                              "tryCall": false,
+                              "typeDescriptions": {
+                                "typeIdentifier": "t_contract$_ProxiableProtocolFeeReserveLib_$7421",
+                                "typeString": "contract ProxiableProtocolFeeReserveLib"
+                              }
+                            },
+                            "id": 7399,
+                            "isConstant": false,
+                            "isLValue": false,
+                            "isPure": false,
+                            "lValueRequested": false,
+                            "memberName": "proxiableUUID",
+                            "nodeType": "MemberAccess",
+                            "referencedDeclaration": 7420,
+                            "src": "1001:72:57",
+                            "typeDescriptions": {
+                              "typeIdentifier": "t_function_external_pure$__$returns$_t_bytes32_$",
+                              "typeString": "function () pure external returns (bytes32)"
+                            }
+                          },
+                          "id": 7400,
+                          "isConstant": false,
+                          "isLValue": false,
+                          "isPure": false,
+                          "kind": "functionCall",
+                          "lValueRequested": false,
+                          "names": [],
+                          "nodeType": "FunctionCall",
+                          "src": "1001:74:57",
+                          "tryCall": false,
+                          "typeDescriptions": {
+                            "typeIdentifier": "t_bytes32",
+                            "typeString": "bytes32"
+                          }
+                        },
+                        "nodeType": "BinaryOperation",
+                        "operator": "==",
+                        "rightExpression": {
+                          "argumentTypes": null,
+                          "arguments": [
+                            {
+                              "argumentTypes": null,
+                              "id": 7403,
+                              "name": "EIP_1822_PROXIABLE_UUID",
+                              "nodeType": "Identifier",
+                              "overloadedDeclarations": [],
+                              "referencedDeclaration": 7379,
+                              "src": "1103:23:57",
+                              "typeDescriptions": {
+                                "typeIdentifier": "t_bytes32",
+                                "typeString": "bytes32"
+                              }
+                            }
+                          ],
+                          "expression": {
+                            "argumentTypes": [
+                              {
+                                "typeIdentifier": "t_bytes32",
+                                "typeString": "bytes32"
+                              }
+                            ],
+                            "id": 7402,
+                            "isConstant": false,
+                            "isLValue": false,
+                            "isPure": true,
+                            "lValueRequested": false,
+                            "nodeType": "ElementaryTypeNameExpression",
+                            "src": "1095:7:57",
+                            "typeDescriptions": {
+                              "typeIdentifier": "t_type$_t_bytes32_$",
+                              "typeString": "type(bytes32)"
+                            },
+                            "typeName": {
+                              "id": 7401,
+                              "name": "bytes32",
+                              "nodeType": "ElementaryTypeName",
+                              "src": "1095:7:57",
+                              "typeDescriptions": {
+                                "typeIdentifier": null,
+                                "typeString": null
+                              }
+                            }
+                          },
+                          "id": 7404,
+                          "isConstant": false,
+                          "isLValue": false,
+                          "isPure": true,
+                          "kind": "typeConversion",
+                          "lValueRequested": false,
+                          "names": [],
+                          "nodeType": "FunctionCall",
+                          "src": "1095:32:57",
+                          "tryCall": false,
+                          "typeDescriptions": {
+                            "typeIdentifier": "t_bytes32",
+                            "typeString": "bytes32"
+                          }
+                        },
+                        "src": "1001:126:57",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_bool",
+                          "typeString": "bool"
+                        }
+                      },
+                      {
+                        "argumentTypes": null,
+                        "hexValue": "5f5f757064617465436f6465416464726573733a205f6e65787450726f746f636f6c466565526573657276654c6962206e6f7420636f6d70617469626c65",
+                        "id": 7406,
+                        "isConstant": false,
+                        "isLValue": false,
+                        "isPure": true,
+                        "kind": "string",
+                        "lValueRequested": false,
+                        "nodeType": "Literal",
+                        "src": "1141:64:57",
+                        "subdenomination": null,
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_stringliteral_3f7dab4b74104c01e0469acfb3986e5afce12ed0a97ce4f0bca6f6e7dd80cbe4",
+                          "typeString": "literal_string \"__updateCodeAddress: _nextProtocolFeeReserveLib not compatible\""
+                        },
+                        "value": "__updateCodeAddress: _nextProtocolFeeReserveLib not compatible"
+                      }
+                    ],
+                    "expression": {
+                      "argumentTypes": [
+                        {
+                          "typeIdentifier": "t_bool",
+                          "typeString": "bool"
+                        },
+                        {
+                          "typeIdentifier": "t_stringliteral_3f7dab4b74104c01e0469acfb3986e5afce12ed0a97ce4f0bca6f6e7dd80cbe4",
+                          "typeString": "literal_string \"__updateCodeAddress: _nextProtocolFeeReserveLib not compatible\""
+                        }
+                      ],
+                      "id": 7395,
+                      "name": "require",
+                      "nodeType": "Identifier",
+                      "overloadedDeclarations": [
+                        -18,
+                        -18
+                      ],
+                      "referencedDeclaration": -18,
+                      "src": "980:7:57",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_function_require_pure$_t_bool_$_t_string_memory_ptr_$returns$__$",
+                        "typeString": "function (bool,string memory) pure"
+                      }
+                    },
+                    "id": 7407,
+                    "isConstant": false,
+                    "isLValue": false,
+                    "isPure": false,
+                    "kind": "functionCall",
+                    "lValueRequested": false,
+                    "names": [],
+                    "nodeType": "FunctionCall",
+                    "src": "980:235:57",
+                    "tryCall": false,
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_tuple$__$",
+                      "typeString": "tuple()"
+                    }
+                  },
+                  "id": 7408,
+                  "nodeType": "ExpressionStatement",
+                  "src": "980:235:57"
+                },
+                {
+                  "AST": {
+                    "nodeType": "YulBlock",
+                    "src": "1234:73:57",
+                    "statements": [
+                      {
+                        "expression": {
+                          "arguments": [
+                            {
+                              "name": "EIP_1967_SLOT",
+                              "nodeType": "YulIdentifier",
+                              "src": "1255:13:57"
+                            },
+                            {
+                              "name": "_nextProtocolFeeReserveLib",
+                              "nodeType": "YulIdentifier",
+                              "src": "1270:26:57"
+                            }
+                          ],
+                          "functionName": {
+                            "name": "sstore",
+                            "nodeType": "YulIdentifier",
+                            "src": "1248:6:57"
+                          },
+                          "nodeType": "YulFunctionCall",
+                          "src": "1248:49:57"
+                        },
+                        "nodeType": "YulExpressionStatement",
+                        "src": "1248:49:57"
+                      }
+                    ]
+                  },
+                  "evmVersion": "istanbul",
+                  "externalReferences": [
+                    {
+                      "declaration": 7382,
+                      "isOffset": false,
+                      "isSlot": false,
+                      "src": "1255:13:57",
+                      "valueSize": 1
+                    },
+                    {
+                      "declaration": 7392,
+                      "isOffset": false,
+                      "isSlot": false,
+                      "src": "1270:26:57",
+                      "valueSize": 1
+                    }
+                  ],
+                  "id": 7409,
+                  "nodeType": "InlineAssembly",
+                  "src": "1225:82:57"
+                }
+              ]
+            },
+            "documentation": {
+              "id": 7390,
+              "nodeType": "StructuredDocumentation",
+              "src": "802:89:57",
+              "text": "@dev Updates the target of the proxy to be the contract at _nextProtocolFeeReserveLib"
+            },
+            "implemented": true,
+            "kind": "function",
+            "modifiers": [],
+            "name": "__updateCodeAddress",
+            "overrides": null,
+            "parameters": {
+              "id": 7393,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 7392,
+                  "mutability": "mutable",
+                  "name": "_nextProtocolFeeReserveLib",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 7411,
+                  "src": "925:34:57",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 7391,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "925:7:57",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "924:36:57"
+            },
+            "returnParameters": {
+              "id": 7394,
+              "nodeType": "ParameterList",
+              "parameters": [],
+              "src": "970:0:57"
+            },
+            "scope": 7421,
+            "stateMutability": "nonpayable",
+            "virtual": false,
+            "visibility": "internal"
+          },
+          {
+            "id": 7420,
+            "nodeType": "FunctionDefinition",
+            "src": "1462:108:57",
+            "nodes": [],
+            "body": {
+              "id": 7419,
+              "nodeType": "Block",
+              "src": "1523:47:57",
+              "nodes": [],
+              "statements": [
+                {
+                  "expression": {
+                    "argumentTypes": null,
+                    "id": 7417,
+                    "name": "EIP_1822_PROXIABLE_UUID",
+                    "nodeType": "Identifier",
+                    "overloadedDeclarations": [],
+                    "referencedDeclaration": 7379,
+                    "src": "1540:23:57",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_bytes32",
+                      "typeString": "bytes32"
+                    }
+                  },
+                  "functionReturnParameters": 7416,
+                  "id": 7418,
+                  "nodeType": "Return",
+                  "src": "1533:30:57"
+                }
+              ]
+            },
+            "documentation": {
+              "id": 7412,
+              "nodeType": "StructuredDocumentation",
+              "src": "1319:138:57",
+              "text": "@notice Returns a unique bytes32 hash for ProtocolFeeReserveLib instances\n @return uuid_ The bytes32 hash representing the UUID"
+            },
+            "functionSelector": "52d1902d",
+            "implemented": true,
+            "kind": "function",
+            "modifiers": [],
+            "name": "proxiableUUID",
+            "overrides": null,
+            "parameters": {
+              "id": 7413,
+              "nodeType": "ParameterList",
+              "parameters": [],
+              "src": "1484:2:57"
+            },
+            "returnParameters": {
+              "id": 7416,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 7415,
+                  "mutability": "mutable",
+                  "name": "uuid_",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 7420,
+                  "src": "1508:13:57",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_bytes32",
+                    "typeString": "bytes32"
+                  },
+                  "typeName": {
+                    "id": 7414,
+                    "name": "bytes32",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "1508:7:57",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_bytes32",
+                      "typeString": "bytes32"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "1507:15:57"
+            },
+            "scope": 7421,
+            "stateMutability": "pure",
+            "virtual": false,
+            "visibility": "public"
+          }
+        ],
+        "abstract": true,
+        "baseContracts": [
+          {
+            "arguments": null,
+            "baseName": {
+              "contractScope": null,
+              "id": 7388,
+              "name": "ProtocolFeeProxyConstants",
+              "nodeType": "UserDefinedTypeName",
+              "referencedDeclaration": 7383,
+              "src": "770:25:57",
+              "typeDescriptions": {
+                "typeIdentifier": "t_contract$_ProtocolFeeProxyConstants_$7383",
+                "typeString": "contract ProtocolFeeProxyConstants"
+              }
+            },
+            "id": 7389,
+            "nodeType": "InheritanceSpecifier",
+            "src": "770:25:57"
+          }
+        ],
+        "contractDependencies": [
+          7383
+        ],
+        "contractKind": "contract",
+        "documentation": {
+          "id": 7387,
+          "nodeType": "StructuredDocumentation",
+          "src": "323:395:57",
+          "text": "@title ProxiableProtocolFeeReserveLib Contract\n @author Enzyme Council <security@enzyme.finance>\n @notice A contract that defines the upgrade behavior for ProtocolFeeReserveLib instances\n @dev The recommended implementation of the target of a proxy according to EIP-1822 and EIP-1967\n See: https://eips.ethereum.org/EIPS/eip-1822\n See: https://eips.ethereum.org/EIPS/eip-1967"
+        },
+        "fullyImplemented": true,
+        "linearizedBaseContracts": [
+          7421,
+          7383
+        ],
+        "name": "ProxiableProtocolFeeReserveLib",
+        "scope": 7422
+      }
+    ],
+    "license": "GPL-3.0"
+  },
+  "id": 57
+}

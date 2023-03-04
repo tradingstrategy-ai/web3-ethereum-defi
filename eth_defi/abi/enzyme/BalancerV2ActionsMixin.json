@@ -1,7 +1,4 @@
 {
-  "_format": "hh-sol-artifact-1",
-  "contractName": "BalancerV2ActionsMixin",
-  "sourceName": "contracts/release/extensions/integration-manager/integrations/utils/actions/BalancerV2ActionsMixin.sol",
   "abi": [
     {
       "inputs": [
@@ -15,8 +12,1586 @@
       "type": "constructor"
     }
   ],
-  "bytecode": "0x",
-  "deployedBytecode": "0x",
-  "linkReferences": {},
-  "deployedLinkReferences": {}
+  "bytecode": {
+    "object": "0x",
+    "sourceMap": "",
+    "linkReferences": {}
+  },
+  "deployedBytecode": {
+    "object": "0x",
+    "sourceMap": "",
+    "linkReferences": {}
+  },
+  "methodIdentifiers": {},
+  "rawMetadata": "{\"compiler\":{\"version\":\"0.6.12+commit.27d51765\"},\"language\":\"Solidity\",\"output\":{\"abi\":[{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_balancerVault\",\"type\":\"address\"}],\"stateMutability\":\"nonpayable\",\"type\":\"constructor\"}],\"devdoc\":{\"author\":\"Enzyme Council <security@enzyme.finance>\",\"kind\":\"dev\",\"methods\":{},\"title\":\"BalancerV2ActionsMixin Contract\",\"version\":1},\"userdoc\":{\"kind\":\"user\",\"methods\":{},\"notice\":\"Mixin contract for interacting with BalancerV2\",\"version\":1}},\"settings\":{\"compilationTarget\":{\"contracts/release/extensions/integration-manager/integrations/utils/actions/BalancerV2ActionsMixin.sol\":\"BalancerV2ActionsMixin\"},\"evmVersion\":\"istanbul\",\"libraries\":{},\"metadata\":{\"bytecodeHash\":\"none\"},\"optimizer\":{\"details\":{\"constantOptimizer\":true,\"cse\":true,\"deduplicate\":true,\"jumpdestRemover\":true,\"orderLiterals\":true,\"peephole\":true,\"yul\":false},\"runs\":200},\"remappings\":[\":@enzyme/=contracts/\",\":@openzeppelin-solc-0.7/=node_modules/@openzeppelin-solc-0.7/\",\":@openzeppelin/=node_modules/@openzeppelin/\",\":@uniswap/=node_modules/@uniswap/\",\":base64-sol/=node_modules/base64-sol/\",\":ds-test/=lib/forge-std/lib/ds-test/src/\",\":forge-std/=lib/forge-std/src/\",\":hardhat-deploy/=node_modules/hardhat-deploy/\",\":hardhat/=node_modules/hardhat/\"]},\"sources\":{\"contracts/release/extensions/integration-manager/integrations/utils/actions/BalancerV2ActionsMixin.sol\":{\"keccak256\":\"0xf2411ca1c42e8881a6aed8381294a03e363738bb4bf7b030dad47871ba27411f\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://7916355a56eaa4337d28019dc84249e9e5abe5cc188718f11f945d92afc593f0\",\"dweb:/ipfs/QmXSe7UDdrutvCf5RujJxeurLUEotkTzm8Tn27xDqvwc6X\"]},\"contracts/release/interfaces/IBalancerV2Vault.sol\":{\"keccak256\":\"0xb3c8da122ab160129c74ffeb0310ff96c4977d65eef12888bc1a8276fa2a3fd2\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://c9c89c1e04327c6fa45fbdf9ae8fd132ed95c9101ab49d078ef99c6590c30867\",\"dweb:/ipfs/QmWKrLQg5xBVmi6snaAwU3zUTjxQ6ugYj6n45x1hqRxv9A\"]}},\"version\":1}",
+  "metadata": {
+    "compiler": {
+      "version": "0.6.12+commit.27d51765"
+    },
+    "language": "Solidity",
+    "output": {
+      "abi": [
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "_balancerVault",
+              "type": "address"
+            }
+          ],
+          "stateMutability": "nonpayable",
+          "type": "constructor"
+        }
+      ],
+      "devdoc": {
+        "kind": "dev",
+        "methods": {},
+        "version": 1
+      },
+      "userdoc": {
+        "kind": "user",
+        "methods": {},
+        "version": 1
+      }
+    },
+    "settings": {
+      "remappings": [
+        ":@enzyme/=contracts/",
+        ":@openzeppelin-solc-0.7/=node_modules/@openzeppelin-solc-0.7/",
+        ":@openzeppelin/=node_modules/@openzeppelin/",
+        ":@uniswap/=node_modules/@uniswap/",
+        ":base64-sol/=node_modules/base64-sol/",
+        ":ds-test/=lib/forge-std/lib/ds-test/src/",
+        ":forge-std/=lib/forge-std/src/",
+        ":hardhat-deploy/=node_modules/hardhat-deploy/",
+        ":hardhat/=node_modules/hardhat/"
+      ],
+      "optimizer": {
+        "runs": 200,
+        "details": {
+          "peephole": true,
+          "jumpdestRemover": true,
+          "orderLiterals": true,
+          "deduplicate": true,
+          "cse": true,
+          "constantOptimizer": true,
+          "yul": false
+        }
+      },
+      "metadata": {
+        "bytecodeHash": "none"
+      },
+      "compilationTarget": {
+        "contracts/release/extensions/integration-manager/integrations/utils/actions/BalancerV2ActionsMixin.sol": "BalancerV2ActionsMixin"
+      },
+      "libraries": {}
+    },
+    "sources": {
+      "contracts/release/extensions/integration-manager/integrations/utils/actions/BalancerV2ActionsMixin.sol": {
+        "keccak256": "0xf2411ca1c42e8881a6aed8381294a03e363738bb4bf7b030dad47871ba27411f",
+        "urls": [
+          "bzz-raw://7916355a56eaa4337d28019dc84249e9e5abe5cc188718f11f945d92afc593f0",
+          "dweb:/ipfs/QmXSe7UDdrutvCf5RujJxeurLUEotkTzm8Tn27xDqvwc6X"
+        ],
+        "license": "GPL-3.0"
+      },
+      "contracts/release/interfaces/IBalancerV2Vault.sol": {
+        "keccak256": "0xb3c8da122ab160129c74ffeb0310ff96c4977d65eef12888bc1a8276fa2a3fd2",
+        "urls": [
+          "bzz-raw://c9c89c1e04327c6fa45fbdf9ae8fd132ed95c9101ab49d078ef99c6590c30867",
+          "dweb:/ipfs/QmWKrLQg5xBVmi6snaAwU3zUTjxQ6ugYj6n45x1hqRxv9A"
+        ],
+        "license": "GPL-3.0"
+      }
+    },
+    "version": 1
+  },
+  "ast": {
+    "absolutePath": "contracts/release/extensions/integration-manager/integrations/utils/actions/BalancerV2ActionsMixin.sol",
+    "id": 50240,
+    "exportedSymbols": {
+      "BalancerV2ActionsMixin": [
+        50239
+      ]
+    },
+    "nodeType": "SourceUnit",
+    "src": "253:2091:183",
+    "nodes": [
+      {
+        "id": 50129,
+        "nodeType": "PragmaDirective",
+        "src": "253:23:183",
+        "nodes": [],
+        "literals": [
+          "solidity",
+          "0.6",
+          ".12"
+        ]
+      },
+      {
+        "id": 50130,
+        "nodeType": "ImportDirective",
+        "src": "278:56:183",
+        "nodes": [],
+        "absolutePath": "contracts/release/interfaces/IBalancerV2Vault.sol",
+        "file": "../../../../../interfaces/IBalancerV2Vault.sol",
+        "scope": 50240,
+        "sourceUnit": 71117,
+        "symbolAliases": [],
+        "unitAlias": ""
+      },
+      {
+        "id": 50239,
+        "nodeType": "ContractDefinition",
+        "src": "491:1852:183",
+        "nodes": [
+          {
+            "id": 50133,
+            "nodeType": "VariableDeclaration",
+            "src": "538:59:183",
+            "nodes": [],
+            "constant": false,
+            "mutability": "immutable",
+            "name": "BALANCER_VAULT_CONTRACT",
+            "overrides": null,
+            "scope": 50239,
+            "stateVariable": true,
+            "storageLocation": "default",
+            "typeDescriptions": {
+              "typeIdentifier": "t_contract$_IBalancerV2Vault_$71116",
+              "typeString": "contract IBalancerV2Vault"
+            },
+            "typeName": {
+              "contractScope": null,
+              "id": 50132,
+              "name": "IBalancerV2Vault",
+              "nodeType": "UserDefinedTypeName",
+              "referencedDeclaration": 71116,
+              "src": "538:16:183",
+              "typeDescriptions": {
+                "typeIdentifier": "t_contract$_IBalancerV2Vault_$71116",
+                "typeString": "contract IBalancerV2Vault"
+              }
+            },
+            "value": null,
+            "visibility": "internal"
+          },
+          {
+            "id": 50145,
+            "nodeType": "FunctionDefinition",
+            "src": "604:118:183",
+            "nodes": [],
+            "body": {
+              "id": 50144,
+              "nodeType": "Block",
+              "src": "647:75:183",
+              "nodes": [],
+              "statements": [
+                {
+                  "expression": {
+                    "argumentTypes": null,
+                    "id": 50142,
+                    "isConstant": false,
+                    "isLValue": false,
+                    "isPure": false,
+                    "lValueRequested": false,
+                    "leftHandSide": {
+                      "argumentTypes": null,
+                      "id": 50138,
+                      "name": "BALANCER_VAULT_CONTRACT",
+                      "nodeType": "Identifier",
+                      "overloadedDeclarations": [],
+                      "referencedDeclaration": 50133,
+                      "src": "657:23:183",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_contract$_IBalancerV2Vault_$71116",
+                        "typeString": "contract IBalancerV2Vault"
+                      }
+                    },
+                    "nodeType": "Assignment",
+                    "operator": "=",
+                    "rightHandSide": {
+                      "argumentTypes": null,
+                      "arguments": [
+                        {
+                          "argumentTypes": null,
+                          "id": 50140,
+                          "name": "_balancerVault",
+                          "nodeType": "Identifier",
+                          "overloadedDeclarations": [],
+                          "referencedDeclaration": 50135,
+                          "src": "700:14:183",
+                          "typeDescriptions": {
+                            "typeIdentifier": "t_address",
+                            "typeString": "address"
+                          }
+                        }
+                      ],
+                      "expression": {
+                        "argumentTypes": [
+                          {
+                            "typeIdentifier": "t_address",
+                            "typeString": "address"
+                          }
+                        ],
+                        "id": 50139,
+                        "name": "IBalancerV2Vault",
+                        "nodeType": "Identifier",
+                        "overloadedDeclarations": [],
+                        "referencedDeclaration": 71116,
+                        "src": "683:16:183",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_type$_t_contract$_IBalancerV2Vault_$71116_$",
+                          "typeString": "type(contract IBalancerV2Vault)"
+                        }
+                      },
+                      "id": 50141,
+                      "isConstant": false,
+                      "isLValue": false,
+                      "isPure": false,
+                      "kind": "typeConversion",
+                      "lValueRequested": false,
+                      "names": [],
+                      "nodeType": "FunctionCall",
+                      "src": "683:32:183",
+                      "tryCall": false,
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_contract$_IBalancerV2Vault_$71116",
+                        "typeString": "contract IBalancerV2Vault"
+                      }
+                    },
+                    "src": "657:58:183",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_contract$_IBalancerV2Vault_$71116",
+                      "typeString": "contract IBalancerV2Vault"
+                    }
+                  },
+                  "id": 50143,
+                  "nodeType": "ExpressionStatement",
+                  "src": "657:58:183"
+                }
+              ]
+            },
+            "documentation": null,
+            "implemented": true,
+            "kind": "constructor",
+            "modifiers": [],
+            "name": "",
+            "overrides": null,
+            "parameters": {
+              "id": 50136,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 50135,
+                  "mutability": "mutable",
+                  "name": "_balancerVault",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 50145,
+                  "src": "616:22:183",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 50134,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "616:7:183",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "615:24:183"
+            },
+            "returnParameters": {
+              "id": 50137,
+              "nodeType": "ParameterList",
+              "parameters": [],
+              "src": "647:0:183"
+            },
+            "scope": 50239,
+            "stateMutability": "nonpayable",
+            "virtual": false,
+            "visibility": "public"
+          },
+          {
+            "id": 50194,
+            "nodeType": "FunctionDefinition",
+            "src": "862:844:183",
+            "nodes": [],
+            "body": {
+              "id": 50193,
+              "nodeType": "Block",
+              "src": "1164:542:183",
+              "nodes": [],
+              "statements": [
+                {
+                  "assignments": [
+                    50170
+                  ],
+                  "declarations": [
+                    {
+                      "constant": false,
+                      "id": 50170,
+                      "mutability": "mutable",
+                      "name": "funds",
+                      "nodeType": "VariableDeclaration",
+                      "overrides": null,
+                      "scope": 50193,
+                      "src": "1174:44:183",
+                      "stateVariable": false,
+                      "storageLocation": "memory",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_struct$_FundManagement_$71036_memory_ptr",
+                        "typeString": "struct IBalancerV2Vault.FundManagement"
+                      },
+                      "typeName": {
+                        "contractScope": null,
+                        "id": 50169,
+                        "name": "IBalancerV2Vault.FundManagement",
+                        "nodeType": "UserDefinedTypeName",
+                        "referencedDeclaration": 71036,
+                        "src": "1174:31:183",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_struct$_FundManagement_$71036_storage_ptr",
+                          "typeString": "struct IBalancerV2Vault.FundManagement"
+                        }
+                      },
+                      "value": null,
+                      "visibility": "internal"
+                    }
+                  ],
+                  "id": 50181,
+                  "initialValue": {
+                    "argumentTypes": null,
+                    "arguments": [
+                      {
+                        "argumentTypes": null,
+                        "id": 50173,
+                        "name": "_sender",
+                        "nodeType": "Identifier",
+                        "overloadedDeclarations": [],
+                        "referencedDeclaration": 50148,
+                        "src": "1275:7:183",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_address",
+                          "typeString": "address"
+                        }
+                      },
+                      {
+                        "argumentTypes": null,
+                        "hexValue": "66616c7365",
+                        "id": 50174,
+                        "isConstant": false,
+                        "isLValue": false,
+                        "isPure": true,
+                        "kind": "bool",
+                        "lValueRequested": false,
+                        "nodeType": "Literal",
+                        "src": "1317:5:183",
+                        "subdenomination": null,
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_bool",
+                          "typeString": "bool"
+                        },
+                        "value": "false"
+                      },
+                      {
+                        "argumentTypes": null,
+                        "arguments": [
+                          {
+                            "argumentTypes": null,
+                            "id": 50177,
+                            "name": "_recipient",
+                            "nodeType": "Identifier",
+                            "overloadedDeclarations": [],
+                            "referencedDeclaration": 50150,
+                            "src": "1355:10:183",
+                            "typeDescriptions": {
+                              "typeIdentifier": "t_address",
+                              "typeString": "address"
+                            }
+                          }
+                        ],
+                        "expression": {
+                          "argumentTypes": [
+                            {
+                              "typeIdentifier": "t_address",
+                              "typeString": "address"
+                            }
+                          ],
+                          "id": 50176,
+                          "isConstant": false,
+                          "isLValue": false,
+                          "isPure": true,
+                          "lValueRequested": false,
+                          "nodeType": "ElementaryTypeNameExpression",
+                          "src": "1347:8:183",
+                          "typeDescriptions": {
+                            "typeIdentifier": "t_type$_t_address_payable_$",
+                            "typeString": "type(address payable)"
+                          },
+                          "typeName": {
+                            "id": 50175,
+                            "name": "address",
+                            "nodeType": "ElementaryTypeName",
+                            "src": "1347:8:183",
+                            "stateMutability": "payable",
+                            "typeDescriptions": {
+                              "typeIdentifier": null,
+                              "typeString": null
+                            }
+                          }
+                        },
+                        "id": 50178,
+                        "isConstant": false,
+                        "isLValue": false,
+                        "isPure": false,
+                        "kind": "typeConversion",
+                        "lValueRequested": false,
+                        "names": [],
+                        "nodeType": "FunctionCall",
+                        "src": "1347:19:183",
+                        "tryCall": false,
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_address_payable",
+                          "typeString": "address payable"
+                        }
+                      },
+                      {
+                        "argumentTypes": null,
+                        "hexValue": "66616c7365",
+                        "id": 50179,
+                        "isConstant": false,
+                        "isLValue": false,
+                        "isPure": true,
+                        "kind": "bool",
+                        "lValueRequested": false,
+                        "nodeType": "Literal",
+                        "src": "1399:5:183",
+                        "subdenomination": null,
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_bool",
+                          "typeString": "bool"
+                        },
+                        "value": "false"
+                      }
+                    ],
+                    "expression": {
+                      "argumentTypes": [
+                        {
+                          "typeIdentifier": "t_address",
+                          "typeString": "address"
+                        },
+                        {
+                          "typeIdentifier": "t_bool",
+                          "typeString": "bool"
+                        },
+                        {
+                          "typeIdentifier": "t_address_payable",
+                          "typeString": "address payable"
+                        },
+                        {
+                          "typeIdentifier": "t_bool",
+                          "typeString": "bool"
+                        }
+                      ],
+                      "expression": {
+                        "argumentTypes": null,
+                        "id": 50171,
+                        "name": "IBalancerV2Vault",
+                        "nodeType": "Identifier",
+                        "overloadedDeclarations": [],
+                        "referencedDeclaration": 71116,
+                        "src": "1221:16:183",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_type$_t_contract$_IBalancerV2Vault_$71116_$",
+                          "typeString": "type(contract IBalancerV2Vault)"
+                        }
+                      },
+                      "id": 50172,
+                      "isConstant": false,
+                      "isLValue": false,
+                      "isPure": false,
+                      "lValueRequested": false,
+                      "memberName": "FundManagement",
+                      "nodeType": "MemberAccess",
+                      "referencedDeclaration": 71036,
+                      "src": "1221:31:183",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_type$_t_struct$_FundManagement_$71036_storage_ptr_$",
+                        "typeString": "type(struct IBalancerV2Vault.FundManagement storage pointer)"
+                      }
+                    },
+                    "id": 50180,
+                    "isConstant": false,
+                    "isLValue": false,
+                    "isPure": false,
+                    "kind": "structConstructorCall",
+                    "lValueRequested": false,
+                    "names": [
+                      "sender",
+                      "fromInternalBalance",
+                      "recipient",
+                      "toInternalBalance"
+                    ],
+                    "nodeType": "FunctionCall",
+                    "src": "1221:194:183",
+                    "tryCall": false,
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_struct$_FundManagement_$71036_memory_ptr",
+                      "typeString": "struct IBalancerV2Vault.FundManagement memory"
+                    }
+                  },
+                  "nodeType": "VariableDeclarationStatement",
+                  "src": "1174:241:183"
+                },
+                {
+                  "expression": {
+                    "argumentTypes": null,
+                    "arguments": [
+                      {
+                        "argumentTypes": null,
+                        "id": 50184,
+                        "name": "_kind",
+                        "nodeType": "Identifier",
+                        "overloadedDeclarations": [],
+                        "referencedDeclaration": 50152,
+                        "src": "1504:5:183",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_enum$_SwapKind_$71050",
+                          "typeString": "enum IBalancerV2Vault.SwapKind"
+                        }
+                      },
+                      {
+                        "argumentTypes": null,
+                        "id": 50185,
+                        "name": "_swaps",
+                        "nodeType": "Identifier",
+                        "overloadedDeclarations": [],
+                        "referencedDeclaration": 50155,
+                        "src": "1535:6:183",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_array$_t_struct$_BatchSwapStep_$71027_memory_ptr_$dyn_memory_ptr",
+                          "typeString": "struct IBalancerV2Vault.BatchSwapStep memory[] memory"
+                        }
+                      },
+                      {
+                        "argumentTypes": null,
+                        "id": 50186,
+                        "name": "_assets",
+                        "nodeType": "Identifier",
+                        "overloadedDeclarations": [],
+                        "referencedDeclaration": 50158,
+                        "src": "1568:7:183",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_array$_t_address_$dyn_memory_ptr",
+                          "typeString": "address[] memory"
+                        }
+                      },
+                      {
+                        "argumentTypes": null,
+                        "id": 50187,
+                        "name": "funds",
+                        "nodeType": "Identifier",
+                        "overloadedDeclarations": [],
+                        "referencedDeclaration": 50170,
+                        "src": "1601:5:183",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_struct$_FundManagement_$71036_memory_ptr",
+                          "typeString": "struct IBalancerV2Vault.FundManagement memory"
+                        }
+                      },
+                      {
+                        "argumentTypes": null,
+                        "id": 50188,
+                        "name": "_limits",
+                        "nodeType": "Identifier",
+                        "overloadedDeclarations": [],
+                        "referencedDeclaration": 50161,
+                        "src": "1633:7:183",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_array$_t_int256_$dyn_memory_ptr",
+                          "typeString": "int256[] memory"
+                        }
+                      },
+                      {
+                        "argumentTypes": null,
+                        "expression": {
+                          "argumentTypes": null,
+                          "id": 50189,
+                          "name": "block",
+                          "nodeType": "Identifier",
+                          "overloadedDeclarations": [],
+                          "referencedDeclaration": -4,
+                          "src": "1669:5:183",
+                          "typeDescriptions": {
+                            "typeIdentifier": "t_magic_block",
+                            "typeString": "block"
+                          }
+                        },
+                        "id": 50190,
+                        "isConstant": false,
+                        "isLValue": false,
+                        "isPure": false,
+                        "lValueRequested": false,
+                        "memberName": "timestamp",
+                        "nodeType": "MemberAccess",
+                        "referencedDeclaration": null,
+                        "src": "1669:15:183",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_uint256",
+                          "typeString": "uint256"
+                        }
+                      }
+                    ],
+                    "expression": {
+                      "argumentTypes": [
+                        {
+                          "typeIdentifier": "t_enum$_SwapKind_$71050",
+                          "typeString": "enum IBalancerV2Vault.SwapKind"
+                        },
+                        {
+                          "typeIdentifier": "t_array$_t_struct$_BatchSwapStep_$71027_memory_ptr_$dyn_memory_ptr",
+                          "typeString": "struct IBalancerV2Vault.BatchSwapStep memory[] memory"
+                        },
+                        {
+                          "typeIdentifier": "t_array$_t_address_$dyn_memory_ptr",
+                          "typeString": "address[] memory"
+                        },
+                        {
+                          "typeIdentifier": "t_struct$_FundManagement_$71036_memory_ptr",
+                          "typeString": "struct IBalancerV2Vault.FundManagement memory"
+                        },
+                        {
+                          "typeIdentifier": "t_array$_t_int256_$dyn_memory_ptr",
+                          "typeString": "int256[] memory"
+                        },
+                        {
+                          "typeIdentifier": "t_uint256",
+                          "typeString": "uint256"
+                        }
+                      ],
+                      "expression": {
+                        "argumentTypes": null,
+                        "id": 50182,
+                        "name": "BALANCER_VAULT_CONTRACT",
+                        "nodeType": "Identifier",
+                        "overloadedDeclarations": [],
+                        "referencedDeclaration": 50133,
+                        "src": "1445:23:183",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_contract$_IBalancerV2Vault_$71116",
+                          "typeString": "contract IBalancerV2Vault"
+                        }
+                      },
+                      "id": 50183,
+                      "isConstant": false,
+                      "isLValue": false,
+                      "isPure": false,
+                      "lValueRequested": false,
+                      "memberName": "batchSwap",
+                      "nodeType": "MemberAccess",
+                      "referencedDeclaration": 71071,
+                      "src": "1445:33:183",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_function_external_nonpayable$_t_enum$_SwapKind_$71050_$_t_array$_t_struct$_BatchSwapStep_$71027_memory_ptr_$dyn_memory_ptr_$_t_array$_t_address_$dyn_memory_ptr_$_t_struct$_FundManagement_$71036_memory_ptr_$_t_array$_t_int256_$dyn_memory_ptr_$_t_uint256_$returns$_t_array$_t_int256_$dyn_memory_ptr_$",
+                        "typeString": "function (enum IBalancerV2Vault.SwapKind,struct IBalancerV2Vault.BatchSwapStep memory[] memory,address[] memory,struct IBalancerV2Vault.FundManagement memory,int256[] memory,uint256) external returns (int256[] memory)"
+                      }
+                    },
+                    "id": 50191,
+                    "isConstant": false,
+                    "isLValue": false,
+                    "isPure": false,
+                    "kind": "functionCall",
+                    "lValueRequested": false,
+                    "names": [
+                      "_kind",
+                      "_swaps",
+                      "_assets",
+                      "_funds",
+                      "_limits",
+                      "_deadline"
+                    ],
+                    "nodeType": "FunctionCall",
+                    "src": "1445:254:183",
+                    "tryCall": false,
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_array$_t_int256_$dyn_memory_ptr",
+                      "typeString": "int256[] memory"
+                    }
+                  },
+                  "functionReturnParameters": 50166,
+                  "id": 50192,
+                  "nodeType": "Return",
+                  "src": "1426:273:183"
+                }
+              ]
+            },
+            "documentation": {
+              "id": 50146,
+              "nodeType": "StructuredDocumentation",
+              "src": "728:129:183",
+              "text": "@dev Helper to execute batchSwap() on BalancerV2.\n Sender must have already approved allowances to the Balancer Vault."
+            },
+            "implemented": true,
+            "kind": "function",
+            "modifiers": [],
+            "name": "__balancerV2BatchSwap",
+            "overrides": null,
+            "parameters": {
+              "id": 50162,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 50148,
+                  "mutability": "mutable",
+                  "name": "_sender",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 50194,
+                  "src": "902:15:183",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 50147,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "902:7:183",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 50150,
+                  "mutability": "mutable",
+                  "name": "_recipient",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 50194,
+                  "src": "927:18:183",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 50149,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "927:7:183",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 50152,
+                  "mutability": "mutable",
+                  "name": "_kind",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 50194,
+                  "src": "955:31:183",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_enum$_SwapKind_$71050",
+                    "typeString": "enum IBalancerV2Vault.SwapKind"
+                  },
+                  "typeName": {
+                    "contractScope": null,
+                    "id": 50151,
+                    "name": "IBalancerV2Vault.SwapKind",
+                    "nodeType": "UserDefinedTypeName",
+                    "referencedDeclaration": 71050,
+                    "src": "955:25:183",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_enum$_SwapKind_$71050",
+                      "typeString": "enum IBalancerV2Vault.SwapKind"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 50155,
+                  "mutability": "mutable",
+                  "name": "_swaps",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 50194,
+                  "src": "996:46:183",
+                  "stateVariable": false,
+                  "storageLocation": "memory",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_array$_t_struct$_BatchSwapStep_$71027_memory_ptr_$dyn_memory_ptr",
+                    "typeString": "struct IBalancerV2Vault.BatchSwapStep[]"
+                  },
+                  "typeName": {
+                    "baseType": {
+                      "contractScope": null,
+                      "id": 50153,
+                      "name": "IBalancerV2Vault.BatchSwapStep",
+                      "nodeType": "UserDefinedTypeName",
+                      "referencedDeclaration": 71027,
+                      "src": "996:30:183",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_struct$_BatchSwapStep_$71027_storage_ptr",
+                        "typeString": "struct IBalancerV2Vault.BatchSwapStep"
+                      }
+                    },
+                    "id": 50154,
+                    "length": null,
+                    "nodeType": "ArrayTypeName",
+                    "src": "996:32:183",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_array$_t_struct$_BatchSwapStep_$71027_storage_$dyn_storage_ptr",
+                      "typeString": "struct IBalancerV2Vault.BatchSwapStep[]"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 50158,
+                  "mutability": "mutable",
+                  "name": "_assets",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 50194,
+                  "src": "1052:24:183",
+                  "stateVariable": false,
+                  "storageLocation": "memory",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_array$_t_address_$dyn_memory_ptr",
+                    "typeString": "address[]"
+                  },
+                  "typeName": {
+                    "baseType": {
+                      "id": 50156,
+                      "name": "address",
+                      "nodeType": "ElementaryTypeName",
+                      "src": "1052:7:183",
+                      "stateMutability": "nonpayable",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_address",
+                        "typeString": "address"
+                      }
+                    },
+                    "id": 50157,
+                    "length": null,
+                    "nodeType": "ArrayTypeName",
+                    "src": "1052:9:183",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_array$_t_address_$dyn_storage_ptr",
+                      "typeString": "address[]"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 50161,
+                  "mutability": "mutable",
+                  "name": "_limits",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 50194,
+                  "src": "1086:23:183",
+                  "stateVariable": false,
+                  "storageLocation": "memory",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_array$_t_int256_$dyn_memory_ptr",
+                    "typeString": "int256[]"
+                  },
+                  "typeName": {
+                    "baseType": {
+                      "id": 50159,
+                      "name": "int256",
+                      "nodeType": "ElementaryTypeName",
+                      "src": "1086:6:183",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_int256",
+                        "typeString": "int256"
+                      }
+                    },
+                    "id": 50160,
+                    "length": null,
+                    "nodeType": "ArrayTypeName",
+                    "src": "1086:8:183",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_array$_t_int256_$dyn_storage_ptr",
+                      "typeString": "int256[]"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "892:223:183"
+            },
+            "returnParameters": {
+              "id": 50166,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 50165,
+                  "mutability": "mutable",
+                  "name": "assetDeltas_",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 50194,
+                  "src": "1134:28:183",
+                  "stateVariable": false,
+                  "storageLocation": "memory",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_array$_t_int256_$dyn_memory_ptr",
+                    "typeString": "int256[]"
+                  },
+                  "typeName": {
+                    "baseType": {
+                      "id": 50163,
+                      "name": "int256",
+                      "nodeType": "ElementaryTypeName",
+                      "src": "1134:6:183",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_int256",
+                        "typeString": "int256"
+                      }
+                    },
+                    "id": 50164,
+                    "length": null,
+                    "nodeType": "ArrayTypeName",
+                    "src": "1134:8:183",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_array$_t_int256_$dyn_storage_ptr",
+                      "typeString": "int256[]"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "1133:30:183"
+            },
+            "scope": 50239,
+            "stateMutability": "nonpayable",
+            "virtual": false,
+            "visibility": "internal"
+          },
+          {
+            "id": 50216,
+            "nodeType": "FunctionDefinition",
+            "src": "1749:268:183",
+            "nodes": [],
+            "body": {
+              "id": 50215,
+              "nodeType": "Block",
+              "src": "1928:89:183",
+              "nodes": [],
+              "statements": [
+                {
+                  "expression": {
+                    "argumentTypes": null,
+                    "arguments": [
+                      {
+                        "argumentTypes": null,
+                        "id": 50209,
+                        "name": "_poolId",
+                        "nodeType": "Identifier",
+                        "overloadedDeclarations": [],
+                        "referencedDeclaration": 50197,
+                        "src": "1971:7:183",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_bytes32",
+                          "typeString": "bytes32"
+                        }
+                      },
+                      {
+                        "argumentTypes": null,
+                        "id": 50210,
+                        "name": "_sender",
+                        "nodeType": "Identifier",
+                        "overloadedDeclarations": [],
+                        "referencedDeclaration": 50199,
+                        "src": "1980:7:183",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_address",
+                          "typeString": "address"
+                        }
+                      },
+                      {
+                        "argumentTypes": null,
+                        "id": 50211,
+                        "name": "_recipient",
+                        "nodeType": "Identifier",
+                        "overloadedDeclarations": [],
+                        "referencedDeclaration": 50201,
+                        "src": "1989:10:183",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_address",
+                          "typeString": "address"
+                        }
+                      },
+                      {
+                        "argumentTypes": null,
+                        "id": 50212,
+                        "name": "_request",
+                        "nodeType": "Identifier",
+                        "overloadedDeclarations": [],
+                        "referencedDeclaration": 50203,
+                        "src": "2001:8:183",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_struct$_PoolBalanceChange_$71047_memory_ptr",
+                          "typeString": "struct IBalancerV2Vault.PoolBalanceChange memory"
+                        }
+                      }
+                    ],
+                    "expression": {
+                      "argumentTypes": [
+                        {
+                          "typeIdentifier": "t_bytes32",
+                          "typeString": "bytes32"
+                        },
+                        {
+                          "typeIdentifier": "t_address",
+                          "typeString": "address"
+                        },
+                        {
+                          "typeIdentifier": "t_address",
+                          "typeString": "address"
+                        },
+                        {
+                          "typeIdentifier": "t_struct$_PoolBalanceChange_$71047_memory_ptr",
+                          "typeString": "struct IBalancerV2Vault.PoolBalanceChange memory"
+                        }
+                      ],
+                      "expression": {
+                        "argumentTypes": null,
+                        "id": 50206,
+                        "name": "BALANCER_VAULT_CONTRACT",
+                        "nodeType": "Identifier",
+                        "overloadedDeclarations": [],
+                        "referencedDeclaration": 50133,
+                        "src": "1938:23:183",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_contract$_IBalancerV2Vault_$71116",
+                          "typeString": "contract IBalancerV2Vault"
+                        }
+                      },
+                      "id": 50208,
+                      "isConstant": false,
+                      "isLValue": false,
+                      "isPure": false,
+                      "lValueRequested": false,
+                      "memberName": "joinPool",
+                      "nodeType": "MemberAccess",
+                      "referencedDeclaration": 71106,
+                      "src": "1938:32:183",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_function_external_payable$_t_bytes32_$_t_address_$_t_address_$_t_struct$_PoolBalanceChange_$71047_memory_ptr_$returns$__$",
+                        "typeString": "function (bytes32,address,address,struct IBalancerV2Vault.PoolBalanceChange memory) payable external"
+                      }
+                    },
+                    "id": 50213,
+                    "isConstant": false,
+                    "isLValue": false,
+                    "isPure": false,
+                    "kind": "functionCall",
+                    "lValueRequested": false,
+                    "names": [],
+                    "nodeType": "FunctionCall",
+                    "src": "1938:72:183",
+                    "tryCall": false,
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_tuple$__$",
+                      "typeString": "tuple()"
+                    }
+                  },
+                  "id": 50214,
+                  "nodeType": "ExpressionStatement",
+                  "src": "1938:72:183"
+                }
+              ]
+            },
+            "documentation": {
+              "id": 50195,
+              "nodeType": "StructuredDocumentation",
+              "src": "1712:32:183",
+              "text": "@dev Helper to add liquidity"
+            },
+            "implemented": true,
+            "kind": "function",
+            "modifiers": [],
+            "name": "__balancerV2Lend",
+            "overrides": null,
+            "parameters": {
+              "id": 50204,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 50197,
+                  "mutability": "mutable",
+                  "name": "_poolId",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 50216,
+                  "src": "1784:15:183",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_bytes32",
+                    "typeString": "bytes32"
+                  },
+                  "typeName": {
+                    "id": 50196,
+                    "name": "bytes32",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "1784:7:183",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_bytes32",
+                      "typeString": "bytes32"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 50199,
+                  "mutability": "mutable",
+                  "name": "_sender",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 50216,
+                  "src": "1809:15:183",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 50198,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "1809:7:183",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 50201,
+                  "mutability": "mutable",
+                  "name": "_recipient",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 50216,
+                  "src": "1834:18:183",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 50200,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "1834:7:183",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 50203,
+                  "mutability": "mutable",
+                  "name": "_request",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 50216,
+                  "src": "1862:50:183",
+                  "stateVariable": false,
+                  "storageLocation": "memory",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_struct$_PoolBalanceChange_$71047_memory_ptr",
+                    "typeString": "struct IBalancerV2Vault.PoolBalanceChange"
+                  },
+                  "typeName": {
+                    "contractScope": null,
+                    "id": 50202,
+                    "name": "IBalancerV2Vault.PoolBalanceChange",
+                    "nodeType": "UserDefinedTypeName",
+                    "referencedDeclaration": 71047,
+                    "src": "1862:34:183",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_struct$_PoolBalanceChange_$71047_storage_ptr",
+                      "typeString": "struct IBalancerV2Vault.PoolBalanceChange"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "1774:144:183"
+            },
+            "returnParameters": {
+              "id": 50205,
+              "nodeType": "ParameterList",
+              "parameters": [],
+              "src": "1928:0:183"
+            },
+            "scope": 50239,
+            "stateMutability": "nonpayable",
+            "virtual": false,
+            "visibility": "internal"
+          },
+          {
+            "id": 50238,
+            "nodeType": "FunctionDefinition",
+            "src": "2063:278:183",
+            "nodes": [],
+            "body": {
+              "id": 50237,
+              "nodeType": "Block",
+              "src": "2252:89:183",
+              "nodes": [],
+              "statements": [
+                {
+                  "expression": {
+                    "argumentTypes": null,
+                    "arguments": [
+                      {
+                        "argumentTypes": null,
+                        "id": 50231,
+                        "name": "_poolId",
+                        "nodeType": "Identifier",
+                        "overloadedDeclarations": [],
+                        "referencedDeclaration": 50219,
+                        "src": "2295:7:183",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_bytes32",
+                          "typeString": "bytes32"
+                        }
+                      },
+                      {
+                        "argumentTypes": null,
+                        "id": 50232,
+                        "name": "_sender",
+                        "nodeType": "Identifier",
+                        "overloadedDeclarations": [],
+                        "referencedDeclaration": 50221,
+                        "src": "2304:7:183",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_address",
+                          "typeString": "address"
+                        }
+                      },
+                      {
+                        "argumentTypes": null,
+                        "id": 50233,
+                        "name": "_recipient",
+                        "nodeType": "Identifier",
+                        "overloadedDeclarations": [],
+                        "referencedDeclaration": 50223,
+                        "src": "2313:10:183",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_address_payable",
+                          "typeString": "address payable"
+                        }
+                      },
+                      {
+                        "argumentTypes": null,
+                        "id": 50234,
+                        "name": "_request",
+                        "nodeType": "Identifier",
+                        "overloadedDeclarations": [],
+                        "referencedDeclaration": 50225,
+                        "src": "2325:8:183",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_struct$_PoolBalanceChange_$71047_memory_ptr",
+                          "typeString": "struct IBalancerV2Vault.PoolBalanceChange memory"
+                        }
+                      }
+                    ],
+                    "expression": {
+                      "argumentTypes": [
+                        {
+                          "typeIdentifier": "t_bytes32",
+                          "typeString": "bytes32"
+                        },
+                        {
+                          "typeIdentifier": "t_address",
+                          "typeString": "address"
+                        },
+                        {
+                          "typeIdentifier": "t_address_payable",
+                          "typeString": "address payable"
+                        },
+                        {
+                          "typeIdentifier": "t_struct$_PoolBalanceChange_$71047_memory_ptr",
+                          "typeString": "struct IBalancerV2Vault.PoolBalanceChange memory"
+                        }
+                      ],
+                      "expression": {
+                        "argumentTypes": null,
+                        "id": 50228,
+                        "name": "BALANCER_VAULT_CONTRACT",
+                        "nodeType": "Identifier",
+                        "overloadedDeclarations": [],
+                        "referencedDeclaration": 50133,
+                        "src": "2262:23:183",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_contract$_IBalancerV2Vault_$71116",
+                          "typeString": "contract IBalancerV2Vault"
+                        }
+                      },
+                      "id": 50230,
+                      "isConstant": false,
+                      "isLValue": false,
+                      "isPure": false,
+                      "lValueRequested": false,
+                      "memberName": "exitPool",
+                      "nodeType": "MemberAccess",
+                      "referencedDeclaration": 71082,
+                      "src": "2262:32:183",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_function_external_nonpayable$_t_bytes32_$_t_address_$_t_address_payable_$_t_struct$_PoolBalanceChange_$71047_memory_ptr_$returns$__$",
+                        "typeString": "function (bytes32,address,address payable,struct IBalancerV2Vault.PoolBalanceChange memory) external"
+                      }
+                    },
+                    "id": 50235,
+                    "isConstant": false,
+                    "isLValue": false,
+                    "isPure": false,
+                    "kind": "functionCall",
+                    "lValueRequested": false,
+                    "names": [],
+                    "nodeType": "FunctionCall",
+                    "src": "2262:72:183",
+                    "tryCall": false,
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_tuple$__$",
+                      "typeString": "tuple()"
+                    }
+                  },
+                  "id": 50236,
+                  "nodeType": "ExpressionStatement",
+                  "src": "2262:72:183"
+                }
+              ]
+            },
+            "documentation": {
+              "id": 50217,
+              "nodeType": "StructuredDocumentation",
+              "src": "2023:35:183",
+              "text": "@dev Helper to remove liquidity"
+            },
+            "implemented": true,
+            "kind": "function",
+            "modifiers": [],
+            "name": "__balancerV2Redeem",
+            "overrides": null,
+            "parameters": {
+              "id": 50226,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 50219,
+                  "mutability": "mutable",
+                  "name": "_poolId",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 50238,
+                  "src": "2100:15:183",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_bytes32",
+                    "typeString": "bytes32"
+                  },
+                  "typeName": {
+                    "id": 50218,
+                    "name": "bytes32",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "2100:7:183",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_bytes32",
+                      "typeString": "bytes32"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 50221,
+                  "mutability": "mutable",
+                  "name": "_sender",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 50238,
+                  "src": "2125:15:183",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 50220,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "2125:7:183",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 50223,
+                  "mutability": "mutable",
+                  "name": "_recipient",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 50238,
+                  "src": "2150:26:183",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address_payable",
+                    "typeString": "address payable"
+                  },
+                  "typeName": {
+                    "id": 50222,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "2150:15:183",
+                    "stateMutability": "payable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address_payable",
+                      "typeString": "address payable"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 50225,
+                  "mutability": "mutable",
+                  "name": "_request",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 50238,
+                  "src": "2186:50:183",
+                  "stateVariable": false,
+                  "storageLocation": "memory",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_struct$_PoolBalanceChange_$71047_memory_ptr",
+                    "typeString": "struct IBalancerV2Vault.PoolBalanceChange"
+                  },
+                  "typeName": {
+                    "contractScope": null,
+                    "id": 50224,
+                    "name": "IBalancerV2Vault.PoolBalanceChange",
+                    "nodeType": "UserDefinedTypeName",
+                    "referencedDeclaration": 71047,
+                    "src": "2186:34:183",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_struct$_PoolBalanceChange_$71047_storage_ptr",
+                      "typeString": "struct IBalancerV2Vault.PoolBalanceChange"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "2090:152:183"
+            },
+            "returnParameters": {
+              "id": 50227,
+              "nodeType": "ParameterList",
+              "parameters": [],
+              "src": "2252:0:183"
+            },
+            "scope": 50239,
+            "stateMutability": "nonpayable",
+            "virtual": false,
+            "visibility": "internal"
+          }
+        ],
+        "abstract": true,
+        "baseContracts": [],
+        "contractDependencies": [],
+        "contractKind": "contract",
+        "documentation": {
+          "id": 50131,
+          "nodeType": "StructuredDocumentation",
+          "src": "336:155:183",
+          "text": "@title BalancerV2ActionsMixin Contract\n @author Enzyme Council <security@enzyme.finance>\n @notice Mixin contract for interacting with BalancerV2"
+        },
+        "fullyImplemented": true,
+        "linearizedBaseContracts": [
+          50239
+        ],
+        "name": "BalancerV2ActionsMixin",
+        "scope": 50240
+      }
+    ],
+    "license": "GPL-3.0"
+  },
+  "id": 183
 }

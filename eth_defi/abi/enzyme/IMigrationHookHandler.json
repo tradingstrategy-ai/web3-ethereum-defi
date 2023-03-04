@@ -1,0 +1,624 @@
+{
+  "abi": [
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "_vaultProxy",
+          "type": "address"
+        },
+        {
+          "internalType": "address",
+          "name": "_prevFundDeployer",
+          "type": "address"
+        },
+        {
+          "internalType": "address",
+          "name": "_nextVaultAccessor",
+          "type": "address"
+        },
+        {
+          "internalType": "address",
+          "name": "_nextVaultLib",
+          "type": "address"
+        }
+      ],
+      "name": "invokeMigrationInCancelHook",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "enum IMigrationHookHandler.MigrationOutHook",
+          "name": "_hook",
+          "type": "uint8"
+        },
+        {
+          "internalType": "address",
+          "name": "_vaultProxy",
+          "type": "address"
+        },
+        {
+          "internalType": "address",
+          "name": "_nextFundDeployer",
+          "type": "address"
+        },
+        {
+          "internalType": "address",
+          "name": "_nextVaultAccessor",
+          "type": "address"
+        },
+        {
+          "internalType": "address",
+          "name": "_nextVaultLib",
+          "type": "address"
+        }
+      ],
+      "name": "invokeMigrationOutHook",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    }
+  ],
+  "bytecode": {
+    "object": "0x",
+    "sourceMap": "",
+    "linkReferences": {}
+  },
+  "deployedBytecode": {
+    "object": "0x",
+    "sourceMap": "",
+    "linkReferences": {}
+  },
+  "methodIdentifiers": {
+    "invokeMigrationInCancelHook(address,address,address,address)": "df369ba7",
+    "invokeMigrationOutHook(uint8,address,address,address,address)": "3f84c12c"
+  },
+  "rawMetadata": "{\"compiler\":{\"version\":\"0.8.17+commit.8df45f5f\"},\"language\":\"Solidity\",\"output\":{\"abi\":[{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_vaultProxy\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"_prevFundDeployer\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"_nextVaultAccessor\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"_nextVaultLib\",\"type\":\"address\"}],\"name\":\"invokeMigrationInCancelHook\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"enum IMigrationHookHandler.MigrationOutHook\",\"name\":\"_hook\",\"type\":\"uint8\"},{\"internalType\":\"address\",\"name\":\"_vaultProxy\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"_nextFundDeployer\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"_nextVaultAccessor\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"_nextVaultLib\",\"type\":\"address\"}],\"name\":\"invokeMigrationOutHook\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"}],\"devdoc\":{\"author\":\"Enzyme Council <security@enzyme.finance>\",\"kind\":\"dev\",\"methods\":{},\"title\":\"IMigrationHookHandler Interface\",\"version\":1},\"userdoc\":{\"kind\":\"user\",\"methods\":{},\"version\":1}},\"settings\":{\"compilationTarget\":{\"tests/interfaces/IMigrationHookHandler.sol\":\"IMigrationHookHandler\"},\"evmVersion\":\"london\",\"libraries\":{},\"metadata\":{\"bytecodeHash\":\"none\"},\"optimizer\":{\"details\":{\"constantOptimizer\":true,\"cse\":true,\"deduplicate\":true,\"inliner\":true,\"jumpdestRemover\":true,\"orderLiterals\":true,\"peephole\":true,\"yul\":false},\"runs\":200},\"remappings\":[\":@enzyme/=contracts/\",\":@openzeppelin-solc-0.7/=node_modules/@openzeppelin-solc-0.7/\",\":@openzeppelin/=node_modules/@openzeppelin/\",\":@uniswap/=node_modules/@uniswap/\",\":base64-sol/=node_modules/base64-sol/\",\":ds-test/=lib/forge-std/lib/ds-test/src/\",\":forge-std/=lib/forge-std/src/\",\":hardhat-deploy/=node_modules/hardhat-deploy/\",\":hardhat/=node_modules/hardhat/\"]},\"sources\":{\"tests/interfaces/IMigrationHookHandler.sol\":{\"keccak256\":\"0xe39c8745fda9fbce6572683e0b224c6e6ef0ba72eed1b95242795debea5f2134\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://6e31e1241af98b105d840606b7cb1acf0fa221df364c198ca61f8a347a81c99d\",\"dweb:/ipfs/QmNae1yw8kJZh7vGdwHSvVjJpq3brbpCc7mc3BHQoPs7bt\"]}},\"version\":1}",
+  "metadata": {
+    "compiler": {
+      "version": "0.8.17+commit.8df45f5f"
+    },
+    "language": "Solidity",
+    "output": {
+      "abi": [
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "_vaultProxy",
+              "type": "address"
+            },
+            {
+              "internalType": "address",
+              "name": "_prevFundDeployer",
+              "type": "address"
+            },
+            {
+              "internalType": "address",
+              "name": "_nextVaultAccessor",
+              "type": "address"
+            },
+            {
+              "internalType": "address",
+              "name": "_nextVaultLib",
+              "type": "address"
+            }
+          ],
+          "stateMutability": "nonpayable",
+          "type": "function",
+          "name": "invokeMigrationInCancelHook"
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "enum IMigrationHookHandler.MigrationOutHook",
+              "name": "_hook",
+              "type": "uint8"
+            },
+            {
+              "internalType": "address",
+              "name": "_vaultProxy",
+              "type": "address"
+            },
+            {
+              "internalType": "address",
+              "name": "_nextFundDeployer",
+              "type": "address"
+            },
+            {
+              "internalType": "address",
+              "name": "_nextVaultAccessor",
+              "type": "address"
+            },
+            {
+              "internalType": "address",
+              "name": "_nextVaultLib",
+              "type": "address"
+            }
+          ],
+          "stateMutability": "nonpayable",
+          "type": "function",
+          "name": "invokeMigrationOutHook"
+        }
+      ],
+      "devdoc": {
+        "kind": "dev",
+        "methods": {},
+        "version": 1
+      },
+      "userdoc": {
+        "kind": "user",
+        "methods": {},
+        "version": 1
+      }
+    },
+    "settings": {
+      "remappings": [
+        ":@enzyme/=contracts/",
+        ":@openzeppelin-solc-0.7/=node_modules/@openzeppelin-solc-0.7/",
+        ":@openzeppelin/=node_modules/@openzeppelin/",
+        ":@uniswap/=node_modules/@uniswap/",
+        ":base64-sol/=node_modules/base64-sol/",
+        ":ds-test/=lib/forge-std/lib/ds-test/src/",
+        ":forge-std/=lib/forge-std/src/",
+        ":hardhat-deploy/=node_modules/hardhat-deploy/",
+        ":hardhat/=node_modules/hardhat/"
+      ],
+      "optimizer": {
+        "runs": 200,
+        "details": {
+          "peephole": true,
+          "inliner": true,
+          "jumpdestRemover": true,
+          "orderLiterals": true,
+          "deduplicate": true,
+          "cse": true,
+          "constantOptimizer": true,
+          "yul": false
+        }
+      },
+      "metadata": {
+        "bytecodeHash": "none"
+      },
+      "compilationTarget": {
+        "tests/interfaces/IMigrationHookHandler.sol": "IMigrationHookHandler"
+      },
+      "libraries": {}
+    },
+    "sources": {
+      "tests/interfaces/IMigrationHookHandler.sol": {
+        "keccak256": "0xe39c8745fda9fbce6572683e0b224c6e6ef0ba72eed1b95242795debea5f2134",
+        "urls": [
+          "bzz-raw://6e31e1241af98b105d840606b7cb1acf0fa221df364c198ca61f8a347a81c99d",
+          "dweb:/ipfs/QmNae1yw8kJZh7vGdwHSvVjJpq3brbpCc7mc3BHQoPs7bt"
+        ],
+        "license": "GPL-3.0"
+      }
+    },
+    "version": 1
+  },
+  "ast": {
+    "absolutePath": "tests/interfaces/IMigrationHookHandler.sol",
+    "id": 30433,
+    "exportedSymbols": {
+      "IMigrationHookHandler": [
+        30432
+      ]
+    },
+    "nodeType": "SourceUnit",
+    "src": "255:704:48",
+    "nodes": [
+      {
+        "id": 30399,
+        "nodeType": "PragmaDirective",
+        "src": "255:32:48",
+        "nodes": [],
+        "literals": [
+          "solidity",
+          ">=",
+          "0.6",
+          ".12",
+          "<",
+          "0.9",
+          ".0"
+        ]
+      },
+      {
+        "id": 30432,
+        "nodeType": "ContractDefinition",
+        "src": "385:573:48",
+        "nodes": [
+          {
+            "id": 30406,
+            "nodeType": "EnumDefinition",
+            "src": "423:128:48",
+            "nodes": [],
+            "canonicalName": "IMigrationHookHandler.MigrationOutHook",
+            "members": [
+              {
+                "id": 30401,
+                "name": "PreSignal",
+                "nameLocation": "455:9:48",
+                "nodeType": "EnumValue",
+                "src": "455:9:48"
+              },
+              {
+                "id": 30402,
+                "name": "PostSignal",
+                "nameLocation": "474:10:48",
+                "nodeType": "EnumValue",
+                "src": "474:10:48"
+              },
+              {
+                "id": 30403,
+                "name": "PreMigrate",
+                "nameLocation": "494:10:48",
+                "nodeType": "EnumValue",
+                "src": "494:10:48"
+              },
+              {
+                "id": 30404,
+                "name": "PostMigrate",
+                "nameLocation": "514:11:48",
+                "nodeType": "EnumValue",
+                "src": "514:11:48"
+              },
+              {
+                "id": 30405,
+                "name": "PostCancel",
+                "nameLocation": "535:10:48",
+                "nodeType": "EnumValue",
+                "src": "535:10:48"
+              }
+            ],
+            "name": "MigrationOutHook",
+            "nameLocation": "428:16:48"
+          },
+          {
+            "id": 30417,
+            "nodeType": "FunctionDefinition",
+            "src": "557:183:48",
+            "nodes": [],
+            "functionSelector": "df369ba7",
+            "implemented": false,
+            "kind": "function",
+            "modifiers": [],
+            "name": "invokeMigrationInCancelHook",
+            "nameLocation": "566:27:48",
+            "parameters": {
+              "id": 30415,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 30408,
+                  "mutability": "mutable",
+                  "name": "_vaultProxy",
+                  "nameLocation": "611:11:48",
+                  "nodeType": "VariableDeclaration",
+                  "scope": 30417,
+                  "src": "603:19:48",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 30407,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "603:7:48",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 30410,
+                  "mutability": "mutable",
+                  "name": "_prevFundDeployer",
+                  "nameLocation": "640:17:48",
+                  "nodeType": "VariableDeclaration",
+                  "scope": 30417,
+                  "src": "632:25:48",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 30409,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "632:7:48",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 30412,
+                  "mutability": "mutable",
+                  "name": "_nextVaultAccessor",
+                  "nameLocation": "675:18:48",
+                  "nodeType": "VariableDeclaration",
+                  "scope": 30417,
+                  "src": "667:26:48",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 30411,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "667:7:48",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 30414,
+                  "mutability": "mutable",
+                  "name": "_nextVaultLib",
+                  "nameLocation": "711:13:48",
+                  "nodeType": "VariableDeclaration",
+                  "scope": 30417,
+                  "src": "703:21:48",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 30413,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "703:7:48",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "visibility": "internal"
+                }
+              ],
+              "src": "593:137:48"
+            },
+            "returnParameters": {
+              "id": 30416,
+              "nodeType": "ParameterList",
+              "parameters": [],
+              "src": "739:0:48"
+            },
+            "scope": 30432,
+            "stateMutability": "nonpayable",
+            "virtual": false,
+            "visibility": "external"
+          },
+          {
+            "id": 30431,
+            "nodeType": "FunctionDefinition",
+            "src": "746:210:48",
+            "nodes": [],
+            "functionSelector": "3f84c12c",
+            "implemented": false,
+            "kind": "function",
+            "modifiers": [],
+            "name": "invokeMigrationOutHook",
+            "nameLocation": "755:22:48",
+            "parameters": {
+              "id": 30429,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 30420,
+                  "mutability": "mutable",
+                  "name": "_hook",
+                  "nameLocation": "804:5:48",
+                  "nodeType": "VariableDeclaration",
+                  "scope": 30431,
+                  "src": "787:22:48",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_enum$_MigrationOutHook_$30406",
+                    "typeString": "enum IMigrationHookHandler.MigrationOutHook"
+                  },
+                  "typeName": {
+                    "id": 30419,
+                    "nodeType": "UserDefinedTypeName",
+                    "pathNode": {
+                      "id": 30418,
+                      "name": "MigrationOutHook",
+                      "nameLocations": [
+                        "787:16:48"
+                      ],
+                      "nodeType": "IdentifierPath",
+                      "referencedDeclaration": 30406,
+                      "src": "787:16:48"
+                    },
+                    "referencedDeclaration": 30406,
+                    "src": "787:16:48",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_enum$_MigrationOutHook_$30406",
+                      "typeString": "enum IMigrationHookHandler.MigrationOutHook"
+                    }
+                  },
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 30422,
+                  "mutability": "mutable",
+                  "name": "_vaultProxy",
+                  "nameLocation": "827:11:48",
+                  "nodeType": "VariableDeclaration",
+                  "scope": 30431,
+                  "src": "819:19:48",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 30421,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "819:7:48",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 30424,
+                  "mutability": "mutable",
+                  "name": "_nextFundDeployer",
+                  "nameLocation": "856:17:48",
+                  "nodeType": "VariableDeclaration",
+                  "scope": 30431,
+                  "src": "848:25:48",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 30423,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "848:7:48",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 30426,
+                  "mutability": "mutable",
+                  "name": "_nextVaultAccessor",
+                  "nameLocation": "891:18:48",
+                  "nodeType": "VariableDeclaration",
+                  "scope": 30431,
+                  "src": "883:26:48",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 30425,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "883:7:48",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 30428,
+                  "mutability": "mutable",
+                  "name": "_nextVaultLib",
+                  "nameLocation": "927:13:48",
+                  "nodeType": "VariableDeclaration",
+                  "scope": 30431,
+                  "src": "919:21:48",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 30427,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "919:7:48",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "visibility": "internal"
+                }
+              ],
+              "src": "777:169:48"
+            },
+            "returnParameters": {
+              "id": 30430,
+              "nodeType": "ParameterList",
+              "parameters": [],
+              "src": "955:0:48"
+            },
+            "scope": 30432,
+            "stateMutability": "nonpayable",
+            "virtual": false,
+            "visibility": "external"
+          }
+        ],
+        "abstract": false,
+        "baseContracts": [],
+        "canonicalName": "IMigrationHookHandler",
+        "contractDependencies": [],
+        "contractKind": "interface",
+        "documentation": {
+          "id": 30400,
+          "nodeType": "StructuredDocumentation",
+          "src": "289:96:48",
+          "text": "@title IMigrationHookHandler Interface\n @author Enzyme Council <security@enzyme.finance>"
+        },
+        "fullyImplemented": false,
+        "linearizedBaseContracts": [
+          30432
+        ],
+        "name": "IMigrationHookHandler",
+        "nameLocation": "395:21:48",
+        "scope": 30433,
+        "usedErrors": []
+      }
+    ],
+    "license": "GPL-3.0"
+  },
+  "id": 48
+}

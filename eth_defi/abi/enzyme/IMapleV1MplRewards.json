@@ -1,7 +1,4 @@
 {
-  "_format": "hh-sol-artifact-1",
-  "contractName": "IMapleV1MplRewards",
-  "sourceName": "contracts/release/interfaces/IMapleV1MplRewards.sol",
   "abi": [
     {
       "inputs": [],
@@ -24,8 +21,238 @@
       "type": "function"
     }
   ],
-  "bytecode": "0x",
-  "deployedBytecode": "0x",
-  "linkReferences": {},
-  "deployedLinkReferences": {}
+  "bytecode": {
+    "object": "0x",
+    "sourceMap": "",
+    "linkReferences": {}
+  },
+  "deployedBytecode": {
+    "object": "0x",
+    "sourceMap": "",
+    "linkReferences": {}
+  },
+  "methodIdentifiers": {
+    "getReward()": "3d18b912",
+    "rewardsToken()": "d1af0c7d"
+  },
+  "rawMetadata": "{\"compiler\":{\"version\":\"0.6.12+commit.27d51765\"},\"language\":\"Solidity\",\"output\":{\"abi\":[{\"inputs\":[],\"name\":\"getReward\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"rewardsToken\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"}],\"devdoc\":{\"author\":\"Enzyme Council <security@enzyme.finance>\",\"kind\":\"dev\",\"methods\":{},\"title\":\"IMapleV1MplRewards Interface\",\"version\":1},\"userdoc\":{\"kind\":\"user\",\"methods\":{},\"version\":1}},\"settings\":{\"compilationTarget\":{\"contracts/release/interfaces/IMapleV1MplRewards.sol\":\"IMapleV1MplRewards\"},\"evmVersion\":\"istanbul\",\"libraries\":{},\"metadata\":{\"bytecodeHash\":\"none\"},\"optimizer\":{\"details\":{\"constantOptimizer\":true,\"cse\":true,\"deduplicate\":true,\"jumpdestRemover\":true,\"orderLiterals\":true,\"peephole\":true,\"yul\":false},\"runs\":200},\"remappings\":[\":@enzyme/=contracts/\",\":@openzeppelin-solc-0.7/=node_modules/@openzeppelin-solc-0.7/\",\":@openzeppelin/=node_modules/@openzeppelin/\",\":@uniswap/=node_modules/@uniswap/\",\":base64-sol/=node_modules/base64-sol/\",\":ds-test/=lib/forge-std/lib/ds-test/src/\",\":forge-std/=lib/forge-std/src/\",\":hardhat-deploy/=node_modules/hardhat-deploy/\",\":hardhat/=node_modules/hardhat/\"]},\"sources\":{\"contracts/release/interfaces/IMapleV1MplRewards.sol\":{\"keccak256\":\"0x9fb171f91da0330d7139632907c0404002699a4cae9cb409a64c0898954b3f90\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://4e61ca593a55cc04b7a4283352cceab8e8249147e4c33fe3790cface7853ebc6\",\"dweb:/ipfs/QmPsc5s4wKDQcu3Tx7ZPJizPzLRTY9bHiywK3iL9gvnQK8\"]}},\"version\":1}",
+  "metadata": {
+    "compiler": {
+      "version": "0.6.12+commit.27d51765"
+    },
+    "language": "Solidity",
+    "output": {
+      "abi": [
+        {
+          "inputs": [],
+          "stateMutability": "nonpayable",
+          "type": "function",
+          "name": "getReward"
+        },
+        {
+          "inputs": [],
+          "stateMutability": "view",
+          "type": "function",
+          "name": "rewardsToken",
+          "outputs": [
+            {
+              "internalType": "address",
+              "name": "",
+              "type": "address"
+            }
+          ]
+        }
+      ],
+      "devdoc": {
+        "kind": "dev",
+        "methods": {},
+        "version": 1
+      },
+      "userdoc": {
+        "kind": "user",
+        "methods": {},
+        "version": 1
+      }
+    },
+    "settings": {
+      "remappings": [
+        ":@enzyme/=contracts/",
+        ":@openzeppelin-solc-0.7/=node_modules/@openzeppelin-solc-0.7/",
+        ":@openzeppelin/=node_modules/@openzeppelin/",
+        ":@uniswap/=node_modules/@uniswap/",
+        ":base64-sol/=node_modules/base64-sol/",
+        ":ds-test/=lib/forge-std/lib/ds-test/src/",
+        ":forge-std/=lib/forge-std/src/",
+        ":hardhat-deploy/=node_modules/hardhat-deploy/",
+        ":hardhat/=node_modules/hardhat/"
+      ],
+      "optimizer": {
+        "runs": 200,
+        "details": {
+          "peephole": true,
+          "jumpdestRemover": true,
+          "orderLiterals": true,
+          "deduplicate": true,
+          "cse": true,
+          "constantOptimizer": true,
+          "yul": false
+        }
+      },
+      "metadata": {
+        "bytecodeHash": "none"
+      },
+      "compilationTarget": {
+        "contracts/release/interfaces/IMapleV1MplRewards.sol": "IMapleV1MplRewards"
+      },
+      "libraries": {}
+    },
+    "sources": {
+      "contracts/release/interfaces/IMapleV1MplRewards.sol": {
+        "keccak256": "0x9fb171f91da0330d7139632907c0404002699a4cae9cb409a64c0898954b3f90",
+        "urls": [
+          "bzz-raw://4e61ca593a55cc04b7a4283352cceab8e8249147e4c33fe3790cface7853ebc6",
+          "dweb:/ipfs/QmPsc5s4wKDQcu3Tx7ZPJizPzLRTY9bHiywK3iL9gvnQK8"
+        ],
+        "license": "GPL-3.0"
+      }
+    },
+    "version": 1
+  },
+  "ast": {
+    "absolutePath": "contracts/release/interfaces/IMapleV1MplRewards.sol",
+    "id": 72202,
+    "exportedSymbols": {
+      "IMapleV1MplRewards": [
+        72201
+      ]
+    },
+    "nodeType": "SourceUnit",
+    "src": "255:248:312",
+    "nodes": [
+      {
+        "id": 72191,
+        "nodeType": "PragmaDirective",
+        "src": "255:23:312",
+        "nodes": [],
+        "literals": [
+          "solidity",
+          "0.6",
+          ".12"
+        ]
+      },
+      {
+        "id": 72201,
+        "nodeType": "ContractDefinition",
+        "src": "373:129:312",
+        "nodes": [
+          {
+            "id": 72195,
+            "nodeType": "FunctionDefinition",
+            "src": "408:30:312",
+            "nodes": [],
+            "documentation": null,
+            "functionSelector": "3d18b912",
+            "implemented": false,
+            "kind": "function",
+            "modifiers": [],
+            "name": "getReward",
+            "overrides": null,
+            "parameters": {
+              "id": 72193,
+              "nodeType": "ParameterList",
+              "parameters": [],
+              "src": "426:2:312"
+            },
+            "returnParameters": {
+              "id": 72194,
+              "nodeType": "ParameterList",
+              "parameters": [],
+              "src": "437:0:312"
+            },
+            "scope": 72201,
+            "stateMutability": "nonpayable",
+            "virtual": false,
+            "visibility": "external"
+          },
+          {
+            "id": 72200,
+            "nodeType": "FunctionDefinition",
+            "src": "444:56:312",
+            "nodes": [],
+            "documentation": null,
+            "functionSelector": "d1af0c7d",
+            "implemented": false,
+            "kind": "function",
+            "modifiers": [],
+            "name": "rewardsToken",
+            "overrides": null,
+            "parameters": {
+              "id": 72196,
+              "nodeType": "ParameterList",
+              "parameters": [],
+              "src": "465:2:312"
+            },
+            "returnParameters": {
+              "id": 72199,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 72198,
+                  "mutability": "mutable",
+                  "name": "",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 72200,
+                  "src": "491:7:312",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 72197,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "491:7:312",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "490:9:312"
+            },
+            "scope": 72201,
+            "stateMutability": "view",
+            "virtual": false,
+            "visibility": "external"
+          }
+        ],
+        "abstract": false,
+        "baseContracts": [],
+        "contractDependencies": [],
+        "contractKind": "interface",
+        "documentation": {
+          "id": 72192,
+          "nodeType": "StructuredDocumentation",
+          "src": "280:93:312",
+          "text": "@title IMapleV1MplRewards Interface\n @author Enzyme Council <security@enzyme.finance>"
+        },
+        "fullyImplemented": false,
+        "linearizedBaseContracts": [
+          72201
+        ],
+        "name": "IMapleV1MplRewards",
+        "scope": 72202
+      }
+    ],
+    "license": "GPL-3.0"
+  },
+  "id": 312
 }

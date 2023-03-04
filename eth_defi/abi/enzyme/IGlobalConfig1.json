@@ -1,0 +1,448 @@
+{
+  "abi": [
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "_vaultProxy",
+          "type": "address"
+        },
+        {
+          "internalType": "address",
+          "name": "_recipientToValidate",
+          "type": "address"
+        },
+        {
+          "internalType": "uint256",
+          "name": "_sharesAmountToValidate",
+          "type": "uint256"
+        },
+        {
+          "internalType": "address",
+          "name": "_redeemContract",
+          "type": "address"
+        },
+        {
+          "internalType": "bytes4",
+          "name": "_redeemSelector",
+          "type": "bytes4"
+        },
+        {
+          "internalType": "bytes",
+          "name": "_redeemData",
+          "type": "bytes"
+        }
+      ],
+      "name": "isValidRedeemSharesCall",
+      "outputs": [
+        {
+          "internalType": "bool",
+          "name": "isValid_",
+          "type": "bool"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    }
+  ],
+  "bytecode": {
+    "object": "0x",
+    "sourceMap": "",
+    "linkReferences": {}
+  },
+  "deployedBytecode": {
+    "object": "0x",
+    "sourceMap": "",
+    "linkReferences": {}
+  },
+  "methodIdentifiers": {
+    "isValidRedeemSharesCall(address,address,uint256,address,bytes4,bytes)": "5d4755dc"
+  },
+  "rawMetadata": "{\"compiler\":{\"version\":\"0.6.12+commit.27d51765\"},\"language\":\"Solidity\",\"output\":{\"abi\":[{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_vaultProxy\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"_recipientToValidate\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"_sharesAmountToValidate\",\"type\":\"uint256\"},{\"internalType\":\"address\",\"name\":\"_redeemContract\",\"type\":\"address\"},{\"internalType\":\"bytes4\",\"name\":\"_redeemSelector\",\"type\":\"bytes4\"},{\"internalType\":\"bytes\",\"name\":\"_redeemData\",\"type\":\"bytes\"}],\"name\":\"isValidRedeemSharesCall\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"isValid_\",\"type\":\"bool\"}],\"stateMutability\":\"view\",\"type\":\"function\"}],\"devdoc\":{\"author\":\"Enzyme Council <security@enzyme.finance>\",\"details\":\"Each interface should inherit the previous interface, e.g., `IGlobalConfig2 is IGlobalConfig1`\",\"kind\":\"dev\",\"methods\":{},\"title\":\"IGlobalConfig1 Interface\",\"version\":1},\"userdoc\":{\"kind\":\"user\",\"methods\":{},\"version\":1}},\"settings\":{\"compilationTarget\":{\"contracts/persistent/global-config/interfaces/IGlobalConfig1.sol\":\"IGlobalConfig1\"},\"evmVersion\":\"istanbul\",\"libraries\":{},\"metadata\":{\"bytecodeHash\":\"none\"},\"optimizer\":{\"details\":{\"constantOptimizer\":true,\"cse\":true,\"deduplicate\":true,\"jumpdestRemover\":true,\"orderLiterals\":true,\"peephole\":true,\"yul\":false},\"runs\":200},\"remappings\":[\":@enzyme/=contracts/\",\":@openzeppelin-solc-0.7/=node_modules/@openzeppelin-solc-0.7/\",\":@openzeppelin/=node_modules/@openzeppelin/\",\":@uniswap/=node_modules/@uniswap/\",\":base64-sol/=node_modules/base64-sol/\",\":ds-test/=lib/forge-std/lib/ds-test/src/\",\":forge-std/=lib/forge-std/src/\",\":hardhat-deploy/=node_modules/hardhat-deploy/\",\":hardhat/=node_modules/hardhat/\"]},\"sources\":{\"contracts/persistent/global-config/interfaces/IGlobalConfig1.sol\":{\"keccak256\":\"0x7b643513fd8e1a3aadc476536785a925fb7c032c21e385e69e562abff531a646\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://682cce7a4c7316ab7aa39361dff84646ba8c89ad26f2c706a4b2940f8ab27205\",\"dweb:/ipfs/QmTtyfPn3M8ErCs8zuhT4NrZiL4CAUyv37os37HebYuGA8\"]}},\"version\":1}",
+  "metadata": {
+    "compiler": {
+      "version": "0.6.12+commit.27d51765"
+    },
+    "language": "Solidity",
+    "output": {
+      "abi": [
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "_vaultProxy",
+              "type": "address"
+            },
+            {
+              "internalType": "address",
+              "name": "_recipientToValidate",
+              "type": "address"
+            },
+            {
+              "internalType": "uint256",
+              "name": "_sharesAmountToValidate",
+              "type": "uint256"
+            },
+            {
+              "internalType": "address",
+              "name": "_redeemContract",
+              "type": "address"
+            },
+            {
+              "internalType": "bytes4",
+              "name": "_redeemSelector",
+              "type": "bytes4"
+            },
+            {
+              "internalType": "bytes",
+              "name": "_redeemData",
+              "type": "bytes"
+            }
+          ],
+          "stateMutability": "view",
+          "type": "function",
+          "name": "isValidRedeemSharesCall",
+          "outputs": [
+            {
+              "internalType": "bool",
+              "name": "isValid_",
+              "type": "bool"
+            }
+          ]
+        }
+      ],
+      "devdoc": {
+        "kind": "dev",
+        "methods": {},
+        "version": 1
+      },
+      "userdoc": {
+        "kind": "user",
+        "methods": {},
+        "version": 1
+      }
+    },
+    "settings": {
+      "remappings": [
+        ":@enzyme/=contracts/",
+        ":@openzeppelin-solc-0.7/=node_modules/@openzeppelin-solc-0.7/",
+        ":@openzeppelin/=node_modules/@openzeppelin/",
+        ":@uniswap/=node_modules/@uniswap/",
+        ":base64-sol/=node_modules/base64-sol/",
+        ":ds-test/=lib/forge-std/lib/ds-test/src/",
+        ":forge-std/=lib/forge-std/src/",
+        ":hardhat-deploy/=node_modules/hardhat-deploy/",
+        ":hardhat/=node_modules/hardhat/"
+      ],
+      "optimizer": {
+        "runs": 200,
+        "details": {
+          "peephole": true,
+          "jumpdestRemover": true,
+          "orderLiterals": true,
+          "deduplicate": true,
+          "cse": true,
+          "constantOptimizer": true,
+          "yul": false
+        }
+      },
+      "metadata": {
+        "bytecodeHash": "none"
+      },
+      "compilationTarget": {
+        "contracts/persistent/global-config/interfaces/IGlobalConfig1.sol": "IGlobalConfig1"
+      },
+      "libraries": {}
+    },
+    "sources": {
+      "contracts/persistent/global-config/interfaces/IGlobalConfig1.sol": {
+        "keccak256": "0x7b643513fd8e1a3aadc476536785a925fb7c032c21e385e69e562abff531a646",
+        "urls": [
+          "bzz-raw://682cce7a4c7316ab7aa39361dff84646ba8c89ad26f2c706a4b2940f8ab27205",
+          "dweb:/ipfs/QmTtyfPn3M8ErCs8zuhT4NrZiL4CAUyv37os37HebYuGA8"
+        ],
+        "license": "GPL-3.0"
+      }
+    },
+    "version": 1
+  },
+  "ast": {
+    "absolutePath": "contracts/persistent/global-config/interfaces/IGlobalConfig1.sol",
+    "id": 6185,
+    "exportedSymbols": {
+      "IGlobalConfig1": [
+        6184
+      ]
+    },
+    "nodeType": "SourceUnit",
+    "src": "255:542:43",
+    "nodes": [
+      {
+        "id": 6165,
+        "nodeType": "PragmaDirective",
+        "src": "255:23:43",
+        "nodes": [],
+        "literals": [
+          "solidity",
+          "0.6",
+          ".12"
+        ]
+      },
+      {
+        "id": 6184,
+        "nodeType": "ContractDefinition",
+        "src": "477:319:43",
+        "nodes": [
+          {
+            "id": 6183,
+            "nodeType": "FunctionDefinition",
+            "src": "508:286:43",
+            "nodes": [],
+            "documentation": null,
+            "functionSelector": "5d4755dc",
+            "implemented": false,
+            "kind": "function",
+            "modifiers": [],
+            "name": "isValidRedeemSharesCall",
+            "overrides": null,
+            "parameters": {
+              "id": 6179,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 6168,
+                  "mutability": "mutable",
+                  "name": "_vaultProxy",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 6183,
+                  "src": "550:19:43",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 6167,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "550:7:43",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 6170,
+                  "mutability": "mutable",
+                  "name": "_recipientToValidate",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 6183,
+                  "src": "579:28:43",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 6169,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "579:7:43",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 6172,
+                  "mutability": "mutable",
+                  "name": "_sharesAmountToValidate",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 6183,
+                  "src": "617:31:43",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_uint256",
+                    "typeString": "uint256"
+                  },
+                  "typeName": {
+                    "id": 6171,
+                    "name": "uint256",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "617:7:43",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_uint256",
+                      "typeString": "uint256"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 6174,
+                  "mutability": "mutable",
+                  "name": "_redeemContract",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 6183,
+                  "src": "658:23:43",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 6173,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "658:7:43",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 6176,
+                  "mutability": "mutable",
+                  "name": "_redeemSelector",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 6183,
+                  "src": "691:22:43",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_bytes4",
+                    "typeString": "bytes4"
+                  },
+                  "typeName": {
+                    "id": 6175,
+                    "name": "bytes4",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "691:6:43",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_bytes4",
+                      "typeString": "bytes4"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 6178,
+                  "mutability": "mutable",
+                  "name": "_redeemData",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 6183,
+                  "src": "723:26:43",
+                  "stateVariable": false,
+                  "storageLocation": "calldata",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_bytes_calldata_ptr",
+                    "typeString": "bytes"
+                  },
+                  "typeName": {
+                    "id": 6177,
+                    "name": "bytes",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "723:5:43",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_bytes_storage_ptr",
+                      "typeString": "bytes"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "540:215:43"
+            },
+            "returnParameters": {
+              "id": 6182,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 6181,
+                  "mutability": "mutable",
+                  "name": "isValid_",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 6183,
+                  "src": "779:13:43",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_bool",
+                    "typeString": "bool"
+                  },
+                  "typeName": {
+                    "id": 6180,
+                    "name": "bool",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "779:4:43",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_bool",
+                      "typeString": "bool"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "778:15:43"
+            },
+            "scope": 6184,
+            "stateMutability": "view",
+            "virtual": false,
+            "visibility": "external"
+          }
+        ],
+        "abstract": false,
+        "baseContracts": [],
+        "contractDependencies": [],
+        "contractKind": "interface",
+        "documentation": {
+          "id": 6166,
+          "nodeType": "StructuredDocumentation",
+          "src": "280:197:43",
+          "text": "@title IGlobalConfig1 Interface\n @author Enzyme Council <security@enzyme.finance>\n @dev Each interface should inherit the previous interface,\n e.g., `IGlobalConfig2 is IGlobalConfig1`"
+        },
+        "fullyImplemented": false,
+        "linearizedBaseContracts": [
+          6184
+        ],
+        "name": "IGlobalConfig1",
+        "scope": 6185
+      }
+    ],
+    "license": "GPL-3.0"
+  },
+  "id": 43
+}

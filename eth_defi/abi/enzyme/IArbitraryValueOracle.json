@@ -1,0 +1,422 @@
+{
+  "abi": [
+    {
+      "inputs": [],
+      "name": "getLastUpdated",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "lastUpdated_",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "getValue",
+      "outputs": [
+        {
+          "internalType": "int256",
+          "name": "value_",
+          "type": "int256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "getValueWithTimestamp",
+      "outputs": [
+        {
+          "internalType": "int256",
+          "name": "value_",
+          "type": "int256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "lastUpdated_",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    }
+  ],
+  "bytecode": {
+    "object": "0x",
+    "sourceMap": "",
+    "linkReferences": {}
+  },
+  "deployedBytecode": {
+    "object": "0x",
+    "sourceMap": "",
+    "linkReferences": {}
+  },
+  "methodIdentifiers": {
+    "getLastUpdated()": "78121dd4",
+    "getValue()": "20965255",
+    "getValueWithTimestamp()": "4def9855"
+  },
+  "rawMetadata": "{\"compiler\":{\"version\":\"0.6.12+commit.27d51765\"},\"language\":\"Solidity\",\"output\":{\"abi\":[{\"inputs\":[],\"name\":\"getLastUpdated\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"lastUpdated_\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getValue\",\"outputs\":[{\"internalType\":\"int256\",\"name\":\"value_\",\"type\":\"int256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getValueWithTimestamp\",\"outputs\":[{\"internalType\":\"int256\",\"name\":\"value_\",\"type\":\"int256\"},{\"internalType\":\"uint256\",\"name\":\"lastUpdated_\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"}],\"devdoc\":{\"author\":\"Enzyme Council <security@enzyme.finance>\",\"kind\":\"dev\",\"methods\":{},\"title\":\"IArbitraryValueOracle Interface\",\"version\":1},\"userdoc\":{\"kind\":\"user\",\"methods\":{},\"version\":1}},\"settings\":{\"compilationTarget\":{\"contracts/persistent/arbitrary-value-oracles/IArbitraryValueOracle.sol\":\"IArbitraryValueOracle\"},\"evmVersion\":\"istanbul\",\"libraries\":{},\"metadata\":{\"bytecodeHash\":\"none\"},\"optimizer\":{\"details\":{\"constantOptimizer\":true,\"cse\":true,\"deduplicate\":true,\"jumpdestRemover\":true,\"orderLiterals\":true,\"peephole\":true,\"yul\":false},\"runs\":200},\"remappings\":[\":@enzyme/=contracts/\",\":@openzeppelin-solc-0.7/=node_modules/@openzeppelin-solc-0.7/\",\":@openzeppelin/=node_modules/@openzeppelin/\",\":@uniswap/=node_modules/@uniswap/\",\":base64-sol/=node_modules/base64-sol/\",\":ds-test/=lib/forge-std/lib/ds-test/src/\",\":forge-std/=lib/forge-std/src/\",\":hardhat-deploy/=node_modules/hardhat-deploy/\",\":hardhat/=node_modules/hardhat/\"]},\"sources\":{\"contracts/persistent/arbitrary-value-oracles/IArbitraryValueOracle.sol\":{\"keccak256\":\"0x333a51889276bf987405f310cf4c585f51f86bf496c658e0451412123f675890\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://ad4e7e1f597bd399c48c27b391c669893e6b557dbdd06a1725070ac29d087cf0\",\"dweb:/ipfs/QmQrWo7nActQP5Ahh1SzkRNfpxbsPQLgNd3rUkNGUfDPKW\"]}},\"version\":1}",
+  "metadata": {
+    "compiler": {
+      "version": "0.6.12+commit.27d51765"
+    },
+    "language": "Solidity",
+    "output": {
+      "abi": [
+        {
+          "inputs": [],
+          "stateMutability": "view",
+          "type": "function",
+          "name": "getLastUpdated",
+          "outputs": [
+            {
+              "internalType": "uint256",
+              "name": "lastUpdated_",
+              "type": "uint256"
+            }
+          ]
+        },
+        {
+          "inputs": [],
+          "stateMutability": "view",
+          "type": "function",
+          "name": "getValue",
+          "outputs": [
+            {
+              "internalType": "int256",
+              "name": "value_",
+              "type": "int256"
+            }
+          ]
+        },
+        {
+          "inputs": [],
+          "stateMutability": "view",
+          "type": "function",
+          "name": "getValueWithTimestamp",
+          "outputs": [
+            {
+              "internalType": "int256",
+              "name": "value_",
+              "type": "int256"
+            },
+            {
+              "internalType": "uint256",
+              "name": "lastUpdated_",
+              "type": "uint256"
+            }
+          ]
+        }
+      ],
+      "devdoc": {
+        "kind": "dev",
+        "methods": {},
+        "version": 1
+      },
+      "userdoc": {
+        "kind": "user",
+        "methods": {},
+        "version": 1
+      }
+    },
+    "settings": {
+      "remappings": [
+        ":@enzyme/=contracts/",
+        ":@openzeppelin-solc-0.7/=node_modules/@openzeppelin-solc-0.7/",
+        ":@openzeppelin/=node_modules/@openzeppelin/",
+        ":@uniswap/=node_modules/@uniswap/",
+        ":base64-sol/=node_modules/base64-sol/",
+        ":ds-test/=lib/forge-std/lib/ds-test/src/",
+        ":forge-std/=lib/forge-std/src/",
+        ":hardhat-deploy/=node_modules/hardhat-deploy/",
+        ":hardhat/=node_modules/hardhat/"
+      ],
+      "optimizer": {
+        "runs": 200,
+        "details": {
+          "peephole": true,
+          "jumpdestRemover": true,
+          "orderLiterals": true,
+          "deduplicate": true,
+          "cse": true,
+          "constantOptimizer": true,
+          "yul": false
+        }
+      },
+      "metadata": {
+        "bytecodeHash": "none"
+      },
+      "compilationTarget": {
+        "contracts/persistent/arbitrary-value-oracles/IArbitraryValueOracle.sol": "IArbitraryValueOracle"
+      },
+      "libraries": {}
+    },
+    "sources": {
+      "contracts/persistent/arbitrary-value-oracles/IArbitraryValueOracle.sol": {
+        "keccak256": "0x333a51889276bf987405f310cf4c585f51f86bf496c658e0451412123f675890",
+        "urls": [
+          "bzz-raw://ad4e7e1f597bd399c48c27b391c669893e6b557dbdd06a1725070ac29d087cf0",
+          "dweb:/ipfs/QmQrWo7nActQP5Ahh1SzkRNfpxbsPQLgNd3rUkNGUfDPKW"
+        ],
+        "license": "GPL-3.0"
+      }
+    },
+    "version": 1
+  },
+  "ast": {
+    "absolutePath": "contracts/persistent/arbitrary-value-oracles/IArbitraryValueOracle.sol",
+    "id": 2939,
+    "exportedSymbols": {
+      "IArbitraryValueOracle": [
+        2938
+      ]
+    },
+    "nodeType": "SourceUnit",
+    "src": "253:396:16",
+    "nodes": [
+      {
+        "id": 2919,
+        "nodeType": "PragmaDirective",
+        "src": "253:23:16",
+        "nodes": [],
+        "literals": [
+          "solidity",
+          "0.6",
+          ".12"
+        ]
+      },
+      {
+        "id": 2938,
+        "nodeType": "ContractDefinition",
+        "src": "374:274:16",
+        "nodes": [
+          {
+            "id": 2925,
+            "nodeType": "FunctionDefinition",
+            "src": "412:71:16",
+            "nodes": [],
+            "documentation": null,
+            "functionSelector": "78121dd4",
+            "implemented": false,
+            "kind": "function",
+            "modifiers": [],
+            "name": "getLastUpdated",
+            "overrides": null,
+            "parameters": {
+              "id": 2921,
+              "nodeType": "ParameterList",
+              "parameters": [],
+              "src": "435:2:16"
+            },
+            "returnParameters": {
+              "id": 2924,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 2923,
+                  "mutability": "mutable",
+                  "name": "lastUpdated_",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 2925,
+                  "src": "461:20:16",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_uint256",
+                    "typeString": "uint256"
+                  },
+                  "typeName": {
+                    "id": 2922,
+                    "name": "uint256",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "461:7:16",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_uint256",
+                      "typeString": "uint256"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "460:22:16"
+            },
+            "scope": 2938,
+            "stateMutability": "view",
+            "virtual": false,
+            "visibility": "external"
+          },
+          {
+            "id": 2930,
+            "nodeType": "FunctionDefinition",
+            "src": "489:58:16",
+            "nodes": [],
+            "documentation": null,
+            "functionSelector": "20965255",
+            "implemented": false,
+            "kind": "function",
+            "modifiers": [],
+            "name": "getValue",
+            "overrides": null,
+            "parameters": {
+              "id": 2926,
+              "nodeType": "ParameterList",
+              "parameters": [],
+              "src": "506:2:16"
+            },
+            "returnParameters": {
+              "id": 2929,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 2928,
+                  "mutability": "mutable",
+                  "name": "value_",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 2930,
+                  "src": "532:13:16",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_int256",
+                    "typeString": "int256"
+                  },
+                  "typeName": {
+                    "id": 2927,
+                    "name": "int256",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "532:6:16",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_int256",
+                      "typeString": "int256"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "531:15:16"
+            },
+            "scope": 2938,
+            "stateMutability": "view",
+            "virtual": false,
+            "visibility": "external"
+          },
+          {
+            "id": 2937,
+            "nodeType": "FunctionDefinition",
+            "src": "553:93:16",
+            "nodes": [],
+            "documentation": null,
+            "functionSelector": "4def9855",
+            "implemented": false,
+            "kind": "function",
+            "modifiers": [],
+            "name": "getValueWithTimestamp",
+            "overrides": null,
+            "parameters": {
+              "id": 2931,
+              "nodeType": "ParameterList",
+              "parameters": [],
+              "src": "583:2:16"
+            },
+            "returnParameters": {
+              "id": 2936,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 2933,
+                  "mutability": "mutable",
+                  "name": "value_",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 2937,
+                  "src": "609:13:16",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_int256",
+                    "typeString": "int256"
+                  },
+                  "typeName": {
+                    "id": 2932,
+                    "name": "int256",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "609:6:16",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_int256",
+                      "typeString": "int256"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 2935,
+                  "mutability": "mutable",
+                  "name": "lastUpdated_",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 2937,
+                  "src": "624:20:16",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_uint256",
+                    "typeString": "uint256"
+                  },
+                  "typeName": {
+                    "id": 2934,
+                    "name": "uint256",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "624:7:16",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_uint256",
+                      "typeString": "uint256"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "608:37:16"
+            },
+            "scope": 2938,
+            "stateMutability": "view",
+            "virtual": false,
+            "visibility": "external"
+          }
+        ],
+        "abstract": false,
+        "baseContracts": [],
+        "contractDependencies": [],
+        "contractKind": "interface",
+        "documentation": {
+          "id": 2920,
+          "nodeType": "StructuredDocumentation",
+          "src": "278:96:16",
+          "text": "@title IArbitraryValueOracle Interface\n @author Enzyme Council <security@enzyme.finance>"
+        },
+        "fullyImplemented": false,
+        "linearizedBaseContracts": [
+          2938
+        ],
+        "name": "IArbitraryValueOracle",
+        "scope": 2939
+      }
+    ],
+    "license": "GPL-3.0"
+  },
+  "id": 16
+}

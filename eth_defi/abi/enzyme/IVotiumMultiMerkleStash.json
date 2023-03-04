@@ -1,7 +1,4 @@
 {
-  "_format": "hh-sol-artifact-1",
-  "contractName": "IVotiumMultiMerkleStash",
-  "sourceName": "contracts/release/interfaces/IVotiumMultiMerkleStash.sol",
   "abi": [
     {
       "inputs": [
@@ -44,8 +41,413 @@
       "type": "function"
     }
   ],
-  "bytecode": "0x",
-  "deployedBytecode": "0x",
-  "linkReferences": {},
-  "deployedLinkReferences": {}
+  "bytecode": {
+    "object": "0x",
+    "sourceMap": "",
+    "linkReferences": {}
+  },
+  "deployedBytecode": {
+    "object": "0x",
+    "sourceMap": "",
+    "linkReferences": {}
+  },
+  "methodIdentifiers": {
+    "claimMulti(address,(address,uint256,uint256,bytes32[])[])": "20ce64de"
+  },
+  "rawMetadata": "{\"compiler\":{\"version\":\"0.6.12+commit.27d51765\"},\"language\":\"Solidity\",\"output\":{\"abi\":[{\"inputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"},{\"components\":[{\"internalType\":\"address\",\"name\":\"token\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"index\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\"},{\"internalType\":\"bytes32[]\",\"name\":\"merkleProof\",\"type\":\"bytes32[]\"}],\"internalType\":\"struct IVotiumMultiMerkleStash.ClaimParam[]\",\"name\":\"\",\"type\":\"tuple[]\"}],\"name\":\"claimMulti\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"}],\"devdoc\":{\"author\":\"Enzyme Council <security@enzyme.finance>\",\"kind\":\"dev\",\"methods\":{},\"title\":\"IVotiumMultiMerkleStash Interface\",\"version\":1},\"userdoc\":{\"kind\":\"user\",\"methods\":{},\"version\":1}},\"settings\":{\"compilationTarget\":{\"contracts/release/interfaces/IVotiumMultiMerkleStash.sol\":\"IVotiumMultiMerkleStash\"},\"evmVersion\":\"istanbul\",\"libraries\":{},\"metadata\":{\"bytecodeHash\":\"none\"},\"optimizer\":{\"details\":{\"constantOptimizer\":true,\"cse\":true,\"deduplicate\":true,\"jumpdestRemover\":true,\"orderLiterals\":true,\"peephole\":true,\"yul\":false},\"runs\":200},\"remappings\":[\":@enzyme/=contracts/\",\":@openzeppelin-solc-0.7/=node_modules/@openzeppelin-solc-0.7/\",\":@openzeppelin/=node_modules/@openzeppelin/\",\":@uniswap/=node_modules/@uniswap/\",\":base64-sol/=node_modules/base64-sol/\",\":ds-test/=lib/forge-std/lib/ds-test/src/\",\":forge-std/=lib/forge-std/src/\",\":hardhat-deploy/=node_modules/hardhat-deploy/\",\":hardhat/=node_modules/hardhat/\"]},\"sources\":{\"contracts/release/interfaces/IVotiumMultiMerkleStash.sol\":{\"keccak256\":\"0x457bd31cabe3ea8427546bf14112f50a866b5eae3b2e1089a64acda8d6a7bb29\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://fae1df3cf61c2841987b8227a6c1cb7d0a487f62bcc4fce6d5ac40387dedf517\",\"dweb:/ipfs/QmRv4t9nK1tQ7fWnLeyCYCe8fzCSo2E1PnA9o3TPUBMVeW\"]}},\"version\":1}",
+  "metadata": {
+    "compiler": {
+      "version": "0.6.12+commit.27d51765"
+    },
+    "language": "Solidity",
+    "output": {
+      "abi": [
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "",
+              "type": "address"
+            },
+            {
+              "internalType": "struct IVotiumMultiMerkleStash.ClaimParam[]",
+              "name": "",
+              "type": "tuple[]",
+              "components": [
+                {
+                  "internalType": "address",
+                  "name": "token",
+                  "type": "address"
+                },
+                {
+                  "internalType": "uint256",
+                  "name": "index",
+                  "type": "uint256"
+                },
+                {
+                  "internalType": "uint256",
+                  "name": "amount",
+                  "type": "uint256"
+                },
+                {
+                  "internalType": "bytes32[]",
+                  "name": "merkleProof",
+                  "type": "bytes32[]"
+                }
+              ]
+            }
+          ],
+          "stateMutability": "nonpayable",
+          "type": "function",
+          "name": "claimMulti"
+        }
+      ],
+      "devdoc": {
+        "kind": "dev",
+        "methods": {},
+        "version": 1
+      },
+      "userdoc": {
+        "kind": "user",
+        "methods": {},
+        "version": 1
+      }
+    },
+    "settings": {
+      "remappings": [
+        ":@enzyme/=contracts/",
+        ":@openzeppelin-solc-0.7/=node_modules/@openzeppelin-solc-0.7/",
+        ":@openzeppelin/=node_modules/@openzeppelin/",
+        ":@uniswap/=node_modules/@uniswap/",
+        ":base64-sol/=node_modules/base64-sol/",
+        ":ds-test/=lib/forge-std/lib/ds-test/src/",
+        ":forge-std/=lib/forge-std/src/",
+        ":hardhat-deploy/=node_modules/hardhat-deploy/",
+        ":hardhat/=node_modules/hardhat/"
+      ],
+      "optimizer": {
+        "runs": 200,
+        "details": {
+          "peephole": true,
+          "jumpdestRemover": true,
+          "orderLiterals": true,
+          "deduplicate": true,
+          "cse": true,
+          "constantOptimizer": true,
+          "yul": false
+        }
+      },
+      "metadata": {
+        "bytecodeHash": "none"
+      },
+      "compilationTarget": {
+        "contracts/release/interfaces/IVotiumMultiMerkleStash.sol": "IVotiumMultiMerkleStash"
+      },
+      "libraries": {}
+    },
+    "sources": {
+      "contracts/release/interfaces/IVotiumMultiMerkleStash.sol": {
+        "keccak256": "0x457bd31cabe3ea8427546bf14112f50a866b5eae3b2e1089a64acda8d6a7bb29",
+        "urls": [
+          "bzz-raw://fae1df3cf61c2841987b8227a6c1cb7d0a487f62bcc4fce6d5ac40387dedf517",
+          "dweb:/ipfs/QmRv4t9nK1tQ7fWnLeyCYCe8fzCSo2E1PnA9o3TPUBMVeW"
+        ],
+        "license": "GPL-3.0"
+      }
+    },
+    "version": 1
+  },
+  "ast": {
+    "absolutePath": "contracts/release/interfaces/IVotiumMultiMerkleStash.sol",
+    "id": 73591,
+    "exportedSymbols": {
+      "IVotiumMultiMerkleStash": [
+        73590
+      ]
+    },
+    "nodeType": "SourceUnit",
+    "src": "253:393:343",
+    "nodes": [
+      {
+        "id": 73569,
+        "nodeType": "PragmaDirective",
+        "src": "253:23:343",
+        "nodes": [],
+        "literals": [
+          "solidity",
+          "0.6",
+          ".12"
+        ]
+      },
+      {
+        "id": 73570,
+        "nodeType": "PragmaDirective",
+        "src": "277:33:343",
+        "nodes": [],
+        "literals": [
+          "experimental",
+          "ABIEncoderV2"
+        ]
+      },
+      {
+        "id": 73590,
+        "nodeType": "ContractDefinition",
+        "src": "410:235:343",
+        "nodes": [
+          {
+            "id": 73581,
+            "nodeType": "StructDefinition",
+            "src": "450:126:343",
+            "nodes": [],
+            "canonicalName": "IVotiumMultiMerkleStash.ClaimParam",
+            "members": [
+              {
+                "constant": false,
+                "id": 73573,
+                "mutability": "mutable",
+                "name": "token",
+                "nodeType": "VariableDeclaration",
+                "overrides": null,
+                "scope": 73581,
+                "src": "478:13:343",
+                "stateVariable": false,
+                "storageLocation": "default",
+                "typeDescriptions": {
+                  "typeIdentifier": "t_address",
+                  "typeString": "address"
+                },
+                "typeName": {
+                  "id": 73572,
+                  "name": "address",
+                  "nodeType": "ElementaryTypeName",
+                  "src": "478:7:343",
+                  "stateMutability": "nonpayable",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  }
+                },
+                "value": null,
+                "visibility": "internal"
+              },
+              {
+                "constant": false,
+                "id": 73575,
+                "mutability": "mutable",
+                "name": "index",
+                "nodeType": "VariableDeclaration",
+                "overrides": null,
+                "scope": 73581,
+                "src": "501:13:343",
+                "stateVariable": false,
+                "storageLocation": "default",
+                "typeDescriptions": {
+                  "typeIdentifier": "t_uint256",
+                  "typeString": "uint256"
+                },
+                "typeName": {
+                  "id": 73574,
+                  "name": "uint256",
+                  "nodeType": "ElementaryTypeName",
+                  "src": "501:7:343",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_uint256",
+                    "typeString": "uint256"
+                  }
+                },
+                "value": null,
+                "visibility": "internal"
+              },
+              {
+                "constant": false,
+                "id": 73577,
+                "mutability": "mutable",
+                "name": "amount",
+                "nodeType": "VariableDeclaration",
+                "overrides": null,
+                "scope": 73581,
+                "src": "524:14:343",
+                "stateVariable": false,
+                "storageLocation": "default",
+                "typeDescriptions": {
+                  "typeIdentifier": "t_uint256",
+                  "typeString": "uint256"
+                },
+                "typeName": {
+                  "id": 73576,
+                  "name": "uint256",
+                  "nodeType": "ElementaryTypeName",
+                  "src": "524:7:343",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_uint256",
+                    "typeString": "uint256"
+                  }
+                },
+                "value": null,
+                "visibility": "internal"
+              },
+              {
+                "constant": false,
+                "id": 73580,
+                "mutability": "mutable",
+                "name": "merkleProof",
+                "nodeType": "VariableDeclaration",
+                "overrides": null,
+                "scope": 73581,
+                "src": "548:21:343",
+                "stateVariable": false,
+                "storageLocation": "default",
+                "typeDescriptions": {
+                  "typeIdentifier": "t_array$_t_bytes32_$dyn_storage_ptr",
+                  "typeString": "bytes32[]"
+                },
+                "typeName": {
+                  "baseType": {
+                    "id": 73578,
+                    "name": "bytes32",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "548:7:343",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_bytes32",
+                      "typeString": "bytes32"
+                    }
+                  },
+                  "id": 73579,
+                  "length": null,
+                  "nodeType": "ArrayTypeName",
+                  "src": "548:9:343",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_array$_t_bytes32_$dyn_storage_ptr",
+                    "typeString": "bytes32[]"
+                  }
+                },
+                "value": null,
+                "visibility": "internal"
+              }
+            ],
+            "name": "ClaimParam",
+            "scope": 73590,
+            "visibility": "public"
+          },
+          {
+            "id": 73589,
+            "nodeType": "FunctionDefinition",
+            "src": "582:61:343",
+            "nodes": [],
+            "documentation": null,
+            "functionSelector": "20ce64de",
+            "implemented": false,
+            "kind": "function",
+            "modifiers": [],
+            "name": "claimMulti",
+            "overrides": null,
+            "parameters": {
+              "id": 73587,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 73583,
+                  "mutability": "mutable",
+                  "name": "",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 73589,
+                  "src": "602:7:343",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 73582,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "602:7:343",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 73586,
+                  "mutability": "mutable",
+                  "name": "",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 73589,
+                  "src": "611:21:343",
+                  "stateVariable": false,
+                  "storageLocation": "calldata",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_array$_t_struct$_ClaimParam_$73581_calldata_ptr_$dyn_calldata_ptr",
+                    "typeString": "struct IVotiumMultiMerkleStash.ClaimParam[]"
+                  },
+                  "typeName": {
+                    "baseType": {
+                      "contractScope": null,
+                      "id": 73584,
+                      "name": "ClaimParam",
+                      "nodeType": "UserDefinedTypeName",
+                      "referencedDeclaration": 73581,
+                      "src": "611:10:343",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_struct$_ClaimParam_$73581_storage_ptr",
+                        "typeString": "struct IVotiumMultiMerkleStash.ClaimParam"
+                      }
+                    },
+                    "id": 73585,
+                    "length": null,
+                    "nodeType": "ArrayTypeName",
+                    "src": "611:12:343",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_array$_t_struct$_ClaimParam_$73581_storage_$dyn_storage_ptr",
+                      "typeString": "struct IVotiumMultiMerkleStash.ClaimParam[]"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "601:32:343"
+            },
+            "returnParameters": {
+              "id": 73588,
+              "nodeType": "ParameterList",
+              "parameters": [],
+              "src": "642:0:343"
+            },
+            "scope": 73590,
+            "stateMutability": "nonpayable",
+            "virtual": false,
+            "visibility": "external"
+          }
+        ],
+        "abstract": false,
+        "baseContracts": [],
+        "contractDependencies": [],
+        "contractKind": "interface",
+        "documentation": {
+          "id": 73571,
+          "nodeType": "StructuredDocumentation",
+          "src": "312:98:343",
+          "text": "@title IVotiumMultiMerkleStash Interface\n @author Enzyme Council <security@enzyme.finance>"
+        },
+        "fullyImplemented": false,
+        "linearizedBaseContracts": [
+          73590
+        ],
+        "name": "IVotiumMultiMerkleStash",
+        "scope": 73591
+      }
+    ],
+    "license": "GPL-3.0"
+  },
+  "id": 343
 }

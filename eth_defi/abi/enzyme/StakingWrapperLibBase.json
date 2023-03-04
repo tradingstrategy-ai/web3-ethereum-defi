@@ -1,7 +1,4 @@
 {
-  "_format": "hh-sol-artifact-1",
-  "contractName": "StakingWrapperLibBase",
-  "sourceName": "contracts/release/infrastructure/staking-wrappers/StakingWrapperLibBase.sol",
   "abi": [
     {
       "anonymous": false,
@@ -755,8 +752,1889 @@
       "type": "function"
     }
   ],
-  "bytecode": "0x",
-  "deployedBytecode": "0x",
-  "linkReferences": {},
-  "deployedLinkReferences": {}
+  "bytecode": {
+    "object": "0x",
+    "sourceMap": "",
+    "linkReferences": {}
+  },
+  "deployedBytecode": {
+    "object": "0x",
+    "sourceMap": "",
+    "linkReferences": {}
+  },
+  "methodIdentifiers": {
+    "allowance(address,address)": "dd62ed3e",
+    "approve(address,uint256)": "095ea7b3",
+    "balanceOf(address)": "70a08231",
+    "claimRewardsFor(address)": "1ac6d19d",
+    "decimals()": "313ce567",
+    "decreaseAllowance(address,uint256)": "a457c2d7",
+    "deposit(uint256)": "b6b55f25",
+    "depositTo(address,uint256)": "ffaad6a5",
+    "getRewardTokenAtIndex(uint256)": "a7d2793f",
+    "getRewardTokenCount()": "82e5d073",
+    "getRewardTokens()": "c4f59f9b",
+    "getTotalHarvestDataForRewardToken(address)": "9655dd61",
+    "getUserHarvestDataForRewardToken(address,address)": "093f6365",
+    "increaseAllowance(address,uint256)": "39509351",
+    "isPaused()": "b187bd26",
+    "name()": "06fdde03",
+    "symbol()": "95d89b41",
+    "togglePause(bool)": "57d159c6",
+    "totalSupply()": "18160ddd",
+    "transfer(address,uint256)": "a9059cbb",
+    "transferFrom(address,address,uint256)": "23b872dd",
+    "withdraw(uint256,bool)": "38d07436",
+    "withdrawTo(address,uint256,bool)": "73e2290c",
+    "withdrawToOnBehalf(address,address,uint256,bool)": "2cfafabe"
+  },
+  "rawMetadata": "{\"compiler\":{\"version\":\"0.6.12+commit.27d51765\"},\"language\":\"Solidity\",\"output\":{\"abi\":[{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"owner\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"spender\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"value\",\"type\":\"uint256\"}],\"name\":\"Approval\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"from\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"to\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\"}],\"name\":\"Deposited\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"bool\",\"name\":\"isPaused\",\"type\":\"bool\"}],\"name\":\"PauseToggled\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"address\",\"name\":\"token\",\"type\":\"address\"}],\"name\":\"RewardTokenAdded\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"address\",\"name\":\"caller\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"user\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"address[]\",\"name\":\"rewardTokens\",\"type\":\"address[]\"},{\"indexed\":false,\"internalType\":\"uint256[]\",\"name\":\"claimedAmounts\",\"type\":\"uint256[]\"}],\"name\":\"RewardsClaimed\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"string\",\"name\":\"name\",\"type\":\"string\"}],\"name\":\"TokenNameSet\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"string\",\"name\":\"symbol\",\"type\":\"string\"}],\"name\":\"TokenSymbolSet\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"rewardToken\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"integral\",\"type\":\"uint256\"}],\"name\":\"TotalHarvestIntegralUpdated\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"rewardToken\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"lastCheckpointBalance\",\"type\":\"uint256\"}],\"name\":\"TotalHarvestLastCheckpointBalanceUpdated\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"from\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"to\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"value\",\"type\":\"uint256\"}],\"name\":\"Transfer\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"user\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"rewardToken\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"integral\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"claimableReward\",\"type\":\"uint256\"}],\"name\":\"UserHarvestUpdated\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"caller\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"from\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"to\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\"}],\"name\":\"Withdrawn\",\"type\":\"event\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"owner\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"spender\",\"type\":\"address\"}],\"name\":\"allowance\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"spender\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\"}],\"name\":\"approve\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"account\",\"type\":\"address\"}],\"name\":\"balanceOf\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_for\",\"type\":\"address\"}],\"name\":\"claimRewardsFor\",\"outputs\":[{\"internalType\":\"address[]\",\"name\":\"rewardTokens_\",\"type\":\"address[]\"},{\"internalType\":\"uint256[]\",\"name\":\"claimedAmounts_\",\"type\":\"uint256[]\"}],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"decimals\",\"outputs\":[{\"internalType\":\"uint8\",\"name\":\"decimals_\",\"type\":\"uint8\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"spender\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"subtractedValue\",\"type\":\"uint256\"}],\"name\":\"decreaseAllowance\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_amount\",\"type\":\"uint256\"}],\"name\":\"deposit\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_to\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"_amount\",\"type\":\"uint256\"}],\"name\":\"depositTo\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_index\",\"type\":\"uint256\"}],\"name\":\"getRewardTokenAtIndex\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"rewardToken_\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getRewardTokenCount\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"count_\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getRewardTokens\",\"outputs\":[{\"internalType\":\"address[]\",\"name\":\"rewardTokens_\",\"type\":\"address[]\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_rewardToken\",\"type\":\"address\"}],\"name\":\"getTotalHarvestDataForRewardToken\",\"outputs\":[{\"components\":[{\"internalType\":\"uint128\",\"name\":\"integral\",\"type\":\"uint128\"},{\"internalType\":\"uint128\",\"name\":\"lastCheckpointBalance\",\"type\":\"uint128\"}],\"internalType\":\"struct IStakingWrapper.TotalHarvestData\",\"name\":\"totalHarvestData_\",\"type\":\"tuple\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_user\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"_rewardToken\",\"type\":\"address\"}],\"name\":\"getUserHarvestDataForRewardToken\",\"outputs\":[{\"components\":[{\"internalType\":\"uint128\",\"name\":\"integral\",\"type\":\"uint128\"},{\"internalType\":\"uint128\",\"name\":\"claimableReward\",\"type\":\"uint128\"}],\"internalType\":\"struct IStakingWrapper.UserHarvestData\",\"name\":\"userHarvestData_\",\"type\":\"tuple\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"spender\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"addedValue\",\"type\":\"uint256\"}],\"name\":\"increaseAllowance\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"isPaused\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"isPaused_\",\"type\":\"bool\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"name\",\"outputs\":[{\"internalType\":\"string\",\"name\":\"name_\",\"type\":\"string\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"symbol\",\"outputs\":[{\"internalType\":\"string\",\"name\":\"symbol_\",\"type\":\"string\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bool\",\"name\":\"_isPaused\",\"type\":\"bool\"}],\"name\":\"togglePause\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"totalSupply\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"recipient\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\"}],\"name\":\"transfer\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"sender\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"recipient\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\"}],\"name\":\"transferFrom\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_amount\",\"type\":\"uint256\"},{\"internalType\":\"bool\",\"name\":\"_claimRewards\",\"type\":\"bool\"}],\"name\":\"withdraw\",\"outputs\":[{\"internalType\":\"address[]\",\"name\":\"rewardTokens_\",\"type\":\"address[]\"},{\"internalType\":\"uint256[]\",\"name\":\"claimedAmounts_\",\"type\":\"uint256[]\"}],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_to\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"_amount\",\"type\":\"uint256\"},{\"internalType\":\"bool\",\"name\":\"_claimRewardsToHolder\",\"type\":\"bool\"}],\"name\":\"withdrawTo\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_onBehalf\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"_to\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"_amount\",\"type\":\"uint256\"},{\"internalType\":\"bool\",\"name\":\"_claimRewardsToHolder\",\"type\":\"bool\"}],\"name\":\"withdrawToOnBehalf\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"}],\"devdoc\":{\"author\":\"Enzyme Council <security@enzyme.finance>\",\"kind\":\"dev\",\"methods\":{\"allowance(address,address)\":{\"details\":\"See {IERC20-allowance}.\"},\"approve(address,uint256)\":{\"details\":\"See {IERC20-approve}. Requirements: - `spender` cannot be the zero address.\"},\"balanceOf(address)\":{\"details\":\"See {IERC20-balanceOf}.\"},\"claimRewardsFor(address)\":{\"details\":\"Can be called off-chain to simulate the total harvestable rewards for a particular user\",\"params\":{\"_for\":\"The account for which to claim rewards\"},\"returns\":{\"claimedAmounts_\":\"The reward token amounts claimed\",\"rewardTokens_\":\"The reward tokens\"}},\"decimals()\":{\"details\":\"Implementing contracts should override to set different decimals\",\"returns\":{\"decimals_\":\"The token decimals\"}},\"decreaseAllowance(address,uint256)\":{\"details\":\"Atomically decreases the allowance granted to `spender` by the caller. This is an alternative to {approve} that can be used as a mitigation for problems described in {IERC20-approve}. Emits an {Approval} event indicating the updated allowance. Requirements: - `spender` cannot be the zero address. - `spender` must have allowance for the caller of at least `subtractedValue`.\"},\"deposit(uint256)\":{\"params\":{\"_amount\":\"The amount of tokens to deposit\"}},\"depositTo(address,uint256)\":{\"params\":{\"_amount\":\"The amount of tokens to deposit\",\"_to\":\"The account to receive staking tokens\"}},\"getRewardTokenAtIndex(uint256)\":{\"returns\":{\"rewardToken_\":\"The reward token address\"}},\"getRewardTokenCount()\":{\"returns\":{\"count_\":\"The count\"}},\"getRewardTokens()\":{\"returns\":{\"rewardTokens_\":\"The reward tokens\"}},\"getTotalHarvestDataForRewardToken(address)\":{\"params\":{\"_rewardToken\":\"The reward token\"},\"returns\":{\"totalHarvestData_\":\"The TotalHarvestData\"}},\"getUserHarvestDataForRewardToken(address,address)\":{\"params\":{\"_rewardToken\":\"The reward token\",\"_user\":\"The account\"},\"returns\":{\"userHarvestData_\":\"The UserHarvestData\"}},\"increaseAllowance(address,uint256)\":{\"details\":\"Atomically increases the allowance granted to `spender` by the caller. This is an alternative to {approve} that can be used as a mitigation for problems described in {IERC20-approve}. Emits an {Approval} event indicating the updated allowance. Requirements: - `spender` cannot be the zero address.\"},\"isPaused()\":{\"returns\":{\"isPaused_\":\"True if paused\"}},\"name()\":{\"details\":\"Overrides the constructor-set storage for use in proxies\",\"returns\":{\"name_\":\"The token name\"}},\"symbol()\":{\"details\":\"Overrides the constructor-set storage for use in proxies\",\"returns\":{\"symbol_\":\"The token symbol\"}},\"togglePause(bool)\":{\"params\":{\"_isPaused\":\"True if next state is paused, false if unpaused\"}},\"totalSupply()\":{\"details\":\"See {IERC20-totalSupply}.\"},\"transfer(address,uint256)\":{\"details\":\"See {IERC20-transfer}. Requirements: - `recipient` cannot be the zero address. - the caller must have a balance of at least `amount`.\"},\"transferFrom(address,address,uint256)\":{\"details\":\"See {IERC20-transferFrom}. Emits an {Approval} event indicating the updated allowance. This is not required by the EIP. See the note at the beginning of {ERC20}. Requirements: - `sender` and `recipient` cannot be the zero address. - `sender` must have a balance of at least `amount`. - the caller must have allowance for ``sender``'s tokens of at least `amount`.\"},\"withdraw(uint256,bool)\":{\"details\":\"Setting `_claimRewards` to true will save gas over separate calls to withdraw + claim\",\"params\":{\"_amount\":\"The amount of tokens to withdraw\",\"_claimRewards\":\"True if accrued rewards should be claimed\"},\"returns\":{\"claimedAmounts_\":\"The reward token amounts claimed\",\"rewardTokens_\":\"The reward tokens\"}},\"withdrawTo(address,uint256,bool)\":{\"params\":{\"_amount\":\"The amount of tokens to withdraw\",\"_to\":\"The account to receive tokens\"}},\"withdrawToOnBehalf(address,address,uint256,bool)\":{\"details\":\"The caller must have an adequate ERC20.allowance() for _onBehalf\",\"params\":{\"_amount\":\"The amount of tokens to withdraw\",\"_onBehalf\":\"The account on behalf to withdraw\",\"_to\":\"The account to receive tokens\"}}},\"title\":\"StakingWrapperLibBase Contract\",\"version\":1},\"userdoc\":{\"kind\":\"user\",\"methods\":{\"claimRewardsFor(address)\":{\"notice\":\"Claims all rewards for a given account\"},\"decimals()\":{\"notice\":\"Gets the token decimals\"},\"deposit(uint256)\":{\"notice\":\"Deposits tokens to be staked, minting staking token to sender\"},\"depositTo(address,uint256)\":{\"notice\":\"Deposits tokens to be staked, minting staking token to a specified account\"},\"getRewardTokenAtIndex(uint256)\":{\"notice\":\"Gets the reward token at a particular index\"},\"getRewardTokenCount()\":{\"notice\":\"Gets the count of reward tokens being harvested\"},\"getRewardTokens()\":{\"notice\":\"Gets all reward tokens being harvested\"},\"getTotalHarvestDataForRewardToken(address)\":{\"notice\":\"Gets the TotalHarvestData for a specified reward token\"},\"getUserHarvestDataForRewardToken(address,address)\":{\"notice\":\"Gets the UserHarvestData for a specified account and reward token\"},\"isPaused()\":{\"notice\":\"Checks if deposits and new reward harvesting are paused\"},\"name()\":{\"notice\":\"Gets the token name\"},\"symbol()\":{\"notice\":\"Gets the token symbol\"},\"togglePause(bool)\":{\"notice\":\"Toggles pause for deposit and harvesting new rewards\"},\"withdraw(uint256,bool)\":{\"notice\":\"Withdraws staked tokens, returning tokens to the sender, and optionally claiming rewards\"},\"withdrawTo(address,uint256,bool)\":{\"notice\":\"Withdraws staked tokens, returning tokens to a specified account, and optionally claims rewards to the staked token holder\"},\"withdrawToOnBehalf(address,address,uint256,bool)\":{\"notice\":\"Withdraws staked tokens on behalf of AccountA, returning tokens to a specified AccountB, and optionally claims rewards to the staked token holder\"}},\"notice\":\"A staking wrapper base for proxy targets, extending StakingWrapperBase\",\"version\":1}},\"settings\":{\"compilationTarget\":{\"contracts/release/infrastructure/staking-wrappers/StakingWrapperLibBase.sol\":\"StakingWrapperLibBase\"},\"evmVersion\":\"istanbul\",\"libraries\":{},\"metadata\":{\"bytecodeHash\":\"none\"},\"optimizer\":{\"details\":{\"constantOptimizer\":true,\"cse\":true,\"deduplicate\":true,\"jumpdestRemover\":true,\"orderLiterals\":true,\"peephole\":true,\"yul\":false},\"runs\":200},\"remappings\":[\":@enzyme/=contracts/\",\":@openzeppelin-solc-0.7/=node_modules/@openzeppelin-solc-0.7/\",\":@openzeppelin/=node_modules/@openzeppelin/\",\":@uniswap/=node_modules/@uniswap/\",\":base64-sol/=node_modules/base64-sol/\",\":ds-test/=lib/forge-std/lib/ds-test/src/\",\":forge-std/=lib/forge-std/src/\",\":hardhat-deploy/=node_modules/hardhat-deploy/\",\":hardhat/=node_modules/hardhat/\"]},\"sources\":{\"contracts/release/infrastructure/staking-wrappers/IStakingWrapper.sol\":{\"keccak256\":\"0xaeb9aba4e74eb3243a85090fded7b157969cf83e1f4159b1da2f662a3e7b15be\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://92346911c044a54808d2d425fe58c6dc9594dfafb8d83496f6599e3bc23803d0\",\"dweb:/ipfs/QmYWf7yx9ZfUnP81K1hjvApthqNhpXzUhGuFBm4gX1aDRB\"]},\"contracts/release/infrastructure/staking-wrappers/StakingWrapperBase.sol\":{\"keccak256\":\"0x3e28050fbe625f1469701b231772ce321e719ddbce4f84b6caa1d8d634a4234a\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://f0871b7d6b595e444e598f68751225a596d969267c289a465462fdeb67530fc8\",\"dweb:/ipfs/QmX2z5QGP3kpKx9ruGnZHYH5bDCD9sjRGTRhg9SRiowctg\"]},\"contracts/release/infrastructure/staking-wrappers/StakingWrapperLibBase.sol\":{\"keccak256\":\"0x94d4057419743d9354d77774e1e5279a5ed2fc70012ef28115357f9921bfb5be\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://d1e461f460a0339cada6cdfb0107bde47d236b336fec0ed470235ce7928666bb\",\"dweb:/ipfs/QmcMzSrcWTKyqgBAACVCidd2dpMfbeUtcQYu4D1ASiyFzk\"]},\"contracts/release/utils/AddressArrayLib.sol\":{\"keccak256\":\"0xd76e220cc754d7c939e54c18d4060f843ca798bccaf9a9dbbd428e38d0f0960f\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://bf0cbaedaec3390b6912ecef7bf62b2e8ec00d7f2b4f0045bab121b812e6f9d6\",\"dweb:/ipfs/QmSd5kxsv5x37TXeRDD91YmVCVA3GVFishdVyC2B9ed9ap\"]},\"node_modules/@openzeppelin/contracts/math/SafeMath.sol\":{\"keccak256\":\"0xcc78a17dd88fa5a2edc60c8489e2f405c0913b377216a5b26b35656b2d0dab52\",\"license\":\"MIT\",\"urls\":[\"bzz-raw://526dc85e1f9b9b45830e202568d267d93dde7a4fcccf4ad7798dadcd92304d3c\",\"dweb:/ipfs/QmaoXMB972J3cSDLtBq3xBo4jLwqD2uzXTwujtSPqkYVhR\"]},\"node_modules/@openzeppelin/contracts/token/ERC20/ERC20.sol\":{\"keccak256\":\"0xca0c2396dbeb3503b51abf4248ebf77a1461edad513c01529df51850a012bee3\",\"license\":\"MIT\",\"urls\":[\"bzz-raw://991b44ff44e0496e8554a90f4c0512c28faed45104d40430019f3c67ea67740e\",\"dweb:/ipfs/Qmc3nRapVbcctELoZS5qe17zLkFB3bETBfwzCTMF1CSuGE\"]},\"node_modules/@openzeppelin/contracts/token/ERC20/IERC20.sol\":{\"keccak256\":\"0x5f02220344881ce43204ae4a6281145a67bc52c2bb1290a791857df3d19d78f5\",\"license\":\"MIT\",\"urls\":[\"bzz-raw://24427744bd3e6cb73c17010119af12a318289c0253a4d9acb8576c9fb3797b08\",\"dweb:/ipfs/QmTLDqpKRBuxGxRAmjgXt9AkXyACW3MtKzi7PYjm5iMfGC\"]},\"node_modules/@openzeppelin/contracts/token/ERC20/SafeERC20.sol\":{\"keccak256\":\"0xf12dfbe97e6276980b83d2830bb0eb75e0cf4f3e626c2471137f82158ae6a0fc\",\"license\":\"MIT\",\"urls\":[\"bzz-raw://b3a849c2d95e85463909e5b5c920b13e7a11216ca14127085e16d22b9379d52a\",\"dweb:/ipfs/QmUg3CZDbCCcQdroEpexBy5ZFd5vD1UWijWQq9qHZjtJNQ\"]},\"node_modules/@openzeppelin/contracts/utils/Address.sol\":{\"keccak256\":\"0x28911e614500ae7c607a432a709d35da25f3bc5ddc8bd12b278b66358070c0ea\",\"license\":\"MIT\",\"urls\":[\"bzz-raw://256c8c8af5eb072bc473226ab2b2187149b8fc04f5f4a4820db22527f5ce8e3c\",\"dweb:/ipfs/QmRvi5BhnL7Rxf85KrJhwM6RRhukm4tzoctRdgQEheNyiN\"]},\"node_modules/@openzeppelin/contracts/utils/Context.sol\":{\"keccak256\":\"0x8d3cb350f04ff49cfb10aef08d87f19dcbaecc8027b0bed12f3275cd12f38cf0\",\"license\":\"MIT\",\"urls\":[\"bzz-raw://ded47ec7c96750f9bd04bbbc84f659992d4ba901cb7b532a52cd468272cf378f\",\"dweb:/ipfs/QmfBrGtQP7rZEqEg6Wz6jh2N2Kukpj1z5v3CGWmAqrzm96\"]},\"node_modules/@openzeppelin/contracts/utils/ReentrancyGuard.sol\":{\"keccak256\":\"0x8bbbc2f5c10065ee272592ae0a7a6ceb23de2fbd81564ee0bb015ecf404d5f61\",\"license\":\"MIT\",\"urls\":[\"bzz-raw://b95e56c1640d0ef789fc5c16269e141e992f6c8ac97cc6d377bd3825e9cab182\",\"dweb:/ipfs/QmVzaxJZY51EhagrcNnkxoU6Uq17RhATe7aHvtkC6wUkgK\"]}},\"version\":1}",
+  "metadata": {
+    "compiler": {
+      "version": "0.6.12+commit.27d51765"
+    },
+    "language": "Solidity",
+    "output": {
+      "abi": [
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "owner",
+              "type": "address",
+              "indexed": true
+            },
+            {
+              "internalType": "address",
+              "name": "spender",
+              "type": "address",
+              "indexed": true
+            },
+            {
+              "internalType": "uint256",
+              "name": "value",
+              "type": "uint256",
+              "indexed": false
+            }
+          ],
+          "type": "event",
+          "name": "Approval",
+          "anonymous": false
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "from",
+              "type": "address",
+              "indexed": true
+            },
+            {
+              "internalType": "address",
+              "name": "to",
+              "type": "address",
+              "indexed": true
+            },
+            {
+              "internalType": "uint256",
+              "name": "amount",
+              "type": "uint256",
+              "indexed": false
+            }
+          ],
+          "type": "event",
+          "name": "Deposited",
+          "anonymous": false
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "bool",
+              "name": "isPaused",
+              "type": "bool",
+              "indexed": false
+            }
+          ],
+          "type": "event",
+          "name": "PauseToggled",
+          "anonymous": false
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "token",
+              "type": "address",
+              "indexed": false
+            }
+          ],
+          "type": "event",
+          "name": "RewardTokenAdded",
+          "anonymous": false
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "caller",
+              "type": "address",
+              "indexed": false
+            },
+            {
+              "internalType": "address",
+              "name": "user",
+              "type": "address",
+              "indexed": true
+            },
+            {
+              "internalType": "address[]",
+              "name": "rewardTokens",
+              "type": "address[]",
+              "indexed": false
+            },
+            {
+              "internalType": "uint256[]",
+              "name": "claimedAmounts",
+              "type": "uint256[]",
+              "indexed": false
+            }
+          ],
+          "type": "event",
+          "name": "RewardsClaimed",
+          "anonymous": false
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "string",
+              "name": "name",
+              "type": "string",
+              "indexed": false
+            }
+          ],
+          "type": "event",
+          "name": "TokenNameSet",
+          "anonymous": false
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "string",
+              "name": "symbol",
+              "type": "string",
+              "indexed": false
+            }
+          ],
+          "type": "event",
+          "name": "TokenSymbolSet",
+          "anonymous": false
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "rewardToken",
+              "type": "address",
+              "indexed": true
+            },
+            {
+              "internalType": "uint256",
+              "name": "integral",
+              "type": "uint256",
+              "indexed": false
+            }
+          ],
+          "type": "event",
+          "name": "TotalHarvestIntegralUpdated",
+          "anonymous": false
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "rewardToken",
+              "type": "address",
+              "indexed": true
+            },
+            {
+              "internalType": "uint256",
+              "name": "lastCheckpointBalance",
+              "type": "uint256",
+              "indexed": false
+            }
+          ],
+          "type": "event",
+          "name": "TotalHarvestLastCheckpointBalanceUpdated",
+          "anonymous": false
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "from",
+              "type": "address",
+              "indexed": true
+            },
+            {
+              "internalType": "address",
+              "name": "to",
+              "type": "address",
+              "indexed": true
+            },
+            {
+              "internalType": "uint256",
+              "name": "value",
+              "type": "uint256",
+              "indexed": false
+            }
+          ],
+          "type": "event",
+          "name": "Transfer",
+          "anonymous": false
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "user",
+              "type": "address",
+              "indexed": true
+            },
+            {
+              "internalType": "address",
+              "name": "rewardToken",
+              "type": "address",
+              "indexed": true
+            },
+            {
+              "internalType": "uint256",
+              "name": "integral",
+              "type": "uint256",
+              "indexed": false
+            },
+            {
+              "internalType": "uint256",
+              "name": "claimableReward",
+              "type": "uint256",
+              "indexed": false
+            }
+          ],
+          "type": "event",
+          "name": "UserHarvestUpdated",
+          "anonymous": false
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "caller",
+              "type": "address",
+              "indexed": true
+            },
+            {
+              "internalType": "address",
+              "name": "from",
+              "type": "address",
+              "indexed": true
+            },
+            {
+              "internalType": "address",
+              "name": "to",
+              "type": "address",
+              "indexed": true
+            },
+            {
+              "internalType": "uint256",
+              "name": "amount",
+              "type": "uint256",
+              "indexed": false
+            }
+          ],
+          "type": "event",
+          "name": "Withdrawn",
+          "anonymous": false
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "owner",
+              "type": "address"
+            },
+            {
+              "internalType": "address",
+              "name": "spender",
+              "type": "address"
+            }
+          ],
+          "stateMutability": "view",
+          "type": "function",
+          "name": "allowance",
+          "outputs": [
+            {
+              "internalType": "uint256",
+              "name": "",
+              "type": "uint256"
+            }
+          ]
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "spender",
+              "type": "address"
+            },
+            {
+              "internalType": "uint256",
+              "name": "amount",
+              "type": "uint256"
+            }
+          ],
+          "stateMutability": "nonpayable",
+          "type": "function",
+          "name": "approve",
+          "outputs": [
+            {
+              "internalType": "bool",
+              "name": "",
+              "type": "bool"
+            }
+          ]
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "account",
+              "type": "address"
+            }
+          ],
+          "stateMutability": "view",
+          "type": "function",
+          "name": "balanceOf",
+          "outputs": [
+            {
+              "internalType": "uint256",
+              "name": "",
+              "type": "uint256"
+            }
+          ]
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "_for",
+              "type": "address"
+            }
+          ],
+          "stateMutability": "nonpayable",
+          "type": "function",
+          "name": "claimRewardsFor",
+          "outputs": [
+            {
+              "internalType": "address[]",
+              "name": "rewardTokens_",
+              "type": "address[]"
+            },
+            {
+              "internalType": "uint256[]",
+              "name": "claimedAmounts_",
+              "type": "uint256[]"
+            }
+          ]
+        },
+        {
+          "inputs": [],
+          "stateMutability": "view",
+          "type": "function",
+          "name": "decimals",
+          "outputs": [
+            {
+              "internalType": "uint8",
+              "name": "decimals_",
+              "type": "uint8"
+            }
+          ]
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "spender",
+              "type": "address"
+            },
+            {
+              "internalType": "uint256",
+              "name": "subtractedValue",
+              "type": "uint256"
+            }
+          ],
+          "stateMutability": "nonpayable",
+          "type": "function",
+          "name": "decreaseAllowance",
+          "outputs": [
+            {
+              "internalType": "bool",
+              "name": "",
+              "type": "bool"
+            }
+          ]
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "uint256",
+              "name": "_amount",
+              "type": "uint256"
+            }
+          ],
+          "stateMutability": "nonpayable",
+          "type": "function",
+          "name": "deposit"
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "_to",
+              "type": "address"
+            },
+            {
+              "internalType": "uint256",
+              "name": "_amount",
+              "type": "uint256"
+            }
+          ],
+          "stateMutability": "nonpayable",
+          "type": "function",
+          "name": "depositTo"
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "uint256",
+              "name": "_index",
+              "type": "uint256"
+            }
+          ],
+          "stateMutability": "view",
+          "type": "function",
+          "name": "getRewardTokenAtIndex",
+          "outputs": [
+            {
+              "internalType": "address",
+              "name": "rewardToken_",
+              "type": "address"
+            }
+          ]
+        },
+        {
+          "inputs": [],
+          "stateMutability": "view",
+          "type": "function",
+          "name": "getRewardTokenCount",
+          "outputs": [
+            {
+              "internalType": "uint256",
+              "name": "count_",
+              "type": "uint256"
+            }
+          ]
+        },
+        {
+          "inputs": [],
+          "stateMutability": "view",
+          "type": "function",
+          "name": "getRewardTokens",
+          "outputs": [
+            {
+              "internalType": "address[]",
+              "name": "rewardTokens_",
+              "type": "address[]"
+            }
+          ]
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "_rewardToken",
+              "type": "address"
+            }
+          ],
+          "stateMutability": "view",
+          "type": "function",
+          "name": "getTotalHarvestDataForRewardToken",
+          "outputs": [
+            {
+              "internalType": "struct IStakingWrapper.TotalHarvestData",
+              "name": "totalHarvestData_",
+              "type": "tuple",
+              "components": [
+                {
+                  "internalType": "uint128",
+                  "name": "integral",
+                  "type": "uint128"
+                },
+                {
+                  "internalType": "uint128",
+                  "name": "lastCheckpointBalance",
+                  "type": "uint128"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "_user",
+              "type": "address"
+            },
+            {
+              "internalType": "address",
+              "name": "_rewardToken",
+              "type": "address"
+            }
+          ],
+          "stateMutability": "view",
+          "type": "function",
+          "name": "getUserHarvestDataForRewardToken",
+          "outputs": [
+            {
+              "internalType": "struct IStakingWrapper.UserHarvestData",
+              "name": "userHarvestData_",
+              "type": "tuple",
+              "components": [
+                {
+                  "internalType": "uint128",
+                  "name": "integral",
+                  "type": "uint128"
+                },
+                {
+                  "internalType": "uint128",
+                  "name": "claimableReward",
+                  "type": "uint128"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "spender",
+              "type": "address"
+            },
+            {
+              "internalType": "uint256",
+              "name": "addedValue",
+              "type": "uint256"
+            }
+          ],
+          "stateMutability": "nonpayable",
+          "type": "function",
+          "name": "increaseAllowance",
+          "outputs": [
+            {
+              "internalType": "bool",
+              "name": "",
+              "type": "bool"
+            }
+          ]
+        },
+        {
+          "inputs": [],
+          "stateMutability": "view",
+          "type": "function",
+          "name": "isPaused",
+          "outputs": [
+            {
+              "internalType": "bool",
+              "name": "isPaused_",
+              "type": "bool"
+            }
+          ]
+        },
+        {
+          "inputs": [],
+          "stateMutability": "view",
+          "type": "function",
+          "name": "name",
+          "outputs": [
+            {
+              "internalType": "string",
+              "name": "name_",
+              "type": "string"
+            }
+          ]
+        },
+        {
+          "inputs": [],
+          "stateMutability": "view",
+          "type": "function",
+          "name": "symbol",
+          "outputs": [
+            {
+              "internalType": "string",
+              "name": "symbol_",
+              "type": "string"
+            }
+          ]
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "bool",
+              "name": "_isPaused",
+              "type": "bool"
+            }
+          ],
+          "stateMutability": "nonpayable",
+          "type": "function",
+          "name": "togglePause"
+        },
+        {
+          "inputs": [],
+          "stateMutability": "view",
+          "type": "function",
+          "name": "totalSupply",
+          "outputs": [
+            {
+              "internalType": "uint256",
+              "name": "",
+              "type": "uint256"
+            }
+          ]
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "recipient",
+              "type": "address"
+            },
+            {
+              "internalType": "uint256",
+              "name": "amount",
+              "type": "uint256"
+            }
+          ],
+          "stateMutability": "nonpayable",
+          "type": "function",
+          "name": "transfer",
+          "outputs": [
+            {
+              "internalType": "bool",
+              "name": "",
+              "type": "bool"
+            }
+          ]
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "sender",
+              "type": "address"
+            },
+            {
+              "internalType": "address",
+              "name": "recipient",
+              "type": "address"
+            },
+            {
+              "internalType": "uint256",
+              "name": "amount",
+              "type": "uint256"
+            }
+          ],
+          "stateMutability": "nonpayable",
+          "type": "function",
+          "name": "transferFrom",
+          "outputs": [
+            {
+              "internalType": "bool",
+              "name": "",
+              "type": "bool"
+            }
+          ]
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "uint256",
+              "name": "_amount",
+              "type": "uint256"
+            },
+            {
+              "internalType": "bool",
+              "name": "_claimRewards",
+              "type": "bool"
+            }
+          ],
+          "stateMutability": "nonpayable",
+          "type": "function",
+          "name": "withdraw",
+          "outputs": [
+            {
+              "internalType": "address[]",
+              "name": "rewardTokens_",
+              "type": "address[]"
+            },
+            {
+              "internalType": "uint256[]",
+              "name": "claimedAmounts_",
+              "type": "uint256[]"
+            }
+          ]
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "_to",
+              "type": "address"
+            },
+            {
+              "internalType": "uint256",
+              "name": "_amount",
+              "type": "uint256"
+            },
+            {
+              "internalType": "bool",
+              "name": "_claimRewardsToHolder",
+              "type": "bool"
+            }
+          ],
+          "stateMutability": "nonpayable",
+          "type": "function",
+          "name": "withdrawTo"
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "_onBehalf",
+              "type": "address"
+            },
+            {
+              "internalType": "address",
+              "name": "_to",
+              "type": "address"
+            },
+            {
+              "internalType": "uint256",
+              "name": "_amount",
+              "type": "uint256"
+            },
+            {
+              "internalType": "bool",
+              "name": "_claimRewardsToHolder",
+              "type": "bool"
+            }
+          ],
+          "stateMutability": "nonpayable",
+          "type": "function",
+          "name": "withdrawToOnBehalf"
+        }
+      ],
+      "devdoc": {
+        "kind": "dev",
+        "methods": {
+          "allowance(address,address)": {
+            "details": "See {IERC20-allowance}."
+          },
+          "approve(address,uint256)": {
+            "details": "See {IERC20-approve}. Requirements: - `spender` cannot be the zero address."
+          },
+          "balanceOf(address)": {
+            "details": "See {IERC20-balanceOf}."
+          },
+          "claimRewardsFor(address)": {
+            "details": "Can be called off-chain to simulate the total harvestable rewards for a particular user",
+            "params": {
+              "_for": "The account for which to claim rewards"
+            },
+            "returns": {
+              "claimedAmounts_": "The reward token amounts claimed",
+              "rewardTokens_": "The reward tokens"
+            }
+          },
+          "decimals()": {
+            "details": "Implementing contracts should override to set different decimals",
+            "returns": {
+              "decimals_": "The token decimals"
+            }
+          },
+          "decreaseAllowance(address,uint256)": {
+            "details": "Atomically decreases the allowance granted to `spender` by the caller. This is an alternative to {approve} that can be used as a mitigation for problems described in {IERC20-approve}. Emits an {Approval} event indicating the updated allowance. Requirements: - `spender` cannot be the zero address. - `spender` must have allowance for the caller of at least `subtractedValue`."
+          },
+          "deposit(uint256)": {
+            "params": {
+              "_amount": "The amount of tokens to deposit"
+            }
+          },
+          "depositTo(address,uint256)": {
+            "params": {
+              "_amount": "The amount of tokens to deposit",
+              "_to": "The account to receive staking tokens"
+            }
+          },
+          "getRewardTokenAtIndex(uint256)": {
+            "returns": {
+              "rewardToken_": "The reward token address"
+            }
+          },
+          "getRewardTokenCount()": {
+            "returns": {
+              "count_": "The count"
+            }
+          },
+          "getRewardTokens()": {
+            "returns": {
+              "rewardTokens_": "The reward tokens"
+            }
+          },
+          "getTotalHarvestDataForRewardToken(address)": {
+            "params": {
+              "_rewardToken": "The reward token"
+            },
+            "returns": {
+              "totalHarvestData_": "The TotalHarvestData"
+            }
+          },
+          "getUserHarvestDataForRewardToken(address,address)": {
+            "params": {
+              "_rewardToken": "The reward token",
+              "_user": "The account"
+            },
+            "returns": {
+              "userHarvestData_": "The UserHarvestData"
+            }
+          },
+          "increaseAllowance(address,uint256)": {
+            "details": "Atomically increases the allowance granted to `spender` by the caller. This is an alternative to {approve} that can be used as a mitigation for problems described in {IERC20-approve}. Emits an {Approval} event indicating the updated allowance. Requirements: - `spender` cannot be the zero address."
+          },
+          "isPaused()": {
+            "returns": {
+              "isPaused_": "True if paused"
+            }
+          },
+          "name()": {
+            "details": "Overrides the constructor-set storage for use in proxies",
+            "returns": {
+              "name_": "The token name"
+            }
+          },
+          "symbol()": {
+            "details": "Overrides the constructor-set storage for use in proxies",
+            "returns": {
+              "symbol_": "The token symbol"
+            }
+          },
+          "togglePause(bool)": {
+            "params": {
+              "_isPaused": "True if next state is paused, false if unpaused"
+            }
+          },
+          "totalSupply()": {
+            "details": "See {IERC20-totalSupply}."
+          },
+          "transfer(address,uint256)": {
+            "details": "See {IERC20-transfer}. Requirements: - `recipient` cannot be the zero address. - the caller must have a balance of at least `amount`."
+          },
+          "transferFrom(address,address,uint256)": {
+            "details": "See {IERC20-transferFrom}. Emits an {Approval} event indicating the updated allowance. This is not required by the EIP. See the note at the beginning of {ERC20}. Requirements: - `sender` and `recipient` cannot be the zero address. - `sender` must have a balance of at least `amount`. - the caller must have allowance for ``sender``'s tokens of at least `amount`."
+          },
+          "withdraw(uint256,bool)": {
+            "details": "Setting `_claimRewards` to true will save gas over separate calls to withdraw + claim",
+            "params": {
+              "_amount": "The amount of tokens to withdraw",
+              "_claimRewards": "True if accrued rewards should be claimed"
+            },
+            "returns": {
+              "claimedAmounts_": "The reward token amounts claimed",
+              "rewardTokens_": "The reward tokens"
+            }
+          },
+          "withdrawTo(address,uint256,bool)": {
+            "params": {
+              "_amount": "The amount of tokens to withdraw",
+              "_to": "The account to receive tokens"
+            }
+          },
+          "withdrawToOnBehalf(address,address,uint256,bool)": {
+            "details": "The caller must have an adequate ERC20.allowance() for _onBehalf",
+            "params": {
+              "_amount": "The amount of tokens to withdraw",
+              "_onBehalf": "The account on behalf to withdraw",
+              "_to": "The account to receive tokens"
+            }
+          }
+        },
+        "version": 1
+      },
+      "userdoc": {
+        "kind": "user",
+        "methods": {
+          "claimRewardsFor(address)": {
+            "notice": "Claims all rewards for a given account"
+          },
+          "decimals()": {
+            "notice": "Gets the token decimals"
+          },
+          "deposit(uint256)": {
+            "notice": "Deposits tokens to be staked, minting staking token to sender"
+          },
+          "depositTo(address,uint256)": {
+            "notice": "Deposits tokens to be staked, minting staking token to a specified account"
+          },
+          "getRewardTokenAtIndex(uint256)": {
+            "notice": "Gets the reward token at a particular index"
+          },
+          "getRewardTokenCount()": {
+            "notice": "Gets the count of reward tokens being harvested"
+          },
+          "getRewardTokens()": {
+            "notice": "Gets all reward tokens being harvested"
+          },
+          "getTotalHarvestDataForRewardToken(address)": {
+            "notice": "Gets the TotalHarvestData for a specified reward token"
+          },
+          "getUserHarvestDataForRewardToken(address,address)": {
+            "notice": "Gets the UserHarvestData for a specified account and reward token"
+          },
+          "isPaused()": {
+            "notice": "Checks if deposits and new reward harvesting are paused"
+          },
+          "name()": {
+            "notice": "Gets the token name"
+          },
+          "symbol()": {
+            "notice": "Gets the token symbol"
+          },
+          "togglePause(bool)": {
+            "notice": "Toggles pause for deposit and harvesting new rewards"
+          },
+          "withdraw(uint256,bool)": {
+            "notice": "Withdraws staked tokens, returning tokens to the sender, and optionally claiming rewards"
+          },
+          "withdrawTo(address,uint256,bool)": {
+            "notice": "Withdraws staked tokens, returning tokens to a specified account, and optionally claims rewards to the staked token holder"
+          },
+          "withdrawToOnBehalf(address,address,uint256,bool)": {
+            "notice": "Withdraws staked tokens on behalf of AccountA, returning tokens to a specified AccountB, and optionally claims rewards to the staked token holder"
+          }
+        },
+        "version": 1
+      }
+    },
+    "settings": {
+      "remappings": [
+        ":@enzyme/=contracts/",
+        ":@openzeppelin-solc-0.7/=node_modules/@openzeppelin-solc-0.7/",
+        ":@openzeppelin/=node_modules/@openzeppelin/",
+        ":@uniswap/=node_modules/@uniswap/",
+        ":base64-sol/=node_modules/base64-sol/",
+        ":ds-test/=lib/forge-std/lib/ds-test/src/",
+        ":forge-std/=lib/forge-std/src/",
+        ":hardhat-deploy/=node_modules/hardhat-deploy/",
+        ":hardhat/=node_modules/hardhat/"
+      ],
+      "optimizer": {
+        "runs": 200,
+        "details": {
+          "peephole": true,
+          "jumpdestRemover": true,
+          "orderLiterals": true,
+          "deduplicate": true,
+          "cse": true,
+          "constantOptimizer": true,
+          "yul": false
+        }
+      },
+      "metadata": {
+        "bytecodeHash": "none"
+      },
+      "compilationTarget": {
+        "contracts/release/infrastructure/staking-wrappers/StakingWrapperLibBase.sol": "StakingWrapperLibBase"
+      },
+      "libraries": {}
+    },
+    "sources": {
+      "contracts/release/infrastructure/staking-wrappers/IStakingWrapper.sol": {
+        "keccak256": "0xaeb9aba4e74eb3243a85090fded7b157969cf83e1f4159b1da2f662a3e7b15be",
+        "urls": [
+          "bzz-raw://92346911c044a54808d2d425fe58c6dc9594dfafb8d83496f6599e3bc23803d0",
+          "dweb:/ipfs/QmYWf7yx9ZfUnP81K1hjvApthqNhpXzUhGuFBm4gX1aDRB"
+        ],
+        "license": "GPL-3.0"
+      },
+      "contracts/release/infrastructure/staking-wrappers/StakingWrapperBase.sol": {
+        "keccak256": "0x3e28050fbe625f1469701b231772ce321e719ddbce4f84b6caa1d8d634a4234a",
+        "urls": [
+          "bzz-raw://f0871b7d6b595e444e598f68751225a596d969267c289a465462fdeb67530fc8",
+          "dweb:/ipfs/QmX2z5QGP3kpKx9ruGnZHYH5bDCD9sjRGTRhg9SRiowctg"
+        ],
+        "license": "GPL-3.0"
+      },
+      "contracts/release/infrastructure/staking-wrappers/StakingWrapperLibBase.sol": {
+        "keccak256": "0x94d4057419743d9354d77774e1e5279a5ed2fc70012ef28115357f9921bfb5be",
+        "urls": [
+          "bzz-raw://d1e461f460a0339cada6cdfb0107bde47d236b336fec0ed470235ce7928666bb",
+          "dweb:/ipfs/QmcMzSrcWTKyqgBAACVCidd2dpMfbeUtcQYu4D1ASiyFzk"
+        ],
+        "license": "GPL-3.0"
+      },
+      "contracts/release/utils/AddressArrayLib.sol": {
+        "keccak256": "0xd76e220cc754d7c939e54c18d4060f843ca798bccaf9a9dbbd428e38d0f0960f",
+        "urls": [
+          "bzz-raw://bf0cbaedaec3390b6912ecef7bf62b2e8ec00d7f2b4f0045bab121b812e6f9d6",
+          "dweb:/ipfs/QmSd5kxsv5x37TXeRDD91YmVCVA3GVFishdVyC2B9ed9ap"
+        ],
+        "license": "GPL-3.0"
+      },
+      "node_modules/@openzeppelin/contracts/math/SafeMath.sol": {
+        "keccak256": "0xcc78a17dd88fa5a2edc60c8489e2f405c0913b377216a5b26b35656b2d0dab52",
+        "urls": [
+          "bzz-raw://526dc85e1f9b9b45830e202568d267d93dde7a4fcccf4ad7798dadcd92304d3c",
+          "dweb:/ipfs/QmaoXMB972J3cSDLtBq3xBo4jLwqD2uzXTwujtSPqkYVhR"
+        ],
+        "license": "MIT"
+      },
+      "node_modules/@openzeppelin/contracts/token/ERC20/ERC20.sol": {
+        "keccak256": "0xca0c2396dbeb3503b51abf4248ebf77a1461edad513c01529df51850a012bee3",
+        "urls": [
+          "bzz-raw://991b44ff44e0496e8554a90f4c0512c28faed45104d40430019f3c67ea67740e",
+          "dweb:/ipfs/Qmc3nRapVbcctELoZS5qe17zLkFB3bETBfwzCTMF1CSuGE"
+        ],
+        "license": "MIT"
+      },
+      "node_modules/@openzeppelin/contracts/token/ERC20/IERC20.sol": {
+        "keccak256": "0x5f02220344881ce43204ae4a6281145a67bc52c2bb1290a791857df3d19d78f5",
+        "urls": [
+          "bzz-raw://24427744bd3e6cb73c17010119af12a318289c0253a4d9acb8576c9fb3797b08",
+          "dweb:/ipfs/QmTLDqpKRBuxGxRAmjgXt9AkXyACW3MtKzi7PYjm5iMfGC"
+        ],
+        "license": "MIT"
+      },
+      "node_modules/@openzeppelin/contracts/token/ERC20/SafeERC20.sol": {
+        "keccak256": "0xf12dfbe97e6276980b83d2830bb0eb75e0cf4f3e626c2471137f82158ae6a0fc",
+        "urls": [
+          "bzz-raw://b3a849c2d95e85463909e5b5c920b13e7a11216ca14127085e16d22b9379d52a",
+          "dweb:/ipfs/QmUg3CZDbCCcQdroEpexBy5ZFd5vD1UWijWQq9qHZjtJNQ"
+        ],
+        "license": "MIT"
+      },
+      "node_modules/@openzeppelin/contracts/utils/Address.sol": {
+        "keccak256": "0x28911e614500ae7c607a432a709d35da25f3bc5ddc8bd12b278b66358070c0ea",
+        "urls": [
+          "bzz-raw://256c8c8af5eb072bc473226ab2b2187149b8fc04f5f4a4820db22527f5ce8e3c",
+          "dweb:/ipfs/QmRvi5BhnL7Rxf85KrJhwM6RRhukm4tzoctRdgQEheNyiN"
+        ],
+        "license": "MIT"
+      },
+      "node_modules/@openzeppelin/contracts/utils/Context.sol": {
+        "keccak256": "0x8d3cb350f04ff49cfb10aef08d87f19dcbaecc8027b0bed12f3275cd12f38cf0",
+        "urls": [
+          "bzz-raw://ded47ec7c96750f9bd04bbbc84f659992d4ba901cb7b532a52cd468272cf378f",
+          "dweb:/ipfs/QmfBrGtQP7rZEqEg6Wz6jh2N2Kukpj1z5v3CGWmAqrzm96"
+        ],
+        "license": "MIT"
+      },
+      "node_modules/@openzeppelin/contracts/utils/ReentrancyGuard.sol": {
+        "keccak256": "0x8bbbc2f5c10065ee272592ae0a7a6ceb23de2fbd81564ee0bb015ecf404d5f61",
+        "urls": [
+          "bzz-raw://b95e56c1640d0ef789fc5c16269e141e992f6c8ac97cc6d377bd3825e9cab182",
+          "dweb:/ipfs/QmVzaxJZY51EhagrcNnkxoU6Uq17RhATe7aHvtkC6wUkgK"
+        ],
+        "license": "MIT"
+      }
+    },
+    "version": 1
+  },
+  "ast": {
+    "absolutePath": "contracts/release/infrastructure/staking-wrappers/StakingWrapperLibBase.sol",
+    "id": 69592,
+    "exportedSymbols": {
+      "StakingWrapperLibBase": [
+        69591
+      ]
+    },
+    "nodeType": "SourceUnit",
+    "src": "255:1402:260",
+    "nodes": [
+      {
+        "id": 69524,
+        "nodeType": "PragmaDirective",
+        "src": "255:23:260",
+        "nodes": [],
+        "literals": [
+          "solidity",
+          "0.6",
+          ".12"
+        ]
+      },
+      {
+        "id": 69525,
+        "nodeType": "ImportDirective",
+        "src": "280:34:260",
+        "nodes": [],
+        "absolutePath": "contracts/release/infrastructure/staking-wrappers/StakingWrapperBase.sol",
+        "file": "./StakingWrapperBase.sol",
+        "scope": 69592,
+        "sourceUnit": 69523,
+        "symbolAliases": [],
+        "unitAlias": ""
+      },
+      {
+        "id": 69591,
+        "nodeType": "ContractDefinition",
+        "src": "494:1162:260",
+        "nodes": [
+          {
+            "id": 69532,
+            "nodeType": "EventDefinition",
+            "src": "562:32:260",
+            "nodes": [],
+            "anonymous": false,
+            "documentation": null,
+            "name": "TokenNameSet",
+            "parameters": {
+              "id": 69531,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 69530,
+                  "indexed": false,
+                  "mutability": "mutable",
+                  "name": "name",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 69532,
+                  "src": "581:11:260",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_string_memory_ptr",
+                    "typeString": "string"
+                  },
+                  "typeName": {
+                    "id": 69529,
+                    "name": "string",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "581:6:260",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_string_storage_ptr",
+                      "typeString": "string"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "580:13:260"
+            }
+          },
+          {
+            "id": 69536,
+            "nodeType": "EventDefinition",
+            "src": "600:36:260",
+            "nodes": [],
+            "anonymous": false,
+            "documentation": null,
+            "name": "TokenSymbolSet",
+            "parameters": {
+              "id": 69535,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 69534,
+                  "indexed": false,
+                  "mutability": "mutable",
+                  "name": "symbol",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 69536,
+                  "src": "621:13:260",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_string_memory_ptr",
+                    "typeString": "string"
+                  },
+                  "typeName": {
+                    "id": 69533,
+                    "name": "string",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "621:6:260",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_string_storage_ptr",
+                      "typeString": "string"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "620:15:260"
+            }
+          },
+          {
+            "id": 69538,
+            "nodeType": "VariableDeclaration",
+            "src": "642:24:260",
+            "nodes": [],
+            "constant": false,
+            "mutability": "mutable",
+            "name": "tokenName",
+            "overrides": null,
+            "scope": 69591,
+            "stateVariable": true,
+            "storageLocation": "default",
+            "typeDescriptions": {
+              "typeIdentifier": "t_string_storage",
+              "typeString": "string"
+            },
+            "typeName": {
+              "id": 69537,
+              "name": "string",
+              "nodeType": "ElementaryTypeName",
+              "src": "642:6:260",
+              "typeDescriptions": {
+                "typeIdentifier": "t_string_storage_ptr",
+                "typeString": "string"
+              }
+            },
+            "value": null,
+            "visibility": "private"
+          },
+          {
+            "id": 69540,
+            "nodeType": "VariableDeclaration",
+            "src": "672:26:260",
+            "nodes": [],
+            "constant": false,
+            "mutability": "mutable",
+            "name": "tokenSymbol",
+            "overrides": null,
+            "scope": 69591,
+            "stateVariable": true,
+            "storageLocation": "default",
+            "typeDescriptions": {
+              "typeIdentifier": "t_string_storage",
+              "typeString": "string"
+            },
+            "typeName": {
+              "id": 69539,
+              "name": "string",
+              "nodeType": "ElementaryTypeName",
+              "src": "672:6:260",
+              "typeDescriptions": {
+                "typeIdentifier": "t_string_storage_ptr",
+                "typeString": "string"
+              }
+            },
+            "value": null,
+            "visibility": "private"
+          },
+          {
+            "id": 69555,
+            "nodeType": "FunctionDefinition",
+            "src": "752:123:260",
+            "nodes": [],
+            "body": {
+              "id": 69554,
+              "nodeType": "Block",
+              "src": "806:69:260",
+              "nodes": [],
+              "statements": [
+                {
+                  "expression": {
+                    "argumentTypes": null,
+                    "id": 69548,
+                    "isConstant": false,
+                    "isLValue": false,
+                    "isPure": false,
+                    "lValueRequested": false,
+                    "leftHandSide": {
+                      "argumentTypes": null,
+                      "id": 69546,
+                      "name": "tokenName",
+                      "nodeType": "Identifier",
+                      "overloadedDeclarations": [],
+                      "referencedDeclaration": 69538,
+                      "src": "816:9:260",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_string_storage",
+                        "typeString": "string storage ref"
+                      }
+                    },
+                    "nodeType": "Assignment",
+                    "operator": "=",
+                    "rightHandSide": {
+                      "argumentTypes": null,
+                      "id": 69547,
+                      "name": "_name",
+                      "nodeType": "Identifier",
+                      "overloadedDeclarations": [],
+                      "referencedDeclaration": 69543,
+                      "src": "828:5:260",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_string_memory_ptr",
+                        "typeString": "string memory"
+                      }
+                    },
+                    "src": "816:17:260",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_string_storage",
+                      "typeString": "string storage ref"
+                    }
+                  },
+                  "id": 69549,
+                  "nodeType": "ExpressionStatement",
+                  "src": "816:17:260"
+                },
+                {
+                  "eventCall": {
+                    "argumentTypes": null,
+                    "arguments": [
+                      {
+                        "argumentTypes": null,
+                        "id": 69551,
+                        "name": "_name",
+                        "nodeType": "Identifier",
+                        "overloadedDeclarations": [],
+                        "referencedDeclaration": 69543,
+                        "src": "862:5:260",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_string_memory_ptr",
+                          "typeString": "string memory"
+                        }
+                      }
+                    ],
+                    "expression": {
+                      "argumentTypes": [
+                        {
+                          "typeIdentifier": "t_string_memory_ptr",
+                          "typeString": "string memory"
+                        }
+                      ],
+                      "id": 69550,
+                      "name": "TokenNameSet",
+                      "nodeType": "Identifier",
+                      "overloadedDeclarations": [],
+                      "referencedDeclaration": 69532,
+                      "src": "849:12:260",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_function_event_nonpayable$_t_string_memory_ptr_$returns$__$",
+                        "typeString": "function (string memory)"
+                      }
+                    },
+                    "id": 69552,
+                    "isConstant": false,
+                    "isLValue": false,
+                    "isPure": false,
+                    "kind": "functionCall",
+                    "lValueRequested": false,
+                    "names": [],
+                    "nodeType": "FunctionCall",
+                    "src": "849:19:260",
+                    "tryCall": false,
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_tuple$__$",
+                      "typeString": "tuple()"
+                    }
+                  },
+                  "id": 69553,
+                  "nodeType": "EmitStatement",
+                  "src": "844:24:260"
+                }
+              ]
+            },
+            "documentation": {
+              "id": 69541,
+              "nodeType": "StructuredDocumentation",
+              "src": "705:42:260",
+              "text": "@dev Helper function to set token name"
+            },
+            "implemented": true,
+            "kind": "function",
+            "modifiers": [],
+            "name": "__setTokenName",
+            "overrides": null,
+            "parameters": {
+              "id": 69544,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 69543,
+                  "mutability": "mutable",
+                  "name": "_name",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 69555,
+                  "src": "776:19:260",
+                  "stateVariable": false,
+                  "storageLocation": "memory",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_string_memory_ptr",
+                    "typeString": "string"
+                  },
+                  "typeName": {
+                    "id": 69542,
+                    "name": "string",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "776:6:260",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_string_storage_ptr",
+                      "typeString": "string"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "775:21:260"
+            },
+            "returnParameters": {
+              "id": 69545,
+              "nodeType": "ParameterList",
+              "parameters": [],
+              "src": "806:0:260"
+            },
+            "scope": 69591,
+            "stateMutability": "nonpayable",
+            "virtual": false,
+            "visibility": "internal"
+          },
+          {
+            "id": 69570,
+            "nodeType": "FunctionDefinition",
+            "src": "930:135:260",
+            "nodes": [],
+            "body": {
+              "id": 69569,
+              "nodeType": "Block",
+              "src": "988:77:260",
+              "nodes": [],
+              "statements": [
+                {
+                  "expression": {
+                    "argumentTypes": null,
+                    "id": 69563,
+                    "isConstant": false,
+                    "isLValue": false,
+                    "isPure": false,
+                    "lValueRequested": false,
+                    "leftHandSide": {
+                      "argumentTypes": null,
+                      "id": 69561,
+                      "name": "tokenSymbol",
+                      "nodeType": "Identifier",
+                      "overloadedDeclarations": [],
+                      "referencedDeclaration": 69540,
+                      "src": "998:11:260",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_string_storage",
+                        "typeString": "string storage ref"
+                      }
+                    },
+                    "nodeType": "Assignment",
+                    "operator": "=",
+                    "rightHandSide": {
+                      "argumentTypes": null,
+                      "id": 69562,
+                      "name": "_symbol",
+                      "nodeType": "Identifier",
+                      "overloadedDeclarations": [],
+                      "referencedDeclaration": 69558,
+                      "src": "1012:7:260",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_string_memory_ptr",
+                        "typeString": "string memory"
+                      }
+                    },
+                    "src": "998:21:260",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_string_storage",
+                      "typeString": "string storage ref"
+                    }
+                  },
+                  "id": 69564,
+                  "nodeType": "ExpressionStatement",
+                  "src": "998:21:260"
+                },
+                {
+                  "eventCall": {
+                    "argumentTypes": null,
+                    "arguments": [
+                      {
+                        "argumentTypes": null,
+                        "id": 69566,
+                        "name": "_symbol",
+                        "nodeType": "Identifier",
+                        "overloadedDeclarations": [],
+                        "referencedDeclaration": 69558,
+                        "src": "1050:7:260",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_string_memory_ptr",
+                          "typeString": "string memory"
+                        }
+                      }
+                    ],
+                    "expression": {
+                      "argumentTypes": [
+                        {
+                          "typeIdentifier": "t_string_memory_ptr",
+                          "typeString": "string memory"
+                        }
+                      ],
+                      "id": 69565,
+                      "name": "TokenSymbolSet",
+                      "nodeType": "Identifier",
+                      "overloadedDeclarations": [],
+                      "referencedDeclaration": 69536,
+                      "src": "1035:14:260",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_function_event_nonpayable$_t_string_memory_ptr_$returns$__$",
+                        "typeString": "function (string memory)"
+                      }
+                    },
+                    "id": 69567,
+                    "isConstant": false,
+                    "isLValue": false,
+                    "isPure": false,
+                    "kind": "functionCall",
+                    "lValueRequested": false,
+                    "names": [],
+                    "nodeType": "FunctionCall",
+                    "src": "1035:23:260",
+                    "tryCall": false,
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_tuple$__$",
+                      "typeString": "tuple()"
+                    }
+                  },
+                  "id": 69568,
+                  "nodeType": "EmitStatement",
+                  "src": "1030:28:260"
+                }
+              ]
+            },
+            "documentation": {
+              "id": 69556,
+              "nodeType": "StructuredDocumentation",
+              "src": "881:44:260",
+              "text": "@dev Helper function to set token symbol"
+            },
+            "implemented": true,
+            "kind": "function",
+            "modifiers": [],
+            "name": "__setTokenSymbol",
+            "overrides": null,
+            "parameters": {
+              "id": 69559,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 69558,
+                  "mutability": "mutable",
+                  "name": "_symbol",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 69570,
+                  "src": "956:21:260",
+                  "stateVariable": false,
+                  "storageLocation": "memory",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_string_memory_ptr",
+                    "typeString": "string"
+                  },
+                  "typeName": {
+                    "id": 69557,
+                    "name": "string",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "956:6:260",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_string_storage_ptr",
+                      "typeString": "string"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "955:23:260"
+            },
+            "returnParameters": {
+              "id": 69560,
+              "nodeType": "ParameterList",
+              "parameters": [],
+              "src": "988:0:260"
+            },
+            "scope": 69591,
+            "stateMutability": "nonpayable",
+            "virtual": false,
+            "visibility": "internal"
+          },
+          {
+            "id": 69580,
+            "nodeType": "FunctionDefinition",
+            "src": "1293:100:260",
+            "nodes": [],
+            "body": {
+              "id": 69579,
+              "nodeType": "Block",
+              "src": "1360:33:260",
+              "nodes": [],
+              "statements": [
+                {
+                  "expression": {
+                    "argumentTypes": null,
+                    "id": 69577,
+                    "name": "tokenName",
+                    "nodeType": "Identifier",
+                    "overloadedDeclarations": [],
+                    "referencedDeclaration": 69538,
+                    "src": "1377:9:260",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_string_storage",
+                      "typeString": "string storage ref"
+                    }
+                  },
+                  "functionReturnParameters": 69576,
+                  "id": 69578,
+                  "nodeType": "Return",
+                  "src": "1370:16:260"
+                }
+              ]
+            },
+            "baseFunctions": [
+              82939
+            ],
+            "documentation": {
+              "id": 69571,
+              "nodeType": "StructuredDocumentation",
+              "src": "1150:138:260",
+              "text": "@notice Gets the token name\n @return name_ The token name\n @dev Overrides the constructor-set storage for use in proxies"
+            },
+            "functionSelector": "06fdde03",
+            "implemented": true,
+            "kind": "function",
+            "modifiers": [],
+            "name": "name",
+            "overrides": {
+              "id": 69573,
+              "nodeType": "OverrideSpecifier",
+              "overrides": [],
+              "src": "1321:8:260"
+            },
+            "parameters": {
+              "id": 69572,
+              "nodeType": "ParameterList",
+              "parameters": [],
+              "src": "1306:2:260"
+            },
+            "returnParameters": {
+              "id": 69576,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 69575,
+                  "mutability": "mutable",
+                  "name": "name_",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 69580,
+                  "src": "1339:19:260",
+                  "stateVariable": false,
+                  "storageLocation": "memory",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_string_memory_ptr",
+                    "typeString": "string"
+                  },
+                  "typeName": {
+                    "id": 69574,
+                    "name": "string",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "1339:6:260",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_string_storage_ptr",
+                      "typeString": "string"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "1338:21:260"
+            },
+            "scope": 69591,
+            "stateMutability": "view",
+            "virtual": false,
+            "visibility": "public"
+          },
+          {
+            "id": 69590,
+            "nodeType": "FunctionDefinition",
+            "src": "1548:106:260",
+            "nodes": [],
+            "body": {
+              "id": 69589,
+              "nodeType": "Block",
+              "src": "1619:35:260",
+              "nodes": [],
+              "statements": [
+                {
+                  "expression": {
+                    "argumentTypes": null,
+                    "id": 69587,
+                    "name": "tokenSymbol",
+                    "nodeType": "Identifier",
+                    "overloadedDeclarations": [],
+                    "referencedDeclaration": 69540,
+                    "src": "1636:11:260",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_string_storage",
+                      "typeString": "string storage ref"
+                    }
+                  },
+                  "functionReturnParameters": 69586,
+                  "id": 69588,
+                  "nodeType": "Return",
+                  "src": "1629:18:260"
+                }
+              ]
+            },
+            "baseFunctions": [
+              82948
+            ],
+            "documentation": {
+              "id": 69581,
+              "nodeType": "StructuredDocumentation",
+              "src": "1399:144:260",
+              "text": "@notice Gets the token symbol\n @return symbol_ The token symbol\n @dev Overrides the constructor-set storage for use in proxies"
+            },
+            "functionSelector": "95d89b41",
+            "implemented": true,
+            "kind": "function",
+            "modifiers": [],
+            "name": "symbol",
+            "overrides": {
+              "id": 69583,
+              "nodeType": "OverrideSpecifier",
+              "overrides": [],
+              "src": "1578:8:260"
+            },
+            "parameters": {
+              "id": 69582,
+              "nodeType": "ParameterList",
+              "parameters": [],
+              "src": "1563:2:260"
+            },
+            "returnParameters": {
+              "id": 69586,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 69585,
+                  "mutability": "mutable",
+                  "name": "symbol_",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 69590,
+                  "src": "1596:21:260",
+                  "stateVariable": false,
+                  "storageLocation": "memory",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_string_memory_ptr",
+                    "typeString": "string"
+                  },
+                  "typeName": {
+                    "id": 69584,
+                    "name": "string",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "1596:6:260",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_string_storage_ptr",
+                      "typeString": "string"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "1595:23:260"
+            },
+            "scope": 69591,
+            "stateMutability": "view",
+            "virtual": false,
+            "visibility": "public"
+          }
+        ],
+        "abstract": true,
+        "baseContracts": [
+          {
+            "arguments": null,
+            "baseName": {
+              "contractScope": null,
+              "id": 69527,
+              "name": "StakingWrapperBase",
+              "nodeType": "UserDefinedTypeName",
+              "referencedDeclaration": 69522,
+              "src": "537:18:260",
+              "typeDescriptions": {
+                "typeIdentifier": "t_contract$_StakingWrapperBase_$69522",
+                "typeString": "contract StakingWrapperBase"
+              }
+            },
+            "id": 69528,
+            "nodeType": "InheritanceSpecifier",
+            "src": "537:18:260"
+          }
+        ],
+        "contractDependencies": [
+          68428,
+          69522,
+          83381,
+          83518,
+          84050,
+          84090
+        ],
+        "contractKind": "contract",
+        "documentation": {
+          "id": 69526,
+          "nodeType": "StructuredDocumentation",
+          "src": "316:178:260",
+          "text": "@title StakingWrapperLibBase Contract\n @author Enzyme Council <security@enzyme.finance>\n @notice A staking wrapper base for proxy targets, extending StakingWrapperBase"
+        },
+        "fullyImplemented": false,
+        "linearizedBaseContracts": [
+          69591,
+          69522,
+          84090,
+          83381,
+          83518,
+          84050,
+          68428
+        ],
+        "name": "StakingWrapperLibBase",
+        "scope": 69592
+      }
+    ],
+    "license": "GPL-3.0"
+  },
+  "id": 260
 }

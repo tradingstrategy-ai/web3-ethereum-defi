@@ -1,0 +1,464 @@
+{
+  "abi": [
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "voucher",
+          "type": "address"
+        },
+        {
+          "indexed": true,
+          "internalType": "uint32",
+          "name": "tokenId",
+          "type": "uint32"
+        }
+      ],
+      "name": "VoucherTokenIdAdded",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "voucher",
+          "type": "address"
+        },
+        {
+          "indexed": true,
+          "internalType": "uint32",
+          "name": "tokenId",
+          "type": "uint32"
+        }
+      ],
+      "name": "VoucherTokenIdRemoved",
+      "type": "event"
+    }
+  ],
+  "bytecode": {
+    "object": "0x6080604052348015600f57600080fd5b50601680601d6000396000f3fe6080604052600080fdfea164736f6c634300060c000a",
+    "sourceMap": "792:339:34:-:0;;;;;;;;;;;;;;;;;;;",
+    "linkReferences": {}
+  },
+  "deployedBytecode": {
+    "object": "0x6080604052600080fdfea164736f6c634300060c000a",
+    "sourceMap": "792:339:34:-:0;;;;;",
+    "linkReferences": {}
+  },
+  "methodIdentifiers": {},
+  "rawMetadata": "{\"compiler\":{\"version\":\"0.6.12+commit.27d51765\"},\"language\":\"Solidity\",\"output\":{\"abi\":[{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"voucher\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"uint32\",\"name\":\"tokenId\",\"type\":\"uint32\"}],\"name\":\"VoucherTokenIdAdded\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"voucher\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"uint32\",\"name\":\"tokenId\",\"type\":\"uint32\"}],\"name\":\"VoucherTokenIdRemoved\",\"type\":\"event\"}],\"devdoc\":{\"author\":\"Enzyme Council <security@enzyme.finance>\",\"details\":\"DO NOT EDIT CONTRACT. If new events or storage are necessary, they should be added to a numbered SolvV2BondBuyerPositionLibBaseXXX that inherits the previous base. e.g., `SolvV2BondBuyerPositionLibBase2 is SolvV2BondBuyerPositionLibBase1`\",\"kind\":\"dev\",\"methods\":{},\"title\":\"SolvV2BondBuyerPositionLibBase1 Contract\",\"version\":1},\"userdoc\":{\"kind\":\"user\",\"methods\":{},\"notice\":\"A persistent contract containing all required storage variables and required functions for a SolvV2BondBuyerPositionLib implementation\",\"version\":1}},\"settings\":{\"compilationTarget\":{\"contracts/persistent/external-positions/solv-v2-bond-buyer/SolvV2BondBuyerPositionLibBase1.sol\":\"SolvV2BondBuyerPositionLibBase1\"},\"evmVersion\":\"istanbul\",\"libraries\":{},\"metadata\":{\"bytecodeHash\":\"none\"},\"optimizer\":{\"details\":{\"constantOptimizer\":true,\"cse\":true,\"deduplicate\":true,\"jumpdestRemover\":true,\"orderLiterals\":true,\"peephole\":true,\"yul\":false},\"runs\":200},\"remappings\":[\":@enzyme/=contracts/\",\":@openzeppelin-solc-0.7/=node_modules/@openzeppelin-solc-0.7/\",\":@openzeppelin/=node_modules/@openzeppelin/\",\":@uniswap/=node_modules/@uniswap/\",\":base64-sol/=node_modules/base64-sol/\",\":ds-test/=lib/forge-std/lib/ds-test/src/\",\":forge-std/=lib/forge-std/src/\",\":hardhat-deploy/=node_modules/hardhat-deploy/\",\":hardhat/=node_modules/hardhat/\"]},\"sources\":{\"contracts/persistent/external-positions/solv-v2-bond-buyer/SolvV2BondBuyerPositionLibBase1.sol\":{\"keccak256\":\"0xcbe012490822c4a7f60663d2947429293c8b9e9be6102bfd2ac05283ec699e6c\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://5789ae1ab7f2e1b4cfd3e53800ed46625bfef7cc1dfb30d86888219a80d9be7a\",\"dweb:/ipfs/Qme26MQji6HuoPF4Q54CdqVp8FRMFmhtsyuMVGRFiiAdhZ\"]}},\"version\":1}",
+  "metadata": {
+    "compiler": {
+      "version": "0.6.12+commit.27d51765"
+    },
+    "language": "Solidity",
+    "output": {
+      "abi": [
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "voucher",
+              "type": "address",
+              "indexed": true
+            },
+            {
+              "internalType": "uint32",
+              "name": "tokenId",
+              "type": "uint32",
+              "indexed": true
+            }
+          ],
+          "type": "event",
+          "name": "VoucherTokenIdAdded",
+          "anonymous": false
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "voucher",
+              "type": "address",
+              "indexed": true
+            },
+            {
+              "internalType": "uint32",
+              "name": "tokenId",
+              "type": "uint32",
+              "indexed": true
+            }
+          ],
+          "type": "event",
+          "name": "VoucherTokenIdRemoved",
+          "anonymous": false
+        }
+      ],
+      "devdoc": {
+        "kind": "dev",
+        "methods": {},
+        "version": 1
+      },
+      "userdoc": {
+        "kind": "user",
+        "methods": {},
+        "version": 1
+      }
+    },
+    "settings": {
+      "remappings": [
+        ":@enzyme/=contracts/",
+        ":@openzeppelin-solc-0.7/=node_modules/@openzeppelin-solc-0.7/",
+        ":@openzeppelin/=node_modules/@openzeppelin/",
+        ":@uniswap/=node_modules/@uniswap/",
+        ":base64-sol/=node_modules/base64-sol/",
+        ":ds-test/=lib/forge-std/lib/ds-test/src/",
+        ":forge-std/=lib/forge-std/src/",
+        ":hardhat-deploy/=node_modules/hardhat-deploy/",
+        ":hardhat/=node_modules/hardhat/"
+      ],
+      "optimizer": {
+        "runs": 200,
+        "details": {
+          "peephole": true,
+          "jumpdestRemover": true,
+          "orderLiterals": true,
+          "deduplicate": true,
+          "cse": true,
+          "constantOptimizer": true,
+          "yul": false
+        }
+      },
+      "metadata": {
+        "bytecodeHash": "none"
+      },
+      "compilationTarget": {
+        "contracts/persistent/external-positions/solv-v2-bond-buyer/SolvV2BondBuyerPositionLibBase1.sol": "SolvV2BondBuyerPositionLibBase1"
+      },
+      "libraries": {}
+    },
+    "sources": {
+      "contracts/persistent/external-positions/solv-v2-bond-buyer/SolvV2BondBuyerPositionLibBase1.sol": {
+        "keccak256": "0xcbe012490822c4a7f60663d2947429293c8b9e9be6102bfd2ac05283ec699e6c",
+        "urls": [
+          "bzz-raw://5789ae1ab7f2e1b4cfd3e53800ed46625bfef7cc1dfb30d86888219a80d9be7a",
+          "dweb:/ipfs/Qme26MQji6HuoPF4Q54CdqVp8FRMFmhtsyuMVGRFiiAdhZ"
+        ],
+        "license": "GPL-3.0"
+      }
+    },
+    "version": 1
+  },
+  "ast": {
+    "absolutePath": "contracts/persistent/external-positions/solv-v2-bond-buyer/SolvV2BondBuyerPositionLibBase1.sol",
+    "id": 5546,
+    "exportedSymbols": {
+      "SolvV2BondBuyerPositionLibBase1": [
+        5545
+      ]
+    },
+    "nodeType": "SourceUnit",
+    "src": "255:877:34",
+    "nodes": [
+      {
+        "id": 5523,
+        "nodeType": "PragmaDirective",
+        "src": "255:23:34",
+        "nodes": [],
+        "literals": [
+          "solidity",
+          "0.6",
+          ".12"
+        ]
+      },
+      {
+        "id": 5545,
+        "nodeType": "ContractDefinition",
+        "src": "792:339:34",
+        "nodes": [
+          {
+            "id": 5530,
+            "nodeType": "EventDefinition",
+            "src": "839:75:34",
+            "nodes": [],
+            "anonymous": false,
+            "documentation": null,
+            "name": "VoucherTokenIdAdded",
+            "parameters": {
+              "id": 5529,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 5526,
+                  "indexed": true,
+                  "mutability": "mutable",
+                  "name": "voucher",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 5530,
+                  "src": "865:23:34",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 5525,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "865:7:34",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 5528,
+                  "indexed": true,
+                  "mutability": "mutable",
+                  "name": "tokenId",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 5530,
+                  "src": "890:22:34",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_uint32",
+                    "typeString": "uint32"
+                  },
+                  "typeName": {
+                    "id": 5527,
+                    "name": "uint32",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "890:6:34",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_uint32",
+                      "typeString": "uint32"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "864:49:34"
+            }
+          },
+          {
+            "id": 5536,
+            "nodeType": "EventDefinition",
+            "src": "920:77:34",
+            "nodes": [],
+            "anonymous": false,
+            "documentation": null,
+            "name": "VoucherTokenIdRemoved",
+            "parameters": {
+              "id": 5535,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 5532,
+                  "indexed": true,
+                  "mutability": "mutable",
+                  "name": "voucher",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 5536,
+                  "src": "948:23:34",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 5531,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "948:7:34",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 5534,
+                  "indexed": true,
+                  "mutability": "mutable",
+                  "name": "tokenId",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 5536,
+                  "src": "973:22:34",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_uint32",
+                    "typeString": "uint32"
+                  },
+                  "typeName": {
+                    "id": 5533,
+                    "name": "uint32",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "973:6:34",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_uint32",
+                      "typeString": "uint32"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "947:49:34"
+            }
+          },
+          {
+            "id": 5541,
+            "nodeType": "StructDefinition",
+            "src": "1003:78:34",
+            "nodes": [],
+            "canonicalName": "SolvV2BondBuyerPositionLibBase1.VoucherTokenId",
+            "members": [
+              {
+                "constant": false,
+                "id": 5538,
+                "mutability": "mutable",
+                "name": "voucher",
+                "nodeType": "VariableDeclaration",
+                "overrides": null,
+                "scope": 5541,
+                "src": "1035:15:34",
+                "stateVariable": false,
+                "storageLocation": "default",
+                "typeDescriptions": {
+                  "typeIdentifier": "t_address",
+                  "typeString": "address"
+                },
+                "typeName": {
+                  "id": 5537,
+                  "name": "address",
+                  "nodeType": "ElementaryTypeName",
+                  "src": "1035:7:34",
+                  "stateMutability": "nonpayable",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  }
+                },
+                "value": null,
+                "visibility": "internal"
+              },
+              {
+                "constant": false,
+                "id": 5540,
+                "mutability": "mutable",
+                "name": "tokenId",
+                "nodeType": "VariableDeclaration",
+                "overrides": null,
+                "scope": 5541,
+                "src": "1060:14:34",
+                "stateVariable": false,
+                "storageLocation": "default",
+                "typeDescriptions": {
+                  "typeIdentifier": "t_uint32",
+                  "typeString": "uint32"
+                },
+                "typeName": {
+                  "id": 5539,
+                  "name": "uint32",
+                  "nodeType": "ElementaryTypeName",
+                  "src": "1060:6:34",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_uint32",
+                    "typeString": "uint32"
+                  }
+                },
+                "value": null,
+                "visibility": "internal"
+              }
+            ],
+            "name": "VoucherTokenId",
+            "scope": 5545,
+            "visibility": "public"
+          },
+          {
+            "id": 5544,
+            "nodeType": "VariableDeclaration",
+            "src": "1087:41:34",
+            "nodes": [],
+            "constant": false,
+            "mutability": "mutable",
+            "name": "voucherTokenIds",
+            "overrides": null,
+            "scope": 5545,
+            "stateVariable": true,
+            "storageLocation": "default",
+            "typeDescriptions": {
+              "typeIdentifier": "t_array$_t_struct$_VoucherTokenId_$5541_storage_$dyn_storage",
+              "typeString": "struct SolvV2BondBuyerPositionLibBase1.VoucherTokenId[]"
+            },
+            "typeName": {
+              "baseType": {
+                "contractScope": null,
+                "id": 5542,
+                "name": "VoucherTokenId",
+                "nodeType": "UserDefinedTypeName",
+                "referencedDeclaration": 5541,
+                "src": "1087:14:34",
+                "typeDescriptions": {
+                  "typeIdentifier": "t_struct$_VoucherTokenId_$5541_storage_ptr",
+                  "typeString": "struct SolvV2BondBuyerPositionLibBase1.VoucherTokenId"
+                }
+              },
+              "id": 5543,
+              "length": null,
+              "nodeType": "ArrayTypeName",
+              "src": "1087:16:34",
+              "typeDescriptions": {
+                "typeIdentifier": "t_array$_t_struct$_VoucherTokenId_$5541_storage_$dyn_storage_ptr",
+                "typeString": "struct SolvV2BondBuyerPositionLibBase1.VoucherTokenId[]"
+              }
+            },
+            "value": null,
+            "visibility": "internal"
+          }
+        ],
+        "abstract": false,
+        "baseContracts": [],
+        "contractDependencies": [],
+        "contractKind": "contract",
+        "documentation": {
+          "id": 5524,
+          "nodeType": "StructuredDocumentation",
+          "src": "280:512:34",
+          "text": "@title SolvV2BondBuyerPositionLibBase1 Contract\n @author Enzyme Council <security@enzyme.finance>\n @notice A persistent contract containing all required storage variables and\n required functions for a SolvV2BondBuyerPositionLib implementation\n @dev DO NOT EDIT CONTRACT. If new events or storage are necessary, they should be added to\n a numbered SolvV2BondBuyerPositionLibBaseXXX that inherits the previous base.\n e.g., `SolvV2BondBuyerPositionLibBase2 is SolvV2BondBuyerPositionLibBase1`"
+        },
+        "fullyImplemented": true,
+        "linearizedBaseContracts": [
+          5545
+        ],
+        "name": "SolvV2BondBuyerPositionLibBase1",
+        "scope": 5546
+      }
+    ],
+    "license": "GPL-3.0"
+  },
+  "id": 34
+}

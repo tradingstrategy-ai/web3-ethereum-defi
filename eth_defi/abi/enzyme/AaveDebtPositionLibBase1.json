@@ -1,0 +1,545 @@
+{
+  "abi": [
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "asset",
+          "type": "address"
+        }
+      ],
+      "name": "BorrowedAssetAdded",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "asset",
+          "type": "address"
+        }
+      ],
+      "name": "BorrowedAssetRemoved",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "asset",
+          "type": "address"
+        }
+      ],
+      "name": "CollateralAssetAdded",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "asset",
+          "type": "address"
+        }
+      ],
+      "name": "CollateralAssetRemoved",
+      "type": "event"
+    }
+  ],
+  "bytecode": {
+    "object": "0x6080604052348015600f57600080fd5b50601680601d6000396000f3fe6080604052600080fdfea164736f6c634300060c000a",
+    "sourceMap": "758:511:27:-:0;;;;;;;;;;;;;;;;;;;",
+    "linkReferences": {}
+  },
+  "deployedBytecode": {
+    "object": "0x6080604052600080fdfea164736f6c634300060c000a",
+    "sourceMap": "758:511:27:-:0;;;;;",
+    "linkReferences": {}
+  },
+  "methodIdentifiers": {},
+  "rawMetadata": "{\"compiler\":{\"version\":\"0.6.12+commit.27d51765\"},\"language\":\"Solidity\",\"output\":{\"abi\":[{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"asset\",\"type\":\"address\"}],\"name\":\"BorrowedAssetAdded\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"asset\",\"type\":\"address\"}],\"name\":\"BorrowedAssetRemoved\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"asset\",\"type\":\"address\"}],\"name\":\"CollateralAssetAdded\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"asset\",\"type\":\"address\"}],\"name\":\"CollateralAssetRemoved\",\"type\":\"event\"}],\"devdoc\":{\"author\":\"Enzyme Council <security@enzyme.finance>\",\"details\":\"DO NOT EDIT CONTRACT. If new events or storage are necessary, they should be added to a numbered AaveDebtPositionLibBaseXXX that inherits the previous base. e.g., `AaveDebtPositionLibBase2 is AaveDebtPositionLibBase1`\",\"kind\":\"dev\",\"methods\":{},\"title\":\"AaveDebtPositionLibBase1 Contract\",\"version\":1},\"userdoc\":{\"kind\":\"user\",\"methods\":{},\"notice\":\"A persistent contract containing all required storage variables and required functions for a AaveDebtPositionLib implementation\",\"version\":1}},\"settings\":{\"compilationTarget\":{\"contracts/persistent/external-positions/aave-v2-debt/AaveDebtPositionLibBase1.sol\":\"AaveDebtPositionLibBase1\"},\"evmVersion\":\"istanbul\",\"libraries\":{},\"metadata\":{\"bytecodeHash\":\"none\"},\"optimizer\":{\"details\":{\"constantOptimizer\":true,\"cse\":true,\"deduplicate\":true,\"jumpdestRemover\":true,\"orderLiterals\":true,\"peephole\":true,\"yul\":false},\"runs\":200},\"remappings\":[\":@enzyme/=contracts/\",\":@openzeppelin-solc-0.7/=node_modules/@openzeppelin-solc-0.7/\",\":@openzeppelin/=node_modules/@openzeppelin/\",\":@uniswap/=node_modules/@uniswap/\",\":base64-sol/=node_modules/base64-sol/\",\":ds-test/=lib/forge-std/lib/ds-test/src/\",\":forge-std/=lib/forge-std/src/\",\":hardhat-deploy/=node_modules/hardhat-deploy/\",\":hardhat/=node_modules/hardhat/\"]},\"sources\":{\"contracts/persistent/external-positions/aave-v2-debt/AaveDebtPositionLibBase1.sol\":{\"keccak256\":\"0xe7491637ebf268090a5faabf6206758411380ee6c2d1c248d8d102d4f511b20e\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://aa05f486976a51ae761ed90eb4bafd2f79afb38ebae65504e61cdee1f21995c9\",\"dweb:/ipfs/QmQAUNjxcXA3YtfVDTQ1CjVn86Sj2MZRJrypMp4mhGMTFy\"]}},\"version\":1}",
+  "metadata": {
+    "compiler": {
+      "version": "0.6.12+commit.27d51765"
+    },
+    "language": "Solidity",
+    "output": {
+      "abi": [
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "asset",
+              "type": "address",
+              "indexed": true
+            }
+          ],
+          "type": "event",
+          "name": "BorrowedAssetAdded",
+          "anonymous": false
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "asset",
+              "type": "address",
+              "indexed": true
+            }
+          ],
+          "type": "event",
+          "name": "BorrowedAssetRemoved",
+          "anonymous": false
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "asset",
+              "type": "address",
+              "indexed": true
+            }
+          ],
+          "type": "event",
+          "name": "CollateralAssetAdded",
+          "anonymous": false
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "asset",
+              "type": "address",
+              "indexed": true
+            }
+          ],
+          "type": "event",
+          "name": "CollateralAssetRemoved",
+          "anonymous": false
+        }
+      ],
+      "devdoc": {
+        "kind": "dev",
+        "methods": {},
+        "version": 1
+      },
+      "userdoc": {
+        "kind": "user",
+        "methods": {},
+        "version": 1
+      }
+    },
+    "settings": {
+      "remappings": [
+        ":@enzyme/=contracts/",
+        ":@openzeppelin-solc-0.7/=node_modules/@openzeppelin-solc-0.7/",
+        ":@openzeppelin/=node_modules/@openzeppelin/",
+        ":@uniswap/=node_modules/@uniswap/",
+        ":base64-sol/=node_modules/base64-sol/",
+        ":ds-test/=lib/forge-std/lib/ds-test/src/",
+        ":forge-std/=lib/forge-std/src/",
+        ":hardhat-deploy/=node_modules/hardhat-deploy/",
+        ":hardhat/=node_modules/hardhat/"
+      ],
+      "optimizer": {
+        "runs": 200,
+        "details": {
+          "peephole": true,
+          "jumpdestRemover": true,
+          "orderLiterals": true,
+          "deduplicate": true,
+          "cse": true,
+          "constantOptimizer": true,
+          "yul": false
+        }
+      },
+      "metadata": {
+        "bytecodeHash": "none"
+      },
+      "compilationTarget": {
+        "contracts/persistent/external-positions/aave-v2-debt/AaveDebtPositionLibBase1.sol": "AaveDebtPositionLibBase1"
+      },
+      "libraries": {}
+    },
+    "sources": {
+      "contracts/persistent/external-positions/aave-v2-debt/AaveDebtPositionLibBase1.sol": {
+        "keccak256": "0xe7491637ebf268090a5faabf6206758411380ee6c2d1c248d8d102d4f511b20e",
+        "urls": [
+          "bzz-raw://aa05f486976a51ae761ed90eb4bafd2f79afb38ebae65504e61cdee1f21995c9",
+          "dweb:/ipfs/QmQAUNjxcXA3YtfVDTQ1CjVn86Sj2MZRJrypMp4mhGMTFy"
+        ],
+        "license": "GPL-3.0"
+      }
+    },
+    "version": 1
+  },
+  "ast": {
+    "absolutePath": "contracts/persistent/external-positions/aave-v2-debt/AaveDebtPositionLibBase1.sol",
+    "id": 5159,
+    "exportedSymbols": {
+      "AaveDebtPositionLibBase1": [
+        5158
+      ]
+    },
+    "nodeType": "SourceUnit",
+    "src": "255:1015:27",
+    "nodes": [
+      {
+        "id": 5130,
+        "nodeType": "PragmaDirective",
+        "src": "255:23:27",
+        "nodes": [],
+        "literals": [
+          "solidity",
+          "0.6",
+          ".12"
+        ]
+      },
+      {
+        "id": 5158,
+        "nodeType": "ContractDefinition",
+        "src": "758:511:27",
+        "nodes": [
+          {
+            "id": 5135,
+            "nodeType": "EventDefinition",
+            "src": "798:48:27",
+            "nodes": [],
+            "anonymous": false,
+            "documentation": null,
+            "name": "BorrowedAssetAdded",
+            "parameters": {
+              "id": 5134,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 5133,
+                  "indexed": true,
+                  "mutability": "mutable",
+                  "name": "asset",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 5135,
+                  "src": "823:21:27",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 5132,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "823:7:27",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "822:23:27"
+            }
+          },
+          {
+            "id": 5139,
+            "nodeType": "EventDefinition",
+            "src": "852:50:27",
+            "nodes": [],
+            "anonymous": false,
+            "documentation": null,
+            "name": "BorrowedAssetRemoved",
+            "parameters": {
+              "id": 5138,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 5137,
+                  "indexed": true,
+                  "mutability": "mutable",
+                  "name": "asset",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 5139,
+                  "src": "879:21:27",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 5136,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "879:7:27",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "878:23:27"
+            }
+          },
+          {
+            "id": 5143,
+            "nodeType": "EventDefinition",
+            "src": "908:50:27",
+            "nodes": [],
+            "anonymous": false,
+            "documentation": null,
+            "name": "CollateralAssetAdded",
+            "parameters": {
+              "id": 5142,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 5141,
+                  "indexed": true,
+                  "mutability": "mutable",
+                  "name": "asset",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 5143,
+                  "src": "935:21:27",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 5140,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "935:7:27",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "934:23:27"
+            }
+          },
+          {
+            "id": 5147,
+            "nodeType": "EventDefinition",
+            "src": "964:52:27",
+            "nodes": [],
+            "anonymous": false,
+            "documentation": null,
+            "name": "CollateralAssetRemoved",
+            "parameters": {
+              "id": 5146,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 5145,
+                  "indexed": true,
+                  "mutability": "mutable",
+                  "name": "asset",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 5147,
+                  "src": "993:21:27",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 5144,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "993:7:27",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "992:23:27"
+            }
+          },
+          {
+            "id": 5150,
+            "nodeType": "VariableDeclaration",
+            "src": "1022:33:27",
+            "nodes": [],
+            "constant": false,
+            "mutability": "mutable",
+            "name": "borrowedAssets",
+            "overrides": null,
+            "scope": 5158,
+            "stateVariable": true,
+            "storageLocation": "default",
+            "typeDescriptions": {
+              "typeIdentifier": "t_array$_t_address_$dyn_storage",
+              "typeString": "address[]"
+            },
+            "typeName": {
+              "baseType": {
+                "id": 5148,
+                "name": "address",
+                "nodeType": "ElementaryTypeName",
+                "src": "1022:7:27",
+                "stateMutability": "nonpayable",
+                "typeDescriptions": {
+                  "typeIdentifier": "t_address",
+                  "typeString": "address"
+                }
+              },
+              "id": 5149,
+              "length": null,
+              "nodeType": "ArrayTypeName",
+              "src": "1022:9:27",
+              "typeDescriptions": {
+                "typeIdentifier": "t_array$_t_address_$dyn_storage_ptr",
+                "typeString": "address[]"
+              }
+            },
+            "value": null,
+            "visibility": "internal"
+          },
+          {
+            "id": 5153,
+            "nodeType": "VariableDeclaration",
+            "src": "1061:35:27",
+            "nodes": [],
+            "constant": false,
+            "mutability": "mutable",
+            "name": "collateralAssets",
+            "overrides": null,
+            "scope": 5158,
+            "stateVariable": true,
+            "storageLocation": "default",
+            "typeDescriptions": {
+              "typeIdentifier": "t_array$_t_address_$dyn_storage",
+              "typeString": "address[]"
+            },
+            "typeName": {
+              "baseType": {
+                "id": 5151,
+                "name": "address",
+                "nodeType": "ElementaryTypeName",
+                "src": "1061:7:27",
+                "stateMutability": "nonpayable",
+                "typeDescriptions": {
+                  "typeIdentifier": "t_address",
+                  "typeString": "address"
+                }
+              },
+              "id": 5152,
+              "length": null,
+              "nodeType": "ArrayTypeName",
+              "src": "1061:9:27",
+              "typeDescriptions": {
+                "typeIdentifier": "t_array$_t_address_$dyn_storage_ptr",
+                "typeString": "address[]"
+              }
+            },
+            "value": null,
+            "visibility": "internal"
+          },
+          {
+            "id": 5157,
+            "nodeType": "VariableDeclaration",
+            "src": "1205:61:27",
+            "nodes": [],
+            "constant": false,
+            "mutability": "mutable",
+            "name": "borrowedAssetToDebtToken",
+            "overrides": null,
+            "scope": 5158,
+            "stateVariable": true,
+            "storageLocation": "default",
+            "typeDescriptions": {
+              "typeIdentifier": "t_mapping$_t_address_$_t_address_$",
+              "typeString": "mapping(address => address)"
+            },
+            "typeName": {
+              "id": 5156,
+              "keyType": {
+                "id": 5154,
+                "name": "address",
+                "nodeType": "ElementaryTypeName",
+                "src": "1213:7:27",
+                "typeDescriptions": {
+                  "typeIdentifier": "t_address",
+                  "typeString": "address"
+                }
+              },
+              "nodeType": "Mapping",
+              "src": "1205:27:27",
+              "typeDescriptions": {
+                "typeIdentifier": "t_mapping$_t_address_$_t_address_$",
+                "typeString": "mapping(address => address)"
+              },
+              "valueType": {
+                "id": 5155,
+                "name": "address",
+                "nodeType": "ElementaryTypeName",
+                "src": "1224:7:27",
+                "stateMutability": "nonpayable",
+                "typeDescriptions": {
+                  "typeIdentifier": "t_address",
+                  "typeString": "address"
+                }
+              }
+            },
+            "value": null,
+            "visibility": "internal"
+          }
+        ],
+        "abstract": false,
+        "baseContracts": [],
+        "contractDependencies": [],
+        "contractKind": "contract",
+        "documentation": {
+          "id": 5131,
+          "nodeType": "StructuredDocumentation",
+          "src": "280:477:27",
+          "text": "@title AaveDebtPositionLibBase1 Contract\n @author Enzyme Council <security@enzyme.finance>\n @notice A persistent contract containing all required storage variables and\n required functions for a AaveDebtPositionLib implementation\n @dev DO NOT EDIT CONTRACT. If new events or storage are necessary, they should be added to\n a numbered AaveDebtPositionLibBaseXXX that inherits the previous base.\n e.g., `AaveDebtPositionLibBase2 is AaveDebtPositionLibBase1`"
+        },
+        "fullyImplemented": true,
+        "linearizedBaseContracts": [
+          5158
+        ],
+        "name": "AaveDebtPositionLibBase1",
+        "scope": 5159
+      }
+    ],
+    "license": "GPL-3.0"
+  },
+  "id": 27
+}

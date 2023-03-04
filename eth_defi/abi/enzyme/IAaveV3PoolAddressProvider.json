@@ -1,7 +1,4 @@
 {
-  "_format": "hh-sol-artifact-1",
-  "contractName": "IAaveV3PoolAddressProvider",
-  "sourceName": "contracts/release/interfaces/IAaveV3PoolAddressProvider.sol",
   "abi": [
     {
       "inputs": [],
@@ -17,8 +14,202 @@
       "type": "function"
     }
   ],
-  "bytecode": "0x",
-  "deployedBytecode": "0x",
-  "linkReferences": {},
-  "deployedLinkReferences": {}
+  "bytecode": {
+    "object": "0x",
+    "sourceMap": "",
+    "linkReferences": {}
+  },
+  "deployedBytecode": {
+    "object": "0x",
+    "sourceMap": "",
+    "linkReferences": {}
+  },
+  "methodIdentifiers": {
+    "getPool()": "026b1d5f"
+  },
+  "rawMetadata": "{\"compiler\":{\"version\":\"0.6.12+commit.27d51765\"},\"language\":\"Solidity\",\"output\":{\"abi\":[{\"inputs\":[],\"name\":\"getPool\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"pool_\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"}],\"devdoc\":{\"author\":\"Enzyme Council <security@enzyme.finance>\",\"kind\":\"dev\",\"methods\":{},\"title\":\"IAaveV3PoolAddressProvider interface\",\"version\":1},\"userdoc\":{\"kind\":\"user\",\"methods\":{},\"version\":1}},\"settings\":{\"compilationTarget\":{\"contracts/release/interfaces/IAaveV3PoolAddressProvider.sol\":\"IAaveV3PoolAddressProvider\"},\"evmVersion\":\"istanbul\",\"libraries\":{},\"metadata\":{\"bytecodeHash\":\"none\"},\"optimizer\":{\"details\":{\"constantOptimizer\":true,\"cse\":true,\"deduplicate\":true,\"jumpdestRemover\":true,\"orderLiterals\":true,\"peephole\":true,\"yul\":false},\"runs\":200},\"remappings\":[\":@enzyme/=contracts/\",\":@openzeppelin-solc-0.7/=node_modules/@openzeppelin-solc-0.7/\",\":@openzeppelin/=node_modules/@openzeppelin/\",\":@uniswap/=node_modules/@uniswap/\",\":base64-sol/=node_modules/base64-sol/\",\":ds-test/=lib/forge-std/lib/ds-test/src/\",\":forge-std/=lib/forge-std/src/\",\":hardhat-deploy/=node_modules/hardhat-deploy/\",\":hardhat/=node_modules/hardhat/\"]},\"sources\":{\"contracts/release/interfaces/IAaveV3PoolAddressProvider.sol\":{\"keccak256\":\"0x44111cddca665e41c434817c73902e5ae3a16c8776775305255b0c2d248d8416\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://f4306a2dc49c10978e68625b600e2cba3a975152ae75cccc39a7cca4ba429fea\",\"dweb:/ipfs/QmQJHZqorUqr8oAsscPUyZqzuBJp15a2F6YBMasbaQJ9ak\"]}},\"version\":1}",
+  "metadata": {
+    "compiler": {
+      "version": "0.6.12+commit.27d51765"
+    },
+    "language": "Solidity",
+    "output": {
+      "abi": [
+        {
+          "inputs": [],
+          "stateMutability": "view",
+          "type": "function",
+          "name": "getPool",
+          "outputs": [
+            {
+              "internalType": "address",
+              "name": "pool_",
+              "type": "address"
+            }
+          ]
+        }
+      ],
+      "devdoc": {
+        "kind": "dev",
+        "methods": {},
+        "version": 1
+      },
+      "userdoc": {
+        "kind": "user",
+        "methods": {},
+        "version": 1
+      }
+    },
+    "settings": {
+      "remappings": [
+        ":@enzyme/=contracts/",
+        ":@openzeppelin-solc-0.7/=node_modules/@openzeppelin-solc-0.7/",
+        ":@openzeppelin/=node_modules/@openzeppelin/",
+        ":@uniswap/=node_modules/@uniswap/",
+        ":base64-sol/=node_modules/base64-sol/",
+        ":ds-test/=lib/forge-std/lib/ds-test/src/",
+        ":forge-std/=lib/forge-std/src/",
+        ":hardhat-deploy/=node_modules/hardhat-deploy/",
+        ":hardhat/=node_modules/hardhat/"
+      ],
+      "optimizer": {
+        "runs": 200,
+        "details": {
+          "peephole": true,
+          "jumpdestRemover": true,
+          "orderLiterals": true,
+          "deduplicate": true,
+          "cse": true,
+          "constantOptimizer": true,
+          "yul": false
+        }
+      },
+      "metadata": {
+        "bytecodeHash": "none"
+      },
+      "compilationTarget": {
+        "contracts/release/interfaces/IAaveV3PoolAddressProvider.sol": "IAaveV3PoolAddressProvider"
+      },
+      "libraries": {}
+    },
+    "sources": {
+      "contracts/release/interfaces/IAaveV3PoolAddressProvider.sol": {
+        "keccak256": "0x44111cddca665e41c434817c73902e5ae3a16c8776775305255b0c2d248d8416",
+        "urls": [
+          "bzz-raw://f4306a2dc49c10978e68625b600e2cba3a975152ae75cccc39a7cca4ba429fea",
+          "dweb:/ipfs/QmQJHZqorUqr8oAsscPUyZqzuBJp15a2F6YBMasbaQJ9ak"
+        ],
+        "license": "GPL-3.0"
+      }
+    },
+    "version": 1
+  },
+  "ast": {
+    "absolutePath": "contracts/release/interfaces/IAaveV3PoolAddressProvider.sol",
+    "id": 70979,
+    "exportedSymbols": {
+      "IAaveV3PoolAddressProvider": [
+        70978
+      ]
+    },
+    "nodeType": "SourceUnit",
+    "src": "255:229:272",
+    "nodes": [
+      {
+        "id": 70971,
+        "nodeType": "PragmaDirective",
+        "src": "255:23:272",
+        "nodes": [],
+        "literals": [
+          "solidity",
+          "0.6",
+          ".12"
+        ]
+      },
+      {
+        "id": 70978,
+        "nodeType": "ContractDefinition",
+        "src": "381:102:272",
+        "nodes": [
+          {
+            "id": 70977,
+            "nodeType": "FunctionDefinition",
+            "src": "424:57:272",
+            "nodes": [],
+            "documentation": null,
+            "functionSelector": "026b1d5f",
+            "implemented": false,
+            "kind": "function",
+            "modifiers": [],
+            "name": "getPool",
+            "overrides": null,
+            "parameters": {
+              "id": 70973,
+              "nodeType": "ParameterList",
+              "parameters": [],
+              "src": "440:2:272"
+            },
+            "returnParameters": {
+              "id": 70976,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 70975,
+                  "mutability": "mutable",
+                  "name": "pool_",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 70977,
+                  "src": "466:13:272",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 70974,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "466:7:272",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "465:15:272"
+            },
+            "scope": 70978,
+            "stateMutability": "view",
+            "virtual": false,
+            "visibility": "external"
+          }
+        ],
+        "abstract": false,
+        "baseContracts": [],
+        "contractDependencies": [],
+        "contractKind": "interface",
+        "documentation": {
+          "id": 70972,
+          "nodeType": "StructuredDocumentation",
+          "src": "280:101:272",
+          "text": "@title IAaveV3PoolAddressProvider interface\n @author Enzyme Council <security@enzyme.finance>"
+        },
+        "fullyImplemented": false,
+        "linearizedBaseContracts": [
+          70978
+        ],
+        "name": "IAaveV3PoolAddressProvider",
+        "scope": 70979
+      }
+    ],
+    "license": "GPL-3.0"
+  },
+  "id": 272
 }

@@ -1,7 +1,4 @@
 {
-  "_format": "hh-sol-artifact-1",
-  "contractName": "ISolvV2ConvertibleBuyerPosition",
-  "sourceName": "contracts/release/extensions/external-position-manager/external-positions/solv-v2-convertible-buyer/ISolvV2ConvertibleBuyerPosition.sol",
   "abi": [
     {
       "inputs": [],
@@ -91,8 +88,419 @@
       "type": "function"
     }
   ],
-  "bytecode": "0x",
-  "deployedBytecode": "0x",
-  "linkReferences": {},
-  "deployedLinkReferences": {}
+  "bytecode": {
+    "object": "0x",
+    "sourceMap": "",
+    "linkReferences": {}
+  },
+  "deployedBytecode": {
+    "object": "0x",
+    "sourceMap": "",
+    "linkReferences": {}
+  },
+  "methodIdentifiers": {
+    "getDebtAssets()": "ecd658b4",
+    "getManagedAssets()": "80daddb8",
+    "getSales()": "0d83304c",
+    "init(bytes)": "4ddf47d4",
+    "receiveCallFromVault(bytes)": "e5c23a97"
+  },
+  "rawMetadata": "{\"compiler\":{\"version\":\"0.6.12+commit.27d51765\"},\"language\":\"Solidity\",\"output\":{\"abi\":[{\"inputs\":[],\"name\":\"getDebtAssets\",\"outputs\":[{\"internalType\":\"address[]\",\"name\":\"\",\"type\":\"address[]\"},{\"internalType\":\"uint256[]\",\"name\":\"\",\"type\":\"uint256[]\"}],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getManagedAssets\",\"outputs\":[{\"internalType\":\"address[]\",\"name\":\"\",\"type\":\"address[]\"},{\"internalType\":\"uint256[]\",\"name\":\"\",\"type\":\"uint256[]\"}],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getSales\",\"outputs\":[{\"components\":[{\"internalType\":\"uint24\",\"name\":\"saleId\",\"type\":\"uint24\"},{\"internalType\":\"address\",\"name\":\"currency\",\"type\":\"address\"}],\"internalType\":\"struct SolvV2ConvertibleBuyerPositionLibBase1.Sale[]\",\"name\":\"sales_\",\"type\":\"tuple[]\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes\",\"name\":\"\",\"type\":\"bytes\"}],\"name\":\"init\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes\",\"name\":\"\",\"type\":\"bytes\"}],\"name\":\"receiveCallFromVault\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"}],\"devdoc\":{\"author\":\"Enzyme Council <security@enzyme.finance>\",\"kind\":\"dev\",\"methods\":{},\"title\":\"ISolvV2ConvertibleBuyerPosition Interface\",\"version\":1},\"userdoc\":{\"kind\":\"user\",\"methods\":{},\"version\":1}},\"settings\":{\"compilationTarget\":{\"contracts/release/extensions/external-position-manager/external-positions/solv-v2-convertible-buyer/ISolvV2ConvertibleBuyerPosition.sol\":\"ISolvV2ConvertibleBuyerPosition\"},\"evmVersion\":\"istanbul\",\"libraries\":{},\"metadata\":{\"bytecodeHash\":\"none\"},\"optimizer\":{\"details\":{\"constantOptimizer\":true,\"cse\":true,\"deduplicate\":true,\"jumpdestRemover\":true,\"orderLiterals\":true,\"peephole\":true,\"yul\":false},\"runs\":200},\"remappings\":[\":@enzyme/=contracts/\",\":@openzeppelin-solc-0.7/=node_modules/@openzeppelin-solc-0.7/\",\":@openzeppelin/=node_modules/@openzeppelin/\",\":@uniswap/=node_modules/@uniswap/\",\":base64-sol/=node_modules/base64-sol/\",\":ds-test/=lib/forge-std/lib/ds-test/src/\",\":forge-std/=lib/forge-std/src/\",\":hardhat-deploy/=node_modules/hardhat-deploy/\",\":hardhat/=node_modules/hardhat/\"]},\"sources\":{\"contracts/persistent/external-positions/IExternalPosition.sol\":{\"keccak256\":\"0x00e6ea9721e5fd1e72215e4c744306097d7f8b1a834cced5d65a17a924f750ad\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://2ad763df961067233f8631d1cd386a0cf41f8e83e419ace84ec4424214db8efa\",\"dweb:/ipfs/QmNVZCeyA9uqKrhBeCAmTVswWybN9TQAxngVPZUZZ6X4dM\"]},\"contracts/persistent/external-positions/solv-v2-convertible-buyer/SolvV2ConvertibleBuyerPositionLibBase1.sol\":{\"keccak256\":\"0x8f2209f92d7ed63f0c3759bc32f7dac32c7fe166e6a06d57ee10c9e955f554d3\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://b21a997433ad99e503ba71dc5d5c8e619a2f384b080a5edc78185f3136064e48\",\"dweb:/ipfs/QmeaQgAVoU7SvcLAEaxB6b8op2s7AETzwXcd3YU41PpaAD\"]},\"contracts/release/extensions/external-position-manager/external-positions/solv-v2-convertible-buyer/ISolvV2ConvertibleBuyerPosition.sol\":{\"keccak256\":\"0xa37e1da2db28f16cdfe58b38ea90ce6a3dd23bdfd79f77742ab701f50539e2d3\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://0ab2ce7a04bbcbf20feb464168109040f450bfb8755dec1841f211aca5466af4\",\"dweb:/ipfs/QmeFN2ZoP6SNWCjeJWSuyscyKMPbkmXPhUK2J4RC8S93TJ\"]}},\"version\":1}",
+  "metadata": {
+    "compiler": {
+      "version": "0.6.12+commit.27d51765"
+    },
+    "language": "Solidity",
+    "output": {
+      "abi": [
+        {
+          "inputs": [],
+          "stateMutability": "nonpayable",
+          "type": "function",
+          "name": "getDebtAssets",
+          "outputs": [
+            {
+              "internalType": "address[]",
+              "name": "",
+              "type": "address[]"
+            },
+            {
+              "internalType": "uint256[]",
+              "name": "",
+              "type": "uint256[]"
+            }
+          ]
+        },
+        {
+          "inputs": [],
+          "stateMutability": "nonpayable",
+          "type": "function",
+          "name": "getManagedAssets",
+          "outputs": [
+            {
+              "internalType": "address[]",
+              "name": "",
+              "type": "address[]"
+            },
+            {
+              "internalType": "uint256[]",
+              "name": "",
+              "type": "uint256[]"
+            }
+          ]
+        },
+        {
+          "inputs": [],
+          "stateMutability": "view",
+          "type": "function",
+          "name": "getSales",
+          "outputs": [
+            {
+              "internalType": "struct SolvV2ConvertibleBuyerPositionLibBase1.Sale[]",
+              "name": "sales_",
+              "type": "tuple[]",
+              "components": [
+                {
+                  "internalType": "uint24",
+                  "name": "saleId",
+                  "type": "uint24"
+                },
+                {
+                  "internalType": "address",
+                  "name": "currency",
+                  "type": "address"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "bytes",
+              "name": "",
+              "type": "bytes"
+            }
+          ],
+          "stateMutability": "nonpayable",
+          "type": "function",
+          "name": "init"
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "bytes",
+              "name": "",
+              "type": "bytes"
+            }
+          ],
+          "stateMutability": "nonpayable",
+          "type": "function",
+          "name": "receiveCallFromVault"
+        }
+      ],
+      "devdoc": {
+        "kind": "dev",
+        "methods": {},
+        "version": 1
+      },
+      "userdoc": {
+        "kind": "user",
+        "methods": {},
+        "version": 1
+      }
+    },
+    "settings": {
+      "remappings": [
+        ":@enzyme/=contracts/",
+        ":@openzeppelin-solc-0.7/=node_modules/@openzeppelin-solc-0.7/",
+        ":@openzeppelin/=node_modules/@openzeppelin/",
+        ":@uniswap/=node_modules/@uniswap/",
+        ":base64-sol/=node_modules/base64-sol/",
+        ":ds-test/=lib/forge-std/lib/ds-test/src/",
+        ":forge-std/=lib/forge-std/src/",
+        ":hardhat-deploy/=node_modules/hardhat-deploy/",
+        ":hardhat/=node_modules/hardhat/"
+      ],
+      "optimizer": {
+        "runs": 200,
+        "details": {
+          "peephole": true,
+          "jumpdestRemover": true,
+          "orderLiterals": true,
+          "deduplicate": true,
+          "cse": true,
+          "constantOptimizer": true,
+          "yul": false
+        }
+      },
+      "metadata": {
+        "bytecodeHash": "none"
+      },
+      "compilationTarget": {
+        "contracts/release/extensions/external-position-manager/external-positions/solv-v2-convertible-buyer/ISolvV2ConvertibleBuyerPosition.sol": "ISolvV2ConvertibleBuyerPosition"
+      },
+      "libraries": {}
+    },
+    "sources": {
+      "contracts/persistent/external-positions/IExternalPosition.sol": {
+        "keccak256": "0x00e6ea9721e5fd1e72215e4c744306097d7f8b1a834cced5d65a17a924f750ad",
+        "urls": [
+          "bzz-raw://2ad763df961067233f8631d1cd386a0cf41f8e83e419ace84ec4424214db8efa",
+          "dweb:/ipfs/QmNVZCeyA9uqKrhBeCAmTVswWybN9TQAxngVPZUZZ6X4dM"
+        ],
+        "license": "GPL-3.0"
+      },
+      "contracts/persistent/external-positions/solv-v2-convertible-buyer/SolvV2ConvertibleBuyerPositionLibBase1.sol": {
+        "keccak256": "0x8f2209f92d7ed63f0c3759bc32f7dac32c7fe166e6a06d57ee10c9e955f554d3",
+        "urls": [
+          "bzz-raw://b21a997433ad99e503ba71dc5d5c8e619a2f384b080a5edc78185f3136064e48",
+          "dweb:/ipfs/QmeaQgAVoU7SvcLAEaxB6b8op2s7AETzwXcd3YU41PpaAD"
+        ],
+        "license": "GPL-3.0"
+      },
+      "contracts/release/extensions/external-position-manager/external-positions/solv-v2-convertible-buyer/ISolvV2ConvertibleBuyerPosition.sol": {
+        "keccak256": "0xa37e1da2db28f16cdfe58b38ea90ce6a3dd23bdfd79f77742ab701f50539e2d3",
+        "urls": [
+          "bzz-raw://0ab2ce7a04bbcbf20feb464168109040f450bfb8755dec1841f211aca5466af4",
+          "dweb:/ipfs/QmeFN2ZoP6SNWCjeJWSuyscyKMPbkmXPhUK2J4RC8S93TJ"
+        ],
+        "license": "GPL-3.0"
+      }
+    },
+    "version": 1
+  },
+  "ast": {
+    "absolutePath": "contracts/release/extensions/external-position-manager/external-positions/solv-v2-convertible-buyer/ISolvV2ConvertibleBuyerPosition.sol",
+    "id": 32772,
+    "exportedSymbols": {
+      "ISolvV2ConvertibleBuyerPosition": [
+        32771
+      ]
+    },
+    "nodeType": "SourceUnit",
+    "src": "253:780:130",
+    "nodes": [
+      {
+        "id": 32749,
+        "nodeType": "ImportDirective",
+        "src": "253:123:130",
+        "nodes": [],
+        "absolutePath": "contracts/persistent/external-positions/solv-v2-convertible-buyer/SolvV2ConvertibleBuyerPositionLibBase1.sol",
+        "file": "../../../../../persistent/external-positions/solv-v2-convertible-buyer/SolvV2ConvertibleBuyerPositionLibBase1.sol",
+        "scope": 32772,
+        "sourceUnit": 5616,
+        "symbolAliases": [],
+        "unitAlias": ""
+      },
+      {
+        "id": 32750,
+        "nodeType": "ImportDirective",
+        "src": "377:76:130",
+        "nodes": [],
+        "absolutePath": "contracts/persistent/external-positions/IExternalPosition.sol",
+        "file": "../../../../../persistent/external-positions/IExternalPosition.sol",
+        "scope": 32772,
+        "sourceUnit": 5115,
+        "symbolAliases": [],
+        "unitAlias": ""
+      },
+      {
+        "id": 32751,
+        "nodeType": "PragmaDirective",
+        "src": "455:23:130",
+        "nodes": [],
+        "literals": [
+          "solidity",
+          "0.6",
+          ".12"
+        ]
+      },
+      {
+        "id": 32752,
+        "nodeType": "PragmaDirective",
+        "src": "479:33:130",
+        "nodes": [],
+        "literals": [
+          "experimental",
+          "ABIEncoderV2"
+        ]
+      },
+      {
+        "id": 32771,
+        "nodeType": "ContractDefinition",
+        "src": "620:412:130",
+        "nodes": [
+          {
+            "id": 32764,
+            "nodeType": "EnumDefinition",
+            "src": "689:207:130",
+            "nodes": [],
+            "canonicalName": "ISolvV2ConvertibleBuyerPosition.Actions",
+            "members": [
+              {
+                "id": 32756,
+                "name": "BuyOffering",
+                "nodeType": "EnumValue",
+                "src": "712:11:130"
+              },
+              {
+                "id": 32757,
+                "name": "BuySaleByAmount",
+                "nodeType": "EnumValue",
+                "src": "733:15:130"
+              },
+              {
+                "id": 32758,
+                "name": "BuySaleByUnits",
+                "nodeType": "EnumValue",
+                "src": "758:14:130"
+              },
+              {
+                "id": 32759,
+                "name": "Claim",
+                "nodeType": "EnumValue",
+                "src": "782:5:130"
+              },
+              {
+                "id": 32760,
+                "name": "CreateSaleDecliningPrice",
+                "nodeType": "EnumValue",
+                "src": "797:24:130"
+              },
+              {
+                "id": 32761,
+                "name": "CreateSaleFixedPrice",
+                "nodeType": "EnumValue",
+                "src": "831:20:130"
+              },
+              {
+                "id": 32762,
+                "name": "Reconcile",
+                "nodeType": "EnumValue",
+                "src": "861:9:130"
+              },
+              {
+                "id": 32763,
+                "name": "RemoveSale",
+                "nodeType": "EnumValue",
+                "src": "880:10:130"
+              }
+            ],
+            "name": "Actions"
+          },
+          {
+            "id": 32770,
+            "nodeType": "FunctionDefinition",
+            "src": "902:128:130",
+            "nodes": [],
+            "documentation": null,
+            "functionSelector": "0d83304c",
+            "implemented": false,
+            "kind": "function",
+            "modifiers": [],
+            "name": "getSales",
+            "overrides": null,
+            "parameters": {
+              "id": 32765,
+              "nodeType": "ParameterList",
+              "parameters": [],
+              "src": "919:2:130"
+            },
+            "returnParameters": {
+              "id": 32769,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 32768,
+                  "mutability": "mutable",
+                  "name": "sales_",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 32770,
+                  "src": "969:59:130",
+                  "stateVariable": false,
+                  "storageLocation": "memory",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_array$_t_struct$_Sale_$5603_memory_ptr_$dyn_memory_ptr",
+                    "typeString": "struct SolvV2ConvertibleBuyerPositionLibBase1.Sale[]"
+                  },
+                  "typeName": {
+                    "baseType": {
+                      "contractScope": null,
+                      "id": 32766,
+                      "name": "SolvV2ConvertibleBuyerPositionLibBase1.Sale",
+                      "nodeType": "UserDefinedTypeName",
+                      "referencedDeclaration": 5603,
+                      "src": "969:43:130",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_struct$_Sale_$5603_storage_ptr",
+                        "typeString": "struct SolvV2ConvertibleBuyerPositionLibBase1.Sale"
+                      }
+                    },
+                    "id": 32767,
+                    "length": null,
+                    "nodeType": "ArrayTypeName",
+                    "src": "969:45:130",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_array$_t_struct$_Sale_$5603_storage_$dyn_storage_ptr",
+                      "typeString": "struct SolvV2ConvertibleBuyerPositionLibBase1.Sale[]"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "968:61:130"
+            },
+            "scope": 32771,
+            "stateMutability": "view",
+            "virtual": false,
+            "visibility": "external"
+          }
+        ],
+        "abstract": false,
+        "baseContracts": [
+          {
+            "arguments": null,
+            "baseName": {
+              "contractScope": null,
+              "id": 32754,
+              "name": "IExternalPosition",
+              "nodeType": "UserDefinedTypeName",
+              "referencedDeclaration": 5114,
+              "src": "665:17:130",
+              "typeDescriptions": {
+                "typeIdentifier": "t_contract$_IExternalPosition_$5114",
+                "typeString": "contract IExternalPosition"
+              }
+            },
+            "id": 32755,
+            "nodeType": "InheritanceSpecifier",
+            "src": "665:17:130"
+          }
+        ],
+        "contractDependencies": [
+          5114
+        ],
+        "contractKind": "interface",
+        "documentation": {
+          "id": 32753,
+          "nodeType": "StructuredDocumentation",
+          "src": "514:106:130",
+          "text": "@title ISolvV2ConvertibleBuyerPosition Interface\n @author Enzyme Council <security@enzyme.finance>"
+        },
+        "fullyImplemented": false,
+        "linearizedBaseContracts": [
+          32771,
+          5114
+        ],
+        "name": "ISolvV2ConvertibleBuyerPosition",
+        "scope": 32772
+      }
+    ],
+    "license": "GPL-3.0"
+  },
+  "id": 130
 }

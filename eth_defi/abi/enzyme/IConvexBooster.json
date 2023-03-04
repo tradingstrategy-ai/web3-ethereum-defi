@@ -1,7 +1,4 @@
 {
-  "_format": "hh-sol-artifact-1",
-  "contractName": "IConvexBooster",
-  "sourceName": "contracts/release/interfaces/IConvexBooster.sol",
   "abi": [
     {
       "inputs": [
@@ -84,8 +81,638 @@
       "type": "function"
     }
   ],
-  "bytecode": "0x",
-  "deployedBytecode": "0x",
-  "linkReferences": {},
-  "deployedLinkReferences": {}
+  "bytecode": {
+    "object": "0x",
+    "sourceMap": "",
+    "linkReferences": {}
+  },
+  "deployedBytecode": {
+    "object": "0x",
+    "sourceMap": "",
+    "linkReferences": {}
+  },
+  "methodIdentifiers": {
+    "deposit(uint256,uint256,bool)": "43a0d066",
+    "poolInfo(uint256)": "1526fe27"
+  },
+  "rawMetadata": "{\"compiler\":{\"version\":\"0.6.12+commit.27d51765\"},\"language\":\"Solidity\",\"output\":{\"abi\":[{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"},{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"name\":\"deposit\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"name\":\"poolInfo\",\"outputs\":[{\"components\":[{\"internalType\":\"address\",\"name\":\"lptoken\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"token\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"gauge\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"crvRewards\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"stash\",\"type\":\"address\"},{\"internalType\":\"bool\",\"name\":\"shutdown\",\"type\":\"bool\"}],\"internalType\":\"struct IConvexBooster.PoolInfo\",\"name\":\"\",\"type\":\"tuple\"}],\"stateMutability\":\"view\",\"type\":\"function\"}],\"devdoc\":{\"author\":\"Enzyme Council <security@enzyme.finance>\",\"kind\":\"dev\",\"methods\":{},\"title\":\"IConvexBooster Interface\",\"version\":1},\"userdoc\":{\"kind\":\"user\",\"methods\":{},\"version\":1}},\"settings\":{\"compilationTarget\":{\"contracts/release/interfaces/IConvexBooster.sol\":\"IConvexBooster\"},\"evmVersion\":\"istanbul\",\"libraries\":{},\"metadata\":{\"bytecodeHash\":\"none\"},\"optimizer\":{\"details\":{\"constantOptimizer\":true,\"cse\":true,\"deduplicate\":true,\"jumpdestRemover\":true,\"orderLiterals\":true,\"peephole\":true,\"yul\":false},\"runs\":200},\"remappings\":[\":@enzyme/=contracts/\",\":@openzeppelin-solc-0.7/=node_modules/@openzeppelin-solc-0.7/\",\":@openzeppelin/=node_modules/@openzeppelin/\",\":@uniswap/=node_modules/@uniswap/\",\":base64-sol/=node_modules/base64-sol/\",\":ds-test/=lib/forge-std/lib/ds-test/src/\",\":forge-std/=lib/forge-std/src/\",\":hardhat-deploy/=node_modules/hardhat-deploy/\",\":hardhat/=node_modules/hardhat/\"]},\"sources\":{\"contracts/release/interfaces/IConvexBooster.sol\":{\"keccak256\":\"0x6e7561d2d7e71a0c89a6e62445de5c54c2e50d17877b23d8b5af10721dd90ed5\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://772cf7f429a04a557d3b0ed36a73390da64fd93a9df253e0c7e9ebeeecd063ea\",\"dweb:/ipfs/QmXjfnXmtGV67wypxof8nWVTkXAEZqBpFjYePfr17K8rAL\"]}},\"version\":1}",
+  "metadata": {
+    "compiler": {
+      "version": "0.6.12+commit.27d51765"
+    },
+    "language": "Solidity",
+    "output": {
+      "abi": [
+        {
+          "inputs": [
+            {
+              "internalType": "uint256",
+              "name": "",
+              "type": "uint256"
+            },
+            {
+              "internalType": "uint256",
+              "name": "",
+              "type": "uint256"
+            },
+            {
+              "internalType": "bool",
+              "name": "",
+              "type": "bool"
+            }
+          ],
+          "stateMutability": "nonpayable",
+          "type": "function",
+          "name": "deposit",
+          "outputs": [
+            {
+              "internalType": "bool",
+              "name": "",
+              "type": "bool"
+            }
+          ]
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "uint256",
+              "name": "",
+              "type": "uint256"
+            }
+          ],
+          "stateMutability": "view",
+          "type": "function",
+          "name": "poolInfo",
+          "outputs": [
+            {
+              "internalType": "struct IConvexBooster.PoolInfo",
+              "name": "",
+              "type": "tuple",
+              "components": [
+                {
+                  "internalType": "address",
+                  "name": "lptoken",
+                  "type": "address"
+                },
+                {
+                  "internalType": "address",
+                  "name": "token",
+                  "type": "address"
+                },
+                {
+                  "internalType": "address",
+                  "name": "gauge",
+                  "type": "address"
+                },
+                {
+                  "internalType": "address",
+                  "name": "crvRewards",
+                  "type": "address"
+                },
+                {
+                  "internalType": "address",
+                  "name": "stash",
+                  "type": "address"
+                },
+                {
+                  "internalType": "bool",
+                  "name": "shutdown",
+                  "type": "bool"
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "devdoc": {
+        "kind": "dev",
+        "methods": {},
+        "version": 1
+      },
+      "userdoc": {
+        "kind": "user",
+        "methods": {},
+        "version": 1
+      }
+    },
+    "settings": {
+      "remappings": [
+        ":@enzyme/=contracts/",
+        ":@openzeppelin-solc-0.7/=node_modules/@openzeppelin-solc-0.7/",
+        ":@openzeppelin/=node_modules/@openzeppelin/",
+        ":@uniswap/=node_modules/@uniswap/",
+        ":base64-sol/=node_modules/base64-sol/",
+        ":ds-test/=lib/forge-std/lib/ds-test/src/",
+        ":forge-std/=lib/forge-std/src/",
+        ":hardhat-deploy/=node_modules/hardhat-deploy/",
+        ":hardhat/=node_modules/hardhat/"
+      ],
+      "optimizer": {
+        "runs": 200,
+        "details": {
+          "peephole": true,
+          "jumpdestRemover": true,
+          "orderLiterals": true,
+          "deduplicate": true,
+          "cse": true,
+          "constantOptimizer": true,
+          "yul": false
+        }
+      },
+      "metadata": {
+        "bytecodeHash": "none"
+      },
+      "compilationTarget": {
+        "contracts/release/interfaces/IConvexBooster.sol": "IConvexBooster"
+      },
+      "libraries": {}
+    },
+    "sources": {
+      "contracts/release/interfaces/IConvexBooster.sol": {
+        "keccak256": "0x6e7561d2d7e71a0c89a6e62445de5c54c2e50d17877b23d8b5af10721dd90ed5",
+        "urls": [
+          "bzz-raw://772cf7f429a04a557d3b0ed36a73390da64fd93a9df253e0c7e9ebeeecd063ea",
+          "dweb:/ipfs/QmXjfnXmtGV67wypxof8nWVTkXAEZqBpFjYePfr17K8rAL"
+        ],
+        "license": "GPL-3.0"
+      }
+    },
+    "version": 1
+  },
+  "ast": {
+    "absolutePath": "contracts/release/interfaces/IConvexBooster.sol",
+    "id": 71465,
+    "exportedSymbols": {
+      "IConvexBooster": [
+        71464
+      ]
+    },
+    "nodeType": "SourceUnit",
+    "src": "253:524:286",
+    "nodes": [
+      {
+        "id": 71430,
+        "nodeType": "PragmaDirective",
+        "src": "253:23:286",
+        "nodes": [],
+        "literals": [
+          "solidity",
+          "0.6",
+          ".12"
+        ]
+      },
+      {
+        "id": 71431,
+        "nodeType": "PragmaDirective",
+        "src": "277:33:286",
+        "nodes": [],
+        "literals": [
+          "experimental",
+          "ABIEncoderV2"
+        ]
+      },
+      {
+        "id": 71464,
+        "nodeType": "ContractDefinition",
+        "src": "401:375:286",
+        "nodes": [
+          {
+            "id": 71445,
+            "nodeType": "StructDefinition",
+            "src": "432:168:286",
+            "nodes": [],
+            "canonicalName": "IConvexBooster.PoolInfo",
+            "members": [
+              {
+                "constant": false,
+                "id": 71434,
+                "mutability": "mutable",
+                "name": "lptoken",
+                "nodeType": "VariableDeclaration",
+                "overrides": null,
+                "scope": 71445,
+                "src": "458:15:286",
+                "stateVariable": false,
+                "storageLocation": "default",
+                "typeDescriptions": {
+                  "typeIdentifier": "t_address",
+                  "typeString": "address"
+                },
+                "typeName": {
+                  "id": 71433,
+                  "name": "address",
+                  "nodeType": "ElementaryTypeName",
+                  "src": "458:7:286",
+                  "stateMutability": "nonpayable",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  }
+                },
+                "value": null,
+                "visibility": "internal"
+              },
+              {
+                "constant": false,
+                "id": 71436,
+                "mutability": "mutable",
+                "name": "token",
+                "nodeType": "VariableDeclaration",
+                "overrides": null,
+                "scope": 71445,
+                "src": "483:13:286",
+                "stateVariable": false,
+                "storageLocation": "default",
+                "typeDescriptions": {
+                  "typeIdentifier": "t_address",
+                  "typeString": "address"
+                },
+                "typeName": {
+                  "id": 71435,
+                  "name": "address",
+                  "nodeType": "ElementaryTypeName",
+                  "src": "483:7:286",
+                  "stateMutability": "nonpayable",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  }
+                },
+                "value": null,
+                "visibility": "internal"
+              },
+              {
+                "constant": false,
+                "id": 71438,
+                "mutability": "mutable",
+                "name": "gauge",
+                "nodeType": "VariableDeclaration",
+                "overrides": null,
+                "scope": 71445,
+                "src": "506:13:286",
+                "stateVariable": false,
+                "storageLocation": "default",
+                "typeDescriptions": {
+                  "typeIdentifier": "t_address",
+                  "typeString": "address"
+                },
+                "typeName": {
+                  "id": 71437,
+                  "name": "address",
+                  "nodeType": "ElementaryTypeName",
+                  "src": "506:7:286",
+                  "stateMutability": "nonpayable",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  }
+                },
+                "value": null,
+                "visibility": "internal"
+              },
+              {
+                "constant": false,
+                "id": 71440,
+                "mutability": "mutable",
+                "name": "crvRewards",
+                "nodeType": "VariableDeclaration",
+                "overrides": null,
+                "scope": 71445,
+                "src": "529:18:286",
+                "stateVariable": false,
+                "storageLocation": "default",
+                "typeDescriptions": {
+                  "typeIdentifier": "t_address",
+                  "typeString": "address"
+                },
+                "typeName": {
+                  "id": 71439,
+                  "name": "address",
+                  "nodeType": "ElementaryTypeName",
+                  "src": "529:7:286",
+                  "stateMutability": "nonpayable",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  }
+                },
+                "value": null,
+                "visibility": "internal"
+              },
+              {
+                "constant": false,
+                "id": 71442,
+                "mutability": "mutable",
+                "name": "stash",
+                "nodeType": "VariableDeclaration",
+                "overrides": null,
+                "scope": 71445,
+                "src": "557:13:286",
+                "stateVariable": false,
+                "storageLocation": "default",
+                "typeDescriptions": {
+                  "typeIdentifier": "t_address",
+                  "typeString": "address"
+                },
+                "typeName": {
+                  "id": 71441,
+                  "name": "address",
+                  "nodeType": "ElementaryTypeName",
+                  "src": "557:7:286",
+                  "stateMutability": "nonpayable",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  }
+                },
+                "value": null,
+                "visibility": "internal"
+              },
+              {
+                "constant": false,
+                "id": 71444,
+                "mutability": "mutable",
+                "name": "shutdown",
+                "nodeType": "VariableDeclaration",
+                "overrides": null,
+                "scope": 71445,
+                "src": "580:13:286",
+                "stateVariable": false,
+                "storageLocation": "default",
+                "typeDescriptions": {
+                  "typeIdentifier": "t_bool",
+                  "typeString": "bool"
+                },
+                "typeName": {
+                  "id": 71443,
+                  "name": "bool",
+                  "nodeType": "ElementaryTypeName",
+                  "src": "580:4:286",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_bool",
+                    "typeString": "bool"
+                  }
+                },
+                "value": null,
+                "visibility": "internal"
+              }
+            ],
+            "name": "PoolInfo",
+            "scope": 71464,
+            "visibility": "public"
+          },
+          {
+            "id": 71456,
+            "nodeType": "FunctionDefinition",
+            "src": "606:95:286",
+            "nodes": [],
+            "documentation": null,
+            "functionSelector": "43a0d066",
+            "implemented": false,
+            "kind": "function",
+            "modifiers": [],
+            "name": "deposit",
+            "overrides": null,
+            "parameters": {
+              "id": 71452,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 71447,
+                  "mutability": "mutable",
+                  "name": "",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 71456,
+                  "src": "632:7:286",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_uint256",
+                    "typeString": "uint256"
+                  },
+                  "typeName": {
+                    "id": 71446,
+                    "name": "uint256",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "632:7:286",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_uint256",
+                      "typeString": "uint256"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 71449,
+                  "mutability": "mutable",
+                  "name": "",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 71456,
+                  "src": "649:7:286",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_uint256",
+                    "typeString": "uint256"
+                  },
+                  "typeName": {
+                    "id": 71448,
+                    "name": "uint256",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "649:7:286",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_uint256",
+                      "typeString": "uint256"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 71451,
+                  "mutability": "mutable",
+                  "name": "",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 71456,
+                  "src": "666:4:286",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_bool",
+                    "typeString": "bool"
+                  },
+                  "typeName": {
+                    "id": 71450,
+                    "name": "bool",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "666:4:286",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_bool",
+                      "typeString": "bool"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "622:54:286"
+            },
+            "returnParameters": {
+              "id": 71455,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 71454,
+                  "mutability": "mutable",
+                  "name": "",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 71456,
+                  "src": "695:4:286",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_bool",
+                    "typeString": "bool"
+                  },
+                  "typeName": {
+                    "id": 71453,
+                    "name": "bool",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "695:4:286",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_bool",
+                      "typeString": "bool"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "694:6:286"
+            },
+            "scope": 71464,
+            "stateMutability": "nonpayable",
+            "virtual": false,
+            "visibility": "external"
+          },
+          {
+            "id": 71463,
+            "nodeType": "FunctionDefinition",
+            "src": "707:67:286",
+            "nodes": [],
+            "documentation": null,
+            "functionSelector": "1526fe27",
+            "implemented": false,
+            "kind": "function",
+            "modifiers": [],
+            "name": "poolInfo",
+            "overrides": null,
+            "parameters": {
+              "id": 71459,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 71458,
+                  "mutability": "mutable",
+                  "name": "",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 71463,
+                  "src": "725:7:286",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_uint256",
+                    "typeString": "uint256"
+                  },
+                  "typeName": {
+                    "id": 71457,
+                    "name": "uint256",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "725:7:286",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_uint256",
+                      "typeString": "uint256"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "724:9:286"
+            },
+            "returnParameters": {
+              "id": 71462,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 71461,
+                  "mutability": "mutable",
+                  "name": "",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 71463,
+                  "src": "757:15:286",
+                  "stateVariable": false,
+                  "storageLocation": "memory",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_struct$_PoolInfo_$71445_memory_ptr",
+                    "typeString": "struct IConvexBooster.PoolInfo"
+                  },
+                  "typeName": {
+                    "contractScope": null,
+                    "id": 71460,
+                    "name": "PoolInfo",
+                    "nodeType": "UserDefinedTypeName",
+                    "referencedDeclaration": 71445,
+                    "src": "757:8:286",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_struct$_PoolInfo_$71445_storage_ptr",
+                      "typeString": "struct IConvexBooster.PoolInfo"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "756:17:286"
+            },
+            "scope": 71464,
+            "stateMutability": "view",
+            "virtual": false,
+            "visibility": "external"
+          }
+        ],
+        "abstract": false,
+        "baseContracts": [],
+        "contractDependencies": [],
+        "contractKind": "interface",
+        "documentation": {
+          "id": 71432,
+          "nodeType": "StructuredDocumentation",
+          "src": "312:89:286",
+          "text": "@title IConvexBooster Interface\n @author Enzyme Council <security@enzyme.finance>"
+        },
+        "fullyImplemented": false,
+        "linearizedBaseContracts": [
+          71464
+        ],
+        "name": "IConvexBooster",
+        "scope": 71465
+      }
+    ],
+    "license": "GPL-3.0"
+  },
+  "id": 286
 }

@@ -1,0 +1,973 @@
+{
+  "abi": [
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "_investmentAmount",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "_minSharesQuantity",
+          "type": "uint256"
+        }
+      ],
+      "name": "buyShares",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "sharesReceived_",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "getDenominationAsset",
+      "outputs": [
+        {
+          "internalType": "address",
+          "name": "denominationAsset_",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "_recipient",
+          "type": "address"
+        },
+        {
+          "internalType": "uint256",
+          "name": "_sharesQuantity",
+          "type": "uint256"
+        },
+        {
+          "internalType": "address[]",
+          "name": "_payoutAssets",
+          "type": "address[]"
+        },
+        {
+          "internalType": "uint256[]",
+          "name": "_payoutAssetPercentages",
+          "type": "uint256[]"
+        }
+      ],
+      "name": "redeemSharesForSpecificAssets",
+      "outputs": [
+        {
+          "internalType": "uint256[]",
+          "name": "payoutAmounts_",
+          "type": "uint256[]"
+        }
+      ],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "_recipient",
+          "type": "address"
+        },
+        {
+          "internalType": "uint256",
+          "name": "_sharesQuantity",
+          "type": "uint256"
+        },
+        {
+          "internalType": "address[]",
+          "name": "_additionalAssets",
+          "type": "address[]"
+        },
+        {
+          "internalType": "address[]",
+          "name": "_assetsToSkip",
+          "type": "address[]"
+        }
+      ],
+      "name": "redeemSharesInKind",
+      "outputs": [
+        {
+          "internalType": "address[]",
+          "name": "payoutAssets_",
+          "type": "address[]"
+        },
+        {
+          "internalType": "uint256[]",
+          "name": "payoutAmounts_",
+          "type": "uint256[]"
+        }
+      ],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    }
+  ],
+  "bytecode": {
+    "object": "0x",
+    "sourceMap": "",
+    "linkReferences": {}
+  },
+  "deployedBytecode": {
+    "object": "0x",
+    "sourceMap": "",
+    "linkReferences": {}
+  },
+  "methodIdentifiers": {
+    "buyShares(uint256,uint256)": "beebc5da",
+    "getDenominationAsset()": "e269c3d6",
+    "redeemSharesForSpecificAssets(address,uint256,address[],uint256[])": "3462fcc1",
+    "redeemSharesInKind(address,uint256,address[],address[])": "6af8e7eb"
+  },
+  "rawMetadata": "{\"compiler\":{\"version\":\"0.6.12+commit.27d51765\"},\"language\":\"Solidity\",\"output\":{\"abi\":[{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_investmentAmount\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"_minSharesQuantity\",\"type\":\"uint256\"}],\"name\":\"buyShares\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"sharesReceived_\",\"type\":\"uint256\"}],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getDenominationAsset\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"denominationAsset_\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_recipient\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"_sharesQuantity\",\"type\":\"uint256\"},{\"internalType\":\"address[]\",\"name\":\"_payoutAssets\",\"type\":\"address[]\"},{\"internalType\":\"uint256[]\",\"name\":\"_payoutAssetPercentages\",\"type\":\"uint256[]\"}],\"name\":\"redeemSharesForSpecificAssets\",\"outputs\":[{\"internalType\":\"uint256[]\",\"name\":\"payoutAmounts_\",\"type\":\"uint256[]\"}],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_recipient\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"_sharesQuantity\",\"type\":\"uint256\"},{\"internalType\":\"address[]\",\"name\":\"_additionalAssets\",\"type\":\"address[]\"},{\"internalType\":\"address[]\",\"name\":\"_assetsToSkip\",\"type\":\"address[]\"}],\"name\":\"redeemSharesInKind\",\"outputs\":[{\"internalType\":\"address[]\",\"name\":\"payoutAssets_\",\"type\":\"address[]\"},{\"internalType\":\"uint256[]\",\"name\":\"payoutAmounts_\",\"type\":\"uint256[]\"}],\"stateMutability\":\"nonpayable\",\"type\":\"function\"}],\"devdoc\":{\"author\":\"Enzyme Council <security@enzyme.finance>\",\"kind\":\"dev\",\"methods\":{},\"title\":\"IGlobalConfigLibComptrollerV4 Interface\",\"version\":1},\"userdoc\":{\"kind\":\"user\",\"methods\":{},\"notice\":\"Limited interface for GlobalConfigLib's required Enzyme v4 ComptrollerLib calls\",\"version\":1}},\"settings\":{\"compilationTarget\":{\"contracts/persistent/global-config/interfaces/IGlobalConfigLibComptrollerV4.sol\":\"IGlobalConfigLibComptrollerV4\"},\"evmVersion\":\"istanbul\",\"libraries\":{},\"metadata\":{\"bytecodeHash\":\"none\"},\"optimizer\":{\"details\":{\"constantOptimizer\":true,\"cse\":true,\"deduplicate\":true,\"jumpdestRemover\":true,\"orderLiterals\":true,\"peephole\":true,\"yul\":false},\"runs\":200},\"remappings\":[\":@enzyme/=contracts/\",\":@openzeppelin-solc-0.7/=node_modules/@openzeppelin-solc-0.7/\",\":@openzeppelin/=node_modules/@openzeppelin/\",\":@uniswap/=node_modules/@uniswap/\",\":base64-sol/=node_modules/base64-sol/\",\":ds-test/=lib/forge-std/lib/ds-test/src/\",\":forge-std/=lib/forge-std/src/\",\":hardhat-deploy/=node_modules/hardhat-deploy/\",\":hardhat/=node_modules/hardhat/\"]},\"sources\":{\"contracts/persistent/global-config/interfaces/IGlobalConfigLibComptrollerV4.sol\":{\"keccak256\":\"0x3951dd8073cc4a4d6fa2782b8fe6df143dd1b8ff486954a5ca7791104fa24db7\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://9e646edb981e9b4da62f6791f8f7073929dfd9fab6f69e73212028149913bfb7\",\"dweb:/ipfs/Qmcq2YXsP4xCQNYpnaPezxt1Ei4BBZkbu1pRy8hK2T1P2Q\"]}},\"version\":1}",
+  "metadata": {
+    "compiler": {
+      "version": "0.6.12+commit.27d51765"
+    },
+    "language": "Solidity",
+    "output": {
+      "abi": [
+        {
+          "inputs": [
+            {
+              "internalType": "uint256",
+              "name": "_investmentAmount",
+              "type": "uint256"
+            },
+            {
+              "internalType": "uint256",
+              "name": "_minSharesQuantity",
+              "type": "uint256"
+            }
+          ],
+          "stateMutability": "nonpayable",
+          "type": "function",
+          "name": "buyShares",
+          "outputs": [
+            {
+              "internalType": "uint256",
+              "name": "sharesReceived_",
+              "type": "uint256"
+            }
+          ]
+        },
+        {
+          "inputs": [],
+          "stateMutability": "view",
+          "type": "function",
+          "name": "getDenominationAsset",
+          "outputs": [
+            {
+              "internalType": "address",
+              "name": "denominationAsset_",
+              "type": "address"
+            }
+          ]
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "_recipient",
+              "type": "address"
+            },
+            {
+              "internalType": "uint256",
+              "name": "_sharesQuantity",
+              "type": "uint256"
+            },
+            {
+              "internalType": "address[]",
+              "name": "_payoutAssets",
+              "type": "address[]"
+            },
+            {
+              "internalType": "uint256[]",
+              "name": "_payoutAssetPercentages",
+              "type": "uint256[]"
+            }
+          ],
+          "stateMutability": "nonpayable",
+          "type": "function",
+          "name": "redeemSharesForSpecificAssets",
+          "outputs": [
+            {
+              "internalType": "uint256[]",
+              "name": "payoutAmounts_",
+              "type": "uint256[]"
+            }
+          ]
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "_recipient",
+              "type": "address"
+            },
+            {
+              "internalType": "uint256",
+              "name": "_sharesQuantity",
+              "type": "uint256"
+            },
+            {
+              "internalType": "address[]",
+              "name": "_additionalAssets",
+              "type": "address[]"
+            },
+            {
+              "internalType": "address[]",
+              "name": "_assetsToSkip",
+              "type": "address[]"
+            }
+          ],
+          "stateMutability": "nonpayable",
+          "type": "function",
+          "name": "redeemSharesInKind",
+          "outputs": [
+            {
+              "internalType": "address[]",
+              "name": "payoutAssets_",
+              "type": "address[]"
+            },
+            {
+              "internalType": "uint256[]",
+              "name": "payoutAmounts_",
+              "type": "uint256[]"
+            }
+          ]
+        }
+      ],
+      "devdoc": {
+        "kind": "dev",
+        "methods": {},
+        "version": 1
+      },
+      "userdoc": {
+        "kind": "user",
+        "methods": {},
+        "version": 1
+      }
+    },
+    "settings": {
+      "remappings": [
+        ":@enzyme/=contracts/",
+        ":@openzeppelin-solc-0.7/=node_modules/@openzeppelin-solc-0.7/",
+        ":@openzeppelin/=node_modules/@openzeppelin/",
+        ":@uniswap/=node_modules/@uniswap/",
+        ":base64-sol/=node_modules/base64-sol/",
+        ":ds-test/=lib/forge-std/lib/ds-test/src/",
+        ":forge-std/=lib/forge-std/src/",
+        ":hardhat-deploy/=node_modules/hardhat-deploy/",
+        ":hardhat/=node_modules/hardhat/"
+      ],
+      "optimizer": {
+        "runs": 200,
+        "details": {
+          "peephole": true,
+          "jumpdestRemover": true,
+          "orderLiterals": true,
+          "deduplicate": true,
+          "cse": true,
+          "constantOptimizer": true,
+          "yul": false
+        }
+      },
+      "metadata": {
+        "bytecodeHash": "none"
+      },
+      "compilationTarget": {
+        "contracts/persistent/global-config/interfaces/IGlobalConfigLibComptrollerV4.sol": "IGlobalConfigLibComptrollerV4"
+      },
+      "libraries": {}
+    },
+    "sources": {
+      "contracts/persistent/global-config/interfaces/IGlobalConfigLibComptrollerV4.sol": {
+        "keccak256": "0x3951dd8073cc4a4d6fa2782b8fe6df143dd1b8ff486954a5ca7791104fa24db7",
+        "urls": [
+          "bzz-raw://9e646edb981e9b4da62f6791f8f7073929dfd9fab6f69e73212028149913bfb7",
+          "dweb:/ipfs/Qmcq2YXsP4xCQNYpnaPezxt1Ei4BBZkbu1pRy8hK2T1P2Q"
+        ],
+        "license": "GPL-3.0"
+      }
+    },
+    "version": 1
+  },
+  "ast": {
+    "absolutePath": "contracts/persistent/global-config/interfaces/IGlobalConfigLibComptrollerV4.sol",
+    "id": 6275,
+    "exportedSymbols": {
+      "IGlobalConfigLibComptrollerV4": [
+        6274
+      ]
+    },
+    "nodeType": "SourceUnit",
+    "src": "253:1021:45",
+    "nodes": [
+      {
+        "id": 6223,
+        "nodeType": "PragmaDirective",
+        "src": "253:23:45",
+        "nodes": [],
+        "literals": [
+          "solidity",
+          "0.6",
+          ".12"
+        ]
+      },
+      {
+        "id": 6274,
+        "nodeType": "ContractDefinition",
+        "src": "474:799:45",
+        "nodes": [
+          {
+            "id": 6233,
+            "nodeType": "FunctionDefinition",
+            "src": "520:133:45",
+            "nodes": [],
+            "documentation": null,
+            "functionSelector": "beebc5da",
+            "implemented": false,
+            "kind": "function",
+            "modifiers": [],
+            "name": "buyShares",
+            "overrides": null,
+            "parameters": {
+              "id": 6229,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 6226,
+                  "mutability": "mutable",
+                  "name": "_investmentAmount",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 6233,
+                  "src": "539:25:45",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_uint256",
+                    "typeString": "uint256"
+                  },
+                  "typeName": {
+                    "id": 6225,
+                    "name": "uint256",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "539:7:45",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_uint256",
+                      "typeString": "uint256"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 6228,
+                  "mutability": "mutable",
+                  "name": "_minSharesQuantity",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 6233,
+                  "src": "566:26:45",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_uint256",
+                    "typeString": "uint256"
+                  },
+                  "typeName": {
+                    "id": 6227,
+                    "name": "uint256",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "566:7:45",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_uint256",
+                      "typeString": "uint256"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "538:55:45"
+            },
+            "returnParameters": {
+              "id": 6232,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 6231,
+                  "mutability": "mutable",
+                  "name": "sharesReceived_",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 6233,
+                  "src": "628:23:45",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_uint256",
+                    "typeString": "uint256"
+                  },
+                  "typeName": {
+                    "id": 6230,
+                    "name": "uint256",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "628:7:45",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_uint256",
+                      "typeString": "uint256"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "627:25:45"
+            },
+            "scope": 6274,
+            "stateMutability": "nonpayable",
+            "virtual": false,
+            "visibility": "external"
+          },
+          {
+            "id": 6238,
+            "nodeType": "FunctionDefinition",
+            "src": "659:83:45",
+            "nodes": [],
+            "documentation": null,
+            "functionSelector": "e269c3d6",
+            "implemented": false,
+            "kind": "function",
+            "modifiers": [],
+            "name": "getDenominationAsset",
+            "overrides": null,
+            "parameters": {
+              "id": 6234,
+              "nodeType": "ParameterList",
+              "parameters": [],
+              "src": "688:2:45"
+            },
+            "returnParameters": {
+              "id": 6237,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 6236,
+                  "mutability": "mutable",
+                  "name": "denominationAsset_",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 6238,
+                  "src": "714:26:45",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 6235,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "714:7:45",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "713:28:45"
+            },
+            "scope": 6274,
+            "stateMutability": "view",
+            "virtual": false,
+            "visibility": "external"
+          },
+          {
+            "id": 6254,
+            "nodeType": "FunctionDefinition",
+            "src": "748:251:45",
+            "nodes": [],
+            "documentation": null,
+            "functionSelector": "3462fcc1",
+            "implemented": false,
+            "kind": "function",
+            "modifiers": [],
+            "name": "redeemSharesForSpecificAssets",
+            "overrides": null,
+            "parameters": {
+              "id": 6249,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 6240,
+                  "mutability": "mutable",
+                  "name": "_recipient",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 6254,
+                  "src": "796:18:45",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 6239,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "796:7:45",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 6242,
+                  "mutability": "mutable",
+                  "name": "_sharesQuantity",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 6254,
+                  "src": "824:23:45",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_uint256",
+                    "typeString": "uint256"
+                  },
+                  "typeName": {
+                    "id": 6241,
+                    "name": "uint256",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "824:7:45",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_uint256",
+                      "typeString": "uint256"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 6245,
+                  "mutability": "mutable",
+                  "name": "_payoutAssets",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 6254,
+                  "src": "857:32:45",
+                  "stateVariable": false,
+                  "storageLocation": "calldata",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_array$_t_address_$dyn_calldata_ptr",
+                    "typeString": "address[]"
+                  },
+                  "typeName": {
+                    "baseType": {
+                      "id": 6243,
+                      "name": "address",
+                      "nodeType": "ElementaryTypeName",
+                      "src": "857:7:45",
+                      "stateMutability": "nonpayable",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_address",
+                        "typeString": "address"
+                      }
+                    },
+                    "id": 6244,
+                    "length": null,
+                    "nodeType": "ArrayTypeName",
+                    "src": "857:9:45",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_array$_t_address_$dyn_storage_ptr",
+                      "typeString": "address[]"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 6248,
+                  "mutability": "mutable",
+                  "name": "_payoutAssetPercentages",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 6254,
+                  "src": "899:42:45",
+                  "stateVariable": false,
+                  "storageLocation": "calldata",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_array$_t_uint256_$dyn_calldata_ptr",
+                    "typeString": "uint256[]"
+                  },
+                  "typeName": {
+                    "baseType": {
+                      "id": 6246,
+                      "name": "uint256",
+                      "nodeType": "ElementaryTypeName",
+                      "src": "899:7:45",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_uint256",
+                        "typeString": "uint256"
+                      }
+                    },
+                    "id": 6247,
+                    "length": null,
+                    "nodeType": "ArrayTypeName",
+                    "src": "899:9:45",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_array$_t_uint256_$dyn_storage_ptr",
+                      "typeString": "uint256[]"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "786:161:45"
+            },
+            "returnParameters": {
+              "id": 6253,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 6252,
+                  "mutability": "mutable",
+                  "name": "payoutAmounts_",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 6254,
+                  "src": "966:31:45",
+                  "stateVariable": false,
+                  "storageLocation": "memory",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_array$_t_uint256_$dyn_memory_ptr",
+                    "typeString": "uint256[]"
+                  },
+                  "typeName": {
+                    "baseType": {
+                      "id": 6250,
+                      "name": "uint256",
+                      "nodeType": "ElementaryTypeName",
+                      "src": "966:7:45",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_uint256",
+                        "typeString": "uint256"
+                      }
+                    },
+                    "id": 6251,
+                    "length": null,
+                    "nodeType": "ArrayTypeName",
+                    "src": "966:9:45",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_array$_t_uint256_$dyn_storage_ptr",
+                      "typeString": "uint256[]"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "965:33:45"
+            },
+            "scope": 6274,
+            "stateMutability": "nonpayable",
+            "virtual": false,
+            "visibility": "external"
+          },
+          {
+            "id": 6273,
+            "nodeType": "FunctionDefinition",
+            "src": "1005:266:45",
+            "nodes": [],
+            "documentation": null,
+            "functionSelector": "6af8e7eb",
+            "implemented": false,
+            "kind": "function",
+            "modifiers": [],
+            "name": "redeemSharesInKind",
+            "overrides": null,
+            "parameters": {
+              "id": 6265,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 6256,
+                  "mutability": "mutable",
+                  "name": "_recipient",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 6273,
+                  "src": "1042:18:45",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 6255,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "1042:7:45",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 6258,
+                  "mutability": "mutable",
+                  "name": "_sharesQuantity",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 6273,
+                  "src": "1070:23:45",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_uint256",
+                    "typeString": "uint256"
+                  },
+                  "typeName": {
+                    "id": 6257,
+                    "name": "uint256",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "1070:7:45",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_uint256",
+                      "typeString": "uint256"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 6261,
+                  "mutability": "mutable",
+                  "name": "_additionalAssets",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 6273,
+                  "src": "1103:36:45",
+                  "stateVariable": false,
+                  "storageLocation": "calldata",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_array$_t_address_$dyn_calldata_ptr",
+                    "typeString": "address[]"
+                  },
+                  "typeName": {
+                    "baseType": {
+                      "id": 6259,
+                      "name": "address",
+                      "nodeType": "ElementaryTypeName",
+                      "src": "1103:7:45",
+                      "stateMutability": "nonpayable",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_address",
+                        "typeString": "address"
+                      }
+                    },
+                    "id": 6260,
+                    "length": null,
+                    "nodeType": "ArrayTypeName",
+                    "src": "1103:9:45",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_array$_t_address_$dyn_storage_ptr",
+                      "typeString": "address[]"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 6264,
+                  "mutability": "mutable",
+                  "name": "_assetsToSkip",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 6273,
+                  "src": "1149:32:45",
+                  "stateVariable": false,
+                  "storageLocation": "calldata",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_array$_t_address_$dyn_calldata_ptr",
+                    "typeString": "address[]"
+                  },
+                  "typeName": {
+                    "baseType": {
+                      "id": 6262,
+                      "name": "address",
+                      "nodeType": "ElementaryTypeName",
+                      "src": "1149:7:45",
+                      "stateMutability": "nonpayable",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_address",
+                        "typeString": "address"
+                      }
+                    },
+                    "id": 6263,
+                    "length": null,
+                    "nodeType": "ArrayTypeName",
+                    "src": "1149:9:45",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_array$_t_address_$dyn_storage_ptr",
+                      "typeString": "address[]"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "1032:155:45"
+            },
+            "returnParameters": {
+              "id": 6272,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 6268,
+                  "mutability": "mutable",
+                  "name": "payoutAssets_",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 6273,
+                  "src": "1206:30:45",
+                  "stateVariable": false,
+                  "storageLocation": "memory",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_array$_t_address_$dyn_memory_ptr",
+                    "typeString": "address[]"
+                  },
+                  "typeName": {
+                    "baseType": {
+                      "id": 6266,
+                      "name": "address",
+                      "nodeType": "ElementaryTypeName",
+                      "src": "1206:7:45",
+                      "stateMutability": "nonpayable",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_address",
+                        "typeString": "address"
+                      }
+                    },
+                    "id": 6267,
+                    "length": null,
+                    "nodeType": "ArrayTypeName",
+                    "src": "1206:9:45",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_array$_t_address_$dyn_storage_ptr",
+                      "typeString": "address[]"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 6271,
+                  "mutability": "mutable",
+                  "name": "payoutAmounts_",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 6273,
+                  "src": "1238:31:45",
+                  "stateVariable": false,
+                  "storageLocation": "memory",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_array$_t_uint256_$dyn_memory_ptr",
+                    "typeString": "uint256[]"
+                  },
+                  "typeName": {
+                    "baseType": {
+                      "id": 6269,
+                      "name": "uint256",
+                      "nodeType": "ElementaryTypeName",
+                      "src": "1238:7:45",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_uint256",
+                        "typeString": "uint256"
+                      }
+                    },
+                    "id": 6270,
+                    "length": null,
+                    "nodeType": "ArrayTypeName",
+                    "src": "1238:9:45",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_array$_t_uint256_$dyn_storage_ptr",
+                      "typeString": "uint256[]"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "1205:65:45"
+            },
+            "scope": 6274,
+            "stateMutability": "nonpayable",
+            "virtual": false,
+            "visibility": "external"
+          }
+        ],
+        "abstract": false,
+        "baseContracts": [],
+        "contractDependencies": [],
+        "contractKind": "interface",
+        "documentation": {
+          "id": 6224,
+          "nodeType": "StructuredDocumentation",
+          "src": "278:196:45",
+          "text": "@title IGlobalConfigLibComptrollerV4 Interface\n @author Enzyme Council <security@enzyme.finance>\n @notice Limited interface for GlobalConfigLib's required Enzyme v4 ComptrollerLib calls"
+        },
+        "fullyImplemented": false,
+        "linearizedBaseContracts": [
+          6274
+        ],
+        "name": "IGlobalConfigLibComptrollerV4",
+        "scope": 6275
+      }
+    ],
+    "license": "GPL-3.0"
+  },
+  "id": 45
+}

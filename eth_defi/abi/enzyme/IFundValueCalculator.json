@@ -1,0 +1,1867 @@
+{
+  "abi": [
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "_vaultProxy",
+          "type": "address"
+        }
+      ],
+      "name": "calcGav",
+      "outputs": [
+        {
+          "internalType": "address",
+          "name": "denominationAsset_",
+          "type": "address"
+        },
+        {
+          "internalType": "uint256",
+          "name": "gav_",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "_vaultProxy",
+          "type": "address"
+        },
+        {
+          "internalType": "address",
+          "name": "_quoteAsset",
+          "type": "address"
+        }
+      ],
+      "name": "calcGavInAsset",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "gav_",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "_vaultProxy",
+          "type": "address"
+        }
+      ],
+      "name": "calcGrossShareValue",
+      "outputs": [
+        {
+          "internalType": "address",
+          "name": "denominationAsset_",
+          "type": "address"
+        },
+        {
+          "internalType": "uint256",
+          "name": "grossShareValue_",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "_vaultProxy",
+          "type": "address"
+        },
+        {
+          "internalType": "address",
+          "name": "_quoteAsset",
+          "type": "address"
+        }
+      ],
+      "name": "calcGrossShareValueInAsset",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "grossShareValue_",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "_vaultProxy",
+          "type": "address"
+        }
+      ],
+      "name": "calcNav",
+      "outputs": [
+        {
+          "internalType": "address",
+          "name": "denominationAsset_",
+          "type": "address"
+        },
+        {
+          "internalType": "uint256",
+          "name": "nav_",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "_vaultProxy",
+          "type": "address"
+        },
+        {
+          "internalType": "address",
+          "name": "_quoteAsset",
+          "type": "address"
+        }
+      ],
+      "name": "calcNavInAsset",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "nav_",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "_vaultProxy",
+          "type": "address"
+        }
+      ],
+      "name": "calcNetShareValue",
+      "outputs": [
+        {
+          "internalType": "address",
+          "name": "denominationAsset_",
+          "type": "address"
+        },
+        {
+          "internalType": "uint256",
+          "name": "netShareValue_",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "_vaultProxy",
+          "type": "address"
+        },
+        {
+          "internalType": "address",
+          "name": "_quoteAsset",
+          "type": "address"
+        }
+      ],
+      "name": "calcNetShareValueInAsset",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "netShareValue_",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "_vaultProxy",
+          "type": "address"
+        },
+        {
+          "internalType": "address",
+          "name": "_sharesHolder",
+          "type": "address"
+        }
+      ],
+      "name": "calcNetValueForSharesHolder",
+      "outputs": [
+        {
+          "internalType": "address",
+          "name": "denominationAsset_",
+          "type": "address"
+        },
+        {
+          "internalType": "uint256",
+          "name": "netValue_",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "_vaultProxy",
+          "type": "address"
+        },
+        {
+          "internalType": "address",
+          "name": "_sharesHolder",
+          "type": "address"
+        },
+        {
+          "internalType": "address",
+          "name": "_quoteAsset",
+          "type": "address"
+        }
+      ],
+      "name": "calcNetValueForSharesHolderInAsset",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "netValue_",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    }
+  ],
+  "bytecode": {
+    "object": "0x",
+    "sourceMap": "",
+    "linkReferences": {}
+  },
+  "deployedBytecode": {
+    "object": "0x",
+    "sourceMap": "",
+    "linkReferences": {}
+  },
+  "methodIdentifiers": {
+    "calcGav(address)": "037276c1",
+    "calcGavInAsset(address,address)": "51ac29c7",
+    "calcGrossShareValue(address)": "c3552663",
+    "calcGrossShareValueInAsset(address,address)": "eefcb1b3",
+    "calcNav(address)": "53d467f3",
+    "calcNavInAsset(address,address)": "c65988ff",
+    "calcNetShareValue(address)": "3ba6b851",
+    "calcNetShareValueInAsset(address,address)": "faf6eeef",
+    "calcNetValueForSharesHolder(address,address)": "81dfa95b",
+    "calcNetValueForSharesHolderInAsset(address,address,address)": "4807ccbd"
+  },
+  "rawMetadata": "{\"compiler\":{\"version\":\"0.6.12+commit.27d51765\"},\"language\":\"Solidity\",\"output\":{\"abi\":[{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_vaultProxy\",\"type\":\"address\"}],\"name\":\"calcGav\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"denominationAsset_\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"gav_\",\"type\":\"uint256\"}],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_vaultProxy\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"_quoteAsset\",\"type\":\"address\"}],\"name\":\"calcGavInAsset\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"gav_\",\"type\":\"uint256\"}],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_vaultProxy\",\"type\":\"address\"}],\"name\":\"calcGrossShareValue\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"denominationAsset_\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"grossShareValue_\",\"type\":\"uint256\"}],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_vaultProxy\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"_quoteAsset\",\"type\":\"address\"}],\"name\":\"calcGrossShareValueInAsset\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"grossShareValue_\",\"type\":\"uint256\"}],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_vaultProxy\",\"type\":\"address\"}],\"name\":\"calcNav\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"denominationAsset_\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"nav_\",\"type\":\"uint256\"}],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_vaultProxy\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"_quoteAsset\",\"type\":\"address\"}],\"name\":\"calcNavInAsset\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"nav_\",\"type\":\"uint256\"}],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_vaultProxy\",\"type\":\"address\"}],\"name\":\"calcNetShareValue\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"denominationAsset_\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"netShareValue_\",\"type\":\"uint256\"}],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_vaultProxy\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"_quoteAsset\",\"type\":\"address\"}],\"name\":\"calcNetShareValueInAsset\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"netShareValue_\",\"type\":\"uint256\"}],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_vaultProxy\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"_sharesHolder\",\"type\":\"address\"}],\"name\":\"calcNetValueForSharesHolder\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"denominationAsset_\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"netValue_\",\"type\":\"uint256\"}],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_vaultProxy\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"_sharesHolder\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"_quoteAsset\",\"type\":\"address\"}],\"name\":\"calcNetValueForSharesHolderInAsset\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"netValue_\",\"type\":\"uint256\"}],\"stateMutability\":\"nonpayable\",\"type\":\"function\"}],\"devdoc\":{\"author\":\"Enzyme Council <security@enzyme.finance>\",\"kind\":\"dev\",\"methods\":{},\"title\":\"IFundValueCalculator interface\",\"version\":1},\"userdoc\":{\"kind\":\"user\",\"methods\":{},\"version\":1}},\"settings\":{\"compilationTarget\":{\"contracts/persistent/off-chain/fund-value-calculator/IFundValueCalculator.sol\":\"IFundValueCalculator\"},\"evmVersion\":\"istanbul\",\"libraries\":{},\"metadata\":{\"bytecodeHash\":\"none\"},\"optimizer\":{\"details\":{\"constantOptimizer\":true,\"cse\":true,\"deduplicate\":true,\"jumpdestRemover\":true,\"orderLiterals\":true,\"peephole\":true,\"yul\":false},\"runs\":200},\"remappings\":[\":@enzyme/=contracts/\",\":@openzeppelin-solc-0.7/=node_modules/@openzeppelin-solc-0.7/\",\":@openzeppelin/=node_modules/@openzeppelin/\",\":@uniswap/=node_modules/@uniswap/\",\":base64-sol/=node_modules/base64-sol/\",\":ds-test/=lib/forge-std/lib/ds-test/src/\",\":forge-std/=lib/forge-std/src/\",\":hardhat-deploy/=node_modules/hardhat-deploy/\",\":hardhat/=node_modules/hardhat/\"]},\"sources\":{\"contracts/persistent/off-chain/fund-value-calculator/IFundValueCalculator.sol\":{\"keccak256\":\"0x993e11b879d6ad85f5ecf5f8e1880989c010bdf03de2079b39f66a953844de2d\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://f61a09908b981589bc4d3657736276f463f1ea23f9811b8d174cd5de224b556d\",\"dweb:/ipfs/QmU6rYofnKmWSTBzshVMxFnVRtBKCECSpnGepDy6DddCbv\"]}},\"version\":1}",
+  "metadata": {
+    "compiler": {
+      "version": "0.6.12+commit.27d51765"
+    },
+    "language": "Solidity",
+    "output": {
+      "abi": [
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "_vaultProxy",
+              "type": "address"
+            }
+          ],
+          "stateMutability": "nonpayable",
+          "type": "function",
+          "name": "calcGav",
+          "outputs": [
+            {
+              "internalType": "address",
+              "name": "denominationAsset_",
+              "type": "address"
+            },
+            {
+              "internalType": "uint256",
+              "name": "gav_",
+              "type": "uint256"
+            }
+          ]
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "_vaultProxy",
+              "type": "address"
+            },
+            {
+              "internalType": "address",
+              "name": "_quoteAsset",
+              "type": "address"
+            }
+          ],
+          "stateMutability": "nonpayable",
+          "type": "function",
+          "name": "calcGavInAsset",
+          "outputs": [
+            {
+              "internalType": "uint256",
+              "name": "gav_",
+              "type": "uint256"
+            }
+          ]
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "_vaultProxy",
+              "type": "address"
+            }
+          ],
+          "stateMutability": "nonpayable",
+          "type": "function",
+          "name": "calcGrossShareValue",
+          "outputs": [
+            {
+              "internalType": "address",
+              "name": "denominationAsset_",
+              "type": "address"
+            },
+            {
+              "internalType": "uint256",
+              "name": "grossShareValue_",
+              "type": "uint256"
+            }
+          ]
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "_vaultProxy",
+              "type": "address"
+            },
+            {
+              "internalType": "address",
+              "name": "_quoteAsset",
+              "type": "address"
+            }
+          ],
+          "stateMutability": "nonpayable",
+          "type": "function",
+          "name": "calcGrossShareValueInAsset",
+          "outputs": [
+            {
+              "internalType": "uint256",
+              "name": "grossShareValue_",
+              "type": "uint256"
+            }
+          ]
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "_vaultProxy",
+              "type": "address"
+            }
+          ],
+          "stateMutability": "nonpayable",
+          "type": "function",
+          "name": "calcNav",
+          "outputs": [
+            {
+              "internalType": "address",
+              "name": "denominationAsset_",
+              "type": "address"
+            },
+            {
+              "internalType": "uint256",
+              "name": "nav_",
+              "type": "uint256"
+            }
+          ]
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "_vaultProxy",
+              "type": "address"
+            },
+            {
+              "internalType": "address",
+              "name": "_quoteAsset",
+              "type": "address"
+            }
+          ],
+          "stateMutability": "nonpayable",
+          "type": "function",
+          "name": "calcNavInAsset",
+          "outputs": [
+            {
+              "internalType": "uint256",
+              "name": "nav_",
+              "type": "uint256"
+            }
+          ]
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "_vaultProxy",
+              "type": "address"
+            }
+          ],
+          "stateMutability": "nonpayable",
+          "type": "function",
+          "name": "calcNetShareValue",
+          "outputs": [
+            {
+              "internalType": "address",
+              "name": "denominationAsset_",
+              "type": "address"
+            },
+            {
+              "internalType": "uint256",
+              "name": "netShareValue_",
+              "type": "uint256"
+            }
+          ]
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "_vaultProxy",
+              "type": "address"
+            },
+            {
+              "internalType": "address",
+              "name": "_quoteAsset",
+              "type": "address"
+            }
+          ],
+          "stateMutability": "nonpayable",
+          "type": "function",
+          "name": "calcNetShareValueInAsset",
+          "outputs": [
+            {
+              "internalType": "uint256",
+              "name": "netShareValue_",
+              "type": "uint256"
+            }
+          ]
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "_vaultProxy",
+              "type": "address"
+            },
+            {
+              "internalType": "address",
+              "name": "_sharesHolder",
+              "type": "address"
+            }
+          ],
+          "stateMutability": "nonpayable",
+          "type": "function",
+          "name": "calcNetValueForSharesHolder",
+          "outputs": [
+            {
+              "internalType": "address",
+              "name": "denominationAsset_",
+              "type": "address"
+            },
+            {
+              "internalType": "uint256",
+              "name": "netValue_",
+              "type": "uint256"
+            }
+          ]
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "_vaultProxy",
+              "type": "address"
+            },
+            {
+              "internalType": "address",
+              "name": "_sharesHolder",
+              "type": "address"
+            },
+            {
+              "internalType": "address",
+              "name": "_quoteAsset",
+              "type": "address"
+            }
+          ],
+          "stateMutability": "nonpayable",
+          "type": "function",
+          "name": "calcNetValueForSharesHolderInAsset",
+          "outputs": [
+            {
+              "internalType": "uint256",
+              "name": "netValue_",
+              "type": "uint256"
+            }
+          ]
+        }
+      ],
+      "devdoc": {
+        "kind": "dev",
+        "methods": {},
+        "version": 1
+      },
+      "userdoc": {
+        "kind": "user",
+        "methods": {},
+        "version": 1
+      }
+    },
+    "settings": {
+      "remappings": [
+        ":@enzyme/=contracts/",
+        ":@openzeppelin-solc-0.7/=node_modules/@openzeppelin-solc-0.7/",
+        ":@openzeppelin/=node_modules/@openzeppelin/",
+        ":@uniswap/=node_modules/@uniswap/",
+        ":base64-sol/=node_modules/base64-sol/",
+        ":ds-test/=lib/forge-std/lib/ds-test/src/",
+        ":forge-std/=lib/forge-std/src/",
+        ":hardhat-deploy/=node_modules/hardhat-deploy/",
+        ":hardhat/=node_modules/hardhat/"
+      ],
+      "optimizer": {
+        "runs": 200,
+        "details": {
+          "peephole": true,
+          "jumpdestRemover": true,
+          "orderLiterals": true,
+          "deduplicate": true,
+          "cse": true,
+          "constantOptimizer": true,
+          "yul": false
+        }
+      },
+      "metadata": {
+        "bytecodeHash": "none"
+      },
+      "compilationTarget": {
+        "contracts/persistent/off-chain/fund-value-calculator/IFundValueCalculator.sol": "IFundValueCalculator"
+      },
+      "libraries": {}
+    },
+    "sources": {
+      "contracts/persistent/off-chain/fund-value-calculator/IFundValueCalculator.sol": {
+        "keccak256": "0x993e11b879d6ad85f5ecf5f8e1880989c010bdf03de2079b39f66a953844de2d",
+        "urls": [
+          "bzz-raw://f61a09908b981589bc4d3657736276f463f1ea23f9811b8d174cd5de224b556d",
+          "dweb:/ipfs/QmU6rYofnKmWSTBzshVMxFnVRtBKCECSpnGepDy6DddCbv"
+        ],
+        "license": "GPL-3.0"
+      }
+    },
+    "version": 1
+  },
+  "ast": {
+    "absolutePath": "contracts/persistent/off-chain/fund-value-calculator/IFundValueCalculator.sol",
+    "id": 7080,
+    "exportedSymbols": {
+      "IFundValueCalculator": [
+        7079
+      ]
+    },
+    "nodeType": "SourceUnit",
+    "src": "255:1552:50",
+    "nodes": [
+      {
+        "id": 6983,
+        "nodeType": "PragmaDirective",
+        "src": "255:23:50",
+        "nodes": [],
+        "literals": [
+          "solidity",
+          "0.6",
+          ".12"
+        ]
+      },
+      {
+        "id": 7079,
+        "nodeType": "ContractDefinition",
+        "src": "375:1431:50",
+        "nodes": [
+          {
+            "id": 6993,
+            "nodeType": "FunctionDefinition",
+            "src": "412:114:50",
+            "nodes": [],
+            "documentation": null,
+            "functionSelector": "037276c1",
+            "implemented": false,
+            "kind": "function",
+            "modifiers": [],
+            "name": "calcGav",
+            "overrides": null,
+            "parameters": {
+              "id": 6987,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 6986,
+                  "mutability": "mutable",
+                  "name": "_vaultProxy",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 6993,
+                  "src": "429:19:50",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 6985,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "429:7:50",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "428:21:50"
+            },
+            "returnParameters": {
+              "id": 6992,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 6989,
+                  "mutability": "mutable",
+                  "name": "denominationAsset_",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 6993,
+                  "src": "484:26:50",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 6988,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "484:7:50",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 6991,
+                  "mutability": "mutable",
+                  "name": "gav_",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 6993,
+                  "src": "512:12:50",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_uint256",
+                    "typeString": "uint256"
+                  },
+                  "typeName": {
+                    "id": 6990,
+                    "name": "uint256",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "512:7:50",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_uint256",
+                      "typeString": "uint256"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "483:42:50"
+            },
+            "scope": 7079,
+            "stateMutability": "nonpayable",
+            "virtual": false,
+            "visibility": "external"
+          },
+          {
+            "id": 7002,
+            "nodeType": "FunctionDefinition",
+            "src": "532:114:50",
+            "nodes": [],
+            "documentation": null,
+            "functionSelector": "51ac29c7",
+            "implemented": false,
+            "kind": "function",
+            "modifiers": [],
+            "name": "calcGavInAsset",
+            "overrides": null,
+            "parameters": {
+              "id": 6998,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 6995,
+                  "mutability": "mutable",
+                  "name": "_vaultProxy",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 7002,
+                  "src": "556:19:50",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 6994,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "556:7:50",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 6997,
+                  "mutability": "mutable",
+                  "name": "_quoteAsset",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 7002,
+                  "src": "577:19:50",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 6996,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "577:7:50",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "555:42:50"
+            },
+            "returnParameters": {
+              "id": 7001,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 7000,
+                  "mutability": "mutable",
+                  "name": "gav_",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 7002,
+                  "src": "632:12:50",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_uint256",
+                    "typeString": "uint256"
+                  },
+                  "typeName": {
+                    "id": 6999,
+                    "name": "uint256",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "632:7:50",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_uint256",
+                      "typeString": "uint256"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "631:14:50"
+            },
+            "scope": 7079,
+            "stateMutability": "nonpayable",
+            "virtual": false,
+            "visibility": "external"
+          },
+          {
+            "id": 7011,
+            "nodeType": "FunctionDefinition",
+            "src": "652:138:50",
+            "nodes": [],
+            "documentation": null,
+            "functionSelector": "c3552663",
+            "implemented": false,
+            "kind": "function",
+            "modifiers": [],
+            "name": "calcGrossShareValue",
+            "overrides": null,
+            "parameters": {
+              "id": 7005,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 7004,
+                  "mutability": "mutable",
+                  "name": "_vaultProxy",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 7011,
+                  "src": "681:19:50",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 7003,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "681:7:50",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "680:21:50"
+            },
+            "returnParameters": {
+              "id": 7010,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 7007,
+                  "mutability": "mutable",
+                  "name": "denominationAsset_",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 7011,
+                  "src": "736:26:50",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 7006,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "736:7:50",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 7009,
+                  "mutability": "mutable",
+                  "name": "grossShareValue_",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 7011,
+                  "src": "764:24:50",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_uint256",
+                    "typeString": "uint256"
+                  },
+                  "typeName": {
+                    "id": 7008,
+                    "name": "uint256",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "764:7:50",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_uint256",
+                      "typeString": "uint256"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "735:54:50"
+            },
+            "scope": 7079,
+            "stateMutability": "nonpayable",
+            "virtual": false,
+            "visibility": "external"
+          },
+          {
+            "id": 7020,
+            "nodeType": "FunctionDefinition",
+            "src": "796:138:50",
+            "nodes": [],
+            "documentation": null,
+            "functionSelector": "eefcb1b3",
+            "implemented": false,
+            "kind": "function",
+            "modifiers": [],
+            "name": "calcGrossShareValueInAsset",
+            "overrides": null,
+            "parameters": {
+              "id": 7016,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 7013,
+                  "mutability": "mutable",
+                  "name": "_vaultProxy",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 7020,
+                  "src": "832:19:50",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 7012,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "832:7:50",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 7015,
+                  "mutability": "mutable",
+                  "name": "_quoteAsset",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 7020,
+                  "src": "853:19:50",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 7014,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "853:7:50",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "831:42:50"
+            },
+            "returnParameters": {
+              "id": 7019,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 7018,
+                  "mutability": "mutable",
+                  "name": "grossShareValue_",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 7020,
+                  "src": "908:24:50",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_uint256",
+                    "typeString": "uint256"
+                  },
+                  "typeName": {
+                    "id": 7017,
+                    "name": "uint256",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "908:7:50",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_uint256",
+                      "typeString": "uint256"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "907:26:50"
+            },
+            "scope": 7079,
+            "stateMutability": "nonpayable",
+            "virtual": false,
+            "visibility": "external"
+          },
+          {
+            "id": 7029,
+            "nodeType": "FunctionDefinition",
+            "src": "940:114:50",
+            "nodes": [],
+            "documentation": null,
+            "functionSelector": "53d467f3",
+            "implemented": false,
+            "kind": "function",
+            "modifiers": [],
+            "name": "calcNav",
+            "overrides": null,
+            "parameters": {
+              "id": 7023,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 7022,
+                  "mutability": "mutable",
+                  "name": "_vaultProxy",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 7029,
+                  "src": "957:19:50",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 7021,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "957:7:50",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "956:21:50"
+            },
+            "returnParameters": {
+              "id": 7028,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 7025,
+                  "mutability": "mutable",
+                  "name": "denominationAsset_",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 7029,
+                  "src": "1012:26:50",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 7024,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "1012:7:50",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 7027,
+                  "mutability": "mutable",
+                  "name": "nav_",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 7029,
+                  "src": "1040:12:50",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_uint256",
+                    "typeString": "uint256"
+                  },
+                  "typeName": {
+                    "id": 7026,
+                    "name": "uint256",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "1040:7:50",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_uint256",
+                      "typeString": "uint256"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "1011:42:50"
+            },
+            "scope": 7079,
+            "stateMutability": "nonpayable",
+            "virtual": false,
+            "visibility": "external"
+          },
+          {
+            "id": 7038,
+            "nodeType": "FunctionDefinition",
+            "src": "1060:114:50",
+            "nodes": [],
+            "documentation": null,
+            "functionSelector": "c65988ff",
+            "implemented": false,
+            "kind": "function",
+            "modifiers": [],
+            "name": "calcNavInAsset",
+            "overrides": null,
+            "parameters": {
+              "id": 7034,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 7031,
+                  "mutability": "mutable",
+                  "name": "_vaultProxy",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 7038,
+                  "src": "1084:19:50",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 7030,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "1084:7:50",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 7033,
+                  "mutability": "mutable",
+                  "name": "_quoteAsset",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 7038,
+                  "src": "1105:19:50",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 7032,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "1105:7:50",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "1083:42:50"
+            },
+            "returnParameters": {
+              "id": 7037,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 7036,
+                  "mutability": "mutable",
+                  "name": "nav_",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 7038,
+                  "src": "1160:12:50",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_uint256",
+                    "typeString": "uint256"
+                  },
+                  "typeName": {
+                    "id": 7035,
+                    "name": "uint256",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "1160:7:50",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_uint256",
+                      "typeString": "uint256"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "1159:14:50"
+            },
+            "scope": 7079,
+            "stateMutability": "nonpayable",
+            "virtual": false,
+            "visibility": "external"
+          },
+          {
+            "id": 7047,
+            "nodeType": "FunctionDefinition",
+            "src": "1180:134:50",
+            "nodes": [],
+            "documentation": null,
+            "functionSelector": "3ba6b851",
+            "implemented": false,
+            "kind": "function",
+            "modifiers": [],
+            "name": "calcNetShareValue",
+            "overrides": null,
+            "parameters": {
+              "id": 7041,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 7040,
+                  "mutability": "mutable",
+                  "name": "_vaultProxy",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 7047,
+                  "src": "1207:19:50",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 7039,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "1207:7:50",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "1206:21:50"
+            },
+            "returnParameters": {
+              "id": 7046,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 7043,
+                  "mutability": "mutable",
+                  "name": "denominationAsset_",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 7047,
+                  "src": "1262:26:50",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 7042,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "1262:7:50",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 7045,
+                  "mutability": "mutable",
+                  "name": "netShareValue_",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 7047,
+                  "src": "1290:22:50",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_uint256",
+                    "typeString": "uint256"
+                  },
+                  "typeName": {
+                    "id": 7044,
+                    "name": "uint256",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "1290:7:50",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_uint256",
+                      "typeString": "uint256"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "1261:52:50"
+            },
+            "scope": 7079,
+            "stateMutability": "nonpayable",
+            "virtual": false,
+            "visibility": "external"
+          },
+          {
+            "id": 7056,
+            "nodeType": "FunctionDefinition",
+            "src": "1320:134:50",
+            "nodes": [],
+            "documentation": null,
+            "functionSelector": "faf6eeef",
+            "implemented": false,
+            "kind": "function",
+            "modifiers": [],
+            "name": "calcNetShareValueInAsset",
+            "overrides": null,
+            "parameters": {
+              "id": 7052,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 7049,
+                  "mutability": "mutable",
+                  "name": "_vaultProxy",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 7056,
+                  "src": "1354:19:50",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 7048,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "1354:7:50",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 7051,
+                  "mutability": "mutable",
+                  "name": "_quoteAsset",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 7056,
+                  "src": "1375:19:50",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 7050,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "1375:7:50",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "1353:42:50"
+            },
+            "returnParameters": {
+              "id": 7055,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 7054,
+                  "mutability": "mutable",
+                  "name": "netShareValue_",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 7056,
+                  "src": "1430:22:50",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_uint256",
+                    "typeString": "uint256"
+                  },
+                  "typeName": {
+                    "id": 7053,
+                    "name": "uint256",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "1430:7:50",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_uint256",
+                      "typeString": "uint256"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "1429:24:50"
+            },
+            "scope": 7079,
+            "stateMutability": "nonpayable",
+            "virtual": false,
+            "visibility": "external"
+          },
+          {
+            "id": 7067,
+            "nodeType": "FunctionDefinition",
+            "src": "1460:162:50",
+            "nodes": [],
+            "documentation": null,
+            "functionSelector": "81dfa95b",
+            "implemented": false,
+            "kind": "function",
+            "modifiers": [],
+            "name": "calcNetValueForSharesHolder",
+            "overrides": null,
+            "parameters": {
+              "id": 7061,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 7058,
+                  "mutability": "mutable",
+                  "name": "_vaultProxy",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 7067,
+                  "src": "1497:19:50",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 7057,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "1497:7:50",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 7060,
+                  "mutability": "mutable",
+                  "name": "_sharesHolder",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 7067,
+                  "src": "1518:21:50",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 7059,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "1518:7:50",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "1496:44:50"
+            },
+            "returnParameters": {
+              "id": 7066,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 7063,
+                  "mutability": "mutable",
+                  "name": "denominationAsset_",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 7067,
+                  "src": "1575:26:50",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 7062,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "1575:7:50",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 7065,
+                  "mutability": "mutable",
+                  "name": "netValue_",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 7067,
+                  "src": "1603:17:50",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_uint256",
+                    "typeString": "uint256"
+                  },
+                  "typeName": {
+                    "id": 7064,
+                    "name": "uint256",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "1603:7:50",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_uint256",
+                      "typeString": "uint256"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "1574:47:50"
+            },
+            "scope": 7079,
+            "stateMutability": "nonpayable",
+            "virtual": false,
+            "visibility": "external"
+          },
+          {
+            "id": 7078,
+            "nodeType": "FunctionDefinition",
+            "src": "1628:176:50",
+            "nodes": [],
+            "documentation": null,
+            "functionSelector": "4807ccbd",
+            "implemented": false,
+            "kind": "function",
+            "modifiers": [],
+            "name": "calcNetValueForSharesHolderInAsset",
+            "overrides": null,
+            "parameters": {
+              "id": 7074,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 7069,
+                  "mutability": "mutable",
+                  "name": "_vaultProxy",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 7078,
+                  "src": "1681:19:50",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 7068,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "1681:7:50",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 7071,
+                  "mutability": "mutable",
+                  "name": "_sharesHolder",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 7078,
+                  "src": "1710:21:50",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 7070,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "1710:7:50",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 7073,
+                  "mutability": "mutable",
+                  "name": "_quoteAsset",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 7078,
+                  "src": "1741:19:50",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 7072,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "1741:7:50",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "1671:95:50"
+            },
+            "returnParameters": {
+              "id": 7077,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 7076,
+                  "mutability": "mutable",
+                  "name": "netValue_",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 7078,
+                  "src": "1785:17:50",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_uint256",
+                    "typeString": "uint256"
+                  },
+                  "typeName": {
+                    "id": 7075,
+                    "name": "uint256",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "1785:7:50",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_uint256",
+                      "typeString": "uint256"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "1784:19:50"
+            },
+            "scope": 7079,
+            "stateMutability": "nonpayable",
+            "virtual": false,
+            "visibility": "external"
+          }
+        ],
+        "abstract": false,
+        "baseContracts": [],
+        "contractDependencies": [],
+        "contractKind": "interface",
+        "documentation": {
+          "id": 6984,
+          "nodeType": "StructuredDocumentation",
+          "src": "280:95:50",
+          "text": "@title IFundValueCalculator interface\n @author Enzyme Council <security@enzyme.finance>"
+        },
+        "fullyImplemented": false,
+        "linearizedBaseContracts": [
+          7079
+        ],
+        "name": "IFundValueCalculator",
+        "scope": 7080
+      }
+    ],
+    "license": "GPL-3.0"
+  },
+  "id": 50
+}

@@ -1,7 +1,4 @@
 {
-  "_format": "hh-sol-artifact-1",
-  "contractName": "ArbitraryTokenPhasedSharesWrapperProxy",
-  "sourceName": "contracts/release/peripheral/shares-wrappers/arbitrary-token-phased/ArbitraryTokenPhasedSharesWrapperProxy.sol",
   "abi": [
     {
       "inputs": [
@@ -24,8 +21,339 @@
       "type": "fallback"
     }
   ],
-  "bytecode": "0x60a060405234801561001057600080fd5b506040516103093803806103098339818101604052604081101561003357600080fd5b810190808051604051939291908464010000000082111561005357600080fd5b90830190602082018581111561006857600080fd5b825164010000000081118282018810171561008257600080fd5b82525081516020918201929091019080838360005b838110156100af578181015183820152602001610097565b50505050905090810190601f1680156100dc5780820380516001836020036101000a031916815260200191505b50604052602001805190602001909291905050508181806001600160a01b03166080816001600160a01b031660601b81525050807f360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc5560006060826001600160a01b0316846040518082805190602001908083835b602083106101705780518252601f199092019160209182019101610151565b6001836020036101000a038019825116818451168082178552505050505050905001915050600060405180830381855af49150503d80600081146101d0576040519150601f19603f3d011682016040523d82523d6000602084013e6101d5565b606091505b50915091508181906102655760405162461bcd60e51b81526004018080602001828103825283818151815260200191508051906020019080838360005b8381101561022a578181015183820152602001610212565b50505050905090810190601f1680156102575780820380516001836020036101000a031916815260200191505b509250505060405180910390fd5b5050505050505060805160601c6083610286600039806006525060836000f3fe60806040527f00000000000000000000000000000000000000000000000000000000000000003660008037600080366000846127105a03f43d806000803e818015604857816000f35b816000fdfea2646970667358221220db86984105b25ee15259a87d2fef28cf1a3ae79dfa734484aef223e3a3e2bce764736f6c634300060c0033",
-  "deployedBytecode": "0x60806040527f00000000000000000000000000000000000000000000000000000000000000003660008037600080366000846127105a03f43d806000803e818015604857816000f35b816000fdfea2646970667358221220db86984105b25ee15259a87d2fef28cf1a3ae79dfa734484aef223e3a3e2bce764736f6c634300060c0033",
-  "linkReferences": {},
-  "deployedLinkReferences": {}
+  "bytecode": {
+    "object": "0x60a060405234801561001057600080fd5b506040516102e03803806102e08339818101604052604081101561003357600080fd5b810190808051604051939291908464010000000082111561005357600080fd5b90830190602082018581111561006857600080fd5b825164010000000081118282018810171561008257600080fd5b82525081516020918201929091019080838360005b838110156100af578181015183820152602001610097565b50505050905090810190601f1680156100dc5780820380516001836020036101000a031916815260200191505b50604052602001805190602001909291905050508181806001600160a01b03166080816001600160a01b031660601b81525050807f360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc5560006060826001600160a01b0316846040518082805190602001908083835b602083106101705780518252601f199092019160209182019101610151565b6001836020036101000a038019825116818451168082178552505050505050905001915050600060405180830381855af49150503d80600081146101d0576040519150601f19603f3d011682016040523d82523d6000602084013e6101d5565b606091505b50915091508181906102655760405162461bcd60e51b81526004018080602001828103825283818151815260200191508051906020019080838360005b8381101561022a578181015183820152602001610212565b50505050905090810190601f1680156102575780820380516001836020036101000a031916815260200191505b509250505060405180910390fd5b5050505050505060805160601c605a6102866000398060065250605a6000f3fe60806040527f00000000000000000000000000000000000000000000000000000000000000003660008037600080366000846127105a03f43d806000803e818015604857816000f35b816000fdfea164736f6c634300060c000a",
+    "sourceMap": "522:203:353:-:0;;;598:125;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;-1:-1:-1;598:125:353;;;;;;;;;;-1:-1:-1;598:125:353;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;-1:-1:-1;598:125:353;;;;;;;;;925:31:362;;;;-1:-1:-1;;925:31:362;;;1110:66;1086:136;;;1283:43;;598:125:353;;-1:-1:-1;1283:43:362;;-1:-1:-1;598:125:353;;1242:12:362;;925:31;;-1:-1:-1;;;;;925:31:362;;;1283:43;;598:125:353;;;;1283:43:362;;;;598:125:353;1283:43:362;;;;;;;;;;;-1:-1:-1;;1283:43:362;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;1241:85;;;;1344:7;1360:10;1336:36;;;;;-1:-1:-1;;;1336:36:362;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;843:536;;;;598:125:353;;522:203;;;;;;;;;;;",
+    "linkReferences": {}
+  },
+  "deployedBytecode": {
+    "object": "0x60806040527f00000000000000000000000000000000000000000000000000000000000000003660008037600080366000846127105a03f43d806000803e818015604857816000f35b816000fdfea164736f6c634300060c000a",
+    "sourceMap": "522:203:353:-:0;;;1500:14:362;1571;1476:21;;1548:38;1782:1;1763;1731:14;1710:3;1679:13;1655:5;1648;1644:17;1614:183;1823:16;1873:5;1870:1;1867;1852:27;1899:7;1919:55;;;;2023:5;2020:1;2013:16;1919:55;1954:5;1951:1;1944:16",
+    "linkReferences": {},
+    "immutableReferences": {
+      "78944": [
+        {
+          "start": 6,
+          "length": 32
+        }
+      ]
+    }
+  },
+  "methodIdentifiers": {},
+  "rawMetadata": "{\"compiler\":{\"version\":\"0.6.12+commit.27d51765\"},\"language\":\"Solidity\",\"output\":{\"abi\":[{\"inputs\":[{\"internalType\":\"bytes\",\"name\":\"_constructData\",\"type\":\"bytes\"},{\"internalType\":\"address\",\"name\":\"_lib\",\"type\":\"address\"}],\"stateMutability\":\"nonpayable\",\"type\":\"constructor\"},{\"stateMutability\":\"payable\",\"type\":\"fallback\"}],\"devdoc\":{\"author\":\"Enzyme Council <security@enzyme.finance>\",\"kind\":\"dev\",\"methods\":{},\"title\":\"ArbitraryTokenPhasedSharesWrapperProxy Contract\",\"version\":1},\"userdoc\":{\"kind\":\"user\",\"methods\":{},\"notice\":\"A proxy contract for all ArbitraryTokenPhasedSharesWrapper instances\",\"version\":1}},\"settings\":{\"compilationTarget\":{\"contracts/release/peripheral/shares-wrappers/arbitrary-token-phased/ArbitraryTokenPhasedSharesWrapperProxy.sol\":\"ArbitraryTokenPhasedSharesWrapperProxy\"},\"evmVersion\":\"istanbul\",\"libraries\":{},\"metadata\":{\"bytecodeHash\":\"none\"},\"optimizer\":{\"details\":{\"constantOptimizer\":true,\"cse\":true,\"deduplicate\":true,\"jumpdestRemover\":true,\"orderLiterals\":true,\"peephole\":true,\"yul\":false},\"runs\":200},\"remappings\":[\":@enzyme/=contracts/\",\":@openzeppelin-solc-0.7/=node_modules/@openzeppelin-solc-0.7/\",\":@openzeppelin/=node_modules/@openzeppelin/\",\":@uniswap/=node_modules/@uniswap/\",\":base64-sol/=node_modules/base64-sol/\",\":ds-test/=lib/forge-std/lib/ds-test/src/\",\":forge-std/=lib/forge-std/src/\",\":hardhat-deploy/=node_modules/hardhat-deploy/\",\":hardhat/=node_modules/hardhat/\"]},\"sources\":{\"contracts/release/peripheral/shares-wrappers/arbitrary-token-phased/ArbitraryTokenPhasedSharesWrapperProxy.sol\":{\"keccak256\":\"0xfa6eb5b0ffa230b6f230fe320c4a84f105ce71f5724f0eacc5b51006a654511a\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://12b6c555e7d72e6f02e2e1dc2865ee7a685c1c7f13adbefc1bbc0bf14a33b837\",\"dweb:/ipfs/QmXNk54TCHpzf49zHunTdDRCGnQujb69RZhGfw8mdM7QX2\"]},\"contracts/release/utils/NonUpgradableProxy.sol\":{\"keccak256\":\"0x7d70145a2a0ff8c36318b23ac6ca662f133584dd823933230c66143b89e2d53d\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://b05ea625a428fdf3f908db3e97a358a4117d4998abde806ba3839c7fad821bca\",\"dweb:/ipfs/QmSLzFT1ktLTZ7rAKYjcg6dBRuxVMzrGXjGJSsH5nSVx2G\"]}},\"version\":1}",
+  "metadata": {
+    "compiler": {
+      "version": "0.6.12+commit.27d51765"
+    },
+    "language": "Solidity",
+    "output": {
+      "abi": [
+        {
+          "inputs": [
+            {
+              "internalType": "bytes",
+              "name": "_constructData",
+              "type": "bytes"
+            },
+            {
+              "internalType": "address",
+              "name": "_lib",
+              "type": "address"
+            }
+          ],
+          "stateMutability": "nonpayable",
+          "type": "constructor"
+        },
+        {
+          "inputs": [],
+          "stateMutability": "payable",
+          "type": "fallback"
+        }
+      ],
+      "devdoc": {
+        "kind": "dev",
+        "methods": {},
+        "version": 1
+      },
+      "userdoc": {
+        "kind": "user",
+        "methods": {},
+        "version": 1
+      }
+    },
+    "settings": {
+      "remappings": [
+        ":@enzyme/=contracts/",
+        ":@openzeppelin-solc-0.7/=node_modules/@openzeppelin-solc-0.7/",
+        ":@openzeppelin/=node_modules/@openzeppelin/",
+        ":@uniswap/=node_modules/@uniswap/",
+        ":base64-sol/=node_modules/base64-sol/",
+        ":ds-test/=lib/forge-std/lib/ds-test/src/",
+        ":forge-std/=lib/forge-std/src/",
+        ":hardhat-deploy/=node_modules/hardhat-deploy/",
+        ":hardhat/=node_modules/hardhat/"
+      ],
+      "optimizer": {
+        "runs": 200,
+        "details": {
+          "peephole": true,
+          "jumpdestRemover": true,
+          "orderLiterals": true,
+          "deduplicate": true,
+          "cse": true,
+          "constantOptimizer": true,
+          "yul": false
+        }
+      },
+      "metadata": {
+        "bytecodeHash": "none"
+      },
+      "compilationTarget": {
+        "contracts/release/peripheral/shares-wrappers/arbitrary-token-phased/ArbitraryTokenPhasedSharesWrapperProxy.sol": "ArbitraryTokenPhasedSharesWrapperProxy"
+      },
+      "libraries": {}
+    },
+    "sources": {
+      "contracts/release/peripheral/shares-wrappers/arbitrary-token-phased/ArbitraryTokenPhasedSharesWrapperProxy.sol": {
+        "keccak256": "0xfa6eb5b0ffa230b6f230fe320c4a84f105ce71f5724f0eacc5b51006a654511a",
+        "urls": [
+          "bzz-raw://12b6c555e7d72e6f02e2e1dc2865ee7a685c1c7f13adbefc1bbc0bf14a33b837",
+          "dweb:/ipfs/QmXNk54TCHpzf49zHunTdDRCGnQujb69RZhGfw8mdM7QX2"
+        ],
+        "license": "GPL-3.0"
+      },
+      "contracts/release/utils/NonUpgradableProxy.sol": {
+        "keccak256": "0x7d70145a2a0ff8c36318b23ac6ca662f133584dd823933230c66143b89e2d53d",
+        "urls": [
+          "bzz-raw://b05ea625a428fdf3f908db3e97a358a4117d4998abde806ba3839c7fad821bca",
+          "dweb:/ipfs/QmSLzFT1ktLTZ7rAKYjcg6dBRuxVMzrGXjGJSsH5nSVx2G"
+        ],
+        "license": "GPL-3.0"
+      }
+    },
+    "version": 1
+  },
+  "ast": {
+    "absolutePath": "contracts/release/peripheral/shares-wrappers/arbitrary-token-phased/ArbitraryTokenPhasedSharesWrapperProxy.sol",
+    "id": 76469,
+    "exportedSymbols": {
+      "ArbitraryTokenPhasedSharesWrapperProxy": [
+        76468
+      ]
+    },
+    "nodeType": "SourceUnit",
+    "src": "255:471:353",
+    "nodes": [
+      {
+        "id": 76451,
+        "nodeType": "PragmaDirective",
+        "src": "255:23:353",
+        "nodes": [],
+        "literals": [
+          "solidity",
+          "0.6",
+          ".12"
+        ]
+      },
+      {
+        "id": 76452,
+        "nodeType": "ImportDirective",
+        "src": "280:47:353",
+        "nodes": [],
+        "absolutePath": "contracts/release/utils/NonUpgradableProxy.sol",
+        "file": "../../../utils/NonUpgradableProxy.sol",
+        "scope": 76469,
+        "sourceUnit": 78985,
+        "symbolAliases": [],
+        "unitAlias": ""
+      },
+      {
+        "id": 76468,
+        "nodeType": "ContractDefinition",
+        "src": "522:203:353",
+        "nodes": [
+          {
+            "id": 76467,
+            "nodeType": "FunctionDefinition",
+            "src": "598:125:353",
+            "nodes": [],
+            "body": {
+              "id": 76466,
+              "nodeType": "Block",
+              "src": "721:2:353",
+              "nodes": [],
+              "statements": []
+            },
+            "documentation": null,
+            "implemented": true,
+            "kind": "constructor",
+            "modifiers": [
+              {
+                "arguments": [
+                  {
+                    "argumentTypes": null,
+                    "id": 76462,
+                    "name": "_constructData",
+                    "nodeType": "Identifier",
+                    "overloadedDeclarations": [],
+                    "referencedDeclaration": 76457,
+                    "src": "695:14:353",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_bytes_memory_ptr",
+                      "typeString": "bytes memory"
+                    }
+                  },
+                  {
+                    "argumentTypes": null,
+                    "id": 76463,
+                    "name": "_lib",
+                    "nodeType": "Identifier",
+                    "overloadedDeclarations": [],
+                    "referencedDeclaration": 76459,
+                    "src": "711:4:353",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  }
+                ],
+                "id": 76464,
+                "modifierName": {
+                  "argumentTypes": null,
+                  "id": 76461,
+                  "name": "NonUpgradableProxy",
+                  "nodeType": "Identifier",
+                  "overloadedDeclarations": [],
+                  "referencedDeclaration": 78984,
+                  "src": "676:18:353",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_type$_t_contract$_NonUpgradableProxy_$78984_$",
+                    "typeString": "type(contract NonUpgradableProxy)"
+                  }
+                },
+                "nodeType": "ModifierInvocation",
+                "src": "676:40:353"
+              }
+            ],
+            "name": "",
+            "overrides": null,
+            "parameters": {
+              "id": 76460,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 76457,
+                  "mutability": "mutable",
+                  "name": "_constructData",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 76467,
+                  "src": "610:27:353",
+                  "stateVariable": false,
+                  "storageLocation": "memory",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_bytes_memory_ptr",
+                    "typeString": "bytes"
+                  },
+                  "typeName": {
+                    "id": 76456,
+                    "name": "bytes",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "610:5:353",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_bytes_storage_ptr",
+                      "typeString": "bytes"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 76459,
+                  "mutability": "mutable",
+                  "name": "_lib",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 76467,
+                  "src": "639:12:353",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 76458,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "639:7:353",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "609:43:353"
+            },
+            "returnParameters": {
+              "id": 76465,
+              "nodeType": "ParameterList",
+              "parameters": [],
+              "src": "721:0:353"
+            },
+            "scope": 76468,
+            "stateMutability": "nonpayable",
+            "virtual": false,
+            "visibility": "public"
+          }
+        ],
+        "abstract": false,
+        "baseContracts": [
+          {
+            "arguments": null,
+            "baseName": {
+              "contractScope": null,
+              "id": 76454,
+              "name": "NonUpgradableProxy",
+              "nodeType": "UserDefinedTypeName",
+              "referencedDeclaration": 78984,
+              "src": "573:18:353",
+              "typeDescriptions": {
+                "typeIdentifier": "t_contract$_NonUpgradableProxy_$78984",
+                "typeString": "contract NonUpgradableProxy"
+              }
+            },
+            "id": 76455,
+            "nodeType": "InheritanceSpecifier",
+            "src": "573:18:353"
+          }
+        ],
+        "contractDependencies": [
+          78984
+        ],
+        "contractKind": "contract",
+        "documentation": {
+          "id": 76453,
+          "nodeType": "StructuredDocumentation",
+          "src": "329:193:353",
+          "text": "@title ArbitraryTokenPhasedSharesWrapperProxy Contract\n @author Enzyme Council <security@enzyme.finance>\n @notice A proxy contract for all ArbitraryTokenPhasedSharesWrapper instances"
+        },
+        "fullyImplemented": true,
+        "linearizedBaseContracts": [
+          76468,
+          78984
+        ],
+        "name": "ArbitraryTokenPhasedSharesWrapperProxy",
+        "scope": 76469
+      }
+    ],
+    "license": "GPL-3.0"
+  },
+  "id": 353
 }

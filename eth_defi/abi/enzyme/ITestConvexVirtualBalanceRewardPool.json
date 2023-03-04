@@ -1,0 +1,299 @@
+{
+  "abi": [
+    {
+      "inputs": [],
+      "name": "operator",
+      "outputs": [
+        {
+          "internalType": "address",
+          "name": "",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "_rewards",
+          "type": "uint256"
+        }
+      ],
+      "name": "queueNewRewards",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    }
+  ],
+  "bytecode": {
+    "object": "0x",
+    "sourceMap": "",
+    "linkReferences": {}
+  },
+  "deployedBytecode": {
+    "object": "0x",
+    "sourceMap": "",
+    "linkReferences": {}
+  },
+  "methodIdentifiers": {
+    "operator()": "570ca735",
+    "queueNewRewards(uint256)": "590a41f5"
+  },
+  "rawMetadata": "{\"compiler\":{\"version\":\"0.6.12+commit.27d51765\"},\"language\":\"Solidity\",\"output\":{\"abi\":[{\"inputs\":[],\"name\":\"operator\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_rewards\",\"type\":\"uint256\"}],\"name\":\"queueNewRewards\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"}],\"devdoc\":{\"author\":\"Enzyme Council <security@enzyme.finance>\",\"kind\":\"dev\",\"methods\":{},\"title\":\"ITestConvexVirtualBalanceRewardPool Interface\",\"version\":1},\"userdoc\":{\"kind\":\"user\",\"methods\":{},\"version\":1}},\"settings\":{\"compilationTarget\":{\"contracts/test/interfaces/ITestConvexVirtualBalanceRewardPool.sol\":\"ITestConvexVirtualBalanceRewardPool\"},\"evmVersion\":\"istanbul\",\"libraries\":{},\"metadata\":{\"bytecodeHash\":\"none\"},\"optimizer\":{\"details\":{\"constantOptimizer\":true,\"cse\":true,\"deduplicate\":true,\"jumpdestRemover\":true,\"orderLiterals\":true,\"peephole\":true,\"yul\":false},\"runs\":200},\"remappings\":[\":@enzyme/=contracts/\",\":@openzeppelin-solc-0.7/=node_modules/@openzeppelin-solc-0.7/\",\":@openzeppelin/=node_modules/@openzeppelin/\",\":@uniswap/=node_modules/@uniswap/\",\":base64-sol/=node_modules/base64-sol/\",\":ds-test/=lib/forge-std/lib/ds-test/src/\",\":forge-std/=lib/forge-std/src/\",\":hardhat-deploy/=node_modules/hardhat-deploy/\",\":hardhat/=node_modules/hardhat/\"]},\"sources\":{\"contracts/test/interfaces/ITestConvexVirtualBalanceRewardPool.sol\":{\"keccak256\":\"0x7dfa20859995badd1c933ff0cdcba7160d0ca48d79a8a55970ca68508bd0bb98\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://881e4179d0fc5f3d6ddf33166c37ba87e1a96d550590fc1c49811319b754312e\",\"dweb:/ipfs/QmUTaEHZis2MRkXC6F4dN9ayJdfoA1bw4KaiWtU7NhQRu9\"]}},\"version\":1}",
+  "metadata": {
+    "compiler": {
+      "version": "0.6.12+commit.27d51765"
+    },
+    "language": "Solidity",
+    "output": {
+      "abi": [
+        {
+          "inputs": [],
+          "stateMutability": "view",
+          "type": "function",
+          "name": "operator",
+          "outputs": [
+            {
+              "internalType": "address",
+              "name": "",
+              "type": "address"
+            }
+          ]
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "uint256",
+              "name": "_rewards",
+              "type": "uint256"
+            }
+          ],
+          "stateMutability": "nonpayable",
+          "type": "function",
+          "name": "queueNewRewards"
+        }
+      ],
+      "devdoc": {
+        "kind": "dev",
+        "methods": {},
+        "version": 1
+      },
+      "userdoc": {
+        "kind": "user",
+        "methods": {},
+        "version": 1
+      }
+    },
+    "settings": {
+      "remappings": [
+        ":@enzyme/=contracts/",
+        ":@openzeppelin-solc-0.7/=node_modules/@openzeppelin-solc-0.7/",
+        ":@openzeppelin/=node_modules/@openzeppelin/",
+        ":@uniswap/=node_modules/@uniswap/",
+        ":base64-sol/=node_modules/base64-sol/",
+        ":ds-test/=lib/forge-std/lib/ds-test/src/",
+        ":forge-std/=lib/forge-std/src/",
+        ":hardhat-deploy/=node_modules/hardhat-deploy/",
+        ":hardhat/=node_modules/hardhat/"
+      ],
+      "optimizer": {
+        "runs": 200,
+        "details": {
+          "peephole": true,
+          "jumpdestRemover": true,
+          "orderLiterals": true,
+          "deduplicate": true,
+          "cse": true,
+          "constantOptimizer": true,
+          "yul": false
+        }
+      },
+      "metadata": {
+        "bytecodeHash": "none"
+      },
+      "compilationTarget": {
+        "contracts/test/interfaces/ITestConvexVirtualBalanceRewardPool.sol": "ITestConvexVirtualBalanceRewardPool"
+      },
+      "libraries": {}
+    },
+    "sources": {
+      "contracts/test/interfaces/ITestConvexVirtualBalanceRewardPool.sol": {
+        "keccak256": "0x7dfa20859995badd1c933ff0cdcba7160d0ca48d79a8a55970ca68508bd0bb98",
+        "urls": [
+          "bzz-raw://881e4179d0fc5f3d6ddf33166c37ba87e1a96d550590fc1c49811319b754312e",
+          "dweb:/ipfs/QmUTaEHZis2MRkXC6F4dN9ayJdfoA1bw4KaiWtU7NhQRu9"
+        ],
+        "license": "GPL-3.0"
+      }
+    },
+    "version": 1
+  },
+  "ast": {
+    "absolutePath": "contracts/test/interfaces/ITestConvexVirtualBalanceRewardPool.sol",
+    "id": 80337,
+    "exportedSymbols": {
+      "ITestConvexVirtualBalanceRewardPool": [
+        80336
+      ]
+    },
+    "nodeType": "SourceUnit",
+    "src": "253:300:390",
+    "nodes": [
+      {
+        "id": 80324,
+        "nodeType": "PragmaDirective",
+        "src": "253:23:390",
+        "nodes": [],
+        "literals": [
+          "solidity",
+          "0.6",
+          ".12"
+        ]
+      },
+      {
+        "id": 80336,
+        "nodeType": "ContractDefinition",
+        "src": "388:164:390",
+        "nodes": [
+          {
+            "id": 80330,
+            "nodeType": "FunctionDefinition",
+            "src": "440:52:390",
+            "nodes": [],
+            "documentation": null,
+            "functionSelector": "570ca735",
+            "implemented": false,
+            "kind": "function",
+            "modifiers": [],
+            "name": "operator",
+            "overrides": null,
+            "parameters": {
+              "id": 80326,
+              "nodeType": "ParameterList",
+              "parameters": [],
+              "src": "457:2:390"
+            },
+            "returnParameters": {
+              "id": 80329,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 80328,
+                  "mutability": "mutable",
+                  "name": "",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 80330,
+                  "src": "483:7:390",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 80327,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "483:7:390",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "482:9:390"
+            },
+            "scope": 80336,
+            "stateMutability": "view",
+            "virtual": false,
+            "visibility": "external"
+          },
+          {
+            "id": 80335,
+            "nodeType": "FunctionDefinition",
+            "src": "498:52:390",
+            "nodes": [],
+            "documentation": null,
+            "functionSelector": "590a41f5",
+            "implemented": false,
+            "kind": "function",
+            "modifiers": [],
+            "name": "queueNewRewards",
+            "overrides": null,
+            "parameters": {
+              "id": 80333,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 80332,
+                  "mutability": "mutable",
+                  "name": "_rewards",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 80335,
+                  "src": "523:16:390",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_uint256",
+                    "typeString": "uint256"
+                  },
+                  "typeName": {
+                    "id": 80331,
+                    "name": "uint256",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "523:7:390",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_uint256",
+                      "typeString": "uint256"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "522:18:390"
+            },
+            "returnParameters": {
+              "id": 80334,
+              "nodeType": "ParameterList",
+              "parameters": [],
+              "src": "549:0:390"
+            },
+            "scope": 80336,
+            "stateMutability": "nonpayable",
+            "virtual": false,
+            "visibility": "external"
+          }
+        ],
+        "abstract": false,
+        "baseContracts": [],
+        "contractDependencies": [],
+        "contractKind": "interface",
+        "documentation": {
+          "id": 80325,
+          "nodeType": "StructuredDocumentation",
+          "src": "278:110:390",
+          "text": "@title ITestConvexVirtualBalanceRewardPool Interface\n @author Enzyme Council <security@enzyme.finance>"
+        },
+        "fullyImplemented": false,
+        "linearizedBaseContracts": [
+          80336
+        ],
+        "name": "ITestConvexVirtualBalanceRewardPool",
+        "scope": 80337
+      }
+    ],
+    "license": "GPL-3.0"
+  },
+  "id": 390
+}
