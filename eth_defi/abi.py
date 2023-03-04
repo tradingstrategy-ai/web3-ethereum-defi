@@ -4,8 +4,9 @@
 """
 import json
 from pathlib import Path
-from typing import Optional, Type, Union
+from typing import Optional, Type, Union, Collection, Any
 
+import eth_abi
 from eth_typing import HexAddress
 from web3 import Web3
 from web3.contract import Contract
@@ -118,3 +119,27 @@ def get_transaction_data_field(tx: AttributeDict) -> str:
         return tx["data"]
     else:
         return tx["input"]
+
+
+def encode_with_signature(function_signature: str, args: Collection[Any]) -> bytes:
+    """Mimic Solidity's abi.encodeWithSignature().
+
+    This is a Python equivalent for `abi.encodeWithSignature()`.
+
+    Example:
+
+    .. code-block:: python
+
+            payload = encode_with_signature("init(address)", [my_address])
+            assert type(payload) == bytes
+
+    """
+
+    assert type(args) in (tuple, list)
+
+    function_selector = Web3.keccak(text=function_signature)
+    selector_text = function_signature[function_signature.find("(")+1:function_signature.rfind(")")]
+    args_types = selector_text.split(",")
+    encoded_args = eth_abi.encode(args_types, args)
+    return function_selector + encoded_args
+
