@@ -115,7 +115,6 @@ def test_generic_adapter_uniswap_v2(
 
     # The vault performs a swap on Uniswap v2
     # https://github.com/ethereum/web3.py/blob/168fceaf5c6829a8edeb510b997940064295ecf8/web3/_utils/contracts.py#L211
-    import ipdb ; ipdb.set_trace()
     encoded_approve = encode_function_args(
         weth.functions.approve,
         [uniswap_v2.router.address, usdc_swap_amount]
@@ -142,9 +141,3 @@ def test_generic_adapter_uniswap_v2(
 
     tx_params["from"] = fund_owner
     tx_hash = web3.eth.send_transaction(tx_params)
-
-
-
-
-
-

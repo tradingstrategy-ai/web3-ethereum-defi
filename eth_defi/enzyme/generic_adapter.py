@@ -3,7 +3,9 @@ import logging
 from typing import TypeAlias, Collection, Tuple
 
 from eth_abi import encode
+from eth_abi.exceptions import EncodingTypeError, EncodingError
 from eth_typing import HexAddress
+from hexbytes import HexBytes
 from web3 import Web3
 from web3.contract import Contract
 from web3.types import TxParams
@@ -16,22 +18,22 @@ Asset: TypeAlias = Contract | HexAddress
 
 Signer: TypeAlias = HexAddress
 
-
-EXECUTE_CALLS_SELECTOR = Web3.keccak(b"executeCalls(address,bytes,bytes)")
+#: See
+EXECUTE_CALLS_SELECTOR = Web3.keccak(b"executeCalls(address,bytes,bytes)")[0:4]
 
 
 logger = logging.getLogger(__name__)
 
 
 def _addressify(asset: Contract | HexAddress):
-    assert type(asset) == Contract or type(asset) == HexAddress, f"Got bad asset: {asset}"
+    assert isinstance(asset, Contract) or type(asset) == HexAddress, f"Got bad asset: {asset}"
     if isinstance(asset, Contract):
         return asset.address
     return asset
 
 
 def _addressify_collection(assets: Collection[Contract | HexAddress]):
-    return [_addressify(a) for a in asssets]
+    return [_addressify(a) for a in assets]
 
 
 def encode_generic_adapter_execute_calls_args(
@@ -48,13 +50,16 @@ def encode_generic_adapter_execute_calls_args(
 #     [externalCallsData.contracts, externalCallsData.callsData],
 #   );
 
-    addresses = [t[0] for t in external_calls]
+    addresses = [_addressify(t[0]) for t in external_calls]
     datas = [t[1] for t in external_calls]
 
-    encoded_external_calls_data = encode(
-        ['address[]', 'bytes[]'],
-        [addresses, datas]
-    )
+    try:
+        encoded_external_calls_data = encode(
+            ['address[]', 'bytes[]'],
+            [addresses, datas]
+        )
+    except EncodingError as e:
+        raise EncodingError(f"Could not encode: {addresses} {datas}") from e
 
 #   return encodeArgs(
 #     ['address[]', 'uint256[]', 'address[]', 'uint256[]', 'bytes'],
@@ -91,13 +96,13 @@ def encode_generic_adapter_execute_calls_args(
 def encode_call_on_integration_args(
     adapter: Contract,
     selector: bytes,
-    encoded_call_args: bytes
+    encoded_call_args: bytes | HexBytes,
 ):
     """No idea yet."""
 
-    assert type(selector) == bytes
-    assert type(encoded_call_args) == bytes
-    assert len(selector) == 4
+    assert type(selector) in (bytes, HexBytes)
+    assert type(encoded_call_args) in (bytes, HexBytes), f"encoded_call_args is {encoded_call_args} {type(encoded_call_args)}"
+    assert len(selector) == 4, f"Selector is {selector} {type(selector)}"
     assert len(encoded_call_args) > 0
 
     return encode(
@@ -158,14 +163,14 @@ def execute_calls_for_generic_adapter(
 
     call_args = encode_call_on_integration_args(
         generic_adapter,
-        execute_call_args,
         EXECUTE_CALLS_SELECTOR,
+        execute_call_args,
     )
 
-    # https://web3py.readthedocs.io/en/v5/contracts.html#contract-functions
-    return comptroller.functions.callExtension(
-        integration_manager,
-        IntegrationManagerActionId.CallOnIntegration,
+    # See ComptrollerLib.sol
+    return comptroller.functions.callOnExtension(
+        integration_manager.address,
+        IntegrationManagerActionId.CallOnIntegration.value,
         call_args
     ).build_transaction()
 
