@@ -7,6 +7,7 @@ from eth_typing import HexAddress
 from web3 import Web3
 from web3.contract import Contract
 
+from eth_defi.abi import encode_function_args
 from eth_defi.deploy import deploy_contract
 from eth_defi.enzyme.deployment import EnzymeDeployment, RateAsset
 from eth_defi.enzyme.generic_adapter import execute_calls_for_generic_adapter
@@ -107,45 +108,39 @@ def test_generic_adapter_uniswap_v2(
     spend_asset_amounts = [usdc_swap_amount]
     spend_assets = [usdc]
     path = [usdc.address, weth.address]
-    expected_incoming_amount = uniswap_v2.router.functions.getAmountsOut(usdc_swap_amount, path).call()
-    assert expected_incoming_amount == 1600 / 150 * 10**6
+    expected_outgoing_amount, expected_incoming_amount = uniswap_v2.router.functions.getAmountsOut(usdc_swap_amount, path).call()
+    assert expected_incoming_amount == pytest.approx(93398910964326424)  # Approx 0.09375 ETH + fees
     incoming_assets = [weth]
-    min_incoming_assets_amounts = [int(usdc_swap_amount * 0.996)]
-    signer = fund_owner
+    min_incoming_assets_amounts = [expected_incoming_amount]
 
     # The vault performs a swap on Uniswap v2
     # https://github.com/ethereum/web3.py/blob/168fceaf5c6829a8edeb510b997940064295ecf8/web3/_utils/contracts.py#L211
-    encoded_approve = encode_abi(
-        web3,
-        weth.functions.abi
-        [uniswap_v2.router, usdc_swap_amount]
+    import ipdb ; ipdb.set_trace()
+    encoded_approve = encode_function_args(
+        weth.functions.approve,
+        [uniswap_v2.router.address, usdc_swap_amount]
     )
 
-    encoded_swapExactTokensForTokens = encode_abi(
-        usdc_swap_amount,
-        1,
-        path,
-        generic_adapter.address,
-        FOREVER_DEADLINE,
+    encoded_swapExactTokensForTokens = encode_function_args(
+        uniswap_v2.router.functions.swapExactTokensForTokens,
+        [usdc_swap_amount, 1, path, generic_adapter.address, FOREVER_DEADLINE]
     )
 
     tx_params = execute_calls_for_generic_adapter(
-        comptroller,
-        (
+        comptroller=comptroller,
+        external_calls=(
             (weth, encoded_approve),
             (uniswap_v2.router, encoded_swapExactTokensForTokens),
         ),
-        generic_adapter,
-        incoming_assets,
-        deployment.contracts.integration_manager,
-        min_incoming_assets_amounts,
-        signer,
-        spend_asset_amounts,
-        spend_assets,
+        generic_adapter=generic_adapter,
+        incoming_assets=incoming_assets,
+        integration_manager=deployment.contracts.integration_manager,
+        min_incoming_asset_amounts=min_incoming_assets_amounts,
+        spend_asset_amounts=spend_asset_amounts,
+        spend_assets=spend_assets,
     )
 
     tx_params["from"] = fund_owner
-
     tx_hash = web3.eth.send_transaction(tx_params)
 
 

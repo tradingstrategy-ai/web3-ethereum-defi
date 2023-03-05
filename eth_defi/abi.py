@@ -9,7 +9,8 @@ from typing import Optional, Type, Union, Collection, Any
 import eth_abi
 from eth_typing import HexAddress
 from web3 import Web3
-from web3.contract import Contract
+from web3._utils.contracts import get_function_info
+from web3.contract import Contract, ContractFunction
 
 # Cache loaded ABI files in-process memory for speedup
 from web3.datastructures import AttributeDict
@@ -122,7 +123,7 @@ def get_transaction_data_field(tx: AttributeDict) -> str:
 
 
 def encode_with_signature(function_signature: str, args: Collection[Any]) -> bytes:
-    """Mimic Solidity's abi.encodeWithSignature().
+    """Mimic Solidity's abi.encodeWithSignature() in Python.
 
     This is a Python equivalent for `abi.encodeWithSignature()`.
 
@@ -133,13 +134,45 @@ def encode_with_signature(function_signature: str, args: Collection[Any]) -> byt
             payload = encode_with_signature("init(address)", [my_address])
             assert type(payload) == bytes
 
+    :param function_signature:
+        Solidity function signature that can be hashed to a selector.
+
+        ABI fill be extractd from this signature.
+
+    :param args:
+        Argument values to be encoded.
     """
 
     assert type(args) in (tuple, list)
 
     function_selector = Web3.keccak(text=function_signature)
     selector_text = function_signature[function_signature.find("(")+1:function_signature.rfind(")")]
-    args_types = selector_text.split(",")
-    encoded_args = eth_abi.encode(args_types, args)
+    arg_types = selector_text.split(",")
+    encoded_args = eth_abi.encode(arg_types, args)
     return function_selector + encoded_args
 
+
+def encode_function_args(
+        func: ContractFunction,
+        args: Collection[any]
+) -> bytes:
+    """Mimic Solidity's abi.encodeWithSignature() in Python.
+
+    Uses `web3.Contract.functions` prepared function as the ABI source.
+
+    :param func:
+        Function which arguments we are going to encode.
+
+    :param args:
+        Argument values to be encoded.
+    """
+    assert isinstance(func, ContractFunction)
+    fn_abi, fn_selector, aligned_fn_arguments = get_function_info(
+        func.fn_name,
+        func.web3.codec,
+        func.contract_abi,
+        args=args,
+    )
+    arg_types = [t["type"] for t in fn_abi["inputs"]]
+    encoded_args = eth_abi.encode(arg_types, args)
+    return encoded_args
