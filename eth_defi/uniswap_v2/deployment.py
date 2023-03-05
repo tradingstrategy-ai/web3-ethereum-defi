@@ -117,11 +117,7 @@ def deploy_factory_sushi(web3: Web3, deployer: str) -> Contract:
     return instance
 
 
-def deploy_uniswap_v2_like(
-        web3: Web3,
-        deployer: str,
-        give_weth=10_000,
-        init_code_hash=None) -> UniswapV2Deployment:
+def deploy_uniswap_v2_like(web3: Web3, deployer: str, give_weth=10_000, init_code_hash=None) -> UniswapV2Deployment:
     """Deploy v2=
 
     `See this StackOverflow question for commentary <https://stackoverflow.com/q/70846489/315168>`_.

@@ -39,7 +39,7 @@ def deployer(web3) -> str:
 
 
 @pytest.fixture()
-def user_1(web3) -> str:
+def fund_owner(web3) -> str:
     """User account.
 
     Do some account allocation for tests.
@@ -64,34 +64,34 @@ def aave(web3, deployer) -> Contract:
     return token
 
 
-def test_portfolio_current(web3: Web3, deployer: str, user_1: str, usdc: Contract, aave: Contract):
+def test_portfolio_current(web3: Web3, deployer: str, fund_owner, usdc: Contract, aave: Contract):
     """Analyse current holdings of an address."""
 
     # Load up the user with some tokens
-    usdc.functions.transfer(user_1, 500).transact({"from": deployer})
-    aave.functions.transfer(user_1, 200).transact({"from": deployer})
-    balances = fetch_erc20_balances_by_transfer_event(web3, user_1)
+    usdc.functions.transfer(fund_owner, 500).transact({"from": deployer})
+    aave.functions.transfer(fund_owner, 200).transact({"from": deployer})
+    balances = fetch_erc20_balances_by_transfer_event(web3, fund_owner)
     assert balances[usdc.address] == 500
     assert balances[aave.address] == 200
 
 
-def test_portfolio_past(web3: Web3, deployer: str, user_1: str, usdc: Contract, aave: Contract):
+def test_portfolio_past(web3: Web3, deployer: str, fund_owner, usdc: Contract, aave: Contract):
     """Analyse past holdings of an address."""
 
     # Load up the user with some tokens
-    usdc.functions.transfer(user_1, 500).transact({"from": deployer})
-    aave.functions.transfer(user_1, 200).transact({"from": deployer})
+    usdc.functions.transfer(fund_owner, 500).transact({"from": deployer})
+    aave.functions.transfer(fund_owner, 200).transact({"from": deployer})
 
     threshold_block = web3.eth.block_number
 
     # Top up AAVE which won't show up in the analysis
-    aave.functions.transfer(user_1, 333).transact({"from": deployer})
+    aave.functions.transfer(fund_owner, 333).transact({"from": deployer})
 
-    balances = fetch_erc20_balances_by_transfer_event(web3, user_1, last_block_num=threshold_block)
+    balances = fetch_erc20_balances_by_transfer_event(web3, fund_owner, last_block_num=threshold_block)
     assert balances[usdc.address] == 500
     assert balances[aave.address] == 200
 
-    balances = fetch_erc20_balances_by_transfer_event(web3, user_1)
+    balances = fetch_erc20_balances_by_transfer_event(web3, fund_owner)
     assert balances[aave.address] == 533
 
 
@@ -110,29 +110,29 @@ def test_portfolio_past(web3: Web3, deployer: str, user_1: str, usdc: Contract, 
 #     assert balances[aave.address].decimals == 18
 
 
-def test_portfolio_two_transactions(web3: Web3, deployer: str, user_1: str, usdc: Contract, aave: Contract):
+def test_portfolio_two_transactions(web3: Web3, deployer: str, fund_owner, usdc: Contract, aave: Contract):
     """Get the balance after two top up transactions."""
-    usdc.functions.transfer(user_1, 500).transact({"from": deployer})
-    usdc.functions.transfer(user_1, 300).transact({"from": deployer})
-    balances = fetch_erc20_balances_by_transfer_event(web3, user_1)
+    usdc.functions.transfer(fund_owner, 500).transact({"from": deployer})
+    usdc.functions.transfer(fund_owner, 300).transact({"from": deployer})
+    balances = fetch_erc20_balances_by_transfer_event(web3, fund_owner)
     assert balances[usdc.address] == 800
 
 
-def test_portfolio_debit_transactions(web3: Web3, deployer: str, user_1: str, usdc: Contract, aave: Contract):
+def test_portfolio_debit_transactions(web3: Web3, deployer: str, fund_owner, usdc: Contract, aave: Contract):
     """Get the balance after debit  transactions."""
-    usdc.functions.transfer(user_1, 500).transact({"from": deployer})
-    usdc.functions.transfer(deployer, 300).transact({"from": user_1})
-    balances = fetch_erc20_balances_by_transfer_event(web3, user_1)
+    usdc.functions.transfer(fund_owner, 500).transact({"from": deployer})
+    usdc.functions.transfer(deployer, 300).transact({"from": fund_owner})
+    balances = fetch_erc20_balances_by_transfer_event(web3, fund_owner)
     assert balances[usdc.address] == 200
 
 
-def test_portfolio_token_list(web3: Web3, deployer: str, user_1: str, usdc: Contract, aave: Contract):
+def test_portfolio_token_list(web3: Web3, deployer: str, fund_owner, usdc: Contract, aave: Contract):
     """Analyse current holdings by a token list."""
     # Create a set of tokens
     tokens = {aave.address, usdc.address}
     # Load up the user with some tokens
-    usdc.functions.transfer(user_1, 500).transact({"from": deployer})
-    aave.functions.transfer(user_1, 200).transact({"from": deployer})
-    balances = fetch_erc20_balances_by_token_list(web3, user_1, tokens)
+    usdc.functions.transfer(fund_owner, 500).transact({"from": deployer})
+    aave.functions.transfer(fund_owner, 200).transact({"from": deployer})
+    balances = fetch_erc20_balances_by_token_list(web3, fund_owner, tokens)
     assert balances[usdc.address] == 500
     assert balances[aave.address] == 200

@@ -5,7 +5,6 @@
 - We need to set up a lot of stuff to ramp up Enzyme
 
 """
-import logging
 
 import pytest
 
@@ -16,7 +15,8 @@ from web3.contract import Contract
 from eth_defi.anvil import AnvilLaunch, launch_anvil, make_anvil_custom_rpc_request
 from eth_defi.deploy import deploy_contract
 from eth_defi.token import create_token
-from eth_defi.uniswap_v2.deployment import deploy_uniswap_v2_like, UniswapV2Deployment
+from eth_defi.uniswap_v2.deployment import deploy_uniswap_v2_like, UniswapV2Deployment, deploy_trading_pair
+from eth_defi.uniswap_v2.utils import sort_tokens
 
 
 @pytest.fixture(scope="session")
@@ -62,7 +62,7 @@ def web3() -> Web3:
 
 
 @pytest.fixture()
-def deployer(web3) -> str:
+def deployer(web3) -> HexAddress:
     """Deployer account.
 
     - This account will deploy all smart contracts
@@ -72,7 +72,7 @@ def deployer(web3) -> str:
     return web3.eth.accounts[0]
 
 
-@pytest.fixture
+@pytest.fixture()
 def uniswap_v2(web3: Web3, deployer: HexAddress) -> UniswapV2Deployment:
     """Deploy Uniswap, WETH token."""
     assert web3.eth.get_balance(deployer) > 0
@@ -85,7 +85,7 @@ def uniswap_v2(web3: Web3, deployer: HexAddress) -> UniswapV2Deployment:
 
 
 @pytest.fixture()
-def user_1(web3) -> str:
+def fund_owner(web3) -> HexAddress:
     """User account.
 
     Do some account allocation for tests.
@@ -94,12 +94,21 @@ def user_1(web3) -> str:
 
 
 @pytest.fixture()
-def user_2(web3) -> str:
+def fund_customer(web3) -> HexAddress:
     """User account.
 
     Do some account allocation for tests.
     """
     return web3.eth.accounts[2]
+
+
+@pytest.fixture()
+def fund_customer_2(web3) -> HexAddress:
+    """User account.
+
+    Do some account allocation for tests.
+    """
+    return web3.eth.accounts[3]
 
 
 @pytest.fixture
@@ -118,6 +127,28 @@ def usdc(web3, deployer) -> Contract:
 
 
 @pytest.fixture()
+def weth_usdc_pair(web3, deployer, uniswap_v2, usdc, weth) -> Contract:
+    """Create Uniswap v2 pool for WETH-USDC.
+
+    - Add 200k initial liquidity at 1600 ETH/USDC
+    """
+
+    deposit = 200_000  # USD
+
+    pair = deploy_trading_pair(
+        web3,
+        deployer,
+        uniswap_v2,
+        usdc,
+        weth,
+        deposit*10**6,
+        (deposit//1600)*10**18,
+    )
+
+    return pair
+
+
+@pytest.fixture()
 def mln(web3, deployer) -> Contract:
     """Mock MLN token.
     """
@@ -126,7 +157,7 @@ def mln(web3, deployer) -> Contract:
 
 
 @pytest.fixture()
-def weth_usdc_mock_chainlink_aggregator(web3, deployer) -> Contract:
+def weth_usd_mock_chainlink_aggregator(web3, deployer) -> Contract:
     """Fake ETH/USDC Chainlink price feed.
 
     Start with 1 ETH = 1600 USD.
@@ -153,3 +184,5 @@ def usdc_usd_mock_chainlink_aggregator(web3, deployer) -> Contract:
     )
     aggregator.functions.setValue(1 * 10**6).transact({"from": deployer})
     return aggregator
+
+

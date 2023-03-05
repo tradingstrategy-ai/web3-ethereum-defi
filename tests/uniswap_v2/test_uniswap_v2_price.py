@@ -418,7 +418,7 @@ def test_estimate_buy_price_for_amount(
 def test_buy_sell_round_trip(
     web3: Web3,
     deployer: str,
-    user_1: str,
+        fund_owner,
     uniswap_v2: UniswapV2Deployment,
     weth: Contract,
     usdc: Contract,
@@ -443,8 +443,8 @@ def test_buy_sell_round_trip(
 
     # Give user_1 500 USD to buy ETH
     usdc_amount_to_pay = 500 * 10**18
-    usdc.functions.transfer(user_1, usdc_amount_to_pay).transact({"from": deployer})
-    usdc.functions.approve(router.address, usdc_amount_to_pay).transact({"from": user_1})
+    usdc.functions.transfer(fund_owner, usdc_amount_to_pay).transact({"from": deployer})
+    usdc.functions.approve(router.address, usdc_amount_to_pay).transact({"from": fund_owner})
 
     # Perform a swap USDC->WETH
     path = [usdc.address, weth.address]  # Path tell how the swap is routed
@@ -452,12 +452,12 @@ def test_buy_sell_round_trip(
         usdc_amount_to_pay,
         0,
         path,
-        user_1,
+        fund_owner,
         FOREVER_DEADLINE,
-    ).transact({"from": user_1})
+    ).transact({"from": fund_owner})
 
-    all_weth_amount = weth.functions.balanceOf(user_1).call()
-    weth.functions.approve(router.address, all_weth_amount).transact({"from": user_1})
+    all_weth_amount = weth.functions.balanceOf(fund_owner).call()
+    weth.functions.approve(router.address, all_weth_amount).transact({"from": fund_owner})
 
     # Perform the reverse swap WETH->USDC
     reverse_path = [weth.address, usdc.address]  # Path tell how the swap is routed
@@ -465,12 +465,12 @@ def test_buy_sell_round_trip(
         all_weth_amount,
         0,
         reverse_path,
-        user_1,
+        fund_owner,
         FOREVER_DEADLINE,
-    ).transact({"from": user_1})
+    ).transact({"from": fund_owner})
 
     # user_1 has less than 500 USDC left to loses in the LP fees
-    usdc_left = usdc.functions.balanceOf(user_1).call() / (10.0**18)
+    usdc_left = usdc.functions.balanceOf(fund_owner).call() / (10.0 ** 18)
     assert usdc_left == pytest.approx(497.0895)
 
 
@@ -540,7 +540,7 @@ def test_swap_price_from_hot_wallet(
 def test_estimate_price_three_way(
     web3: Web3,
     deployer: str,
-    user_1: str,
+        fund_owner,
     uniswap_v2: UniswapV2Deployment,
     weth: Contract,
     usdc: Contract,
@@ -573,8 +573,8 @@ def test_estimate_price_three_way(
 
     # Give user_1 some cash to buy DAI and approve it on the router
     usdc_amount_to_pay = 500 * 10**18
-    usdc.functions.transfer(user_1, usdc_amount_to_pay).transact({"from": deployer})
-    usdc.functions.approve(router.address, usdc_amount_to_pay).transact({"from": user_1})
+    usdc.functions.transfer(fund_owner, usdc_amount_to_pay).transact({"from": deployer})
+    usdc.functions.approve(router.address, usdc_amount_to_pay).transact({"from": fund_owner})
 
     # Estimate the DAI amount user will get
     dai_amount = estimate_sell_price(
@@ -593,14 +593,14 @@ def test_estimate_price_three_way(
         usdc_amount_to_pay,
         0,
         path,
-        user_1,
+        fund_owner,
         FOREVER_DEADLINE,
-    ).transact({"from": user_1})
+    ).transact({"from": fund_owner})
 
     # Compare the amount user receives to the estimation ealier
-    assert dai.functions.balanceOf(user_1).call() == pytest.approx(dai_amount)
+    assert dai.functions.balanceOf(fund_owner).call() == pytest.approx(dai_amount)
     # precision test
-    assert dai.functions.balanceOf(user_1).call() == dai_amount
+    assert dai.functions.balanceOf(fund_owner).call() == dai_amount
 
 
 def test_estimate_buy_price_for_cash(

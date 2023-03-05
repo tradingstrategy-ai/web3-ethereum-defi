@@ -3,6 +3,7 @@
 Functions to fetch live on-chain Enzyme deployment or deploy your own unit testing version.
 """
 import enum
+import re
 from dataclasses import dataclass, field
 from pprint import pformat
 from typing import Dict, Tuple
@@ -36,30 +37,33 @@ class EnzymeContracts:
     """
     web3: Web3
     deployer: HexAddress
-    Dispatcher: Contract = None
-    ExternalPositionFactory: Contract = None
-    ProtocolFeeReserveLib: Contract = None
-    ProtocolFeeReserveProxy: Contract = None
-    AddressListRegistry: Contract = None
-    FundDeployer: Contract = None
-    ValueInterpreter: Contract = None
-    PolicyManager: Contract = None
-    ExternalPositionManager: Contract = None
-    FeeManager: Contract = None
-    IntegrationManager: Contract = None
-    ComptrollerLib: Contract = None
-    ProtocolFeeTracker: Contract = None
-    VaultLib: Contract = None
-    GasRelayPaymasterLib: Contract = None
-    GasRelayPaymasterFactory: Contract = None
+    dispatcher: Contract = None
+    external_position_factory: Contract = None
+    protocol_fee_reserve_lib: Contract = None
+    protocol_fee_reserve_proxy: Contract = None
+    address_list_registry: Contract = None
+    fund_deployer: Contract = None
+    value_interpreter: Contract = None
+    policy_manager: Contract = None
+    external_position_manager: Contract = None
+    fee_manager: Contract = None
+    integration_manager: Contract = None
+    comptroller_lib: Contract = None
+    protocol_fee_tracker: Contract = None
+    vault_lib: Contract = None
+    gas_relay_paymaster_lib: Contract = None
+    gas_relay_paymaster_factory: Contract = None
 
     def deploy(self, contract_name: str, *args):
         """Deploys a contract and stores its reference.
 
         Pick ABI JSON file from our precompiled package.
         """
+        # Convert to snake case
+        # https://stackoverflow.com/a/1176023/315168
+        var_name = re.sub(r'(?<!^)(?=[A-Z])', '_', contract_name).lower()
         contract = deploy_contract(self.web3, f"enzyme/{contract_name}.json", self.deployer, *args)
-        setattr(self, contract_name, contract)
+        setattr(self, var_name, contract)
 
     def get_deployed_contract(self, contract_name: str, address: HexAddress) -> Contract:
         """Helper access for IVault and IComptroller"""
@@ -113,7 +117,7 @@ class EnzymeDeployment:
         latest_round_data = aggregator.functions.latestRoundData().call()
         assert len(latest_round_data) == 5
 
-        value_interpreter = self.contracts.ValueInterpreter
+        value_interpreter = self.contracts.value_interpreter
         primitives = [token.address]
         aggregators = [aggregator.address]
         rate_assets = [rate_asset.value]
@@ -137,19 +141,10 @@ class EnzymeDeployment:
         - See `FundDeployer.sol`.
 
         :return:
-            Tuple (Comptroller proxy contract, vault contract)
+            Tuple (Comptroller contract, vault contract)
         """
 
-        # function createNewVault(
-        #     CoreDeployment _deployment,
-        #     address _vaultOwner,
-        #     address _denominationAsset,
-        #     uint256 _sharesActionTimelock,
-        #     bytes memory _feeManagerConfigData,
-        #     bytes memory _policyManagerConfigData
-        # ) public returns (IComptroller comptrollerProxy_, IVault vaultProxy_) {
-
-        fund_deployer = self.contracts.FundDeployer
+        fund_deployer = self.contracts.fund_deployer
         tx_hash = fund_deployer.functions.createNewFund(
             owner,
             fund_name,
@@ -166,7 +161,7 @@ class EnzymeDeployment:
             reason = fetch_transaction_revert_reason(self.web3, tx_hash)
             raise EnzymeDeploymentError(f"createNewFund() failed: {reason}")
 
-        events = list(self.contracts.FundDeployer.events.NewFundCreated().processReceipt(receipt, EventLogErrorFlags.Discard))
+        events = list(self.contracts.fund_deployer.events.NewFundCreated().processReceipt(receipt, EventLogErrorFlags.Discard))
         assert len(events) == 1
         new_fund_created_event = events[0]
         comptroller_proxy = new_fund_created_event["args"]["comptrollerProxy"]
@@ -209,44 +204,44 @@ class EnzymeDeployment:
         def _deploy_persistent():
             # Mimic deployPersistentContracts()
             contracts.deploy("Dispatcher")
-            contracts.deploy("ExternalPositionFactory", contracts.Dispatcher.address)
-            contracts.deploy("ProtocolFeeReserveLib", contracts.Dispatcher.address)
+            contracts.deploy("ExternalPositionFactory", contracts.dispatcher.address)
+            contracts.deploy("ProtocolFeeReserveLib", contracts.dispatcher.address)
 
             # deployProtocolFeeReserveProxy()
-            construct_data = encode_with_signature("init(address)", [contracts.Dispatcher.address])
-            contracts.deploy("ProtocolFeeReserveProxy", construct_data, contracts.ProtocolFeeReserveLib.address)
-            contracts.deploy("AddressListRegistry", contracts.Dispatcher.address)
+            construct_data = encode_with_signature("init(address)", [contracts.dispatcher.address])
+            contracts.deploy("ProtocolFeeReserveProxy", construct_data, contracts.protocol_fee_reserve_lib.address)
+            contracts.deploy("AddressListRegistry", contracts.dispatcher.address)
 
             contracts.deploy("GasRelayPaymasterLib", weth_address, "0x0000000000000000000000000000000000000000", "0x0000000000000000000000000000000000000000")
-            contracts.deploy("GasRelayPaymasterFactory", contracts.Dispatcher.address, contracts.GasRelayPaymasterLib.address)
+            contracts.deploy("GasRelayPaymasterFactory", contracts.dispatcher.address, contracts.gas_relay_paymaster_lib.address)
 
         def _deploy_release_contracts():
             # Mimic deployReleaseContracts()
-            contracts.deploy("FundDeployer", contracts.Dispatcher.address, contracts.GasRelayPaymasterFactory.address)
-            contracts.deploy("ValueInterpreter", contracts.FundDeployer.address, weth_address, chainlink_stale_rate_threshold)
-            contracts.deploy("PolicyManager", contracts.FundDeployer.address, contracts.GasRelayPaymasterFactory.address)
-            contracts.deploy("ExternalPositionManager", contracts.FundDeployer.address, contracts.ExternalPositionFactory.address, contracts.PolicyManager.address)
-            contracts.deploy("FeeManager", contracts.FundDeployer.address)
-            contracts.deploy("IntegrationManager", contracts.FundDeployer.address, contracts.PolicyManager.address, contracts.ValueInterpreter.address)
+            contracts.deploy("FundDeployer", contracts.dispatcher.address, contracts.gas_relay_paymaster_factory.address)
+            contracts.deploy("ValueInterpreter", contracts.fund_deployer.address, weth_address, chainlink_stale_rate_threshold)
+            contracts.deploy("PolicyManager", contracts.fund_deployer.address, contracts.gas_relay_paymaster_factory.address)
+            contracts.deploy("ExternalPositionManager", contracts.fund_deployer.address, contracts.external_position_factory.address, contracts.policy_manager.address)
+            contracts.deploy("FeeManager", contracts.fund_deployer.address)
+            contracts.deploy("IntegrationManager", contracts.fund_deployer.address, contracts.policy_manager.address, contracts.value_interpreter.address)
             contracts.deploy("ComptrollerLib",
-                             contracts.Dispatcher.address,
-                             contracts.ProtocolFeeReserveProxy.address,
-                             contracts.FundDeployer.address,
-                             contracts.ValueInterpreter.address,
-                             contracts.ExternalPositionManager.address,
-                             contracts.FeeManager.address,
-                             contracts.IntegrationManager.address,
-                             contracts.PolicyManager.address,
-                             contracts.GasRelayPaymasterFactory.address,
+                             contracts.dispatcher.address,
+                             contracts.protocol_fee_reserve_proxy.address,
+                             contracts.fund_deployer.address,
+                             contracts.value_interpreter.address,
+                             contracts.external_position_manager.address,
+                             contracts.fee_manager.address,
+                             contracts.integration_manager.address,
+                             contracts.policy_manager.address,
+                             contracts.gas_relay_paymaster_factory.address,
                              mln_address,
                              weth_address,
                              )
-            contracts.deploy("ProtocolFeeTracker", contracts.FundDeployer.address)
+            contracts.deploy("ProtocolFeeTracker", contracts.fund_deployer.address)
             contracts.deploy("VaultLib",
-                             contracts.ExternalPositionManager.address,
-                             contracts.GasRelayPaymasterFactory.address,
-                             contracts.ProtocolFeeReserveProxy.address,
-                             contracts.ProtocolFeeTracker.address,
+                             contracts.external_position_manager.address,
+                             contracts.gas_relay_paymaster_factory.address,
+                             contracts.protocol_fee_reserve_proxy.address,
+                             contracts.protocol_fee_tracker.address,
                              mln_address,
                              vault_mln_burner,
                              weth_address,
@@ -255,19 +250,19 @@ class EnzymeDeployment:
 
         def _set_fund_deployer_pseudo_vars():
             # Mimic setFundDeployerPseudoVars()
-            contracts.FundDeployer.functions.setComptrollerLib(contracts.ComptrollerLib.address).transact({"from": deployer})
-            contracts.FundDeployer.functions.setProtocolFeeTracker(contracts.ProtocolFeeTracker.address).transact({"from": deployer})
-            contracts.FundDeployer.functions.setVaultLib(contracts.VaultLib.address).transact({"from": deployer})
+            contracts.fund_deployer.functions.setComptrollerLib(contracts.comptroller_lib.address).transact({"from": deployer})
+            contracts.fund_deployer.functions.setProtocolFeeTracker(contracts.protocol_fee_tracker.address).transact({"from": deployer})
+            contracts.fund_deployer.functions.setVaultLib(contracts.vault_lib.address).transact({"from": deployer})
 
         def _set_external_position_factory_position_deployers():
             # Mimic setExternalPositionFactoryPositionDeployers
-            deployers = [contracts.ExternalPositionManager.address]
-            contracts.ExternalPositionFactory.functions.addPositionDeployers(deployers).transact({"from": deployer})
+            deployers = [contracts.external_position_manager.address]
+            contracts.external_position_factory.functions.addPositionDeployers(deployers).transact({"from": deployer})
 
         def _set_release_live():
             # Mimic setReleaseLive()
-            contracts.FundDeployer.functions.setReleaseLive().transact({"from": deployer})
-            contracts.Dispatcher.functions.setCurrentFundDeployer(contracts.FundDeployer.address).transact({"from": deployer})
+            contracts.fund_deployer.functions.setReleaseLive().transact({"from": deployer})
+            contracts.dispatcher.functions.setCurrentFundDeployer(contracts.fund_deployer.address).transact({"from": deployer})
 
         _deploy_persistent()
         _deploy_release_contracts()
@@ -276,10 +271,10 @@ class EnzymeDeployment:
         _set_release_live()
 
         # Some sanity checks
-        assert contracts.GasRelayPaymasterFactory.functions.getCanonicalLib().call() != "0x0000000000000000000000000000000000000000"
-        assert contracts.FundDeployer.functions.getOwner().call() == deployer
-        assert contracts.ValueInterpreter.functions.getOwner().call() == deployer
-        assert contracts.FundDeployer.functions.releaseIsLive().call() is True
+        assert contracts.gas_relay_paymaster_factory.functions.getCanonicalLib().call() != "0x0000000000000000000000000000000000000000"
+        assert contracts.fund_deployer.functions.getOwner().call() == deployer
+        assert contracts.value_interpreter.functions.getOwner().call() == deployer
+        assert contracts.fund_deployer.functions.releaseIsLive().call() is True
 
         return EnzymeDeployment(
             web3,
