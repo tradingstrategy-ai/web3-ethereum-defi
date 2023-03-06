@@ -185,7 +185,7 @@ def deploy_pool(
 
     # https://ethereum.stackexchange.com/a/59288/620
     # AttributeDict({'args': AttributeDict({'token0': '0x2946259E0334f33A064106302415aD3391BeD384', 'token1': '0xB9816fC57977D5A786E654c7CF76767be63b966e', 'fee': 3000, 'tickSpacing': 60, 'pool': '0x2a28188cEa899849B9dd497C1E04BC2f62E54B97'}), 'event': 'PoolCreated', 'logIndex': 0, 'transactionIndex': 0, 'transactionHash': HexBytes('0xb4e137f58ba6f22ecfce572e9ca50e7e174fb5c02243b956883c4da08c3cbef9'), 'address': '0xF2E246BB76DF876Cef8b38ae84130F4F55De395b', 'blockHash': HexBytes('0x7d3eb4fceaf4df22df7644a1df2af1d00863476bcd8fc76ade7c4efe7d78c8e5'), 'blockNumber': 6})
-    logs = factory.events.PoolCreated().processReceipt(tx_receipt)
+    logs = factory.events.PoolCreated().process_receipt(tx_receipt)
     event0 = logs[0]
     pool_address = event0["args"]["pool"]
     pool = deployment.PoolContract(address=pool_address)

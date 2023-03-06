@@ -46,7 +46,7 @@ class LiquidityResult:
         :raise: UnmatchedToken
         """
 
-        token_address = Web3.toChecksumAddress(token_address)
+        token_address = Web3.to_checksum_address(token_address)
 
         if token_address == self.token0:
             return self.token0_reserve

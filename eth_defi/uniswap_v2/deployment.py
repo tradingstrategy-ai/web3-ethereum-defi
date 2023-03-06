@@ -86,7 +86,7 @@ class UniswapV2Deployment:
     def pair_for(self, token_a: str, token_b: str) -> Tuple[ChecksumAddress, HexAddress, HexAddress]:
         """Calculate CREATE2 contract address for a trading pair."""
         (token0, token1) = sort_tokens(token_a, token_b)
-        return (Web3.toChecksumAddress(pair_for(self.factory.address, token0, token1, self.init_code_hash)), token0, token1)
+        return (Web3.to_checksum_address(pair_for(self.factory.address, token0, token1, self.init_code_hash)), token0, token1)
 
 
 def deploy_factory_sushi(web3: Web3, deployer: str) -> Contract:
@@ -191,7 +191,7 @@ def deploy_trading_pair(
 
     # https://ethereum.stackexchange.com/a/59288/620
     # (AttributeDict({'args': AttributeDict({'token0': '0x2946259E0334f33A064106302415aD3391BeD384', 'token1': '0xB9816fC57977D5A786E654c7CF76767be63b966e', 'pair': '0x1278b4F4c25eE23DEEd803F16620009cBFbe7B13', '': 1}), 'event': 'PairCreated', 'logIndex': 0, 'transactionIndex': 0, 'transactionHash': HexBytes('0x5eea43a588a2f5865c4bc381e395f0db9db56dd1727d2433694df1faeacae33c'), 'address': '0xF2E246BB76DF876Cef8b38ae84130F4F55De395b', 'blockHash': HexBytes('0x13377d7e8a1b96165dbb777a5c98d313ba6a795d988007377fbc3c1df28c2a5b'), 'blockNumber': 6}),)
-    logs = factory.events.PairCreated().processReceipt(tx_receipt)
+    logs = factory.events.PairCreated().process_receipt(tx_receipt)
     event0 = logs[0]
     pair_address = event0["args"]["pair"]
 
