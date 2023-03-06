@@ -270,7 +270,7 @@ def test_create_pool_with_increase_decrease_liquidity(
     )
     assert tx_receipt.status == 1
 
-    decrease_liquidity_event = uniswap_v3.position_manager.events.DecreaseLiquidity().processReceipt(tx_receipt)
+    decrease_liquidity_event = uniswap_v3.position_manager.events.DecreaseLiquidity().process_receipt(tx_receipt)
     liquidity_reduction_amount = decrease_liquidity_event[0].args.liquidity
     token0_received = decrease_liquidity_event[0].args.amount0
     token1_received = decrease_liquidity_event[0].args.amount1
