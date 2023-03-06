@@ -36,6 +36,8 @@ def anvil() -> AnvilLaunch:
     anvil = launch_anvil(
         hardfork="london",
         gas_limit=15_000_000,  # Max 5M gas per block, or per transaction in test automining
+        # Enable structured logs if debug_traceTransaction() is called
+        steps_tracing=True,
     )
     try:
 
@@ -49,13 +51,14 @@ def anvil() -> AnvilLaunch:
 
 
 @pytest.fixture
-def web3() -> Web3:
+def web3(anvil: AnvilLaunch) -> Web3:
     """Set up the Anvil Web3 connection.
 
     Also perform the Anvil state reset for each test.
     """
-    tester = EthereumTesterProvider()
-    web3 = Web3(tester)
+    #tester = EthereumTesterProvider()
+    # web3 = Web3(tester)
+    web3 = Web3(HTTPProvider(anvil.json_rpc_url))
     # snapshot_id = "0x0"
     # make_anvil_custom_rpc_request(web3, "evm_revert", [snapshot_id])
     return web3

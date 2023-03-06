@@ -156,7 +156,7 @@ class EnzymeDeployment:
         ).transact({
             "from": self.deployer,
         })
-        receipt = self.web3.eth.get_transaction_receipt(tx_hash)
+        receipt = self.web3.eth.wait_for_transaction_receipt(tx_hash)
         if receipt["status"] != 1:
             reason = fetch_transaction_revert_reason(self.web3, tx_hash)
             raise EnzymeDeploymentError(f"createNewFund() failed: {reason}")

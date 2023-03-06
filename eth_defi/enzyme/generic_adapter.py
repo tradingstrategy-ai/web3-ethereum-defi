@@ -7,7 +7,7 @@ from eth_abi.exceptions import EncodingTypeError, EncodingError
 from eth_typing import HexAddress
 from hexbytes import HexBytes
 from web3 import Web3
-from web3.contract import Contract
+from web3.contract import Contract, ContractFunction
 from web3.types import TxParams
 
 from eth_defi.enzyme.integration_manager import IntegrationManagerActionId
@@ -124,11 +124,11 @@ def execute_calls_for_generic_adapter(
         min_incoming_asset_amounts: Collection[int],
         spend_assets: Collection[Asset],
         spend_asset_amounts: Collection[int],
-) -> TxParams:
+) -> ContractFunction:
     """Create a vault buy/sell transaction using a generic adapter.
 
     :return:
-        A transaction object prepared to be signed
+        A contract function object with bound arguments
     """
 
     logger.info(
@@ -168,11 +168,13 @@ def execute_calls_for_generic_adapter(
     )
 
     # See ComptrollerLib.sol
-    return comptroller.functions.callOnExtension(
+    call = comptroller.functions.callOnExtension(
         integration_manager.address,
         IntegrationManagerActionId.CallOnIntegration.value,
         call_args
-    ).build_transaction()
+    )
+
+    return call
 
 
 # import type { AddressLike } from '@enzymefinance/ethers';

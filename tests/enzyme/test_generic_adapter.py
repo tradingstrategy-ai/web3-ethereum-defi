@@ -8,9 +8,11 @@ from web3 import Web3
 from web3.contract import Contract
 
 from eth_defi.abi import encode_function_args
+from eth_defi.anvil import make_anvil_custom_rpc_request
 from eth_defi.deploy import deploy_contract
 from eth_defi.enzyme.deployment import EnzymeDeployment, RateAsset
 from eth_defi.enzyme.generic_adapter import execute_calls_for_generic_adapter
+from eth_defi.trace import trace_evm_transaction
 from eth_defi.uniswap_v2.deployment import UniswapV2Deployment
 from eth_defi.uniswap_v3.constants import FOREVER_DEADLINE
 
@@ -94,6 +96,7 @@ def test_generic_adapter_uniswap_v2(
 
     assert comptroller.functions.getDenominationAsset().call() == usdc.address
     assert vault.functions.getTrackedAssets().call() == [usdc.address]
+    assert vault.functions.canManageAssets(fund_owner).call() is True
 
     # User 2 buys into the vault
     # See Shares.sol
@@ -125,7 +128,7 @@ def test_generic_adapter_uniswap_v2(
         [usdc_swap_amount, 1, path, generic_adapter.address, FOREVER_DEADLINE]
     )
 
-    tx_params = execute_calls_for_generic_adapter(
+    bound_call = execute_calls_for_generic_adapter(
         comptroller=comptroller,
         external_calls=(
             (weth, encoded_approve),
@@ -139,5 +142,9 @@ def test_generic_adapter_uniswap_v2(
         spend_assets=spend_assets,
     )
 
-    tx_params["from"] = fund_owner
-    tx_hash = web3.eth.send_transaction(tx_params)
+    tx_hash = bound_call.transact({"from": fund_owner, "gas": 1_000_000})
+    receipt = web3.eth.wait_for_transaction_receipt(tx_hash)
+    if receipt["status"] == 0:
+        # Explain why the transaction failed
+        trace = trace_evm_transaction(web3, tx_hash)
+        import ipdb ; ipdb.set_trace()
