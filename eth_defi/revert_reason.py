@@ -11,6 +11,7 @@ from typing import Union
 from eth_tester.exceptions import TransactionFailed
 from hexbytes import HexBytes
 from web3 import Web3
+from web3.exceptions import ContractLogicError
 
 from eth_defi.abi import get_transaction_data_field
 
@@ -114,6 +115,9 @@ def fetch_transaction_revert_reason(
             # Ganache
             # {'message': 'VM Exception while processing transaction: revert BEP20: transfer amount exceeds balance', 'stack': 'CallError: VM Exception while processing transaction: revert BEP20: transfer amount exceeds balance\n    at Blockchain.simulateTransaction (/usr/local/lib/node_modules/ganache/dist/node/1.js:2:49094)\n    at processTicksAndRejections (node:internal/process/task_queues:96:5)', 'code': -32000, 'name': 'CallError', 'data': '0x08c379a00000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000002642455032303a207472616e7366657220616d6f756e7420657863656564732062616c616e63650000000000000000000000000000000000000000000000000000'}
             return data["message"]
+    except ContractLogicError as e:
+        # Web3 6.0
+        return e.args[0]
     except TransactionFailed as e:
         # Ethereum Tester
         return e.args[0]
