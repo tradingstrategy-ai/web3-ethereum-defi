@@ -6,7 +6,7 @@ pragma solidity 0.6.12;
 contract RevertTest2 {
 
     function boom() external {
-        revert "Big bada boom";
+        revert("Big bada boom");
     }
 
 }

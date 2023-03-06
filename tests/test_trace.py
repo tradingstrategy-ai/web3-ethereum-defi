@@ -1,9 +1,11 @@
 import pytest
 from eth_typing import HexAddress
 from web3 import HTTPProvider, Web3
+from web3.exceptions import ContractLogicError
 
-from eth_defi.anvil import AnvilLaunch, make_anvil_custom_rpc_request
-from eth_defi.deploy import deploy_contract
+from eth_defi.anvil import AnvilLaunch, make_anvil_custom_rpc_request, launch_anvil
+from eth_defi.deploy import deploy_contract, get_or_create_contract_registry
+from eth_defi.trace import trace_evm_transaction, print_symbolic_trace
 
 
 @pytest.fixture(scope="session")
@@ -60,10 +62,40 @@ def deployer(web3) -> HexAddress:
     return web3.eth.accounts[0]
 
 
-def test_trace_call(web3):
+def test_trace_transaction_simple(web3, deployer):
     """Test EVM trace."""
-    reverter = deploy_contract(web3, "RevertTest.json")
+    reverter = deploy_contract(web3, "RevertTest.json", deployer)
 
-    with pytest.raises(RuntimeError):
-        reverter.functions.revert1().call()
+    tx_hash = reverter.functions.revert1().transact({"from": deployer, "gas": 500_000})
+    receipt = web3.eth.wait_for_transaction_receipt(tx_hash)
+    assert receipt["status"] == 0  # Failed
 
+    # Get the debug trace from the node and transform it to a list of call items
+    trace_data = trace_evm_transaction(web3, tx_hash)
+
+    # Transform the list of call items to a human-readable output,
+    # use ABI data from deployed contracts to enrich the output
+    trace_output = print_symbolic_trace(get_or_create_contract_registry(web3), trace_data)
+
+    assert trace_output == 'CALL: [reverted] RevertTest.<revert1> [500000 gas]'
+
+
+
+def test_trace_transaction_nested(web3, deployer):
+    """Test EVM trace."""
+
+    reverter = deploy_contract(web3, "RevertTest.json", deployer)
+    reverter2 = deploy_contract(web3, "RevertTest.json", deployer)
+
+    tx_hash = reverter.functions.revert2(reverter2.address).transact({"from": deployer, "gas": 500_000})
+    receipt = web3.eth.wait_for_transaction_receipt(tx_hash)
+    assert receipt["status"] == 0  # Failed
+
+    # Get the debug trace from the node and transform it to a list of call items
+    trace_data = trace_evm_transaction(web3, tx_hash)
+
+    # Transform the list of call items to a human-readable output,
+    # use ABI data from deployed contracts to enrich the output
+    trace_output = print_symbolic_trace(get_or_create_contract_registry(web3), trace_data)
+
+    import ipdb ; ipdb.set_trace()

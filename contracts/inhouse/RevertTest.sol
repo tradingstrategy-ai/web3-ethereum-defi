@@ -8,7 +8,7 @@ import "./RevertTest2.sol";
 contract RevertTest {
 
     function revert1() external {
-        revert "foobar";
+        revert("foobar");
     }
 
     function revert2(address second) external {

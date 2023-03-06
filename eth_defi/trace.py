@@ -1,30 +1,56 @@
-                                       """Transaction debug tracing.
+import sys
+from io import StringIO, TextIOWrapper
+from typing import cast, Optional, Iterator
+
+from eth_typing import ChecksumAddress
+from eth_utils import to_checksum_address
+from evm_trace.display import TreeRepresentation
+from web3.contract.contract import ContractFunction
+
+from eth_defi.deploy import ContractRegistry
+
+"""Transaction debug tracing.
 
 Internally use evm-trace from Ape: https://github.com/ApeWorX/evm-trace
 """
+import logging
+
 from hexbytes import HexBytes
 from web3 import Web3
 
-from evm_trace import TraceFrame
+from evm_trace import TraceFrame, CallTreeNode
 from evm_trace import CallType, get_calltree_from_geth_trace
 
+
+logger = logging.getLogger(__name__)
 
 
 class TraceNotEnabled(Exception):
     """Tracing is not enabled on the backend."""
 
 
-def trace_evm_transaction(web3: Web3, tx_hash: HexBytes | str):
+def trace_evm_transaction(web3: Web3, tx_hash: HexBytes | str) -> CallTreeNode:
     """Trace a (failed) transaction.
 
     - Prints out an EVM transaction stack trace
 
     - Currently only works with Anvil backend if `steps_trace=True`
 
-    See also :py:func:`eth_defi.anvil.launch_anvil`.
+    - Transaction must have its `gas` parameter set, otherwise transaction is never broadcasted
+      because it fails in estimate gas phase
+
+    See also
+
+    - :py:func:`eth_defi.anvil.launch_anvil`.
+
+    - https://github.com/ApeWorX/evm-trace
     """
 
     # See https://book.getfoundry.sh/reference/anvil/
+
+    if type(tx_hash) == HexBytes:
+        tx_hash = tx_hash.hex()
+
     struct_logs = web3.manager.request_blocking("debug_traceTransaction", [tx_hash])["structLogs"]
 
     if not struct_logs:
@@ -33,12 +59,164 @@ def trace_evm_transaction(web3: Web3, tx_hash: HexBytes | str):
 
     tx = web3.eth.get_transaction(tx_hash)
 
+    # https://github.com/ApeWorX/ape/blob/f303e74addf601b09fe2cf0f23f6c51eb8a330e7/src/ape_geth/provider.py#L420
     root_node_kwargs = {
-
+        "gas_cost": tx["gas"],
+        "address": tx["to"],
+        "calldata": tx.get("input", ""),
+        "call_type": CallType.CALL,
     }
 
-    import ipdb ; ipdb.set_trace()
-    calltree = get_calltree_from_geth_trace(trace, **root_node_kwargs)
+    if "value" in tx:
+        root_node_kwargs["value"] = tx["value"]
 
-    for item in struct_logs:
-        frame = TraceFrame.parse_obj(item)
+    if len(struct_logs) == 0:
+        raise RuntimeError("struct_logs empty")
+
+    frames = [TraceFrame.parse_obj(item) for item in struct_logs]
+
+    logger.debug("Tracing %d frames", len(frames))
+
+    calltree = get_calltree_from_geth_trace(frames, **root_node_kwargs)
+
+    return calltree
+
+
+def print_symbolic_trace(
+        contract_registry: ContractRegistry,
+        calltree: CallTreeNode,
+):
+    """Print a symbolic trace of an Ethereum transaction.
+
+    - Contracts by name
+
+    - Functions by name
+
+    :param contract_registry:
+        The registed contracts for which we have symbolic information available
+
+    :param calltree:
+        Call tree output.
+
+        From :py:func:`trace_evm_transaction`.
+
+    :return:
+        Unicode print output
+
+    """
+    return SymbolicTreeRepresentation.get_tree_display(contract_registry, calltree)
+
+
+class SymbolicTreeRepresentation:
+    """A EVM trace tree that can resolve contract names and functions.
+
+    Taken from `eth_trace.display`.
+
+    See :py:func:`print_symbolic_trace` for more information.
+    """
+
+    # See https://github.com/ApeWorX/evm-trace/blob/main/evm_trace/display.py#L14 for sources
+
+    FILE_MIDDLE_PREFIX = "├──"
+    FILE_LAST_PREFIX = "└──"
+    PARENT_PREFIX_MIDDLE = "    "
+    PARENT_PREFIX_LAST = "│   "
+
+    def __init__(
+        self,
+        contract_registry: ContractRegistry,
+        call: "CallTreeNode",
+        parent: Optional["SymbolicTreeRepresentation"] = None,
+        is_last: bool = False,
+    ):
+        self.call = call
+        self.contract_registry = contract_registry
+        self.parent = parent
+        self.is_last = is_last
+
+    @property
+    def depth(self) -> int:
+        return self.call.depth
+
+    @property
+    def title(self) -> str:
+        call_type = self.call.call_type.value
+        address_hex_str = self.call.address.hex() if self.call.address else None
+
+        try:
+            address = to_checksum_address(address_hex_str) if address_hex_str else None
+        except (ImportError, ValueError):
+            # Ignore checksumming if user does not have eth-hash backend installed.
+            address = cast(ChecksumAddress, address_hex_str)
+
+        contract = self.contract_registry.get(address)
+
+        function_selector = self.call.calldata[:4]
+
+        symbolic_name = None
+        symbolic_function = None
+
+        if contract:
+            # Set in deploy_contract()
+            symbolic_name = getattr(contract, "name", None)
+            function = contract.get_function_by_selector(function_selector)
+            if function:
+                symbolic_function = function.fn_name
+
+        symbolic_name = symbolic_name or address
+        symbolic_function = symbolic_function or function_selector.hex()
+
+        cost = self.call.gas_cost
+        call_path = symbolic_name if address else ""
+        if self.call.calldata:
+            call_path = f"{call_path}." if call_path else ""
+            call_path = f"{call_path}<{symbolic_function}>"
+
+        call_path = (
+            f"[reverted] {call_path}" if self.call.failed and self.parent is None else call_path
+        )
+        call_path = call_path.strip()
+        node_title = f"{call_type}: {call_path}" if call_path else call_type
+        if cost is not None:
+            node_title = f"{node_title} [{cost} gas]"
+
+        return node_title
+
+    @classmethod
+    def make_tree(
+        cls,
+        contract_registry: ContractRegistry,
+        root: "CallTreeNode",
+        parent: Optional["SymbolicTreeRepresentation"] = None,
+        is_last: bool = False,
+    ) -> Iterator["SymbolicTreeRepresentation"]:
+        displayable_root = cls(contract_registry, root, parent=parent, is_last=is_last)
+        yield displayable_root
+
+        count = 1
+        for child_node in root.calls:
+            is_last = count == len(root.calls)
+            if child_node.calls:
+                yield from cls.make_tree(contract_registry, child_node, parent=displayable_root, is_last=is_last)
+            else:
+                yield cls(contract_registry, child_node, parent=displayable_root, is_last=is_last)
+
+            count += 1
+
+    def __str__(self) -> str:
+        if self.parent is None:
+            return self.title
+
+        filename_prefix = self.FILE_LAST_PREFIX if self.is_last else self.FILE_MIDDLE_PREFIX
+
+        parts = [f"{filename_prefix} {self.title}"]
+        parent = self.parent
+        while parent and parent.parent is not None:
+            parts.append(self.PARENT_PREFIX_MIDDLE if parent.is_last else self.PARENT_PREFIX_LAST)
+            parent = parent.parent
+
+        return "".join(reversed(parts))
+
+    @staticmethod
+    def get_tree_display(contract_registry: ContractRegistry, call: "CallTreeNode") -> str:
+        return "\n".join([str(t) for t in SymbolicTreeRepresentation.make_tree(contract_registry, call)])

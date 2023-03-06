@@ -70,10 +70,17 @@ def get_deployed_contract(
 
     `See Web3.py documentation on Contract instances <https://web3py.readthedocs.io/en/stable/contracts.html#contract-deployment-example>`_.
 
-    :param web3: Web3 instance
-    :param fname: `JSON filename from supported contract lists <https://github.com/tradingstrategy-ai/web3-ethereum-defi/tree/master/eth_defi/abi>`_.
-    :param address: Ethereum address of the deployed contract
-    :return: `web3.contract.Contract` subclass
+    :param web3:
+        Web3 instance
+
+    :param fname:
+        `JSON filename from supported contract lists <https://github.com/tradingstrategy-ai/web3-ethereum-defi/tree/master/eth_defi/abi>`_.
+
+    :param address:
+        Ethereum address of the deployed contract
+
+    :return:
+        `web3.contract.Contract` proxy
     """
     assert address
     Contract = get_contract(web3, fname)
