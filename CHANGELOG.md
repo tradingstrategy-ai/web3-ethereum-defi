@@ -1,5 +1,11 @@
 # Current
 
+- Migrate to Web3.py 6.0. Notable Web3.py API changes:
+  - `toChecksumAddress` -> `to_checksum_address`
+  - `processReceipt` -> `process_receipt`
+  - `web3.contract.Contract` -> `web3.contract.contract.Contract`
+  - `solidityKeccak` -> `solidity_keccak`
+  - `decode_function_input` returns dict instead of tuple
 - Adding Enzyme Protocol ABI files and compile commands
 - Adding dHEDGE Protocol ABI files and compile commands
 

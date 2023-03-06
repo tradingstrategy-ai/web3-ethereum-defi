@@ -219,7 +219,7 @@ def test_create_pool_with_increase_decrease_liquidity(
 
     # The IncreaseLiquidity event is emitted with both mint and increaseLiquidity
     # https://github.com/Uniswap/v3-periphery/blob/main/contracts/interfaces/INonfungiblePositionManager.sol
-    increase_liquidity_event = uniswap_v3.position_manager.events.IncreaseLiquidity().processReceipt(tx_receipt)
+    increase_liquidity_event = uniswap_v3.position_manager.events.IncreaseLiquidity().process_receipt(tx_receipt)
     token_id = increase_liquidity_event[0].args.tokenId
     liquidity_before_increase = increase_liquidity_event[0].args.liquidity
 
@@ -240,7 +240,7 @@ def test_create_pool_with_increase_decrease_liquidity(
 
     assert tx_receipt.status == 1
 
-    increase_liquidity_event = uniswap_v3.position_manager.events.IncreaseLiquidity().processReceipt(tx_receipt)
+    increase_liquidity_event = uniswap_v3.position_manager.events.IncreaseLiquidity().process_receipt(tx_receipt)
     liquidity_added = increase_liquidity_event[0].args.liquidity
     assert liquidity_added > 0
     pool_l_after_increase, *_ = pool.functions.ticks(lower_tick).call()

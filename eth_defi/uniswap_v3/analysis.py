@@ -10,7 +10,7 @@ from eth_defi.uniswap_v3.pool import fetch_pool_details
 from eth_defi.uniswap_v3.utils import decode_path
 
 
-def get_input_args(params: tuple) -> dict:
+def get_input_args(params: tuple | dict) -> dict:
     """Names and decodes input arguments from router.decode_function_input()
     Note there is no support yet for SwapRouter02, it does not accept a deadline parameter
     See: https://docs.uniswap.org/contracts/v3/reference/periphery/interfaces/ISwapRouter#exactinputparams
@@ -22,16 +22,26 @@ def get_input_args(params: tuple) -> dict:
     Dict of exactInputParams as specified in the link above
     """
 
-    full_path_decoded = decode_path(params[0])
-
-    # TODO: add support for SwapRouter02 which does not accept deadline parameter
-    return {
-        "path": full_path_decoded,
-        "recipient": params[1],
-        "deadline": params[2],
-        "amountIn": params[3],
-        "amountOutMinimum": params[4],
-    }
+    if type(params) == dict:
+        # Web3 6.0+
+        full_path_decoded = decode_path(params["path"])
+        # TODO: add support for SwapRouter02 which does not accept deadline parameter
+        return {
+            "path": full_path_decoded,
+            "recipient": params["recipient"],
+            "deadline": params["deadline"],
+            "amountIn": params["amountIn"],
+            "amountOutMinimum": params["amountOutMinimum"],
+        }
+    else:
+        full_path_decoded = decode_path(params[0])
+        return {
+            "path": full_path_decoded,
+            "recipient": params[1],
+            "deadline": params[2],
+            "amountIn": params[3],
+            "amountOutMinimum": params[4],
+        }
 
 
 def analyse_trade_by_receipt(
@@ -70,7 +80,7 @@ def analyse_trade_by_receipt(
     # The tranasction logs are likely to contain several events like Transfer,
     # Sync, etc. We are only interested in Swap events.
     # See https://docs.uniswap.org/contracts/v3/reference/core/interfaces/pool/IUniswapV3PoolEvents#swap
-    swap_events = uniswap.PoolContract.events.Swap().processReceipt(tx_receipt, errors=DISCARD)
+    swap_events = uniswap.PoolContract.events.Swap().process_receipt(tx_receipt, errors=DISCARD)
 
     # NOTE: we are interested in the last swap event
     # AttributeDict({'args': AttributeDict({'sender': '0x6D411e0A54382eD43F02410Ce1c7a7c122afA6E1', 'recipient': '0xC2c2C1C8871C189829d3CCD169010F430275BC70', 'amount0': -292184487391376249, 'amount1': 498353865, 'sqrtPriceX96': 3267615572280113943555521, 'liquidity': 41231056256176602, 'tick': -201931}), 'event': 'Swap', 'logIndex': 3, 'transactionIndex': 0, 'transactionHash': HexBytes('0xe7fff8231effe313010aed7d973fdbe75f58dc4a59c187b230e3fc101c58ec97'), 'address': '0x4529B3F2578Bf95c1604942fe1fCDeB93F1bb7b6', 'blockHash': HexBytes('0xe06feb724020c57c6a0392faf7db29fedf4246ce5126a5b743b2627b7dc69230'), 'blockNumber': 24})
