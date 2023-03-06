@@ -7,7 +7,7 @@ from eth_typing import BlockNumber, HexAddress
 from web3 import Web3
 from web3._utils.events import get_event_data
 from web3._utils.filters import construct_event_filter_params
-from web3.contract import ContractEvent
+from web3.contract.contract import ContractEvent
 from web3.datastructures import AttributeDict
 
 

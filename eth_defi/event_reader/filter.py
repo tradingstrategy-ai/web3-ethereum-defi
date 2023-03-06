@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from typing import Dict, Optional, List, Type
 
 from eth_bloom import BloomFilter
-from web3.contract import ContractEvent
+from web3.contract.contract import ContractEvent
 
 
 @dataclass

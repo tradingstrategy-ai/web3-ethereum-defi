@@ -16,7 +16,7 @@ import futureproof
 from eth_bloom import BloomFilter
 from futureproof import ThreadPoolExecutor
 from web3 import Web3
-from web3.contract import ContractEvent
+from web3.contract.contract import ContractEvent
 
 from eth_defi.event_reader.filter import Filter
 from eth_defi.event_reader.logresult import LogContext, LogResult
