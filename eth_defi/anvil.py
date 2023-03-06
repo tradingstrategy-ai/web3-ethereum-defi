@@ -31,7 +31,7 @@ import time
 import warnings
 from dataclasses import dataclass
 from subprocess import DEVNULL, PIPE
-from typing import List, Optional, Tuple, Union
+from typing import Dict, List, Optional, Union, Tuple, Any
 
 import psutil
 import requests
@@ -63,6 +63,7 @@ CLI_FLAGS = {
     "default_balance": "--balance",
     "gas_limit": "--gas-limit",
     "block_time": "--block-time",
+    "steps_tracing": "--steps-tracing",
 }
 
 
@@ -79,7 +80,12 @@ def _launch(cmd: str, **kwargs) -> Tuple[psutil.Popen, List[str]]:
     cmd_list = cmd.split(" ")
     for key, value in [(k, v) for k, v in kwargs.items() if v]:
         try:
-            cmd_list.extend([CLI_FLAGS[key], str(value)])
+            if value in (True, False):
+                # GNU style flags like --step-tracing
+                if value:
+                    cmd_list.append(CLI_FLAGS[key])
+            else:
+                cmd_list.extend([CLI_FLAGS[key], str(value)])
         except KeyError:
             warnings.warn(
                 f"Ignoring invalid commandline setting for anvil: " f'"{key}" with value "{value}".',
@@ -92,14 +98,35 @@ def _launch(cmd: str, **kwargs) -> Tuple[psutil.Popen, List[str]]:
     return psutil.Popen(cmd_list, stdin=DEVNULL, stdout=out, stderr=out), cmd_list
 
 
-def _request(web3: Web3, method: str, args: List) -> int:
-    """Make a request to special named EVM JSON-RPC endpoint."""
+def make_anvil_custom_rpc_request(web3: Web3, method: str, args: Optional[List] = None) -> Any:
+    """Make a request to special named EVM JSON-RPC endpoint.
+
+    - `See the Anvil custom RPC methods here <https://book.getfoundry.sh/reference/anvil/>`__.
+
+    :param method:
+        RPC endpoint name
+
+    :param args:
+        JSON-RPC call arguments
+
+    :return:
+        RPC result
+
+    :raise RPCRequestError:
+        In the case RPC method errors
+    """
+
+    if args is None:
+        args = ()
+
     try:
         response = web3.provider.make_request(method, args)  # type: ignore
         if "result" in response:
             return response["result"]
+
     except (AttributeError, RequestsConnectionError):
         raise RPCRequestError("Web3 is not connected.")
+
     raise RPCRequestError(response["error"]["message"])
 
 
@@ -148,15 +175,17 @@ class AnvilLaunch:
         return stdout, stderr
 
 
-def fork_network_anvil(
-    fork_url: str,
-    unlocked_addresses: List[Union[HexAddress, str]] = [],
+def launch_anvil(
+    fork_url: Optional[str] = None,
+    unlocked_addresses: List[Union[HexAddress, str]] = None,
     cmd="anvil",
     port: int = 19999,
     block_time=0,
     launch_wait_seconds=20.0,
     attempts=3,
     hardfork="london",
+    gas_limit: Optional[int] = None,
+    steps_tracing=False,
 ) -> AnvilLaunch:
     """Creates the Anvil mainnet fork using a given JSON-RPC endpoint.
 
@@ -248,7 +277,9 @@ def fork_network_anvil(
         Override `anvil` command. If not given we look up from `PATH`.
 
     :param fork_url:
-        HTTP JSON-RPC URL of the network we want to fork
+        HTTP JSON-RPC URL of the network we want to fork.
+
+        If not given launch an empty test backend.
 
     :param unlocked_addresses:
         List of addresses of which ownership we take to allow test code to transact as them
@@ -274,8 +305,19 @@ def fork_network_anvil(
         node is throttling your API requests. In this case we just try few more times
         again by killing the Anvil process and starting it again.
 
+    :param gas_limit:
+        Set the block gas limit.
+
     :param hardfork:
         EVM version to use
+
+    :param step_tracing:
+        Enable Anvil step tracing.
+
+        Needed to get structured logs.
+
+        See https://book.getfoundry.sh/reference/anvil/
+
     """
 
     assert not is_localhost_port_listening(port), f"localhost port {port} occupied.\n" f"You might have a zombie Anvil process around.\n" f"Use kill -SIGKILL $(lsof -ti:{port}) to kill"
@@ -288,11 +330,16 @@ def fork_network_anvil(
     current_block = 0
     web3 = None
 
+    if unlocked_addresses is None:
+        unlocked_addresses = []
+
     # https://book.getfoundry.sh/reference/anvil/
     args = dict(
         port=port,
         fork=fork_url,
         hardfork=hardfork,
+        gas_limit=gas_limit,
+        steps_tracing=steps_tracing,
     )
 
     if block_time not in (0, None):
@@ -316,7 +363,7 @@ def fork_network_anvil(
 
             if process.poll() is not None:
                 # Anvil crashed - hopefully got some output
-                raise AssertionError("anvil process did not start up")
+                raise AssertionError(f"anvil process did not start up: {final_cmd}")
 
             try:
                 # See if web3 RPC works
@@ -376,22 +423,25 @@ def unlock_account(web3: Web3, address: str):
 
 def sleep(web3: Web3, seconds: int) -> int:
     """Call emv_increaseTime on Anvil"""
-    _request(web3, "evm_increaseTime", [hex(seconds)])
+    make_anvil_custom_rpc_request(web3, "evm_increaseTime", [hex(seconds)])
     return seconds
 
 
 def mine(web3: Web3, timestamp: Optional[int] = None) -> None:
     """Call evm_setNextBlockTimestamp on Anvil"""
     if timestamp:
-        _request(web3, "evm_setNextBlockTimestamp", [timestamp])
-    _request(web3, "evm_mine", [1])
+        make_anvil_custom_rpc_request(web3, "evm_setNextBlockTimestamp", [timestamp])
+    make_anvil_custom_rpc_request(web3, "evm_mine", [1])
 
 
 def snapshot(web3: Web3) -> int:
     """Call evm_snapshot on Anvil"""
-    return _request(web3, "evm_snapshot", [])
+    return make_anvil_custom_rpc_request(web3, "evm_snapshot", [])
 
 
 def revert(web3: Web3, snapshot_id: int) -> None:
     """Call evm_revert on Anvil"""
-    _request(web3, "evm_revert", [snapshot_id])
+    make_anvil_custom_rpc_request(web3, "evm_revert", [snapshot_id])
+
+# Backwards compatibility
+fork_network_anvil = launch_anvil
