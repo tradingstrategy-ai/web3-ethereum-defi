@@ -87,7 +87,7 @@ def decode_path(full_path_encoded: bytes) -> list:
             break
         elif byte_length == 20 and len(full_path_encoded) >= path_pos + byte_length:
             address = full_path_encoded[path_pos : path_pos + byte_length].hex()
-            full_path_decoded.append(Web3.toChecksumAddress(address))
+            full_path_decoded.append(Web3.to_checksum_address(address))
         elif byte_length == 3 and len(full_path_encoded) >= path_pos + byte_length:
             fee = int(
                 full_path_encoded[path_pos : path_pos + byte_length].hex(),

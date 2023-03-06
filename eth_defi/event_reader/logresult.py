@@ -2,7 +2,7 @@
 
 from typing import TypedDict, List, Optional
 
-from web3.contract import ContractEvent
+from web3.contract.contract import ContractEvent
 
 
 class LogContext:

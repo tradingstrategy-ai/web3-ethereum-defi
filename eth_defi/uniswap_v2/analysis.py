@@ -127,7 +127,7 @@ def analyse_trade_by_receipt(web3: Web3, uniswap: UniswapV2Deployment, tx: dict,
 
     # The tranasction logs are likely to contain several events like Transfer,
     # Sync, etc. We are only interested in Swap events.
-    events = swap.processReceipt(tx_receipt, errors=DISCARD)
+    events = swap.process_receipt(tx_receipt, errors=DISCARD)
 
     # (AttributeDict({'args': AttributeDict({'sender': '0xDe09E74d4888Bc4e65F589e8c13Bce9F71DdF4c7', 'to': '0x2B5AD5c4795c026514f8317c7a215E218DcCD6cF', 'amount0In': 0, 'amount1In': 500000000000000000000, 'amount0Out': 284881561276680858, 'amount1Out': 0}), 'event': 'Swap', 'logIndex': 4, 'transactionIndex': 0, 'transactionHash': HexBytes('0x58312ff98147ca16c3a81019c8bca390cd78963175e4c0a30643d45d274df947'), 'address': '0x68931307eDCB44c3389C507dAb8D5D64D242e58f', 'blockHash': HexBytes('0x1222012923c7024b1d49e1a3e58552b89e230f8317ac1b031f070c4845d55db1'), 'blockNumber': 12}),)
     amount0_out = events[-1]["args"]["amount0Out"]

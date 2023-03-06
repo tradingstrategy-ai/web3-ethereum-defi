@@ -7,8 +7,8 @@ from typing import Tuple
 from eth_typing import HexAddress, HexStr
 from web3 import Web3
 
-#: Ethereum 0x000000000 addresss
-ZERO_ADDRESS = Web3.toHex(0x0)
+#: Ethereum 0x0000000000000000000000000000000000000000 addresss
+ZERO_ADDRESS = "0x0000000000000000000000000000000000000000"
 
 
 def sort_tokens(token_a: HexAddress, token_b: HexAddress) -> Tuple[HexAddress, HexAddress]:
@@ -29,10 +29,10 @@ def pair_for(factory: HexAddress, token_a: HexAddress, token_b: HexAddress, magi
     :param magical_hash: Init code hash of the Uniswap instance. Set None to use the default Sushiswap hash.
     :return: Pair contract address
     """
-    prefix = Web3.toHex(hexstr="ff")
-    token_a = Web3.toChecksumAddress(token_a)
-    token_b = Web3.toChecksumAddress(token_b)
-    encoded_tokens = Web3.solidityKeccak(["address", "address"], sort_tokens(token_a, token_b))
-    suffix = Web3.toHex(hexstr=magical_hash)
-    raw = Web3.solidityKeccak(["bytes", "address", "bytes", "bytes"], [prefix, factory, encoded_tokens, suffix])
-    return Web3.toChecksumAddress(Web3.toHex(raw)[-40:])
+    prefix = Web3.to_hex(hexstr="ff")
+    token_a = Web3.to_checksum_address(token_a)
+    token_b = Web3.to_checksum_address(token_b)
+    encoded_tokens = Web3.solidity_keccak(["address", "address"], sort_tokens(token_a, token_b))
+    suffix = Web3.to_hex(hexstr=magical_hash)
+    raw = Web3.solidity_keccak(["bytes", "address", "bytes", "bytes"], [prefix, factory, encoded_tokens, suffix])
+    return Web3.to_checksum_address(Web3.to_hex(raw)[-40:])
