@@ -1,14 +1,14 @@
 """Enzyme generic adapter helpers."""
 import logging
-from typing import TypeAlias, Collection, Tuple
+from typing import TypeAlias, Collection, Tuple, Final
 
 from eth_abi import encode
-from eth_abi.exceptions import EncodingTypeError, EncodingError
+from eth_abi.exceptions import EncodingError
 from eth_typing import HexAddress
 from hexbytes import HexBytes
 from web3 import Web3
-from web3.contract import Contract, ContractFunction
-from web3.types import TxParams
+from web3.contract.contract import Contract, ContractFunction
+
 
 from eth_defi.enzyme.integration_manager import IntegrationManagerActionId
 
@@ -18,8 +18,8 @@ Asset: TypeAlias = Contract | HexAddress
 
 Signer: TypeAlias = HexAddress
 
-#: See
-EXECUTE_CALLS_SELECTOR = Web3.keccak(b"executeCalls(address,bytes,bytes)")[0:4]
+#: See IntegrationManager.sol
+EXECUTE_CALLS_SELECTOR: Final[str] = Web3.keccak(b"executeCalls(address,bytes,bytes)")[0:4]
 
 
 logger = logging.getLogger(__name__)

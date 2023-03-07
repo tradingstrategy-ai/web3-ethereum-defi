@@ -161,7 +161,7 @@ class EnzymeDeployment:
             reason = fetch_transaction_revert_reason(self.web3, tx_hash)
             raise EnzymeDeploymentError(f"createNewFund() failed: {reason}")
 
-        events = list(self.contracts.fund_deployer.events.NewFundCreated().processReceipt(receipt, EventLogErrorFlags.Discard))
+        events = list(self.contracts.fund_deployer.events.NewFundCreated().process_receipt(receipt, EventLogErrorFlags.Discard))
         assert len(events) == 1
         new_fund_created_event = events[0]
         comptroller_proxy = new_fund_created_event["args"]["comptrollerProxy"]

@@ -10,7 +10,7 @@ import eth_abi
 from eth_typing import HexAddress
 from web3 import Web3
 from web3._utils.contracts import get_function_info
-from web3.contract import Contract, ContractFunction
+from web3.contract.contract import Contract, ContractFunction
 
 # Cache loaded ABI files in-process memory for speedup
 from web3.datastructures import AttributeDict
@@ -167,9 +167,12 @@ def encode_function_args(
         Argument values to be encoded.
     """
     assert isinstance(func, ContractFunction)
+
+    web3 = func.w3
+
     fn_abi, fn_selector, aligned_fn_arguments = get_function_info(
         func.fn_name,
-        func.web3.codec,
+        web3.codec,
         func.contract_abi,
         args=args,
     )
