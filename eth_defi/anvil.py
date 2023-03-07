@@ -80,7 +80,7 @@ def _launch(cmd: str, **kwargs) -> Tuple[psutil.Popen, List[str]]:
     cmd_list = cmd.split(" ")
     for key, value in [(k, v) for k, v in kwargs.items() if v]:
         try:
-            if value in (True, False):
+            if value is True or value is False:
                 # GNU style flags like --step-tracing
                 if value:
                     cmd_list.append(CLI_FLAGS[key])
@@ -187,20 +187,19 @@ def launch_anvil(
     gas_limit: Optional[int] = None,
     steps_tracing=False,
 ) -> AnvilLaunch:
-    """Creates the Anvil mainnet fork using a given JSON-RPC endpoint.
+    """Creates Anvil unit test backend or mainnet fork.
 
-    Forking a mainnet is a common way to test against live deployments.
-    This function invokes `anvil` command and tells it to fork a given JSON-RPC endpoint.
+    - Anvil can be used as web3.py test backend instead of `EthereumTester`.
+      Anvil offers faster execution and tracing - see :py:mod:`eth_defi.trace`.
 
-    A subprocess is started on the background. To stop this process, call :py:meth:`eth_defi.anvil.AnvilLaunch.close`.
+    - Forking a mainnet is a common way to test against live deployments.
+      This function invokes `anvil` command and tells it to fork a given JSON-RPC endpoint.
+
+    When called, a subprocess is started on the background.
+    To stop this process, call :py:meth:`eth_defi.anvil.AnvilLaunch.close`.
 
     This function waits `launch_wait_seconds` in order to `anvil` process to start
     and complete the chain fork.
-
-    .. warning ::
-
-        Forking a network with anvil is a slow process. It is recommended
-        that you use fast Ethereum Tester based testing if possible.
 
     Here is an example that forks BNB chain mainnet and transfer 500 BUSD stablecoin to a test
     account we control:
@@ -263,7 +262,6 @@ def launch_anvil(
 
             assert busd.functions.balanceOf(user_1.address).call() == 500 * 10**18
 
-
     `See the full example in tests source code <https://github.com/tradingstrategy-ai/web3-ethereum-defi/blob/master/tests/test_anvil.py>`_.
 
     If `anvil` refuses to terminate properly, you can kill a process by a port in your terminal:
@@ -320,7 +318,7 @@ def launch_anvil(
 
     """
 
-    assert not is_localhost_port_listening(port), f"localhost port {port} occupied.\n" f"You might have a zombie Anvil process around.\n" f"Use kill -SIGKILL $(lsof -ti:{port}) to kill"
+    assert not is_localhost_port_listening(port), f"localhost port {port} occupied.\n" f"You might have a zombie Anvil process around.\nRun to kill: -SIGKILL $(lsof -ti:{port})"
 
     url = f"http://localhost:{port}"
 

@@ -29,19 +29,11 @@ class TraceNotEnabled(Exception):
 def trace_evm_transaction(web3: Web3, tx_hash: HexBytes | str) -> CallTreeNode:
     """Trace a (failed) transaction.
 
-    - Prints out an EVM transaction stack trace
-
-    - Currently only works with Anvil backend and if `steps_trace=True`
-
-    - Transaction must have its `gas` parameter set, otherwise transaction is never broadcasted
-      because it fails in estimate gas phase
-
     - See :py:func:`print_symbolic_trace` for usage
 
-    See also
+    - Extract an EVM transaction stack trace from a node, using GoEthereum compatible `debug_traceTransaction`
 
-    - :py:func:`eth_defi.anvil.launch_anvil`.
-
+    - Currently only works with Anvil backend and if `steps_trace=True`
     """
 
     if type(tx_hash) == HexBytes:

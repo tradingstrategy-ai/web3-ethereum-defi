@@ -76,6 +76,7 @@ def anvil_bnb_chain_fork(request, large_busd_holder) -> str:
         mainnet_rpc,
         unlocked_addresses=[large_busd_holder],
         block_time=1,
+        hardfork="berlin",
     )
     try:
         yield launch.json_rpc_url
