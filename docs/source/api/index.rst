@@ -29,6 +29,7 @@ Core API
    eth_defi.ganache
    eth_defi.middleware
    eth_defi.tx
+   eth_defi.trace
    eth_defi.utils
 
 Uniswap v2 API

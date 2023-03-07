@@ -1,4 +1,4 @@
-"""Transaction debug tracing.
+"""Symbolic transaction tracing and Solidity stack traces.
 
 - This code is very preliminary and has not been througly tested with different smart contracts,
   so patches welcome
