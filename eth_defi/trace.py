@@ -15,7 +15,7 @@ from eth_defi.deploy import ContractRegistry
 from hexbytes import HexBytes
 from web3 import Web3
 
-from evm_trace import TraceFrame, CallTreeNode, get_calltree_from_geth_call_trace
+from evm_trace import TraceFrame, CallTreeNode
 from evm_trace import CallType, get_calltree_from_geth_trace
 
 
@@ -50,8 +50,7 @@ def trace_evm_transaction(web3: Web3, tx_hash: HexBytes | str) -> CallTreeNode:
     struct_logs = web3.manager.request_blocking("debug_traceTransaction", [tx_hash], {"enableMemory": True})["structLogs"]
 
     if not struct_logs:
-        raise TraceNotEnabled(f"Tracing not enabled on the backend {web3.provider}.\n"
-                              f"If you are using anvil make sure you start with --steps-trace")
+        raise TraceNotEnabled(f"Tracing not enabled on the backend {web3.provider}.\n" f"If you are using anvil make sure you start with --steps-trace")
 
     tx = web3.eth.get_transaction(tx_hash)
 
@@ -79,8 +78,8 @@ def trace_evm_transaction(web3: Web3, tx_hash: HexBytes | str) -> CallTreeNode:
 
 
 def print_symbolic_trace(
-        contract_registry: ContractRegistry,
-        calltree: CallTreeNode,
+    contract_registry: ContractRegistry,
+    calltree: CallTreeNode,
 ):
     """Print a symbolic trace of an Ethereum transaction.
 
@@ -208,9 +207,7 @@ class SymbolicTreeRepresentation:
             call_path = f"{call_path}." if call_path else ""
             call_path = f"{call_path}<{symbolic_function}>"
 
-        call_path = (
-            f"[reverted] {call_path}" if self.call.failed and self.parent is None else call_path
-        )
+        call_path = f"[reverted] {call_path}" if self.call.failed and self.parent is None else call_path
         call_path = call_path.strip()
         node_title = f"{call_type}: {call_path}" if call_path else call_type
         if cost is not None:

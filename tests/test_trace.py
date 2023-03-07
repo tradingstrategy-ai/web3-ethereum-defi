@@ -75,13 +75,13 @@ def test_trace_transaction_simple(web3, deployer):
 
     # Single root element, no nesting
     assert len(trace_data.calls) == 0
-    assert trace_data.calldata == HexBytes('0xb550276d')  # revert1()
+    assert trace_data.calldata == HexBytes("0xb550276d")  # revert1()
 
     # Transform the list of call items to a human-readable output,
     # use ABI data from deployed contracts to enrich the output
     trace_output = print_symbolic_trace(get_or_create_contract_registry(web3), trace_data)
 
-    assert trace_output == 'CALL: [reverted] RevertTest.<revert1> [500000 gas]'
+    assert trace_output == "CALL: [reverted] RevertTest.<revert1> [500000 gas]"
 
 
 def test_trace_transaction_nested(web3, deployer):

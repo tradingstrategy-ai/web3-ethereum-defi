@@ -443,5 +443,6 @@ def revert(web3: Web3, snapshot_id: int) -> None:
     """Call evm_revert on Anvil"""
     make_anvil_custom_rpc_request(web3, "evm_revert", [snapshot_id])
 
+
 # Backwards compatibility
 fork_network_anvil = launch_anvil

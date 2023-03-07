@@ -19,11 +19,11 @@ ContractRegistry: TypeAlias = Dict[HexAddress, Contract]
 
 
 def deploy_contract(
-        web3: Web3,
-        contract: Union[str, Contract],
-        deployer: str,
-        *constructor_args,
-        register_for_tracing=True,
+    web3: Web3,
+    contract: Union[str, Contract],
+    deployer: str,
+    *constructor_args,
+    register_for_tracing=True,
 ) -> Contract:
     """Deploys a new contract from ABI file.
 
