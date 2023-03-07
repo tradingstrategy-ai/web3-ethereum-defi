@@ -11,13 +11,14 @@ from typing import cast, Optional, Iterator
 
 from eth_typing import ChecksumAddress
 from eth_utils import to_checksum_address
-from eth_defi.deploy import ContractRegistry
+from eth_defi.deploy import ContractRegistry, get_or_create_contract_registry
 from hexbytes import HexBytes
 from web3 import Web3
 
 from evm_trace import TraceFrame, CallTreeNode
 from evm_trace import CallType, get_calltree_from_geth_trace
 
+from eth_defi.revert_reason import fetch_transaction_revert_reason
 
 logger = logging.getLogger(__name__)
 
@@ -245,3 +246,80 @@ class SymbolicTreeRepresentation:
     @staticmethod
     def get_tree_display(contract_registry: ContractRegistry, call: "CallTreeNode") -> str:
         return "\n".join([str(t) for t in SymbolicTreeRepresentation.make_tree(contract_registry, call)])
+
+
+def assert_transaction_success_with_explanation(
+        web3: Web3,
+        tx_hash: HexBytes,
+):
+    """Checks if a transaction succeeds and give a verbose explanation why not..
+
+    Designed to  be used on Anvil backend based tests.
+
+    If it's a failure then print
+
+    - The revert reason string
+
+    - Solidity stack trace where the transaction reverted
+
+    Example usage:
+
+    .. code-block:: python
+
+        tx_hash = contract.functions.myFunction().transact({"from": fund_owner, "gas": 1_000_000})
+        assert_transaction_success_with_explaination(web3, tx_hash)
+
+    Example output:
+
+    .. code-block:: text
+
+            E           AssertionError: Transaction failed: AttributeDict({'hash': HexBytes('0x1c29912e0821dc8c0dc744e40c9918ad4ed8e69015e1b22523b93abd2d706e26'), 'nonce': 0, 'blockHash': HexBytes('0x3c66ec2159e93277856df58252e08293222750149c44fc71b105b16a5346b914'), 'blockNumber': 44, 'transactionIndex': 0, 'from': '0x70997970C51812dc3A010C7d01b50e0d17dc79C8', 'to': '0x2b961E3959b79326A8e7F64Ef0d2d825707669b5', 'value': 0, 'gasPrice': 7512046, 'gas': 1000000, 'input': '0x39bf70d10000000000000000000000004ed7c70f96b99c776995fb64377f0d4ab3b0e1c10000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000006000000000000000000000000000000000000000000000000000000000000004c000000000000000000000000095401dc811bb5740090279ba06cfa8fcf6113778b7fe1a11000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000060000000000000000000000000000000000000000000000000000000000000044000000000000000000000000000000000000000000000000000000000000000a000000000000000000000000000000000000000000000000000000000000000e00000000000000000000000000000000000000000000000000000000000000120000000000000000000000000000000000000000000000000000000000000016000000000000000000000000000000000000000000000000000000000000001a00000000000000000000000000000000000000000000000000000000000000001000000000000000000000000e7f1725e7734ce288f8367e1bb143e90bb3f05120000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000014bd1d08e6fe01800000000000000000000000000000000000000000000000000000000000000010000000000000000000000005fc8d32690cc91d4c39d9d3abcbd16989f87570700000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000008f0d1800000000000000000000000000000000000000000000000000000000000000280000000000000000000000000000000000000000000000000000000000000004000000000000000000000000000000000000000000000000000000000000000a00000000000000000000000000000000000000000000000000000000000000002000000000000000000000000e7f1725e7734ce288f8367e1bb143e90bb3f05120000000000000000000000009fe46736679d2d9a65f0992f2272de9f3c7fa6e00000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000000000004000000000000000000000000000000000000000000000000000000000000000a000000000000000000000000000000000000000000000000000000000000000400000000000000000000000009fe46736679d2d9a65f0992f2272de9f3c7fa6e00000000000000000000000000000000000000000000000000000000008f0d18000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000008f0d180000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000a000000000000000000000000095401dc811bb5740090279ba06cfa8fcf6113778000000000000000000000000000000000000000000000000800000000000000000000000000000000000000000000000000000000000000000000000000000020000000000000000000000005fc8d32690cc91d4c39d9d3abcbd16989f875707000000000000000000000000e7f1725e7734ce288f8367e1bb143e90bb3f0512', 'v': 0, 'r': HexBytes('0x48e86bc7c5b224201033b7aecbd13d68e2cd17b5622032cb4c761e769487abb4'), 's': HexBytes('0x6b7dabedca1ed8f6d21e1719f2a18b0867755eb45f4c5abaae83ce75121ec3e6'), 'type': 2, 'accessList': [], 'maxPriorityFeePerGas': 0, 'maxFeePerGas': 1007512046, 'chainId': 31337})
+            E           Revert reason: execution reverted:�y�
+            E           Solidity stack trace: CALL: [reverted] 0x2b961E3959b79326A8e7F64Ef0d2d825707669b5.<0x39bf70d1> [1000000 gas]
+            E           └── DELEGATECALL: enzyme/ComptrollerLib
+            E               ├── STATICCALL: enzyme/GasRelayPaymasterFactory
+            E               ├── STATICCALL: enzyme/GasRelayPaymasterLib
+            E               └── CALL: enzyme/IntegrationManager
+            E                   ├── STATICCALL: 0x6F1216D1BFe15c98520CA1434FC1d9D57AC95321
+            E                   │   └── DELEGATECALL: enzyme/VaultLib
+            E                   ├── STATICCALL: 0x6F1216D1BFe15c98520CA1434FC1d9D57AC95321
+            E                   │   └── DELEGATECALL: enzyme/VaultLib
+            E                   ├── STATICCALL: enzyme/GenericAdapter
+            E                   ├── STATICCALL: enzyme/ValueInterpreter
+            E                   ├── STATICCALL: WETH9Mock
+            E                   ├── STATICCALL: ERC20MockDecimals
+            E                   ├── CALL: 0x2b961E3959b79326A8e7F64Ef0d2d825707669b5
+            E                   │   └── DELEGATECALL: enzyme/ComptrollerLib
+            E                   │       └── CALL: 0x6F1216D1BFe15c98520CA1434FC1d9D57AC95321
+            E                   │           └── DELEGATECALL: enzyme/VaultLib
+            E                   │               └── CALL: ERC20MockDecimals
+            E                   └── CALL: enzyme/GenericAdapter
+            E                       └── CALL: WETH9Mock
+
+    See also :py:func:`print_symbolic_trace`.
+
+    :param web3:
+        Web3 instance
+
+    :param tx_hash:
+        A transaction (mined/not mined) we want to make sure has succeeded.
+
+        Gas limit must have been set for this transaction.
+
+    :raise AssertionError:
+        Outputs a verbose AssertionError on what went wrong.
+    """
+
+    receipt = web3.eth.wait_for_transaction_receipt(tx_hash)
+    if receipt["status"] == 0:
+        # Explain why the transaction failed
+        tx_details = web3.eth.get_transaction(tx_hash)
+        revert_reason = fetch_transaction_revert_reason(web3, tx_hash)
+        trace_data = trace_evm_transaction(web3, tx_hash)
+        trace_output = print_symbolic_trace(get_or_create_contract_registry(web3), trace_data)
+        raise AssertionError(
+            f"Transaction failed: {tx_details}\n"
+            f"Revert reason: {revert_reason}\n"
+            f"Solidity stack trace: {trace_output}\n"
+        )
+

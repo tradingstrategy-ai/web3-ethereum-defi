@@ -10,7 +10,7 @@ from eth_defi.abi import encode_function_args
 from eth_defi.deploy import deploy_contract, get_or_create_contract_registry
 from eth_defi.enzyme.deployment import EnzymeDeployment, RateAsset
 from eth_defi.enzyme.generic_adapter import execute_calls_for_generic_adapter
-from eth_defi.trace import trace_evm_transaction, print_symbolic_trace
+from eth_defi.trace import trace_evm_transaction, print_symbolic_trace, assert_transaction_success_with_explaination
 from eth_defi.uniswap_v2.deployment import UniswapV2Deployment
 from eth_defi.uniswap_v3.constants import FOREVER_DEADLINE
 
@@ -141,10 +141,4 @@ def test_generic_adapter_uniswap_v2(
     )
 
     tx_hash = bound_call.transact({"from": fund_owner, "gas": 1_000_000})
-    receipt = web3.eth.wait_for_transaction_receipt(tx_hash)
-    if receipt["status"] == 0:
-        # Explain why the transaction failed
-        trace_data = trace_evm_transaction(web3, tx_hash)
-        trace_output = print_symbolic_trace(get_or_create_contract_registry(web3), trace_data)
-        print(trace_output)
-
+    assert_transaction_success_with_explaination(web3, tx_hash)
