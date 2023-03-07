@@ -1,24 +1,21 @@
-import sys
-from io import StringIO, TextIOWrapper
+"""Transaction debug tracing.
+
+- This code is very preliminary and has not been througly tested with different smart contracts,
+  so patches welcome
+
+- Internally use evm-trace from Ape: https://github.com/ApeWorX/evm-trace
+"""
+
+import logging
 from typing import cast, Optional, Iterator
 
 from eth_typing import ChecksumAddress
 from eth_utils import to_checksum_address
-from evm_trace.display import TreeRepresentation
-from web3.contract.contract import ContractFunction
-
 from eth_defi.deploy import ContractRegistry
-
-"""Transaction debug tracing.
-
-Internally use evm-trace from Ape: https://github.com/ApeWorX/evm-trace
-"""
-import logging
-
 from hexbytes import HexBytes
 from web3 import Web3
 
-from evm_trace import TraceFrame, CallTreeNode
+from evm_trace import TraceFrame, CallTreeNode, get_calltree_from_geth_call_trace
 from evm_trace import CallType, get_calltree_from_geth_trace
 
 
@@ -34,24 +31,23 @@ def trace_evm_transaction(web3: Web3, tx_hash: HexBytes | str) -> CallTreeNode:
 
     - Prints out an EVM transaction stack trace
 
-    - Currently only works with Anvil backend if `steps_trace=True`
+    - Currently only works with Anvil backend and if `steps_trace=True`
 
     - Transaction must have its `gas` parameter set, otherwise transaction is never broadcasted
       because it fails in estimate gas phase
+
+    - See :py:func:`print_symbolic_trace` for usage
 
     See also
 
     - :py:func:`eth_defi.anvil.launch_anvil`.
 
-    - https://github.com/ApeWorX/evm-trace
     """
-
-    # See https://book.getfoundry.sh/reference/anvil/
 
     if type(tx_hash) == HexBytes:
         tx_hash = tx_hash.hex()
 
-    struct_logs = web3.manager.request_blocking("debug_traceTransaction", [tx_hash])["structLogs"]
+    struct_logs = web3.manager.request_blocking("debug_traceTransaction", [tx_hash], {"enableMemory": True})["structLogs"]
 
     if not struct_logs:
         raise TraceNotEnabled(f"Tracing not enabled on the backend {web3.provider}.\n"
@@ -77,7 +73,7 @@ def trace_evm_transaction(web3: Web3, tx_hash: HexBytes | str) -> CallTreeNode:
 
     logger.debug("Tracing %d frames", len(frames))
 
-    calltree = get_calltree_from_geth_trace(frames, **root_node_kwargs)
+    calltree = get_calltree_from_geth_trace(iter(frames), **root_node_kwargs)
 
     return calltree
 
@@ -92,8 +88,41 @@ def print_symbolic_trace(
 
     - Functions by name
 
+    Notes about tracing:
+
+    - Currently only works with Anvil backend and if `steps_trace=True`
+
+    - Transaction must have its `gas` parameter set, otherwise transaction is never broadcasted
+      because it fails in estimate gas phase
+
+    See also
+
+    - :py:func:`eth_defi.anvil.launch_anvil`.
+
+    Usage example:
+
+    .. code-block:: python
+
+        reverter = deploy_contract(web3, "RevertTest.json", deployer)
+
+        tx_hash = reverter.functions.revert1().transact({"from": deployer, "gas": 500_000})
+        receipt = web3.eth.wait_for_transaction_receipt(tx_hash)
+        assert receipt["status"] == 0  # Tx failed
+
+        # Get the debug trace from the node and transform it to a list of call items
+        trace_data = trace_evm_transaction(web3, tx_hash)
+
+        # Transform the list of call items to a human-readable output,
+        # use ABI data from deployed contracts to enrich the output
+        trace_output = print_symbolic_trace(get_or_create_contract_registry(web3), trace_data)
+
+        assert trace_output == 'CALL: [reverted] RevertTest.<revert1> [500000 gas]'
+
     :param contract_registry:
-        The registed contracts for which we have symbolic information available
+        The registered contracts for which we have symbolic information available.
+
+        See :py:func:`eth_defi.deploy.deploy_contract` for registering.
+        All contracts deployed using this function should be registered by default.
 
     :param calltree:
         Call tree output.
@@ -110,7 +139,7 @@ def print_symbolic_trace(
 class SymbolicTreeRepresentation:
     """A EVM trace tree that can resolve contract names and functions.
 
-    Taken from `eth_trace.display`.
+    Lifted from `eth_trace.display` module.
 
     See :py:func:`print_symbolic_trace` for more information.
     """
@@ -159,7 +188,14 @@ class SymbolicTreeRepresentation:
         if contract:
             # Set in deploy_contract()
             symbolic_name = getattr(contract, "name", None)
-            function = contract.get_function_by_selector(function_selector)
+
+            function = None
+            if function_selector != "0x":
+                try:
+                    function = contract.get_function_by_selector(function_selector)
+                except ValueError as e:
+                    function = None
+
             if function:
                 symbolic_function = function.fn_name
 
