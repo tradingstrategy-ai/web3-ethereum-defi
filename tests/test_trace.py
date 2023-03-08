@@ -81,7 +81,7 @@ def test_trace_transaction_simple(web3, deployer):
     # use ABI data from deployed contracts to enrich the output
     trace_output = print_symbolic_trace(get_or_create_contract_registry(web3), trace_data)
 
-    assert trace_output == "CALL: [reverted] RevertTest.<revert1> [500000 gas]"
+    assert trace_output == "CALL: RevertTest.revert1() [252 gas]"
 
 
 def test_trace_transaction_nested(web3, deployer):

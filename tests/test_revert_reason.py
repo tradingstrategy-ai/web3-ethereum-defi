@@ -96,7 +96,7 @@ def web3(anvil_bnb_chain_fork: str, user_1):
     return web3
 
 
-def test_revert_reason(web3: Web3, large_busd_holder: HexAddress, user_1, user_1):
+def test_revert_reason(web3: Web3, large_busd_holder: HexAddress, user_1, user_2):
     """Revert reason can be extracted from the transaction.
 
     We test this by sending BUSD with insufficient token balance.

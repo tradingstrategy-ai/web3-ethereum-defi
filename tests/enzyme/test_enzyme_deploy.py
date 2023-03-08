@@ -13,7 +13,7 @@ def test_deploy_enzyme(
         web3: Web3,
         deployer: HexAddress,
         user_1: HexAddress,
-        user_1: HexAddress,
+        user_2: HexAddress,
         weth: Contract,
         mln: Contract,
         usdc: Contract,
