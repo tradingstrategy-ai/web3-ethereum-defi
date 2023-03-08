@@ -58,6 +58,6 @@ jobs:
             contracts/uniswap-v3-core/yarn.lock
             contracts/uniswap-v3-periphery/yarn.lock
       - name: Cook sushi
-        run: make copy-sushi-abi
+        run: make sushi-and-inhouse
       - name: Copy uniswap v3
         run: make copy-uniswapv3-abi
