@@ -12,6 +12,7 @@ import logging
 import os
 import shutil
 
+import flaky
 import pytest
 from eth_account import Account
 from eth_account.signers.local import LocalAccount
@@ -101,6 +102,8 @@ def test_anvil_forked_chain_id(web3: Web3):
     assert web3.eth.chain_id == 56
 
 
+# Flaky because uses live node
+@flaky.flaky()
 def test_anvil_fork_busd_details(web3: Web3, large_busd_holder: HexAddress, user_1):
     """Checks BUSD deployment on BNB chain."""
     busd = fetch_erc20_details(web3, "0xe9e7CEA3DedcA5984780Bafc599bD69ADd087D56")
@@ -108,6 +111,8 @@ def test_anvil_fork_busd_details(web3: Web3, large_busd_holder: HexAddress, user
     assert (busd.total_supply / (10**18)) > 1_000_000_000, "More than $1B BUSD minted"
 
 
+# Flaky because uses live node
+@flaky.flaky()
 def test_anvil_fork_transfer_busd(web3: Web3, large_busd_holder: HexAddress, user_1):
     """Forks the BNB chain mainnet and transfers from USDC to the user."""
 

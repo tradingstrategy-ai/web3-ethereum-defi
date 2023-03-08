@@ -117,8 +117,8 @@ def uniswap(web3: Web3, pancakeswap_factory_v2: HexAddress, pancake_router: HexA
     return fetch_deployment(web3, pancakeswap_factory_v2, pancake_router, pancake_code_hash)
 
 
-# Because Ganache is such a crap and keeps randomly failing
-# @flaky.flaky(max_runs=5)
+# Flaky because uses live node
+@flaky.flaky(max_runs=5)
 def test_token_tax(uniswap: UniswapV2Deployment, large_busd_holder: HexAddress, seller: HexAddress, elephant: HexAddress, busd: HexAddress):
 
     expected_elephant_tax_percent: float = 0.1
