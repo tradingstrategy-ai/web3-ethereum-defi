@@ -5,17 +5,19 @@
 
 - Internally use evm-trace from Ape: https://github.com/ApeWorX/evm-trace
 """
-
+import enum
 import logging
 from typing import cast, Optional, Iterator
 
 from eth_typing import ChecksumAddress
 from eth_utils import to_checksum_address
+
+from eth_defi.abi import decode_function_args, humanise_decoded_arg_data
 from eth_defi.deploy import ContractRegistry, get_or_create_contract_registry
 from hexbytes import HexBytes
 from web3 import Web3
 
-from evm_trace import TraceFrame, CallTreeNode
+from evm_trace import TraceFrame, CallTreeNode, ParityTraceList, get_calltree_from_parity_trace
 from evm_trace import CallType, get_calltree_from_geth_trace
 
 from eth_defi.revert_reason import fetch_transaction_revert_reason
@@ -27,7 +29,25 @@ class TraceNotEnabled(Exception):
     """Tracing is not enabled on the backend."""
 
 
-def trace_evm_transaction(web3: Web3, tx_hash: HexBytes | str) -> CallTreeNode:
+
+class TraceMethod(enum.Enum):
+    """What kind of transaction tracing method we use.
+
+    See Anvil manual: https://book.getfoundry.sh/reference/anvil/
+    """
+
+    #: Use debug_traceTransaction
+    geth = "geth"
+
+    #: Use trace_transaction
+    parity = "parity"
+
+
+def trace_evm_transaction(
+        web3: Web3,
+        tx_hash: HexBytes | str,
+        trace_method: TraceMethod = TraceMethod.parity,
+) -> CallTreeNode:
     """Trace a (failed) transaction.
 
     - See :py:func:`print_symbolic_trace` for usage
@@ -35,37 +55,57 @@ def trace_evm_transaction(web3: Web3, tx_hash: HexBytes | str) -> CallTreeNode:
     - Extract an EVM transaction stack trace from a node, using GoEthereum compatible `debug_traceTransaction`
 
     - Currently only works with Anvil backend and if `steps_trace=True`
+
+    :param web3:
+        Anvil connection
+
+    :param tx_hash:
+        Transaction to trace
+
+    :param trace_method:
+        How to trace.
+
+        Choose between `debug_traceTransaction` and `trace_transaction` RPCs.
     """
 
     if type(tx_hash) == HexBytes:
         tx_hash = tx_hash.hex()
 
-    struct_logs = web3.manager.request_blocking("debug_traceTransaction", [tx_hash], {"enableMemory": True})["structLogs"]
+    match trace_method:
+        case TraceMethod.geth:
+            trace_dump = web3.manager.request_blocking("debug_traceTransaction", [tx_hash], {"enableMemory": True, "enableReturnData": True})
+            struct_logs = trace_dump["structLogs"]
 
-    if not struct_logs:
-        raise TraceNotEnabled(f"Tracing not enabled on the backend {web3.provider}.\n" f"If you are using anvil make sure you start with --steps-trace")
+            if not struct_logs:
+                raise TraceNotEnabled(f"Tracing not enabled on the backend {web3.provider}.\n" f"If you are using anvil make sure you start with --steps-trace")
 
-    tx = web3.eth.get_transaction(tx_hash)
+            tx = web3.eth.get_transaction(tx_hash)
 
-    # https://github.com/ApeWorX/ape/blob/f303e74addf601b09fe2cf0f23f6c51eb8a330e7/src/ape_geth/provider.py#L420
-    root_node_kwargs = {
-        "gas_cost": tx["gas"],
-        "address": tx["to"],
-        "calldata": tx.get("input", ""),
-        "call_type": CallType.CALL,
-    }
+            # https://github.com/ApeWorX/ape/blob/f303e74addf601b09fe2cf0f23f6c51eb8a330e7/src/ape_geth/provider.py#L420
+            root_node_kwargs = {
+                "gas_cost": tx["gas"],
+                "address": tx["to"],
+                "calldata": tx.get("input", ""),
+                "call_type": CallType.CALL,
+            }
 
-    if "value" in tx:
-        root_node_kwargs["value"] = tx["value"]
+            if "value" in tx:
+                root_node_kwargs["value"] = tx["value"]
 
-    if len(struct_logs) == 0:
-        raise RuntimeError("struct_logs empty")
+            if len(struct_logs) == 0:
+                raise RuntimeError("struct_logs empty")
 
-    frames = [TraceFrame.parse_obj(item) for item in struct_logs]
+            frames = [TraceFrame.parse_obj(item) for item in struct_logs]
 
-    logger.debug("Tracing %d frames", len(frames))
+            logger.debug("Tracing %d frames", len(frames))
 
-    calltree = get_calltree_from_geth_trace(iter(frames), **root_node_kwargs)
+            calltree = get_calltree_from_geth_trace(iter(frames), **root_node_kwargs)
+        case TraceMethod.parity:
+            trace_dump = web3.manager.request_blocking("trace_transaction", [tx_hash])
+            trace_list = ParityTraceList.parse_obj(trace_dump)
+            calltree = get_calltree_from_parity_trace(trace_list)
+        case _:
+            raise RuntimeError("Unsupported method")
 
     return calltree
 
@@ -176,6 +216,7 @@ class SymbolicTreeRepresentation:
 
         symbolic_name = None
         symbolic_function = None
+        symbolic_args = "<unknown>"
 
         if contract:
             # Set in deploy_contract()
@@ -188,8 +229,13 @@ class SymbolicTreeRepresentation:
                 except ValueError as e:
                     function = None
 
-            if function:
+            if function is not None:
                 symbolic_function = function.fn_name
+                arg_payload = self.call.calldata[4:]
+
+                args = decode_function_args(function, arg_payload)
+                human_args = humanise_decoded_arg_data(args)
+                symbolic_args = ", ".join([f"{k}={v}" for k, v in human_args.items()])
 
         symbolic_name = symbolic_name or address
         symbolic_function = symbolic_function or function_selector.hex()
@@ -197,8 +243,8 @@ class SymbolicTreeRepresentation:
         cost = self.call.gas_cost
         call_path = symbolic_name if address else ""
         if self.call.calldata:
-            call_path = f"{call_path}." if call_path else ""
-            call_path = f"{call_path}<{symbolic_function}>"
+            call_path = f"{call_path}" if call_path else ""
+            call_path = f"{call_path}.{symbolic_function}({symbolic_args})"
 
         call_path = f"[reverted] {call_path}" if self.call.failed and self.parent is None else call_path
         call_path = call_path.strip()
@@ -315,7 +361,7 @@ def assert_transaction_success_with_explanation(
         # Explain why the transaction failed
         tx_details = web3.eth.get_transaction(tx_hash)
         revert_reason = fetch_transaction_revert_reason(web3, tx_hash)
-        trace_data = trace_evm_transaction(web3, tx_hash)
+        trace_data = trace_evm_transaction(web3, tx_hash, TraceMethod.parity)
         trace_output = print_symbolic_trace(get_or_create_contract_registry(web3), trace_data)
         raise AssertionError(
             f"Transaction failed: {tx_details}\n"

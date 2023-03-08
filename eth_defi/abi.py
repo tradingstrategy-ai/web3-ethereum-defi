@@ -7,7 +7,9 @@ from pathlib import Path
 from typing import Optional, Type, Union, Collection, Any
 
 import eth_abi
+from eth_abi import decode
 from eth_typing import HexAddress
+from hexbytes import HexBytes
 from web3 import Web3
 from web3._utils.contracts import get_function_info
 from web3.contract.contract import Contract, ContractFunction
@@ -179,3 +181,47 @@ def encode_function_args(
     arg_types = [t["type"] for t in fn_abi["inputs"]]
     encoded_args = eth_abi.encode(arg_types, args)
     return encoded_args
+
+
+def decode_function_args(
+        func: ContractFunction,
+        data: bytes | HexBytes,
+) -> dict:
+    """Decode binary CALL or CALLDATA to a Solidity function,
+
+    Uses `web3.Contract.functions` prepared function as the ABI source.
+
+    :param func:
+        Function which arguments we are going to encode.
+
+    :param data:
+        Extracted from a transaction data field or EVM memoryo trace.
+
+    :return:
+        Ordered dict of the decoded arguments
+    """
+    assert isinstance(func, ContractFunction)
+    fn_abi = func.abi
+    arg_name = [a["name"] for a in fn_abi["inputs"]]
+    arg_description = [a["type"] for a in fn_abi["inputs"]]
+    arg_tuple = decode(arg_description, data)
+    return dict(zip(arg_name, arg_tuple))
+
+
+def humanise_decoded_arg_data(args: dict) -> dict:
+    """Make decoded arguments more human readable.
+
+    - All arguments are converted to good text types
+
+    See :py:func:`decode_function_args`
+
+    :return:
+        Ordered dict of decoded arguments, easier to read
+    """
+
+    def _humanize(v):
+        if type(v) == bytes:
+            return v.hex()
+        return v
+
+    return {k: _humanize(v) for k, v in args.items()}

@@ -10,7 +10,7 @@ from eth_defi.abi import encode_function_args
 from eth_defi.deploy import deploy_contract, get_or_create_contract_registry
 from eth_defi.enzyme.deployment import EnzymeDeployment, RateAsset
 from eth_defi.enzyme.generic_adapter import execute_calls_for_generic_adapter
-from eth_defi.trace import trace_evm_transaction, print_symbolic_trace, assert_transaction_success_with_explaination
+from eth_defi.trace import trace_evm_transaction, print_symbolic_trace, assert_transaction_success_with_explanation
 from eth_defi.uniswap_v2.deployment import UniswapV2Deployment
 from eth_defi.uniswap_v3.constants import FOREVER_DEADLINE
 
@@ -104,6 +104,10 @@ def test_generic_adapter_uniswap_v2(
     usdc.functions.approve(comptroller.address, 500*10**6).transact({"from": fund_customer})
     comptroller.functions.buyShares(500*10**6, 1).transact({"from": fund_customer})
 
+    # Check that the vault has balance
+    balance = usdc.functions.balanceOf(vault.address).call()
+    assert balance == 500*10**6
+
     # Prepare the swap parameters
     usdc_swap_amount = 150 * 10**6  # 150 USDC
     spend_asset_amounts = [usdc_swap_amount]
@@ -117,7 +121,7 @@ def test_generic_adapter_uniswap_v2(
     # The vault performs a swap on Uniswap v2
     # https://github.com/ethereum/web3.py/blob/168fceaf5c6829a8edeb510b997940064295ecf8/web3/_utils/contracts.py#L211
     encoded_approve = encode_function_args(
-        weth.functions.approve,
+        usdc.functions.approve,
         [uniswap_v2.router.address, usdc_swap_amount]
     )
 
@@ -129,7 +133,7 @@ def test_generic_adapter_uniswap_v2(
     bound_call = execute_calls_for_generic_adapter(
         comptroller=comptroller,
         external_calls=(
-            (weth, encoded_approve),
+            (usdc, encoded_approve),
             (uniswap_v2.router, encoded_swapExactTokensForTokens),
         ),
         generic_adapter=generic_adapter,
@@ -141,4 +145,4 @@ def test_generic_adapter_uniswap_v2(
     )
 
     tx_hash = bound_call.transact({"from": fund_owner, "gas": 1_000_000})
-    assert_transaction_success_with_explaination(web3, tx_hash)
+    assert_transaction_success_with_explanation(web3, tx_hash)
