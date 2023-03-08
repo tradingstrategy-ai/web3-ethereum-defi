@@ -12,6 +12,7 @@ import logging
 import os
 import shutil
 
+import flaky
 import pytest
 from eth_typing import HexAddress, HexStr
 from web3 import HTTPProvider, Web3
