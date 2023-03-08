@@ -55,7 +55,8 @@ all: clean-docs compile-projects-and-prepare-abi build-docs
 # Export the dependencies, so that Read the docs can build our API docs
 # See: https://github.com/readthedocs/readthedocs.org/issues/4912
 rtd-dep-export:
-	poetry export --without-hashes --dev -f requirements.txt --output requirements-dev.txt
+	poetry export --without-hashes --with dev -f requirements.txt --output docs/requirements.txt
+	echo "-e ." >> docs/requirements.txt
 
 # Build docs locally
 build-docs:
