@@ -1,0 +1,1967 @@
+{
+  "abi": [
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "_valueInterpreter",
+          "type": "address"
+        },
+        {
+          "internalType": "address",
+          "name": "_wethToken",
+          "type": "address"
+        },
+        {
+          "internalType": "uint256",
+          "name": "_timelock",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "_timeLimit",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "nonpayable",
+      "type": "constructor"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "comptrollerProxy",
+          "type": "address"
+        },
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "asset",
+          "type": "address"
+        }
+      ],
+      "name": "PricelessAssetBypassed",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "comptrollerProxy",
+          "type": "address"
+        },
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "asset",
+          "type": "address"
+        }
+      ],
+      "name": "PricelessAssetTimelockStarted",
+      "type": "event"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "_comptrollerProxy",
+          "type": "address"
+        },
+        {
+          "internalType": "address",
+          "name": "_asset",
+          "type": "address"
+        }
+      ],
+      "name": "assetIsBypassableForFund",
+      "outputs": [
+        {
+          "internalType": "bool",
+          "name": "isBypassable_",
+          "type": "bool"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "_comptrollerProxy",
+          "type": "address"
+        },
+        {
+          "internalType": "address[]",
+          "name": "_baseAssets",
+          "type": "address[]"
+        },
+        {
+          "internalType": "uint256[]",
+          "name": "_baseAssetAmounts",
+          "type": "uint256[]"
+        },
+        {
+          "internalType": "address",
+          "name": "_quoteAsset",
+          "type": "address"
+        }
+      ],
+      "name": "calcTotalValueExlcudingBypassablePricelessAssets",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "value_",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "_comptrollerProxy",
+          "type": "address"
+        },
+        {
+          "internalType": "address",
+          "name": "_baseAsset",
+          "type": "address"
+        },
+        {
+          "internalType": "uint256",
+          "name": "_baseAssetAmount",
+          "type": "uint256"
+        },
+        {
+          "internalType": "address",
+          "name": "_quoteAsset",
+          "type": "address"
+        }
+      ],
+      "name": "calcValueExcludingBypassablePricelessAsset",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "value_",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "_comptrollerProxy",
+          "type": "address"
+        },
+        {
+          "internalType": "address",
+          "name": "_asset",
+          "type": "address"
+        }
+      ],
+      "name": "getAssetBypassWindowStartForFund",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "windowStart_",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "getPricelessAssetBypassTimeLimit",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "timeLimit_",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "getPricelessAssetBypassTimelock",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "timelock_",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "getPricelessAssetBypassValueInterpreter",
+      "outputs": [
+        {
+          "internalType": "address",
+          "name": "valueInterpreter_",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "getPricelessAssetBypassWethToken",
+      "outputs": [
+        {
+          "internalType": "address",
+          "name": "wethToken_",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "_asset",
+          "type": "address"
+        }
+      ],
+      "name": "startAssetBypassTimelock",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    }
+  ],
+  "bytecode": {
+    "object": "0x61010060405234801561001157600080fd5b506040516109e13803806109e18339818101604052608081101561003457600080fd5b5080516020820151604083015160609384015160809190915260a0526001600160601b031991831b821660c05290911b1660e05260805160a05160c05160601c60e05160601c61093e6100a3600039806105875250806105635250806105f85250806105ab525061093e6000f3fe608060405234801561001057600080fd5b50600436106100935760003560e01c80635da4cdb2116100665780635da4cdb2146101065780637fe292681461013457806385d63ec91461013c578063d21e7a781461017e578063ecd09063146101ba57610093565b806307d2890e1461009857806314f8e615146100c0578063234dfb17146100e457806344105398146100ec575b600080fd5b6100be600480360360208110156100ae57600080fd5b50356001600160a01b03166102fc565b005b6100c8610561565b604080516001600160a01b039092168252519081900360200190f35b6100c8610585565b6100f46105a9565b60408051918252519081900360200190f35b6100f46004803603604081101561011c57600080fd5b506001600160a01b03813581169160200135166105cd565b6100f46105f6565b61016a6004803603604081101561015257600080fd5b506001600160a01b038135811691602001351661061a565b604080519115158252519081900360200190f35b6100f46004803603608081101561019457600080fd5b506001600160a01b03813581169160208101358216916040820135916060013516610652565b6100f4600480360360808110156101d057600080fd5b6001600160a01b0382351691908101906040810160208201356401000000008111156101fb57600080fd5b82018360208201111561020d57600080fd5b8035906020019184602083028401116401000000008311171561022f57600080fd5b919080806020026020016040519081016040528093929190818152602001838360200280828437600092019190915250929594936020810193503591505064010000000081111561027f57600080fd5b82018360208201111561029157600080fd5b803590602001918460208302840111640100000000831117156102b357600080fd5b919080806020026020016040519081016040528093929190818152602001838360200280828437600092019190915250929550505090356001600160a01b031691506106699050565b6000336001600160a01b0316635a53e3486040518163ffffffff1660e01b815260040160206040518083038186803b15801561033757600080fd5b505afa15801561034b573d6000803e3d6000fd5b505050506040513d602081101561036157600080fd5b50516040805163c980918760e01b815290519192506001600160a01b0383169163c980918791600480820192602092909190829003018186803b1580156103a757600080fd5b505afa1580156103bb573d6000803e3d6000fd5b505050506040513d60208110156103d157600080fd5b50516001600160a01b031633146104195760405162461bcd60e51b81526004018080602001828103825260598152602001806108d96059913960600191505060405180910390fd5b610421610561565b6001600160a01b0316634c67e10683600161043a610585565b6040518463ffffffff1660e01b815260040180846001600160a01b03168152602001838152602001826001600160a01b031681526020019350505050602060405180830381600087803b15801561049057600080fd5b505af19250505080156104b557506040513d60208110156104b057600080fd5b505160015b610525576104cb6104c46105a9565b4290610677565b6001600160a01b0380831660008181526020818152604080832094881680845294909152808220949094559251919290917f76fadd0d061c0fa0e079ec4814cecf7f5f6f43e604f241551dd35b6c3c9a69809190a361055d565b5060405162461bcd60e51b815260040180806020018281038252602b815260200180610864602b913960400191505060405180910390fd5b5050565b7f000000000000000000000000000000000000000000000000000000000000000090565b7f000000000000000000000000000000000000000000000000000000000000000090565b7f000000000000000000000000000000000000000000000000000000000000000090565b6001600160a01b0391821660009081526020818152604080832093909416825291909152205490565b7f000000000000000000000000000000000000000000000000000000000000000090565b60008061062784846105cd565b905042811115801561064a5750426106476106406105f6565b8390610677565b10155b949350505050565b6000610660858585856106d8565b95945050505050565b60006106608585858561080e565b6000828201838110156106d1576040805162461bcd60e51b815260206004820152601b60248201527f536166654d6174683a206164646974696f6e206f766572666c6f770000000000604482015290519081900360640190fd5b9392505050565b60006106e2610561565b6001600160a01b0316634c67e1068585856040518463ffffffff1660e01b815260040180846001600160a01b03168152602001838152602001826001600160a01b031681526020019350505050602060405180830381600087803b15801561074957600080fd5b505af192505050801561076e57506040513d602081101561076957600080fd5b505160015b6107fc5761077c858561061a565b6107b75760405162461bcd60e51b815260040180806020018281038252604a81526020018061088f604a913960600191505060405180910390fd5b836001600160a01b0316856001600160a01b03167fa2de3d3e85d58ec3c62bcbd0a67a60fac9f9002f6e70cfe768a49fa19d7dcf4660405160405180910390a3610803565b905061064a565b506000949350505050565b6000805b845181101561085a576108506106408787848151811061082e57fe5b602002602001015187858151811061084257fe5b6020026020010151876106d8565b9150600101610812565b5094935050505056fe7374617274417373657442797061737354696d656c6f636b3a2041737365742068617320612070726963655f5f63616c6356616c75654578636c7564696e6742797061737361626c6550726963656c65737341737365743a20496e76616c6964206173736574206e6f742062797061737361626c657374617274417373657442797061737354696d656c6f636b3a2053656e646572206973206e6f7420746865205661756c7450726f7879206f6620746865206173736f63696174656420436f6d7074726f6c6c657250726f7879a164736f6c634300060c000a",
+    "sourceMap": "539:1223:85:-:0;;;613:225;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;-1:-1:-1;613:225:85;;;;;;;;;;;;;;;;1530:43:44;;;;1583:46;;-1:-1:-1;;;;;;1639:60:44;;;;;;;1709:46;;;;;;539:1223:85;;;;;;;;;;;;;;;;;;;;;;",
+    "linkReferences": {}
+  },
+  "deployedBytecode": {
+    "object": "0x608060405234801561001057600080fd5b50600436106100935760003560e01c80635da4cdb2116100665780635da4cdb2146101065780637fe292681461013457806385d63ec91461013c578063d21e7a781461017e578063ecd09063146101ba57610093565b806307d2890e1461009857806314f8e615146100c0578063234dfb17146100e457806344105398146100ec575b600080fd5b6100be600480360360208110156100ae57600080fd5b50356001600160a01b03166102fc565b005b6100c8610561565b604080516001600160a01b039092168252519081900360200190f35b6100c8610585565b6100f46105a9565b60408051918252519081900360200190f35b6100f46004803603604081101561011c57600080fd5b506001600160a01b03813581169160200135166105cd565b6100f46105f6565b61016a6004803603604081101561015257600080fd5b506001600160a01b038135811691602001351661061a565b604080519115158252519081900360200190f35b6100f46004803603608081101561019457600080fd5b506001600160a01b03813581169160208101358216916040820135916060013516610652565b6100f4600480360360808110156101d057600080fd5b6001600160a01b0382351691908101906040810160208201356401000000008111156101fb57600080fd5b82018360208201111561020d57600080fd5b8035906020019184602083028401116401000000008311171561022f57600080fd5b919080806020026020016040519081016040528093929190818152602001838360200280828437600092019190915250929594936020810193503591505064010000000081111561027f57600080fd5b82018360208201111561029157600080fd5b803590602001918460208302840111640100000000831117156102b357600080fd5b919080806020026020016040519081016040528093929190818152602001838360200280828437600092019190915250929550505090356001600160a01b031691506106699050565b6000336001600160a01b0316635a53e3486040518163ffffffff1660e01b815260040160206040518083038186803b15801561033757600080fd5b505afa15801561034b573d6000803e3d6000fd5b505050506040513d602081101561036157600080fd5b50516040805163c980918760e01b815290519192506001600160a01b0383169163c980918791600480820192602092909190829003018186803b1580156103a757600080fd5b505afa1580156103bb573d6000803e3d6000fd5b505050506040513d60208110156103d157600080fd5b50516001600160a01b031633146104195760405162461bcd60e51b81526004018080602001828103825260598152602001806108d96059913960600191505060405180910390fd5b610421610561565b6001600160a01b0316634c67e10683600161043a610585565b6040518463ffffffff1660e01b815260040180846001600160a01b03168152602001838152602001826001600160a01b031681526020019350505050602060405180830381600087803b15801561049057600080fd5b505af19250505080156104b557506040513d60208110156104b057600080fd5b505160015b610525576104cb6104c46105a9565b4290610677565b6001600160a01b0380831660008181526020818152604080832094881680845294909152808220949094559251919290917f76fadd0d061c0fa0e079ec4814cecf7f5f6f43e604f241551dd35b6c3c9a69809190a361055d565b5060405162461bcd60e51b815260040180806020018281038252602b815260200180610864602b913960400191505060405180910390fd5b5050565b7f000000000000000000000000000000000000000000000000000000000000000090565b7f000000000000000000000000000000000000000000000000000000000000000090565b7f000000000000000000000000000000000000000000000000000000000000000090565b6001600160a01b0391821660009081526020818152604080832093909416825291909152205490565b7f000000000000000000000000000000000000000000000000000000000000000090565b60008061062784846105cd565b905042811115801561064a5750426106476106406105f6565b8390610677565b10155b949350505050565b6000610660858585856106d8565b95945050505050565b60006106608585858561080e565b6000828201838110156106d1576040805162461bcd60e51b815260206004820152601b60248201527f536166654d6174683a206164646974696f6e206f766572666c6f770000000000604482015290519081900360640190fd5b9392505050565b60006106e2610561565b6001600160a01b0316634c67e1068585856040518463ffffffff1660e01b815260040180846001600160a01b03168152602001838152602001826001600160a01b031681526020019350505050602060405180830381600087803b15801561074957600080fd5b505af192505050801561076e57506040513d602081101561076957600080fd5b505160015b6107fc5761077c858561061a565b6107b75760405162461bcd60e51b815260040180806020018281038252604a81526020018061088f604a913960600191505060405180910390fd5b836001600160a01b0316856001600160a01b03167fa2de3d3e85d58ec3c62bcbd0a67a60fac9f9002f6e70cfe768a49fa19d7dcf4660405160405180910390a3610803565b905061064a565b506000949350505050565b6000805b845181101561085a576108506106408787848151811061082e57fe5b602002602001015187858151811061084257fe5b6020026020010151876106d8565b9150600101610812565b5094935050505056fe7374617274417373657442797061737354696d656c6f636b3a2041737365742068617320612070726963655f5f63616c6356616c75654578636c7564696e6742797061737361626c6550726963656c65737341737365743a20496e76616c6964206173736574206e6f742062797061737361626c657374617274417373657442797061737354696d656c6f636b3a2053656e646572206973206e6f7420746865205661756c7450726f7879206f6620746865206173736f63696174656420436f6d7074726f6c6c657250726f7879a164736f6c634300060c000a",
+    "sourceMap": "539:1223:85:-:0;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;2146:1068:44;;;;;;;;;;;;;;;;-1:-1:-1;2146:1068:44;-1:-1:-1;;;;;2146:1068:44;;:::i;:::-;;7057:191;;;:::i;:::-;;;;-1:-1:-1;;;;;7057:191:44;;;;;;;;;;;;;;7406:142;;;:::i;6740:138::-;;;:::i;:::-;;;;;;;;;;;;;;;;6038:249;;;;;;;;;;;;;;;;-1:-1:-1;;;;;;6038:249:44;;;;;;;;;;:::i;6445:142::-;;;:::i;3548:390::-;;;;;;;;;;;;;;;;-1:-1:-1;;;;;;3548:390:44;;;;;;;;;;:::i;:::-;;;;;;;;;;;;;;;;;;1322:438:85;;;;;;;;;;;;;;;;-1:-1:-1;;;;;;1322:438:85;;;;;;;;;;;;;;;;;;;;;;:::i;844:472::-;;;;;;;;;;;;;;;;-1:-1:-1;;;;;844:472:85;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;-1:-1:-1;844:472:85;;;;;;;;-1:-1:-1;844:472:85;;-1:-1:-1;;844:472:85;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;-1:-1:-1;844:472:85;;-1:-1:-1;;;844:472:85;;-1:-1:-1;;;;;844:472:85;;-1:-1:-1;844:472:85;;-1:-1:-1;844:472:85:i;2146:1068:44:-;2291:24;2327:10;-1:-1:-1;;;;;2318:32:44;;:34;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;-1:-1:-1;2318:34:44;2397:48;;;-1:-1:-1;;;2397:48:44;;;;2318:34;;-1:-1:-1;;;;;;2397:46:44;;;;;:48;;;;;2318:34;;2397:48;;;;;;;;:46;:48;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;-1:-1:-1;2397:48:44;-1:-1:-1;;;;;2383:62:44;:10;:62;2362:198;;;;-1:-1:-1;;;2362:198:44;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;2604:41;:39;:41::i;:::-;-1:-1:-1;;;;;2587:83:44;;2688:6;2712:1;2779:34;:32;:34::i;:::-;2587:268;;;;;;;;;;;;;-1:-1:-1;;;;;2587:268:44;;;;;;;;;;;-1:-1:-1;;;;;2587:268:44;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;-1:-1:-1;2587:268:44;;;2571:637;;3034:88;3088:33;:31;:33::i;:::-;3034:32;;:53;:88::i;:::-;-1:-1:-1;;;;;2963:60:44;;;:42;:60;;;;;;;;;;;:68;;;;;;;;;;;;;:159;;;;3142:55;;2963:68;;:60;;3142:55;;2963:42;3142:55;2571:637;;;;2878:53;;-1:-1:-1;;;2878:53:44;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;2571:637;2146:1068;;:::o;7057:191::-;7201:40;7057:191;:::o;7406:142::-;7508:33;7406:142;:::o;6740:138::-;6840:31;6740:138;:::o;6038:249::-;-1:-1:-1;;;;;6211:61:44;;;6168:20;6211:61;;;;;;;;;;;:69;;;;;;;;;;;;;6038:249::o;6445:142::-;6547:33;6445:142;:::o;3548:390::-;3670:18;3704:19;3726:59;3759:17;3778:6;3726:32;:59::i;:::-;3704:81;;3830:15;3815:11;:30;;:116;;;;;3916:15;3861:51;3877:34;:32;:34::i;:::-;3861:11;;:15;:51::i;:::-;:70;;3815:116;3796:135;3548:390;-1:-1:-1;;;;3548:390:44:o;1322:438:85:-;1524:14;1569:184;1631:17;1666:10;1694:16;1728:11;1569:44;:184::i;:::-;1550:203;1322:438;-1:-1:-1;;;;;1322:438:85:o;844:472::-;1072:14;1117:192;1185:17;1220:11;1249:17;1284:11;1117:50;:192::i;2690:175:86:-;2748:7;2779:5;;;2802:6;;;;2794:46;;;;;-1:-1:-1;;;2794:46:86;;;;;;;;;;;;;;;;;;;;;;;;;;;;2857:1;2690:175;-1:-1:-1;;;2690:175:86:o;4879:824:44:-;5083:14;5142:41;:39;:41::i;:::-;-1:-1:-1;;;;;5125:83:44;;5226:10;5254:16;5288:11;5125:188;;;;;;;;;;;;;-1:-1:-1;;;;;5125:188:44;;;;;;;;;;;-1:-1:-1;;;;;5125:188:44;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;-1:-1:-1;5125:188:44;;;5109:569;;5431:55;5456:17;5475:10;5431:24;:55::i;:::-;5406:188;;;;-1:-1:-1;;;5406:188:44;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;5656:10;-1:-1:-1;;;;;5614:53:44;5637:17;-1:-1:-1;;;;;5614:53:44;;;;;;;;;;;5109:569;;;5368:6;-1:-1:-1;5361:13:44;;5109:569;-1:-1:-1;5695:1:44;4879:824;;;;;;:::o;4084:595::-;4314:14;4345:9;4340:333;4360:11;:18;4356:1;:22;4340:333;;;4408:254;4436:212;4502:17;4541:11;4553:1;4541:14;;;;;;;;;;;;;;4577:17;4595:1;4577:20;;;;;;;;;;;;;;4619:11;4436:44;:212::i;4408:254::-;4399:263;-1:-1:-1;4380:3:44;;4340:333;;;;4084:595;;;;;;:::o",
+    "linkReferences": {},
+    "immutableReferences": {
+      "10957": [
+        {
+          "start": 1451,
+          "length": 32
+        }
+      ],
+      "10959": [
+        {
+          "start": 1528,
+          "length": 32
+        }
+      ],
+      "10961": [
+        {
+          "start": 1379,
+          "length": 32
+        }
+      ],
+      "10963": [
+        {
+          "start": 1415,
+          "length": 32
+        }
+      ]
+    }
+  },
+  "methodIdentifiers": {
+    "assetIsBypassableForFund(address,address)": "85d63ec9",
+    "calcTotalValueExlcudingBypassablePricelessAssets(address,address[],uint256[],address)": "ecd09063",
+    "calcValueExcludingBypassablePricelessAsset(address,address,uint256,address)": "d21e7a78",
+    "getAssetBypassWindowStartForFund(address,address)": "5da4cdb2",
+    "getPricelessAssetBypassTimeLimit()": "7fe29268",
+    "getPricelessAssetBypassTimelock()": "44105398",
+    "getPricelessAssetBypassValueInterpreter()": "14f8e615",
+    "getPricelessAssetBypassWethToken()": "234dfb17",
+    "startAssetBypassTimelock(address)": "07d2890e"
+  },
+  "rawMetadata": "{\"compiler\":{\"version\":\"0.6.12+commit.27d51765\"},\"language\":\"Solidity\",\"output\":{\"abi\":[{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_valueInterpreter\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"_wethToken\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"_timelock\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"_timeLimit\",\"type\":\"uint256\"}],\"stateMutability\":\"nonpayable\",\"type\":\"constructor\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"comptrollerProxy\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"asset\",\"type\":\"address\"}],\"name\":\"PricelessAssetBypassed\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"comptrollerProxy\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"asset\",\"type\":\"address\"}],\"name\":\"PricelessAssetTimelockStarted\",\"type\":\"event\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_comptrollerProxy\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"_asset\",\"type\":\"address\"}],\"name\":\"assetIsBypassableForFund\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"isBypassable_\",\"type\":\"bool\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_comptrollerProxy\",\"type\":\"address\"},{\"internalType\":\"address[]\",\"name\":\"_baseAssets\",\"type\":\"address[]\"},{\"internalType\":\"uint256[]\",\"name\":\"_baseAssetAmounts\",\"type\":\"uint256[]\"},{\"internalType\":\"address\",\"name\":\"_quoteAsset\",\"type\":\"address\"}],\"name\":\"calcTotalValueExlcudingBypassablePricelessAssets\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"value_\",\"type\":\"uint256\"}],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_comptrollerProxy\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"_baseAsset\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"_baseAssetAmount\",\"type\":\"uint256\"},{\"internalType\":\"address\",\"name\":\"_quoteAsset\",\"type\":\"address\"}],\"name\":\"calcValueExcludingBypassablePricelessAsset\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"value_\",\"type\":\"uint256\"}],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_comptrollerProxy\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"_asset\",\"type\":\"address\"}],\"name\":\"getAssetBypassWindowStartForFund\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"windowStart_\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getPricelessAssetBypassTimeLimit\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"timeLimit_\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getPricelessAssetBypassTimelock\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"timelock_\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getPricelessAssetBypassValueInterpreter\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"valueInterpreter_\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getPricelessAssetBypassWethToken\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"wethToken_\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_asset\",\"type\":\"address\"}],\"name\":\"startAssetBypassTimelock\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"}],\"devdoc\":{\"author\":\"Enzyme Council <security@enzyme.finance>\",\"kind\":\"dev\",\"methods\":{\"assetIsBypassableForFund(address,address)\":{\"params\":{\"_asset\":\"The asset for which to check if it is bypassable\",\"_comptrollerProxy\":\"The ComptrollerProxy of the fund\"},\"returns\":{\"isBypassable_\":\"True if the asset is bypassable\"}},\"getAssetBypassWindowStartForFund(address,address)\":{\"params\":{\"_asset\":\"The asset\",\"_comptrollerProxy\":\"The ComptrollerProxy of the fund\"},\"returns\":{\"windowStart_\":\"The timestamp\"}},\"getPricelessAssetBypassTimeLimit()\":{\"returns\":{\"timeLimit_\":\"The `PRICELESS_ASSET_BYPASS_TIME_LIMIT` variable value\"}},\"getPricelessAssetBypassTimelock()\":{\"returns\":{\"timelock_\":\"The `PRICELESS_ASSET_BYPASS_TIMELOCK` variable value\"}},\"getPricelessAssetBypassValueInterpreter()\":{\"returns\":{\"valueInterpreter_\":\"The `PRICELESS_ASSET_BYPASS_VALUE_INTERPRETER` variable value\"}},\"getPricelessAssetBypassWethToken()\":{\"returns\":{\"wethToken_\":\"The `PRICELESS_ASSET_BYPASS_WETH_TOKEN` variable value\"}},\"startAssetBypassTimelock(address)\":{\"details\":\"This function must be called via ComptrollerProxy.vaultCallOnContract(). This allows the function to be gas relay-able. It also means that the originator must be the owner.\",\"params\":{\"_asset\":\"The asset for which to start the timelock period\"}}},\"title\":\"TestPricelessAssetBypassMixin Contract\",\"version\":1},\"userdoc\":{\"kind\":\"user\",\"methods\":{\"assetIsBypassableForFund(address,address)\":{\"notice\":\"Checks whether an asset is bypassable (if still without a valid price) for a given fund\"},\"getAssetBypassWindowStartForFund(address,address)\":{\"notice\":\"Gets the timestamp from which an asset without a valid price can be considered to be valued at `0`\"},\"getPricelessAssetBypassTimeLimit()\":{\"notice\":\"Gets the `PRICELESS_ASSET_BYPASS_TIME_LIMIT` variable\"},\"getPricelessAssetBypassTimelock()\":{\"notice\":\"Gets the `PRICELESS_ASSET_BYPASS_TIMELOCK` variable\"},\"getPricelessAssetBypassValueInterpreter()\":{\"notice\":\"Gets the `PRICELESS_ASSET_BYPASS_VALUE_INTERPRETER` variable\"},\"getPricelessAssetBypassWethToken()\":{\"notice\":\"Gets the `PRICELESS_ASSET_BYPASS_WETH_TOKEN` variable\"},\"startAssetBypassTimelock(address)\":{\"notice\":\"Starts the timelock period for an asset without a valid price\"}},\"notice\":\"A test implementation of PricelessAssetBypassMixin\",\"version\":1}},\"settings\":{\"compilationTarget\":{\"contracts/test/TestPricelessAssetBypassMixin.sol\":\"TestPricelessAssetBypassMixin\"},\"evmVersion\":\"istanbul\",\"libraries\":{},\"metadata\":{\"bytecodeHash\":\"none\"},\"optimizer\":{\"details\":{\"constantOptimizer\":true,\"cse\":true,\"deduplicate\":true,\"jumpdestRemover\":true,\"orderLiterals\":true,\"peephole\":true,\"yul\":false},\"runs\":200},\"remappings\":[\":@enzyme/=contracts/\",\":@openzeppelin-solc-0.7/=node_modules/@openzeppelin-solc-0.7/\",\":@openzeppelin/=node_modules/@openzeppelin/\",\":@uniswap/=node_modules/@uniswap/\",\":base64-sol/=node_modules/base64-sol/\",\":ds-test/=lib/forge-std/lib/ds-test/src/\",\":forge-std/=lib/forge-std/src/\",\":hardhat-deploy/=node_modules/hardhat-deploy/\",\":hardhat/=node_modules/hardhat/\"]},\"sources\":{\"contracts/persistent/dispatcher/IDispatcher.sol\":{\"keccak256\":\"0x0e6b0e6cf325d4f6332b8eb2b3c446b2ef3ca8456bdf0d12318d0fd9e90aeb30\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://2f159223517ca72c36852d90e45cc53d1840861d6e1a2a37f7901d7e48bc94d0\",\"dweb:/ipfs/QmZKZnppYFEF8hdTxbA1g3NgWMopwHRey5KdzyJXNGgCUJ\"]},\"contracts/persistent/external-positions/IExternalPosition.sol\":{\"keccak256\":\"0x00e6ea9721e5fd1e72215e4c744306097d7f8b1a834cced5d65a17a924f750ad\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://2ad763df961067233f8631d1cd386a0cf41f8e83e419ace84ec4424214db8efa\",\"dweb:/ipfs/QmNVZCeyA9uqKrhBeCAmTVswWybN9TQAxngVPZUZZ6X4dM\"]},\"contracts/persistent/protocol-fee-reserve/interfaces/IProtocolFeeReserve1.sol\":{\"keccak256\":\"0x2728878c423db523bc95189137e8c58d2d7db9f56bbd5c6b1f988c08b551fbab\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://3b0df1d2eb74151265d03ab91a7c341f7beca475dd2f4d669052dbc4ee2c06ac\",\"dweb:/ipfs/QmVx1cgrxQNYfdK1Kn15pcgqf79Uw8bF3U6i7F2HG2rj6G\"]},\"contracts/persistent/vault/VaultLibBase1.sol\":{\"keccak256\":\"0xa4dac1e4cdb311a2ab187135355357d8790c505ef36dd912c057fe53743d30b5\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://b66efe821016ab927c949263023260515e90f5d480dc8d94eefbfeec7bf7490b\",\"dweb:/ipfs/QmNY3xKnhL9EptAbxGvXHGAXfV9pj3dDPwsZnKrPs54ZHw\"]},\"contracts/persistent/vault/VaultLibBase2.sol\":{\"keccak256\":\"0xf7d31f2a9a47770ed3f444be2c4fe9262ddb55fef7f25e546b1f03c9afec4c09\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://9353ddce7c9b8b3c13fed23fe8edec99ca610d791b0c5b204b3d01f1f08d07d2\",\"dweb:/ipfs/QmeVsEh3joCjv49BRXeHASevnZZ5xdZXpkctHT8BPf37N2\"]},\"contracts/persistent/vault/VaultLibBaseCore.sol\":{\"keccak256\":\"0xc518a9735a8145f064817fa21c1cc57eba7d3396a06320b7abde187b87613074\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://06f8b29550ba2583ac566b5f92bf206a8c47c492030db1580f5bd64cbd5db3dd\",\"dweb:/ipfs/QmVd4yVBazyDd6CdgTCgrBg9t9ekoJFT2VskTFLGY2Amdz\"]},\"contracts/persistent/vault/interfaces/IExternalPositionVault.sol\":{\"keccak256\":\"0x4290edaa41b6db843967aee744c6a1424dce099584d303662b1431a88ad7f016\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://eaf25a516152e6948045bfc42c28f4daee83f026af93fd360ea9414118469ae5\",\"dweb:/ipfs/QmeZjpFUVqKQUWYdbDMdtxWxjk1XhiR2NgeP4jMM46tdkA\"]},\"contracts/persistent/vault/interfaces/IFreelyTransferableSharesVault.sol\":{\"keccak256\":\"0x505a51393d081a027d04263f8a02286ce668f7e285bf2096a314a1632bd42805\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://c8af752e1669e41450ea2397f97e89e9cc54a2b2ac9b2c9ba912988d24109b0e\",\"dweb:/ipfs/QmZsurAHm7yMvdJQrg99t8d2b24P6JEiKoo8tpXeDurgpH\"]},\"contracts/persistent/vault/interfaces/IMigratableVault.sol\":{\"keccak256\":\"0x30cfc9be81edf29261724242246811179ac9503d062ded60a2ae220c8df86f1c\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://2db64a34fe22310f2ac1977ea251ba83fb0d6398a964ef9a85b73f06d2a7db82\",\"dweb:/ipfs/QmPLXPV3giQujRLNQeQAvhNYexjzu6dRgdQC5oPij2gMwM\"]},\"contracts/persistent/vault/interfaces/IVaultCore.sol\":{\"keccak256\":\"0x646cfaf06e2ffa1ab36f25e972b5ca18deba1ed80493cfd787608c8bd07b5f46\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://76ff14bb89bf277b1bbfac32fcdeb2057245a87cf8f494819d2b52257a0ae6c5\",\"dweb:/ipfs/QmSNj436Y4WiKw4Y2PqrcJVWqF95NJNGtncXQXUvAu5iVg\"]},\"contracts/persistent/vault/utils/ProxiableVaultLib.sol\":{\"keccak256\":\"0x47123e1fd95e335b312d378e651a627a674f32df372bcfe36c1128ab91122f76\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://960c57e2e345091d025cc0e1b1070b7fbabe13fe5fc00a55def7f8d5feb55e44\",\"dweb:/ipfs/QmZT8omiird2WfA9bnffnWpXuQERTCUJqh4wpN5wz1BCD4\"]},\"contracts/persistent/vault/utils/SharesTokenBase.sol\":{\"keccak256\":\"0x9b2a431aea5f0b908cc8c169c89ed420b52fb5f63cca40e97a9223209c0b1113\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://991ac66f7f44313d113916b76b9843d0b9e705329851b0858061a8a051fbe8e8\",\"dweb:/ipfs/QmPpE2mNajVqWcNg2gCVwoRCfpM2CPAyAF9Vvk57j2ihc4\"]},\"contracts/persistent/vault/utils/VaultLibSafeMath.sol\":{\"keccak256\":\"0xc056fcbf5f498fea6a12ae7f470bb4246297355c3117b1bd01d0edf207da947d\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://432bde139ff1834c0f762231f5bc73ad268ea8048b099b5315c187e289d87b02\",\"dweb:/ipfs/QmRBW8EcrigYQHacihj4JFgh5y8apv8xwZJMvfHEdtSVsG\"]},\"contracts/release/core/fund-deployer/IFundDeployer.sol\":{\"keccak256\":\"0x5b901b81b3a4ef3d30ef9b4a1fa7fdd6526dfacd66e9971d1f988c2b63334314\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://79eba24bcad7e3abddafd20b518add8d5acb1e8de250a0e20050dfbe2f2d8aea\",\"dweb:/ipfs/QmYq9QYKr1UJaVyhkkSEfeiJ68TwGbwrmZsgRTPjVjkpUp\"]},\"contracts/release/core/fund/comptroller/ComptrollerLib.sol\":{\"keccak256\":\"0x2d915156479096f5ab309c2ef0e0834cff299903210b65489c269c220180de64\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://c6c6415e6c58c2fdf1f955a2f9d7fe2b71d7f0cb351717876f113eadb0fc4579\",\"dweb:/ipfs/QmXGctKECUrriskrK6nfaweV32yhMdg4H2Aq4aYVgR7Nrq\"]},\"contracts/release/core/fund/comptroller/IComptroller.sol\":{\"keccak256\":\"0x51d4a60ba37b5f9198ef1328e08ff45efe0dee76bc067d71ed98f3a221c3636f\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://8176790c239ae899162a503e6aaffef7576ca89c20864798a22b53096a662b97\",\"dweb:/ipfs/QmYMHifgJExxU97nEGdvFGPtH6kCf1jxSax1o4dUcNPN3L\"]},\"contracts/release/core/fund/vault/IVault.sol\":{\"keccak256\":\"0xeb0b8a4ee1beb7edd02c802ac0901107e34d241b7d9c27b59f26ee736c6d72cd\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://f10632fd76d06baa94f92a5f1e8cce658dd78e0163213890727ce53c814e1599\",\"dweb:/ipfs/QmaruXmEsUjn8EuEiv8tC1QbA1kK2Vo5LW2w2k5g9eGfDG\"]},\"contracts/release/core/fund/vault/VaultLib.sol\":{\"keccak256\":\"0x07e49445ab55c01e1b499a48baadc2a15d1eba621f1c6d3ccfdb84c87b976da8\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://56d882459248f73e137db2e097fc56b946147fb28ec21661b77431f88e856cb4\",\"dweb:/ipfs/QmRP6Ry7DCS5uoKxnnkTomHSzbaCze6cHqbR9aLdjoF6vK\"]},\"contracts/release/extensions/IExtension.sol\":{\"keccak256\":\"0x59aaa2ddd32c24271bd4a57e9e1f3426570a78cd56d6d11e63786f36c916e94b\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://6b476ec92f0691d70a616aa76ecf5fb33725d5fe02ea59a2e5f9b582f662dc70\",\"dweb:/ipfs/QmQZ2xJqWSA4YHveB6RoYuU5gx7DGk7ra6KFp6KvV6Kn1t\"]},\"contracts/release/extensions/external-position-manager/IExternalPositionManager.sol\":{\"keccak256\":\"0x3af3f634e1f99fb97091b7825c0d2e2baaafc124d4e87d56cb0c17ff8554f6c6\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://515470605afe5ef147f30fa75ce7818f0e00e3d321eb81a4d9bffcdefc294495\",\"dweb:/ipfs/QmPKsp99pfHoz9Tfo3ZxnkmqDqJtN9PxqacF2RmeVfxUJF\"]},\"contracts/release/extensions/fee-manager/IFeeManager.sol\":{\"keccak256\":\"0x26accd01ce839ee396cbaf3f72d93f2135656845c3e74c4ae575f8b02b8efd51\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://1462f4081d1aa407faa1a92bb94ecae526a6792c79052dd446d898e75b3e5e22\",\"dweb:/ipfs/QmQzLS7raSD2ojJbxoraorzA8wRTS2iQtpaedm1x47teod\"]},\"contracts/release/extensions/policy-manager/IPolicyManager.sol\":{\"keccak256\":\"0x1ed5fff925cdfa8808a65aa4c1e45813d87c1f462fc6740be670065ed2f6fd32\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://3cf584b792bc5321930a1c4c7ec22aa23a7ad8e09483694bb6f5968dca0132aa\",\"dweb:/ipfs/QmbNeaENye3NtnG3fRD7QtDSKUm2knBxUDdeuWicCMzcHb\"]},\"contracts/release/extensions/policy-manager/policies/utils/PricelessAssetBypassMixin.sol\":{\"keccak256\":\"0x5624f038f790b51ba9bd2207a6e80d188bc5d0b049807e0f06f123f6d00e3444\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://53782b55be373922df118f9970f897c1adfd4646dc4a95eec52e7c914944f68c\",\"dweb:/ipfs/QmTGPQRqzczosWALPZgAN6TKE4qdBuFwGBdCKy6GxtZBPe\"]},\"contracts/release/infrastructure/gas-relayer/GasRelayRecipientMixin.sol\":{\"keccak256\":\"0x365ff80d9395af25b1fa0956618c372f7957c12b54cd770be592cd3a87ea8609\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://5df6293828b09c52c351f354e301f4ecb7587555eebecef8019ae08bcbf2b15f\",\"dweb:/ipfs/QmZ1WkGSaDL5sR86FCUuTXscauHBRkLFJHmJRxwHJCWksp\"]},\"contracts/release/infrastructure/gas-relayer/IGasRelayPaymaster.sol\":{\"keccak256\":\"0xb8b05029aca9eb89ff33c9cc3f97f6d096a5d8185a5ddcdec7cb1a92e4927b01\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://94bbfb0701265e422cdadb7fcfc12c9e7f2e2dce26258eea97a08bfba715add0\",\"dweb:/ipfs/QmYbb4Crd7h8wckLZ8d8A5EYxeofSLRWwiCFQew1GzssD2\"]},\"contracts/release/infrastructure/gas-relayer/IGasRelayPaymasterDepositor.sol\":{\"keccak256\":\"0xcbfbcc963988ba5ca56e5e54ea8fc7fcdf4a3fd903a73b139d9bef63c18ef196\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://75317e0eb06ba96deb1161ff003e80431aafe2567b8d105ba346716d0e96567b\",\"dweb:/ipfs/QmfEVud7js7jJCthqCZQZjeFMEq8Hfb6iMvkrgTPgGaZb3\"]},\"contracts/release/infrastructure/price-feeds/derivatives/AggregatedDerivativePriceFeedMixin.sol\":{\"keccak256\":\"0x85d2ac39834dae7feb04f0e37317a38b8abeb0f950692fbc9d29078c52cd8d52\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://7bf8f1ce064d85a2812a944fc93068955b233924097f7f45898be3db826579d5\",\"dweb:/ipfs/Qme7f6AhxLVn32prM8fHaCvxtVi86A9KqFMqPA1s88kVYR\"]},\"contracts/release/infrastructure/price-feeds/derivatives/IDerivativePriceFeed.sol\":{\"keccak256\":\"0x5abbc57ccbf28b2c27a0ee496f0a949a0039912975e8f9a65312d884edd05332\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://9cfb87b8df1f3f58c556907e2a9cc197fa5bb90ad9bc9d4717e95fd63258d80e\",\"dweb:/ipfs/QmWxLvfq9NNJJZueeHD5EYWdRwrgzmrVdLUqp9Ta7A9ccK\"]},\"contracts/release/infrastructure/price-feeds/primitives/ChainlinkPriceFeedMixin.sol\":{\"keccak256\":\"0x7fb0078e7387f07ff09958fe4e4e7b317e72c23884f61e8c133776cad522f8bb\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://e973f29ed0c3bf03e20154ab4b0cfc68c3a4372a52ec746f9d9f86697b30e977\",\"dweb:/ipfs/QmfMb7H1zNnj2hzmUr6742HmCTiNVuQ2PFjeR8q2M4Liyu\"]},\"contracts/release/infrastructure/protocol-fees/IProtocolFeeTracker.sol\":{\"keccak256\":\"0x232b347f83457439064add7369bfe1930c7cb56f15930bb87d640e909c15e447\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://24f9af5eebdd373b1d7a598c096eb6def31b2640d54416d7d5a7226e1cef17e6\",\"dweb:/ipfs/QmStq9ByGuSYdKwTmZf52L1X6sZVJUfXTnoVbnjLLiUcHG\"]},\"contracts/release/infrastructure/value-interpreter/IValueInterpreter.sol\":{\"keccak256\":\"0x6838a22b0357f3c5f437c1e54b8f63c7df42b41e3b25d56c5017eb75a857a794\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://55cb0682cb809cd2568969b7753a0d2de4385d499ff42be7f0eb55f584366965\",\"dweb:/ipfs/QmderqKaijbqYMGeRUscictNMfo6GuFd6ZrDDmBe3pEazJ\"]},\"contracts/release/infrastructure/value-interpreter/ValueInterpreter.sol\":{\"keccak256\":\"0x64565011785d0d29a75021cda34687cfbc0641094d6f2faf4d9c78c8cd9f0d1d\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://03ea9b29a332436d18ca1a4df7e5cdf231d5142dfb916a39cb3a721342d54e0e\",\"dweb:/ipfs/QmcB8Z7A7QELAxg2FfJpD26k2bUhMNUT4wACMVKxuge3QS\"]},\"contracts/release/interfaces/IChainlinkAggregator.sol\":{\"keccak256\":\"0x8104db68d4edc00c86b29b366f4397cdbe7bd95bb9dc90f54140af4bae963788\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://4664240be22fe76bd4e84d1cbaace3998dbc96759a14345819a889f0c288d22e\",\"dweb:/ipfs/QmQ8fbA4tvXeCeaAFeS2JrLEQUPFeYrePAKoUywRtcicgA\"]},\"contracts/release/interfaces/IGsnForwarder.sol\":{\"keccak256\":\"0xdf725d6209efe494c5f56c1f3d2cc8c64f0785b4b62fa9869bee3d85d8d9e030\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://d544190084ae2255099ebed2b31db6b4d057fec64abe0e50a892301f35e77b29\",\"dweb:/ipfs/QmUEdBMTJySZH3QPUC863k21g3LHHVwVVtCyLbUbVF987G\"]},\"contracts/release/interfaces/IGsnPaymaster.sol\":{\"keccak256\":\"0x2b6990c5f1721a994774d431c41563970e9400971df9ba0ff91ead265427272c\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://683a1de5aa7e804adbda00d74441b9925872f6e86bdd3c308fc828a1f075a7f4\",\"dweb:/ipfs/QmUVysuPw6X9XDUZGx1hdrRkcTVf9afWVxswRcvXZ7MeCF\"]},\"contracts/release/interfaces/IGsnTypes.sol\":{\"keccak256\":\"0xa5e951206789bd818be825058792b233858a9c58ca25d451b3691917a0ce3714\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://93e4d58106e10cab38a54b4c445b7c169de82502434259098672cec0b4b023a7\",\"dweb:/ipfs/Qmei36zKU4bG6x8Uhnbj1HoDcuw35XsuvPmP6tPtJmkF1C\"]},\"contracts/release/interfaces/IWETH.sol\":{\"keccak256\":\"0xff7eb2388015f85102dfcad067b67e5fac7b4f1ede8b222f7179e9bdd99b16f2\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://d0721d3be37443205445536de1369af80d61779ddc9378894e172ab562c2dbb2\",\"dweb:/ipfs/QmUpdj1AR6TPdtkivSFuoRvRFyU6X6DKa2EkLDbJysNWNJ\"]},\"contracts/release/utils/AddressArrayLib.sol\":{\"keccak256\":\"0xd76e220cc754d7c939e54c18d4060f843ca798bccaf9a9dbbd428e38d0f0960f\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://bf0cbaedaec3390b6912ecef7bf62b2e8ec00d7f2b4f0045bab121b812e6f9d6\",\"dweb:/ipfs/QmSd5kxsv5x37TXeRDD91YmVCVA3GVFishdVyC2B9ed9ap\"]},\"contracts/release/utils/FundDeployerOwnerMixin.sol\":{\"keccak256\":\"0xd415583828581051080d575f058643f4975d7048fda0d1765122b260d9d14934\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://8191af7a3cd0867af1a401d3cba1294be054c761c2276d21bff7c9296ecc6927\",\"dweb:/ipfs/QmYBSrx1XrcqMNkH2Q6ALuczRv6LgpzVHvFH3DjvCu6SaM\"]},\"contracts/release/utils/MathHelpers.sol\":{\"keccak256\":\"0x8aef498ae98bfb40cd1df8c9ed652b4c092fbbe62d5a1fad522c53654523248e\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://ed62789f6a8d5ca30a40c591f244b915e4711493a9e4b1b4d40ea2bc97b02a95\",\"dweb:/ipfs/QmWyXJ55arURtx9VMkUQokdsjk8tbgM2cC8rENFUMyz5D3\"]},\"contracts/release/utils/beacon-proxy/IBeacon.sol\":{\"keccak256\":\"0x27a585523828a67a1a7c84eadd22b3056e8ffc51ab71992fd97c9ffb4239eeb2\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://da6aab223fcf84060c63266f743443f5bece3cd1b3131c29db925f2c2671cb39\",\"dweb:/ipfs/Qmd4LvTJHhF6KeRN77ykk5KuV1U7y5ka9gvHChqkg2145V\"]},\"contracts/release/utils/beacon-proxy/IBeaconProxyFactory.sol\":{\"keccak256\":\"0x747e53725f5dbe419893ea447df4f33a3b25d99aae5b724aa1b9778cec1a26bc\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://af89093638cb2a72b2760233a4f3e600bed766fa7938f35f0664b86954b313be\",\"dweb:/ipfs/QmXhqBFHrKYHc5DLtyPqEy9FG8F94Wz63tp9Px9P873isG\"]},\"contracts/test/TestPricelessAssetBypassMixin.sol\":{\"keccak256\":\"0xdeb622d32222be185e7cc51ea570b35cf6df3adb0d9b59d8531c6c4d059d2d06\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://3a4f3f1eee498ad98e52d42fa08d06dc8d81f8d8580350ddbf633e2a3720282d\",\"dweb:/ipfs/QmVdtTeGw5EN6tJC9zgUczr75g61RFGsxuZZVF2UbaJmjW\"]},\"node_modules/@openzeppelin/contracts/math/SafeMath.sol\":{\"keccak256\":\"0xcc78a17dd88fa5a2edc60c8489e2f405c0913b377216a5b26b35656b2d0dab52\",\"license\":\"MIT\",\"urls\":[\"bzz-raw://526dc85e1f9b9b45830e202568d267d93dde7a4fcccf4ad7798dadcd92304d3c\",\"dweb:/ipfs/QmaoXMB972J3cSDLtBq3xBo4jLwqD2uzXTwujtSPqkYVhR\"]},\"node_modules/@openzeppelin/contracts/token/ERC20/ERC20.sol\":{\"keccak256\":\"0xca0c2396dbeb3503b51abf4248ebf77a1461edad513c01529df51850a012bee3\",\"license\":\"MIT\",\"urls\":[\"bzz-raw://991b44ff44e0496e8554a90f4c0512c28faed45104d40430019f3c67ea67740e\",\"dweb:/ipfs/Qmc3nRapVbcctELoZS5qe17zLkFB3bETBfwzCTMF1CSuGE\"]},\"node_modules/@openzeppelin/contracts/token/ERC20/ERC20Burnable.sol\":{\"keccak256\":\"0x9c0eb3b0e11d2480d49991dc384f1e5f9c9b9967cc81944d50916a9b9c6c4984\",\"license\":\"MIT\",\"urls\":[\"bzz-raw://99e4033d778624992e86f0b6d801a4f6d7b5c0cd5c79c1296be90a051ad5f5af\",\"dweb:/ipfs/QmShYmkUqh6pDEeoWadZ24icmCr4C2Xys1uE5boivPmbwf\"]},\"node_modules/@openzeppelin/contracts/token/ERC20/IERC20.sol\":{\"keccak256\":\"0x5f02220344881ce43204ae4a6281145a67bc52c2bb1290a791857df3d19d78f5\",\"license\":\"MIT\",\"urls\":[\"bzz-raw://24427744bd3e6cb73c17010119af12a318289c0253a4d9acb8576c9fb3797b08\",\"dweb:/ipfs/QmTLDqpKRBuxGxRAmjgXt9AkXyACW3MtKzi7PYjm5iMfGC\"]},\"node_modules/@openzeppelin/contracts/token/ERC20/SafeERC20.sol\":{\"keccak256\":\"0xf12dfbe97e6276980b83d2830bb0eb75e0cf4f3e626c2471137f82158ae6a0fc\",\"license\":\"MIT\",\"urls\":[\"bzz-raw://b3a849c2d95e85463909e5b5c920b13e7a11216ca14127085e16d22b9379d52a\",\"dweb:/ipfs/QmUg3CZDbCCcQdroEpexBy5ZFd5vD1UWijWQq9qHZjtJNQ\"]},\"node_modules/@openzeppelin/contracts/utils/Address.sol\":{\"keccak256\":\"0x28911e614500ae7c607a432a709d35da25f3bc5ddc8bd12b278b66358070c0ea\",\"license\":\"MIT\",\"urls\":[\"bzz-raw://256c8c8af5eb072bc473226ab2b2187149b8fc04f5f4a4820db22527f5ce8e3c\",\"dweb:/ipfs/QmRvi5BhnL7Rxf85KrJhwM6RRhukm4tzoctRdgQEheNyiN\"]},\"node_modules/@openzeppelin/contracts/utils/Context.sol\":{\"keccak256\":\"0x8d3cb350f04ff49cfb10aef08d87f19dcbaecc8027b0bed12f3275cd12f38cf0\",\"license\":\"MIT\",\"urls\":[\"bzz-raw://ded47ec7c96750f9bd04bbbc84f659992d4ba901cb7b532a52cd468272cf378f\",\"dweb:/ipfs/QmfBrGtQP7rZEqEg6Wz6jh2N2Kukpj1z5v3CGWmAqrzm96\"]}},\"version\":1}",
+  "metadata": {
+    "compiler": {
+      "version": "0.6.12+commit.27d51765"
+    },
+    "language": "Solidity",
+    "output": {
+      "abi": [
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "_valueInterpreter",
+              "type": "address"
+            },
+            {
+              "internalType": "address",
+              "name": "_wethToken",
+              "type": "address"
+            },
+            {
+              "internalType": "uint256",
+              "name": "_timelock",
+              "type": "uint256"
+            },
+            {
+              "internalType": "uint256",
+              "name": "_timeLimit",
+              "type": "uint256"
+            }
+          ],
+          "stateMutability": "nonpayable",
+          "type": "constructor"
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "comptrollerProxy",
+              "type": "address",
+              "indexed": true
+            },
+            {
+              "internalType": "address",
+              "name": "asset",
+              "type": "address",
+              "indexed": true
+            }
+          ],
+          "type": "event",
+          "name": "PricelessAssetBypassed",
+          "anonymous": false
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "comptrollerProxy",
+              "type": "address",
+              "indexed": true
+            },
+            {
+              "internalType": "address",
+              "name": "asset",
+              "type": "address",
+              "indexed": true
+            }
+          ],
+          "type": "event",
+          "name": "PricelessAssetTimelockStarted",
+          "anonymous": false
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "_comptrollerProxy",
+              "type": "address"
+            },
+            {
+              "internalType": "address",
+              "name": "_asset",
+              "type": "address"
+            }
+          ],
+          "stateMutability": "view",
+          "type": "function",
+          "name": "assetIsBypassableForFund",
+          "outputs": [
+            {
+              "internalType": "bool",
+              "name": "isBypassable_",
+              "type": "bool"
+            }
+          ]
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "_comptrollerProxy",
+              "type": "address"
+            },
+            {
+              "internalType": "address[]",
+              "name": "_baseAssets",
+              "type": "address[]"
+            },
+            {
+              "internalType": "uint256[]",
+              "name": "_baseAssetAmounts",
+              "type": "uint256[]"
+            },
+            {
+              "internalType": "address",
+              "name": "_quoteAsset",
+              "type": "address"
+            }
+          ],
+          "stateMutability": "nonpayable",
+          "type": "function",
+          "name": "calcTotalValueExlcudingBypassablePricelessAssets",
+          "outputs": [
+            {
+              "internalType": "uint256",
+              "name": "value_",
+              "type": "uint256"
+            }
+          ]
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "_comptrollerProxy",
+              "type": "address"
+            },
+            {
+              "internalType": "address",
+              "name": "_baseAsset",
+              "type": "address"
+            },
+            {
+              "internalType": "uint256",
+              "name": "_baseAssetAmount",
+              "type": "uint256"
+            },
+            {
+              "internalType": "address",
+              "name": "_quoteAsset",
+              "type": "address"
+            }
+          ],
+          "stateMutability": "nonpayable",
+          "type": "function",
+          "name": "calcValueExcludingBypassablePricelessAsset",
+          "outputs": [
+            {
+              "internalType": "uint256",
+              "name": "value_",
+              "type": "uint256"
+            }
+          ]
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "_comptrollerProxy",
+              "type": "address"
+            },
+            {
+              "internalType": "address",
+              "name": "_asset",
+              "type": "address"
+            }
+          ],
+          "stateMutability": "view",
+          "type": "function",
+          "name": "getAssetBypassWindowStartForFund",
+          "outputs": [
+            {
+              "internalType": "uint256",
+              "name": "windowStart_",
+              "type": "uint256"
+            }
+          ]
+        },
+        {
+          "inputs": [],
+          "stateMutability": "view",
+          "type": "function",
+          "name": "getPricelessAssetBypassTimeLimit",
+          "outputs": [
+            {
+              "internalType": "uint256",
+              "name": "timeLimit_",
+              "type": "uint256"
+            }
+          ]
+        },
+        {
+          "inputs": [],
+          "stateMutability": "view",
+          "type": "function",
+          "name": "getPricelessAssetBypassTimelock",
+          "outputs": [
+            {
+              "internalType": "uint256",
+              "name": "timelock_",
+              "type": "uint256"
+            }
+          ]
+        },
+        {
+          "inputs": [],
+          "stateMutability": "view",
+          "type": "function",
+          "name": "getPricelessAssetBypassValueInterpreter",
+          "outputs": [
+            {
+              "internalType": "address",
+              "name": "valueInterpreter_",
+              "type": "address"
+            }
+          ]
+        },
+        {
+          "inputs": [],
+          "stateMutability": "view",
+          "type": "function",
+          "name": "getPricelessAssetBypassWethToken",
+          "outputs": [
+            {
+              "internalType": "address",
+              "name": "wethToken_",
+              "type": "address"
+            }
+          ]
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "_asset",
+              "type": "address"
+            }
+          ],
+          "stateMutability": "nonpayable",
+          "type": "function",
+          "name": "startAssetBypassTimelock"
+        }
+      ],
+      "devdoc": {
+        "kind": "dev",
+        "methods": {
+          "assetIsBypassableForFund(address,address)": {
+            "params": {
+              "_asset": "The asset for which to check if it is bypassable",
+              "_comptrollerProxy": "The ComptrollerProxy of the fund"
+            },
+            "returns": {
+              "isBypassable_": "True if the asset is bypassable"
+            }
+          },
+          "getAssetBypassWindowStartForFund(address,address)": {
+            "params": {
+              "_asset": "The asset",
+              "_comptrollerProxy": "The ComptrollerProxy of the fund"
+            },
+            "returns": {
+              "windowStart_": "The timestamp"
+            }
+          },
+          "getPricelessAssetBypassTimeLimit()": {
+            "returns": {
+              "timeLimit_": "The `PRICELESS_ASSET_BYPASS_TIME_LIMIT` variable value"
+            }
+          },
+          "getPricelessAssetBypassTimelock()": {
+            "returns": {
+              "timelock_": "The `PRICELESS_ASSET_BYPASS_TIMELOCK` variable value"
+            }
+          },
+          "getPricelessAssetBypassValueInterpreter()": {
+            "returns": {
+              "valueInterpreter_": "The `PRICELESS_ASSET_BYPASS_VALUE_INTERPRETER` variable value"
+            }
+          },
+          "getPricelessAssetBypassWethToken()": {
+            "returns": {
+              "wethToken_": "The `PRICELESS_ASSET_BYPASS_WETH_TOKEN` variable value"
+            }
+          },
+          "startAssetBypassTimelock(address)": {
+            "details": "This function must be called via ComptrollerProxy.vaultCallOnContract(). This allows the function to be gas relay-able. It also means that the originator must be the owner.",
+            "params": {
+              "_asset": "The asset for which to start the timelock period"
+            }
+          }
+        },
+        "version": 1
+      },
+      "userdoc": {
+        "kind": "user",
+        "methods": {
+          "assetIsBypassableForFund(address,address)": {
+            "notice": "Checks whether an asset is bypassable (if still without a valid price) for a given fund"
+          },
+          "getAssetBypassWindowStartForFund(address,address)": {
+            "notice": "Gets the timestamp from which an asset without a valid price can be considered to be valued at `0`"
+          },
+          "getPricelessAssetBypassTimeLimit()": {
+            "notice": "Gets the `PRICELESS_ASSET_BYPASS_TIME_LIMIT` variable"
+          },
+          "getPricelessAssetBypassTimelock()": {
+            "notice": "Gets the `PRICELESS_ASSET_BYPASS_TIMELOCK` variable"
+          },
+          "getPricelessAssetBypassValueInterpreter()": {
+            "notice": "Gets the `PRICELESS_ASSET_BYPASS_VALUE_INTERPRETER` variable"
+          },
+          "getPricelessAssetBypassWethToken()": {
+            "notice": "Gets the `PRICELESS_ASSET_BYPASS_WETH_TOKEN` variable"
+          },
+          "startAssetBypassTimelock(address)": {
+            "notice": "Starts the timelock period for an asset without a valid price"
+          }
+        },
+        "version": 1
+      }
+    },
+    "settings": {
+      "remappings": [
+        ":@enzyme/=contracts/",
+        ":@openzeppelin-solc-0.7/=node_modules/@openzeppelin-solc-0.7/",
+        ":@openzeppelin/=node_modules/@openzeppelin/",
+        ":@uniswap/=node_modules/@uniswap/",
+        ":base64-sol/=node_modules/base64-sol/",
+        ":ds-test/=lib/forge-std/lib/ds-test/src/",
+        ":forge-std/=lib/forge-std/src/",
+        ":hardhat-deploy/=node_modules/hardhat-deploy/",
+        ":hardhat/=node_modules/hardhat/"
+      ],
+      "optimizer": {
+        "runs": 200,
+        "details": {
+          "peephole": true,
+          "jumpdestRemover": true,
+          "orderLiterals": true,
+          "deduplicate": true,
+          "cse": true,
+          "constantOptimizer": true,
+          "yul": false
+        }
+      },
+      "metadata": {
+        "bytecodeHash": "none"
+      },
+      "compilationTarget": {
+        "contracts/test/TestPricelessAssetBypassMixin.sol": "TestPricelessAssetBypassMixin"
+      },
+      "libraries": {}
+    },
+    "sources": {
+      "contracts/persistent/dispatcher/IDispatcher.sol": {
+        "keccak256": "0x0e6b0e6cf325d4f6332b8eb2b3c446b2ef3ca8456bdf0d12318d0fd9e90aeb30",
+        "urls": [
+          "bzz-raw://2f159223517ca72c36852d90e45cc53d1840861d6e1a2a37f7901d7e48bc94d0",
+          "dweb:/ipfs/QmZKZnppYFEF8hdTxbA1g3NgWMopwHRey5KdzyJXNGgCUJ"
+        ],
+        "license": "GPL-3.0"
+      },
+      "contracts/persistent/external-positions/IExternalPosition.sol": {
+        "keccak256": "0x00e6ea9721e5fd1e72215e4c744306097d7f8b1a834cced5d65a17a924f750ad",
+        "urls": [
+          "bzz-raw://2ad763df961067233f8631d1cd386a0cf41f8e83e419ace84ec4424214db8efa",
+          "dweb:/ipfs/QmNVZCeyA9uqKrhBeCAmTVswWybN9TQAxngVPZUZZ6X4dM"
+        ],
+        "license": "GPL-3.0"
+      },
+      "contracts/persistent/protocol-fee-reserve/interfaces/IProtocolFeeReserve1.sol": {
+        "keccak256": "0x2728878c423db523bc95189137e8c58d2d7db9f56bbd5c6b1f988c08b551fbab",
+        "urls": [
+          "bzz-raw://3b0df1d2eb74151265d03ab91a7c341f7beca475dd2f4d669052dbc4ee2c06ac",
+          "dweb:/ipfs/QmVx1cgrxQNYfdK1Kn15pcgqf79Uw8bF3U6i7F2HG2rj6G"
+        ],
+        "license": "GPL-3.0"
+      },
+      "contracts/persistent/vault/VaultLibBase1.sol": {
+        "keccak256": "0xa4dac1e4cdb311a2ab187135355357d8790c505ef36dd912c057fe53743d30b5",
+        "urls": [
+          "bzz-raw://b66efe821016ab927c949263023260515e90f5d480dc8d94eefbfeec7bf7490b",
+          "dweb:/ipfs/QmNY3xKnhL9EptAbxGvXHGAXfV9pj3dDPwsZnKrPs54ZHw"
+        ],
+        "license": "GPL-3.0"
+      },
+      "contracts/persistent/vault/VaultLibBase2.sol": {
+        "keccak256": "0xf7d31f2a9a47770ed3f444be2c4fe9262ddb55fef7f25e546b1f03c9afec4c09",
+        "urls": [
+          "bzz-raw://9353ddce7c9b8b3c13fed23fe8edec99ca610d791b0c5b204b3d01f1f08d07d2",
+          "dweb:/ipfs/QmeVsEh3joCjv49BRXeHASevnZZ5xdZXpkctHT8BPf37N2"
+        ],
+        "license": "GPL-3.0"
+      },
+      "contracts/persistent/vault/VaultLibBaseCore.sol": {
+        "keccak256": "0xc518a9735a8145f064817fa21c1cc57eba7d3396a06320b7abde187b87613074",
+        "urls": [
+          "bzz-raw://06f8b29550ba2583ac566b5f92bf206a8c47c492030db1580f5bd64cbd5db3dd",
+          "dweb:/ipfs/QmVd4yVBazyDd6CdgTCgrBg9t9ekoJFT2VskTFLGY2Amdz"
+        ],
+        "license": "GPL-3.0"
+      },
+      "contracts/persistent/vault/interfaces/IExternalPositionVault.sol": {
+        "keccak256": "0x4290edaa41b6db843967aee744c6a1424dce099584d303662b1431a88ad7f016",
+        "urls": [
+          "bzz-raw://eaf25a516152e6948045bfc42c28f4daee83f026af93fd360ea9414118469ae5",
+          "dweb:/ipfs/QmeZjpFUVqKQUWYdbDMdtxWxjk1XhiR2NgeP4jMM46tdkA"
+        ],
+        "license": "GPL-3.0"
+      },
+      "contracts/persistent/vault/interfaces/IFreelyTransferableSharesVault.sol": {
+        "keccak256": "0x505a51393d081a027d04263f8a02286ce668f7e285bf2096a314a1632bd42805",
+        "urls": [
+          "bzz-raw://c8af752e1669e41450ea2397f97e89e9cc54a2b2ac9b2c9ba912988d24109b0e",
+          "dweb:/ipfs/QmZsurAHm7yMvdJQrg99t8d2b24P6JEiKoo8tpXeDurgpH"
+        ],
+        "license": "GPL-3.0"
+      },
+      "contracts/persistent/vault/interfaces/IMigratableVault.sol": {
+        "keccak256": "0x30cfc9be81edf29261724242246811179ac9503d062ded60a2ae220c8df86f1c",
+        "urls": [
+          "bzz-raw://2db64a34fe22310f2ac1977ea251ba83fb0d6398a964ef9a85b73f06d2a7db82",
+          "dweb:/ipfs/QmPLXPV3giQujRLNQeQAvhNYexjzu6dRgdQC5oPij2gMwM"
+        ],
+        "license": "GPL-3.0"
+      },
+      "contracts/persistent/vault/interfaces/IVaultCore.sol": {
+        "keccak256": "0x646cfaf06e2ffa1ab36f25e972b5ca18deba1ed80493cfd787608c8bd07b5f46",
+        "urls": [
+          "bzz-raw://76ff14bb89bf277b1bbfac32fcdeb2057245a87cf8f494819d2b52257a0ae6c5",
+          "dweb:/ipfs/QmSNj436Y4WiKw4Y2PqrcJVWqF95NJNGtncXQXUvAu5iVg"
+        ],
+        "license": "GPL-3.0"
+      },
+      "contracts/persistent/vault/utils/ProxiableVaultLib.sol": {
+        "keccak256": "0x47123e1fd95e335b312d378e651a627a674f32df372bcfe36c1128ab91122f76",
+        "urls": [
+          "bzz-raw://960c57e2e345091d025cc0e1b1070b7fbabe13fe5fc00a55def7f8d5feb55e44",
+          "dweb:/ipfs/QmZT8omiird2WfA9bnffnWpXuQERTCUJqh4wpN5wz1BCD4"
+        ],
+        "license": "GPL-3.0"
+      },
+      "contracts/persistent/vault/utils/SharesTokenBase.sol": {
+        "keccak256": "0x9b2a431aea5f0b908cc8c169c89ed420b52fb5f63cca40e97a9223209c0b1113",
+        "urls": [
+          "bzz-raw://991ac66f7f44313d113916b76b9843d0b9e705329851b0858061a8a051fbe8e8",
+          "dweb:/ipfs/QmPpE2mNajVqWcNg2gCVwoRCfpM2CPAyAF9Vvk57j2ihc4"
+        ],
+        "license": "GPL-3.0"
+      },
+      "contracts/persistent/vault/utils/VaultLibSafeMath.sol": {
+        "keccak256": "0xc056fcbf5f498fea6a12ae7f470bb4246297355c3117b1bd01d0edf207da947d",
+        "urls": [
+          "bzz-raw://432bde139ff1834c0f762231f5bc73ad268ea8048b099b5315c187e289d87b02",
+          "dweb:/ipfs/QmRBW8EcrigYQHacihj4JFgh5y8apv8xwZJMvfHEdtSVsG"
+        ],
+        "license": "GPL-3.0"
+      },
+      "contracts/release/core/fund-deployer/IFundDeployer.sol": {
+        "keccak256": "0x5b901b81b3a4ef3d30ef9b4a1fa7fdd6526dfacd66e9971d1f988c2b63334314",
+        "urls": [
+          "bzz-raw://79eba24bcad7e3abddafd20b518add8d5acb1e8de250a0e20050dfbe2f2d8aea",
+          "dweb:/ipfs/QmYq9QYKr1UJaVyhkkSEfeiJ68TwGbwrmZsgRTPjVjkpUp"
+        ],
+        "license": "GPL-3.0"
+      },
+      "contracts/release/core/fund/comptroller/ComptrollerLib.sol": {
+        "keccak256": "0x2d915156479096f5ab309c2ef0e0834cff299903210b65489c269c220180de64",
+        "urls": [
+          "bzz-raw://c6c6415e6c58c2fdf1f955a2f9d7fe2b71d7f0cb351717876f113eadb0fc4579",
+          "dweb:/ipfs/QmXGctKECUrriskrK6nfaweV32yhMdg4H2Aq4aYVgR7Nrq"
+        ],
+        "license": "GPL-3.0"
+      },
+      "contracts/release/core/fund/comptroller/IComptroller.sol": {
+        "keccak256": "0x51d4a60ba37b5f9198ef1328e08ff45efe0dee76bc067d71ed98f3a221c3636f",
+        "urls": [
+          "bzz-raw://8176790c239ae899162a503e6aaffef7576ca89c20864798a22b53096a662b97",
+          "dweb:/ipfs/QmYMHifgJExxU97nEGdvFGPtH6kCf1jxSax1o4dUcNPN3L"
+        ],
+        "license": "GPL-3.0"
+      },
+      "contracts/release/core/fund/vault/IVault.sol": {
+        "keccak256": "0xeb0b8a4ee1beb7edd02c802ac0901107e34d241b7d9c27b59f26ee736c6d72cd",
+        "urls": [
+          "bzz-raw://f10632fd76d06baa94f92a5f1e8cce658dd78e0163213890727ce53c814e1599",
+          "dweb:/ipfs/QmaruXmEsUjn8EuEiv8tC1QbA1kK2Vo5LW2w2k5g9eGfDG"
+        ],
+        "license": "GPL-3.0"
+      },
+      "contracts/release/core/fund/vault/VaultLib.sol": {
+        "keccak256": "0x07e49445ab55c01e1b499a48baadc2a15d1eba621f1c6d3ccfdb84c87b976da8",
+        "urls": [
+          "bzz-raw://56d882459248f73e137db2e097fc56b946147fb28ec21661b77431f88e856cb4",
+          "dweb:/ipfs/QmRP6Ry7DCS5uoKxnnkTomHSzbaCze6cHqbR9aLdjoF6vK"
+        ],
+        "license": "GPL-3.0"
+      },
+      "contracts/release/extensions/IExtension.sol": {
+        "keccak256": "0x59aaa2ddd32c24271bd4a57e9e1f3426570a78cd56d6d11e63786f36c916e94b",
+        "urls": [
+          "bzz-raw://6b476ec92f0691d70a616aa76ecf5fb33725d5fe02ea59a2e5f9b582f662dc70",
+          "dweb:/ipfs/QmQZ2xJqWSA4YHveB6RoYuU5gx7DGk7ra6KFp6KvV6Kn1t"
+        ],
+        "license": "GPL-3.0"
+      },
+      "contracts/release/extensions/external-position-manager/IExternalPositionManager.sol": {
+        "keccak256": "0x3af3f634e1f99fb97091b7825c0d2e2baaafc124d4e87d56cb0c17ff8554f6c6",
+        "urls": [
+          "bzz-raw://515470605afe5ef147f30fa75ce7818f0e00e3d321eb81a4d9bffcdefc294495",
+          "dweb:/ipfs/QmPKsp99pfHoz9Tfo3ZxnkmqDqJtN9PxqacF2RmeVfxUJF"
+        ],
+        "license": "GPL-3.0"
+      },
+      "contracts/release/extensions/fee-manager/IFeeManager.sol": {
+        "keccak256": "0x26accd01ce839ee396cbaf3f72d93f2135656845c3e74c4ae575f8b02b8efd51",
+        "urls": [
+          "bzz-raw://1462f4081d1aa407faa1a92bb94ecae526a6792c79052dd446d898e75b3e5e22",
+          "dweb:/ipfs/QmQzLS7raSD2ojJbxoraorzA8wRTS2iQtpaedm1x47teod"
+        ],
+        "license": "GPL-3.0"
+      },
+      "contracts/release/extensions/policy-manager/IPolicyManager.sol": {
+        "keccak256": "0x1ed5fff925cdfa8808a65aa4c1e45813d87c1f462fc6740be670065ed2f6fd32",
+        "urls": [
+          "bzz-raw://3cf584b792bc5321930a1c4c7ec22aa23a7ad8e09483694bb6f5968dca0132aa",
+          "dweb:/ipfs/QmbNeaENye3NtnG3fRD7QtDSKUm2knBxUDdeuWicCMzcHb"
+        ],
+        "license": "GPL-3.0"
+      },
+      "contracts/release/extensions/policy-manager/policies/utils/PricelessAssetBypassMixin.sol": {
+        "keccak256": "0x5624f038f790b51ba9bd2207a6e80d188bc5d0b049807e0f06f123f6d00e3444",
+        "urls": [
+          "bzz-raw://53782b55be373922df118f9970f897c1adfd4646dc4a95eec52e7c914944f68c",
+          "dweb:/ipfs/QmTGPQRqzczosWALPZgAN6TKE4qdBuFwGBdCKy6GxtZBPe"
+        ],
+        "license": "GPL-3.0"
+      },
+      "contracts/release/infrastructure/gas-relayer/GasRelayRecipientMixin.sol": {
+        "keccak256": "0x365ff80d9395af25b1fa0956618c372f7957c12b54cd770be592cd3a87ea8609",
+        "urls": [
+          "bzz-raw://5df6293828b09c52c351f354e301f4ecb7587555eebecef8019ae08bcbf2b15f",
+          "dweb:/ipfs/QmZ1WkGSaDL5sR86FCUuTXscauHBRkLFJHmJRxwHJCWksp"
+        ],
+        "license": "GPL-3.0"
+      },
+      "contracts/release/infrastructure/gas-relayer/IGasRelayPaymaster.sol": {
+        "keccak256": "0xb8b05029aca9eb89ff33c9cc3f97f6d096a5d8185a5ddcdec7cb1a92e4927b01",
+        "urls": [
+          "bzz-raw://94bbfb0701265e422cdadb7fcfc12c9e7f2e2dce26258eea97a08bfba715add0",
+          "dweb:/ipfs/QmYbb4Crd7h8wckLZ8d8A5EYxeofSLRWwiCFQew1GzssD2"
+        ],
+        "license": "GPL-3.0"
+      },
+      "contracts/release/infrastructure/gas-relayer/IGasRelayPaymasterDepositor.sol": {
+        "keccak256": "0xcbfbcc963988ba5ca56e5e54ea8fc7fcdf4a3fd903a73b139d9bef63c18ef196",
+        "urls": [
+          "bzz-raw://75317e0eb06ba96deb1161ff003e80431aafe2567b8d105ba346716d0e96567b",
+          "dweb:/ipfs/QmfEVud7js7jJCthqCZQZjeFMEq8Hfb6iMvkrgTPgGaZb3"
+        ],
+        "license": "GPL-3.0"
+      },
+      "contracts/release/infrastructure/price-feeds/derivatives/AggregatedDerivativePriceFeedMixin.sol": {
+        "keccak256": "0x85d2ac39834dae7feb04f0e37317a38b8abeb0f950692fbc9d29078c52cd8d52",
+        "urls": [
+          "bzz-raw://7bf8f1ce064d85a2812a944fc93068955b233924097f7f45898be3db826579d5",
+          "dweb:/ipfs/Qme7f6AhxLVn32prM8fHaCvxtVi86A9KqFMqPA1s88kVYR"
+        ],
+        "license": "GPL-3.0"
+      },
+      "contracts/release/infrastructure/price-feeds/derivatives/IDerivativePriceFeed.sol": {
+        "keccak256": "0x5abbc57ccbf28b2c27a0ee496f0a949a0039912975e8f9a65312d884edd05332",
+        "urls": [
+          "bzz-raw://9cfb87b8df1f3f58c556907e2a9cc197fa5bb90ad9bc9d4717e95fd63258d80e",
+          "dweb:/ipfs/QmWxLvfq9NNJJZueeHD5EYWdRwrgzmrVdLUqp9Ta7A9ccK"
+        ],
+        "license": "GPL-3.0"
+      },
+      "contracts/release/infrastructure/price-feeds/primitives/ChainlinkPriceFeedMixin.sol": {
+        "keccak256": "0x7fb0078e7387f07ff09958fe4e4e7b317e72c23884f61e8c133776cad522f8bb",
+        "urls": [
+          "bzz-raw://e973f29ed0c3bf03e20154ab4b0cfc68c3a4372a52ec746f9d9f86697b30e977",
+          "dweb:/ipfs/QmfMb7H1zNnj2hzmUr6742HmCTiNVuQ2PFjeR8q2M4Liyu"
+        ],
+        "license": "GPL-3.0"
+      },
+      "contracts/release/infrastructure/protocol-fees/IProtocolFeeTracker.sol": {
+        "keccak256": "0x232b347f83457439064add7369bfe1930c7cb56f15930bb87d640e909c15e447",
+        "urls": [
+          "bzz-raw://24f9af5eebdd373b1d7a598c096eb6def31b2640d54416d7d5a7226e1cef17e6",
+          "dweb:/ipfs/QmStq9ByGuSYdKwTmZf52L1X6sZVJUfXTnoVbnjLLiUcHG"
+        ],
+        "license": "GPL-3.0"
+      },
+      "contracts/release/infrastructure/value-interpreter/IValueInterpreter.sol": {
+        "keccak256": "0x6838a22b0357f3c5f437c1e54b8f63c7df42b41e3b25d56c5017eb75a857a794",
+        "urls": [
+          "bzz-raw://55cb0682cb809cd2568969b7753a0d2de4385d499ff42be7f0eb55f584366965",
+          "dweb:/ipfs/QmderqKaijbqYMGeRUscictNMfo6GuFd6ZrDDmBe3pEazJ"
+        ],
+        "license": "GPL-3.0"
+      },
+      "contracts/release/infrastructure/value-interpreter/ValueInterpreter.sol": {
+        "keccak256": "0x64565011785d0d29a75021cda34687cfbc0641094d6f2faf4d9c78c8cd9f0d1d",
+        "urls": [
+          "bzz-raw://03ea9b29a332436d18ca1a4df7e5cdf231d5142dfb916a39cb3a721342d54e0e",
+          "dweb:/ipfs/QmcB8Z7A7QELAxg2FfJpD26k2bUhMNUT4wACMVKxuge3QS"
+        ],
+        "license": "GPL-3.0"
+      },
+      "contracts/release/interfaces/IChainlinkAggregator.sol": {
+        "keccak256": "0x8104db68d4edc00c86b29b366f4397cdbe7bd95bb9dc90f54140af4bae963788",
+        "urls": [
+          "bzz-raw://4664240be22fe76bd4e84d1cbaace3998dbc96759a14345819a889f0c288d22e",
+          "dweb:/ipfs/QmQ8fbA4tvXeCeaAFeS2JrLEQUPFeYrePAKoUywRtcicgA"
+        ],
+        "license": "GPL-3.0"
+      },
+      "contracts/release/interfaces/IGsnForwarder.sol": {
+        "keccak256": "0xdf725d6209efe494c5f56c1f3d2cc8c64f0785b4b62fa9869bee3d85d8d9e030",
+        "urls": [
+          "bzz-raw://d544190084ae2255099ebed2b31db6b4d057fec64abe0e50a892301f35e77b29",
+          "dweb:/ipfs/QmUEdBMTJySZH3QPUC863k21g3LHHVwVVtCyLbUbVF987G"
+        ],
+        "license": "GPL-3.0"
+      },
+      "contracts/release/interfaces/IGsnPaymaster.sol": {
+        "keccak256": "0x2b6990c5f1721a994774d431c41563970e9400971df9ba0ff91ead265427272c",
+        "urls": [
+          "bzz-raw://683a1de5aa7e804adbda00d74441b9925872f6e86bdd3c308fc828a1f075a7f4",
+          "dweb:/ipfs/QmUVysuPw6X9XDUZGx1hdrRkcTVf9afWVxswRcvXZ7MeCF"
+        ],
+        "license": "GPL-3.0"
+      },
+      "contracts/release/interfaces/IGsnTypes.sol": {
+        "keccak256": "0xa5e951206789bd818be825058792b233858a9c58ca25d451b3691917a0ce3714",
+        "urls": [
+          "bzz-raw://93e4d58106e10cab38a54b4c445b7c169de82502434259098672cec0b4b023a7",
+          "dweb:/ipfs/Qmei36zKU4bG6x8Uhnbj1HoDcuw35XsuvPmP6tPtJmkF1C"
+        ],
+        "license": "GPL-3.0"
+      },
+      "contracts/release/interfaces/IWETH.sol": {
+        "keccak256": "0xff7eb2388015f85102dfcad067b67e5fac7b4f1ede8b222f7179e9bdd99b16f2",
+        "urls": [
+          "bzz-raw://d0721d3be37443205445536de1369af80d61779ddc9378894e172ab562c2dbb2",
+          "dweb:/ipfs/QmUpdj1AR6TPdtkivSFuoRvRFyU6X6DKa2EkLDbJysNWNJ"
+        ],
+        "license": "GPL-3.0"
+      },
+      "contracts/release/utils/AddressArrayLib.sol": {
+        "keccak256": "0xd76e220cc754d7c939e54c18d4060f843ca798bccaf9a9dbbd428e38d0f0960f",
+        "urls": [
+          "bzz-raw://bf0cbaedaec3390b6912ecef7bf62b2e8ec00d7f2b4f0045bab121b812e6f9d6",
+          "dweb:/ipfs/QmSd5kxsv5x37TXeRDD91YmVCVA3GVFishdVyC2B9ed9ap"
+        ],
+        "license": "GPL-3.0"
+      },
+      "contracts/release/utils/FundDeployerOwnerMixin.sol": {
+        "keccak256": "0xd415583828581051080d575f058643f4975d7048fda0d1765122b260d9d14934",
+        "urls": [
+          "bzz-raw://8191af7a3cd0867af1a401d3cba1294be054c761c2276d21bff7c9296ecc6927",
+          "dweb:/ipfs/QmYBSrx1XrcqMNkH2Q6ALuczRv6LgpzVHvFH3DjvCu6SaM"
+        ],
+        "license": "GPL-3.0"
+      },
+      "contracts/release/utils/MathHelpers.sol": {
+        "keccak256": "0x8aef498ae98bfb40cd1df8c9ed652b4c092fbbe62d5a1fad522c53654523248e",
+        "urls": [
+          "bzz-raw://ed62789f6a8d5ca30a40c591f244b915e4711493a9e4b1b4d40ea2bc97b02a95",
+          "dweb:/ipfs/QmWyXJ55arURtx9VMkUQokdsjk8tbgM2cC8rENFUMyz5D3"
+        ],
+        "license": "GPL-3.0"
+      },
+      "contracts/release/utils/beacon-proxy/IBeacon.sol": {
+        "keccak256": "0x27a585523828a67a1a7c84eadd22b3056e8ffc51ab71992fd97c9ffb4239eeb2",
+        "urls": [
+          "bzz-raw://da6aab223fcf84060c63266f743443f5bece3cd1b3131c29db925f2c2671cb39",
+          "dweb:/ipfs/Qmd4LvTJHhF6KeRN77ykk5KuV1U7y5ka9gvHChqkg2145V"
+        ],
+        "license": "GPL-3.0"
+      },
+      "contracts/release/utils/beacon-proxy/IBeaconProxyFactory.sol": {
+        "keccak256": "0x747e53725f5dbe419893ea447df4f33a3b25d99aae5b724aa1b9778cec1a26bc",
+        "urls": [
+          "bzz-raw://af89093638cb2a72b2760233a4f3e600bed766fa7938f35f0664b86954b313be",
+          "dweb:/ipfs/QmXhqBFHrKYHc5DLtyPqEy9FG8F94Wz63tp9Px9P873isG"
+        ],
+        "license": "GPL-3.0"
+      },
+      "contracts/test/TestPricelessAssetBypassMixin.sol": {
+        "keccak256": "0xdeb622d32222be185e7cc51ea570b35cf6df3adb0d9b59d8531c6c4d059d2d06",
+        "urls": [
+          "bzz-raw://3a4f3f1eee498ad98e52d42fa08d06dc8d81f8d8580350ddbf633e2a3720282d",
+          "dweb:/ipfs/QmVdtTeGw5EN6tJC9zgUczr75g61RFGsxuZZVF2UbaJmjW"
+        ],
+        "license": "GPL-3.0"
+      },
+      "node_modules/@openzeppelin/contracts/math/SafeMath.sol": {
+        "keccak256": "0xcc78a17dd88fa5a2edc60c8489e2f405c0913b377216a5b26b35656b2d0dab52",
+        "urls": [
+          "bzz-raw://526dc85e1f9b9b45830e202568d267d93dde7a4fcccf4ad7798dadcd92304d3c",
+          "dweb:/ipfs/QmaoXMB972J3cSDLtBq3xBo4jLwqD2uzXTwujtSPqkYVhR"
+        ],
+        "license": "MIT"
+      },
+      "node_modules/@openzeppelin/contracts/token/ERC20/ERC20.sol": {
+        "keccak256": "0xca0c2396dbeb3503b51abf4248ebf77a1461edad513c01529df51850a012bee3",
+        "urls": [
+          "bzz-raw://991b44ff44e0496e8554a90f4c0512c28faed45104d40430019f3c67ea67740e",
+          "dweb:/ipfs/Qmc3nRapVbcctELoZS5qe17zLkFB3bETBfwzCTMF1CSuGE"
+        ],
+        "license": "MIT"
+      },
+      "node_modules/@openzeppelin/contracts/token/ERC20/ERC20Burnable.sol": {
+        "keccak256": "0x9c0eb3b0e11d2480d49991dc384f1e5f9c9b9967cc81944d50916a9b9c6c4984",
+        "urls": [
+          "bzz-raw://99e4033d778624992e86f0b6d801a4f6d7b5c0cd5c79c1296be90a051ad5f5af",
+          "dweb:/ipfs/QmShYmkUqh6pDEeoWadZ24icmCr4C2Xys1uE5boivPmbwf"
+        ],
+        "license": "MIT"
+      },
+      "node_modules/@openzeppelin/contracts/token/ERC20/IERC20.sol": {
+        "keccak256": "0x5f02220344881ce43204ae4a6281145a67bc52c2bb1290a791857df3d19d78f5",
+        "urls": [
+          "bzz-raw://24427744bd3e6cb73c17010119af12a318289c0253a4d9acb8576c9fb3797b08",
+          "dweb:/ipfs/QmTLDqpKRBuxGxRAmjgXt9AkXyACW3MtKzi7PYjm5iMfGC"
+        ],
+        "license": "MIT"
+      },
+      "node_modules/@openzeppelin/contracts/token/ERC20/SafeERC20.sol": {
+        "keccak256": "0xf12dfbe97e6276980b83d2830bb0eb75e0cf4f3e626c2471137f82158ae6a0fc",
+        "urls": [
+          "bzz-raw://b3a849c2d95e85463909e5b5c920b13e7a11216ca14127085e16d22b9379d52a",
+          "dweb:/ipfs/QmUg3CZDbCCcQdroEpexBy5ZFd5vD1UWijWQq9qHZjtJNQ"
+        ],
+        "license": "MIT"
+      },
+      "node_modules/@openzeppelin/contracts/utils/Address.sol": {
+        "keccak256": "0x28911e614500ae7c607a432a709d35da25f3bc5ddc8bd12b278b66358070c0ea",
+        "urls": [
+          "bzz-raw://256c8c8af5eb072bc473226ab2b2187149b8fc04f5f4a4820db22527f5ce8e3c",
+          "dweb:/ipfs/QmRvi5BhnL7Rxf85KrJhwM6RRhukm4tzoctRdgQEheNyiN"
+        ],
+        "license": "MIT"
+      },
+      "node_modules/@openzeppelin/contracts/utils/Context.sol": {
+        "keccak256": "0x8d3cb350f04ff49cfb10aef08d87f19dcbaecc8027b0bed12f3275cd12f38cf0",
+        "urls": [
+          "bzz-raw://ded47ec7c96750f9bd04bbbc84f659992d4ba901cb7b532a52cd468272cf378f",
+          "dweb:/ipfs/QmfBrGtQP7rZEqEg6Wz6jh2N2Kukpj1z5v3CGWmAqrzm96"
+        ],
+        "license": "MIT"
+      }
+    },
+    "version": 1
+  },
+  "ast": {
+    "absolutePath": "contracts/test/TestPricelessAssetBypassMixin.sol",
+    "id": 18760,
+    "exportedSymbols": {
+      "TestPricelessAssetBypassMixin": [
+        18759
+      ]
+    },
+    "nodeType": "SourceUnit",
+    "src": "255:1508:85",
+    "nodes": [
+      {
+        "id": 18692,
+        "nodeType": "PragmaDirective",
+        "src": "255:23:85",
+        "nodes": [],
+        "literals": [
+          "solidity",
+          "0.6",
+          ".12"
+        ]
+      },
+      {
+        "id": 18693,
+        "nodeType": "ImportDirective",
+        "src": "280:91:85",
+        "nodes": [],
+        "absolutePath": "contracts/release/extensions/policy-manager/policies/utils/PricelessAssetBypassMixin.sol",
+        "file": "../release/extensions/policy-manager/policies/utils/PricelessAssetBypassMixin.sol",
+        "scope": 18760,
+        "sourceUnit": 11243,
+        "symbolAliases": [],
+        "unitAlias": ""
+      },
+      {
+        "id": 18759,
+        "nodeType": "ContractDefinition",
+        "src": "539:1223:85",
+        "nodes": [
+          {
+            "id": 18714,
+            "nodeType": "FunctionDefinition",
+            "src": "613:225:85",
+            "nodes": [],
+            "body": {
+              "id": 18713,
+              "nodeType": "Block",
+              "src": "836:2:85",
+              "nodes": [],
+              "statements": []
+            },
+            "documentation": null,
+            "implemented": true,
+            "kind": "constructor",
+            "modifiers": [
+              {
+                "arguments": [
+                  {
+                    "argumentTypes": null,
+                    "id": 18707,
+                    "name": "_valueInterpreter",
+                    "nodeType": "Identifier",
+                    "overloadedDeclarations": [],
+                    "referencedDeclaration": 18698,
+                    "src": "782:17:85",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  {
+                    "argumentTypes": null,
+                    "id": 18708,
+                    "name": "_wethToken",
+                    "nodeType": "Identifier",
+                    "overloadedDeclarations": [],
+                    "referencedDeclaration": 18700,
+                    "src": "801:10:85",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  {
+                    "argumentTypes": null,
+                    "id": 18709,
+                    "name": "_timelock",
+                    "nodeType": "Identifier",
+                    "overloadedDeclarations": [],
+                    "referencedDeclaration": 18702,
+                    "src": "813:9:85",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_uint256",
+                      "typeString": "uint256"
+                    }
+                  },
+                  {
+                    "argumentTypes": null,
+                    "id": 18710,
+                    "name": "_timeLimit",
+                    "nodeType": "Identifier",
+                    "overloadedDeclarations": [],
+                    "referencedDeclaration": 18704,
+                    "src": "824:10:85",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_uint256",
+                      "typeString": "uint256"
+                    }
+                  }
+                ],
+                "id": 18711,
+                "modifierName": {
+                  "argumentTypes": null,
+                  "id": 18706,
+                  "name": "PricelessAssetBypassMixin",
+                  "nodeType": "Identifier",
+                  "overloadedDeclarations": [],
+                  "referencedDeclaration": 11242,
+                  "src": "756:25:85",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_type$_t_contract$_PricelessAssetBypassMixin_$11242_$",
+                    "typeString": "type(contract PricelessAssetBypassMixin)"
+                  }
+                },
+                "nodeType": "ModifierInvocation",
+                "src": "756:79:85"
+              }
+            ],
+            "name": "",
+            "overrides": null,
+            "parameters": {
+              "id": 18705,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 18698,
+                  "mutability": "mutable",
+                  "name": "_valueInterpreter",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 18714,
+                  "src": "634:25:85",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 18697,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "634:7:85",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 18700,
+                  "mutability": "mutable",
+                  "name": "_wethToken",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 18714,
+                  "src": "669:18:85",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 18699,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "669:7:85",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 18702,
+                  "mutability": "mutable",
+                  "name": "_timelock",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 18714,
+                  "src": "697:17:85",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_uint256",
+                    "typeString": "uint256"
+                  },
+                  "typeName": {
+                    "id": 18701,
+                    "name": "uint256",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "697:7:85",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_uint256",
+                      "typeString": "uint256"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 18704,
+                  "mutability": "mutable",
+                  "name": "_timeLimit",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 18714,
+                  "src": "724:18:85",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_uint256",
+                    "typeString": "uint256"
+                  },
+                  "typeName": {
+                    "id": 18703,
+                    "name": "uint256",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "724:7:85",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_uint256",
+                      "typeString": "uint256"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "624:124:85"
+            },
+            "returnParameters": {
+              "id": 18712,
+              "nodeType": "ParameterList",
+              "parameters": [],
+              "src": "836:0:85"
+            },
+            "scope": 18759,
+            "stateMutability": "nonpayable",
+            "virtual": false,
+            "visibility": "public"
+          },
+          {
+            "id": 18737,
+            "nodeType": "FunctionDefinition",
+            "src": "844:472:85",
+            "nodes": [],
+            "body": {
+              "id": 18736,
+              "nodeType": "Block",
+              "src": "1088:228:85",
+              "nodes": [],
+              "statements": [
+                {
+                  "expression": {
+                    "argumentTypes": null,
+                    "arguments": [
+                      {
+                        "argumentTypes": null,
+                        "id": 18730,
+                        "name": "_comptrollerProxy",
+                        "nodeType": "Identifier",
+                        "overloadedDeclarations": [],
+                        "referencedDeclaration": 18716,
+                        "src": "1185:17:85",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_address",
+                          "typeString": "address"
+                        }
+                      },
+                      {
+                        "argumentTypes": null,
+                        "id": 18731,
+                        "name": "_baseAssets",
+                        "nodeType": "Identifier",
+                        "overloadedDeclarations": [],
+                        "referencedDeclaration": 18719,
+                        "src": "1220:11:85",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_array$_t_address_$dyn_memory_ptr",
+                          "typeString": "address[] memory"
+                        }
+                      },
+                      {
+                        "argumentTypes": null,
+                        "id": 18732,
+                        "name": "_baseAssetAmounts",
+                        "nodeType": "Identifier",
+                        "overloadedDeclarations": [],
+                        "referencedDeclaration": 18722,
+                        "src": "1249:17:85",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_array$_t_uint256_$dyn_memory_ptr",
+                          "typeString": "uint256[] memory"
+                        }
+                      },
+                      {
+                        "argumentTypes": null,
+                        "id": 18733,
+                        "name": "_quoteAsset",
+                        "nodeType": "Identifier",
+                        "overloadedDeclarations": [],
+                        "referencedDeclaration": 18724,
+                        "src": "1284:11:85",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_address",
+                          "typeString": "address"
+                        }
+                      }
+                    ],
+                    "expression": {
+                      "argumentTypes": [
+                        {
+                          "typeIdentifier": "t_address",
+                          "typeString": "address"
+                        },
+                        {
+                          "typeIdentifier": "t_array$_t_address_$dyn_memory_ptr",
+                          "typeString": "address[] memory"
+                        },
+                        {
+                          "typeIdentifier": "t_array$_t_uint256_$dyn_memory_ptr",
+                          "typeString": "uint256[] memory"
+                        },
+                        {
+                          "typeIdentifier": "t_address",
+                          "typeString": "address"
+                        }
+                      ],
+                      "id": 18729,
+                      "name": "__calcTotalValueExlcudingBypassablePricelessAssets",
+                      "nodeType": "Identifier",
+                      "overloadedDeclarations": [],
+                      "referencedDeclaration": 11139,
+                      "src": "1117:50:85",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_function_internal_nonpayable$_t_address_$_t_array$_t_address_$dyn_memory_ptr_$_t_array$_t_uint256_$dyn_memory_ptr_$_t_address_$returns$_t_uint256_$",
+                        "typeString": "function (address,address[] memory,uint256[] memory,address) returns (uint256)"
+                      }
+                    },
+                    "id": 18734,
+                    "isConstant": false,
+                    "isLValue": false,
+                    "isPure": false,
+                    "kind": "functionCall",
+                    "lValueRequested": false,
+                    "names": [],
+                    "nodeType": "FunctionCall",
+                    "src": "1117:192:85",
+                    "tryCall": false,
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_uint256",
+                      "typeString": "uint256"
+                    }
+                  },
+                  "functionReturnParameters": 18728,
+                  "id": 18735,
+                  "nodeType": "Return",
+                  "src": "1098:211:85"
+                }
+              ]
+            },
+            "documentation": null,
+            "functionSelector": "ecd09063",
+            "implemented": true,
+            "kind": "function",
+            "modifiers": [],
+            "name": "calcTotalValueExlcudingBypassablePricelessAssets",
+            "overrides": null,
+            "parameters": {
+              "id": 18725,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 18716,
+                  "mutability": "mutable",
+                  "name": "_comptrollerProxy",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 18737,
+                  "src": "911:25:85",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 18715,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "911:7:85",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 18719,
+                  "mutability": "mutable",
+                  "name": "_baseAssets",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 18737,
+                  "src": "946:28:85",
+                  "stateVariable": false,
+                  "storageLocation": "memory",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_array$_t_address_$dyn_memory_ptr",
+                    "typeString": "address[]"
+                  },
+                  "typeName": {
+                    "baseType": {
+                      "id": 18717,
+                      "name": "address",
+                      "nodeType": "ElementaryTypeName",
+                      "src": "946:7:85",
+                      "stateMutability": "nonpayable",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_address",
+                        "typeString": "address"
+                      }
+                    },
+                    "id": 18718,
+                    "length": null,
+                    "nodeType": "ArrayTypeName",
+                    "src": "946:9:85",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_array$_t_address_$dyn_storage_ptr",
+                      "typeString": "address[]"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 18722,
+                  "mutability": "mutable",
+                  "name": "_baseAssetAmounts",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 18737,
+                  "src": "984:34:85",
+                  "stateVariable": false,
+                  "storageLocation": "memory",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_array$_t_uint256_$dyn_memory_ptr",
+                    "typeString": "uint256[]"
+                  },
+                  "typeName": {
+                    "baseType": {
+                      "id": 18720,
+                      "name": "uint256",
+                      "nodeType": "ElementaryTypeName",
+                      "src": "984:7:85",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_uint256",
+                        "typeString": "uint256"
+                      }
+                    },
+                    "id": 18721,
+                    "length": null,
+                    "nodeType": "ArrayTypeName",
+                    "src": "984:9:85",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_array$_t_uint256_$dyn_storage_ptr",
+                      "typeString": "uint256[]"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 18724,
+                  "mutability": "mutable",
+                  "name": "_quoteAsset",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 18737,
+                  "src": "1028:19:85",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 18723,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "1028:7:85",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "901:152:85"
+            },
+            "returnParameters": {
+              "id": 18728,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 18727,
+                  "mutability": "mutable",
+                  "name": "value_",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 18737,
+                  "src": "1072:14:85",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_uint256",
+                    "typeString": "uint256"
+                  },
+                  "typeName": {
+                    "id": 18726,
+                    "name": "uint256",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "1072:7:85",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_uint256",
+                      "typeString": "uint256"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "1071:16:85"
+            },
+            "scope": 18759,
+            "stateMutability": "nonpayable",
+            "virtual": false,
+            "visibility": "external"
+          },
+          {
+            "id": 18758,
+            "nodeType": "FunctionDefinition",
+            "src": "1322:438:85",
+            "nodes": [],
+            "body": {
+              "id": 18757,
+              "nodeType": "Block",
+              "src": "1540:220:85",
+              "nodes": [],
+              "statements": [
+                {
+                  "expression": {
+                    "argumentTypes": null,
+                    "arguments": [
+                      {
+                        "argumentTypes": null,
+                        "id": 18751,
+                        "name": "_comptrollerProxy",
+                        "nodeType": "Identifier",
+                        "overloadedDeclarations": [],
+                        "referencedDeclaration": 18739,
+                        "src": "1631:17:85",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_address",
+                          "typeString": "address"
+                        }
+                      },
+                      {
+                        "argumentTypes": null,
+                        "id": 18752,
+                        "name": "_baseAsset",
+                        "nodeType": "Identifier",
+                        "overloadedDeclarations": [],
+                        "referencedDeclaration": 18741,
+                        "src": "1666:10:85",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_address",
+                          "typeString": "address"
+                        }
+                      },
+                      {
+                        "argumentTypes": null,
+                        "id": 18753,
+                        "name": "_baseAssetAmount",
+                        "nodeType": "Identifier",
+                        "overloadedDeclarations": [],
+                        "referencedDeclaration": 18743,
+                        "src": "1694:16:85",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_uint256",
+                          "typeString": "uint256"
+                        }
+                      },
+                      {
+                        "argumentTypes": null,
+                        "id": 18754,
+                        "name": "_quoteAsset",
+                        "nodeType": "Identifier",
+                        "overloadedDeclarations": [],
+                        "referencedDeclaration": 18745,
+                        "src": "1728:11:85",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_address",
+                          "typeString": "address"
+                        }
+                      }
+                    ],
+                    "expression": {
+                      "argumentTypes": [
+                        {
+                          "typeIdentifier": "t_address",
+                          "typeString": "address"
+                        },
+                        {
+                          "typeIdentifier": "t_address",
+                          "typeString": "address"
+                        },
+                        {
+                          "typeIdentifier": "t_uint256",
+                          "typeString": "uint256"
+                        },
+                        {
+                          "typeIdentifier": "t_address",
+                          "typeString": "address"
+                        }
+                      ],
+                      "id": 18750,
+                      "name": "__calcValueExcludingBypassablePricelessAsset",
+                      "nodeType": "Identifier",
+                      "overloadedDeclarations": [],
+                      "referencedDeclaration": 11188,
+                      "src": "1569:44:85",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_function_internal_nonpayable$_t_address_$_t_address_$_t_uint256_$_t_address_$returns$_t_uint256_$",
+                        "typeString": "function (address,address,uint256,address) returns (uint256)"
+                      }
+                    },
+                    "id": 18755,
+                    "isConstant": false,
+                    "isLValue": false,
+                    "isPure": false,
+                    "kind": "functionCall",
+                    "lValueRequested": false,
+                    "names": [],
+                    "nodeType": "FunctionCall",
+                    "src": "1569:184:85",
+                    "tryCall": false,
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_uint256",
+                      "typeString": "uint256"
+                    }
+                  },
+                  "functionReturnParameters": 18749,
+                  "id": 18756,
+                  "nodeType": "Return",
+                  "src": "1550:203:85"
+                }
+              ]
+            },
+            "documentation": null,
+            "functionSelector": "d21e7a78",
+            "implemented": true,
+            "kind": "function",
+            "modifiers": [],
+            "name": "calcValueExcludingBypassablePricelessAsset",
+            "overrides": null,
+            "parameters": {
+              "id": 18746,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 18739,
+                  "mutability": "mutable",
+                  "name": "_comptrollerProxy",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 18758,
+                  "src": "1383:25:85",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 18738,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "1383:7:85",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 18741,
+                  "mutability": "mutable",
+                  "name": "_baseAsset",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 18758,
+                  "src": "1418:18:85",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 18740,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "1418:7:85",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 18743,
+                  "mutability": "mutable",
+                  "name": "_baseAssetAmount",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 18758,
+                  "src": "1446:24:85",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_uint256",
+                    "typeString": "uint256"
+                  },
+                  "typeName": {
+                    "id": 18742,
+                    "name": "uint256",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "1446:7:85",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_uint256",
+                      "typeString": "uint256"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 18745,
+                  "mutability": "mutable",
+                  "name": "_quoteAsset",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 18758,
+                  "src": "1480:19:85",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 18744,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "1480:7:85",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "1373:132:85"
+            },
+            "returnParameters": {
+              "id": 18749,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 18748,
+                  "mutability": "mutable",
+                  "name": "value_",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 18758,
+                  "src": "1524:14:85",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_uint256",
+                    "typeString": "uint256"
+                  },
+                  "typeName": {
+                    "id": 18747,
+                    "name": "uint256",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "1524:7:85",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_uint256",
+                      "typeString": "uint256"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "1523:16:85"
+            },
+            "scope": 18759,
+            "stateMutability": "nonpayable",
+            "virtual": false,
+            "visibility": "external"
+          }
+        ],
+        "abstract": false,
+        "baseContracts": [
+          {
+            "arguments": null,
+            "baseName": {
+              "contractScope": null,
+              "id": 18695,
+              "name": "PricelessAssetBypassMixin",
+              "nodeType": "UserDefinedTypeName",
+              "referencedDeclaration": 11242,
+              "src": "581:25:85",
+              "typeDescriptions": {
+                "typeIdentifier": "t_contract$_PricelessAssetBypassMixin_$11242",
+                "typeString": "contract PricelessAssetBypassMixin"
+              }
+            },
+            "id": 18696,
+            "nodeType": "InheritanceSpecifier",
+            "src": "581:25:85"
+          }
+        ],
+        "contractDependencies": [
+          11242
+        ],
+        "contractKind": "contract",
+        "documentation": {
+          "id": 18694,
+          "nodeType": "StructuredDocumentation",
+          "src": "373:166:85",
+          "text": "@title TestPricelessAssetBypassMixin Contract\n @author Enzyme Council <security@enzyme.finance>\n @notice A test implementation of PricelessAssetBypassMixin"
+        },
+        "fullyImplemented": true,
+        "linearizedBaseContracts": [
+          18759,
+          11242
+        ],
+        "name": "TestPricelessAssetBypassMixin",
+        "scope": 18760
+      }
+    ],
+    "license": "GPL-3.0"
+  },
+  "id": 85
+}

@@ -1,7 +1,4 @@
 {
-  "_format": "hh-sol-artifact-1",
-  "contractName": "CurveGaugeV2RewardsHandlerMixin",
-  "sourceName": "contracts/release/extensions/integration-manager/integrations/utils/actions/CurveGaugeV2RewardsHandlerMixin.sol",
   "abi": [
     {
       "inputs": [
@@ -46,8 +43,1322 @@
       "type": "function"
     }
   ],
-  "bytecode": "0x",
-  "deployedBytecode": "0x",
-  "linkReferences": {},
-  "deployedLinkReferences": {}
+  "bytecode": {
+    "object": "0x",
+    "sourceMap": "",
+    "linkReferences": {}
+  },
+  "deployedBytecode": {
+    "object": "0x",
+    "sourceMap": "",
+    "linkReferences": {}
+  },
+  "methodIdentifiers": {
+    "getCurveGaugeV2RewardsHandlerCrvToken()": "332d709f",
+    "getCurveGaugeV2RewardsHandlerMinter()": "f003eb85"
+  },
+  "rawMetadata": "{\"compiler\":{\"version\":\"0.6.12+commit.27d51765\"},\"language\":\"Solidity\",\"output\":{\"abi\":[{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_minter\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"_crvToken\",\"type\":\"address\"}],\"stateMutability\":\"nonpayable\",\"type\":\"constructor\"},{\"inputs\":[],\"name\":\"getCurveGaugeV2RewardsHandlerCrvToken\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"crvToken_\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getCurveGaugeV2RewardsHandlerMinter\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"minter_\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"}],\"devdoc\":{\"author\":\"Enzyme Council <security@enzyme.finance>\",\"kind\":\"dev\",\"methods\":{\"getCurveGaugeV2RewardsHandlerCrvToken()\":{\"returns\":{\"crvToken_\":\"The `CURVE_GAUGE_V2_REWARDS_HANDLER_CRV_TOKEN` variable value\"}},\"getCurveGaugeV2RewardsHandlerMinter()\":{\"returns\":{\"minter_\":\"The `CURVE_GAUGE_V2_REWARDS_HANDLER_MINTER` variable value\"}}},\"title\":\"CurveGaugeV2RewardsHandlerMixin Contract\",\"version\":1},\"userdoc\":{\"kind\":\"user\",\"methods\":{\"getCurveGaugeV2RewardsHandlerCrvToken()\":{\"notice\":\"Gets the `CURVE_GAUGE_V2_REWARDS_HANDLER_CRV_TOKEN` variable\"},\"getCurveGaugeV2RewardsHandlerMinter()\":{\"notice\":\"Gets the `CURVE_GAUGE_V2_REWARDS_HANDLER_MINTER` variable\"}},\"notice\":\"Mixin contract for handling claiming and reinvesting rewards for a Curve pool that uses the LiquidityGaugeV2 contract\",\"version\":1}},\"settings\":{\"compilationTarget\":{\"contracts/release/extensions/integration-manager/integrations/utils/actions/CurveGaugeV2RewardsHandlerMixin.sol\":\"CurveGaugeV2RewardsHandlerMixin\"},\"evmVersion\":\"istanbul\",\"libraries\":{},\"metadata\":{\"bytecodeHash\":\"none\"},\"optimizer\":{\"details\":{\"constantOptimizer\":true,\"cse\":true,\"deduplicate\":true,\"jumpdestRemover\":true,\"orderLiterals\":true,\"peephole\":true,\"yul\":false},\"runs\":200},\"remappings\":[\":@enzyme/=contracts/\",\":@openzeppelin-solc-0.7/=node_modules/@openzeppelin-solc-0.7/\",\":@openzeppelin/=node_modules/@openzeppelin/\",\":@uniswap/=node_modules/@uniswap/\",\":base64-sol/=node_modules/base64-sol/\",\":ds-test/=lib/forge-std/lib/ds-test/src/\",\":forge-std/=lib/forge-std/src/\",\":hardhat-deploy/=node_modules/hardhat-deploy/\",\":hardhat/=node_modules/hardhat/\"]},\"sources\":{\"contracts/release/extensions/integration-manager/integrations/utils/actions/CurveGaugeV2ActionsMixin.sol\":{\"keccak256\":\"0xb297d967916d8560814b5d85ca8abedacf7d3c414390a0eb1179aa3adaa9be1b\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://97b52856086845cdfe9ddcd6e0be1eb72658a6775ab3cec97c4aa4d5477d28f3\",\"dweb:/ipfs/QmccHa8AXHZ4TiBu9225cxi6RgT6SskhgmUFzEJmgzE625\"]},\"contracts/release/extensions/integration-manager/integrations/utils/actions/CurveGaugeV2RewardsHandlerMixin.sol\":{\"keccak256\":\"0x03af28f9cd7e5666a8060a8e2208d88f4ec3d6be4c7dad13d41757754296eb5b\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://d3396dfde6e114902db13370916a570fcad62502520dd129f9cac9f8d80e3aa4\",\"dweb:/ipfs/QmVVDVf6dm6fKvN2gFBM5NQWwX8cNzLszmvGwrUBBoQGqW\"]},\"contracts/release/interfaces/ICurveLiquidityGaugeV2.sol\":{\"keccak256\":\"0x0fbd9bdd7d7df1cd92c065ae3e62f1767d80914f086a0f146a2c9874aa7d4e30\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://7ed9ee21be1e5c6e6caf3abd0a092410c50614239c72a361612e3d71a649e6e1\",\"dweb:/ipfs/QmZgGgbPsWAiMwnPiimNGgFN6ZnaqcUkRSsSpnQi1MtBNs\"]},\"contracts/release/interfaces/ICurveMinter.sol\":{\"keccak256\":\"0xbfe0cfa932805d9cda714d7ef7cb6b42d08c782b0ffa46de5e2c0530f4ce5ba1\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://29ab2dcee291bf81ccb67ab31fd3548e634fb2742642f70890edc7af727d3d39\",\"dweb:/ipfs/QmVZtC5aHRABS8ZX8XVtwiW1Y8K5vnhVH7WKZ29prN2EpJ\"]},\"contracts/release/utils/AddressArrayLib.sol\":{\"keccak256\":\"0xd76e220cc754d7c939e54c18d4060f843ca798bccaf9a9dbbd428e38d0f0960f\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://bf0cbaedaec3390b6912ecef7bf62b2e8ec00d7f2b4f0045bab121b812e6f9d6\",\"dweb:/ipfs/QmSd5kxsv5x37TXeRDD91YmVCVA3GVFishdVyC2B9ed9ap\"]},\"contracts/release/utils/AssetHelpers.sol\":{\"keccak256\":\"0x01825f9b744f0bdbbcbed59503845b46e31b67ab510d53d4834c22967e12fc5f\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://a6937098b8b5e2238c5d2617d4c7870b61eb3dc6b24e38a6d037353f92a7db4b\",\"dweb:/ipfs/QmXfdWqtc4Dyn4ShhCc6ZZscApMZWtSaonvikwemhczb5E\"]},\"node_modules/@openzeppelin/contracts/math/SafeMath.sol\":{\"keccak256\":\"0xcc78a17dd88fa5a2edc60c8489e2f405c0913b377216a5b26b35656b2d0dab52\",\"license\":\"MIT\",\"urls\":[\"bzz-raw://526dc85e1f9b9b45830e202568d267d93dde7a4fcccf4ad7798dadcd92304d3c\",\"dweb:/ipfs/QmaoXMB972J3cSDLtBq3xBo4jLwqD2uzXTwujtSPqkYVhR\"]},\"node_modules/@openzeppelin/contracts/token/ERC20/ERC20.sol\":{\"keccak256\":\"0xca0c2396dbeb3503b51abf4248ebf77a1461edad513c01529df51850a012bee3\",\"license\":\"MIT\",\"urls\":[\"bzz-raw://991b44ff44e0496e8554a90f4c0512c28faed45104d40430019f3c67ea67740e\",\"dweb:/ipfs/Qmc3nRapVbcctELoZS5qe17zLkFB3bETBfwzCTMF1CSuGE\"]},\"node_modules/@openzeppelin/contracts/token/ERC20/IERC20.sol\":{\"keccak256\":\"0x5f02220344881ce43204ae4a6281145a67bc52c2bb1290a791857df3d19d78f5\",\"license\":\"MIT\",\"urls\":[\"bzz-raw://24427744bd3e6cb73c17010119af12a318289c0253a4d9acb8576c9fb3797b08\",\"dweb:/ipfs/QmTLDqpKRBuxGxRAmjgXt9AkXyACW3MtKzi7PYjm5iMfGC\"]},\"node_modules/@openzeppelin/contracts/token/ERC20/SafeERC20.sol\":{\"keccak256\":\"0xf12dfbe97e6276980b83d2830bb0eb75e0cf4f3e626c2471137f82158ae6a0fc\",\"license\":\"MIT\",\"urls\":[\"bzz-raw://b3a849c2d95e85463909e5b5c920b13e7a11216ca14127085e16d22b9379d52a\",\"dweb:/ipfs/QmUg3CZDbCCcQdroEpexBy5ZFd5vD1UWijWQq9qHZjtJNQ\"]},\"node_modules/@openzeppelin/contracts/utils/Address.sol\":{\"keccak256\":\"0x28911e614500ae7c607a432a709d35da25f3bc5ddc8bd12b278b66358070c0ea\",\"license\":\"MIT\",\"urls\":[\"bzz-raw://256c8c8af5eb072bc473226ab2b2187149b8fc04f5f4a4820db22527f5ce8e3c\",\"dweb:/ipfs/QmRvi5BhnL7Rxf85KrJhwM6RRhukm4tzoctRdgQEheNyiN\"]},\"node_modules/@openzeppelin/contracts/utils/Context.sol\":{\"keccak256\":\"0x8d3cb350f04ff49cfb10aef08d87f19dcbaecc8027b0bed12f3275cd12f38cf0\",\"license\":\"MIT\",\"urls\":[\"bzz-raw://ded47ec7c96750f9bd04bbbc84f659992d4ba901cb7b532a52cd468272cf378f\",\"dweb:/ipfs/QmfBrGtQP7rZEqEg6Wz6jh2N2Kukpj1z5v3CGWmAqrzm96\"]}},\"version\":1}",
+  "metadata": {
+    "compiler": {
+      "version": "0.6.12+commit.27d51765"
+    },
+    "language": "Solidity",
+    "output": {
+      "abi": [
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "_minter",
+              "type": "address"
+            },
+            {
+              "internalType": "address",
+              "name": "_crvToken",
+              "type": "address"
+            }
+          ],
+          "stateMutability": "nonpayable",
+          "type": "constructor"
+        },
+        {
+          "inputs": [],
+          "stateMutability": "view",
+          "type": "function",
+          "name": "getCurveGaugeV2RewardsHandlerCrvToken",
+          "outputs": [
+            {
+              "internalType": "address",
+              "name": "crvToken_",
+              "type": "address"
+            }
+          ]
+        },
+        {
+          "inputs": [],
+          "stateMutability": "view",
+          "type": "function",
+          "name": "getCurveGaugeV2RewardsHandlerMinter",
+          "outputs": [
+            {
+              "internalType": "address",
+              "name": "minter_",
+              "type": "address"
+            }
+          ]
+        }
+      ],
+      "devdoc": {
+        "kind": "dev",
+        "methods": {
+          "getCurveGaugeV2RewardsHandlerCrvToken()": {
+            "returns": {
+              "crvToken_": "The `CURVE_GAUGE_V2_REWARDS_HANDLER_CRV_TOKEN` variable value"
+            }
+          },
+          "getCurveGaugeV2RewardsHandlerMinter()": {
+            "returns": {
+              "minter_": "The `CURVE_GAUGE_V2_REWARDS_HANDLER_MINTER` variable value"
+            }
+          }
+        },
+        "version": 1
+      },
+      "userdoc": {
+        "kind": "user",
+        "methods": {
+          "getCurveGaugeV2RewardsHandlerCrvToken()": {
+            "notice": "Gets the `CURVE_GAUGE_V2_REWARDS_HANDLER_CRV_TOKEN` variable"
+          },
+          "getCurveGaugeV2RewardsHandlerMinter()": {
+            "notice": "Gets the `CURVE_GAUGE_V2_REWARDS_HANDLER_MINTER` variable"
+          }
+        },
+        "version": 1
+      }
+    },
+    "settings": {
+      "remappings": [
+        ":@enzyme/=contracts/",
+        ":@openzeppelin-solc-0.7/=node_modules/@openzeppelin-solc-0.7/",
+        ":@openzeppelin/=node_modules/@openzeppelin/",
+        ":@uniswap/=node_modules/@uniswap/",
+        ":base64-sol/=node_modules/base64-sol/",
+        ":ds-test/=lib/forge-std/lib/ds-test/src/",
+        ":forge-std/=lib/forge-std/src/",
+        ":hardhat-deploy/=node_modules/hardhat-deploy/",
+        ":hardhat/=node_modules/hardhat/"
+      ],
+      "optimizer": {
+        "runs": 200,
+        "details": {
+          "peephole": true,
+          "jumpdestRemover": true,
+          "orderLiterals": true,
+          "deduplicate": true,
+          "cse": true,
+          "constantOptimizer": true,
+          "yul": false
+        }
+      },
+      "metadata": {
+        "bytecodeHash": "none"
+      },
+      "compilationTarget": {
+        "contracts/release/extensions/integration-manager/integrations/utils/actions/CurveGaugeV2RewardsHandlerMixin.sol": "CurveGaugeV2RewardsHandlerMixin"
+      },
+      "libraries": {}
+    },
+    "sources": {
+      "contracts/release/extensions/integration-manager/integrations/utils/actions/CurveGaugeV2ActionsMixin.sol": {
+        "keccak256": "0xb297d967916d8560814b5d85ca8abedacf7d3c414390a0eb1179aa3adaa9be1b",
+        "urls": [
+          "bzz-raw://97b52856086845cdfe9ddcd6e0be1eb72658a6775ab3cec97c4aa4d5477d28f3",
+          "dweb:/ipfs/QmccHa8AXHZ4TiBu9225cxi6RgT6SskhgmUFzEJmgzE625"
+        ],
+        "license": "GPL-3.0"
+      },
+      "contracts/release/extensions/integration-manager/integrations/utils/actions/CurveGaugeV2RewardsHandlerMixin.sol": {
+        "keccak256": "0x03af28f9cd7e5666a8060a8e2208d88f4ec3d6be4c7dad13d41757754296eb5b",
+        "urls": [
+          "bzz-raw://d3396dfde6e114902db13370916a570fcad62502520dd129f9cac9f8d80e3aa4",
+          "dweb:/ipfs/QmVVDVf6dm6fKvN2gFBM5NQWwX8cNzLszmvGwrUBBoQGqW"
+        ],
+        "license": "GPL-3.0"
+      },
+      "contracts/release/interfaces/ICurveLiquidityGaugeV2.sol": {
+        "keccak256": "0x0fbd9bdd7d7df1cd92c065ae3e62f1767d80914f086a0f146a2c9874aa7d4e30",
+        "urls": [
+          "bzz-raw://7ed9ee21be1e5c6e6caf3abd0a092410c50614239c72a361612e3d71a649e6e1",
+          "dweb:/ipfs/QmZgGgbPsWAiMwnPiimNGgFN6ZnaqcUkRSsSpnQi1MtBNs"
+        ],
+        "license": "GPL-3.0"
+      },
+      "contracts/release/interfaces/ICurveMinter.sol": {
+        "keccak256": "0xbfe0cfa932805d9cda714d7ef7cb6b42d08c782b0ffa46de5e2c0530f4ce5ba1",
+        "urls": [
+          "bzz-raw://29ab2dcee291bf81ccb67ab31fd3548e634fb2742642f70890edc7af727d3d39",
+          "dweb:/ipfs/QmVZtC5aHRABS8ZX8XVtwiW1Y8K5vnhVH7WKZ29prN2EpJ"
+        ],
+        "license": "GPL-3.0"
+      },
+      "contracts/release/utils/AddressArrayLib.sol": {
+        "keccak256": "0xd76e220cc754d7c939e54c18d4060f843ca798bccaf9a9dbbd428e38d0f0960f",
+        "urls": [
+          "bzz-raw://bf0cbaedaec3390b6912ecef7bf62b2e8ec00d7f2b4f0045bab121b812e6f9d6",
+          "dweb:/ipfs/QmSd5kxsv5x37TXeRDD91YmVCVA3GVFishdVyC2B9ed9ap"
+        ],
+        "license": "GPL-3.0"
+      },
+      "contracts/release/utils/AssetHelpers.sol": {
+        "keccak256": "0x01825f9b744f0bdbbcbed59503845b46e31b67ab510d53d4834c22967e12fc5f",
+        "urls": [
+          "bzz-raw://a6937098b8b5e2238c5d2617d4c7870b61eb3dc6b24e38a6d037353f92a7db4b",
+          "dweb:/ipfs/QmXfdWqtc4Dyn4ShhCc6ZZscApMZWtSaonvikwemhczb5E"
+        ],
+        "license": "GPL-3.0"
+      },
+      "node_modules/@openzeppelin/contracts/math/SafeMath.sol": {
+        "keccak256": "0xcc78a17dd88fa5a2edc60c8489e2f405c0913b377216a5b26b35656b2d0dab52",
+        "urls": [
+          "bzz-raw://526dc85e1f9b9b45830e202568d267d93dde7a4fcccf4ad7798dadcd92304d3c",
+          "dweb:/ipfs/QmaoXMB972J3cSDLtBq3xBo4jLwqD2uzXTwujtSPqkYVhR"
+        ],
+        "license": "MIT"
+      },
+      "node_modules/@openzeppelin/contracts/token/ERC20/ERC20.sol": {
+        "keccak256": "0xca0c2396dbeb3503b51abf4248ebf77a1461edad513c01529df51850a012bee3",
+        "urls": [
+          "bzz-raw://991b44ff44e0496e8554a90f4c0512c28faed45104d40430019f3c67ea67740e",
+          "dweb:/ipfs/Qmc3nRapVbcctELoZS5qe17zLkFB3bETBfwzCTMF1CSuGE"
+        ],
+        "license": "MIT"
+      },
+      "node_modules/@openzeppelin/contracts/token/ERC20/IERC20.sol": {
+        "keccak256": "0x5f02220344881ce43204ae4a6281145a67bc52c2bb1290a791857df3d19d78f5",
+        "urls": [
+          "bzz-raw://24427744bd3e6cb73c17010119af12a318289c0253a4d9acb8576c9fb3797b08",
+          "dweb:/ipfs/QmTLDqpKRBuxGxRAmjgXt9AkXyACW3MtKzi7PYjm5iMfGC"
+        ],
+        "license": "MIT"
+      },
+      "node_modules/@openzeppelin/contracts/token/ERC20/SafeERC20.sol": {
+        "keccak256": "0xf12dfbe97e6276980b83d2830bb0eb75e0cf4f3e626c2471137f82158ae6a0fc",
+        "urls": [
+          "bzz-raw://b3a849c2d95e85463909e5b5c920b13e7a11216ca14127085e16d22b9379d52a",
+          "dweb:/ipfs/QmUg3CZDbCCcQdroEpexBy5ZFd5vD1UWijWQq9qHZjtJNQ"
+        ],
+        "license": "MIT"
+      },
+      "node_modules/@openzeppelin/contracts/utils/Address.sol": {
+        "keccak256": "0x28911e614500ae7c607a432a709d35da25f3bc5ddc8bd12b278b66358070c0ea",
+        "urls": [
+          "bzz-raw://256c8c8af5eb072bc473226ab2b2187149b8fc04f5f4a4820db22527f5ce8e3c",
+          "dweb:/ipfs/QmRvi5BhnL7Rxf85KrJhwM6RRhukm4tzoctRdgQEheNyiN"
+        ],
+        "license": "MIT"
+      },
+      "node_modules/@openzeppelin/contracts/utils/Context.sol": {
+        "keccak256": "0x8d3cb350f04ff49cfb10aef08d87f19dcbaecc8027b0bed12f3275cd12f38cf0",
+        "urls": [
+          "bzz-raw://ded47ec7c96750f9bd04bbbc84f659992d4ba901cb7b532a52cd468272cf378f",
+          "dweb:/ipfs/QmfBrGtQP7rZEqEg6Wz6jh2N2Kukpj1z5v3CGWmAqrzm96"
+        ],
+        "license": "MIT"
+      }
+    },
+    "version": 1
+  },
+  "ast": {
+    "absolutePath": "contracts/release/extensions/integration-manager/integrations/utils/actions/CurveGaugeV2RewardsHandlerMixin.sol",
+    "id": 50880,
+    "exportedSymbols": {
+      "CurveGaugeV2RewardsHandlerMixin": [
+        50879
+      ]
+    },
+    "nodeType": "SourceUnit",
+    "src": "255:2350:188",
+    "nodes": [
+      {
+        "id": 50790,
+        "nodeType": "PragmaDirective",
+        "src": "255:23:188",
+        "nodes": [],
+        "literals": [
+          "solidity",
+          "0.6",
+          ".12"
+        ]
+      },
+      {
+        "id": 50791,
+        "nodeType": "ImportDirective",
+        "src": "280:52:188",
+        "nodes": [],
+        "absolutePath": "contracts/release/interfaces/ICurveMinter.sol",
+        "file": "../../../../../interfaces/ICurveMinter.sol",
+        "scope": 50880,
+        "sourceUnit": 71621,
+        "symbolAliases": [],
+        "unitAlias": ""
+      },
+      {
+        "id": 50792,
+        "nodeType": "ImportDirective",
+        "src": "333:50:188",
+        "nodes": [],
+        "absolutePath": "contracts/release/utils/AddressArrayLib.sol",
+        "file": "../../../../../utils/AddressArrayLib.sol",
+        "scope": 50880,
+        "sourceUnit": 76994,
+        "symbolAliases": [],
+        "unitAlias": ""
+      },
+      {
+        "id": 50793,
+        "nodeType": "ImportDirective",
+        "src": "384:40:188",
+        "nodes": [],
+        "absolutePath": "contracts/release/extensions/integration-manager/integrations/utils/actions/CurveGaugeV2ActionsMixin.sol",
+        "file": "./CurveGaugeV2ActionsMixin.sol",
+        "scope": 50880,
+        "sourceUnit": 50789,
+        "symbolAliases": [],
+        "unitAlias": ""
+      },
+      {
+        "id": 50879,
+        "nodeType": "ContractDefinition",
+        "src": "665:1939:188",
+        "nodes": [
+          {
+            "id": 50800,
+            "nodeType": "UsingForDirective",
+            "src": "749:36:188",
+            "nodes": [],
+            "libraryName": {
+              "contractScope": null,
+              "id": 50797,
+              "name": "AddressArrayLib",
+              "nodeType": "UserDefinedTypeName",
+              "referencedDeclaration": 76993,
+              "src": "755:15:188",
+              "typeDescriptions": {
+                "typeIdentifier": "t_contract$_AddressArrayLib_$76993",
+                "typeString": "library AddressArrayLib"
+              }
+            },
+            "typeName": {
+              "baseType": {
+                "id": 50798,
+                "name": "address",
+                "nodeType": "ElementaryTypeName",
+                "src": "775:7:188",
+                "stateMutability": "nonpayable",
+                "typeDescriptions": {
+                  "typeIdentifier": "t_address",
+                  "typeString": "address"
+                }
+              },
+              "id": 50799,
+              "length": null,
+              "nodeType": "ArrayTypeName",
+              "src": "775:9:188",
+              "typeDescriptions": {
+                "typeIdentifier": "t_array$_t_address_$dyn_storage_ptr",
+                "typeString": "address[]"
+              }
+            }
+          },
+          {
+            "id": 50802,
+            "nodeType": "VariableDeclaration",
+            "src": "791:66:188",
+            "nodes": [],
+            "constant": false,
+            "mutability": "immutable",
+            "name": "CURVE_GAUGE_V2_REWARDS_HANDLER_CRV_TOKEN",
+            "overrides": null,
+            "scope": 50879,
+            "stateVariable": true,
+            "storageLocation": "default",
+            "typeDescriptions": {
+              "typeIdentifier": "t_address",
+              "typeString": "address"
+            },
+            "typeName": {
+              "id": 50801,
+              "name": "address",
+              "nodeType": "ElementaryTypeName",
+              "src": "791:7:188",
+              "stateMutability": "nonpayable",
+              "typeDescriptions": {
+                "typeIdentifier": "t_address",
+                "typeString": "address"
+              }
+            },
+            "value": null,
+            "visibility": "private"
+          },
+          {
+            "id": 50804,
+            "nodeType": "VariableDeclaration",
+            "src": "863:63:188",
+            "nodes": [],
+            "constant": false,
+            "mutability": "immutable",
+            "name": "CURVE_GAUGE_V2_REWARDS_HANDLER_MINTER",
+            "overrides": null,
+            "scope": 50879,
+            "stateVariable": true,
+            "storageLocation": "default",
+            "typeDescriptions": {
+              "typeIdentifier": "t_address",
+              "typeString": "address"
+            },
+            "typeName": {
+              "id": 50803,
+              "name": "address",
+              "nodeType": "ElementaryTypeName",
+              "src": "863:7:188",
+              "stateMutability": "nonpayable",
+              "typeDescriptions": {
+                "typeIdentifier": "t_address",
+                "typeString": "address"
+              }
+            },
+            "value": null,
+            "visibility": "private"
+          },
+          {
+            "id": 50820,
+            "nodeType": "FunctionDefinition",
+            "src": "933:181:188",
+            "nodes": [],
+            "body": {
+              "id": 50819,
+              "nodeType": "Block",
+              "src": "988:126:188",
+              "nodes": [],
+              "statements": [
+                {
+                  "expression": {
+                    "argumentTypes": null,
+                    "id": 50813,
+                    "isConstant": false,
+                    "isLValue": false,
+                    "isPure": false,
+                    "lValueRequested": false,
+                    "leftHandSide": {
+                      "argumentTypes": null,
+                      "id": 50811,
+                      "name": "CURVE_GAUGE_V2_REWARDS_HANDLER_CRV_TOKEN",
+                      "nodeType": "Identifier",
+                      "overloadedDeclarations": [],
+                      "referencedDeclaration": 50802,
+                      "src": "998:40:188",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_address",
+                        "typeString": "address"
+                      }
+                    },
+                    "nodeType": "Assignment",
+                    "operator": "=",
+                    "rightHandSide": {
+                      "argumentTypes": null,
+                      "id": 50812,
+                      "name": "_crvToken",
+                      "nodeType": "Identifier",
+                      "overloadedDeclarations": [],
+                      "referencedDeclaration": 50808,
+                      "src": "1041:9:188",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_address",
+                        "typeString": "address"
+                      }
+                    },
+                    "src": "998:52:188",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "id": 50814,
+                  "nodeType": "ExpressionStatement",
+                  "src": "998:52:188"
+                },
+                {
+                  "expression": {
+                    "argumentTypes": null,
+                    "id": 50817,
+                    "isConstant": false,
+                    "isLValue": false,
+                    "isPure": false,
+                    "lValueRequested": false,
+                    "leftHandSide": {
+                      "argumentTypes": null,
+                      "id": 50815,
+                      "name": "CURVE_GAUGE_V2_REWARDS_HANDLER_MINTER",
+                      "nodeType": "Identifier",
+                      "overloadedDeclarations": [],
+                      "referencedDeclaration": 50804,
+                      "src": "1060:37:188",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_address",
+                        "typeString": "address"
+                      }
+                    },
+                    "nodeType": "Assignment",
+                    "operator": "=",
+                    "rightHandSide": {
+                      "argumentTypes": null,
+                      "id": 50816,
+                      "name": "_minter",
+                      "nodeType": "Identifier",
+                      "overloadedDeclarations": [],
+                      "referencedDeclaration": 50806,
+                      "src": "1100:7:188",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_address",
+                        "typeString": "address"
+                      }
+                    },
+                    "src": "1060:47:188",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "id": 50818,
+                  "nodeType": "ExpressionStatement",
+                  "src": "1060:47:188"
+                }
+              ]
+            },
+            "documentation": null,
+            "implemented": true,
+            "kind": "constructor",
+            "modifiers": [],
+            "name": "",
+            "overrides": null,
+            "parameters": {
+              "id": 50809,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 50806,
+                  "mutability": "mutable",
+                  "name": "_minter",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 50820,
+                  "src": "945:15:188",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 50805,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "945:7:188",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 50808,
+                  "mutability": "mutable",
+                  "name": "_crvToken",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 50820,
+                  "src": "962:17:188",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 50807,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "962:7:188",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "944:36:188"
+            },
+            "returnParameters": {
+              "id": 50810,
+              "nodeType": "ParameterList",
+              "parameters": [],
+              "src": "988:0:188"
+            },
+            "scope": 50879,
+            "stateMutability": "nonpayable",
+            "virtual": false,
+            "visibility": "public"
+          },
+          {
+            "id": 50846,
+            "nodeType": "FunctionDefinition",
+            "src": "1259:400:188",
+            "nodes": [],
+            "body": {
+              "id": 50845,
+              "nodeType": "Block",
+              "src": "1340:319:188",
+              "nodes": [],
+              "statements": [
+                {
+                  "condition": {
+                    "argumentTypes": null,
+                    "arguments": [],
+                    "expression": {
+                      "argumentTypes": [],
+                      "id": 50828,
+                      "name": "__curveGaugeV2MinterExists",
+                      "nodeType": "Identifier",
+                      "overloadedDeclarations": [],
+                      "referencedDeclaration": 50860,
+                      "src": "1354:26:188",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_function_internal_view$__$returns$_t_bool_$",
+                        "typeString": "function () view returns (bool)"
+                      }
+                    },
+                    "id": 50829,
+                    "isConstant": false,
+                    "isLValue": false,
+                    "isPure": false,
+                    "kind": "functionCall",
+                    "lValueRequested": false,
+                    "names": [],
+                    "nodeType": "FunctionCall",
+                    "src": "1354:28:188",
+                    "tryCall": false,
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_bool",
+                      "typeString": "bool"
+                    }
+                  },
+                  "falseBody": null,
+                  "id": 50839,
+                  "nodeType": "IfStatement",
+                  "src": "1350:205:188",
+                  "trueBody": {
+                    "id": 50838,
+                    "nodeType": "Block",
+                    "src": "1384:171:188",
+                    "statements": [
+                      {
+                        "expression": {
+                          "argumentTypes": null,
+                          "arguments": [
+                            {
+                              "argumentTypes": null,
+                              "id": 50834,
+                              "name": "_gauge",
+                              "nodeType": "Identifier",
+                              "overloadedDeclarations": [],
+                              "referencedDeclaration": 50823,
+                              "src": "1528:6:188",
+                              "typeDescriptions": {
+                                "typeIdentifier": "t_address",
+                                "typeString": "address"
+                              }
+                            },
+                            {
+                              "argumentTypes": null,
+                              "id": 50835,
+                              "name": "_target",
+                              "nodeType": "Identifier",
+                              "overloadedDeclarations": [],
+                              "referencedDeclaration": 50825,
+                              "src": "1536:7:188",
+                              "typeDescriptions": {
+                                "typeIdentifier": "t_address",
+                                "typeString": "address"
+                              }
+                            }
+                          ],
+                          "expression": {
+                            "argumentTypes": [
+                              {
+                                "typeIdentifier": "t_address",
+                                "typeString": "address"
+                              },
+                              {
+                                "typeIdentifier": "t_address",
+                                "typeString": "address"
+                              }
+                            ],
+                            "expression": {
+                              "argumentTypes": null,
+                              "arguments": [
+                                {
+                                  "argumentTypes": null,
+                                  "id": 50831,
+                                  "name": "CURVE_GAUGE_V2_REWARDS_HANDLER_MINTER",
+                                  "nodeType": "Identifier",
+                                  "overloadedDeclarations": [],
+                                  "referencedDeclaration": 50804,
+                                  "src": "1480:37:188",
+                                  "typeDescriptions": {
+                                    "typeIdentifier": "t_address",
+                                    "typeString": "address"
+                                  }
+                                }
+                              ],
+                              "expression": {
+                                "argumentTypes": [
+                                  {
+                                    "typeIdentifier": "t_address",
+                                    "typeString": "address"
+                                  }
+                                ],
+                                "id": 50830,
+                                "name": "ICurveMinter",
+                                "nodeType": "Identifier",
+                                "overloadedDeclarations": [],
+                                "referencedDeclaration": 71620,
+                                "src": "1467:12:188",
+                                "typeDescriptions": {
+                                  "typeIdentifier": "t_type$_t_contract$_ICurveMinter_$71620_$",
+                                  "typeString": "type(contract ICurveMinter)"
+                                }
+                              },
+                              "id": 50832,
+                              "isConstant": false,
+                              "isLValue": false,
+                              "isPure": false,
+                              "kind": "typeConversion",
+                              "lValueRequested": false,
+                              "names": [],
+                              "nodeType": "FunctionCall",
+                              "src": "1467:51:188",
+                              "tryCall": false,
+                              "typeDescriptions": {
+                                "typeIdentifier": "t_contract$_ICurveMinter_$71620",
+                                "typeString": "contract ICurveMinter"
+                              }
+                            },
+                            "id": 50833,
+                            "isConstant": false,
+                            "isLValue": false,
+                            "isPure": false,
+                            "lValueRequested": false,
+                            "memberName": "mint_for",
+                            "nodeType": "MemberAccess",
+                            "referencedDeclaration": 71619,
+                            "src": "1467:60:188",
+                            "typeDescriptions": {
+                              "typeIdentifier": "t_function_external_nonpayable$_t_address_$_t_address_$returns$__$",
+                              "typeString": "function (address,address) external"
+                            }
+                          },
+                          "id": 50836,
+                          "isConstant": false,
+                          "isLValue": false,
+                          "isPure": false,
+                          "kind": "functionCall",
+                          "lValueRequested": false,
+                          "names": [],
+                          "nodeType": "FunctionCall",
+                          "src": "1467:77:188",
+                          "tryCall": false,
+                          "typeDescriptions": {
+                            "typeIdentifier": "t_tuple$__$",
+                            "typeString": "tuple()"
+                          }
+                        },
+                        "id": 50837,
+                        "nodeType": "ExpressionStatement",
+                        "src": "1467:77:188"
+                      }
+                    ]
+                  }
+                },
+                {
+                  "expression": {
+                    "argumentTypes": null,
+                    "arguments": [
+                      {
+                        "argumentTypes": null,
+                        "id": 50841,
+                        "name": "_gauge",
+                        "nodeType": "Identifier",
+                        "overloadedDeclarations": [],
+                        "referencedDeclaration": 50823,
+                        "src": "1636:6:188",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_address",
+                          "typeString": "address"
+                        }
+                      },
+                      {
+                        "argumentTypes": null,
+                        "id": 50842,
+                        "name": "_target",
+                        "nodeType": "Identifier",
+                        "overloadedDeclarations": [],
+                        "referencedDeclaration": 50825,
+                        "src": "1644:7:188",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_address",
+                          "typeString": "address"
+                        }
+                      }
+                    ],
+                    "expression": {
+                      "argumentTypes": [
+                        {
+                          "typeIdentifier": "t_address",
+                          "typeString": "address"
+                        },
+                        {
+                          "typeIdentifier": "t_address",
+                          "typeString": "address"
+                        }
+                      ],
+                      "id": 50840,
+                      "name": "__curveGaugeV2ClaimRewards",
+                      "nodeType": "Identifier",
+                      "overloadedDeclarations": [],
+                      "referencedDeclaration": 50651,
+                      "src": "1609:26:188",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_function_internal_nonpayable$_t_address_$_t_address_$returns$__$",
+                        "typeString": "function (address,address)"
+                      }
+                    },
+                    "id": 50843,
+                    "isConstant": false,
+                    "isLValue": false,
+                    "isPure": false,
+                    "kind": "functionCall",
+                    "lValueRequested": false,
+                    "names": [],
+                    "nodeType": "FunctionCall",
+                    "src": "1609:43:188",
+                    "tryCall": false,
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_tuple$__$",
+                      "typeString": "tuple()"
+                    }
+                  },
+                  "id": 50844,
+                  "nodeType": "ExpressionStatement",
+                  "src": "1609:43:188"
+                }
+              ]
+            },
+            "documentation": {
+              "id": 50821,
+              "nodeType": "StructuredDocumentation",
+              "src": "1120:134:188",
+              "text": "@dev Helper to claim all rewards (CRV and pool-specific).\n Requires contract to be approved to use ICurveMinter.mint_for()."
+            },
+            "implemented": true,
+            "kind": "function",
+            "modifiers": [],
+            "name": "__curveGaugeV2ClaimAllRewards",
+            "overrides": null,
+            "parameters": {
+              "id": 50826,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 50823,
+                  "mutability": "mutable",
+                  "name": "_gauge",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 50846,
+                  "src": "1298:14:188",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 50822,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "1298:7:188",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 50825,
+                  "mutability": "mutable",
+                  "name": "_target",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 50846,
+                  "src": "1314:15:188",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 50824,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "1314:7:188",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "1297:33:188"
+            },
+            "returnParameters": {
+              "id": 50827,
+              "nodeType": "ParameterList",
+              "parameters": [],
+              "src": "1340:0:188"
+            },
+            "scope": 50879,
+            "stateMutability": "nonpayable",
+            "virtual": false,
+            "visibility": "internal"
+          },
+          {
+            "id": 50860,
+            "nodeType": "FunctionDefinition",
+            "src": "1746:150:188",
+            "nodes": [],
+            "body": {
+              "id": 50859,
+              "nodeType": "Block",
+              "src": "1821:75:188",
+              "nodes": [],
+              "statements": [
+                {
+                  "expression": {
+                    "argumentTypes": null,
+                    "commonType": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    },
+                    "id": 50857,
+                    "isConstant": false,
+                    "isLValue": false,
+                    "isPure": false,
+                    "lValueRequested": false,
+                    "leftExpression": {
+                      "argumentTypes": null,
+                      "id": 50852,
+                      "name": "CURVE_GAUGE_V2_REWARDS_HANDLER_MINTER",
+                      "nodeType": "Identifier",
+                      "overloadedDeclarations": [],
+                      "referencedDeclaration": 50804,
+                      "src": "1838:37:188",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_address",
+                        "typeString": "address"
+                      }
+                    },
+                    "nodeType": "BinaryOperation",
+                    "operator": "!=",
+                    "rightExpression": {
+                      "argumentTypes": null,
+                      "arguments": [
+                        {
+                          "argumentTypes": null,
+                          "hexValue": "30",
+                          "id": 50855,
+                          "isConstant": false,
+                          "isLValue": false,
+                          "isPure": true,
+                          "kind": "number",
+                          "lValueRequested": false,
+                          "nodeType": "Literal",
+                          "src": "1887:1:188",
+                          "subdenomination": null,
+                          "typeDescriptions": {
+                            "typeIdentifier": "t_rational_0_by_1",
+                            "typeString": "int_const 0"
+                          },
+                          "value": "0"
+                        }
+                      ],
+                      "expression": {
+                        "argumentTypes": [
+                          {
+                            "typeIdentifier": "t_rational_0_by_1",
+                            "typeString": "int_const 0"
+                          }
+                        ],
+                        "id": 50854,
+                        "isConstant": false,
+                        "isLValue": false,
+                        "isPure": true,
+                        "lValueRequested": false,
+                        "nodeType": "ElementaryTypeNameExpression",
+                        "src": "1879:7:188",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_type$_t_address_$",
+                          "typeString": "type(address)"
+                        },
+                        "typeName": {
+                          "id": 50853,
+                          "name": "address",
+                          "nodeType": "ElementaryTypeName",
+                          "src": "1879:7:188",
+                          "typeDescriptions": {
+                            "typeIdentifier": null,
+                            "typeString": null
+                          }
+                        }
+                      },
+                      "id": 50856,
+                      "isConstant": false,
+                      "isLValue": false,
+                      "isPure": true,
+                      "kind": "typeConversion",
+                      "lValueRequested": false,
+                      "names": [],
+                      "nodeType": "FunctionCall",
+                      "src": "1879:10:188",
+                      "tryCall": false,
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_address_payable",
+                        "typeString": "address payable"
+                      }
+                    },
+                    "src": "1838:51:188",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_bool",
+                      "typeString": "bool"
+                    }
+                  },
+                  "functionReturnParameters": 50851,
+                  "id": 50858,
+                  "nodeType": "Return",
+                  "src": "1831:58:188"
+                }
+              ]
+            },
+            "documentation": {
+              "id": 50847,
+              "nodeType": "StructuredDocumentation",
+              "src": "1665:76:188",
+              "text": "@dev Helper to check if the Curve Minter contract is used on the network"
+            },
+            "implemented": true,
+            "kind": "function",
+            "modifiers": [],
+            "name": "__curveGaugeV2MinterExists",
+            "overrides": null,
+            "parameters": {
+              "id": 50848,
+              "nodeType": "ParameterList",
+              "parameters": [],
+              "src": "1781:2:188"
+            },
+            "returnParameters": {
+              "id": 50851,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 50850,
+                  "mutability": "mutable",
+                  "name": "exists_",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 50860,
+                  "src": "1807:12:188",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_bool",
+                    "typeString": "bool"
+                  },
+                  "typeName": {
+                    "id": 50849,
+                    "name": "bool",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "1807:4:188",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_bool",
+                      "typeString": "bool"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "1806:14:188"
+            },
+            "scope": 50879,
+            "stateMutability": "view",
+            "virtual": false,
+            "visibility": "internal"
+          },
+          {
+            "id": 50869,
+            "nodeType": "FunctionDefinition",
+            "src": "2140:153:188",
+            "nodes": [],
+            "body": {
+              "id": 50868,
+              "nodeType": "Block",
+              "src": "2229:64:188",
+              "nodes": [],
+              "statements": [
+                {
+                  "expression": {
+                    "argumentTypes": null,
+                    "id": 50866,
+                    "name": "CURVE_GAUGE_V2_REWARDS_HANDLER_CRV_TOKEN",
+                    "nodeType": "Identifier",
+                    "overloadedDeclarations": [],
+                    "referencedDeclaration": 50802,
+                    "src": "2246:40:188",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "functionReturnParameters": 50865,
+                  "id": 50867,
+                  "nodeType": "Return",
+                  "src": "2239:47:188"
+                }
+              ]
+            },
+            "documentation": {
+              "id": 50861,
+              "nodeType": "StructuredDocumentation",
+              "src": "1975:160:188",
+              "text": "@notice Gets the `CURVE_GAUGE_V2_REWARDS_HANDLER_CRV_TOKEN` variable\n @return crvToken_ The `CURVE_GAUGE_V2_REWARDS_HANDLER_CRV_TOKEN` variable value"
+            },
+            "functionSelector": "332d709f",
+            "implemented": true,
+            "kind": "function",
+            "modifiers": [],
+            "name": "getCurveGaugeV2RewardsHandlerCrvToken",
+            "overrides": null,
+            "parameters": {
+              "id": 50862,
+              "nodeType": "ParameterList",
+              "parameters": [],
+              "src": "2186:2:188"
+            },
+            "returnParameters": {
+              "id": 50865,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 50864,
+                  "mutability": "mutable",
+                  "name": "crvToken_",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 50869,
+                  "src": "2210:17:188",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 50863,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "2210:7:188",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "2209:19:188"
+            },
+            "scope": 50879,
+            "stateMutability": "view",
+            "virtual": false,
+            "visibility": "public"
+          },
+          {
+            "id": 50878,
+            "nodeType": "FunctionDefinition",
+            "src": "2456:146:188",
+            "nodes": [],
+            "body": {
+              "id": 50877,
+              "nodeType": "Block",
+              "src": "2541:61:188",
+              "nodes": [],
+              "statements": [
+                {
+                  "expression": {
+                    "argumentTypes": null,
+                    "id": 50875,
+                    "name": "CURVE_GAUGE_V2_REWARDS_HANDLER_MINTER",
+                    "nodeType": "Identifier",
+                    "overloadedDeclarations": [],
+                    "referencedDeclaration": 50804,
+                    "src": "2558:37:188",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "functionReturnParameters": 50874,
+                  "id": 50876,
+                  "nodeType": "Return",
+                  "src": "2551:44:188"
+                }
+              ]
+            },
+            "documentation": {
+              "id": 50870,
+              "nodeType": "StructuredDocumentation",
+              "src": "2299:152:188",
+              "text": "@notice Gets the `CURVE_GAUGE_V2_REWARDS_HANDLER_MINTER` variable\n @return minter_ The `CURVE_GAUGE_V2_REWARDS_HANDLER_MINTER` variable value"
+            },
+            "functionSelector": "f003eb85",
+            "implemented": true,
+            "kind": "function",
+            "modifiers": [],
+            "name": "getCurveGaugeV2RewardsHandlerMinter",
+            "overrides": null,
+            "parameters": {
+              "id": 50871,
+              "nodeType": "ParameterList",
+              "parameters": [],
+              "src": "2500:2:188"
+            },
+            "returnParameters": {
+              "id": 50874,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 50873,
+                  "mutability": "mutable",
+                  "name": "minter_",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 50878,
+                  "src": "2524:15:188",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 50872,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "2524:7:188",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "2523:17:188"
+            },
+            "scope": 50879,
+            "stateMutability": "view",
+            "virtual": false,
+            "visibility": "public"
+          }
+        ],
+        "abstract": true,
+        "baseContracts": [
+          {
+            "arguments": null,
+            "baseName": {
+              "contractScope": null,
+              "id": 50795,
+              "name": "CurveGaugeV2ActionsMixin",
+              "nodeType": "UserDefinedTypeName",
+              "referencedDeclaration": 50788,
+              "src": "718:24:188",
+              "typeDescriptions": {
+                "typeIdentifier": "t_contract$_CurveGaugeV2ActionsMixin_$50788",
+                "typeString": "contract CurveGaugeV2ActionsMixin"
+              }
+            },
+            "id": 50796,
+            "nodeType": "InheritanceSpecifier",
+            "src": "718:24:188"
+          }
+        ],
+        "contractDependencies": [
+          50788,
+          77343
+        ],
+        "contractKind": "contract",
+        "documentation": {
+          "id": 50794,
+          "nodeType": "StructuredDocumentation",
+          "src": "426:239:188",
+          "text": "@title CurveGaugeV2RewardsHandlerMixin Contract\n @author Enzyme Council <security@enzyme.finance>\n @notice Mixin contract for handling claiming and reinvesting rewards for a Curve pool\n that uses the LiquidityGaugeV2 contract"
+        },
+        "fullyImplemented": true,
+        "linearizedBaseContracts": [
+          50879,
+          50788,
+          77343
+        ],
+        "name": "CurveGaugeV2RewardsHandlerMixin",
+        "scope": 50880
+      }
+    ],
+    "license": "GPL-3.0"
+  },
+  "id": 188
 }

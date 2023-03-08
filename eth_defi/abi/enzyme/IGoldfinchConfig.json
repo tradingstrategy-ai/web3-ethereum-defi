@@ -1,7 +1,4 @@
 {
-  "_format": "hh-sol-artifact-1",
-  "contractName": "IGoldfinchConfig",
-  "sourceName": "contracts/release/interfaces/IGoldfinchConfig.sol",
   "abi": [
     {
       "inputs": [
@@ -23,8 +20,236 @@
       "type": "function"
     }
   ],
-  "bytecode": "0x",
-  "deployedBytecode": "0x",
-  "linkReferences": {},
-  "deployedLinkReferences": {}
+  "bytecode": {
+    "object": "0x",
+    "sourceMap": "",
+    "linkReferences": {}
+  },
+  "deployedBytecode": {
+    "object": "0x",
+    "sourceMap": "",
+    "linkReferences": {}
+  },
+  "methodIdentifiers": {
+    "getNumber(uint256)": "fc563658"
+  },
+  "rawMetadata": "{\"compiler\":{\"version\":\"0.6.12+commit.27d51765\"},\"language\":\"Solidity\",\"output\":{\"abi\":[{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_index\",\"type\":\"uint256\"}],\"name\":\"getNumber\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"number_\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"}],\"devdoc\":{\"author\":\"Enzyme Council <security@enzyme.finance>\",\"kind\":\"dev\",\"methods\":{},\"title\":\"IGoldfinchConfig Interface\",\"version\":1},\"userdoc\":{\"kind\":\"user\",\"methods\":{},\"version\":1}},\"settings\":{\"compilationTarget\":{\"contracts/release/interfaces/IGoldfinchConfig.sol\":\"IGoldfinchConfig\"},\"evmVersion\":\"istanbul\",\"libraries\":{},\"metadata\":{\"bytecodeHash\":\"none\"},\"optimizer\":{\"details\":{\"constantOptimizer\":true,\"cse\":true,\"deduplicate\":true,\"jumpdestRemover\":true,\"orderLiterals\":true,\"peephole\":true,\"yul\":false},\"runs\":200},\"remappings\":[\":@enzyme/=contracts/\",\":@openzeppelin-solc-0.7/=node_modules/@openzeppelin-solc-0.7/\",\":@openzeppelin/=node_modules/@openzeppelin/\",\":@uniswap/=node_modules/@uniswap/\",\":base64-sol/=node_modules/base64-sol/\",\":ds-test/=lib/forge-std/lib/ds-test/src/\",\":forge-std/=lib/forge-std/src/\",\":hardhat-deploy/=node_modules/hardhat-deploy/\",\":hardhat/=node_modules/hardhat/\"]},\"sources\":{\"contracts/release/interfaces/IGoldfinchConfig.sol\":{\"keccak256\":\"0xcb4060c0278811ee27f445d12dfe1046246055d54520bd6ca107f1e94477d693\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://0080e4ed699883e83d58e689f227e5138a171878dffd41e8f27c393a54219932\",\"dweb:/ipfs/QmcAoYW14R2Q6wLX7CNxWgra6NrL1XjArKVSyJkUS5qu3F\"]}},\"version\":1}",
+  "metadata": {
+    "compiler": {
+      "version": "0.6.12+commit.27d51765"
+    },
+    "language": "Solidity",
+    "output": {
+      "abi": [
+        {
+          "inputs": [
+            {
+              "internalType": "uint256",
+              "name": "_index",
+              "type": "uint256"
+            }
+          ],
+          "stateMutability": "view",
+          "type": "function",
+          "name": "getNumber",
+          "outputs": [
+            {
+              "internalType": "uint256",
+              "name": "number_",
+              "type": "uint256"
+            }
+          ]
+        }
+      ],
+      "devdoc": {
+        "kind": "dev",
+        "methods": {},
+        "version": 1
+      },
+      "userdoc": {
+        "kind": "user",
+        "methods": {},
+        "version": 1
+      }
+    },
+    "settings": {
+      "remappings": [
+        ":@enzyme/=contracts/",
+        ":@openzeppelin-solc-0.7/=node_modules/@openzeppelin-solc-0.7/",
+        ":@openzeppelin/=node_modules/@openzeppelin/",
+        ":@uniswap/=node_modules/@uniswap/",
+        ":base64-sol/=node_modules/base64-sol/",
+        ":ds-test/=lib/forge-std/lib/ds-test/src/",
+        ":forge-std/=lib/forge-std/src/",
+        ":hardhat-deploy/=node_modules/hardhat-deploy/",
+        ":hardhat/=node_modules/hardhat/"
+      ],
+      "optimizer": {
+        "runs": 200,
+        "details": {
+          "peephole": true,
+          "jumpdestRemover": true,
+          "orderLiterals": true,
+          "deduplicate": true,
+          "cse": true,
+          "constantOptimizer": true,
+          "yul": false
+        }
+      },
+      "metadata": {
+        "bytecodeHash": "none"
+      },
+      "compilationTarget": {
+        "contracts/release/interfaces/IGoldfinchConfig.sol": "IGoldfinchConfig"
+      },
+      "libraries": {}
+    },
+    "sources": {
+      "contracts/release/interfaces/IGoldfinchConfig.sol": {
+        "keccak256": "0xcb4060c0278811ee27f445d12dfe1046246055d54520bd6ca107f1e94477d693",
+        "urls": [
+          "bzz-raw://0080e4ed699883e83d58e689f227e5138a171878dffd41e8f27c393a54219932",
+          "dweb:/ipfs/QmcAoYW14R2Q6wLX7CNxWgra6NrL1XjArKVSyJkUS5qu3F"
+        ],
+        "license": "GPL-3.0"
+      }
+    },
+    "version": 1
+  },
+  "ast": {
+    "absolutePath": "contracts/release/interfaces/IGoldfinchConfig.sol",
+    "id": 71852,
+    "exportedSymbols": {
+      "IGoldfinchConfig": [
+        71851
+      ]
+    },
+    "nodeType": "SourceUnit",
+    "src": "255:227:301",
+    "nodes": [
+      {
+        "id": 71842,
+        "nodeType": "PragmaDirective",
+        "src": "255:23:301",
+        "nodes": [],
+        "literals": [
+          "solidity",
+          "0.6",
+          ".12"
+        ]
+      },
+      {
+        "id": 71851,
+        "nodeType": "ContractDefinition",
+        "src": "371:110:301",
+        "nodes": [
+          {
+            "id": 71850,
+            "nodeType": "FunctionDefinition",
+            "src": "404:75:301",
+            "nodes": [],
+            "documentation": null,
+            "functionSelector": "fc563658",
+            "implemented": false,
+            "kind": "function",
+            "modifiers": [],
+            "name": "getNumber",
+            "overrides": null,
+            "parameters": {
+              "id": 71846,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 71845,
+                  "mutability": "mutable",
+                  "name": "_index",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 71850,
+                  "src": "423:14:301",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_uint256",
+                    "typeString": "uint256"
+                  },
+                  "typeName": {
+                    "id": 71844,
+                    "name": "uint256",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "423:7:301",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_uint256",
+                      "typeString": "uint256"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "422:16:301"
+            },
+            "returnParameters": {
+              "id": 71849,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 71848,
+                  "mutability": "mutable",
+                  "name": "number_",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 71850,
+                  "src": "462:15:301",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_uint256",
+                    "typeString": "uint256"
+                  },
+                  "typeName": {
+                    "id": 71847,
+                    "name": "uint256",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "462:7:301",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_uint256",
+                      "typeString": "uint256"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "461:17:301"
+            },
+            "scope": 71851,
+            "stateMutability": "view",
+            "virtual": false,
+            "visibility": "external"
+          }
+        ],
+        "abstract": false,
+        "baseContracts": [],
+        "contractDependencies": [],
+        "contractKind": "interface",
+        "documentation": {
+          "id": 71843,
+          "nodeType": "StructuredDocumentation",
+          "src": "280:91:301",
+          "text": "@title IGoldfinchConfig Interface\n @author Enzyme Council <security@enzyme.finance>"
+        },
+        "fullyImplemented": false,
+        "linearizedBaseContracts": [
+          71851
+        ],
+        "name": "IGoldfinchConfig",
+        "scope": 71852
+      }
+    ],
+    "license": "GPL-3.0"
+  },
+  "id": 301
 }

@@ -1,0 +1,291 @@
+{
+  "abi": [
+    {
+      "inputs": [],
+      "name": "configKilnMainnet",
+      "outputs": [
+        {
+          "internalType": "address",
+          "name": "stakingContractAddress",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    }
+  ],
+  "bytecode": {
+    "object": "0x60a0604052730816df553a89c4bff7ebfd778a9706a989dd3ce36080819052600080546001600160a01b031916909117905534801561003d57600080fd5b50608c8061004c6000396000f3fe6080604052348015600f57600080fd5b506004361060285760003560e01c8063fe1cc43914602d575b600080fd5b600054603f906001600160a01b031681565b604051604a91906073565b60405180910390f35b60006001600160a01b0382165b92915050565b606d816053565b82525050565b6020810160608284606656fea164736f6c6343000811000a",
+    "sourceMap": "415:76:71:-:0;280:214;415:76;447:42;280:214;415:76;;;-1:-1:-1;373:118:71;;-1:-1:-1;;;;;;373:118:71;;;;;;280:214;;;;;;;;;;;;;;;;",
+    "linkReferences": {}
+  },
+  "deployedBytecode": {
+    "object": "0x6080604052348015600f57600080fd5b506004361060285760003560e01c8063fe1cc43914602d575b600080fd5b600054603f906001600160a01b031681565b604051604a91906073565b60405180910390f35b60006001600160a01b0382165b92915050565b606d816053565b82525050565b6020810160608284606656fea164736f6c6343000811000a",
+    "sourceMap": "280:214:71:-:0;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;373:118;;;;;-1:-1:-1;;;;;373:118:71;;;;;;;;;;:::i;:::-;;;;;;;;139:96:78;176:7;-1:-1:-1;;;;;73:54:78;;205:24;194:35;139:96;-1:-1:-1;;139:96:78:o;241:118::-;328:24;346:5;328:24;:::i;:::-;323:3;316:37;241:118;;:::o;365:222::-;496:2;481:18;;509:71;485:9;553:6;509:71;:::i",
+    "linkReferences": {}
+  },
+  "methodIdentifiers": {
+    "configKilnMainnet()": "fe1cc439"
+  },
+  "rawMetadata": "{\"compiler\":{\"version\":\"0.8.17+commit.8df45f5f\"},\"language\":\"Solidity\",\"output\":{\"abi\":[{\"inputs\":[],\"name\":\"configKilnMainnet\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"stakingContractAddress\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"}],\"devdoc\":{\"kind\":\"dev\",\"methods\":{},\"version\":1},\"userdoc\":{\"kind\":\"user\",\"methods\":{},\"version\":1}},\"settings\":{\"compilationTarget\":{\"tests/scaffolding/kiln/ConfigKiln.sol\":\"ConfigKiln\"},\"evmVersion\":\"london\",\"libraries\":{},\"metadata\":{\"bytecodeHash\":\"none\"},\"optimizer\":{\"details\":{\"constantOptimizer\":true,\"cse\":true,\"deduplicate\":true,\"inliner\":true,\"jumpdestRemover\":true,\"orderLiterals\":true,\"peephole\":true,\"yul\":false},\"runs\":200},\"remappings\":[\":@enzyme/=contracts/\",\":@openzeppelin-solc-0.7/=node_modules/@openzeppelin-solc-0.7/\",\":@openzeppelin/=node_modules/@openzeppelin/\",\":@uniswap/=node_modules/@uniswap/\",\":base64-sol/=node_modules/base64-sol/\",\":ds-test/=lib/forge-std/lib/ds-test/src/\",\":forge-std/=lib/forge-std/src/\",\":hardhat-deploy/=node_modules/hardhat-deploy/\",\":hardhat/=node_modules/hardhat/\"]},\"sources\":{\"tests/scaffolding/kiln/ConfigKiln.sol\":{\"keccak256\":\"0x2d0071c25d0bf6840ca11e57d6003dad140f1cf7c377c3688cb3c68d8ff59129\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://8c4edff673784af9c810dc9b144f75b62d7c521d31f59841c3a2df5fe64918c8\",\"dweb:/ipfs/QmQ9JQnLie1g7s29wVcQcWxbZ5m1FFhsPVkoU2ZifHZ8Vf\"]}},\"version\":1}",
+  "metadata": {
+    "compiler": {
+      "version": "0.8.17+commit.8df45f5f"
+    },
+    "language": "Solidity",
+    "output": {
+      "abi": [
+        {
+          "inputs": [],
+          "stateMutability": "view",
+          "type": "function",
+          "name": "configKilnMainnet",
+          "outputs": [
+            {
+              "internalType": "address",
+              "name": "stakingContractAddress",
+              "type": "address"
+            }
+          ]
+        }
+      ],
+      "devdoc": {
+        "kind": "dev",
+        "methods": {},
+        "version": 1
+      },
+      "userdoc": {
+        "kind": "user",
+        "methods": {},
+        "version": 1
+      }
+    },
+    "settings": {
+      "remappings": [
+        ":@enzyme/=contracts/",
+        ":@openzeppelin-solc-0.7/=node_modules/@openzeppelin-solc-0.7/",
+        ":@openzeppelin/=node_modules/@openzeppelin/",
+        ":@uniswap/=node_modules/@uniswap/",
+        ":base64-sol/=node_modules/base64-sol/",
+        ":ds-test/=lib/forge-std/lib/ds-test/src/",
+        ":forge-std/=lib/forge-std/src/",
+        ":hardhat-deploy/=node_modules/hardhat-deploy/",
+        ":hardhat/=node_modules/hardhat/"
+      ],
+      "optimizer": {
+        "runs": 200,
+        "details": {
+          "peephole": true,
+          "inliner": true,
+          "jumpdestRemover": true,
+          "orderLiterals": true,
+          "deduplicate": true,
+          "cse": true,
+          "constantOptimizer": true,
+          "yul": false
+        }
+      },
+      "metadata": {
+        "bytecodeHash": "none"
+      },
+      "compilationTarget": {
+        "tests/scaffolding/kiln/ConfigKiln.sol": "ConfigKiln"
+      },
+      "libraries": {}
+    },
+    "sources": {
+      "tests/scaffolding/kiln/ConfigKiln.sol": {
+        "keccak256": "0x2d0071c25d0bf6840ca11e57d6003dad140f1cf7c377c3688cb3c68d8ff59129",
+        "urls": [
+          "bzz-raw://8c4edff673784af9c810dc9b144f75b62d7c521d31f59841c3a2df5fe64918c8",
+          "dweb:/ipfs/QmQ9JQnLie1g7s29wVcQcWxbZ5m1FFhsPVkoU2ZifHZ8Vf"
+        ],
+        "license": "GPL-3.0"
+      }
+    },
+    "version": 1
+  },
+  "ast": {
+    "absolutePath": "tests/scaffolding/kiln/ConfigKiln.sol",
+    "id": 34180,
+    "exportedSymbols": {
+      "ConfigKiln": [
+        34179
+      ]
+    },
+    "nodeType": "SourceUnit",
+    "src": "255:240:71",
+    "nodes": [
+      {
+        "id": 34169,
+        "nodeType": "PragmaDirective",
+        "src": "255:23:71",
+        "nodes": [],
+        "literals": [
+          "solidity",
+          "0.8",
+          ".17"
+        ]
+      },
+      {
+        "id": 34179,
+        "nodeType": "ContractDefinition",
+        "src": "280:214:71",
+        "nodes": [
+          {
+            "id": 34172,
+            "nodeType": "StructDefinition",
+            "src": "306:61:71",
+            "nodes": [],
+            "canonicalName": "ConfigKiln.Config",
+            "members": [
+              {
+                "constant": false,
+                "id": 34171,
+                "mutability": "mutable",
+                "name": "stakingContractAddress",
+                "nameLocation": "338:22:71",
+                "nodeType": "VariableDeclaration",
+                "scope": 34172,
+                "src": "330:30:71",
+                "stateVariable": false,
+                "storageLocation": "default",
+                "typeDescriptions": {
+                  "typeIdentifier": "t_address",
+                  "typeString": "address"
+                },
+                "typeName": {
+                  "id": 34170,
+                  "name": "address",
+                  "nodeType": "ElementaryTypeName",
+                  "src": "330:7:71",
+                  "stateMutability": "nonpayable",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  }
+                },
+                "visibility": "internal"
+              }
+            ],
+            "name": "Config",
+            "nameLocation": "313:6:71",
+            "scope": 34179,
+            "visibility": "public"
+          },
+          {
+            "id": 34178,
+            "nodeType": "VariableDeclaration",
+            "src": "373:118:71",
+            "nodes": [],
+            "constant": false,
+            "functionSelector": "fe1cc439",
+            "mutability": "mutable",
+            "name": "configKilnMainnet",
+            "nameLocation": "387:17:71",
+            "scope": 34179,
+            "stateVariable": true,
+            "storageLocation": "default",
+            "typeDescriptions": {
+              "typeIdentifier": "t_struct$_Config_$34172_storage",
+              "typeString": "struct ConfigKiln.Config"
+            },
+            "typeName": {
+              "id": 34174,
+              "nodeType": "UserDefinedTypeName",
+              "pathNode": {
+                "id": 34173,
+                "name": "Config",
+                "nameLocations": [
+                  "373:6:71"
+                ],
+                "nodeType": "IdentifierPath",
+                "referencedDeclaration": 34172,
+                "src": "373:6:71"
+              },
+              "referencedDeclaration": 34172,
+              "src": "373:6:71",
+              "typeDescriptions": {
+                "typeIdentifier": "t_struct$_Config_$34172_storage_ptr",
+                "typeString": "struct ConfigKiln.Config"
+              }
+            },
+            "value": {
+              "arguments": [
+                {
+                  "hexValue": "307830383136444635353361383963346246463765426644373738413937303661393839446433436533",
+                  "id": 34176,
+                  "isConstant": false,
+                  "isLValue": false,
+                  "isPure": true,
+                  "kind": "number",
+                  "lValueRequested": false,
+                  "nodeType": "Literal",
+                  "src": "447:42:71",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "value": "0x0816DF553a89c4bFF7eBfD778A9706a989Dd3Ce3"
+                }
+              ],
+              "expression": {
+                "argumentTypes": [
+                  {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  }
+                ],
+                "id": 34175,
+                "name": "Config",
+                "nodeType": "Identifier",
+                "overloadedDeclarations": [],
+                "referencedDeclaration": 34172,
+                "src": "415:6:71",
+                "typeDescriptions": {
+                  "typeIdentifier": "t_type$_t_struct$_Config_$34172_storage_ptr_$",
+                  "typeString": "type(struct ConfigKiln.Config storage pointer)"
+                }
+              },
+              "id": 34177,
+              "isConstant": false,
+              "isLValue": false,
+              "isPure": true,
+              "kind": "structConstructorCall",
+              "lValueRequested": false,
+              "nameLocations": [
+                "423:22:71"
+              ],
+              "names": [
+                "stakingContractAddress"
+              ],
+              "nodeType": "FunctionCall",
+              "src": "415:76:71",
+              "tryCall": false,
+              "typeDescriptions": {
+                "typeIdentifier": "t_struct$_Config_$34172_memory_ptr",
+                "typeString": "struct ConfigKiln.Config memory"
+              }
+            },
+            "visibility": "public"
+          }
+        ],
+        "abstract": false,
+        "baseContracts": [],
+        "canonicalName": "ConfigKiln",
+        "contractDependencies": [],
+        "contractKind": "contract",
+        "fullyImplemented": true,
+        "linearizedBaseContracts": [
+          34179
+        ],
+        "name": "ConfigKiln",
+        "nameLocation": "289:10:71",
+        "scope": 34180,
+        "usedErrors": []
+      }
+    ],
+    "license": "GPL-3.0"
+  },
+  "id": 71
+}

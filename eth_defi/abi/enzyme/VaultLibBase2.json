@@ -1,0 +1,2449 @@
+{
+  "abi": [
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": false,
+          "internalType": "address",
+          "name": "prevAccessor",
+          "type": "address"
+        },
+        {
+          "indexed": false,
+          "internalType": "address",
+          "name": "nextAccessor",
+          "type": "address"
+        }
+      ],
+      "name": "AccessorSet",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "owner",
+          "type": "address"
+        },
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "spender",
+          "type": "address"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint256",
+          "name": "value",
+          "type": "uint256"
+        }
+      ],
+      "name": "Approval",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": false,
+          "internalType": "address",
+          "name": "manager",
+          "type": "address"
+        }
+      ],
+      "name": "AssetManagerAdded",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": false,
+          "internalType": "address",
+          "name": "manager",
+          "type": "address"
+        }
+      ],
+      "name": "AssetManagerRemoved",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "asset",
+          "type": "address"
+        },
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "target",
+          "type": "address"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint256",
+          "name": "amount",
+          "type": "uint256"
+        }
+      ],
+      "name": "AssetWithdrawn",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "sender",
+          "type": "address"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint256",
+          "name": "amount",
+          "type": "uint256"
+        }
+      ],
+      "name": "EthReceived",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "externalPosition",
+          "type": "address"
+        }
+      ],
+      "name": "ExternalPositionAdded",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "externalPosition",
+          "type": "address"
+        }
+      ],
+      "name": "ExternalPositionRemoved",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [],
+      "name": "FreelyTransferableSharesSet",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": false,
+          "internalType": "address",
+          "name": "prevMigrator",
+          "type": "address"
+        },
+        {
+          "indexed": false,
+          "internalType": "address",
+          "name": "nextMigrator",
+          "type": "address"
+        }
+      ],
+      "name": "MigratorSet",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": false,
+          "internalType": "string",
+          "name": "name",
+          "type": "string"
+        }
+      ],
+      "name": "NameSet",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "nominatedOwner",
+          "type": "address"
+        }
+      ],
+      "name": "NominatedOwnerRemoved",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "nominatedOwner",
+          "type": "address"
+        }
+      ],
+      "name": "NominatedOwnerSet",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": false,
+          "internalType": "address",
+          "name": "prevOwner",
+          "type": "address"
+        },
+        {
+          "indexed": false,
+          "internalType": "address",
+          "name": "nextOwner",
+          "type": "address"
+        }
+      ],
+      "name": "OwnerSet",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "prevOwner",
+          "type": "address"
+        },
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "nextOwner",
+          "type": "address"
+        }
+      ],
+      "name": "OwnershipTransferred",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": false,
+          "internalType": "uint256",
+          "name": "sharesAmount",
+          "type": "uint256"
+        }
+      ],
+      "name": "ProtocolFeePaidInShares",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": false,
+          "internalType": "uint256",
+          "name": "sharesAmount",
+          "type": "uint256"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint256",
+          "name": "mlnValue",
+          "type": "uint256"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint256",
+          "name": "mlnBurned",
+          "type": "uint256"
+        }
+      ],
+      "name": "ProtocolFeeSharesBoughtBack",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": false,
+          "internalType": "string",
+          "name": "symbol",
+          "type": "string"
+        }
+      ],
+      "name": "SymbolSet",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": false,
+          "internalType": "address",
+          "name": "asset",
+          "type": "address"
+        }
+      ],
+      "name": "TrackedAssetAdded",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": false,
+          "internalType": "address",
+          "name": "asset",
+          "type": "address"
+        }
+      ],
+      "name": "TrackedAssetRemoved",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "from",
+          "type": "address"
+        },
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "to",
+          "type": "address"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint256",
+          "name": "value",
+          "type": "uint256"
+        }
+      ],
+      "name": "Transfer",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": false,
+          "internalType": "address",
+          "name": "prevVaultLib",
+          "type": "address"
+        },
+        {
+          "indexed": false,
+          "internalType": "address",
+          "name": "nextVaultLib",
+          "type": "address"
+        }
+      ],
+      "name": "VaultLibSet",
+      "type": "event"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "_owner",
+          "type": "address"
+        },
+        {
+          "internalType": "address",
+          "name": "_spender",
+          "type": "address"
+        }
+      ],
+      "name": "allowance",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "_spender",
+          "type": "address"
+        },
+        {
+          "internalType": "uint256",
+          "name": "_amount",
+          "type": "uint256"
+        }
+      ],
+      "name": "approve",
+      "outputs": [
+        {
+          "internalType": "bool",
+          "name": "",
+          "type": "bool"
+        }
+      ],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "_account",
+          "type": "address"
+        }
+      ],
+      "name": "balanceOf",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "_who",
+          "type": "address"
+        }
+      ],
+      "name": "canMigrate",
+      "outputs": [
+        {
+          "internalType": "bool",
+          "name": "canMigrate_",
+          "type": "bool"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "decimals",
+      "outputs": [
+        {
+          "internalType": "uint8",
+          "name": "",
+          "type": "uint8"
+        }
+      ],
+      "stateMutability": "pure",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "getVaultLib",
+      "outputs": [
+        {
+          "internalType": "address",
+          "name": "vaultLib_",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "_owner",
+          "type": "address"
+        },
+        {
+          "internalType": "address",
+          "name": "_accessor",
+          "type": "address"
+        },
+        {
+          "internalType": "string",
+          "name": "_fundName",
+          "type": "string"
+        }
+      ],
+      "name": "init",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "name",
+      "outputs": [
+        {
+          "internalType": "string",
+          "name": "",
+          "type": "string"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "proxiableUUID",
+      "outputs": [
+        {
+          "internalType": "bytes32",
+          "name": "uuid_",
+          "type": "bytes32"
+        }
+      ],
+      "stateMutability": "pure",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "_nextAccessor",
+          "type": "address"
+        }
+      ],
+      "name": "setAccessor",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "_nextVaultLib",
+          "type": "address"
+        }
+      ],
+      "name": "setVaultLib",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "symbol",
+      "outputs": [
+        {
+          "internalType": "string",
+          "name": "",
+          "type": "string"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "totalSupply",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "_recipient",
+          "type": "address"
+        },
+        {
+          "internalType": "uint256",
+          "name": "_amount",
+          "type": "uint256"
+        }
+      ],
+      "name": "transfer",
+      "outputs": [
+        {
+          "internalType": "bool",
+          "name": "",
+          "type": "bool"
+        }
+      ],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "_sender",
+          "type": "address"
+        },
+        {
+          "internalType": "address",
+          "name": "_recipient",
+          "type": "address"
+        },
+        {
+          "internalType": "uint256",
+          "name": "_amount",
+          "type": "uint256"
+        }
+      ],
+      "name": "transferFrom",
+      "outputs": [
+        {
+          "internalType": "bool",
+          "name": "",
+          "type": "bool"
+        }
+      ],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    }
+  ],
+  "bytecode": {
+    "object": "0x",
+    "sourceMap": "",
+    "linkReferences": {}
+  },
+  "deployedBytecode": {
+    "object": "0x",
+    "sourceMap": "",
+    "linkReferences": {}
+  },
+  "methodIdentifiers": {
+    "allowance(address,address)": "dd62ed3e",
+    "approve(address,uint256)": "095ea7b3",
+    "balanceOf(address)": "70a08231",
+    "canMigrate(address)": "7de07cea",
+    "decimals()": "313ce567",
+    "getVaultLib()": "682cea19",
+    "init(address,address,string)": "5c9a6d37",
+    "name()": "06fdde03",
+    "proxiableUUID()": "52d1902d",
+    "setAccessor(address)": "ab9253ac",
+    "setVaultLib(address)": "4140d607",
+    "symbol()": "95d89b41",
+    "totalSupply()": "18160ddd",
+    "transfer(address,uint256)": "a9059cbb",
+    "transferFrom(address,address,uint256)": "23b872dd"
+  },
+  "rawMetadata": "{\"compiler\":{\"version\":\"0.6.12+commit.27d51765\"},\"language\":\"Solidity\",\"output\":{\"abi\":[{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"address\",\"name\":\"prevAccessor\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"address\",\"name\":\"nextAccessor\",\"type\":\"address\"}],\"name\":\"AccessorSet\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"owner\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"spender\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"value\",\"type\":\"uint256\"}],\"name\":\"Approval\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"address\",\"name\":\"manager\",\"type\":\"address\"}],\"name\":\"AssetManagerAdded\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"address\",\"name\":\"manager\",\"type\":\"address\"}],\"name\":\"AssetManagerRemoved\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"asset\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"target\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\"}],\"name\":\"AssetWithdrawn\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"sender\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\"}],\"name\":\"EthReceived\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"externalPosition\",\"type\":\"address\"}],\"name\":\"ExternalPositionAdded\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"externalPosition\",\"type\":\"address\"}],\"name\":\"ExternalPositionRemoved\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[],\"name\":\"FreelyTransferableSharesSet\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"address\",\"name\":\"prevMigrator\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"address\",\"name\":\"nextMigrator\",\"type\":\"address\"}],\"name\":\"MigratorSet\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"string\",\"name\":\"name\",\"type\":\"string\"}],\"name\":\"NameSet\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"nominatedOwner\",\"type\":\"address\"}],\"name\":\"NominatedOwnerRemoved\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"nominatedOwner\",\"type\":\"address\"}],\"name\":\"NominatedOwnerSet\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"address\",\"name\":\"prevOwner\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"address\",\"name\":\"nextOwner\",\"type\":\"address\"}],\"name\":\"OwnerSet\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"prevOwner\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"nextOwner\",\"type\":\"address\"}],\"name\":\"OwnershipTransferred\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"sharesAmount\",\"type\":\"uint256\"}],\"name\":\"ProtocolFeePaidInShares\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"sharesAmount\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"mlnValue\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"mlnBurned\",\"type\":\"uint256\"}],\"name\":\"ProtocolFeeSharesBoughtBack\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"string\",\"name\":\"symbol\",\"type\":\"string\"}],\"name\":\"SymbolSet\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"address\",\"name\":\"asset\",\"type\":\"address\"}],\"name\":\"TrackedAssetAdded\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"address\",\"name\":\"asset\",\"type\":\"address\"}],\"name\":\"TrackedAssetRemoved\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"from\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"to\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"value\",\"type\":\"uint256\"}],\"name\":\"Transfer\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"address\",\"name\":\"prevVaultLib\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"address\",\"name\":\"nextVaultLib\",\"type\":\"address\"}],\"name\":\"VaultLibSet\",\"type\":\"event\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_owner\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"_spender\",\"type\":\"address\"}],\"name\":\"allowance\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_spender\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"_amount\",\"type\":\"uint256\"}],\"name\":\"approve\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_account\",\"type\":\"address\"}],\"name\":\"balanceOf\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_who\",\"type\":\"address\"}],\"name\":\"canMigrate\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"canMigrate_\",\"type\":\"bool\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"decimals\",\"outputs\":[{\"internalType\":\"uint8\",\"name\":\"\",\"type\":\"uint8\"}],\"stateMutability\":\"pure\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getVaultLib\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"vaultLib_\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_owner\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"_accessor\",\"type\":\"address\"},{\"internalType\":\"string\",\"name\":\"_fundName\",\"type\":\"string\"}],\"name\":\"init\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"name\",\"outputs\":[{\"internalType\":\"string\",\"name\":\"\",\"type\":\"string\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"proxiableUUID\",\"outputs\":[{\"internalType\":\"bytes32\",\"name\":\"uuid_\",\"type\":\"bytes32\"}],\"stateMutability\":\"pure\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_nextAccessor\",\"type\":\"address\"}],\"name\":\"setAccessor\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_nextVaultLib\",\"type\":\"address\"}],\"name\":\"setVaultLib\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"symbol\",\"outputs\":[{\"internalType\":\"string\",\"name\":\"\",\"type\":\"string\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"totalSupply\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_recipient\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"_amount\",\"type\":\"uint256\"}],\"name\":\"transfer\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_sender\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"_recipient\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"_amount\",\"type\":\"uint256\"}],\"name\":\"transferFrom\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"stateMutability\":\"nonpayable\",\"type\":\"function\"}],\"devdoc\":{\"author\":\"Enzyme Council <security@enzyme.finance>\",\"details\":\"All subsequent implementations should inherit the previous implementation, e.g., `VaultLibBase2 is VaultLibBase1` DO NOT EDIT CONTRACT.\",\"kind\":\"dev\",\"methods\":{\"allowance(address,address)\":{\"details\":\"Standard implementation of ERC20's allowance(). Can be overridden.\"},\"approve(address,uint256)\":{\"details\":\"Standard implementation of ERC20's approve(). Can be overridden.\"},\"balanceOf(address)\":{\"details\":\"Standard implementation of ERC20's balanceOf(). Can be overridden.\"},\"canMigrate(address)\":{\"params\":{\"_who\":\"The account to check\"},\"returns\":{\"canMigrate_\":\"True if the account is allowed to migrate the VaultProxy\"}},\"decimals()\":{\"details\":\"Standard implementation of ERC20's decimals(). Can not be overridden.\"},\"getVaultLib()\":{\"returns\":{\"vaultLib_\":\"The address of the VaultLib target\"}},\"init(address,address,string)\":{\"details\":\"Serves as a per-proxy pseudo-constructor\",\"params\":{\"_accessor\":\"The address to set as the permissioned accessor of the VaultLib\",\"_fundName\":\"The name of the fund\",\"_owner\":\"The address to set as the fund owner\"}},\"name()\":{\"details\":\"Standard implementation of ERC20's name(). Can be overridden.\"},\"proxiableUUID()\":{\"details\":\"The UUID is `bytes32(keccak256('mln.proxiable.vaultlib'))`\",\"returns\":{\"uuid_\":\"The bytes32 hash representing the UUID\"}},\"setAccessor(address)\":{\"params\":{\"_nextAccessor\":\"The address to set as the permissioned accessor of the VaultLib\"}},\"setVaultLib(address)\":{\"details\":\"This function is absolutely critical. __updateCodeAddress() validates that the target is a valid Proxiable contract instance. Does not block _nextVaultLib from being the same as the current VaultLib\",\"params\":{\"_nextVaultLib\":\"The address to set as the VaultLib\"}},\"symbol()\":{\"details\":\"Standard implementation of ERC20's symbol(). Can be overridden.\"},\"totalSupply()\":{\"details\":\"Standard implementation of ERC20's totalSupply(). Can be overridden.\"},\"transfer(address,uint256)\":{\"details\":\"Standard implementation of ERC20's transfer(). Can be overridden.\"},\"transferFrom(address,address,uint256)\":{\"details\":\"Standard implementation of ERC20's transferFrom(). Can be overridden.\"}},\"title\":\"VaultLibBase2 Contract\",\"version\":1},\"userdoc\":{\"kind\":\"user\",\"methods\":{\"canMigrate(address)\":{\"notice\":\"Checks whether an account is allowed to migrate the VaultProxy\"},\"getVaultLib()\":{\"notice\":\"Gets the VaultLib target for the VaultProxy\"},\"init(address,address,string)\":{\"notice\":\"Initializes the VaultProxy with core configuration\"},\"proxiableUUID()\":{\"notice\":\"Returns a unique bytes32 hash for VaultLib instances\"},\"setAccessor(address)\":{\"notice\":\"Sets the permissioned accessor of the VaultLib\"},\"setVaultLib(address)\":{\"notice\":\"Sets the VaultLib target for the VaultProxy\"}},\"notice\":\"The first implementation of VaultLibBase1, with additional events and storage\",\"version\":1}},\"settings\":{\"compilationTarget\":{\"contracts/persistent/vault/VaultLibBase2.sol\":\"VaultLibBase2\"},\"evmVersion\":\"istanbul\",\"libraries\":{},\"metadata\":{\"bytecodeHash\":\"none\"},\"optimizer\":{\"details\":{\"constantOptimizer\":true,\"cse\":true,\"deduplicate\":true,\"jumpdestRemover\":true,\"orderLiterals\":true,\"peephole\":true,\"yul\":false},\"runs\":200},\"remappings\":[\":@enzyme/=contracts/\",\":@openzeppelin-solc-0.7/=node_modules/@openzeppelin-solc-0.7/\",\":@openzeppelin/=node_modules/@openzeppelin/\",\":@uniswap/=node_modules/@uniswap/\",\":base64-sol/=node_modules/base64-sol/\",\":ds-test/=lib/forge-std/lib/ds-test/src/\",\":forge-std/=lib/forge-std/src/\",\":hardhat-deploy/=node_modules/hardhat-deploy/\",\":hardhat/=node_modules/hardhat/\"]},\"sources\":{\"contracts/persistent/vault/VaultLibBase1.sol\":{\"keccak256\":\"0xa4dac1e4cdb311a2ab187135355357d8790c505ef36dd912c057fe53743d30b5\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://b66efe821016ab927c949263023260515e90f5d480dc8d94eefbfeec7bf7490b\",\"dweb:/ipfs/QmNY3xKnhL9EptAbxGvXHGAXfV9pj3dDPwsZnKrPs54ZHw\"]},\"contracts/persistent/vault/VaultLibBase2.sol\":{\"keccak256\":\"0xf7d31f2a9a47770ed3f444be2c4fe9262ddb55fef7f25e546b1f03c9afec4c09\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://9353ddce7c9b8b3c13fed23fe8edec99ca610d791b0c5b204b3d01f1f08d07d2\",\"dweb:/ipfs/QmeVsEh3joCjv49BRXeHASevnZZ5xdZXpkctHT8BPf37N2\"]},\"contracts/persistent/vault/VaultLibBaseCore.sol\":{\"keccak256\":\"0xc518a9735a8145f064817fa21c1cc57eba7d3396a06320b7abde187b87613074\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://06f8b29550ba2583ac566b5f92bf206a8c47c492030db1580f5bd64cbd5db3dd\",\"dweb:/ipfs/QmVd4yVBazyDd6CdgTCgrBg9t9ekoJFT2VskTFLGY2Amdz\"]},\"contracts/persistent/vault/interfaces/IMigratableVault.sol\":{\"keccak256\":\"0x30cfc9be81edf29261724242246811179ac9503d062ded60a2ae220c8df86f1c\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://2db64a34fe22310f2ac1977ea251ba83fb0d6398a964ef9a85b73f06d2a7db82\",\"dweb:/ipfs/QmPLXPV3giQujRLNQeQAvhNYexjzu6dRgdQC5oPij2gMwM\"]},\"contracts/persistent/vault/utils/ProxiableVaultLib.sol\":{\"keccak256\":\"0x47123e1fd95e335b312d378e651a627a674f32df372bcfe36c1128ab91122f76\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://960c57e2e345091d025cc0e1b1070b7fbabe13fe5fc00a55def7f8d5feb55e44\",\"dweb:/ipfs/QmZT8omiird2WfA9bnffnWpXuQERTCUJqh4wpN5wz1BCD4\"]},\"contracts/persistent/vault/utils/SharesTokenBase.sol\":{\"keccak256\":\"0x9b2a431aea5f0b908cc8c169c89ed420b52fb5f63cca40e97a9223209c0b1113\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://991ac66f7f44313d113916b76b9843d0b9e705329851b0858061a8a051fbe8e8\",\"dweb:/ipfs/QmPpE2mNajVqWcNg2gCVwoRCfpM2CPAyAF9Vvk57j2ihc4\"]},\"contracts/persistent/vault/utils/VaultLibSafeMath.sol\":{\"keccak256\":\"0xc056fcbf5f498fea6a12ae7f470bb4246297355c3117b1bd01d0edf207da947d\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://432bde139ff1834c0f762231f5bc73ad268ea8048b099b5315c187e289d87b02\",\"dweb:/ipfs/QmRBW8EcrigYQHacihj4JFgh5y8apv8xwZJMvfHEdtSVsG\"]}},\"version\":1}",
+  "metadata": {
+    "compiler": {
+      "version": "0.6.12+commit.27d51765"
+    },
+    "language": "Solidity",
+    "output": {
+      "abi": [
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "prevAccessor",
+              "type": "address",
+              "indexed": false
+            },
+            {
+              "internalType": "address",
+              "name": "nextAccessor",
+              "type": "address",
+              "indexed": false
+            }
+          ],
+          "type": "event",
+          "name": "AccessorSet",
+          "anonymous": false
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "owner",
+              "type": "address",
+              "indexed": true
+            },
+            {
+              "internalType": "address",
+              "name": "spender",
+              "type": "address",
+              "indexed": true
+            },
+            {
+              "internalType": "uint256",
+              "name": "value",
+              "type": "uint256",
+              "indexed": false
+            }
+          ],
+          "type": "event",
+          "name": "Approval",
+          "anonymous": false
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "manager",
+              "type": "address",
+              "indexed": false
+            }
+          ],
+          "type": "event",
+          "name": "AssetManagerAdded",
+          "anonymous": false
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "manager",
+              "type": "address",
+              "indexed": false
+            }
+          ],
+          "type": "event",
+          "name": "AssetManagerRemoved",
+          "anonymous": false
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "asset",
+              "type": "address",
+              "indexed": true
+            },
+            {
+              "internalType": "address",
+              "name": "target",
+              "type": "address",
+              "indexed": true
+            },
+            {
+              "internalType": "uint256",
+              "name": "amount",
+              "type": "uint256",
+              "indexed": false
+            }
+          ],
+          "type": "event",
+          "name": "AssetWithdrawn",
+          "anonymous": false
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "sender",
+              "type": "address",
+              "indexed": true
+            },
+            {
+              "internalType": "uint256",
+              "name": "amount",
+              "type": "uint256",
+              "indexed": false
+            }
+          ],
+          "type": "event",
+          "name": "EthReceived",
+          "anonymous": false
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "externalPosition",
+              "type": "address",
+              "indexed": true
+            }
+          ],
+          "type": "event",
+          "name": "ExternalPositionAdded",
+          "anonymous": false
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "externalPosition",
+              "type": "address",
+              "indexed": true
+            }
+          ],
+          "type": "event",
+          "name": "ExternalPositionRemoved",
+          "anonymous": false
+        },
+        {
+          "inputs": [],
+          "type": "event",
+          "name": "FreelyTransferableSharesSet",
+          "anonymous": false
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "prevMigrator",
+              "type": "address",
+              "indexed": false
+            },
+            {
+              "internalType": "address",
+              "name": "nextMigrator",
+              "type": "address",
+              "indexed": false
+            }
+          ],
+          "type": "event",
+          "name": "MigratorSet",
+          "anonymous": false
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "string",
+              "name": "name",
+              "type": "string",
+              "indexed": false
+            }
+          ],
+          "type": "event",
+          "name": "NameSet",
+          "anonymous": false
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "nominatedOwner",
+              "type": "address",
+              "indexed": true
+            }
+          ],
+          "type": "event",
+          "name": "NominatedOwnerRemoved",
+          "anonymous": false
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "nominatedOwner",
+              "type": "address",
+              "indexed": true
+            }
+          ],
+          "type": "event",
+          "name": "NominatedOwnerSet",
+          "anonymous": false
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "prevOwner",
+              "type": "address",
+              "indexed": false
+            },
+            {
+              "internalType": "address",
+              "name": "nextOwner",
+              "type": "address",
+              "indexed": false
+            }
+          ],
+          "type": "event",
+          "name": "OwnerSet",
+          "anonymous": false
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "prevOwner",
+              "type": "address",
+              "indexed": true
+            },
+            {
+              "internalType": "address",
+              "name": "nextOwner",
+              "type": "address",
+              "indexed": true
+            }
+          ],
+          "type": "event",
+          "name": "OwnershipTransferred",
+          "anonymous": false
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "uint256",
+              "name": "sharesAmount",
+              "type": "uint256",
+              "indexed": false
+            }
+          ],
+          "type": "event",
+          "name": "ProtocolFeePaidInShares",
+          "anonymous": false
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "uint256",
+              "name": "sharesAmount",
+              "type": "uint256",
+              "indexed": false
+            },
+            {
+              "internalType": "uint256",
+              "name": "mlnValue",
+              "type": "uint256",
+              "indexed": false
+            },
+            {
+              "internalType": "uint256",
+              "name": "mlnBurned",
+              "type": "uint256",
+              "indexed": false
+            }
+          ],
+          "type": "event",
+          "name": "ProtocolFeeSharesBoughtBack",
+          "anonymous": false
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "string",
+              "name": "symbol",
+              "type": "string",
+              "indexed": false
+            }
+          ],
+          "type": "event",
+          "name": "SymbolSet",
+          "anonymous": false
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "asset",
+              "type": "address",
+              "indexed": false
+            }
+          ],
+          "type": "event",
+          "name": "TrackedAssetAdded",
+          "anonymous": false
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "asset",
+              "type": "address",
+              "indexed": false
+            }
+          ],
+          "type": "event",
+          "name": "TrackedAssetRemoved",
+          "anonymous": false
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "from",
+              "type": "address",
+              "indexed": true
+            },
+            {
+              "internalType": "address",
+              "name": "to",
+              "type": "address",
+              "indexed": true
+            },
+            {
+              "internalType": "uint256",
+              "name": "value",
+              "type": "uint256",
+              "indexed": false
+            }
+          ],
+          "type": "event",
+          "name": "Transfer",
+          "anonymous": false
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "prevVaultLib",
+              "type": "address",
+              "indexed": false
+            },
+            {
+              "internalType": "address",
+              "name": "nextVaultLib",
+              "type": "address",
+              "indexed": false
+            }
+          ],
+          "type": "event",
+          "name": "VaultLibSet",
+          "anonymous": false
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "_owner",
+              "type": "address"
+            },
+            {
+              "internalType": "address",
+              "name": "_spender",
+              "type": "address"
+            }
+          ],
+          "stateMutability": "view",
+          "type": "function",
+          "name": "allowance",
+          "outputs": [
+            {
+              "internalType": "uint256",
+              "name": "",
+              "type": "uint256"
+            }
+          ]
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "_spender",
+              "type": "address"
+            },
+            {
+              "internalType": "uint256",
+              "name": "_amount",
+              "type": "uint256"
+            }
+          ],
+          "stateMutability": "nonpayable",
+          "type": "function",
+          "name": "approve",
+          "outputs": [
+            {
+              "internalType": "bool",
+              "name": "",
+              "type": "bool"
+            }
+          ]
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "_account",
+              "type": "address"
+            }
+          ],
+          "stateMutability": "view",
+          "type": "function",
+          "name": "balanceOf",
+          "outputs": [
+            {
+              "internalType": "uint256",
+              "name": "",
+              "type": "uint256"
+            }
+          ]
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "_who",
+              "type": "address"
+            }
+          ],
+          "stateMutability": "view",
+          "type": "function",
+          "name": "canMigrate",
+          "outputs": [
+            {
+              "internalType": "bool",
+              "name": "canMigrate_",
+              "type": "bool"
+            }
+          ]
+        },
+        {
+          "inputs": [],
+          "stateMutability": "pure",
+          "type": "function",
+          "name": "decimals",
+          "outputs": [
+            {
+              "internalType": "uint8",
+              "name": "",
+              "type": "uint8"
+            }
+          ]
+        },
+        {
+          "inputs": [],
+          "stateMutability": "view",
+          "type": "function",
+          "name": "getVaultLib",
+          "outputs": [
+            {
+              "internalType": "address",
+              "name": "vaultLib_",
+              "type": "address"
+            }
+          ]
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "_owner",
+              "type": "address"
+            },
+            {
+              "internalType": "address",
+              "name": "_accessor",
+              "type": "address"
+            },
+            {
+              "internalType": "string",
+              "name": "_fundName",
+              "type": "string"
+            }
+          ],
+          "stateMutability": "nonpayable",
+          "type": "function",
+          "name": "init"
+        },
+        {
+          "inputs": [],
+          "stateMutability": "view",
+          "type": "function",
+          "name": "name",
+          "outputs": [
+            {
+              "internalType": "string",
+              "name": "",
+              "type": "string"
+            }
+          ]
+        },
+        {
+          "inputs": [],
+          "stateMutability": "pure",
+          "type": "function",
+          "name": "proxiableUUID",
+          "outputs": [
+            {
+              "internalType": "bytes32",
+              "name": "uuid_",
+              "type": "bytes32"
+            }
+          ]
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "_nextAccessor",
+              "type": "address"
+            }
+          ],
+          "stateMutability": "nonpayable",
+          "type": "function",
+          "name": "setAccessor"
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "_nextVaultLib",
+              "type": "address"
+            }
+          ],
+          "stateMutability": "nonpayable",
+          "type": "function",
+          "name": "setVaultLib"
+        },
+        {
+          "inputs": [],
+          "stateMutability": "view",
+          "type": "function",
+          "name": "symbol",
+          "outputs": [
+            {
+              "internalType": "string",
+              "name": "",
+              "type": "string"
+            }
+          ]
+        },
+        {
+          "inputs": [],
+          "stateMutability": "view",
+          "type": "function",
+          "name": "totalSupply",
+          "outputs": [
+            {
+              "internalType": "uint256",
+              "name": "",
+              "type": "uint256"
+            }
+          ]
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "_recipient",
+              "type": "address"
+            },
+            {
+              "internalType": "uint256",
+              "name": "_amount",
+              "type": "uint256"
+            }
+          ],
+          "stateMutability": "nonpayable",
+          "type": "function",
+          "name": "transfer",
+          "outputs": [
+            {
+              "internalType": "bool",
+              "name": "",
+              "type": "bool"
+            }
+          ]
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "_sender",
+              "type": "address"
+            },
+            {
+              "internalType": "address",
+              "name": "_recipient",
+              "type": "address"
+            },
+            {
+              "internalType": "uint256",
+              "name": "_amount",
+              "type": "uint256"
+            }
+          ],
+          "stateMutability": "nonpayable",
+          "type": "function",
+          "name": "transferFrom",
+          "outputs": [
+            {
+              "internalType": "bool",
+              "name": "",
+              "type": "bool"
+            }
+          ]
+        }
+      ],
+      "devdoc": {
+        "kind": "dev",
+        "methods": {
+          "allowance(address,address)": {
+            "details": "Standard implementation of ERC20's allowance(). Can be overridden."
+          },
+          "approve(address,uint256)": {
+            "details": "Standard implementation of ERC20's approve(). Can be overridden."
+          },
+          "balanceOf(address)": {
+            "details": "Standard implementation of ERC20's balanceOf(). Can be overridden."
+          },
+          "canMigrate(address)": {
+            "params": {
+              "_who": "The account to check"
+            },
+            "returns": {
+              "canMigrate_": "True if the account is allowed to migrate the VaultProxy"
+            }
+          },
+          "decimals()": {
+            "details": "Standard implementation of ERC20's decimals(). Can not be overridden."
+          },
+          "getVaultLib()": {
+            "returns": {
+              "vaultLib_": "The address of the VaultLib target"
+            }
+          },
+          "init(address,address,string)": {
+            "details": "Serves as a per-proxy pseudo-constructor",
+            "params": {
+              "_accessor": "The address to set as the permissioned accessor of the VaultLib",
+              "_fundName": "The name of the fund",
+              "_owner": "The address to set as the fund owner"
+            }
+          },
+          "name()": {
+            "details": "Standard implementation of ERC20's name(). Can be overridden."
+          },
+          "proxiableUUID()": {
+            "details": "The UUID is `bytes32(keccak256('mln.proxiable.vaultlib'))`",
+            "returns": {
+              "uuid_": "The bytes32 hash representing the UUID"
+            }
+          },
+          "setAccessor(address)": {
+            "params": {
+              "_nextAccessor": "The address to set as the permissioned accessor of the VaultLib"
+            }
+          },
+          "setVaultLib(address)": {
+            "details": "This function is absolutely critical. __updateCodeAddress() validates that the target is a valid Proxiable contract instance. Does not block _nextVaultLib from being the same as the current VaultLib",
+            "params": {
+              "_nextVaultLib": "The address to set as the VaultLib"
+            }
+          },
+          "symbol()": {
+            "details": "Standard implementation of ERC20's symbol(). Can be overridden."
+          },
+          "totalSupply()": {
+            "details": "Standard implementation of ERC20's totalSupply(). Can be overridden."
+          },
+          "transfer(address,uint256)": {
+            "details": "Standard implementation of ERC20's transfer(). Can be overridden."
+          },
+          "transferFrom(address,address,uint256)": {
+            "details": "Standard implementation of ERC20's transferFrom(). Can be overridden."
+          }
+        },
+        "version": 1
+      },
+      "userdoc": {
+        "kind": "user",
+        "methods": {
+          "canMigrate(address)": {
+            "notice": "Checks whether an account is allowed to migrate the VaultProxy"
+          },
+          "getVaultLib()": {
+            "notice": "Gets the VaultLib target for the VaultProxy"
+          },
+          "init(address,address,string)": {
+            "notice": "Initializes the VaultProxy with core configuration"
+          },
+          "proxiableUUID()": {
+            "notice": "Returns a unique bytes32 hash for VaultLib instances"
+          },
+          "setAccessor(address)": {
+            "notice": "Sets the permissioned accessor of the VaultLib"
+          },
+          "setVaultLib(address)": {
+            "notice": "Sets the VaultLib target for the VaultProxy"
+          }
+        },
+        "version": 1
+      }
+    },
+    "settings": {
+      "remappings": [
+        ":@enzyme/=contracts/",
+        ":@openzeppelin-solc-0.7/=node_modules/@openzeppelin-solc-0.7/",
+        ":@openzeppelin/=node_modules/@openzeppelin/",
+        ":@uniswap/=node_modules/@uniswap/",
+        ":base64-sol/=node_modules/base64-sol/",
+        ":ds-test/=lib/forge-std/lib/ds-test/src/",
+        ":forge-std/=lib/forge-std/src/",
+        ":hardhat-deploy/=node_modules/hardhat-deploy/",
+        ":hardhat/=node_modules/hardhat/"
+      ],
+      "optimizer": {
+        "runs": 200,
+        "details": {
+          "peephole": true,
+          "jumpdestRemover": true,
+          "orderLiterals": true,
+          "deduplicate": true,
+          "cse": true,
+          "constantOptimizer": true,
+          "yul": false
+        }
+      },
+      "metadata": {
+        "bytecodeHash": "none"
+      },
+      "compilationTarget": {
+        "contracts/persistent/vault/VaultLibBase2.sol": "VaultLibBase2"
+      },
+      "libraries": {}
+    },
+    "sources": {
+      "contracts/persistent/vault/VaultLibBase1.sol": {
+        "keccak256": "0xa4dac1e4cdb311a2ab187135355357d8790c505ef36dd912c057fe53743d30b5",
+        "urls": [
+          "bzz-raw://b66efe821016ab927c949263023260515e90f5d480dc8d94eefbfeec7bf7490b",
+          "dweb:/ipfs/QmNY3xKnhL9EptAbxGvXHGAXfV9pj3dDPwsZnKrPs54ZHw"
+        ],
+        "license": "GPL-3.0"
+      },
+      "contracts/persistent/vault/VaultLibBase2.sol": {
+        "keccak256": "0xf7d31f2a9a47770ed3f444be2c4fe9262ddb55fef7f25e546b1f03c9afec4c09",
+        "urls": [
+          "bzz-raw://9353ddce7c9b8b3c13fed23fe8edec99ca610d791b0c5b204b3d01f1f08d07d2",
+          "dweb:/ipfs/QmeVsEh3joCjv49BRXeHASevnZZ5xdZXpkctHT8BPf37N2"
+        ],
+        "license": "GPL-3.0"
+      },
+      "contracts/persistent/vault/VaultLibBaseCore.sol": {
+        "keccak256": "0xc518a9735a8145f064817fa21c1cc57eba7d3396a06320b7abde187b87613074",
+        "urls": [
+          "bzz-raw://06f8b29550ba2583ac566b5f92bf206a8c47c492030db1580f5bd64cbd5db3dd",
+          "dweb:/ipfs/QmVd4yVBazyDd6CdgTCgrBg9t9ekoJFT2VskTFLGY2Amdz"
+        ],
+        "license": "GPL-3.0"
+      },
+      "contracts/persistent/vault/interfaces/IMigratableVault.sol": {
+        "keccak256": "0x30cfc9be81edf29261724242246811179ac9503d062ded60a2ae220c8df86f1c",
+        "urls": [
+          "bzz-raw://2db64a34fe22310f2ac1977ea251ba83fb0d6398a964ef9a85b73f06d2a7db82",
+          "dweb:/ipfs/QmPLXPV3giQujRLNQeQAvhNYexjzu6dRgdQC5oPij2gMwM"
+        ],
+        "license": "GPL-3.0"
+      },
+      "contracts/persistent/vault/utils/ProxiableVaultLib.sol": {
+        "keccak256": "0x47123e1fd95e335b312d378e651a627a674f32df372bcfe36c1128ab91122f76",
+        "urls": [
+          "bzz-raw://960c57e2e345091d025cc0e1b1070b7fbabe13fe5fc00a55def7f8d5feb55e44",
+          "dweb:/ipfs/QmZT8omiird2WfA9bnffnWpXuQERTCUJqh4wpN5wz1BCD4"
+        ],
+        "license": "GPL-3.0"
+      },
+      "contracts/persistent/vault/utils/SharesTokenBase.sol": {
+        "keccak256": "0x9b2a431aea5f0b908cc8c169c89ed420b52fb5f63cca40e97a9223209c0b1113",
+        "urls": [
+          "bzz-raw://991ac66f7f44313d113916b76b9843d0b9e705329851b0858061a8a051fbe8e8",
+          "dweb:/ipfs/QmPpE2mNajVqWcNg2gCVwoRCfpM2CPAyAF9Vvk57j2ihc4"
+        ],
+        "license": "GPL-3.0"
+      },
+      "contracts/persistent/vault/utils/VaultLibSafeMath.sol": {
+        "keccak256": "0xc056fcbf5f498fea6a12ae7f470bb4246297355c3117b1bd01d0edf207da947d",
+        "urls": [
+          "bzz-raw://432bde139ff1834c0f762231f5bc73ad268ea8048b099b5315c187e289d87b02",
+          "dweb:/ipfs/QmRBW8EcrigYQHacihj4JFgh5y8apv8xwZJMvfHEdtSVsG"
+        ],
+        "license": "GPL-3.0"
+      }
+    },
+    "version": 1
+  },
+  "ast": {
+    "absolutePath": "contracts/persistent/vault/VaultLibBase2.sol",
+    "id": 1173,
+    "exportedSymbols": {
+      "VaultLibBase2": [
+        1172
+      ]
+    },
+    "nodeType": "SourceUnit",
+    "src": "255:1759:6",
+    "nodes": [
+      {
+        "id": 1094,
+        "nodeType": "PragmaDirective",
+        "src": "255:23:6",
+        "nodes": [],
+        "literals": [
+          "solidity",
+          "0.6",
+          ".12"
+        ]
+      },
+      {
+        "id": 1095,
+        "nodeType": "ImportDirective",
+        "src": "280:29:6",
+        "nodes": [],
+        "absolutePath": "contracts/persistent/vault/VaultLibBase1.sol",
+        "file": "./VaultLibBase1.sol",
+        "scope": 1173,
+        "sourceUnit": 1093,
+        "symbolAliases": [],
+        "unitAlias": ""
+      },
+      {
+        "id": 1172,
+        "nodeType": "ContractDefinition",
+        "src": "641:1372:6",
+        "nodes": [
+          {
+            "id": 1102,
+            "nodeType": "EventDefinition",
+            "src": "696:41:6",
+            "nodes": [],
+            "anonymous": false,
+            "documentation": null,
+            "name": "AssetManagerAdded",
+            "parameters": {
+              "id": 1101,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 1100,
+                  "indexed": false,
+                  "mutability": "mutable",
+                  "name": "manager",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 1102,
+                  "src": "720:15:6",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 1099,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "720:7:6",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "719:17:6"
+            }
+          },
+          {
+            "id": 1106,
+            "nodeType": "EventDefinition",
+            "src": "743:43:6",
+            "nodes": [],
+            "anonymous": false,
+            "documentation": null,
+            "name": "AssetManagerRemoved",
+            "parameters": {
+              "id": 1105,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 1104,
+                  "indexed": false,
+                  "mutability": "mutable",
+                  "name": "manager",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 1106,
+                  "src": "769:15:6",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 1103,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "769:7:6",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "768:17:6"
+            }
+          },
+          {
+            "id": 1112,
+            "nodeType": "EventDefinition",
+            "src": "792:58:6",
+            "nodes": [],
+            "anonymous": false,
+            "documentation": null,
+            "name": "EthReceived",
+            "parameters": {
+              "id": 1111,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 1108,
+                  "indexed": true,
+                  "mutability": "mutable",
+                  "name": "sender",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 1112,
+                  "src": "810:22:6",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 1107,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "810:7:6",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 1110,
+                  "indexed": false,
+                  "mutability": "mutable",
+                  "name": "amount",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 1112,
+                  "src": "834:14:6",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_uint256",
+                    "typeString": "uint256"
+                  },
+                  "typeName": {
+                    "id": 1109,
+                    "name": "uint256",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "834:7:6",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_uint256",
+                      "typeString": "uint256"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "809:40:6"
+            }
+          },
+          {
+            "id": 1116,
+            "nodeType": "EventDefinition",
+            "src": "856:62:6",
+            "nodes": [],
+            "anonymous": false,
+            "documentation": null,
+            "name": "ExternalPositionAdded",
+            "parameters": {
+              "id": 1115,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 1114,
+                  "indexed": true,
+                  "mutability": "mutable",
+                  "name": "externalPosition",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 1116,
+                  "src": "884:32:6",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 1113,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "884:7:6",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "883:34:6"
+            }
+          },
+          {
+            "id": 1120,
+            "nodeType": "EventDefinition",
+            "src": "924:64:6",
+            "nodes": [],
+            "anonymous": false,
+            "documentation": null,
+            "name": "ExternalPositionRemoved",
+            "parameters": {
+              "id": 1119,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 1118,
+                  "indexed": true,
+                  "mutability": "mutable",
+                  "name": "externalPosition",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 1120,
+                  "src": "954:32:6",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 1117,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "954:7:6",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "953:34:6"
+            }
+          },
+          {
+            "id": 1122,
+            "nodeType": "EventDefinition",
+            "src": "994:36:6",
+            "nodes": [],
+            "anonymous": false,
+            "documentation": null,
+            "name": "FreelyTransferableSharesSet",
+            "parameters": {
+              "id": 1121,
+              "nodeType": "ParameterList",
+              "parameters": [],
+              "src": "1027:2:6"
+            }
+          },
+          {
+            "id": 1126,
+            "nodeType": "EventDefinition",
+            "src": "1036:27:6",
+            "nodes": [],
+            "anonymous": false,
+            "documentation": null,
+            "name": "NameSet",
+            "parameters": {
+              "id": 1125,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 1124,
+                  "indexed": false,
+                  "mutability": "mutable",
+                  "name": "name",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 1126,
+                  "src": "1050:11:6",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_string_memory_ptr",
+                    "typeString": "string"
+                  },
+                  "typeName": {
+                    "id": 1123,
+                    "name": "string",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "1050:6:6",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_string_storage_ptr",
+                      "typeString": "string"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "1049:13:6"
+            }
+          },
+          {
+            "id": 1130,
+            "nodeType": "EventDefinition",
+            "src": "1069:60:6",
+            "nodes": [],
+            "anonymous": false,
+            "documentation": null,
+            "name": "NominatedOwnerRemoved",
+            "parameters": {
+              "id": 1129,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 1128,
+                  "indexed": true,
+                  "mutability": "mutable",
+                  "name": "nominatedOwner",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 1130,
+                  "src": "1097:30:6",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 1127,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "1097:7:6",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "1096:32:6"
+            }
+          },
+          {
+            "id": 1134,
+            "nodeType": "EventDefinition",
+            "src": "1135:56:6",
+            "nodes": [],
+            "anonymous": false,
+            "documentation": null,
+            "name": "NominatedOwnerSet",
+            "parameters": {
+              "id": 1133,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 1132,
+                  "indexed": true,
+                  "mutability": "mutable",
+                  "name": "nominatedOwner",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 1134,
+                  "src": "1159:30:6",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 1131,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "1159:7:6",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "1158:32:6"
+            }
+          },
+          {
+            "id": 1138,
+            "nodeType": "EventDefinition",
+            "src": "1197:52:6",
+            "nodes": [],
+            "anonymous": false,
+            "documentation": null,
+            "name": "ProtocolFeePaidInShares",
+            "parameters": {
+              "id": 1137,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 1136,
+                  "indexed": false,
+                  "mutability": "mutable",
+                  "name": "sharesAmount",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 1138,
+                  "src": "1227:20:6",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_uint256",
+                    "typeString": "uint256"
+                  },
+                  "typeName": {
+                    "id": 1135,
+                    "name": "uint256",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "1227:7:6",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_uint256",
+                      "typeString": "uint256"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "1226:22:6"
+            }
+          },
+          {
+            "id": 1146,
+            "nodeType": "EventDefinition",
+            "src": "1255:93:6",
+            "nodes": [],
+            "anonymous": false,
+            "documentation": null,
+            "name": "ProtocolFeeSharesBoughtBack",
+            "parameters": {
+              "id": 1145,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 1140,
+                  "indexed": false,
+                  "mutability": "mutable",
+                  "name": "sharesAmount",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 1146,
+                  "src": "1289:20:6",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_uint256",
+                    "typeString": "uint256"
+                  },
+                  "typeName": {
+                    "id": 1139,
+                    "name": "uint256",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "1289:7:6",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_uint256",
+                      "typeString": "uint256"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 1142,
+                  "indexed": false,
+                  "mutability": "mutable",
+                  "name": "mlnValue",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 1146,
+                  "src": "1311:16:6",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_uint256",
+                    "typeString": "uint256"
+                  },
+                  "typeName": {
+                    "id": 1141,
+                    "name": "uint256",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "1311:7:6",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_uint256",
+                      "typeString": "uint256"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 1144,
+                  "indexed": false,
+                  "mutability": "mutable",
+                  "name": "mlnBurned",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 1146,
+                  "src": "1329:17:6",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_uint256",
+                    "typeString": "uint256"
+                  },
+                  "typeName": {
+                    "id": 1143,
+                    "name": "uint256",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "1329:7:6",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_uint256",
+                      "typeString": "uint256"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "1288:59:6"
+            }
+          },
+          {
+            "id": 1152,
+            "nodeType": "EventDefinition",
+            "src": "1354:81:6",
+            "nodes": [],
+            "anonymous": false,
+            "documentation": null,
+            "name": "OwnershipTransferred",
+            "parameters": {
+              "id": 1151,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 1148,
+                  "indexed": true,
+                  "mutability": "mutable",
+                  "name": "prevOwner",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 1152,
+                  "src": "1381:25:6",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 1147,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "1381:7:6",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 1150,
+                  "indexed": true,
+                  "mutability": "mutable",
+                  "name": "nextOwner",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 1152,
+                  "src": "1408:25:6",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 1149,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "1408:7:6",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "1380:54:6"
+            }
+          },
+          {
+            "id": 1156,
+            "nodeType": "EventDefinition",
+            "src": "1441:31:6",
+            "nodes": [],
+            "anonymous": false,
+            "documentation": null,
+            "name": "SymbolSet",
+            "parameters": {
+              "id": 1155,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 1154,
+                  "indexed": false,
+                  "mutability": "mutable",
+                  "name": "symbol",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 1156,
+                  "src": "1457:13:6",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_string_memory_ptr",
+                    "typeString": "string"
+                  },
+                  "typeName": {
+                    "id": 1153,
+                    "name": "string",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "1457:6:6",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_string_storage_ptr",
+                      "typeString": "string"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "1456:15:6"
+            }
+          },
+          {
+            "id": 1158,
+            "nodeType": "VariableDeclaration",
+            "src": "1758:38:6",
+            "nodes": [],
+            "constant": false,
+            "mutability": "mutable",
+            "name": "freelyTransferableShares",
+            "overrides": null,
+            "scope": 1172,
+            "stateVariable": true,
+            "storageLocation": "default",
+            "typeDescriptions": {
+              "typeIdentifier": "t_bool",
+              "typeString": "bool"
+            },
+            "typeName": {
+              "id": 1157,
+              "name": "bool",
+              "nodeType": "ElementaryTypeName",
+              "src": "1758:4:6",
+              "typeDescriptions": {
+                "typeIdentifier": "t_bool",
+                "typeString": "bool"
+              }
+            },
+            "value": null,
+            "visibility": "internal"
+          },
+          {
+            "id": 1160,
+            "nodeType": "VariableDeclaration",
+            "src": "1802:31:6",
+            "nodes": [],
+            "constant": false,
+            "mutability": "mutable",
+            "name": "nominatedOwner",
+            "overrides": null,
+            "scope": 1172,
+            "stateVariable": true,
+            "storageLocation": "default",
+            "typeDescriptions": {
+              "typeIdentifier": "t_address",
+              "typeString": "address"
+            },
+            "typeName": {
+              "id": 1159,
+              "name": "address",
+              "nodeType": "ElementaryTypeName",
+              "src": "1802:7:6",
+              "stateMutability": "nonpayable",
+              "typeDescriptions": {
+                "typeIdentifier": "t_address",
+                "typeString": "address"
+              }
+            },
+            "value": null,
+            "visibility": "internal"
+          },
+          {
+            "id": 1163,
+            "nodeType": "VariableDeclaration",
+            "src": "1839:42:6",
+            "nodes": [],
+            "constant": false,
+            "mutability": "mutable",
+            "name": "activeExternalPositions",
+            "overrides": null,
+            "scope": 1172,
+            "stateVariable": true,
+            "storageLocation": "default",
+            "typeDescriptions": {
+              "typeIdentifier": "t_array$_t_address_$dyn_storage",
+              "typeString": "address[]"
+            },
+            "typeName": {
+              "baseType": {
+                "id": 1161,
+                "name": "address",
+                "nodeType": "ElementaryTypeName",
+                "src": "1839:7:6",
+                "stateMutability": "nonpayable",
+                "typeDescriptions": {
+                  "typeIdentifier": "t_address",
+                  "typeString": "address"
+                }
+              },
+              "id": 1162,
+              "length": null,
+              "nodeType": "ArrayTypeName",
+              "src": "1839:9:6",
+              "typeDescriptions": {
+                "typeIdentifier": "t_array$_t_address_$dyn_storage_ptr",
+                "typeString": "address[]"
+              }
+            },
+            "value": null,
+            "visibility": "internal"
+          },
+          {
+            "id": 1167,
+            "nodeType": "VariableDeclaration",
+            "src": "1887:57:6",
+            "nodes": [],
+            "constant": false,
+            "mutability": "mutable",
+            "name": "accountToIsAssetManager",
+            "overrides": null,
+            "scope": 1172,
+            "stateVariable": true,
+            "storageLocation": "default",
+            "typeDescriptions": {
+              "typeIdentifier": "t_mapping$_t_address_$_t_bool_$",
+              "typeString": "mapping(address => bool)"
+            },
+            "typeName": {
+              "id": 1166,
+              "keyType": {
+                "id": 1164,
+                "name": "address",
+                "nodeType": "ElementaryTypeName",
+                "src": "1895:7:6",
+                "typeDescriptions": {
+                  "typeIdentifier": "t_address",
+                  "typeString": "address"
+                }
+              },
+              "nodeType": "Mapping",
+              "src": "1887:24:6",
+              "typeDescriptions": {
+                "typeIdentifier": "t_mapping$_t_address_$_t_bool_$",
+                "typeString": "mapping(address => bool)"
+              },
+              "valueType": {
+                "id": 1165,
+                "name": "bool",
+                "nodeType": "ElementaryTypeName",
+                "src": "1906:4:6",
+                "typeDescriptions": {
+                  "typeIdentifier": "t_bool",
+                  "typeString": "bool"
+                }
+              }
+            },
+            "value": null,
+            "visibility": "internal"
+          },
+          {
+            "id": 1171,
+            "nodeType": "VariableDeclaration",
+            "src": "1950:60:6",
+            "nodes": [],
+            "constant": false,
+            "mutability": "mutable",
+            "name": "externalPositionToIsActive",
+            "overrides": null,
+            "scope": 1172,
+            "stateVariable": true,
+            "storageLocation": "default",
+            "typeDescriptions": {
+              "typeIdentifier": "t_mapping$_t_address_$_t_bool_$",
+              "typeString": "mapping(address => bool)"
+            },
+            "typeName": {
+              "id": 1170,
+              "keyType": {
+                "id": 1168,
+                "name": "address",
+                "nodeType": "ElementaryTypeName",
+                "src": "1958:7:6",
+                "typeDescriptions": {
+                  "typeIdentifier": "t_address",
+                  "typeString": "address"
+                }
+              },
+              "nodeType": "Mapping",
+              "src": "1950:24:6",
+              "typeDescriptions": {
+                "typeIdentifier": "t_mapping$_t_address_$_t_bool_$",
+                "typeString": "mapping(address => bool)"
+              },
+              "valueType": {
+                "id": 1169,
+                "name": "bool",
+                "nodeType": "ElementaryTypeName",
+                "src": "1969:4:6",
+                "typeDescriptions": {
+                  "typeIdentifier": "t_bool",
+                  "typeString": "bool"
+                }
+              }
+            },
+            "value": null,
+            "visibility": "internal"
+          }
+        ],
+        "abstract": true,
+        "baseContracts": [
+          {
+            "arguments": null,
+            "baseName": {
+              "contractScope": null,
+              "id": 1097,
+              "name": "VaultLibBase1",
+              "nodeType": "UserDefinedTypeName",
+              "referencedDeclaration": 1092,
+              "src": "676:13:6",
+              "typeDescriptions": {
+                "typeIdentifier": "t_contract$_VaultLibBase1_$1092",
+                "typeString": "contract VaultLibBase1"
+              }
+            },
+            "id": 1098,
+            "nodeType": "InheritanceSpecifier",
+            "src": "676:13:6"
+          }
+        ],
+        "contractDependencies": [
+          1092,
+          1410,
+          1460,
+          1519,
+          1900
+        ],
+        "contractKind": "contract",
+        "documentation": {
+          "id": 1096,
+          "nodeType": "StructuredDocumentation",
+          "src": "311:330:6",
+          "text": "@title VaultLibBase2 Contract\n @author Enzyme Council <security@enzyme.finance>\n @notice The first implementation of VaultLibBase1, with additional events and storage\n @dev All subsequent implementations should inherit the previous implementation,\n e.g., `VaultLibBase2 is VaultLibBase1`\n DO NOT EDIT CONTRACT."
+        },
+        "fullyImplemented": true,
+        "linearizedBaseContracts": [
+          1172,
+          1092,
+          1410,
+          1900,
+          1519,
+          1460
+        ],
+        "name": "VaultLibBase2",
+        "scope": 1173
+      }
+    ],
+    "license": "GPL-3.0"
+  },
+  "id": 6
+}

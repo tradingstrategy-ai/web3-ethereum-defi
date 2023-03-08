@@ -1,0 +1,312 @@
+{
+  "abi": [
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "lendingPool",
+          "type": "address"
+        }
+      ],
+      "name": "UsedLendingPoolAdded",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "lendingPool",
+          "type": "address"
+        }
+      ],
+      "name": "UsedLendingPoolRemoved",
+      "type": "event"
+    }
+  ],
+  "bytecode": {
+    "object": "0x",
+    "sourceMap": "",
+    "linkReferences": {}
+  },
+  "deployedBytecode": {
+    "object": "0x",
+    "sourceMap": "",
+    "linkReferences": {}
+  },
+  "methodIdentifiers": {},
+  "rawMetadata": "{\"compiler\":{\"version\":\"0.6.12+commit.27d51765\"},\"language\":\"Solidity\",\"output\":{\"abi\":[{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"lendingPool\",\"type\":\"address\"}],\"name\":\"UsedLendingPoolAdded\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"lendingPool\",\"type\":\"address\"}],\"name\":\"UsedLendingPoolRemoved\",\"type\":\"event\"}],\"devdoc\":{\"author\":\"Enzyme Council <security@enzyme.finance>\",\"details\":\"DO NOT EDIT CONTRACT. If new events or storage are necessary, they should be added to a numbered MapleLiquidityPositionLibBaseXXX that inherits the previous base. e.g., `MapleLiquidityPositionLibBase2 is MapleLiquidityPositionLibBase1`\",\"kind\":\"dev\",\"methods\":{},\"title\":\"MapleLiquidityPositionLibBase1 Contract\",\"version\":1},\"userdoc\":{\"kind\":\"user\",\"methods\":{},\"notice\":\"A persistent contract containing all required storage variables and required functions for a MapleLiquidityPositionLib implementation\",\"version\":1}},\"settings\":{\"compilationTarget\":{\"contracts/persistent/external-positions/maple-liquidity/MapleLiquidityPositionLibBase1.sol\":\"MapleLiquidityPositionLibBase1\"},\"evmVersion\":\"istanbul\",\"libraries\":{},\"metadata\":{\"bytecodeHash\":\"none\"},\"optimizer\":{\"details\":{\"constantOptimizer\":true,\"cse\":true,\"deduplicate\":true,\"jumpdestRemover\":true,\"orderLiterals\":true,\"peephole\":true,\"yul\":false},\"runs\":200},\"remappings\":[\":@enzyme/=contracts/\",\":@openzeppelin-solc-0.7/=node_modules/@openzeppelin-solc-0.7/\",\":@openzeppelin/=node_modules/@openzeppelin/\",\":@uniswap/=node_modules/@uniswap/\",\":base64-sol/=node_modules/base64-sol/\",\":ds-test/=lib/forge-std/lib/ds-test/src/\",\":forge-std/=lib/forge-std/src/\",\":hardhat-deploy/=node_modules/hardhat-deploy/\",\":hardhat/=node_modules/hardhat/\"]},\"sources\":{\"contracts/persistent/external-positions/maple-liquidity/MapleLiquidityPositionLibBase1.sol\":{\"keccak256\":\"0x9a724ee1ac70895952f895738b12a45dc07ccde96a637282a502deb399d03434\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://779cd983ca59fe27cd359633bedf3ec7528e9c85763ef8f98ddf10de9e4de500\",\"dweb:/ipfs/QmUydfGbroct2beqBr3jBQWZ5fkFbxE4mqZYeBAukWTTBn\"]}},\"version\":1}",
+  "metadata": {
+    "compiler": {
+      "version": "0.6.12+commit.27d51765"
+    },
+    "language": "Solidity",
+    "output": {
+      "abi": [
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "lendingPool",
+              "type": "address",
+              "indexed": true
+            }
+          ],
+          "type": "event",
+          "name": "UsedLendingPoolAdded",
+          "anonymous": false
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "lendingPool",
+              "type": "address",
+              "indexed": true
+            }
+          ],
+          "type": "event",
+          "name": "UsedLendingPoolRemoved",
+          "anonymous": false
+        }
+      ],
+      "devdoc": {
+        "kind": "dev",
+        "methods": {},
+        "version": 1
+      },
+      "userdoc": {
+        "kind": "user",
+        "methods": {},
+        "version": 1
+      }
+    },
+    "settings": {
+      "remappings": [
+        ":@enzyme/=contracts/",
+        ":@openzeppelin-solc-0.7/=node_modules/@openzeppelin-solc-0.7/",
+        ":@openzeppelin/=node_modules/@openzeppelin/",
+        ":@uniswap/=node_modules/@uniswap/",
+        ":base64-sol/=node_modules/base64-sol/",
+        ":ds-test/=lib/forge-std/lib/ds-test/src/",
+        ":forge-std/=lib/forge-std/src/",
+        ":hardhat-deploy/=node_modules/hardhat-deploy/",
+        ":hardhat/=node_modules/hardhat/"
+      ],
+      "optimizer": {
+        "runs": 200,
+        "details": {
+          "peephole": true,
+          "jumpdestRemover": true,
+          "orderLiterals": true,
+          "deduplicate": true,
+          "cse": true,
+          "constantOptimizer": true,
+          "yul": false
+        }
+      },
+      "metadata": {
+        "bytecodeHash": "none"
+      },
+      "compilationTarget": {
+        "contracts/persistent/external-positions/maple-liquidity/MapleLiquidityPositionLibBase1.sol": "MapleLiquidityPositionLibBase1"
+      },
+      "libraries": {}
+    },
+    "sources": {
+      "contracts/persistent/external-positions/maple-liquidity/MapleLiquidityPositionLibBase1.sol": {
+        "keccak256": "0x9a724ee1ac70895952f895738b12a45dc07ccde96a637282a502deb399d03434",
+        "urls": [
+          "bzz-raw://779cd983ca59fe27cd359633bedf3ec7528e9c85763ef8f98ddf10de9e4de500",
+          "dweb:/ipfs/QmUydfGbroct2beqBr3jBQWZ5fkFbxE4mqZYeBAukWTTBn"
+        ],
+        "license": "GPL-3.0"
+      }
+    },
+    "version": 1
+  },
+  "ast": {
+    "absolutePath": "contracts/persistent/external-positions/maple-liquidity/MapleLiquidityPositionLibBase1.sol",
+    "id": 5270,
+    "exportedSymbols": {
+      "MapleLiquidityPositionLibBase1": [
+        5269
+      ]
+    },
+    "nodeType": "SourceUnit",
+    "src": "255:754:31",
+    "nodes": [
+      {
+        "id": 5256,
+        "nodeType": "PragmaDirective",
+        "src": "255:23:31",
+        "nodes": [],
+        "literals": [
+          "solidity",
+          "0.6",
+          ".12"
+        ]
+      },
+      {
+        "id": 5269,
+        "nodeType": "ContractDefinition",
+        "src": "787:221:31",
+        "nodes": [
+          {
+            "id": 5261,
+            "nodeType": "EventDefinition",
+            "src": "842:56:31",
+            "nodes": [],
+            "anonymous": false,
+            "documentation": null,
+            "name": "UsedLendingPoolAdded",
+            "parameters": {
+              "id": 5260,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 5259,
+                  "indexed": true,
+                  "mutability": "mutable",
+                  "name": "lendingPool",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 5261,
+                  "src": "869:27:31",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 5258,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "869:7:31",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "868:29:31"
+            }
+          },
+          {
+            "id": 5265,
+            "nodeType": "EventDefinition",
+            "src": "904:58:31",
+            "nodes": [],
+            "anonymous": false,
+            "documentation": null,
+            "name": "UsedLendingPoolRemoved",
+            "parameters": {
+              "id": 5264,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 5263,
+                  "indexed": true,
+                  "mutability": "mutable",
+                  "name": "lendingPool",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 5265,
+                  "src": "933:27:31",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 5262,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "933:7:31",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "932:29:31"
+            }
+          },
+          {
+            "id": 5268,
+            "nodeType": "VariableDeclaration",
+            "src": "968:37:31",
+            "nodes": [],
+            "constant": false,
+            "mutability": "mutable",
+            "name": "usedLendingPoolsV1",
+            "overrides": null,
+            "scope": 5269,
+            "stateVariable": true,
+            "storageLocation": "default",
+            "typeDescriptions": {
+              "typeIdentifier": "t_array$_t_address_$dyn_storage",
+              "typeString": "address[]"
+            },
+            "typeName": {
+              "baseType": {
+                "id": 5266,
+                "name": "address",
+                "nodeType": "ElementaryTypeName",
+                "src": "968:7:31",
+                "stateMutability": "nonpayable",
+                "typeDescriptions": {
+                  "typeIdentifier": "t_address",
+                  "typeString": "address"
+                }
+              },
+              "id": 5267,
+              "length": null,
+              "nodeType": "ArrayTypeName",
+              "src": "968:9:31",
+              "typeDescriptions": {
+                "typeIdentifier": "t_array$_t_address_$dyn_storage_ptr",
+                "typeString": "address[]"
+              }
+            },
+            "value": null,
+            "visibility": "internal"
+          }
+        ],
+        "abstract": true,
+        "baseContracts": [],
+        "contractDependencies": [],
+        "contractKind": "contract",
+        "documentation": {
+          "id": 5257,
+          "nodeType": "StructuredDocumentation",
+          "src": "280:507:31",
+          "text": "@title MapleLiquidityPositionLibBase1 Contract\n @author Enzyme Council <security@enzyme.finance>\n @notice A persistent contract containing all required storage variables and\n required functions for a MapleLiquidityPositionLib implementation\n @dev DO NOT EDIT CONTRACT. If new events or storage are necessary, they should be added to\n a numbered MapleLiquidityPositionLibBaseXXX that inherits the previous base.\n e.g., `MapleLiquidityPositionLibBase2 is MapleLiquidityPositionLibBase1`"
+        },
+        "fullyImplemented": true,
+        "linearizedBaseContracts": [
+          5269
+        ],
+        "name": "MapleLiquidityPositionLibBase1",
+        "scope": 5270
+      }
+    ],
+    "license": "GPL-3.0"
+  },
+  "id": 31
+}

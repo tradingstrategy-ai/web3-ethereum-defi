@@ -1,0 +1,507 @@
+{
+  "abi": [
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "_user",
+          "type": "address"
+        },
+        {
+          "internalType": "address",
+          "name": "_custodian",
+          "type": "address"
+        }
+      ],
+      "name": "custodyAllowance",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "allowance_",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "_amount",
+          "type": "uint256"
+        }
+      ],
+      "name": "deposit",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "lockupPeriod",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "period_",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "withdrawFunds",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    }
+  ],
+  "bytecode": {
+    "object": "0x",
+    "sourceMap": "",
+    "linkReferences": {}
+  },
+  "deployedBytecode": {
+    "object": "0x",
+    "sourceMap": "",
+    "linkReferences": {}
+  },
+  "methodIdentifiers": {
+    "custodyAllowance(address,address)": "c965b548",
+    "deposit(uint256)": "b6b55f25",
+    "lockupPeriod()": "ee947a7c",
+    "withdrawFunds()": "24600fc3"
+  },
+  "rawMetadata": "{\"compiler\":{\"version\":\"0.6.12+commit.27d51765\"},\"language\":\"Solidity\",\"output\":{\"abi\":[{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_user\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"_custodian\",\"type\":\"address\"}],\"name\":\"custodyAllowance\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"allowance_\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_amount\",\"type\":\"uint256\"}],\"name\":\"deposit\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"lockupPeriod\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"period_\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"withdrawFunds\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"}],\"devdoc\":{\"author\":\"Enzyme Council <security@enzyme.finance>\",\"kind\":\"dev\",\"methods\":{},\"title\":\"ITestMaplePool Interface\",\"version\":1},\"userdoc\":{\"kind\":\"user\",\"methods\":{},\"version\":1}},\"settings\":{\"compilationTarget\":{\"contracts/test/interfaces/ITestMaplePool.sol\":\"ITestMaplePool\"},\"evmVersion\":\"istanbul\",\"libraries\":{},\"metadata\":{\"bytecodeHash\":\"none\"},\"optimizer\":{\"details\":{\"constantOptimizer\":true,\"cse\":true,\"deduplicate\":true,\"jumpdestRemover\":true,\"orderLiterals\":true,\"peephole\":true,\"yul\":false},\"runs\":200},\"remappings\":[\":@enzyme/=contracts/\",\":@openzeppelin-solc-0.7/=node_modules/@openzeppelin-solc-0.7/\",\":@openzeppelin/=node_modules/@openzeppelin/\",\":@uniswap/=node_modules/@uniswap/\",\":base64-sol/=node_modules/base64-sol/\",\":ds-test/=lib/forge-std/lib/ds-test/src/\",\":forge-std/=lib/forge-std/src/\",\":hardhat-deploy/=node_modules/hardhat-deploy/\",\":hardhat/=node_modules/hardhat/\"]},\"sources\":{\"contracts/test/interfaces/ITestMaplePool.sol\":{\"keccak256\":\"0x47af7b65e2e7ed0f92014459da20795791a24633096d00d1224b0296259a54a0\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://3c9d473a636e5daf91f8084c10a34fd4c08ae242a485a6687923b28204d1e7fb\",\"dweb:/ipfs/QmUH1r1nM6JVTSE5EnQBFb8T5yp87zcxw1iPFBMVdkBmXa\"]}},\"version\":1}",
+  "metadata": {
+    "compiler": {
+      "version": "0.6.12+commit.27d51765"
+    },
+    "language": "Solidity",
+    "output": {
+      "abi": [
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "_user",
+              "type": "address"
+            },
+            {
+              "internalType": "address",
+              "name": "_custodian",
+              "type": "address"
+            }
+          ],
+          "stateMutability": "view",
+          "type": "function",
+          "name": "custodyAllowance",
+          "outputs": [
+            {
+              "internalType": "uint256",
+              "name": "allowance_",
+              "type": "uint256"
+            }
+          ]
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "uint256",
+              "name": "_amount",
+              "type": "uint256"
+            }
+          ],
+          "stateMutability": "nonpayable",
+          "type": "function",
+          "name": "deposit"
+        },
+        {
+          "inputs": [],
+          "stateMutability": "view",
+          "type": "function",
+          "name": "lockupPeriod",
+          "outputs": [
+            {
+              "internalType": "uint256",
+              "name": "period_",
+              "type": "uint256"
+            }
+          ]
+        },
+        {
+          "inputs": [],
+          "stateMutability": "nonpayable",
+          "type": "function",
+          "name": "withdrawFunds"
+        }
+      ],
+      "devdoc": {
+        "kind": "dev",
+        "methods": {},
+        "version": 1
+      },
+      "userdoc": {
+        "kind": "user",
+        "methods": {},
+        "version": 1
+      }
+    },
+    "settings": {
+      "remappings": [
+        ":@enzyme/=contracts/",
+        ":@openzeppelin-solc-0.7/=node_modules/@openzeppelin-solc-0.7/",
+        ":@openzeppelin/=node_modules/@openzeppelin/",
+        ":@uniswap/=node_modules/@uniswap/",
+        ":base64-sol/=node_modules/base64-sol/",
+        ":ds-test/=lib/forge-std/lib/ds-test/src/",
+        ":forge-std/=lib/forge-std/src/",
+        ":hardhat-deploy/=node_modules/hardhat-deploy/",
+        ":hardhat/=node_modules/hardhat/"
+      ],
+      "optimizer": {
+        "runs": 200,
+        "details": {
+          "peephole": true,
+          "jumpdestRemover": true,
+          "orderLiterals": true,
+          "deduplicate": true,
+          "cse": true,
+          "constantOptimizer": true,
+          "yul": false
+        }
+      },
+      "metadata": {
+        "bytecodeHash": "none"
+      },
+      "compilationTarget": {
+        "contracts/test/interfaces/ITestMaplePool.sol": "ITestMaplePool"
+      },
+      "libraries": {}
+    },
+    "sources": {
+      "contracts/test/interfaces/ITestMaplePool.sol": {
+        "keccak256": "0x47af7b65e2e7ed0f92014459da20795791a24633096d00d1224b0296259a54a0",
+        "urls": [
+          "bzz-raw://3c9d473a636e5daf91f8084c10a34fd4c08ae242a485a6687923b28204d1e7fb",
+          "dweb:/ipfs/QmUH1r1nM6JVTSE5EnQBFb8T5yp87zcxw1iPFBMVdkBmXa"
+        ],
+        "license": "GPL-3.0"
+      }
+    },
+    "version": 1
+  },
+  "ast": {
+    "absolutePath": "contracts/test/interfaces/ITestMaplePool.sol",
+    "id": 80821,
+    "exportedSymbols": {
+      "ITestMaplePool": [
+        80820
+      ]
+    },
+    "nodeType": "SourceUnit",
+    "src": "255:435:408",
+    "nodes": [
+      {
+        "id": 80796,
+        "nodeType": "PragmaDirective",
+        "src": "255:23:408",
+        "nodes": [],
+        "literals": [
+          "solidity",
+          "0.6",
+          ".12"
+        ]
+      },
+      {
+        "id": 80820,
+        "nodeType": "ContractDefinition",
+        "src": "369:320:408",
+        "nodes": [
+          {
+            "id": 80806,
+            "nodeType": "FunctionDefinition",
+            "src": "400:128:408",
+            "nodes": [],
+            "documentation": null,
+            "functionSelector": "c965b548",
+            "implemented": false,
+            "kind": "function",
+            "modifiers": [],
+            "name": "custodyAllowance",
+            "overrides": null,
+            "parameters": {
+              "id": 80802,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 80799,
+                  "mutability": "mutable",
+                  "name": "_user",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 80806,
+                  "src": "426:13:408",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 80798,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "426:7:408",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 80801,
+                  "mutability": "mutable",
+                  "name": "_custodian",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 80806,
+                  "src": "441:18:408",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 80800,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "441:7:408",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "425:35:408"
+            },
+            "returnParameters": {
+              "id": 80805,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 80804,
+                  "mutability": "mutable",
+                  "name": "allowance_",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 80806,
+                  "src": "508:18:408",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_uint256",
+                    "typeString": "uint256"
+                  },
+                  "typeName": {
+                    "id": 80803,
+                    "name": "uint256",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "508:7:408",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_uint256",
+                      "typeString": "uint256"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "507:20:408"
+            },
+            "scope": 80820,
+            "stateMutability": "view",
+            "virtual": false,
+            "visibility": "external"
+          },
+          {
+            "id": 80811,
+            "nodeType": "FunctionDefinition",
+            "src": "534:43:408",
+            "nodes": [],
+            "documentation": null,
+            "functionSelector": "b6b55f25",
+            "implemented": false,
+            "kind": "function",
+            "modifiers": [],
+            "name": "deposit",
+            "overrides": null,
+            "parameters": {
+              "id": 80809,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 80808,
+                  "mutability": "mutable",
+                  "name": "_amount",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 80811,
+                  "src": "551:15:408",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_uint256",
+                    "typeString": "uint256"
+                  },
+                  "typeName": {
+                    "id": 80807,
+                    "name": "uint256",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "551:7:408",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_uint256",
+                      "typeString": "uint256"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "550:17:408"
+            },
+            "returnParameters": {
+              "id": 80810,
+              "nodeType": "ParameterList",
+              "parameters": [],
+              "src": "576:0:408"
+            },
+            "scope": 80820,
+            "stateMutability": "nonpayable",
+            "virtual": false,
+            "visibility": "external"
+          },
+          {
+            "id": 80816,
+            "nodeType": "FunctionDefinition",
+            "src": "583:64:408",
+            "nodes": [],
+            "documentation": null,
+            "functionSelector": "ee947a7c",
+            "implemented": false,
+            "kind": "function",
+            "modifiers": [],
+            "name": "lockupPeriod",
+            "overrides": null,
+            "parameters": {
+              "id": 80812,
+              "nodeType": "ParameterList",
+              "parameters": [],
+              "src": "604:2:408"
+            },
+            "returnParameters": {
+              "id": 80815,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 80814,
+                  "mutability": "mutable",
+                  "name": "period_",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 80816,
+                  "src": "630:15:408",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_uint256",
+                    "typeString": "uint256"
+                  },
+                  "typeName": {
+                    "id": 80813,
+                    "name": "uint256",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "630:7:408",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_uint256",
+                      "typeString": "uint256"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "629:17:408"
+            },
+            "scope": 80820,
+            "stateMutability": "view",
+            "virtual": false,
+            "visibility": "external"
+          },
+          {
+            "id": 80819,
+            "nodeType": "FunctionDefinition",
+            "src": "653:34:408",
+            "nodes": [],
+            "documentation": null,
+            "functionSelector": "24600fc3",
+            "implemented": false,
+            "kind": "function",
+            "modifiers": [],
+            "name": "withdrawFunds",
+            "overrides": null,
+            "parameters": {
+              "id": 80817,
+              "nodeType": "ParameterList",
+              "parameters": [],
+              "src": "675:2:408"
+            },
+            "returnParameters": {
+              "id": 80818,
+              "nodeType": "ParameterList",
+              "parameters": [],
+              "src": "686:0:408"
+            },
+            "scope": 80820,
+            "stateMutability": "nonpayable",
+            "virtual": false,
+            "visibility": "external"
+          }
+        ],
+        "abstract": false,
+        "baseContracts": [],
+        "contractDependencies": [],
+        "contractKind": "interface",
+        "documentation": {
+          "id": 80797,
+          "nodeType": "StructuredDocumentation",
+          "src": "280:89:408",
+          "text": "@title ITestMaplePool Interface\n @author Enzyme Council <security@enzyme.finance>"
+        },
+        "fullyImplemented": false,
+        "linearizedBaseContracts": [
+          80820
+        ],
+        "name": "ITestMaplePool",
+        "scope": 80821
+      }
+    ],
+    "license": "GPL-3.0"
+  },
+  "id": 408
+}

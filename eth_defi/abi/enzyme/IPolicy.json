@@ -1,7 +1,4 @@
 {
-  "_format": "hh-sol-artifact-1",
-  "contractName": "IPolicy",
-  "sourceName": "contracts/release/extensions/policy-manager/IPolicy.sol",
   "abi": [
     {
       "inputs": [
@@ -121,8 +118,835 @@
       "type": "function"
     }
   ],
-  "bytecode": "0x",
-  "deployedBytecode": "0x",
-  "linkReferences": {},
-  "deployedLinkReferences": {}
+  "bytecode": {
+    "object": "0x",
+    "sourceMap": "",
+    "linkReferences": {}
+  },
+  "deployedBytecode": {
+    "object": "0x",
+    "sourceMap": "",
+    "linkReferences": {}
+  },
+  "methodIdentifiers": {
+    "activateForFund(address)": "ceb9a0ad",
+    "addFundSettings(address,bytes)": "0f5f6b4f",
+    "canDisable()": "1ef92578",
+    "identifier()": "7998a1c4",
+    "implementedHooks()": "cbf54bb2",
+    "updateFundSettings(address,bytes)": "0d4d7510",
+    "validateRule(address,uint8,bytes)": "579be718"
+  },
+  "rawMetadata": "{\"compiler\":{\"version\":\"0.6.12+commit.27d51765\"},\"language\":\"Solidity\",\"output\":{\"abi\":[{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_comptrollerProxy\",\"type\":\"address\"}],\"name\":\"activateForFund\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_comptrollerProxy\",\"type\":\"address\"},{\"internalType\":\"bytes\",\"name\":\"_encodedSettings\",\"type\":\"bytes\"}],\"name\":\"addFundSettings\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"canDisable\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"canDisable_\",\"type\":\"bool\"}],\"stateMutability\":\"pure\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"identifier\",\"outputs\":[{\"internalType\":\"string\",\"name\":\"identifier_\",\"type\":\"string\"}],\"stateMutability\":\"pure\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"implementedHooks\",\"outputs\":[{\"internalType\":\"enum IPolicyManager.PolicyHook[]\",\"name\":\"implementedHooks_\",\"type\":\"uint8[]\"}],\"stateMutability\":\"pure\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_comptrollerProxy\",\"type\":\"address\"},{\"internalType\":\"bytes\",\"name\":\"_encodedSettings\",\"type\":\"bytes\"}],\"name\":\"updateFundSettings\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_comptrollerProxy\",\"type\":\"address\"},{\"internalType\":\"enum IPolicyManager.PolicyHook\",\"name\":\"_hook\",\"type\":\"uint8\"},{\"internalType\":\"bytes\",\"name\":\"_encodedArgs\",\"type\":\"bytes\"}],\"name\":\"validateRule\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"isValid_\",\"type\":\"bool\"}],\"stateMutability\":\"nonpayable\",\"type\":\"function\"}],\"devdoc\":{\"author\":\"Enzyme Council <security@enzyme.finance>\",\"kind\":\"dev\",\"methods\":{},\"title\":\"Policy Interface\",\"version\":1},\"userdoc\":{\"kind\":\"user\",\"methods\":{},\"version\":1}},\"settings\":{\"compilationTarget\":{\"contracts/release/extensions/policy-manager/IPolicy.sol\":\"IPolicy\"},\"evmVersion\":\"istanbul\",\"libraries\":{},\"metadata\":{\"bytecodeHash\":\"none\"},\"optimizer\":{\"details\":{\"constantOptimizer\":true,\"cse\":true,\"deduplicate\":true,\"jumpdestRemover\":true,\"orderLiterals\":true,\"peephole\":true,\"yul\":false},\"runs\":200},\"remappings\":[\":@enzyme/=contracts/\",\":@openzeppelin-solc-0.7/=node_modules/@openzeppelin-solc-0.7/\",\":@openzeppelin/=node_modules/@openzeppelin/\",\":@uniswap/=node_modules/@uniswap/\",\":base64-sol/=node_modules/base64-sol/\",\":ds-test/=lib/forge-std/lib/ds-test/src/\",\":forge-std/=lib/forge-std/src/\",\":hardhat-deploy/=node_modules/hardhat-deploy/\",\":hardhat/=node_modules/hardhat/\"]},\"sources\":{\"contracts/release/extensions/policy-manager/IPolicy.sol\":{\"keccak256\":\"0xc12663ca72065b256c3b934ab738fde26c147c7b0399de43650df89dd52ee467\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://be8fecfcba0f3fda615f0a1bb3c766750c23761ef751d7c4472dfe540e460cd1\",\"dweb:/ipfs/QmaarPoRTsX6NiJ8V4u2f3Qh6d7tUs28bw9R14An3t5Bs1\"]},\"contracts/release/extensions/policy-manager/IPolicyManager.sol\":{\"keccak256\":\"0x1ed5fff925cdfa8808a65aa4c1e45813d87c1f462fc6740be670065ed2f6fd32\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://3cf584b792bc5321930a1c4c7ec22aa23a7ad8e09483694bb6f5968dca0132aa\",\"dweb:/ipfs/QmbNeaENye3NtnG3fRD7QtDSKUm2knBxUDdeuWicCMzcHb\"]}},\"version\":1}",
+  "metadata": {
+    "compiler": {
+      "version": "0.6.12+commit.27d51765"
+    },
+    "language": "Solidity",
+    "output": {
+      "abi": [
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "_comptrollerProxy",
+              "type": "address"
+            }
+          ],
+          "stateMutability": "nonpayable",
+          "type": "function",
+          "name": "activateForFund"
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "_comptrollerProxy",
+              "type": "address"
+            },
+            {
+              "internalType": "bytes",
+              "name": "_encodedSettings",
+              "type": "bytes"
+            }
+          ],
+          "stateMutability": "nonpayable",
+          "type": "function",
+          "name": "addFundSettings"
+        },
+        {
+          "inputs": [],
+          "stateMutability": "pure",
+          "type": "function",
+          "name": "canDisable",
+          "outputs": [
+            {
+              "internalType": "bool",
+              "name": "canDisable_",
+              "type": "bool"
+            }
+          ]
+        },
+        {
+          "inputs": [],
+          "stateMutability": "pure",
+          "type": "function",
+          "name": "identifier",
+          "outputs": [
+            {
+              "internalType": "string",
+              "name": "identifier_",
+              "type": "string"
+            }
+          ]
+        },
+        {
+          "inputs": [],
+          "stateMutability": "pure",
+          "type": "function",
+          "name": "implementedHooks",
+          "outputs": [
+            {
+              "internalType": "enum IPolicyManager.PolicyHook[]",
+              "name": "implementedHooks_",
+              "type": "uint8[]"
+            }
+          ]
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "_comptrollerProxy",
+              "type": "address"
+            },
+            {
+              "internalType": "bytes",
+              "name": "_encodedSettings",
+              "type": "bytes"
+            }
+          ],
+          "stateMutability": "nonpayable",
+          "type": "function",
+          "name": "updateFundSettings"
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "_comptrollerProxy",
+              "type": "address"
+            },
+            {
+              "internalType": "enum IPolicyManager.PolicyHook",
+              "name": "_hook",
+              "type": "uint8"
+            },
+            {
+              "internalType": "bytes",
+              "name": "_encodedArgs",
+              "type": "bytes"
+            }
+          ],
+          "stateMutability": "nonpayable",
+          "type": "function",
+          "name": "validateRule",
+          "outputs": [
+            {
+              "internalType": "bool",
+              "name": "isValid_",
+              "type": "bool"
+            }
+          ]
+        }
+      ],
+      "devdoc": {
+        "kind": "dev",
+        "methods": {},
+        "version": 1
+      },
+      "userdoc": {
+        "kind": "user",
+        "methods": {},
+        "version": 1
+      }
+    },
+    "settings": {
+      "remappings": [
+        ":@enzyme/=contracts/",
+        ":@openzeppelin-solc-0.7/=node_modules/@openzeppelin-solc-0.7/",
+        ":@openzeppelin/=node_modules/@openzeppelin/",
+        ":@uniswap/=node_modules/@uniswap/",
+        ":base64-sol/=node_modules/base64-sol/",
+        ":ds-test/=lib/forge-std/lib/ds-test/src/",
+        ":forge-std/=lib/forge-std/src/",
+        ":hardhat-deploy/=node_modules/hardhat-deploy/",
+        ":hardhat/=node_modules/hardhat/"
+      ],
+      "optimizer": {
+        "runs": 200,
+        "details": {
+          "peephole": true,
+          "jumpdestRemover": true,
+          "orderLiterals": true,
+          "deduplicate": true,
+          "cse": true,
+          "constantOptimizer": true,
+          "yul": false
+        }
+      },
+      "metadata": {
+        "bytecodeHash": "none"
+      },
+      "compilationTarget": {
+        "contracts/release/extensions/policy-manager/IPolicy.sol": "IPolicy"
+      },
+      "libraries": {}
+    },
+    "sources": {
+      "contracts/release/extensions/policy-manager/IPolicy.sol": {
+        "keccak256": "0xc12663ca72065b256c3b934ab738fde26c147c7b0399de43650df89dd52ee467",
+        "urls": [
+          "bzz-raw://be8fecfcba0f3fda615f0a1bb3c766750c23761ef751d7c4472dfe540e460cd1",
+          "dweb:/ipfs/QmaarPoRTsX6NiJ8V4u2f3Qh6d7tUs28bw9R14An3t5Bs1"
+        ],
+        "license": "GPL-3.0"
+      },
+      "contracts/release/extensions/policy-manager/IPolicyManager.sol": {
+        "keccak256": "0x1ed5fff925cdfa8808a65aa4c1e45813d87c1f462fc6740be670065ed2f6fd32",
+        "urls": [
+          "bzz-raw://3cf584b792bc5321930a1c4c7ec22aa23a7ad8e09483694bb6f5968dca0132aa",
+          "dweb:/ipfs/QmbNeaENye3NtnG3fRD7QtDSKUm2knBxUDdeuWicCMzcHb"
+        ],
+        "license": "GPL-3.0"
+      }
+    },
+    "version": 1
+  },
+  "ast": {
+    "absolutePath": "contracts/release/extensions/policy-manager/IPolicy.sol",
+    "id": 5237,
+    "exportedSymbols": {
+      "IPolicy": [
+        5236
+      ]
+    },
+    "nodeType": "SourceUnit",
+    "src": "255:899:15",
+    "nodes": [
+      {
+        "id": 5187,
+        "nodeType": "PragmaDirective",
+        "src": "255:23:15",
+        "nodes": [],
+        "literals": [
+          "solidity",
+          "0.6",
+          ".12"
+        ]
+      },
+      {
+        "id": 5188,
+        "nodeType": "ImportDirective",
+        "src": "280:30:15",
+        "nodes": [],
+        "absolutePath": "contracts/release/extensions/policy-manager/IPolicyManager.sol",
+        "file": "./IPolicyManager.sol",
+        "scope": 5237,
+        "sourceUnit": 5262,
+        "symbolAliases": [],
+        "unitAlias": ""
+      },
+      {
+        "id": 5236,
+        "nodeType": "ContractDefinition",
+        "src": "393:760:15",
+        "nodes": [
+          {
+            "id": 5194,
+            "nodeType": "FunctionDefinition",
+            "src": "417:61:15",
+            "nodes": [],
+            "documentation": null,
+            "functionSelector": "ceb9a0ad",
+            "implemented": false,
+            "kind": "function",
+            "modifiers": [],
+            "name": "activateForFund",
+            "overrides": null,
+            "parameters": {
+              "id": 5192,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 5191,
+                  "mutability": "mutable",
+                  "name": "_comptrollerProxy",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 5194,
+                  "src": "442:25:15",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 5190,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "442:7:15",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "441:27:15"
+            },
+            "returnParameters": {
+              "id": 5193,
+              "nodeType": "ParameterList",
+              "parameters": [],
+              "src": "477:0:15"
+            },
+            "scope": 5236,
+            "stateMutability": "nonpayable",
+            "virtual": false,
+            "visibility": "external"
+          },
+          {
+            "id": 5201,
+            "nodeType": "FunctionDefinition",
+            "src": "484:94:15",
+            "nodes": [],
+            "documentation": null,
+            "functionSelector": "0f5f6b4f",
+            "implemented": false,
+            "kind": "function",
+            "modifiers": [],
+            "name": "addFundSettings",
+            "overrides": null,
+            "parameters": {
+              "id": 5199,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 5196,
+                  "mutability": "mutable",
+                  "name": "_comptrollerProxy",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 5201,
+                  "src": "509:25:15",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 5195,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "509:7:15",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 5198,
+                  "mutability": "mutable",
+                  "name": "_encodedSettings",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 5201,
+                  "src": "536:31:15",
+                  "stateVariable": false,
+                  "storageLocation": "calldata",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_bytes_calldata_ptr",
+                    "typeString": "bytes"
+                  },
+                  "typeName": {
+                    "id": 5197,
+                    "name": "bytes",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "536:5:15",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_bytes_storage_ptr",
+                      "typeString": "bytes"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "508:60:15"
+            },
+            "returnParameters": {
+              "id": 5200,
+              "nodeType": "ParameterList",
+              "parameters": [],
+              "src": "577:0:15"
+            },
+            "scope": 5236,
+            "stateMutability": "nonpayable",
+            "virtual": false,
+            "visibility": "external"
+          },
+          {
+            "id": 5206,
+            "nodeType": "FunctionDefinition",
+            "src": "584:63:15",
+            "nodes": [],
+            "documentation": null,
+            "functionSelector": "1ef92578",
+            "implemented": false,
+            "kind": "function",
+            "modifiers": [],
+            "name": "canDisable",
+            "overrides": null,
+            "parameters": {
+              "id": 5202,
+              "nodeType": "ParameterList",
+              "parameters": [],
+              "src": "603:2:15"
+            },
+            "returnParameters": {
+              "id": 5205,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 5204,
+                  "mutability": "mutable",
+                  "name": "canDisable_",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 5206,
+                  "src": "629:16:15",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_bool",
+                    "typeString": "bool"
+                  },
+                  "typeName": {
+                    "id": 5203,
+                    "name": "bool",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "629:4:15",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_bool",
+                      "typeString": "bool"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "628:18:15"
+            },
+            "scope": 5236,
+            "stateMutability": "pure",
+            "virtual": false,
+            "visibility": "external"
+          },
+          {
+            "id": 5211,
+            "nodeType": "FunctionDefinition",
+            "src": "653:72:15",
+            "nodes": [],
+            "documentation": null,
+            "functionSelector": "7998a1c4",
+            "implemented": false,
+            "kind": "function",
+            "modifiers": [],
+            "name": "identifier",
+            "overrides": null,
+            "parameters": {
+              "id": 5207,
+              "nodeType": "ParameterList",
+              "parameters": [],
+              "src": "672:2:15"
+            },
+            "returnParameters": {
+              "id": 5210,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 5209,
+                  "mutability": "mutable",
+                  "name": "identifier_",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 5211,
+                  "src": "698:25:15",
+                  "stateVariable": false,
+                  "storageLocation": "memory",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_string_memory_ptr",
+                    "typeString": "string"
+                  },
+                  "typeName": {
+                    "id": 5208,
+                    "name": "string",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "698:6:15",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_string_storage_ptr",
+                      "typeString": "string"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "697:27:15"
+            },
+            "scope": 5236,
+            "stateMutability": "pure",
+            "virtual": false,
+            "visibility": "external"
+          },
+          {
+            "id": 5217,
+            "nodeType": "FunctionDefinition",
+            "src": "731:129:15",
+            "nodes": [],
+            "documentation": null,
+            "functionSelector": "cbf54bb2",
+            "implemented": false,
+            "kind": "function",
+            "modifiers": [],
+            "name": "implementedHooks",
+            "overrides": null,
+            "parameters": {
+              "id": 5212,
+              "nodeType": "ParameterList",
+              "parameters": [],
+              "src": "756:2:15"
+            },
+            "returnParameters": {
+              "id": 5216,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 5215,
+                  "mutability": "mutable",
+                  "name": "implementedHooks_",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 5217,
+                  "src": "806:52:15",
+                  "stateVariable": false,
+                  "storageLocation": "memory",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_array$_t_enum$_PolicyHook_$5251_$dyn_memory_ptr",
+                    "typeString": "enum IPolicyManager.PolicyHook[]"
+                  },
+                  "typeName": {
+                    "baseType": {
+                      "contractScope": null,
+                      "id": 5213,
+                      "name": "IPolicyManager.PolicyHook",
+                      "nodeType": "UserDefinedTypeName",
+                      "referencedDeclaration": 5251,
+                      "src": "806:25:15",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_enum$_PolicyHook_$5251",
+                        "typeString": "enum IPolicyManager.PolicyHook"
+                      }
+                    },
+                    "id": 5214,
+                    "length": null,
+                    "nodeType": "ArrayTypeName",
+                    "src": "806:27:15",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_array$_t_enum$_PolicyHook_$5251_$dyn_storage_ptr",
+                      "typeString": "enum IPolicyManager.PolicyHook[]"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "805:54:15"
+            },
+            "scope": 5236,
+            "stateMutability": "pure",
+            "virtual": false,
+            "visibility": "external"
+          },
+          {
+            "id": 5224,
+            "nodeType": "FunctionDefinition",
+            "src": "866:105:15",
+            "nodes": [],
+            "documentation": null,
+            "functionSelector": "0d4d7510",
+            "implemented": false,
+            "kind": "function",
+            "modifiers": [],
+            "name": "updateFundSettings",
+            "overrides": null,
+            "parameters": {
+              "id": 5222,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 5219,
+                  "mutability": "mutable",
+                  "name": "_comptrollerProxy",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 5224,
+                  "src": "894:25:15",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 5218,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "894:7:15",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 5221,
+                  "mutability": "mutable",
+                  "name": "_encodedSettings",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 5224,
+                  "src": "921:31:15",
+                  "stateVariable": false,
+                  "storageLocation": "calldata",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_bytes_calldata_ptr",
+                    "typeString": "bytes"
+                  },
+                  "typeName": {
+                    "id": 5220,
+                    "name": "bytes",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "921:5:15",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_bytes_storage_ptr",
+                      "typeString": "bytes"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "893:60:15"
+            },
+            "returnParameters": {
+              "id": 5223,
+              "nodeType": "ParameterList",
+              "parameters": [],
+              "src": "970:0:15"
+            },
+            "scope": 5236,
+            "stateMutability": "nonpayable",
+            "virtual": false,
+            "visibility": "external"
+          },
+          {
+            "id": 5235,
+            "nodeType": "FunctionDefinition",
+            "src": "977:174:15",
+            "nodes": [],
+            "documentation": null,
+            "functionSelector": "579be718",
+            "implemented": false,
+            "kind": "function",
+            "modifiers": [],
+            "name": "validateRule",
+            "overrides": null,
+            "parameters": {
+              "id": 5231,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 5226,
+                  "mutability": "mutable",
+                  "name": "_comptrollerProxy",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 5235,
+                  "src": "1008:25:15",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 5225,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "1008:7:15",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 5228,
+                  "mutability": "mutable",
+                  "name": "_hook",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 5235,
+                  "src": "1043:31:15",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_enum$_PolicyHook_$5251",
+                    "typeString": "enum IPolicyManager.PolicyHook"
+                  },
+                  "typeName": {
+                    "contractScope": null,
+                    "id": 5227,
+                    "name": "IPolicyManager.PolicyHook",
+                    "nodeType": "UserDefinedTypeName",
+                    "referencedDeclaration": 5251,
+                    "src": "1043:25:15",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_enum$_PolicyHook_$5251",
+                      "typeString": "enum IPolicyManager.PolicyHook"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 5230,
+                  "mutability": "mutable",
+                  "name": "_encodedArgs",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 5235,
+                  "src": "1084:27:15",
+                  "stateVariable": false,
+                  "storageLocation": "calldata",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_bytes_calldata_ptr",
+                    "typeString": "bytes"
+                  },
+                  "typeName": {
+                    "id": 5229,
+                    "name": "bytes",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "1084:5:15",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_bytes_storage_ptr",
+                      "typeString": "bytes"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "998:119:15"
+            },
+            "returnParameters": {
+              "id": 5234,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 5233,
+                  "mutability": "mutable",
+                  "name": "isValid_",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 5235,
+                  "src": "1136:13:15",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_bool",
+                    "typeString": "bool"
+                  },
+                  "typeName": {
+                    "id": 5232,
+                    "name": "bool",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "1136:4:15",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_bool",
+                      "typeString": "bool"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "1135:15:15"
+            },
+            "scope": 5236,
+            "stateMutability": "nonpayable",
+            "virtual": false,
+            "visibility": "external"
+          }
+        ],
+        "abstract": false,
+        "baseContracts": [],
+        "contractDependencies": [],
+        "contractKind": "interface",
+        "documentation": {
+          "id": 5189,
+          "nodeType": "StructuredDocumentation",
+          "src": "312:81:15",
+          "text": "@title Policy Interface\n @author Enzyme Council <security@enzyme.finance>"
+        },
+        "fullyImplemented": false,
+        "linearizedBaseContracts": [
+          5236
+        ],
+        "name": "IPolicy",
+        "scope": 5237
+      }
+    ],
+    "license": "GPL-3.0"
+  },
+  "id": 15
 }

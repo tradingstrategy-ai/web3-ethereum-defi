@@ -1,0 +1,256 @@
+{
+  "abi": [
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "instance_",
+          "type": "address"
+        }
+      ],
+      "name": "isInstance",
+      "outputs": [
+        {
+          "internalType": "bool",
+          "name": "isInstance_",
+          "type": "bool"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    }
+  ],
+  "bytecode": {
+    "object": "0x",
+    "sourceMap": "",
+    "linkReferences": {}
+  },
+  "deployedBytecode": {
+    "object": "0x",
+    "sourceMap": "",
+    "linkReferences": {}
+  },
+  "methodIdentifiers": {
+    "isInstance(address)": "6b44e6be"
+  },
+  "rawMetadata": "{\"compiler\":{\"version\":\"0.6.12+commit.27d51765\"},\"language\":\"Solidity\",\"output\":{\"abi\":[{\"inputs\":[{\"internalType\":\"address\",\"name\":\"instance_\",\"type\":\"address\"}],\"name\":\"isInstance\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"isInstance_\",\"type\":\"bool\"}],\"stateMutability\":\"view\",\"type\":\"function\"}],\"devdoc\":{\"author\":\"Enzyme Council <security@enzyme.finance>\",\"kind\":\"dev\",\"methods\":{},\"title\":\"ITestMapleV2ProxyFactory Interface\",\"version\":1},\"userdoc\":{\"kind\":\"user\",\"methods\":{},\"version\":1}},\"settings\":{\"compilationTarget\":{\"contracts/test/interfaces/ITestMapleV2ProxyFactory.sol\":\"ITestMapleV2ProxyFactory\"},\"evmVersion\":\"istanbul\",\"libraries\":{},\"metadata\":{\"bytecodeHash\":\"none\"},\"optimizer\":{\"details\":{\"constantOptimizer\":true,\"cse\":true,\"deduplicate\":true,\"jumpdestRemover\":true,\"orderLiterals\":true,\"peephole\":true,\"yul\":false},\"runs\":200},\"remappings\":[\":@enzyme/=contracts/\",\":@openzeppelin-solc-0.7/=node_modules/@openzeppelin-solc-0.7/\",\":@openzeppelin/=node_modules/@openzeppelin/\",\":@uniswap/=node_modules/@uniswap/\",\":base64-sol/=node_modules/base64-sol/\",\":ds-test/=lib/forge-std/lib/ds-test/src/\",\":forge-std/=lib/forge-std/src/\",\":hardhat-deploy/=node_modules/hardhat-deploy/\",\":hardhat/=node_modules/hardhat/\"]},\"sources\":{\"contracts/test/interfaces/ITestMapleV2ProxyFactory.sol\":{\"keccak256\":\"0xd7cd7232d4dddc2d3c702e0b472c36e59e7b74240475e62ccb0f8f90504a3532\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://18c2608fe01af91730afb348ac62b3167140e6628cc935130a5b9554739fcbcc\",\"dweb:/ipfs/QmPFLpm5LZD5Bp1cHLcc2A9VjeJ2MX84b2NhufrckFQT5p\"]}},\"version\":1}",
+  "metadata": {
+    "compiler": {
+      "version": "0.6.12+commit.27d51765"
+    },
+    "language": "Solidity",
+    "output": {
+      "abi": [
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "instance_",
+              "type": "address"
+            }
+          ],
+          "stateMutability": "view",
+          "type": "function",
+          "name": "isInstance",
+          "outputs": [
+            {
+              "internalType": "bool",
+              "name": "isInstance_",
+              "type": "bool"
+            }
+          ]
+        }
+      ],
+      "devdoc": {
+        "kind": "dev",
+        "methods": {},
+        "version": 1
+      },
+      "userdoc": {
+        "kind": "user",
+        "methods": {},
+        "version": 1
+      }
+    },
+    "settings": {
+      "remappings": [
+        ":@enzyme/=contracts/",
+        ":@openzeppelin-solc-0.7/=node_modules/@openzeppelin-solc-0.7/",
+        ":@openzeppelin/=node_modules/@openzeppelin/",
+        ":@uniswap/=node_modules/@uniswap/",
+        ":base64-sol/=node_modules/base64-sol/",
+        ":ds-test/=lib/forge-std/lib/ds-test/src/",
+        ":forge-std/=lib/forge-std/src/",
+        ":hardhat-deploy/=node_modules/hardhat-deploy/",
+        ":hardhat/=node_modules/hardhat/"
+      ],
+      "optimizer": {
+        "runs": 200,
+        "details": {
+          "peephole": true,
+          "jumpdestRemover": true,
+          "orderLiterals": true,
+          "deduplicate": true,
+          "cse": true,
+          "constantOptimizer": true,
+          "yul": false
+        }
+      },
+      "metadata": {
+        "bytecodeHash": "none"
+      },
+      "compilationTarget": {
+        "contracts/test/interfaces/ITestMapleV2ProxyFactory.sol": "ITestMapleV2ProxyFactory"
+      },
+      "libraries": {}
+    },
+    "sources": {
+      "contracts/test/interfaces/ITestMapleV2ProxyFactory.sol": {
+        "keccak256": "0xd7cd7232d4dddc2d3c702e0b472c36e59e7b74240475e62ccb0f8f90504a3532",
+        "urls": [
+          "bzz-raw://18c2608fe01af91730afb348ac62b3167140e6628cc935130a5b9554739fcbcc",
+          "dweb:/ipfs/QmPFLpm5LZD5Bp1cHLcc2A9VjeJ2MX84b2NhufrckFQT5p"
+        ],
+        "license": "GPL-3.0"
+      }
+    },
+    "version": 1
+  },
+  "ast": {
+    "absolutePath": "contracts/test/interfaces/ITestMapleV2ProxyFactory.sol",
+    "id": 80892,
+    "exportedSymbols": {
+      "ITestMapleV2ProxyFactory": [
+        80891
+      ]
+    },
+    "nodeType": "SourceUnit",
+    "src": "255:248:411",
+    "nodes": [
+      {
+        "id": 80882,
+        "nodeType": "PragmaDirective",
+        "src": "255:23:411",
+        "nodes": [],
+        "literals": [
+          "solidity",
+          "0.6",
+          ".12"
+        ]
+      },
+      {
+        "id": 80891,
+        "nodeType": "ContractDefinition",
+        "src": "379:123:411",
+        "nodes": [
+          {
+            "id": 80890,
+            "nodeType": "FunctionDefinition",
+            "src": "420:80:411",
+            "nodes": [],
+            "documentation": null,
+            "functionSelector": "6b44e6be",
+            "implemented": false,
+            "kind": "function",
+            "modifiers": [],
+            "name": "isInstance",
+            "overrides": null,
+            "parameters": {
+              "id": 80886,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 80885,
+                  "mutability": "mutable",
+                  "name": "instance_",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 80890,
+                  "src": "440:17:411",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 80884,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "440:7:411",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "439:19:411"
+            },
+            "returnParameters": {
+              "id": 80889,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 80888,
+                  "mutability": "mutable",
+                  "name": "isInstance_",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 80890,
+                  "src": "482:16:411",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_bool",
+                    "typeString": "bool"
+                  },
+                  "typeName": {
+                    "id": 80887,
+                    "name": "bool",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "482:4:411",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_bool",
+                      "typeString": "bool"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "481:18:411"
+            },
+            "scope": 80891,
+            "stateMutability": "view",
+            "virtual": false,
+            "visibility": "external"
+          }
+        ],
+        "abstract": false,
+        "baseContracts": [],
+        "contractDependencies": [],
+        "contractKind": "interface",
+        "documentation": {
+          "id": 80883,
+          "nodeType": "StructuredDocumentation",
+          "src": "280:99:411",
+          "text": "@title ITestMapleV2ProxyFactory Interface\n @author Enzyme Council <security@enzyme.finance>"
+        },
+        "fullyImplemented": false,
+        "linearizedBaseContracts": [
+          80891
+        ],
+        "name": "ITestMapleV2ProxyFactory",
+        "scope": 80892
+      }
+    ],
+    "license": "GPL-3.0"
+  },
+  "id": 411
+}

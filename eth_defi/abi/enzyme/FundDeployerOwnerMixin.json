@@ -1,7 +1,4 @@
 {
-  "_format": "hh-sol-artifact-1",
-  "contractName": "FundDeployerOwnerMixin",
-  "sourceName": "contracts/release/utils/FundDeployerOwnerMixin.sol",
   "abi": [
     {
       "inputs": [
@@ -41,8 +38,778 @@
       "type": "function"
     }
   ],
-  "bytecode": "0x",
-  "deployedBytecode": "0x",
-  "linkReferences": {},
-  "deployedLinkReferences": {}
+  "bytecode": {
+    "object": "0x",
+    "sourceMap": "",
+    "linkReferences": {}
+  },
+  "deployedBytecode": {
+    "object": "0x",
+    "sourceMap": "",
+    "linkReferences": {}
+  },
+  "methodIdentifiers": {
+    "getFundDeployer()": "97c0ac87",
+    "getOwner()": "893d20e8"
+  },
+  "rawMetadata": "{\"compiler\":{\"version\":\"0.6.12+commit.27d51765\"},\"language\":\"Solidity\",\"output\":{\"abi\":[{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_fundDeployer\",\"type\":\"address\"}],\"stateMutability\":\"nonpayable\",\"type\":\"constructor\"},{\"inputs\":[],\"name\":\"getFundDeployer\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"fundDeployer_\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getOwner\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"owner_\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"}],\"devdoc\":{\"author\":\"Enzyme Council <security@enzyme.finance>\",\"kind\":\"dev\",\"methods\":{\"getFundDeployer()\":{\"returns\":{\"fundDeployer_\":\"The `FUND_DEPLOYER` variable value\"}},\"getOwner()\":{\"details\":\"Ownership is deferred to the owner of the FundDeployer contract\",\"returns\":{\"owner_\":\"The owner\"}}},\"title\":\"FundDeployerOwnerMixin Contract\",\"version\":1},\"userdoc\":{\"kind\":\"user\",\"methods\":{\"getFundDeployer()\":{\"notice\":\"Gets the `FUND_DEPLOYER` variable\"},\"getOwner()\":{\"notice\":\"Gets the owner of this contract\"}},\"notice\":\"A mixin contract that defers ownership to the owner of FundDeployer\",\"version\":1}},\"settings\":{\"compilationTarget\":{\"contracts/release/utils/FundDeployerOwnerMixin.sol\":\"FundDeployerOwnerMixin\"},\"evmVersion\":\"istanbul\",\"libraries\":{},\"metadata\":{\"bytecodeHash\":\"none\"},\"optimizer\":{\"details\":{\"constantOptimizer\":true,\"cse\":true,\"deduplicate\":true,\"jumpdestRemover\":true,\"orderLiterals\":true,\"peephole\":true,\"yul\":false},\"runs\":200},\"remappings\":[\":@enzyme/=contracts/\",\":@openzeppelin-solc-0.7/=node_modules/@openzeppelin-solc-0.7/\",\":@openzeppelin/=node_modules/@openzeppelin/\",\":@uniswap/=node_modules/@uniswap/\",\":base64-sol/=node_modules/base64-sol/\",\":ds-test/=lib/forge-std/lib/ds-test/src/\",\":forge-std/=lib/forge-std/src/\",\":hardhat-deploy/=node_modules/hardhat-deploy/\",\":hardhat/=node_modules/hardhat/\"]},\"sources\":{\"contracts/release/core/fund-deployer/IFundDeployer.sol\":{\"keccak256\":\"0x5b901b81b3a4ef3d30ef9b4a1fa7fdd6526dfacd66e9971d1f988c2b63334314\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://79eba24bcad7e3abddafd20b518add8d5acb1e8de250a0e20050dfbe2f2d8aea\",\"dweb:/ipfs/QmYq9QYKr1UJaVyhkkSEfeiJ68TwGbwrmZsgRTPjVjkpUp\"]},\"contracts/release/utils/FundDeployerOwnerMixin.sol\":{\"keccak256\":\"0xd415583828581051080d575f058643f4975d7048fda0d1765122b260d9d14934\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://8191af7a3cd0867af1a401d3cba1294be054c761c2276d21bff7c9296ecc6927\",\"dweb:/ipfs/QmYBSrx1XrcqMNkH2Q6ALuczRv6LgpzVHvFH3DjvCu6SaM\"]}},\"version\":1}",
+  "metadata": {
+    "compiler": {
+      "version": "0.6.12+commit.27d51765"
+    },
+    "language": "Solidity",
+    "output": {
+      "abi": [
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "_fundDeployer",
+              "type": "address"
+            }
+          ],
+          "stateMutability": "nonpayable",
+          "type": "constructor"
+        },
+        {
+          "inputs": [],
+          "stateMutability": "view",
+          "type": "function",
+          "name": "getFundDeployer",
+          "outputs": [
+            {
+              "internalType": "address",
+              "name": "fundDeployer_",
+              "type": "address"
+            }
+          ]
+        },
+        {
+          "inputs": [],
+          "stateMutability": "view",
+          "type": "function",
+          "name": "getOwner",
+          "outputs": [
+            {
+              "internalType": "address",
+              "name": "owner_",
+              "type": "address"
+            }
+          ]
+        }
+      ],
+      "devdoc": {
+        "kind": "dev",
+        "methods": {
+          "getFundDeployer()": {
+            "returns": {
+              "fundDeployer_": "The `FUND_DEPLOYER` variable value"
+            }
+          },
+          "getOwner()": {
+            "details": "Ownership is deferred to the owner of the FundDeployer contract",
+            "returns": {
+              "owner_": "The owner"
+            }
+          }
+        },
+        "version": 1
+      },
+      "userdoc": {
+        "kind": "user",
+        "methods": {
+          "getFundDeployer()": {
+            "notice": "Gets the `FUND_DEPLOYER` variable"
+          },
+          "getOwner()": {
+            "notice": "Gets the owner of this contract"
+          }
+        },
+        "version": 1
+      }
+    },
+    "settings": {
+      "remappings": [
+        ":@enzyme/=contracts/",
+        ":@openzeppelin-solc-0.7/=node_modules/@openzeppelin-solc-0.7/",
+        ":@openzeppelin/=node_modules/@openzeppelin/",
+        ":@uniswap/=node_modules/@uniswap/",
+        ":base64-sol/=node_modules/base64-sol/",
+        ":ds-test/=lib/forge-std/lib/ds-test/src/",
+        ":forge-std/=lib/forge-std/src/",
+        ":hardhat-deploy/=node_modules/hardhat-deploy/",
+        ":hardhat/=node_modules/hardhat/"
+      ],
+      "optimizer": {
+        "runs": 200,
+        "details": {
+          "peephole": true,
+          "jumpdestRemover": true,
+          "orderLiterals": true,
+          "deduplicate": true,
+          "cse": true,
+          "constantOptimizer": true,
+          "yul": false
+        }
+      },
+      "metadata": {
+        "bytecodeHash": "none"
+      },
+      "compilationTarget": {
+        "contracts/release/utils/FundDeployerOwnerMixin.sol": "FundDeployerOwnerMixin"
+      },
+      "libraries": {}
+    },
+    "sources": {
+      "contracts/release/core/fund-deployer/IFundDeployer.sol": {
+        "keccak256": "0x5b901b81b3a4ef3d30ef9b4a1fa7fdd6526dfacd66e9971d1f988c2b63334314",
+        "urls": [
+          "bzz-raw://79eba24bcad7e3abddafd20b518add8d5acb1e8de250a0e20050dfbe2f2d8aea",
+          "dweb:/ipfs/QmYq9QYKr1UJaVyhkkSEfeiJ68TwGbwrmZsgRTPjVjkpUp"
+        ],
+        "license": "GPL-3.0"
+      },
+      "contracts/release/utils/FundDeployerOwnerMixin.sol": {
+        "keccak256": "0xd415583828581051080d575f058643f4975d7048fda0d1765122b260d9d14934",
+        "urls": [
+          "bzz-raw://8191af7a3cd0867af1a401d3cba1294be054c761c2276d21bff7c9296ecc6927",
+          "dweb:/ipfs/QmYBSrx1XrcqMNkH2Q6ALuczRv6LgpzVHvFH3DjvCu6SaM"
+        ],
+        "license": "GPL-3.0"
+      }
+    },
+    "version": 1
+  },
+  "ast": {
+    "absolutePath": "contracts/release/utils/FundDeployerOwnerMixin.sol",
+    "id": 7684,
+    "exportedSymbols": {
+      "FundDeployerOwnerMixin": [
+        7683
+      ]
+    },
+    "nodeType": "SourceUnit",
+    "src": "255:1234:32",
+    "nodes": [
+      {
+        "id": 7633,
+        "nodeType": "PragmaDirective",
+        "src": "255:23:32",
+        "nodes": [],
+        "literals": [
+          "solidity",
+          "0.6",
+          ".12"
+        ]
+      },
+      {
+        "id": 7634,
+        "nodeType": "ImportDirective",
+        "src": "280:49:32",
+        "nodes": [],
+        "absolutePath": "contracts/release/core/fund-deployer/IFundDeployer.sol",
+        "file": "../core/fund-deployer/IFundDeployer.sol",
+        "scope": 7684,
+        "sourceUnit": 2015,
+        "symbolAliases": [],
+        "unitAlias": ""
+      },
+      {
+        "id": 7683,
+        "nodeType": "ContractDefinition",
+        "src": "507:981:32",
+        "nodes": [
+          {
+            "id": 7637,
+            "nodeType": "VariableDeclaration",
+            "src": "554:40:32",
+            "nodes": [],
+            "constant": false,
+            "mutability": "immutable",
+            "name": "FUND_DEPLOYER",
+            "overrides": null,
+            "scope": 7683,
+            "stateVariable": true,
+            "storageLocation": "default",
+            "typeDescriptions": {
+              "typeIdentifier": "t_address",
+              "typeString": "address"
+            },
+            "typeName": {
+              "id": 7636,
+              "name": "address",
+              "nodeType": "ElementaryTypeName",
+              "src": "554:7:32",
+              "stateMutability": "nonpayable",
+              "typeDescriptions": {
+                "typeIdentifier": "t_address",
+                "typeString": "address"
+              }
+            },
+            "value": null,
+            "visibility": "internal"
+          },
+          {
+            "id": 7650,
+            "nodeType": "ModifierDefinition",
+            "src": "601:205:32",
+            "nodes": [],
+            "body": {
+              "id": 7649,
+              "nodeType": "Block",
+              "src": "634:172:32",
+              "nodes": [],
+              "statements": [
+                {
+                  "expression": {
+                    "argumentTypes": null,
+                    "arguments": [
+                      {
+                        "argumentTypes": null,
+                        "commonType": {
+                          "typeIdentifier": "t_address",
+                          "typeString": "address"
+                        },
+                        "id": 7644,
+                        "isConstant": false,
+                        "isLValue": false,
+                        "isPure": false,
+                        "lValueRequested": false,
+                        "leftExpression": {
+                          "argumentTypes": null,
+                          "expression": {
+                            "argumentTypes": null,
+                            "id": 7640,
+                            "name": "msg",
+                            "nodeType": "Identifier",
+                            "overloadedDeclarations": [],
+                            "referencedDeclaration": -15,
+                            "src": "665:3:32",
+                            "typeDescriptions": {
+                              "typeIdentifier": "t_magic_message",
+                              "typeString": "msg"
+                            }
+                          },
+                          "id": 7641,
+                          "isConstant": false,
+                          "isLValue": false,
+                          "isPure": false,
+                          "lValueRequested": false,
+                          "memberName": "sender",
+                          "nodeType": "MemberAccess",
+                          "referencedDeclaration": null,
+                          "src": "665:10:32",
+                          "typeDescriptions": {
+                            "typeIdentifier": "t_address_payable",
+                            "typeString": "address payable"
+                          }
+                        },
+                        "nodeType": "BinaryOperation",
+                        "operator": "==",
+                        "rightExpression": {
+                          "argumentTypes": null,
+                          "arguments": [],
+                          "expression": {
+                            "argumentTypes": [],
+                            "id": 7642,
+                            "name": "getOwner",
+                            "nodeType": "Identifier",
+                            "overloadedDeclarations": [],
+                            "referencedDeclaration": 7673,
+                            "src": "679:8:32",
+                            "typeDescriptions": {
+                              "typeIdentifier": "t_function_internal_view$__$returns$_t_address_$",
+                              "typeString": "function () view returns (address)"
+                            }
+                          },
+                          "id": 7643,
+                          "isConstant": false,
+                          "isLValue": false,
+                          "isPure": false,
+                          "kind": "functionCall",
+                          "lValueRequested": false,
+                          "names": [],
+                          "nodeType": "FunctionCall",
+                          "src": "679:10:32",
+                          "tryCall": false,
+                          "typeDescriptions": {
+                            "typeIdentifier": "t_address",
+                            "typeString": "address"
+                          }
+                        },
+                        "src": "665:24:32",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_bool",
+                          "typeString": "bool"
+                        }
+                      },
+                      {
+                        "argumentTypes": null,
+                        "hexValue": "6f6e6c7946756e644465706c6f7965724f776e65723a204f6e6c79207468652046756e644465706c6f796572206f776e65722063616e2063616c6c20746869732066756e6374696f6e",
+                        "id": 7645,
+                        "isConstant": false,
+                        "isLValue": false,
+                        "isPure": true,
+                        "kind": "string",
+                        "lValueRequested": false,
+                        "nodeType": "Literal",
+                        "src": "703:75:32",
+                        "subdenomination": null,
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_stringliteral_2a13fc06599a8edd66a849450b72593cbfd64087d5ca698d62647ce362a79562",
+                          "typeString": "literal_string \"onlyFundDeployerOwner: Only the FundDeployer owner can call this function\""
+                        },
+                        "value": "onlyFundDeployerOwner: Only the FundDeployer owner can call this function"
+                      }
+                    ],
+                    "expression": {
+                      "argumentTypes": [
+                        {
+                          "typeIdentifier": "t_bool",
+                          "typeString": "bool"
+                        },
+                        {
+                          "typeIdentifier": "t_stringliteral_2a13fc06599a8edd66a849450b72593cbfd64087d5ca698d62647ce362a79562",
+                          "typeString": "literal_string \"onlyFundDeployerOwner: Only the FundDeployer owner can call this function\""
+                        }
+                      ],
+                      "id": 7639,
+                      "name": "require",
+                      "nodeType": "Identifier",
+                      "overloadedDeclarations": [
+                        -18,
+                        -18
+                      ],
+                      "referencedDeclaration": -18,
+                      "src": "644:7:32",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_function_require_pure$_t_bool_$_t_string_memory_ptr_$returns$__$",
+                        "typeString": "function (bool,string memory) pure"
+                      }
+                    },
+                    "id": 7646,
+                    "isConstant": false,
+                    "isLValue": false,
+                    "isPure": false,
+                    "kind": "functionCall",
+                    "lValueRequested": false,
+                    "names": [],
+                    "nodeType": "FunctionCall",
+                    "src": "644:144:32",
+                    "tryCall": false,
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_tuple$__$",
+                      "typeString": "tuple()"
+                    }
+                  },
+                  "id": 7647,
+                  "nodeType": "ExpressionStatement",
+                  "src": "644:144:32"
+                },
+                {
+                  "id": 7648,
+                  "nodeType": "PlaceholderStatement",
+                  "src": "798:1:32"
+                }
+              ]
+            },
+            "documentation": null,
+            "name": "onlyFundDeployerOwner",
+            "overrides": null,
+            "parameters": {
+              "id": 7638,
+              "nodeType": "ParameterList",
+              "parameters": [],
+              "src": "631:2:32"
+            },
+            "virtual": false,
+            "visibility": "internal"
+          },
+          {
+            "id": 7660,
+            "nodeType": "FunctionDefinition",
+            "src": "812:88:32",
+            "nodes": [],
+            "body": {
+              "id": 7659,
+              "nodeType": "Block",
+              "src": "854:46:32",
+              "nodes": [],
+              "statements": [
+                {
+                  "expression": {
+                    "argumentTypes": null,
+                    "id": 7657,
+                    "isConstant": false,
+                    "isLValue": false,
+                    "isPure": false,
+                    "lValueRequested": false,
+                    "leftHandSide": {
+                      "argumentTypes": null,
+                      "id": 7655,
+                      "name": "FUND_DEPLOYER",
+                      "nodeType": "Identifier",
+                      "overloadedDeclarations": [],
+                      "referencedDeclaration": 7637,
+                      "src": "864:13:32",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_address",
+                        "typeString": "address"
+                      }
+                    },
+                    "nodeType": "Assignment",
+                    "operator": "=",
+                    "rightHandSide": {
+                      "argumentTypes": null,
+                      "id": 7656,
+                      "name": "_fundDeployer",
+                      "nodeType": "Identifier",
+                      "overloadedDeclarations": [],
+                      "referencedDeclaration": 7652,
+                      "src": "880:13:32",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_address",
+                        "typeString": "address"
+                      }
+                    },
+                    "src": "864:29:32",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "id": 7658,
+                  "nodeType": "ExpressionStatement",
+                  "src": "864:29:32"
+                }
+              ]
+            },
+            "documentation": null,
+            "implemented": true,
+            "kind": "constructor",
+            "modifiers": [],
+            "name": "",
+            "overrides": null,
+            "parameters": {
+              "id": 7653,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 7652,
+                  "mutability": "mutable",
+                  "name": "_fundDeployer",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 7660,
+                  "src": "824:21:32",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 7651,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "824:7:32",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "823:23:32"
+            },
+            "returnParameters": {
+              "id": 7654,
+              "nodeType": "ParameterList",
+              "parameters": [],
+              "src": "854:0:32"
+            },
+            "scope": 7683,
+            "stateMutability": "nonpayable",
+            "virtual": false,
+            "visibility": "public"
+          },
+          {
+            "id": 7673,
+            "nodeType": "FunctionDefinition",
+            "src": "1064:120:32",
+            "nodes": [],
+            "body": {
+              "id": 7672,
+              "nodeType": "Block",
+              "src": "1121:63:32",
+              "nodes": [],
+              "statements": [
+                {
+                  "expression": {
+                    "argumentTypes": null,
+                    "arguments": [],
+                    "expression": {
+                      "argumentTypes": [],
+                      "expression": {
+                        "argumentTypes": null,
+                        "arguments": [
+                          {
+                            "argumentTypes": null,
+                            "id": 7667,
+                            "name": "FUND_DEPLOYER",
+                            "nodeType": "Identifier",
+                            "overloadedDeclarations": [],
+                            "referencedDeclaration": 7637,
+                            "src": "1152:13:32",
+                            "typeDescriptions": {
+                              "typeIdentifier": "t_address",
+                              "typeString": "address"
+                            }
+                          }
+                        ],
+                        "expression": {
+                          "argumentTypes": [
+                            {
+                              "typeIdentifier": "t_address",
+                              "typeString": "address"
+                            }
+                          ],
+                          "id": 7666,
+                          "name": "IFundDeployer",
+                          "nodeType": "Identifier",
+                          "overloadedDeclarations": [],
+                          "referencedDeclaration": 2014,
+                          "src": "1138:13:32",
+                          "typeDescriptions": {
+                            "typeIdentifier": "t_type$_t_contract$_IFundDeployer_$2014_$",
+                            "typeString": "type(contract IFundDeployer)"
+                          }
+                        },
+                        "id": 7668,
+                        "isConstant": false,
+                        "isLValue": false,
+                        "isPure": false,
+                        "kind": "typeConversion",
+                        "lValueRequested": false,
+                        "names": [],
+                        "nodeType": "FunctionCall",
+                        "src": "1138:28:32",
+                        "tryCall": false,
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_contract$_IFundDeployer_$2014",
+                          "typeString": "contract IFundDeployer"
+                        }
+                      },
+                      "id": 7669,
+                      "isConstant": false,
+                      "isLValue": false,
+                      "isPure": false,
+                      "lValueRequested": false,
+                      "memberName": "getOwner",
+                      "nodeType": "MemberAccess",
+                      "referencedDeclaration": 1988,
+                      "src": "1138:37:32",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_function_external_view$__$returns$_t_address_$",
+                        "typeString": "function () view external returns (address)"
+                      }
+                    },
+                    "id": 7670,
+                    "isConstant": false,
+                    "isLValue": false,
+                    "isPure": false,
+                    "kind": "functionCall",
+                    "lValueRequested": false,
+                    "names": [],
+                    "nodeType": "FunctionCall",
+                    "src": "1138:39:32",
+                    "tryCall": false,
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "functionReturnParameters": 7665,
+                  "id": 7671,
+                  "nodeType": "Return",
+                  "src": "1131:46:32"
+                }
+              ]
+            },
+            "documentation": {
+              "id": 7661,
+              "nodeType": "StructuredDocumentation",
+              "src": "906:153:32",
+              "text": "@notice Gets the owner of this contract\n @return owner_ The owner\n @dev Ownership is deferred to the owner of the FundDeployer contract"
+            },
+            "functionSelector": "893d20e8",
+            "implemented": true,
+            "kind": "function",
+            "modifiers": [],
+            "name": "getOwner",
+            "overrides": null,
+            "parameters": {
+              "id": 7662,
+              "nodeType": "ParameterList",
+              "parameters": [],
+              "src": "1081:2:32"
+            },
+            "returnParameters": {
+              "id": 7665,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 7664,
+                  "mutability": "mutable",
+                  "name": "owner_",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 7673,
+                  "src": "1105:14:32",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 7663,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "1105:7:32",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "1104:16:32"
+            },
+            "scope": 7683,
+            "stateMutability": "view",
+            "virtual": false,
+            "visibility": "public"
+          },
+          {
+            "id": 7682,
+            "nodeType": "FunctionDefinition",
+            "src": "1378:108:32",
+            "nodes": [],
+            "body": {
+              "id": 7681,
+              "nodeType": "Block",
+              "src": "1449:37:32",
+              "nodes": [],
+              "statements": [
+                {
+                  "expression": {
+                    "argumentTypes": null,
+                    "id": 7679,
+                    "name": "FUND_DEPLOYER",
+                    "nodeType": "Identifier",
+                    "overloadedDeclarations": [],
+                    "referencedDeclaration": 7637,
+                    "src": "1466:13:32",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "functionReturnParameters": 7678,
+                  "id": 7680,
+                  "nodeType": "Return",
+                  "src": "1459:20:32"
+                }
+              ]
+            },
+            "documentation": {
+              "id": 7674,
+              "nodeType": "StructuredDocumentation",
+              "src": "1263:110:32",
+              "text": "@notice Gets the `FUND_DEPLOYER` variable\n @return fundDeployer_ The `FUND_DEPLOYER` variable value"
+            },
+            "functionSelector": "97c0ac87",
+            "implemented": true,
+            "kind": "function",
+            "modifiers": [],
+            "name": "getFundDeployer",
+            "overrides": null,
+            "parameters": {
+              "id": 7675,
+              "nodeType": "ParameterList",
+              "parameters": [],
+              "src": "1402:2:32"
+            },
+            "returnParameters": {
+              "id": 7678,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 7677,
+                  "mutability": "mutable",
+                  "name": "fundDeployer_",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 7682,
+                  "src": "1426:21:32",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 7676,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "1426:7:32",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "1425:23:32"
+            },
+            "scope": 7683,
+            "stateMutability": "view",
+            "virtual": false,
+            "visibility": "public"
+          }
+        ],
+        "abstract": true,
+        "baseContracts": [],
+        "contractDependencies": [],
+        "contractKind": "contract",
+        "documentation": {
+          "id": 7635,
+          "nodeType": "StructuredDocumentation",
+          "src": "331:176:32",
+          "text": "@title FundDeployerOwnerMixin Contract\n @author Enzyme Council <security@enzyme.finance>\n @notice A mixin contract that defers ownership to the owner of FundDeployer"
+        },
+        "fullyImplemented": true,
+        "linearizedBaseContracts": [
+          7683
+        ],
+        "name": "FundDeployerOwnerMixin",
+        "scope": 7684
+      }
+    ],
+    "license": "GPL-3.0"
+  },
+  "id": 32
 }

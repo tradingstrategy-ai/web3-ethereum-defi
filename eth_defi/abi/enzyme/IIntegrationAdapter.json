@@ -1,7 +1,4 @@
 {
-  "_format": "hh-sol-artifact-1",
-  "contractName": "IIntegrationAdapter",
-  "sourceName": "contracts/release/extensions/integration-manager/integrations/IIntegrationAdapter.sol",
   "abi": [
     {
       "inputs": [
@@ -53,8 +50,499 @@
       "type": "function"
     }
   ],
-  "bytecode": "0x",
-  "deployedBytecode": "0x",
-  "linkReferences": {},
-  "deployedLinkReferences": {}
+  "bytecode": {
+    "object": "0x",
+    "sourceMap": "",
+    "linkReferences": {}
+  },
+  "deployedBytecode": {
+    "object": "0x",
+    "sourceMap": "",
+    "linkReferences": {}
+  },
+  "methodIdentifiers": {
+    "parseAssetsForAction(address,bytes4,bytes)": "c54efee5"
+  },
+  "rawMetadata": "{\"compiler\":{\"version\":\"0.6.12+commit.27d51765\"},\"language\":\"Solidity\",\"output\":{\"abi\":[{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_vaultProxy\",\"type\":\"address\"},{\"internalType\":\"bytes4\",\"name\":\"_selector\",\"type\":\"bytes4\"},{\"internalType\":\"bytes\",\"name\":\"_encodedCallArgs\",\"type\":\"bytes\"}],\"name\":\"parseAssetsForAction\",\"outputs\":[{\"internalType\":\"enum IIntegrationManager.SpendAssetsHandleType\",\"name\":\"spendAssetsHandleType_\",\"type\":\"uint8\"},{\"internalType\":\"address[]\",\"name\":\"spendAssets_\",\"type\":\"address[]\"},{\"internalType\":\"uint256[]\",\"name\":\"spendAssetAmounts_\",\"type\":\"uint256[]\"},{\"internalType\":\"address[]\",\"name\":\"incomingAssets_\",\"type\":\"address[]\"},{\"internalType\":\"uint256[]\",\"name\":\"minIncomingAssetAmounts_\",\"type\":\"uint256[]\"}],\"stateMutability\":\"view\",\"type\":\"function\"}],\"devdoc\":{\"author\":\"Enzyme Council <security@enzyme.finance>\",\"kind\":\"dev\",\"methods\":{},\"title\":\"Integration Adapter interface\",\"version\":1},\"userdoc\":{\"kind\":\"user\",\"methods\":{},\"notice\":\"Interface for all integration adapters\",\"version\":1}},\"settings\":{\"compilationTarget\":{\"contracts/release/extensions/integration-manager/integrations/IIntegrationAdapter.sol\":\"IIntegrationAdapter\"},\"evmVersion\":\"istanbul\",\"libraries\":{},\"metadata\":{\"bytecodeHash\":\"none\"},\"optimizer\":{\"details\":{\"constantOptimizer\":true,\"cse\":true,\"deduplicate\":true,\"jumpdestRemover\":true,\"orderLiterals\":true,\"peephole\":true,\"yul\":false},\"runs\":200},\"remappings\":[\":@enzyme/=contracts/\",\":@openzeppelin-solc-0.7/=node_modules/@openzeppelin-solc-0.7/\",\":@openzeppelin/=node_modules/@openzeppelin/\",\":@uniswap/=node_modules/@uniswap/\",\":base64-sol/=node_modules/base64-sol/\",\":ds-test/=lib/forge-std/lib/ds-test/src/\",\":forge-std/=lib/forge-std/src/\",\":hardhat-deploy/=node_modules/hardhat-deploy/\",\":hardhat/=node_modules/hardhat/\"]},\"sources\":{\"contracts/release/extensions/integration-manager/IIntegrationManager.sol\":{\"keccak256\":\"0x29aff2a05a50430f732dd67cd3dfbfcf3b2fd86697f61b1ef91bebc8ff3e00ef\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://8b1f03cd376a3743dfaeff7cfbb1114341099d18ab32165365c76eba8e9dbc23\",\"dweb:/ipfs/QmZEwZEUcFwWEKkYXmjcijChwfAkFHkgMMRnv4QY8abhdk\"]},\"contracts/release/extensions/integration-manager/integrations/IIntegrationAdapter.sol\":{\"keccak256\":\"0x14b11777e21aceca340931832874342546731493bb169dbb4de736b16e9a7cc1\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://d86c25f7deaddc311bfcd4da5ce08c275f548e164cb732137be91466acc75336\",\"dweb:/ipfs/QmYE2XeBKMoqUrfNZAX66mi34sth4ehoZnVzGhZFLBxbwS\"]}},\"version\":1}",
+  "metadata": {
+    "compiler": {
+      "version": "0.6.12+commit.27d51765"
+    },
+    "language": "Solidity",
+    "output": {
+      "abi": [
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "_vaultProxy",
+              "type": "address"
+            },
+            {
+              "internalType": "bytes4",
+              "name": "_selector",
+              "type": "bytes4"
+            },
+            {
+              "internalType": "bytes",
+              "name": "_encodedCallArgs",
+              "type": "bytes"
+            }
+          ],
+          "stateMutability": "view",
+          "type": "function",
+          "name": "parseAssetsForAction",
+          "outputs": [
+            {
+              "internalType": "enum IIntegrationManager.SpendAssetsHandleType",
+              "name": "spendAssetsHandleType_",
+              "type": "uint8"
+            },
+            {
+              "internalType": "address[]",
+              "name": "spendAssets_",
+              "type": "address[]"
+            },
+            {
+              "internalType": "uint256[]",
+              "name": "spendAssetAmounts_",
+              "type": "uint256[]"
+            },
+            {
+              "internalType": "address[]",
+              "name": "incomingAssets_",
+              "type": "address[]"
+            },
+            {
+              "internalType": "uint256[]",
+              "name": "minIncomingAssetAmounts_",
+              "type": "uint256[]"
+            }
+          ]
+        }
+      ],
+      "devdoc": {
+        "kind": "dev",
+        "methods": {},
+        "version": 1
+      },
+      "userdoc": {
+        "kind": "user",
+        "methods": {},
+        "version": 1
+      }
+    },
+    "settings": {
+      "remappings": [
+        ":@enzyme/=contracts/",
+        ":@openzeppelin-solc-0.7/=node_modules/@openzeppelin-solc-0.7/",
+        ":@openzeppelin/=node_modules/@openzeppelin/",
+        ":@uniswap/=node_modules/@uniswap/",
+        ":base64-sol/=node_modules/base64-sol/",
+        ":ds-test/=lib/forge-std/lib/ds-test/src/",
+        ":forge-std/=lib/forge-std/src/",
+        ":hardhat-deploy/=node_modules/hardhat-deploy/",
+        ":hardhat/=node_modules/hardhat/"
+      ],
+      "optimizer": {
+        "runs": 200,
+        "details": {
+          "peephole": true,
+          "jumpdestRemover": true,
+          "orderLiterals": true,
+          "deduplicate": true,
+          "cse": true,
+          "constantOptimizer": true,
+          "yul": false
+        }
+      },
+      "metadata": {
+        "bytecodeHash": "none"
+      },
+      "compilationTarget": {
+        "contracts/release/extensions/integration-manager/integrations/IIntegrationAdapter.sol": "IIntegrationAdapter"
+      },
+      "libraries": {}
+    },
+    "sources": {
+      "contracts/release/extensions/integration-manager/IIntegrationManager.sol": {
+        "keccak256": "0x29aff2a05a50430f732dd67cd3dfbfcf3b2fd86697f61b1ef91bebc8ff3e00ef",
+        "urls": [
+          "bzz-raw://8b1f03cd376a3743dfaeff7cfbb1114341099d18ab32165365c76eba8e9dbc23",
+          "dweb:/ipfs/QmZEwZEUcFwWEKkYXmjcijChwfAkFHkgMMRnv4QY8abhdk"
+        ],
+        "license": "GPL-3.0"
+      },
+      "contracts/release/extensions/integration-manager/integrations/IIntegrationAdapter.sol": {
+        "keccak256": "0x14b11777e21aceca340931832874342546731493bb169dbb4de736b16e9a7cc1",
+        "urls": [
+          "bzz-raw://d86c25f7deaddc311bfcd4da5ce08c275f548e164cb732137be91466acc75336",
+          "dweb:/ipfs/QmYE2XeBKMoqUrfNZAX66mi34sth4ehoZnVzGhZFLBxbwS"
+        ],
+        "license": "GPL-3.0"
+      }
+    },
+    "version": 1
+  },
+  "ast": {
+    "absolutePath": "contracts/release/extensions/integration-manager/integrations/IIntegrationAdapter.sol",
+    "id": 36,
+    "exportedSymbols": {
+      "IIntegrationAdapter": [
+        35
+      ]
+    },
+    "nodeType": "SourceUnit",
+    "src": "255:707:1",
+    "nodes": [
+      {
+        "id": 9,
+        "nodeType": "PragmaDirective",
+        "src": "255:23:1",
+        "nodes": [],
+        "literals": [
+          "solidity",
+          "0.6",
+          ".12"
+        ]
+      },
+      {
+        "id": 10,
+        "nodeType": "ImportDirective",
+        "src": "280:36:1",
+        "nodes": [],
+        "absolutePath": "contracts/release/extensions/integration-manager/IIntegrationManager.sol",
+        "file": "../IIntegrationManager.sol",
+        "scope": 36,
+        "sourceUnit": 8,
+        "symbolAliases": [],
+        "unitAlias": ""
+      },
+      {
+        "id": 35,
+        "nodeType": "ContractDefinition",
+        "src": "463:498:1",
+        "nodes": [
+          {
+            "id": 34,
+            "nodeType": "FunctionDefinition",
+            "src": "499:460:1",
+            "nodes": [],
+            "documentation": null,
+            "functionSelector": "c54efee5",
+            "implemented": false,
+            "kind": "function",
+            "modifiers": [],
+            "name": "parseAssetsForAction",
+            "overrides": null,
+            "parameters": {
+              "id": 18,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 13,
+                  "mutability": "mutable",
+                  "name": "_vaultProxy",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 34,
+                  "src": "538:19:1",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 12,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "538:7:1",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 15,
+                  "mutability": "mutable",
+                  "name": "_selector",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 34,
+                  "src": "567:16:1",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_bytes4",
+                    "typeString": "bytes4"
+                  },
+                  "typeName": {
+                    "id": 14,
+                    "name": "bytes4",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "567:6:1",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_bytes4",
+                      "typeString": "bytes4"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 17,
+                  "mutability": "mutable",
+                  "name": "_encodedCallArgs",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 34,
+                  "src": "593:31:1",
+                  "stateVariable": false,
+                  "storageLocation": "calldata",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_bytes_calldata_ptr",
+                    "typeString": "bytes"
+                  },
+                  "typeName": {
+                    "id": 16,
+                    "name": "bytes",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "593:5:1",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_bytes_storage_ptr",
+                      "typeString": "bytes"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "528:102:1"
+            },
+            "returnParameters": {
+              "id": 33,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 20,
+                  "mutability": "mutable",
+                  "name": "spendAssetsHandleType_",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 34,
+                  "src": "691:64:1",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_enum$_SpendAssetsHandleType_$6",
+                    "typeString": "enum IIntegrationManager.SpendAssetsHandleType"
+                  },
+                  "typeName": {
+                    "contractScope": null,
+                    "id": 19,
+                    "name": "IIntegrationManager.SpendAssetsHandleType",
+                    "nodeType": "UserDefinedTypeName",
+                    "referencedDeclaration": 6,
+                    "src": "691:41:1",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_enum$_SpendAssetsHandleType_$6",
+                      "typeString": "enum IIntegrationManager.SpendAssetsHandleType"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 23,
+                  "mutability": "mutable",
+                  "name": "spendAssets_",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 34,
+                  "src": "769:29:1",
+                  "stateVariable": false,
+                  "storageLocation": "memory",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_array$_t_address_$dyn_memory_ptr",
+                    "typeString": "address[]"
+                  },
+                  "typeName": {
+                    "baseType": {
+                      "id": 21,
+                      "name": "address",
+                      "nodeType": "ElementaryTypeName",
+                      "src": "769:7:1",
+                      "stateMutability": "nonpayable",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_address",
+                        "typeString": "address"
+                      }
+                    },
+                    "id": 22,
+                    "length": null,
+                    "nodeType": "ArrayTypeName",
+                    "src": "769:9:1",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_array$_t_address_$dyn_storage_ptr",
+                      "typeString": "address[]"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 26,
+                  "mutability": "mutable",
+                  "name": "spendAssetAmounts_",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 34,
+                  "src": "812:35:1",
+                  "stateVariable": false,
+                  "storageLocation": "memory",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_array$_t_uint256_$dyn_memory_ptr",
+                    "typeString": "uint256[]"
+                  },
+                  "typeName": {
+                    "baseType": {
+                      "id": 24,
+                      "name": "uint256",
+                      "nodeType": "ElementaryTypeName",
+                      "src": "812:7:1",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_uint256",
+                        "typeString": "uint256"
+                      }
+                    },
+                    "id": 25,
+                    "length": null,
+                    "nodeType": "ArrayTypeName",
+                    "src": "812:9:1",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_array$_t_uint256_$dyn_storage_ptr",
+                      "typeString": "uint256[]"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 29,
+                  "mutability": "mutable",
+                  "name": "incomingAssets_",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 34,
+                  "src": "861:32:1",
+                  "stateVariable": false,
+                  "storageLocation": "memory",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_array$_t_address_$dyn_memory_ptr",
+                    "typeString": "address[]"
+                  },
+                  "typeName": {
+                    "baseType": {
+                      "id": 27,
+                      "name": "address",
+                      "nodeType": "ElementaryTypeName",
+                      "src": "861:7:1",
+                      "stateMutability": "nonpayable",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_address",
+                        "typeString": "address"
+                      }
+                    },
+                    "id": 28,
+                    "length": null,
+                    "nodeType": "ArrayTypeName",
+                    "src": "861:9:1",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_array$_t_address_$dyn_storage_ptr",
+                      "typeString": "address[]"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 32,
+                  "mutability": "mutable",
+                  "name": "minIncomingAssetAmounts_",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 34,
+                  "src": "907:41:1",
+                  "stateVariable": false,
+                  "storageLocation": "memory",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_array$_t_uint256_$dyn_memory_ptr",
+                    "typeString": "uint256[]"
+                  },
+                  "typeName": {
+                    "baseType": {
+                      "id": 30,
+                      "name": "uint256",
+                      "nodeType": "ElementaryTypeName",
+                      "src": "907:7:1",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_uint256",
+                        "typeString": "uint256"
+                      }
+                    },
+                    "id": 31,
+                    "length": null,
+                    "nodeType": "ArrayTypeName",
+                    "src": "907:9:1",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_array$_t_uint256_$dyn_storage_ptr",
+                      "typeString": "uint256[]"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "677:281:1"
+            },
+            "scope": 35,
+            "stateMutability": "view",
+            "virtual": false,
+            "visibility": "external"
+          }
+        ],
+        "abstract": false,
+        "baseContracts": [],
+        "contractDependencies": [],
+        "contractKind": "interface",
+        "documentation": {
+          "id": 11,
+          "nodeType": "StructuredDocumentation",
+          "src": "318:145:1",
+          "text": "@title Integration Adapter interface\n @author Enzyme Council <security@enzyme.finance>\n @notice Interface for all integration adapters"
+        },
+        "fullyImplemented": false,
+        "linearizedBaseContracts": [
+          35
+        ],
+        "name": "IIntegrationAdapter",
+        "scope": 36
+      }
+    ],
+    "license": "GPL-3.0"
+  },
+  "id": 1
 }

@@ -1,7 +1,4 @@
 {
-  "_format": "hh-sol-artifact-1",
-  "contractName": "IFeeManager",
-  "sourceName": "contracts/release/extensions/fee-manager/IFeeManager.sol",
   "abi": [
     {
       "inputs": [
@@ -27,8 +24,358 @@
       "type": "function"
     }
   ],
-  "bytecode": "0x",
-  "deployedBytecode": "0x",
-  "linkReferences": {},
-  "deployedLinkReferences": {}
+  "bytecode": {
+    "object": "0x",
+    "sourceMap": "",
+    "linkReferences": {}
+  },
+  "deployedBytecode": {
+    "object": "0x",
+    "sourceMap": "",
+    "linkReferences": {}
+  },
+  "methodIdentifiers": {
+    "invokeHook(uint8,bytes,uint256)": "7759c164"
+  },
+  "rawMetadata": "{\"compiler\":{\"version\":\"0.6.12+commit.27d51765\"},\"language\":\"Solidity\",\"output\":{\"abi\":[{\"inputs\":[{\"internalType\":\"enum IFeeManager.FeeHook\",\"name\":\"\",\"type\":\"uint8\"},{\"internalType\":\"bytes\",\"name\":\"\",\"type\":\"bytes\"},{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"name\":\"invokeHook\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"}],\"devdoc\":{\"author\":\"Enzyme Council <security@enzyme.finance>\",\"kind\":\"dev\",\"methods\":{},\"title\":\"FeeManager Interface\",\"version\":1},\"userdoc\":{\"kind\":\"user\",\"methods\":{},\"notice\":\"Interface for the FeeManager\",\"version\":1}},\"settings\":{\"compilationTarget\":{\"contracts/release/extensions/fee-manager/IFeeManager.sol\":\"IFeeManager\"},\"evmVersion\":\"istanbul\",\"libraries\":{},\"metadata\":{\"bytecodeHash\":\"none\"},\"optimizer\":{\"details\":{\"constantOptimizer\":true,\"cse\":true,\"deduplicate\":true,\"jumpdestRemover\":true,\"orderLiterals\":true,\"peephole\":true,\"yul\":false},\"runs\":200},\"remappings\":[\":@enzyme/=contracts/\",\":@openzeppelin-solc-0.7/=node_modules/@openzeppelin-solc-0.7/\",\":@openzeppelin/=node_modules/@openzeppelin/\",\":@uniswap/=node_modules/@uniswap/\",\":base64-sol/=node_modules/base64-sol/\",\":ds-test/=lib/forge-std/lib/ds-test/src/\",\":forge-std/=lib/forge-std/src/\",\":hardhat-deploy/=node_modules/hardhat-deploy/\",\":hardhat/=node_modules/hardhat/\"]},\"sources\":{\"contracts/release/extensions/fee-manager/IFeeManager.sol\":{\"keccak256\":\"0x26accd01ce839ee396cbaf3f72d93f2135656845c3e74c4ae575f8b02b8efd51\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://1462f4081d1aa407faa1a92bb94ecae526a6792c79052dd446d898e75b3e5e22\",\"dweb:/ipfs/QmQzLS7raSD2ojJbxoraorzA8wRTS2iQtpaedm1x47teod\"]}},\"version\":1}",
+  "metadata": {
+    "compiler": {
+      "version": "0.6.12+commit.27d51765"
+    },
+    "language": "Solidity",
+    "output": {
+      "abi": [
+        {
+          "inputs": [
+            {
+              "internalType": "enum IFeeManager.FeeHook",
+              "name": "",
+              "type": "uint8"
+            },
+            {
+              "internalType": "bytes",
+              "name": "",
+              "type": "bytes"
+            },
+            {
+              "internalType": "uint256",
+              "name": "",
+              "type": "uint256"
+            }
+          ],
+          "stateMutability": "nonpayable",
+          "type": "function",
+          "name": "invokeHook"
+        }
+      ],
+      "devdoc": {
+        "kind": "dev",
+        "methods": {},
+        "version": 1
+      },
+      "userdoc": {
+        "kind": "user",
+        "methods": {},
+        "version": 1
+      }
+    },
+    "settings": {
+      "remappings": [
+        ":@enzyme/=contracts/",
+        ":@openzeppelin-solc-0.7/=node_modules/@openzeppelin-solc-0.7/",
+        ":@openzeppelin/=node_modules/@openzeppelin/",
+        ":@uniswap/=node_modules/@uniswap/",
+        ":base64-sol/=node_modules/base64-sol/",
+        ":ds-test/=lib/forge-std/lib/ds-test/src/",
+        ":forge-std/=lib/forge-std/src/",
+        ":hardhat-deploy/=node_modules/hardhat-deploy/",
+        ":hardhat/=node_modules/hardhat/"
+      ],
+      "optimizer": {
+        "runs": 200,
+        "details": {
+          "peephole": true,
+          "jumpdestRemover": true,
+          "orderLiterals": true,
+          "deduplicate": true,
+          "cse": true,
+          "constantOptimizer": true,
+          "yul": false
+        }
+      },
+      "metadata": {
+        "bytecodeHash": "none"
+      },
+      "compilationTarget": {
+        "contracts/release/extensions/fee-manager/IFeeManager.sol": "IFeeManager"
+      },
+      "libraries": {}
+    },
+    "sources": {
+      "contracts/release/extensions/fee-manager/IFeeManager.sol": {
+        "keccak256": "0x26accd01ce839ee396cbaf3f72d93f2135656845c3e74c4ae575f8b02b8efd51",
+        "urls": [
+          "bzz-raw://1462f4081d1aa407faa1a92bb94ecae526a6792c79052dd446d898e75b3e5e22",
+          "dweb:/ipfs/QmQzLS7raSD2ojJbxoraorzA8wRTS2iQtpaedm1x47teod"
+        ],
+        "license": "GPL-3.0"
+      }
+    },
+    "version": 1
+  },
+  "ast": {
+    "absolutePath": "contracts/release/extensions/fee-manager/IFeeManager.sol",
+    "id": 5186,
+    "exportedSymbols": {
+      "IFeeManager": [
+        5185
+      ]
+    },
+    "nodeType": "SourceUnit",
+    "src": "255:648:14",
+    "nodes": [
+      {
+        "id": 5161,
+        "nodeType": "PragmaDirective",
+        "src": "255:23:14",
+        "nodes": [],
+        "literals": [
+          "solidity",
+          "0.6",
+          ".12"
+        ]
+      },
+      {
+        "id": 5162,
+        "nodeType": "PragmaDirective",
+        "src": "279:33:14",
+        "nodes": [],
+        "literals": [
+          "experimental",
+          "ABIEncoderV2"
+        ]
+      },
+      {
+        "id": 5185,
+        "nodeType": "ContractDefinition",
+        "src": "440:462:14",
+        "nodes": [
+          {
+            "id": 5168,
+            "nodeType": "EnumDefinition",
+            "src": "541:109:14",
+            "nodes": [],
+            "canonicalName": "IFeeManager.FeeHook",
+            "members": [
+              {
+                "id": 5164,
+                "name": "Continuous",
+                "nodeType": "EnumValue",
+                "src": "564:10:14"
+              },
+              {
+                "id": 5165,
+                "name": "PreBuyShares",
+                "nodeType": "EnumValue",
+                "src": "584:12:14"
+              },
+              {
+                "id": 5166,
+                "name": "PostBuyShares",
+                "nodeType": "EnumValue",
+                "src": "606:13:14"
+              },
+              {
+                "id": 5167,
+                "name": "PreRedeemShares",
+                "nodeType": "EnumValue",
+                "src": "629:15:14"
+              }
+            ],
+            "name": "FeeHook"
+          },
+          {
+            "id": 5175,
+            "nodeType": "EnumDefinition",
+            "src": "655:146:14",
+            "nodes": [],
+            "canonicalName": "IFeeManager.SettlementType",
+            "members": [
+              {
+                "id": 5169,
+                "name": "None",
+                "nodeType": "EnumValue",
+                "src": "685:4:14"
+              },
+              {
+                "id": 5170,
+                "name": "Direct",
+                "nodeType": "EnumValue",
+                "src": "699:6:14"
+              },
+              {
+                "id": 5171,
+                "name": "Mint",
+                "nodeType": "EnumValue",
+                "src": "715:4:14"
+              },
+              {
+                "id": 5172,
+                "name": "Burn",
+                "nodeType": "EnumValue",
+                "src": "729:4:14"
+              },
+              {
+                "id": 5173,
+                "name": "MintSharesOutstanding",
+                "nodeType": "EnumValue",
+                "src": "743:21:14"
+              },
+              {
+                "id": 5174,
+                "name": "BurnSharesOutstanding",
+                "nodeType": "EnumValue",
+                "src": "774:21:14"
+              }
+            ],
+            "name": "SettlementType"
+          },
+          {
+            "id": 5184,
+            "nodeType": "FunctionDefinition",
+            "src": "807:93:14",
+            "nodes": [],
+            "documentation": null,
+            "functionSelector": "7759c164",
+            "implemented": false,
+            "kind": "function",
+            "modifiers": [],
+            "name": "invokeHook",
+            "overrides": null,
+            "parameters": {
+              "id": 5182,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 5177,
+                  "mutability": "mutable",
+                  "name": "",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 5184,
+                  "src": "836:7:14",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_enum$_FeeHook_$5168",
+                    "typeString": "enum IFeeManager.FeeHook"
+                  },
+                  "typeName": {
+                    "contractScope": null,
+                    "id": 5176,
+                    "name": "FeeHook",
+                    "nodeType": "UserDefinedTypeName",
+                    "referencedDeclaration": 5168,
+                    "src": "836:7:14",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_enum$_FeeHook_$5168",
+                      "typeString": "enum IFeeManager.FeeHook"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 5179,
+                  "mutability": "mutable",
+                  "name": "",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 5184,
+                  "src": "853:14:14",
+                  "stateVariable": false,
+                  "storageLocation": "calldata",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_bytes_calldata_ptr",
+                    "typeString": "bytes"
+                  },
+                  "typeName": {
+                    "id": 5178,
+                    "name": "bytes",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "853:5:14",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_bytes_storage_ptr",
+                      "typeString": "bytes"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 5181,
+                  "mutability": "mutable",
+                  "name": "",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 5184,
+                  "src": "877:7:14",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_uint256",
+                    "typeString": "uint256"
+                  },
+                  "typeName": {
+                    "id": 5180,
+                    "name": "uint256",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "877:7:14",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_uint256",
+                      "typeString": "uint256"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "826:64:14"
+            },
+            "returnParameters": {
+              "id": 5183,
+              "nodeType": "ParameterList",
+              "parameters": [],
+              "src": "899:0:14"
+            },
+            "scope": 5185,
+            "stateMutability": "nonpayable",
+            "virtual": false,
+            "visibility": "external"
+          }
+        ],
+        "abstract": false,
+        "baseContracts": [],
+        "contractDependencies": [],
+        "contractKind": "interface",
+        "documentation": {
+          "id": 5163,
+          "nodeType": "StructuredDocumentation",
+          "src": "314:126:14",
+          "text": "@title FeeManager Interface\n @author Enzyme Council <security@enzyme.finance>\n @notice Interface for the FeeManager"
+        },
+        "fullyImplemented": false,
+        "linearizedBaseContracts": [
+          5185
+        ],
+        "name": "IFeeManager",
+        "scope": 5186
+      }
+    ],
+    "license": "GPL-3.0"
+  },
+  "id": 14
 }

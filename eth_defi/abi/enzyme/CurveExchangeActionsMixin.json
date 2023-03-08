@@ -1,7 +1,4 @@
 {
-  "_format": "hh-sol-artifact-1",
-  "contractName": "CurveExchangeActionsMixin",
-  "sourceName": "contracts/release/extensions/integration-manager/integrations/utils/actions/CurveExchangeActionsMixin.sol",
   "abi": [
     {
       "inputs": [
@@ -46,8 +43,2748 @@
       "type": "function"
     }
   ],
-  "bytecode": "0x",
-  "deployedBytecode": "0x",
-  "linkReferences": {},
-  "deployedLinkReferences": {}
+  "bytecode": {
+    "object": "0x",
+    "sourceMap": "",
+    "linkReferences": {}
+  },
+  "deployedBytecode": {
+    "object": "0x",
+    "sourceMap": "",
+    "linkReferences": {}
+  },
+  "methodIdentifiers": {
+    "getCurveExchangeAddressProvider()": "72202e8f",
+    "getCurveExchangeWethToken()": "fd070ae4"
+  },
+  "rawMetadata": "{\"compiler\":{\"version\":\"0.6.12+commit.27d51765\"},\"language\":\"Solidity\",\"output\":{\"abi\":[{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_addressProvider\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"_wethToken\",\"type\":\"address\"}],\"stateMutability\":\"nonpayable\",\"type\":\"constructor\"},{\"inputs\":[],\"name\":\"getCurveExchangeAddressProvider\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"curveExchangeAddressProvider_\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getCurveExchangeWethToken\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"curveExchangeWethToken_\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"}],\"devdoc\":{\"author\":\"Enzyme Council <security@enzyme.finance>\",\"details\":\"Inheriting contract must have a receive() function\",\"kind\":\"dev\",\"methods\":{\"getCurveExchangeAddressProvider()\":{\"returns\":{\"curveExchangeAddressProvider_\":\"The `CURVE_EXCHANGE_ADDRESS_PROVIDER` variable value\"}},\"getCurveExchangeWethToken()\":{\"returns\":{\"curveExchangeWethToken_\":\"The `CURVE_EXCHANGE_WETH_TOKEN` variable value\"}}},\"title\":\"CurveExchangeActionsMixin Contract\",\"version\":1},\"userdoc\":{\"kind\":\"user\",\"methods\":{\"getCurveExchangeAddressProvider()\":{\"notice\":\"Gets the `CURVE_EXCHANGE_ADDRESS_PROVIDER` variable\"},\"getCurveExchangeWethToken()\":{\"notice\":\"Gets the `CURVE_EXCHANGE_WETH_TOKEN` variable\"}},\"notice\":\"Mixin contract for interacting with the Curve exchange functions\",\"version\":1}},\"settings\":{\"compilationTarget\":{\"contracts/release/extensions/integration-manager/integrations/utils/actions/CurveExchangeActionsMixin.sol\":\"CurveExchangeActionsMixin\"},\"evmVersion\":\"istanbul\",\"libraries\":{},\"metadata\":{\"bytecodeHash\":\"none\"},\"optimizer\":{\"details\":{\"constantOptimizer\":true,\"cse\":true,\"deduplicate\":true,\"jumpdestRemover\":true,\"orderLiterals\":true,\"peephole\":true,\"yul\":false},\"runs\":200},\"remappings\":[\":@enzyme/=contracts/\",\":@openzeppelin-solc-0.7/=node_modules/@openzeppelin-solc-0.7/\",\":@openzeppelin/=node_modules/@openzeppelin/\",\":@uniswap/=node_modules/@uniswap/\",\":base64-sol/=node_modules/base64-sol/\",\":ds-test/=lib/forge-std/lib/ds-test/src/\",\":forge-std/=lib/forge-std/src/\",\":hardhat-deploy/=node_modules/hardhat-deploy/\",\":hardhat/=node_modules/hardhat/\"]},\"sources\":{\"contracts/release/extensions/integration-manager/integrations/utils/actions/CurveExchangeActionsMixin.sol\":{\"keccak256\":\"0xf43db095bb077746b226e86bce46b07fffc9b2985c0cc1e48b739a7e2e8da85f\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://c1f7539ac8a17a0efd5e29de522b613e6442da9cf96acd30a5ffd7f25e9ae8d0\",\"dweb:/ipfs/QmR8YAVn5vEVwk8SzfjfHSWB9ytgxj3K5Sw6GoZE8gLfjV\"]},\"contracts/release/interfaces/ICurveAddressProvider.sol\":{\"keccak256\":\"0xf8da903700c623760de62b3e5d0b01997c68b8847391e23b89081128780e55e1\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://735b71b448d4d5c78e98ead84bf8f8e1e94e38ff8a77c7e4f9cc944d1d73e7df\",\"dweb:/ipfs/QmXFgGFVEvQW9wpeBspcaVAXwCcxvnNJZLafTeP2HPArNQ\"]},\"contracts/release/interfaces/ICurveSwapsERC20.sol\":{\"keccak256\":\"0x384dddab88e4037aa1c3f579573f1ef250d45e2d87991e499f7727e2846a6078\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://c450327ec264e76398f24d9899d4642ea2a6f3fd19dd8cdd2b8d38a5e21dff90\",\"dweb:/ipfs/QmcqipKy6frn9uCkdJU1tutvS7jMTYJUpHdhZNh3WjL1Nm\"]},\"contracts/release/interfaces/ICurveSwapsEther.sol\":{\"keccak256\":\"0x2b99e3a8ccef63721f2524eaf53ff675be0510596ef5790562a6f9efe6a4a824\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://f6f8b4c1e4a639b5c5920880f6464bf291c25f0abe064bf9000171ab40ade820\",\"dweb:/ipfs/QmXJ5r6ji5NWffbHyL2Zy2CNPBxDzhJFRimfUCxA8b5n1K\"]},\"contracts/release/interfaces/IWETH.sol\":{\"keccak256\":\"0xff7eb2388015f85102dfcad067b67e5fac7b4f1ede8b222f7179e9bdd99b16f2\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://d0721d3be37443205445536de1369af80d61779ddc9378894e172ab562c2dbb2\",\"dweb:/ipfs/QmUpdj1AR6TPdtkivSFuoRvRFyU6X6DKa2EkLDbJysNWNJ\"]},\"contracts/release/utils/AssetHelpers.sol\":{\"keccak256\":\"0x01825f9b744f0bdbbcbed59503845b46e31b67ab510d53d4834c22967e12fc5f\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://a6937098b8b5e2238c5d2617d4c7870b61eb3dc6b24e38a6d037353f92a7db4b\",\"dweb:/ipfs/QmXfdWqtc4Dyn4ShhCc6ZZscApMZWtSaonvikwemhczb5E\"]},\"node_modules/@openzeppelin/contracts/math/SafeMath.sol\":{\"keccak256\":\"0xcc78a17dd88fa5a2edc60c8489e2f405c0913b377216a5b26b35656b2d0dab52\",\"license\":\"MIT\",\"urls\":[\"bzz-raw://526dc85e1f9b9b45830e202568d267d93dde7a4fcccf4ad7798dadcd92304d3c\",\"dweb:/ipfs/QmaoXMB972J3cSDLtBq3xBo4jLwqD2uzXTwujtSPqkYVhR\"]},\"node_modules/@openzeppelin/contracts/token/ERC20/ERC20.sol\":{\"keccak256\":\"0xca0c2396dbeb3503b51abf4248ebf77a1461edad513c01529df51850a012bee3\",\"license\":\"MIT\",\"urls\":[\"bzz-raw://991b44ff44e0496e8554a90f4c0512c28faed45104d40430019f3c67ea67740e\",\"dweb:/ipfs/Qmc3nRapVbcctELoZS5qe17zLkFB3bETBfwzCTMF1CSuGE\"]},\"node_modules/@openzeppelin/contracts/token/ERC20/IERC20.sol\":{\"keccak256\":\"0x5f02220344881ce43204ae4a6281145a67bc52c2bb1290a791857df3d19d78f5\",\"license\":\"MIT\",\"urls\":[\"bzz-raw://24427744bd3e6cb73c17010119af12a318289c0253a4d9acb8576c9fb3797b08\",\"dweb:/ipfs/QmTLDqpKRBuxGxRAmjgXt9AkXyACW3MtKzi7PYjm5iMfGC\"]},\"node_modules/@openzeppelin/contracts/token/ERC20/SafeERC20.sol\":{\"keccak256\":\"0xf12dfbe97e6276980b83d2830bb0eb75e0cf4f3e626c2471137f82158ae6a0fc\",\"license\":\"MIT\",\"urls\":[\"bzz-raw://b3a849c2d95e85463909e5b5c920b13e7a11216ca14127085e16d22b9379d52a\",\"dweb:/ipfs/QmUg3CZDbCCcQdroEpexBy5ZFd5vD1UWijWQq9qHZjtJNQ\"]},\"node_modules/@openzeppelin/contracts/utils/Address.sol\":{\"keccak256\":\"0x28911e614500ae7c607a432a709d35da25f3bc5ddc8bd12b278b66358070c0ea\",\"license\":\"MIT\",\"urls\":[\"bzz-raw://256c8c8af5eb072bc473226ab2b2187149b8fc04f5f4a4820db22527f5ce8e3c\",\"dweb:/ipfs/QmRvi5BhnL7Rxf85KrJhwM6RRhukm4tzoctRdgQEheNyiN\"]},\"node_modules/@openzeppelin/contracts/utils/Context.sol\":{\"keccak256\":\"0x8d3cb350f04ff49cfb10aef08d87f19dcbaecc8027b0bed12f3275cd12f38cf0\",\"license\":\"MIT\",\"urls\":[\"bzz-raw://ded47ec7c96750f9bd04bbbc84f659992d4ba901cb7b532a52cd468272cf378f\",\"dweb:/ipfs/QmfBrGtQP7rZEqEg6Wz6jh2N2Kukpj1z5v3CGWmAqrzm96\"]}},\"version\":1}",
+  "metadata": {
+    "compiler": {
+      "version": "0.6.12+commit.27d51765"
+    },
+    "language": "Solidity",
+    "output": {
+      "abi": [
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "_addressProvider",
+              "type": "address"
+            },
+            {
+              "internalType": "address",
+              "name": "_wethToken",
+              "type": "address"
+            }
+          ],
+          "stateMutability": "nonpayable",
+          "type": "constructor"
+        },
+        {
+          "inputs": [],
+          "stateMutability": "view",
+          "type": "function",
+          "name": "getCurveExchangeAddressProvider",
+          "outputs": [
+            {
+              "internalType": "address",
+              "name": "curveExchangeAddressProvider_",
+              "type": "address"
+            }
+          ]
+        },
+        {
+          "inputs": [],
+          "stateMutability": "view",
+          "type": "function",
+          "name": "getCurveExchangeWethToken",
+          "outputs": [
+            {
+              "internalType": "address",
+              "name": "curveExchangeWethToken_",
+              "type": "address"
+            }
+          ]
+        }
+      ],
+      "devdoc": {
+        "kind": "dev",
+        "methods": {
+          "getCurveExchangeAddressProvider()": {
+            "returns": {
+              "curveExchangeAddressProvider_": "The `CURVE_EXCHANGE_ADDRESS_PROVIDER` variable value"
+            }
+          },
+          "getCurveExchangeWethToken()": {
+            "returns": {
+              "curveExchangeWethToken_": "The `CURVE_EXCHANGE_WETH_TOKEN` variable value"
+            }
+          }
+        },
+        "version": 1
+      },
+      "userdoc": {
+        "kind": "user",
+        "methods": {
+          "getCurveExchangeAddressProvider()": {
+            "notice": "Gets the `CURVE_EXCHANGE_ADDRESS_PROVIDER` variable"
+          },
+          "getCurveExchangeWethToken()": {
+            "notice": "Gets the `CURVE_EXCHANGE_WETH_TOKEN` variable"
+          }
+        },
+        "version": 1
+      }
+    },
+    "settings": {
+      "remappings": [
+        ":@enzyme/=contracts/",
+        ":@openzeppelin-solc-0.7/=node_modules/@openzeppelin-solc-0.7/",
+        ":@openzeppelin/=node_modules/@openzeppelin/",
+        ":@uniswap/=node_modules/@uniswap/",
+        ":base64-sol/=node_modules/base64-sol/",
+        ":ds-test/=lib/forge-std/lib/ds-test/src/",
+        ":forge-std/=lib/forge-std/src/",
+        ":hardhat-deploy/=node_modules/hardhat-deploy/",
+        ":hardhat/=node_modules/hardhat/"
+      ],
+      "optimizer": {
+        "runs": 200,
+        "details": {
+          "peephole": true,
+          "jumpdestRemover": true,
+          "orderLiterals": true,
+          "deduplicate": true,
+          "cse": true,
+          "constantOptimizer": true,
+          "yul": false
+        }
+      },
+      "metadata": {
+        "bytecodeHash": "none"
+      },
+      "compilationTarget": {
+        "contracts/release/extensions/integration-manager/integrations/utils/actions/CurveExchangeActionsMixin.sol": "CurveExchangeActionsMixin"
+      },
+      "libraries": {}
+    },
+    "sources": {
+      "contracts/release/extensions/integration-manager/integrations/utils/actions/CurveExchangeActionsMixin.sol": {
+        "keccak256": "0xf43db095bb077746b226e86bce46b07fffc9b2985c0cc1e48b739a7e2e8da85f",
+        "urls": [
+          "bzz-raw://c1f7539ac8a17a0efd5e29de522b613e6442da9cf96acd30a5ffd7f25e9ae8d0",
+          "dweb:/ipfs/QmR8YAVn5vEVwk8SzfjfHSWB9ytgxj3K5Sw6GoZE8gLfjV"
+        ],
+        "license": "GPL-3.0"
+      },
+      "contracts/release/interfaces/ICurveAddressProvider.sol": {
+        "keccak256": "0xf8da903700c623760de62b3e5d0b01997c68b8847391e23b89081128780e55e1",
+        "urls": [
+          "bzz-raw://735b71b448d4d5c78e98ead84bf8f8e1e94e38ff8a77c7e4f9cc944d1d73e7df",
+          "dweb:/ipfs/QmXFgGFVEvQW9wpeBspcaVAXwCcxvnNJZLafTeP2HPArNQ"
+        ],
+        "license": "GPL-3.0"
+      },
+      "contracts/release/interfaces/ICurveSwapsERC20.sol": {
+        "keccak256": "0x384dddab88e4037aa1c3f579573f1ef250d45e2d87991e499f7727e2846a6078",
+        "urls": [
+          "bzz-raw://c450327ec264e76398f24d9899d4642ea2a6f3fd19dd8cdd2b8d38a5e21dff90",
+          "dweb:/ipfs/QmcqipKy6frn9uCkdJU1tutvS7jMTYJUpHdhZNh3WjL1Nm"
+        ],
+        "license": "GPL-3.0"
+      },
+      "contracts/release/interfaces/ICurveSwapsEther.sol": {
+        "keccak256": "0x2b99e3a8ccef63721f2524eaf53ff675be0510596ef5790562a6f9efe6a4a824",
+        "urls": [
+          "bzz-raw://f6f8b4c1e4a639b5c5920880f6464bf291c25f0abe064bf9000171ab40ade820",
+          "dweb:/ipfs/QmXJ5r6ji5NWffbHyL2Zy2CNPBxDzhJFRimfUCxA8b5n1K"
+        ],
+        "license": "GPL-3.0"
+      },
+      "contracts/release/interfaces/IWETH.sol": {
+        "keccak256": "0xff7eb2388015f85102dfcad067b67e5fac7b4f1ede8b222f7179e9bdd99b16f2",
+        "urls": [
+          "bzz-raw://d0721d3be37443205445536de1369af80d61779ddc9378894e172ab562c2dbb2",
+          "dweb:/ipfs/QmUpdj1AR6TPdtkivSFuoRvRFyU6X6DKa2EkLDbJysNWNJ"
+        ],
+        "license": "GPL-3.0"
+      },
+      "contracts/release/utils/AssetHelpers.sol": {
+        "keccak256": "0x01825f9b744f0bdbbcbed59503845b46e31b67ab510d53d4834c22967e12fc5f",
+        "urls": [
+          "bzz-raw://a6937098b8b5e2238c5d2617d4c7870b61eb3dc6b24e38a6d037353f92a7db4b",
+          "dweb:/ipfs/QmXfdWqtc4Dyn4ShhCc6ZZscApMZWtSaonvikwemhczb5E"
+        ],
+        "license": "GPL-3.0"
+      },
+      "node_modules/@openzeppelin/contracts/math/SafeMath.sol": {
+        "keccak256": "0xcc78a17dd88fa5a2edc60c8489e2f405c0913b377216a5b26b35656b2d0dab52",
+        "urls": [
+          "bzz-raw://526dc85e1f9b9b45830e202568d267d93dde7a4fcccf4ad7798dadcd92304d3c",
+          "dweb:/ipfs/QmaoXMB972J3cSDLtBq3xBo4jLwqD2uzXTwujtSPqkYVhR"
+        ],
+        "license": "MIT"
+      },
+      "node_modules/@openzeppelin/contracts/token/ERC20/ERC20.sol": {
+        "keccak256": "0xca0c2396dbeb3503b51abf4248ebf77a1461edad513c01529df51850a012bee3",
+        "urls": [
+          "bzz-raw://991b44ff44e0496e8554a90f4c0512c28faed45104d40430019f3c67ea67740e",
+          "dweb:/ipfs/Qmc3nRapVbcctELoZS5qe17zLkFB3bETBfwzCTMF1CSuGE"
+        ],
+        "license": "MIT"
+      },
+      "node_modules/@openzeppelin/contracts/token/ERC20/IERC20.sol": {
+        "keccak256": "0x5f02220344881ce43204ae4a6281145a67bc52c2bb1290a791857df3d19d78f5",
+        "urls": [
+          "bzz-raw://24427744bd3e6cb73c17010119af12a318289c0253a4d9acb8576c9fb3797b08",
+          "dweb:/ipfs/QmTLDqpKRBuxGxRAmjgXt9AkXyACW3MtKzi7PYjm5iMfGC"
+        ],
+        "license": "MIT"
+      },
+      "node_modules/@openzeppelin/contracts/token/ERC20/SafeERC20.sol": {
+        "keccak256": "0xf12dfbe97e6276980b83d2830bb0eb75e0cf4f3e626c2471137f82158ae6a0fc",
+        "urls": [
+          "bzz-raw://b3a849c2d95e85463909e5b5c920b13e7a11216ca14127085e16d22b9379d52a",
+          "dweb:/ipfs/QmUg3CZDbCCcQdroEpexBy5ZFd5vD1UWijWQq9qHZjtJNQ"
+        ],
+        "license": "MIT"
+      },
+      "node_modules/@openzeppelin/contracts/utils/Address.sol": {
+        "keccak256": "0x28911e614500ae7c607a432a709d35da25f3bc5ddc8bd12b278b66358070c0ea",
+        "urls": [
+          "bzz-raw://256c8c8af5eb072bc473226ab2b2187149b8fc04f5f4a4820db22527f5ce8e3c",
+          "dweb:/ipfs/QmRvi5BhnL7Rxf85KrJhwM6RRhukm4tzoctRdgQEheNyiN"
+        ],
+        "license": "MIT"
+      },
+      "node_modules/@openzeppelin/contracts/utils/Context.sol": {
+        "keccak256": "0x8d3cb350f04ff49cfb10aef08d87f19dcbaecc8027b0bed12f3275cd12f38cf0",
+        "urls": [
+          "bzz-raw://ded47ec7c96750f9bd04bbbc84f659992d4ba901cb7b532a52cd468272cf378f",
+          "dweb:/ipfs/QmfBrGtQP7rZEqEg6Wz6jh2N2Kukpj1z5v3CGWmAqrzm96"
+        ],
+        "license": "MIT"
+      }
+    },
+    "version": 1
+  },
+  "ast": {
+    "absolutePath": "contracts/release/extensions/integration-manager/integrations/utils/actions/CurveExchangeActionsMixin.sol",
+    "id": 50626,
+    "exportedSymbols": {
+      "CurveExchangeActionsMixin": [
+        50625
+      ]
+    },
+    "nodeType": "SourceUnit",
+    "src": "255:3652:186",
+    "nodes": [
+      {
+        "id": 50448,
+        "nodeType": "PragmaDirective",
+        "src": "255:23:186",
+        "nodes": [],
+        "literals": [
+          "solidity",
+          "0.6",
+          ".12"
+        ]
+      },
+      {
+        "id": 50449,
+        "nodeType": "ImportDirective",
+        "src": "280:61:186",
+        "nodes": [],
+        "absolutePath": "contracts/release/interfaces/ICurveAddressProvider.sol",
+        "file": "../../../../../interfaces/ICurveAddressProvider.sol",
+        "scope": 50626,
+        "sourceUnit": 71536,
+        "symbolAliases": [],
+        "unitAlias": ""
+      },
+      {
+        "id": 50450,
+        "nodeType": "ImportDirective",
+        "src": "342:56:186",
+        "nodes": [],
+        "absolutePath": "contracts/release/interfaces/ICurveSwapsERC20.sol",
+        "file": "../../../../../interfaces/ICurveSwapsERC20.sol",
+        "scope": 50626,
+        "sourceUnit": 71693,
+        "symbolAliases": [],
+        "unitAlias": ""
+      },
+      {
+        "id": 50451,
+        "nodeType": "ImportDirective",
+        "src": "399:56:186",
+        "nodes": [],
+        "absolutePath": "contracts/release/interfaces/ICurveSwapsEther.sol",
+        "file": "../../../../../interfaces/ICurveSwapsEther.sol",
+        "scope": 50626,
+        "sourceUnit": 71714,
+        "symbolAliases": [],
+        "unitAlias": ""
+      },
+      {
+        "id": 50452,
+        "nodeType": "ImportDirective",
+        "src": "456:45:186",
+        "nodes": [],
+        "absolutePath": "contracts/release/interfaces/IWETH.sol",
+        "file": "../../../../../interfaces/IWETH.sol",
+        "scope": 50626,
+        "sourceUnit": 73603,
+        "symbolAliases": [],
+        "unitAlias": ""
+      },
+      {
+        "id": 50453,
+        "nodeType": "ImportDirective",
+        "src": "502:47:186",
+        "nodes": [],
+        "absolutePath": "contracts/release/utils/AssetHelpers.sol",
+        "file": "../../../../../utils/AssetHelpers.sol",
+        "scope": 50626,
+        "sourceUnit": 77344,
+        "symbolAliases": [],
+        "unitAlias": ""
+      },
+      {
+        "id": 50625,
+        "nodeType": "ContractDefinition",
+        "src": "787:3119:186",
+        "nodes": [
+          {
+            "id": 50459,
+            "nodeType": "VariableDeclaration",
+            "src": "853:104:186",
+            "nodes": [],
+            "constant": true,
+            "mutability": "constant",
+            "name": "CURVE_EXCHANGE_ETH_ADDRESS",
+            "overrides": null,
+            "scope": 50625,
+            "stateVariable": true,
+            "storageLocation": "default",
+            "typeDescriptions": {
+              "typeIdentifier": "t_address",
+              "typeString": "address"
+            },
+            "typeName": {
+              "id": 50457,
+              "name": "address",
+              "nodeType": "ElementaryTypeName",
+              "src": "853:7:186",
+              "stateMutability": "nonpayable",
+              "typeDescriptions": {
+                "typeIdentifier": "t_address",
+                "typeString": "address"
+              }
+            },
+            "value": {
+              "argumentTypes": null,
+              "hexValue": "307845656565654565656545654565654565456545656545454565656565456565656565656545456545",
+              "id": 50458,
+              "isConstant": false,
+              "isLValue": false,
+              "isPure": true,
+              "kind": "number",
+              "lValueRequested": false,
+              "nodeType": "Literal",
+              "src": "915:42:186",
+              "subdenomination": null,
+              "typeDescriptions": {
+                "typeIdentifier": "t_address_payable",
+                "typeString": "address payable"
+              },
+              "value": "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE"
+            },
+            "visibility": "private"
+          },
+          {
+            "id": 50461,
+            "nodeType": "VariableDeclaration",
+            "src": "964:57:186",
+            "nodes": [],
+            "constant": false,
+            "mutability": "immutable",
+            "name": "CURVE_EXCHANGE_ADDRESS_PROVIDER",
+            "overrides": null,
+            "scope": 50625,
+            "stateVariable": true,
+            "storageLocation": "default",
+            "typeDescriptions": {
+              "typeIdentifier": "t_address",
+              "typeString": "address"
+            },
+            "typeName": {
+              "id": 50460,
+              "name": "address",
+              "nodeType": "ElementaryTypeName",
+              "src": "964:7:186",
+              "stateMutability": "nonpayable",
+              "typeDescriptions": {
+                "typeIdentifier": "t_address",
+                "typeString": "address"
+              }
+            },
+            "value": null,
+            "visibility": "private"
+          },
+          {
+            "id": 50463,
+            "nodeType": "VariableDeclaration",
+            "src": "1027:51:186",
+            "nodes": [],
+            "constant": false,
+            "mutability": "immutable",
+            "name": "CURVE_EXCHANGE_WETH_TOKEN",
+            "overrides": null,
+            "scope": 50625,
+            "stateVariable": true,
+            "storageLocation": "default",
+            "typeDescriptions": {
+              "typeIdentifier": "t_address",
+              "typeString": "address"
+            },
+            "typeName": {
+              "id": 50462,
+              "name": "address",
+              "nodeType": "ElementaryTypeName",
+              "src": "1027:7:186",
+              "stateMutability": "nonpayable",
+              "typeDescriptions": {
+                "typeIdentifier": "t_address",
+                "typeString": "address"
+              }
+            },
+            "value": null,
+            "visibility": "private"
+          },
+          {
+            "id": 50479,
+            "nodeType": "FunctionDefinition",
+            "src": "1085:180:186",
+            "nodes": [],
+            "body": {
+              "id": 50478,
+              "nodeType": "Block",
+              "src": "1150:115:186",
+              "nodes": [],
+              "statements": [
+                {
+                  "expression": {
+                    "argumentTypes": null,
+                    "id": 50472,
+                    "isConstant": false,
+                    "isLValue": false,
+                    "isPure": false,
+                    "lValueRequested": false,
+                    "leftHandSide": {
+                      "argumentTypes": null,
+                      "id": 50470,
+                      "name": "CURVE_EXCHANGE_ADDRESS_PROVIDER",
+                      "nodeType": "Identifier",
+                      "overloadedDeclarations": [],
+                      "referencedDeclaration": 50461,
+                      "src": "1160:31:186",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_address",
+                        "typeString": "address"
+                      }
+                    },
+                    "nodeType": "Assignment",
+                    "operator": "=",
+                    "rightHandSide": {
+                      "argumentTypes": null,
+                      "id": 50471,
+                      "name": "_addressProvider",
+                      "nodeType": "Identifier",
+                      "overloadedDeclarations": [],
+                      "referencedDeclaration": 50465,
+                      "src": "1194:16:186",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_address",
+                        "typeString": "address"
+                      }
+                    },
+                    "src": "1160:50:186",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "id": 50473,
+                  "nodeType": "ExpressionStatement",
+                  "src": "1160:50:186"
+                },
+                {
+                  "expression": {
+                    "argumentTypes": null,
+                    "id": 50476,
+                    "isConstant": false,
+                    "isLValue": false,
+                    "isPure": false,
+                    "lValueRequested": false,
+                    "leftHandSide": {
+                      "argumentTypes": null,
+                      "id": 50474,
+                      "name": "CURVE_EXCHANGE_WETH_TOKEN",
+                      "nodeType": "Identifier",
+                      "overloadedDeclarations": [],
+                      "referencedDeclaration": 50463,
+                      "src": "1220:25:186",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_address",
+                        "typeString": "address"
+                      }
+                    },
+                    "nodeType": "Assignment",
+                    "operator": "=",
+                    "rightHandSide": {
+                      "argumentTypes": null,
+                      "id": 50475,
+                      "name": "_wethToken",
+                      "nodeType": "Identifier",
+                      "overloadedDeclarations": [],
+                      "referencedDeclaration": 50467,
+                      "src": "1248:10:186",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_address",
+                        "typeString": "address"
+                      }
+                    },
+                    "src": "1220:38:186",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "id": 50477,
+                  "nodeType": "ExpressionStatement",
+                  "src": "1220:38:186"
+                }
+              ]
+            },
+            "documentation": null,
+            "implemented": true,
+            "kind": "constructor",
+            "modifiers": [],
+            "name": "",
+            "overrides": null,
+            "parameters": {
+              "id": 50468,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 50465,
+                  "mutability": "mutable",
+                  "name": "_addressProvider",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 50479,
+                  "src": "1097:24:186",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 50464,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "1097:7:186",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 50467,
+                  "mutability": "mutable",
+                  "name": "_wethToken",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 50479,
+                  "src": "1123:18:186",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 50466,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "1123:7:186",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "1096:46:186"
+            },
+            "returnParameters": {
+              "id": 50469,
+              "nodeType": "ParameterList",
+              "parameters": [],
+              "src": "1150:0:186"
+            },
+            "scope": 50625,
+            "stateMutability": "nonpayable",
+            "virtual": false,
+            "visibility": "public"
+          },
+          {
+            "id": 50606,
+            "nodeType": "FunctionDefinition",
+            "src": "1312:1865:186",
+            "nodes": [],
+            "body": {
+              "id": 50605,
+              "nodeType": "Block",
+              "src": "1547:1630:186",
+              "nodes": [],
+              "statements": [
+                {
+                  "assignments": [
+                    50496
+                  ],
+                  "declarations": [
+                    {
+                      "constant": false,
+                      "id": 50496,
+                      "mutability": "mutable",
+                      "name": "swaps",
+                      "nodeType": "VariableDeclaration",
+                      "overrides": null,
+                      "scope": 50605,
+                      "src": "1557:13:186",
+                      "stateVariable": false,
+                      "storageLocation": "default",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_address",
+                        "typeString": "address"
+                      },
+                      "typeName": {
+                        "id": 50495,
+                        "name": "address",
+                        "nodeType": "ElementaryTypeName",
+                        "src": "1557:7:186",
+                        "stateMutability": "nonpayable",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_address",
+                          "typeString": "address"
+                        }
+                      },
+                      "value": null,
+                      "visibility": "internal"
+                    }
+                  ],
+                  "id": 50503,
+                  "initialValue": {
+                    "argumentTypes": null,
+                    "arguments": [
+                      {
+                        "argumentTypes": null,
+                        "hexValue": "32",
+                        "id": 50501,
+                        "isConstant": false,
+                        "isLValue": false,
+                        "isPure": true,
+                        "kind": "number",
+                        "lValueRequested": false,
+                        "nodeType": "Literal",
+                        "src": "1640:1:186",
+                        "subdenomination": null,
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_rational_2_by_1",
+                          "typeString": "int_const 2"
+                        },
+                        "value": "2"
+                      }
+                    ],
+                    "expression": {
+                      "argumentTypes": [
+                        {
+                          "typeIdentifier": "t_rational_2_by_1",
+                          "typeString": "int_const 2"
+                        }
+                      ],
+                      "expression": {
+                        "argumentTypes": null,
+                        "arguments": [
+                          {
+                            "argumentTypes": null,
+                            "id": 50498,
+                            "name": "CURVE_EXCHANGE_ADDRESS_PROVIDER",
+                            "nodeType": "Identifier",
+                            "overloadedDeclarations": [],
+                            "referencedDeclaration": 50461,
+                            "src": "1595:31:186",
+                            "typeDescriptions": {
+                              "typeIdentifier": "t_address",
+                              "typeString": "address"
+                            }
+                          }
+                        ],
+                        "expression": {
+                          "argumentTypes": [
+                            {
+                              "typeIdentifier": "t_address",
+                              "typeString": "address"
+                            }
+                          ],
+                          "id": 50497,
+                          "name": "ICurveAddressProvider",
+                          "nodeType": "Identifier",
+                          "overloadedDeclarations": [],
+                          "referencedDeclaration": 71535,
+                          "src": "1573:21:186",
+                          "typeDescriptions": {
+                            "typeIdentifier": "t_type$_t_contract$_ICurveAddressProvider_$71535_$",
+                            "typeString": "type(contract ICurveAddressProvider)"
+                          }
+                        },
+                        "id": 50499,
+                        "isConstant": false,
+                        "isLValue": false,
+                        "isPure": false,
+                        "kind": "typeConversion",
+                        "lValueRequested": false,
+                        "names": [],
+                        "nodeType": "FunctionCall",
+                        "src": "1573:54:186",
+                        "tryCall": false,
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_contract$_ICurveAddressProvider_$71535",
+                          "typeString": "contract ICurveAddressProvider"
+                        }
+                      },
+                      "id": 50500,
+                      "isConstant": false,
+                      "isLValue": false,
+                      "isPure": false,
+                      "lValueRequested": false,
+                      "memberName": "get_address",
+                      "nodeType": "MemberAccess",
+                      "referencedDeclaration": 71529,
+                      "src": "1573:66:186",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_function_external_view$_t_uint256_$returns$_t_address_$",
+                        "typeString": "function (uint256) view external returns (address)"
+                      }
+                    },
+                    "id": 50502,
+                    "isConstant": false,
+                    "isLValue": false,
+                    "isPure": false,
+                    "kind": "functionCall",
+                    "lValueRequested": false,
+                    "names": [],
+                    "nodeType": "FunctionCall",
+                    "src": "1573:69:186",
+                    "tryCall": false,
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "nodeType": "VariableDeclarationStatement",
+                  "src": "1557:85:186"
+                },
+                {
+                  "condition": {
+                    "argumentTypes": null,
+                    "commonType": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    },
+                    "id": 50506,
+                    "isConstant": false,
+                    "isLValue": false,
+                    "isPure": false,
+                    "lValueRequested": false,
+                    "leftExpression": {
+                      "argumentTypes": null,
+                      "id": 50504,
+                      "name": "_outgoingAsset",
+                      "nodeType": "Identifier",
+                      "overloadedDeclarations": [],
+                      "referencedDeclaration": 50486,
+                      "src": "1657:14:186",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_address",
+                        "typeString": "address"
+                      }
+                    },
+                    "nodeType": "BinaryOperation",
+                    "operator": "==",
+                    "rightExpression": {
+                      "argumentTypes": null,
+                      "id": 50505,
+                      "name": "CURVE_EXCHANGE_WETH_TOKEN",
+                      "nodeType": "Identifier",
+                      "overloadedDeclarations": [],
+                      "referencedDeclaration": 50463,
+                      "src": "1675:25:186",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_address",
+                        "typeString": "address"
+                      }
+                    },
+                    "src": "1657:43:186",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_bool",
+                      "typeString": "bool"
+                    }
+                  },
+                  "falseBody": {
+                    "condition": {
+                      "argumentTypes": null,
+                      "commonType": {
+                        "typeIdentifier": "t_address",
+                        "typeString": "address"
+                      },
+                      "id": 50531,
+                      "isConstant": false,
+                      "isLValue": false,
+                      "isPure": false,
+                      "lValueRequested": false,
+                      "leftExpression": {
+                        "argumentTypes": null,
+                        "id": 50529,
+                        "name": "_incomingAsset",
+                        "nodeType": "Identifier",
+                        "overloadedDeclarations": [],
+                        "referencedDeclaration": 50490,
+                        "src": "2096:14:186",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_address",
+                          "typeString": "address"
+                        }
+                      },
+                      "nodeType": "BinaryOperation",
+                      "operator": "==",
+                      "rightExpression": {
+                        "argumentTypes": null,
+                        "id": 50530,
+                        "name": "CURVE_EXCHANGE_WETH_TOKEN",
+                        "nodeType": "Identifier",
+                        "overloadedDeclarations": [],
+                        "referencedDeclaration": 50463,
+                        "src": "2114:25:186",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_address",
+                          "typeString": "address"
+                        }
+                      },
+                      "src": "2096:43:186",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_bool",
+                        "typeString": "bool"
+                      }
+                    },
+                    "falseBody": {
+                      "id": 50602,
+                      "nodeType": "Block",
+                      "src": "2821:350:186",
+                      "statements": [
+                        {
+                          "expression": {
+                            "argumentTypes": null,
+                            "arguments": [
+                              {
+                                "argumentTypes": null,
+                                "id": 50585,
+                                "name": "_outgoingAsset",
+                                "nodeType": "Identifier",
+                                "overloadedDeclarations": [],
+                                "referencedDeclaration": 50486,
+                                "src": "2861:14:186",
+                                "typeDescriptions": {
+                                  "typeIdentifier": "t_address",
+                                  "typeString": "address"
+                                }
+                              },
+                              {
+                                "argumentTypes": null,
+                                "id": 50586,
+                                "name": "swaps",
+                                "nodeType": "Identifier",
+                                "overloadedDeclarations": [],
+                                "referencedDeclaration": 50496,
+                                "src": "2877:5:186",
+                                "typeDescriptions": {
+                                  "typeIdentifier": "t_address",
+                                  "typeString": "address"
+                                }
+                              },
+                              {
+                                "argumentTypes": null,
+                                "id": 50587,
+                                "name": "_outgoingAssetAmount",
+                                "nodeType": "Identifier",
+                                "overloadedDeclarations": [],
+                                "referencedDeclaration": 50488,
+                                "src": "2884:20:186",
+                                "typeDescriptions": {
+                                  "typeIdentifier": "t_uint256",
+                                  "typeString": "uint256"
+                                }
+                              }
+                            ],
+                            "expression": {
+                              "argumentTypes": [
+                                {
+                                  "typeIdentifier": "t_address",
+                                  "typeString": "address"
+                                },
+                                {
+                                  "typeIdentifier": "t_address",
+                                  "typeString": "address"
+                                },
+                                {
+                                  "typeIdentifier": "t_uint256",
+                                  "typeString": "uint256"
+                                }
+                              ],
+                              "id": 50584,
+                              "name": "__approveAssetMaxAsNeeded",
+                              "nodeType": "Identifier",
+                              "overloadedDeclarations": [],
+                              "referencedDeclaration": 77232,
+                              "src": "2835:25:186",
+                              "typeDescriptions": {
+                                "typeIdentifier": "t_function_internal_nonpayable$_t_address_$_t_address_$_t_uint256_$returns$__$",
+                                "typeString": "function (address,address,uint256)"
+                              }
+                            },
+                            "id": 50588,
+                            "isConstant": false,
+                            "isLValue": false,
+                            "isPure": false,
+                            "kind": "functionCall",
+                            "lValueRequested": false,
+                            "names": [],
+                            "nodeType": "FunctionCall",
+                            "src": "2835:70:186",
+                            "tryCall": false,
+                            "typeDescriptions": {
+                              "typeIdentifier": "t_tuple$__$",
+                              "typeString": "tuple()"
+                            }
+                          },
+                          "id": 50589,
+                          "nodeType": "ExpressionStatement",
+                          "src": "2835:70:186"
+                        },
+                        {
+                          "expression": {
+                            "argumentTypes": null,
+                            "arguments": [
+                              {
+                                "argumentTypes": null,
+                                "id": 50594,
+                                "name": "_pool",
+                                "nodeType": "Identifier",
+                                "overloadedDeclarations": [],
+                                "referencedDeclaration": 50484,
+                                "src": "2970:5:186",
+                                "typeDescriptions": {
+                                  "typeIdentifier": "t_address",
+                                  "typeString": "address"
+                                }
+                              },
+                              {
+                                "argumentTypes": null,
+                                "id": 50595,
+                                "name": "_outgoingAsset",
+                                "nodeType": "Identifier",
+                                "overloadedDeclarations": [],
+                                "referencedDeclaration": 50486,
+                                "src": "2993:14:186",
+                                "typeDescriptions": {
+                                  "typeIdentifier": "t_address",
+                                  "typeString": "address"
+                                }
+                              },
+                              {
+                                "argumentTypes": null,
+                                "id": 50596,
+                                "name": "_incomingAsset",
+                                "nodeType": "Identifier",
+                                "overloadedDeclarations": [],
+                                "referencedDeclaration": 50490,
+                                "src": "3025:14:186",
+                                "typeDescriptions": {
+                                  "typeIdentifier": "t_address",
+                                  "typeString": "address"
+                                }
+                              },
+                              {
+                                "argumentTypes": null,
+                                "id": 50597,
+                                "name": "_outgoingAssetAmount",
+                                "nodeType": "Identifier",
+                                "overloadedDeclarations": [],
+                                "referencedDeclaration": 50488,
+                                "src": "3057:20:186",
+                                "typeDescriptions": {
+                                  "typeIdentifier": "t_uint256",
+                                  "typeString": "uint256"
+                                }
+                              },
+                              {
+                                "argumentTypes": null,
+                                "id": 50598,
+                                "name": "_minIncomingAssetAmount",
+                                "nodeType": "Identifier",
+                                "overloadedDeclarations": [],
+                                "referencedDeclaration": 50492,
+                                "src": "3095:23:186",
+                                "typeDescriptions": {
+                                  "typeIdentifier": "t_uint256",
+                                  "typeString": "uint256"
+                                }
+                              },
+                              {
+                                "argumentTypes": null,
+                                "id": 50599,
+                                "name": "_recipient",
+                                "nodeType": "Identifier",
+                                "overloadedDeclarations": [],
+                                "referencedDeclaration": 50482,
+                                "src": "3136:10:186",
+                                "typeDescriptions": {
+                                  "typeIdentifier": "t_address",
+                                  "typeString": "address"
+                                }
+                              }
+                            ],
+                            "expression": {
+                              "argumentTypes": [
+                                {
+                                  "typeIdentifier": "t_address",
+                                  "typeString": "address"
+                                },
+                                {
+                                  "typeIdentifier": "t_address",
+                                  "typeString": "address"
+                                },
+                                {
+                                  "typeIdentifier": "t_address",
+                                  "typeString": "address"
+                                },
+                                {
+                                  "typeIdentifier": "t_uint256",
+                                  "typeString": "uint256"
+                                },
+                                {
+                                  "typeIdentifier": "t_uint256",
+                                  "typeString": "uint256"
+                                },
+                                {
+                                  "typeIdentifier": "t_address",
+                                  "typeString": "address"
+                                }
+                              ],
+                              "expression": {
+                                "argumentTypes": null,
+                                "arguments": [
+                                  {
+                                    "argumentTypes": null,
+                                    "id": 50591,
+                                    "name": "swaps",
+                                    "nodeType": "Identifier",
+                                    "overloadedDeclarations": [],
+                                    "referencedDeclaration": 50496,
+                                    "src": "2937:5:186",
+                                    "typeDescriptions": {
+                                      "typeIdentifier": "t_address",
+                                      "typeString": "address"
+                                    }
+                                  }
+                                ],
+                                "expression": {
+                                  "argumentTypes": [
+                                    {
+                                      "typeIdentifier": "t_address",
+                                      "typeString": "address"
+                                    }
+                                  ],
+                                  "id": 50590,
+                                  "name": "ICurveSwapsERC20",
+                                  "nodeType": "Identifier",
+                                  "overloadedDeclarations": [],
+                                  "referencedDeclaration": 71692,
+                                  "src": "2920:16:186",
+                                  "typeDescriptions": {
+                                    "typeIdentifier": "t_type$_t_contract$_ICurveSwapsERC20_$71692_$",
+                                    "typeString": "type(contract ICurveSwapsERC20)"
+                                  }
+                                },
+                                "id": 50592,
+                                "isConstant": false,
+                                "isLValue": false,
+                                "isPure": false,
+                                "kind": "typeConversion",
+                                "lValueRequested": false,
+                                "names": [],
+                                "nodeType": "FunctionCall",
+                                "src": "2920:23:186",
+                                "tryCall": false,
+                                "typeDescriptions": {
+                                  "typeIdentifier": "t_contract$_ICurveSwapsERC20_$71692",
+                                  "typeString": "contract ICurveSwapsERC20"
+                                }
+                              },
+                              "id": 50593,
+                              "isConstant": false,
+                              "isLValue": false,
+                              "isPure": false,
+                              "lValueRequested": false,
+                              "memberName": "exchange",
+                              "nodeType": "MemberAccess",
+                              "referencedDeclaration": 71691,
+                              "src": "2920:32:186",
+                              "typeDescriptions": {
+                                "typeIdentifier": "t_function_external_nonpayable$_t_address_$_t_address_$_t_address_$_t_uint256_$_t_uint256_$_t_address_$returns$_t_uint256_$",
+                                "typeString": "function (address,address,address,uint256,uint256,address) external returns (uint256)"
+                              }
+                            },
+                            "id": 50600,
+                            "isConstant": false,
+                            "isLValue": false,
+                            "isPure": false,
+                            "kind": "functionCall",
+                            "lValueRequested": false,
+                            "names": [],
+                            "nodeType": "FunctionCall",
+                            "src": "2920:240:186",
+                            "tryCall": false,
+                            "typeDescriptions": {
+                              "typeIdentifier": "t_uint256",
+                              "typeString": "uint256"
+                            }
+                          },
+                          "id": 50601,
+                          "nodeType": "ExpressionStatement",
+                          "src": "2920:240:186"
+                        }
+                      ]
+                    },
+                    "id": 50603,
+                    "nodeType": "IfStatement",
+                    "src": "2092:1079:186",
+                    "trueBody": {
+                      "id": 50583,
+                      "nodeType": "Block",
+                      "src": "2141:674:186",
+                      "statements": [
+                        {
+                          "expression": {
+                            "argumentTypes": null,
+                            "arguments": [
+                              {
+                                "argumentTypes": null,
+                                "id": 50533,
+                                "name": "_outgoingAsset",
+                                "nodeType": "Identifier",
+                                "overloadedDeclarations": [],
+                                "referencedDeclaration": 50486,
+                                "src": "2181:14:186",
+                                "typeDescriptions": {
+                                  "typeIdentifier": "t_address",
+                                  "typeString": "address"
+                                }
+                              },
+                              {
+                                "argumentTypes": null,
+                                "id": 50534,
+                                "name": "swaps",
+                                "nodeType": "Identifier",
+                                "overloadedDeclarations": [],
+                                "referencedDeclaration": 50496,
+                                "src": "2197:5:186",
+                                "typeDescriptions": {
+                                  "typeIdentifier": "t_address",
+                                  "typeString": "address"
+                                }
+                              },
+                              {
+                                "argumentTypes": null,
+                                "id": 50535,
+                                "name": "_outgoingAssetAmount",
+                                "nodeType": "Identifier",
+                                "overloadedDeclarations": [],
+                                "referencedDeclaration": 50488,
+                                "src": "2204:20:186",
+                                "typeDescriptions": {
+                                  "typeIdentifier": "t_uint256",
+                                  "typeString": "uint256"
+                                }
+                              }
+                            ],
+                            "expression": {
+                              "argumentTypes": [
+                                {
+                                  "typeIdentifier": "t_address",
+                                  "typeString": "address"
+                                },
+                                {
+                                  "typeIdentifier": "t_address",
+                                  "typeString": "address"
+                                },
+                                {
+                                  "typeIdentifier": "t_uint256",
+                                  "typeString": "uint256"
+                                }
+                              ],
+                              "id": 50532,
+                              "name": "__approveAssetMaxAsNeeded",
+                              "nodeType": "Identifier",
+                              "overloadedDeclarations": [],
+                              "referencedDeclaration": 77232,
+                              "src": "2155:25:186",
+                              "typeDescriptions": {
+                                "typeIdentifier": "t_function_internal_nonpayable$_t_address_$_t_address_$_t_uint256_$returns$__$",
+                                "typeString": "function (address,address,uint256)"
+                              }
+                            },
+                            "id": 50536,
+                            "isConstant": false,
+                            "isLValue": false,
+                            "isPure": false,
+                            "kind": "functionCall",
+                            "lValueRequested": false,
+                            "names": [],
+                            "nodeType": "FunctionCall",
+                            "src": "2155:70:186",
+                            "tryCall": false,
+                            "typeDescriptions": {
+                              "typeIdentifier": "t_tuple$__$",
+                              "typeString": "tuple()"
+                            }
+                          },
+                          "id": 50537,
+                          "nodeType": "ExpressionStatement",
+                          "src": "2155:70:186"
+                        },
+                        {
+                          "expression": {
+                            "argumentTypes": null,
+                            "arguments": [
+                              {
+                                "argumentTypes": null,
+                                "id": 50542,
+                                "name": "_pool",
+                                "nodeType": "Identifier",
+                                "overloadedDeclarations": [],
+                                "referencedDeclaration": 50484,
+                                "src": "2290:5:186",
+                                "typeDescriptions": {
+                                  "typeIdentifier": "t_address",
+                                  "typeString": "address"
+                                }
+                              },
+                              {
+                                "argumentTypes": null,
+                                "id": 50543,
+                                "name": "_outgoingAsset",
+                                "nodeType": "Identifier",
+                                "overloadedDeclarations": [],
+                                "referencedDeclaration": 50486,
+                                "src": "2313:14:186",
+                                "typeDescriptions": {
+                                  "typeIdentifier": "t_address",
+                                  "typeString": "address"
+                                }
+                              },
+                              {
+                                "argumentTypes": null,
+                                "id": 50544,
+                                "name": "CURVE_EXCHANGE_ETH_ADDRESS",
+                                "nodeType": "Identifier",
+                                "overloadedDeclarations": [],
+                                "referencedDeclaration": 50459,
+                                "src": "2345:26:186",
+                                "typeDescriptions": {
+                                  "typeIdentifier": "t_address",
+                                  "typeString": "address"
+                                }
+                              },
+                              {
+                                "argumentTypes": null,
+                                "id": 50545,
+                                "name": "_outgoingAssetAmount",
+                                "nodeType": "Identifier",
+                                "overloadedDeclarations": [],
+                                "referencedDeclaration": 50488,
+                                "src": "2389:20:186",
+                                "typeDescriptions": {
+                                  "typeIdentifier": "t_uint256",
+                                  "typeString": "uint256"
+                                }
+                              },
+                              {
+                                "argumentTypes": null,
+                                "id": 50546,
+                                "name": "_minIncomingAssetAmount",
+                                "nodeType": "Identifier",
+                                "overloadedDeclarations": [],
+                                "referencedDeclaration": 50492,
+                                "src": "2427:23:186",
+                                "typeDescriptions": {
+                                  "typeIdentifier": "t_uint256",
+                                  "typeString": "uint256"
+                                }
+                              },
+                              {
+                                "argumentTypes": null,
+                                "arguments": [
+                                  {
+                                    "argumentTypes": null,
+                                    "id": 50549,
+                                    "name": "this",
+                                    "nodeType": "Identifier",
+                                    "overloadedDeclarations": [],
+                                    "referencedDeclaration": -28,
+                                    "src": "2476:4:186",
+                                    "typeDescriptions": {
+                                      "typeIdentifier": "t_contract$_CurveExchangeActionsMixin_$50625",
+                                      "typeString": "contract CurveExchangeActionsMixin"
+                                    }
+                                  }
+                                ],
+                                "expression": {
+                                  "argumentTypes": [
+                                    {
+                                      "typeIdentifier": "t_contract$_CurveExchangeActionsMixin_$50625",
+                                      "typeString": "contract CurveExchangeActionsMixin"
+                                    }
+                                  ],
+                                  "id": 50548,
+                                  "isConstant": false,
+                                  "isLValue": false,
+                                  "isPure": true,
+                                  "lValueRequested": false,
+                                  "nodeType": "ElementaryTypeNameExpression",
+                                  "src": "2468:7:186",
+                                  "typeDescriptions": {
+                                    "typeIdentifier": "t_type$_t_address_$",
+                                    "typeString": "type(address)"
+                                  },
+                                  "typeName": {
+                                    "id": 50547,
+                                    "name": "address",
+                                    "nodeType": "ElementaryTypeName",
+                                    "src": "2468:7:186",
+                                    "typeDescriptions": {
+                                      "typeIdentifier": null,
+                                      "typeString": null
+                                    }
+                                  }
+                                },
+                                "id": 50550,
+                                "isConstant": false,
+                                "isLValue": false,
+                                "isPure": false,
+                                "kind": "typeConversion",
+                                "lValueRequested": false,
+                                "names": [],
+                                "nodeType": "FunctionCall",
+                                "src": "2468:13:186",
+                                "tryCall": false,
+                                "typeDescriptions": {
+                                  "typeIdentifier": "t_address",
+                                  "typeString": "address"
+                                }
+                              }
+                            ],
+                            "expression": {
+                              "argumentTypes": [
+                                {
+                                  "typeIdentifier": "t_address",
+                                  "typeString": "address"
+                                },
+                                {
+                                  "typeIdentifier": "t_address",
+                                  "typeString": "address"
+                                },
+                                {
+                                  "typeIdentifier": "t_address",
+                                  "typeString": "address"
+                                },
+                                {
+                                  "typeIdentifier": "t_uint256",
+                                  "typeString": "uint256"
+                                },
+                                {
+                                  "typeIdentifier": "t_uint256",
+                                  "typeString": "uint256"
+                                },
+                                {
+                                  "typeIdentifier": "t_address",
+                                  "typeString": "address"
+                                }
+                              ],
+                              "expression": {
+                                "argumentTypes": null,
+                                "arguments": [
+                                  {
+                                    "argumentTypes": null,
+                                    "id": 50539,
+                                    "name": "swaps",
+                                    "nodeType": "Identifier",
+                                    "overloadedDeclarations": [],
+                                    "referencedDeclaration": 50496,
+                                    "src": "2257:5:186",
+                                    "typeDescriptions": {
+                                      "typeIdentifier": "t_address",
+                                      "typeString": "address"
+                                    }
+                                  }
+                                ],
+                                "expression": {
+                                  "argumentTypes": [
+                                    {
+                                      "typeIdentifier": "t_address",
+                                      "typeString": "address"
+                                    }
+                                  ],
+                                  "id": 50538,
+                                  "name": "ICurveSwapsERC20",
+                                  "nodeType": "Identifier",
+                                  "overloadedDeclarations": [],
+                                  "referencedDeclaration": 71692,
+                                  "src": "2240:16:186",
+                                  "typeDescriptions": {
+                                    "typeIdentifier": "t_type$_t_contract$_ICurveSwapsERC20_$71692_$",
+                                    "typeString": "type(contract ICurveSwapsERC20)"
+                                  }
+                                },
+                                "id": 50540,
+                                "isConstant": false,
+                                "isLValue": false,
+                                "isPure": false,
+                                "kind": "typeConversion",
+                                "lValueRequested": false,
+                                "names": [],
+                                "nodeType": "FunctionCall",
+                                "src": "2240:23:186",
+                                "tryCall": false,
+                                "typeDescriptions": {
+                                  "typeIdentifier": "t_contract$_ICurveSwapsERC20_$71692",
+                                  "typeString": "contract ICurveSwapsERC20"
+                                }
+                              },
+                              "id": 50541,
+                              "isConstant": false,
+                              "isLValue": false,
+                              "isPure": false,
+                              "lValueRequested": false,
+                              "memberName": "exchange",
+                              "nodeType": "MemberAccess",
+                              "referencedDeclaration": 71691,
+                              "src": "2240:32:186",
+                              "typeDescriptions": {
+                                "typeIdentifier": "t_function_external_nonpayable$_t_address_$_t_address_$_t_address_$_t_uint256_$_t_uint256_$_t_address_$returns$_t_uint256_$",
+                                "typeString": "function (address,address,address,uint256,uint256,address) external returns (uint256)"
+                              }
+                            },
+                            "id": 50551,
+                            "isConstant": false,
+                            "isLValue": false,
+                            "isPure": false,
+                            "kind": "functionCall",
+                            "lValueRequested": false,
+                            "names": [],
+                            "nodeType": "FunctionCall",
+                            "src": "2240:255:186",
+                            "tryCall": false,
+                            "typeDescriptions": {
+                              "typeIdentifier": "t_uint256",
+                              "typeString": "uint256"
+                            }
+                          },
+                          "id": 50552,
+                          "nodeType": "ExpressionStatement",
+                          "src": "2240:255:186"
+                        },
+                        {
+                          "assignments": [
+                            50554
+                          ],
+                          "declarations": [
+                            {
+                              "constant": false,
+                              "id": 50554,
+                              "mutability": "mutable",
+                              "name": "receivedAmount",
+                              "nodeType": "VariableDeclaration",
+                              "overrides": null,
+                              "scope": 50583,
+                              "src": "2574:22:186",
+                              "stateVariable": false,
+                              "storageLocation": "default",
+                              "typeDescriptions": {
+                                "typeIdentifier": "t_uint256",
+                                "typeString": "uint256"
+                              },
+                              "typeName": {
+                                "id": 50553,
+                                "name": "uint256",
+                                "nodeType": "ElementaryTypeName",
+                                "src": "2574:7:186",
+                                "typeDescriptions": {
+                                  "typeIdentifier": "t_uint256",
+                                  "typeString": "uint256"
+                                }
+                              },
+                              "value": null,
+                              "visibility": "internal"
+                            }
+                          ],
+                          "id": 50563,
+                          "initialValue": {
+                            "argumentTypes": null,
+                            "expression": {
+                              "argumentTypes": null,
+                              "arguments": [
+                                {
+                                  "argumentTypes": null,
+                                  "arguments": [
+                                    {
+                                      "argumentTypes": null,
+                                      "id": 50559,
+                                      "name": "this",
+                                      "nodeType": "Identifier",
+                                      "overloadedDeclarations": [],
+                                      "referencedDeclaration": -28,
+                                      "src": "2615:4:186",
+                                      "typeDescriptions": {
+                                        "typeIdentifier": "t_contract$_CurveExchangeActionsMixin_$50625",
+                                        "typeString": "contract CurveExchangeActionsMixin"
+                                      }
+                                    }
+                                  ],
+                                  "expression": {
+                                    "argumentTypes": [
+                                      {
+                                        "typeIdentifier": "t_contract$_CurveExchangeActionsMixin_$50625",
+                                        "typeString": "contract CurveExchangeActionsMixin"
+                                      }
+                                    ],
+                                    "id": 50558,
+                                    "isConstant": false,
+                                    "isLValue": false,
+                                    "isPure": true,
+                                    "lValueRequested": false,
+                                    "nodeType": "ElementaryTypeNameExpression",
+                                    "src": "2607:7:186",
+                                    "typeDescriptions": {
+                                      "typeIdentifier": "t_type$_t_address_$",
+                                      "typeString": "type(address)"
+                                    },
+                                    "typeName": {
+                                      "id": 50557,
+                                      "name": "address",
+                                      "nodeType": "ElementaryTypeName",
+                                      "src": "2607:7:186",
+                                      "typeDescriptions": {
+                                        "typeIdentifier": null,
+                                        "typeString": null
+                                      }
+                                    }
+                                  },
+                                  "id": 50560,
+                                  "isConstant": false,
+                                  "isLValue": false,
+                                  "isPure": false,
+                                  "kind": "typeConversion",
+                                  "lValueRequested": false,
+                                  "names": [],
+                                  "nodeType": "FunctionCall",
+                                  "src": "2607:13:186",
+                                  "tryCall": false,
+                                  "typeDescriptions": {
+                                    "typeIdentifier": "t_address",
+                                    "typeString": "address"
+                                  }
+                                }
+                              ],
+                              "expression": {
+                                "argumentTypes": [
+                                  {
+                                    "typeIdentifier": "t_address",
+                                    "typeString": "address"
+                                  }
+                                ],
+                                "id": 50556,
+                                "isConstant": false,
+                                "isLValue": false,
+                                "isPure": true,
+                                "lValueRequested": false,
+                                "nodeType": "ElementaryTypeNameExpression",
+                                "src": "2599:8:186",
+                                "typeDescriptions": {
+                                  "typeIdentifier": "t_type$_t_address_payable_$",
+                                  "typeString": "type(address payable)"
+                                },
+                                "typeName": {
+                                  "id": 50555,
+                                  "name": "address",
+                                  "nodeType": "ElementaryTypeName",
+                                  "src": "2599:8:186",
+                                  "stateMutability": "payable",
+                                  "typeDescriptions": {
+                                    "typeIdentifier": null,
+                                    "typeString": null
+                                  }
+                                }
+                              },
+                              "id": 50561,
+                              "isConstant": false,
+                              "isLValue": false,
+                              "isPure": false,
+                              "kind": "typeConversion",
+                              "lValueRequested": false,
+                              "names": [],
+                              "nodeType": "FunctionCall",
+                              "src": "2599:22:186",
+                              "tryCall": false,
+                              "typeDescriptions": {
+                                "typeIdentifier": "t_address_payable",
+                                "typeString": "address payable"
+                              }
+                            },
+                            "id": 50562,
+                            "isConstant": false,
+                            "isLValue": false,
+                            "isPure": false,
+                            "lValueRequested": false,
+                            "memberName": "balance",
+                            "nodeType": "MemberAccess",
+                            "referencedDeclaration": null,
+                            "src": "2599:30:186",
+                            "typeDescriptions": {
+                              "typeIdentifier": "t_uint256",
+                              "typeString": "uint256"
+                            }
+                          },
+                          "nodeType": "VariableDeclarationStatement",
+                          "src": "2574:55:186"
+                        },
+                        {
+                          "expression": {
+                            "argumentTypes": null,
+                            "arguments": [],
+                            "expression": {
+                              "argumentTypes": [],
+                              "expression": {
+                                "argumentTypes": [],
+                                "expression": {
+                                  "argumentTypes": null,
+                                  "arguments": [
+                                    {
+                                      "argumentTypes": null,
+                                      "arguments": [
+                                        {
+                                          "argumentTypes": null,
+                                          "id": 50567,
+                                          "name": "CURVE_EXCHANGE_WETH_TOKEN",
+                                          "nodeType": "Identifier",
+                                          "overloadedDeclarations": [],
+                                          "referencedDeclaration": 50463,
+                                          "src": "2657:25:186",
+                                          "typeDescriptions": {
+                                            "typeIdentifier": "t_address",
+                                            "typeString": "address"
+                                          }
+                                        }
+                                      ],
+                                      "expression": {
+                                        "argumentTypes": [
+                                          {
+                                            "typeIdentifier": "t_address",
+                                            "typeString": "address"
+                                          }
+                                        ],
+                                        "id": 50566,
+                                        "isConstant": false,
+                                        "isLValue": false,
+                                        "isPure": true,
+                                        "lValueRequested": false,
+                                        "nodeType": "ElementaryTypeNameExpression",
+                                        "src": "2649:8:186",
+                                        "typeDescriptions": {
+                                          "typeIdentifier": "t_type$_t_address_payable_$",
+                                          "typeString": "type(address payable)"
+                                        },
+                                        "typeName": {
+                                          "id": 50565,
+                                          "name": "address",
+                                          "nodeType": "ElementaryTypeName",
+                                          "src": "2649:8:186",
+                                          "stateMutability": "payable",
+                                          "typeDescriptions": {
+                                            "typeIdentifier": null,
+                                            "typeString": null
+                                          }
+                                        }
+                                      },
+                                      "id": 50568,
+                                      "isConstant": false,
+                                      "isLValue": false,
+                                      "isPure": false,
+                                      "kind": "typeConversion",
+                                      "lValueRequested": false,
+                                      "names": [],
+                                      "nodeType": "FunctionCall",
+                                      "src": "2649:34:186",
+                                      "tryCall": false,
+                                      "typeDescriptions": {
+                                        "typeIdentifier": "t_address_payable",
+                                        "typeString": "address payable"
+                                      }
+                                    }
+                                  ],
+                                  "expression": {
+                                    "argumentTypes": [
+                                      {
+                                        "typeIdentifier": "t_address_payable",
+                                        "typeString": "address payable"
+                                      }
+                                    ],
+                                    "id": 50564,
+                                    "name": "IWETH",
+                                    "nodeType": "Identifier",
+                                    "overloadedDeclarations": [],
+                                    "referencedDeclaration": 73602,
+                                    "src": "2643:5:186",
+                                    "typeDescriptions": {
+                                      "typeIdentifier": "t_type$_t_contract$_IWETH_$73602_$",
+                                      "typeString": "type(contract IWETH)"
+                                    }
+                                  },
+                                  "id": 50569,
+                                  "isConstant": false,
+                                  "isLValue": false,
+                                  "isPure": false,
+                                  "kind": "typeConversion",
+                                  "lValueRequested": false,
+                                  "names": [],
+                                  "nodeType": "FunctionCall",
+                                  "src": "2643:41:186",
+                                  "tryCall": false,
+                                  "typeDescriptions": {
+                                    "typeIdentifier": "t_contract$_IWETH_$73602",
+                                    "typeString": "contract IWETH"
+                                  }
+                                },
+                                "id": 50570,
+                                "isConstant": false,
+                                "isLValue": false,
+                                "isPure": false,
+                                "lValueRequested": false,
+                                "memberName": "deposit",
+                                "nodeType": "MemberAccess",
+                                "referencedDeclaration": 73596,
+                                "src": "2643:49:186",
+                                "typeDescriptions": {
+                                  "typeIdentifier": "t_function_external_payable$__$returns$__$",
+                                  "typeString": "function () payable external"
+                                }
+                              },
+                              "id": 50572,
+                              "isConstant": false,
+                              "isLValue": false,
+                              "isPure": false,
+                              "lValueRequested": false,
+                              "names": [
+                                "value"
+                              ],
+                              "nodeType": "FunctionCallOptions",
+                              "options": [
+                                {
+                                  "argumentTypes": null,
+                                  "id": 50571,
+                                  "name": "receivedAmount",
+                                  "nodeType": "Identifier",
+                                  "overloadedDeclarations": [],
+                                  "referencedDeclaration": 50554,
+                                  "src": "2700:14:186",
+                                  "typeDescriptions": {
+                                    "typeIdentifier": "t_uint256",
+                                    "typeString": "uint256"
+                                  }
+                                }
+                              ],
+                              "src": "2643:72:186",
+                              "typeDescriptions": {
+                                "typeIdentifier": "t_function_external_payable$__$returns$__$value",
+                                "typeString": "function () payable external"
+                              }
+                            },
+                            "id": 50573,
+                            "isConstant": false,
+                            "isLValue": false,
+                            "isPure": false,
+                            "kind": "functionCall",
+                            "lValueRequested": false,
+                            "names": [],
+                            "nodeType": "FunctionCall",
+                            "src": "2643:74:186",
+                            "tryCall": false,
+                            "typeDescriptions": {
+                              "typeIdentifier": "t_tuple$__$",
+                              "typeString": "tuple()"
+                            }
+                          },
+                          "id": 50574,
+                          "nodeType": "ExpressionStatement",
+                          "src": "2643:74:186"
+                        },
+                        {
+                          "expression": {
+                            "argumentTypes": null,
+                            "arguments": [
+                              {
+                                "argumentTypes": null,
+                                "id": 50579,
+                                "name": "_recipient",
+                                "nodeType": "Identifier",
+                                "overloadedDeclarations": [],
+                                "referencedDeclaration": 50482,
+                                "src": "2777:10:186",
+                                "typeDescriptions": {
+                                  "typeIdentifier": "t_address",
+                                  "typeString": "address"
+                                }
+                              },
+                              {
+                                "argumentTypes": null,
+                                "id": 50580,
+                                "name": "receivedAmount",
+                                "nodeType": "Identifier",
+                                "overloadedDeclarations": [],
+                                "referencedDeclaration": 50554,
+                                "src": "2789:14:186",
+                                "typeDescriptions": {
+                                  "typeIdentifier": "t_uint256",
+                                  "typeString": "uint256"
+                                }
+                              }
+                            ],
+                            "expression": {
+                              "argumentTypes": [
+                                {
+                                  "typeIdentifier": "t_address",
+                                  "typeString": "address"
+                                },
+                                {
+                                  "typeIdentifier": "t_uint256",
+                                  "typeString": "uint256"
+                                }
+                              ],
+                              "expression": {
+                                "argumentTypes": null,
+                                "arguments": [
+                                  {
+                                    "argumentTypes": null,
+                                    "id": 50576,
+                                    "name": "CURVE_EXCHANGE_WETH_TOKEN",
+                                    "nodeType": "Identifier",
+                                    "overloadedDeclarations": [],
+                                    "referencedDeclaration": 50463,
+                                    "src": "2737:25:186",
+                                    "typeDescriptions": {
+                                      "typeIdentifier": "t_address",
+                                      "typeString": "address"
+                                    }
+                                  }
+                                ],
+                                "expression": {
+                                  "argumentTypes": [
+                                    {
+                                      "typeIdentifier": "t_address",
+                                      "typeString": "address"
+                                    }
+                                  ],
+                                  "id": 50575,
+                                  "name": "ERC20",
+                                  "nodeType": "Identifier",
+                                  "overloadedDeclarations": [],
+                                  "referencedDeclaration": 83381,
+                                  "src": "2731:5:186",
+                                  "typeDescriptions": {
+                                    "typeIdentifier": "t_type$_t_contract$_ERC20_$83381_$",
+                                    "typeString": "type(contract ERC20)"
+                                  }
+                                },
+                                "id": 50577,
+                                "isConstant": false,
+                                "isLValue": false,
+                                "isPure": false,
+                                "kind": "typeConversion",
+                                "lValueRequested": false,
+                                "names": [],
+                                "nodeType": "FunctionCall",
+                                "src": "2731:32:186",
+                                "tryCall": false,
+                                "typeDescriptions": {
+                                  "typeIdentifier": "t_contract$_ERC20_$83381",
+                                  "typeString": "contract ERC20"
+                                }
+                              },
+                              "id": 50578,
+                              "isConstant": false,
+                              "isLValue": false,
+                              "isPure": false,
+                              "lValueRequested": false,
+                              "memberName": "safeTransfer",
+                              "nodeType": "MemberAccess",
+                              "referencedDeclaration": 83552,
+                              "src": "2731:45:186",
+                              "typeDescriptions": {
+                                "typeIdentifier": "t_function_internal_nonpayable$_t_contract$_IERC20_$83518_$_t_address_$_t_uint256_$returns$__$bound_to$_t_contract$_IERC20_$83518_$",
+                                "typeString": "function (contract IERC20,address,uint256)"
+                              }
+                            },
+                            "id": 50581,
+                            "isConstant": false,
+                            "isLValue": false,
+                            "isPure": false,
+                            "kind": "functionCall",
+                            "lValueRequested": false,
+                            "names": [],
+                            "nodeType": "FunctionCall",
+                            "src": "2731:73:186",
+                            "tryCall": false,
+                            "typeDescriptions": {
+                              "typeIdentifier": "t_tuple$__$",
+                              "typeString": "tuple()"
+                            }
+                          },
+                          "id": 50582,
+                          "nodeType": "ExpressionStatement",
+                          "src": "2731:73:186"
+                        }
+                      ]
+                    }
+                  },
+                  "id": 50604,
+                  "nodeType": "IfStatement",
+                  "src": "1653:1518:186",
+                  "trueBody": {
+                    "id": 50528,
+                    "nodeType": "Block",
+                    "src": "1702:384:186",
+                    "statements": [
+                      {
+                        "expression": {
+                          "argumentTypes": null,
+                          "arguments": [
+                            {
+                              "argumentTypes": null,
+                              "id": 50511,
+                              "name": "_outgoingAssetAmount",
+                              "nodeType": "Identifier",
+                              "overloadedDeclarations": [],
+                              "referencedDeclaration": 50488,
+                              "src": "1758:20:186",
+                              "typeDescriptions": {
+                                "typeIdentifier": "t_uint256",
+                                "typeString": "uint256"
+                              }
+                            }
+                          ],
+                          "expression": {
+                            "argumentTypes": [
+                              {
+                                "typeIdentifier": "t_uint256",
+                                "typeString": "uint256"
+                              }
+                            ],
+                            "expression": {
+                              "argumentTypes": null,
+                              "arguments": [
+                                {
+                                  "argumentTypes": null,
+                                  "id": 50508,
+                                  "name": "CURVE_EXCHANGE_WETH_TOKEN",
+                                  "nodeType": "Identifier",
+                                  "overloadedDeclarations": [],
+                                  "referencedDeclaration": 50463,
+                                  "src": "1722:25:186",
+                                  "typeDescriptions": {
+                                    "typeIdentifier": "t_address",
+                                    "typeString": "address"
+                                  }
+                                }
+                              ],
+                              "expression": {
+                                "argumentTypes": [
+                                  {
+                                    "typeIdentifier": "t_address",
+                                    "typeString": "address"
+                                  }
+                                ],
+                                "id": 50507,
+                                "name": "IWETH",
+                                "nodeType": "Identifier",
+                                "overloadedDeclarations": [],
+                                "referencedDeclaration": 73602,
+                                "src": "1716:5:186",
+                                "typeDescriptions": {
+                                  "typeIdentifier": "t_type$_t_contract$_IWETH_$73602_$",
+                                  "typeString": "type(contract IWETH)"
+                                }
+                              },
+                              "id": 50509,
+                              "isConstant": false,
+                              "isLValue": false,
+                              "isPure": false,
+                              "kind": "typeConversion",
+                              "lValueRequested": false,
+                              "names": [],
+                              "nodeType": "FunctionCall",
+                              "src": "1716:32:186",
+                              "tryCall": false,
+                              "typeDescriptions": {
+                                "typeIdentifier": "t_contract$_IWETH_$73602",
+                                "typeString": "contract IWETH"
+                              }
+                            },
+                            "id": 50510,
+                            "isConstant": false,
+                            "isLValue": false,
+                            "isPure": false,
+                            "lValueRequested": false,
+                            "memberName": "withdraw",
+                            "nodeType": "MemberAccess",
+                            "referencedDeclaration": 73601,
+                            "src": "1716:41:186",
+                            "typeDescriptions": {
+                              "typeIdentifier": "t_function_external_nonpayable$_t_uint256_$returns$__$",
+                              "typeString": "function (uint256) external"
+                            }
+                          },
+                          "id": 50512,
+                          "isConstant": false,
+                          "isLValue": false,
+                          "isPure": false,
+                          "kind": "functionCall",
+                          "lValueRequested": false,
+                          "names": [],
+                          "nodeType": "FunctionCall",
+                          "src": "1716:63:186",
+                          "tryCall": false,
+                          "typeDescriptions": {
+                            "typeIdentifier": "t_tuple$__$",
+                            "typeString": "tuple()"
+                          }
+                        },
+                        "id": 50513,
+                        "nodeType": "ExpressionStatement",
+                        "src": "1716:63:186"
+                      },
+                      {
+                        "expression": {
+                          "argumentTypes": null,
+                          "arguments": [
+                            {
+                              "argumentTypes": null,
+                              "id": 50520,
+                              "name": "_pool",
+                              "nodeType": "Identifier",
+                              "overloadedDeclarations": [],
+                              "referencedDeclaration": 50484,
+                              "src": "1873:5:186",
+                              "typeDescriptions": {
+                                "typeIdentifier": "t_address",
+                                "typeString": "address"
+                              }
+                            },
+                            {
+                              "argumentTypes": null,
+                              "id": 50521,
+                              "name": "CURVE_EXCHANGE_ETH_ADDRESS",
+                              "nodeType": "Identifier",
+                              "overloadedDeclarations": [],
+                              "referencedDeclaration": 50459,
+                              "src": "1896:26:186",
+                              "typeDescriptions": {
+                                "typeIdentifier": "t_address",
+                                "typeString": "address"
+                              }
+                            },
+                            {
+                              "argumentTypes": null,
+                              "id": 50522,
+                              "name": "_incomingAsset",
+                              "nodeType": "Identifier",
+                              "overloadedDeclarations": [],
+                              "referencedDeclaration": 50490,
+                              "src": "1940:14:186",
+                              "typeDescriptions": {
+                                "typeIdentifier": "t_address",
+                                "typeString": "address"
+                              }
+                            },
+                            {
+                              "argumentTypes": null,
+                              "id": 50523,
+                              "name": "_outgoingAssetAmount",
+                              "nodeType": "Identifier",
+                              "overloadedDeclarations": [],
+                              "referencedDeclaration": 50488,
+                              "src": "1972:20:186",
+                              "typeDescriptions": {
+                                "typeIdentifier": "t_uint256",
+                                "typeString": "uint256"
+                              }
+                            },
+                            {
+                              "argumentTypes": null,
+                              "id": 50524,
+                              "name": "_minIncomingAssetAmount",
+                              "nodeType": "Identifier",
+                              "overloadedDeclarations": [],
+                              "referencedDeclaration": 50492,
+                              "src": "2010:23:186",
+                              "typeDescriptions": {
+                                "typeIdentifier": "t_uint256",
+                                "typeString": "uint256"
+                              }
+                            },
+                            {
+                              "argumentTypes": null,
+                              "id": 50525,
+                              "name": "_recipient",
+                              "nodeType": "Identifier",
+                              "overloadedDeclarations": [],
+                              "referencedDeclaration": 50482,
+                              "src": "2051:10:186",
+                              "typeDescriptions": {
+                                "typeIdentifier": "t_address",
+                                "typeString": "address"
+                              }
+                            }
+                          ],
+                          "expression": {
+                            "argumentTypes": [
+                              {
+                                "typeIdentifier": "t_address",
+                                "typeString": "address"
+                              },
+                              {
+                                "typeIdentifier": "t_address",
+                                "typeString": "address"
+                              },
+                              {
+                                "typeIdentifier": "t_address",
+                                "typeString": "address"
+                              },
+                              {
+                                "typeIdentifier": "t_uint256",
+                                "typeString": "uint256"
+                              },
+                              {
+                                "typeIdentifier": "t_uint256",
+                                "typeString": "uint256"
+                              },
+                              {
+                                "typeIdentifier": "t_address",
+                                "typeString": "address"
+                              }
+                            ],
+                            "expression": {
+                              "argumentTypes": [
+                                {
+                                  "typeIdentifier": "t_address",
+                                  "typeString": "address"
+                                },
+                                {
+                                  "typeIdentifier": "t_address",
+                                  "typeString": "address"
+                                },
+                                {
+                                  "typeIdentifier": "t_address",
+                                  "typeString": "address"
+                                },
+                                {
+                                  "typeIdentifier": "t_uint256",
+                                  "typeString": "uint256"
+                                },
+                                {
+                                  "typeIdentifier": "t_uint256",
+                                  "typeString": "uint256"
+                                },
+                                {
+                                  "typeIdentifier": "t_address",
+                                  "typeString": "address"
+                                }
+                              ],
+                              "expression": {
+                                "argumentTypes": null,
+                                "arguments": [
+                                  {
+                                    "argumentTypes": null,
+                                    "id": 50515,
+                                    "name": "swaps",
+                                    "nodeType": "Identifier",
+                                    "overloadedDeclarations": [],
+                                    "referencedDeclaration": 50496,
+                                    "src": "1811:5:186",
+                                    "typeDescriptions": {
+                                      "typeIdentifier": "t_address",
+                                      "typeString": "address"
+                                    }
+                                  }
+                                ],
+                                "expression": {
+                                  "argumentTypes": [
+                                    {
+                                      "typeIdentifier": "t_address",
+                                      "typeString": "address"
+                                    }
+                                  ],
+                                  "id": 50514,
+                                  "name": "ICurveSwapsEther",
+                                  "nodeType": "Identifier",
+                                  "overloadedDeclarations": [],
+                                  "referencedDeclaration": 71713,
+                                  "src": "1794:16:186",
+                                  "typeDescriptions": {
+                                    "typeIdentifier": "t_type$_t_contract$_ICurveSwapsEther_$71713_$",
+                                    "typeString": "type(contract ICurveSwapsEther)"
+                                  }
+                                },
+                                "id": 50516,
+                                "isConstant": false,
+                                "isLValue": false,
+                                "isPure": false,
+                                "kind": "typeConversion",
+                                "lValueRequested": false,
+                                "names": [],
+                                "nodeType": "FunctionCall",
+                                "src": "1794:23:186",
+                                "tryCall": false,
+                                "typeDescriptions": {
+                                  "typeIdentifier": "t_contract$_ICurveSwapsEther_$71713",
+                                  "typeString": "contract ICurveSwapsEther"
+                                }
+                              },
+                              "id": 50517,
+                              "isConstant": false,
+                              "isLValue": false,
+                              "isPure": false,
+                              "lValueRequested": false,
+                              "memberName": "exchange",
+                              "nodeType": "MemberAccess",
+                              "referencedDeclaration": 71712,
+                              "src": "1794:32:186",
+                              "typeDescriptions": {
+                                "typeIdentifier": "t_function_external_payable$_t_address_$_t_address_$_t_address_$_t_uint256_$_t_uint256_$_t_address_$returns$_t_uint256_$",
+                                "typeString": "function (address,address,address,uint256,uint256,address) payable external returns (uint256)"
+                              }
+                            },
+                            "id": 50519,
+                            "isConstant": false,
+                            "isLValue": false,
+                            "isPure": false,
+                            "lValueRequested": false,
+                            "names": [
+                              "value"
+                            ],
+                            "nodeType": "FunctionCallOptions",
+                            "options": [
+                              {
+                                "argumentTypes": null,
+                                "id": 50518,
+                                "name": "_outgoingAssetAmount",
+                                "nodeType": "Identifier",
+                                "overloadedDeclarations": [],
+                                "referencedDeclaration": 50488,
+                                "src": "1834:20:186",
+                                "typeDescriptions": {
+                                  "typeIdentifier": "t_uint256",
+                                  "typeString": "uint256"
+                                }
+                              }
+                            ],
+                            "src": "1794:61:186",
+                            "typeDescriptions": {
+                              "typeIdentifier": "t_function_external_payable$_t_address_$_t_address_$_t_address_$_t_uint256_$_t_uint256_$_t_address_$returns$_t_uint256_$value",
+                              "typeString": "function (address,address,address,uint256,uint256,address) payable external returns (uint256)"
+                            }
+                          },
+                          "id": 50526,
+                          "isConstant": false,
+                          "isLValue": false,
+                          "isPure": false,
+                          "kind": "functionCall",
+                          "lValueRequested": false,
+                          "names": [],
+                          "nodeType": "FunctionCall",
+                          "src": "1794:281:186",
+                          "tryCall": false,
+                          "typeDescriptions": {
+                            "typeIdentifier": "t_uint256",
+                            "typeString": "uint256"
+                          }
+                        },
+                        "id": 50527,
+                        "nodeType": "ExpressionStatement",
+                        "src": "1794:281:186"
+                      }
+                    ]
+                  }
+                }
+              ]
+            },
+            "documentation": {
+              "id": 50480,
+              "nodeType": "StructuredDocumentation",
+              "src": "1271:36:186",
+              "text": "@dev Helper to execute takeOrder"
+            },
+            "implemented": true,
+            "kind": "function",
+            "modifiers": [],
+            "name": "__curveTakeOrder",
+            "overrides": null,
+            "parameters": {
+              "id": 50493,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 50482,
+                  "mutability": "mutable",
+                  "name": "_recipient",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 50606,
+                  "src": "1347:18:186",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 50481,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "1347:7:186",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 50484,
+                  "mutability": "mutable",
+                  "name": "_pool",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 50606,
+                  "src": "1375:13:186",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 50483,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "1375:7:186",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 50486,
+                  "mutability": "mutable",
+                  "name": "_outgoingAsset",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 50606,
+                  "src": "1398:22:186",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 50485,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "1398:7:186",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 50488,
+                  "mutability": "mutable",
+                  "name": "_outgoingAssetAmount",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 50606,
+                  "src": "1430:28:186",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_uint256",
+                    "typeString": "uint256"
+                  },
+                  "typeName": {
+                    "id": 50487,
+                    "name": "uint256",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "1430:7:186",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_uint256",
+                      "typeString": "uint256"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 50490,
+                  "mutability": "mutable",
+                  "name": "_incomingAsset",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 50606,
+                  "src": "1468:22:186",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 50489,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "1468:7:186",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 50492,
+                  "mutability": "mutable",
+                  "name": "_minIncomingAssetAmount",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 50606,
+                  "src": "1500:31:186",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_uint256",
+                    "typeString": "uint256"
+                  },
+                  "typeName": {
+                    "id": 50491,
+                    "name": "uint256",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "1500:7:186",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_uint256",
+                      "typeString": "uint256"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "1337:200:186"
+            },
+            "returnParameters": {
+              "id": 50494,
+              "nodeType": "ParameterList",
+              "parameters": [],
+              "src": "1547:0:186"
+            },
+            "scope": 50625,
+            "stateMutability": "nonpayable",
+            "virtual": false,
+            "visibility": "internal"
+          },
+          {
+            "id": 50615,
+            "nodeType": "FunctionDefinition",
+            "src": "3423:186:186",
+            "nodes": [],
+            "body": {
+              "id": 50614,
+              "nodeType": "Block",
+              "src": "3554:55:186",
+              "nodes": [],
+              "statements": [
+                {
+                  "expression": {
+                    "argumentTypes": null,
+                    "id": 50612,
+                    "name": "CURVE_EXCHANGE_ADDRESS_PROVIDER",
+                    "nodeType": "Identifier",
+                    "overloadedDeclarations": [],
+                    "referencedDeclaration": 50461,
+                    "src": "3571:31:186",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "functionReturnParameters": 50611,
+                  "id": 50613,
+                  "nodeType": "Return",
+                  "src": "3564:38:186"
+                }
+              ]
+            },
+            "documentation": {
+              "id": 50607,
+              "nodeType": "StructuredDocumentation",
+              "src": "3256:162:186",
+              "text": "@notice Gets the `CURVE_EXCHANGE_ADDRESS_PROVIDER` variable\n @return curveExchangeAddressProvider_ The `CURVE_EXCHANGE_ADDRESS_PROVIDER` variable value"
+            },
+            "functionSelector": "72202e8f",
+            "implemented": true,
+            "kind": "function",
+            "modifiers": [],
+            "name": "getCurveExchangeAddressProvider",
+            "overrides": null,
+            "parameters": {
+              "id": 50608,
+              "nodeType": "ParameterList",
+              "parameters": [],
+              "src": "3463:2:186"
+            },
+            "returnParameters": {
+              "id": 50611,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 50610,
+                  "mutability": "mutable",
+                  "name": "curveExchangeAddressProvider_",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 50615,
+                  "src": "3511:37:186",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 50609,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "3511:7:186",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "3510:39:186"
+            },
+            "scope": 50625,
+            "stateMutability": "view",
+            "virtual": false,
+            "visibility": "public"
+          },
+          {
+            "id": 50624,
+            "nodeType": "FunctionDefinition",
+            "src": "3764:140:186",
+            "nodes": [],
+            "body": {
+              "id": 50623,
+              "nodeType": "Block",
+              "src": "3855:49:186",
+              "nodes": [],
+              "statements": [
+                {
+                  "expression": {
+                    "argumentTypes": null,
+                    "id": 50621,
+                    "name": "CURVE_EXCHANGE_WETH_TOKEN",
+                    "nodeType": "Identifier",
+                    "overloadedDeclarations": [],
+                    "referencedDeclaration": 50463,
+                    "src": "3872:25:186",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "functionReturnParameters": 50620,
+                  "id": 50622,
+                  "nodeType": "Return",
+                  "src": "3865:32:186"
+                }
+              ]
+            },
+            "documentation": {
+              "id": 50616,
+              "nodeType": "StructuredDocumentation",
+              "src": "3615:144:186",
+              "text": "@notice Gets the `CURVE_EXCHANGE_WETH_TOKEN` variable\n @return curveExchangeWethToken_ The `CURVE_EXCHANGE_WETH_TOKEN` variable value"
+            },
+            "functionSelector": "fd070ae4",
+            "implemented": true,
+            "kind": "function",
+            "modifiers": [],
+            "name": "getCurveExchangeWethToken",
+            "overrides": null,
+            "parameters": {
+              "id": 50617,
+              "nodeType": "ParameterList",
+              "parameters": [],
+              "src": "3798:2:186"
+            },
+            "returnParameters": {
+              "id": 50620,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 50619,
+                  "mutability": "mutable",
+                  "name": "curveExchangeWethToken_",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 50624,
+                  "src": "3822:31:186",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 50618,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "3822:7:186",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "3821:33:186"
+            },
+            "scope": 50625,
+            "stateMutability": "view",
+            "virtual": false,
+            "visibility": "public"
+          }
+        ],
+        "abstract": true,
+        "baseContracts": [
+          {
+            "arguments": null,
+            "baseName": {
+              "contractScope": null,
+              "id": 50455,
+              "name": "AssetHelpers",
+              "nodeType": "UserDefinedTypeName",
+              "referencedDeclaration": 77343,
+              "src": "834:12:186",
+              "typeDescriptions": {
+                "typeIdentifier": "t_contract$_AssetHelpers_$77343",
+                "typeString": "contract AssetHelpers"
+              }
+            },
+            "id": 50456,
+            "nodeType": "InheritanceSpecifier",
+            "src": "834:12:186"
+          }
+        ],
+        "contractDependencies": [
+          77343
+        ],
+        "contractKind": "contract",
+        "documentation": {
+          "id": 50454,
+          "nodeType": "StructuredDocumentation",
+          "src": "551:236:186",
+          "text": "@title CurveExchangeActionsMixin Contract\n @author Enzyme Council <security@enzyme.finance>\n @notice Mixin contract for interacting with the Curve exchange functions\n @dev Inheriting contract must have a receive() function"
+        },
+        "fullyImplemented": true,
+        "linearizedBaseContracts": [
+          50625,
+          77343
+        ],
+        "name": "CurveExchangeActionsMixin",
+        "scope": 50626
+      }
+    ],
+    "license": "GPL-3.0"
+  },
+  "id": 186
 }

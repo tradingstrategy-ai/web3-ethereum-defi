@@ -1,0 +1,2591 @@
+{
+  "abi": [
+    {
+      "inputs": [
+        {
+          "components": [
+            {
+              "internalType": "bytes32[]",
+              "name": "topics",
+              "type": "bytes32[]"
+            },
+            {
+              "internalType": "bytes",
+              "name": "data",
+              "type": "bytes"
+            },
+            {
+              "internalType": "address",
+              "name": "emitter",
+              "type": "address"
+            }
+          ],
+          "internalType": "struct VmSafe.Log[]",
+          "name": "_logs",
+          "type": "tuple[]"
+        },
+        {
+          "internalType": "bytes32",
+          "name": "_selector",
+          "type": "bytes32"
+        },
+        {
+          "internalType": "address",
+          "name": "_emitter",
+          "type": "address"
+        }
+      ],
+      "name": "assertAtLeastOneEventMatches",
+      "outputs": [],
+      "stateMutability": "pure",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "components": [
+            {
+              "internalType": "bytes32[]",
+              "name": "topics",
+              "type": "bytes32[]"
+            },
+            {
+              "internalType": "bytes",
+              "name": "data",
+              "type": "bytes"
+            },
+            {
+              "internalType": "address",
+              "name": "emitter",
+              "type": "address"
+            }
+          ],
+          "internalType": "struct VmSafe.Log[]",
+          "name": "_logs",
+          "type": "tuple[]"
+        },
+        {
+          "internalType": "bytes32",
+          "name": "_selector",
+          "type": "bytes32"
+        },
+        {
+          "internalType": "address",
+          "name": "_emitter",
+          "type": "address"
+        }
+      ],
+      "name": "assertExactlyOneEventMatches",
+      "outputs": [],
+      "stateMutability": "pure",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "components": [
+            {
+              "internalType": "bytes32[]",
+              "name": "topics",
+              "type": "bytes32[]"
+            },
+            {
+              "internalType": "bytes",
+              "name": "data",
+              "type": "bytes"
+            },
+            {
+              "internalType": "address",
+              "name": "emitter",
+              "type": "address"
+            }
+          ],
+          "internalType": "struct VmSafe.Log[]",
+          "name": "_logs",
+          "type": "tuple[]"
+        },
+        {
+          "internalType": "bytes32",
+          "name": "_selector",
+          "type": "bytes32"
+        },
+        {
+          "internalType": "address",
+          "name": "_emitter",
+          "type": "address"
+        }
+      ],
+      "name": "filterLogsMatchingSelector",
+      "outputs": [
+        {
+          "components": [
+            {
+              "internalType": "bytes32[]",
+              "name": "topics",
+              "type": "bytes32[]"
+            },
+            {
+              "internalType": "bytes",
+              "name": "data",
+              "type": "bytes"
+            },
+            {
+              "internalType": "address",
+              "name": "emitter",
+              "type": "address"
+            }
+          ],
+          "internalType": "struct VmSafe.Log[]",
+          "name": "logsWithSelector_",
+          "type": "tuple[]"
+        }
+      ],
+      "stateMutability": "pure",
+      "type": "function"
+    }
+  ],
+  "bytecode": {
+    "object": "0x",
+    "sourceMap": "",
+    "linkReferences": {}
+  },
+  "deployedBytecode": {
+    "object": "0x",
+    "sourceMap": "",
+    "linkReferences": {}
+  },
+  "methodIdentifiers": {
+    "assertAtLeastOneEventMatches((bytes32[],bytes,address)[],bytes32,address)": "05414d70",
+    "assertExactlyOneEventMatches((bytes32[],bytes,address)[],bytes32,address)": "57649ad1",
+    "filterLogsMatchingSelector((bytes32[],bytes,address)[],bytes32,address)": "58d6e34d"
+  },
+  "rawMetadata": "{\"compiler\":{\"version\":\"0.8.17+commit.8df45f5f\"},\"language\":\"Solidity\",\"output\":{\"abi\":[{\"inputs\":[{\"components\":[{\"internalType\":\"bytes32[]\",\"name\":\"topics\",\"type\":\"bytes32[]\"},{\"internalType\":\"bytes\",\"name\":\"data\",\"type\":\"bytes\"},{\"internalType\":\"address\",\"name\":\"emitter\",\"type\":\"address\"}],\"internalType\":\"struct VmSafe.Log[]\",\"name\":\"_logs\",\"type\":\"tuple[]\"},{\"internalType\":\"bytes32\",\"name\":\"_selector\",\"type\":\"bytes32\"},{\"internalType\":\"address\",\"name\":\"_emitter\",\"type\":\"address\"}],\"name\":\"assertAtLeastOneEventMatches\",\"outputs\":[],\"stateMutability\":\"pure\",\"type\":\"function\"},{\"inputs\":[{\"components\":[{\"internalType\":\"bytes32[]\",\"name\":\"topics\",\"type\":\"bytes32[]\"},{\"internalType\":\"bytes\",\"name\":\"data\",\"type\":\"bytes\"},{\"internalType\":\"address\",\"name\":\"emitter\",\"type\":\"address\"}],\"internalType\":\"struct VmSafe.Log[]\",\"name\":\"_logs\",\"type\":\"tuple[]\"},{\"internalType\":\"bytes32\",\"name\":\"_selector\",\"type\":\"bytes32\"},{\"internalType\":\"address\",\"name\":\"_emitter\",\"type\":\"address\"}],\"name\":\"assertExactlyOneEventMatches\",\"outputs\":[],\"stateMutability\":\"pure\",\"type\":\"function\"},{\"inputs\":[{\"components\":[{\"internalType\":\"bytes32[]\",\"name\":\"topics\",\"type\":\"bytes32[]\"},{\"internalType\":\"bytes\",\"name\":\"data\",\"type\":\"bytes\"},{\"internalType\":\"address\",\"name\":\"emitter\",\"type\":\"address\"}],\"internalType\":\"struct VmSafe.Log[]\",\"name\":\"_logs\",\"type\":\"tuple[]\"},{\"internalType\":\"bytes32\",\"name\":\"_selector\",\"type\":\"bytes32\"},{\"internalType\":\"address\",\"name\":\"_emitter\",\"type\":\"address\"}],\"name\":\"filterLogsMatchingSelector\",\"outputs\":[{\"components\":[{\"internalType\":\"bytes32[]\",\"name\":\"topics\",\"type\":\"bytes32[]\"},{\"internalType\":\"bytes\",\"name\":\"data\",\"type\":\"bytes\"},{\"internalType\":\"address\",\"name\":\"emitter\",\"type\":\"address\"}],\"internalType\":\"struct VmSafe.Log[]\",\"name\":\"logsWithSelector_\",\"type\":\"tuple[]\"}],\"stateMutability\":\"pure\",\"type\":\"function\"}],\"devdoc\":{\"kind\":\"dev\",\"methods\":{},\"version\":1},\"userdoc\":{\"kind\":\"user\",\"methods\":{},\"version\":1}},\"settings\":{\"compilationTarget\":{\"tests/helpers/Events.sol\":\"Events\"},\"evmVersion\":\"london\",\"libraries\":{},\"metadata\":{\"bytecodeHash\":\"none\"},\"optimizer\":{\"details\":{\"constantOptimizer\":true,\"cse\":true,\"deduplicate\":true,\"inliner\":true,\"jumpdestRemover\":true,\"orderLiterals\":true,\"peephole\":true,\"yul\":false},\"runs\":200},\"remappings\":[\":@enzyme/=contracts/\",\":@openzeppelin-solc-0.7/=node_modules/@openzeppelin-solc-0.7/\",\":@openzeppelin/=node_modules/@openzeppelin/\",\":@uniswap/=node_modules/@uniswap/\",\":base64-sol/=node_modules/base64-sol/\",\":ds-test/=lib/forge-std/lib/ds-test/src/\",\":forge-std/=lib/forge-std/src/\",\":hardhat-deploy/=node_modules/hardhat-deploy/\",\":hardhat/=node_modules/hardhat/\"]},\"sources\":{\"lib/forge-std/src/Vm.sol\":{\"keccak256\":\"0xe0cfe5ca62fb9d9366be870999bd82802d6b913c1f960f67b8f17060008f2d1a\",\"license\":\"MIT\",\"urls\":[\"bzz-raw://ddadc1e899953cb26e7d87c0f27284d02f09b611cfd3300e321c33dc2c65d0b3\",\"dweb:/ipfs/Qmbmrdph3D5YweihJSPM6sopZcSKWMox2ZM89dyonfhrq8\"]},\"tests/helpers/Events.sol\":{\"keccak256\":\"0x8cc2e4a2ae8b69dee91619c96fce4eb10eb6ea43903344de4b05f2f79c436a57\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://8fa92bf5dcfd53f3c8721f61f0817ba3913a0c5f33d1dcd47342468c32fd3a4b\",\"dweb:/ipfs/QmNN1mAbnFokh44cbGDtfAcWEjPZdUTnimsyom9SufwanF\"]}},\"version\":1}",
+  "metadata": {
+    "compiler": {
+      "version": "0.8.17+commit.8df45f5f"
+    },
+    "language": "Solidity",
+    "output": {
+      "abi": [
+        {
+          "inputs": [
+            {
+              "internalType": "struct VmSafe.Log[]",
+              "name": "_logs",
+              "type": "tuple[]",
+              "components": [
+                {
+                  "internalType": "bytes32[]",
+                  "name": "topics",
+                  "type": "bytes32[]"
+                },
+                {
+                  "internalType": "bytes",
+                  "name": "data",
+                  "type": "bytes"
+                },
+                {
+                  "internalType": "address",
+                  "name": "emitter",
+                  "type": "address"
+                }
+              ]
+            },
+            {
+              "internalType": "bytes32",
+              "name": "_selector",
+              "type": "bytes32"
+            },
+            {
+              "internalType": "address",
+              "name": "_emitter",
+              "type": "address"
+            }
+          ],
+          "stateMutability": "pure",
+          "type": "function",
+          "name": "assertAtLeastOneEventMatches"
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "struct VmSafe.Log[]",
+              "name": "_logs",
+              "type": "tuple[]",
+              "components": [
+                {
+                  "internalType": "bytes32[]",
+                  "name": "topics",
+                  "type": "bytes32[]"
+                },
+                {
+                  "internalType": "bytes",
+                  "name": "data",
+                  "type": "bytes"
+                },
+                {
+                  "internalType": "address",
+                  "name": "emitter",
+                  "type": "address"
+                }
+              ]
+            },
+            {
+              "internalType": "bytes32",
+              "name": "_selector",
+              "type": "bytes32"
+            },
+            {
+              "internalType": "address",
+              "name": "_emitter",
+              "type": "address"
+            }
+          ],
+          "stateMutability": "pure",
+          "type": "function",
+          "name": "assertExactlyOneEventMatches"
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "struct VmSafe.Log[]",
+              "name": "_logs",
+              "type": "tuple[]",
+              "components": [
+                {
+                  "internalType": "bytes32[]",
+                  "name": "topics",
+                  "type": "bytes32[]"
+                },
+                {
+                  "internalType": "bytes",
+                  "name": "data",
+                  "type": "bytes"
+                },
+                {
+                  "internalType": "address",
+                  "name": "emitter",
+                  "type": "address"
+                }
+              ]
+            },
+            {
+              "internalType": "bytes32",
+              "name": "_selector",
+              "type": "bytes32"
+            },
+            {
+              "internalType": "address",
+              "name": "_emitter",
+              "type": "address"
+            }
+          ],
+          "stateMutability": "pure",
+          "type": "function",
+          "name": "filterLogsMatchingSelector",
+          "outputs": [
+            {
+              "internalType": "struct VmSafe.Log[]",
+              "name": "logsWithSelector_",
+              "type": "tuple[]",
+              "components": [
+                {
+                  "internalType": "bytes32[]",
+                  "name": "topics",
+                  "type": "bytes32[]"
+                },
+                {
+                  "internalType": "bytes",
+                  "name": "data",
+                  "type": "bytes"
+                },
+                {
+                  "internalType": "address",
+                  "name": "emitter",
+                  "type": "address"
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "devdoc": {
+        "kind": "dev",
+        "methods": {},
+        "version": 1
+      },
+      "userdoc": {
+        "kind": "user",
+        "methods": {},
+        "version": 1
+      }
+    },
+    "settings": {
+      "remappings": [
+        ":@enzyme/=contracts/",
+        ":@openzeppelin-solc-0.7/=node_modules/@openzeppelin-solc-0.7/",
+        ":@openzeppelin/=node_modules/@openzeppelin/",
+        ":@uniswap/=node_modules/@uniswap/",
+        ":base64-sol/=node_modules/base64-sol/",
+        ":ds-test/=lib/forge-std/lib/ds-test/src/",
+        ":forge-std/=lib/forge-std/src/",
+        ":hardhat-deploy/=node_modules/hardhat-deploy/",
+        ":hardhat/=node_modules/hardhat/"
+      ],
+      "optimizer": {
+        "runs": 200,
+        "details": {
+          "peephole": true,
+          "inliner": true,
+          "jumpdestRemover": true,
+          "orderLiterals": true,
+          "deduplicate": true,
+          "cse": true,
+          "constantOptimizer": true,
+          "yul": false
+        }
+      },
+      "metadata": {
+        "bytecodeHash": "none"
+      },
+      "compilationTarget": {
+        "tests/helpers/Events.sol": "Events"
+      },
+      "libraries": {}
+    },
+    "sources": {
+      "lib/forge-std/src/Vm.sol": {
+        "keccak256": "0xe0cfe5ca62fb9d9366be870999bd82802d6b913c1f960f67b8f17060008f2d1a",
+        "urls": [
+          "bzz-raw://ddadc1e899953cb26e7d87c0f27284d02f09b611cfd3300e321c33dc2c65d0b3",
+          "dweb:/ipfs/Qmbmrdph3D5YweihJSPM6sopZcSKWMox2ZM89dyonfhrq8"
+        ],
+        "license": "MIT"
+      },
+      "tests/helpers/Events.sol": {
+        "keccak256": "0x8cc2e4a2ae8b69dee91619c96fce4eb10eb6ea43903344de4b05f2f79c436a57",
+        "urls": [
+          "bzz-raw://8fa92bf5dcfd53f3c8721f61f0817ba3913a0c5f33d1dcd47342468c32fd3a4b",
+          "dweb:/ipfs/QmNN1mAbnFokh44cbGDtfAcWEjPZdUTnimsyom9SufwanF"
+        ],
+        "license": "GPL-3.0"
+      }
+    },
+    "version": 1
+  },
+  "ast": {
+    "absolutePath": "tests/helpers/Events.sol",
+    "id": 29513,
+    "exportedSymbols": {
+      "Events": [
+        29512
+      ],
+      "VmSafe": [
+        10150
+      ]
+    },
+    "nodeType": "SourceUnit",
+    "src": "255:1778:31",
+    "nodes": [
+      {
+        "id": 29329,
+        "nodeType": "PragmaDirective",
+        "src": "255:23:31",
+        "nodes": [],
+        "literals": [
+          "solidity",
+          "0.8",
+          ".17"
+        ]
+      },
+      {
+        "id": 29331,
+        "nodeType": "ImportDirective",
+        "src": "280:40:31",
+        "nodes": [],
+        "absolutePath": "lib/forge-std/src/Vm.sol",
+        "file": "forge-std/Vm.sol",
+        "nameLocation": "-1:-1:-1",
+        "scope": 29513,
+        "sourceUnit": 10476,
+        "symbolAliases": [
+          {
+            "foreign": {
+              "id": 29330,
+              "name": "VmSafe",
+              "nodeType": "Identifier",
+              "overloadedDeclarations": [],
+              "referencedDeclaration": 10150,
+              "src": "288:6:31",
+              "typeDescriptions": {}
+            },
+            "nameLocation": "-1:-1:-1"
+          }
+        ],
+        "unitAlias": ""
+      },
+      {
+        "id": 29512,
+        "nodeType": "ContractDefinition",
+        "src": "322:1710:31",
+        "nodes": [
+          {
+            "id": 29447,
+            "nodeType": "FunctionDefinition",
+            "src": "353:906:31",
+            "nodes": [],
+            "body": {
+              "id": 29446,
+              "nodeType": "Block",
+              "src": "543:716:31",
+              "nodes": [],
+              "statements": [
+                {
+                  "assignments": [
+                    29347
+                  ],
+                  "declarations": [
+                    {
+                      "constant": false,
+                      "id": 29347,
+                      "mutability": "mutable",
+                      "name": "logsMatchCount",
+                      "nameLocation": "561:14:31",
+                      "nodeType": "VariableDeclaration",
+                      "scope": 29446,
+                      "src": "553:22:31",
+                      "stateVariable": false,
+                      "storageLocation": "default",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_uint256",
+                        "typeString": "uint256"
+                      },
+                      "typeName": {
+                        "id": 29346,
+                        "name": "uint256",
+                        "nodeType": "ElementaryTypeName",
+                        "src": "553:7:31",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_uint256",
+                          "typeString": "uint256"
+                        }
+                      },
+                      "visibility": "internal"
+                    }
+                  ],
+                  "id": 29348,
+                  "nodeType": "VariableDeclarationStatement",
+                  "src": "553:22:31"
+                },
+                {
+                  "assignments": [
+                    29353
+                  ],
+                  "declarations": [
+                    {
+                      "constant": false,
+                      "id": 29353,
+                      "mutability": "mutable",
+                      "name": "logsMatch",
+                      "nameLocation": "599:9:31",
+                      "nodeType": "VariableDeclaration",
+                      "scope": 29446,
+                      "src": "585:23:31",
+                      "stateVariable": false,
+                      "storageLocation": "memory",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_array$_t_bool_$dyn_memory_ptr",
+                        "typeString": "bool[]"
+                      },
+                      "typeName": {
+                        "baseType": {
+                          "id": 29351,
+                          "name": "bool",
+                          "nodeType": "ElementaryTypeName",
+                          "src": "585:4:31",
+                          "typeDescriptions": {
+                            "typeIdentifier": "t_bool",
+                            "typeString": "bool"
+                          }
+                        },
+                        "id": 29352,
+                        "nodeType": "ArrayTypeName",
+                        "src": "585:6:31",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_array$_t_bool_$dyn_storage_ptr",
+                          "typeString": "bool[]"
+                        }
+                      },
+                      "visibility": "internal"
+                    }
+                  ],
+                  "id": 29360,
+                  "initialValue": {
+                    "arguments": [
+                      {
+                        "expression": {
+                          "id": 29357,
+                          "name": "_logs",
+                          "nodeType": "Identifier",
+                          "overloadedDeclarations": [],
+                          "referencedDeclaration": 29335,
+                          "src": "622:5:31",
+                          "typeDescriptions": {
+                            "typeIdentifier": "t_array$_t_struct$_Log_$9196_memory_ptr_$dyn_memory_ptr",
+                            "typeString": "struct VmSafe.Log memory[] memory"
+                          }
+                        },
+                        "id": 29358,
+                        "isConstant": false,
+                        "isLValue": false,
+                        "isPure": false,
+                        "lValueRequested": false,
+                        "memberLocation": "628:6:31",
+                        "memberName": "length",
+                        "nodeType": "MemberAccess",
+                        "src": "622:12:31",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_uint256",
+                          "typeString": "uint256"
+                        }
+                      }
+                    ],
+                    "expression": {
+                      "argumentTypes": [
+                        {
+                          "typeIdentifier": "t_uint256",
+                          "typeString": "uint256"
+                        }
+                      ],
+                      "id": 29356,
+                      "isConstant": false,
+                      "isLValue": false,
+                      "isPure": true,
+                      "lValueRequested": false,
+                      "nodeType": "NewExpression",
+                      "src": "611:10:31",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_function_objectcreation_pure$_t_uint256_$returns$_t_array$_t_bool_$dyn_memory_ptr_$",
+                        "typeString": "function (uint256) pure returns (bool[] memory)"
+                      },
+                      "typeName": {
+                        "baseType": {
+                          "id": 29354,
+                          "name": "bool",
+                          "nodeType": "ElementaryTypeName",
+                          "src": "615:4:31",
+                          "typeDescriptions": {
+                            "typeIdentifier": "t_bool",
+                            "typeString": "bool"
+                          }
+                        },
+                        "id": 29355,
+                        "nodeType": "ArrayTypeName",
+                        "src": "615:6:31",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_array$_t_bool_$dyn_storage_ptr",
+                          "typeString": "bool[]"
+                        }
+                      }
+                    },
+                    "id": 29359,
+                    "isConstant": false,
+                    "isLValue": false,
+                    "isPure": false,
+                    "kind": "functionCall",
+                    "lValueRequested": false,
+                    "nameLocations": [],
+                    "names": [],
+                    "nodeType": "FunctionCall",
+                    "src": "611:24:31",
+                    "tryCall": false,
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_array$_t_bool_$dyn_memory_ptr",
+                      "typeString": "bool[] memory"
+                    }
+                  },
+                  "nodeType": "VariableDeclarationStatement",
+                  "src": "585:50:31"
+                },
+                {
+                  "body": {
+                    "id": 29402,
+                    "nodeType": "Block",
+                    "src": "684:216:31",
+                    "statements": [
+                      {
+                        "assignments": [
+                          29375
+                        ],
+                        "declarations": [
+                          {
+                            "constant": false,
+                            "id": 29375,
+                            "mutability": "mutable",
+                            "name": "log",
+                            "nameLocation": "716:3:31",
+                            "nodeType": "VariableDeclaration",
+                            "scope": 29402,
+                            "src": "698:21:31",
+                            "stateVariable": false,
+                            "storageLocation": "memory",
+                            "typeDescriptions": {
+                              "typeIdentifier": "t_struct$_Log_$9196_memory_ptr",
+                              "typeString": "struct VmSafe.Log"
+                            },
+                            "typeName": {
+                              "id": 29374,
+                              "nodeType": "UserDefinedTypeName",
+                              "pathNode": {
+                                "id": 29373,
+                                "name": "VmSafe.Log",
+                                "nameLocations": [
+                                  "698:6:31",
+                                  "705:3:31"
+                                ],
+                                "nodeType": "IdentifierPath",
+                                "referencedDeclaration": 9196,
+                                "src": "698:10:31"
+                              },
+                              "referencedDeclaration": 9196,
+                              "src": "698:10:31",
+                              "typeDescriptions": {
+                                "typeIdentifier": "t_struct$_Log_$9196_storage_ptr",
+                                "typeString": "struct VmSafe.Log"
+                              }
+                            },
+                            "visibility": "internal"
+                          }
+                        ],
+                        "id": 29379,
+                        "initialValue": {
+                          "baseExpression": {
+                            "id": 29376,
+                            "name": "_logs",
+                            "nodeType": "Identifier",
+                            "overloadedDeclarations": [],
+                            "referencedDeclaration": 29335,
+                            "src": "722:5:31",
+                            "typeDescriptions": {
+                              "typeIdentifier": "t_array$_t_struct$_Log_$9196_memory_ptr_$dyn_memory_ptr",
+                              "typeString": "struct VmSafe.Log memory[] memory"
+                            }
+                          },
+                          "id": 29378,
+                          "indexExpression": {
+                            "id": 29377,
+                            "name": "i",
+                            "nodeType": "Identifier",
+                            "overloadedDeclarations": [],
+                            "referencedDeclaration": 29362,
+                            "src": "728:1:31",
+                            "typeDescriptions": {
+                              "typeIdentifier": "t_uint256",
+                              "typeString": "uint256"
+                            }
+                          },
+                          "isConstant": false,
+                          "isLValue": true,
+                          "isPure": false,
+                          "lValueRequested": false,
+                          "nodeType": "IndexAccess",
+                          "src": "722:8:31",
+                          "typeDescriptions": {
+                            "typeIdentifier": "t_struct$_Log_$9196_memory_ptr",
+                            "typeString": "struct VmSafe.Log memory"
+                          }
+                        },
+                        "nodeType": "VariableDeclarationStatement",
+                        "src": "698:32:31"
+                      },
+                      {
+                        "condition": {
+                          "commonType": {
+                            "typeIdentifier": "t_bool",
+                            "typeString": "bool"
+                          },
+                          "id": 29390,
+                          "isConstant": false,
+                          "isLValue": false,
+                          "isPure": false,
+                          "lValueRequested": false,
+                          "leftExpression": {
+                            "commonType": {
+                              "typeIdentifier": "t_address",
+                              "typeString": "address"
+                            },
+                            "id": 29383,
+                            "isConstant": false,
+                            "isLValue": false,
+                            "isPure": false,
+                            "lValueRequested": false,
+                            "leftExpression": {
+                              "expression": {
+                                "id": 29380,
+                                "name": "log",
+                                "nodeType": "Identifier",
+                                "overloadedDeclarations": [],
+                                "referencedDeclaration": 29375,
+                                "src": "749:3:31",
+                                "typeDescriptions": {
+                                  "typeIdentifier": "t_struct$_Log_$9196_memory_ptr",
+                                  "typeString": "struct VmSafe.Log memory"
+                                }
+                              },
+                              "id": 29381,
+                              "isConstant": false,
+                              "isLValue": true,
+                              "isPure": false,
+                              "lValueRequested": false,
+                              "memberLocation": "753:7:31",
+                              "memberName": "emitter",
+                              "nodeType": "MemberAccess",
+                              "referencedDeclaration": 9195,
+                              "src": "749:11:31",
+                              "typeDescriptions": {
+                                "typeIdentifier": "t_address",
+                                "typeString": "address"
+                              }
+                            },
+                            "nodeType": "BinaryOperation",
+                            "operator": "==",
+                            "rightExpression": {
+                              "id": 29382,
+                              "name": "_emitter",
+                              "nodeType": "Identifier",
+                              "overloadedDeclarations": [],
+                              "referencedDeclaration": 29339,
+                              "src": "764:8:31",
+                              "typeDescriptions": {
+                                "typeIdentifier": "t_address",
+                                "typeString": "address"
+                              }
+                            },
+                            "src": "749:23:31",
+                            "typeDescriptions": {
+                              "typeIdentifier": "t_bool",
+                              "typeString": "bool"
+                            }
+                          },
+                          "nodeType": "BinaryOperation",
+                          "operator": "&&",
+                          "rightExpression": {
+                            "commonType": {
+                              "typeIdentifier": "t_bytes32",
+                              "typeString": "bytes32"
+                            },
+                            "id": 29389,
+                            "isConstant": false,
+                            "isLValue": false,
+                            "isPure": false,
+                            "lValueRequested": false,
+                            "leftExpression": {
+                              "baseExpression": {
+                                "expression": {
+                                  "id": 29384,
+                                  "name": "log",
+                                  "nodeType": "Identifier",
+                                  "overloadedDeclarations": [],
+                                  "referencedDeclaration": 29375,
+                                  "src": "776:3:31",
+                                  "typeDescriptions": {
+                                    "typeIdentifier": "t_struct$_Log_$9196_memory_ptr",
+                                    "typeString": "struct VmSafe.Log memory"
+                                  }
+                                },
+                                "id": 29385,
+                                "isConstant": false,
+                                "isLValue": true,
+                                "isPure": false,
+                                "lValueRequested": false,
+                                "memberLocation": "780:6:31",
+                                "memberName": "topics",
+                                "nodeType": "MemberAccess",
+                                "referencedDeclaration": 9191,
+                                "src": "776:10:31",
+                                "typeDescriptions": {
+                                  "typeIdentifier": "t_array$_t_bytes32_$dyn_memory_ptr",
+                                  "typeString": "bytes32[] memory"
+                                }
+                              },
+                              "id": 29387,
+                              "indexExpression": {
+                                "hexValue": "30",
+                                "id": 29386,
+                                "isConstant": false,
+                                "isLValue": false,
+                                "isPure": true,
+                                "kind": "number",
+                                "lValueRequested": false,
+                                "nodeType": "Literal",
+                                "src": "787:1:31",
+                                "typeDescriptions": {
+                                  "typeIdentifier": "t_rational_0_by_1",
+                                  "typeString": "int_const 0"
+                                },
+                                "value": "0"
+                              },
+                              "isConstant": false,
+                              "isLValue": true,
+                              "isPure": false,
+                              "lValueRequested": false,
+                              "nodeType": "IndexAccess",
+                              "src": "776:13:31",
+                              "typeDescriptions": {
+                                "typeIdentifier": "t_bytes32",
+                                "typeString": "bytes32"
+                              }
+                            },
+                            "nodeType": "BinaryOperation",
+                            "operator": "==",
+                            "rightExpression": {
+                              "id": 29388,
+                              "name": "_selector",
+                              "nodeType": "Identifier",
+                              "overloadedDeclarations": [],
+                              "referencedDeclaration": 29337,
+                              "src": "793:9:31",
+                              "typeDescriptions": {
+                                "typeIdentifier": "t_bytes32",
+                                "typeString": "bytes32"
+                              }
+                            },
+                            "src": "776:26:31",
+                            "typeDescriptions": {
+                              "typeIdentifier": "t_bool",
+                              "typeString": "bool"
+                            }
+                          },
+                          "src": "749:53:31",
+                          "typeDescriptions": {
+                            "typeIdentifier": "t_bool",
+                            "typeString": "bool"
+                          }
+                        },
+                        "id": 29401,
+                        "nodeType": "IfStatement",
+                        "src": "745:145:31",
+                        "trueBody": {
+                          "id": 29400,
+                          "nodeType": "Block",
+                          "src": "804:86:31",
+                          "statements": [
+                            {
+                              "expression": {
+                                "id": 29395,
+                                "isConstant": false,
+                                "isLValue": false,
+                                "isPure": false,
+                                "lValueRequested": false,
+                                "leftHandSide": {
+                                  "baseExpression": {
+                                    "id": 29391,
+                                    "name": "logsMatch",
+                                    "nodeType": "Identifier",
+                                    "overloadedDeclarations": [],
+                                    "referencedDeclaration": 29353,
+                                    "src": "822:9:31",
+                                    "typeDescriptions": {
+                                      "typeIdentifier": "t_array$_t_bool_$dyn_memory_ptr",
+                                      "typeString": "bool[] memory"
+                                    }
+                                  },
+                                  "id": 29393,
+                                  "indexExpression": {
+                                    "id": 29392,
+                                    "name": "i",
+                                    "nodeType": "Identifier",
+                                    "overloadedDeclarations": [],
+                                    "referencedDeclaration": 29362,
+                                    "src": "832:1:31",
+                                    "typeDescriptions": {
+                                      "typeIdentifier": "t_uint256",
+                                      "typeString": "uint256"
+                                    }
+                                  },
+                                  "isConstant": false,
+                                  "isLValue": true,
+                                  "isPure": false,
+                                  "lValueRequested": true,
+                                  "nodeType": "IndexAccess",
+                                  "src": "822:12:31",
+                                  "typeDescriptions": {
+                                    "typeIdentifier": "t_bool",
+                                    "typeString": "bool"
+                                  }
+                                },
+                                "nodeType": "Assignment",
+                                "operator": "=",
+                                "rightHandSide": {
+                                  "hexValue": "74727565",
+                                  "id": 29394,
+                                  "isConstant": false,
+                                  "isLValue": false,
+                                  "isPure": true,
+                                  "kind": "bool",
+                                  "lValueRequested": false,
+                                  "nodeType": "Literal",
+                                  "src": "837:4:31",
+                                  "typeDescriptions": {
+                                    "typeIdentifier": "t_bool",
+                                    "typeString": "bool"
+                                  },
+                                  "value": "true"
+                                },
+                                "src": "822:19:31",
+                                "typeDescriptions": {
+                                  "typeIdentifier": "t_bool",
+                                  "typeString": "bool"
+                                }
+                              },
+                              "id": 29396,
+                              "nodeType": "ExpressionStatement",
+                              "src": "822:19:31"
+                            },
+                            {
+                              "expression": {
+                                "id": 29398,
+                                "isConstant": false,
+                                "isLValue": false,
+                                "isPure": false,
+                                "lValueRequested": false,
+                                "nodeType": "UnaryOperation",
+                                "operator": "++",
+                                "prefix": false,
+                                "src": "859:16:31",
+                                "subExpression": {
+                                  "id": 29397,
+                                  "name": "logsMatchCount",
+                                  "nodeType": "Identifier",
+                                  "overloadedDeclarations": [],
+                                  "referencedDeclaration": 29347,
+                                  "src": "859:14:31",
+                                  "typeDescriptions": {
+                                    "typeIdentifier": "t_uint256",
+                                    "typeString": "uint256"
+                                  }
+                                },
+                                "typeDescriptions": {
+                                  "typeIdentifier": "t_uint256",
+                                  "typeString": "uint256"
+                                }
+                              },
+                              "id": 29399,
+                              "nodeType": "ExpressionStatement",
+                              "src": "859:16:31"
+                            }
+                          ]
+                        }
+                      }
+                    ]
+                  },
+                  "condition": {
+                    "commonType": {
+                      "typeIdentifier": "t_uint256",
+                      "typeString": "uint256"
+                    },
+                    "id": 29367,
+                    "isConstant": false,
+                    "isLValue": false,
+                    "isPure": false,
+                    "lValueRequested": false,
+                    "leftExpression": {
+                      "id": 29364,
+                      "name": "i",
+                      "nodeType": "Identifier",
+                      "overloadedDeclarations": [],
+                      "referencedDeclaration": 29362,
+                      "src": "661:1:31",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_uint256",
+                        "typeString": "uint256"
+                      }
+                    },
+                    "nodeType": "BinaryOperation",
+                    "operator": "<",
+                    "rightExpression": {
+                      "expression": {
+                        "id": 29365,
+                        "name": "_logs",
+                        "nodeType": "Identifier",
+                        "overloadedDeclarations": [],
+                        "referencedDeclaration": 29335,
+                        "src": "665:5:31",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_array$_t_struct$_Log_$9196_memory_ptr_$dyn_memory_ptr",
+                          "typeString": "struct VmSafe.Log memory[] memory"
+                        }
+                      },
+                      "id": 29366,
+                      "isConstant": false,
+                      "isLValue": false,
+                      "isPure": false,
+                      "lValueRequested": false,
+                      "memberLocation": "671:6:31",
+                      "memberName": "length",
+                      "nodeType": "MemberAccess",
+                      "src": "665:12:31",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_uint256",
+                        "typeString": "uint256"
+                      }
+                    },
+                    "src": "661:16:31",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_bool",
+                      "typeString": "bool"
+                    }
+                  },
+                  "id": 29403,
+                  "initializationExpression": {
+                    "assignments": [
+                      29362
+                    ],
+                    "declarations": [
+                      {
+                        "constant": false,
+                        "id": 29362,
+                        "mutability": "mutable",
+                        "name": "i",
+                        "nameLocation": "658:1:31",
+                        "nodeType": "VariableDeclaration",
+                        "scope": 29403,
+                        "src": "650:9:31",
+                        "stateVariable": false,
+                        "storageLocation": "default",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_uint256",
+                          "typeString": "uint256"
+                        },
+                        "typeName": {
+                          "id": 29361,
+                          "name": "uint256",
+                          "nodeType": "ElementaryTypeName",
+                          "src": "650:7:31",
+                          "typeDescriptions": {
+                            "typeIdentifier": "t_uint256",
+                            "typeString": "uint256"
+                          }
+                        },
+                        "visibility": "internal"
+                      }
+                    ],
+                    "id": 29363,
+                    "nodeType": "VariableDeclarationStatement",
+                    "src": "650:9:31"
+                  },
+                  "loopExpression": {
+                    "expression": {
+                      "id": 29369,
+                      "isConstant": false,
+                      "isLValue": false,
+                      "isPure": false,
+                      "lValueRequested": false,
+                      "nodeType": "UnaryOperation",
+                      "operator": "++",
+                      "prefix": false,
+                      "src": "679:3:31",
+                      "subExpression": {
+                        "id": 29368,
+                        "name": "i",
+                        "nodeType": "Identifier",
+                        "overloadedDeclarations": [],
+                        "referencedDeclaration": 29362,
+                        "src": "679:1:31",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_uint256",
+                          "typeString": "uint256"
+                        }
+                      },
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_uint256",
+                        "typeString": "uint256"
+                      }
+                    },
+                    "id": 29370,
+                    "nodeType": "ExpressionStatement",
+                    "src": "679:3:31"
+                  },
+                  "nodeType": "ForStatement",
+                  "src": "645:255:31"
+                },
+                {
+                  "expression": {
+                    "id": 29411,
+                    "isConstant": false,
+                    "isLValue": false,
+                    "isPure": false,
+                    "lValueRequested": false,
+                    "leftHandSide": {
+                      "id": 29404,
+                      "name": "logsWithSelector_",
+                      "nodeType": "Identifier",
+                      "overloadedDeclarations": [],
+                      "referencedDeclaration": 29344,
+                      "src": "910:17:31",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_array$_t_struct$_Log_$9196_memory_ptr_$dyn_memory_ptr",
+                        "typeString": "struct VmSafe.Log memory[] memory"
+                      }
+                    },
+                    "nodeType": "Assignment",
+                    "operator": "=",
+                    "rightHandSide": {
+                      "arguments": [
+                        {
+                          "id": 29409,
+                          "name": "logsMatchCount",
+                          "nodeType": "Identifier",
+                          "overloadedDeclarations": [],
+                          "referencedDeclaration": 29347,
+                          "src": "947:14:31",
+                          "typeDescriptions": {
+                            "typeIdentifier": "t_uint256",
+                            "typeString": "uint256"
+                          }
+                        }
+                      ],
+                      "expression": {
+                        "argumentTypes": [
+                          {
+                            "typeIdentifier": "t_uint256",
+                            "typeString": "uint256"
+                          }
+                        ],
+                        "id": 29408,
+                        "isConstant": false,
+                        "isLValue": false,
+                        "isPure": true,
+                        "lValueRequested": false,
+                        "nodeType": "NewExpression",
+                        "src": "930:16:31",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_function_objectcreation_pure$_t_uint256_$returns$_t_array$_t_struct$_Log_$9196_memory_ptr_$dyn_memory_ptr_$",
+                          "typeString": "function (uint256) pure returns (struct VmSafe.Log memory[] memory)"
+                        },
+                        "typeName": {
+                          "baseType": {
+                            "id": 29406,
+                            "nodeType": "UserDefinedTypeName",
+                            "pathNode": {
+                              "id": 29405,
+                              "name": "VmSafe.Log",
+                              "nameLocations": [
+                                "934:6:31",
+                                "941:3:31"
+                              ],
+                              "nodeType": "IdentifierPath",
+                              "referencedDeclaration": 9196,
+                              "src": "934:10:31"
+                            },
+                            "referencedDeclaration": 9196,
+                            "src": "934:10:31",
+                            "typeDescriptions": {
+                              "typeIdentifier": "t_struct$_Log_$9196_storage_ptr",
+                              "typeString": "struct VmSafe.Log"
+                            }
+                          },
+                          "id": 29407,
+                          "nodeType": "ArrayTypeName",
+                          "src": "934:12:31",
+                          "typeDescriptions": {
+                            "typeIdentifier": "t_array$_t_struct$_Log_$9196_storage_$dyn_storage_ptr",
+                            "typeString": "struct VmSafe.Log[]"
+                          }
+                        }
+                      },
+                      "id": 29410,
+                      "isConstant": false,
+                      "isLValue": false,
+                      "isPure": false,
+                      "kind": "functionCall",
+                      "lValueRequested": false,
+                      "nameLocations": [],
+                      "names": [],
+                      "nodeType": "FunctionCall",
+                      "src": "930:32:31",
+                      "tryCall": false,
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_array$_t_struct$_Log_$9196_memory_ptr_$dyn_memory_ptr",
+                        "typeString": "struct VmSafe.Log memory[] memory"
+                      }
+                    },
+                    "src": "910:52:31",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_array$_t_struct$_Log_$9196_memory_ptr_$dyn_memory_ptr",
+                      "typeString": "struct VmSafe.Log memory[] memory"
+                    }
+                  },
+                  "id": 29412,
+                  "nodeType": "ExpressionStatement",
+                  "src": "910:52:31"
+                },
+                {
+                  "assignments": [
+                    29414
+                  ],
+                  "declarations": [
+                    {
+                      "constant": false,
+                      "id": 29414,
+                      "mutability": "mutable",
+                      "name": "logsWithSelectorIndex",
+                      "nameLocation": "980:21:31",
+                      "nodeType": "VariableDeclaration",
+                      "scope": 29446,
+                      "src": "972:29:31",
+                      "stateVariable": false,
+                      "storageLocation": "default",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_uint256",
+                        "typeString": "uint256"
+                      },
+                      "typeName": {
+                        "id": 29413,
+                        "name": "uint256",
+                        "nodeType": "ElementaryTypeName",
+                        "src": "972:7:31",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_uint256",
+                          "typeString": "uint256"
+                        }
+                      },
+                      "visibility": "internal"
+                    }
+                  ],
+                  "id": 29415,
+                  "nodeType": "VariableDeclarationStatement",
+                  "src": "972:29:31"
+                },
+                {
+                  "body": {
+                    "id": 29442,
+                    "nodeType": "Block",
+                    "src": "1050:168:31",
+                    "statements": [
+                      {
+                        "condition": {
+                          "baseExpression": {
+                            "id": 29426,
+                            "name": "logsMatch",
+                            "nodeType": "Identifier",
+                            "overloadedDeclarations": [],
+                            "referencedDeclaration": 29353,
+                            "src": "1068:9:31",
+                            "typeDescriptions": {
+                              "typeIdentifier": "t_array$_t_bool_$dyn_memory_ptr",
+                              "typeString": "bool[] memory"
+                            }
+                          },
+                          "id": 29428,
+                          "indexExpression": {
+                            "id": 29427,
+                            "name": "i",
+                            "nodeType": "Identifier",
+                            "overloadedDeclarations": [],
+                            "referencedDeclaration": 29417,
+                            "src": "1078:1:31",
+                            "typeDescriptions": {
+                              "typeIdentifier": "t_uint256",
+                              "typeString": "uint256"
+                            }
+                          },
+                          "isConstant": false,
+                          "isLValue": true,
+                          "isPure": false,
+                          "lValueRequested": false,
+                          "nodeType": "IndexAccess",
+                          "src": "1068:12:31",
+                          "typeDescriptions": {
+                            "typeIdentifier": "t_bool",
+                            "typeString": "bool"
+                          }
+                        },
+                        "id": 29441,
+                        "nodeType": "IfStatement",
+                        "src": "1064:144:31",
+                        "trueBody": {
+                          "id": 29440,
+                          "nodeType": "Block",
+                          "src": "1082:126:31",
+                          "statements": [
+                            {
+                              "expression": {
+                                "id": 29435,
+                                "isConstant": false,
+                                "isLValue": false,
+                                "isPure": false,
+                                "lValueRequested": false,
+                                "leftHandSide": {
+                                  "baseExpression": {
+                                    "id": 29429,
+                                    "name": "logsWithSelector_",
+                                    "nodeType": "Identifier",
+                                    "overloadedDeclarations": [],
+                                    "referencedDeclaration": 29344,
+                                    "src": "1100:17:31",
+                                    "typeDescriptions": {
+                                      "typeIdentifier": "t_array$_t_struct$_Log_$9196_memory_ptr_$dyn_memory_ptr",
+                                      "typeString": "struct VmSafe.Log memory[] memory"
+                                    }
+                                  },
+                                  "id": 29431,
+                                  "indexExpression": {
+                                    "id": 29430,
+                                    "name": "logsWithSelectorIndex",
+                                    "nodeType": "Identifier",
+                                    "overloadedDeclarations": [],
+                                    "referencedDeclaration": 29414,
+                                    "src": "1118:21:31",
+                                    "typeDescriptions": {
+                                      "typeIdentifier": "t_uint256",
+                                      "typeString": "uint256"
+                                    }
+                                  },
+                                  "isConstant": false,
+                                  "isLValue": true,
+                                  "isPure": false,
+                                  "lValueRequested": true,
+                                  "nodeType": "IndexAccess",
+                                  "src": "1100:40:31",
+                                  "typeDescriptions": {
+                                    "typeIdentifier": "t_struct$_Log_$9196_memory_ptr",
+                                    "typeString": "struct VmSafe.Log memory"
+                                  }
+                                },
+                                "nodeType": "Assignment",
+                                "operator": "=",
+                                "rightHandSide": {
+                                  "baseExpression": {
+                                    "id": 29432,
+                                    "name": "_logs",
+                                    "nodeType": "Identifier",
+                                    "overloadedDeclarations": [],
+                                    "referencedDeclaration": 29335,
+                                    "src": "1143:5:31",
+                                    "typeDescriptions": {
+                                      "typeIdentifier": "t_array$_t_struct$_Log_$9196_memory_ptr_$dyn_memory_ptr",
+                                      "typeString": "struct VmSafe.Log memory[] memory"
+                                    }
+                                  },
+                                  "id": 29434,
+                                  "indexExpression": {
+                                    "id": 29433,
+                                    "name": "i",
+                                    "nodeType": "Identifier",
+                                    "overloadedDeclarations": [],
+                                    "referencedDeclaration": 29417,
+                                    "src": "1149:1:31",
+                                    "typeDescriptions": {
+                                      "typeIdentifier": "t_uint256",
+                                      "typeString": "uint256"
+                                    }
+                                  },
+                                  "isConstant": false,
+                                  "isLValue": true,
+                                  "isPure": false,
+                                  "lValueRequested": false,
+                                  "nodeType": "IndexAccess",
+                                  "src": "1143:8:31",
+                                  "typeDescriptions": {
+                                    "typeIdentifier": "t_struct$_Log_$9196_memory_ptr",
+                                    "typeString": "struct VmSafe.Log memory"
+                                  }
+                                },
+                                "src": "1100:51:31",
+                                "typeDescriptions": {
+                                  "typeIdentifier": "t_struct$_Log_$9196_memory_ptr",
+                                  "typeString": "struct VmSafe.Log memory"
+                                }
+                              },
+                              "id": 29436,
+                              "nodeType": "ExpressionStatement",
+                              "src": "1100:51:31"
+                            },
+                            {
+                              "expression": {
+                                "id": 29438,
+                                "isConstant": false,
+                                "isLValue": false,
+                                "isPure": false,
+                                "lValueRequested": false,
+                                "nodeType": "UnaryOperation",
+                                "operator": "++",
+                                "prefix": false,
+                                "src": "1170:23:31",
+                                "subExpression": {
+                                  "id": 29437,
+                                  "name": "logsWithSelectorIndex",
+                                  "nodeType": "Identifier",
+                                  "overloadedDeclarations": [],
+                                  "referencedDeclaration": 29414,
+                                  "src": "1170:21:31",
+                                  "typeDescriptions": {
+                                    "typeIdentifier": "t_uint256",
+                                    "typeString": "uint256"
+                                  }
+                                },
+                                "typeDescriptions": {
+                                  "typeIdentifier": "t_uint256",
+                                  "typeString": "uint256"
+                                }
+                              },
+                              "id": 29439,
+                              "nodeType": "ExpressionStatement",
+                              "src": "1170:23:31"
+                            }
+                          ]
+                        }
+                      }
+                    ]
+                  },
+                  "condition": {
+                    "commonType": {
+                      "typeIdentifier": "t_uint256",
+                      "typeString": "uint256"
+                    },
+                    "id": 29422,
+                    "isConstant": false,
+                    "isLValue": false,
+                    "isPure": false,
+                    "lValueRequested": false,
+                    "leftExpression": {
+                      "id": 29419,
+                      "name": "i",
+                      "nodeType": "Identifier",
+                      "overloadedDeclarations": [],
+                      "referencedDeclaration": 29417,
+                      "src": "1027:1:31",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_uint256",
+                        "typeString": "uint256"
+                      }
+                    },
+                    "nodeType": "BinaryOperation",
+                    "operator": "<",
+                    "rightExpression": {
+                      "expression": {
+                        "id": 29420,
+                        "name": "_logs",
+                        "nodeType": "Identifier",
+                        "overloadedDeclarations": [],
+                        "referencedDeclaration": 29335,
+                        "src": "1031:5:31",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_array$_t_struct$_Log_$9196_memory_ptr_$dyn_memory_ptr",
+                          "typeString": "struct VmSafe.Log memory[] memory"
+                        }
+                      },
+                      "id": 29421,
+                      "isConstant": false,
+                      "isLValue": false,
+                      "isPure": false,
+                      "lValueRequested": false,
+                      "memberLocation": "1037:6:31",
+                      "memberName": "length",
+                      "nodeType": "MemberAccess",
+                      "src": "1031:12:31",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_uint256",
+                        "typeString": "uint256"
+                      }
+                    },
+                    "src": "1027:16:31",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_bool",
+                      "typeString": "bool"
+                    }
+                  },
+                  "id": 29443,
+                  "initializationExpression": {
+                    "assignments": [
+                      29417
+                    ],
+                    "declarations": [
+                      {
+                        "constant": false,
+                        "id": 29417,
+                        "mutability": "mutable",
+                        "name": "i",
+                        "nameLocation": "1024:1:31",
+                        "nodeType": "VariableDeclaration",
+                        "scope": 29443,
+                        "src": "1016:9:31",
+                        "stateVariable": false,
+                        "storageLocation": "default",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_uint256",
+                          "typeString": "uint256"
+                        },
+                        "typeName": {
+                          "id": 29416,
+                          "name": "uint256",
+                          "nodeType": "ElementaryTypeName",
+                          "src": "1016:7:31",
+                          "typeDescriptions": {
+                            "typeIdentifier": "t_uint256",
+                            "typeString": "uint256"
+                          }
+                        },
+                        "visibility": "internal"
+                      }
+                    ],
+                    "id": 29418,
+                    "nodeType": "VariableDeclarationStatement",
+                    "src": "1016:9:31"
+                  },
+                  "loopExpression": {
+                    "expression": {
+                      "id": 29424,
+                      "isConstant": false,
+                      "isLValue": false,
+                      "isPure": false,
+                      "lValueRequested": false,
+                      "nodeType": "UnaryOperation",
+                      "operator": "++",
+                      "prefix": false,
+                      "src": "1045:3:31",
+                      "subExpression": {
+                        "id": 29423,
+                        "name": "i",
+                        "nodeType": "Identifier",
+                        "overloadedDeclarations": [],
+                        "referencedDeclaration": 29417,
+                        "src": "1045:1:31",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_uint256",
+                          "typeString": "uint256"
+                        }
+                      },
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_uint256",
+                        "typeString": "uint256"
+                      }
+                    },
+                    "id": 29425,
+                    "nodeType": "ExpressionStatement",
+                    "src": "1045:3:31"
+                  },
+                  "nodeType": "ForStatement",
+                  "src": "1011:207:31"
+                },
+                {
+                  "expression": {
+                    "id": 29444,
+                    "name": "logsWithSelector_",
+                    "nodeType": "Identifier",
+                    "overloadedDeclarations": [],
+                    "referencedDeclaration": 29344,
+                    "src": "1235:17:31",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_array$_t_struct$_Log_$9196_memory_ptr_$dyn_memory_ptr",
+                      "typeString": "struct VmSafe.Log memory[] memory"
+                    }
+                  },
+                  "functionReturnParameters": 29345,
+                  "id": 29445,
+                  "nodeType": "Return",
+                  "src": "1228:24:31"
+                }
+              ]
+            },
+            "functionSelector": "58d6e34d",
+            "implemented": true,
+            "kind": "function",
+            "modifiers": [],
+            "name": "filterLogsMatchingSelector",
+            "nameLocation": "362:26:31",
+            "parameters": {
+              "id": 29340,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 29335,
+                  "mutability": "mutable",
+                  "name": "_logs",
+                  "nameLocation": "418:5:31",
+                  "nodeType": "VariableDeclaration",
+                  "scope": 29447,
+                  "src": "398:25:31",
+                  "stateVariable": false,
+                  "storageLocation": "memory",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_array$_t_struct$_Log_$9196_memory_ptr_$dyn_memory_ptr",
+                    "typeString": "struct VmSafe.Log[]"
+                  },
+                  "typeName": {
+                    "baseType": {
+                      "id": 29333,
+                      "nodeType": "UserDefinedTypeName",
+                      "pathNode": {
+                        "id": 29332,
+                        "name": "VmSafe.Log",
+                        "nameLocations": [
+                          "398:6:31",
+                          "405:3:31"
+                        ],
+                        "nodeType": "IdentifierPath",
+                        "referencedDeclaration": 9196,
+                        "src": "398:10:31"
+                      },
+                      "referencedDeclaration": 9196,
+                      "src": "398:10:31",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_struct$_Log_$9196_storage_ptr",
+                        "typeString": "struct VmSafe.Log"
+                      }
+                    },
+                    "id": 29334,
+                    "nodeType": "ArrayTypeName",
+                    "src": "398:12:31",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_array$_t_struct$_Log_$9196_storage_$dyn_storage_ptr",
+                      "typeString": "struct VmSafe.Log[]"
+                    }
+                  },
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 29337,
+                  "mutability": "mutable",
+                  "name": "_selector",
+                  "nameLocation": "441:9:31",
+                  "nodeType": "VariableDeclaration",
+                  "scope": 29447,
+                  "src": "433:17:31",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_bytes32",
+                    "typeString": "bytes32"
+                  },
+                  "typeName": {
+                    "id": 29336,
+                    "name": "bytes32",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "433:7:31",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_bytes32",
+                      "typeString": "bytes32"
+                    }
+                  },
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 29339,
+                  "mutability": "mutable",
+                  "name": "_emitter",
+                  "nameLocation": "468:8:31",
+                  "nodeType": "VariableDeclaration",
+                  "scope": 29447,
+                  "src": "460:16:31",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 29338,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "460:7:31",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "visibility": "internal"
+                }
+              ],
+              "src": "388:94:31"
+            },
+            "returnParameters": {
+              "id": 29345,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 29344,
+                  "mutability": "mutable",
+                  "name": "logsWithSelector_",
+                  "nameLocation": "524:17:31",
+                  "nodeType": "VariableDeclaration",
+                  "scope": 29447,
+                  "src": "504:37:31",
+                  "stateVariable": false,
+                  "storageLocation": "memory",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_array$_t_struct$_Log_$9196_memory_ptr_$dyn_memory_ptr",
+                    "typeString": "struct VmSafe.Log[]"
+                  },
+                  "typeName": {
+                    "baseType": {
+                      "id": 29342,
+                      "nodeType": "UserDefinedTypeName",
+                      "pathNode": {
+                        "id": 29341,
+                        "name": "VmSafe.Log",
+                        "nameLocations": [
+                          "504:6:31",
+                          "511:3:31"
+                        ],
+                        "nodeType": "IdentifierPath",
+                        "referencedDeclaration": 9196,
+                        "src": "504:10:31"
+                      },
+                      "referencedDeclaration": 9196,
+                      "src": "504:10:31",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_struct$_Log_$9196_storage_ptr",
+                        "typeString": "struct VmSafe.Log"
+                      }
+                    },
+                    "id": 29343,
+                    "nodeType": "ArrayTypeName",
+                    "src": "504:12:31",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_array$_t_struct$_Log_$9196_storage_$dyn_storage_ptr",
+                      "typeString": "struct VmSafe.Log[]"
+                    }
+                  },
+                  "visibility": "internal"
+                }
+              ],
+              "src": "503:39:31"
+            },
+            "scope": 29512,
+            "stateMutability": "pure",
+            "virtual": false,
+            "visibility": "public"
+          },
+          {
+            "id": 29479,
+            "nodeType": "FunctionDefinition",
+            "src": "1265:374:31",
+            "nodes": [],
+            "body": {
+              "id": 29478,
+              "nodeType": "Block",
+              "src": "1409:230:31",
+              "nodes": [],
+              "statements": [
+                {
+                  "assignments": [
+                    29463
+                  ],
+                  "declarations": [
+                    {
+                      "constant": false,
+                      "id": 29463,
+                      "mutability": "mutable",
+                      "name": "logsWithSelector",
+                      "nameLocation": "1439:16:31",
+                      "nodeType": "VariableDeclaration",
+                      "scope": 29478,
+                      "src": "1419:36:31",
+                      "stateVariable": false,
+                      "storageLocation": "memory",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_array$_t_struct$_Log_$9196_memory_ptr_$dyn_memory_ptr",
+                        "typeString": "struct VmSafe.Log[]"
+                      },
+                      "typeName": {
+                        "baseType": {
+                          "id": 29461,
+                          "nodeType": "UserDefinedTypeName",
+                          "pathNode": {
+                            "id": 29460,
+                            "name": "VmSafe.Log",
+                            "nameLocations": [
+                              "1419:6:31",
+                              "1426:3:31"
+                            ],
+                            "nodeType": "IdentifierPath",
+                            "referencedDeclaration": 9196,
+                            "src": "1419:10:31"
+                          },
+                          "referencedDeclaration": 9196,
+                          "src": "1419:10:31",
+                          "typeDescriptions": {
+                            "typeIdentifier": "t_struct$_Log_$9196_storage_ptr",
+                            "typeString": "struct VmSafe.Log"
+                          }
+                        },
+                        "id": 29462,
+                        "nodeType": "ArrayTypeName",
+                        "src": "1419:12:31",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_array$_t_struct$_Log_$9196_storage_$dyn_storage_ptr",
+                          "typeString": "struct VmSafe.Log[]"
+                        }
+                      },
+                      "visibility": "internal"
+                    }
+                  ],
+                  "id": 29469,
+                  "initialValue": {
+                    "arguments": [
+                      {
+                        "id": 29465,
+                        "name": "_logs",
+                        "nodeType": "Identifier",
+                        "overloadedDeclarations": [],
+                        "referencedDeclaration": 29451,
+                        "src": "1498:5:31",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_array$_t_struct$_Log_$9196_memory_ptr_$dyn_memory_ptr",
+                          "typeString": "struct VmSafe.Log memory[] memory"
+                        }
+                      },
+                      {
+                        "id": 29466,
+                        "name": "_selector",
+                        "nodeType": "Identifier",
+                        "overloadedDeclarations": [],
+                        "referencedDeclaration": 29453,
+                        "src": "1517:9:31",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_bytes32",
+                          "typeString": "bytes32"
+                        }
+                      },
+                      {
+                        "id": 29467,
+                        "name": "_emitter",
+                        "nodeType": "Identifier",
+                        "overloadedDeclarations": [],
+                        "referencedDeclaration": 29455,
+                        "src": "1540:8:31",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_address",
+                          "typeString": "address"
+                        }
+                      }
+                    ],
+                    "expression": {
+                      "argumentTypes": [
+                        {
+                          "typeIdentifier": "t_array$_t_struct$_Log_$9196_memory_ptr_$dyn_memory_ptr",
+                          "typeString": "struct VmSafe.Log memory[] memory"
+                        },
+                        {
+                          "typeIdentifier": "t_bytes32",
+                          "typeString": "bytes32"
+                        },
+                        {
+                          "typeIdentifier": "t_address",
+                          "typeString": "address"
+                        }
+                      ],
+                      "id": 29464,
+                      "name": "filterLogsMatchingSelector",
+                      "nodeType": "Identifier",
+                      "overloadedDeclarations": [],
+                      "referencedDeclaration": 29447,
+                      "src": "1458:26:31",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_function_internal_pure$_t_array$_t_struct$_Log_$9196_memory_ptr_$dyn_memory_ptr_$_t_bytes32_$_t_address_$returns$_t_array$_t_struct$_Log_$9196_memory_ptr_$dyn_memory_ptr_$",
+                        "typeString": "function (struct VmSafe.Log memory[] memory,bytes32,address) pure returns (struct VmSafe.Log memory[] memory)"
+                      }
+                    },
+                    "id": 29468,
+                    "isConstant": false,
+                    "isLValue": false,
+                    "isPure": false,
+                    "kind": "functionCall",
+                    "lValueRequested": false,
+                    "nameLocations": [],
+                    "names": [],
+                    "nodeType": "FunctionCall",
+                    "src": "1458:100:31",
+                    "tryCall": false,
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_array$_t_struct$_Log_$9196_memory_ptr_$dyn_memory_ptr",
+                      "typeString": "struct VmSafe.Log memory[] memory"
+                    }
+                  },
+                  "nodeType": "VariableDeclarationStatement",
+                  "src": "1419:139:31"
+                },
+                {
+                  "expression": {
+                    "arguments": [
+                      {
+                        "commonType": {
+                          "typeIdentifier": "t_uint256",
+                          "typeString": "uint256"
+                        },
+                        "id": 29474,
+                        "isConstant": false,
+                        "isLValue": false,
+                        "isPure": false,
+                        "lValueRequested": false,
+                        "leftExpression": {
+                          "expression": {
+                            "id": 29471,
+                            "name": "logsWithSelector",
+                            "nodeType": "Identifier",
+                            "overloadedDeclarations": [],
+                            "referencedDeclaration": 29463,
+                            "src": "1576:16:31",
+                            "typeDescriptions": {
+                              "typeIdentifier": "t_array$_t_struct$_Log_$9196_memory_ptr_$dyn_memory_ptr",
+                              "typeString": "struct VmSafe.Log memory[] memory"
+                            }
+                          },
+                          "id": 29472,
+                          "isConstant": false,
+                          "isLValue": false,
+                          "isPure": false,
+                          "lValueRequested": false,
+                          "memberLocation": "1593:6:31",
+                          "memberName": "length",
+                          "nodeType": "MemberAccess",
+                          "src": "1576:23:31",
+                          "typeDescriptions": {
+                            "typeIdentifier": "t_uint256",
+                            "typeString": "uint256"
+                          }
+                        },
+                        "nodeType": "BinaryOperation",
+                        "operator": ">",
+                        "rightExpression": {
+                          "hexValue": "30",
+                          "id": 29473,
+                          "isConstant": false,
+                          "isLValue": false,
+                          "isPure": true,
+                          "kind": "number",
+                          "lValueRequested": false,
+                          "nodeType": "Literal",
+                          "src": "1602:1:31",
+                          "typeDescriptions": {
+                            "typeIdentifier": "t_rational_0_by_1",
+                            "typeString": "int_const 0"
+                          },
+                          "value": "0"
+                        },
+                        "src": "1576:27:31",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_bool",
+                          "typeString": "bool"
+                        }
+                      },
+                      {
+                        "hexValue": "4e6f206d61746368696e67206576656e747320666f756e64",
+                        "id": 29475,
+                        "isConstant": false,
+                        "isLValue": false,
+                        "isPure": true,
+                        "kind": "string",
+                        "lValueRequested": false,
+                        "nodeType": "Literal",
+                        "src": "1605:26:31",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_stringliteral_5cbbe9203507d087330dbef6894331e6d4f88786a97b3375a27a1fd4371531c5",
+                          "typeString": "literal_string \"No matching events found\""
+                        },
+                        "value": "No matching events found"
+                      }
+                    ],
+                    "expression": {
+                      "argumentTypes": [
+                        {
+                          "typeIdentifier": "t_bool",
+                          "typeString": "bool"
+                        },
+                        {
+                          "typeIdentifier": "t_stringliteral_5cbbe9203507d087330dbef6894331e6d4f88786a97b3375a27a1fd4371531c5",
+                          "typeString": "literal_string \"No matching events found\""
+                        }
+                      ],
+                      "id": 29470,
+                      "name": "require",
+                      "nodeType": "Identifier",
+                      "overloadedDeclarations": [
+                        -18,
+                        -18
+                      ],
+                      "referencedDeclaration": -18,
+                      "src": "1568:7:31",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_function_require_pure$_t_bool_$_t_string_memory_ptr_$returns$__$",
+                        "typeString": "function (bool,string memory) pure"
+                      }
+                    },
+                    "id": 29476,
+                    "isConstant": false,
+                    "isLValue": false,
+                    "isPure": false,
+                    "kind": "functionCall",
+                    "lValueRequested": false,
+                    "nameLocations": [],
+                    "names": [],
+                    "nodeType": "FunctionCall",
+                    "src": "1568:64:31",
+                    "tryCall": false,
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_tuple$__$",
+                      "typeString": "tuple()"
+                    }
+                  },
+                  "id": 29477,
+                  "nodeType": "ExpressionStatement",
+                  "src": "1568:64:31"
+                }
+              ]
+            },
+            "functionSelector": "05414d70",
+            "implemented": true,
+            "kind": "function",
+            "modifiers": [],
+            "name": "assertAtLeastOneEventMatches",
+            "nameLocation": "1274:28:31",
+            "parameters": {
+              "id": 29456,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 29451,
+                  "mutability": "mutable",
+                  "name": "_logs",
+                  "nameLocation": "1332:5:31",
+                  "nodeType": "VariableDeclaration",
+                  "scope": 29479,
+                  "src": "1312:25:31",
+                  "stateVariable": false,
+                  "storageLocation": "memory",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_array$_t_struct$_Log_$9196_memory_ptr_$dyn_memory_ptr",
+                    "typeString": "struct VmSafe.Log[]"
+                  },
+                  "typeName": {
+                    "baseType": {
+                      "id": 29449,
+                      "nodeType": "UserDefinedTypeName",
+                      "pathNode": {
+                        "id": 29448,
+                        "name": "VmSafe.Log",
+                        "nameLocations": [
+                          "1312:6:31",
+                          "1319:3:31"
+                        ],
+                        "nodeType": "IdentifierPath",
+                        "referencedDeclaration": 9196,
+                        "src": "1312:10:31"
+                      },
+                      "referencedDeclaration": 9196,
+                      "src": "1312:10:31",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_struct$_Log_$9196_storage_ptr",
+                        "typeString": "struct VmSafe.Log"
+                      }
+                    },
+                    "id": 29450,
+                    "nodeType": "ArrayTypeName",
+                    "src": "1312:12:31",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_array$_t_struct$_Log_$9196_storage_$dyn_storage_ptr",
+                      "typeString": "struct VmSafe.Log[]"
+                    }
+                  },
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 29453,
+                  "mutability": "mutable",
+                  "name": "_selector",
+                  "nameLocation": "1355:9:31",
+                  "nodeType": "VariableDeclaration",
+                  "scope": 29479,
+                  "src": "1347:17:31",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_bytes32",
+                    "typeString": "bytes32"
+                  },
+                  "typeName": {
+                    "id": 29452,
+                    "name": "bytes32",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "1347:7:31",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_bytes32",
+                      "typeString": "bytes32"
+                    }
+                  },
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 29455,
+                  "mutability": "mutable",
+                  "name": "_emitter",
+                  "nameLocation": "1382:8:31",
+                  "nodeType": "VariableDeclaration",
+                  "scope": 29479,
+                  "src": "1374:16:31",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 29454,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "1374:7:31",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "visibility": "internal"
+                }
+              ],
+              "src": "1302:94:31"
+            },
+            "returnParameters": {
+              "id": 29457,
+              "nodeType": "ParameterList",
+              "parameters": [],
+              "src": "1409:0:31"
+            },
+            "scope": 29512,
+            "stateMutability": "pure",
+            "virtual": false,
+            "visibility": "public"
+          },
+          {
+            "id": 29511,
+            "nodeType": "FunctionDefinition",
+            "src": "1645:385:31",
+            "nodes": [],
+            "body": {
+              "id": 29510,
+              "nodeType": "Block",
+              "src": "1789:241:31",
+              "nodes": [],
+              "statements": [
+                {
+                  "assignments": [
+                    29495
+                  ],
+                  "declarations": [
+                    {
+                      "constant": false,
+                      "id": 29495,
+                      "mutability": "mutable",
+                      "name": "logsWithSelector",
+                      "nameLocation": "1819:16:31",
+                      "nodeType": "VariableDeclaration",
+                      "scope": 29510,
+                      "src": "1799:36:31",
+                      "stateVariable": false,
+                      "storageLocation": "memory",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_array$_t_struct$_Log_$9196_memory_ptr_$dyn_memory_ptr",
+                        "typeString": "struct VmSafe.Log[]"
+                      },
+                      "typeName": {
+                        "baseType": {
+                          "id": 29493,
+                          "nodeType": "UserDefinedTypeName",
+                          "pathNode": {
+                            "id": 29492,
+                            "name": "VmSafe.Log",
+                            "nameLocations": [
+                              "1799:6:31",
+                              "1806:3:31"
+                            ],
+                            "nodeType": "IdentifierPath",
+                            "referencedDeclaration": 9196,
+                            "src": "1799:10:31"
+                          },
+                          "referencedDeclaration": 9196,
+                          "src": "1799:10:31",
+                          "typeDescriptions": {
+                            "typeIdentifier": "t_struct$_Log_$9196_storage_ptr",
+                            "typeString": "struct VmSafe.Log"
+                          }
+                        },
+                        "id": 29494,
+                        "nodeType": "ArrayTypeName",
+                        "src": "1799:12:31",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_array$_t_struct$_Log_$9196_storage_$dyn_storage_ptr",
+                          "typeString": "struct VmSafe.Log[]"
+                        }
+                      },
+                      "visibility": "internal"
+                    }
+                  ],
+                  "id": 29501,
+                  "initialValue": {
+                    "arguments": [
+                      {
+                        "id": 29497,
+                        "name": "_logs",
+                        "nodeType": "Identifier",
+                        "overloadedDeclarations": [],
+                        "referencedDeclaration": 29483,
+                        "src": "1878:5:31",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_array$_t_struct$_Log_$9196_memory_ptr_$dyn_memory_ptr",
+                          "typeString": "struct VmSafe.Log memory[] memory"
+                        }
+                      },
+                      {
+                        "id": 29498,
+                        "name": "_selector",
+                        "nodeType": "Identifier",
+                        "overloadedDeclarations": [],
+                        "referencedDeclaration": 29485,
+                        "src": "1897:9:31",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_bytes32",
+                          "typeString": "bytes32"
+                        }
+                      },
+                      {
+                        "id": 29499,
+                        "name": "_emitter",
+                        "nodeType": "Identifier",
+                        "overloadedDeclarations": [],
+                        "referencedDeclaration": 29487,
+                        "src": "1920:8:31",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_address",
+                          "typeString": "address"
+                        }
+                      }
+                    ],
+                    "expression": {
+                      "argumentTypes": [
+                        {
+                          "typeIdentifier": "t_array$_t_struct$_Log_$9196_memory_ptr_$dyn_memory_ptr",
+                          "typeString": "struct VmSafe.Log memory[] memory"
+                        },
+                        {
+                          "typeIdentifier": "t_bytes32",
+                          "typeString": "bytes32"
+                        },
+                        {
+                          "typeIdentifier": "t_address",
+                          "typeString": "address"
+                        }
+                      ],
+                      "id": 29496,
+                      "name": "filterLogsMatchingSelector",
+                      "nodeType": "Identifier",
+                      "overloadedDeclarations": [],
+                      "referencedDeclaration": 29447,
+                      "src": "1838:26:31",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_function_internal_pure$_t_array$_t_struct$_Log_$9196_memory_ptr_$dyn_memory_ptr_$_t_bytes32_$_t_address_$returns$_t_array$_t_struct$_Log_$9196_memory_ptr_$dyn_memory_ptr_$",
+                        "typeString": "function (struct VmSafe.Log memory[] memory,bytes32,address) pure returns (struct VmSafe.Log memory[] memory)"
+                      }
+                    },
+                    "id": 29500,
+                    "isConstant": false,
+                    "isLValue": false,
+                    "isPure": false,
+                    "kind": "functionCall",
+                    "lValueRequested": false,
+                    "nameLocations": [],
+                    "names": [],
+                    "nodeType": "FunctionCall",
+                    "src": "1838:100:31",
+                    "tryCall": false,
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_array$_t_struct$_Log_$9196_memory_ptr_$dyn_memory_ptr",
+                      "typeString": "struct VmSafe.Log memory[] memory"
+                    }
+                  },
+                  "nodeType": "VariableDeclarationStatement",
+                  "src": "1799:139:31"
+                },
+                {
+                  "expression": {
+                    "arguments": [
+                      {
+                        "commonType": {
+                          "typeIdentifier": "t_uint256",
+                          "typeString": "uint256"
+                        },
+                        "id": 29506,
+                        "isConstant": false,
+                        "isLValue": false,
+                        "isPure": false,
+                        "lValueRequested": false,
+                        "leftExpression": {
+                          "expression": {
+                            "id": 29503,
+                            "name": "logsWithSelector",
+                            "nodeType": "Identifier",
+                            "overloadedDeclarations": [],
+                            "referencedDeclaration": 29495,
+                            "src": "1956:16:31",
+                            "typeDescriptions": {
+                              "typeIdentifier": "t_array$_t_struct$_Log_$9196_memory_ptr_$dyn_memory_ptr",
+                              "typeString": "struct VmSafe.Log memory[] memory"
+                            }
+                          },
+                          "id": 29504,
+                          "isConstant": false,
+                          "isLValue": false,
+                          "isPure": false,
+                          "lValueRequested": false,
+                          "memberLocation": "1973:6:31",
+                          "memberName": "length",
+                          "nodeType": "MemberAccess",
+                          "src": "1956:23:31",
+                          "typeDescriptions": {
+                            "typeIdentifier": "t_uint256",
+                            "typeString": "uint256"
+                          }
+                        },
+                        "nodeType": "BinaryOperation",
+                        "operator": "==",
+                        "rightExpression": {
+                          "hexValue": "31",
+                          "id": 29505,
+                          "isConstant": false,
+                          "isLValue": false,
+                          "isPure": true,
+                          "kind": "number",
+                          "lValueRequested": false,
+                          "nodeType": "Literal",
+                          "src": "1983:1:31",
+                          "typeDescriptions": {
+                            "typeIdentifier": "t_rational_1_by_1",
+                            "typeString": "int_const 1"
+                          },
+                          "value": "1"
+                        },
+                        "src": "1956:28:31",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_bool",
+                          "typeString": "bool"
+                        }
+                      },
+                      {
+                        "hexValue": "4d6f7265207468616e206f6e65206d61746368696e67206576656e7420666f756e64",
+                        "id": 29507,
+                        "isConstant": false,
+                        "isLValue": false,
+                        "isPure": true,
+                        "kind": "string",
+                        "lValueRequested": false,
+                        "nodeType": "Literal",
+                        "src": "1986:36:31",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_stringliteral_719e8491da52bf8322dfa1a19cd11c48b006bee629523432d77366dff0b49487",
+                          "typeString": "literal_string \"More than one matching event found\""
+                        },
+                        "value": "More than one matching event found"
+                      }
+                    ],
+                    "expression": {
+                      "argumentTypes": [
+                        {
+                          "typeIdentifier": "t_bool",
+                          "typeString": "bool"
+                        },
+                        {
+                          "typeIdentifier": "t_stringliteral_719e8491da52bf8322dfa1a19cd11c48b006bee629523432d77366dff0b49487",
+                          "typeString": "literal_string \"More than one matching event found\""
+                        }
+                      ],
+                      "id": 29502,
+                      "name": "require",
+                      "nodeType": "Identifier",
+                      "overloadedDeclarations": [
+                        -18,
+                        -18
+                      ],
+                      "referencedDeclaration": -18,
+                      "src": "1948:7:31",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_function_require_pure$_t_bool_$_t_string_memory_ptr_$returns$__$",
+                        "typeString": "function (bool,string memory) pure"
+                      }
+                    },
+                    "id": 29508,
+                    "isConstant": false,
+                    "isLValue": false,
+                    "isPure": false,
+                    "kind": "functionCall",
+                    "lValueRequested": false,
+                    "nameLocations": [],
+                    "names": [],
+                    "nodeType": "FunctionCall",
+                    "src": "1948:75:31",
+                    "tryCall": false,
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_tuple$__$",
+                      "typeString": "tuple()"
+                    }
+                  },
+                  "id": 29509,
+                  "nodeType": "ExpressionStatement",
+                  "src": "1948:75:31"
+                }
+              ]
+            },
+            "functionSelector": "57649ad1",
+            "implemented": true,
+            "kind": "function",
+            "modifiers": [],
+            "name": "assertExactlyOneEventMatches",
+            "nameLocation": "1654:28:31",
+            "parameters": {
+              "id": 29488,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 29483,
+                  "mutability": "mutable",
+                  "name": "_logs",
+                  "nameLocation": "1712:5:31",
+                  "nodeType": "VariableDeclaration",
+                  "scope": 29511,
+                  "src": "1692:25:31",
+                  "stateVariable": false,
+                  "storageLocation": "memory",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_array$_t_struct$_Log_$9196_memory_ptr_$dyn_memory_ptr",
+                    "typeString": "struct VmSafe.Log[]"
+                  },
+                  "typeName": {
+                    "baseType": {
+                      "id": 29481,
+                      "nodeType": "UserDefinedTypeName",
+                      "pathNode": {
+                        "id": 29480,
+                        "name": "VmSafe.Log",
+                        "nameLocations": [
+                          "1692:6:31",
+                          "1699:3:31"
+                        ],
+                        "nodeType": "IdentifierPath",
+                        "referencedDeclaration": 9196,
+                        "src": "1692:10:31"
+                      },
+                      "referencedDeclaration": 9196,
+                      "src": "1692:10:31",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_struct$_Log_$9196_storage_ptr",
+                        "typeString": "struct VmSafe.Log"
+                      }
+                    },
+                    "id": 29482,
+                    "nodeType": "ArrayTypeName",
+                    "src": "1692:12:31",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_array$_t_struct$_Log_$9196_storage_$dyn_storage_ptr",
+                      "typeString": "struct VmSafe.Log[]"
+                    }
+                  },
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 29485,
+                  "mutability": "mutable",
+                  "name": "_selector",
+                  "nameLocation": "1735:9:31",
+                  "nodeType": "VariableDeclaration",
+                  "scope": 29511,
+                  "src": "1727:17:31",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_bytes32",
+                    "typeString": "bytes32"
+                  },
+                  "typeName": {
+                    "id": 29484,
+                    "name": "bytes32",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "1727:7:31",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_bytes32",
+                      "typeString": "bytes32"
+                    }
+                  },
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 29487,
+                  "mutability": "mutable",
+                  "name": "_emitter",
+                  "nameLocation": "1762:8:31",
+                  "nodeType": "VariableDeclaration",
+                  "scope": 29511,
+                  "src": "1754:16:31",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 29486,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "1754:7:31",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "visibility": "internal"
+                }
+              ],
+              "src": "1682:94:31"
+            },
+            "returnParameters": {
+              "id": 29489,
+              "nodeType": "ParameterList",
+              "parameters": [],
+              "src": "1789:0:31"
+            },
+            "scope": 29512,
+            "stateMutability": "pure",
+            "virtual": false,
+            "visibility": "public"
+          }
+        ],
+        "abstract": true,
+        "baseContracts": [],
+        "canonicalName": "Events",
+        "contractDependencies": [],
+        "contractKind": "contract",
+        "fullyImplemented": true,
+        "linearizedBaseContracts": [
+          29512
+        ],
+        "name": "Events",
+        "nameLocation": "340:6:31",
+        "scope": 29513,
+        "usedErrors": []
+      }
+    ],
+    "license": "GPL-3.0"
+  },
+  "id": 31
+}

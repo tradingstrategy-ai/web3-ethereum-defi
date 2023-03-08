@@ -1,0 +1,254 @@
+{
+  "abi": [
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "_typeId",
+          "type": "uint256"
+        }
+      ],
+      "name": "getExternalPositionLibForType",
+      "outputs": [
+        {
+          "internalType": "address",
+          "name": "externalPositionLib_",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    }
+  ],
+  "bytecode": {
+    "object": "0x",
+    "sourceMap": "",
+    "linkReferences": {}
+  },
+  "deployedBytecode": {
+    "object": "0x",
+    "sourceMap": "",
+    "linkReferences": {}
+  },
+  "methodIdentifiers": {
+    "getExternalPositionLibForType(uint256)": "75d8bb0e"
+  },
+  "rawMetadata": "{\"compiler\":{\"version\":\"0.7.6+commit.7338295f\"},\"language\":\"Solidity\",\"output\":{\"abi\":[{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_typeId\",\"type\":\"uint256\"}],\"name\":\"getExternalPositionLibForType\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"externalPositionLib_\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"}],\"devdoc\":{\"author\":\"Enzyme Council <security@enzyme.finance> Provides an interface to get the externalPositionLib for a given type from the Vault\",\"kind\":\"dev\",\"methods\":{},\"title\":\"IExternalPositionVault interface\",\"version\":1},\"userdoc\":{\"kind\":\"user\",\"methods\":{},\"version\":1}},\"settings\":{\"compilationTarget\":{\"contracts/persistent/vault/interfaces/IExternalPositionVault.sol\":\"IExternalPositionVault\"},\"evmVersion\":\"istanbul\",\"libraries\":{},\"metadata\":{\"bytecodeHash\":\"none\"},\"optimizer\":{\"details\":{\"constantOptimizer\":true,\"cse\":true,\"deduplicate\":true,\"jumpdestRemover\":true,\"orderLiterals\":true,\"peephole\":true,\"yul\":false},\"runs\":200},\"remappings\":[\":@enzyme/=contracts/\",\":@openzeppelin-solc-0.7/=node_modules/@openzeppelin-solc-0.7/\",\":@openzeppelin/=node_modules/@openzeppelin/\",\":@uniswap/=node_modules/@uniswap/\",\":base64-sol/=node_modules/base64-sol/\",\":ds-test/=lib/forge-std/lib/ds-test/src/\",\":forge-std/=lib/forge-std/src/\",\":hardhat-deploy/=node_modules/hardhat-deploy/\",\":hardhat/=node_modules/hardhat/\"]},\"sources\":{\"contracts/persistent/vault/interfaces/IExternalPositionVault.sol\":{\"keccak256\":\"0x4290edaa41b6db843967aee744c6a1424dce099584d303662b1431a88ad7f016\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://eaf25a516152e6948045bfc42c28f4daee83f026af93fd360ea9414118469ae5\",\"dweb:/ipfs/QmeZjpFUVqKQUWYdbDMdtxWxjk1XhiR2NgeP4jMM46tdkA\"]}},\"version\":1}",
+  "metadata": {
+    "compiler": {
+      "version": "0.7.6+commit.7338295f"
+    },
+    "language": "Solidity",
+    "output": {
+      "abi": [
+        {
+          "inputs": [
+            {
+              "internalType": "uint256",
+              "name": "_typeId",
+              "type": "uint256"
+            }
+          ],
+          "stateMutability": "view",
+          "type": "function",
+          "name": "getExternalPositionLibForType",
+          "outputs": [
+            {
+              "internalType": "address",
+              "name": "externalPositionLib_",
+              "type": "address"
+            }
+          ]
+        }
+      ],
+      "devdoc": {
+        "kind": "dev",
+        "methods": {},
+        "version": 1
+      },
+      "userdoc": {
+        "kind": "user",
+        "methods": {},
+        "version": 1
+      }
+    },
+    "settings": {
+      "remappings": [
+        ":@enzyme/=contracts/",
+        ":@openzeppelin-solc-0.7/=node_modules/@openzeppelin-solc-0.7/",
+        ":@openzeppelin/=node_modules/@openzeppelin/",
+        ":@uniswap/=node_modules/@uniswap/",
+        ":base64-sol/=node_modules/base64-sol/",
+        ":ds-test/=lib/forge-std/lib/ds-test/src/",
+        ":forge-std/=lib/forge-std/src/",
+        ":hardhat-deploy/=node_modules/hardhat-deploy/",
+        ":hardhat/=node_modules/hardhat/"
+      ],
+      "optimizer": {
+        "runs": 200,
+        "details": {
+          "peephole": true,
+          "jumpdestRemover": true,
+          "orderLiterals": true,
+          "deduplicate": true,
+          "cse": true,
+          "constantOptimizer": true,
+          "yul": false
+        }
+      },
+      "metadata": {
+        "bytecodeHash": "none"
+      },
+      "compilationTarget": {
+        "contracts/persistent/vault/interfaces/IExternalPositionVault.sol": "IExternalPositionVault"
+      },
+      "libraries": {}
+    },
+    "sources": {
+      "contracts/persistent/vault/interfaces/IExternalPositionVault.sol": {
+        "keccak256": "0x4290edaa41b6db843967aee744c6a1424dce099584d303662b1431a88ad7f016",
+        "urls": [
+          "bzz-raw://eaf25a516152e6948045bfc42c28f4daee83f026af93fd360ea9414118469ae5",
+          "dweb:/ipfs/QmeZjpFUVqKQUWYdbDMdtxWxjk1XhiR2NgeP4jMM46tdkA"
+        ],
+        "license": "GPL-3.0"
+      }
+    },
+    "version": 1
+  },
+  "ast": {
+    "absolutePath": "contracts/persistent/vault/interfaces/IExternalPositionVault.sol",
+    "id": 34,
+    "exportedSymbols": {
+      "IExternalPositionVault": [
+        33
+      ]
+    },
+    "nodeType": "SourceUnit",
+    "src": "255:395:1",
+    "nodes": [
+      {
+        "id": 24,
+        "nodeType": "PragmaDirective",
+        "src": "255:32:1",
+        "nodes": [],
+        "literals": [
+          "solidity",
+          ">=",
+          "0.6",
+          ".12",
+          "<",
+          "0.9",
+          ".0"
+        ]
+      },
+      {
+        "id": 33,
+        "nodeType": "ContractDefinition",
+        "src": "475:174:1",
+        "nodes": [
+          {
+            "id": 32,
+            "nodeType": "FunctionDefinition",
+            "src": "514:133:1",
+            "nodes": [],
+            "functionSelector": "75d8bb0e",
+            "implemented": false,
+            "kind": "function",
+            "modifiers": [],
+            "name": "getExternalPositionLibForType",
+            "parameters": {
+              "id": 28,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 27,
+                  "mutability": "mutable",
+                  "name": "_typeId",
+                  "nodeType": "VariableDeclaration",
+                  "scope": 32,
+                  "src": "553:15:1",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_uint256",
+                    "typeString": "uint256"
+                  },
+                  "typeName": {
+                    "id": 26,
+                    "name": "uint256",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "553:7:1",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_uint256",
+                      "typeString": "uint256"
+                    }
+                  },
+                  "visibility": "internal"
+                }
+              ],
+              "src": "552:17:1"
+            },
+            "returnParameters": {
+              "id": 31,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 30,
+                  "mutability": "mutable",
+                  "name": "externalPositionLib_",
+                  "nodeType": "VariableDeclaration",
+                  "scope": 32,
+                  "src": "617:28:1",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 29,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "617:7:1",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "visibility": "internal"
+                }
+              ],
+              "src": "616:30:1"
+            },
+            "scope": 33,
+            "stateMutability": "view",
+            "virtual": false,
+            "visibility": "external"
+          }
+        ],
+        "abstract": false,
+        "baseContracts": [],
+        "contractDependencies": [],
+        "contractKind": "interface",
+        "documentation": {
+          "id": 25,
+          "nodeType": "StructuredDocumentation",
+          "src": "289:186:1",
+          "text": "@title IExternalPositionVault interface\n @author Enzyme Council <security@enzyme.finance>\n Provides an interface to get the externalPositionLib for a given type from the Vault"
+        },
+        "fullyImplemented": false,
+        "linearizedBaseContracts": [
+          33
+        ],
+        "name": "IExternalPositionVault",
+        "scope": 34
+      }
+    ],
+    "license": "GPL-3.0"
+  },
+  "id": 1
+}

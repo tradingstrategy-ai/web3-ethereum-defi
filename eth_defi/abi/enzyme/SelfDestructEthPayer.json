@@ -1,0 +1,297 @@
+{
+  "abi": [
+    {
+      "inputs": [
+        {
+          "internalType": "address payable",
+          "name": "_recipient",
+          "type": "address"
+        }
+      ],
+      "name": "destructTo",
+      "outputs": [],
+      "stateMutability": "payable",
+      "type": "function"
+    }
+  ],
+  "bytecode": {
+    "object": "0x6080604052348015600f57600080fd5b50605f8061001e6000396000f3fe608060405260043610601c5760003560e01c806337a55f77146021575b600080fd5b604460048036036020811015603557600080fd5b50356001600160a01b03166046565b005b806001600160a01b0316fffea164736f6c634300060c000a",
+    "sourceMap": "495:144:369:-:0;;;;;;;;;;;;;;;;;;;",
+    "linkReferences": {}
+  },
+  "deployedBytecode": {
+    "object": "0x608060405260043610601c5760003560e01c806337a55f77146021575b600080fd5b604460048036036020811015603557600080fd5b50356001600160a01b03166046565b005b806001600160a01b0316fffea164736f6c634300060c000a",
+    "sourceMap": "495:144:369:-:0;;;;;;;;;;;;;;;;;;;;;531:106;;;;;;;;;;;;;;;;-1:-1:-1;531:106:369;-1:-1:-1;;;;;531:106:369;;:::i;:::-;;;619:10;-1:-1:-1;;;;;606:24:369;",
+    "linkReferences": {}
+  },
+  "methodIdentifiers": {
+    "destructTo(address)": "37a55f77"
+  },
+  "rawMetadata": "{\"compiler\":{\"version\":\"0.6.12+commit.27d51765\"},\"language\":\"Solidity\",\"output\":{\"abi\":[{\"inputs\":[{\"internalType\":\"address payable\",\"name\":\"_recipient\",\"type\":\"address\"}],\"name\":\"destructTo\",\"outputs\":[],\"stateMutability\":\"payable\",\"type\":\"function\"}],\"devdoc\":{\"author\":\"Enzyme Council <security@enzyme.finance>\",\"kind\":\"dev\",\"methods\":{},\"title\":\"SelfDestructEthPayer Contract\",\"version\":1},\"userdoc\":{\"kind\":\"user\",\"methods\":{},\"notice\":\"A test contract to send ETH to a contract via selfdestruct()\",\"version\":1}},\"settings\":{\"compilationTarget\":{\"contracts/test/SelfDestructEthPayer.sol\":\"SelfDestructEthPayer\"},\"evmVersion\":\"istanbul\",\"libraries\":{},\"metadata\":{\"bytecodeHash\":\"none\"},\"optimizer\":{\"details\":{\"constantOptimizer\":true,\"cse\":true,\"deduplicate\":true,\"jumpdestRemover\":true,\"orderLiterals\":true,\"peephole\":true,\"yul\":false},\"runs\":200},\"remappings\":[\":@enzyme/=contracts/\",\":@openzeppelin-solc-0.7/=node_modules/@openzeppelin-solc-0.7/\",\":@openzeppelin/=node_modules/@openzeppelin/\",\":@uniswap/=node_modules/@uniswap/\",\":base64-sol/=node_modules/base64-sol/\",\":ds-test/=lib/forge-std/lib/ds-test/src/\",\":forge-std/=lib/forge-std/src/\",\":hardhat-deploy/=node_modules/hardhat-deploy/\",\":hardhat/=node_modules/hardhat/\"]},\"sources\":{\"contracts/release/utils/AddressArrayLib.sol\":{\"keccak256\":\"0xd76e220cc754d7c939e54c18d4060f843ca798bccaf9a9dbbd428e38d0f0960f\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://bf0cbaedaec3390b6912ecef7bf62b2e8ec00d7f2b4f0045bab121b812e6f9d6\",\"dweb:/ipfs/QmSd5kxsv5x37TXeRDD91YmVCVA3GVFishdVyC2B9ed9ap\"]},\"contracts/test/SelfDestructEthPayer.sol\":{\"keccak256\":\"0x35a129ce4afe20022f162510f4fa0593d4ba25dc81cfba80ea5b20473476d76c\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://973ebc2ca5077a2c5457450668da6721c1966813d2464d90ecc01ff9a5b7dc1c\",\"dweb:/ipfs/QmWhYvvMRkTDojdzJbJ3cEEMmrEqBHqbaiQHWvSe6cunX8\"]}},\"version\":1}",
+  "metadata": {
+    "compiler": {
+      "version": "0.6.12+commit.27d51765"
+    },
+    "language": "Solidity",
+    "output": {
+      "abi": [
+        {
+          "inputs": [
+            {
+              "internalType": "address payable",
+              "name": "_recipient",
+              "type": "address"
+            }
+          ],
+          "stateMutability": "payable",
+          "type": "function",
+          "name": "destructTo"
+        }
+      ],
+      "devdoc": {
+        "kind": "dev",
+        "methods": {},
+        "version": 1
+      },
+      "userdoc": {
+        "kind": "user",
+        "methods": {},
+        "version": 1
+      }
+    },
+    "settings": {
+      "remappings": [
+        ":@enzyme/=contracts/",
+        ":@openzeppelin-solc-0.7/=node_modules/@openzeppelin-solc-0.7/",
+        ":@openzeppelin/=node_modules/@openzeppelin/",
+        ":@uniswap/=node_modules/@uniswap/",
+        ":base64-sol/=node_modules/base64-sol/",
+        ":ds-test/=lib/forge-std/lib/ds-test/src/",
+        ":forge-std/=lib/forge-std/src/",
+        ":hardhat-deploy/=node_modules/hardhat-deploy/",
+        ":hardhat/=node_modules/hardhat/"
+      ],
+      "optimizer": {
+        "runs": 200,
+        "details": {
+          "peephole": true,
+          "jumpdestRemover": true,
+          "orderLiterals": true,
+          "deduplicate": true,
+          "cse": true,
+          "constantOptimizer": true,
+          "yul": false
+        }
+      },
+      "metadata": {
+        "bytecodeHash": "none"
+      },
+      "compilationTarget": {
+        "contracts/test/SelfDestructEthPayer.sol": "SelfDestructEthPayer"
+      },
+      "libraries": {}
+    },
+    "sources": {
+      "contracts/release/utils/AddressArrayLib.sol": {
+        "keccak256": "0xd76e220cc754d7c939e54c18d4060f843ca798bccaf9a9dbbd428e38d0f0960f",
+        "urls": [
+          "bzz-raw://bf0cbaedaec3390b6912ecef7bf62b2e8ec00d7f2b4f0045bab121b812e6f9d6",
+          "dweb:/ipfs/QmSd5kxsv5x37TXeRDD91YmVCVA3GVFishdVyC2B9ed9ap"
+        ],
+        "license": "GPL-3.0"
+      },
+      "contracts/test/SelfDestructEthPayer.sol": {
+        "keccak256": "0x35a129ce4afe20022f162510f4fa0593d4ba25dc81cfba80ea5b20473476d76c",
+        "urls": [
+          "bzz-raw://973ebc2ca5077a2c5457450668da6721c1966813d2464d90ecc01ff9a5b7dc1c",
+          "dweb:/ipfs/QmWhYvvMRkTDojdzJbJ3cEEMmrEqBHqbaiQHWvSe6cunX8"
+        ],
+        "license": "GPL-3.0"
+      }
+    },
+    "version": 1
+  },
+  "ast": {
+    "absolutePath": "contracts/test/SelfDestructEthPayer.sol",
+    "id": 79803,
+    "exportedSymbols": {
+      "SelfDestructEthPayer": [
+        79802
+      ]
+    },
+    "nodeType": "SourceUnit",
+    "src": "255:385:369",
+    "nodes": [
+      {
+        "id": 79789,
+        "nodeType": "PragmaDirective",
+        "src": "255:23:369",
+        "nodes": [],
+        "literals": [
+          "solidity",
+          "0.6",
+          ".12"
+        ]
+      },
+      {
+        "id": 79790,
+        "nodeType": "ImportDirective",
+        "src": "280:46:369",
+        "nodes": [],
+        "absolutePath": "contracts/release/utils/AddressArrayLib.sol",
+        "file": "../release/utils/AddressArrayLib.sol",
+        "scope": 79803,
+        "sourceUnit": 76994,
+        "symbolAliases": [],
+        "unitAlias": ""
+      },
+      {
+        "id": 79802,
+        "nodeType": "ContractDefinition",
+        "src": "495:144:369",
+        "nodes": [
+          {
+            "id": 79801,
+            "nodeType": "FunctionDefinition",
+            "src": "531:106:369",
+            "nodes": [],
+            "body": {
+              "id": 79800,
+              "nodeType": "Block",
+              "src": "596:41:369",
+              "nodes": [],
+              "statements": [
+                {
+                  "expression": {
+                    "argumentTypes": null,
+                    "arguments": [
+                      {
+                        "argumentTypes": null,
+                        "id": 79797,
+                        "name": "_recipient",
+                        "nodeType": "Identifier",
+                        "overloadedDeclarations": [],
+                        "referencedDeclaration": 79793,
+                        "src": "619:10:369",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_address_payable",
+                          "typeString": "address payable"
+                        }
+                      }
+                    ],
+                    "expression": {
+                      "argumentTypes": [
+                        {
+                          "typeIdentifier": "t_address_payable",
+                          "typeString": "address payable"
+                        }
+                      ],
+                      "id": 79796,
+                      "name": "selfdestruct",
+                      "nodeType": "Identifier",
+                      "overloadedDeclarations": [],
+                      "referencedDeclaration": -21,
+                      "src": "606:12:369",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_function_selfdestruct_nonpayable$_t_address_payable_$returns$__$",
+                        "typeString": "function (address payable)"
+                      }
+                    },
+                    "id": 79798,
+                    "isConstant": false,
+                    "isLValue": false,
+                    "isPure": false,
+                    "kind": "functionCall",
+                    "lValueRequested": false,
+                    "names": [],
+                    "nodeType": "FunctionCall",
+                    "src": "606:24:369",
+                    "tryCall": false,
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_tuple$__$",
+                      "typeString": "tuple()"
+                    }
+                  },
+                  "id": 79799,
+                  "nodeType": "ExpressionStatement",
+                  "src": "606:24:369"
+                }
+              ]
+            },
+            "documentation": null,
+            "functionSelector": "37a55f77",
+            "implemented": true,
+            "kind": "function",
+            "modifiers": [],
+            "name": "destructTo",
+            "overrides": null,
+            "parameters": {
+              "id": 79794,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 79793,
+                  "mutability": "mutable",
+                  "name": "_recipient",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 79801,
+                  "src": "551:26:369",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address_payable",
+                    "typeString": "address payable"
+                  },
+                  "typeName": {
+                    "id": 79792,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "551:15:369",
+                    "stateMutability": "payable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address_payable",
+                      "typeString": "address payable"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "550:28:369"
+            },
+            "returnParameters": {
+              "id": 79795,
+              "nodeType": "ParameterList",
+              "parameters": [],
+              "src": "596:0:369"
+            },
+            "scope": 79802,
+            "stateMutability": "payable",
+            "virtual": false,
+            "visibility": "external"
+          }
+        ],
+        "abstract": false,
+        "baseContracts": [],
+        "contractDependencies": [],
+        "contractKind": "contract",
+        "documentation": {
+          "id": 79791,
+          "nodeType": "StructuredDocumentation",
+          "src": "328:167:369",
+          "text": "@title SelfDestructEthPayer Contract\n @author Enzyme Council <security@enzyme.finance>\n @notice A test contract to send ETH to a contract via selfdestruct()"
+        },
+        "fullyImplemented": true,
+        "linearizedBaseContracts": [
+          79802
+        ],
+        "name": "SelfDestructEthPayer",
+        "scope": 79803
+      }
+    ],
+    "license": "GPL-3.0"
+  },
+  "id": 369
+}

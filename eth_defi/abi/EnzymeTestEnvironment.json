@@ -1,0 +1,66 @@
+{
+  "_format": "hh-sol-artifact-1",
+  "contractName": "EnzymeTestEnvironment",
+  "sourceName": "contracts/EnzymeTestEnvironment.sol",
+  "abi": [
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "_mln",
+          "type": "address"
+        },
+        {
+          "internalType": "address",
+          "name": "_weth",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "nonpayable",
+      "type": "constructor"
+    },
+    {
+      "inputs": [],
+      "name": "getMlnToken",
+      "outputs": [
+        {
+          "internalType": "address",
+          "name": "",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "getWethToken",
+      "outputs": [
+        {
+          "internalType": "address",
+          "name": "",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "getWrappedNativeToken",
+      "outputs": [
+        {
+          "internalType": "address",
+          "name": "",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    }
+  ],
+  "bytecode": "0x608060405234801561001057600080fd5b506040516101363803806101368339818101604052604081101561003357600080fd5b508051602090910151600080546001600160a01b039384166001600160a01b0319918216179091556001805493909216921691909117905560bd806100796000396000f3fe6080604052348015600f57600080fd5b5060043610603c5760003560e01c80631d9478b61460415780634c252f91146041578063e70e605e146063575b600080fd5b60476069565b604080516001600160a01b039092168252519081900360200190f35b60476078565b6001546001600160a01b031690565b6000546001600160a01b03169056fea264697066735822122021b73c6b7ec6baf8ae9da442b5e99c236d540ecfd14c36132407433f7759446d64736f6c634300060c0033",
+  "deployedBytecode": "0x6080604052348015600f57600080fd5b5060043610603c5760003560e01c80631d9478b61460415780634c252f91146041578063e70e605e146063575b600080fd5b60476069565b604080516001600160a01b039092168252519081900360200190f35b60476078565b6001546001600160a01b031690565b6000546001600160a01b03169056fea264697066735822122021b73c6b7ec6baf8ae9da442b5e99c236d540ecfd14c36132407433f7759446d64736f6c634300060c0033",
+  "linkReferences": {},
+  "deployedLinkReferences": {}
+}

@@ -1,7 +1,4 @@
 {
-  "_format": "hh-sol-artifact-1",
-  "contractName": "GasRelayPaymasterLibBase1",
-  "sourceName": "contracts/release/infrastructure/gas-relayer/bases/GasRelayPaymasterLibBase1.sol",
   "abi": [
     {
       "anonymous": false,
@@ -55,8 +52,403 @@
       "type": "event"
     }
   ],
-  "bytecode": "0x",
-  "deployedBytecode": "0x",
-  "linkReferences": {},
-  "deployedLinkReferences": {}
+  "bytecode": {
+    "object": "0x",
+    "sourceMap": "",
+    "linkReferences": {}
+  },
+  "deployedBytecode": {
+    "object": "0x",
+    "sourceMap": "",
+    "linkReferences": {}
+  },
+  "methodIdentifiers": {},
+  "rawMetadata": "{\"compiler\":{\"version\":\"0.6.12+commit.27d51765\"},\"language\":\"Solidity\",\"output\":{\"abi\":[{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\"}],\"name\":\"Deposited\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"authorizer\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"bytes4\",\"name\":\"invokedSelector\",\"type\":\"bytes4\"},{\"indexed\":false,\"internalType\":\"bool\",\"name\":\"successful\",\"type\":\"bool\"}],\"name\":\"TransactionRelayed\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\"}],\"name\":\"Withdrawn\",\"type\":\"event\"}],\"devdoc\":{\"author\":\"Enzyme Council <security@enzyme.finance>\",\"details\":\"DO NOT EDIT CONTRACT ONCE DEPLOYED. If new events or storage are necessary, they should be added to a numbered GasRelayPaymasterLibBaseXXX that inherits the previous base. e.g., `GasRelayPaymasterLibBase2 is GasRelayPaymasterLibBase1`\",\"kind\":\"dev\",\"methods\":{},\"title\":\"GasRelayPaymasterLibBase1 Contract\",\"version\":1},\"userdoc\":{\"kind\":\"user\",\"methods\":{},\"notice\":\"A persistent contract containing all required storage variables and events for a GasRelayPaymasterLib\",\"version\":1}},\"settings\":{\"compilationTarget\":{\"contracts/release/infrastructure/gas-relayer/bases/GasRelayPaymasterLibBase1.sol\":\"GasRelayPaymasterLibBase1\"},\"evmVersion\":\"istanbul\",\"libraries\":{},\"metadata\":{\"bytecodeHash\":\"none\"},\"optimizer\":{\"details\":{\"constantOptimizer\":true,\"cse\":true,\"deduplicate\":true,\"jumpdestRemover\":true,\"orderLiterals\":true,\"peephole\":true,\"yul\":false},\"runs\":200},\"remappings\":[\":@enzyme/=contracts/\",\":@openzeppelin-solc-0.7/=node_modules/@openzeppelin-solc-0.7/\",\":@openzeppelin/=node_modules/@openzeppelin/\",\":@uniswap/=node_modules/@uniswap/\",\":base64-sol/=node_modules/base64-sol/\",\":ds-test/=lib/forge-std/lib/ds-test/src/\",\":forge-std/=lib/forge-std/src/\",\":hardhat-deploy/=node_modules/hardhat-deploy/\",\":hardhat/=node_modules/hardhat/\"]},\"sources\":{\"contracts/release/infrastructure/gas-relayer/bases/GasRelayPaymasterLibBase1.sol\":{\"keccak256\":\"0xe127c2554c9e32a7cae0905a496d221d20732bbe66abb479b639877328b5daa0\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://6231b13d306ed1eea40a805fa815cb44279203ec17dde3485e25266abbe89725\",\"dweb:/ipfs/QmNeZy9zojT5XELkCPy64URdKWsahM53zGos8ubeH7DB1K\"]}},\"version\":1}",
+  "metadata": {
+    "compiler": {
+      "version": "0.6.12+commit.27d51765"
+    },
+    "language": "Solidity",
+    "output": {
+      "abi": [
+        {
+          "inputs": [
+            {
+              "internalType": "uint256",
+              "name": "amount",
+              "type": "uint256",
+              "indexed": false
+            }
+          ],
+          "type": "event",
+          "name": "Deposited",
+          "anonymous": false
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "authorizer",
+              "type": "address",
+              "indexed": true
+            },
+            {
+              "internalType": "bytes4",
+              "name": "invokedSelector",
+              "type": "bytes4",
+              "indexed": false
+            },
+            {
+              "internalType": "bool",
+              "name": "successful",
+              "type": "bool",
+              "indexed": false
+            }
+          ],
+          "type": "event",
+          "name": "TransactionRelayed",
+          "anonymous": false
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "uint256",
+              "name": "amount",
+              "type": "uint256",
+              "indexed": false
+            }
+          ],
+          "type": "event",
+          "name": "Withdrawn",
+          "anonymous": false
+        }
+      ],
+      "devdoc": {
+        "kind": "dev",
+        "methods": {},
+        "version": 1
+      },
+      "userdoc": {
+        "kind": "user",
+        "methods": {},
+        "version": 1
+      }
+    },
+    "settings": {
+      "remappings": [
+        ":@enzyme/=contracts/",
+        ":@openzeppelin-solc-0.7/=node_modules/@openzeppelin-solc-0.7/",
+        ":@openzeppelin/=node_modules/@openzeppelin/",
+        ":@uniswap/=node_modules/@uniswap/",
+        ":base64-sol/=node_modules/base64-sol/",
+        ":ds-test/=lib/forge-std/lib/ds-test/src/",
+        ":forge-std/=lib/forge-std/src/",
+        ":hardhat-deploy/=node_modules/hardhat-deploy/",
+        ":hardhat/=node_modules/hardhat/"
+      ],
+      "optimizer": {
+        "runs": 200,
+        "details": {
+          "peephole": true,
+          "jumpdestRemover": true,
+          "orderLiterals": true,
+          "deduplicate": true,
+          "cse": true,
+          "constantOptimizer": true,
+          "yul": false
+        }
+      },
+      "metadata": {
+        "bytecodeHash": "none"
+      },
+      "compilationTarget": {
+        "contracts/release/infrastructure/gas-relayer/bases/GasRelayPaymasterLibBase1.sol": "GasRelayPaymasterLibBase1"
+      },
+      "libraries": {}
+    },
+    "sources": {
+      "contracts/release/infrastructure/gas-relayer/bases/GasRelayPaymasterLibBase1.sol": {
+        "keccak256": "0xe127c2554c9e32a7cae0905a496d221d20732bbe66abb479b639877328b5daa0",
+        "urls": [
+          "bzz-raw://6231b13d306ed1eea40a805fa815cb44279203ec17dde3485e25266abbe89725",
+          "dweb:/ipfs/QmNeZy9zojT5XELkCPy64URdKWsahM53zGos8ubeH7DB1K"
+        ],
+        "license": "GPL-3.0"
+      }
+    },
+    "version": 1
+  },
+  "ast": {
+    "absolutePath": "contracts/release/infrastructure/gas-relayer/bases/GasRelayPaymasterLibBase1.sol",
+    "id": 6868,
+    "exportedSymbols": {
+      "GasRelayPaymasterLibBase1": [
+        6867
+      ]
+    },
+    "nodeType": "SourceUnit",
+    "src": "255:776:23",
+    "nodes": [
+      {
+        "id": 6847,
+        "nodeType": "PragmaDirective",
+        "src": "255:23:23",
+        "nodes": [],
+        "literals": [
+          "solidity",
+          "0.6",
+          ".12"
+        ]
+      },
+      {
+        "id": 6867,
+        "nodeType": "ContractDefinition",
+        "src": "749:281:23",
+        "nodes": [
+          {
+            "id": 6852,
+            "nodeType": "EventDefinition",
+            "src": "799:32:23",
+            "nodes": [],
+            "anonymous": false,
+            "documentation": null,
+            "name": "Deposited",
+            "parameters": {
+              "id": 6851,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 6850,
+                  "indexed": false,
+                  "mutability": "mutable",
+                  "name": "amount",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 6852,
+                  "src": "815:14:23",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_uint256",
+                    "typeString": "uint256"
+                  },
+                  "typeName": {
+                    "id": 6849,
+                    "name": "uint256",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "815:7:23",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_uint256",
+                      "typeString": "uint256"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "814:16:23"
+            }
+          },
+          {
+            "id": 6860,
+            "nodeType": "EventDefinition",
+            "src": "837:94:23",
+            "nodes": [],
+            "anonymous": false,
+            "documentation": null,
+            "name": "TransactionRelayed",
+            "parameters": {
+              "id": 6859,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 6854,
+                  "indexed": true,
+                  "mutability": "mutable",
+                  "name": "authorizer",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 6860,
+                  "src": "862:26:23",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 6853,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "862:7:23",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 6856,
+                  "indexed": false,
+                  "mutability": "mutable",
+                  "name": "invokedSelector",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 6860,
+                  "src": "890:22:23",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_bytes4",
+                    "typeString": "bytes4"
+                  },
+                  "typeName": {
+                    "id": 6855,
+                    "name": "bytes4",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "890:6:23",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_bytes4",
+                      "typeString": "bytes4"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 6858,
+                  "indexed": false,
+                  "mutability": "mutable",
+                  "name": "successful",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 6860,
+                  "src": "914:15:23",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_bool",
+                    "typeString": "bool"
+                  },
+                  "typeName": {
+                    "id": 6857,
+                    "name": "bool",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "914:4:23",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_bool",
+                      "typeString": "bool"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "861:69:23"
+            }
+          },
+          {
+            "id": 6864,
+            "nodeType": "EventDefinition",
+            "src": "937:32:23",
+            "nodes": [],
+            "anonymous": false,
+            "documentation": null,
+            "name": "Withdrawn",
+            "parameters": {
+              "id": 6863,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 6862,
+                  "indexed": false,
+                  "mutability": "mutable",
+                  "name": "amount",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 6864,
+                  "src": "953:14:23",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_uint256",
+                    "typeString": "uint256"
+                  },
+                  "typeName": {
+                    "id": 6861,
+                    "name": "uint256",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "953:7:23",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_uint256",
+                      "typeString": "uint256"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "952:16:23"
+            }
+          },
+          {
+            "id": 6866,
+            "nodeType": "VariableDeclaration",
+            "src": "999:28:23",
+            "nodes": [],
+            "constant": false,
+            "mutability": "mutable",
+            "name": "parentVault",
+            "overrides": null,
+            "scope": 6867,
+            "stateVariable": true,
+            "storageLocation": "default",
+            "typeDescriptions": {
+              "typeIdentifier": "t_address",
+              "typeString": "address"
+            },
+            "typeName": {
+              "id": 6865,
+              "name": "address",
+              "nodeType": "ElementaryTypeName",
+              "src": "999:7:23",
+              "stateMutability": "nonpayable",
+              "typeDescriptions": {
+                "typeIdentifier": "t_address",
+                "typeString": "address"
+              }
+            },
+            "value": null,
+            "visibility": "internal"
+          }
+        ],
+        "abstract": true,
+        "baseContracts": [],
+        "contractDependencies": [],
+        "contractKind": "contract",
+        "documentation": {
+          "id": 6848,
+          "nodeType": "StructuredDocumentation",
+          "src": "280:469:23",
+          "text": "@title GasRelayPaymasterLibBase1 Contract\n @author Enzyme Council <security@enzyme.finance>\n @notice A persistent contract containing all required storage variables and events\n for a GasRelayPaymasterLib\n @dev DO NOT EDIT CONTRACT ONCE DEPLOYED. If new events or storage are necessary,\n they should be added to a numbered GasRelayPaymasterLibBaseXXX that inherits the previous base.\n e.g., `GasRelayPaymasterLibBase2 is GasRelayPaymasterLibBase1`"
+        },
+        "fullyImplemented": true,
+        "linearizedBaseContracts": [
+          6867
+        ],
+        "name": "GasRelayPaymasterLibBase1",
+        "scope": 6868
+      }
+    ],
+    "license": "GPL-3.0"
+  },
+  "id": 23
 }

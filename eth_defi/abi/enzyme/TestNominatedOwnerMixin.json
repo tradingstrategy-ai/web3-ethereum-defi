@@ -1,0 +1,498 @@
+{
+  "abi": [
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "nominatedOwner",
+          "type": "address"
+        }
+      ],
+      "name": "NominatedOwnerSet",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": false,
+          "internalType": "address",
+          "name": "owner",
+          "type": "address"
+        }
+      ],
+      "name": "OwnerSet",
+      "type": "event"
+    },
+    {
+      "inputs": [],
+      "name": "claimOwnership",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "getNominatedOwner",
+      "outputs": [
+        {
+          "internalType": "address",
+          "name": "nominatedOwner_",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "getOwner",
+      "outputs": [
+        {
+          "internalType": "address",
+          "name": "owner_",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "_nextNominatedOwner",
+          "type": "address"
+        }
+      ],
+      "name": "setNominatedOwner",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "_nextOwner",
+          "type": "address"
+        }
+      ],
+      "name": "setOwner",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    }
+  ],
+  "bytecode": {
+    "object": "0x608060405234801561001057600080fd5b506102ac806100206000396000f3fe608060405234801561001057600080fd5b50600436106100575760003560e01c806313af40351461005c578063288b6a36146100845780634e71e0c8146100a8578063728e17a0146100b0578063893d20e8146100d6575b600080fd5b6100826004803603602081101561007257600080fd5b50356001600160a01b03166100de565b005b61008c6100ea565b604080516001600160a01b039092168252519081900360200190f35b6100826100f9565b610082600480360360208110156100c657600080fd5b50356001600160a01b031661017e565b61008c6101f4565b6100e781610203565b50565b6000546001600160a01b031690565b60006101036100ea565b9050336001600160a01b03821614610162576040805162461bcd60e51b815260206004820152601c60248201527f636c61696d4f776e6572736869703a20556e617574686f72697a656400000000604482015290519081900360640190fd5b61016b81610203565b50600080546001600160a01b0319169055565b6101866101f4565b6001600160a01b0316336001600160a01b0316146101eb576040805162461bcd60e51b815260206004820152601760248201527f6f6e6c794f776e65723a20556e617574686f72697a6564000000000000000000604482015290519081900360640190fd5b6100e781610257565b6001546001600160a01b031690565b600180546001600160a01b0383166001600160a01b0319909116811790915560408051918252517f50146d0e3c60aa1d17a70635b05494f864e86144a2201275021014fbf08bafe29181900360200190a150565b600080546001600160a01b0319166001600160a01b038316908117825560405190917f132c19de901bb4ed8403c34734b6c841d5dc57745824da452a52433519ea5abf91a25056fea164736f6c634300060c000a",
+    "sourceMap": "486:157:371:-:0;;;;;;;;;;;;;;;;;;;",
+    "linkReferences": {}
+  },
+  "deployedBytecode": {
+    "object": "0x608060405234801561001057600080fd5b50600436106100575760003560e01c806313af40351461005c578063288b6a36146100845780634e71e0c8146100a8578063728e17a0146100b0578063893d20e8146100d6575b600080fd5b6100826004803603602081101561007257600080fd5b50356001600160a01b03166100de565b005b61008c6100ea565b604080516001600160a01b039092168252519081900360200190f35b6100826100f9565b610082600480360360208110156100c657600080fd5b50356001600160a01b031661017e565b61008c6101f4565b6100e781610203565b50565b6000546001600160a01b031690565b60006101036100ea565b9050336001600160a01b03821614610162576040805162461bcd60e51b815260206004820152601c60248201527f636c61696d4f776e6572736869703a20556e617574686f72697a656400000000604482015290519081900360640190fd5b61016b81610203565b50600080546001600160a01b0319169055565b6101866101f4565b6001600160a01b0316336001600160a01b0316146101eb576040805162461bcd60e51b815260206004820152601760248201527f6f6e6c794f776e65723a20556e617574686f72697a6564000000000000000000604482015290519081900360640190fd5b6100e781610257565b6001546001600160a01b031690565b600180546001600160a01b0383166001600160a01b0319909116811790915560408051918252517f50146d0e3c60aa1d17a70635b05494f864e86144a2201275021014fbf08bafe29181900360200190a150565b600080546001600160a01b0319166001600160a01b038316908117825560405190917f132c19de901bb4ed8403c34734b6c841d5dc57745824da452a52433519ea5abf91a25056fea164736f6c634300060c000a",
+    "sourceMap": "486:157:371:-:0;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;548:93;;;;;;;;;;;;;;;;-1:-1:-1;548:93:371;-1:-1:-1;;;;;548:93:371;;:::i;:::-;;2263:113:361;;;:::i;:::-;;;;-1:-1:-1;;;;;2263:113:361;;;;;;;;;;;;;;991:229;;;:::i;1331:132::-;;;;;;;;;;;;;;;;-1:-1:-1;1331:132:361;-1:-1:-1;;;;;1331:132:361;;:::i;2472:86::-;;;:::i;548:93:371:-;612:22;623:10;612;:22::i;:::-;548:93;:::o;2263:113:361:-;2313:23;2355:14;-1:-1:-1;;;;;2355:14:361;2263:113;:::o;991:229::-;1036:17;1056:19;:17;:19::i;:::-;1036:39;-1:-1:-1;1093:10:361;-1:-1:-1;;;;;1093:23:361;;;1085:64;;;;;-1:-1:-1;;;1085:64:361;;;;;;;;;;;;;;;;;;;;;;;;;;;;1160:21;1171:9;1160:10;:21::i;:::-;-1:-1:-1;1199:14:361;1192:21;;-1:-1:-1;;;;;;1192:21:361;;;991:229::o;1331:132::-;786:10;:8;:10::i;:::-;-1:-1:-1;;;;;772:24:361;:10;-1:-1:-1;;;;;772:24:361;;764:60;;;;;-1:-1:-1;;;764:60:361;;;;;;;;;;;;;;;;;;;;;;;;;;;;1416:40:::1;1436:19;1416;:40::i;2472:86::-:0;2546:5;;-1:-1:-1;;;;;2546:5:361;2472:86;:::o;1919:120::-;1978:5;:18;;-1:-1:-1;;;;;1978:18:361;;-1:-1:-1;;;;;;1978:18:361;;;;;;;;2012:20;;;;;;;;;;;;;;;;1919:120;:::o;1543:174::-;1620:14;:36;;-1:-1:-1;;;;;;1620:36:361;-1:-1:-1;;;;;1620:36:361;;;;;;;1672:38;;1620:36;;1672:38;;;1543:174;:::o",
+    "linkReferences": {}
+  },
+  "methodIdentifiers": {
+    "claimOwnership()": "4e71e0c8",
+    "getNominatedOwner()": "288b6a36",
+    "getOwner()": "893d20e8",
+    "setNominatedOwner(address)": "728e17a0",
+    "setOwner(address)": "13af4035"
+  },
+  "rawMetadata": "{\"compiler\":{\"version\":\"0.6.12+commit.27d51765\"},\"language\":\"Solidity\",\"output\":{\"abi\":[{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"nominatedOwner\",\"type\":\"address\"}],\"name\":\"NominatedOwnerSet\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"address\",\"name\":\"owner\",\"type\":\"address\"}],\"name\":\"OwnerSet\",\"type\":\"event\"},{\"inputs\":[],\"name\":\"claimOwnership\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getNominatedOwner\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"nominatedOwner_\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getOwner\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"owner_\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_nextNominatedOwner\",\"type\":\"address\"}],\"name\":\"setNominatedOwner\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_nextOwner\",\"type\":\"address\"}],\"name\":\"setOwner\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"}],\"devdoc\":{\"author\":\"Enzyme Council <security@enzyme.finance>\",\"kind\":\"dev\",\"methods\":{\"claimOwnership()\":{\"details\":\"Note that this claims process means that `owner` can never be reset to address(0)\"},\"getNominatedOwner()\":{\"returns\":{\"nominatedOwner_\":\"The next contract owner nominee\"}},\"getOwner()\":{\"returns\":{\"owner_\":\"The contract owner\"}},\"setNominatedOwner(address)\":{\"params\":{\"_nextNominatedOwner\":\"The account to nominate\"}}},\"title\":\"TestNominatedOwnerMixin Contract\",\"version\":1},\"userdoc\":{\"kind\":\"user\",\"methods\":{\"claimOwnership()\":{\"notice\":\"Claim ownership of the contract\"},\"getNominatedOwner()\":{\"notice\":\"Gets the account that is nominated to be the next contract owner\"},\"getOwner()\":{\"notice\":\"Gets the owner of this contract\"},\"setNominatedOwner(address)\":{\"notice\":\"Nominate a new contract owner\"}},\"notice\":\"A test implementation of NominatedOwnerMixin\",\"version\":1}},\"settings\":{\"compilationTarget\":{\"contracts/test/TestNominatedOwnerMixin.sol\":\"TestNominatedOwnerMixin\"},\"evmVersion\":\"istanbul\",\"libraries\":{},\"metadata\":{\"bytecodeHash\":\"none\"},\"optimizer\":{\"details\":{\"constantOptimizer\":true,\"cse\":true,\"deduplicate\":true,\"jumpdestRemover\":true,\"orderLiterals\":true,\"peephole\":true,\"yul\":false},\"runs\":200},\"remappings\":[\":@enzyme/=contracts/\",\":@openzeppelin-solc-0.7/=node_modules/@openzeppelin-solc-0.7/\",\":@openzeppelin/=node_modules/@openzeppelin/\",\":@uniswap/=node_modules/@uniswap/\",\":base64-sol/=node_modules/base64-sol/\",\":ds-test/=lib/forge-std/lib/ds-test/src/\",\":forge-std/=lib/forge-std/src/\",\":hardhat-deploy/=node_modules/hardhat-deploy/\",\":hardhat/=node_modules/hardhat/\"]},\"sources\":{\"contracts/release/utils/NominatedOwnerMixin.sol\":{\"keccak256\":\"0xb8d1c6eba0b342bbbf49af872925fc8febbef1e0958fdb8d4664501001d73761\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://4c0679beb263fb2e4f04bf39e65db051d7af7984e8357bbe1f0901cd986e538d\",\"dweb:/ipfs/QmTooY2TQEh5ax2XhMvJoa7pzFrb3WLegXjQ9EMzCPVpQe\"]},\"contracts/test/TestNominatedOwnerMixin.sol\":{\"keccak256\":\"0xe8c9a07ad496124c0f449ee9d19675e3fb935cfbd1ea35f438f3f93aa15374a6\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://1c8414062a412fe20b98d2636d7ea773105b3b8b1a1e977f61f11ab8781b0a88\",\"dweb:/ipfs/QmP4wsEbKoCQDjXRdaGFCkgVQe1wxzUgYKE7u1ZxnN9mQc\"]}},\"version\":1}",
+  "metadata": {
+    "compiler": {
+      "version": "0.6.12+commit.27d51765"
+    },
+    "language": "Solidity",
+    "output": {
+      "abi": [
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "nominatedOwner",
+              "type": "address",
+              "indexed": true
+            }
+          ],
+          "type": "event",
+          "name": "NominatedOwnerSet",
+          "anonymous": false
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "owner",
+              "type": "address",
+              "indexed": false
+            }
+          ],
+          "type": "event",
+          "name": "OwnerSet",
+          "anonymous": false
+        },
+        {
+          "inputs": [],
+          "stateMutability": "nonpayable",
+          "type": "function",
+          "name": "claimOwnership"
+        },
+        {
+          "inputs": [],
+          "stateMutability": "view",
+          "type": "function",
+          "name": "getNominatedOwner",
+          "outputs": [
+            {
+              "internalType": "address",
+              "name": "nominatedOwner_",
+              "type": "address"
+            }
+          ]
+        },
+        {
+          "inputs": [],
+          "stateMutability": "view",
+          "type": "function",
+          "name": "getOwner",
+          "outputs": [
+            {
+              "internalType": "address",
+              "name": "owner_",
+              "type": "address"
+            }
+          ]
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "_nextNominatedOwner",
+              "type": "address"
+            }
+          ],
+          "stateMutability": "nonpayable",
+          "type": "function",
+          "name": "setNominatedOwner"
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "_nextOwner",
+              "type": "address"
+            }
+          ],
+          "stateMutability": "nonpayable",
+          "type": "function",
+          "name": "setOwner"
+        }
+      ],
+      "devdoc": {
+        "kind": "dev",
+        "methods": {
+          "claimOwnership()": {
+            "details": "Note that this claims process means that `owner` can never be reset to address(0)"
+          },
+          "getNominatedOwner()": {
+            "returns": {
+              "nominatedOwner_": "The next contract owner nominee"
+            }
+          },
+          "getOwner()": {
+            "returns": {
+              "owner_": "The contract owner"
+            }
+          },
+          "setNominatedOwner(address)": {
+            "params": {
+              "_nextNominatedOwner": "The account to nominate"
+            }
+          }
+        },
+        "version": 1
+      },
+      "userdoc": {
+        "kind": "user",
+        "methods": {
+          "claimOwnership()": {
+            "notice": "Claim ownership of the contract"
+          },
+          "getNominatedOwner()": {
+            "notice": "Gets the account that is nominated to be the next contract owner"
+          },
+          "getOwner()": {
+            "notice": "Gets the owner of this contract"
+          },
+          "setNominatedOwner(address)": {
+            "notice": "Nominate a new contract owner"
+          }
+        },
+        "version": 1
+      }
+    },
+    "settings": {
+      "remappings": [
+        ":@enzyme/=contracts/",
+        ":@openzeppelin-solc-0.7/=node_modules/@openzeppelin-solc-0.7/",
+        ":@openzeppelin/=node_modules/@openzeppelin/",
+        ":@uniswap/=node_modules/@uniswap/",
+        ":base64-sol/=node_modules/base64-sol/",
+        ":ds-test/=lib/forge-std/lib/ds-test/src/",
+        ":forge-std/=lib/forge-std/src/",
+        ":hardhat-deploy/=node_modules/hardhat-deploy/",
+        ":hardhat/=node_modules/hardhat/"
+      ],
+      "optimizer": {
+        "runs": 200,
+        "details": {
+          "peephole": true,
+          "jumpdestRemover": true,
+          "orderLiterals": true,
+          "deduplicate": true,
+          "cse": true,
+          "constantOptimizer": true,
+          "yul": false
+        }
+      },
+      "metadata": {
+        "bytecodeHash": "none"
+      },
+      "compilationTarget": {
+        "contracts/test/TestNominatedOwnerMixin.sol": "TestNominatedOwnerMixin"
+      },
+      "libraries": {}
+    },
+    "sources": {
+      "contracts/release/utils/NominatedOwnerMixin.sol": {
+        "keccak256": "0xb8d1c6eba0b342bbbf49af872925fc8febbef1e0958fdb8d4664501001d73761",
+        "urls": [
+          "bzz-raw://4c0679beb263fb2e4f04bf39e65db051d7af7984e8357bbe1f0901cd986e538d",
+          "dweb:/ipfs/QmTooY2TQEh5ax2XhMvJoa7pzFrb3WLegXjQ9EMzCPVpQe"
+        ],
+        "license": "GPL-3.0"
+      },
+      "contracts/test/TestNominatedOwnerMixin.sol": {
+        "keccak256": "0xe8c9a07ad496124c0f449ee9d19675e3fb935cfbd1ea35f438f3f93aa15374a6",
+        "urls": [
+          "bzz-raw://1c8414062a412fe20b98d2636d7ea773105b3b8b1a1e977f61f11ab8781b0a88",
+          "dweb:/ipfs/QmP4wsEbKoCQDjXRdaGFCkgVQe1wxzUgYKE7u1ZxnN9mQc"
+        ],
+        "license": "GPL-3.0"
+      }
+    },
+    "version": 1
+  },
+  "ast": {
+    "absolutePath": "contracts/test/TestNominatedOwnerMixin.sol",
+    "id": 79847,
+    "exportedSymbols": {
+      "TestNominatedOwnerMixin": [
+        79846
+      ]
+    },
+    "nodeType": "SourceUnit",
+    "src": "255:389:371",
+    "nodes": [
+      {
+        "id": 79831,
+        "nodeType": "PragmaDirective",
+        "src": "255:23:371",
+        "nodes": [],
+        "literals": [
+          "solidity",
+          "0.6",
+          ".12"
+        ]
+      },
+      {
+        "id": 79832,
+        "nodeType": "ImportDirective",
+        "src": "280:50:371",
+        "nodes": [],
+        "absolutePath": "contracts/release/utils/NominatedOwnerMixin.sol",
+        "file": "../release/utils/NominatedOwnerMixin.sol",
+        "scope": 79847,
+        "sourceUnit": 78940,
+        "symbolAliases": [],
+        "unitAlias": ""
+      },
+      {
+        "id": 79846,
+        "nodeType": "ContractDefinition",
+        "src": "486:157:371",
+        "nodes": [
+          {
+            "id": 79845,
+            "nodeType": "FunctionDefinition",
+            "src": "548:93:371",
+            "nodes": [],
+            "body": {
+              "id": 79844,
+              "nodeType": "Block",
+              "src": "595:46:371",
+              "nodes": [],
+              "statements": [
+                {
+                  "expression": {
+                    "argumentTypes": null,
+                    "arguments": [
+                      {
+                        "argumentTypes": null,
+                        "id": 79841,
+                        "name": "_nextOwner",
+                        "nodeType": "Identifier",
+                        "overloadedDeclarations": [],
+                        "referencedDeclaration": 79837,
+                        "src": "623:10:371",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_address",
+                          "typeString": "address"
+                        }
+                      }
+                    ],
+                    "expression": {
+                      "argumentTypes": [
+                        {
+                          "typeIdentifier": "t_address",
+                          "typeString": "address"
+                        }
+                      ],
+                      "id": 79840,
+                      "name": "__setOwner",
+                      "nodeType": "Identifier",
+                      "overloadedDeclarations": [],
+                      "referencedDeclaration": 78920,
+                      "src": "612:10:371",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_function_internal_nonpayable$_t_address_$returns$__$",
+                        "typeString": "function (address)"
+                      }
+                    },
+                    "id": 79842,
+                    "isConstant": false,
+                    "isLValue": false,
+                    "isPure": false,
+                    "kind": "functionCall",
+                    "lValueRequested": false,
+                    "names": [],
+                    "nodeType": "FunctionCall",
+                    "src": "612:22:371",
+                    "tryCall": false,
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_tuple$__$",
+                      "typeString": "tuple()"
+                    }
+                  },
+                  "functionReturnParameters": 79839,
+                  "id": 79843,
+                  "nodeType": "Return",
+                  "src": "605:29:371"
+                }
+              ]
+            },
+            "documentation": null,
+            "functionSelector": "13af4035",
+            "implemented": true,
+            "kind": "function",
+            "modifiers": [],
+            "name": "setOwner",
+            "overrides": null,
+            "parameters": {
+              "id": 79838,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 79837,
+                  "mutability": "mutable",
+                  "name": "_nextOwner",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 79845,
+                  "src": "566:18:371",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 79836,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "566:7:371",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "565:20:371"
+            },
+            "returnParameters": {
+              "id": 79839,
+              "nodeType": "ParameterList",
+              "parameters": [],
+              "src": "595:0:371"
+            },
+            "scope": 79846,
+            "stateMutability": "nonpayable",
+            "virtual": false,
+            "visibility": "external"
+          }
+        ],
+        "abstract": false,
+        "baseContracts": [
+          {
+            "arguments": null,
+            "baseName": {
+              "contractScope": null,
+              "id": 79834,
+              "name": "NominatedOwnerMixin",
+              "nodeType": "UserDefinedTypeName",
+              "referencedDeclaration": 78939,
+              "src": "522:19:371",
+              "typeDescriptions": {
+                "typeIdentifier": "t_contract$_NominatedOwnerMixin_$78939",
+                "typeString": "contract NominatedOwnerMixin"
+              }
+            },
+            "id": 79835,
+            "nodeType": "InheritanceSpecifier",
+            "src": "522:19:371"
+          }
+        ],
+        "contractDependencies": [
+          78939
+        ],
+        "contractKind": "contract",
+        "documentation": {
+          "id": 79833,
+          "nodeType": "StructuredDocumentation",
+          "src": "332:154:371",
+          "text": "@title TestNominatedOwnerMixin Contract\n @author Enzyme Council <security@enzyme.finance>\n @notice A test implementation of NominatedOwnerMixin"
+        },
+        "fullyImplemented": true,
+        "linearizedBaseContracts": [
+          79846,
+          78939
+        ],
+        "name": "TestNominatedOwnerMixin",
+        "scope": 79847
+      }
+    ],
+    "license": "GPL-3.0"
+  },
+  "id": 371
+}

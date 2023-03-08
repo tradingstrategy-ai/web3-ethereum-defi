@@ -1,7 +1,4 @@
 {
-  "_format": "hh-sol-artifact-1",
-  "contractName": "ICurveLiquidityGaugeToken",
-  "sourceName": "contracts/release/interfaces/ICurveLiquidityGaugeToken.sol",
   "abi": [
     {
       "inputs": [],
@@ -17,8 +14,202 @@
       "type": "function"
     }
   ],
-  "bytecode": "0x",
-  "deployedBytecode": "0x",
-  "linkReferences": {},
-  "deployedLinkReferences": {}
+  "bytecode": {
+    "object": "0x",
+    "sourceMap": "",
+    "linkReferences": {}
+  },
+  "deployedBytecode": {
+    "object": "0x",
+    "sourceMap": "",
+    "linkReferences": {}
+  },
+  "methodIdentifiers": {
+    "lp_token()": "82c63066"
+  },
+  "rawMetadata": "{\"compiler\":{\"version\":\"0.6.12+commit.27d51765\"},\"language\":\"Solidity\",\"output\":{\"abi\":[{\"inputs\":[],\"name\":\"lp_token\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"}],\"devdoc\":{\"author\":\"Enzyme Council <security@enzyme.finance>\",\"kind\":\"dev\",\"methods\":{},\"title\":\"ICurveLiquidityGaugeToken interface\",\"version\":1},\"userdoc\":{\"kind\":\"user\",\"methods\":{},\"notice\":\"Common interface functions for all Curve liquidity gauge token contracts\",\"version\":1}},\"settings\":{\"compilationTarget\":{\"contracts/release/interfaces/ICurveLiquidityGaugeToken.sol\":\"ICurveLiquidityGaugeToken\"},\"evmVersion\":\"istanbul\",\"libraries\":{},\"metadata\":{\"bytecodeHash\":\"none\"},\"optimizer\":{\"details\":{\"constantOptimizer\":true,\"cse\":true,\"deduplicate\":true,\"jumpdestRemover\":true,\"orderLiterals\":true,\"peephole\":true,\"yul\":false},\"runs\":200},\"remappings\":[\":@enzyme/=contracts/\",\":@openzeppelin-solc-0.7/=node_modules/@openzeppelin-solc-0.7/\",\":@openzeppelin/=node_modules/@openzeppelin/\",\":@uniswap/=node_modules/@uniswap/\",\":base64-sol/=node_modules/base64-sol/\",\":ds-test/=lib/forge-std/lib/ds-test/src/\",\":forge-std/=lib/forge-std/src/\",\":hardhat-deploy/=node_modules/hardhat-deploy/\",\":hardhat/=node_modules/hardhat/\"]},\"sources\":{\"contracts/release/interfaces/ICurveLiquidityGaugeToken.sol\":{\"keccak256\":\"0x2142172a89d38b974b91df05630595b8e67f6eb80004667da6d6d2ac795babfd\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://229c74278573b51cc5717da724b97747c31ddc3b2d14a238943bd7cdb393c31b\",\"dweb:/ipfs/QmPexrdf9pUgQNFU54JJc2opLfF69mphZ5HxB7EdGKvaQB\"]}},\"version\":1}",
+  "metadata": {
+    "compiler": {
+      "version": "0.6.12+commit.27d51765"
+    },
+    "language": "Solidity",
+    "output": {
+      "abi": [
+        {
+          "inputs": [],
+          "stateMutability": "view",
+          "type": "function",
+          "name": "lp_token",
+          "outputs": [
+            {
+              "internalType": "address",
+              "name": "",
+              "type": "address"
+            }
+          ]
+        }
+      ],
+      "devdoc": {
+        "kind": "dev",
+        "methods": {},
+        "version": 1
+      },
+      "userdoc": {
+        "kind": "user",
+        "methods": {},
+        "version": 1
+      }
+    },
+    "settings": {
+      "remappings": [
+        ":@enzyme/=contracts/",
+        ":@openzeppelin-solc-0.7/=node_modules/@openzeppelin-solc-0.7/",
+        ":@openzeppelin/=node_modules/@openzeppelin/",
+        ":@uniswap/=node_modules/@uniswap/",
+        ":base64-sol/=node_modules/base64-sol/",
+        ":ds-test/=lib/forge-std/lib/ds-test/src/",
+        ":forge-std/=lib/forge-std/src/",
+        ":hardhat-deploy/=node_modules/hardhat-deploy/",
+        ":hardhat/=node_modules/hardhat/"
+      ],
+      "optimizer": {
+        "runs": 200,
+        "details": {
+          "peephole": true,
+          "jumpdestRemover": true,
+          "orderLiterals": true,
+          "deduplicate": true,
+          "cse": true,
+          "constantOptimizer": true,
+          "yul": false
+        }
+      },
+      "metadata": {
+        "bytecodeHash": "none"
+      },
+      "compilationTarget": {
+        "contracts/release/interfaces/ICurveLiquidityGaugeToken.sol": "ICurveLiquidityGaugeToken"
+      },
+      "libraries": {}
+    },
+    "sources": {
+      "contracts/release/interfaces/ICurveLiquidityGaugeToken.sol": {
+        "keccak256": "0x2142172a89d38b974b91df05630595b8e67f6eb80004667da6d6d2ac795babfd",
+        "urls": [
+          "bzz-raw://229c74278573b51cc5717da724b97747c31ddc3b2d14a238943bd7cdb393c31b",
+          "dweb:/ipfs/QmPexrdf9pUgQNFU54JJc2opLfF69mphZ5HxB7EdGKvaQB"
+        ],
+        "license": "GPL-3.0"
+      }
+    },
+    "version": 1
+  },
+  "ast": {
+    "absolutePath": "contracts/release/interfaces/ICurveLiquidityGaugeToken.sol",
+    "id": 71545,
+    "exportedSymbols": {
+      "ICurveLiquidityGaugeToken": [
+        71544
+      ]
+    },
+    "nodeType": "SourceUnit",
+    "src": "255:307:291",
+    "nodes": [
+      {
+        "id": 71537,
+        "nodeType": "PragmaDirective",
+        "src": "255:23:291",
+        "nodes": [],
+        "literals": [
+          "solidity",
+          "0.6",
+          ".12"
+        ]
+      },
+      {
+        "id": 71544,
+        "nodeType": "ContractDefinition",
+        "src": "465:96:291",
+        "nodes": [
+          {
+            "id": 71543,
+            "nodeType": "FunctionDefinition",
+            "src": "507:52:291",
+            "nodes": [],
+            "documentation": null,
+            "functionSelector": "82c63066",
+            "implemented": false,
+            "kind": "function",
+            "modifiers": [],
+            "name": "lp_token",
+            "overrides": null,
+            "parameters": {
+              "id": 71539,
+              "nodeType": "ParameterList",
+              "parameters": [],
+              "src": "524:2:291"
+            },
+            "returnParameters": {
+              "id": 71542,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 71541,
+                  "mutability": "mutable",
+                  "name": "",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 71543,
+                  "src": "550:7:291",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 71540,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "550:7:291",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "549:9:291"
+            },
+            "scope": 71544,
+            "stateMutability": "view",
+            "virtual": false,
+            "visibility": "external"
+          }
+        ],
+        "abstract": false,
+        "baseContracts": [],
+        "contractDependencies": [],
+        "contractKind": "interface",
+        "documentation": {
+          "id": 71538,
+          "nodeType": "StructuredDocumentation",
+          "src": "280:185:291",
+          "text": "@title ICurveLiquidityGaugeToken interface\n @author Enzyme Council <security@enzyme.finance>\n @notice Common interface functions for all Curve liquidity gauge token contracts"
+        },
+        "fullyImplemented": false,
+        "linearizedBaseContracts": [
+          71544
+        ],
+        "name": "ICurveLiquidityGaugeToken",
+        "scope": 71545
+      }
+    ],
+    "license": "GPL-3.0"
+  },
+  "id": 291
 }

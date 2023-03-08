@@ -1,7 +1,4 @@
 {
-  "_format": "hh-sol-artifact-1",
-  "contractName": "IAaveAToken",
-  "sourceName": "contracts/release/interfaces/IAaveAToken.sol",
   "abi": [
     {
       "inputs": [],
@@ -17,8 +14,202 @@
       "type": "function"
     }
   ],
-  "bytecode": "0x",
-  "deployedBytecode": "0x",
-  "linkReferences": {},
-  "deployedLinkReferences": {}
+  "bytecode": {
+    "object": "0x",
+    "sourceMap": "",
+    "linkReferences": {}
+  },
+  "deployedBytecode": {
+    "object": "0x",
+    "sourceMap": "",
+    "linkReferences": {}
+  },
+  "methodIdentifiers": {
+    "UNDERLYING_ASSET_ADDRESS()": "b16a19de"
+  },
+  "rawMetadata": "{\"compiler\":{\"version\":\"0.6.12+commit.27d51765\"},\"language\":\"Solidity\",\"output\":{\"abi\":[{\"inputs\":[],\"name\":\"UNDERLYING_ASSET_ADDRESS\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"underlying_\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"}],\"devdoc\":{\"author\":\"Enzyme Council <security@enzyme.finance>\",\"kind\":\"dev\",\"methods\":{},\"title\":\"IAaveAToken interface\",\"version\":1},\"userdoc\":{\"kind\":\"user\",\"methods\":{},\"notice\":\"Common Aave aToken interface for V2 and V3\",\"version\":1}},\"settings\":{\"compilationTarget\":{\"contracts/release/interfaces/IAaveAToken.sol\":\"IAaveAToken\"},\"evmVersion\":\"istanbul\",\"libraries\":{},\"metadata\":{\"bytecodeHash\":\"none\"},\"optimizer\":{\"details\":{\"constantOptimizer\":true,\"cse\":true,\"deduplicate\":true,\"jumpdestRemover\":true,\"orderLiterals\":true,\"peephole\":true,\"yul\":false},\"runs\":200},\"remappings\":[\":@enzyme/=contracts/\",\":@openzeppelin-solc-0.7/=node_modules/@openzeppelin-solc-0.7/\",\":@openzeppelin/=node_modules/@openzeppelin/\",\":@uniswap/=node_modules/@uniswap/\",\":base64-sol/=node_modules/base64-sol/\",\":ds-test/=lib/forge-std/lib/ds-test/src/\",\":forge-std/=lib/forge-std/src/\",\":hardhat-deploy/=node_modules/hardhat-deploy/\",\":hardhat/=node_modules/hardhat/\"]},\"sources\":{\"contracts/release/interfaces/IAaveAToken.sol\":{\"keccak256\":\"0x2fe53734b46e1238b7d46889774c5813fa9e132350f45028b5584dfcc254c97b\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://7b4b689deca405c2f9f85132d8b1b8650499d3d521b8b302299e25aa5172d81d\",\"dweb:/ipfs/QmUTZHqVT1exEd5RUyjPS6wwkJmZBW9Dgkkb7emiFCSUMW\"]}},\"version\":1}",
+  "metadata": {
+    "compiler": {
+      "version": "0.6.12+commit.27d51765"
+    },
+    "language": "Solidity",
+    "output": {
+      "abi": [
+        {
+          "inputs": [],
+          "stateMutability": "view",
+          "type": "function",
+          "name": "UNDERLYING_ASSET_ADDRESS",
+          "outputs": [
+            {
+              "internalType": "address",
+              "name": "underlying_",
+              "type": "address"
+            }
+          ]
+        }
+      ],
+      "devdoc": {
+        "kind": "dev",
+        "methods": {},
+        "version": 1
+      },
+      "userdoc": {
+        "kind": "user",
+        "methods": {},
+        "version": 1
+      }
+    },
+    "settings": {
+      "remappings": [
+        ":@enzyme/=contracts/",
+        ":@openzeppelin-solc-0.7/=node_modules/@openzeppelin-solc-0.7/",
+        ":@openzeppelin/=node_modules/@openzeppelin/",
+        ":@uniswap/=node_modules/@uniswap/",
+        ":base64-sol/=node_modules/base64-sol/",
+        ":ds-test/=lib/forge-std/lib/ds-test/src/",
+        ":forge-std/=lib/forge-std/src/",
+        ":hardhat-deploy/=node_modules/hardhat-deploy/",
+        ":hardhat/=node_modules/hardhat/"
+      ],
+      "optimizer": {
+        "runs": 200,
+        "details": {
+          "peephole": true,
+          "jumpdestRemover": true,
+          "orderLiterals": true,
+          "deduplicate": true,
+          "cse": true,
+          "constantOptimizer": true,
+          "yul": false
+        }
+      },
+      "metadata": {
+        "bytecodeHash": "none"
+      },
+      "compilationTarget": {
+        "contracts/release/interfaces/IAaveAToken.sol": "IAaveAToken"
+      },
+      "libraries": {}
+    },
+    "sources": {
+      "contracts/release/interfaces/IAaveAToken.sol": {
+        "keccak256": "0x2fe53734b46e1238b7d46889774c5813fa9e132350f45028b5584dfcc254c97b",
+        "urls": [
+          "bzz-raw://7b4b689deca405c2f9f85132d8b1b8650499d3d521b8b302299e25aa5172d81d",
+          "dweb:/ipfs/QmUTZHqVT1exEd5RUyjPS6wwkJmZBW9Dgkkb7emiFCSUMW"
+        ],
+        "license": "GPL-3.0"
+      }
+    },
+    "version": 1
+  },
+  "ast": {
+    "absolutePath": "contracts/release/interfaces/IAaveAToken.sol",
+    "id": 70778,
+    "exportedSymbols": {
+      "IAaveAToken": [
+        70777
+      ]
+    },
+    "nodeType": "SourceUnit",
+    "src": "255:277:266",
+    "nodes": [
+      {
+        "id": 70770,
+        "nodeType": "PragmaDirective",
+        "src": "255:23:266",
+        "nodes": [],
+        "literals": [
+          "solidity",
+          "0.6",
+          ".12"
+        ]
+      },
+      {
+        "id": 70777,
+        "nodeType": "ContractDefinition",
+        "src": "421:110:266",
+        "nodes": [
+          {
+            "id": 70776,
+            "nodeType": "FunctionDefinition",
+            "src": "449:80:266",
+            "nodes": [],
+            "documentation": null,
+            "functionSelector": "b16a19de",
+            "implemented": false,
+            "kind": "function",
+            "modifiers": [],
+            "name": "UNDERLYING_ASSET_ADDRESS",
+            "overrides": null,
+            "parameters": {
+              "id": 70772,
+              "nodeType": "ParameterList",
+              "parameters": [],
+              "src": "482:2:266"
+            },
+            "returnParameters": {
+              "id": 70775,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 70774,
+                  "mutability": "mutable",
+                  "name": "underlying_",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 70776,
+                  "src": "508:19:266",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 70773,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "508:7:266",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "507:21:266"
+            },
+            "scope": 70777,
+            "stateMutability": "view",
+            "virtual": false,
+            "visibility": "external"
+          }
+        ],
+        "abstract": false,
+        "baseContracts": [],
+        "contractDependencies": [],
+        "contractKind": "interface",
+        "documentation": {
+          "id": 70771,
+          "nodeType": "StructuredDocumentation",
+          "src": "280:141:266",
+          "text": "@title IAaveAToken interface\n @author Enzyme Council <security@enzyme.finance>\n @notice Common Aave aToken interface for V2 and V3"
+        },
+        "fullyImplemented": false,
+        "linearizedBaseContracts": [
+          70777
+        ],
+        "name": "IAaveAToken",
+        "scope": 70778
+      }
+    ],
+    "license": "GPL-3.0"
+  },
+  "id": 266
 }

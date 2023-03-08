@@ -124,7 +124,7 @@ def weth_usdc_pool(web3, deployer, uniswap_v3, weth, usdc, weth_usdc_fee) -> Hex
 def test_analyse_by_receipt(
     web3: Web3,
     deployer: str,
-    user_1: str,
+        user_1,
     uniswap_v3: UniswapV3Deployment,
     weth: Contract,
     usdc: Contract,
@@ -149,7 +149,7 @@ def test_analyse_by_receipt(
             encoded_path,
             user_1,
             FOREVER_DEADLINE,
-            10 * 10**6,
+            10 * 10 ** 6,
             0,
         )
     ).transact({"from": user_1})

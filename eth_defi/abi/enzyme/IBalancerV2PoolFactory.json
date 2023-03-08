@@ -1,7 +1,4 @@
 {
-  "_format": "hh-sol-artifact-1",
-  "contractName": "IBalancerV2PoolFactory",
-  "sourceName": "contracts/release/interfaces/IBalancerV2PoolFactory.sol",
   "abi": [
     {
       "inputs": [
@@ -23,8 +20,237 @@
       "type": "function"
     }
   ],
-  "bytecode": "0x",
-  "deployedBytecode": "0x",
-  "linkReferences": {},
-  "deployedLinkReferences": {}
+  "bytecode": {
+    "object": "0x",
+    "sourceMap": "",
+    "linkReferences": {}
+  },
+  "deployedBytecode": {
+    "object": "0x",
+    "sourceMap": "",
+    "linkReferences": {}
+  },
+  "methodIdentifiers": {
+    "isPoolFromFactory(address)": "6634b753"
+  },
+  "rawMetadata": "{\"compiler\":{\"version\":\"0.6.12+commit.27d51765\"},\"language\":\"Solidity\",\"output\":{\"abi\":[{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_pool\",\"type\":\"address\"}],\"name\":\"isPoolFromFactory\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"success_\",\"type\":\"bool\"}],\"stateMutability\":\"view\",\"type\":\"function\"}],\"devdoc\":{\"author\":\"Enzyme Council <security@enzyme.finance>\",\"kind\":\"dev\",\"methods\":{},\"title\":\"IBalancerV2PoolFactory interface\",\"version\":1},\"userdoc\":{\"kind\":\"user\",\"methods\":{},\"version\":1}},\"settings\":{\"compilationTarget\":{\"contracts/release/interfaces/IBalancerV2PoolFactory.sol\":\"IBalancerV2PoolFactory\"},\"evmVersion\":\"istanbul\",\"libraries\":{},\"metadata\":{\"bytecodeHash\":\"none\"},\"optimizer\":{\"details\":{\"constantOptimizer\":true,\"cse\":true,\"deduplicate\":true,\"jumpdestRemover\":true,\"orderLiterals\":true,\"peephole\":true,\"yul\":false},\"runs\":200},\"remappings\":[\":@enzyme/=contracts/\",\":@openzeppelin-solc-0.7/=node_modules/@openzeppelin-solc-0.7/\",\":@openzeppelin/=node_modules/@openzeppelin/\",\":@uniswap/=node_modules/@uniswap/\",\":base64-sol/=node_modules/base64-sol/\",\":ds-test/=lib/forge-std/lib/ds-test/src/\",\":forge-std/=lib/forge-std/src/\",\":hardhat-deploy/=node_modules/hardhat-deploy/\",\":hardhat/=node_modules/hardhat/\"]},\"sources\":{\"contracts/release/interfaces/IBalancerV2PoolFactory.sol\":{\"keccak256\":\"0xb3b90f93ed2fe906f9a6ce15f537c36f33b24a8e3328e4ccbb011a719edd2de5\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://88571ee529345dd703fa0e5e71182c13cc194e9d6e73176a3c5f1fa94067367a\",\"dweb:/ipfs/QmaPS6tDuHDNdd6aYMBB7Syptoju6T37KgXuA6jXD6hgCK\"]}},\"version\":1}",
+  "metadata": {
+    "compiler": {
+      "version": "0.6.12+commit.27d51765"
+    },
+    "language": "Solidity",
+    "output": {
+      "abi": [
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "_pool",
+              "type": "address"
+            }
+          ],
+          "stateMutability": "view",
+          "type": "function",
+          "name": "isPoolFromFactory",
+          "outputs": [
+            {
+              "internalType": "bool",
+              "name": "success_",
+              "type": "bool"
+            }
+          ]
+        }
+      ],
+      "devdoc": {
+        "kind": "dev",
+        "methods": {},
+        "version": 1
+      },
+      "userdoc": {
+        "kind": "user",
+        "methods": {},
+        "version": 1
+      }
+    },
+    "settings": {
+      "remappings": [
+        ":@enzyme/=contracts/",
+        ":@openzeppelin-solc-0.7/=node_modules/@openzeppelin-solc-0.7/",
+        ":@openzeppelin/=node_modules/@openzeppelin/",
+        ":@uniswap/=node_modules/@uniswap/",
+        ":base64-sol/=node_modules/base64-sol/",
+        ":ds-test/=lib/forge-std/lib/ds-test/src/",
+        ":forge-std/=lib/forge-std/src/",
+        ":hardhat-deploy/=node_modules/hardhat-deploy/",
+        ":hardhat/=node_modules/hardhat/"
+      ],
+      "optimizer": {
+        "runs": 200,
+        "details": {
+          "peephole": true,
+          "jumpdestRemover": true,
+          "orderLiterals": true,
+          "deduplicate": true,
+          "cse": true,
+          "constantOptimizer": true,
+          "yul": false
+        }
+      },
+      "metadata": {
+        "bytecodeHash": "none"
+      },
+      "compilationTarget": {
+        "contracts/release/interfaces/IBalancerV2PoolFactory.sol": "IBalancerV2PoolFactory"
+      },
+      "libraries": {}
+    },
+    "sources": {
+      "contracts/release/interfaces/IBalancerV2PoolFactory.sol": {
+        "keccak256": "0xb3b90f93ed2fe906f9a6ce15f537c36f33b24a8e3328e4ccbb011a719edd2de5",
+        "urls": [
+          "bzz-raw://88571ee529345dd703fa0e5e71182c13cc194e9d6e73176a3c5f1fa94067367a",
+          "dweb:/ipfs/QmaPS6tDuHDNdd6aYMBB7Syptoju6T37KgXuA6jXD6hgCK"
+        ],
+        "license": "GPL-3.0"
+      }
+    },
+    "version": 1
+  },
+  "ast": {
+    "absolutePath": "contracts/release/interfaces/IBalancerV2PoolFactory.sol",
+    "id": 15305,
+    "exportedSymbols": {
+      "IBalancerV2PoolFactory": [
+        15304
+      ]
+    },
+    "nodeType": "SourceUnit",
+    "src": "253:244:61",
+    "nodes": [
+      {
+        "id": 15295,
+        "nodeType": "PragmaDirective",
+        "src": "253:23:61",
+        "nodes": [],
+        "literals": [
+          "solidity",
+          "0.6",
+          ".12"
+        ]
+      },
+      {
+        "id": 15304,
+        "nodeType": "ContractDefinition",
+        "src": "375:121:61",
+        "nodes": [
+          {
+            "id": 15303,
+            "nodeType": "FunctionDefinition",
+            "src": "414:80:61",
+            "nodes": [],
+            "documentation": null,
+            "functionSelector": "6634b753",
+            "implemented": false,
+            "kind": "function",
+            "modifiers": [],
+            "name": "isPoolFromFactory",
+            "overrides": null,
+            "parameters": {
+              "id": 15299,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 15298,
+                  "mutability": "mutable",
+                  "name": "_pool",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 15303,
+                  "src": "441:13:61",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 15297,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "441:7:61",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "440:15:61"
+            },
+            "returnParameters": {
+              "id": 15302,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 15301,
+                  "mutability": "mutable",
+                  "name": "success_",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 15303,
+                  "src": "479:13:61",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_bool",
+                    "typeString": "bool"
+                  },
+                  "typeName": {
+                    "id": 15300,
+                    "name": "bool",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "479:4:61",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_bool",
+                      "typeString": "bool"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "478:15:61"
+            },
+            "scope": 15304,
+            "stateMutability": "view",
+            "virtual": false,
+            "visibility": "external"
+          }
+        ],
+        "abstract": false,
+        "baseContracts": [],
+        "contractDependencies": [],
+        "contractKind": "interface",
+        "documentation": {
+          "id": 15296,
+          "nodeType": "StructuredDocumentation",
+          "src": "278:97:61",
+          "text": "@title IBalancerV2PoolFactory interface\n @author Enzyme Council <security@enzyme.finance>"
+        },
+        "fullyImplemented": false,
+        "linearizedBaseContracts": [
+          15304
+        ],
+        "name": "IBalancerV2PoolFactory",
+        "scope": 15305
+      }
+    ],
+    "license": "GPL-3.0"
+  },
+  "id": 61
 }

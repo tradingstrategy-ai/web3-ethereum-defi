@@ -1,0 +1,127 @@
+{
+  "abi": [],
+  "bytecode": {
+    "object": "0x",
+    "sourceMap": "",
+    "linkReferences": {}
+  },
+  "deployedBytecode": {
+    "object": "0x",
+    "sourceMap": "",
+    "linkReferences": {}
+  },
+  "methodIdentifiers": {},
+  "rawMetadata": "{\"compiler\":{\"version\":\"0.8.17+commit.8df45f5f\"},\"language\":\"Solidity\",\"output\":{\"abi\":[],\"devdoc\":{\"kind\":\"dev\",\"methods\":{},\"version\":1},\"userdoc\":{\"kind\":\"user\",\"methods\":{},\"version\":1}},\"settings\":{\"compilationTarget\":{\"tests/interfaces/IKilnStakingPositionParser.sol\":\"IKilnStakingPositionParser\"},\"evmVersion\":\"london\",\"libraries\":{},\"metadata\":{\"bytecodeHash\":\"none\"},\"optimizer\":{\"details\":{\"constantOptimizer\":true,\"cse\":true,\"deduplicate\":true,\"inliner\":true,\"jumpdestRemover\":true,\"orderLiterals\":true,\"peephole\":true,\"yul\":false},\"runs\":200},\"remappings\":[\":@enzyme/=contracts/\",\":@openzeppelin-solc-0.7/=node_modules/@openzeppelin-solc-0.7/\",\":@openzeppelin/=node_modules/@openzeppelin/\",\":@uniswap/=node_modules/@uniswap/\",\":base64-sol/=node_modules/base64-sol/\",\":ds-test/=lib/forge-std/lib/ds-test/src/\",\":forge-std/=lib/forge-std/src/\",\":hardhat-deploy/=node_modules/hardhat-deploy/\",\":hardhat/=node_modules/hardhat/\"]},\"sources\":{\"tests/interfaces/IKilnStakingPositionParser.sol\":{\"keccak256\":\"0xef052721ccedffb9542e5c555a5bfdf9dd962e5932c052bc907e4f128c81d7b5\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://f84fb158b3d7e564d9c39569225544880d539ea8340f114354db83b7affa70bd\",\"dweb:/ipfs/QmWYRe88UgkDAfpAk1a4KtuvfsV6brPd42fZmHD7DJemMe\"]}},\"version\":1}",
+  "metadata": {
+    "compiler": {
+      "version": "0.8.17+commit.8df45f5f"
+    },
+    "language": "Solidity",
+    "output": {
+      "abi": [],
+      "devdoc": {
+        "kind": "dev",
+        "methods": {},
+        "version": 1
+      },
+      "userdoc": {
+        "kind": "user",
+        "methods": {},
+        "version": 1
+      }
+    },
+    "settings": {
+      "remappings": [
+        ":@enzyme/=contracts/",
+        ":@openzeppelin-solc-0.7/=node_modules/@openzeppelin-solc-0.7/",
+        ":@openzeppelin/=node_modules/@openzeppelin/",
+        ":@uniswap/=node_modules/@uniswap/",
+        ":base64-sol/=node_modules/base64-sol/",
+        ":ds-test/=lib/forge-std/lib/ds-test/src/",
+        ":forge-std/=lib/forge-std/src/",
+        ":hardhat-deploy/=node_modules/hardhat-deploy/",
+        ":hardhat/=node_modules/hardhat/"
+      ],
+      "optimizer": {
+        "runs": 200,
+        "details": {
+          "peephole": true,
+          "inliner": true,
+          "jumpdestRemover": true,
+          "orderLiterals": true,
+          "deduplicate": true,
+          "cse": true,
+          "constantOptimizer": true,
+          "yul": false
+        }
+      },
+      "metadata": {
+        "bytecodeHash": "none"
+      },
+      "compilationTarget": {
+        "tests/interfaces/IKilnStakingPositionParser.sol": "IKilnStakingPositionParser"
+      },
+      "libraries": {}
+    },
+    "sources": {
+      "tests/interfaces/IKilnStakingPositionParser.sol": {
+        "keccak256": "0xef052721ccedffb9542e5c555a5bfdf9dd962e5932c052bc907e4f128c81d7b5",
+        "urls": [
+          "bzz-raw://f84fb158b3d7e564d9c39569225544880d539ea8340f114354db83b7affa70bd",
+          "dweb:/ipfs/QmWYRe88UgkDAfpAk1a4KtuvfsV6brPd42fZmHD7DJemMe"
+        ],
+        "license": "GPL-3.0"
+      }
+    },
+    "version": 1
+  },
+  "ast": {
+    "absolutePath": "tests/interfaces/IKilnStakingPositionParser.sol",
+    "id": 30398,
+    "exportedSymbols": {
+      "IKilnStakingPositionParser": [
+        30397
+      ]
+    },
+    "nodeType": "SourceUnit",
+    "src": "253:74:47",
+    "nodes": [
+      {
+        "id": 30396,
+        "nodeType": "PragmaDirective",
+        "src": "253:32:47",
+        "nodes": [],
+        "literals": [
+          "solidity",
+          ">=",
+          "0.6",
+          ".12",
+          "<",
+          "0.9",
+          ".0"
+        ]
+      },
+      {
+        "id": 30397,
+        "nodeType": "ContractDefinition",
+        "src": "287:39:47",
+        "nodes": [],
+        "abstract": false,
+        "baseContracts": [],
+        "canonicalName": "IKilnStakingPositionParser",
+        "contractDependencies": [],
+        "contractKind": "interface",
+        "fullyImplemented": true,
+        "linearizedBaseContracts": [
+          30397
+        ],
+        "name": "IKilnStakingPositionParser",
+        "nameLocation": "297:26:47",
+        "scope": 30398,
+        "usedErrors": []
+      }
+    ],
+    "license": "GPL-3.0"
+  },
+  "id": 47
+}

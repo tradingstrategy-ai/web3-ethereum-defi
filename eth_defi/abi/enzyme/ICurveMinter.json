@@ -1,7 +1,4 @@
 {
-  "_format": "hh-sol-artifact-1",
-  "contractName": "ICurveMinter",
-  "sourceName": "contracts/release/interfaces/ICurveMinter.sol",
   "abi": [
     {
       "inputs": [
@@ -22,8 +19,235 @@
       "type": "function"
     }
   ],
-  "bytecode": "0x",
-  "deployedBytecode": "0x",
-  "linkReferences": {},
-  "deployedLinkReferences": {}
+  "bytecode": {
+    "object": "0x",
+    "sourceMap": "",
+    "linkReferences": {}
+  },
+  "deployedBytecode": {
+    "object": "0x",
+    "sourceMap": "",
+    "linkReferences": {}
+  },
+  "methodIdentifiers": {
+    "mint_for(address,address)": "27f18ae3"
+  },
+  "rawMetadata": "{\"compiler\":{\"version\":\"0.6.12+commit.27d51765\"},\"language\":\"Solidity\",\"output\":{\"abi\":[{\"inputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"name\":\"mint_for\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"}],\"devdoc\":{\"author\":\"Enzyme Council <security@enzyme.finance>\",\"kind\":\"dev\",\"methods\":{},\"title\":\"ICurveMinter interface\",\"version\":1},\"userdoc\":{\"kind\":\"user\",\"methods\":{},\"version\":1}},\"settings\":{\"compilationTarget\":{\"contracts/release/interfaces/ICurveMinter.sol\":\"ICurveMinter\"},\"evmVersion\":\"istanbul\",\"libraries\":{},\"metadata\":{\"bytecodeHash\":\"none\"},\"optimizer\":{\"details\":{\"constantOptimizer\":true,\"cse\":true,\"deduplicate\":true,\"jumpdestRemover\":true,\"orderLiterals\":true,\"peephole\":true,\"yul\":false},\"runs\":200},\"remappings\":[\":@enzyme/=contracts/\",\":@openzeppelin-solc-0.7/=node_modules/@openzeppelin-solc-0.7/\",\":@openzeppelin/=node_modules/@openzeppelin/\",\":@uniswap/=node_modules/@uniswap/\",\":base64-sol/=node_modules/base64-sol/\",\":ds-test/=lib/forge-std/lib/ds-test/src/\",\":forge-std/=lib/forge-std/src/\",\":hardhat-deploy/=node_modules/hardhat-deploy/\",\":hardhat/=node_modules/hardhat/\"]},\"sources\":{\"contracts/release/interfaces/ICurveMinter.sol\":{\"keccak256\":\"0xbfe0cfa932805d9cda714d7ef7cb6b42d08c782b0ffa46de5e2c0530f4ce5ba1\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://29ab2dcee291bf81ccb67ab31fd3548e634fb2742642f70890edc7af727d3d39\",\"dweb:/ipfs/QmVZtC5aHRABS8ZX8XVtwiW1Y8K5vnhVH7WKZ29prN2EpJ\"]}},\"version\":1}",
+  "metadata": {
+    "compiler": {
+      "version": "0.6.12+commit.27d51765"
+    },
+    "language": "Solidity",
+    "output": {
+      "abi": [
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "",
+              "type": "address"
+            },
+            {
+              "internalType": "address",
+              "name": "",
+              "type": "address"
+            }
+          ],
+          "stateMutability": "nonpayable",
+          "type": "function",
+          "name": "mint_for"
+        }
+      ],
+      "devdoc": {
+        "kind": "dev",
+        "methods": {},
+        "version": 1
+      },
+      "userdoc": {
+        "kind": "user",
+        "methods": {},
+        "version": 1
+      }
+    },
+    "settings": {
+      "remappings": [
+        ":@enzyme/=contracts/",
+        ":@openzeppelin-solc-0.7/=node_modules/@openzeppelin-solc-0.7/",
+        ":@openzeppelin/=node_modules/@openzeppelin/",
+        ":@uniswap/=node_modules/@uniswap/",
+        ":base64-sol/=node_modules/base64-sol/",
+        ":ds-test/=lib/forge-std/lib/ds-test/src/",
+        ":forge-std/=lib/forge-std/src/",
+        ":hardhat-deploy/=node_modules/hardhat-deploy/",
+        ":hardhat/=node_modules/hardhat/"
+      ],
+      "optimizer": {
+        "runs": 200,
+        "details": {
+          "peephole": true,
+          "jumpdestRemover": true,
+          "orderLiterals": true,
+          "deduplicate": true,
+          "cse": true,
+          "constantOptimizer": true,
+          "yul": false
+        }
+      },
+      "metadata": {
+        "bytecodeHash": "none"
+      },
+      "compilationTarget": {
+        "contracts/release/interfaces/ICurveMinter.sol": "ICurveMinter"
+      },
+      "libraries": {}
+    },
+    "sources": {
+      "contracts/release/interfaces/ICurveMinter.sol": {
+        "keccak256": "0xbfe0cfa932805d9cda714d7ef7cb6b42d08c782b0ffa46de5e2c0530f4ce5ba1",
+        "urls": [
+          "bzz-raw://29ab2dcee291bf81ccb67ab31fd3548e634fb2742642f70890edc7af727d3d39",
+          "dweb:/ipfs/QmVZtC5aHRABS8ZX8XVtwiW1Y8K5vnhVH7WKZ29prN2EpJ"
+        ],
+        "license": "GPL-3.0"
+      }
+    },
+    "version": 1
+  },
+  "ast": {
+    "absolutePath": "contracts/release/interfaces/ICurveMinter.sol",
+    "id": 71621,
+    "exportedSymbols": {
+      "ICurveMinter": [
+        71620
+      ]
+    },
+    "nodeType": "SourceUnit",
+    "src": "255:189:294",
+    "nodes": [
+      {
+        "id": 71611,
+        "nodeType": "PragmaDirective",
+        "src": "255:23:294",
+        "nodes": [],
+        "literals": [
+          "solidity",
+          "0.6",
+          ".12"
+        ]
+      },
+      {
+        "id": 71620,
+        "nodeType": "ContractDefinition",
+        "src": "367:76:294",
+        "nodes": [
+          {
+            "id": 71619,
+            "nodeType": "FunctionDefinition",
+            "src": "396:45:294",
+            "nodes": [],
+            "documentation": null,
+            "functionSelector": "27f18ae3",
+            "implemented": false,
+            "kind": "function",
+            "modifiers": [],
+            "name": "mint_for",
+            "overrides": null,
+            "parameters": {
+              "id": 71617,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 71614,
+                  "mutability": "mutable",
+                  "name": "",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 71619,
+                  "src": "414:7:294",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 71613,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "414:7:294",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 71616,
+                  "mutability": "mutable",
+                  "name": "",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 71619,
+                  "src": "423:7:294",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 71615,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "423:7:294",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "413:18:294"
+            },
+            "returnParameters": {
+              "id": 71618,
+              "nodeType": "ParameterList",
+              "parameters": [],
+              "src": "440:0:294"
+            },
+            "scope": 71620,
+            "stateMutability": "nonpayable",
+            "virtual": false,
+            "visibility": "external"
+          }
+        ],
+        "abstract": false,
+        "baseContracts": [],
+        "contractDependencies": [],
+        "contractKind": "interface",
+        "documentation": {
+          "id": 71612,
+          "nodeType": "StructuredDocumentation",
+          "src": "280:87:294",
+          "text": "@title ICurveMinter interface\n @author Enzyme Council <security@enzyme.finance>"
+        },
+        "fullyImplemented": false,
+        "linearizedBaseContracts": [
+          71620
+        ],
+        "name": "ICurveMinter",
+        "scope": 71621
+      }
+    ],
+    "license": "GPL-3.0"
+  },
+  "id": 294
 }

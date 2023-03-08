@@ -1,0 +1,456 @@
+{
+  "abi": [
+    {
+      "inputs": [],
+      "name": "delegationTaxPercentage",
+      "outputs": [
+        {
+          "internalType": "uint32",
+          "name": "taxPercentage_",
+          "type": "uint32"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "_indexer",
+          "type": "address"
+        },
+        {
+          "internalType": "address",
+          "name": "_delegator",
+          "type": "address"
+        }
+      ],
+      "name": "getDelegation",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "shares_",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "tokensLocked_",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "tokensLockedUntil_",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    }
+  ],
+  "bytecode": {
+    "object": "0x",
+    "sourceMap": "",
+    "linkReferences": {}
+  },
+  "deployedBytecode": {
+    "object": "0x",
+    "sourceMap": "",
+    "linkReferences": {}
+  },
+  "methodIdentifiers": {
+    "delegationTaxPercentage()": "e6aeb796",
+    "getDelegation(address,address)": "15049a5a"
+  },
+  "rawMetadata": "{\"compiler\":{\"version\":\"0.6.12+commit.27d51765\"},\"language\":\"Solidity\",\"output\":{\"abi\":[{\"inputs\":[],\"name\":\"delegationTaxPercentage\",\"outputs\":[{\"internalType\":\"uint32\",\"name\":\"taxPercentage_\",\"type\":\"uint32\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_indexer\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"_delegator\",\"type\":\"address\"}],\"name\":\"getDelegation\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"shares_\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"tokensLocked_\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"tokensLockedUntil_\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"}],\"devdoc\":{\"author\":\"Enzyme Council <security@enzyme.finance>\",\"kind\":\"dev\",\"methods\":{},\"title\":\"ITestTheGraphStaking Interface\",\"version\":1},\"userdoc\":{\"kind\":\"user\",\"methods\":{},\"version\":1}},\"settings\":{\"compilationTarget\":{\"contracts/test/interfaces/ITestTheGraphStaking.sol\":\"ITestTheGraphStaking\"},\"evmVersion\":\"istanbul\",\"libraries\":{},\"metadata\":{\"bytecodeHash\":\"none\"},\"optimizer\":{\"details\":{\"constantOptimizer\":true,\"cse\":true,\"deduplicate\":true,\"jumpdestRemover\":true,\"orderLiterals\":true,\"peephole\":true,\"yul\":false},\"runs\":200},\"remappings\":[\":@enzyme/=contracts/\",\":@openzeppelin-solc-0.7/=node_modules/@openzeppelin-solc-0.7/\",\":@openzeppelin/=node_modules/@openzeppelin/\",\":@uniswap/=node_modules/@uniswap/\",\":base64-sol/=node_modules/base64-sol/\",\":ds-test/=lib/forge-std/lib/ds-test/src/\",\":forge-std/=lib/forge-std/src/\",\":hardhat-deploy/=node_modules/hardhat-deploy/\",\":hardhat/=node_modules/hardhat/\"]},\"sources\":{\"contracts/test/interfaces/ITestTheGraphStaking.sol\":{\"keccak256\":\"0x98549d7cca7b45735f4de59710133858cce0e3869f02284b1ae64d3878e33027\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://d91d6f90955d9fd39da25665338c866ebedc6fb9d82d6ea8582d24d3807ead96\",\"dweb:/ipfs/QmRYAdHKqK6bFK75hCjLX1s87P2CgHqjY4u1wBFNj7uFaB\"]}},\"version\":1}",
+  "metadata": {
+    "compiler": {
+      "version": "0.6.12+commit.27d51765"
+    },
+    "language": "Solidity",
+    "output": {
+      "abi": [
+        {
+          "inputs": [],
+          "stateMutability": "view",
+          "type": "function",
+          "name": "delegationTaxPercentage",
+          "outputs": [
+            {
+              "internalType": "uint32",
+              "name": "taxPercentage_",
+              "type": "uint32"
+            }
+          ]
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "_indexer",
+              "type": "address"
+            },
+            {
+              "internalType": "address",
+              "name": "_delegator",
+              "type": "address"
+            }
+          ],
+          "stateMutability": "view",
+          "type": "function",
+          "name": "getDelegation",
+          "outputs": [
+            {
+              "internalType": "uint256",
+              "name": "shares_",
+              "type": "uint256"
+            },
+            {
+              "internalType": "uint256",
+              "name": "tokensLocked_",
+              "type": "uint256"
+            },
+            {
+              "internalType": "uint256",
+              "name": "tokensLockedUntil_",
+              "type": "uint256"
+            }
+          ]
+        }
+      ],
+      "devdoc": {
+        "kind": "dev",
+        "methods": {},
+        "version": 1
+      },
+      "userdoc": {
+        "kind": "user",
+        "methods": {},
+        "version": 1
+      }
+    },
+    "settings": {
+      "remappings": [
+        ":@enzyme/=contracts/",
+        ":@openzeppelin-solc-0.7/=node_modules/@openzeppelin-solc-0.7/",
+        ":@openzeppelin/=node_modules/@openzeppelin/",
+        ":@uniswap/=node_modules/@uniswap/",
+        ":base64-sol/=node_modules/base64-sol/",
+        ":ds-test/=lib/forge-std/lib/ds-test/src/",
+        ":forge-std/=lib/forge-std/src/",
+        ":hardhat-deploy/=node_modules/hardhat-deploy/",
+        ":hardhat/=node_modules/hardhat/"
+      ],
+      "optimizer": {
+        "runs": 200,
+        "details": {
+          "peephole": true,
+          "jumpdestRemover": true,
+          "orderLiterals": true,
+          "deduplicate": true,
+          "cse": true,
+          "constantOptimizer": true,
+          "yul": false
+        }
+      },
+      "metadata": {
+        "bytecodeHash": "none"
+      },
+      "compilationTarget": {
+        "contracts/test/interfaces/ITestTheGraphStaking.sol": "ITestTheGraphStaking"
+      },
+      "libraries": {}
+    },
+    "sources": {
+      "contracts/test/interfaces/ITestTheGraphStaking.sol": {
+        "keccak256": "0x98549d7cca7b45735f4de59710133858cce0e3869f02284b1ae64d3878e33027",
+        "urls": [
+          "bzz-raw://d91d6f90955d9fd39da25665338c866ebedc6fb9d82d6ea8582d24d3807ead96",
+          "dweb:/ipfs/QmRYAdHKqK6bFK75hCjLX1s87P2CgHqjY4u1wBFNj7uFaB"
+        ],
+        "license": "GPL-3.0"
+      }
+    },
+    "version": 1
+  },
+  "ast": {
+    "absolutePath": "contracts/test/interfaces/ITestTheGraphStaking.sol",
+    "id": 81798,
+    "exportedSymbols": {
+      "ITestTheGraphStaking": [
+        81797
+      ]
+    },
+    "nodeType": "SourceUnit",
+    "src": "253:469:428",
+    "nodes": [
+      {
+        "id": 81777,
+        "nodeType": "PragmaDirective",
+        "src": "253:23:428",
+        "nodes": [],
+        "literals": [
+          "solidity",
+          "0.6",
+          ".12"
+        ]
+      },
+      {
+        "id": 81797,
+        "nodeType": "ContractDefinition",
+        "src": "373:348:428",
+        "nodes": [
+          {
+            "id": 81783,
+            "nodeType": "FunctionDefinition",
+            "src": "410:81:428",
+            "nodes": [],
+            "documentation": null,
+            "functionSelector": "e6aeb796",
+            "implemented": false,
+            "kind": "function",
+            "modifiers": [],
+            "name": "delegationTaxPercentage",
+            "overrides": null,
+            "parameters": {
+              "id": 81779,
+              "nodeType": "ParameterList",
+              "parameters": [],
+              "src": "442:2:428"
+            },
+            "returnParameters": {
+              "id": 81782,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 81781,
+                  "mutability": "mutable",
+                  "name": "taxPercentage_",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 81783,
+                  "src": "468:21:428",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_uint32",
+                    "typeString": "uint32"
+                  },
+                  "typeName": {
+                    "id": 81780,
+                    "name": "uint32",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "468:6:428",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_uint32",
+                      "typeString": "uint32"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "467:23:428"
+            },
+            "scope": 81797,
+            "stateMutability": "view",
+            "virtual": false,
+            "visibility": "external"
+          },
+          {
+            "id": 81796,
+            "nodeType": "FunctionDefinition",
+            "src": "497:222:428",
+            "nodes": [],
+            "documentation": null,
+            "functionSelector": "15049a5a",
+            "implemented": false,
+            "kind": "function",
+            "modifiers": [],
+            "name": "getDelegation",
+            "overrides": null,
+            "parameters": {
+              "id": 81788,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 81785,
+                  "mutability": "mutable",
+                  "name": "_indexer",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 81796,
+                  "src": "520:16:428",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 81784,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "520:7:428",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 81787,
+                  "mutability": "mutable",
+                  "name": "_delegator",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 81796,
+                  "src": "538:18:428",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 81786,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "538:7:428",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "519:38:428"
+            },
+            "returnParameters": {
+              "id": 81795,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 81790,
+                  "mutability": "mutable",
+                  "name": "shares_",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 81796,
+                  "src": "618:15:428",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_uint256",
+                    "typeString": "uint256"
+                  },
+                  "typeName": {
+                    "id": 81789,
+                    "name": "uint256",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "618:7:428",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_uint256",
+                      "typeString": "uint256"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 81792,
+                  "mutability": "mutable",
+                  "name": "tokensLocked_",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 81796,
+                  "src": "647:21:428",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_uint256",
+                    "typeString": "uint256"
+                  },
+                  "typeName": {
+                    "id": 81791,
+                    "name": "uint256",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "647:7:428",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_uint256",
+                      "typeString": "uint256"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 81794,
+                  "mutability": "mutable",
+                  "name": "tokensLockedUntil_",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 81796,
+                  "src": "682:26:428",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_uint256",
+                    "typeString": "uint256"
+                  },
+                  "typeName": {
+                    "id": 81793,
+                    "name": "uint256",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "682:7:428",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_uint256",
+                      "typeString": "uint256"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "604:114:428"
+            },
+            "scope": 81797,
+            "stateMutability": "view",
+            "virtual": false,
+            "visibility": "external"
+          }
+        ],
+        "abstract": false,
+        "baseContracts": [],
+        "contractDependencies": [],
+        "contractKind": "interface",
+        "documentation": {
+          "id": 81778,
+          "nodeType": "StructuredDocumentation",
+          "src": "278:95:428",
+          "text": "@title ITestTheGraphStaking Interface\n @author Enzyme Council <security@enzyme.finance>"
+        },
+        "fullyImplemented": false,
+        "linearizedBaseContracts": [
+          81797
+        ],
+        "name": "ITestTheGraphStaking",
+        "scope": 81798
+      }
+    ],
+    "license": "GPL-3.0"
+  },
+  "id": 428
+}

@@ -1,7 +1,4 @@
 {
-  "_format": "hh-sol-artifact-1",
-  "contractName": "ILiquityTroveManager",
-  "sourceName": "contracts/release/interfaces/ILiquityTroveManager.sol",
   "abi": [
     {
       "inputs": [
@@ -42,8 +39,345 @@
       "type": "function"
     }
   ],
-  "bytecode": "0x",
-  "deployedBytecode": "0x",
-  "linkReferences": {},
-  "deployedLinkReferences": {}
+  "bytecode": {
+    "object": "0x",
+    "sourceMap": "",
+    "linkReferences": {}
+  },
+  "deployedBytecode": {
+    "object": "0x",
+    "sourceMap": "",
+    "linkReferences": {}
+  },
+  "methodIdentifiers": {
+    "getTroveColl(address)": "480cd578",
+    "getTroveDebt(address)": "d66a2553"
+  },
+  "rawMetadata": "{\"compiler\":{\"version\":\"0.6.12+commit.27d51765\"},\"language\":\"Solidity\",\"output\":{\"abi\":[{\"inputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"name\":\"getTroveColl\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"name\":\"getTroveDebt\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"}],\"devdoc\":{\"author\":\"Enzyme Council <security@enzyme.finance>\",\"kind\":\"dev\",\"methods\":{},\"title\":\"ILiquityTroveManager Interface\",\"version\":1},\"userdoc\":{\"kind\":\"user\",\"methods\":{},\"notice\":\"Minimal interface for our interactions with Liquity Trove Mangager contract\",\"version\":1}},\"settings\":{\"compilationTarget\":{\"contracts/release/interfaces/ILiquityTroveManager.sol\":\"ILiquityTroveManager\"},\"evmVersion\":\"istanbul\",\"libraries\":{},\"metadata\":{\"bytecodeHash\":\"none\"},\"optimizer\":{\"details\":{\"constantOptimizer\":true,\"cse\":true,\"deduplicate\":true,\"jumpdestRemover\":true,\"orderLiterals\":true,\"peephole\":true,\"yul\":false},\"runs\":200},\"remappings\":[\":@enzyme/=contracts/\",\":@openzeppelin-solc-0.7/=node_modules/@openzeppelin-solc-0.7/\",\":@openzeppelin/=node_modules/@openzeppelin/\",\":@uniswap/=node_modules/@uniswap/\",\":base64-sol/=node_modules/base64-sol/\",\":ds-test/=lib/forge-std/lib/ds-test/src/\",\":forge-std/=lib/forge-std/src/\",\":hardhat-deploy/=node_modules/hardhat-deploy/\",\":hardhat/=node_modules/hardhat/\"]},\"sources\":{\"contracts/release/interfaces/ILiquityTroveManager.sol\":{\"keccak256\":\"0x8e3296f143e0d194dee3ffebc0912d21d5181e1360e0ec99673d2e61d047f7a6\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://44267baacec0e4a2e9396b12b2106bb596a0a17d1e8df206ef95f46f841b052b\",\"dweb:/ipfs/QmRp6HQ6FhdQCsTskSq596y1WBM7BsG9dArj8Gd23c2NTF\"]}},\"version\":1}",
+  "metadata": {
+    "compiler": {
+      "version": "0.6.12+commit.27d51765"
+    },
+    "language": "Solidity",
+    "output": {
+      "abi": [
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "",
+              "type": "address"
+            }
+          ],
+          "stateMutability": "view",
+          "type": "function",
+          "name": "getTroveColl",
+          "outputs": [
+            {
+              "internalType": "uint256",
+              "name": "",
+              "type": "uint256"
+            }
+          ]
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "",
+              "type": "address"
+            }
+          ],
+          "stateMutability": "view",
+          "type": "function",
+          "name": "getTroveDebt",
+          "outputs": [
+            {
+              "internalType": "uint256",
+              "name": "",
+              "type": "uint256"
+            }
+          ]
+        }
+      ],
+      "devdoc": {
+        "kind": "dev",
+        "methods": {},
+        "version": 1
+      },
+      "userdoc": {
+        "kind": "user",
+        "methods": {},
+        "version": 1
+      }
+    },
+    "settings": {
+      "remappings": [
+        ":@enzyme/=contracts/",
+        ":@openzeppelin-solc-0.7/=node_modules/@openzeppelin-solc-0.7/",
+        ":@openzeppelin/=node_modules/@openzeppelin/",
+        ":@uniswap/=node_modules/@uniswap/",
+        ":base64-sol/=node_modules/base64-sol/",
+        ":ds-test/=lib/forge-std/lib/ds-test/src/",
+        ":forge-std/=lib/forge-std/src/",
+        ":hardhat-deploy/=node_modules/hardhat-deploy/",
+        ":hardhat/=node_modules/hardhat/"
+      ],
+      "optimizer": {
+        "runs": 200,
+        "details": {
+          "peephole": true,
+          "jumpdestRemover": true,
+          "orderLiterals": true,
+          "deduplicate": true,
+          "cse": true,
+          "constantOptimizer": true,
+          "yul": false
+        }
+      },
+      "metadata": {
+        "bytecodeHash": "none"
+      },
+      "compilationTarget": {
+        "contracts/release/interfaces/ILiquityTroveManager.sol": "ILiquityTroveManager"
+      },
+      "libraries": {}
+    },
+    "sources": {
+      "contracts/release/interfaces/ILiquityTroveManager.sol": {
+        "keccak256": "0x8e3296f143e0d194dee3ffebc0912d21d5181e1360e0ec99673d2e61d047f7a6",
+        "urls": [
+          "bzz-raw://44267baacec0e4a2e9396b12b2106bb596a0a17d1e8df206ef95f46f841b052b",
+          "dweb:/ipfs/QmRp6HQ6FhdQCsTskSq596y1WBM7BsG9dArj8Gd23c2NTF"
+        ],
+        "license": "GPL-3.0"
+      }
+    },
+    "version": 1
+  },
+  "ast": {
+    "absolutePath": "contracts/release/interfaces/ILiquityTroveManager.sol",
+    "id": 72190,
+    "exportedSymbols": {
+      "ILiquityTroveManager": [
+        72189
+      ]
+    },
+    "nodeType": "SourceUnit",
+    "src": "255:380:311",
+    "nodes": [
+      {
+        "id": 72173,
+        "nodeType": "PragmaDirective",
+        "src": "255:23:311",
+        "nodes": [],
+        "literals": [
+          "solidity",
+          "0.6",
+          ".12"
+        ]
+      },
+      {
+        "id": 72189,
+        "nodeType": "ContractDefinition",
+        "src": "463:171:311",
+        "nodes": [
+          {
+            "id": 72181,
+            "nodeType": "FunctionDefinition",
+            "src": "500:63:311",
+            "nodes": [],
+            "documentation": null,
+            "functionSelector": "480cd578",
+            "implemented": false,
+            "kind": "function",
+            "modifiers": [],
+            "name": "getTroveColl",
+            "overrides": null,
+            "parameters": {
+              "id": 72177,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 72176,
+                  "mutability": "mutable",
+                  "name": "",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 72181,
+                  "src": "522:7:311",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 72175,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "522:7:311",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "521:9:311"
+            },
+            "returnParameters": {
+              "id": 72180,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 72179,
+                  "mutability": "mutable",
+                  "name": "",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 72181,
+                  "src": "554:7:311",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_uint256",
+                    "typeString": "uint256"
+                  },
+                  "typeName": {
+                    "id": 72178,
+                    "name": "uint256",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "554:7:311",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_uint256",
+                      "typeString": "uint256"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "553:9:311"
+            },
+            "scope": 72189,
+            "stateMutability": "view",
+            "virtual": false,
+            "visibility": "external"
+          },
+          {
+            "id": 72188,
+            "nodeType": "FunctionDefinition",
+            "src": "569:63:311",
+            "nodes": [],
+            "documentation": null,
+            "functionSelector": "d66a2553",
+            "implemented": false,
+            "kind": "function",
+            "modifiers": [],
+            "name": "getTroveDebt",
+            "overrides": null,
+            "parameters": {
+              "id": 72184,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 72183,
+                  "mutability": "mutable",
+                  "name": "",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 72188,
+                  "src": "591:7:311",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 72182,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "591:7:311",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "590:9:311"
+            },
+            "returnParameters": {
+              "id": 72187,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 72186,
+                  "mutability": "mutable",
+                  "name": "",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 72188,
+                  "src": "623:7:311",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_uint256",
+                    "typeString": "uint256"
+                  },
+                  "typeName": {
+                    "id": 72185,
+                    "name": "uint256",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "623:7:311",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_uint256",
+                      "typeString": "uint256"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "622:9:311"
+            },
+            "scope": 72189,
+            "stateMutability": "view",
+            "virtual": false,
+            "visibility": "external"
+          }
+        ],
+        "abstract": false,
+        "baseContracts": [],
+        "contractDependencies": [],
+        "contractKind": "interface",
+        "documentation": {
+          "id": 72174,
+          "nodeType": "StructuredDocumentation",
+          "src": "280:183:311",
+          "text": "@title ILiquityTroveManager Interface\n @author Enzyme Council <security@enzyme.finance>\n @notice Minimal interface for our interactions with Liquity Trove Mangager contract"
+        },
+        "fullyImplemented": false,
+        "linearizedBaseContracts": [
+          72189
+        ],
+        "name": "ILiquityTroveManager",
+        "scope": 72190
+      }
+    ],
+    "license": "GPL-3.0"
+  },
+  "id": 311
 }

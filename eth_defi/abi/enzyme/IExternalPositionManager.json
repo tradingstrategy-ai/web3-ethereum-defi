@@ -1,7 +1,4 @@
 {
-  "_format": "hh-sol-artifact-1",
-  "contractName": "IExternalPositionManager",
-  "sourceName": "contracts/release/extensions/external-position-manager/IExternalPositionManager.sol",
   "abi": [
     {
       "inputs": [
@@ -23,8 +20,341 @@
       "type": "function"
     }
   ],
-  "bytecode": "0x",
-  "deployedBytecode": "0x",
-  "linkReferences": {},
-  "deployedLinkReferences": {}
+  "bytecode": {
+    "object": "0x",
+    "sourceMap": "",
+    "linkReferences": {}
+  },
+  "deployedBytecode": {
+    "object": "0x",
+    "sourceMap": "",
+    "linkReferences": {}
+  },
+  "methodIdentifiers": {
+    "getExternalPositionLibForType(uint256)": "75d8bb0e"
+  },
+  "rawMetadata": "{\"compiler\":{\"version\":\"0.6.12+commit.27d51765\"},\"language\":\"Solidity\",\"output\":{\"abi\":[{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"name\":\"getExternalPositionLibForType\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"}],\"devdoc\":{\"author\":\"Enzyme Council <security@enzyme.finance>\",\"kind\":\"dev\",\"methods\":{},\"title\":\"IExternalPositionManager interface\",\"version\":1},\"userdoc\":{\"kind\":\"user\",\"methods\":{},\"notice\":\"Interface for the ExternalPositionManager\",\"version\":1}},\"settings\":{\"compilationTarget\":{\"contracts/release/extensions/external-position-manager/IExternalPositionManager.sol\":\"IExternalPositionManager\"},\"evmVersion\":\"istanbul\",\"libraries\":{},\"metadata\":{\"bytecodeHash\":\"none\"},\"optimizer\":{\"details\":{\"constantOptimizer\":true,\"cse\":true,\"deduplicate\":true,\"jumpdestRemover\":true,\"orderLiterals\":true,\"peephole\":true,\"yul\":false},\"runs\":200},\"remappings\":[\":@enzyme/=contracts/\",\":@openzeppelin-solc-0.7/=node_modules/@openzeppelin-solc-0.7/\",\":@openzeppelin/=node_modules/@openzeppelin/\",\":@uniswap/=node_modules/@uniswap/\",\":base64-sol/=node_modules/base64-sol/\",\":ds-test/=lib/forge-std/lib/ds-test/src/\",\":forge-std/=lib/forge-std/src/\",\":hardhat-deploy/=node_modules/hardhat-deploy/\",\":hardhat/=node_modules/hardhat/\"]},\"sources\":{\"contracts/release/extensions/external-position-manager/IExternalPositionManager.sol\":{\"keccak256\":\"0x3af3f634e1f99fb97091b7825c0d2e2baaafc124d4e87d56cb0c17ff8554f6c6\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://515470605afe5ef147f30fa75ce7818f0e00e3d321eb81a4d9bffcdefc294495\",\"dweb:/ipfs/QmPKsp99pfHoz9Tfo3ZxnkmqDqJtN9PxqacF2RmeVfxUJF\"]}},\"version\":1}",
+  "metadata": {
+    "compiler": {
+      "version": "0.6.12+commit.27d51765"
+    },
+    "language": "Solidity",
+    "output": {
+      "abi": [
+        {
+          "inputs": [
+            {
+              "internalType": "uint256",
+              "name": "",
+              "type": "uint256"
+            }
+          ],
+          "stateMutability": "view",
+          "type": "function",
+          "name": "getExternalPositionLibForType",
+          "outputs": [
+            {
+              "internalType": "address",
+              "name": "",
+              "type": "address"
+            }
+          ]
+        }
+      ],
+      "devdoc": {
+        "kind": "dev",
+        "methods": {},
+        "version": 1
+      },
+      "userdoc": {
+        "kind": "user",
+        "methods": {},
+        "version": 1
+      }
+    },
+    "settings": {
+      "remappings": [
+        ":@enzyme/=contracts/",
+        ":@openzeppelin-solc-0.7/=node_modules/@openzeppelin-solc-0.7/",
+        ":@openzeppelin/=node_modules/@openzeppelin/",
+        ":@uniswap/=node_modules/@uniswap/",
+        ":base64-sol/=node_modules/base64-sol/",
+        ":ds-test/=lib/forge-std/lib/ds-test/src/",
+        ":forge-std/=lib/forge-std/src/",
+        ":hardhat-deploy/=node_modules/hardhat-deploy/",
+        ":hardhat/=node_modules/hardhat/"
+      ],
+      "optimizer": {
+        "runs": 200,
+        "details": {
+          "peephole": true,
+          "jumpdestRemover": true,
+          "orderLiterals": true,
+          "deduplicate": true,
+          "cse": true,
+          "constantOptimizer": true,
+          "yul": false
+        }
+      },
+      "metadata": {
+        "bytecodeHash": "none"
+      },
+      "compilationTarget": {
+        "contracts/release/extensions/external-position-manager/IExternalPositionManager.sol": "IExternalPositionManager"
+      },
+      "libraries": {}
+    },
+    "sources": {
+      "contracts/release/extensions/external-position-manager/IExternalPositionManager.sol": {
+        "keccak256": "0x3af3f634e1f99fb97091b7825c0d2e2baaafc124d4e87d56cb0c17ff8554f6c6",
+        "urls": [
+          "bzz-raw://515470605afe5ef147f30fa75ce7818f0e00e3d321eb81a4d9bffcdefc294495",
+          "dweb:/ipfs/QmPKsp99pfHoz9Tfo3ZxnkmqDqJtN9PxqacF2RmeVfxUJF"
+        ],
+        "license": "GPL-3.0"
+      }
+    },
+    "version": 1
+  },
+  "ast": {
+    "absolutePath": "contracts/release/extensions/external-position-manager/IExternalPositionManager.sol",
+    "id": 7035,
+    "exportedSymbols": {
+      "IExternalPositionManager": [
+        7034
+      ]
+    },
+    "nodeType": "SourceUnit",
+    "src": "255:571:21",
+    "nodes": [
+      {
+        "id": 7015,
+        "nodeType": "PragmaDirective",
+        "src": "255:23:21",
+        "nodes": [],
+        "literals": [
+          "solidity",
+          "0.6",
+          ".12"
+        ]
+      },
+      {
+        "id": 7034,
+        "nodeType": "ContractDefinition",
+        "src": "433:392:21",
+        "nodes": [
+          {
+            "id": 7021,
+            "nodeType": "StructDefinition",
+            "src": "474:84:21",
+            "nodes": [],
+            "canonicalName": "IExternalPositionManager.ExternalPositionTypeInfo",
+            "members": [
+              {
+                "constant": false,
+                "id": 7018,
+                "mutability": "mutable",
+                "name": "parser",
+                "nodeType": "VariableDeclaration",
+                "overrides": null,
+                "scope": 7021,
+                "src": "516:14:21",
+                "stateVariable": false,
+                "storageLocation": "default",
+                "typeDescriptions": {
+                  "typeIdentifier": "t_address",
+                  "typeString": "address"
+                },
+                "typeName": {
+                  "id": 7017,
+                  "name": "address",
+                  "nodeType": "ElementaryTypeName",
+                  "src": "516:7:21",
+                  "stateMutability": "nonpayable",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  }
+                },
+                "value": null,
+                "visibility": "internal"
+              },
+              {
+                "constant": false,
+                "id": 7020,
+                "mutability": "mutable",
+                "name": "lib",
+                "nodeType": "VariableDeclaration",
+                "overrides": null,
+                "scope": 7021,
+                "src": "540:11:21",
+                "stateVariable": false,
+                "storageLocation": "default",
+                "typeDescriptions": {
+                  "typeIdentifier": "t_address",
+                  "typeString": "address"
+                },
+                "typeName": {
+                  "id": 7019,
+                  "name": "address",
+                  "nodeType": "ElementaryTypeName",
+                  "src": "540:7:21",
+                  "stateMutability": "nonpayable",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  }
+                },
+                "value": null,
+                "visibility": "internal"
+              }
+            ],
+            "name": "ExternalPositionTypeInfo",
+            "scope": 7034,
+            "visibility": "public"
+          },
+          {
+            "id": 7026,
+            "nodeType": "EnumDefinition",
+            "src": "563:174:21",
+            "nodes": [],
+            "canonicalName": "IExternalPositionManager.ExternalPositionManagerActions",
+            "members": [
+              {
+                "id": 7022,
+                "name": "CreateExternalPosition",
+                "nodeType": "EnumValue",
+                "src": "609:22:21"
+              },
+              {
+                "id": 7023,
+                "name": "CallOnExternalPosition",
+                "nodeType": "EnumValue",
+                "src": "641:22:21"
+              },
+              {
+                "id": 7024,
+                "name": "RemoveExternalPosition",
+                "nodeType": "EnumValue",
+                "src": "673:22:21"
+              },
+              {
+                "id": 7025,
+                "name": "ReactivateExternalPosition",
+                "nodeType": "EnumValue",
+                "src": "705:26:21"
+              }
+            ],
+            "name": "ExternalPositionManagerActions"
+          },
+          {
+            "id": 7033,
+            "nodeType": "FunctionDefinition",
+            "src": "743:80:21",
+            "nodes": [],
+            "documentation": null,
+            "functionSelector": "75d8bb0e",
+            "implemented": false,
+            "kind": "function",
+            "modifiers": [],
+            "name": "getExternalPositionLibForType",
+            "overrides": null,
+            "parameters": {
+              "id": 7029,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 7028,
+                  "mutability": "mutable",
+                  "name": "",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 7033,
+                  "src": "782:7:21",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_uint256",
+                    "typeString": "uint256"
+                  },
+                  "typeName": {
+                    "id": 7027,
+                    "name": "uint256",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "782:7:21",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_uint256",
+                      "typeString": "uint256"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "781:9:21"
+            },
+            "returnParameters": {
+              "id": 7032,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 7031,
+                  "mutability": "mutable",
+                  "name": "",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 7033,
+                  "src": "814:7:21",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 7030,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "814:7:21",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "813:9:21"
+            },
+            "scope": 7034,
+            "stateMutability": "view",
+            "virtual": false,
+            "visibility": "external"
+          }
+        ],
+        "abstract": false,
+        "baseContracts": [],
+        "contractDependencies": [],
+        "contractKind": "interface",
+        "documentation": {
+          "id": 7016,
+          "nodeType": "StructuredDocumentation",
+          "src": "280:153:21",
+          "text": "@title IExternalPositionManager interface\n @author Enzyme Council <security@enzyme.finance>\n @notice Interface for the ExternalPositionManager"
+        },
+        "fullyImplemented": false,
+        "linearizedBaseContracts": [
+          7034
+        ],
+        "name": "IExternalPositionManager",
+        "scope": 7035
+      }
+    ],
+    "license": "GPL-3.0"
+  },
+  "id": 21
 }

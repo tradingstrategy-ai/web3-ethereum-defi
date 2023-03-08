@@ -11,6 +11,7 @@
 - Print Solidity stack traces of failed transactions using `print_symbolic_trace()` and `trace_evm_transaction()`
 - Adding Enzyme Protocol ABI files and compile commands
 - Adding dHEDGE Protocol ABI files and compile commands
+- Add `revert_reason_middleware`
 
 # 0.14.1
 

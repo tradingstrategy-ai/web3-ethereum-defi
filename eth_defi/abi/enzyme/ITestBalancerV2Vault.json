@@ -1,0 +1,999 @@
+{
+  "abi": [
+    {
+      "inputs": [
+        {
+          "internalType": "bytes32",
+          "name": "_poolId",
+          "type": "bytes32"
+        },
+        {
+          "internalType": "address",
+          "name": "_sender",
+          "type": "address"
+        },
+        {
+          "internalType": "address payable",
+          "name": "_recipient",
+          "type": "address"
+        },
+        {
+          "components": [
+            {
+              "internalType": "address[]",
+              "name": "assets",
+              "type": "address[]"
+            },
+            {
+              "internalType": "uint256[]",
+              "name": "limits",
+              "type": "uint256[]"
+            },
+            {
+              "internalType": "bytes",
+              "name": "userData",
+              "type": "bytes"
+            },
+            {
+              "internalType": "bool",
+              "name": "useInternalBalance",
+              "type": "bool"
+            }
+          ],
+          "internalType": "struct ITestBalancerV2Vault.PoolBalanceChange",
+          "name": "_request",
+          "type": "tuple"
+        }
+      ],
+      "name": "exitPool",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bytes32",
+          "name": "_poolId",
+          "type": "bytes32"
+        }
+      ],
+      "name": "getPoolTokens",
+      "outputs": [
+        {
+          "internalType": "address[]",
+          "name": "tokens_",
+          "type": "address[]"
+        },
+        {
+          "internalType": "uint256[]",
+          "name": "balances_",
+          "type": "uint256[]"
+        },
+        {
+          "internalType": "uint256",
+          "name": "lastChangeBlock_",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bytes32",
+          "name": "_poolId",
+          "type": "bytes32"
+        },
+        {
+          "internalType": "address",
+          "name": "_sender",
+          "type": "address"
+        },
+        {
+          "internalType": "address",
+          "name": "_recipient",
+          "type": "address"
+        },
+        {
+          "components": [
+            {
+              "internalType": "address[]",
+              "name": "assets",
+              "type": "address[]"
+            },
+            {
+              "internalType": "uint256[]",
+              "name": "limits",
+              "type": "uint256[]"
+            },
+            {
+              "internalType": "bytes",
+              "name": "userData",
+              "type": "bytes"
+            },
+            {
+              "internalType": "bool",
+              "name": "useInternalBalance",
+              "type": "bool"
+            }
+          ],
+          "internalType": "struct ITestBalancerV2Vault.PoolBalanceChange",
+          "name": "_request",
+          "type": "tuple"
+        }
+      ],
+      "name": "joinPool",
+      "outputs": [],
+      "stateMutability": "payable",
+      "type": "function"
+    }
+  ],
+  "bytecode": {
+    "object": "0x",
+    "sourceMap": "",
+    "linkReferences": {}
+  },
+  "deployedBytecode": {
+    "object": "0x",
+    "sourceMap": "",
+    "linkReferences": {}
+  },
+  "methodIdentifiers": {
+    "exitPool(bytes32,address,address,(address[],uint256[],bytes,bool))": "8bdb3913",
+    "getPoolTokens(bytes32)": "f94d4668",
+    "joinPool(bytes32,address,address,(address[],uint256[],bytes,bool))": "b95cac28"
+  },
+  "rawMetadata": "{\"compiler\":{\"version\":\"0.6.12+commit.27d51765\"},\"language\":\"Solidity\",\"output\":{\"abi\":[{\"inputs\":[{\"internalType\":\"bytes32\",\"name\":\"_poolId\",\"type\":\"bytes32\"},{\"internalType\":\"address\",\"name\":\"_sender\",\"type\":\"address\"},{\"internalType\":\"address payable\",\"name\":\"_recipient\",\"type\":\"address\"},{\"components\":[{\"internalType\":\"address[]\",\"name\":\"assets\",\"type\":\"address[]\"},{\"internalType\":\"uint256[]\",\"name\":\"limits\",\"type\":\"uint256[]\"},{\"internalType\":\"bytes\",\"name\":\"userData\",\"type\":\"bytes\"},{\"internalType\":\"bool\",\"name\":\"useInternalBalance\",\"type\":\"bool\"}],\"internalType\":\"struct ITestBalancerV2Vault.PoolBalanceChange\",\"name\":\"_request\",\"type\":\"tuple\"}],\"name\":\"exitPool\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes32\",\"name\":\"_poolId\",\"type\":\"bytes32\"}],\"name\":\"getPoolTokens\",\"outputs\":[{\"internalType\":\"address[]\",\"name\":\"tokens_\",\"type\":\"address[]\"},{\"internalType\":\"uint256[]\",\"name\":\"balances_\",\"type\":\"uint256[]\"},{\"internalType\":\"uint256\",\"name\":\"lastChangeBlock_\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes32\",\"name\":\"_poolId\",\"type\":\"bytes32\"},{\"internalType\":\"address\",\"name\":\"_sender\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"_recipient\",\"type\":\"address\"},{\"components\":[{\"internalType\":\"address[]\",\"name\":\"assets\",\"type\":\"address[]\"},{\"internalType\":\"uint256[]\",\"name\":\"limits\",\"type\":\"uint256[]\"},{\"internalType\":\"bytes\",\"name\":\"userData\",\"type\":\"bytes\"},{\"internalType\":\"bool\",\"name\":\"useInternalBalance\",\"type\":\"bool\"}],\"internalType\":\"struct ITestBalancerV2Vault.PoolBalanceChange\",\"name\":\"_request\",\"type\":\"tuple\"}],\"name\":\"joinPool\",\"outputs\":[],\"stateMutability\":\"payable\",\"type\":\"function\"}],\"devdoc\":{\"author\":\"Enzyme Council <security@enzyme.finance>\",\"kind\":\"dev\",\"methods\":{},\"title\":\"ITestBalancerV2Vault Interface\",\"version\":1},\"userdoc\":{\"kind\":\"user\",\"methods\":{},\"version\":1}},\"settings\":{\"compilationTarget\":{\"contracts/test/interfaces/ITestBalancerV2Vault.sol\":\"ITestBalancerV2Vault\"},\"evmVersion\":\"istanbul\",\"libraries\":{},\"metadata\":{\"bytecodeHash\":\"none\"},\"optimizer\":{\"details\":{\"constantOptimizer\":true,\"cse\":true,\"deduplicate\":true,\"jumpdestRemover\":true,\"orderLiterals\":true,\"peephole\":true,\"yul\":false},\"runs\":200},\"remappings\":[\":@enzyme/=contracts/\",\":@openzeppelin-solc-0.7/=node_modules/@openzeppelin-solc-0.7/\",\":@openzeppelin/=node_modules/@openzeppelin/\",\":@uniswap/=node_modules/@uniswap/\",\":base64-sol/=node_modules/base64-sol/\",\":ds-test/=lib/forge-std/lib/ds-test/src/\",\":forge-std/=lib/forge-std/src/\",\":hardhat-deploy/=node_modules/hardhat-deploy/\",\":hardhat/=node_modules/hardhat/\"]},\"sources\":{\"contracts/test/interfaces/ITestBalancerV2Vault.sol\":{\"keccak256\":\"0x161510ea039ad3c505dbce7762cf1c58c6be4cc1bdbee9fcab9cd73f25496fba\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://f11f46d2990bd4f7c17bab5de7fe3351ca38fac7852158f80a803577d4b3e2ad\",\"dweb:/ipfs/QmQAhNqCshWcSAGhDKU5dmL6BPU9SmMGAPxzi2iptYseZK\"]}},\"version\":1}",
+  "metadata": {
+    "compiler": {
+      "version": "0.6.12+commit.27d51765"
+    },
+    "language": "Solidity",
+    "output": {
+      "abi": [
+        {
+          "inputs": [
+            {
+              "internalType": "bytes32",
+              "name": "_poolId",
+              "type": "bytes32"
+            },
+            {
+              "internalType": "address",
+              "name": "_sender",
+              "type": "address"
+            },
+            {
+              "internalType": "address payable",
+              "name": "_recipient",
+              "type": "address"
+            },
+            {
+              "internalType": "struct ITestBalancerV2Vault.PoolBalanceChange",
+              "name": "_request",
+              "type": "tuple",
+              "components": [
+                {
+                  "internalType": "address[]",
+                  "name": "assets",
+                  "type": "address[]"
+                },
+                {
+                  "internalType": "uint256[]",
+                  "name": "limits",
+                  "type": "uint256[]"
+                },
+                {
+                  "internalType": "bytes",
+                  "name": "userData",
+                  "type": "bytes"
+                },
+                {
+                  "internalType": "bool",
+                  "name": "useInternalBalance",
+                  "type": "bool"
+                }
+              ]
+            }
+          ],
+          "stateMutability": "nonpayable",
+          "type": "function",
+          "name": "exitPool"
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "bytes32",
+              "name": "_poolId",
+              "type": "bytes32"
+            }
+          ],
+          "stateMutability": "view",
+          "type": "function",
+          "name": "getPoolTokens",
+          "outputs": [
+            {
+              "internalType": "address[]",
+              "name": "tokens_",
+              "type": "address[]"
+            },
+            {
+              "internalType": "uint256[]",
+              "name": "balances_",
+              "type": "uint256[]"
+            },
+            {
+              "internalType": "uint256",
+              "name": "lastChangeBlock_",
+              "type": "uint256"
+            }
+          ]
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "bytes32",
+              "name": "_poolId",
+              "type": "bytes32"
+            },
+            {
+              "internalType": "address",
+              "name": "_sender",
+              "type": "address"
+            },
+            {
+              "internalType": "address",
+              "name": "_recipient",
+              "type": "address"
+            },
+            {
+              "internalType": "struct ITestBalancerV2Vault.PoolBalanceChange",
+              "name": "_request",
+              "type": "tuple",
+              "components": [
+                {
+                  "internalType": "address[]",
+                  "name": "assets",
+                  "type": "address[]"
+                },
+                {
+                  "internalType": "uint256[]",
+                  "name": "limits",
+                  "type": "uint256[]"
+                },
+                {
+                  "internalType": "bytes",
+                  "name": "userData",
+                  "type": "bytes"
+                },
+                {
+                  "internalType": "bool",
+                  "name": "useInternalBalance",
+                  "type": "bool"
+                }
+              ]
+            }
+          ],
+          "stateMutability": "payable",
+          "type": "function",
+          "name": "joinPool"
+        }
+      ],
+      "devdoc": {
+        "kind": "dev",
+        "methods": {},
+        "version": 1
+      },
+      "userdoc": {
+        "kind": "user",
+        "methods": {},
+        "version": 1
+      }
+    },
+    "settings": {
+      "remappings": [
+        ":@enzyme/=contracts/",
+        ":@openzeppelin-solc-0.7/=node_modules/@openzeppelin-solc-0.7/",
+        ":@openzeppelin/=node_modules/@openzeppelin/",
+        ":@uniswap/=node_modules/@uniswap/",
+        ":base64-sol/=node_modules/base64-sol/",
+        ":ds-test/=lib/forge-std/lib/ds-test/src/",
+        ":forge-std/=lib/forge-std/src/",
+        ":hardhat-deploy/=node_modules/hardhat-deploy/",
+        ":hardhat/=node_modules/hardhat/"
+      ],
+      "optimizer": {
+        "runs": 200,
+        "details": {
+          "peephole": true,
+          "jumpdestRemover": true,
+          "orderLiterals": true,
+          "deduplicate": true,
+          "cse": true,
+          "constantOptimizer": true,
+          "yul": false
+        }
+      },
+      "metadata": {
+        "bytecodeHash": "none"
+      },
+      "compilationTarget": {
+        "contracts/test/interfaces/ITestBalancerV2Vault.sol": "ITestBalancerV2Vault"
+      },
+      "libraries": {}
+    },
+    "sources": {
+      "contracts/test/interfaces/ITestBalancerV2Vault.sol": {
+        "keccak256": "0x161510ea039ad3c505dbce7762cf1c58c6be4cc1bdbee9fcab9cd73f25496fba",
+        "urls": [
+          "bzz-raw://f11f46d2990bd4f7c17bab5de7fe3351ca38fac7852158f80a803577d4b3e2ad",
+          "dweb:/ipfs/QmQAhNqCshWcSAGhDKU5dmL6BPU9SmMGAPxzi2iptYseZK"
+        ],
+        "license": "GPL-3.0"
+      }
+    },
+    "version": 1
+  },
+  "ast": {
+    "absolutePath": "contracts/test/interfaces/ITestBalancerV2Vault.sol",
+    "id": 80095,
+    "exportedSymbols": {
+      "ITestBalancerV2Vault": [
+        80094
+      ]
+    },
+    "nodeType": "SourceUnit",
+    "src": "255:890:380",
+    "nodes": [
+      {
+        "id": 80045,
+        "nodeType": "PragmaDirective",
+        "src": "255:23:380",
+        "nodes": [],
+        "literals": [
+          "solidity",
+          "0.6",
+          ".12"
+        ]
+      },
+      {
+        "id": 80046,
+        "nodeType": "PragmaDirective",
+        "src": "279:33:380",
+        "nodes": [],
+        "literals": [
+          "experimental",
+          "ABIEncoderV2"
+        ]
+      },
+      {
+        "id": 80094,
+        "nodeType": "ContractDefinition",
+        "src": "409:735:380",
+        "nodes": [
+          {
+            "id": 80058,
+            "nodeType": "StructDefinition",
+            "src": "446:141:380",
+            "nodes": [],
+            "canonicalName": "ITestBalancerV2Vault.PoolBalanceChange",
+            "members": [
+              {
+                "constant": false,
+                "id": 80050,
+                "mutability": "mutable",
+                "name": "assets",
+                "nodeType": "VariableDeclaration",
+                "overrides": null,
+                "scope": 80058,
+                "src": "481:16:380",
+                "stateVariable": false,
+                "storageLocation": "default",
+                "typeDescriptions": {
+                  "typeIdentifier": "t_array$_t_address_$dyn_storage_ptr",
+                  "typeString": "address[]"
+                },
+                "typeName": {
+                  "baseType": {
+                    "id": 80048,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "481:7:380",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "id": 80049,
+                  "length": null,
+                  "nodeType": "ArrayTypeName",
+                  "src": "481:9:380",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_array$_t_address_$dyn_storage_ptr",
+                    "typeString": "address[]"
+                  }
+                },
+                "value": null,
+                "visibility": "internal"
+              },
+              {
+                "constant": false,
+                "id": 80053,
+                "mutability": "mutable",
+                "name": "limits",
+                "nodeType": "VariableDeclaration",
+                "overrides": null,
+                "scope": 80058,
+                "src": "507:16:380",
+                "stateVariable": false,
+                "storageLocation": "default",
+                "typeDescriptions": {
+                  "typeIdentifier": "t_array$_t_uint256_$dyn_storage_ptr",
+                  "typeString": "uint256[]"
+                },
+                "typeName": {
+                  "baseType": {
+                    "id": 80051,
+                    "name": "uint256",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "507:7:380",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_uint256",
+                      "typeString": "uint256"
+                    }
+                  },
+                  "id": 80052,
+                  "length": null,
+                  "nodeType": "ArrayTypeName",
+                  "src": "507:9:380",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_array$_t_uint256_$dyn_storage_ptr",
+                    "typeString": "uint256[]"
+                  }
+                },
+                "value": null,
+                "visibility": "internal"
+              },
+              {
+                "constant": false,
+                "id": 80055,
+                "mutability": "mutable",
+                "name": "userData",
+                "nodeType": "VariableDeclaration",
+                "overrides": null,
+                "scope": 80058,
+                "src": "533:14:380",
+                "stateVariable": false,
+                "storageLocation": "default",
+                "typeDescriptions": {
+                  "typeIdentifier": "t_bytes_storage_ptr",
+                  "typeString": "bytes"
+                },
+                "typeName": {
+                  "id": 80054,
+                  "name": "bytes",
+                  "nodeType": "ElementaryTypeName",
+                  "src": "533:5:380",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_bytes_storage_ptr",
+                    "typeString": "bytes"
+                  }
+                },
+                "value": null,
+                "visibility": "internal"
+              },
+              {
+                "constant": false,
+                "id": 80057,
+                "mutability": "mutable",
+                "name": "useInternalBalance",
+                "nodeType": "VariableDeclaration",
+                "overrides": null,
+                "scope": 80058,
+                "src": "557:23:380",
+                "stateVariable": false,
+                "storageLocation": "default",
+                "typeDescriptions": {
+                  "typeIdentifier": "t_bool",
+                  "typeString": "bool"
+                },
+                "typeName": {
+                  "id": 80056,
+                  "name": "bool",
+                  "nodeType": "ElementaryTypeName",
+                  "src": "557:4:380",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_bool",
+                    "typeString": "bool"
+                  }
+                },
+                "value": null,
+                "visibility": "internal"
+              }
+            ],
+            "name": "PoolBalanceChange",
+            "scope": 80094,
+            "visibility": "public"
+          },
+          {
+            "id": 80069,
+            "nodeType": "FunctionDefinition",
+            "src": "593:162:380",
+            "nodes": [],
+            "documentation": null,
+            "functionSelector": "8bdb3913",
+            "implemented": false,
+            "kind": "function",
+            "modifiers": [],
+            "name": "exitPool",
+            "overrides": null,
+            "parameters": {
+              "id": 80067,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 80060,
+                  "mutability": "mutable",
+                  "name": "_poolId",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 80069,
+                  "src": "620:15:380",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_bytes32",
+                    "typeString": "bytes32"
+                  },
+                  "typeName": {
+                    "id": 80059,
+                    "name": "bytes32",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "620:7:380",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_bytes32",
+                      "typeString": "bytes32"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 80062,
+                  "mutability": "mutable",
+                  "name": "_sender",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 80069,
+                  "src": "645:15:380",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 80061,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "645:7:380",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 80064,
+                  "mutability": "mutable",
+                  "name": "_recipient",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 80069,
+                  "src": "670:26:380",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address_payable",
+                    "typeString": "address payable"
+                  },
+                  "typeName": {
+                    "id": 80063,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "670:15:380",
+                    "stateMutability": "payable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address_payable",
+                      "typeString": "address payable"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 80066,
+                  "mutability": "mutable",
+                  "name": "_request",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 80069,
+                  "src": "706:33:380",
+                  "stateVariable": false,
+                  "storageLocation": "memory",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_struct$_PoolBalanceChange_$80058_memory_ptr",
+                    "typeString": "struct ITestBalancerV2Vault.PoolBalanceChange"
+                  },
+                  "typeName": {
+                    "contractScope": null,
+                    "id": 80065,
+                    "name": "PoolBalanceChange",
+                    "nodeType": "UserDefinedTypeName",
+                    "referencedDeclaration": 80058,
+                    "src": "706:17:380",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_struct$_PoolBalanceChange_$80058_storage_ptr",
+                      "typeString": "struct ITestBalancerV2Vault.PoolBalanceChange"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "610:135:380"
+            },
+            "returnParameters": {
+              "id": 80068,
+              "nodeType": "ParameterList",
+              "parameters": [],
+              "src": "754:0:380"
+            },
+            "scope": 80094,
+            "stateMutability": "nonpayable",
+            "virtual": false,
+            "visibility": "external"
+          },
+          {
+            "id": 80082,
+            "nodeType": "FunctionDefinition",
+            "src": "761:213:380",
+            "nodes": [],
+            "documentation": null,
+            "functionSelector": "f94d4668",
+            "implemented": false,
+            "kind": "function",
+            "modifiers": [],
+            "name": "getPoolTokens",
+            "overrides": null,
+            "parameters": {
+              "id": 80072,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 80071,
+                  "mutability": "mutable",
+                  "name": "_poolId",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 80082,
+                  "src": "784:15:380",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_bytes32",
+                    "typeString": "bytes32"
+                  },
+                  "typeName": {
+                    "id": 80070,
+                    "name": "bytes32",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "784:7:380",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_bytes32",
+                      "typeString": "bytes32"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "783:17:380"
+            },
+            "returnParameters": {
+              "id": 80081,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 80075,
+                  "mutability": "mutable",
+                  "name": "tokens_",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 80082,
+                  "src": "861:24:380",
+                  "stateVariable": false,
+                  "storageLocation": "memory",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_array$_t_address_$dyn_memory_ptr",
+                    "typeString": "address[]"
+                  },
+                  "typeName": {
+                    "baseType": {
+                      "id": 80073,
+                      "name": "address",
+                      "nodeType": "ElementaryTypeName",
+                      "src": "861:7:380",
+                      "stateMutability": "nonpayable",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_address",
+                        "typeString": "address"
+                      }
+                    },
+                    "id": 80074,
+                    "length": null,
+                    "nodeType": "ArrayTypeName",
+                    "src": "861:9:380",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_array$_t_address_$dyn_storage_ptr",
+                      "typeString": "address[]"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 80078,
+                  "mutability": "mutable",
+                  "name": "balances_",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 80082,
+                  "src": "899:26:380",
+                  "stateVariable": false,
+                  "storageLocation": "memory",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_array$_t_uint256_$dyn_memory_ptr",
+                    "typeString": "uint256[]"
+                  },
+                  "typeName": {
+                    "baseType": {
+                      "id": 80076,
+                      "name": "uint256",
+                      "nodeType": "ElementaryTypeName",
+                      "src": "899:7:380",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_uint256",
+                        "typeString": "uint256"
+                      }
+                    },
+                    "id": 80077,
+                    "length": null,
+                    "nodeType": "ArrayTypeName",
+                    "src": "899:9:380",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_array$_t_uint256_$dyn_storage_ptr",
+                      "typeString": "uint256[]"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 80080,
+                  "mutability": "mutable",
+                  "name": "lastChangeBlock_",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 80082,
+                  "src": "939:24:380",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_uint256",
+                    "typeString": "uint256"
+                  },
+                  "typeName": {
+                    "id": 80079,
+                    "name": "uint256",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "939:7:380",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_uint256",
+                      "typeString": "uint256"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "847:126:380"
+            },
+            "scope": 80094,
+            "stateMutability": "view",
+            "virtual": false,
+            "visibility": "external"
+          },
+          {
+            "id": 80093,
+            "nodeType": "FunctionDefinition",
+            "src": "980:162:380",
+            "nodes": [],
+            "documentation": null,
+            "functionSelector": "b95cac28",
+            "implemented": false,
+            "kind": "function",
+            "modifiers": [],
+            "name": "joinPool",
+            "overrides": null,
+            "parameters": {
+              "id": 80091,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 80084,
+                  "mutability": "mutable",
+                  "name": "_poolId",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 80093,
+                  "src": "1007:15:380",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_bytes32",
+                    "typeString": "bytes32"
+                  },
+                  "typeName": {
+                    "id": 80083,
+                    "name": "bytes32",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "1007:7:380",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_bytes32",
+                      "typeString": "bytes32"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 80086,
+                  "mutability": "mutable",
+                  "name": "_sender",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 80093,
+                  "src": "1032:15:380",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 80085,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "1032:7:380",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 80088,
+                  "mutability": "mutable",
+                  "name": "_recipient",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 80093,
+                  "src": "1057:18:380",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 80087,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "1057:7:380",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 80090,
+                  "mutability": "mutable",
+                  "name": "_request",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 80093,
+                  "src": "1085:33:380",
+                  "stateVariable": false,
+                  "storageLocation": "memory",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_struct$_PoolBalanceChange_$80058_memory_ptr",
+                    "typeString": "struct ITestBalancerV2Vault.PoolBalanceChange"
+                  },
+                  "typeName": {
+                    "contractScope": null,
+                    "id": 80089,
+                    "name": "PoolBalanceChange",
+                    "nodeType": "UserDefinedTypeName",
+                    "referencedDeclaration": 80058,
+                    "src": "1085:17:380",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_struct$_PoolBalanceChange_$80058_storage_ptr",
+                      "typeString": "struct ITestBalancerV2Vault.PoolBalanceChange"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "997:127:380"
+            },
+            "returnParameters": {
+              "id": 80092,
+              "nodeType": "ParameterList",
+              "parameters": [],
+              "src": "1141:0:380"
+            },
+            "scope": 80094,
+            "stateMutability": "payable",
+            "virtual": false,
+            "visibility": "external"
+          }
+        ],
+        "abstract": false,
+        "baseContracts": [],
+        "contractDependencies": [],
+        "contractKind": "interface",
+        "documentation": {
+          "id": 80047,
+          "nodeType": "StructuredDocumentation",
+          "src": "314:95:380",
+          "text": "@title ITestBalancerV2Vault Interface\n @author Enzyme Council <security@enzyme.finance>"
+        },
+        "fullyImplemented": false,
+        "linearizedBaseContracts": [
+          80094
+        ],
+        "name": "ITestBalancerV2Vault",
+        "scope": 80095
+      }
+    ],
+    "license": "GPL-3.0"
+  },
+  "id": 380
+}

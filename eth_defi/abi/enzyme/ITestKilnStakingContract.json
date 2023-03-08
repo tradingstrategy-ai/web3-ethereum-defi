@@ -1,0 +1,617 @@
+{
+  "abi": [
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "caller",
+          "type": "address"
+        },
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "withdrawer",
+          "type": "address"
+        },
+        {
+          "indexed": false,
+          "internalType": "bytes",
+          "name": "publicKey",
+          "type": "bytes"
+        },
+        {
+          "indexed": false,
+          "internalType": "bytes",
+          "name": "signature",
+          "type": "bytes"
+        }
+      ],
+      "name": "Deposit",
+      "type": "event"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bytes",
+          "name": "_publicKey",
+          "type": "bytes"
+        }
+      ],
+      "name": "getELFeeRecipient",
+      "outputs": [
+        {
+          "internalType": "address",
+          "name": "elFeeRecipient_",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "getGlobalFee",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "gloablFee_",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "getOperatorFee",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "operatorFee_",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    }
+  ],
+  "bytecode": {
+    "object": "0x",
+    "sourceMap": "",
+    "linkReferences": {}
+  },
+  "deployedBytecode": {
+    "object": "0x",
+    "sourceMap": "",
+    "linkReferences": {}
+  },
+  "methodIdentifiers": {
+    "getELFeeRecipient(bytes)": "d243d69d",
+    "getGlobalFee()": "1bcbfaba",
+    "getOperatorFee()": "28696608"
+  },
+  "rawMetadata": "{\"compiler\":{\"version\":\"0.6.12+commit.27d51765\"},\"language\":\"Solidity\",\"output\":{\"abi\":[{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"caller\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"withdrawer\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"bytes\",\"name\":\"publicKey\",\"type\":\"bytes\"},{\"indexed\":false,\"internalType\":\"bytes\",\"name\":\"signature\",\"type\":\"bytes\"}],\"name\":\"Deposit\",\"type\":\"event\"},{\"inputs\":[{\"internalType\":\"bytes\",\"name\":\"_publicKey\",\"type\":\"bytes\"}],\"name\":\"getELFeeRecipient\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"elFeeRecipient_\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getGlobalFee\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"gloablFee_\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getOperatorFee\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"operatorFee_\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"}],\"devdoc\":{\"kind\":\"dev\",\"methods\":{},\"version\":1},\"userdoc\":{\"kind\":\"user\",\"methods\":{},\"version\":1}},\"settings\":{\"compilationTarget\":{\"contracts/test/interfaces/ITestKilnStakingContract.sol\":\"ITestKilnStakingContract\"},\"evmVersion\":\"istanbul\",\"libraries\":{},\"metadata\":{\"bytecodeHash\":\"none\"},\"optimizer\":{\"details\":{\"constantOptimizer\":true,\"cse\":true,\"deduplicate\":true,\"jumpdestRemover\":true,\"orderLiterals\":true,\"peephole\":true,\"yul\":false},\"runs\":200},\"remappings\":[\":@enzyme/=contracts/\",\":@openzeppelin-solc-0.7/=node_modules/@openzeppelin-solc-0.7/\",\":@openzeppelin/=node_modules/@openzeppelin/\",\":@uniswap/=node_modules/@uniswap/\",\":base64-sol/=node_modules/base64-sol/\",\":ds-test/=lib/forge-std/lib/ds-test/src/\",\":forge-std/=lib/forge-std/src/\",\":hardhat-deploy/=node_modules/hardhat-deploy/\",\":hardhat/=node_modules/hardhat/\"]},\"sources\":{\"contracts/test/interfaces/ITestKilnStakingContract.sol\":{\"keccak256\":\"0xf6362ffd30bc4eaee0f9aedac11c152274f7e85feea5b84572b82c5a57786461\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://d818697961be8a3ee78cf5eba238b0a4077e48aca32f8a3edd298153a3724962\",\"dweb:/ipfs/QmNbzJGhtW13wQPya7497QQPN32rVvSEdjHo3XvbodAhQc\"]}},\"version\":1}",
+  "metadata": {
+    "compiler": {
+      "version": "0.6.12+commit.27d51765"
+    },
+    "language": "Solidity",
+    "output": {
+      "abi": [
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "caller",
+              "type": "address",
+              "indexed": true
+            },
+            {
+              "internalType": "address",
+              "name": "withdrawer",
+              "type": "address",
+              "indexed": true
+            },
+            {
+              "internalType": "bytes",
+              "name": "publicKey",
+              "type": "bytes",
+              "indexed": false
+            },
+            {
+              "internalType": "bytes",
+              "name": "signature",
+              "type": "bytes",
+              "indexed": false
+            }
+          ],
+          "type": "event",
+          "name": "Deposit",
+          "anonymous": false
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "bytes",
+              "name": "_publicKey",
+              "type": "bytes"
+            }
+          ],
+          "stateMutability": "view",
+          "type": "function",
+          "name": "getELFeeRecipient",
+          "outputs": [
+            {
+              "internalType": "address",
+              "name": "elFeeRecipient_",
+              "type": "address"
+            }
+          ]
+        },
+        {
+          "inputs": [],
+          "stateMutability": "view",
+          "type": "function",
+          "name": "getGlobalFee",
+          "outputs": [
+            {
+              "internalType": "uint256",
+              "name": "gloablFee_",
+              "type": "uint256"
+            }
+          ]
+        },
+        {
+          "inputs": [],
+          "stateMutability": "view",
+          "type": "function",
+          "name": "getOperatorFee",
+          "outputs": [
+            {
+              "internalType": "uint256",
+              "name": "operatorFee_",
+              "type": "uint256"
+            }
+          ]
+        }
+      ],
+      "devdoc": {
+        "kind": "dev",
+        "methods": {},
+        "version": 1
+      },
+      "userdoc": {
+        "kind": "user",
+        "methods": {},
+        "version": 1
+      }
+    },
+    "settings": {
+      "remappings": [
+        ":@enzyme/=contracts/",
+        ":@openzeppelin-solc-0.7/=node_modules/@openzeppelin-solc-0.7/",
+        ":@openzeppelin/=node_modules/@openzeppelin/",
+        ":@uniswap/=node_modules/@uniswap/",
+        ":base64-sol/=node_modules/base64-sol/",
+        ":ds-test/=lib/forge-std/lib/ds-test/src/",
+        ":forge-std/=lib/forge-std/src/",
+        ":hardhat-deploy/=node_modules/hardhat-deploy/",
+        ":hardhat/=node_modules/hardhat/"
+      ],
+      "optimizer": {
+        "runs": 200,
+        "details": {
+          "peephole": true,
+          "jumpdestRemover": true,
+          "orderLiterals": true,
+          "deduplicate": true,
+          "cse": true,
+          "constantOptimizer": true,
+          "yul": false
+        }
+      },
+      "metadata": {
+        "bytecodeHash": "none"
+      },
+      "compilationTarget": {
+        "contracts/test/interfaces/ITestKilnStakingContract.sol": "ITestKilnStakingContract"
+      },
+      "libraries": {}
+    },
+    "sources": {
+      "contracts/test/interfaces/ITestKilnStakingContract.sol": {
+        "keccak256": "0xf6362ffd30bc4eaee0f9aedac11c152274f7e85feea5b84572b82c5a57786461",
+        "urls": [
+          "bzz-raw://d818697961be8a3ee78cf5eba238b0a4077e48aca32f8a3edd298153a3724962",
+          "dweb:/ipfs/QmNbzJGhtW13wQPya7497QQPN32rVvSEdjHo3XvbodAhQc"
+        ],
+        "license": "GPL-3.0"
+      }
+    },
+    "version": 1
+  },
+  "ast": {
+    "absolutePath": "contracts/test/interfaces/ITestKilnStakingContract.sol",
+    "id": 80728,
+    "exportedSymbols": {
+      "ITestKilnStakingContract": [
+        80727
+      ]
+    },
+    "nodeType": "SourceUnit",
+    "src": "255:489:402",
+    "nodes": [
+      {
+        "id": 80699,
+        "nodeType": "PragmaDirective",
+        "src": "255:23:402",
+        "nodes": [],
+        "literals": [
+          "solidity",
+          "0.6",
+          ".12"
+        ]
+      },
+      {
+        "id": 80727,
+        "nodeType": "ContractDefinition",
+        "src": "280:463:402",
+        "nodes": [
+          {
+            "id": 80709,
+            "nodeType": "EventDefinition",
+            "src": "321:138:402",
+            "nodes": [],
+            "anonymous": false,
+            "documentation": null,
+            "name": "Deposit",
+            "parameters": {
+              "id": 80708,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 80701,
+                  "indexed": true,
+                  "mutability": "mutable",
+                  "name": "caller",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 80709,
+                  "src": "344:22:402",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 80700,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "344:7:402",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 80703,
+                  "indexed": true,
+                  "mutability": "mutable",
+                  "name": "withdrawer",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 80709,
+                  "src": "376:26:402",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 80702,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "376:7:402",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 80705,
+                  "indexed": false,
+                  "mutability": "mutable",
+                  "name": "publicKey",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 80709,
+                  "src": "412:15:402",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_bytes_memory_ptr",
+                    "typeString": "bytes"
+                  },
+                  "typeName": {
+                    "id": 80704,
+                    "name": "bytes",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "412:5:402",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_bytes_storage_ptr",
+                      "typeString": "bytes"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 80707,
+                  "indexed": false,
+                  "mutability": "mutable",
+                  "name": "signature",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 80709,
+                  "src": "437:15:402",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_bytes_memory_ptr",
+                    "typeString": "bytes"
+                  },
+                  "typeName": {
+                    "id": 80706,
+                    "name": "bytes",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "437:5:402",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_bytes_storage_ptr",
+                      "typeString": "bytes"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "334:124:402"
+            }
+          },
+          {
+            "id": 80716,
+            "nodeType": "FunctionDefinition",
+            "src": "465:126:402",
+            "nodes": [],
+            "documentation": null,
+            "functionSelector": "d243d69d",
+            "implemented": false,
+            "kind": "function",
+            "modifiers": [],
+            "name": "getELFeeRecipient",
+            "overrides": null,
+            "parameters": {
+              "id": 80712,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 80711,
+                  "mutability": "mutable",
+                  "name": "_publicKey",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 80716,
+                  "src": "492:25:402",
+                  "stateVariable": false,
+                  "storageLocation": "calldata",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_bytes_calldata_ptr",
+                    "typeString": "bytes"
+                  },
+                  "typeName": {
+                    "id": 80710,
+                    "name": "bytes",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "492:5:402",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_bytes_storage_ptr",
+                      "typeString": "bytes"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "491:27:402"
+            },
+            "returnParameters": {
+              "id": 80715,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 80714,
+                  "mutability": "mutable",
+                  "name": "elFeeRecipient_",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 80716,
+                  "src": "566:23:402",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 80713,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "566:7:402",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "565:25:402"
+            },
+            "scope": 80727,
+            "stateMutability": "view",
+            "virtual": false,
+            "visibility": "external"
+          },
+          {
+            "id": 80721,
+            "nodeType": "FunctionDefinition",
+            "src": "597:67:402",
+            "nodes": [],
+            "documentation": null,
+            "functionSelector": "1bcbfaba",
+            "implemented": false,
+            "kind": "function",
+            "modifiers": [],
+            "name": "getGlobalFee",
+            "overrides": null,
+            "parameters": {
+              "id": 80717,
+              "nodeType": "ParameterList",
+              "parameters": [],
+              "src": "618:2:402"
+            },
+            "returnParameters": {
+              "id": 80720,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 80719,
+                  "mutability": "mutable",
+                  "name": "gloablFee_",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 80721,
+                  "src": "644:18:402",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_uint256",
+                    "typeString": "uint256"
+                  },
+                  "typeName": {
+                    "id": 80718,
+                    "name": "uint256",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "644:7:402",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_uint256",
+                      "typeString": "uint256"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "643:20:402"
+            },
+            "scope": 80727,
+            "stateMutability": "view",
+            "virtual": false,
+            "visibility": "external"
+          },
+          {
+            "id": 80726,
+            "nodeType": "FunctionDefinition",
+            "src": "670:71:402",
+            "nodes": [],
+            "documentation": null,
+            "functionSelector": "28696608",
+            "implemented": false,
+            "kind": "function",
+            "modifiers": [],
+            "name": "getOperatorFee",
+            "overrides": null,
+            "parameters": {
+              "id": 80722,
+              "nodeType": "ParameterList",
+              "parameters": [],
+              "src": "693:2:402"
+            },
+            "returnParameters": {
+              "id": 80725,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 80724,
+                  "mutability": "mutable",
+                  "name": "operatorFee_",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 80726,
+                  "src": "719:20:402",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_uint256",
+                    "typeString": "uint256"
+                  },
+                  "typeName": {
+                    "id": 80723,
+                    "name": "uint256",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "719:7:402",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_uint256",
+                      "typeString": "uint256"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "718:22:402"
+            },
+            "scope": 80727,
+            "stateMutability": "view",
+            "virtual": false,
+            "visibility": "external"
+          }
+        ],
+        "abstract": false,
+        "baseContracts": [],
+        "contractDependencies": [],
+        "contractKind": "interface",
+        "documentation": null,
+        "fullyImplemented": false,
+        "linearizedBaseContracts": [
+          80727
+        ],
+        "name": "ITestKilnStakingContract",
+        "scope": 80728
+      }
+    ],
+    "license": "GPL-3.0"
+  },
+  "id": 402
+}

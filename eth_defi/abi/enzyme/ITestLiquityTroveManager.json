@@ -1,0 +1,255 @@
+{
+  "abi": [
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "_LUSDDebt",
+          "type": "uint256"
+        }
+      ],
+      "name": "getBorrowingFee",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "fee_",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    }
+  ],
+  "bytecode": {
+    "object": "0x",
+    "sourceMap": "",
+    "linkReferences": {}
+  },
+  "deployedBytecode": {
+    "object": "0x",
+    "sourceMap": "",
+    "linkReferences": {}
+  },
+  "methodIdentifiers": {
+    "getBorrowingFee(uint256)": "631203b0"
+  },
+  "rawMetadata": "{\"compiler\":{\"version\":\"0.6.12+commit.27d51765\"},\"language\":\"Solidity\",\"output\":{\"abi\":[{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_LUSDDebt\",\"type\":\"uint256\"}],\"name\":\"getBorrowingFee\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"fee_\",\"type\":\"uint256\"}],\"stateMutability\":\"nonpayable\",\"type\":\"function\"}],\"devdoc\":{\"author\":\"Enzyme Council <security@enzyme.finance>\",\"kind\":\"dev\",\"methods\":{},\"title\":\"ITestLiquityTroveManager Interface\",\"version\":1},\"userdoc\":{\"kind\":\"user\",\"methods\":{},\"version\":1}},\"settings\":{\"compilationTarget\":{\"contracts/test/interfaces/ITestLiquityTroveManager.sol\":\"ITestLiquityTroveManager\"},\"evmVersion\":\"istanbul\",\"libraries\":{},\"metadata\":{\"bytecodeHash\":\"none\"},\"optimizer\":{\"details\":{\"constantOptimizer\":true,\"cse\":true,\"deduplicate\":true,\"jumpdestRemover\":true,\"orderLiterals\":true,\"peephole\":true,\"yul\":false},\"runs\":200},\"remappings\":[\":@enzyme/=contracts/\",\":@openzeppelin-solc-0.7/=node_modules/@openzeppelin-solc-0.7/\",\":@openzeppelin/=node_modules/@openzeppelin/\",\":@uniswap/=node_modules/@uniswap/\",\":base64-sol/=node_modules/base64-sol/\",\":ds-test/=lib/forge-std/lib/ds-test/src/\",\":forge-std/=lib/forge-std/src/\",\":hardhat-deploy/=node_modules/hardhat-deploy/\",\":hardhat/=node_modules/hardhat/\"]},\"sources\":{\"contracts/test/interfaces/ITestLiquityTroveManager.sol\":{\"keccak256\":\"0x3cdd71a87fee89bb203497dbb155825df5e986c03eaf956d68af89cb394f6bb1\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://359dc9b28a9fcff83fecb0fe4c35d696c83b2665f11ebc56d17a2bbf2e7684f6\",\"dweb:/ipfs/QmNPuDdhS3yT8mjSG2nBhLUJbq7uTDb1PucCxjaTyWVjMA\"]}},\"version\":1}",
+  "metadata": {
+    "compiler": {
+      "version": "0.6.12+commit.27d51765"
+    },
+    "language": "Solidity",
+    "output": {
+      "abi": [
+        {
+          "inputs": [
+            {
+              "internalType": "uint256",
+              "name": "_LUSDDebt",
+              "type": "uint256"
+            }
+          ],
+          "stateMutability": "nonpayable",
+          "type": "function",
+          "name": "getBorrowingFee",
+          "outputs": [
+            {
+              "internalType": "uint256",
+              "name": "fee_",
+              "type": "uint256"
+            }
+          ]
+        }
+      ],
+      "devdoc": {
+        "kind": "dev",
+        "methods": {},
+        "version": 1
+      },
+      "userdoc": {
+        "kind": "user",
+        "methods": {},
+        "version": 1
+      }
+    },
+    "settings": {
+      "remappings": [
+        ":@enzyme/=contracts/",
+        ":@openzeppelin-solc-0.7/=node_modules/@openzeppelin-solc-0.7/",
+        ":@openzeppelin/=node_modules/@openzeppelin/",
+        ":@uniswap/=node_modules/@uniswap/",
+        ":base64-sol/=node_modules/base64-sol/",
+        ":ds-test/=lib/forge-std/lib/ds-test/src/",
+        ":forge-std/=lib/forge-std/src/",
+        ":hardhat-deploy/=node_modules/hardhat-deploy/",
+        ":hardhat/=node_modules/hardhat/"
+      ],
+      "optimizer": {
+        "runs": 200,
+        "details": {
+          "peephole": true,
+          "jumpdestRemover": true,
+          "orderLiterals": true,
+          "deduplicate": true,
+          "cse": true,
+          "constantOptimizer": true,
+          "yul": false
+        }
+      },
+      "metadata": {
+        "bytecodeHash": "none"
+      },
+      "compilationTarget": {
+        "contracts/test/interfaces/ITestLiquityTroveManager.sol": "ITestLiquityTroveManager"
+      },
+      "libraries": {}
+    },
+    "sources": {
+      "contracts/test/interfaces/ITestLiquityTroveManager.sol": {
+        "keccak256": "0x3cdd71a87fee89bb203497dbb155825df5e986c03eaf956d68af89cb394f6bb1",
+        "urls": [
+          "bzz-raw://359dc9b28a9fcff83fecb0fe4c35d696c83b2665f11ebc56d17a2bbf2e7684f6",
+          "dweb:/ipfs/QmNPuDdhS3yT8mjSG2nBhLUJbq7uTDb1PucCxjaTyWVjMA"
+        ],
+        "license": "GPL-3.0"
+      }
+    },
+    "version": 1
+  },
+  "ast": {
+    "absolutePath": "contracts/test/interfaces/ITestLiquityTroveManager.sol",
+    "id": 80786,
+    "exportedSymbols": {
+      "ITestLiquityTroveManager": [
+        80785
+      ]
+    },
+    "nodeType": "SourceUnit",
+    "src": "253:244:406",
+    "nodes": [
+      {
+        "id": 80776,
+        "nodeType": "PragmaDirective",
+        "src": "253:23:406",
+        "nodes": [],
+        "literals": [
+          "solidity",
+          "0.6",
+          ".12"
+        ]
+      },
+      {
+        "id": 80785,
+        "nodeType": "ContractDefinition",
+        "src": "377:119:406",
+        "nodes": [
+          {
+            "id": 80784,
+            "nodeType": "FunctionDefinition",
+            "src": "418:76:406",
+            "nodes": [],
+            "documentation": null,
+            "functionSelector": "631203b0",
+            "implemented": false,
+            "kind": "function",
+            "modifiers": [],
+            "name": "getBorrowingFee",
+            "overrides": null,
+            "parameters": {
+              "id": 80780,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 80779,
+                  "mutability": "mutable",
+                  "name": "_LUSDDebt",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 80784,
+                  "src": "443:17:406",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_uint256",
+                    "typeString": "uint256"
+                  },
+                  "typeName": {
+                    "id": 80778,
+                    "name": "uint256",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "443:7:406",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_uint256",
+                      "typeString": "uint256"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "442:19:406"
+            },
+            "returnParameters": {
+              "id": 80783,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 80782,
+                  "mutability": "mutable",
+                  "name": "fee_",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 80784,
+                  "src": "480:12:406",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_uint256",
+                    "typeString": "uint256"
+                  },
+                  "typeName": {
+                    "id": 80781,
+                    "name": "uint256",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "480:7:406",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_uint256",
+                      "typeString": "uint256"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "479:14:406"
+            },
+            "scope": 80785,
+            "stateMutability": "nonpayable",
+            "virtual": false,
+            "visibility": "external"
+          }
+        ],
+        "abstract": false,
+        "baseContracts": [],
+        "contractDependencies": [],
+        "contractKind": "interface",
+        "documentation": {
+          "id": 80777,
+          "nodeType": "StructuredDocumentation",
+          "src": "278:99:406",
+          "text": "@title ITestLiquityTroveManager Interface\n @author Enzyme Council <security@enzyme.finance>"
+        },
+        "fullyImplemented": false,
+        "linearizedBaseContracts": [
+          80785
+        ],
+        "name": "ITestLiquityTroveManager",
+        "scope": 80786
+      }
+    ],
+    "license": "GPL-3.0"
+  },
+  "id": 406
+}

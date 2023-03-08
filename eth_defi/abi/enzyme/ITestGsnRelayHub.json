@@ -1,0 +1,1252 @@
+{
+  "abi": [
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "_target",
+          "type": "address"
+        }
+      ],
+      "name": "balanceOf",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "amount_",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "_gasUsed",
+          "type": "uint256"
+        },
+        {
+          "components": [
+            {
+              "internalType": "uint256",
+              "name": "gasPrice",
+              "type": "uint256"
+            },
+            {
+              "internalType": "uint256",
+              "name": "pctRelayFee",
+              "type": "uint256"
+            },
+            {
+              "internalType": "uint256",
+              "name": "baseRelayFee",
+              "type": "uint256"
+            },
+            {
+              "internalType": "address",
+              "name": "relayWorker",
+              "type": "address"
+            },
+            {
+              "internalType": "address",
+              "name": "paymaster",
+              "type": "address"
+            },
+            {
+              "internalType": "address",
+              "name": "forwarder",
+              "type": "address"
+            },
+            {
+              "internalType": "bytes",
+              "name": "paymasterData",
+              "type": "bytes"
+            },
+            {
+              "internalType": "uint256",
+              "name": "clientId",
+              "type": "uint256"
+            }
+          ],
+          "internalType": "struct IGsnTypes.RelayData",
+          "name": "_relayData",
+          "type": "tuple"
+        }
+      ],
+      "name": "calculateCharge",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "amount_",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "_target",
+          "type": "address"
+        }
+      ],
+      "name": "depositFor",
+      "outputs": [],
+      "stateMutability": "payable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "_maxAcceptanceBudget",
+          "type": "uint256"
+        },
+        {
+          "components": [
+            {
+              "components": [
+                {
+                  "internalType": "address",
+                  "name": "from",
+                  "type": "address"
+                },
+                {
+                  "internalType": "address",
+                  "name": "to",
+                  "type": "address"
+                },
+                {
+                  "internalType": "uint256",
+                  "name": "value",
+                  "type": "uint256"
+                },
+                {
+                  "internalType": "uint256",
+                  "name": "gas",
+                  "type": "uint256"
+                },
+                {
+                  "internalType": "uint256",
+                  "name": "nonce",
+                  "type": "uint256"
+                },
+                {
+                  "internalType": "bytes",
+                  "name": "data",
+                  "type": "bytes"
+                },
+                {
+                  "internalType": "uint256",
+                  "name": "validUntil",
+                  "type": "uint256"
+                }
+              ],
+              "internalType": "struct IGsnForwarder.ForwardRequest",
+              "name": "request",
+              "type": "tuple"
+            },
+            {
+              "components": [
+                {
+                  "internalType": "uint256",
+                  "name": "gasPrice",
+                  "type": "uint256"
+                },
+                {
+                  "internalType": "uint256",
+                  "name": "pctRelayFee",
+                  "type": "uint256"
+                },
+                {
+                  "internalType": "uint256",
+                  "name": "baseRelayFee",
+                  "type": "uint256"
+                },
+                {
+                  "internalType": "address",
+                  "name": "relayWorker",
+                  "type": "address"
+                },
+                {
+                  "internalType": "address",
+                  "name": "paymaster",
+                  "type": "address"
+                },
+                {
+                  "internalType": "address",
+                  "name": "forwarder",
+                  "type": "address"
+                },
+                {
+                  "internalType": "bytes",
+                  "name": "paymasterData",
+                  "type": "bytes"
+                },
+                {
+                  "internalType": "uint256",
+                  "name": "clientId",
+                  "type": "uint256"
+                }
+              ],
+              "internalType": "struct IGsnTypes.RelayData",
+              "name": "relayData",
+              "type": "tuple"
+            }
+          ],
+          "internalType": "struct IGsnTypes.RelayRequest",
+          "name": "_relayRequest",
+          "type": "tuple"
+        },
+        {
+          "internalType": "bytes",
+          "name": "_signature",
+          "type": "bytes"
+        },
+        {
+          "internalType": "bytes",
+          "name": "_approvalData",
+          "type": "bytes"
+        },
+        {
+          "internalType": "uint256",
+          "name": "_externalGasLimit",
+          "type": "uint256"
+        }
+      ],
+      "name": "relayCall",
+      "outputs": [
+        {
+          "internalType": "bool",
+          "name": "paymasterAccepted_",
+          "type": "bool"
+        },
+        {
+          "internalType": "bytes",
+          "name": "returnValue_",
+          "type": "bytes"
+        }
+      ],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "_amount",
+          "type": "uint256"
+        },
+        {
+          "internalType": "address payable",
+          "name": "_dest",
+          "type": "address"
+        }
+      ],
+      "name": "withdraw",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    }
+  ],
+  "bytecode": {
+    "object": "0x",
+    "sourceMap": "",
+    "linkReferences": {}
+  },
+  "deployedBytecode": {
+    "object": "0x",
+    "sourceMap": "",
+    "linkReferences": {}
+  },
+  "methodIdentifiers": {
+    "balanceOf(address)": "70a08231",
+    "calculateCharge(uint256,(uint256,uint256,uint256,address,address,address,bytes,uint256))": "8e53548b",
+    "depositFor(address)": "aa67c919",
+    "relayCall(uint256,((address,address,uint256,uint256,uint256,bytes,uint256),(uint256,uint256,uint256,address,address,address,bytes,uint256)),bytes,bytes,uint256)": "10c45431",
+    "withdraw(uint256,address)": "00f714ce"
+  },
+  "rawMetadata": "{\"compiler\":{\"version\":\"0.6.12+commit.27d51765\"},\"language\":\"Solidity\",\"output\":{\"abi\":[{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_target\",\"type\":\"address\"}],\"name\":\"balanceOf\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"amount_\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_gasUsed\",\"type\":\"uint256\"},{\"components\":[{\"internalType\":\"uint256\",\"name\":\"gasPrice\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"pctRelayFee\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"baseRelayFee\",\"type\":\"uint256\"},{\"internalType\":\"address\",\"name\":\"relayWorker\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"paymaster\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"forwarder\",\"type\":\"address\"},{\"internalType\":\"bytes\",\"name\":\"paymasterData\",\"type\":\"bytes\"},{\"internalType\":\"uint256\",\"name\":\"clientId\",\"type\":\"uint256\"}],\"internalType\":\"struct IGsnTypes.RelayData\",\"name\":\"_relayData\",\"type\":\"tuple\"}],\"name\":\"calculateCharge\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"amount_\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_target\",\"type\":\"address\"}],\"name\":\"depositFor\",\"outputs\":[],\"stateMutability\":\"payable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_maxAcceptanceBudget\",\"type\":\"uint256\"},{\"components\":[{\"components\":[{\"internalType\":\"address\",\"name\":\"from\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"to\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"value\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"gas\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"nonce\",\"type\":\"uint256\"},{\"internalType\":\"bytes\",\"name\":\"data\",\"type\":\"bytes\"},{\"internalType\":\"uint256\",\"name\":\"validUntil\",\"type\":\"uint256\"}],\"internalType\":\"struct IGsnForwarder.ForwardRequest\",\"name\":\"request\",\"type\":\"tuple\"},{\"components\":[{\"internalType\":\"uint256\",\"name\":\"gasPrice\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"pctRelayFee\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"baseRelayFee\",\"type\":\"uint256\"},{\"internalType\":\"address\",\"name\":\"relayWorker\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"paymaster\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"forwarder\",\"type\":\"address\"},{\"internalType\":\"bytes\",\"name\":\"paymasterData\",\"type\":\"bytes\"},{\"internalType\":\"uint256\",\"name\":\"clientId\",\"type\":\"uint256\"}],\"internalType\":\"struct IGsnTypes.RelayData\",\"name\":\"relayData\",\"type\":\"tuple\"}],\"internalType\":\"struct IGsnTypes.RelayRequest\",\"name\":\"_relayRequest\",\"type\":\"tuple\"},{\"internalType\":\"bytes\",\"name\":\"_signature\",\"type\":\"bytes\"},{\"internalType\":\"bytes\",\"name\":\"_approvalData\",\"type\":\"bytes\"},{\"internalType\":\"uint256\",\"name\":\"_externalGasLimit\",\"type\":\"uint256\"}],\"name\":\"relayCall\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"paymasterAccepted_\",\"type\":\"bool\"},{\"internalType\":\"bytes\",\"name\":\"returnValue_\",\"type\":\"bytes\"}],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_amount\",\"type\":\"uint256\"},{\"internalType\":\"address payable\",\"name\":\"_dest\",\"type\":\"address\"}],\"name\":\"withdraw\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"}],\"devdoc\":{\"author\":\"Enzyme Council <security@enzyme.finance>\",\"kind\":\"dev\",\"methods\":{},\"title\":\"ITestGsnRelayHub Interface\",\"version\":1},\"userdoc\":{\"kind\":\"user\",\"methods\":{},\"version\":1}},\"settings\":{\"compilationTarget\":{\"contracts/test/interfaces/ITestGsnRelayHub.sol\":\"ITestGsnRelayHub\"},\"evmVersion\":\"istanbul\",\"libraries\":{},\"metadata\":{\"bytecodeHash\":\"none\"},\"optimizer\":{\"details\":{\"constantOptimizer\":true,\"cse\":true,\"deduplicate\":true,\"jumpdestRemover\":true,\"orderLiterals\":true,\"peephole\":true,\"yul\":false},\"runs\":200},\"remappings\":[\":@enzyme/=contracts/\",\":@openzeppelin-solc-0.7/=node_modules/@openzeppelin-solc-0.7/\",\":@openzeppelin/=node_modules/@openzeppelin/\",\":@uniswap/=node_modules/@uniswap/\",\":base64-sol/=node_modules/base64-sol/\",\":ds-test/=lib/forge-std/lib/ds-test/src/\",\":forge-std/=lib/forge-std/src/\",\":hardhat-deploy/=node_modules/hardhat-deploy/\",\":hardhat/=node_modules/hardhat/\"]},\"sources\":{\"contracts/release/interfaces/IGsnForwarder.sol\":{\"keccak256\":\"0xdf725d6209efe494c5f56c1f3d2cc8c64f0785b4b62fa9869bee3d85d8d9e030\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://d544190084ae2255099ebed2b31db6b4d057fec64abe0e50a892301f35e77b29\",\"dweb:/ipfs/QmUEdBMTJySZH3QPUC863k21g3LHHVwVVtCyLbUbVF987G\"]},\"contracts/release/interfaces/IGsnTypes.sol\":{\"keccak256\":\"0xa5e951206789bd818be825058792b233858a9c58ca25d451b3691917a0ce3714\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://93e4d58106e10cab38a54b4c445b7c169de82502434259098672cec0b4b023a7\",\"dweb:/ipfs/Qmei36zKU4bG6x8Uhnbj1HoDcuw35XsuvPmP6tPtJmkF1C\"]},\"contracts/test/interfaces/ITestGsnRelayHub.sol\":{\"keccak256\":\"0xdff4e9c411f2d610748f465a3eed012122e93ba6df05ffd5214dea8a07a67f1d\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://a95cad659fa7e39986052f929dd7453a5b6207a261b76d936aafd962ae3dda08\",\"dweb:/ipfs/QmYWRfEWLf8MFfowbyZymW4thewJj82FerXhYSqknVgSL8\"]}},\"version\":1}",
+  "metadata": {
+    "compiler": {
+      "version": "0.6.12+commit.27d51765"
+    },
+    "language": "Solidity",
+    "output": {
+      "abi": [
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "_target",
+              "type": "address"
+            }
+          ],
+          "stateMutability": "view",
+          "type": "function",
+          "name": "balanceOf",
+          "outputs": [
+            {
+              "internalType": "uint256",
+              "name": "amount_",
+              "type": "uint256"
+            }
+          ]
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "uint256",
+              "name": "_gasUsed",
+              "type": "uint256"
+            },
+            {
+              "internalType": "struct IGsnTypes.RelayData",
+              "name": "_relayData",
+              "type": "tuple",
+              "components": [
+                {
+                  "internalType": "uint256",
+                  "name": "gasPrice",
+                  "type": "uint256"
+                },
+                {
+                  "internalType": "uint256",
+                  "name": "pctRelayFee",
+                  "type": "uint256"
+                },
+                {
+                  "internalType": "uint256",
+                  "name": "baseRelayFee",
+                  "type": "uint256"
+                },
+                {
+                  "internalType": "address",
+                  "name": "relayWorker",
+                  "type": "address"
+                },
+                {
+                  "internalType": "address",
+                  "name": "paymaster",
+                  "type": "address"
+                },
+                {
+                  "internalType": "address",
+                  "name": "forwarder",
+                  "type": "address"
+                },
+                {
+                  "internalType": "bytes",
+                  "name": "paymasterData",
+                  "type": "bytes"
+                },
+                {
+                  "internalType": "uint256",
+                  "name": "clientId",
+                  "type": "uint256"
+                }
+              ]
+            }
+          ],
+          "stateMutability": "view",
+          "type": "function",
+          "name": "calculateCharge",
+          "outputs": [
+            {
+              "internalType": "uint256",
+              "name": "amount_",
+              "type": "uint256"
+            }
+          ]
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "_target",
+              "type": "address"
+            }
+          ],
+          "stateMutability": "payable",
+          "type": "function",
+          "name": "depositFor"
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "uint256",
+              "name": "_maxAcceptanceBudget",
+              "type": "uint256"
+            },
+            {
+              "internalType": "struct IGsnTypes.RelayRequest",
+              "name": "_relayRequest",
+              "type": "tuple",
+              "components": [
+                {
+                  "internalType": "struct IGsnForwarder.ForwardRequest",
+                  "name": "request",
+                  "type": "tuple",
+                  "components": [
+                    {
+                      "internalType": "address",
+                      "name": "from",
+                      "type": "address"
+                    },
+                    {
+                      "internalType": "address",
+                      "name": "to",
+                      "type": "address"
+                    },
+                    {
+                      "internalType": "uint256",
+                      "name": "value",
+                      "type": "uint256"
+                    },
+                    {
+                      "internalType": "uint256",
+                      "name": "gas",
+                      "type": "uint256"
+                    },
+                    {
+                      "internalType": "uint256",
+                      "name": "nonce",
+                      "type": "uint256"
+                    },
+                    {
+                      "internalType": "bytes",
+                      "name": "data",
+                      "type": "bytes"
+                    },
+                    {
+                      "internalType": "uint256",
+                      "name": "validUntil",
+                      "type": "uint256"
+                    }
+                  ]
+                },
+                {
+                  "internalType": "struct IGsnTypes.RelayData",
+                  "name": "relayData",
+                  "type": "tuple",
+                  "components": [
+                    {
+                      "internalType": "uint256",
+                      "name": "gasPrice",
+                      "type": "uint256"
+                    },
+                    {
+                      "internalType": "uint256",
+                      "name": "pctRelayFee",
+                      "type": "uint256"
+                    },
+                    {
+                      "internalType": "uint256",
+                      "name": "baseRelayFee",
+                      "type": "uint256"
+                    },
+                    {
+                      "internalType": "address",
+                      "name": "relayWorker",
+                      "type": "address"
+                    },
+                    {
+                      "internalType": "address",
+                      "name": "paymaster",
+                      "type": "address"
+                    },
+                    {
+                      "internalType": "address",
+                      "name": "forwarder",
+                      "type": "address"
+                    },
+                    {
+                      "internalType": "bytes",
+                      "name": "paymasterData",
+                      "type": "bytes"
+                    },
+                    {
+                      "internalType": "uint256",
+                      "name": "clientId",
+                      "type": "uint256"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "internalType": "bytes",
+              "name": "_signature",
+              "type": "bytes"
+            },
+            {
+              "internalType": "bytes",
+              "name": "_approvalData",
+              "type": "bytes"
+            },
+            {
+              "internalType": "uint256",
+              "name": "_externalGasLimit",
+              "type": "uint256"
+            }
+          ],
+          "stateMutability": "nonpayable",
+          "type": "function",
+          "name": "relayCall",
+          "outputs": [
+            {
+              "internalType": "bool",
+              "name": "paymasterAccepted_",
+              "type": "bool"
+            },
+            {
+              "internalType": "bytes",
+              "name": "returnValue_",
+              "type": "bytes"
+            }
+          ]
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "uint256",
+              "name": "_amount",
+              "type": "uint256"
+            },
+            {
+              "internalType": "address payable",
+              "name": "_dest",
+              "type": "address"
+            }
+          ],
+          "stateMutability": "nonpayable",
+          "type": "function",
+          "name": "withdraw"
+        }
+      ],
+      "devdoc": {
+        "kind": "dev",
+        "methods": {},
+        "version": 1
+      },
+      "userdoc": {
+        "kind": "user",
+        "methods": {},
+        "version": 1
+      }
+    },
+    "settings": {
+      "remappings": [
+        ":@enzyme/=contracts/",
+        ":@openzeppelin-solc-0.7/=node_modules/@openzeppelin-solc-0.7/",
+        ":@openzeppelin/=node_modules/@openzeppelin/",
+        ":@uniswap/=node_modules/@uniswap/",
+        ":base64-sol/=node_modules/base64-sol/",
+        ":ds-test/=lib/forge-std/lib/ds-test/src/",
+        ":forge-std/=lib/forge-std/src/",
+        ":hardhat-deploy/=node_modules/hardhat-deploy/",
+        ":hardhat/=node_modules/hardhat/"
+      ],
+      "optimizer": {
+        "runs": 200,
+        "details": {
+          "peephole": true,
+          "jumpdestRemover": true,
+          "orderLiterals": true,
+          "deduplicate": true,
+          "cse": true,
+          "constantOptimizer": true,
+          "yul": false
+        }
+      },
+      "metadata": {
+        "bytecodeHash": "none"
+      },
+      "compilationTarget": {
+        "contracts/test/interfaces/ITestGsnRelayHub.sol": "ITestGsnRelayHub"
+      },
+      "libraries": {}
+    },
+    "sources": {
+      "contracts/release/interfaces/IGsnForwarder.sol": {
+        "keccak256": "0xdf725d6209efe494c5f56c1f3d2cc8c64f0785b4b62fa9869bee3d85d8d9e030",
+        "urls": [
+          "bzz-raw://d544190084ae2255099ebed2b31db6b4d057fec64abe0e50a892301f35e77b29",
+          "dweb:/ipfs/QmUEdBMTJySZH3QPUC863k21g3LHHVwVVtCyLbUbVF987G"
+        ],
+        "license": "GPL-3.0"
+      },
+      "contracts/release/interfaces/IGsnTypes.sol": {
+        "keccak256": "0xa5e951206789bd818be825058792b233858a9c58ca25d451b3691917a0ce3714",
+        "urls": [
+          "bzz-raw://93e4d58106e10cab38a54b4c445b7c169de82502434259098672cec0b4b023a7",
+          "dweb:/ipfs/Qmei36zKU4bG6x8Uhnbj1HoDcuw35XsuvPmP6tPtJmkF1C"
+        ],
+        "license": "GPL-3.0"
+      },
+      "contracts/test/interfaces/ITestGsnRelayHub.sol": {
+        "keccak256": "0xdff4e9c411f2d610748f465a3eed012122e93ba6df05ffd5214dea8a07a67f1d",
+        "urls": [
+          "bzz-raw://a95cad659fa7e39986052f929dd7453a5b6207a261b76d936aafd962ae3dda08",
+          "dweb:/ipfs/QmYWRfEWLf8MFfowbyZymW4thewJj82FerXhYSqknVgSL8"
+        ],
+        "license": "GPL-3.0"
+      }
+    },
+    "version": 1
+  },
+  "ast": {
+    "absolutePath": "contracts/test/interfaces/ITestGsnRelayHub.sol",
+    "id": 80661,
+    "exportedSymbols": {
+      "ITestGsnRelayHub": [
+        80660
+      ]
+    },
+    "nodeType": "SourceUnit",
+    "src": "255:901:400",
+    "nodes": [
+      {
+        "id": 80611,
+        "nodeType": "PragmaDirective",
+        "src": "255:23:400",
+        "nodes": [],
+        "literals": [
+          "solidity",
+          "0.6",
+          ".12"
+        ]
+      },
+      {
+        "id": 80612,
+        "nodeType": "PragmaDirective",
+        "src": "279:33:400",
+        "nodes": [],
+        "literals": [
+          "experimental",
+          "ABIEncoderV2"
+        ]
+      },
+      {
+        "id": 80613,
+        "nodeType": "ImportDirective",
+        "src": "314:48:400",
+        "nodes": [],
+        "absolutePath": "contracts/release/interfaces/IGsnTypes.sol",
+        "file": "../../release/interfaces/IGsnTypes.sol",
+        "scope": 80661,
+        "sourceUnit": 72030,
+        "symbolAliases": [],
+        "unitAlias": ""
+      },
+      {
+        "id": 80660,
+        "nodeType": "ContractDefinition",
+        "src": "455:700:400",
+        "nodes": [
+          {
+            "id": 80621,
+            "nodeType": "FunctionDefinition",
+            "src": "488:76:400",
+            "nodes": [],
+            "documentation": null,
+            "functionSelector": "70a08231",
+            "implemented": false,
+            "kind": "function",
+            "modifiers": [],
+            "name": "balanceOf",
+            "overrides": null,
+            "parameters": {
+              "id": 80617,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 80616,
+                  "mutability": "mutable",
+                  "name": "_target",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 80621,
+                  "src": "507:15:400",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 80615,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "507:7:400",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "506:17:400"
+            },
+            "returnParameters": {
+              "id": 80620,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 80619,
+                  "mutability": "mutable",
+                  "name": "amount_",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 80621,
+                  "src": "547:15:400",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_uint256",
+                    "typeString": "uint256"
+                  },
+                  "typeName": {
+                    "id": 80618,
+                    "name": "uint256",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "547:7:400",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_uint256",
+                      "typeString": "uint256"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "546:17:400"
+            },
+            "scope": 80660,
+            "stateMutability": "view",
+            "virtual": false,
+            "visibility": "external"
+          },
+          {
+            "id": 80630,
+            "nodeType": "FunctionDefinition",
+            "src": "570:148:400",
+            "nodes": [],
+            "documentation": null,
+            "functionSelector": "8e53548b",
+            "implemented": false,
+            "kind": "function",
+            "modifiers": [],
+            "name": "calculateCharge",
+            "overrides": null,
+            "parameters": {
+              "id": 80626,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 80623,
+                  "mutability": "mutable",
+                  "name": "_gasUsed",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 80630,
+                  "src": "595:16:400",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_uint256",
+                    "typeString": "uint256"
+                  },
+                  "typeName": {
+                    "id": 80622,
+                    "name": "uint256",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "595:7:400",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_uint256",
+                      "typeString": "uint256"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 80625,
+                  "mutability": "mutable",
+                  "name": "_relayData",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 80630,
+                  "src": "613:39:400",
+                  "stateVariable": false,
+                  "storageLocation": "calldata",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_struct$_RelayData_$72023_calldata_ptr",
+                    "typeString": "struct IGsnTypes.RelayData"
+                  },
+                  "typeName": {
+                    "contractScope": null,
+                    "id": 80624,
+                    "name": "IGsnTypes.RelayData",
+                    "nodeType": "UserDefinedTypeName",
+                    "referencedDeclaration": 72023,
+                    "src": "613:19:400",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_struct$_RelayData_$72023_storage_ptr",
+                      "typeString": "struct IGsnTypes.RelayData"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "594:59:400"
+            },
+            "returnParameters": {
+              "id": 80629,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 80628,
+                  "mutability": "mutable",
+                  "name": "amount_",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 80630,
+                  "src": "701:15:400",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_uint256",
+                    "typeString": "uint256"
+                  },
+                  "typeName": {
+                    "id": 80627,
+                    "name": "uint256",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "701:7:400",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_uint256",
+                      "typeString": "uint256"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "700:17:400"
+            },
+            "scope": 80660,
+            "stateMutability": "view",
+            "virtual": false,
+            "visibility": "external"
+          },
+          {
+            "id": 80635,
+            "nodeType": "FunctionDefinition",
+            "src": "724:54:400",
+            "nodes": [],
+            "documentation": null,
+            "functionSelector": "aa67c919",
+            "implemented": false,
+            "kind": "function",
+            "modifiers": [],
+            "name": "depositFor",
+            "overrides": null,
+            "parameters": {
+              "id": 80633,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 80632,
+                  "mutability": "mutable",
+                  "name": "_target",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 80635,
+                  "src": "744:15:400",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 80631,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "744:7:400",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "743:17:400"
+            },
+            "returnParameters": {
+              "id": 80634,
+              "nodeType": "ParameterList",
+              "parameters": [],
+              "src": "777:0:400"
+            },
+            "scope": 80660,
+            "stateMutability": "payable",
+            "virtual": false,
+            "visibility": "external"
+          },
+          {
+            "id": 80652,
+            "nodeType": "FunctionDefinition",
+            "src": "784:296:400",
+            "nodes": [],
+            "documentation": null,
+            "functionSelector": "10c45431",
+            "implemented": false,
+            "kind": "function",
+            "modifiers": [],
+            "name": "relayCall",
+            "overrides": null,
+            "parameters": {
+              "id": 80646,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 80637,
+                  "mutability": "mutable",
+                  "name": "_maxAcceptanceBudget",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 80652,
+                  "src": "812:28:400",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_uint256",
+                    "typeString": "uint256"
+                  },
+                  "typeName": {
+                    "id": 80636,
+                    "name": "uint256",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "812:7:400",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_uint256",
+                      "typeString": "uint256"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 80639,
+                  "mutability": "mutable",
+                  "name": "_relayRequest",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 80652,
+                  "src": "850:45:400",
+                  "stateVariable": false,
+                  "storageLocation": "calldata",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_struct$_RelayRequest_$72028_calldata_ptr",
+                    "typeString": "struct IGsnTypes.RelayRequest"
+                  },
+                  "typeName": {
+                    "contractScope": null,
+                    "id": 80638,
+                    "name": "IGsnTypes.RelayRequest",
+                    "nodeType": "UserDefinedTypeName",
+                    "referencedDeclaration": 72028,
+                    "src": "850:22:400",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_struct$_RelayRequest_$72028_storage_ptr",
+                      "typeString": "struct IGsnTypes.RelayRequest"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 80641,
+                  "mutability": "mutable",
+                  "name": "_signature",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 80652,
+                  "src": "905:25:400",
+                  "stateVariable": false,
+                  "storageLocation": "calldata",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_bytes_calldata_ptr",
+                    "typeString": "bytes"
+                  },
+                  "typeName": {
+                    "id": 80640,
+                    "name": "bytes",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "905:5:400",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_bytes_storage_ptr",
+                      "typeString": "bytes"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 80643,
+                  "mutability": "mutable",
+                  "name": "_approvalData",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 80652,
+                  "src": "940:28:400",
+                  "stateVariable": false,
+                  "storageLocation": "calldata",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_bytes_calldata_ptr",
+                    "typeString": "bytes"
+                  },
+                  "typeName": {
+                    "id": 80642,
+                    "name": "bytes",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "940:5:400",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_bytes_storage_ptr",
+                      "typeString": "bytes"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 80645,
+                  "mutability": "mutable",
+                  "name": "_externalGasLimit",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 80652,
+                  "src": "978:25:400",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_uint256",
+                    "typeString": "uint256"
+                  },
+                  "typeName": {
+                    "id": 80644,
+                    "name": "uint256",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "978:7:400",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_uint256",
+                      "typeString": "uint256"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "802:207:400"
+            },
+            "returnParameters": {
+              "id": 80651,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 80648,
+                  "mutability": "mutable",
+                  "name": "paymasterAccepted_",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 80652,
+                  "src": "1028:23:400",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_bool",
+                    "typeString": "bool"
+                  },
+                  "typeName": {
+                    "id": 80647,
+                    "name": "bool",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "1028:4:400",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_bool",
+                      "typeString": "bool"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 80650,
+                  "mutability": "mutable",
+                  "name": "returnValue_",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 80652,
+                  "src": "1053:25:400",
+                  "stateVariable": false,
+                  "storageLocation": "memory",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_bytes_memory_ptr",
+                    "typeString": "bytes"
+                  },
+                  "typeName": {
+                    "id": 80649,
+                    "name": "bytes",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "1053:5:400",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_bytes_storage_ptr",
+                      "typeString": "bytes"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "1027:52:400"
+            },
+            "scope": 80660,
+            "stateMutability": "nonpayable",
+            "virtual": false,
+            "visibility": "external"
+          },
+          {
+            "id": 80659,
+            "nodeType": "FunctionDefinition",
+            "src": "1086:67:400",
+            "nodes": [],
+            "documentation": null,
+            "functionSelector": "00f714ce",
+            "implemented": false,
+            "kind": "function",
+            "modifiers": [],
+            "name": "withdraw",
+            "overrides": null,
+            "parameters": {
+              "id": 80657,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 80654,
+                  "mutability": "mutable",
+                  "name": "_amount",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 80659,
+                  "src": "1104:15:400",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_uint256",
+                    "typeString": "uint256"
+                  },
+                  "typeName": {
+                    "id": 80653,
+                    "name": "uint256",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "1104:7:400",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_uint256",
+                      "typeString": "uint256"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 80656,
+                  "mutability": "mutable",
+                  "name": "_dest",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 80659,
+                  "src": "1121:21:400",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address_payable",
+                    "typeString": "address payable"
+                  },
+                  "typeName": {
+                    "id": 80655,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "1121:15:400",
+                    "stateMutability": "payable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address_payable",
+                      "typeString": "address payable"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "1103:40:400"
+            },
+            "returnParameters": {
+              "id": 80658,
+              "nodeType": "ParameterList",
+              "parameters": [],
+              "src": "1152:0:400"
+            },
+            "scope": 80660,
+            "stateMutability": "nonpayable",
+            "virtual": false,
+            "visibility": "external"
+          }
+        ],
+        "abstract": false,
+        "baseContracts": [],
+        "contractDependencies": [],
+        "contractKind": "interface",
+        "documentation": {
+          "id": 80614,
+          "nodeType": "StructuredDocumentation",
+          "src": "364:91:400",
+          "text": "@title ITestGsnRelayHub Interface\n @author Enzyme Council <security@enzyme.finance>"
+        },
+        "fullyImplemented": false,
+        "linearizedBaseContracts": [
+          80660
+        ],
+        "name": "ITestGsnRelayHub",
+        "scope": 80661
+      }
+    ],
+    "license": "GPL-3.0"
+  },
+  "id": 400
+}

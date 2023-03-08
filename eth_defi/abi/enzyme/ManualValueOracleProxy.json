@@ -1,0 +1,359 @@
+{
+  "abi": [
+    {
+      "inputs": [
+        {
+          "internalType": "bytes",
+          "name": "_constructData",
+          "type": "bytes"
+        },
+        {
+          "internalType": "address",
+          "name": "_lib",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "nonpayable",
+      "type": "constructor"
+    },
+    {
+      "stateMutability": "payable",
+      "type": "fallback"
+    }
+  ],
+  "bytecode": {
+    "object": "0x60a060405234801561001057600080fd5b506040516102e03803806102e08339818101604052604081101561003357600080fd5b810190808051604051939291908464010000000082111561005357600080fd5b90830190602082018581111561006857600080fd5b825164010000000081118282018810171561008257600080fd5b82525081516020918201929091019080838360005b838110156100af578181015183820152602001610097565b50505050905090810190601f1680156100dc5780820380516001836020036101000a031916815260200191505b50604052602001805190602001909291905050508181806001600160a01b03166080816001600160a01b031660601b81525050807f360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc5560006060826001600160a01b0316846040518082805190602001908083835b602083106101705780518252601f199092019160209182019101610151565b6001836020036101000a038019825116818451168082178552505050505050905001915050600060405180830381855af49150503d80600081146101d0576040519150601f19603f3d011682016040523d82523d6000602084013e6101d5565b606091505b50915091508181906102655760405162461bcd60e51b81526004018080602001828103825283818151815260200191508051906020019080838360005b8381101561022a578181015183820152602001610212565b50505050905090810190601f1680156102575780820380516001836020036101000a031916815260200191505b509250505060405180910390fd5b5050505050505060805160601c605a6102866000398060065250605a6000f3fe60806040527f00000000000000000000000000000000000000000000000000000000000000003660008037600080366000846127105a03f43d806000803e818015604857816000f35b816000fdfea164736f6c634300060c000a",
+    "sourceMap": "496:187:19:-:0;;;556:125;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;-1:-1:-1;556:125:19;;;;;;;;;;-1:-1:-1;556:125:19;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;-1:-1:-1;556:125:19;;;;;;;;;925:31:362;;;;-1:-1:-1;;925:31:362;;;1110:66;1086:136;;;1283:43;;556:125:19;;-1:-1:-1;1283:43:362;;-1:-1:-1;556:125:19;;1242:12:362;;925:31;;-1:-1:-1;;;;;925:31:362;;;1283:43;;556:125:19;;;;1283:43:362;;;;556:125:19;1283:43:362;;;;;;;;;;;-1:-1:-1;;1283:43:362;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;1241:85;;;;1344:7;1360:10;1336:36;;;;;-1:-1:-1;;;1336:36:362;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;843:536;;;;556:125:19;;496:187;;;;;;;;;;;",
+    "linkReferences": {}
+  },
+  "deployedBytecode": {
+    "object": "0x60806040527f00000000000000000000000000000000000000000000000000000000000000003660008037600080366000846127105a03f43d806000803e818015604857816000f35b816000fdfea164736f6c634300060c000a",
+    "sourceMap": "496:187:19:-:0;;;1500:14:362;1571;1476:21;;1548:38;1782:1;1763;1731:14;1710:3;1679:13;1655:5;1648;1644:17;1614:183;1823:16;1873:5;1870:1;1867;1852:27;1899:7;1919:55;;;;2023:5;2020:1;2013:16;1919:55;1954:5;1951:1;1944:16",
+    "linkReferences": {},
+    "immutableReferences": {
+      "78944": [
+        {
+          "start": 6,
+          "length": 32
+        }
+      ]
+    }
+  },
+  "methodIdentifiers": {},
+  "rawMetadata": "{\"compiler\":{\"version\":\"0.6.12+commit.27d51765\"},\"language\":\"Solidity\",\"output\":{\"abi\":[{\"inputs\":[{\"internalType\":\"bytes\",\"name\":\"_constructData\",\"type\":\"bytes\"},{\"internalType\":\"address\",\"name\":\"_lib\",\"type\":\"address\"}],\"stateMutability\":\"nonpayable\",\"type\":\"constructor\"},{\"stateMutability\":\"payable\",\"type\":\"fallback\"}],\"devdoc\":{\"author\":\"Enzyme Council <security@enzyme.finance>\",\"kind\":\"dev\",\"methods\":{},\"title\":\"ManualValueOracleProxy Contract\",\"version\":1},\"userdoc\":{\"kind\":\"user\",\"methods\":{},\"notice\":\"Proxy contract for all ManualValueOracle instances\",\"version\":1}},\"settings\":{\"compilationTarget\":{\"contracts/persistent/arbitrary-value-oracles/manual-value/ManualValueOracleProxy.sol\":\"ManualValueOracleProxy\"},\"evmVersion\":\"istanbul\",\"libraries\":{},\"metadata\":{\"bytecodeHash\":\"none\"},\"optimizer\":{\"details\":{\"constantOptimizer\":true,\"cse\":true,\"deduplicate\":true,\"jumpdestRemover\":true,\"orderLiterals\":true,\"peephole\":true,\"yul\":false},\"runs\":200},\"remappings\":[\":@enzyme/=contracts/\",\":@openzeppelin-solc-0.7/=node_modules/@openzeppelin-solc-0.7/\",\":@openzeppelin/=node_modules/@openzeppelin/\",\":@uniswap/=node_modules/@uniswap/\",\":base64-sol/=node_modules/base64-sol/\",\":ds-test/=lib/forge-std/lib/ds-test/src/\",\":forge-std/=lib/forge-std/src/\",\":hardhat-deploy/=node_modules/hardhat-deploy/\",\":hardhat/=node_modules/hardhat/\"]},\"sources\":{\"contracts/persistent/arbitrary-value-oracles/manual-value/ManualValueOracleProxy.sol\":{\"keccak256\":\"0xb62b1a4b2be5ac43869a6b435a9055b42bc2e97ff4303325cd8526a895370345\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://b8fbee4831f477481d9ee5077dddd9364f2c243263d5f1b3d1cb94528a9dc42e\",\"dweb:/ipfs/QmVLPPceLzs9acJUDVfNJBe4aMWSnnLcZWVca6ar186GEi\"]},\"contracts/release/utils/NonUpgradableProxy.sol\":{\"keccak256\":\"0x7d70145a2a0ff8c36318b23ac6ca662f133584dd823933230c66143b89e2d53d\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://b05ea625a428fdf3f908db3e97a358a4117d4998abde806ba3839c7fad821bca\",\"dweb:/ipfs/QmSLzFT1ktLTZ7rAKYjcg6dBRuxVMzrGXjGJSsH5nSVx2G\"]}},\"version\":1}",
+  "metadata": {
+    "compiler": {
+      "version": "0.6.12+commit.27d51765"
+    },
+    "language": "Solidity",
+    "output": {
+      "abi": [
+        {
+          "inputs": [
+            {
+              "internalType": "bytes",
+              "name": "_constructData",
+              "type": "bytes"
+            },
+            {
+              "internalType": "address",
+              "name": "_lib",
+              "type": "address"
+            }
+          ],
+          "stateMutability": "nonpayable",
+          "type": "constructor"
+        },
+        {
+          "inputs": [],
+          "stateMutability": "payable",
+          "type": "fallback"
+        }
+      ],
+      "devdoc": {
+        "kind": "dev",
+        "methods": {},
+        "version": 1
+      },
+      "userdoc": {
+        "kind": "user",
+        "methods": {},
+        "version": 1
+      }
+    },
+    "settings": {
+      "remappings": [
+        ":@enzyme/=contracts/",
+        ":@openzeppelin-solc-0.7/=node_modules/@openzeppelin-solc-0.7/",
+        ":@openzeppelin/=node_modules/@openzeppelin/",
+        ":@uniswap/=node_modules/@uniswap/",
+        ":base64-sol/=node_modules/base64-sol/",
+        ":ds-test/=lib/forge-std/lib/ds-test/src/",
+        ":forge-std/=lib/forge-std/src/",
+        ":hardhat-deploy/=node_modules/hardhat-deploy/",
+        ":hardhat/=node_modules/hardhat/"
+      ],
+      "optimizer": {
+        "runs": 200,
+        "details": {
+          "peephole": true,
+          "jumpdestRemover": true,
+          "orderLiterals": true,
+          "deduplicate": true,
+          "cse": true,
+          "constantOptimizer": true,
+          "yul": false
+        }
+      },
+      "metadata": {
+        "bytecodeHash": "none"
+      },
+      "compilationTarget": {
+        "contracts/persistent/arbitrary-value-oracles/manual-value/ManualValueOracleProxy.sol": "ManualValueOracleProxy"
+      },
+      "libraries": {}
+    },
+    "sources": {
+      "contracts/persistent/arbitrary-value-oracles/manual-value/ManualValueOracleProxy.sol": {
+        "keccak256": "0xb62b1a4b2be5ac43869a6b435a9055b42bc2e97ff4303325cd8526a895370345",
+        "urls": [
+          "bzz-raw://b8fbee4831f477481d9ee5077dddd9364f2c243263d5f1b3d1cb94528a9dc42e",
+          "dweb:/ipfs/QmVLPPceLzs9acJUDVfNJBe4aMWSnnLcZWVca6ar186GEi"
+        ],
+        "license": "GPL-3.0"
+      },
+      "contracts/release/utils/NonUpgradableProxy.sol": {
+        "keccak256": "0x7d70145a2a0ff8c36318b23ac6ca662f133584dd823933230c66143b89e2d53d",
+        "urls": [
+          "bzz-raw://b05ea625a428fdf3f908db3e97a358a4117d4998abde806ba3839c7fad821bca",
+          "dweb:/ipfs/QmSLzFT1ktLTZ7rAKYjcg6dBRuxVMzrGXjGJSsH5nSVx2G"
+        ],
+        "license": "GPL-3.0"
+      }
+    },
+    "version": 1
+  },
+  "ast": {
+    "absolutePath": "contracts/persistent/arbitrary-value-oracles/manual-value/ManualValueOracleProxy.sol",
+    "id": 3214,
+    "exportedSymbols": {
+      "ManualValueOracleProxy": [
+        3213
+      ]
+    },
+    "nodeType": "SourceUnit",
+    "src": "255:429:19",
+    "nodes": [
+      {
+        "id": 3196,
+        "nodeType": "PragmaDirective",
+        "src": "255:23:19",
+        "nodes": [],
+        "literals": [
+          "solidity",
+          "0.6",
+          ".12"
+        ]
+      },
+      {
+        "id": 3197,
+        "nodeType": "ImportDirective",
+        "src": "280:55:19",
+        "nodes": [],
+        "absolutePath": "contracts/release/utils/NonUpgradableProxy.sol",
+        "file": "../../../release/utils/NonUpgradableProxy.sol",
+        "scope": 3214,
+        "sourceUnit": 78985,
+        "symbolAliases": [],
+        "unitAlias": ""
+      },
+      {
+        "id": 3213,
+        "nodeType": "ContractDefinition",
+        "src": "496:187:19",
+        "nodes": [
+          {
+            "id": 3212,
+            "nodeType": "FunctionDefinition",
+            "src": "556:125:19",
+            "nodes": [],
+            "body": {
+              "id": 3211,
+              "nodeType": "Block",
+              "src": "679:2:19",
+              "nodes": [],
+              "statements": []
+            },
+            "documentation": null,
+            "implemented": true,
+            "kind": "constructor",
+            "modifiers": [
+              {
+                "arguments": [
+                  {
+                    "argumentTypes": null,
+                    "id": 3207,
+                    "name": "_constructData",
+                    "nodeType": "Identifier",
+                    "overloadedDeclarations": [],
+                    "referencedDeclaration": 3202,
+                    "src": "653:14:19",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_bytes_memory_ptr",
+                      "typeString": "bytes memory"
+                    }
+                  },
+                  {
+                    "argumentTypes": null,
+                    "id": 3208,
+                    "name": "_lib",
+                    "nodeType": "Identifier",
+                    "overloadedDeclarations": [],
+                    "referencedDeclaration": 3204,
+                    "src": "669:4:19",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  }
+                ],
+                "id": 3209,
+                "modifierName": {
+                  "argumentTypes": null,
+                  "id": 3206,
+                  "name": "NonUpgradableProxy",
+                  "nodeType": "Identifier",
+                  "overloadedDeclarations": [],
+                  "referencedDeclaration": 78984,
+                  "src": "634:18:19",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_type$_t_contract$_NonUpgradableProxy_$78984_$",
+                    "typeString": "type(contract NonUpgradableProxy)"
+                  }
+                },
+                "nodeType": "ModifierInvocation",
+                "src": "634:40:19"
+              }
+            ],
+            "name": "",
+            "overrides": null,
+            "parameters": {
+              "id": 3205,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 3202,
+                  "mutability": "mutable",
+                  "name": "_constructData",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 3212,
+                  "src": "568:27:19",
+                  "stateVariable": false,
+                  "storageLocation": "memory",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_bytes_memory_ptr",
+                    "typeString": "bytes"
+                  },
+                  "typeName": {
+                    "id": 3201,
+                    "name": "bytes",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "568:5:19",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_bytes_storage_ptr",
+                      "typeString": "bytes"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 3204,
+                  "mutability": "mutable",
+                  "name": "_lib",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 3212,
+                  "src": "597:12:19",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 3203,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "597:7:19",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "567:43:19"
+            },
+            "returnParameters": {
+              "id": 3210,
+              "nodeType": "ParameterList",
+              "parameters": [],
+              "src": "679:0:19"
+            },
+            "scope": 3213,
+            "stateMutability": "nonpayable",
+            "virtual": false,
+            "visibility": "public"
+          }
+        ],
+        "abstract": false,
+        "baseContracts": [
+          {
+            "arguments": null,
+            "baseName": {
+              "contractScope": null,
+              "id": 3199,
+              "name": "NonUpgradableProxy",
+              "nodeType": "UserDefinedTypeName",
+              "referencedDeclaration": 78984,
+              "src": "531:18:19",
+              "typeDescriptions": {
+                "typeIdentifier": "t_contract$_NonUpgradableProxy_$78984",
+                "typeString": "contract NonUpgradableProxy"
+              }
+            },
+            "id": 3200,
+            "nodeType": "InheritanceSpecifier",
+            "src": "531:18:19"
+          }
+        ],
+        "contractDependencies": [
+          78984
+        ],
+        "contractKind": "contract",
+        "documentation": {
+          "id": 3198,
+          "nodeType": "StructuredDocumentation",
+          "src": "337:159:19",
+          "text": "@title ManualValueOracleProxy Contract\n @author Enzyme Council <security@enzyme.finance>\n @notice Proxy contract for all ManualValueOracle instances"
+        },
+        "fullyImplemented": true,
+        "linearizedBaseContracts": [
+          3213,
+          78984
+        ],
+        "name": "ManualValueOracleProxy",
+        "scope": 3214
+      }
+    ],
+    "license": "GPL-3.0"
+  },
+  "id": 19
+}

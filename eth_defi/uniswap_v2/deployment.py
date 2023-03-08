@@ -15,7 +15,7 @@ Compatible exchanges include, but not limited to
 Under the hood we are using `SushiSwap v2 contracts <github.com/sushiswap/sushiswap>`_ for the deployment.
 """
 from dataclasses import dataclass
-from typing import Optional, Union, Tuple
+from typing import Optional, Union, Tuple, Type
 
 from eth_typing import HexAddress, HexStr, ChecksumAddress
 from web3 import Web3
@@ -78,7 +78,7 @@ class UniswapV2Deployment:
     #: Executes actual trades.
     #: Mints/burns new liquidity provider (LP) tokens.
     #: See `UniswapV2Pair` smartc contract for details.
-    PairContract: Contract
+    PairContract: Type[Contract]
 
     def __repr__(self):
         return f"<Uni v2 deployment chain:{self.web3.eth.chain_id} factory:{self.factory.address} router:{self.router.address}>"
@@ -87,6 +87,11 @@ class UniswapV2Deployment:
         """Calculate CREATE2 contract address for a trading pair."""
         (token0, token1) = sort_tokens(token_a, token_b)
         return (Web3.to_checksum_address(pair_for(self.factory.address, token0, token1, self.init_code_hash)), token0, token1)
+
+    def get_pair_contract(self, token_a: str, token_b: str) -> Contract:
+        """Get a contract for a trading pair."""
+        pair_address, sorted_1, sorted_2 = self.pair_for(token_a, token_b)
+        return self.PairContract(pair_address)
 
 
 def deploy_factory_sushi(web3: Web3, deployer: str) -> Contract:

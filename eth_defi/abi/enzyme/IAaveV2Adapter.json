@@ -1,0 +1,294 @@
+{
+  "abi": [
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "_vaultProxy",
+          "type": "address"
+        },
+        {
+          "internalType": "bytes",
+          "name": "",
+          "type": "bytes"
+        },
+        {
+          "internalType": "bytes",
+          "name": "_assetData",
+          "type": "bytes"
+        }
+      ],
+      "name": "lend",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    }
+  ],
+  "bytecode": {
+    "object": "0x",
+    "sourceMap": "",
+    "linkReferences": {}
+  },
+  "deployedBytecode": {
+    "object": "0x",
+    "sourceMap": "",
+    "linkReferences": {}
+  },
+  "methodIdentifiers": {
+    "lend(address,bytes,bytes)": "099f7515"
+  },
+  "rawMetadata": "{\"compiler\":{\"version\":\"0.8.17+commit.8df45f5f\"},\"language\":\"Solidity\",\"output\":{\"abi\":[{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_vaultProxy\",\"type\":\"address\"},{\"internalType\":\"bytes\",\"name\":\"\",\"type\":\"bytes\"},{\"internalType\":\"bytes\",\"name\":\"_assetData\",\"type\":\"bytes\"}],\"name\":\"lend\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"}],\"devdoc\":{\"author\":\"Enzyme Council <security@enzyme.finance>\",\"kind\":\"dev\",\"methods\":{},\"title\":\"IDispatcher Interface\",\"version\":1},\"userdoc\":{\"kind\":\"user\",\"methods\":{},\"version\":1}},\"settings\":{\"compilationTarget\":{\"tests/interfaces/IAaveV2Adapter.sol\":\"IAaveV2Adapter\"},\"evmVersion\":\"london\",\"libraries\":{},\"metadata\":{\"bytecodeHash\":\"none\"},\"optimizer\":{\"details\":{\"constantOptimizer\":true,\"cse\":true,\"deduplicate\":true,\"inliner\":true,\"jumpdestRemover\":true,\"orderLiterals\":true,\"peephole\":true,\"yul\":false},\"runs\":200},\"remappings\":[\":@enzyme/=contracts/\",\":@openzeppelin-solc-0.7/=node_modules/@openzeppelin-solc-0.7/\",\":@openzeppelin/=node_modules/@openzeppelin/\",\":@uniswap/=node_modules/@uniswap/\",\":base64-sol/=node_modules/base64-sol/\",\":ds-test/=lib/forge-std/lib/ds-test/src/\",\":forge-std/=lib/forge-std/src/\",\":hardhat-deploy/=node_modules/hardhat-deploy/\",\":hardhat/=node_modules/hardhat/\"]},\"sources\":{\"tests/interfaces/IAaveV2Adapter.sol\":{\"keccak256\":\"0x78356eb46b48f57339ae633bc719a9fa3669ed70481fb03a5737dfa91b81eb32\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://239b5a15e131f7c4b9fc7e28b2c5c8d5bf91838a39ec3c791b568f79398a64e2\",\"dweb:/ipfs/QmRTCjm7uog9CitEmmJWvDYtocSS3DrP4QfhW9Mf7igqXx\"]}},\"version\":1}",
+  "metadata": {
+    "compiler": {
+      "version": "0.8.17+commit.8df45f5f"
+    },
+    "language": "Solidity",
+    "output": {
+      "abi": [
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "_vaultProxy",
+              "type": "address"
+            },
+            {
+              "internalType": "bytes",
+              "name": "",
+              "type": "bytes"
+            },
+            {
+              "internalType": "bytes",
+              "name": "_assetData",
+              "type": "bytes"
+            }
+          ],
+          "stateMutability": "nonpayable",
+          "type": "function",
+          "name": "lend"
+        }
+      ],
+      "devdoc": {
+        "kind": "dev",
+        "methods": {},
+        "version": 1
+      },
+      "userdoc": {
+        "kind": "user",
+        "methods": {},
+        "version": 1
+      }
+    },
+    "settings": {
+      "remappings": [
+        ":@enzyme/=contracts/",
+        ":@openzeppelin-solc-0.7/=node_modules/@openzeppelin-solc-0.7/",
+        ":@openzeppelin/=node_modules/@openzeppelin/",
+        ":@uniswap/=node_modules/@uniswap/",
+        ":base64-sol/=node_modules/base64-sol/",
+        ":ds-test/=lib/forge-std/lib/ds-test/src/",
+        ":forge-std/=lib/forge-std/src/",
+        ":hardhat-deploy/=node_modules/hardhat-deploy/",
+        ":hardhat/=node_modules/hardhat/"
+      ],
+      "optimizer": {
+        "runs": 200,
+        "details": {
+          "peephole": true,
+          "inliner": true,
+          "jumpdestRemover": true,
+          "orderLiterals": true,
+          "deduplicate": true,
+          "cse": true,
+          "constantOptimizer": true,
+          "yul": false
+        }
+      },
+      "metadata": {
+        "bytecodeHash": "none"
+      },
+      "compilationTarget": {
+        "tests/interfaces/IAaveV2Adapter.sol": "IAaveV2Adapter"
+      },
+      "libraries": {}
+    },
+    "sources": {
+      "tests/interfaces/IAaveV2Adapter.sol": {
+        "keccak256": "0x78356eb46b48f57339ae633bc719a9fa3669ed70481fb03a5737dfa91b81eb32",
+        "urls": [
+          "bzz-raw://239b5a15e131f7c4b9fc7e28b2c5c8d5bf91838a39ec3c791b568f79398a64e2",
+          "dweb:/ipfs/QmRTCjm7uog9CitEmmJWvDYtocSS3DrP4QfhW9Mf7igqXx"
+        ],
+        "license": "GPL-3.0"
+      }
+    },
+    "version": 1
+  },
+  "ast": {
+    "absolutePath": "tests/interfaces/IAaveV2Adapter.sol",
+    "id": 29530,
+    "exportedSymbols": {
+      "IAaveV2Adapter": [
+        29529
+      ]
+    },
+    "nodeType": "SourceUnit",
+    "src": "255:271:33",
+    "nodes": [
+      {
+        "id": 29518,
+        "nodeType": "PragmaDirective",
+        "src": "255:32:33",
+        "nodes": [],
+        "literals": [
+          "solidity",
+          ">=",
+          "0.6",
+          ".12",
+          "<",
+          "0.9",
+          ".0"
+        ]
+      },
+      {
+        "id": 29529,
+        "nodeType": "ContractDefinition",
+        "src": "375:150:33",
+        "nodes": [
+          {
+            "id": 29528,
+            "nodeType": "FunctionDefinition",
+            "src": "406:117:33",
+            "nodes": [],
+            "functionSelector": "099f7515",
+            "implemented": false,
+            "kind": "function",
+            "modifiers": [],
+            "name": "lend",
+            "nameLocation": "415:4:33",
+            "parameters": {
+              "id": 29526,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 29521,
+                  "mutability": "mutable",
+                  "name": "_vaultProxy",
+                  "nameLocation": "437:11:33",
+                  "nodeType": "VariableDeclaration",
+                  "scope": 29528,
+                  "src": "429:19:33",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 29520,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "429:7:33",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 29523,
+                  "mutability": "mutable",
+                  "name": "",
+                  "nameLocation": "-1:-1:-1",
+                  "nodeType": "VariableDeclaration",
+                  "scope": 29528,
+                  "src": "458:14:33",
+                  "stateVariable": false,
+                  "storageLocation": "calldata",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_bytes_calldata_ptr",
+                    "typeString": "bytes"
+                  },
+                  "typeName": {
+                    "id": 29522,
+                    "name": "bytes",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "458:5:33",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_bytes_storage_ptr",
+                      "typeString": "bytes"
+                    }
+                  },
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 29525,
+                  "mutability": "mutable",
+                  "name": "_assetData",
+                  "nameLocation": "497:10:33",
+                  "nodeType": "VariableDeclaration",
+                  "scope": 29528,
+                  "src": "482:25:33",
+                  "stateVariable": false,
+                  "storageLocation": "calldata",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_bytes_calldata_ptr",
+                    "typeString": "bytes"
+                  },
+                  "typeName": {
+                    "id": 29524,
+                    "name": "bytes",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "482:5:33",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_bytes_storage_ptr",
+                      "typeString": "bytes"
+                    }
+                  },
+                  "visibility": "internal"
+                }
+              ],
+              "src": "419:94:33"
+            },
+            "returnParameters": {
+              "id": 29527,
+              "nodeType": "ParameterList",
+              "parameters": [],
+              "src": "522:0:33"
+            },
+            "scope": 29529,
+            "stateMutability": "nonpayable",
+            "virtual": false,
+            "visibility": "external"
+          }
+        ],
+        "abstract": false,
+        "baseContracts": [],
+        "canonicalName": "IAaveV2Adapter",
+        "contractDependencies": [],
+        "contractKind": "interface",
+        "documentation": {
+          "id": 29519,
+          "nodeType": "StructuredDocumentation",
+          "src": "289:86:33",
+          "text": "@title IDispatcher Interface\n @author Enzyme Council <security@enzyme.finance>"
+        },
+        "fullyImplemented": false,
+        "linearizedBaseContracts": [
+          29529
+        ],
+        "name": "IAaveV2Adapter",
+        "nameLocation": "385:14:33",
+        "scope": 29530,
+        "usedErrors": []
+      }
+    ],
+    "license": "GPL-3.0"
+  },
+  "id": 33
+}

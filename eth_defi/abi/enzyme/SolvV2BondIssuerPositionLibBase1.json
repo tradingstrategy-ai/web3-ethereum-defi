@@ -1,0 +1,493 @@
+{
+  "abi": [
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "voucher",
+          "type": "address"
+        }
+      ],
+      "name": "IssuedVoucherAdded",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "voucher",
+          "type": "address"
+        }
+      ],
+      "name": "IssuedVoucherRemoved",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "uint24",
+          "name": "offerId",
+          "type": "uint24"
+        }
+      ],
+      "name": "OfferAdded",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "uint24",
+          "name": "offerId",
+          "type": "uint24"
+        }
+      ],
+      "name": "OfferRemoved",
+      "type": "event"
+    }
+  ],
+  "bytecode": {
+    "object": "0x6080604052348015600f57600080fd5b50601680601d6000396000f3fe6080604052600080fdfea164736f6c634300060c000a",
+    "sourceMap": "797:370:35:-:0;;;;;;;;;;;;;;;;;;;",
+    "linkReferences": {}
+  },
+  "deployedBytecode": {
+    "object": "0x6080604052600080fdfea164736f6c634300060c000a",
+    "sourceMap": "797:370:35:-:0;;;;;",
+    "linkReferences": {}
+  },
+  "methodIdentifiers": {},
+  "rawMetadata": "{\"compiler\":{\"version\":\"0.6.12+commit.27d51765\"},\"language\":\"Solidity\",\"output\":{\"abi\":[{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"voucher\",\"type\":\"address\"}],\"name\":\"IssuedVoucherAdded\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"voucher\",\"type\":\"address\"}],\"name\":\"IssuedVoucherRemoved\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"uint24\",\"name\":\"offerId\",\"type\":\"uint24\"}],\"name\":\"OfferAdded\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"uint24\",\"name\":\"offerId\",\"type\":\"uint24\"}],\"name\":\"OfferRemoved\",\"type\":\"event\"}],\"devdoc\":{\"author\":\"Enzyme Council <security@enzyme.finance>\",\"details\":\"DO NOT EDIT CONTRACT. If new events or storage are necessary, they should be added to a numbered SolvV2BondIssuerPositionLibBaseXXX that inherits the previous base. e.g., `SolvV2BondIssuerPositionLibBase2 is SolvV2BondIssuerPositionLibBase1`\",\"kind\":\"dev\",\"methods\":{},\"title\":\"SolvV2BondIssuerPositionLibBase1 Contract\",\"version\":1},\"userdoc\":{\"kind\":\"user\",\"methods\":{},\"notice\":\"A persistent contract containing all required storage variables and required functions for a SolvV2BondIssuerPositionLib implementation\",\"version\":1}},\"settings\":{\"compilationTarget\":{\"contracts/persistent/external-positions/solv-v2-bond-issuer/SolvV2BondIssuerPositionLibBase1.sol\":\"SolvV2BondIssuerPositionLibBase1\"},\"evmVersion\":\"istanbul\",\"libraries\":{},\"metadata\":{\"bytecodeHash\":\"none\"},\"optimizer\":{\"details\":{\"constantOptimizer\":true,\"cse\":true,\"deduplicate\":true,\"jumpdestRemover\":true,\"orderLiterals\":true,\"peephole\":true,\"yul\":false},\"runs\":200},\"remappings\":[\":@enzyme/=contracts/\",\":@openzeppelin-solc-0.7/=node_modules/@openzeppelin-solc-0.7/\",\":@openzeppelin/=node_modules/@openzeppelin/\",\":@uniswap/=node_modules/@uniswap/\",\":base64-sol/=node_modules/base64-sol/\",\":ds-test/=lib/forge-std/lib/ds-test/src/\",\":forge-std/=lib/forge-std/src/\",\":hardhat-deploy/=node_modules/hardhat-deploy/\",\":hardhat/=node_modules/hardhat/\"]},\"sources\":{\"contracts/persistent/external-positions/solv-v2-bond-issuer/SolvV2BondIssuerPositionLibBase1.sol\":{\"keccak256\":\"0xb8c45493039fe2b240fafcec7d26ddd689336d9aaad00cfcab4ffdf468aa2a34\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://75324a615930ad565f88d5319695ce1c2202d68465a3999d2cfb0a6b8c398644\",\"dweb:/ipfs/QmWwoKUNYNWmw3HVQjenFaJsJPKv6yaonu3gJDNQkQGQ13\"]}},\"version\":1}",
+  "metadata": {
+    "compiler": {
+      "version": "0.6.12+commit.27d51765"
+    },
+    "language": "Solidity",
+    "output": {
+      "abi": [
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "voucher",
+              "type": "address",
+              "indexed": true
+            }
+          ],
+          "type": "event",
+          "name": "IssuedVoucherAdded",
+          "anonymous": false
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "voucher",
+              "type": "address",
+              "indexed": true
+            }
+          ],
+          "type": "event",
+          "name": "IssuedVoucherRemoved",
+          "anonymous": false
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "uint24",
+              "name": "offerId",
+              "type": "uint24",
+              "indexed": true
+            }
+          ],
+          "type": "event",
+          "name": "OfferAdded",
+          "anonymous": false
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "uint24",
+              "name": "offerId",
+              "type": "uint24",
+              "indexed": true
+            }
+          ],
+          "type": "event",
+          "name": "OfferRemoved",
+          "anonymous": false
+        }
+      ],
+      "devdoc": {
+        "kind": "dev",
+        "methods": {},
+        "version": 1
+      },
+      "userdoc": {
+        "kind": "user",
+        "methods": {},
+        "version": 1
+      }
+    },
+    "settings": {
+      "remappings": [
+        ":@enzyme/=contracts/",
+        ":@openzeppelin-solc-0.7/=node_modules/@openzeppelin-solc-0.7/",
+        ":@openzeppelin/=node_modules/@openzeppelin/",
+        ":@uniswap/=node_modules/@uniswap/",
+        ":base64-sol/=node_modules/base64-sol/",
+        ":ds-test/=lib/forge-std/lib/ds-test/src/",
+        ":forge-std/=lib/forge-std/src/",
+        ":hardhat-deploy/=node_modules/hardhat-deploy/",
+        ":hardhat/=node_modules/hardhat/"
+      ],
+      "optimizer": {
+        "runs": 200,
+        "details": {
+          "peephole": true,
+          "jumpdestRemover": true,
+          "orderLiterals": true,
+          "deduplicate": true,
+          "cse": true,
+          "constantOptimizer": true,
+          "yul": false
+        }
+      },
+      "metadata": {
+        "bytecodeHash": "none"
+      },
+      "compilationTarget": {
+        "contracts/persistent/external-positions/solv-v2-bond-issuer/SolvV2BondIssuerPositionLibBase1.sol": "SolvV2BondIssuerPositionLibBase1"
+      },
+      "libraries": {}
+    },
+    "sources": {
+      "contracts/persistent/external-positions/solv-v2-bond-issuer/SolvV2BondIssuerPositionLibBase1.sol": {
+        "keccak256": "0xb8c45493039fe2b240fafcec7d26ddd689336d9aaad00cfcab4ffdf468aa2a34",
+        "urls": [
+          "bzz-raw://75324a615930ad565f88d5319695ce1c2202d68465a3999d2cfb0a6b8c398644",
+          "dweb:/ipfs/QmWwoKUNYNWmw3HVQjenFaJsJPKv6yaonu3gJDNQkQGQ13"
+        ],
+        "license": "GPL-3.0"
+      }
+    },
+    "version": 1
+  },
+  "ast": {
+    "absolutePath": "contracts/persistent/external-positions/solv-v2-bond-issuer/SolvV2BondIssuerPositionLibBase1.sol",
+    "id": 5572,
+    "exportedSymbols": {
+      "SolvV2BondIssuerPositionLibBase1": [
+        5571
+      ]
+    },
+    "nodeType": "SourceUnit",
+    "src": "255:913:35",
+    "nodes": [
+      {
+        "id": 5547,
+        "nodeType": "PragmaDirective",
+        "src": "255:23:35",
+        "nodes": [],
+        "literals": [
+          "solidity",
+          "0.6",
+          ".12"
+        ]
+      },
+      {
+        "id": 5571,
+        "nodeType": "ContractDefinition",
+        "src": "797:370:35",
+        "nodes": [
+          {
+            "id": 5552,
+            "nodeType": "EventDefinition",
+            "src": "845:50:35",
+            "nodes": [],
+            "anonymous": false,
+            "documentation": null,
+            "name": "IssuedVoucherAdded",
+            "parameters": {
+              "id": 5551,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 5550,
+                  "indexed": true,
+                  "mutability": "mutable",
+                  "name": "voucher",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 5552,
+                  "src": "870:23:35",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 5549,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "870:7:35",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "869:25:35"
+            }
+          },
+          {
+            "id": 5556,
+            "nodeType": "EventDefinition",
+            "src": "901:52:35",
+            "nodes": [],
+            "anonymous": false,
+            "documentation": null,
+            "name": "IssuedVoucherRemoved",
+            "parameters": {
+              "id": 5555,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 5554,
+                  "indexed": true,
+                  "mutability": "mutable",
+                  "name": "voucher",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 5556,
+                  "src": "928:23:35",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 5553,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "928:7:35",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "927:25:35"
+            }
+          },
+          {
+            "id": 5560,
+            "nodeType": "EventDefinition",
+            "src": "959:41:35",
+            "nodes": [],
+            "anonymous": false,
+            "documentation": null,
+            "name": "OfferAdded",
+            "parameters": {
+              "id": 5559,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 5558,
+                  "indexed": true,
+                  "mutability": "mutable",
+                  "name": "offerId",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 5560,
+                  "src": "976:22:35",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_uint24",
+                    "typeString": "uint24"
+                  },
+                  "typeName": {
+                    "id": 5557,
+                    "name": "uint24",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "976:6:35",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_uint24",
+                      "typeString": "uint24"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "975:24:35"
+            }
+          },
+          {
+            "id": 5564,
+            "nodeType": "EventDefinition",
+            "src": "1006:43:35",
+            "nodes": [],
+            "anonymous": false,
+            "documentation": null,
+            "name": "OfferRemoved",
+            "parameters": {
+              "id": 5563,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 5562,
+                  "indexed": true,
+                  "mutability": "mutable",
+                  "name": "offerId",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 5564,
+                  "src": "1025:22:35",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_uint24",
+                    "typeString": "uint24"
+                  },
+                  "typeName": {
+                    "id": 5561,
+                    "name": "uint24",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "1025:6:35",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_uint24",
+                      "typeString": "uint24"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "1024:24:35"
+            }
+          },
+          {
+            "id": 5567,
+            "nodeType": "VariableDeclaration",
+            "src": "1078:33:35",
+            "nodes": [],
+            "constant": false,
+            "mutability": "mutable",
+            "name": "issuedVouchers",
+            "overrides": null,
+            "scope": 5571,
+            "stateVariable": true,
+            "storageLocation": "default",
+            "typeDescriptions": {
+              "typeIdentifier": "t_array$_t_address_$dyn_storage",
+              "typeString": "address[]"
+            },
+            "typeName": {
+              "baseType": {
+                "id": 5565,
+                "name": "address",
+                "nodeType": "ElementaryTypeName",
+                "src": "1078:7:35",
+                "stateMutability": "nonpayable",
+                "typeDescriptions": {
+                  "typeIdentifier": "t_address",
+                  "typeString": "address"
+                }
+              },
+              "id": 5566,
+              "length": null,
+              "nodeType": "ArrayTypeName",
+              "src": "1078:9:35",
+              "typeDescriptions": {
+                "typeIdentifier": "t_array$_t_address_$dyn_storage_ptr",
+                "typeString": "address[]"
+              }
+            },
+            "value": null,
+            "visibility": "internal"
+          },
+          {
+            "id": 5570,
+            "nodeType": "VariableDeclaration",
+            "src": "1140:24:35",
+            "nodes": [],
+            "constant": false,
+            "mutability": "mutable",
+            "name": "offers",
+            "overrides": null,
+            "scope": 5571,
+            "stateVariable": true,
+            "storageLocation": "default",
+            "typeDescriptions": {
+              "typeIdentifier": "t_array$_t_uint24_$dyn_storage",
+              "typeString": "uint24[]"
+            },
+            "typeName": {
+              "baseType": {
+                "id": 5568,
+                "name": "uint24",
+                "nodeType": "ElementaryTypeName",
+                "src": "1140:6:35",
+                "typeDescriptions": {
+                  "typeIdentifier": "t_uint24",
+                  "typeString": "uint24"
+                }
+              },
+              "id": 5569,
+              "length": null,
+              "nodeType": "ArrayTypeName",
+              "src": "1140:8:35",
+              "typeDescriptions": {
+                "typeIdentifier": "t_array$_t_uint24_$dyn_storage_ptr",
+                "typeString": "uint24[]"
+              }
+            },
+            "value": null,
+            "visibility": "internal"
+          }
+        ],
+        "abstract": false,
+        "baseContracts": [],
+        "contractDependencies": [],
+        "contractKind": "contract",
+        "documentation": {
+          "id": 5548,
+          "nodeType": "StructuredDocumentation",
+          "src": "280:517:35",
+          "text": "@title SolvV2BondIssuerPositionLibBase1 Contract\n @author Enzyme Council <security@enzyme.finance>\n @notice A persistent contract containing all required storage variables and\n required functions for a SolvV2BondIssuerPositionLib implementation\n @dev DO NOT EDIT CONTRACT. If new events or storage are necessary, they should be added to\n a numbered SolvV2BondIssuerPositionLibBaseXXX that inherits the previous base.\n e.g., `SolvV2BondIssuerPositionLibBase2 is SolvV2BondIssuerPositionLibBase1`"
+        },
+        "fullyImplemented": true,
+        "linearizedBaseContracts": [
+          5571
+        ],
+        "name": "SolvV2BondIssuerPositionLibBase1",
+        "scope": 5572
+      }
+    ],
+    "license": "GPL-3.0"
+  },
+  "id": 35
+}

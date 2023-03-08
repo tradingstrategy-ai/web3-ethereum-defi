@@ -1,7 +1,4 @@
 {
-  "_format": "hh-sol-artifact-1",
-  "contractName": "SynthetixActionsMixin",
-  "sourceName": "contracts/release/extensions/integration-manager/integrations/utils/actions/SynthetixActionsMixin.sol",
   "abi": [
     {
       "inputs": [
@@ -82,8 +79,2107 @@
       "type": "function"
     }
   ],
-  "bytecode": "0x",
-  "deployedBytecode": "0x",
-  "linkReferences": {},
-  "deployedLinkReferences": {}
+  "bytecode": {
+    "object": "0x",
+    "sourceMap": "",
+    "linkReferences": {}
+  },
+  "deployedBytecode": {
+    "object": "0x",
+    "sourceMap": "",
+    "linkReferences": {}
+  },
+  "methodIdentifiers": {
+    "getSynthetix()": "90956d99",
+    "getSynthetixOriginator()": "f3863b97",
+    "getSynthetixRedeemer()": "71dca19b",
+    "getSynthetixTrackingCode()": "7b0f0a57"
+  },
+  "rawMetadata": "{\"compiler\":{\"version\":\"0.6.12+commit.27d51765\"},\"language\":\"Solidity\",\"output\":{\"abi\":[{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_originator\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"_redeemer\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"_synthetix\",\"type\":\"address\"},{\"internalType\":\"bytes32\",\"name\":\"_trackingCode\",\"type\":\"bytes32\"}],\"stateMutability\":\"nonpayable\",\"type\":\"constructor\"},{\"inputs\":[],\"name\":\"getSynthetix\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"synthetix_\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getSynthetixOriginator\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"synthetixOriginator_\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getSynthetixRedeemer\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"synthetixRedeemer_\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getSynthetixTrackingCode\",\"outputs\":[{\"internalType\":\"bytes32\",\"name\":\"synthetixTrackingCode_\",\"type\":\"bytes32\"}],\"stateMutability\":\"view\",\"type\":\"function\"}],\"devdoc\":{\"author\":\"Enzyme Council <security@enzyme.finance>\",\"kind\":\"dev\",\"methods\":{\"getSynthetix()\":{\"returns\":{\"synthetix_\":\"The `SYNTHETIX` variable value\"}},\"getSynthetixOriginator()\":{\"returns\":{\"synthetixOriginator_\":\"The `SYNTHETIX_ORIGINATOR` variable value\"}},\"getSynthetixRedeemer()\":{\"returns\":{\"synthetixRedeemer_\":\"The `SYNTHETIX_REDEEMER` variable value\"}},\"getSynthetixTrackingCode()\":{\"returns\":{\"synthetixTrackingCode_\":\"The `SYNTHETIX_TRACKING_CODE` variable value\"}}},\"title\":\"SynthetixActionsMixin Contract\",\"version\":1},\"userdoc\":{\"kind\":\"user\",\"methods\":{\"getSynthetix()\":{\"notice\":\"Gets the `SYNTHETIX` variable\"},\"getSynthetixOriginator()\":{\"notice\":\"Gets the `SYNTHETIX_ORIGINATOR` variable\"},\"getSynthetixRedeemer()\":{\"notice\":\"Gets the `SYNTHETIX_REDEEMER` variable\"},\"getSynthetixTrackingCode()\":{\"notice\":\"Gets the `SYNTHETIX_TRACKING_CODE` variable\"}},\"notice\":\"Mixin contract for interacting with the Synthetix exchange functions\",\"version\":1}},\"settings\":{\"compilationTarget\":{\"contracts/release/extensions/integration-manager/integrations/utils/actions/SynthetixActionsMixin.sol\":\"SynthetixActionsMixin\"},\"evmVersion\":\"istanbul\",\"libraries\":{},\"metadata\":{\"bytecodeHash\":\"none\"},\"optimizer\":{\"details\":{\"constantOptimizer\":true,\"cse\":true,\"deduplicate\":true,\"jumpdestRemover\":true,\"orderLiterals\":true,\"peephole\":true,\"yul\":false},\"runs\":200},\"remappings\":[\":@enzyme/=contracts/\",\":@openzeppelin-solc-0.7/=node_modules/@openzeppelin-solc-0.7/\",\":@openzeppelin/=node_modules/@openzeppelin/\",\":@uniswap/=node_modules/@uniswap/\",\":base64-sol/=node_modules/base64-sol/\",\":ds-test/=lib/forge-std/lib/ds-test/src/\",\":forge-std/=lib/forge-std/src/\",\":hardhat-deploy/=node_modules/hardhat-deploy/\",\":hardhat/=node_modules/hardhat/\"]},\"sources\":{\"contracts/release/extensions/integration-manager/integrations/utils/actions/SynthetixActionsMixin.sol\":{\"keccak256\":\"0xcb463c92ee424cdf16a0e841968939274a39fcdeab1a0b119232e2540ea3ea0c\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://fc93e10d71b31eb06527fbcc7e9cc5cc7bc1f6bffa17833c58e1ed693fcc38f6\",\"dweb:/ipfs/Qmegov8rbwu9hVdooJrBFzxGmKSLiSJHb9Toxy8b4amVdU\"]},\"contracts/release/interfaces/ISynthetix.sol\":{\"keccak256\":\"0x6e90f409738433ba404b21e7593efb37786cceea8740113ab608da9fd53c6db8\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://16212cd905d2b1552d64b9bb223195c99142d3d89108a0f0e22016e4521ca7db\",\"dweb:/ipfs/QmbbHnYkquBT2z8JWexZxjDxCJQK6ogsT5pdyZXxwoWsoK\"]},\"contracts/release/interfaces/ISynthetixProxyERC20.sol\":{\"keccak256\":\"0x32714bb006e6861aece8fe1a5e3862e0b5562bd7a482ab80f0330f2c0bbc5da6\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://18cec76d589d9d1057d77fd111100c56f53118b41d9cfa861f61a746abbd7b60\",\"dweb:/ipfs/QmXt67NWo88Qt4aHTtxZcTLStchwsVoTeuf3tqPwK5jjn7\"]},\"contracts/release/interfaces/ISynthetixRedeemer.sol\":{\"keccak256\":\"0xd2da4586a6de782c91bdf602f5f2cc408c080e42ad5023b5cc42f04eedb43238\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://22625ee876bf58a980ff7fd5a974d7c3ac2608d652ad044b05cf0799cb902817\",\"dweb:/ipfs/QmSAL2Q8wEXmA8B7Pxof8LUtbnXWiBpuVz5kFuFqdMeQvR\"]},\"contracts/release/interfaces/ISynthetixSynth.sol\":{\"keccak256\":\"0xfad43b0fead48317fd90bfc3874d1511dc0de094764981467fa4cded78b39108\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://15edd80eee695ea75a22bdc7b2d8478d2f80bf7efacebaf113981c7787ea4717\",\"dweb:/ipfs/QmcRZWGhbM3UTwAEvHxBz1e9MPXcsDXUQRUYzpEecGTBwM\"]},\"contracts/release/utils/AssetHelpers.sol\":{\"keccak256\":\"0x01825f9b744f0bdbbcbed59503845b46e31b67ab510d53d4834c22967e12fc5f\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://a6937098b8b5e2238c5d2617d4c7870b61eb3dc6b24e38a6d037353f92a7db4b\",\"dweb:/ipfs/QmXfdWqtc4Dyn4ShhCc6ZZscApMZWtSaonvikwemhczb5E\"]},\"node_modules/@openzeppelin/contracts/math/SafeMath.sol\":{\"keccak256\":\"0xcc78a17dd88fa5a2edc60c8489e2f405c0913b377216a5b26b35656b2d0dab52\",\"license\":\"MIT\",\"urls\":[\"bzz-raw://526dc85e1f9b9b45830e202568d267d93dde7a4fcccf4ad7798dadcd92304d3c\",\"dweb:/ipfs/QmaoXMB972J3cSDLtBq3xBo4jLwqD2uzXTwujtSPqkYVhR\"]},\"node_modules/@openzeppelin/contracts/token/ERC20/ERC20.sol\":{\"keccak256\":\"0xca0c2396dbeb3503b51abf4248ebf77a1461edad513c01529df51850a012bee3\",\"license\":\"MIT\",\"urls\":[\"bzz-raw://991b44ff44e0496e8554a90f4c0512c28faed45104d40430019f3c67ea67740e\",\"dweb:/ipfs/Qmc3nRapVbcctELoZS5qe17zLkFB3bETBfwzCTMF1CSuGE\"]},\"node_modules/@openzeppelin/contracts/token/ERC20/IERC20.sol\":{\"keccak256\":\"0x5f02220344881ce43204ae4a6281145a67bc52c2bb1290a791857df3d19d78f5\",\"license\":\"MIT\",\"urls\":[\"bzz-raw://24427744bd3e6cb73c17010119af12a318289c0253a4d9acb8576c9fb3797b08\",\"dweb:/ipfs/QmTLDqpKRBuxGxRAmjgXt9AkXyACW3MtKzi7PYjm5iMfGC\"]},\"node_modules/@openzeppelin/contracts/token/ERC20/SafeERC20.sol\":{\"keccak256\":\"0xf12dfbe97e6276980b83d2830bb0eb75e0cf4f3e626c2471137f82158ae6a0fc\",\"license\":\"MIT\",\"urls\":[\"bzz-raw://b3a849c2d95e85463909e5b5c920b13e7a11216ca14127085e16d22b9379d52a\",\"dweb:/ipfs/QmUg3CZDbCCcQdroEpexBy5ZFd5vD1UWijWQq9qHZjtJNQ\"]},\"node_modules/@openzeppelin/contracts/utils/Address.sol\":{\"keccak256\":\"0x28911e614500ae7c607a432a709d35da25f3bc5ddc8bd12b278b66358070c0ea\",\"license\":\"MIT\",\"urls\":[\"bzz-raw://256c8c8af5eb072bc473226ab2b2187149b8fc04f5f4a4820db22527f5ce8e3c\",\"dweb:/ipfs/QmRvi5BhnL7Rxf85KrJhwM6RRhukm4tzoctRdgQEheNyiN\"]},\"node_modules/@openzeppelin/contracts/utils/Context.sol\":{\"keccak256\":\"0x8d3cb350f04ff49cfb10aef08d87f19dcbaecc8027b0bed12f3275cd12f38cf0\",\"license\":\"MIT\",\"urls\":[\"bzz-raw://ded47ec7c96750f9bd04bbbc84f659992d4ba901cb7b532a52cd468272cf378f\",\"dweb:/ipfs/QmfBrGtQP7rZEqEg6Wz6jh2N2Kukpj1z5v3CGWmAqrzm96\"]}},\"version\":1}",
+  "metadata": {
+    "compiler": {
+      "version": "0.6.12+commit.27d51765"
+    },
+    "language": "Solidity",
+    "output": {
+      "abi": [
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "_originator",
+              "type": "address"
+            },
+            {
+              "internalType": "address",
+              "name": "_redeemer",
+              "type": "address"
+            },
+            {
+              "internalType": "address",
+              "name": "_synthetix",
+              "type": "address"
+            },
+            {
+              "internalType": "bytes32",
+              "name": "_trackingCode",
+              "type": "bytes32"
+            }
+          ],
+          "stateMutability": "nonpayable",
+          "type": "constructor"
+        },
+        {
+          "inputs": [],
+          "stateMutability": "view",
+          "type": "function",
+          "name": "getSynthetix",
+          "outputs": [
+            {
+              "internalType": "address",
+              "name": "synthetix_",
+              "type": "address"
+            }
+          ]
+        },
+        {
+          "inputs": [],
+          "stateMutability": "view",
+          "type": "function",
+          "name": "getSynthetixOriginator",
+          "outputs": [
+            {
+              "internalType": "address",
+              "name": "synthetixOriginator_",
+              "type": "address"
+            }
+          ]
+        },
+        {
+          "inputs": [],
+          "stateMutability": "view",
+          "type": "function",
+          "name": "getSynthetixRedeemer",
+          "outputs": [
+            {
+              "internalType": "address",
+              "name": "synthetixRedeemer_",
+              "type": "address"
+            }
+          ]
+        },
+        {
+          "inputs": [],
+          "stateMutability": "view",
+          "type": "function",
+          "name": "getSynthetixTrackingCode",
+          "outputs": [
+            {
+              "internalType": "bytes32",
+              "name": "synthetixTrackingCode_",
+              "type": "bytes32"
+            }
+          ]
+        }
+      ],
+      "devdoc": {
+        "kind": "dev",
+        "methods": {
+          "getSynthetix()": {
+            "returns": {
+              "synthetix_": "The `SYNTHETIX` variable value"
+            }
+          },
+          "getSynthetixOriginator()": {
+            "returns": {
+              "synthetixOriginator_": "The `SYNTHETIX_ORIGINATOR` variable value"
+            }
+          },
+          "getSynthetixRedeemer()": {
+            "returns": {
+              "synthetixRedeemer_": "The `SYNTHETIX_REDEEMER` variable value"
+            }
+          },
+          "getSynthetixTrackingCode()": {
+            "returns": {
+              "synthetixTrackingCode_": "The `SYNTHETIX_TRACKING_CODE` variable value"
+            }
+          }
+        },
+        "version": 1
+      },
+      "userdoc": {
+        "kind": "user",
+        "methods": {
+          "getSynthetix()": {
+            "notice": "Gets the `SYNTHETIX` variable"
+          },
+          "getSynthetixOriginator()": {
+            "notice": "Gets the `SYNTHETIX_ORIGINATOR` variable"
+          },
+          "getSynthetixRedeemer()": {
+            "notice": "Gets the `SYNTHETIX_REDEEMER` variable"
+          },
+          "getSynthetixTrackingCode()": {
+            "notice": "Gets the `SYNTHETIX_TRACKING_CODE` variable"
+          }
+        },
+        "version": 1
+      }
+    },
+    "settings": {
+      "remappings": [
+        ":@enzyme/=contracts/",
+        ":@openzeppelin-solc-0.7/=node_modules/@openzeppelin-solc-0.7/",
+        ":@openzeppelin/=node_modules/@openzeppelin/",
+        ":@uniswap/=node_modules/@uniswap/",
+        ":base64-sol/=node_modules/base64-sol/",
+        ":ds-test/=lib/forge-std/lib/ds-test/src/",
+        ":forge-std/=lib/forge-std/src/",
+        ":hardhat-deploy/=node_modules/hardhat-deploy/",
+        ":hardhat/=node_modules/hardhat/"
+      ],
+      "optimizer": {
+        "runs": 200,
+        "details": {
+          "peephole": true,
+          "jumpdestRemover": true,
+          "orderLiterals": true,
+          "deduplicate": true,
+          "cse": true,
+          "constantOptimizer": true,
+          "yul": false
+        }
+      },
+      "metadata": {
+        "bytecodeHash": "none"
+      },
+      "compilationTarget": {
+        "contracts/release/extensions/integration-manager/integrations/utils/actions/SynthetixActionsMixin.sol": "SynthetixActionsMixin"
+      },
+      "libraries": {}
+    },
+    "sources": {
+      "contracts/release/extensions/integration-manager/integrations/utils/actions/SynthetixActionsMixin.sol": {
+        "keccak256": "0xcb463c92ee424cdf16a0e841968939274a39fcdeab1a0b119232e2540ea3ea0c",
+        "urls": [
+          "bzz-raw://fc93e10d71b31eb06527fbcc7e9cc5cc7bc1f6bffa17833c58e1ed693fcc38f6",
+          "dweb:/ipfs/Qmegov8rbwu9hVdooJrBFzxGmKSLiSJHb9Toxy8b4amVdU"
+        ],
+        "license": "GPL-3.0"
+      },
+      "contracts/release/interfaces/ISynthetix.sol": {
+        "keccak256": "0x6e90f409738433ba404b21e7593efb37786cceea8740113ab608da9fd53c6db8",
+        "urls": [
+          "bzz-raw://16212cd905d2b1552d64b9bb223195c99142d3d89108a0f0e22016e4521ca7db",
+          "dweb:/ipfs/QmbbHnYkquBT2z8JWexZxjDxCJQK6ogsT5pdyZXxwoWsoK"
+        ],
+        "license": "GPL-3.0"
+      },
+      "contracts/release/interfaces/ISynthetixProxyERC20.sol": {
+        "keccak256": "0x32714bb006e6861aece8fe1a5e3862e0b5562bd7a482ab80f0330f2c0bbc5da6",
+        "urls": [
+          "bzz-raw://18cec76d589d9d1057d77fd111100c56f53118b41d9cfa861f61a746abbd7b60",
+          "dweb:/ipfs/QmXt67NWo88Qt4aHTtxZcTLStchwsVoTeuf3tqPwK5jjn7"
+        ],
+        "license": "GPL-3.0"
+      },
+      "contracts/release/interfaces/ISynthetixRedeemer.sol": {
+        "keccak256": "0xd2da4586a6de782c91bdf602f5f2cc408c080e42ad5023b5cc42f04eedb43238",
+        "urls": [
+          "bzz-raw://22625ee876bf58a980ff7fd5a974d7c3ac2608d652ad044b05cf0799cb902817",
+          "dweb:/ipfs/QmSAL2Q8wEXmA8B7Pxof8LUtbnXWiBpuVz5kFuFqdMeQvR"
+        ],
+        "license": "GPL-3.0"
+      },
+      "contracts/release/interfaces/ISynthetixSynth.sol": {
+        "keccak256": "0xfad43b0fead48317fd90bfc3874d1511dc0de094764981467fa4cded78b39108",
+        "urls": [
+          "bzz-raw://15edd80eee695ea75a22bdc7b2d8478d2f80bf7efacebaf113981c7787ea4717",
+          "dweb:/ipfs/QmcRZWGhbM3UTwAEvHxBz1e9MPXcsDXUQRUYzpEecGTBwM"
+        ],
+        "license": "GPL-3.0"
+      },
+      "contracts/release/utils/AssetHelpers.sol": {
+        "keccak256": "0x01825f9b744f0bdbbcbed59503845b46e31b67ab510d53d4834c22967e12fc5f",
+        "urls": [
+          "bzz-raw://a6937098b8b5e2238c5d2617d4c7870b61eb3dc6b24e38a6d037353f92a7db4b",
+          "dweb:/ipfs/QmXfdWqtc4Dyn4ShhCc6ZZscApMZWtSaonvikwemhczb5E"
+        ],
+        "license": "GPL-3.0"
+      },
+      "node_modules/@openzeppelin/contracts/math/SafeMath.sol": {
+        "keccak256": "0xcc78a17dd88fa5a2edc60c8489e2f405c0913b377216a5b26b35656b2d0dab52",
+        "urls": [
+          "bzz-raw://526dc85e1f9b9b45830e202568d267d93dde7a4fcccf4ad7798dadcd92304d3c",
+          "dweb:/ipfs/QmaoXMB972J3cSDLtBq3xBo4jLwqD2uzXTwujtSPqkYVhR"
+        ],
+        "license": "MIT"
+      },
+      "node_modules/@openzeppelin/contracts/token/ERC20/ERC20.sol": {
+        "keccak256": "0xca0c2396dbeb3503b51abf4248ebf77a1461edad513c01529df51850a012bee3",
+        "urls": [
+          "bzz-raw://991b44ff44e0496e8554a90f4c0512c28faed45104d40430019f3c67ea67740e",
+          "dweb:/ipfs/Qmc3nRapVbcctELoZS5qe17zLkFB3bETBfwzCTMF1CSuGE"
+        ],
+        "license": "MIT"
+      },
+      "node_modules/@openzeppelin/contracts/token/ERC20/IERC20.sol": {
+        "keccak256": "0x5f02220344881ce43204ae4a6281145a67bc52c2bb1290a791857df3d19d78f5",
+        "urls": [
+          "bzz-raw://24427744bd3e6cb73c17010119af12a318289c0253a4d9acb8576c9fb3797b08",
+          "dweb:/ipfs/QmTLDqpKRBuxGxRAmjgXt9AkXyACW3MtKzi7PYjm5iMfGC"
+        ],
+        "license": "MIT"
+      },
+      "node_modules/@openzeppelin/contracts/token/ERC20/SafeERC20.sol": {
+        "keccak256": "0xf12dfbe97e6276980b83d2830bb0eb75e0cf4f3e626c2471137f82158ae6a0fc",
+        "urls": [
+          "bzz-raw://b3a849c2d95e85463909e5b5c920b13e7a11216ca14127085e16d22b9379d52a",
+          "dweb:/ipfs/QmUg3CZDbCCcQdroEpexBy5ZFd5vD1UWijWQq9qHZjtJNQ"
+        ],
+        "license": "MIT"
+      },
+      "node_modules/@openzeppelin/contracts/utils/Address.sol": {
+        "keccak256": "0x28911e614500ae7c607a432a709d35da25f3bc5ddc8bd12b278b66358070c0ea",
+        "urls": [
+          "bzz-raw://256c8c8af5eb072bc473226ab2b2187149b8fc04f5f4a4820db22527f5ce8e3c",
+          "dweb:/ipfs/QmRvi5BhnL7Rxf85KrJhwM6RRhukm4tzoctRdgQEheNyiN"
+        ],
+        "license": "MIT"
+      },
+      "node_modules/@openzeppelin/contracts/utils/Context.sol": {
+        "keccak256": "0x8d3cb350f04ff49cfb10aef08d87f19dcbaecc8027b0bed12f3275cd12f38cf0",
+        "urls": [
+          "bzz-raw://ded47ec7c96750f9bd04bbbc84f659992d4ba901cb7b532a52cd468272cf378f",
+          "dweb:/ipfs/QmfBrGtQP7rZEqEg6Wz6jh2N2Kukpj1z5v3CGWmAqrzm96"
+        ],
+        "license": "MIT"
+      }
+    },
+    "version": 1
+  },
+  "ast": {
+    "absolutePath": "contracts/release/extensions/integration-manager/integrations/utils/actions/SynthetixActionsMixin.sol",
+    "id": 9599,
+    "exportedSymbols": {
+      "SynthetixActionsMixin": [
+        9598
+      ]
+    },
+    "nodeType": "SourceUnit",
+    "src": "255:3156:36",
+    "nodes": [
+      {
+        "id": 9454,
+        "nodeType": "PragmaDirective",
+        "src": "255:23:36",
+        "nodes": [],
+        "literals": [
+          "solidity",
+          "0.6",
+          ".12"
+        ]
+      },
+      {
+        "id": 9455,
+        "nodeType": "ImportDirective",
+        "src": "280:50:36",
+        "nodes": [],
+        "absolutePath": "contracts/release/interfaces/ISynthetix.sol",
+        "file": "../../../../../interfaces/ISynthetix.sol",
+        "scope": 9599,
+        "sourceUnit": 15642,
+        "symbolAliases": [],
+        "unitAlias": ""
+      },
+      {
+        "id": 9456,
+        "nodeType": "ImportDirective",
+        "src": "331:60:36",
+        "nodes": [],
+        "absolutePath": "contracts/release/interfaces/ISynthetixProxyERC20.sol",
+        "file": "../../../../../interfaces/ISynthetixProxyERC20.sol",
+        "scope": 9599,
+        "sourceUnit": 15651,
+        "symbolAliases": [],
+        "unitAlias": ""
+      },
+      {
+        "id": 9457,
+        "nodeType": "ImportDirective",
+        "src": "392:58:36",
+        "nodes": [],
+        "absolutePath": "contracts/release/interfaces/ISynthetixRedeemer.sol",
+        "file": "../../../../../interfaces/ISynthetixRedeemer.sol",
+        "scope": 9599,
+        "sourceUnit": 15661,
+        "symbolAliases": [],
+        "unitAlias": ""
+      },
+      {
+        "id": 9458,
+        "nodeType": "ImportDirective",
+        "src": "451:55:36",
+        "nodes": [],
+        "absolutePath": "contracts/release/interfaces/ISynthetixSynth.sol",
+        "file": "../../../../../interfaces/ISynthetixSynth.sol",
+        "scope": 9599,
+        "sourceUnit": 15670,
+        "symbolAliases": [],
+        "unitAlias": ""
+      },
+      {
+        "id": 9459,
+        "nodeType": "ImportDirective",
+        "src": "507:47:36",
+        "nodes": [],
+        "absolutePath": "contracts/release/utils/AssetHelpers.sol",
+        "file": "../../../../../utils/AssetHelpers.sol",
+        "scope": 9599,
+        "sourceUnit": 17202,
+        "symbolAliases": [],
+        "unitAlias": ""
+      },
+      {
+        "id": 9598,
+        "nodeType": "ContractDefinition",
+        "src": "732:2678:36",
+        "nodes": [
+          {
+            "id": 9464,
+            "nodeType": "VariableDeclaration",
+            "src": "794:35:36",
+            "nodes": [],
+            "constant": false,
+            "mutability": "immutable",
+            "name": "SYNTHETIX",
+            "overrides": null,
+            "scope": 9598,
+            "stateVariable": true,
+            "storageLocation": "default",
+            "typeDescriptions": {
+              "typeIdentifier": "t_address",
+              "typeString": "address"
+            },
+            "typeName": {
+              "id": 9463,
+              "name": "address",
+              "nodeType": "ElementaryTypeName",
+              "src": "794:7:36",
+              "stateMutability": "nonpayable",
+              "typeDescriptions": {
+                "typeIdentifier": "t_address",
+                "typeString": "address"
+              }
+            },
+            "value": null,
+            "visibility": "private"
+          },
+          {
+            "id": 9466,
+            "nodeType": "VariableDeclaration",
+            "src": "835:46:36",
+            "nodes": [],
+            "constant": false,
+            "mutability": "immutable",
+            "name": "SYNTHETIX_ORIGINATOR",
+            "overrides": null,
+            "scope": 9598,
+            "stateVariable": true,
+            "storageLocation": "default",
+            "typeDescriptions": {
+              "typeIdentifier": "t_address",
+              "typeString": "address"
+            },
+            "typeName": {
+              "id": 9465,
+              "name": "address",
+              "nodeType": "ElementaryTypeName",
+              "src": "835:7:36",
+              "stateMutability": "nonpayable",
+              "typeDescriptions": {
+                "typeIdentifier": "t_address",
+                "typeString": "address"
+              }
+            },
+            "value": null,
+            "visibility": "private"
+          },
+          {
+            "id": 9468,
+            "nodeType": "VariableDeclaration",
+            "src": "887:44:36",
+            "nodes": [],
+            "constant": false,
+            "mutability": "immutable",
+            "name": "SYNTHETIX_REDEEMER",
+            "overrides": null,
+            "scope": 9598,
+            "stateVariable": true,
+            "storageLocation": "default",
+            "typeDescriptions": {
+              "typeIdentifier": "t_address",
+              "typeString": "address"
+            },
+            "typeName": {
+              "id": 9467,
+              "name": "address",
+              "nodeType": "ElementaryTypeName",
+              "src": "887:7:36",
+              "stateMutability": "nonpayable",
+              "typeDescriptions": {
+                "typeIdentifier": "t_address",
+                "typeString": "address"
+              }
+            },
+            "value": null,
+            "visibility": "private"
+          },
+          {
+            "id": 9470,
+            "nodeType": "VariableDeclaration",
+            "src": "937:49:36",
+            "nodes": [],
+            "constant": false,
+            "mutability": "immutable",
+            "name": "SYNTHETIX_TRACKING_CODE",
+            "overrides": null,
+            "scope": 9598,
+            "stateVariable": true,
+            "storageLocation": "default",
+            "typeDescriptions": {
+              "typeIdentifier": "t_bytes32",
+              "typeString": "bytes32"
+            },
+            "typeName": {
+              "id": 9469,
+              "name": "bytes32",
+              "nodeType": "ElementaryTypeName",
+              "src": "937:7:36",
+              "typeDescriptions": {
+                "typeIdentifier": "t_bytes32",
+                "typeString": "bytes32"
+              }
+            },
+            "value": null,
+            "visibility": "private"
+          },
+          {
+            "id": 9498,
+            "nodeType": "FunctionDefinition",
+            "src": "993:312:36",
+            "nodes": [],
+            "body": {
+              "id": 9497,
+              "nodeType": "Block",
+              "src": "1133:172:36",
+              "nodes": [],
+              "statements": [
+                {
+                  "expression": {
+                    "argumentTypes": null,
+                    "id": 9483,
+                    "isConstant": false,
+                    "isLValue": false,
+                    "isPure": false,
+                    "lValueRequested": false,
+                    "leftHandSide": {
+                      "argumentTypes": null,
+                      "id": 9481,
+                      "name": "SYNTHETIX_ORIGINATOR",
+                      "nodeType": "Identifier",
+                      "overloadedDeclarations": [],
+                      "referencedDeclaration": 9466,
+                      "src": "1143:20:36",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_address",
+                        "typeString": "address"
+                      }
+                    },
+                    "nodeType": "Assignment",
+                    "operator": "=",
+                    "rightHandSide": {
+                      "argumentTypes": null,
+                      "id": 9482,
+                      "name": "_originator",
+                      "nodeType": "Identifier",
+                      "overloadedDeclarations": [],
+                      "referencedDeclaration": 9472,
+                      "src": "1166:11:36",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_address",
+                        "typeString": "address"
+                      }
+                    },
+                    "src": "1143:34:36",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "id": 9484,
+                  "nodeType": "ExpressionStatement",
+                  "src": "1143:34:36"
+                },
+                {
+                  "expression": {
+                    "argumentTypes": null,
+                    "id": 9487,
+                    "isConstant": false,
+                    "isLValue": false,
+                    "isPure": false,
+                    "lValueRequested": false,
+                    "leftHandSide": {
+                      "argumentTypes": null,
+                      "id": 9485,
+                      "name": "SYNTHETIX_REDEEMER",
+                      "nodeType": "Identifier",
+                      "overloadedDeclarations": [],
+                      "referencedDeclaration": 9468,
+                      "src": "1187:18:36",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_address",
+                        "typeString": "address"
+                      }
+                    },
+                    "nodeType": "Assignment",
+                    "operator": "=",
+                    "rightHandSide": {
+                      "argumentTypes": null,
+                      "id": 9486,
+                      "name": "_redeemer",
+                      "nodeType": "Identifier",
+                      "overloadedDeclarations": [],
+                      "referencedDeclaration": 9474,
+                      "src": "1208:9:36",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_address",
+                        "typeString": "address"
+                      }
+                    },
+                    "src": "1187:30:36",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "id": 9488,
+                  "nodeType": "ExpressionStatement",
+                  "src": "1187:30:36"
+                },
+                {
+                  "expression": {
+                    "argumentTypes": null,
+                    "id": 9491,
+                    "isConstant": false,
+                    "isLValue": false,
+                    "isPure": false,
+                    "lValueRequested": false,
+                    "leftHandSide": {
+                      "argumentTypes": null,
+                      "id": 9489,
+                      "name": "SYNTHETIX",
+                      "nodeType": "Identifier",
+                      "overloadedDeclarations": [],
+                      "referencedDeclaration": 9464,
+                      "src": "1227:9:36",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_address",
+                        "typeString": "address"
+                      }
+                    },
+                    "nodeType": "Assignment",
+                    "operator": "=",
+                    "rightHandSide": {
+                      "argumentTypes": null,
+                      "id": 9490,
+                      "name": "_synthetix",
+                      "nodeType": "Identifier",
+                      "overloadedDeclarations": [],
+                      "referencedDeclaration": 9476,
+                      "src": "1239:10:36",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_address",
+                        "typeString": "address"
+                      }
+                    },
+                    "src": "1227:22:36",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "id": 9492,
+                  "nodeType": "ExpressionStatement",
+                  "src": "1227:22:36"
+                },
+                {
+                  "expression": {
+                    "argumentTypes": null,
+                    "id": 9495,
+                    "isConstant": false,
+                    "isLValue": false,
+                    "isPure": false,
+                    "lValueRequested": false,
+                    "leftHandSide": {
+                      "argumentTypes": null,
+                      "id": 9493,
+                      "name": "SYNTHETIX_TRACKING_CODE",
+                      "nodeType": "Identifier",
+                      "overloadedDeclarations": [],
+                      "referencedDeclaration": 9470,
+                      "src": "1259:23:36",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_bytes32",
+                        "typeString": "bytes32"
+                      }
+                    },
+                    "nodeType": "Assignment",
+                    "operator": "=",
+                    "rightHandSide": {
+                      "argumentTypes": null,
+                      "id": 9494,
+                      "name": "_trackingCode",
+                      "nodeType": "Identifier",
+                      "overloadedDeclarations": [],
+                      "referencedDeclaration": 9478,
+                      "src": "1285:13:36",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_bytes32",
+                        "typeString": "bytes32"
+                      }
+                    },
+                    "src": "1259:39:36",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_bytes32",
+                      "typeString": "bytes32"
+                    }
+                  },
+                  "id": 9496,
+                  "nodeType": "ExpressionStatement",
+                  "src": "1259:39:36"
+                }
+              ]
+            },
+            "documentation": null,
+            "implemented": true,
+            "kind": "constructor",
+            "modifiers": [],
+            "name": "",
+            "overrides": null,
+            "parameters": {
+              "id": 9479,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 9472,
+                  "mutability": "mutable",
+                  "name": "_originator",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 9498,
+                  "src": "1014:19:36",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 9471,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "1014:7:36",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 9474,
+                  "mutability": "mutable",
+                  "name": "_redeemer",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 9498,
+                  "src": "1043:17:36",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 9473,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "1043:7:36",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 9476,
+                  "mutability": "mutable",
+                  "name": "_synthetix",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 9498,
+                  "src": "1070:18:36",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 9475,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "1070:7:36",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 9478,
+                  "mutability": "mutable",
+                  "name": "_trackingCode",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 9498,
+                  "src": "1098:21:36",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_bytes32",
+                    "typeString": "bytes32"
+                  },
+                  "typeName": {
+                    "id": 9477,
+                    "name": "bytes32",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "1098:7:36",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_bytes32",
+                      "typeString": "bytes32"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "1004:121:36"
+            },
+            "returnParameters": {
+              "id": 9480,
+              "nodeType": "ParameterList",
+              "parameters": [],
+              "src": "1133:0:36"
+            },
+            "scope": 9598,
+            "stateMutability": "nonpayable",
+            "virtual": false,
+            "visibility": "public"
+          },
+          {
+            "id": 9517,
+            "nodeType": "FunctionDefinition",
+            "src": "1377:216:36",
+            "nodes": [],
+            "body": {
+              "id": 9516,
+              "nodeType": "Block",
+              "src": "1501:92:36",
+              "nodes": [],
+              "statements": [
+                {
+                  "expression": {
+                    "argumentTypes": null,
+                    "arguments": [],
+                    "expression": {
+                      "argumentTypes": [],
+                      "expression": {
+                        "argumentTypes": null,
+                        "arguments": [
+                          {
+                            "argumentTypes": null,
+                            "arguments": [],
+                            "expression": {
+                              "argumentTypes": [],
+                              "expression": {
+                                "argumentTypes": null,
+                                "arguments": [
+                                  {
+                                    "argumentTypes": null,
+                                    "id": 9508,
+                                    "name": "_synth",
+                                    "nodeType": "Identifier",
+                                    "overloadedDeclarations": [],
+                                    "referencedDeclaration": 9501,
+                                    "src": "1555:6:36",
+                                    "typeDescriptions": {
+                                      "typeIdentifier": "t_address",
+                                      "typeString": "address"
+                                    }
+                                  }
+                                ],
+                                "expression": {
+                                  "argumentTypes": [
+                                    {
+                                      "typeIdentifier": "t_address",
+                                      "typeString": "address"
+                                    }
+                                  ],
+                                  "id": 9507,
+                                  "name": "ISynthetixProxyERC20",
+                                  "nodeType": "Identifier",
+                                  "overloadedDeclarations": [],
+                                  "referencedDeclaration": 15650,
+                                  "src": "1534:20:36",
+                                  "typeDescriptions": {
+                                    "typeIdentifier": "t_type$_t_contract$_ISynthetixProxyERC20_$15650_$",
+                                    "typeString": "type(contract ISynthetixProxyERC20)"
+                                  }
+                                },
+                                "id": 9509,
+                                "isConstant": false,
+                                "isLValue": false,
+                                "isPure": false,
+                                "kind": "typeConversion",
+                                "lValueRequested": false,
+                                "names": [],
+                                "nodeType": "FunctionCall",
+                                "src": "1534:28:36",
+                                "tryCall": false,
+                                "typeDescriptions": {
+                                  "typeIdentifier": "t_contract$_ISynthetixProxyERC20_$15650",
+                                  "typeString": "contract ISynthetixProxyERC20"
+                                }
+                              },
+                              "id": 9510,
+                              "isConstant": false,
+                              "isLValue": false,
+                              "isPure": false,
+                              "lValueRequested": false,
+                              "memberName": "target",
+                              "nodeType": "MemberAccess",
+                              "referencedDeclaration": 15649,
+                              "src": "1534:35:36",
+                              "typeDescriptions": {
+                                "typeIdentifier": "t_function_external_view$__$returns$_t_address_$",
+                                "typeString": "function () view external returns (address)"
+                              }
+                            },
+                            "id": 9511,
+                            "isConstant": false,
+                            "isLValue": false,
+                            "isPure": false,
+                            "kind": "functionCall",
+                            "lValueRequested": false,
+                            "names": [],
+                            "nodeType": "FunctionCall",
+                            "src": "1534:37:36",
+                            "tryCall": false,
+                            "typeDescriptions": {
+                              "typeIdentifier": "t_address",
+                              "typeString": "address"
+                            }
+                          }
+                        ],
+                        "expression": {
+                          "argumentTypes": [
+                            {
+                              "typeIdentifier": "t_address",
+                              "typeString": "address"
+                            }
+                          ],
+                          "id": 9506,
+                          "name": "ISynthetixSynth",
+                          "nodeType": "Identifier",
+                          "overloadedDeclarations": [],
+                          "referencedDeclaration": 15669,
+                          "src": "1518:15:36",
+                          "typeDescriptions": {
+                            "typeIdentifier": "t_type$_t_contract$_ISynthetixSynth_$15669_$",
+                            "typeString": "type(contract ISynthetixSynth)"
+                          }
+                        },
+                        "id": 9512,
+                        "isConstant": false,
+                        "isLValue": false,
+                        "isPure": false,
+                        "kind": "typeConversion",
+                        "lValueRequested": false,
+                        "names": [],
+                        "nodeType": "FunctionCall",
+                        "src": "1518:54:36",
+                        "tryCall": false,
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_contract$_ISynthetixSynth_$15669",
+                          "typeString": "contract ISynthetixSynth"
+                        }
+                      },
+                      "id": 9513,
+                      "isConstant": false,
+                      "isLValue": false,
+                      "isPure": false,
+                      "lValueRequested": false,
+                      "memberName": "currencyKey",
+                      "nodeType": "MemberAccess",
+                      "referencedDeclaration": 15668,
+                      "src": "1518:66:36",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_function_external_view$__$returns$_t_bytes32_$",
+                        "typeString": "function () view external returns (bytes32)"
+                      }
+                    },
+                    "id": 9514,
+                    "isConstant": false,
+                    "isLValue": false,
+                    "isPure": false,
+                    "kind": "functionCall",
+                    "lValueRequested": false,
+                    "names": [],
+                    "nodeType": "FunctionCall",
+                    "src": "1518:68:36",
+                    "tryCall": false,
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_bytes32",
+                      "typeString": "bytes32"
+                    }
+                  },
+                  "functionReturnParameters": 9505,
+                  "id": 9515,
+                  "nodeType": "Return",
+                  "src": "1511:75:36"
+                }
+              ]
+            },
+            "documentation": {
+              "id": 9499,
+              "nodeType": "StructuredDocumentation",
+              "src": "1311:61:36",
+              "text": "@dev Helper to get the currency key for a Synthetix synth"
+            },
+            "implemented": true,
+            "kind": "function",
+            "modifiers": [],
+            "name": "__synthetixGetCurrencyKey",
+            "overrides": null,
+            "parameters": {
+              "id": 9502,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 9501,
+                  "mutability": "mutable",
+                  "name": "_synth",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 9517,
+                  "src": "1412:14:36",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 9500,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "1412:7:36",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "1411:16:36"
+            },
+            "returnParameters": {
+              "id": 9505,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 9504,
+                  "mutability": "mutable",
+                  "name": "currencyKey_",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 9517,
+                  "src": "1475:20:36",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_bytes32",
+                    "typeString": "bytes32"
+                  },
+                  "typeName": {
+                    "id": 9503,
+                    "name": "bytes32",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "1475:7:36",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_bytes32",
+                      "typeString": "bytes32"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "1474:22:36"
+            },
+            "scope": 9598,
+            "stateMutability": "view",
+            "virtual": false,
+            "visibility": "internal"
+          },
+          {
+            "id": 9546,
+            "nodeType": "FunctionDefinition",
+            "src": "1640:491:36",
+            "nodes": [],
+            "body": {
+              "id": 9545,
+              "nodeType": "Block",
+              "src": "1815:316:36",
+              "nodes": [],
+              "statements": [
+                {
+                  "expression": {
+                    "argumentTypes": null,
+                    "arguments": [
+                      {
+                        "argumentTypes": null,
+                        "id": 9533,
+                        "name": "_recipient",
+                        "nodeType": "Identifier",
+                        "overloadedDeclarations": [],
+                        "referencedDeclaration": 9520,
+                        "src": "1889:10:36",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_address",
+                          "typeString": "address"
+                        }
+                      },
+                      {
+                        "argumentTypes": null,
+                        "arguments": [
+                          {
+                            "argumentTypes": null,
+                            "id": 9535,
+                            "name": "_outgoingAsset",
+                            "nodeType": "Identifier",
+                            "overloadedDeclarations": [],
+                            "referencedDeclaration": 9522,
+                            "src": "1939:14:36",
+                            "typeDescriptions": {
+                              "typeIdentifier": "t_address",
+                              "typeString": "address"
+                            }
+                          }
+                        ],
+                        "expression": {
+                          "argumentTypes": [
+                            {
+                              "typeIdentifier": "t_address",
+                              "typeString": "address"
+                            }
+                          ],
+                          "id": 9534,
+                          "name": "__synthetixGetCurrencyKey",
+                          "nodeType": "Identifier",
+                          "overloadedDeclarations": [],
+                          "referencedDeclaration": 9517,
+                          "src": "1913:25:36",
+                          "typeDescriptions": {
+                            "typeIdentifier": "t_function_internal_view$_t_address_$returns$_t_bytes32_$",
+                            "typeString": "function (address) view returns (bytes32)"
+                          }
+                        },
+                        "id": 9536,
+                        "isConstant": false,
+                        "isLValue": false,
+                        "isPure": false,
+                        "kind": "functionCall",
+                        "lValueRequested": false,
+                        "names": [],
+                        "nodeType": "FunctionCall",
+                        "src": "1913:41:36",
+                        "tryCall": false,
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_bytes32",
+                          "typeString": "bytes32"
+                        }
+                      },
+                      {
+                        "argumentTypes": null,
+                        "id": 9537,
+                        "name": "_outgoingAssetAmount",
+                        "nodeType": "Identifier",
+                        "overloadedDeclarations": [],
+                        "referencedDeclaration": 9524,
+                        "src": "1968:20:36",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_uint256",
+                          "typeString": "uint256"
+                        }
+                      },
+                      {
+                        "argumentTypes": null,
+                        "arguments": [
+                          {
+                            "argumentTypes": null,
+                            "id": 9539,
+                            "name": "_incomingAsset",
+                            "nodeType": "Identifier",
+                            "overloadedDeclarations": [],
+                            "referencedDeclaration": 9526,
+                            "src": "2028:14:36",
+                            "typeDescriptions": {
+                              "typeIdentifier": "t_address",
+                              "typeString": "address"
+                            }
+                          }
+                        ],
+                        "expression": {
+                          "argumentTypes": [
+                            {
+                              "typeIdentifier": "t_address",
+                              "typeString": "address"
+                            }
+                          ],
+                          "id": 9538,
+                          "name": "__synthetixGetCurrencyKey",
+                          "nodeType": "Identifier",
+                          "overloadedDeclarations": [],
+                          "referencedDeclaration": 9517,
+                          "src": "2002:25:36",
+                          "typeDescriptions": {
+                            "typeIdentifier": "t_function_internal_view$_t_address_$returns$_t_bytes32_$",
+                            "typeString": "function (address) view returns (bytes32)"
+                          }
+                        },
+                        "id": 9540,
+                        "isConstant": false,
+                        "isLValue": false,
+                        "isPure": false,
+                        "kind": "functionCall",
+                        "lValueRequested": false,
+                        "names": [],
+                        "nodeType": "FunctionCall",
+                        "src": "2002:41:36",
+                        "tryCall": false,
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_bytes32",
+                          "typeString": "bytes32"
+                        }
+                      },
+                      {
+                        "argumentTypes": null,
+                        "id": 9541,
+                        "name": "SYNTHETIX_ORIGINATOR",
+                        "nodeType": "Identifier",
+                        "overloadedDeclarations": [],
+                        "referencedDeclaration": 9466,
+                        "src": "2057:20:36",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_address",
+                          "typeString": "address"
+                        }
+                      },
+                      {
+                        "argumentTypes": null,
+                        "id": 9542,
+                        "name": "SYNTHETIX_TRACKING_CODE",
+                        "nodeType": "Identifier",
+                        "overloadedDeclarations": [],
+                        "referencedDeclaration": 9470,
+                        "src": "2091:23:36",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_bytes32",
+                          "typeString": "bytes32"
+                        }
+                      }
+                    ],
+                    "expression": {
+                      "argumentTypes": [
+                        {
+                          "typeIdentifier": "t_address",
+                          "typeString": "address"
+                        },
+                        {
+                          "typeIdentifier": "t_bytes32",
+                          "typeString": "bytes32"
+                        },
+                        {
+                          "typeIdentifier": "t_uint256",
+                          "typeString": "uint256"
+                        },
+                        {
+                          "typeIdentifier": "t_bytes32",
+                          "typeString": "bytes32"
+                        },
+                        {
+                          "typeIdentifier": "t_address",
+                          "typeString": "address"
+                        },
+                        {
+                          "typeIdentifier": "t_bytes32",
+                          "typeString": "bytes32"
+                        }
+                      ],
+                      "expression": {
+                        "argumentTypes": null,
+                        "arguments": [
+                          {
+                            "argumentTypes": null,
+                            "id": 9530,
+                            "name": "SYNTHETIX",
+                            "nodeType": "Identifier",
+                            "overloadedDeclarations": [],
+                            "referencedDeclaration": 9464,
+                            "src": "1836:9:36",
+                            "typeDescriptions": {
+                              "typeIdentifier": "t_address",
+                              "typeString": "address"
+                            }
+                          }
+                        ],
+                        "expression": {
+                          "argumentTypes": [
+                            {
+                              "typeIdentifier": "t_address",
+                              "typeString": "address"
+                            }
+                          ],
+                          "id": 9529,
+                          "name": "ISynthetix",
+                          "nodeType": "Identifier",
+                          "overloadedDeclarations": [],
+                          "referencedDeclaration": 15641,
+                          "src": "1825:10:36",
+                          "typeDescriptions": {
+                            "typeIdentifier": "t_type$_t_contract$_ISynthetix_$15641_$",
+                            "typeString": "type(contract ISynthetix)"
+                          }
+                        },
+                        "id": 9531,
+                        "isConstant": false,
+                        "isLValue": false,
+                        "isPure": false,
+                        "kind": "typeConversion",
+                        "lValueRequested": false,
+                        "names": [],
+                        "nodeType": "FunctionCall",
+                        "src": "1825:21:36",
+                        "tryCall": false,
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_contract$_ISynthetix_$15641",
+                          "typeString": "contract ISynthetix"
+                        }
+                      },
+                      "id": 9532,
+                      "isConstant": false,
+                      "isLValue": false,
+                      "isPure": false,
+                      "lValueRequested": false,
+                      "memberName": "exchangeOnBehalfWithTracking",
+                      "nodeType": "MemberAccess",
+                      "referencedDeclaration": 15640,
+                      "src": "1825:50:36",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_function_external_nonpayable$_t_address_$_t_bytes32_$_t_uint256_$_t_bytes32_$_t_address_$_t_bytes32_$returns$_t_uint256_$",
+                        "typeString": "function (address,bytes32,uint256,bytes32,address,bytes32) external returns (uint256)"
+                      }
+                    },
+                    "id": 9543,
+                    "isConstant": false,
+                    "isLValue": false,
+                    "isPure": false,
+                    "kind": "functionCall",
+                    "lValueRequested": false,
+                    "names": [],
+                    "nodeType": "FunctionCall",
+                    "src": "1825:299:36",
+                    "tryCall": false,
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_uint256",
+                      "typeString": "uint256"
+                    }
+                  },
+                  "id": 9544,
+                  "nodeType": "ExpressionStatement",
+                  "src": "1825:299:36"
+                }
+              ]
+            },
+            "documentation": {
+              "id": 9518,
+              "nodeType": "StructuredDocumentation",
+              "src": "1599:36:36",
+              "text": "@dev Helper to execute takeOrder"
+            },
+            "implemented": true,
+            "kind": "function",
+            "modifiers": [],
+            "name": "__synthetixTakeOrder",
+            "overrides": null,
+            "parameters": {
+              "id": 9527,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 9520,
+                  "mutability": "mutable",
+                  "name": "_recipient",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 9546,
+                  "src": "1679:18:36",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 9519,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "1679:7:36",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 9522,
+                  "mutability": "mutable",
+                  "name": "_outgoingAsset",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 9546,
+                  "src": "1707:22:36",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 9521,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "1707:7:36",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 9524,
+                  "mutability": "mutable",
+                  "name": "_outgoingAssetAmount",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 9546,
+                  "src": "1739:28:36",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_uint256",
+                    "typeString": "uint256"
+                  },
+                  "typeName": {
+                    "id": 9523,
+                    "name": "uint256",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "1739:7:36",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_uint256",
+                      "typeString": "uint256"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 9526,
+                  "mutability": "mutable",
+                  "name": "_incomingAsset",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 9546,
+                  "src": "1777:22:36",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 9525,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "1777:7:36",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "1669:136:36"
+            },
+            "returnParameters": {
+              "id": 9528,
+              "nodeType": "ParameterList",
+              "parameters": [],
+              "src": "1815:0:36"
+            },
+            "scope": 9598,
+            "stateMutability": "nonpayable",
+            "virtual": false,
+            "visibility": "internal"
+          },
+          {
+            "id": 9561,
+            "nodeType": "FunctionDefinition",
+            "src": "2175:136:36",
+            "nodes": [],
+            "body": {
+              "id": 9560,
+              "nodeType": "Block",
+              "src": "2237:74:36",
+              "nodes": [],
+              "statements": [
+                {
+                  "expression": {
+                    "argumentTypes": null,
+                    "arguments": [
+                      {
+                        "argumentTypes": null,
+                        "id": 9557,
+                        "name": "_synths",
+                        "nodeType": "Identifier",
+                        "overloadedDeclarations": [],
+                        "referencedDeclaration": 9550,
+                        "src": "2296:7:36",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_array$_t_address_$dyn_memory_ptr",
+                          "typeString": "address[] memory"
+                        }
+                      }
+                    ],
+                    "expression": {
+                      "argumentTypes": [
+                        {
+                          "typeIdentifier": "t_array$_t_address_$dyn_memory_ptr",
+                          "typeString": "address[] memory"
+                        }
+                      ],
+                      "expression": {
+                        "argumentTypes": null,
+                        "arguments": [
+                          {
+                            "argumentTypes": null,
+                            "id": 9554,
+                            "name": "SYNTHETIX_REDEEMER",
+                            "nodeType": "Identifier",
+                            "overloadedDeclarations": [],
+                            "referencedDeclaration": 9468,
+                            "src": "2266:18:36",
+                            "typeDescriptions": {
+                              "typeIdentifier": "t_address",
+                              "typeString": "address"
+                            }
+                          }
+                        ],
+                        "expression": {
+                          "argumentTypes": [
+                            {
+                              "typeIdentifier": "t_address",
+                              "typeString": "address"
+                            }
+                          ],
+                          "id": 9553,
+                          "name": "ISynthetixRedeemer",
+                          "nodeType": "Identifier",
+                          "overloadedDeclarations": [],
+                          "referencedDeclaration": 15660,
+                          "src": "2247:18:36",
+                          "typeDescriptions": {
+                            "typeIdentifier": "t_type$_t_contract$_ISynthetixRedeemer_$15660_$",
+                            "typeString": "type(contract ISynthetixRedeemer)"
+                          }
+                        },
+                        "id": 9555,
+                        "isConstant": false,
+                        "isLValue": false,
+                        "isPure": false,
+                        "kind": "typeConversion",
+                        "lValueRequested": false,
+                        "names": [],
+                        "nodeType": "FunctionCall",
+                        "src": "2247:38:36",
+                        "tryCall": false,
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_contract$_ISynthetixRedeemer_$15660",
+                          "typeString": "contract ISynthetixRedeemer"
+                        }
+                      },
+                      "id": 9556,
+                      "isConstant": false,
+                      "isLValue": false,
+                      "isPure": false,
+                      "lValueRequested": false,
+                      "memberName": "redeemAll",
+                      "nodeType": "MemberAccess",
+                      "referencedDeclaration": 15659,
+                      "src": "2247:48:36",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_function_external_nonpayable$_t_array$_t_address_$dyn_memory_ptr_$returns$__$",
+                        "typeString": "function (address[] memory) external"
+                      }
+                    },
+                    "id": 9558,
+                    "isConstant": false,
+                    "isLValue": false,
+                    "isPure": false,
+                    "kind": "functionCall",
+                    "lValueRequested": false,
+                    "names": [],
+                    "nodeType": "FunctionCall",
+                    "src": "2247:57:36",
+                    "tryCall": false,
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_tuple$__$",
+                      "typeString": "tuple()"
+                    }
+                  },
+                  "id": 9559,
+                  "nodeType": "ExpressionStatement",
+                  "src": "2247:57:36"
+                }
+              ]
+            },
+            "documentation": {
+              "id": 9547,
+              "nodeType": "StructuredDocumentation",
+              "src": "2137:33:36",
+              "text": "@dev Helper to execute redeem"
+            },
+            "implemented": true,
+            "kind": "function",
+            "modifiers": [],
+            "name": "__synthetixRedeem",
+            "overrides": null,
+            "parameters": {
+              "id": 9551,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 9550,
+                  "mutability": "mutable",
+                  "name": "_synths",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 9561,
+                  "src": "2202:24:36",
+                  "stateVariable": false,
+                  "storageLocation": "memory",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_array$_t_address_$dyn_memory_ptr",
+                    "typeString": "address[]"
+                  },
+                  "typeName": {
+                    "baseType": {
+                      "id": 9548,
+                      "name": "address",
+                      "nodeType": "ElementaryTypeName",
+                      "src": "2202:7:36",
+                      "stateMutability": "nonpayable",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_address",
+                        "typeString": "address"
+                      }
+                    },
+                    "id": 9549,
+                    "length": null,
+                    "nodeType": "ArrayTypeName",
+                    "src": "2202:9:36",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_array$_t_address_$dyn_storage_ptr",
+                      "typeString": "address[]"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "2201:26:36"
+            },
+            "returnParameters": {
+              "id": 9552,
+              "nodeType": "ParameterList",
+              "parameters": [],
+              "src": "2237:0:36"
+            },
+            "scope": 9598,
+            "stateMutability": "nonpayable",
+            "virtual": false,
+            "visibility": "internal"
+          },
+          {
+            "id": 9570,
+            "nodeType": "FunctionDefinition",
+            "src": "2494:98:36",
+            "nodes": [],
+            "body": {
+              "id": 9569,
+              "nodeType": "Block",
+              "src": "2559:33:36",
+              "nodes": [],
+              "statements": [
+                {
+                  "expression": {
+                    "argumentTypes": null,
+                    "id": 9567,
+                    "name": "SYNTHETIX",
+                    "nodeType": "Identifier",
+                    "overloadedDeclarations": [],
+                    "referencedDeclaration": 9464,
+                    "src": "2576:9:36",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "functionReturnParameters": 9566,
+                  "id": 9568,
+                  "nodeType": "Return",
+                  "src": "2569:16:36"
+                }
+              ]
+            },
+            "documentation": {
+              "id": 9562,
+              "nodeType": "StructuredDocumentation",
+              "src": "2390:99:36",
+              "text": "@notice Gets the `SYNTHETIX` variable\n @return synthetix_ The `SYNTHETIX` variable value"
+            },
+            "functionSelector": "90956d99",
+            "implemented": true,
+            "kind": "function",
+            "modifiers": [],
+            "name": "getSynthetix",
+            "overrides": null,
+            "parameters": {
+              "id": 9563,
+              "nodeType": "ParameterList",
+              "parameters": [],
+              "src": "2515:2:36"
+            },
+            "returnParameters": {
+              "id": 9566,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 9565,
+                  "mutability": "mutable",
+                  "name": "synthetix_",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 9570,
+                  "src": "2539:18:36",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 9564,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "2539:7:36",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "2538:20:36"
+            },
+            "scope": 9598,
+            "stateMutability": "view",
+            "virtual": false,
+            "visibility": "public"
+          },
+          {
+            "id": 9579,
+            "nodeType": "FunctionDefinition",
+            "src": "2734:129:36",
+            "nodes": [],
+            "body": {
+              "id": 9578,
+              "nodeType": "Block",
+              "src": "2819:44:36",
+              "nodes": [],
+              "statements": [
+                {
+                  "expression": {
+                    "argumentTypes": null,
+                    "id": 9576,
+                    "name": "SYNTHETIX_ORIGINATOR",
+                    "nodeType": "Identifier",
+                    "overloadedDeclarations": [],
+                    "referencedDeclaration": 9466,
+                    "src": "2836:20:36",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "functionReturnParameters": 9575,
+                  "id": 9577,
+                  "nodeType": "Return",
+                  "src": "2829:27:36"
+                }
+              ]
+            },
+            "documentation": {
+              "id": 9571,
+              "nodeType": "StructuredDocumentation",
+              "src": "2598:131:36",
+              "text": "@notice Gets the `SYNTHETIX_ORIGINATOR` variable\n @return synthetixOriginator_ The `SYNTHETIX_ORIGINATOR` variable value"
+            },
+            "functionSelector": "f3863b97",
+            "implemented": true,
+            "kind": "function",
+            "modifiers": [],
+            "name": "getSynthetixOriginator",
+            "overrides": null,
+            "parameters": {
+              "id": 9572,
+              "nodeType": "ParameterList",
+              "parameters": [],
+              "src": "2765:2:36"
+            },
+            "returnParameters": {
+              "id": 9575,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 9574,
+                  "mutability": "mutable",
+                  "name": "synthetixOriginator_",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 9579,
+                  "src": "2789:28:36",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 9573,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "2789:7:36",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "2788:30:36"
+            },
+            "scope": 9598,
+            "stateMutability": "view",
+            "virtual": false,
+            "visibility": "public"
+          },
+          {
+            "id": 9588,
+            "nodeType": "FunctionDefinition",
+            "src": "2999:123:36",
+            "nodes": [],
+            "body": {
+              "id": 9587,
+              "nodeType": "Block",
+              "src": "3080:42:36",
+              "nodes": [],
+              "statements": [
+                {
+                  "expression": {
+                    "argumentTypes": null,
+                    "id": 9585,
+                    "name": "SYNTHETIX_REDEEMER",
+                    "nodeType": "Identifier",
+                    "overloadedDeclarations": [],
+                    "referencedDeclaration": 9468,
+                    "src": "3097:18:36",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "functionReturnParameters": 9584,
+                  "id": 9586,
+                  "nodeType": "Return",
+                  "src": "3090:25:36"
+                }
+              ]
+            },
+            "documentation": {
+              "id": 9580,
+              "nodeType": "StructuredDocumentation",
+              "src": "2869:125:36",
+              "text": "@notice Gets the `SYNTHETIX_REDEEMER` variable\n @return synthetixRedeemer_ The `SYNTHETIX_REDEEMER` variable value"
+            },
+            "functionSelector": "71dca19b",
+            "implemented": true,
+            "kind": "function",
+            "modifiers": [],
+            "name": "getSynthetixRedeemer",
+            "overrides": null,
+            "parameters": {
+              "id": 9581,
+              "nodeType": "ParameterList",
+              "parameters": [],
+              "src": "3028:2:36"
+            },
+            "returnParameters": {
+              "id": 9584,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 9583,
+                  "mutability": "mutable",
+                  "name": "synthetixRedeemer_",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 9588,
+                  "src": "3052:26:36",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 9582,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "3052:7:36",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "3051:28:36"
+            },
+            "scope": 9598,
+            "stateMutability": "view",
+            "virtual": false,
+            "visibility": "public"
+          },
+          {
+            "id": 9597,
+            "nodeType": "FunctionDefinition",
+            "src": "3272:136:36",
+            "nodes": [],
+            "body": {
+              "id": 9596,
+              "nodeType": "Block",
+              "src": "3361:47:36",
+              "nodes": [],
+              "statements": [
+                {
+                  "expression": {
+                    "argumentTypes": null,
+                    "id": 9594,
+                    "name": "SYNTHETIX_TRACKING_CODE",
+                    "nodeType": "Identifier",
+                    "overloadedDeclarations": [],
+                    "referencedDeclaration": 9470,
+                    "src": "3378:23:36",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_bytes32",
+                      "typeString": "bytes32"
+                    }
+                  },
+                  "functionReturnParameters": 9593,
+                  "id": 9595,
+                  "nodeType": "Return",
+                  "src": "3371:30:36"
+                }
+              ]
+            },
+            "documentation": {
+              "id": 9589,
+              "nodeType": "StructuredDocumentation",
+              "src": "3128:139:36",
+              "text": "@notice Gets the `SYNTHETIX_TRACKING_CODE` variable\n @return synthetixTrackingCode_ The `SYNTHETIX_TRACKING_CODE` variable value"
+            },
+            "functionSelector": "7b0f0a57",
+            "implemented": true,
+            "kind": "function",
+            "modifiers": [],
+            "name": "getSynthetixTrackingCode",
+            "overrides": null,
+            "parameters": {
+              "id": 9590,
+              "nodeType": "ParameterList",
+              "parameters": [],
+              "src": "3305:2:36"
+            },
+            "returnParameters": {
+              "id": 9593,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 9592,
+                  "mutability": "mutable",
+                  "name": "synthetixTrackingCode_",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 9597,
+                  "src": "3329:30:36",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_bytes32",
+                    "typeString": "bytes32"
+                  },
+                  "typeName": {
+                    "id": 9591,
+                    "name": "bytes32",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "3329:7:36",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_bytes32",
+                      "typeString": "bytes32"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "3328:32:36"
+            },
+            "scope": 9598,
+            "stateMutability": "view",
+            "virtual": false,
+            "visibility": "public"
+          }
+        ],
+        "abstract": true,
+        "baseContracts": [
+          {
+            "arguments": null,
+            "baseName": {
+              "contractScope": null,
+              "id": 9461,
+              "name": "AssetHelpers",
+              "nodeType": "UserDefinedTypeName",
+              "referencedDeclaration": 17201,
+              "src": "775:12:36",
+              "typeDescriptions": {
+                "typeIdentifier": "t_contract$_AssetHelpers_$17201",
+                "typeString": "contract AssetHelpers"
+              }
+            },
+            "id": 9462,
+            "nodeType": "InheritanceSpecifier",
+            "src": "775:12:36"
+          }
+        ],
+        "contractDependencies": [
+          17201
+        ],
+        "contractKind": "contract",
+        "documentation": {
+          "id": 9460,
+          "nodeType": "StructuredDocumentation",
+          "src": "556:176:36",
+          "text": "@title SynthetixActionsMixin Contract\n @author Enzyme Council <security@enzyme.finance>\n @notice Mixin contract for interacting with the Synthetix exchange functions"
+        },
+        "fullyImplemented": true,
+        "linearizedBaseContracts": [
+          9598,
+          17201
+        ],
+        "name": "SynthetixActionsMixin",
+        "scope": 9599
+      }
+    ],
+    "license": "GPL-3.0"
+  },
+  "id": 36
 }

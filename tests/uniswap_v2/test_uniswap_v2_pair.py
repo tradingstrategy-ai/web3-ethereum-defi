@@ -145,7 +145,7 @@ def test_create_trading_pair_with_liquidity(
 def test_swap(
     web3: Web3,
     deployer: str,
-    user_1: str,
+        user_1,
     uniswap_v2: UniswapV2Deployment,
     weth: Contract,
     usdc: Contract,

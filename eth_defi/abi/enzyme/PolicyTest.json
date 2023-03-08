@@ -1,0 +1,552 @@
+{
+  "abi": [
+    {
+      "inputs": [],
+      "name": "createPolicyDeployment",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    }
+  ],
+  "bytecode": {
+    "object": "0x",
+    "sourceMap": "",
+    "linkReferences": {}
+  },
+  "deployedBytecode": {
+    "object": "0x",
+    "sourceMap": "",
+    "linkReferences": {}
+  },
+  "methodIdentifiers": {
+    "createPolicyDeployment()": "6a04be77"
+  },
+  "rawMetadata": "{\"compiler\":{\"version\":\"0.8.17+commit.8df45f5f\"},\"language\":\"Solidity\",\"output\":{\"abi\":[{\"inputs\":[],\"name\":\"createPolicyDeployment\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"}],\"devdoc\":{\"kind\":\"dev\",\"methods\":{},\"version\":1},\"userdoc\":{\"kind\":\"user\",\"methods\":{},\"version\":1}},\"settings\":{\"compilationTarget\":{\"tests/scaffolding/policies/PolicyTest.sol\":\"PolicyTest\"},\"evmVersion\":\"london\",\"libraries\":{},\"metadata\":{\"bytecodeHash\":\"none\"},\"optimizer\":{\"details\":{\"constantOptimizer\":true,\"cse\":true,\"deduplicate\":true,\"inliner\":true,\"jumpdestRemover\":true,\"orderLiterals\":true,\"peephole\":true,\"yul\":false},\"runs\":200},\"remappings\":[\":@enzyme/=contracts/\",\":@openzeppelin-solc-0.7/=node_modules/@openzeppelin-solc-0.7/\",\":@openzeppelin/=node_modules/@openzeppelin/\",\":@uniswap/=node_modules/@uniswap/\",\":base64-sol/=node_modules/base64-sol/\",\":ds-test/=lib/forge-std/lib/ds-test/src/\",\":forge-std/=lib/forge-std/src/\",\":hardhat-deploy/=node_modules/hardhat-deploy/\",\":hardhat/=node_modules/hardhat/\"]},\"sources\":{\"lib/forge-std/src/Base.sol\":{\"keccak256\":\"0x609e3a00319169988cc8272e837f350a9ba77cf8f8f62e4897a8e4a8a5f0fb27\",\"license\":\"MIT\",\"urls\":[\"bzz-raw://b24435e35ba5b080ebd6e8976c23fb735c7212d042be8462ffd2ea50c5250363\",\"dweb:/ipfs/QmPeVvN7FS4oMmCuYAeRdZihTfrG4tA7Vvunuvv59a6wre\"]},\"lib/forge-std/src/Script.sol\":{\"keccak256\":\"0xd566affaba92598bcd059dcb3714a968aeedb365ec0d666815e8b38519e0f433\",\"license\":\"MIT\",\"urls\":[\"bzz-raw://2fb5f7a97d2a7a06e10c198b60f05e64176eb4ef306b72800c168e7a7ec51693\",\"dweb:/ipfs/Qmcep4r7YEU3BwFJNTTxZsdCVzBYdtcVp8oDtmwLoZGRzP\"]},\"lib/forge-std/src/StdChains.sol\":{\"keccak256\":\"0x097b75f7171af89f433407e040d11b22fc26e2fe03793c2cfe18cad390d7af8b\",\"license\":\"MIT\",\"urls\":[\"bzz-raw://19d1dca7b398e517499ffa65ad44df69cdd016f37dc57e2d07d50279d3ddee17\",\"dweb:/ipfs/QmfMFR25367GB5PoBi1KZxWs1hZcJtC3eANiioG3dKj8ah\"]},\"lib/forge-std/src/StdCheats.sol\":{\"keccak256\":\"0xf6746576912986486f4e5eccdb6b3bbb03e47c4da75a59acc4b1c313b8d31d9f\",\"license\":\"MIT\",\"urls\":[\"bzz-raw://01fd4243d8a85cc7f07b6c5ac9e3f5f38b2443ef82025953c3badb39099fe2e4\",\"dweb:/ipfs/QmVDUyQ3tE4a2b87wJDAkwwyFwRpUPGuy8yJDV9JgHqnrd\"]},\"lib/forge-std/src/StdJson.sol\":{\"keccak256\":\"0x9e2a7521190c462a0667706385f1c52a816220a9813ca8ac520fba7ba45d660b\",\"license\":\"MIT\",\"urls\":[\"bzz-raw://7d23017fe6570b28130a731b86179352b93a5fb5af32f11559837afc1186293c\",\"dweb:/ipfs/QmR3p6zG5Kmcr8gKocFCSopLHfXv1AziPJbH17nKyMxwxV\"]},\"lib/forge-std/src/StdMath.sol\":{\"keccak256\":\"0xd90ad4fd8aeaeb8929964e686e769fdedd5eded3fc3815df194a0ab9f91a3fb2\",\"license\":\"MIT\",\"urls\":[\"bzz-raw://7919b70f636c7b805223992f28ad1ad0145d6c1385b5931a3589aface5fe6c92\",\"dweb:/ipfs/QmY7FRaULwoGgFteF8GawjQJRfasNgpWnU2aiMsFrYpuTC\"]},\"lib/forge-std/src/StdStorage.sol\":{\"keccak256\":\"0xd1517df281f973dba8b7ba52c02d3df552b60d91b8f47e4669049da648778673\",\"license\":\"MIT\",\"urls\":[\"bzz-raw://52e43264f58a5dcfd985f3c99aa81064805aa8f1c2b4c6521fd63d45cdbba8d5\",\"dweb:/ipfs/QmUMTF6cRjt5tCQrrgQDXVRmHQLjevNsTvLFdaA1m9TBj9\"]},\"lib/forge-std/src/StdUtils.sol\":{\"keccak256\":\"0x6584855fecbe5b6a9f8ebdb26b37c58532c5bc5cc6e1737dfa7c8a045087be55\",\"license\":\"MIT\",\"urls\":[\"bzz-raw://40a35a4d292b4fed02e11d5f25fb474f10a7c4eb99f75b5383dc23fcb6e55d3c\",\"dweb:/ipfs/QmYZ2nz1EmNh4xLWf4YybZoa1Da1z3Wq3w4pneMhkouMi4\"]},\"lib/forge-std/src/Vm.sol\":{\"keccak256\":\"0xe0cfe5ca62fb9d9366be870999bd82802d6b913c1f960f67b8f17060008f2d1a\",\"license\":\"MIT\",\"urls\":[\"bzz-raw://ddadc1e899953cb26e7d87c0f27284d02f09b611cfd3300e321c33dc2c65d0b3\",\"dweb:/ipfs/Qmbmrdph3D5YweihJSPM6sopZcSKWMox2ZM89dyonfhrq8\"]},\"lib/forge-std/src/console.sol\":{\"keccak256\":\"0x91d5413c2434ca58fd278b6e1e79fd98d10c83931cc2596a6038eee4daeb34ba\",\"license\":\"MIT\",\"urls\":[\"bzz-raw://91ccea707361e48b9b7a161fe81f496b9932bc471e9c4e4e1e9c283f2453cc70\",\"dweb:/ipfs/QmcB66sZhQ6Kz7MUHcLE78YXRUZxoZnnxZjN6yATsbB2ec\"]},\"lib/forge-std/src/console2.sol\":{\"keccak256\":\"0xcd5706f5a7025825d9fd389c89b49bf571f9abaea8a062dc4048320b5b43bf46\",\"license\":\"MIT\",\"urls\":[\"bzz-raw://c066485a7d4bd18d44efb4c89274b0959e8066b9a480383a2ce07d7f31555f88\",\"dweb:/ipfs/QmckeYfA5FtAjcxaytq69Dpj6uY57tbQ61kNPPxXi9kgbW\"]},\"lib/forge-std/src/interfaces/IMulticall3.sol\":{\"keccak256\":\"0x7aac1389150499a922d1f9ef5749c908cef127cb2075b92fa17e9cb611263d0a\",\"license\":\"MIT\",\"urls\":[\"bzz-raw://d95ebb7c7c463e08ebc12dab639945752fb2480acfc6e86da32f72732a7fd0c0\",\"dweb:/ipfs/QmNXK8P8oPWwajsQHvAHw3JPyQidPLCGQN3hWu1Lk6PBL2\"]},\"tests/deployment/Deployer.sol\":{\"keccak256\":\"0x06d6d673d5a1fa3ba0cee2bad376a67e2c6f1d8ddc8cea8d2fc5482f02bd6e1b\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://01dd1f8fd96de870d3c2108b5efaece1d15f3b3a5539502058b3528f4af623ae\",\"dweb:/ipfs/QmenLdpSUyRz8Ng2W4JyNBQeZSeAVno4dyxhQ3qYYK3URq\"]},\"tests/interfaces/IAddressListRegistry.sol\":{\"keccak256\":\"0x63302f2cba6cb7e083df5f8e58935d553aed77eddd636cdfca624a69d1dc67c1\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://58fc3ceef1699198a05d3de52c458bb883a34e64189a6c9402831eda2217de53\",\"dweb:/ipfs/QmVeiZqzKtUvgnNKDKbFNXenuy1BhbwL5KBZo9zfiboN9u\"]},\"tests/interfaces/IChainlinkPriceFeedMixin.sol\":{\"keccak256\":\"0x8885852b4c72ad3d10986d243bd2ef35353ca98814a817b8bbaf622c28f2b5bf\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://342981ed8e189ac0bd674192715983412e5e20ee4fe5ae6822cd539c630ed3d1\",\"dweb:/ipfs/QmSFx6EJr5MAGjW8MkQ3V45kHim186TNSq3CHGUxr9n2xy\"]},\"tests/interfaces/ICumulativeSlippageTolerancePolicy.sol\":{\"keccak256\":\"0xd95bc597407e5fae16915d015b15747bbabe91cc2f9e5b3f7190e9be6920591e\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://632553a7e8a64d9e7c9f4bfe876fd691b4af6da9209063755674b6063be9e47d\",\"dweb:/ipfs/QmZiDdh7zPsGWU5FoJA7s9Z6MPYLJFGpgWWdu7D86xVsE3\"]},\"tests/interfaces/IPolicyManager.sol\":{\"keccak256\":\"0xaa85870df010e9a9a8975210cadca907e9a1b506b23070d32a773a8b776b7c96\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://fb745e45839f90960398d12412b7654543dc5e1859c4e1907cc6fbeac2c46908\",\"dweb:/ipfs/QmVdqVxDBWpvsZTDZXoxvWDrEwt4gQwVG8CURETzMwpUHE\"]},\"tests/interfaces/IValueInterpreter.sol\":{\"keccak256\":\"0x2020efff82983f259b26ba97e231374d0220d9bd029fe28a0cefcf685689b66d\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://ef2a71d76b603d82a4accb77dc47d59e0be9e4e6b058cb065ca05a7d43d74757\",\"dweb:/ipfs/QmVZRKwq9wtUkZuKCpW2H5LxjzRgY4WMSRbzyHccpVHRbx\"]},\"tests/interfaces/IWETH.sol\":{\"keccak256\":\"0x085b309f6853fc1cba4dc19df1e4cbfa1865349e76bf7131d14879edd1577c48\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://f901659cf7c7b9e5fc4496f47fb2f6a8f4c76b0bf623b495dc3897760b87a7e1\",\"dweb:/ipfs/QmNvWhNM3VFPDKDX4qZ4JM2xAbvTP2TS9JqG5mXJFDj9bE\"]},\"tests/scaffolding/policies/PolicyDeployment.sol\":{\"keccak256\":\"0x382edb1d75734f39b045f0643424148a987d23a7d3d0da28abd0fee813c6ca56\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://f385bae8775bfe53439b2d5a13df1290a7c782e728ce774edc7c5389b14b4e00\",\"dweb:/ipfs/QmTLDGyQjSXGvY54mabwqyUUyvcKwKYivmb3TMaMLknPsJ\"]},\"tests/scaffolding/policies/PolicyTest.sol\":{\"keccak256\":\"0x0818f9cff6b12f94a6da9de8a0bcd25f95ea6688ea9cf995a4963b0dc1cfe55c\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://e546be42eedbe16d9a9c16e32f38241567a83a25b665444a603b5760293bcf7e\",\"dweb:/ipfs/QmYqSfzQUd4r7dPJTiW7PyM3Y2qvsbJb6b2oTdttCpQko9\"]}},\"version\":1}",
+  "metadata": {
+    "compiler": {
+      "version": "0.8.17+commit.8df45f5f"
+    },
+    "language": "Solidity",
+    "output": {
+      "abi": [
+        {
+          "inputs": [],
+          "stateMutability": "nonpayable",
+          "type": "function",
+          "name": "createPolicyDeployment"
+        }
+      ],
+      "devdoc": {
+        "kind": "dev",
+        "methods": {},
+        "version": 1
+      },
+      "userdoc": {
+        "kind": "user",
+        "methods": {},
+        "version": 1
+      }
+    },
+    "settings": {
+      "remappings": [
+        ":@enzyme/=contracts/",
+        ":@openzeppelin-solc-0.7/=node_modules/@openzeppelin-solc-0.7/",
+        ":@openzeppelin/=node_modules/@openzeppelin/",
+        ":@uniswap/=node_modules/@uniswap/",
+        ":base64-sol/=node_modules/base64-sol/",
+        ":ds-test/=lib/forge-std/lib/ds-test/src/",
+        ":forge-std/=lib/forge-std/src/",
+        ":hardhat-deploy/=node_modules/hardhat-deploy/",
+        ":hardhat/=node_modules/hardhat/"
+      ],
+      "optimizer": {
+        "runs": 200,
+        "details": {
+          "peephole": true,
+          "inliner": true,
+          "jumpdestRemover": true,
+          "orderLiterals": true,
+          "deduplicate": true,
+          "cse": true,
+          "constantOptimizer": true,
+          "yul": false
+        }
+      },
+      "metadata": {
+        "bytecodeHash": "none"
+      },
+      "compilationTarget": {
+        "tests/scaffolding/policies/PolicyTest.sol": "PolicyTest"
+      },
+      "libraries": {}
+    },
+    "sources": {
+      "lib/forge-std/src/Base.sol": {
+        "keccak256": "0x609e3a00319169988cc8272e837f350a9ba77cf8f8f62e4897a8e4a8a5f0fb27",
+        "urls": [
+          "bzz-raw://b24435e35ba5b080ebd6e8976c23fb735c7212d042be8462ffd2ea50c5250363",
+          "dweb:/ipfs/QmPeVvN7FS4oMmCuYAeRdZihTfrG4tA7Vvunuvv59a6wre"
+        ],
+        "license": "MIT"
+      },
+      "lib/forge-std/src/Script.sol": {
+        "keccak256": "0xd566affaba92598bcd059dcb3714a968aeedb365ec0d666815e8b38519e0f433",
+        "urls": [
+          "bzz-raw://2fb5f7a97d2a7a06e10c198b60f05e64176eb4ef306b72800c168e7a7ec51693",
+          "dweb:/ipfs/Qmcep4r7YEU3BwFJNTTxZsdCVzBYdtcVp8oDtmwLoZGRzP"
+        ],
+        "license": "MIT"
+      },
+      "lib/forge-std/src/StdChains.sol": {
+        "keccak256": "0x097b75f7171af89f433407e040d11b22fc26e2fe03793c2cfe18cad390d7af8b",
+        "urls": [
+          "bzz-raw://19d1dca7b398e517499ffa65ad44df69cdd016f37dc57e2d07d50279d3ddee17",
+          "dweb:/ipfs/QmfMFR25367GB5PoBi1KZxWs1hZcJtC3eANiioG3dKj8ah"
+        ],
+        "license": "MIT"
+      },
+      "lib/forge-std/src/StdCheats.sol": {
+        "keccak256": "0xf6746576912986486f4e5eccdb6b3bbb03e47c4da75a59acc4b1c313b8d31d9f",
+        "urls": [
+          "bzz-raw://01fd4243d8a85cc7f07b6c5ac9e3f5f38b2443ef82025953c3badb39099fe2e4",
+          "dweb:/ipfs/QmVDUyQ3tE4a2b87wJDAkwwyFwRpUPGuy8yJDV9JgHqnrd"
+        ],
+        "license": "MIT"
+      },
+      "lib/forge-std/src/StdJson.sol": {
+        "keccak256": "0x9e2a7521190c462a0667706385f1c52a816220a9813ca8ac520fba7ba45d660b",
+        "urls": [
+          "bzz-raw://7d23017fe6570b28130a731b86179352b93a5fb5af32f11559837afc1186293c",
+          "dweb:/ipfs/QmR3p6zG5Kmcr8gKocFCSopLHfXv1AziPJbH17nKyMxwxV"
+        ],
+        "license": "MIT"
+      },
+      "lib/forge-std/src/StdMath.sol": {
+        "keccak256": "0xd90ad4fd8aeaeb8929964e686e769fdedd5eded3fc3815df194a0ab9f91a3fb2",
+        "urls": [
+          "bzz-raw://7919b70f636c7b805223992f28ad1ad0145d6c1385b5931a3589aface5fe6c92",
+          "dweb:/ipfs/QmY7FRaULwoGgFteF8GawjQJRfasNgpWnU2aiMsFrYpuTC"
+        ],
+        "license": "MIT"
+      },
+      "lib/forge-std/src/StdStorage.sol": {
+        "keccak256": "0xd1517df281f973dba8b7ba52c02d3df552b60d91b8f47e4669049da648778673",
+        "urls": [
+          "bzz-raw://52e43264f58a5dcfd985f3c99aa81064805aa8f1c2b4c6521fd63d45cdbba8d5",
+          "dweb:/ipfs/QmUMTF6cRjt5tCQrrgQDXVRmHQLjevNsTvLFdaA1m9TBj9"
+        ],
+        "license": "MIT"
+      },
+      "lib/forge-std/src/StdUtils.sol": {
+        "keccak256": "0x6584855fecbe5b6a9f8ebdb26b37c58532c5bc5cc6e1737dfa7c8a045087be55",
+        "urls": [
+          "bzz-raw://40a35a4d292b4fed02e11d5f25fb474f10a7c4eb99f75b5383dc23fcb6e55d3c",
+          "dweb:/ipfs/QmYZ2nz1EmNh4xLWf4YybZoa1Da1z3Wq3w4pneMhkouMi4"
+        ],
+        "license": "MIT"
+      },
+      "lib/forge-std/src/Vm.sol": {
+        "keccak256": "0xe0cfe5ca62fb9d9366be870999bd82802d6b913c1f960f67b8f17060008f2d1a",
+        "urls": [
+          "bzz-raw://ddadc1e899953cb26e7d87c0f27284d02f09b611cfd3300e321c33dc2c65d0b3",
+          "dweb:/ipfs/Qmbmrdph3D5YweihJSPM6sopZcSKWMox2ZM89dyonfhrq8"
+        ],
+        "license": "MIT"
+      },
+      "lib/forge-std/src/console.sol": {
+        "keccak256": "0x91d5413c2434ca58fd278b6e1e79fd98d10c83931cc2596a6038eee4daeb34ba",
+        "urls": [
+          "bzz-raw://91ccea707361e48b9b7a161fe81f496b9932bc471e9c4e4e1e9c283f2453cc70",
+          "dweb:/ipfs/QmcB66sZhQ6Kz7MUHcLE78YXRUZxoZnnxZjN6yATsbB2ec"
+        ],
+        "license": "MIT"
+      },
+      "lib/forge-std/src/console2.sol": {
+        "keccak256": "0xcd5706f5a7025825d9fd389c89b49bf571f9abaea8a062dc4048320b5b43bf46",
+        "urls": [
+          "bzz-raw://c066485a7d4bd18d44efb4c89274b0959e8066b9a480383a2ce07d7f31555f88",
+          "dweb:/ipfs/QmckeYfA5FtAjcxaytq69Dpj6uY57tbQ61kNPPxXi9kgbW"
+        ],
+        "license": "MIT"
+      },
+      "lib/forge-std/src/interfaces/IMulticall3.sol": {
+        "keccak256": "0x7aac1389150499a922d1f9ef5749c908cef127cb2075b92fa17e9cb611263d0a",
+        "urls": [
+          "bzz-raw://d95ebb7c7c463e08ebc12dab639945752fb2480acfc6e86da32f72732a7fd0c0",
+          "dweb:/ipfs/QmNXK8P8oPWwajsQHvAHw3JPyQidPLCGQN3hWu1Lk6PBL2"
+        ],
+        "license": "MIT"
+      },
+      "tests/deployment/Deployer.sol": {
+        "keccak256": "0x06d6d673d5a1fa3ba0cee2bad376a67e2c6f1d8ddc8cea8d2fc5482f02bd6e1b",
+        "urls": [
+          "bzz-raw://01dd1f8fd96de870d3c2108b5efaece1d15f3b3a5539502058b3528f4af623ae",
+          "dweb:/ipfs/QmenLdpSUyRz8Ng2W4JyNBQeZSeAVno4dyxhQ3qYYK3URq"
+        ],
+        "license": "GPL-3.0"
+      },
+      "tests/interfaces/IAddressListRegistry.sol": {
+        "keccak256": "0x63302f2cba6cb7e083df5f8e58935d553aed77eddd636cdfca624a69d1dc67c1",
+        "urls": [
+          "bzz-raw://58fc3ceef1699198a05d3de52c458bb883a34e64189a6c9402831eda2217de53",
+          "dweb:/ipfs/QmVeiZqzKtUvgnNKDKbFNXenuy1BhbwL5KBZo9zfiboN9u"
+        ],
+        "license": "GPL-3.0"
+      },
+      "tests/interfaces/IChainlinkPriceFeedMixin.sol": {
+        "keccak256": "0x8885852b4c72ad3d10986d243bd2ef35353ca98814a817b8bbaf622c28f2b5bf",
+        "urls": [
+          "bzz-raw://342981ed8e189ac0bd674192715983412e5e20ee4fe5ae6822cd539c630ed3d1",
+          "dweb:/ipfs/QmSFx6EJr5MAGjW8MkQ3V45kHim186TNSq3CHGUxr9n2xy"
+        ],
+        "license": "GPL-3.0"
+      },
+      "tests/interfaces/ICumulativeSlippageTolerancePolicy.sol": {
+        "keccak256": "0xd95bc597407e5fae16915d015b15747bbabe91cc2f9e5b3f7190e9be6920591e",
+        "urls": [
+          "bzz-raw://632553a7e8a64d9e7c9f4bfe876fd691b4af6da9209063755674b6063be9e47d",
+          "dweb:/ipfs/QmZiDdh7zPsGWU5FoJA7s9Z6MPYLJFGpgWWdu7D86xVsE3"
+        ],
+        "license": "GPL-3.0"
+      },
+      "tests/interfaces/IPolicyManager.sol": {
+        "keccak256": "0xaa85870df010e9a9a8975210cadca907e9a1b506b23070d32a773a8b776b7c96",
+        "urls": [
+          "bzz-raw://fb745e45839f90960398d12412b7654543dc5e1859c4e1907cc6fbeac2c46908",
+          "dweb:/ipfs/QmVdqVxDBWpvsZTDZXoxvWDrEwt4gQwVG8CURETzMwpUHE"
+        ],
+        "license": "GPL-3.0"
+      },
+      "tests/interfaces/IValueInterpreter.sol": {
+        "keccak256": "0x2020efff82983f259b26ba97e231374d0220d9bd029fe28a0cefcf685689b66d",
+        "urls": [
+          "bzz-raw://ef2a71d76b603d82a4accb77dc47d59e0be9e4e6b058cb065ca05a7d43d74757",
+          "dweb:/ipfs/QmVZRKwq9wtUkZuKCpW2H5LxjzRgY4WMSRbzyHccpVHRbx"
+        ],
+        "license": "GPL-3.0"
+      },
+      "tests/interfaces/IWETH.sol": {
+        "keccak256": "0x085b309f6853fc1cba4dc19df1e4cbfa1865349e76bf7131d14879edd1577c48",
+        "urls": [
+          "bzz-raw://f901659cf7c7b9e5fc4496f47fb2f6a8f4c76b0bf623b495dc3897760b87a7e1",
+          "dweb:/ipfs/QmNvWhNM3VFPDKDX4qZ4JM2xAbvTP2TS9JqG5mXJFDj9bE"
+        ],
+        "license": "GPL-3.0"
+      },
+      "tests/scaffolding/policies/PolicyDeployment.sol": {
+        "keccak256": "0x382edb1d75734f39b045f0643424148a987d23a7d3d0da28abd0fee813c6ca56",
+        "urls": [
+          "bzz-raw://f385bae8775bfe53439b2d5a13df1290a7c782e728ce774edc7c5389b14b4e00",
+          "dweb:/ipfs/QmTLDGyQjSXGvY54mabwqyUUyvcKwKYivmb3TMaMLknPsJ"
+        ],
+        "license": "GPL-3.0"
+      },
+      "tests/scaffolding/policies/PolicyTest.sol": {
+        "keccak256": "0x0818f9cff6b12f94a6da9de8a0bcd25f95ea6688ea9cf995a4963b0dc1cfe55c",
+        "urls": [
+          "bzz-raw://e546be42eedbe16d9a9c16e32f38241567a83a25b665444a603b5760293bcf7e",
+          "dweb:/ipfs/QmYqSfzQUd4r7dPJTiW7PyM3Y2qvsbJb6b2oTdttCpQko9"
+        ],
+        "license": "GPL-3.0"
+      }
+    },
+    "version": 1
+  },
+  "ast": {
+    "absolutePath": "tests/scaffolding/policies/PolicyTest.sol",
+    "id": 34617,
+    "exportedSymbols": {
+      "PolicyDeployment": [
+        34593
+      ],
+      "PolicyTest": [
+        34616
+      ]
+    },
+    "nodeType": "SourceUnit",
+    "src": "255:282:75",
+    "nodes": [
+      {
+        "id": 34595,
+        "nodeType": "PragmaDirective",
+        "src": "255:23:75",
+        "nodes": [],
+        "literals": [
+          "solidity",
+          "0.8",
+          ".17"
+        ]
+      },
+      {
+        "id": 34597,
+        "nodeType": "ImportDirective",
+        "src": "280:56:75",
+        "nodes": [],
+        "absolutePath": "tests/scaffolding/policies/PolicyDeployment.sol",
+        "file": "./PolicyDeployment.sol",
+        "nameLocation": "-1:-1:-1",
+        "scope": 34617,
+        "sourceUnit": 34594,
+        "symbolAliases": [
+          {
+            "foreign": {
+              "id": 34596,
+              "name": "PolicyDeployment",
+              "nodeType": "Identifier",
+              "overloadedDeclarations": [],
+              "referencedDeclaration": 34593,
+              "src": "288:16:75",
+              "typeDescriptions": {}
+            },
+            "nameLocation": "-1:-1:-1"
+          }
+        ],
+        "unitAlias": ""
+      },
+      {
+        "id": 34616,
+        "nodeType": "ContractDefinition",
+        "src": "338:198:75",
+        "nodes": [
+          {
+            "id": 34600,
+            "nodeType": "VariableDeclaration",
+            "src": "373:42:75",
+            "nodes": [],
+            "constant": false,
+            "mutability": "mutable",
+            "name": "policyDeployment",
+            "nameLocation": "399:16:75",
+            "scope": 34616,
+            "stateVariable": true,
+            "storageLocation": "default",
+            "typeDescriptions": {
+              "typeIdentifier": "t_contract$_PolicyDeployment_$34593",
+              "typeString": "contract PolicyDeployment"
+            },
+            "typeName": {
+              "id": 34599,
+              "nodeType": "UserDefinedTypeName",
+              "pathNode": {
+                "id": 34598,
+                "name": "PolicyDeployment",
+                "nameLocations": [
+                  "373:16:75"
+                ],
+                "nodeType": "IdentifierPath",
+                "referencedDeclaration": 34593,
+                "src": "373:16:75"
+              },
+              "referencedDeclaration": 34593,
+              "src": "373:16:75",
+              "typeDescriptions": {
+                "typeIdentifier": "t_contract$_PolicyDeployment_$34593",
+                "typeString": "contract PolicyDeployment"
+              }
+            },
+            "visibility": "internal"
+          },
+          {
+            "id": 34615,
+            "nodeType": "FunctionDefinition",
+            "src": "422:112:75",
+            "nodes": [],
+            "body": {
+              "id": 34614,
+              "nodeType": "Block",
+              "src": "463:71:75",
+              "nodes": [],
+              "statements": [
+                {
+                  "expression": {
+                    "id": 34612,
+                    "isConstant": false,
+                    "isLValue": false,
+                    "isPure": false,
+                    "lValueRequested": false,
+                    "leftHandSide": {
+                      "id": 34603,
+                      "name": "policyDeployment",
+                      "nodeType": "Identifier",
+                      "overloadedDeclarations": [],
+                      "referencedDeclaration": 34600,
+                      "src": "473:16:75",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_contract$_PolicyDeployment_$34593",
+                        "typeString": "contract PolicyDeployment"
+                      }
+                    },
+                    "nodeType": "Assignment",
+                    "operator": "=",
+                    "rightHandSide": {
+                      "arguments": [
+                        {
+                          "arguments": [
+                            {
+                              "id": 34609,
+                              "name": "this",
+                              "nodeType": "Identifier",
+                              "overloadedDeclarations": [],
+                              "referencedDeclaration": -28,
+                              "src": "521:4:75",
+                              "typeDescriptions": {
+                                "typeIdentifier": "t_contract$_PolicyTest_$34616",
+                                "typeString": "contract PolicyTest"
+                              }
+                            }
+                          ],
+                          "expression": {
+                            "argumentTypes": [
+                              {
+                                "typeIdentifier": "t_contract$_PolicyTest_$34616",
+                                "typeString": "contract PolicyTest"
+                              }
+                            ],
+                            "id": 34608,
+                            "isConstant": false,
+                            "isLValue": false,
+                            "isPure": true,
+                            "lValueRequested": false,
+                            "nodeType": "ElementaryTypeNameExpression",
+                            "src": "513:7:75",
+                            "typeDescriptions": {
+                              "typeIdentifier": "t_type$_t_address_$",
+                              "typeString": "type(address)"
+                            },
+                            "typeName": {
+                              "id": 34607,
+                              "name": "address",
+                              "nodeType": "ElementaryTypeName",
+                              "src": "513:7:75",
+                              "typeDescriptions": {}
+                            }
+                          },
+                          "id": 34610,
+                          "isConstant": false,
+                          "isLValue": false,
+                          "isPure": false,
+                          "kind": "typeConversion",
+                          "lValueRequested": false,
+                          "nameLocations": [],
+                          "names": [],
+                          "nodeType": "FunctionCall",
+                          "src": "513:13:75",
+                          "tryCall": false,
+                          "typeDescriptions": {
+                            "typeIdentifier": "t_address",
+                            "typeString": "address"
+                          }
+                        }
+                      ],
+                      "expression": {
+                        "argumentTypes": [
+                          {
+                            "typeIdentifier": "t_address",
+                            "typeString": "address"
+                          }
+                        ],
+                        "id": 34606,
+                        "isConstant": false,
+                        "isLValue": false,
+                        "isPure": false,
+                        "lValueRequested": false,
+                        "nodeType": "NewExpression",
+                        "src": "492:20:75",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_function_creation_nonpayable$_t_address_$returns$_t_contract$_PolicyDeployment_$34593_$",
+                          "typeString": "function (address) returns (contract PolicyDeployment)"
+                        },
+                        "typeName": {
+                          "id": 34605,
+                          "nodeType": "UserDefinedTypeName",
+                          "pathNode": {
+                            "id": 34604,
+                            "name": "PolicyDeployment",
+                            "nameLocations": [
+                              "496:16:75"
+                            ],
+                            "nodeType": "IdentifierPath",
+                            "referencedDeclaration": 34593,
+                            "src": "496:16:75"
+                          },
+                          "referencedDeclaration": 34593,
+                          "src": "496:16:75",
+                          "typeDescriptions": {
+                            "typeIdentifier": "t_contract$_PolicyDeployment_$34593",
+                            "typeString": "contract PolicyDeployment"
+                          }
+                        }
+                      },
+                      "id": 34611,
+                      "isConstant": false,
+                      "isLValue": false,
+                      "isPure": false,
+                      "kind": "functionCall",
+                      "lValueRequested": false,
+                      "nameLocations": [],
+                      "names": [],
+                      "nodeType": "FunctionCall",
+                      "src": "492:35:75",
+                      "tryCall": false,
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_contract$_PolicyDeployment_$34593",
+                        "typeString": "contract PolicyDeployment"
+                      }
+                    },
+                    "src": "473:54:75",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_contract$_PolicyDeployment_$34593",
+                      "typeString": "contract PolicyDeployment"
+                    }
+                  },
+                  "id": 34613,
+                  "nodeType": "ExpressionStatement",
+                  "src": "473:54:75"
+                }
+              ]
+            },
+            "functionSelector": "6a04be77",
+            "implemented": true,
+            "kind": "function",
+            "modifiers": [],
+            "name": "createPolicyDeployment",
+            "nameLocation": "431:22:75",
+            "parameters": {
+              "id": 34601,
+              "nodeType": "ParameterList",
+              "parameters": [],
+              "src": "453:2:75"
+            },
+            "returnParameters": {
+              "id": 34602,
+              "nodeType": "ParameterList",
+              "parameters": [],
+              "src": "463:0:75"
+            },
+            "scope": 34616,
+            "stateMutability": "nonpayable",
+            "virtual": false,
+            "visibility": "public"
+          }
+        ],
+        "abstract": true,
+        "baseContracts": [],
+        "canonicalName": "PolicyTest",
+        "contractDependencies": [
+          34593
+        ],
+        "contractKind": "contract",
+        "fullyImplemented": true,
+        "linearizedBaseContracts": [
+          34616
+        ],
+        "name": "PolicyTest",
+        "nameLocation": "356:10:75",
+        "scope": 34617,
+        "usedErrors": []
+      }
+    ],
+    "license": "GPL-3.0"
+  },
+  "id": 75
+}

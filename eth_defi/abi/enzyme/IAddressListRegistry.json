@@ -1,0 +1,388 @@
+{
+  "abi": [
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "_owner",
+          "type": "address"
+        },
+        {
+          "internalType": "enum IAddressListRegistry.UpdateType",
+          "name": "_updateType",
+          "type": "uint8"
+        },
+        {
+          "internalType": "address[]",
+          "name": "_initialItems",
+          "type": "address[]"
+        }
+      ],
+      "name": "createList",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "id_",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    }
+  ],
+  "bytecode": {
+    "object": "0x",
+    "sourceMap": "",
+    "linkReferences": {}
+  },
+  "deployedBytecode": {
+    "object": "0x",
+    "sourceMap": "",
+    "linkReferences": {}
+  },
+  "methodIdentifiers": {
+    "createList(address,uint8,address[])": "be68406e"
+  },
+  "rawMetadata": "{\"compiler\":{\"version\":\"0.8.17+commit.8df45f5f\"},\"language\":\"Solidity\",\"output\":{\"abi\":[{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_owner\",\"type\":\"address\"},{\"internalType\":\"enum IAddressListRegistry.UpdateType\",\"name\":\"_updateType\",\"type\":\"uint8\"},{\"internalType\":\"address[]\",\"name\":\"_initialItems\",\"type\":\"address[]\"}],\"name\":\"createList\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"id_\",\"type\":\"uint256\"}],\"stateMutability\":\"nonpayable\",\"type\":\"function\"}],\"devdoc\":{\"kind\":\"dev\",\"methods\":{},\"version\":1},\"userdoc\":{\"kind\":\"user\",\"methods\":{},\"version\":1}},\"settings\":{\"compilationTarget\":{\"tests/interfaces/IAddressListRegistry.sol\":\"IAddressListRegistry\"},\"evmVersion\":\"london\",\"libraries\":{},\"metadata\":{\"bytecodeHash\":\"none\"},\"optimizer\":{\"details\":{\"constantOptimizer\":true,\"cse\":true,\"deduplicate\":true,\"inliner\":true,\"jumpdestRemover\":true,\"orderLiterals\":true,\"peephole\":true,\"yul\":false},\"runs\":200},\"remappings\":[\":@enzyme/=contracts/\",\":@openzeppelin-solc-0.7/=node_modules/@openzeppelin-solc-0.7/\",\":@openzeppelin/=node_modules/@openzeppelin/\",\":@uniswap/=node_modules/@uniswap/\",\":base64-sol/=node_modules/base64-sol/\",\":ds-test/=lib/forge-std/lib/ds-test/src/\",\":forge-std/=lib/forge-std/src/\",\":hardhat-deploy/=node_modules/hardhat-deploy/\",\":hardhat/=node_modules/hardhat/\"]},\"sources\":{\"tests/interfaces/IAddressListRegistry.sol\":{\"keccak256\":\"0x63302f2cba6cb7e083df5f8e58935d553aed77eddd636cdfca624a69d1dc67c1\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://58fc3ceef1699198a05d3de52c458bb883a34e64189a6c9402831eda2217de53\",\"dweb:/ipfs/QmVeiZqzKtUvgnNKDKbFNXenuy1BhbwL5KBZo9zfiboN9u\"]}},\"version\":1}",
+  "metadata": {
+    "compiler": {
+      "version": "0.8.17+commit.8df45f5f"
+    },
+    "language": "Solidity",
+    "output": {
+      "abi": [
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "_owner",
+              "type": "address"
+            },
+            {
+              "internalType": "enum IAddressListRegistry.UpdateType",
+              "name": "_updateType",
+              "type": "uint8"
+            },
+            {
+              "internalType": "address[]",
+              "name": "_initialItems",
+              "type": "address[]"
+            }
+          ],
+          "stateMutability": "nonpayable",
+          "type": "function",
+          "name": "createList",
+          "outputs": [
+            {
+              "internalType": "uint256",
+              "name": "id_",
+              "type": "uint256"
+            }
+          ]
+        }
+      ],
+      "devdoc": {
+        "kind": "dev",
+        "methods": {},
+        "version": 1
+      },
+      "userdoc": {
+        "kind": "user",
+        "methods": {},
+        "version": 1
+      }
+    },
+    "settings": {
+      "remappings": [
+        ":@enzyme/=contracts/",
+        ":@openzeppelin-solc-0.7/=node_modules/@openzeppelin-solc-0.7/",
+        ":@openzeppelin/=node_modules/@openzeppelin/",
+        ":@uniswap/=node_modules/@uniswap/",
+        ":base64-sol/=node_modules/base64-sol/",
+        ":ds-test/=lib/forge-std/lib/ds-test/src/",
+        ":forge-std/=lib/forge-std/src/",
+        ":hardhat-deploy/=node_modules/hardhat-deploy/",
+        ":hardhat/=node_modules/hardhat/"
+      ],
+      "optimizer": {
+        "runs": 200,
+        "details": {
+          "peephole": true,
+          "inliner": true,
+          "jumpdestRemover": true,
+          "orderLiterals": true,
+          "deduplicate": true,
+          "cse": true,
+          "constantOptimizer": true,
+          "yul": false
+        }
+      },
+      "metadata": {
+        "bytecodeHash": "none"
+      },
+      "compilationTarget": {
+        "tests/interfaces/IAddressListRegistry.sol": "IAddressListRegistry"
+      },
+      "libraries": {}
+    },
+    "sources": {
+      "tests/interfaces/IAddressListRegistry.sol": {
+        "keccak256": "0x63302f2cba6cb7e083df5f8e58935d553aed77eddd636cdfca624a69d1dc67c1",
+        "urls": [
+          "bzz-raw://58fc3ceef1699198a05d3de52c458bb883a34e64189a6c9402831eda2217de53",
+          "dweb:/ipfs/QmVeiZqzKtUvgnNKDKbFNXenuy1BhbwL5KBZo9zfiboN9u"
+        ],
+        "license": "GPL-3.0"
+      }
+    },
+    "version": 1
+  },
+  "ast": {
+    "absolutePath": "tests/interfaces/IAddressListRegistry.sol",
+    "id": 29640,
+    "exportedSymbols": {
+      "IAddressListRegistry": [
+        29639
+      ]
+    },
+    "nodeType": "SourceUnit",
+    "src": "253:330:35",
+    "nodes": [
+      {
+        "id": 29620,
+        "nodeType": "PragmaDirective",
+        "src": "253:32:35",
+        "nodes": [],
+        "literals": [
+          "solidity",
+          ">=",
+          "0.6",
+          ".12",
+          "<",
+          "0.9",
+          ".0"
+        ]
+      },
+      {
+        "id": 29639,
+        "nodeType": "ContractDefinition",
+        "src": "287:295:35",
+        "nodes": [
+          {
+            "id": 29625,
+            "nodeType": "EnumDefinition",
+            "src": "324:95:35",
+            "nodes": [],
+            "canonicalName": "IAddressListRegistry.UpdateType",
+            "members": [
+              {
+                "id": 29621,
+                "name": "None",
+                "nameLocation": "350:4:35",
+                "nodeType": "EnumValue",
+                "src": "350:4:35"
+              },
+              {
+                "id": 29622,
+                "name": "AddOnly",
+                "nameLocation": "364:7:35",
+                "nodeType": "EnumValue",
+                "src": "364:7:35"
+              },
+              {
+                "id": 29623,
+                "name": "RemoveOnly",
+                "nameLocation": "381:10:35",
+                "nodeType": "EnumValue",
+                "src": "381:10:35"
+              },
+              {
+                "id": 29624,
+                "name": "AddAndRemove",
+                "nameLocation": "401:12:35",
+                "nodeType": "EnumValue",
+                "src": "401:12:35"
+              }
+            ],
+            "name": "UpdateType",
+            "nameLocation": "329:10:35"
+          },
+          {
+            "id": 29638,
+            "nodeType": "FunctionDefinition",
+            "src": "425:155:35",
+            "nodes": [],
+            "functionSelector": "be68406e",
+            "implemented": false,
+            "kind": "function",
+            "modifiers": [],
+            "name": "createList",
+            "nameLocation": "434:10:35",
+            "parameters": {
+              "id": 29634,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 29627,
+                  "mutability": "mutable",
+                  "name": "_owner",
+                  "nameLocation": "462:6:35",
+                  "nodeType": "VariableDeclaration",
+                  "scope": 29638,
+                  "src": "454:14:35",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 29626,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "454:7:35",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 29630,
+                  "mutability": "mutable",
+                  "name": "_updateType",
+                  "nameLocation": "489:11:35",
+                  "nodeType": "VariableDeclaration",
+                  "scope": 29638,
+                  "src": "478:22:35",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_enum$_UpdateType_$29625",
+                    "typeString": "enum IAddressListRegistry.UpdateType"
+                  },
+                  "typeName": {
+                    "id": 29629,
+                    "nodeType": "UserDefinedTypeName",
+                    "pathNode": {
+                      "id": 29628,
+                      "name": "UpdateType",
+                      "nameLocations": [
+                        "478:10:35"
+                      ],
+                      "nodeType": "IdentifierPath",
+                      "referencedDeclaration": 29625,
+                      "src": "478:10:35"
+                    },
+                    "referencedDeclaration": 29625,
+                    "src": "478:10:35",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_enum$_UpdateType_$29625",
+                      "typeString": "enum IAddressListRegistry.UpdateType"
+                    }
+                  },
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 29633,
+                  "mutability": "mutable",
+                  "name": "_initialItems",
+                  "nameLocation": "529:13:35",
+                  "nodeType": "VariableDeclaration",
+                  "scope": 29638,
+                  "src": "510:32:35",
+                  "stateVariable": false,
+                  "storageLocation": "calldata",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_array$_t_address_$dyn_calldata_ptr",
+                    "typeString": "address[]"
+                  },
+                  "typeName": {
+                    "baseType": {
+                      "id": 29631,
+                      "name": "address",
+                      "nodeType": "ElementaryTypeName",
+                      "src": "510:7:35",
+                      "stateMutability": "nonpayable",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_address",
+                        "typeString": "address"
+                      }
+                    },
+                    "id": 29632,
+                    "nodeType": "ArrayTypeName",
+                    "src": "510:9:35",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_array$_t_address_$dyn_storage_ptr",
+                      "typeString": "address[]"
+                    }
+                  },
+                  "visibility": "internal"
+                }
+              ],
+              "src": "444:104:35"
+            },
+            "returnParameters": {
+              "id": 29637,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 29636,
+                  "mutability": "mutable",
+                  "name": "id_",
+                  "nameLocation": "575:3:35",
+                  "nodeType": "VariableDeclaration",
+                  "scope": 29638,
+                  "src": "567:11:35",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_uint256",
+                    "typeString": "uint256"
+                  },
+                  "typeName": {
+                    "id": 29635,
+                    "name": "uint256",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "567:7:35",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_uint256",
+                      "typeString": "uint256"
+                    }
+                  },
+                  "visibility": "internal"
+                }
+              ],
+              "src": "566:13:35"
+            },
+            "scope": 29639,
+            "stateMutability": "nonpayable",
+            "virtual": false,
+            "visibility": "external"
+          }
+        ],
+        "abstract": false,
+        "baseContracts": [],
+        "canonicalName": "IAddressListRegistry",
+        "contractDependencies": [],
+        "contractKind": "interface",
+        "fullyImplemented": false,
+        "linearizedBaseContracts": [
+          29639
+        ],
+        "name": "IAddressListRegistry",
+        "nameLocation": "297:20:35",
+        "scope": 29640,
+        "usedErrors": []
+      }
+    ],
+    "license": "GPL-3.0"
+  },
+  "id": 35
+}

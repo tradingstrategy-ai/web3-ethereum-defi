@@ -1,7 +1,4 @@
 {
-  "_format": "hh-sol-artifact-1",
-  "contractName": "RevertingPriceFeed",
-  "sourceName": "contracts/release/infrastructure/price-feeds/derivatives/feeds/RevertingPriceFeed.sol",
   "abi": [
     {
       "inputs": [
@@ -52,8 +49,616 @@
       "type": "function"
     }
   ],
-  "bytecode": "0x608060405234801561001057600080fd5b506101d8806100206000396000f3fe608060405234801561001057600080fd5b50600436106100365760003560e01c8063727212f61461003b5780639be918e614610100575b600080fd5b6100676004803603604081101561005157600080fd5b506001600160a01b03813516906020013561013a565b604051808060200180602001838103835285818151815260200191508051906020019060200280838360005b838110156100ab578181015183820152602001610093565b50505050905001838103825284818151815260200191508051906020019060200280838360005b838110156100ea5781810151838201526020016100d2565b5050505090500194505050505060405180910390f35b6101266004803603602081101561011657600080fd5b50356001600160a01b0316610174565b604080519115158252519081900360200190f35b60608060405162461bcd60e51b815260040180806020018281038252602881526020018061017b6028913960400191505060405180910390fd5b5060019056fe63616c63556e6465726c79696e6756616c7565733a20526576657274696e67507269636546656564a26469706673582212200a62e661d3fd076009147e51f937f974dcd42fab9032486daab22ada4536a01964736f6c634300060c0033",
-  "deployedBytecode": "0x608060405234801561001057600080fd5b50600436106100365760003560e01c8063727212f61461003b5780639be918e614610100575b600080fd5b6100676004803603604081101561005157600080fd5b506001600160a01b03813516906020013561013a565b604051808060200180602001838103835285818151815260200191508051906020019060200280838360005b838110156100ab578181015183820152602001610093565b50505050905001838103825284818151815260200191508051906020019060200280838360005b838110156100ea5781810151838201526020016100d2565b5050505090500194505050505060405180910390f35b6101266004803603602081101561011657600080fd5b50356001600160a01b0316610174565b604080519115158252519081900360200190f35b60608060405162461bcd60e51b815260040180806020018281038252602881526020018061017b6028913960400191505060405180910390fd5b5060019056fe63616c63556e6465726c79696e6756616c7565733a20526576657274696e67507269636546656564a26469706673582212200a62e661d3fd076009147e51f937f974dcd42fab9032486daab22ada4536a01964736f6c634300060c0033",
-  "linkReferences": {},
-  "deployedLinkReferences": {}
+  "bytecode": {
+    "object": "0x608060405234801561001057600080fd5b506101af806100206000396000f3fe608060405234801561001057600080fd5b50600436106100365760003560e01c8063727212f61461003b5780639be918e614610100575b600080fd5b6100676004803603604081101561005157600080fd5b506001600160a01b03813516906020013561013a565b604051808060200180602001838103835285818151815260200191508051906020019060200280838360005b838110156100ab578181015183820152602001610093565b50505050905001838103825284818151815260200191508051906020019060200280838360005b838110156100ea5781810151838201526020016100d2565b5050505090500194505050505060405180910390f35b6101266004803603602081101561011657600080fd5b50356001600160a01b0316610174565b604080519115158252519081900360200190f35b60608060405162461bcd60e51b815260040180806020018281038252602881526020018061017b6028913960400191505060405180910390fd5b5060019056fe63616c63556e6465726c79696e6756616c7565733a20526576657274696e67507269636546656564a164736f6c634300060c000a",
+    "sourceMap": "640:626:246:-:0;;;;;;;;;;;;;;;;;;;",
+    "linkReferences": {}
+  },
+  "deployedBytecode": {
+    "object": "0x608060405234801561001057600080fd5b50600436106100365760003560e01c8063727212f61461003b5780639be918e614610100575b600080fd5b6100676004803603604081101561005157600080fd5b506001600160a01b03813516906020013561013a565b604051808060200180602001838103835285818151815260200191508051906020019060200280838360005b838110156100ab578181015183820152602001610093565b50505050905001838103825284818151815260200191508051906020019060200280838360005b838110156100ea5781810151838201526020016100d2565b5050505090500194505050505060405180910390f35b6101266004803603602081101561011657600080fd5b50356001600160a01b0316610174565b604080519115158252519081900360200190f35b60608060405162461bcd60e51b815260040180806020018281038252602881526020018061017b6028913960400191505060405180910390fd5b5060019056fe63616c63556e6465726c79696e6756616c7565733a20526576657274696e67507269636546656564a164736f6c634300060c000a",
+    "sourceMap": "640:626:246:-:0;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;785:206;;;;;;;;;;;;;;;;-1:-1:-1;;;;;;785:206:246;;;;;;;;:::i;:::-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;1152:112;;;;;;;;;;;;;;;;-1:-1:-1;1152:112:246;-1:-1:-1;;;;;1152:112:246;;:::i;:::-;;;;;;;;;;;;;;;;;;785:206;884:16;902;934:50;;-1:-1:-1;;;934:50:246;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;1152:112;-1:-1:-1;1253:4:246;;1152:112::o",
+    "linkReferences": {}
+  },
+  "methodIdentifiers": {
+    "calcUnderlyingValues(address,uint256)": "727212f6",
+    "isSupportedAsset(address)": "9be918e6"
+  },
+  "rawMetadata": "{\"compiler\":{\"version\":\"0.6.12+commit.27d51765\"},\"language\":\"Solidity\",\"output\":{\"abi\":[{\"inputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"name\":\"calcUnderlyingValues\",\"outputs\":[{\"internalType\":\"address[]\",\"name\":\"\",\"type\":\"address[]\"},{\"internalType\":\"uint256[]\",\"name\":\"\",\"type\":\"uint256[]\"}],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"name\":\"isSupportedAsset\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"isSupported_\",\"type\":\"bool\"}],\"stateMutability\":\"view\",\"type\":\"function\"}],\"devdoc\":{\"author\":\"Enzyme Council <security@enzyme.finance>\",\"details\":\"Used purely for extraordinary circumstances where we want to prevent value calculations, while allowing an asset to continue to be in the asset universe\",\"kind\":\"dev\",\"methods\":{\"isSupportedAsset(address)\":{\"returns\":{\"isSupported_\":\"True if the asset is a supported primitive\"}}},\"title\":\"RevertingPriceFeed Contract\",\"version\":1},\"userdoc\":{\"kind\":\"user\",\"methods\":{\"calcUnderlyingValues(address,uint256)\":{\"notice\":\"Converts a given amount of a derivative to its underlying asset values\"},\"isSupportedAsset(address)\":{\"notice\":\"Checks whether an asset is a supported primitive of the price feed\"}},\"notice\":\"Price feed that always reverts on value conversion\",\"version\":1}},\"settings\":{\"compilationTarget\":{\"contracts/release/infrastructure/price-feeds/derivatives/feeds/RevertingPriceFeed.sol\":\"RevertingPriceFeed\"},\"evmVersion\":\"istanbul\",\"libraries\":{},\"metadata\":{\"bytecodeHash\":\"none\"},\"optimizer\":{\"details\":{\"constantOptimizer\":true,\"cse\":true,\"deduplicate\":true,\"jumpdestRemover\":true,\"orderLiterals\":true,\"peephole\":true,\"yul\":false},\"runs\":200},\"remappings\":[\":@enzyme/=contracts/\",\":@openzeppelin-solc-0.7/=node_modules/@openzeppelin-solc-0.7/\",\":@openzeppelin/=node_modules/@openzeppelin/\",\":@uniswap/=node_modules/@uniswap/\",\":base64-sol/=node_modules/base64-sol/\",\":ds-test/=lib/forge-std/lib/ds-test/src/\",\":forge-std/=lib/forge-std/src/\",\":hardhat-deploy/=node_modules/hardhat-deploy/\",\":hardhat/=node_modules/hardhat/\"]},\"sources\":{\"contracts/release/infrastructure/price-feeds/derivatives/IDerivativePriceFeed.sol\":{\"keccak256\":\"0x5abbc57ccbf28b2c27a0ee496f0a949a0039912975e8f9a65312d884edd05332\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://9cfb87b8df1f3f58c556907e2a9cc197fa5bb90ad9bc9d4717e95fd63258d80e\",\"dweb:/ipfs/QmWxLvfq9NNJJZueeHD5EYWdRwrgzmrVdLUqp9Ta7A9ccK\"]},\"contracts/release/infrastructure/price-feeds/derivatives/feeds/RevertingPriceFeed.sol\":{\"keccak256\":\"0xf01ca67283fcb55a67353883c92e3a920adb798338227e3e15df44446d667a63\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://fe351e219dbe0be184bb3098d4d1432fce026727986b9bb9f37a0c395e155297\",\"dweb:/ipfs/QmYE2zV9fQVXUeBR6RwKGANSov3cf2NzqqxVx4P8oUXeLf\"]}},\"version\":1}",
+  "metadata": {
+    "compiler": {
+      "version": "0.6.12+commit.27d51765"
+    },
+    "language": "Solidity",
+    "output": {
+      "abi": [
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "",
+              "type": "address"
+            },
+            {
+              "internalType": "uint256",
+              "name": "",
+              "type": "uint256"
+            }
+          ],
+          "stateMutability": "nonpayable",
+          "type": "function",
+          "name": "calcUnderlyingValues",
+          "outputs": [
+            {
+              "internalType": "address[]",
+              "name": "",
+              "type": "address[]"
+            },
+            {
+              "internalType": "uint256[]",
+              "name": "",
+              "type": "uint256[]"
+            }
+          ]
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "",
+              "type": "address"
+            }
+          ],
+          "stateMutability": "view",
+          "type": "function",
+          "name": "isSupportedAsset",
+          "outputs": [
+            {
+              "internalType": "bool",
+              "name": "isSupported_",
+              "type": "bool"
+            }
+          ]
+        }
+      ],
+      "devdoc": {
+        "kind": "dev",
+        "methods": {
+          "isSupportedAsset(address)": {
+            "returns": {
+              "isSupported_": "True if the asset is a supported primitive"
+            }
+          }
+        },
+        "version": 1
+      },
+      "userdoc": {
+        "kind": "user",
+        "methods": {
+          "calcUnderlyingValues(address,uint256)": {
+            "notice": "Converts a given amount of a derivative to its underlying asset values"
+          },
+          "isSupportedAsset(address)": {
+            "notice": "Checks whether an asset is a supported primitive of the price feed"
+          }
+        },
+        "version": 1
+      }
+    },
+    "settings": {
+      "remappings": [
+        ":@enzyme/=contracts/",
+        ":@openzeppelin-solc-0.7/=node_modules/@openzeppelin-solc-0.7/",
+        ":@openzeppelin/=node_modules/@openzeppelin/",
+        ":@uniswap/=node_modules/@uniswap/",
+        ":base64-sol/=node_modules/base64-sol/",
+        ":ds-test/=lib/forge-std/lib/ds-test/src/",
+        ":forge-std/=lib/forge-std/src/",
+        ":hardhat-deploy/=node_modules/hardhat-deploy/",
+        ":hardhat/=node_modules/hardhat/"
+      ],
+      "optimizer": {
+        "runs": 200,
+        "details": {
+          "peephole": true,
+          "jumpdestRemover": true,
+          "orderLiterals": true,
+          "deduplicate": true,
+          "cse": true,
+          "constantOptimizer": true,
+          "yul": false
+        }
+      },
+      "metadata": {
+        "bytecodeHash": "none"
+      },
+      "compilationTarget": {
+        "contracts/release/infrastructure/price-feeds/derivatives/feeds/RevertingPriceFeed.sol": "RevertingPriceFeed"
+      },
+      "libraries": {}
+    },
+    "sources": {
+      "contracts/release/infrastructure/price-feeds/derivatives/IDerivativePriceFeed.sol": {
+        "keccak256": "0x5abbc57ccbf28b2c27a0ee496f0a949a0039912975e8f9a65312d884edd05332",
+        "urls": [
+          "bzz-raw://9cfb87b8df1f3f58c556907e2a9cc197fa5bb90ad9bc9d4717e95fd63258d80e",
+          "dweb:/ipfs/QmWxLvfq9NNJJZueeHD5EYWdRwrgzmrVdLUqp9Ta7A9ccK"
+        ],
+        "license": "GPL-3.0"
+      },
+      "contracts/release/infrastructure/price-feeds/derivatives/feeds/RevertingPriceFeed.sol": {
+        "keccak256": "0xf01ca67283fcb55a67353883c92e3a920adb798338227e3e15df44446d667a63",
+        "urls": [
+          "bzz-raw://fe351e219dbe0be184bb3098d4d1432fce026727986b9bb9f37a0c395e155297",
+          "dweb:/ipfs/QmYE2zV9fQVXUeBR6RwKGANSov3cf2NzqqxVx4P8oUXeLf"
+        ],
+        "license": "GPL-3.0"
+      }
+    },
+    "version": 1
+  },
+  "ast": {
+    "absolutePath": "contracts/release/infrastructure/price-feeds/derivatives/feeds/RevertingPriceFeed.sol",
+    "id": 65337,
+    "exportedSymbols": {
+      "RevertingPriceFeed": [
+        65336
+      ]
+    },
+    "nodeType": "SourceUnit",
+    "src": "255:1012:246",
+    "nodes": [
+      {
+        "id": 65299,
+        "nodeType": "PragmaDirective",
+        "src": "255:23:246",
+        "nodes": [],
+        "literals": [
+          "solidity",
+          "0.6",
+          ".12"
+        ]
+      },
+      {
+        "id": 65300,
+        "nodeType": "ImportDirective",
+        "src": "280:37:246",
+        "nodes": [],
+        "absolutePath": "contracts/release/infrastructure/price-feeds/derivatives/IDerivativePriceFeed.sol",
+        "file": "../IDerivativePriceFeed.sol",
+        "scope": 65337,
+        "sourceUnit": 62424,
+        "symbolAliases": [],
+        "unitAlias": ""
+      },
+      {
+        "id": 65336,
+        "nodeType": "ContractDefinition",
+        "src": "640:626:246",
+        "nodes": [
+          {
+            "id": 65323,
+            "nodeType": "FunctionDefinition",
+            "src": "785:206:246",
+            "nodes": [],
+            "body": {
+              "id": 65322,
+              "nodeType": "Block",
+              "src": "924:67:246",
+              "nodes": [],
+              "statements": [
+                {
+                  "expression": {
+                    "argumentTypes": null,
+                    "arguments": [
+                      {
+                        "argumentTypes": null,
+                        "hexValue": "63616c63556e6465726c79696e6756616c7565733a20526576657274696e67507269636546656564",
+                        "id": 65319,
+                        "isConstant": false,
+                        "isLValue": false,
+                        "isPure": true,
+                        "kind": "string",
+                        "lValueRequested": false,
+                        "nodeType": "Literal",
+                        "src": "941:42:246",
+                        "subdenomination": null,
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_stringliteral_9d9300eb4341991fa4d73fbea7fdbe37c1f3f943475e80666d1a814f6ab2dd37",
+                          "typeString": "literal_string \"calcUnderlyingValues: RevertingPriceFeed\""
+                        },
+                        "value": "calcUnderlyingValues: RevertingPriceFeed"
+                      }
+                    ],
+                    "expression": {
+                      "argumentTypes": [
+                        {
+                          "typeIdentifier": "t_stringliteral_9d9300eb4341991fa4d73fbea7fdbe37c1f3f943475e80666d1a814f6ab2dd37",
+                          "typeString": "literal_string \"calcUnderlyingValues: RevertingPriceFeed\""
+                        }
+                      ],
+                      "id": 65318,
+                      "name": "revert",
+                      "nodeType": "Identifier",
+                      "overloadedDeclarations": [
+                        -19,
+                        -19
+                      ],
+                      "referencedDeclaration": -19,
+                      "src": "934:6:246",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_function_revert_pure$_t_string_memory_ptr_$returns$__$",
+                        "typeString": "function (string memory) pure"
+                      }
+                    },
+                    "id": 65320,
+                    "isConstant": false,
+                    "isLValue": false,
+                    "isPure": false,
+                    "kind": "functionCall",
+                    "lValueRequested": false,
+                    "names": [],
+                    "nodeType": "FunctionCall",
+                    "src": "934:50:246",
+                    "tryCall": false,
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_tuple$__$",
+                      "typeString": "tuple()"
+                    }
+                  },
+                  "id": 65321,
+                  "nodeType": "ExpressionStatement",
+                  "src": "934:50:246"
+                }
+              ]
+            },
+            "baseFunctions": [
+              62415
+            ],
+            "documentation": {
+              "id": 65304,
+              "nodeType": "StructuredDocumentation",
+              "src": "698:82:246",
+              "text": "@notice Converts a given amount of a derivative to its underlying asset values"
+            },
+            "functionSelector": "727212f6",
+            "implemented": true,
+            "kind": "function",
+            "modifiers": [],
+            "name": "calcUnderlyingValues",
+            "overrides": {
+              "id": 65310,
+              "nodeType": "OverrideSpecifier",
+              "overrides": [],
+              "src": "858:8:246"
+            },
+            "parameters": {
+              "id": 65309,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 65306,
+                  "mutability": "mutable",
+                  "name": "",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 65323,
+                  "src": "815:7:246",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 65305,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "815:7:246",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 65308,
+                  "mutability": "mutable",
+                  "name": "",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 65323,
+                  "src": "824:7:246",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_uint256",
+                    "typeString": "uint256"
+                  },
+                  "typeName": {
+                    "id": 65307,
+                    "name": "uint256",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "824:7:246",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_uint256",
+                      "typeString": "uint256"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "814:18:246"
+            },
+            "returnParameters": {
+              "id": 65317,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 65313,
+                  "mutability": "mutable",
+                  "name": "",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 65323,
+                  "src": "884:16:246",
+                  "stateVariable": false,
+                  "storageLocation": "memory",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_array$_t_address_$dyn_memory_ptr",
+                    "typeString": "address[]"
+                  },
+                  "typeName": {
+                    "baseType": {
+                      "id": 65311,
+                      "name": "address",
+                      "nodeType": "ElementaryTypeName",
+                      "src": "884:7:246",
+                      "stateMutability": "nonpayable",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_address",
+                        "typeString": "address"
+                      }
+                    },
+                    "id": 65312,
+                    "length": null,
+                    "nodeType": "ArrayTypeName",
+                    "src": "884:9:246",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_array$_t_address_$dyn_storage_ptr",
+                      "typeString": "address[]"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 65316,
+                  "mutability": "mutable",
+                  "name": "",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 65323,
+                  "src": "902:16:246",
+                  "stateVariable": false,
+                  "storageLocation": "memory",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_array$_t_uint256_$dyn_memory_ptr",
+                    "typeString": "uint256[]"
+                  },
+                  "typeName": {
+                    "baseType": {
+                      "id": 65314,
+                      "name": "uint256",
+                      "nodeType": "ElementaryTypeName",
+                      "src": "902:7:246",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_uint256",
+                        "typeString": "uint256"
+                      }
+                    },
+                    "id": 65315,
+                    "length": null,
+                    "nodeType": "ArrayTypeName",
+                    "src": "902:9:246",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_array$_t_uint256_$dyn_storage_ptr",
+                      "typeString": "uint256[]"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "883:36:246"
+            },
+            "scope": 65336,
+            "stateMutability": "nonpayable",
+            "virtual": false,
+            "visibility": "external"
+          },
+          {
+            "id": 65335,
+            "nodeType": "FunctionDefinition",
+            "src": "1152:112:246",
+            "nodes": [],
+            "body": {
+              "id": 65334,
+              "nodeType": "Block",
+              "src": "1236:28:246",
+              "nodes": [],
+              "statements": [
+                {
+                  "expression": {
+                    "argumentTypes": null,
+                    "hexValue": "74727565",
+                    "id": 65332,
+                    "isConstant": false,
+                    "isLValue": false,
+                    "isPure": true,
+                    "kind": "bool",
+                    "lValueRequested": false,
+                    "nodeType": "Literal",
+                    "src": "1253:4:246",
+                    "subdenomination": null,
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_bool",
+                      "typeString": "bool"
+                    },
+                    "value": "true"
+                  },
+                  "functionReturnParameters": 65331,
+                  "id": 65333,
+                  "nodeType": "Return",
+                  "src": "1246:11:246"
+                }
+              ]
+            },
+            "baseFunctions": [
+              62422
+            ],
+            "documentation": {
+              "id": 65324,
+              "nodeType": "StructuredDocumentation",
+              "src": "997:150:246",
+              "text": "@notice Checks whether an asset is a supported primitive of the price feed\n @return isSupported_ True if the asset is a supported primitive"
+            },
+            "functionSelector": "9be918e6",
+            "implemented": true,
+            "kind": "function",
+            "modifiers": [],
+            "name": "isSupportedAsset",
+            "overrides": {
+              "id": 65328,
+              "nodeType": "OverrideSpecifier",
+              "overrides": [],
+              "src": "1199:8:246"
+            },
+            "parameters": {
+              "id": 65327,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 65326,
+                  "mutability": "mutable",
+                  "name": "",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 65335,
+                  "src": "1178:7:246",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 65325,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "1178:7:246",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "1177:9:246"
+            },
+            "returnParameters": {
+              "id": 65331,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 65330,
+                  "mutability": "mutable",
+                  "name": "isSupported_",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 65335,
+                  "src": "1217:17:246",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_bool",
+                    "typeString": "bool"
+                  },
+                  "typeName": {
+                    "id": 65329,
+                    "name": "bool",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "1217:4:246",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_bool",
+                      "typeString": "bool"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "1216:19:246"
+            },
+            "scope": 65336,
+            "stateMutability": "view",
+            "virtual": false,
+            "visibility": "public"
+          }
+        ],
+        "abstract": false,
+        "baseContracts": [
+          {
+            "arguments": null,
+            "baseName": {
+              "contractScope": null,
+              "id": 65302,
+              "name": "IDerivativePriceFeed",
+              "nodeType": "UserDefinedTypeName",
+              "referencedDeclaration": 62423,
+              "src": "671:20:246",
+              "typeDescriptions": {
+                "typeIdentifier": "t_contract$_IDerivativePriceFeed_$62423",
+                "typeString": "contract IDerivativePriceFeed"
+              }
+            },
+            "id": 65303,
+            "nodeType": "InheritanceSpecifier",
+            "src": "671:20:246"
+          }
+        ],
+        "contractDependencies": [
+          62423
+        ],
+        "contractKind": "contract",
+        "documentation": {
+          "id": 65301,
+          "nodeType": "StructuredDocumentation",
+          "src": "319:321:246",
+          "text": "@title RevertingPriceFeed Contract\n @author Enzyme Council <security@enzyme.finance>\n @notice Price feed that always reverts on value conversion\n @dev Used purely for extraordinary circumstances where we want to prevent value calculations,\n while allowing an asset to continue to be in the asset universe"
+        },
+        "fullyImplemented": true,
+        "linearizedBaseContracts": [
+          65336,
+          62423
+        ],
+        "name": "RevertingPriceFeed",
+        "scope": 65337
+      }
+    ],
+    "license": "GPL-3.0"
+  },
+  "id": 246
 }

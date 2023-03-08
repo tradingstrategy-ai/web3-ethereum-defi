@@ -78,7 +78,7 @@ def web3(ganache_bnb_chain_fork: str):
 
 # Because of Ganache
 @flaky.flaky()
-def test_mainnet_fork_busd_details(web3: Web3, large_busd_holder: HexAddress, user_1: LocalAccount):
+def test_mainnet_fork_busd_details(web3: Web3, large_busd_holder: HexAddress, user_1):
     """Checks BUSD deployment on BNB chain."""
     busd = fetch_erc20_details(web3, "0xe9e7CEA3DedcA5984780Bafc599bD69ADd087D56")
     assert busd.symbol == "BUSD"
@@ -87,7 +87,7 @@ def test_mainnet_fork_busd_details(web3: Web3, large_busd_holder: HexAddress, us
 
 # Because of Ganache
 @flaky.flaky()
-def test_mainnet_fork_transfer_busd(web3: Web3, large_busd_holder: HexAddress, user_1: LocalAccount):
+def test_mainnet_fork_transfer_busd(web3: Web3, large_busd_holder: HexAddress, user_1):
     """Forks the BNB chain mainnet and transfers from USDC to the user."""
 
     # BUSD deployment on BNB chain
@@ -96,10 +96,10 @@ def test_mainnet_fork_transfer_busd(web3: Web3, large_busd_holder: HexAddress, u
     busd = busd_details.contract
 
     # Transfer 500 BUSD to the user 1
-    tx_hash = busd.functions.transfer(user_1.address, 500 * 10**18).transact({"from": large_busd_holder})
+    tx_hash = busd.functions.transfer(user_1.address, 500 * 10 ** 18).transact({"from": large_busd_holder})
 
     # Because Ganache has instamine turned on by default, we do not need to wait for the transaction
     receipt = web3.eth.get_transaction_receipt(tx_hash)
     assert receipt.status == 1, "BUSD transfer reverted"
 
-    assert busd.functions.balanceOf(user_1.address).call() == 500 * 10**18
+    assert busd.functions.balanceOf(user_1.address).call() == 500 * 10 ** 18

@@ -1,7 +1,4 @@
 {
-  "_format": "hh-sol-artifact-1",
-  "contractName": "IUniswapV3SwapRouter",
-  "sourceName": "contracts/release/interfaces/IUniswapV3SwapRouter.sol",
   "abi": [
     {
       "inputs": [
@@ -50,8 +47,428 @@
       "type": "function"
     }
   ],
-  "bytecode": "0x",
-  "deployedBytecode": "0x",
-  "linkReferences": {},
-  "deployedLinkReferences": {}
+  "bytecode": {
+    "object": "0x",
+    "sourceMap": "",
+    "linkReferences": {}
+  },
+  "deployedBytecode": {
+    "object": "0x",
+    "sourceMap": "",
+    "linkReferences": {}
+  },
+  "methodIdentifiers": {
+    "exactInput((bytes,address,uint256,uint256,uint256))": "c04b8d59"
+  },
+  "rawMetadata": "{\"compiler\":{\"version\":\"0.6.12+commit.27d51765\"},\"language\":\"Solidity\",\"output\":{\"abi\":[{\"inputs\":[{\"components\":[{\"internalType\":\"bytes\",\"name\":\"path\",\"type\":\"bytes\"},{\"internalType\":\"address\",\"name\":\"recipient\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"deadline\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"amountIn\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"amountOutMinimum\",\"type\":\"uint256\"}],\"internalType\":\"struct IUniswapV3SwapRouter.ExactInputParams\",\"name\":\"\",\"type\":\"tuple\"}],\"name\":\"exactInput\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"payable\",\"type\":\"function\"}],\"devdoc\":{\"author\":\"Enzyme Council <security@enzyme.finance>\",\"details\":\"Minimal interface for our interactions with Uniswap V3's Router\",\"kind\":\"dev\",\"methods\":{},\"title\":\"IUniswapV3Router Interface\",\"version\":1},\"userdoc\":{\"kind\":\"user\",\"methods\":{},\"version\":1}},\"settings\":{\"compilationTarget\":{\"contracts/release/interfaces/IUniswapV3SwapRouter.sol\":\"IUniswapV3SwapRouter\"},\"evmVersion\":\"istanbul\",\"libraries\":{},\"metadata\":{\"bytecodeHash\":\"none\"},\"optimizer\":{\"details\":{\"constantOptimizer\":true,\"cse\":true,\"deduplicate\":true,\"jumpdestRemover\":true,\"orderLiterals\":true,\"peephole\":true,\"yul\":false},\"runs\":200},\"remappings\":[\":@enzyme/=contracts/\",\":@openzeppelin-solc-0.7/=node_modules/@openzeppelin-solc-0.7/\",\":@openzeppelin/=node_modules/@openzeppelin/\",\":@uniswap/=node_modules/@uniswap/\",\":base64-sol/=node_modules/base64-sol/\",\":ds-test/=lib/forge-std/lib/ds-test/src/\",\":forge-std/=lib/forge-std/src/\",\":hardhat-deploy/=node_modules/hardhat-deploy/\",\":hardhat/=node_modules/hardhat/\"]},\"sources\":{\"contracts/release/interfaces/IUniswapV3SwapRouter.sol\":{\"keccak256\":\"0xf8fc3ec7698a5cbc1ac63d3602c005590485a85083bd2d6e3d0c65feb0b26374\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://89e988352337d15b7f4a818dd9d1b21b732a8338de89422d1ed4b7dcfd4c092a\",\"dweb:/ipfs/QmWBGhjqA6HNZJianHBTW1CdqGtSFvTTYN3yR3uU2c4Z3N\"]}},\"version\":1}",
+  "metadata": {
+    "compiler": {
+      "version": "0.6.12+commit.27d51765"
+    },
+    "language": "Solidity",
+    "output": {
+      "abi": [
+        {
+          "inputs": [
+            {
+              "internalType": "struct IUniswapV3SwapRouter.ExactInputParams",
+              "name": "",
+              "type": "tuple",
+              "components": [
+                {
+                  "internalType": "bytes",
+                  "name": "path",
+                  "type": "bytes"
+                },
+                {
+                  "internalType": "address",
+                  "name": "recipient",
+                  "type": "address"
+                },
+                {
+                  "internalType": "uint256",
+                  "name": "deadline",
+                  "type": "uint256"
+                },
+                {
+                  "internalType": "uint256",
+                  "name": "amountIn",
+                  "type": "uint256"
+                },
+                {
+                  "internalType": "uint256",
+                  "name": "amountOutMinimum",
+                  "type": "uint256"
+                }
+              ]
+            }
+          ],
+          "stateMutability": "payable",
+          "type": "function",
+          "name": "exactInput",
+          "outputs": [
+            {
+              "internalType": "uint256",
+              "name": "",
+              "type": "uint256"
+            }
+          ]
+        }
+      ],
+      "devdoc": {
+        "kind": "dev",
+        "methods": {},
+        "version": 1
+      },
+      "userdoc": {
+        "kind": "user",
+        "methods": {},
+        "version": 1
+      }
+    },
+    "settings": {
+      "remappings": [
+        ":@enzyme/=contracts/",
+        ":@openzeppelin-solc-0.7/=node_modules/@openzeppelin-solc-0.7/",
+        ":@openzeppelin/=node_modules/@openzeppelin/",
+        ":@uniswap/=node_modules/@uniswap/",
+        ":base64-sol/=node_modules/base64-sol/",
+        ":ds-test/=lib/forge-std/lib/ds-test/src/",
+        ":forge-std/=lib/forge-std/src/",
+        ":hardhat-deploy/=node_modules/hardhat-deploy/",
+        ":hardhat/=node_modules/hardhat/"
+      ],
+      "optimizer": {
+        "runs": 200,
+        "details": {
+          "peephole": true,
+          "jumpdestRemover": true,
+          "orderLiterals": true,
+          "deduplicate": true,
+          "cse": true,
+          "constantOptimizer": true,
+          "yul": false
+        }
+      },
+      "metadata": {
+        "bytecodeHash": "none"
+      },
+      "compilationTarget": {
+        "contracts/release/interfaces/IUniswapV3SwapRouter.sol": "IUniswapV3SwapRouter"
+      },
+      "libraries": {}
+    },
+    "sources": {
+      "contracts/release/interfaces/IUniswapV3SwapRouter.sol": {
+        "keccak256": "0xf8fc3ec7698a5cbc1ac63d3602c005590485a85083bd2d6e3d0c65feb0b26374",
+        "urls": [
+          "bzz-raw://89e988352337d15b7f4a818dd9d1b21b732a8338de89422d1ed4b7dcfd4c092a",
+          "dweb:/ipfs/QmWBGhjqA6HNZJianHBTW1CdqGtSFvTTYN3yR3uU2c4Z3N"
+        ],
+        "license": "GPL-3.0"
+      }
+    },
+    "version": 1
+  },
+  "ast": {
+    "absolutePath": "contracts/release/interfaces/IUniswapV3SwapRouter.sol",
+    "id": 73568,
+    "exportedSymbols": {
+      "IUniswapV3SwapRouter": [
+        73567
+      ]
+    },
+    "nodeType": "SourceUnit",
+    "src": "255:515:342",
+    "nodes": [
+      {
+        "id": 73546,
+        "nodeType": "PragmaDirective",
+        "src": "255:23:342",
+        "nodes": [],
+        "literals": [
+          "solidity",
+          "0.6",
+          ".12"
+        ]
+      },
+      {
+        "id": 73547,
+        "nodeType": "PragmaDirective",
+        "src": "279:33:342",
+        "nodes": [],
+        "literals": [
+          "experimental",
+          "ABIEncoderV2"
+        ]
+      },
+      {
+        "id": 73567,
+        "nodeType": "ContractDefinition",
+        "src": "478:291:342",
+        "nodes": [
+          {
+            "id": 73559,
+            "nodeType": "StructDefinition",
+            "src": "515:164:342",
+            "nodes": [],
+            "canonicalName": "IUniswapV3SwapRouter.ExactInputParams",
+            "members": [
+              {
+                "constant": false,
+                "id": 73550,
+                "mutability": "mutable",
+                "name": "path",
+                "nodeType": "VariableDeclaration",
+                "overrides": null,
+                "scope": 73559,
+                "src": "549:10:342",
+                "stateVariable": false,
+                "storageLocation": "default",
+                "typeDescriptions": {
+                  "typeIdentifier": "t_bytes_storage_ptr",
+                  "typeString": "bytes"
+                },
+                "typeName": {
+                  "id": 73549,
+                  "name": "bytes",
+                  "nodeType": "ElementaryTypeName",
+                  "src": "549:5:342",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_bytes_storage_ptr",
+                    "typeString": "bytes"
+                  }
+                },
+                "value": null,
+                "visibility": "internal"
+              },
+              {
+                "constant": false,
+                "id": 73552,
+                "mutability": "mutable",
+                "name": "recipient",
+                "nodeType": "VariableDeclaration",
+                "overrides": null,
+                "scope": 73559,
+                "src": "569:17:342",
+                "stateVariable": false,
+                "storageLocation": "default",
+                "typeDescriptions": {
+                  "typeIdentifier": "t_address",
+                  "typeString": "address"
+                },
+                "typeName": {
+                  "id": 73551,
+                  "name": "address",
+                  "nodeType": "ElementaryTypeName",
+                  "src": "569:7:342",
+                  "stateMutability": "nonpayable",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  }
+                },
+                "value": null,
+                "visibility": "internal"
+              },
+              {
+                "constant": false,
+                "id": 73554,
+                "mutability": "mutable",
+                "name": "deadline",
+                "nodeType": "VariableDeclaration",
+                "overrides": null,
+                "scope": 73559,
+                "src": "596:16:342",
+                "stateVariable": false,
+                "storageLocation": "default",
+                "typeDescriptions": {
+                  "typeIdentifier": "t_uint256",
+                  "typeString": "uint256"
+                },
+                "typeName": {
+                  "id": 73553,
+                  "name": "uint256",
+                  "nodeType": "ElementaryTypeName",
+                  "src": "596:7:342",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_uint256",
+                    "typeString": "uint256"
+                  }
+                },
+                "value": null,
+                "visibility": "internal"
+              },
+              {
+                "constant": false,
+                "id": 73556,
+                "mutability": "mutable",
+                "name": "amountIn",
+                "nodeType": "VariableDeclaration",
+                "overrides": null,
+                "scope": 73559,
+                "src": "622:16:342",
+                "stateVariable": false,
+                "storageLocation": "default",
+                "typeDescriptions": {
+                  "typeIdentifier": "t_uint256",
+                  "typeString": "uint256"
+                },
+                "typeName": {
+                  "id": 73555,
+                  "name": "uint256",
+                  "nodeType": "ElementaryTypeName",
+                  "src": "622:7:342",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_uint256",
+                    "typeString": "uint256"
+                  }
+                },
+                "value": null,
+                "visibility": "internal"
+              },
+              {
+                "constant": false,
+                "id": 73558,
+                "mutability": "mutable",
+                "name": "amountOutMinimum",
+                "nodeType": "VariableDeclaration",
+                "overrides": null,
+                "scope": 73559,
+                "src": "648:24:342",
+                "stateVariable": false,
+                "storageLocation": "default",
+                "typeDescriptions": {
+                  "typeIdentifier": "t_uint256",
+                  "typeString": "uint256"
+                },
+                "typeName": {
+                  "id": 73557,
+                  "name": "uint256",
+                  "nodeType": "ElementaryTypeName",
+                  "src": "648:7:342",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_uint256",
+                    "typeString": "uint256"
+                  }
+                },
+                "value": null,
+                "visibility": "internal"
+              }
+            ],
+            "name": "ExactInputParams",
+            "scope": 73567,
+            "visibility": "public"
+          },
+          {
+            "id": 73566,
+            "nodeType": "FunctionDefinition",
+            "src": "685:82:342",
+            "nodes": [],
+            "documentation": null,
+            "functionSelector": "c04b8d59",
+            "implemented": false,
+            "kind": "function",
+            "modifiers": [],
+            "name": "exactInput",
+            "overrides": null,
+            "parameters": {
+              "id": 73562,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 73561,
+                  "mutability": "mutable",
+                  "name": "",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 73566,
+                  "src": "705:25:342",
+                  "stateVariable": false,
+                  "storageLocation": "calldata",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_struct$_ExactInputParams_$73559_calldata_ptr",
+                    "typeString": "struct IUniswapV3SwapRouter.ExactInputParams"
+                  },
+                  "typeName": {
+                    "contractScope": null,
+                    "id": 73560,
+                    "name": "ExactInputParams",
+                    "nodeType": "UserDefinedTypeName",
+                    "referencedDeclaration": 73559,
+                    "src": "705:16:342",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_struct$_ExactInputParams_$73559_storage_ptr",
+                      "typeString": "struct IUniswapV3SwapRouter.ExactInputParams"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "704:27:342"
+            },
+            "returnParameters": {
+              "id": 73565,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 73564,
+                  "mutability": "mutable",
+                  "name": "",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 73566,
+                  "src": "758:7:342",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_uint256",
+                    "typeString": "uint256"
+                  },
+                  "typeName": {
+                    "id": 73563,
+                    "name": "uint256",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "758:7:342",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_uint256",
+                      "typeString": "uint256"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "757:9:342"
+            },
+            "scope": 73567,
+            "stateMutability": "payable",
+            "virtual": false,
+            "visibility": "external"
+          }
+        ],
+        "abstract": false,
+        "baseContracts": [],
+        "contractDependencies": [],
+        "contractKind": "interface",
+        "documentation": {
+          "id": 73548,
+          "nodeType": "StructuredDocumentation",
+          "src": "314:164:342",
+          "text": "@title IUniswapV3Router Interface\n @author Enzyme Council <security@enzyme.finance>\n @dev Minimal interface for our interactions with Uniswap V3's Router"
+        },
+        "fullyImplemented": false,
+        "linearizedBaseContracts": [
+          73567
+        ],
+        "name": "IUniswapV3SwapRouter",
+        "scope": 73568
+      }
+    ],
+    "license": "GPL-3.0"
+  },
+  "id": 342
 }

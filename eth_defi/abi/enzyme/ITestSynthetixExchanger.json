@@ -1,0 +1,407 @@
+{
+  "abi": [
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "_sourceAmount",
+          "type": "uint256"
+        },
+        {
+          "internalType": "bytes32",
+          "name": "_sourceCurrencyKey",
+          "type": "bytes32"
+        },
+        {
+          "internalType": "bytes32",
+          "name": "_destinationCurrencyKey",
+          "type": "bytes32"
+        }
+      ],
+      "name": "getAmountsForExchange",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "amountReceived_",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "fee_",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "exchangeRate_",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    }
+  ],
+  "bytecode": {
+    "object": "0x",
+    "sourceMap": "",
+    "linkReferences": {}
+  },
+  "deployedBytecode": {
+    "object": "0x",
+    "sourceMap": "",
+    "linkReferences": {}
+  },
+  "methodIdentifiers": {
+    "getAmountsForExchange(uint256,bytes32,bytes32)": "f450aa34"
+  },
+  "rawMetadata": "{\"compiler\":{\"version\":\"0.6.12+commit.27d51765\"},\"language\":\"Solidity\",\"output\":{\"abi\":[{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_sourceAmount\",\"type\":\"uint256\"},{\"internalType\":\"bytes32\",\"name\":\"_sourceCurrencyKey\",\"type\":\"bytes32\"},{\"internalType\":\"bytes32\",\"name\":\"_destinationCurrencyKey\",\"type\":\"bytes32\"}],\"name\":\"getAmountsForExchange\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"amountReceived_\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"fee_\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"exchangeRate_\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"}],\"devdoc\":{\"author\":\"Enzyme Council <security@enzyme.finance>\",\"kind\":\"dev\",\"methods\":{},\"title\":\"ITestSynthetixExchanger Interface\",\"version\":1},\"userdoc\":{\"kind\":\"user\",\"methods\":{},\"version\":1}},\"settings\":{\"compilationTarget\":{\"contracts/test/interfaces/ITestSynthetixExchanger.sol\":\"ITestSynthetixExchanger\"},\"evmVersion\":\"istanbul\",\"libraries\":{},\"metadata\":{\"bytecodeHash\":\"none\"},\"optimizer\":{\"details\":{\"constantOptimizer\":true,\"cse\":true,\"deduplicate\":true,\"jumpdestRemover\":true,\"orderLiterals\":true,\"peephole\":true,\"yul\":false},\"runs\":200},\"remappings\":[\":@enzyme/=contracts/\",\":@openzeppelin-solc-0.7/=node_modules/@openzeppelin-solc-0.7/\",\":@openzeppelin/=node_modules/@openzeppelin/\",\":@uniswap/=node_modules/@uniswap/\",\":base64-sol/=node_modules/base64-sol/\",\":ds-test/=lib/forge-std/lib/ds-test/src/\",\":forge-std/=lib/forge-std/src/\",\":hardhat-deploy/=node_modules/hardhat-deploy/\",\":hardhat/=node_modules/hardhat/\"]},\"sources\":{\"contracts/test/interfaces/ITestSynthetixExchanger.sol\":{\"keccak256\":\"0x1868e8860854adf53fac51a6629c239dddfac4610da8bef35d33161b0a81bd83\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://c41dbedd1d01e65e4829689ee846c77d8de04edcd32acc32c9a57cd9bb2504dd\",\"dweb:/ipfs/QmfR4F4aS4oaU9HGR5et8Eh6XrzzafJ44ZdaArKpY6v6NJ\"]}},\"version\":1}",
+  "metadata": {
+    "compiler": {
+      "version": "0.6.12+commit.27d51765"
+    },
+    "language": "Solidity",
+    "output": {
+      "abi": [
+        {
+          "inputs": [
+            {
+              "internalType": "uint256",
+              "name": "_sourceAmount",
+              "type": "uint256"
+            },
+            {
+              "internalType": "bytes32",
+              "name": "_sourceCurrencyKey",
+              "type": "bytes32"
+            },
+            {
+              "internalType": "bytes32",
+              "name": "_destinationCurrencyKey",
+              "type": "bytes32"
+            }
+          ],
+          "stateMutability": "view",
+          "type": "function",
+          "name": "getAmountsForExchange",
+          "outputs": [
+            {
+              "internalType": "uint256",
+              "name": "amountReceived_",
+              "type": "uint256"
+            },
+            {
+              "internalType": "uint256",
+              "name": "fee_",
+              "type": "uint256"
+            },
+            {
+              "internalType": "uint256",
+              "name": "exchangeRate_",
+              "type": "uint256"
+            }
+          ]
+        }
+      ],
+      "devdoc": {
+        "kind": "dev",
+        "methods": {},
+        "version": 1
+      },
+      "userdoc": {
+        "kind": "user",
+        "methods": {},
+        "version": 1
+      }
+    },
+    "settings": {
+      "remappings": [
+        ":@enzyme/=contracts/",
+        ":@openzeppelin-solc-0.7/=node_modules/@openzeppelin-solc-0.7/",
+        ":@openzeppelin/=node_modules/@openzeppelin/",
+        ":@uniswap/=node_modules/@uniswap/",
+        ":base64-sol/=node_modules/base64-sol/",
+        ":ds-test/=lib/forge-std/lib/ds-test/src/",
+        ":forge-std/=lib/forge-std/src/",
+        ":hardhat-deploy/=node_modules/hardhat-deploy/",
+        ":hardhat/=node_modules/hardhat/"
+      ],
+      "optimizer": {
+        "runs": 200,
+        "details": {
+          "peephole": true,
+          "jumpdestRemover": true,
+          "orderLiterals": true,
+          "deduplicate": true,
+          "cse": true,
+          "constantOptimizer": true,
+          "yul": false
+        }
+      },
+      "metadata": {
+        "bytecodeHash": "none"
+      },
+      "compilationTarget": {
+        "contracts/test/interfaces/ITestSynthetixExchanger.sol": "ITestSynthetixExchanger"
+      },
+      "libraries": {}
+    },
+    "sources": {
+      "contracts/test/interfaces/ITestSynthetixExchanger.sol": {
+        "keccak256": "0x1868e8860854adf53fac51a6629c239dddfac4610da8bef35d33161b0a81bd83",
+        "urls": [
+          "bzz-raw://c41dbedd1d01e65e4829689ee846c77d8de04edcd32acc32c9a57cd9bb2504dd",
+          "dweb:/ipfs/QmfR4F4aS4oaU9HGR5et8Eh6XrzzafJ44ZdaArKpY6v6NJ"
+        ],
+        "license": "GPL-3.0"
+      }
+    },
+    "version": 1
+  },
+  "ast": {
+    "absolutePath": "contracts/test/interfaces/ITestSynthetixExchanger.sol",
+    "id": 81759,
+    "exportedSymbols": {
+      "ITestSynthetixExchanger": [
+        81758
+      ]
+    },
+    "nodeType": "SourceUnit",
+    "src": "255:466:426",
+    "nodes": [
+      {
+        "id": 81741,
+        "nodeType": "PragmaDirective",
+        "src": "255:23:426",
+        "nodes": [],
+        "literals": [
+          "solidity",
+          "0.6",
+          ".12"
+        ]
+      },
+      {
+        "id": 81758,
+        "nodeType": "ContractDefinition",
+        "src": "378:342:426",
+        "nodes": [
+          {
+            "id": 81757,
+            "nodeType": "FunctionDefinition",
+            "src": "418:300:426",
+            "nodes": [],
+            "documentation": null,
+            "functionSelector": "f450aa34",
+            "implemented": false,
+            "kind": "function",
+            "modifiers": [],
+            "name": "getAmountsForExchange",
+            "overrides": null,
+            "parameters": {
+              "id": 81749,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 81744,
+                  "mutability": "mutable",
+                  "name": "_sourceAmount",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 81757,
+                  "src": "458:21:426",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_uint256",
+                    "typeString": "uint256"
+                  },
+                  "typeName": {
+                    "id": 81743,
+                    "name": "uint256",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "458:7:426",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_uint256",
+                      "typeString": "uint256"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 81746,
+                  "mutability": "mutable",
+                  "name": "_sourceCurrencyKey",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 81757,
+                  "src": "489:26:426",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_bytes32",
+                    "typeString": "bytes32"
+                  },
+                  "typeName": {
+                    "id": 81745,
+                    "name": "bytes32",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "489:7:426",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_bytes32",
+                      "typeString": "bytes32"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 81748,
+                  "mutability": "mutable",
+                  "name": "_destinationCurrencyKey",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 81757,
+                  "src": "525:31:426",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_bytes32",
+                    "typeString": "bytes32"
+                  },
+                  "typeName": {
+                    "id": 81747,
+                    "name": "bytes32",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "525:7:426",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_bytes32",
+                      "typeString": "bytes32"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "448:114:426"
+            },
+            "returnParameters": {
+              "id": 81756,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 81751,
+                  "mutability": "mutable",
+                  "name": "amountReceived_",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 81757,
+                  "src": "623:23:426",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_uint256",
+                    "typeString": "uint256"
+                  },
+                  "typeName": {
+                    "id": 81750,
+                    "name": "uint256",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "623:7:426",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_uint256",
+                      "typeString": "uint256"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 81753,
+                  "mutability": "mutable",
+                  "name": "fee_",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 81757,
+                  "src": "660:12:426",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_uint256",
+                    "typeString": "uint256"
+                  },
+                  "typeName": {
+                    "id": 81752,
+                    "name": "uint256",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "660:7:426",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_uint256",
+                      "typeString": "uint256"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 81755,
+                  "mutability": "mutable",
+                  "name": "exchangeRate_",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 81757,
+                  "src": "686:21:426",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_uint256",
+                    "typeString": "uint256"
+                  },
+                  "typeName": {
+                    "id": 81754,
+                    "name": "uint256",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "686:7:426",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_uint256",
+                      "typeString": "uint256"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "609:108:426"
+            },
+            "scope": 81758,
+            "stateMutability": "view",
+            "virtual": false,
+            "visibility": "external"
+          }
+        ],
+        "abstract": false,
+        "baseContracts": [],
+        "contractDependencies": [],
+        "contractKind": "interface",
+        "documentation": {
+          "id": 81742,
+          "nodeType": "StructuredDocumentation",
+          "src": "280:98:426",
+          "text": "@title ITestSynthetixExchanger Interface\n @author Enzyme Council <security@enzyme.finance>"
+        },
+        "fullyImplemented": false,
+        "linearizedBaseContracts": [
+          81758
+        ],
+        "name": "ITestSynthetixExchanger",
+        "scope": 81759
+      }
+    ],
+    "license": "GPL-3.0"
+  },
+  "id": 426
+}

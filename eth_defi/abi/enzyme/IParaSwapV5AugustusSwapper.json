@@ -1,7 +1,4 @@
 {
-  "_format": "hh-sol-artifact-1",
-  "contractName": "IParaSwapV5AugustusSwapper",
-  "sourceName": "contracts/release/interfaces/IParaSwapV5AugustusSwapper.sol",
   "abi": [
     {
       "inputs": [
@@ -146,8 +143,1105 @@
       "type": "function"
     }
   ],
-  "bytecode": "0x",
-  "deployedBytecode": "0x",
-  "linkReferences": {},
-  "deployedLinkReferences": {}
+  "bytecode": {
+    "object": "0x",
+    "sourceMap": "",
+    "linkReferences": {}
+  },
+  "deployedBytecode": {
+    "object": "0x",
+    "sourceMap": "",
+    "linkReferences": {}
+  },
+  "methodIdentifiers": {
+    "multiSwap((address,uint256,uint256,uint256,address,(address,uint256,(address,uint256,uint256,(uint256,address,uint256,bytes,uint256)[])[])[],address,uint256,bytes,uint256,bytes16))": "a94e78ef"
+  },
+  "rawMetadata": "{\"compiler\":{\"version\":\"0.6.12+commit.27d51765\"},\"language\":\"Solidity\",\"output\":{\"abi\":[{\"inputs\":[{\"components\":[{\"internalType\":\"address\",\"name\":\"fromToken\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"fromAmount\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"toAmount\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"expectedAmount\",\"type\":\"uint256\"},{\"internalType\":\"address payable\",\"name\":\"beneficiary\",\"type\":\"address\"},{\"components\":[{\"internalType\":\"address\",\"name\":\"to\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"totalNetworkFee\",\"type\":\"uint256\"},{\"components\":[{\"internalType\":\"address payable\",\"name\":\"adapter\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"percent\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"networkFee\",\"type\":\"uint256\"},{\"components\":[{\"internalType\":\"uint256\",\"name\":\"index\",\"type\":\"uint256\"},{\"internalType\":\"address\",\"name\":\"targetExchange\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"percent\",\"type\":\"uint256\"},{\"internalType\":\"bytes\",\"name\":\"payload\",\"type\":\"bytes\"},{\"internalType\":\"uint256\",\"name\":\"networkFee\",\"type\":\"uint256\"}],\"internalType\":\"struct IParaSwapV5AugustusSwapper.Route[]\",\"name\":\"route\",\"type\":\"tuple[]\"}],\"internalType\":\"struct IParaSwapV5AugustusSwapper.Adapter[]\",\"name\":\"adapters\",\"type\":\"tuple[]\"}],\"internalType\":\"struct IParaSwapV5AugustusSwapper.Path[]\",\"name\":\"path\",\"type\":\"tuple[]\"},{\"internalType\":\"address payable\",\"name\":\"partner\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"feePercent\",\"type\":\"uint256\"},{\"internalType\":\"bytes\",\"name\":\"permit\",\"type\":\"bytes\"},{\"internalType\":\"uint256\",\"name\":\"deadline\",\"type\":\"uint256\"},{\"internalType\":\"bytes16\",\"name\":\"uuid\",\"type\":\"bytes16\"}],\"internalType\":\"struct IParaSwapV5AugustusSwapper.SellData\",\"name\":\"\",\"type\":\"tuple\"}],\"name\":\"multiSwap\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"payable\",\"type\":\"function\"}],\"devdoc\":{\"kind\":\"dev\",\"methods\":{},\"title\":\"ParaSwap V5 IAugustusSwapper interface\",\"version\":1},\"userdoc\":{\"kind\":\"user\",\"methods\":{},\"version\":1}},\"settings\":{\"compilationTarget\":{\"contracts/release/interfaces/IParaSwapV5AugustusSwapper.sol\":\"IParaSwapV5AugustusSwapper\"},\"evmVersion\":\"istanbul\",\"libraries\":{},\"metadata\":{\"bytecodeHash\":\"none\"},\"optimizer\":{\"details\":{\"constantOptimizer\":true,\"cse\":true,\"deduplicate\":true,\"jumpdestRemover\":true,\"orderLiterals\":true,\"peephole\":true,\"yul\":false},\"runs\":200},\"remappings\":[\":@enzyme/=contracts/\",\":@openzeppelin-solc-0.7/=node_modules/@openzeppelin-solc-0.7/\",\":@openzeppelin/=node_modules/@openzeppelin/\",\":@uniswap/=node_modules/@uniswap/\",\":base64-sol/=node_modules/base64-sol/\",\":ds-test/=lib/forge-std/lib/ds-test/src/\",\":forge-std/=lib/forge-std/src/\",\":hardhat-deploy/=node_modules/hardhat-deploy/\",\":hardhat/=node_modules/hardhat/\"]},\"sources\":{\"contracts/release/interfaces/IParaSwapV5AugustusSwapper.sol\":{\"keccak256\":\"0x41bbae45f0d7ba6a90c74bc6421c7339f3f7549171f4d8073d4b35f9691a5fa5\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://a5aabccb9caf45e96a0ce884edb24dccc22460ffdeff773b8dfaec62c07fadf8\",\"dweb:/ipfs/QmV78Mdhkeks76rie9nAMjsAUey2riYsQte36VXvDPcNif\"]}},\"version\":1}",
+  "metadata": {
+    "compiler": {
+      "version": "0.6.12+commit.27d51765"
+    },
+    "language": "Solidity",
+    "output": {
+      "abi": [
+        {
+          "inputs": [
+            {
+              "internalType": "struct IParaSwapV5AugustusSwapper.SellData",
+              "name": "",
+              "type": "tuple",
+              "components": [
+                {
+                  "internalType": "address",
+                  "name": "fromToken",
+                  "type": "address"
+                },
+                {
+                  "internalType": "uint256",
+                  "name": "fromAmount",
+                  "type": "uint256"
+                },
+                {
+                  "internalType": "uint256",
+                  "name": "toAmount",
+                  "type": "uint256"
+                },
+                {
+                  "internalType": "uint256",
+                  "name": "expectedAmount",
+                  "type": "uint256"
+                },
+                {
+                  "internalType": "address payable",
+                  "name": "beneficiary",
+                  "type": "address"
+                },
+                {
+                  "internalType": "struct IParaSwapV5AugustusSwapper.Path[]",
+                  "name": "path",
+                  "type": "tuple[]",
+                  "components": [
+                    {
+                      "internalType": "address",
+                      "name": "to",
+                      "type": "address"
+                    },
+                    {
+                      "internalType": "uint256",
+                      "name": "totalNetworkFee",
+                      "type": "uint256"
+                    },
+                    {
+                      "internalType": "struct IParaSwapV5AugustusSwapper.Adapter[]",
+                      "name": "adapters",
+                      "type": "tuple[]",
+                      "components": [
+                        {
+                          "internalType": "address payable",
+                          "name": "adapter",
+                          "type": "address"
+                        },
+                        {
+                          "internalType": "uint256",
+                          "name": "percent",
+                          "type": "uint256"
+                        },
+                        {
+                          "internalType": "uint256",
+                          "name": "networkFee",
+                          "type": "uint256"
+                        },
+                        {
+                          "internalType": "struct IParaSwapV5AugustusSwapper.Route[]",
+                          "name": "route",
+                          "type": "tuple[]",
+                          "components": [
+                            {
+                              "internalType": "uint256",
+                              "name": "index",
+                              "type": "uint256"
+                            },
+                            {
+                              "internalType": "address",
+                              "name": "targetExchange",
+                              "type": "address"
+                            },
+                            {
+                              "internalType": "uint256",
+                              "name": "percent",
+                              "type": "uint256"
+                            },
+                            {
+                              "internalType": "bytes",
+                              "name": "payload",
+                              "type": "bytes"
+                            },
+                            {
+                              "internalType": "uint256",
+                              "name": "networkFee",
+                              "type": "uint256"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "internalType": "address payable",
+                  "name": "partner",
+                  "type": "address"
+                },
+                {
+                  "internalType": "uint256",
+                  "name": "feePercent",
+                  "type": "uint256"
+                },
+                {
+                  "internalType": "bytes",
+                  "name": "permit",
+                  "type": "bytes"
+                },
+                {
+                  "internalType": "uint256",
+                  "name": "deadline",
+                  "type": "uint256"
+                },
+                {
+                  "internalType": "bytes16",
+                  "name": "uuid",
+                  "type": "bytes16"
+                }
+              ]
+            }
+          ],
+          "stateMutability": "payable",
+          "type": "function",
+          "name": "multiSwap",
+          "outputs": [
+            {
+              "internalType": "uint256",
+              "name": "",
+              "type": "uint256"
+            }
+          ]
+        }
+      ],
+      "devdoc": {
+        "kind": "dev",
+        "methods": {},
+        "version": 1
+      },
+      "userdoc": {
+        "kind": "user",
+        "methods": {},
+        "version": 1
+      }
+    },
+    "settings": {
+      "remappings": [
+        ":@enzyme/=contracts/",
+        ":@openzeppelin-solc-0.7/=node_modules/@openzeppelin-solc-0.7/",
+        ":@openzeppelin/=node_modules/@openzeppelin/",
+        ":@uniswap/=node_modules/@uniswap/",
+        ":base64-sol/=node_modules/base64-sol/",
+        ":ds-test/=lib/forge-std/lib/ds-test/src/",
+        ":forge-std/=lib/forge-std/src/",
+        ":hardhat-deploy/=node_modules/hardhat-deploy/",
+        ":hardhat/=node_modules/hardhat/"
+      ],
+      "optimizer": {
+        "runs": 200,
+        "details": {
+          "peephole": true,
+          "jumpdestRemover": true,
+          "orderLiterals": true,
+          "deduplicate": true,
+          "cse": true,
+          "constantOptimizer": true,
+          "yul": false
+        }
+      },
+      "metadata": {
+        "bytecodeHash": "none"
+      },
+      "compilationTarget": {
+        "contracts/release/interfaces/IParaSwapV5AugustusSwapper.sol": "IParaSwapV5AugustusSwapper"
+      },
+      "libraries": {}
+    },
+    "sources": {
+      "contracts/release/interfaces/IParaSwapV5AugustusSwapper.sol": {
+        "keccak256": "0x41bbae45f0d7ba6a90c74bc6421c7339f3f7549171f4d8073d4b35f9691a5fa5",
+        "urls": [
+          "bzz-raw://a5aabccb9caf45e96a0ce884edb24dccc22460ffdeff773b8dfaec62c07fadf8",
+          "dweb:/ipfs/QmV78Mdhkeks76rie9nAMjsAUey2riYsQte36VXvDPcNif"
+        ],
+        "license": "GPL-3.0"
+      }
+    },
+    "version": 1
+  },
+  "ast": {
+    "absolutePath": "contracts/release/interfaces/IParaSwapV5AugustusSwapper.sol",
+    "id": 72589,
+    "exportedSymbols": {
+      "IParaSwapV5AugustusSwapper": [
+        72588
+      ]
+    },
+    "nodeType": "SourceUnit",
+    "src": "255:959:322",
+    "nodes": [
+      {
+        "id": 72525,
+        "nodeType": "PragmaDirective",
+        "src": "255:23:322",
+        "nodes": [],
+        "literals": [
+          "solidity",
+          "0.6",
+          ".12"
+        ]
+      },
+      {
+        "id": 72526,
+        "nodeType": "PragmaDirective",
+        "src": "279:33:322",
+        "nodes": [],
+        "literals": [
+          "experimental",
+          "ABIEncoderV2"
+        ]
+      },
+      {
+        "id": 72588,
+        "nodeType": "ContractDefinition",
+        "src": "364:849:322",
+        "nodes": [
+          {
+            "id": 72537,
+            "nodeType": "StructDefinition",
+            "src": "407:131:322",
+            "nodes": [],
+            "canonicalName": "IParaSwapV5AugustusSwapper.Adapter",
+            "members": [
+              {
+                "constant": false,
+                "id": 72529,
+                "mutability": "mutable",
+                "name": "adapter",
+                "nodeType": "VariableDeclaration",
+                "overrides": null,
+                "scope": 72537,
+                "src": "432:23:322",
+                "stateVariable": false,
+                "storageLocation": "default",
+                "typeDescriptions": {
+                  "typeIdentifier": "t_address_payable",
+                  "typeString": "address payable"
+                },
+                "typeName": {
+                  "id": 72528,
+                  "name": "address",
+                  "nodeType": "ElementaryTypeName",
+                  "src": "432:15:322",
+                  "stateMutability": "payable",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address_payable",
+                    "typeString": "address payable"
+                  }
+                },
+                "value": null,
+                "visibility": "internal"
+              },
+              {
+                "constant": false,
+                "id": 72531,
+                "mutability": "mutable",
+                "name": "percent",
+                "nodeType": "VariableDeclaration",
+                "overrides": null,
+                "scope": 72537,
+                "src": "465:15:322",
+                "stateVariable": false,
+                "storageLocation": "default",
+                "typeDescriptions": {
+                  "typeIdentifier": "t_uint256",
+                  "typeString": "uint256"
+                },
+                "typeName": {
+                  "id": 72530,
+                  "name": "uint256",
+                  "nodeType": "ElementaryTypeName",
+                  "src": "465:7:322",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_uint256",
+                    "typeString": "uint256"
+                  }
+                },
+                "value": null,
+                "visibility": "internal"
+              },
+              {
+                "constant": false,
+                "id": 72533,
+                "mutability": "mutable",
+                "name": "networkFee",
+                "nodeType": "VariableDeclaration",
+                "overrides": null,
+                "scope": 72537,
+                "src": "490:18:322",
+                "stateVariable": false,
+                "storageLocation": "default",
+                "typeDescriptions": {
+                  "typeIdentifier": "t_uint256",
+                  "typeString": "uint256"
+                },
+                "typeName": {
+                  "id": 72532,
+                  "name": "uint256",
+                  "nodeType": "ElementaryTypeName",
+                  "src": "490:7:322",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_uint256",
+                    "typeString": "uint256"
+                  }
+                },
+                "value": null,
+                "visibility": "internal"
+              },
+              {
+                "constant": false,
+                "id": 72536,
+                "mutability": "mutable",
+                "name": "route",
+                "nodeType": "VariableDeclaration",
+                "overrides": null,
+                "scope": 72537,
+                "src": "518:13:322",
+                "stateVariable": false,
+                "storageLocation": "default",
+                "typeDescriptions": {
+                  "typeIdentifier": "t_array$_t_struct$_Route_$72548_storage_$dyn_storage_ptr",
+                  "typeString": "struct IParaSwapV5AugustusSwapper.Route[]"
+                },
+                "typeName": {
+                  "baseType": {
+                    "contractScope": null,
+                    "id": 72534,
+                    "name": "Route",
+                    "nodeType": "UserDefinedTypeName",
+                    "referencedDeclaration": 72548,
+                    "src": "518:5:322",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_struct$_Route_$72548_storage_ptr",
+                      "typeString": "struct IParaSwapV5AugustusSwapper.Route"
+                    }
+                  },
+                  "id": 72535,
+                  "length": null,
+                  "nodeType": "ArrayTypeName",
+                  "src": "518:7:322",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_array$_t_struct$_Route_$72548_storage_$dyn_storage_ptr",
+                    "typeString": "struct IParaSwapV5AugustusSwapper.Route[]"
+                  }
+                },
+                "value": null,
+                "visibility": "internal"
+              }
+            ],
+            "name": "Adapter",
+            "scope": 72588,
+            "visibility": "public"
+          },
+          {
+            "id": 72548,
+            "nodeType": "StructDefinition",
+            "src": "544:151:322",
+            "nodes": [],
+            "canonicalName": "IParaSwapV5AugustusSwapper.Route",
+            "members": [
+              {
+                "constant": false,
+                "id": 72539,
+                "mutability": "mutable",
+                "name": "index",
+                "nodeType": "VariableDeclaration",
+                "overrides": null,
+                "scope": 72548,
+                "src": "567:13:322",
+                "stateVariable": false,
+                "storageLocation": "default",
+                "typeDescriptions": {
+                  "typeIdentifier": "t_uint256",
+                  "typeString": "uint256"
+                },
+                "typeName": {
+                  "id": 72538,
+                  "name": "uint256",
+                  "nodeType": "ElementaryTypeName",
+                  "src": "567:7:322",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_uint256",
+                    "typeString": "uint256"
+                  }
+                },
+                "value": null,
+                "visibility": "internal"
+              },
+              {
+                "constant": false,
+                "id": 72541,
+                "mutability": "mutable",
+                "name": "targetExchange",
+                "nodeType": "VariableDeclaration",
+                "overrides": null,
+                "scope": 72548,
+                "src": "590:22:322",
+                "stateVariable": false,
+                "storageLocation": "default",
+                "typeDescriptions": {
+                  "typeIdentifier": "t_address",
+                  "typeString": "address"
+                },
+                "typeName": {
+                  "id": 72540,
+                  "name": "address",
+                  "nodeType": "ElementaryTypeName",
+                  "src": "590:7:322",
+                  "stateMutability": "nonpayable",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  }
+                },
+                "value": null,
+                "visibility": "internal"
+              },
+              {
+                "constant": false,
+                "id": 72543,
+                "mutability": "mutable",
+                "name": "percent",
+                "nodeType": "VariableDeclaration",
+                "overrides": null,
+                "scope": 72548,
+                "src": "622:15:322",
+                "stateVariable": false,
+                "storageLocation": "default",
+                "typeDescriptions": {
+                  "typeIdentifier": "t_uint256",
+                  "typeString": "uint256"
+                },
+                "typeName": {
+                  "id": 72542,
+                  "name": "uint256",
+                  "nodeType": "ElementaryTypeName",
+                  "src": "622:7:322",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_uint256",
+                    "typeString": "uint256"
+                  }
+                },
+                "value": null,
+                "visibility": "internal"
+              },
+              {
+                "constant": false,
+                "id": 72545,
+                "mutability": "mutable",
+                "name": "payload",
+                "nodeType": "VariableDeclaration",
+                "overrides": null,
+                "scope": 72548,
+                "src": "647:13:322",
+                "stateVariable": false,
+                "storageLocation": "default",
+                "typeDescriptions": {
+                  "typeIdentifier": "t_bytes_storage_ptr",
+                  "typeString": "bytes"
+                },
+                "typeName": {
+                  "id": 72544,
+                  "name": "bytes",
+                  "nodeType": "ElementaryTypeName",
+                  "src": "647:5:322",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_bytes_storage_ptr",
+                    "typeString": "bytes"
+                  }
+                },
+                "value": null,
+                "visibility": "internal"
+              },
+              {
+                "constant": false,
+                "id": 72547,
+                "mutability": "mutable",
+                "name": "networkFee",
+                "nodeType": "VariableDeclaration",
+                "overrides": null,
+                "scope": 72548,
+                "src": "670:18:322",
+                "stateVariable": false,
+                "storageLocation": "default",
+                "typeDescriptions": {
+                  "typeIdentifier": "t_uint256",
+                  "typeString": "uint256"
+                },
+                "typeName": {
+                  "id": 72546,
+                  "name": "uint256",
+                  "nodeType": "ElementaryTypeName",
+                  "src": "670:7:322",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_uint256",
+                    "typeString": "uint256"
+                  }
+                },
+                "value": null,
+                "visibility": "internal"
+              }
+            ],
+            "name": "Route",
+            "scope": 72588,
+            "visibility": "public"
+          },
+          {
+            "id": 72556,
+            "nodeType": "StructDefinition",
+            "src": "701:100:322",
+            "nodes": [],
+            "canonicalName": "IParaSwapV5AugustusSwapper.Path",
+            "members": [
+              {
+                "constant": false,
+                "id": 72550,
+                "mutability": "mutable",
+                "name": "to",
+                "nodeType": "VariableDeclaration",
+                "overrides": null,
+                "scope": 72556,
+                "src": "723:10:322",
+                "stateVariable": false,
+                "storageLocation": "default",
+                "typeDescriptions": {
+                  "typeIdentifier": "t_address",
+                  "typeString": "address"
+                },
+                "typeName": {
+                  "id": 72549,
+                  "name": "address",
+                  "nodeType": "ElementaryTypeName",
+                  "src": "723:7:322",
+                  "stateMutability": "nonpayable",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  }
+                },
+                "value": null,
+                "visibility": "internal"
+              },
+              {
+                "constant": false,
+                "id": 72552,
+                "mutability": "mutable",
+                "name": "totalNetworkFee",
+                "nodeType": "VariableDeclaration",
+                "overrides": null,
+                "scope": 72556,
+                "src": "743:23:322",
+                "stateVariable": false,
+                "storageLocation": "default",
+                "typeDescriptions": {
+                  "typeIdentifier": "t_uint256",
+                  "typeString": "uint256"
+                },
+                "typeName": {
+                  "id": 72551,
+                  "name": "uint256",
+                  "nodeType": "ElementaryTypeName",
+                  "src": "743:7:322",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_uint256",
+                    "typeString": "uint256"
+                  }
+                },
+                "value": null,
+                "visibility": "internal"
+              },
+              {
+                "constant": false,
+                "id": 72555,
+                "mutability": "mutable",
+                "name": "adapters",
+                "nodeType": "VariableDeclaration",
+                "overrides": null,
+                "scope": 72556,
+                "src": "776:18:322",
+                "stateVariable": false,
+                "storageLocation": "default",
+                "typeDescriptions": {
+                  "typeIdentifier": "t_array$_t_struct$_Adapter_$72537_storage_$dyn_storage_ptr",
+                  "typeString": "struct IParaSwapV5AugustusSwapper.Adapter[]"
+                },
+                "typeName": {
+                  "baseType": {
+                    "contractScope": null,
+                    "id": 72553,
+                    "name": "Adapter",
+                    "nodeType": "UserDefinedTypeName",
+                    "referencedDeclaration": 72537,
+                    "src": "776:7:322",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_struct$_Adapter_$72537_storage_ptr",
+                      "typeString": "struct IParaSwapV5AugustusSwapper.Adapter"
+                    }
+                  },
+                  "id": 72554,
+                  "length": null,
+                  "nodeType": "ArrayTypeName",
+                  "src": "776:9:322",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_array$_t_struct$_Adapter_$72537_storage_$dyn_storage_ptr",
+                    "typeString": "struct IParaSwapV5AugustusSwapper.Adapter[]"
+                  }
+                },
+                "value": null,
+                "visibility": "internal"
+              }
+            ],
+            "name": "Path",
+            "scope": 72588,
+            "visibility": "public"
+          },
+          {
+            "id": 72580,
+            "nodeType": "StructDefinition",
+            "src": "807:325:322",
+            "nodes": [],
+            "canonicalName": "IParaSwapV5AugustusSwapper.SellData",
+            "members": [
+              {
+                "constant": false,
+                "id": 72558,
+                "mutability": "mutable",
+                "name": "fromToken",
+                "nodeType": "VariableDeclaration",
+                "overrides": null,
+                "scope": 72580,
+                "src": "833:17:322",
+                "stateVariable": false,
+                "storageLocation": "default",
+                "typeDescriptions": {
+                  "typeIdentifier": "t_address",
+                  "typeString": "address"
+                },
+                "typeName": {
+                  "id": 72557,
+                  "name": "address",
+                  "nodeType": "ElementaryTypeName",
+                  "src": "833:7:322",
+                  "stateMutability": "nonpayable",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  }
+                },
+                "value": null,
+                "visibility": "internal"
+              },
+              {
+                "constant": false,
+                "id": 72560,
+                "mutability": "mutable",
+                "name": "fromAmount",
+                "nodeType": "VariableDeclaration",
+                "overrides": null,
+                "scope": 72580,
+                "src": "860:18:322",
+                "stateVariable": false,
+                "storageLocation": "default",
+                "typeDescriptions": {
+                  "typeIdentifier": "t_uint256",
+                  "typeString": "uint256"
+                },
+                "typeName": {
+                  "id": 72559,
+                  "name": "uint256",
+                  "nodeType": "ElementaryTypeName",
+                  "src": "860:7:322",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_uint256",
+                    "typeString": "uint256"
+                  }
+                },
+                "value": null,
+                "visibility": "internal"
+              },
+              {
+                "constant": false,
+                "id": 72562,
+                "mutability": "mutable",
+                "name": "toAmount",
+                "nodeType": "VariableDeclaration",
+                "overrides": null,
+                "scope": 72580,
+                "src": "888:16:322",
+                "stateVariable": false,
+                "storageLocation": "default",
+                "typeDescriptions": {
+                  "typeIdentifier": "t_uint256",
+                  "typeString": "uint256"
+                },
+                "typeName": {
+                  "id": 72561,
+                  "name": "uint256",
+                  "nodeType": "ElementaryTypeName",
+                  "src": "888:7:322",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_uint256",
+                    "typeString": "uint256"
+                  }
+                },
+                "value": null,
+                "visibility": "internal"
+              },
+              {
+                "constant": false,
+                "id": 72564,
+                "mutability": "mutable",
+                "name": "expectedAmount",
+                "nodeType": "VariableDeclaration",
+                "overrides": null,
+                "scope": 72580,
+                "src": "914:22:322",
+                "stateVariable": false,
+                "storageLocation": "default",
+                "typeDescriptions": {
+                  "typeIdentifier": "t_uint256",
+                  "typeString": "uint256"
+                },
+                "typeName": {
+                  "id": 72563,
+                  "name": "uint256",
+                  "nodeType": "ElementaryTypeName",
+                  "src": "914:7:322",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_uint256",
+                    "typeString": "uint256"
+                  }
+                },
+                "value": null,
+                "visibility": "internal"
+              },
+              {
+                "constant": false,
+                "id": 72566,
+                "mutability": "mutable",
+                "name": "beneficiary",
+                "nodeType": "VariableDeclaration",
+                "overrides": null,
+                "scope": 72580,
+                "src": "946:27:322",
+                "stateVariable": false,
+                "storageLocation": "default",
+                "typeDescriptions": {
+                  "typeIdentifier": "t_address_payable",
+                  "typeString": "address payable"
+                },
+                "typeName": {
+                  "id": 72565,
+                  "name": "address",
+                  "nodeType": "ElementaryTypeName",
+                  "src": "946:15:322",
+                  "stateMutability": "payable",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address_payable",
+                    "typeString": "address payable"
+                  }
+                },
+                "value": null,
+                "visibility": "internal"
+              },
+              {
+                "constant": false,
+                "id": 72569,
+                "mutability": "mutable",
+                "name": "path",
+                "nodeType": "VariableDeclaration",
+                "overrides": null,
+                "scope": 72580,
+                "src": "983:11:322",
+                "stateVariable": false,
+                "storageLocation": "default",
+                "typeDescriptions": {
+                  "typeIdentifier": "t_array$_t_struct$_Path_$72556_storage_$dyn_storage_ptr",
+                  "typeString": "struct IParaSwapV5AugustusSwapper.Path[]"
+                },
+                "typeName": {
+                  "baseType": {
+                    "contractScope": null,
+                    "id": 72567,
+                    "name": "Path",
+                    "nodeType": "UserDefinedTypeName",
+                    "referencedDeclaration": 72556,
+                    "src": "983:4:322",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_struct$_Path_$72556_storage_ptr",
+                      "typeString": "struct IParaSwapV5AugustusSwapper.Path"
+                    }
+                  },
+                  "id": 72568,
+                  "length": null,
+                  "nodeType": "ArrayTypeName",
+                  "src": "983:6:322",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_array$_t_struct$_Path_$72556_storage_$dyn_storage_ptr",
+                    "typeString": "struct IParaSwapV5AugustusSwapper.Path[]"
+                  }
+                },
+                "value": null,
+                "visibility": "internal"
+              },
+              {
+                "constant": false,
+                "id": 72571,
+                "mutability": "mutable",
+                "name": "partner",
+                "nodeType": "VariableDeclaration",
+                "overrides": null,
+                "scope": 72580,
+                "src": "1004:23:322",
+                "stateVariable": false,
+                "storageLocation": "default",
+                "typeDescriptions": {
+                  "typeIdentifier": "t_address_payable",
+                  "typeString": "address payable"
+                },
+                "typeName": {
+                  "id": 72570,
+                  "name": "address",
+                  "nodeType": "ElementaryTypeName",
+                  "src": "1004:15:322",
+                  "stateMutability": "payable",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address_payable",
+                    "typeString": "address payable"
+                  }
+                },
+                "value": null,
+                "visibility": "internal"
+              },
+              {
+                "constant": false,
+                "id": 72573,
+                "mutability": "mutable",
+                "name": "feePercent",
+                "nodeType": "VariableDeclaration",
+                "overrides": null,
+                "scope": 72580,
+                "src": "1037:18:322",
+                "stateVariable": false,
+                "storageLocation": "default",
+                "typeDescriptions": {
+                  "typeIdentifier": "t_uint256",
+                  "typeString": "uint256"
+                },
+                "typeName": {
+                  "id": 72572,
+                  "name": "uint256",
+                  "nodeType": "ElementaryTypeName",
+                  "src": "1037:7:322",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_uint256",
+                    "typeString": "uint256"
+                  }
+                },
+                "value": null,
+                "visibility": "internal"
+              },
+              {
+                "constant": false,
+                "id": 72575,
+                "mutability": "mutable",
+                "name": "permit",
+                "nodeType": "VariableDeclaration",
+                "overrides": null,
+                "scope": 72580,
+                "src": "1065:12:322",
+                "stateVariable": false,
+                "storageLocation": "default",
+                "typeDescriptions": {
+                  "typeIdentifier": "t_bytes_storage_ptr",
+                  "typeString": "bytes"
+                },
+                "typeName": {
+                  "id": 72574,
+                  "name": "bytes",
+                  "nodeType": "ElementaryTypeName",
+                  "src": "1065:5:322",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_bytes_storage_ptr",
+                    "typeString": "bytes"
+                  }
+                },
+                "value": null,
+                "visibility": "internal"
+              },
+              {
+                "constant": false,
+                "id": 72577,
+                "mutability": "mutable",
+                "name": "deadline",
+                "nodeType": "VariableDeclaration",
+                "overrides": null,
+                "scope": 72580,
+                "src": "1087:16:322",
+                "stateVariable": false,
+                "storageLocation": "default",
+                "typeDescriptions": {
+                  "typeIdentifier": "t_uint256",
+                  "typeString": "uint256"
+                },
+                "typeName": {
+                  "id": 72576,
+                  "name": "uint256",
+                  "nodeType": "ElementaryTypeName",
+                  "src": "1087:7:322",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_uint256",
+                    "typeString": "uint256"
+                  }
+                },
+                "value": null,
+                "visibility": "internal"
+              },
+              {
+                "constant": false,
+                "id": 72579,
+                "mutability": "mutable",
+                "name": "uuid",
+                "nodeType": "VariableDeclaration",
+                "overrides": null,
+                "scope": 72580,
+                "src": "1113:12:322",
+                "stateVariable": false,
+                "storageLocation": "default",
+                "typeDescriptions": {
+                  "typeIdentifier": "t_bytes16",
+                  "typeString": "bytes16"
+                },
+                "typeName": {
+                  "id": 72578,
+                  "name": "bytes16",
+                  "nodeType": "ElementaryTypeName",
+                  "src": "1113:7:322",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_bytes16",
+                    "typeString": "bytes16"
+                  }
+                },
+                "value": null,
+                "visibility": "internal"
+              }
+            ],
+            "name": "SellData",
+            "scope": 72588,
+            "visibility": "public"
+          },
+          {
+            "id": 72587,
+            "nodeType": "FunctionDefinition",
+            "src": "1138:73:322",
+            "nodes": [],
+            "documentation": null,
+            "functionSelector": "a94e78ef",
+            "implemented": false,
+            "kind": "function",
+            "modifiers": [],
+            "name": "multiSwap",
+            "overrides": null,
+            "parameters": {
+              "id": 72583,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 72582,
+                  "mutability": "mutable",
+                  "name": "",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 72587,
+                  "src": "1157:17:322",
+                  "stateVariable": false,
+                  "storageLocation": "calldata",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_struct$_SellData_$72580_calldata_ptr",
+                    "typeString": "struct IParaSwapV5AugustusSwapper.SellData"
+                  },
+                  "typeName": {
+                    "contractScope": null,
+                    "id": 72581,
+                    "name": "SellData",
+                    "nodeType": "UserDefinedTypeName",
+                    "referencedDeclaration": 72580,
+                    "src": "1157:8:322",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_struct$_SellData_$72580_storage_ptr",
+                      "typeString": "struct IParaSwapV5AugustusSwapper.SellData"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "1156:19:322"
+            },
+            "returnParameters": {
+              "id": 72586,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 72585,
+                  "mutability": "mutable",
+                  "name": "",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 72587,
+                  "src": "1202:7:322",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_uint256",
+                    "typeString": "uint256"
+                  },
+                  "typeName": {
+                    "id": 72584,
+                    "name": "uint256",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "1202:7:322",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_uint256",
+                      "typeString": "uint256"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "1201:9:322"
+            },
+            "scope": 72588,
+            "stateMutability": "payable",
+            "virtual": false,
+            "visibility": "external"
+          }
+        ],
+        "abstract": false,
+        "baseContracts": [],
+        "contractDependencies": [],
+        "contractKind": "interface",
+        "documentation": {
+          "id": 72527,
+          "nodeType": "StructuredDocumentation",
+          "src": "314:50:322",
+          "text": "@title ParaSwap V5 IAugustusSwapper interface"
+        },
+        "fullyImplemented": false,
+        "linearizedBaseContracts": [
+          72588
+        ],
+        "name": "IParaSwapV5AugustusSwapper",
+        "scope": 72589
+      }
+    ],
+    "license": "GPL-3.0"
+  },
+  "id": 322
 }

@@ -1,0 +1,270 @@
+{
+  "abi": [
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": false,
+          "internalType": "address",
+          "name": "stakingContractAddress",
+          "type": "address"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint256",
+          "name": "validatorAmount",
+          "type": "uint256"
+        }
+      ],
+      "name": "ValidatorsAdded",
+      "type": "event"
+    }
+  ],
+  "bytecode": {
+    "object": "0x",
+    "sourceMap": "",
+    "linkReferences": {}
+  },
+  "deployedBytecode": {
+    "object": "0x",
+    "sourceMap": "",
+    "linkReferences": {}
+  },
+  "methodIdentifiers": {},
+  "rawMetadata": "{\"compiler\":{\"version\":\"0.6.12+commit.27d51765\"},\"language\":\"Solidity\",\"output\":{\"abi\":[{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"address\",\"name\":\"stakingContractAddress\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"validatorAmount\",\"type\":\"uint256\"}],\"name\":\"ValidatorsAdded\",\"type\":\"event\"}],\"devdoc\":{\"author\":\"Enzyme Council <security@enzyme.finance>\",\"details\":\"DO NOT EDIT CONTRACT. If new events or storage are necessary, they should be added to a numbered KilnStakingPositionLibBaseXXX that inherits the previous base. e.g., `KilnStakingPositionLibBase2 is KilnStakingPositionLibBase1`\",\"kind\":\"dev\",\"methods\":{},\"title\":\"KilnStakingPositionLibBase1 Contract\",\"version\":1},\"userdoc\":{\"kind\":\"user\",\"methods\":{},\"notice\":\"A persistent contract containing all required storage variables and required functions for a KilnStakingPositionLib implementation\",\"version\":1}},\"settings\":{\"compilationTarget\":{\"contracts/persistent/external-positions/kiln-staking/KilnStakingPositionLibBase1.sol\":\"KilnStakingPositionLibBase1\"},\"evmVersion\":\"istanbul\",\"libraries\":{},\"metadata\":{\"bytecodeHash\":\"none\"},\"optimizer\":{\"details\":{\"constantOptimizer\":true,\"cse\":true,\"deduplicate\":true,\"jumpdestRemover\":true,\"orderLiterals\":true,\"peephole\":true,\"yul\":false},\"runs\":200},\"remappings\":[\":@enzyme/=contracts/\",\":@openzeppelin-solc-0.7/=node_modules/@openzeppelin-solc-0.7/\",\":@openzeppelin/=node_modules/@openzeppelin/\",\":@uniswap/=node_modules/@uniswap/\",\":base64-sol/=node_modules/base64-sol/\",\":ds-test/=lib/forge-std/lib/ds-test/src/\",\":forge-std/=lib/forge-std/src/\",\":hardhat-deploy/=node_modules/hardhat-deploy/\",\":hardhat/=node_modules/hardhat/\"]},\"sources\":{\"contracts/persistent/external-positions/kiln-staking/KilnStakingPositionLibBase1.sol\":{\"keccak256\":\"0x27bb9ebec69727418977e7c56fb2ff95c2d911fe7b13c530825364d5b4a97cff\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://896ac8397161f4f04deec4b54fdef7e835b622602812720d646bab70c09abb7d\",\"dweb:/ipfs/QmazeandAhRnqbxwbRRSrGXvNFsq3B57NkFXW5tx96Bf9g\"]}},\"version\":1}",
+  "metadata": {
+    "compiler": {
+      "version": "0.6.12+commit.27d51765"
+    },
+    "language": "Solidity",
+    "output": {
+      "abi": [
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "stakingContractAddress",
+              "type": "address",
+              "indexed": false
+            },
+            {
+              "internalType": "uint256",
+              "name": "validatorAmount",
+              "type": "uint256",
+              "indexed": false
+            }
+          ],
+          "type": "event",
+          "name": "ValidatorsAdded",
+          "anonymous": false
+        }
+      ],
+      "devdoc": {
+        "kind": "dev",
+        "methods": {},
+        "version": 1
+      },
+      "userdoc": {
+        "kind": "user",
+        "methods": {},
+        "version": 1
+      }
+    },
+    "settings": {
+      "remappings": [
+        ":@enzyme/=contracts/",
+        ":@openzeppelin-solc-0.7/=node_modules/@openzeppelin-solc-0.7/",
+        ":@openzeppelin/=node_modules/@openzeppelin/",
+        ":@uniswap/=node_modules/@uniswap/",
+        ":base64-sol/=node_modules/base64-sol/",
+        ":ds-test/=lib/forge-std/lib/ds-test/src/",
+        ":forge-std/=lib/forge-std/src/",
+        ":hardhat-deploy/=node_modules/hardhat-deploy/",
+        ":hardhat/=node_modules/hardhat/"
+      ],
+      "optimizer": {
+        "runs": 200,
+        "details": {
+          "peephole": true,
+          "jumpdestRemover": true,
+          "orderLiterals": true,
+          "deduplicate": true,
+          "cse": true,
+          "constantOptimizer": true,
+          "yul": false
+        }
+      },
+      "metadata": {
+        "bytecodeHash": "none"
+      },
+      "compilationTarget": {
+        "contracts/persistent/external-positions/kiln-staking/KilnStakingPositionLibBase1.sol": "KilnStakingPositionLibBase1"
+      },
+      "libraries": {}
+    },
+    "sources": {
+      "contracts/persistent/external-positions/kiln-staking/KilnStakingPositionLibBase1.sol": {
+        "keccak256": "0x27bb9ebec69727418977e7c56fb2ff95c2d911fe7b13c530825364d5b4a97cff",
+        "urls": [
+          "bzz-raw://896ac8397161f4f04deec4b54fdef7e835b622602812720d646bab70c09abb7d",
+          "dweb:/ipfs/QmazeandAhRnqbxwbRRSrGXvNFsq3B57NkFXW5tx96Bf9g"
+        ],
+        "license": "GPL-3.0"
+      }
+    },
+    "version": 1
+  },
+  "ast": {
+    "absolutePath": "contracts/persistent/external-positions/kiln-staking/KilnStakingPositionLibBase1.sol",
+    "id": 5255,
+    "exportedSymbols": {
+      "KilnStakingPositionLibBase1": [
+        5254
+      ]
+    },
+    "nodeType": "SourceUnit",
+    "src": "255:689:30",
+    "nodes": [
+      {
+        "id": 5244,
+        "nodeType": "PragmaDirective",
+        "src": "255:23:30",
+        "nodes": [],
+        "literals": [
+          "solidity",
+          "0.6",
+          ".12"
+        ]
+      },
+      {
+        "id": 5254,
+        "nodeType": "ContractDefinition",
+        "src": "772:171:30",
+        "nodes": [
+          {
+            "id": 5251,
+            "nodeType": "EventDefinition",
+            "src": "824:79:30",
+            "nodes": [],
+            "anonymous": false,
+            "documentation": null,
+            "name": "ValidatorsAdded",
+            "parameters": {
+              "id": 5250,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 5247,
+                  "indexed": false,
+                  "mutability": "mutable",
+                  "name": "stakingContractAddress",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 5251,
+                  "src": "846:30:30",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 5246,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "846:7:30",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 5249,
+                  "indexed": false,
+                  "mutability": "mutable",
+                  "name": "validatorAmount",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 5251,
+                  "src": "878:23:30",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_uint256",
+                    "typeString": "uint256"
+                  },
+                  "typeName": {
+                    "id": 5248,
+                    "name": "uint256",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "878:7:30",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_uint256",
+                      "typeString": "uint256"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "845:57:30"
+            }
+          },
+          {
+            "id": 5253,
+            "nodeType": "VariableDeclaration",
+            "src": "909:31:30",
+            "nodes": [],
+            "constant": false,
+            "mutability": "mutable",
+            "name": "validatorCount",
+            "overrides": null,
+            "scope": 5254,
+            "stateVariable": true,
+            "storageLocation": "default",
+            "typeDescriptions": {
+              "typeIdentifier": "t_uint256",
+              "typeString": "uint256"
+            },
+            "typeName": {
+              "id": 5252,
+              "name": "uint256",
+              "nodeType": "ElementaryTypeName",
+              "src": "909:7:30",
+              "typeDescriptions": {
+                "typeIdentifier": "t_uint256",
+                "typeString": "uint256"
+              }
+            },
+            "value": null,
+            "visibility": "internal"
+          }
+        ],
+        "abstract": true,
+        "baseContracts": [],
+        "contractDependencies": [],
+        "contractKind": "contract",
+        "documentation": {
+          "id": 5245,
+          "nodeType": "StructuredDocumentation",
+          "src": "280:492:30",
+          "text": "@title KilnStakingPositionLibBase1 Contract\n @author Enzyme Council <security@enzyme.finance>\n @notice A persistent contract containing all required storage variables and\n required functions for a KilnStakingPositionLib implementation\n @dev DO NOT EDIT CONTRACT. If new events or storage are necessary, they should be added to\n a numbered KilnStakingPositionLibBaseXXX that inherits the previous base.\n e.g., `KilnStakingPositionLibBase2 is KilnStakingPositionLibBase1`"
+        },
+        "fullyImplemented": true,
+        "linearizedBaseContracts": [
+          5254
+        ],
+        "name": "KilnStakingPositionLibBase1",
+        "scope": 5255
+      }
+    ],
+    "license": "GPL-3.0"
+  },
+  "id": 30
+}

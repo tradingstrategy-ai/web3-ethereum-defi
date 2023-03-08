@@ -314,6 +314,8 @@ def launch_anvil(
 
         Needed to get structured logs.
 
+        Only needed on GoEthereum style tracing, not needed for Parity style tracing.
+
         See https://book.getfoundry.sh/reference/anvil/
 
     """

@@ -418,7 +418,7 @@ def test_estimate_buy_price_for_amount(
 def test_buy_sell_round_trip(
     web3: Web3,
     deployer: str,
-    user_1: str,
+        user_1,
     uniswap_v2: UniswapV2Deployment,
     weth: Contract,
     usdc: Contract,
@@ -470,7 +470,7 @@ def test_buy_sell_round_trip(
     ).transact({"from": user_1})
 
     # user_1 has less than 500 USDC left to loses in the LP fees
-    usdc_left = usdc.functions.balanceOf(user_1).call() / (10.0**18)
+    usdc_left = usdc.functions.balanceOf(user_1).call() / (10.0 ** 18)
     assert usdc_left == pytest.approx(497.0895)
 
 
@@ -540,7 +540,7 @@ def test_swap_price_from_hot_wallet(
 def test_estimate_price_three_way(
     web3: Web3,
     deployer: str,
-    user_1: str,
+        user_1,
     uniswap_v2: UniswapV2Deployment,
     weth: Contract,
     usdc: Contract,

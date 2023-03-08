@@ -1,3 +1,5 @@
+"""Solidity stack trace tests."""
+
 import pytest
 from eth_typing import HexAddress
 from hexbytes import HexBytes
@@ -5,7 +7,7 @@ from web3 import HTTPProvider, Web3
 
 from eth_defi.anvil import AnvilLaunch, make_anvil_custom_rpc_request, launch_anvil
 from eth_defi.deploy import deploy_contract, get_or_create_contract_registry
-from eth_defi.trace import trace_evm_transaction, print_symbolic_trace
+from eth_defi.trace import trace_evm_transaction, print_symbolic_trace, assert_transaction_success_with_explanation
 
 
 @pytest.fixture(scope="session")
@@ -81,11 +83,11 @@ def test_trace_transaction_simple(web3, deployer):
     # use ABI data from deployed contracts to enrich the output
     trace_output = print_symbolic_trace(get_or_create_contract_registry(web3), trace_data)
 
-    assert trace_output == "CALL: [reverted] RevertTest.<revert1> [500000 gas]"
+    assert trace_output == "CALL: RevertTest.revert1() [252 gas]"
 
 
 def test_trace_transaction_nested(web3, deployer):
-    """Test EVM trace."""
+    """Test EVM trace with nested contracts."""
 
     reverter = deploy_contract(web3, "RevertTest.json", deployer)
     reverter2 = deploy_contract(web3, "RevertTest2.json", deployer)
@@ -102,3 +104,14 @@ def test_trace_transaction_nested(web3, deployer):
     trace_output = print_symbolic_trace(get_or_create_contract_registry(web3), trace_data)
 
     assert "RevertTest2" in trace_output
+
+
+def test_assert_with_trace(web3, deployer):
+    """Test transaction success assert."""
+
+    reverter = deploy_contract(web3, "RevertTest.json", deployer)
+    reverter2 = deploy_contract(web3, "RevertTest2.json", deployer)
+
+    tx_hash = reverter.functions.revert2(reverter2.address).transact({"from": deployer, "gas": 500_000})
+    with pytest.raises(AssertionError):
+        assert_transaction_success_with_explanation(web3, tx_hash)

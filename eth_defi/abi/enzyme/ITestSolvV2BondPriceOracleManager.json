@@ -1,0 +1,585 @@
+{
+  "abi": [
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "_voucher",
+          "type": "address"
+        },
+        {
+          "internalType": "address",
+          "name": "_oracle",
+          "type": "address"
+        }
+      ],
+      "name": "_setVoucherOracle",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "_voucher",
+          "type": "address"
+        }
+      ],
+      "name": "getOracle",
+      "outputs": [
+        {
+          "internalType": "address",
+          "name": "oracle_",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "_voucher",
+          "type": "address"
+        },
+        {
+          "internalType": "address",
+          "name": "_fundCurrency",
+          "type": "address"
+        },
+        {
+          "internalType": "uint64",
+          "name": "_maturity",
+          "type": "uint64"
+        }
+      ],
+      "name": "getPriceOfMaturity",
+      "outputs": [
+        {
+          "internalType": "int256",
+          "name": "price_",
+          "type": "int256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    }
+  ],
+  "bytecode": {
+    "object": "0x",
+    "sourceMap": "",
+    "linkReferences": {}
+  },
+  "deployedBytecode": {
+    "object": "0x",
+    "sourceMap": "",
+    "linkReferences": {}
+  },
+  "methodIdentifiers": {
+    "_setVoucherOracle(address,address)": "a714fed0",
+    "getOracle(address)": "10d3d22e",
+    "getPriceOfMaturity(address,address,uint64)": "c42752f5"
+  },
+  "rawMetadata": "{\"compiler\":{\"version\":\"0.6.12+commit.27d51765\"},\"language\":\"Solidity\",\"output\":{\"abi\":[{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_voucher\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"_oracle\",\"type\":\"address\"}],\"name\":\"_setVoucherOracle\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_voucher\",\"type\":\"address\"}],\"name\":\"getOracle\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"oracle_\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_voucher\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"_fundCurrency\",\"type\":\"address\"},{\"internalType\":\"uint64\",\"name\":\"_maturity\",\"type\":\"uint64\"}],\"name\":\"getPriceOfMaturity\",\"outputs\":[{\"internalType\":\"int256\",\"name\":\"price_\",\"type\":\"int256\"}],\"stateMutability\":\"view\",\"type\":\"function\"}],\"devdoc\":{\"author\":\"Enzyme Council <security@enzyme.finance>\",\"kind\":\"dev\",\"methods\":{},\"title\":\"ITestSolvV2BondPriceOracleManager Interface\",\"version\":1},\"userdoc\":{\"kind\":\"user\",\"methods\":{},\"notice\":\"A test interface for Solv V2 Price Oracle Manager\",\"version\":1}},\"settings\":{\"compilationTarget\":{\"contracts/test/interfaces/ITestSolvV2BondPriceOracleManager.sol\":\"ITestSolvV2BondPriceOracleManager\"},\"evmVersion\":\"istanbul\",\"libraries\":{},\"metadata\":{\"bytecodeHash\":\"none\"},\"optimizer\":{\"details\":{\"constantOptimizer\":true,\"cse\":true,\"deduplicate\":true,\"jumpdestRemover\":true,\"orderLiterals\":true,\"peephole\":true,\"yul\":false},\"runs\":200},\"remappings\":[\":@enzyme/=contracts/\",\":@openzeppelin-solc-0.7/=node_modules/@openzeppelin-solc-0.7/\",\":@openzeppelin/=node_modules/@openzeppelin/\",\":@uniswap/=node_modules/@uniswap/\",\":base64-sol/=node_modules/base64-sol/\",\":ds-test/=lib/forge-std/lib/ds-test/src/\",\":forge-std/=lib/forge-std/src/\",\":hardhat-deploy/=node_modules/hardhat-deploy/\",\":hardhat/=node_modules/hardhat/\"]},\"sources\":{\"contracts/test/interfaces/ITestSolvV2BondPriceOracleManager.sol\":{\"keccak256\":\"0x349fd2bb1a4bd9dacf3c0aa0cf1a144ea7f3b3478defe266cc8fd5e80100af27\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://6d1fc587d150ce94a09599982276af4d51debe0095dd361a6be9eff2c67d4d8e\",\"dweb:/ipfs/QmPDwU8q41yQG14hEcsa8WxB9ZYLsHQAtz7DVY3VWxjgmZ\"]}},\"version\":1}",
+  "metadata": {
+    "compiler": {
+      "version": "0.6.12+commit.27d51765"
+    },
+    "language": "Solidity",
+    "output": {
+      "abi": [
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "_voucher",
+              "type": "address"
+            },
+            {
+              "internalType": "address",
+              "name": "_oracle",
+              "type": "address"
+            }
+          ],
+          "stateMutability": "nonpayable",
+          "type": "function",
+          "name": "_setVoucherOracle"
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "_voucher",
+              "type": "address"
+            }
+          ],
+          "stateMutability": "view",
+          "type": "function",
+          "name": "getOracle",
+          "outputs": [
+            {
+              "internalType": "address",
+              "name": "oracle_",
+              "type": "address"
+            }
+          ]
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "_voucher",
+              "type": "address"
+            },
+            {
+              "internalType": "address",
+              "name": "_fundCurrency",
+              "type": "address"
+            },
+            {
+              "internalType": "uint64",
+              "name": "_maturity",
+              "type": "uint64"
+            }
+          ],
+          "stateMutability": "view",
+          "type": "function",
+          "name": "getPriceOfMaturity",
+          "outputs": [
+            {
+              "internalType": "int256",
+              "name": "price_",
+              "type": "int256"
+            }
+          ]
+        }
+      ],
+      "devdoc": {
+        "kind": "dev",
+        "methods": {},
+        "version": 1
+      },
+      "userdoc": {
+        "kind": "user",
+        "methods": {},
+        "version": 1
+      }
+    },
+    "settings": {
+      "remappings": [
+        ":@enzyme/=contracts/",
+        ":@openzeppelin-solc-0.7/=node_modules/@openzeppelin-solc-0.7/",
+        ":@openzeppelin/=node_modules/@openzeppelin/",
+        ":@uniswap/=node_modules/@uniswap/",
+        ":base64-sol/=node_modules/base64-sol/",
+        ":ds-test/=lib/forge-std/lib/ds-test/src/",
+        ":forge-std/=lib/forge-std/src/",
+        ":hardhat-deploy/=node_modules/hardhat-deploy/",
+        ":hardhat/=node_modules/hardhat/"
+      ],
+      "optimizer": {
+        "runs": 200,
+        "details": {
+          "peephole": true,
+          "jumpdestRemover": true,
+          "orderLiterals": true,
+          "deduplicate": true,
+          "cse": true,
+          "constantOptimizer": true,
+          "yul": false
+        }
+      },
+      "metadata": {
+        "bytecodeHash": "none"
+      },
+      "compilationTarget": {
+        "contracts/test/interfaces/ITestSolvV2BondPriceOracleManager.sol": "ITestSolvV2BondPriceOracleManager"
+      },
+      "libraries": {}
+    },
+    "sources": {
+      "contracts/test/interfaces/ITestSolvV2BondPriceOracleManager.sol": {
+        "keccak256": "0x349fd2bb1a4bd9dacf3c0aa0cf1a144ea7f3b3478defe266cc8fd5e80100af27",
+        "urls": [
+          "bzz-raw://6d1fc587d150ce94a09599982276af4d51debe0095dd361a6be9eff2c67d4d8e",
+          "dweb:/ipfs/QmPDwU8q41yQG14hEcsa8WxB9ZYLsHQAtz7DVY3VWxjgmZ"
+        ],
+        "license": "GPL-3.0"
+      }
+    },
+    "version": 1
+  },
+  "ast": {
+    "absolutePath": "contracts/test/interfaces/ITestSolvV2BondPriceOracleManager.sol",
+    "id": 81154,
+    "exportedSymbols": {
+      "ITestSolvV2BondPriceOracleManager": [
+        81153
+      ]
+    },
+    "nodeType": "SourceUnit",
+    "src": "253:563:417",
+    "nodes": [
+      {
+        "id": 81126,
+        "nodeType": "PragmaDirective",
+        "src": "253:23:417",
+        "nodes": [],
+        "literals": [
+          "solidity",
+          "0.6",
+          ".12"
+        ]
+      },
+      {
+        "id": 81153,
+        "nodeType": "ContractDefinition",
+        "src": "448:367:417",
+        "nodes": [
+          {
+            "id": 81134,
+            "nodeType": "FunctionDefinition",
+            "src": "498:77:417",
+            "nodes": [],
+            "documentation": null,
+            "functionSelector": "10d3d22e",
+            "implemented": false,
+            "kind": "function",
+            "modifiers": [],
+            "name": "getOracle",
+            "overrides": null,
+            "parameters": {
+              "id": 81130,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 81129,
+                  "mutability": "mutable",
+                  "name": "_voucher",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 81134,
+                  "src": "517:16:417",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 81128,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "517:7:417",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "516:18:417"
+            },
+            "returnParameters": {
+              "id": 81133,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 81132,
+                  "mutability": "mutable",
+                  "name": "oracle_",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 81134,
+                  "src": "558:15:417",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 81131,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "558:7:417",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "557:17:417"
+            },
+            "scope": 81153,
+            "stateMutability": "view",
+            "virtual": false,
+            "visibility": "external"
+          },
+          {
+            "id": 81145,
+            "nodeType": "FunctionDefinition",
+            "src": "581:155:417",
+            "nodes": [],
+            "documentation": null,
+            "functionSelector": "c42752f5",
+            "implemented": false,
+            "kind": "function",
+            "modifiers": [],
+            "name": "getPriceOfMaturity",
+            "overrides": null,
+            "parameters": {
+              "id": 81141,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 81136,
+                  "mutability": "mutable",
+                  "name": "_voucher",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 81145,
+                  "src": "618:16:417",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 81135,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "618:7:417",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 81138,
+                  "mutability": "mutable",
+                  "name": "_fundCurrency",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 81145,
+                  "src": "644:21:417",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 81137,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "644:7:417",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 81140,
+                  "mutability": "mutable",
+                  "name": "_maturity",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 81145,
+                  "src": "675:16:417",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_uint64",
+                    "typeString": "uint64"
+                  },
+                  "typeName": {
+                    "id": 81139,
+                    "name": "uint64",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "675:6:417",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_uint64",
+                      "typeString": "uint64"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "608:89:417"
+            },
+            "returnParameters": {
+              "id": 81144,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 81143,
+                  "mutability": "mutable",
+                  "name": "price_",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 81145,
+                  "src": "721:13:417",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_int256",
+                    "typeString": "int256"
+                  },
+                  "typeName": {
+                    "id": 81142,
+                    "name": "int256",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "721:6:417",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_int256",
+                      "typeString": "int256"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "720:15:417"
+            },
+            "scope": 81153,
+            "stateMutability": "view",
+            "virtual": false,
+            "visibility": "external"
+          },
+          {
+            "id": 81152,
+            "nodeType": "FunctionDefinition",
+            "src": "742:71:417",
+            "nodes": [],
+            "documentation": null,
+            "functionSelector": "a714fed0",
+            "implemented": false,
+            "kind": "function",
+            "modifiers": [],
+            "name": "_setVoucherOracle",
+            "overrides": null,
+            "parameters": {
+              "id": 81150,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 81147,
+                  "mutability": "mutable",
+                  "name": "_voucher",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 81152,
+                  "src": "769:16:417",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 81146,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "769:7:417",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 81149,
+                  "mutability": "mutable",
+                  "name": "_oracle",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 81152,
+                  "src": "787:15:417",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 81148,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "787:7:417",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "768:35:417"
+            },
+            "returnParameters": {
+              "id": 81151,
+              "nodeType": "ParameterList",
+              "parameters": [],
+              "src": "812:0:417"
+            },
+            "scope": 81153,
+            "stateMutability": "nonpayable",
+            "virtual": false,
+            "visibility": "external"
+          }
+        ],
+        "abstract": false,
+        "baseContracts": [],
+        "contractDependencies": [],
+        "contractKind": "interface",
+        "documentation": {
+          "id": 81127,
+          "nodeType": "StructuredDocumentation",
+          "src": "278:170:417",
+          "text": "@title ITestSolvV2BondPriceOracleManager Interface\n @author Enzyme Council <security@enzyme.finance>\n @notice A test interface for Solv V2 Price Oracle Manager"
+        },
+        "fullyImplemented": false,
+        "linearizedBaseContracts": [
+          81153
+        ],
+        "name": "ITestSolvV2BondPriceOracleManager",
+        "scope": 81154
+      }
+    ],
+    "license": "GPL-3.0"
+  },
+  "id": 417
+}

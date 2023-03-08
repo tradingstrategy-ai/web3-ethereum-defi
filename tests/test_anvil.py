@@ -17,9 +17,12 @@ from eth_account import Account
 from eth_account.signers.local import LocalAccount
 from eth_typing import HexAddress, HexStr
 from web3 import HTTPProvider, Web3
+from web3.middleware import buffered_gas_estimate_middleware
 
 from eth_defi.anvil import fork_network_anvil
 from eth_defi.chain import install_chain_middleware
+from eth_defi.gas import node_default_gas_price_strategy
+from eth_defi.revert_reason import TransactionReverted
 from eth_defi.token import fetch_erc20_details
 
 # https://docs.pytest.org/en/latest/how-to/skipping.html#skip-all-test-functions-of-a-class-or-module
@@ -78,6 +81,7 @@ def web3(anvil_bnb_chain_fork: str):
     web3 = Web3(HTTPProvider(anvil_bnb_chain_fork))
     # Anvil needs POA middlware if parent chain needs POA middleware
     install_chain_middleware(web3)
+    web3.eth.set_gas_price_strategy(node_default_gas_price_strategy)
     return web3
 
 
@@ -97,14 +101,14 @@ def test_anvil_forked_chain_id(web3: Web3):
     assert web3.eth.chain_id == 56
 
 
-def test_anvil_fork_busd_details(web3: Web3, large_busd_holder: HexAddress, user_1: LocalAccount):
+def test_anvil_fork_busd_details(web3: Web3, large_busd_holder: HexAddress, user_1):
     """Checks BUSD deployment on BNB chain."""
     busd = fetch_erc20_details(web3, "0xe9e7CEA3DedcA5984780Bafc599bD69ADd087D56")
     assert busd.symbol == "BUSD"
     assert (busd.total_supply / (10**18)) > 1_000_000_000, "More than $1B BUSD minted"
 
 
-def test_anvil_fork_transfer_busd(web3: Web3, large_busd_holder: HexAddress, user_1: LocalAccount):
+def test_anvil_fork_transfer_busd(web3: Web3, large_busd_holder: HexAddress, user_1):
     """Forks the BNB chain mainnet and transfers from USDC to the user."""
 
     # BUSD deployment on BNB chain
@@ -113,10 +117,35 @@ def test_anvil_fork_transfer_busd(web3: Web3, large_busd_holder: HexAddress, use
     busd = busd_details.contract
 
     # Transfer 500 BUSD to the user 1
-    tx_hash = busd.functions.transfer(user_1.address, 500 * 10**18).transact({"from": large_busd_holder})
+    tx_hash = busd.functions.transfer(user_1.address, 500 * 10 ** 18).transact({"from": large_busd_holder})
 
     # Because Ganache has instamine turned on by default, we do not need to wait for the transaction
-    receipt = web3.eth.get_transaction_receipt(tx_hash)
+    receipt = web3.eth.wait_for_transaction_receipt(tx_hash)
     assert receipt.status == 1, "BUSD transfer reverted"
 
-    assert busd.functions.balanceOf(user_1.address).call() == 500 * 10**18
+    assert busd.functions.balanceOf(user_1.address).call() == 500 * 10 ** 18
+
+
+# def test_revert_reason_middleware(web3: Web3, large_busd_holder: HexAddress, user_1: LocalAccount, user_2: LocalAccount):
+#     """Revert reason will be shown in Python tracebacks.
+#
+#     We test this by sending BUSD with insufficient token balance.
+#     """
+#
+#     # web3.middleware_onion.inject(revert_reason_aware_buffered_gas_estimate_middleware, layer=0)
+#     web3.middleware_onion.replace("gas_estimate", revert_reason_aware_buffered_gas_estimate_middleware)
+#
+#     # BUSD deployment on BNB chain
+#     # https://bscscan.com/token/0xe9e7cea3dedca5984780bafc599bd69add087d56
+#     busd_details = fetch_erc20_details(web3, "0xe9e7CEA3DedcA5984780Bafc599bD69ADd087D56")
+#     busd = busd_details.contract
+#
+#     # Make sure user_1 has some BNB
+#     web3.eth.send_transaction({"from": large_busd_holder, "to": user_1.address, "value": 10**18})
+#
+#     # user_1 doess not have enough BUSD so this tx will fail
+#     # and BUSD ERC-20 contract should give the revert reason
+#     with pytest.raises(TransactionReverted) as exc_info:
+#         tx_hash = busd.functions.transfer(user_2.address, 500 * 10**18).transact({"from": user_1.address})
+#
+#     # assert reason == "execution reverted: BEP20: transfer amount exceeds balance"

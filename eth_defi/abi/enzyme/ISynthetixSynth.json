@@ -1,7 +1,4 @@
 {
-  "_format": "hh-sol-artifact-1",
-  "contractName": "ISynthetixSynth",
-  "sourceName": "contracts/release/interfaces/ISynthetixSynth.sol",
   "abi": [
     {
       "inputs": [],
@@ -17,8 +14,201 @@
       "type": "function"
     }
   ],
-  "bytecode": "0x",
-  "deployedBytecode": "0x",
-  "linkReferences": {},
-  "deployedLinkReferences": {}
+  "bytecode": {
+    "object": "0x",
+    "sourceMap": "",
+    "linkReferences": {}
+  },
+  "deployedBytecode": {
+    "object": "0x",
+    "sourceMap": "",
+    "linkReferences": {}
+  },
+  "methodIdentifiers": {
+    "currencyKey()": "dbd06c85"
+  },
+  "rawMetadata": "{\"compiler\":{\"version\":\"0.6.12+commit.27d51765\"},\"language\":\"Solidity\",\"output\":{\"abi\":[{\"inputs\":[],\"name\":\"currencyKey\",\"outputs\":[{\"internalType\":\"bytes32\",\"name\":\"\",\"type\":\"bytes32\"}],\"stateMutability\":\"view\",\"type\":\"function\"}],\"devdoc\":{\"author\":\"Enzyme Council <security@enzyme.finance>\",\"kind\":\"dev\",\"methods\":{},\"title\":\"ISynthetixSynth Interface\",\"version\":1},\"userdoc\":{\"kind\":\"user\",\"methods\":{},\"version\":1}},\"settings\":{\"compilationTarget\":{\"contracts/release/interfaces/ISynthetixSynth.sol\":\"ISynthetixSynth\"},\"evmVersion\":\"istanbul\",\"libraries\":{},\"metadata\":{\"bytecodeHash\":\"none\"},\"optimizer\":{\"details\":{\"constantOptimizer\":true,\"cse\":true,\"deduplicate\":true,\"jumpdestRemover\":true,\"orderLiterals\":true,\"peephole\":true,\"yul\":false},\"runs\":200},\"remappings\":[\":@enzyme/=contracts/\",\":@openzeppelin-solc-0.7/=node_modules/@openzeppelin-solc-0.7/\",\":@openzeppelin/=node_modules/@openzeppelin/\",\":@uniswap/=node_modules/@uniswap/\",\":base64-sol/=node_modules/base64-sol/\",\":ds-test/=lib/forge-std/lib/ds-test/src/\",\":forge-std/=lib/forge-std/src/\",\":hardhat-deploy/=node_modules/hardhat-deploy/\",\":hardhat/=node_modules/hardhat/\"]},\"sources\":{\"contracts/release/interfaces/ISynthetixSynth.sol\":{\"keccak256\":\"0xfad43b0fead48317fd90bfc3874d1511dc0de094764981467fa4cded78b39108\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://15edd80eee695ea75a22bdc7b2d8478d2f80bf7efacebaf113981c7787ea4717\",\"dweb:/ipfs/QmcRZWGhbM3UTwAEvHxBz1e9MPXcsDXUQRUYzpEecGTBwM\"]}},\"version\":1}",
+  "metadata": {
+    "compiler": {
+      "version": "0.6.12+commit.27d51765"
+    },
+    "language": "Solidity",
+    "output": {
+      "abi": [
+        {
+          "inputs": [],
+          "stateMutability": "view",
+          "type": "function",
+          "name": "currencyKey",
+          "outputs": [
+            {
+              "internalType": "bytes32",
+              "name": "",
+              "type": "bytes32"
+            }
+          ]
+        }
+      ],
+      "devdoc": {
+        "kind": "dev",
+        "methods": {},
+        "version": 1
+      },
+      "userdoc": {
+        "kind": "user",
+        "methods": {},
+        "version": 1
+      }
+    },
+    "settings": {
+      "remappings": [
+        ":@enzyme/=contracts/",
+        ":@openzeppelin-solc-0.7/=node_modules/@openzeppelin-solc-0.7/",
+        ":@openzeppelin/=node_modules/@openzeppelin/",
+        ":@uniswap/=node_modules/@uniswap/",
+        ":base64-sol/=node_modules/base64-sol/",
+        ":ds-test/=lib/forge-std/lib/ds-test/src/",
+        ":forge-std/=lib/forge-std/src/",
+        ":hardhat-deploy/=node_modules/hardhat-deploy/",
+        ":hardhat/=node_modules/hardhat/"
+      ],
+      "optimizer": {
+        "runs": 200,
+        "details": {
+          "peephole": true,
+          "jumpdestRemover": true,
+          "orderLiterals": true,
+          "deduplicate": true,
+          "cse": true,
+          "constantOptimizer": true,
+          "yul": false
+        }
+      },
+      "metadata": {
+        "bytecodeHash": "none"
+      },
+      "compilationTarget": {
+        "contracts/release/interfaces/ISynthetixSynth.sol": "ISynthetixSynth"
+      },
+      "libraries": {}
+    },
+    "sources": {
+      "contracts/release/interfaces/ISynthetixSynth.sol": {
+        "keccak256": "0xfad43b0fead48317fd90bfc3874d1511dc0de094764981467fa4cded78b39108",
+        "urls": [
+          "bzz-raw://15edd80eee695ea75a22bdc7b2d8478d2f80bf7efacebaf113981c7787ea4717",
+          "dweb:/ipfs/QmcRZWGhbM3UTwAEvHxBz1e9MPXcsDXUQRUYzpEecGTBwM"
+        ],
+        "license": "GPL-3.0"
+      }
+    },
+    "version": 1
+  },
+  "ast": {
+    "absolutePath": "contracts/release/interfaces/ISynthetixSynth.sol",
+    "id": 15670,
+    "exportedSymbols": {
+      "ISynthetixSynth": [
+        15669
+      ]
+    },
+    "nodeType": "SourceUnit",
+    "src": "255:205:72",
+    "nodes": [
+      {
+        "id": 15662,
+        "nodeType": "PragmaDirective",
+        "src": "255:23:72",
+        "nodes": [],
+        "literals": [
+          "solidity",
+          "0.6",
+          ".12"
+        ]
+      },
+      {
+        "id": 15669,
+        "nodeType": "ContractDefinition",
+        "src": "370:89:72",
+        "nodes": [
+          {
+            "id": 15668,
+            "nodeType": "FunctionDefinition",
+            "src": "402:55:72",
+            "nodes": [],
+            "documentation": null,
+            "functionSelector": "dbd06c85",
+            "implemented": false,
+            "kind": "function",
+            "modifiers": [],
+            "name": "currencyKey",
+            "overrides": null,
+            "parameters": {
+              "id": 15664,
+              "nodeType": "ParameterList",
+              "parameters": [],
+              "src": "422:2:72"
+            },
+            "returnParameters": {
+              "id": 15667,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 15666,
+                  "mutability": "mutable",
+                  "name": "",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 15668,
+                  "src": "448:7:72",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_bytes32",
+                    "typeString": "bytes32"
+                  },
+                  "typeName": {
+                    "id": 15665,
+                    "name": "bytes32",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "448:7:72",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_bytes32",
+                      "typeString": "bytes32"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "447:9:72"
+            },
+            "scope": 15669,
+            "stateMutability": "view",
+            "virtual": false,
+            "visibility": "external"
+          }
+        ],
+        "abstract": false,
+        "baseContracts": [],
+        "contractDependencies": [],
+        "contractKind": "interface",
+        "documentation": {
+          "id": 15663,
+          "nodeType": "StructuredDocumentation",
+          "src": "280:90:72",
+          "text": "@title ISynthetixSynth Interface\n @author Enzyme Council <security@enzyme.finance>"
+        },
+        "fullyImplemented": false,
+        "linearizedBaseContracts": [
+          15669
+        ],
+        "name": "ISynthetixSynth",
+        "scope": 15670
+      }
+    ],
+    "license": "GPL-3.0"
+  },
+  "id": 72
 }

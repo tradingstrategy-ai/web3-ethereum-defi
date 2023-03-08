@@ -104,58 +104,58 @@ from eth_defi.token import create_token
 
 @pytest.fixture
 def tester_provider():
-    return EthereumTesterProvider()
+  return EthereumTesterProvider()
 
 
 @pytest.fixture
 def eth_tester(tester_provider):
-    return tester_provider.ethereum_tester
+  return tester_provider.ethereum_tester
 
 
 @pytest.fixture
 def web3(tester_provider):
-    return Web3(tester_provider)
+  return Web3(tester_provider)
 
 
 @pytest.fixture()
 def deployer(web3) -> str:
-    """Deploy account."""
-    return web3.eth.accounts[0]
+  """Deploy account."""
+  return web3.eth.accounts[0]
 
 
 @pytest.fixture()
 def user_1(web3) -> str:
-    """User account."""
-    return web3.eth.accounts[1]
+  """User account."""
+  return web3.eth.accounts[1]
 
 
 @pytest.fixture()
 def user_2(web3) -> str:
-    """User account."""
-    return web3.eth.accounts[2]
+  """User account."""
+  return web3.eth.accounts[2]
 
 
 def test_deploy_token(web3: Web3, deployer: str):
-    """Deploy mock ERC-20."""
-    token = create_token(web3, deployer, "Hentai books token", "HENTAI", 100_000 * 10**18)
-    assert token.functions.name().call() == "Hentai books token"
-    assert token.functions.symbol().call() == "HENTAI"
-    assert token.functions.totalSupply().call() == 100_000 * 10**18
-    assert token.functions.decimals().call() == 18
+  """Deploy mock ERC-20."""
+  token = create_token(web3, deployer, "Hentai books token", "HENTAI", 100_000 * 10 ** 18)
+  assert token.functions.name().call() == "Hentai books token"
+  assert token.functions.symbol().call() == "HENTAI"
+  assert token.functions.totalSupply().call() == 100_000 * 10 ** 18
+  assert token.functions.decimals().call() == 18
 
 
-def test_tranfer_tokens_between_users(web3: Web3, deployer: str, user_1: str, user_2: str):
-    """Transfer tokens between users."""
-    token = create_token(web3, deployer, "Telos EVM rocks", "TELOS", 100_000 * 10**18)
+def test_tranfer_tokens_between_users(web3: Web3, deployer: str, fund_owner, fund_client):
+  """Transfer tokens between users."""
+  token = create_token(web3, deployer, "Telos EVM rocks", "TELOS", 100_000 * 10 ** 18)
 
-    # Move 10 tokens from deployer to user1
-    token.functions.transfer(user_1, 10 * 10**18).transact({"from": deployer})
-    assert token.functions.balanceOf(user_1).call() == 10 * 10**18
+  # Move 10 tokens from deployer to user1
+  token.functions.transfer(fund_owner, 10 * 10 ** 18).transact({"from": deployer})
+  assert token.functions.balanceOf(fund_owner).call() == 10 * 10 ** 18
 
-    # Move 10 tokens from deployer to user1
-    token.functions.transfer(user_2, 6 * 10**18).transact({"from": user_1})
-    assert token.functions.balanceOf(user_1).call() == 4 * 10**18
-    assert token.functions.balanceOf(user_2).call() == 6 * 10**18
+  # Move 10 tokens from deployer to user1
+  token.functions.transfer(fund_client, 6 * 10 ** 18).transact({"from": fund_owner})
+  assert token.functions.balanceOf(fund_owner).call() == 4 * 10 ** 18
+  assert token.functions.balanceOf(fund_client).call() == 6 * 10 ** 18
 ```
 
 [See full example](https://github.com/tradingstrategy-ai/web3-ethereum-defi/blob/master/tests/test_token.py).
@@ -172,7 +172,7 @@ from web3.contract import Contract
 from eth_defi.uniswap_v2.deployment import UniswapV2Deployment, deploy_trading_pair, FOREVER_DEADLINE
 
 
-def test_swap(web3: Web3, deployer: str, user_1: str, uniswap_v2: UniswapV2Deployment, weth: Contract, usdc: Contract):
+def test_swap(web3: Web3, deployer: str, fund_owner, uniswap_v2: UniswapV2Deployment, weth: Contract, usdc: Contract):
     """User buys WETH on Uniswap v2 using mock USDC."""
 
     # Create the trading pair and add initial liquidity
@@ -182,16 +182,16 @@ def test_swap(web3: Web3, deployer: str, user_1: str, uniswap_v2: UniswapV2Deplo
         uniswap_v2,
         weth,
         usdc,
-        10 * 10**18,  # 10 ETH liquidity
-        17_000 * 10**18,  # 17000 USDC liquidity
+        10 * 10 ** 18,  # 10 ETH liquidity
+        17_000 * 10 ** 18,  # 17000 USDC liquidity
     )
 
     router = uniswap_v2.router
 
     # Give user_1 500 dollars to buy ETH and approve it on the router
-    usdc_amount_to_pay = 500 * 10**18
-    usdc.functions.transfer(user_1, usdc_amount_to_pay).transact({"from": deployer})
-    usdc.functions.approve(router.address, usdc_amount_to_pay).transact({"from": user_1})
+    usdc_amount_to_pay = 500 * 10 ** 18
+    usdc.functions.transfer(fund_owner, usdc_amount_to_pay).transact({"from": deployer})
+    usdc.functions.approve(router.address, usdc_amount_to_pay).transact({"from": fund_owner})
 
     # Perform a swap USDC->WETH
     path = [usdc.address, weth.address]  # Path tell how the swap is routed
@@ -200,14 +200,14 @@ def test_swap(web3: Web3, deployer: str, user_1: str, uniswap_v2: UniswapV2Deplo
         usdc_amount_to_pay,
         0,
         path,
-        user_1,
+        fund_owner,
         FOREVER_DEADLINE,
     ).transact({
-        "from": user_1
+        "from": fund_owner
     })
 
     # Check the user_1 received ~0.284 ethers
-    assert weth.functions.balanceOf(user_1).call() / 1e18 == pytest.approx(0.28488156127668085)
+    assert weth.functions.balanceOf(fund_owner).call() / 1e18 == pytest.approx(0.28488156127668085)
 ```
 
 [See the full example](https://github.com/tradingstrategy-ai/web3-ethereum-defi/blob/master/tests/test_uniswap_v2_pair.py).

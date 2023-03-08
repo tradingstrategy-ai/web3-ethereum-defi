@@ -1,7 +1,4 @@
 {
-  "_format": "hh-sol-artifact-1",
-  "contractName": "DustEvaluatorMixin",
-  "sourceName": "contracts/release/extensions/policy-manager/policies/utils/DustEvaluatorMixin.sol",
   "abi": [
     {
       "inputs": [
@@ -80,8 +77,916 @@
       "type": "function"
     }
   ],
-  "bytecode": "0x",
-  "deployedBytecode": "0x",
-  "linkReferences": {},
-  "deployedLinkReferences": {}
+  "bytecode": {
+    "object": "0x",
+    "sourceMap": "",
+    "linkReferences": {}
+  },
+  "deployedBytecode": {
+    "object": "0x",
+    "sourceMap": "",
+    "linkReferences": {}
+  },
+  "methodIdentifiers": {
+    "getDustToleranceInWeth()": "58bfdfee",
+    "getFundDeployer()": "97c0ac87",
+    "getOwner()": "893d20e8",
+    "setDustToleranceInWeth(uint256)": "219ea7bf"
+  },
+  "rawMetadata": "{\"compiler\":{\"version\":\"0.6.12+commit.27d51765\"},\"language\":\"Solidity\",\"output\":{\"abi\":[{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_fundDeployer\",\"type\":\"address\"}],\"stateMutability\":\"nonpayable\",\"type\":\"constructor\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"nextDustToleranceInWeth\",\"type\":\"uint256\"}],\"name\":\"DustToleranceInWethSet\",\"type\":\"event\"},{\"inputs\":[],\"name\":\"getDustToleranceInWeth\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"dustToleranceInWeth_\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getFundDeployer\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"fundDeployer_\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getOwner\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"owner_\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_nextDustToleranceInWeth\",\"type\":\"uint256\"}],\"name\":\"setDustToleranceInWeth\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"}],\"devdoc\":{\"author\":\"Enzyme Council <security@enzyme.finance>\",\"kind\":\"dev\",\"methods\":{\"getDustToleranceInWeth()\":{\"returns\":{\"dustToleranceInWeth_\":\"The `dustToleranceInWeth` variable value\"}},\"getFundDeployer()\":{\"returns\":{\"fundDeployer_\":\"The `FUND_DEPLOYER` variable value\"}},\"getOwner()\":{\"details\":\"Ownership is deferred to the owner of the FundDeployer contract\",\"returns\":{\"owner_\":\"The owner\"}},\"setDustToleranceInWeth(uint256)\":{\"params\":{\"_nextDustToleranceInWeth\":\"The next dustToleranceInWeth value\"}}},\"title\":\"DustEvaluatorMixin Contract\",\"version\":1},\"userdoc\":{\"kind\":\"user\",\"methods\":{\"getDustToleranceInWeth()\":{\"notice\":\"Gets the `dustToleranceInWeth` variable\"},\"getFundDeployer()\":{\"notice\":\"Gets the `FUND_DEPLOYER` variable\"},\"getOwner()\":{\"notice\":\"Gets the owner of this contract\"},\"setDustToleranceInWeth(uint256)\":{\"notice\":\"Sets the dustToleranceInWeth variable value\"}},\"notice\":\"A mixin used to evaluate where an amount of a given asset can be considered \\\"dust,\\\" i.e., of negligible value\",\"version\":1}},\"settings\":{\"compilationTarget\":{\"contracts/release/extensions/policy-manager/policies/utils/DustEvaluatorMixin.sol\":\"DustEvaluatorMixin\"},\"evmVersion\":\"istanbul\",\"libraries\":{},\"metadata\":{\"bytecodeHash\":\"none\"},\"optimizer\":{\"details\":{\"constantOptimizer\":true,\"cse\":true,\"deduplicate\":true,\"jumpdestRemover\":true,\"orderLiterals\":true,\"peephole\":true,\"yul\":false},\"runs\":200},\"remappings\":[\":@enzyme/=contracts/\",\":@openzeppelin-solc-0.7/=node_modules/@openzeppelin-solc-0.7/\",\":@openzeppelin/=node_modules/@openzeppelin/\",\":@uniswap/=node_modules/@uniswap/\",\":base64-sol/=node_modules/base64-sol/\",\":ds-test/=lib/forge-std/lib/ds-test/src/\",\":forge-std/=lib/forge-std/src/\",\":hardhat-deploy/=node_modules/hardhat-deploy/\",\":hardhat/=node_modules/hardhat/\"]},\"sources\":{\"contracts/release/core/fund-deployer/IFundDeployer.sol\":{\"keccak256\":\"0x5b901b81b3a4ef3d30ef9b4a1fa7fdd6526dfacd66e9971d1f988c2b63334314\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://79eba24bcad7e3abddafd20b518add8d5acb1e8de250a0e20050dfbe2f2d8aea\",\"dweb:/ipfs/QmYq9QYKr1UJaVyhkkSEfeiJ68TwGbwrmZsgRTPjVjkpUp\"]},\"contracts/release/extensions/policy-manager/policies/utils/DustEvaluatorMixin.sol\":{\"keccak256\":\"0xe3b05643184569abd6c1d6edcbaa983b54acfcdcf112306799896466786a6201\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://65e84bc47952fb5cd31a0617d7ec314e3a4c35f68582669bd2179514bc74b036\",\"dweb:/ipfs/QmUKqvbmeXvzvy3xZk3zhjNxm1kXSPKjBURm8Pd25Cmki4\"]},\"contracts/release/utils/FundDeployerOwnerMixin.sol\":{\"keccak256\":\"0xd415583828581051080d575f058643f4975d7048fda0d1765122b260d9d14934\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://8191af7a3cd0867af1a401d3cba1294be054c761c2276d21bff7c9296ecc6927\",\"dweb:/ipfs/QmYBSrx1XrcqMNkH2Q6ALuczRv6LgpzVHvFH3DjvCu6SaM\"]}},\"version\":1}",
+  "metadata": {
+    "compiler": {
+      "version": "0.6.12+commit.27d51765"
+    },
+    "language": "Solidity",
+    "output": {
+      "abi": [
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "_fundDeployer",
+              "type": "address"
+            }
+          ],
+          "stateMutability": "nonpayable",
+          "type": "constructor"
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "uint256",
+              "name": "nextDustToleranceInWeth",
+              "type": "uint256",
+              "indexed": false
+            }
+          ],
+          "type": "event",
+          "name": "DustToleranceInWethSet",
+          "anonymous": false
+        },
+        {
+          "inputs": [],
+          "stateMutability": "view",
+          "type": "function",
+          "name": "getDustToleranceInWeth",
+          "outputs": [
+            {
+              "internalType": "uint256",
+              "name": "dustToleranceInWeth_",
+              "type": "uint256"
+            }
+          ]
+        },
+        {
+          "inputs": [],
+          "stateMutability": "view",
+          "type": "function",
+          "name": "getFundDeployer",
+          "outputs": [
+            {
+              "internalType": "address",
+              "name": "fundDeployer_",
+              "type": "address"
+            }
+          ]
+        },
+        {
+          "inputs": [],
+          "stateMutability": "view",
+          "type": "function",
+          "name": "getOwner",
+          "outputs": [
+            {
+              "internalType": "address",
+              "name": "owner_",
+              "type": "address"
+            }
+          ]
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "uint256",
+              "name": "_nextDustToleranceInWeth",
+              "type": "uint256"
+            }
+          ],
+          "stateMutability": "nonpayable",
+          "type": "function",
+          "name": "setDustToleranceInWeth"
+        }
+      ],
+      "devdoc": {
+        "kind": "dev",
+        "methods": {
+          "getDustToleranceInWeth()": {
+            "returns": {
+              "dustToleranceInWeth_": "The `dustToleranceInWeth` variable value"
+            }
+          },
+          "getFundDeployer()": {
+            "returns": {
+              "fundDeployer_": "The `FUND_DEPLOYER` variable value"
+            }
+          },
+          "getOwner()": {
+            "details": "Ownership is deferred to the owner of the FundDeployer contract",
+            "returns": {
+              "owner_": "The owner"
+            }
+          },
+          "setDustToleranceInWeth(uint256)": {
+            "params": {
+              "_nextDustToleranceInWeth": "The next dustToleranceInWeth value"
+            }
+          }
+        },
+        "version": 1
+      },
+      "userdoc": {
+        "kind": "user",
+        "methods": {
+          "getDustToleranceInWeth()": {
+            "notice": "Gets the `dustToleranceInWeth` variable"
+          },
+          "getFundDeployer()": {
+            "notice": "Gets the `FUND_DEPLOYER` variable"
+          },
+          "getOwner()": {
+            "notice": "Gets the owner of this contract"
+          },
+          "setDustToleranceInWeth(uint256)": {
+            "notice": "Sets the dustToleranceInWeth variable value"
+          }
+        },
+        "version": 1
+      }
+    },
+    "settings": {
+      "remappings": [
+        ":@enzyme/=contracts/",
+        ":@openzeppelin-solc-0.7/=node_modules/@openzeppelin-solc-0.7/",
+        ":@openzeppelin/=node_modules/@openzeppelin/",
+        ":@uniswap/=node_modules/@uniswap/",
+        ":base64-sol/=node_modules/base64-sol/",
+        ":ds-test/=lib/forge-std/lib/ds-test/src/",
+        ":forge-std/=lib/forge-std/src/",
+        ":hardhat-deploy/=node_modules/hardhat-deploy/",
+        ":hardhat/=node_modules/hardhat/"
+      ],
+      "optimizer": {
+        "runs": 200,
+        "details": {
+          "peephole": true,
+          "jumpdestRemover": true,
+          "orderLiterals": true,
+          "deduplicate": true,
+          "cse": true,
+          "constantOptimizer": true,
+          "yul": false
+        }
+      },
+      "metadata": {
+        "bytecodeHash": "none"
+      },
+      "compilationTarget": {
+        "contracts/release/extensions/policy-manager/policies/utils/DustEvaluatorMixin.sol": "DustEvaluatorMixin"
+      },
+      "libraries": {}
+    },
+    "sources": {
+      "contracts/release/core/fund-deployer/IFundDeployer.sol": {
+        "keccak256": "0x5b901b81b3a4ef3d30ef9b4a1fa7fdd6526dfacd66e9971d1f988c2b63334314",
+        "urls": [
+          "bzz-raw://79eba24bcad7e3abddafd20b518add8d5acb1e8de250a0e20050dfbe2f2d8aea",
+          "dweb:/ipfs/QmYq9QYKr1UJaVyhkkSEfeiJ68TwGbwrmZsgRTPjVjkpUp"
+        ],
+        "license": "GPL-3.0"
+      },
+      "contracts/release/extensions/policy-manager/policies/utils/DustEvaluatorMixin.sol": {
+        "keccak256": "0xe3b05643184569abd6c1d6edcbaa983b54acfcdcf112306799896466786a6201",
+        "urls": [
+          "bzz-raw://65e84bc47952fb5cd31a0617d7ec314e3a4c35f68582669bd2179514bc74b036",
+          "dweb:/ipfs/QmUKqvbmeXvzvy3xZk3zhjNxm1kXSPKjBURm8Pd25Cmki4"
+        ],
+        "license": "GPL-3.0"
+      },
+      "contracts/release/utils/FundDeployerOwnerMixin.sol": {
+        "keccak256": "0xd415583828581051080d575f058643f4975d7048fda0d1765122b260d9d14934",
+        "urls": [
+          "bzz-raw://8191af7a3cd0867af1a401d3cba1294be054c761c2276d21bff7c9296ecc6927",
+          "dweb:/ipfs/QmYBSrx1XrcqMNkH2Q6ALuczRv6LgpzVHvFH3DjvCu6SaM"
+        ],
+        "license": "GPL-3.0"
+      }
+    },
+    "version": 1
+  },
+  "ast": {
+    "absolutePath": "contracts/release/extensions/policy-manager/policies/utils/DustEvaluatorMixin.sol",
+    "id": 10561,
+    "exportedSymbols": {
+      "DustEvaluatorMixin": [
+        10560
+      ]
+    },
+    "nodeType": "SourceUnit",
+    "src": "255:1500:42",
+    "nodes": [
+      {
+        "id": 10500,
+        "nodeType": "PragmaDirective",
+        "src": "255:23:42",
+        "nodes": [],
+        "literals": [
+          "solidity",
+          "0.6",
+          ".12"
+        ]
+      },
+      {
+        "id": 10501,
+        "nodeType": "ImportDirective",
+        "src": "280:54:42",
+        "nodes": [],
+        "absolutePath": "contracts/release/utils/FundDeployerOwnerMixin.sol",
+        "file": "../../../../utils/FundDeployerOwnerMixin.sol",
+        "scope": 10561,
+        "sourceUnit": 18612,
+        "symbolAliases": [],
+        "unitAlias": ""
+      },
+      {
+        "id": 10560,
+        "nodeType": "ContractDefinition",
+        "src": "554:1200:42",
+        "nodes": [
+          {
+            "id": 10508,
+            "nodeType": "EventDefinition",
+            "src": "623:62:42",
+            "nodes": [],
+            "anonymous": false,
+            "documentation": null,
+            "name": "DustToleranceInWethSet",
+            "parameters": {
+              "id": 10507,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 10506,
+                  "indexed": false,
+                  "mutability": "mutable",
+                  "name": "nextDustToleranceInWeth",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 10508,
+                  "src": "652:31:42",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_uint256",
+                    "typeString": "uint256"
+                  },
+                  "typeName": {
+                    "id": 10505,
+                    "name": "uint256",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "652:7:42",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_uint256",
+                      "typeString": "uint256"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "651:33:42"
+            }
+          },
+          {
+            "id": 10510,
+            "nodeType": "VariableDeclaration",
+            "src": "691:35:42",
+            "nodes": [],
+            "constant": false,
+            "mutability": "mutable",
+            "name": "dustToleranceInWeth",
+            "overrides": null,
+            "scope": 10560,
+            "stateVariable": true,
+            "storageLocation": "default",
+            "typeDescriptions": {
+              "typeIdentifier": "t_uint256",
+              "typeString": "uint256"
+            },
+            "typeName": {
+              "id": 10509,
+              "name": "uint256",
+              "nodeType": "ElementaryTypeName",
+              "src": "691:7:42",
+              "typeDescriptions": {
+                "typeIdentifier": "t_uint256",
+                "typeString": "uint256"
+              }
+            },
+            "value": null,
+            "visibility": "private"
+          },
+          {
+            "id": 10519,
+            "nodeType": "FunctionDefinition",
+            "src": "733:82:42",
+            "nodes": [],
+            "body": {
+              "id": 10518,
+              "nodeType": "Block",
+              "src": "813:2:42",
+              "nodes": [],
+              "statements": []
+            },
+            "documentation": null,
+            "implemented": true,
+            "kind": "constructor",
+            "modifiers": [
+              {
+                "arguments": [
+                  {
+                    "argumentTypes": null,
+                    "id": 10515,
+                    "name": "_fundDeployer",
+                    "nodeType": "Identifier",
+                    "overloadedDeclarations": [],
+                    "referencedDeclaration": 10512,
+                    "src": "798:13:42",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  }
+                ],
+                "id": 10516,
+                "modifierName": {
+                  "argumentTypes": null,
+                  "id": 10514,
+                  "name": "FundDeployerOwnerMixin",
+                  "nodeType": "Identifier",
+                  "overloadedDeclarations": [],
+                  "referencedDeclaration": 18611,
+                  "src": "775:22:42",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_type$_t_contract$_FundDeployerOwnerMixin_$18611_$",
+                    "typeString": "type(contract FundDeployerOwnerMixin)"
+                  }
+                },
+                "nodeType": "ModifierInvocation",
+                "src": "775:37:42"
+              }
+            ],
+            "name": "",
+            "overrides": null,
+            "parameters": {
+              "id": 10513,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 10512,
+                  "mutability": "mutable",
+                  "name": "_fundDeployer",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 10519,
+                  "src": "745:21:42",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 10511,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "745:7:42",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "744:23:42"
+            },
+            "returnParameters": {
+              "id": 10517,
+              "nodeType": "ParameterList",
+              "parameters": [],
+              "src": "813:0:42"
+            },
+            "scope": 10560,
+            "stateMutability": "nonpayable",
+            "virtual": false,
+            "visibility": "public"
+          },
+          {
+            "id": 10536,
+            "nodeType": "FunctionDefinition",
+            "src": "956:244:42",
+            "nodes": [],
+            "body": {
+              "id": 10535,
+              "nodeType": "Block",
+              "src": "1073:127:42",
+              "nodes": [],
+              "statements": [
+                {
+                  "expression": {
+                    "argumentTypes": null,
+                    "id": 10529,
+                    "isConstant": false,
+                    "isLValue": false,
+                    "isPure": false,
+                    "lValueRequested": false,
+                    "leftHandSide": {
+                      "argumentTypes": null,
+                      "id": 10527,
+                      "name": "dustToleranceInWeth",
+                      "nodeType": "Identifier",
+                      "overloadedDeclarations": [],
+                      "referencedDeclaration": 10510,
+                      "src": "1083:19:42",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_uint256",
+                        "typeString": "uint256"
+                      }
+                    },
+                    "nodeType": "Assignment",
+                    "operator": "=",
+                    "rightHandSide": {
+                      "argumentTypes": null,
+                      "id": 10528,
+                      "name": "_nextDustToleranceInWeth",
+                      "nodeType": "Identifier",
+                      "overloadedDeclarations": [],
+                      "referencedDeclaration": 10522,
+                      "src": "1105:24:42",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_uint256",
+                        "typeString": "uint256"
+                      }
+                    },
+                    "src": "1083:46:42",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_uint256",
+                      "typeString": "uint256"
+                    }
+                  },
+                  "id": 10530,
+                  "nodeType": "ExpressionStatement",
+                  "src": "1083:46:42"
+                },
+                {
+                  "eventCall": {
+                    "argumentTypes": null,
+                    "arguments": [
+                      {
+                        "argumentTypes": null,
+                        "id": 10532,
+                        "name": "_nextDustToleranceInWeth",
+                        "nodeType": "Identifier",
+                        "overloadedDeclarations": [],
+                        "referencedDeclaration": 10522,
+                        "src": "1168:24:42",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_uint256",
+                          "typeString": "uint256"
+                        }
+                      }
+                    ],
+                    "expression": {
+                      "argumentTypes": [
+                        {
+                          "typeIdentifier": "t_uint256",
+                          "typeString": "uint256"
+                        }
+                      ],
+                      "id": 10531,
+                      "name": "DustToleranceInWethSet",
+                      "nodeType": "Identifier",
+                      "overloadedDeclarations": [],
+                      "referencedDeclaration": 10508,
+                      "src": "1145:22:42",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_function_event_nonpayable$_t_uint256_$returns$__$",
+                        "typeString": "function (uint256)"
+                      }
+                    },
+                    "id": 10533,
+                    "isConstant": false,
+                    "isLValue": false,
+                    "isPure": false,
+                    "kind": "functionCall",
+                    "lValueRequested": false,
+                    "names": [],
+                    "nodeType": "FunctionCall",
+                    "src": "1145:48:42",
+                    "tryCall": false,
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_tuple$__$",
+                      "typeString": "tuple()"
+                    }
+                  },
+                  "id": 10534,
+                  "nodeType": "EmitStatement",
+                  "src": "1140:53:42"
+                }
+              ]
+            },
+            "documentation": {
+              "id": 10520,
+              "nodeType": "StructuredDocumentation",
+              "src": "821:130:42",
+              "text": "@notice Sets the dustToleranceInWeth variable value\n @param _nextDustToleranceInWeth The next dustToleranceInWeth value"
+            },
+            "functionSelector": "219ea7bf",
+            "implemented": true,
+            "kind": "function",
+            "modifiers": [
+              {
+                "arguments": null,
+                "id": 10525,
+                "modifierName": {
+                  "argumentTypes": null,
+                  "id": 10524,
+                  "name": "onlyFundDeployerOwner",
+                  "nodeType": "Identifier",
+                  "overloadedDeclarations": [],
+                  "referencedDeclaration": 18578,
+                  "src": "1047:21:42",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_modifier$__$",
+                    "typeString": "modifier ()"
+                  }
+                },
+                "nodeType": "ModifierInvocation",
+                "src": "1047:21:42"
+              }
+            ],
+            "name": "setDustToleranceInWeth",
+            "overrides": null,
+            "parameters": {
+              "id": 10523,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 10522,
+                  "mutability": "mutable",
+                  "name": "_nextDustToleranceInWeth",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 10536,
+                  "src": "988:32:42",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_uint256",
+                    "typeString": "uint256"
+                  },
+                  "typeName": {
+                    "id": 10521,
+                    "name": "uint256",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "988:7:42",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_uint256",
+                      "typeString": "uint256"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "987:34:42"
+            },
+            "returnParameters": {
+              "id": 10526,
+              "nodeType": "ParameterList",
+              "parameters": [],
+              "src": "1073:0:42"
+            },
+            "scope": 10560,
+            "stateMutability": "nonpayable",
+            "virtual": false,
+            "visibility": "external"
+          },
+          {
+            "id": 10550,
+            "nodeType": "FunctionDefinition",
+            "src": "1272:139:42",
+            "nodes": [],
+            "body": {
+              "id": 10549,
+              "nodeType": "Block",
+              "src": "1348:63:42",
+              "nodes": [],
+              "statements": [
+                {
+                  "expression": {
+                    "argumentTypes": null,
+                    "commonType": {
+                      "typeIdentifier": "t_uint256",
+                      "typeString": "uint256"
+                    },
+                    "id": 10547,
+                    "isConstant": false,
+                    "isLValue": false,
+                    "isPure": false,
+                    "lValueRequested": false,
+                    "leftExpression": {
+                      "argumentTypes": null,
+                      "id": 10544,
+                      "name": "_wethAmount",
+                      "nodeType": "Identifier",
+                      "overloadedDeclarations": [],
+                      "referencedDeclaration": 10539,
+                      "src": "1365:11:42",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_uint256",
+                        "typeString": "uint256"
+                      }
+                    },
+                    "nodeType": "BinaryOperation",
+                    "operator": "<=",
+                    "rightExpression": {
+                      "argumentTypes": null,
+                      "arguments": [],
+                      "expression": {
+                        "argumentTypes": [],
+                        "id": 10545,
+                        "name": "getDustToleranceInWeth",
+                        "nodeType": "Identifier",
+                        "overloadedDeclarations": [],
+                        "referencedDeclaration": 10559,
+                        "src": "1380:22:42",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_function_internal_view$__$returns$_t_uint256_$",
+                          "typeString": "function () view returns (uint256)"
+                        }
+                      },
+                      "id": 10546,
+                      "isConstant": false,
+                      "isLValue": false,
+                      "isPure": false,
+                      "kind": "functionCall",
+                      "lValueRequested": false,
+                      "names": [],
+                      "nodeType": "FunctionCall",
+                      "src": "1380:24:42",
+                      "tryCall": false,
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_uint256",
+                        "typeString": "uint256"
+                      }
+                    },
+                    "src": "1365:39:42",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_bool",
+                      "typeString": "bool"
+                    }
+                  },
+                  "functionReturnParameters": 10543,
+                  "id": 10548,
+                  "nodeType": "Return",
+                  "src": "1358:46:42"
+                }
+              ]
+            },
+            "documentation": {
+              "id": 10537,
+              "nodeType": "StructuredDocumentation",
+              "src": "1206:61:42",
+              "text": "@dev Helper to evaluate whether an amount of WETH is dust"
+            },
+            "implemented": true,
+            "kind": "function",
+            "modifiers": [],
+            "name": "__isDust",
+            "overrides": null,
+            "parameters": {
+              "id": 10540,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 10539,
+                  "mutability": "mutable",
+                  "name": "_wethAmount",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 10550,
+                  "src": "1290:19:42",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_uint256",
+                    "typeString": "uint256"
+                  },
+                  "typeName": {
+                    "id": 10538,
+                    "name": "uint256",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "1290:7:42",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_uint256",
+                      "typeString": "uint256"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "1289:21:42"
+            },
+            "returnParameters": {
+              "id": 10543,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 10542,
+                  "mutability": "mutable",
+                  "name": "isDust_",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 10550,
+                  "src": "1334:12:42",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_bool",
+                    "typeString": "bool"
+                  },
+                  "typeName": {
+                    "id": 10541,
+                    "name": "bool",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "1334:4:42",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_bool",
+                      "typeString": "bool"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "1333:14:42"
+            },
+            "scope": 10560,
+            "stateMutability": "view",
+            "virtual": false,
+            "visibility": "internal"
+          },
+          {
+            "id": 10559,
+            "nodeType": "FunctionDefinition",
+            "src": "1624:128:42",
+            "nodes": [],
+            "body": {
+              "id": 10558,
+              "nodeType": "Block",
+              "src": "1709:43:42",
+              "nodes": [],
+              "statements": [
+                {
+                  "expression": {
+                    "argumentTypes": null,
+                    "id": 10556,
+                    "name": "dustToleranceInWeth",
+                    "nodeType": "Identifier",
+                    "overloadedDeclarations": [],
+                    "referencedDeclaration": 10510,
+                    "src": "1726:19:42",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_uint256",
+                      "typeString": "uint256"
+                    }
+                  },
+                  "functionReturnParameters": 10555,
+                  "id": 10557,
+                  "nodeType": "Return",
+                  "src": "1719:26:42"
+                }
+              ]
+            },
+            "documentation": {
+              "id": 10551,
+              "nodeType": "StructuredDocumentation",
+              "src": "1490:129:42",
+              "text": "@notice Gets the `dustToleranceInWeth` variable\n @return dustToleranceInWeth_ The `dustToleranceInWeth` variable value"
+            },
+            "functionSelector": "58bfdfee",
+            "implemented": true,
+            "kind": "function",
+            "modifiers": [],
+            "name": "getDustToleranceInWeth",
+            "overrides": null,
+            "parameters": {
+              "id": 10552,
+              "nodeType": "ParameterList",
+              "parameters": [],
+              "src": "1655:2:42"
+            },
+            "returnParameters": {
+              "id": 10555,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 10554,
+                  "mutability": "mutable",
+                  "name": "dustToleranceInWeth_",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 10559,
+                  "src": "1679:28:42",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_uint256",
+                    "typeString": "uint256"
+                  },
+                  "typeName": {
+                    "id": 10553,
+                    "name": "uint256",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "1679:7:42",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_uint256",
+                      "typeString": "uint256"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "1678:30:42"
+            },
+            "scope": 10560,
+            "stateMutability": "view",
+            "virtual": false,
+            "visibility": "public"
+          }
+        ],
+        "abstract": true,
+        "baseContracts": [
+          {
+            "arguments": null,
+            "baseName": {
+              "contractScope": null,
+              "id": 10503,
+              "name": "FundDeployerOwnerMixin",
+              "nodeType": "UserDefinedTypeName",
+              "referencedDeclaration": 18611,
+              "src": "594:22:42",
+              "typeDescriptions": {
+                "typeIdentifier": "t_contract$_FundDeployerOwnerMixin_$18611",
+                "typeString": "contract FundDeployerOwnerMixin"
+              }
+            },
+            "id": 10504,
+            "nodeType": "InheritanceSpecifier",
+            "src": "594:22:42"
+          }
+        ],
+        "contractDependencies": [
+          18611
+        ],
+        "contractKind": "contract",
+        "documentation": {
+          "id": 10502,
+          "nodeType": "StructuredDocumentation",
+          "src": "336:218:42",
+          "text": "@title DustEvaluatorMixin Contract\n @author Enzyme Council <security@enzyme.finance>\n @notice A mixin used to evaluate where an amount of a given asset can be considered \"dust,\"\n i.e., of negligible value"
+        },
+        "fullyImplemented": true,
+        "linearizedBaseContracts": [
+          10560,
+          18611
+        ],
+        "name": "DustEvaluatorMixin",
+        "scope": 10561
+      }
+    ],
+    "license": "GPL-3.0"
+  },
+  "id": 42
 }

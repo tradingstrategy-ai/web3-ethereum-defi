@@ -311,7 +311,7 @@ def test_swap_revert_with_slippage_protection(
     web3: Web3,
     deployer: str,
     hot_wallet: LocalAccount,
-    user_2: str,
+        user_1,
     uniswap_v2: UniswapV2Deployment,
     weth: Contract,
     usdc: Contract,
@@ -342,8 +342,8 @@ def test_swap_revert_with_slippage_protection(
     usdc.functions.approve(router.address, usdc_amount_to_pay).transact({"from": hw_address})
 
     # give user_2 some cash as well
-    usdc.functions.transfer(user_2, usdc_amount_to_pay).transact({"from": deployer})
-    usdc.functions.approve(router.address, usdc_amount_to_pay).transact({"from": user_2})
+    usdc.functions.transfer(user_1, usdc_amount_to_pay).transact({"from": deployer})
+    usdc.functions.approve(router.address, usdc_amount_to_pay).transact({"from": user_1})
 
     original_price = estimate_sell_price(
         uniswap_v2,
@@ -379,9 +379,9 @@ def test_swap_revert_with_slippage_protection(
         87 * 10**18,
         0,
         [usdc.address, weth.address],
-        user_2,
+        user_1,
         FOREVER_DEADLINE,
-    ).transact({"from": user_2})
+    ).transact({"from": user_1})
 
     # the price now should be lower than when we create tx1 (we get less ETH back)
     new_price = estimate_sell_price(
@@ -507,7 +507,7 @@ def test_swap_three_way_revert(
     web3: Web3,
     deployer: str,
     hot_wallet: LocalAccount,
-    user_2: str,
+        user_1,
     uniswap_v2: UniswapV2Deployment,
     weth: Contract,
     usdc: Contract,
@@ -550,8 +550,8 @@ def test_swap_three_way_revert(
 
     # give user_2 some cash as well
     weth_amount = 1 * 10**18
-    weth.functions.transfer(user_2, weth_amount).transact({"from": deployer})
-    weth.functions.approve(router.address, weth_amount).transact({"from": user_2})
+    weth.functions.transfer(user_1, weth_amount).transact({"from": deployer})
+    weth.functions.approve(router.address, weth_amount).transact({"from": user_1})
 
     original_price = estimate_sell_price(
         uniswap_v2,
@@ -589,9 +589,9 @@ def test_swap_three_way_revert(
         int(0.051 * 10**18),
         0,
         [weth.address, dai.address],
-        user_2,
+        user_1,
         FOREVER_DEADLINE,
-    ).transact({"from": user_2})
+    ).transact({"from": user_1})
 
     # the sell price now should be lower than when we create tx1 (we get less DAI back)
     new_price = estimate_sell_price(

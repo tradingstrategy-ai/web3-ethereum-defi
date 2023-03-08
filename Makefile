@@ -1,12 +1,8 @@
-# Compile all of Sushiswap fiels
-sushi:
+# Compile all of Sushiswap and in-house contract files
+sushi-and-inhouse:
 	# Get our mock up contracts to the compiler bundle
 	@cp contracts/inhouse/* contracts/sushiswap/contracts
 	@(cd contracts/sushiswap && yarn install && yarn build) > /dev/null
-	@echo "Sushi is ready"
-
-# Extract all compilation artifacts from Sushi to our abi/ dump
-copy-sushi-abi: sushi
 	@find contracts/sushiswap/artifacts/contracts -iname "*.json" -not -iname "*.dbg.json" -exec cp {} eth_defi/abi \;
 
 # Compile v3 core and periphery
@@ -28,11 +24,15 @@ aavev3:
 
 # Compile and copy Enzyme contract ABIs from their Github repository
 # Needs pnpm: curl -fsSL https://get.pnpm.io/install.sh | sh -
+#
+# NOTE: Currently needs Enzyme branch that is being ported to Forge.
+#
 enzyme:
+	@rm -f eth_defi/abi/enzyme/*.json || false
 	@(cd contracts/enzyme && pnpm install)
-	@(cd contracts/enzyme && pnpm compile)
+	@(cd contracts/enzyme && forge build)
 	@mkdir -p eth_defi/abi/enzyme
-	@find contracts/enzyme/packages/protocol/artifacts/contracts/release -iname "*.json" -exec cp {} eth_defi/abi/enzyme \;
+	@find contracts/enzyme/artifacts -iname "*.json" -exec cp {} eth_defi/abi/enzyme \;
 
 # Compile and copy dHEDGE
 # npm install also compiles the contracts here
@@ -40,13 +40,17 @@ dhedge:
 	@(cd contracts/dhedge && npm install)
 	@find contracts/dhedge/abi -iname "*.json" -exec cp {} eth_defi/abi/dhegde \;
 
-
 clean:
 	@rm -rf contracts/sushiswap/artifacts/*
 	@rm -rf contracts/uniswap-v3-core/artifacts/*
 	@rm -rf contracts/uniswap-v3-periphery/artifacts/*
 
-all: clean-docs copy-sushi-abi copy-uniswapv3-abi aavev3 build-docs
+# Compile all contracts we are using
+#
+# Move ABI files to within a Python package for PyPi distribution
+compile-projects-and-prepare-abi: sushi-and-inhouse copy-uniswapv3-abi aavev3 dhedge
+
+all: clean-docs compile-projects-and-prepare-abi build-docs
 
 # Export the dependencies, so that Read the docs can build our API docs
 # See: https://github.com/readthedocs/readthedocs.org/issues/4912

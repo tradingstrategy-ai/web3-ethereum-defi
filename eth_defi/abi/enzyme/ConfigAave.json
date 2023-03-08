@@ -1,0 +1,506 @@
+{
+  "abi": [
+    {
+      "inputs": [],
+      "name": "configAaveMainnet",
+      "outputs": [
+        {
+          "internalType": "address",
+          "name": "lendingPoolAddress",
+          "type": "address"
+        },
+        {
+          "internalType": "address",
+          "name": "lendingPoolAddressProviderAddress",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "configAavePolygon",
+      "outputs": [
+        {
+          "internalType": "address",
+          "name": "lendingPoolAddress",
+          "type": "address"
+        },
+        {
+          "internalType": "address",
+          "name": "lendingPoolAddressProviderAddress",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    }
+  ],
+  "bytecode": {
+    "object": "0x737d2768de32b0b80b7a3454c06bdac94a69ddc7a9608081905273b53c1a33016b2dc2ff3653530bff1848a515c8c560a0819052600080546001600160a01b031990811690931790556001805483169091179055610100604052738dff5e27ea6b7ac08ebfdf9eb090f32ee9a30fcf60c081905273d05e3e715d945b59290df0ae8ef85c1bdb68474460e0819052600280548416909217909155600380549092161790553480156100af57600080fd5b50609a806100be6000396000f3fe6080604052348015600f57600080fd5b506004361060325760003560e01c8063621f9790146037578063cc6a5292146074575b600080fd5b6000546001546050916001600160a01b03908116911682565b604080516001600160a01b0393841681529290911660208301520160405180910390f35b6002546003546050916001600160a01b0390811691168256fea164736f6c6343000811000a",
+    "sourceMap": "503:42:65:-:0;280:604;462:185;;;594:42;462:185;;;;-1:-1:-1;420:227:65;;-1:-1:-1;;;;;;420:227:65;;;;;;;;;;;;;;;;;;;280:604;696:185;737:42;462:185;696;;;828:42;696:185;;;;654:227;;;;;;;;;;;;;;;;;;;;280:604;;;;;;;;;;;;;;;;",
+    "linkReferences": {}
+  },
+  "deployedBytecode": {
+    "object": "0x6080604052348015600f57600080fd5b506004361060325760003560e01c8063621f9790146037578063cc6a5292146074575b600080fd5b6000546001546050916001600160a01b03908116911682565b604080516001600160a01b0393841681529290911660208301520160405180910390f35b6002546003546050916001600160a01b0390811691168256fea164736f6c6343000811000a",
+    "sourceMap": "280:604:65:-:0;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;420:227;;;;;;;-1:-1:-1;;;;;420:227:65;;;;;;;;;;;-1:-1:-1;;;;;73:54:78;;;316:37;;73:54;;;;686:2;671:18;;316:37;509:18;420:227:65;;;;;;;654;;;;;;;-1:-1:-1;;;;;654:227:65;;;;;;",
+    "linkReferences": {}
+  },
+  "methodIdentifiers": {
+    "configAaveMainnet()": "621f9790",
+    "configAavePolygon()": "cc6a5292"
+  },
+  "rawMetadata": "{\"compiler\":{\"version\":\"0.8.17+commit.8df45f5f\"},\"language\":\"Solidity\",\"output\":{\"abi\":[{\"inputs\":[],\"name\":\"configAaveMainnet\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"lendingPoolAddress\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"lendingPoolAddressProviderAddress\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"configAavePolygon\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"lendingPoolAddress\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"lendingPoolAddressProviderAddress\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"}],\"devdoc\":{\"kind\":\"dev\",\"methods\":{},\"version\":1},\"userdoc\":{\"kind\":\"user\",\"methods\":{},\"version\":1}},\"settings\":{\"compilationTarget\":{\"tests/scaffolding/aave/ConfigAave.sol\":\"ConfigAave\"},\"evmVersion\":\"london\",\"libraries\":{},\"metadata\":{\"bytecodeHash\":\"none\"},\"optimizer\":{\"details\":{\"constantOptimizer\":true,\"cse\":true,\"deduplicate\":true,\"inliner\":true,\"jumpdestRemover\":true,\"orderLiterals\":true,\"peephole\":true,\"yul\":false},\"runs\":200},\"remappings\":[\":@enzyme/=contracts/\",\":@openzeppelin-solc-0.7/=node_modules/@openzeppelin-solc-0.7/\",\":@openzeppelin/=node_modules/@openzeppelin/\",\":@uniswap/=node_modules/@uniswap/\",\":base64-sol/=node_modules/base64-sol/\",\":ds-test/=lib/forge-std/lib/ds-test/src/\",\":forge-std/=lib/forge-std/src/\",\":hardhat-deploy/=node_modules/hardhat-deploy/\",\":hardhat/=node_modules/hardhat/\"]},\"sources\":{\"tests/scaffolding/aave/ConfigAave.sol\":{\"keccak256\":\"0xae0762eb49c62a042fafb4425a481309c1b857e12be11d492e62cb94dfbcc5d7\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://4dfb834d39a04b8e594cf2b0c5ae55ba6b6905875387f55b773d529e63e6a595\",\"dweb:/ipfs/QmQP1BZ725sDDxQN5jUz5QbYx6L7ch57LVD5V9kSybT2td\"]}},\"version\":1}",
+  "metadata": {
+    "compiler": {
+      "version": "0.8.17+commit.8df45f5f"
+    },
+    "language": "Solidity",
+    "output": {
+      "abi": [
+        {
+          "inputs": [],
+          "stateMutability": "view",
+          "type": "function",
+          "name": "configAaveMainnet",
+          "outputs": [
+            {
+              "internalType": "address",
+              "name": "lendingPoolAddress",
+              "type": "address"
+            },
+            {
+              "internalType": "address",
+              "name": "lendingPoolAddressProviderAddress",
+              "type": "address"
+            }
+          ]
+        },
+        {
+          "inputs": [],
+          "stateMutability": "view",
+          "type": "function",
+          "name": "configAavePolygon",
+          "outputs": [
+            {
+              "internalType": "address",
+              "name": "lendingPoolAddress",
+              "type": "address"
+            },
+            {
+              "internalType": "address",
+              "name": "lendingPoolAddressProviderAddress",
+              "type": "address"
+            }
+          ]
+        }
+      ],
+      "devdoc": {
+        "kind": "dev",
+        "methods": {},
+        "version": 1
+      },
+      "userdoc": {
+        "kind": "user",
+        "methods": {},
+        "version": 1
+      }
+    },
+    "settings": {
+      "remappings": [
+        ":@enzyme/=contracts/",
+        ":@openzeppelin-solc-0.7/=node_modules/@openzeppelin-solc-0.7/",
+        ":@openzeppelin/=node_modules/@openzeppelin/",
+        ":@uniswap/=node_modules/@uniswap/",
+        ":base64-sol/=node_modules/base64-sol/",
+        ":ds-test/=lib/forge-std/lib/ds-test/src/",
+        ":forge-std/=lib/forge-std/src/",
+        ":hardhat-deploy/=node_modules/hardhat-deploy/",
+        ":hardhat/=node_modules/hardhat/"
+      ],
+      "optimizer": {
+        "runs": 200,
+        "details": {
+          "peephole": true,
+          "inliner": true,
+          "jumpdestRemover": true,
+          "orderLiterals": true,
+          "deduplicate": true,
+          "cse": true,
+          "constantOptimizer": true,
+          "yul": false
+        }
+      },
+      "metadata": {
+        "bytecodeHash": "none"
+      },
+      "compilationTarget": {
+        "tests/scaffolding/aave/ConfigAave.sol": "ConfigAave"
+      },
+      "libraries": {}
+    },
+    "sources": {
+      "tests/scaffolding/aave/ConfigAave.sol": {
+        "keccak256": "0xae0762eb49c62a042fafb4425a481309c1b857e12be11d492e62cb94dfbcc5d7",
+        "urls": [
+          "bzz-raw://4dfb834d39a04b8e594cf2b0c5ae55ba6b6905875387f55b773d529e63e6a595",
+          "dweb:/ipfs/QmQP1BZ725sDDxQN5jUz5QbYx6L7ch57LVD5V9kSybT2td"
+        ],
+        "license": "GPL-3.0"
+      }
+    },
+    "version": 1
+  },
+  "ast": {
+    "absolutePath": "tests/scaffolding/aave/ConfigAave.sol",
+    "id": 33434,
+    "exportedSymbols": {
+      "ConfigAave": [
+        33433
+      ]
+    },
+    "nodeType": "SourceUnit",
+    "src": "255:630:65",
+    "nodes": [
+      {
+        "id": 33413,
+        "nodeType": "PragmaDirective",
+        "src": "255:23:65",
+        "nodes": [],
+        "literals": [
+          "solidity",
+          "0.8",
+          ".17"
+        ]
+      },
+      {
+        "id": 33433,
+        "nodeType": "ContractDefinition",
+        "src": "280:604:65",
+        "nodes": [
+          {
+            "id": 33418,
+            "nodeType": "StructDefinition",
+            "src": "306:108:65",
+            "nodes": [],
+            "canonicalName": "ConfigAave.Config",
+            "members": [
+              {
+                "constant": false,
+                "id": 33415,
+                "mutability": "mutable",
+                "name": "lendingPoolAddress",
+                "nameLocation": "338:18:65",
+                "nodeType": "VariableDeclaration",
+                "scope": 33418,
+                "src": "330:26:65",
+                "stateVariable": false,
+                "storageLocation": "default",
+                "typeDescriptions": {
+                  "typeIdentifier": "t_address",
+                  "typeString": "address"
+                },
+                "typeName": {
+                  "id": 33414,
+                  "name": "address",
+                  "nodeType": "ElementaryTypeName",
+                  "src": "330:7:65",
+                  "stateMutability": "nonpayable",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  }
+                },
+                "visibility": "internal"
+              },
+              {
+                "constant": false,
+                "id": 33417,
+                "mutability": "mutable",
+                "name": "lendingPoolAddressProviderAddress",
+                "nameLocation": "374:33:65",
+                "nodeType": "VariableDeclaration",
+                "scope": 33418,
+                "src": "366:41:65",
+                "stateVariable": false,
+                "storageLocation": "default",
+                "typeDescriptions": {
+                  "typeIdentifier": "t_address",
+                  "typeString": "address"
+                },
+                "typeName": {
+                  "id": 33416,
+                  "name": "address",
+                  "nodeType": "ElementaryTypeName",
+                  "src": "366:7:65",
+                  "stateMutability": "nonpayable",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  }
+                },
+                "visibility": "internal"
+              }
+            ],
+            "name": "Config",
+            "nameLocation": "313:6:65",
+            "scope": 33433,
+            "visibility": "public"
+          },
+          {
+            "id": 33425,
+            "nodeType": "VariableDeclaration",
+            "src": "420:227:65",
+            "nodes": [],
+            "constant": false,
+            "functionSelector": "621f9790",
+            "mutability": "mutable",
+            "name": "configAaveMainnet",
+            "nameLocation": "434:17:65",
+            "scope": 33433,
+            "stateVariable": true,
+            "storageLocation": "default",
+            "typeDescriptions": {
+              "typeIdentifier": "t_struct$_Config_$33418_storage",
+              "typeString": "struct ConfigAave.Config"
+            },
+            "typeName": {
+              "id": 33420,
+              "nodeType": "UserDefinedTypeName",
+              "pathNode": {
+                "id": 33419,
+                "name": "Config",
+                "nameLocations": [
+                  "420:6:65"
+                ],
+                "nodeType": "IdentifierPath",
+                "referencedDeclaration": 33418,
+                "src": "420:6:65"
+              },
+              "referencedDeclaration": 33418,
+              "src": "420:6:65",
+              "typeDescriptions": {
+                "typeIdentifier": "t_struct$_Config_$33418_storage_ptr",
+                "typeString": "struct ConfigAave.Config"
+              }
+            },
+            "value": {
+              "arguments": [
+                {
+                  "hexValue": "307837643237363864453332623062383062376133343534633036426441633934413639444463374139",
+                  "id": 33422,
+                  "isConstant": false,
+                  "isLValue": false,
+                  "isPure": true,
+                  "kind": "number",
+                  "lValueRequested": false,
+                  "nodeType": "Literal",
+                  "src": "503:42:65",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "value": "0x7d2768dE32b0b80b7a3454c06BdAc94A69DDc7A9"
+                },
+                {
+                  "hexValue": "307842353343316133333031364232444332664633363533353330626646313834386135313563386335",
+                  "id": 33423,
+                  "isConstant": false,
+                  "isLValue": false,
+                  "isPure": true,
+                  "kind": "number",
+                  "lValueRequested": false,
+                  "nodeType": "Literal",
+                  "src": "594:42:65",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "value": "0xB53C1a33016B2DC2fF3653530bfF1848a515c8c5"
+                }
+              ],
+              "expression": {
+                "argumentTypes": [
+                  {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  }
+                ],
+                "id": 33421,
+                "name": "Config",
+                "nodeType": "Identifier",
+                "overloadedDeclarations": [],
+                "referencedDeclaration": 33418,
+                "src": "462:6:65",
+                "typeDescriptions": {
+                  "typeIdentifier": "t_type$_t_struct$_Config_$33418_storage_ptr_$",
+                  "typeString": "type(struct ConfigAave.Config storage pointer)"
+                }
+              },
+              "id": 33424,
+              "isConstant": false,
+              "isLValue": false,
+              "isPure": true,
+              "kind": "structConstructorCall",
+              "lValueRequested": false,
+              "nameLocations": [
+                "483:18:65",
+                "559:33:65"
+              ],
+              "names": [
+                "lendingPoolAddress",
+                "lendingPoolAddressProviderAddress"
+              ],
+              "nodeType": "FunctionCall",
+              "src": "462:185:65",
+              "tryCall": false,
+              "typeDescriptions": {
+                "typeIdentifier": "t_struct$_Config_$33418_memory_ptr",
+                "typeString": "struct ConfigAave.Config memory"
+              }
+            },
+            "visibility": "public"
+          },
+          {
+            "id": 33432,
+            "nodeType": "VariableDeclaration",
+            "src": "654:227:65",
+            "nodes": [],
+            "constant": false,
+            "functionSelector": "cc6a5292",
+            "mutability": "mutable",
+            "name": "configAavePolygon",
+            "nameLocation": "668:17:65",
+            "scope": 33433,
+            "stateVariable": true,
+            "storageLocation": "default",
+            "typeDescriptions": {
+              "typeIdentifier": "t_struct$_Config_$33418_storage",
+              "typeString": "struct ConfigAave.Config"
+            },
+            "typeName": {
+              "id": 33427,
+              "nodeType": "UserDefinedTypeName",
+              "pathNode": {
+                "id": 33426,
+                "name": "Config",
+                "nameLocations": [
+                  "654:6:65"
+                ],
+                "nodeType": "IdentifierPath",
+                "referencedDeclaration": 33418,
+                "src": "654:6:65"
+              },
+              "referencedDeclaration": 33418,
+              "src": "654:6:65",
+              "typeDescriptions": {
+                "typeIdentifier": "t_struct$_Config_$33418_storage_ptr",
+                "typeString": "struct ConfigAave.Config"
+              }
+            },
+            "value": {
+              "arguments": [
+                {
+                  "hexValue": "307838644666354532374541366237414330384562466466396542303930463332656539613330666366",
+                  "id": 33429,
+                  "isConstant": false,
+                  "isLValue": false,
+                  "isPure": true,
+                  "kind": "number",
+                  "lValueRequested": false,
+                  "nodeType": "Literal",
+                  "src": "737:42:65",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "value": "0x8dFf5E27EA6b7AC08EbFdf9eB090F32ee9a30fcf"
+                },
+                {
+                  "hexValue": "307864303565334537313564393435423539323930646630616538654638356331426442363834373434",
+                  "id": 33430,
+                  "isConstant": false,
+                  "isLValue": false,
+                  "isPure": true,
+                  "kind": "number",
+                  "lValueRequested": false,
+                  "nodeType": "Literal",
+                  "src": "828:42:65",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "value": "0xd05e3E715d945B59290df0ae8eF85c1BdB684744"
+                }
+              ],
+              "expression": {
+                "argumentTypes": [
+                  {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  }
+                ],
+                "id": 33428,
+                "name": "Config",
+                "nodeType": "Identifier",
+                "overloadedDeclarations": [],
+                "referencedDeclaration": 33418,
+                "src": "696:6:65",
+                "typeDescriptions": {
+                  "typeIdentifier": "t_type$_t_struct$_Config_$33418_storage_ptr_$",
+                  "typeString": "type(struct ConfigAave.Config storage pointer)"
+                }
+              },
+              "id": 33431,
+              "isConstant": false,
+              "isLValue": false,
+              "isPure": true,
+              "kind": "structConstructorCall",
+              "lValueRequested": false,
+              "nameLocations": [
+                "717:18:65",
+                "793:33:65"
+              ],
+              "names": [
+                "lendingPoolAddress",
+                "lendingPoolAddressProviderAddress"
+              ],
+              "nodeType": "FunctionCall",
+              "src": "696:185:65",
+              "tryCall": false,
+              "typeDescriptions": {
+                "typeIdentifier": "t_struct$_Config_$33418_memory_ptr",
+                "typeString": "struct ConfigAave.Config memory"
+              }
+            },
+            "visibility": "public"
+          }
+        ],
+        "abstract": false,
+        "baseContracts": [],
+        "canonicalName": "ConfigAave",
+        "contractDependencies": [],
+        "contractKind": "contract",
+        "fullyImplemented": true,
+        "linearizedBaseContracts": [
+          33433
+        ],
+        "name": "ConfigAave",
+        "nameLocation": "289:10:65",
+        "scope": 33434,
+        "usedErrors": []
+      }
+    ],
+    "license": "GPL-3.0"
+  },
+  "id": 65
+}

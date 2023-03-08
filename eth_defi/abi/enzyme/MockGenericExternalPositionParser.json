@@ -1,0 +1,1772 @@
+{
+  "abi": [
+    {
+      "inputs": [],
+      "name": "getInitArgs",
+      "outputs": [
+        {
+          "internalType": "bytes",
+          "name": "initArgs_",
+          "type": "bytes"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "",
+          "type": "address"
+        },
+        {
+          "internalType": "uint256",
+          "name": "_actionId",
+          "type": "uint256"
+        },
+        {
+          "internalType": "bytes",
+          "name": "",
+          "type": "bytes"
+        }
+      ],
+      "name": "parseAssetsForAction",
+      "outputs": [
+        {
+          "internalType": "address[]",
+          "name": "assetsToTransfer_",
+          "type": "address[]"
+        },
+        {
+          "internalType": "uint256[]",
+          "name": "amountsToTransfer_",
+          "type": "uint256[]"
+        },
+        {
+          "internalType": "address[]",
+          "name": "assetsToReceive_",
+          "type": "address[]"
+        }
+      ],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "",
+          "type": "address"
+        },
+        {
+          "internalType": "bytes",
+          "name": "",
+          "type": "bytes"
+        }
+      ],
+      "name": "parseInitArgs",
+      "outputs": [
+        {
+          "internalType": "bytes",
+          "name": "initArgs_",
+          "type": "bytes"
+        }
+      ],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "actionId",
+          "type": "uint256"
+        },
+        {
+          "internalType": "address[]",
+          "name": "_assetsToTransfer",
+          "type": "address[]"
+        },
+        {
+          "internalType": "uint256[]",
+          "name": "_amountsToTransfer",
+          "type": "uint256[]"
+        },
+        {
+          "internalType": "address[]",
+          "name": "_assetsToReceive",
+          "type": "address[]"
+        }
+      ],
+      "name": "setAssetsForAction",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bytes",
+          "name": "_initArgs",
+          "type": "bytes"
+        }
+      ],
+      "name": "setInitArgs",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    }
+  ],
+  "bytecode": {
+    "object": "0x608060405234801561001057600080fd5b50610a0a806100206000396000f3fe608060405234801561001057600080fd5b50600436106100575760003560e01c80630b48f7891461005c578063896d62961461020a578063bbd2d646146102ae578063c5dcfaf514610445578063db16c72e146104c2575b600080fd5b6102086004803603608081101561007257600080fd5b81359190810190604081016020820135600160201b81111561009357600080fd5b8201836020820111156100a557600080fd5b803590602001918460208302840111600160201b831117156100c657600080fd5b9190808060200260200160405190810160405280939291908181526020018383602002808284376000920191909152509295949360208101935035915050600160201b81111561011557600080fd5b82018360208201111561012757600080fd5b803590602001918460208302840111600160201b8311171561014857600080fd5b9190808060200260200160405190810160405280939291908181526020018383602002808284376000920191909152509295949360208101935035915050600160201b81111561019757600080fd5b8201836020820111156101a957600080fd5b803590602001918460208302840111600160201b831117156101ca57600080fd5b919080806020026020016040519081016040528093929190818152602001838360200280828437600092019190915250929550610576945050505050565b005b6102086004803603602081101561022057600080fd5b810190602081018135600160201b81111561023a57600080fd5b82018360208201111561024c57600080fd5b803590602001918460018302840111600160201b8311171561026d57600080fd5b91908080601f0160208091040260200160405190810160405280939291908181526020018383808284376000920191909152509295506105f1945050505050565b610367600480360360608110156102c457600080fd5b6001600160a01b0382351691602081013591810190606081016040820135600160201b8111156102f357600080fd5b82018360208201111561030557600080fd5b803590602001918460018302840111600160201b8311171561032657600080fd5b91908080601f016020809104026020016040519081016040528093929190818152602001838380828437600092019190915250929550610608945050505050565b60405180806020018060200180602001848103845287818151815260200191508051906020019060200280838360005b838110156103af578181015183820152602001610397565b50505050905001848103835286818151815260200191508051906020019060200280838360005b838110156103ee5781810151838201526020016103d6565b50505050905001848103825285818151815260200191508051906020019060200280838360005b8381101561042d578181015183820152602001610415565b50505050905001965050505050505060405180910390f35b61044d610760565b6040805160208082528351818301528351919283929083019185019080838360005b8381101561048757818101518382015260200161046f565b50505050905090810190601f1680156104b45780820380516001836020036101000a031916815260200191505b509250505060405180910390f35b61044d600480360360408110156104d857600080fd5b6001600160a01b038235169190810190604081016020820135600160201b81111561050257600080fd5b82018360208201111561051457600080fd5b803590602001918460018302840111600160201b8311171561053557600080fd5b91908080601f0160208091040260200160405190810160405280939291908181526020018383808284376000920191909152509295506107f6945050505050565b6040805160608101825284815260208082018590528183018490526000878152600182529290922081518051929391926105b3928492019061088f565b5060208281015180516105cc92600185019201906108f4565b50604082015180516105e891600284019160209091019061088f565b50505050505050565b805161060490600090602084019061093b565b5050565b60608060606106156109a8565b6000868152600160209081526040918290208251815460809381028201840190945260608101848152909391928492849184018282801561067f57602002820191906000526020600020905b81546001600160a01b03168152600190910190602001808311610661575b50505050508152602001600182018054806020026020016040519081016040528092919081815260200182805480156106d757602002820191906000526020600020905b8154815260200190600101908083116106c3575b505050505081526020016002820180548060200260200160405190810160405280929190818152602001828054801561073957602002820191906000526020600020905b81546001600160a01b0316815260019091019060200180831161071b575b50505091909252505081516020830151604090930151909a92995097509095505050505050565b60008054604080516020601f60026000196101006001881615020190951694909404938401819004810282018101909252828152606093909290918301828280156107ec5780601f106107c1576101008083540402835291602001916107ec565b820191906000526020600020905b8154815290600101906020018083116107cf57829003601f168201915b5050505050905090565b60008054604080516020601f60026000196101006001881615020190951694909404938401819004810282018101909252828152606093909290918301828280156108825780601f1061085757610100808354040283529160200191610882565b820191906000526020600020905b81548152906001019060200180831161086557829003601f168201915b5050505050905092915050565b8280548282559060005260206000209081019282156108e4579160200282015b828111156108e457825182546001600160a01b0319166001600160a01b039091161782556020909201916001909101906108af565b506108f09291506109c9565b5090565b82805482825590600052602060002090810192821561092f579160200282015b8281111561092f578251825591602001919060010190610914565b506108f09291506109e8565b828054600181600116156101000203166002900490600052602060002090601f016020900481019282601f1061097c57805160ff191683800117855561092f565b8280016001018555821561092f579182018281111561092f578251825591602001919060010190610914565b60405180606001604052806060815260200160608152602001606081525090565b5b808211156108f05780546001600160a01b03191681556001016109ca565b5b808211156108f057600081556001016109e956fea164736f6c634300060c000a",
+    "sourceMap": "569:1960:3:-:0;;;;;;;;;;;;;;;;;;;",
+    "linkReferences": {}
+  },
+  "deployedBytecode": {
+    "object": "0x608060405234801561001057600080fd5b50600436106100575760003560e01c80630b48f7891461005c578063896d62961461020a578063bbd2d646146102ae578063c5dcfaf514610445578063db16c72e146104c2575b600080fd5b6102086004803603608081101561007257600080fd5b81359190810190604081016020820135600160201b81111561009357600080fd5b8201836020820111156100a557600080fd5b803590602001918460208302840111600160201b831117156100c657600080fd5b9190808060200260200160405190810160405280939291908181526020018383602002808284376000920191909152509295949360208101935035915050600160201b81111561011557600080fd5b82018360208201111561012757600080fd5b803590602001918460208302840111600160201b8311171561014857600080fd5b9190808060200260200160405190810160405280939291908181526020018383602002808284376000920191909152509295949360208101935035915050600160201b81111561019757600080fd5b8201836020820111156101a957600080fd5b803590602001918460208302840111600160201b831117156101ca57600080fd5b919080806020026020016040519081016040528093929190818152602001838360200280828437600092019190915250929550610576945050505050565b005b6102086004803603602081101561022057600080fd5b810190602081018135600160201b81111561023a57600080fd5b82018360208201111561024c57600080fd5b803590602001918460018302840111600160201b8311171561026d57600080fd5b91908080601f0160208091040260200160405190810160405280939291908181526020018383808284376000920191909152509295506105f1945050505050565b610367600480360360608110156102c457600080fd5b6001600160a01b0382351691602081013591810190606081016040820135600160201b8111156102f357600080fd5b82018360208201111561030557600080fd5b803590602001918460018302840111600160201b8311171561032657600080fd5b91908080601f016020809104026020016040519081016040528093929190818152602001838380828437600092019190915250929550610608945050505050565b60405180806020018060200180602001848103845287818151815260200191508051906020019060200280838360005b838110156103af578181015183820152602001610397565b50505050905001848103835286818151815260200191508051906020019060200280838360005b838110156103ee5781810151838201526020016103d6565b50505050905001848103825285818151815260200191508051906020019060200280838360005b8381101561042d578181015183820152602001610415565b50505050905001965050505050505060405180910390f35b61044d610760565b6040805160208082528351818301528351919283929083019185019080838360005b8381101561048757818101518382015260200161046f565b50505050905090810190601f1680156104b45780820380516001836020036101000a031916815260200191505b509250505060405180910390f35b61044d600480360360408110156104d857600080fd5b6001600160a01b038235169190810190604081016020820135600160201b81111561050257600080fd5b82018360208201111561051457600080fd5b803590602001918460018302840111600160201b8311171561053557600080fd5b91908080601f0160208091040260200160405190810160405280939291908181526020018383808284376000920191909152509295506107f6945050505050565b6040805160608101825284815260208082018590528183018490526000878152600182529290922081518051929391926105b3928492019061088f565b5060208281015180516105cc92600185019201906108f4565b50604082015180516105e891600284019160209091019061088f565b50505050505050565b805161060490600090602084019061093b565b5050565b60608060606106156109a8565b6000868152600160209081526040918290208251815460809381028201840190945260608101848152909391928492849184018282801561067f57602002820191906000526020600020905b81546001600160a01b03168152600190910190602001808311610661575b50505050508152602001600182018054806020026020016040519081016040528092919081815260200182805480156106d757602002820191906000526020600020905b8154815260200190600101908083116106c3575b505050505081526020016002820180548060200260200160405190810160405280929190818152602001828054801561073957602002820191906000526020600020905b81546001600160a01b0316815260019091019060200180831161071b575b50505091909252505081516020830151604090930151909a92995097509095505050505050565b60008054604080516020601f60026000196101006001881615020190951694909404938401819004810282018101909252828152606093909290918301828280156107ec5780601f106107c1576101008083540402835291602001916107ec565b820191906000526020600020905b8154815290600101906020018083116107cf57829003601f168201915b5050505050905090565b60008054604080516020601f60026000196101006001881615020190951694909404938401819004810282018101909252828152606093909290918301828280156108825780601f1061085757610100808354040283529160200191610882565b820191906000526020600020905b81548152906001019060200180831161086557829003601f168201915b5050505050905092915050565b8280548282559060005260206000209081019282156108e4579160200282015b828111156108e457825182546001600160a01b0319166001600160a01b039091161782556020909201916001909101906108af565b506108f09291506109c9565b5090565b82805482825590600052602060002090810192821561092f579160200282015b8281111561092f578251825591602001919060010190610914565b506108f09291506109e8565b828054600181600116156101000203166002900490600052602060002090601f016020900481019282601f1061097c57805160ff191683800117855561092f565b8280016001018555821561092f579182018281111561092f578251825591602001919060010190610914565b60405180606001604052806060815260200160608152602001606081525090565b5b808211156108f05780546001600160a01b03191681556001016109ca565b5b808211156108f057600081556001016109e956fea164736f6c634300060c000a",
+    "sourceMap": "569:1960:3:-:0;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;1608:430;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;-1:-1:-1;;;1608:430:3;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;-1:-1:-1;;;1608:430:3;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;-1:-1:-1;1608:430:3;;;;;;;;-1:-1:-1;1608:430:3;;-1:-1:-1;;;;;1608:430:3;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;-1:-1:-1;;;1608:430:3;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;-1:-1:-1;1608:430:3;;;;;;;;-1:-1:-1;1608:430:3;;-1:-1:-1;;;;;1608:430:3;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;-1:-1:-1;;;1608:430:3;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;-1:-1:-1;1608:430:3;;-1:-1:-1;1608:430:3;;-1:-1:-1;;;;;1608:430:3:i;:::-;;2084:91;;;;;;;;;;;;;;;;;;;;;;;;-1:-1:-1;;;2084:91:3;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;-1:-1:-1;;;2084:91:3;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;-1:-1:-1;2084:91:3;;-1:-1:-1;2084:91:3;;-1:-1:-1;;;;;2084:91:3:i;971:570::-;;;;;;;;;;;;;;;;-1:-1:-1;;;;;971:570:3;;;;;;;;;;;;;;;;;;;-1:-1:-1;;;971:570:3;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;-1:-1:-1;;;971:570:3;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;-1:-1:-1;971:570:3;;-1:-1:-1;971:570:3;;-1:-1:-1;;;;;971:570:3:i;:::-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;2427:100;;;:::i;:::-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;2221:157;;;;;;;;;;;;;;;;-1:-1:-1;;;;;2221:157:3;;;;;;;;;;;;;;;-1:-1:-1;;;2221:157:3;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;-1:-1:-1;;;2221:157:3;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;-1:-1:-1;2221:157:3;;-1:-1:-1;2221:157:3;;-1:-1:-1;;;;;2221:157:3:i;1608:430::-;1857:174;;;;;;;;;;;;;;;;;;;;;;;;-1:-1:-1;1819:35:3;;;:25;:35;;;;;;:212;;;;1857:174;;1819:35;;:212;;:35;;:212;;;:::i;:::-;-1:-1:-1;1819:212:3;;;;;;;;;;;;;;;;:::i;:::-;-1:-1:-1;1819:212:3;;;;;;;;;;;;;;;;;;:::i;:::-;-1:-1:-1;;;;;;;1608:430:3:o;2084:91::-;2148:20;;;;:8;;:20;;;;;:::i;:::-;;2084:91;:::o;971:570::-;1137:34;1185:35;1234:33;1292:38;;:::i;:::-;1333:36;;;;:25;:36;;;;;;;;;1292:77;;;;;;;;;;;;;;;;;;;;;;;1333:36;;1292:77;;1333:36;;1292:77;;1333:36;1292:77;;;;;;;;;;;;;;;;;;;;-1:-1:-1;;;;;1292:77:3;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;-1:-1:-1;;;;;1292:77:3;;;;;;;;;;;;;;;;-1:-1:-1;;;1292:77:3;;;;-1:-1:-1;;1400:32:3;;1446:33;;;;1493:31;;;;;1400:32;;1446:33;;-1:-1:-1;1493:31:3;-1:-1:-1;971:570:3;;-1:-1:-1;;;;;;971:570:3:o;2427:100::-;2512:8;2505:15;;;;;;;;-1:-1:-1;;2505:15:3;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;2471:22;;2505:15;;2512:8;;2505:15;;2512:8;2505:15;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;2427:100;:::o;2221:157::-;2363:8;2356:15;;;;;;;;-1:-1:-1;;2356:15:3;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;2318:22;;2356:15;;2363:8;;2356:15;;2363:8;2356:15;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;2221:157;;;;:::o;-1:-1:-1:-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;:::i;:::-;;;:::o;:::-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;:::i;:::-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;:::o;:::-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;",
+    "linkReferences": {}
+  },
+  "methodIdentifiers": {
+    "getInitArgs()": "c5dcfaf5",
+    "parseAssetsForAction(address,uint256,bytes)": "bbd2d646",
+    "parseInitArgs(address,bytes)": "db16c72e",
+    "setAssetsForAction(uint256,address[],uint256[],address[])": "0b48f789",
+    "setInitArgs(bytes)": "896d6296"
+  },
+  "rawMetadata": "{\"compiler\":{\"version\":\"0.6.12+commit.27d51765\"},\"language\":\"Solidity\",\"output\":{\"abi\":[{\"inputs\":[],\"name\":\"getInitArgs\",\"outputs\":[{\"internalType\":\"bytes\",\"name\":\"initArgs_\",\"type\":\"bytes\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"_actionId\",\"type\":\"uint256\"},{\"internalType\":\"bytes\",\"name\":\"\",\"type\":\"bytes\"}],\"name\":\"parseAssetsForAction\",\"outputs\":[{\"internalType\":\"address[]\",\"name\":\"assetsToTransfer_\",\"type\":\"address[]\"},{\"internalType\":\"uint256[]\",\"name\":\"amountsToTransfer_\",\"type\":\"uint256[]\"},{\"internalType\":\"address[]\",\"name\":\"assetsToReceive_\",\"type\":\"address[]\"}],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"},{\"internalType\":\"bytes\",\"name\":\"\",\"type\":\"bytes\"}],\"name\":\"parseInitArgs\",\"outputs\":[{\"internalType\":\"bytes\",\"name\":\"initArgs_\",\"type\":\"bytes\"}],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"actionId\",\"type\":\"uint256\"},{\"internalType\":\"address[]\",\"name\":\"_assetsToTransfer\",\"type\":\"address[]\"},{\"internalType\":\"uint256[]\",\"name\":\"_amountsToTransfer\",\"type\":\"uint256[]\"},{\"internalType\":\"address[]\",\"name\":\"_assetsToReceive\",\"type\":\"address[]\"}],\"name\":\"setAssetsForAction\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes\",\"name\":\"_initArgs\",\"type\":\"bytes\"}],\"name\":\"setInitArgs\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"}],\"devdoc\":{\"author\":\"Enzyme Council <security@enzyme.finance>\",\"kind\":\"dev\",\"methods\":{\"getInitArgs()\":{\"details\":\"Returns the initArgs variable\"},\"parseAssetsForAction(address,uint256,bytes)\":{\"details\":\"Returns the default assetsForAction stored for a given actionID\"},\"parseInitArgs(address,bytes)\":{\"details\":\"Sets the initArgs variable\"},\"setAssetsForAction(uint256,address[],uint256[],address[])\":{\"details\":\"Sets the assets for action for a given actionId\"},\"setInitArgs(bytes)\":{\"details\":\"Sets the initArgs variable\"}},\"title\":\"MockGenericExternalPositionParser Contract\",\"version\":1},\"userdoc\":{\"kind\":\"user\",\"methods\":{},\"notice\":\"Provides a generic external position parser to be used on tests\",\"version\":1}},\"settings\":{\"compilationTarget\":{\"contracts/mocks/MockGenericExternalPositionParser.sol\":\"MockGenericExternalPositionParser\"},\"evmVersion\":\"istanbul\",\"libraries\":{},\"metadata\":{\"bytecodeHash\":\"none\"},\"optimizer\":{\"details\":{\"constantOptimizer\":true,\"cse\":true,\"deduplicate\":true,\"jumpdestRemover\":true,\"orderLiterals\":true,\"peephole\":true,\"yul\":false},\"runs\":200},\"remappings\":[\":@enzyme/=contracts/\",\":@openzeppelin-solc-0.7/=node_modules/@openzeppelin-solc-0.7/\",\":@openzeppelin/=node_modules/@openzeppelin/\",\":@uniswap/=node_modules/@uniswap/\",\":base64-sol/=node_modules/base64-sol/\",\":ds-test/=lib/forge-std/lib/ds-test/src/\",\":forge-std/=lib/forge-std/src/\",\":hardhat-deploy/=node_modules/hardhat-deploy/\",\":hardhat/=node_modules/hardhat/\"]},\"sources\":{\"contracts/mocks/MockGenericExternalPositionParser.sol\":{\"keccak256\":\"0x3ad7b6948ef83bcd6704b4196e4233050c57875402f980bf670bb84a5f6a586e\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://296f429f057ddfa787c4a719ff3ee2fe440261fc638394f8bf3ac6955244be02\",\"dweb:/ipfs/QmX1s6QuqBMxnt8m5SaQ73KKb1Gzrp9KBBdYkEhC9syYP6\"]},\"contracts/release/extensions/external-position-manager/external-positions/IExternalPositionParser.sol\":{\"keccak256\":\"0x1662fbd65841ee5e9cf8d5329b9d04c264b24ef68ae1e0484e59a8969b0d2c46\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://580569b0f875e0344db83fae1e72dcc6c0767a049b2a6cc3e4f3c411d2284b27\",\"dweb:/ipfs/QmXFmF9QbcVsPHaBo1iq8sZHYhDkwfkMZpHmLTuJJ37NvZ\"]}},\"version\":1}",
+  "metadata": {
+    "compiler": {
+      "version": "0.6.12+commit.27d51765"
+    },
+    "language": "Solidity",
+    "output": {
+      "abi": [
+        {
+          "inputs": [],
+          "stateMutability": "view",
+          "type": "function",
+          "name": "getInitArgs",
+          "outputs": [
+            {
+              "internalType": "bytes",
+              "name": "initArgs_",
+              "type": "bytes"
+            }
+          ]
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "",
+              "type": "address"
+            },
+            {
+              "internalType": "uint256",
+              "name": "_actionId",
+              "type": "uint256"
+            },
+            {
+              "internalType": "bytes",
+              "name": "",
+              "type": "bytes"
+            }
+          ],
+          "stateMutability": "nonpayable",
+          "type": "function",
+          "name": "parseAssetsForAction",
+          "outputs": [
+            {
+              "internalType": "address[]",
+              "name": "assetsToTransfer_",
+              "type": "address[]"
+            },
+            {
+              "internalType": "uint256[]",
+              "name": "amountsToTransfer_",
+              "type": "uint256[]"
+            },
+            {
+              "internalType": "address[]",
+              "name": "assetsToReceive_",
+              "type": "address[]"
+            }
+          ]
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "",
+              "type": "address"
+            },
+            {
+              "internalType": "bytes",
+              "name": "",
+              "type": "bytes"
+            }
+          ],
+          "stateMutability": "nonpayable",
+          "type": "function",
+          "name": "parseInitArgs",
+          "outputs": [
+            {
+              "internalType": "bytes",
+              "name": "initArgs_",
+              "type": "bytes"
+            }
+          ]
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "uint256",
+              "name": "actionId",
+              "type": "uint256"
+            },
+            {
+              "internalType": "address[]",
+              "name": "_assetsToTransfer",
+              "type": "address[]"
+            },
+            {
+              "internalType": "uint256[]",
+              "name": "_amountsToTransfer",
+              "type": "uint256[]"
+            },
+            {
+              "internalType": "address[]",
+              "name": "_assetsToReceive",
+              "type": "address[]"
+            }
+          ],
+          "stateMutability": "nonpayable",
+          "type": "function",
+          "name": "setAssetsForAction"
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "bytes",
+              "name": "_initArgs",
+              "type": "bytes"
+            }
+          ],
+          "stateMutability": "nonpayable",
+          "type": "function",
+          "name": "setInitArgs"
+        }
+      ],
+      "devdoc": {
+        "kind": "dev",
+        "methods": {
+          "getInitArgs()": {
+            "details": "Returns the initArgs variable"
+          },
+          "parseAssetsForAction(address,uint256,bytes)": {
+            "details": "Returns the default assetsForAction stored for a given actionID"
+          },
+          "parseInitArgs(address,bytes)": {
+            "details": "Sets the initArgs variable"
+          },
+          "setAssetsForAction(uint256,address[],uint256[],address[])": {
+            "details": "Sets the assets for action for a given actionId"
+          },
+          "setInitArgs(bytes)": {
+            "details": "Sets the initArgs variable"
+          }
+        },
+        "version": 1
+      },
+      "userdoc": {
+        "kind": "user",
+        "methods": {},
+        "version": 1
+      }
+    },
+    "settings": {
+      "remappings": [
+        ":@enzyme/=contracts/",
+        ":@openzeppelin-solc-0.7/=node_modules/@openzeppelin-solc-0.7/",
+        ":@openzeppelin/=node_modules/@openzeppelin/",
+        ":@uniswap/=node_modules/@uniswap/",
+        ":base64-sol/=node_modules/base64-sol/",
+        ":ds-test/=lib/forge-std/lib/ds-test/src/",
+        ":forge-std/=lib/forge-std/src/",
+        ":hardhat-deploy/=node_modules/hardhat-deploy/",
+        ":hardhat/=node_modules/hardhat/"
+      ],
+      "optimizer": {
+        "runs": 200,
+        "details": {
+          "peephole": true,
+          "jumpdestRemover": true,
+          "orderLiterals": true,
+          "deduplicate": true,
+          "cse": true,
+          "constantOptimizer": true,
+          "yul": false
+        }
+      },
+      "metadata": {
+        "bytecodeHash": "none"
+      },
+      "compilationTarget": {
+        "contracts/mocks/MockGenericExternalPositionParser.sol": "MockGenericExternalPositionParser"
+      },
+      "libraries": {}
+    },
+    "sources": {
+      "contracts/mocks/MockGenericExternalPositionParser.sol": {
+        "keccak256": "0x3ad7b6948ef83bcd6704b4196e4233050c57875402f980bf670bb84a5f6a586e",
+        "urls": [
+          "bzz-raw://296f429f057ddfa787c4a719ff3ee2fe440261fc638394f8bf3ac6955244be02",
+          "dweb:/ipfs/QmX1s6QuqBMxnt8m5SaQ73KKb1Gzrp9KBBdYkEhC9syYP6"
+        ],
+        "license": "GPL-3.0"
+      },
+      "contracts/release/extensions/external-position-manager/external-positions/IExternalPositionParser.sol": {
+        "keccak256": "0x1662fbd65841ee5e9cf8d5329b9d04c264b24ef68ae1e0484e59a8969b0d2c46",
+        "urls": [
+          "bzz-raw://580569b0f875e0344db83fae1e72dcc6c0767a049b2a6cc3e4f3c411d2284b27",
+          "dweb:/ipfs/QmXFmF9QbcVsPHaBo1iq8sZHYhDkwfkMZpHmLTuJJ37NvZ"
+        ],
+        "license": "GPL-3.0"
+      }
+    },
+    "version": 1
+  },
+  "ast": {
+    "absolutePath": "contracts/mocks/MockGenericExternalPositionParser.sol",
+    "id": 1108,
+    "exportedSymbols": {
+      "MockGenericExternalPositionParser": [
+        1107
+      ]
+    },
+    "nodeType": "SourceUnit",
+    "src": "255:2275:3",
+    "nodes": [
+      {
+        "id": 991,
+        "nodeType": "PragmaDirective",
+        "src": "255:23:3",
+        "nodes": [],
+        "literals": [
+          "solidity",
+          "0.6",
+          ".12"
+        ]
+      },
+      {
+        "id": 992,
+        "nodeType": "ImportDirective",
+        "src": "280:104:3",
+        "nodes": [],
+        "absolutePath": "contracts/release/extensions/external-position-manager/external-positions/IExternalPositionParser.sol",
+        "file": "../release/extensions/external-position-manager/external-positions/IExternalPositionParser.sol",
+        "scope": 1108,
+        "sourceUnit": 19824,
+        "symbolAliases": [],
+        "unitAlias": ""
+      },
+      {
+        "id": 1107,
+        "nodeType": "ContractDefinition",
+        "src": "569:1960:3",
+        "nodes": [
+          {
+            "id": 1005,
+            "nodeType": "StructDefinition",
+            "src": "645:138:3",
+            "nodes": [],
+            "canonicalName": "MockGenericExternalPositionParser.AssetsForAction",
+            "members": [
+              {
+                "constant": false,
+                "id": 998,
+                "mutability": "mutable",
+                "name": "assetsToTransfer",
+                "nodeType": "VariableDeclaration",
+                "overrides": null,
+                "scope": 1005,
+                "src": "678:26:3",
+                "stateVariable": false,
+                "storageLocation": "default",
+                "typeDescriptions": {
+                  "typeIdentifier": "t_array$_t_address_$dyn_storage_ptr",
+                  "typeString": "address[]"
+                },
+                "typeName": {
+                  "baseType": {
+                    "id": 996,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "678:7:3",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "id": 997,
+                  "length": null,
+                  "nodeType": "ArrayTypeName",
+                  "src": "678:9:3",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_array$_t_address_$dyn_storage_ptr",
+                    "typeString": "address[]"
+                  }
+                },
+                "value": null,
+                "visibility": "internal"
+              },
+              {
+                "constant": false,
+                "id": 1001,
+                "mutability": "mutable",
+                "name": "amountsToTransfer",
+                "nodeType": "VariableDeclaration",
+                "overrides": null,
+                "scope": 1005,
+                "src": "714:27:3",
+                "stateVariable": false,
+                "storageLocation": "default",
+                "typeDescriptions": {
+                  "typeIdentifier": "t_array$_t_uint256_$dyn_storage_ptr",
+                  "typeString": "uint256[]"
+                },
+                "typeName": {
+                  "baseType": {
+                    "id": 999,
+                    "name": "uint256",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "714:7:3",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_uint256",
+                      "typeString": "uint256"
+                    }
+                  },
+                  "id": 1000,
+                  "length": null,
+                  "nodeType": "ArrayTypeName",
+                  "src": "714:9:3",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_array$_t_uint256_$dyn_storage_ptr",
+                    "typeString": "uint256[]"
+                  }
+                },
+                "value": null,
+                "visibility": "internal"
+              },
+              {
+                "constant": false,
+                "id": 1004,
+                "mutability": "mutable",
+                "name": "assetsToReceive",
+                "nodeType": "VariableDeclaration",
+                "overrides": null,
+                "scope": 1005,
+                "src": "751:25:3",
+                "stateVariable": false,
+                "storageLocation": "default",
+                "typeDescriptions": {
+                  "typeIdentifier": "t_array$_t_address_$dyn_storage_ptr",
+                  "typeString": "address[]"
+                },
+                "typeName": {
+                  "baseType": {
+                    "id": 1002,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "751:7:3",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "id": 1003,
+                  "length": null,
+                  "nodeType": "ArrayTypeName",
+                  "src": "751:9:3",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_array$_t_address_$dyn_storage_ptr",
+                    "typeString": "address[]"
+                  }
+                },
+                "value": null,
+                "visibility": "internal"
+              }
+            ],
+            "name": "AssetsForAction",
+            "scope": 1107,
+            "visibility": "public"
+          },
+          {
+            "id": 1007,
+            "nodeType": "VariableDeclaration",
+            "src": "789:22:3",
+            "nodes": [],
+            "constant": false,
+            "mutability": "mutable",
+            "name": "initArgs",
+            "overrides": null,
+            "scope": 1107,
+            "stateVariable": true,
+            "storageLocation": "default",
+            "typeDescriptions": {
+              "typeIdentifier": "t_bytes_storage",
+              "typeString": "bytes"
+            },
+            "typeName": {
+              "id": 1006,
+              "name": "bytes",
+              "nodeType": "ElementaryTypeName",
+              "src": "789:5:3",
+              "typeDescriptions": {
+                "typeIdentifier": "t_bytes_storage_ptr",
+                "typeString": "bytes"
+              }
+            },
+            "value": null,
+            "visibility": "private"
+          },
+          {
+            "id": 1011,
+            "nodeType": "VariableDeclaration",
+            "src": "818:69:3",
+            "nodes": [],
+            "constant": false,
+            "mutability": "mutable",
+            "name": "actionIdToAssetsForAction",
+            "overrides": null,
+            "scope": 1107,
+            "stateVariable": true,
+            "storageLocation": "default",
+            "typeDescriptions": {
+              "typeIdentifier": "t_mapping$_t_uint256_$_t_struct$_AssetsForAction_$1005_storage_$",
+              "typeString": "mapping(uint256 => struct MockGenericExternalPositionParser.AssetsForAction)"
+            },
+            "typeName": {
+              "id": 1010,
+              "keyType": {
+                "id": 1008,
+                "name": "uint256",
+                "nodeType": "ElementaryTypeName",
+                "src": "826:7:3",
+                "typeDescriptions": {
+                  "typeIdentifier": "t_uint256",
+                  "typeString": "uint256"
+                }
+              },
+              "nodeType": "Mapping",
+              "src": "818:35:3",
+              "typeDescriptions": {
+                "typeIdentifier": "t_mapping$_t_uint256_$_t_struct$_AssetsForAction_$1005_storage_$",
+                "typeString": "mapping(uint256 => struct MockGenericExternalPositionParser.AssetsForAction)"
+              },
+              "valueType": {
+                "contractScope": null,
+                "id": 1009,
+                "name": "AssetsForAction",
+                "nodeType": "UserDefinedTypeName",
+                "referencedDeclaration": 1005,
+                "src": "837:15:3",
+                "typeDescriptions": {
+                  "typeIdentifier": "t_struct$_AssetsForAction_$1005_storage_ptr",
+                  "typeString": "struct MockGenericExternalPositionParser.AssetsForAction"
+                }
+              }
+            },
+            "value": null,
+            "visibility": "private"
+          },
+          {
+            "id": 1046,
+            "nodeType": "FunctionDefinition",
+            "src": "971:570:3",
+            "nodes": [],
+            "body": {
+              "id": 1045,
+              "nodeType": "Block",
+              "src": "1282:259:3",
+              "nodes": [],
+              "statements": [
+                {
+                  "assignments": [
+                    1032
+                  ],
+                  "declarations": [
+                    {
+                      "constant": false,
+                      "id": 1032,
+                      "mutability": "mutable",
+                      "name": "assetsForAction",
+                      "nodeType": "VariableDeclaration",
+                      "overrides": null,
+                      "scope": 1045,
+                      "src": "1292:38:3",
+                      "stateVariable": false,
+                      "storageLocation": "memory",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_struct$_AssetsForAction_$1005_memory_ptr",
+                        "typeString": "struct MockGenericExternalPositionParser.AssetsForAction"
+                      },
+                      "typeName": {
+                        "contractScope": null,
+                        "id": 1031,
+                        "name": "AssetsForAction",
+                        "nodeType": "UserDefinedTypeName",
+                        "referencedDeclaration": 1005,
+                        "src": "1292:15:3",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_struct$_AssetsForAction_$1005_storage_ptr",
+                          "typeString": "struct MockGenericExternalPositionParser.AssetsForAction"
+                        }
+                      },
+                      "value": null,
+                      "visibility": "internal"
+                    }
+                  ],
+                  "id": 1036,
+                  "initialValue": {
+                    "argumentTypes": null,
+                    "baseExpression": {
+                      "argumentTypes": null,
+                      "id": 1033,
+                      "name": "actionIdToAssetsForAction",
+                      "nodeType": "Identifier",
+                      "overloadedDeclarations": [],
+                      "referencedDeclaration": 1011,
+                      "src": "1333:25:3",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_mapping$_t_uint256_$_t_struct$_AssetsForAction_$1005_storage_$",
+                        "typeString": "mapping(uint256 => struct MockGenericExternalPositionParser.AssetsForAction storage ref)"
+                      }
+                    },
+                    "id": 1035,
+                    "indexExpression": {
+                      "argumentTypes": null,
+                      "id": 1034,
+                      "name": "_actionId",
+                      "nodeType": "Identifier",
+                      "overloadedDeclarations": [],
+                      "referencedDeclaration": 1016,
+                      "src": "1359:9:3",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_uint256",
+                        "typeString": "uint256"
+                      }
+                    },
+                    "isConstant": false,
+                    "isLValue": true,
+                    "isPure": false,
+                    "lValueRequested": false,
+                    "nodeType": "IndexAccess",
+                    "src": "1333:36:3",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_struct$_AssetsForAction_$1005_storage",
+                      "typeString": "struct MockGenericExternalPositionParser.AssetsForAction storage ref"
+                    }
+                  },
+                  "nodeType": "VariableDeclarationStatement",
+                  "src": "1292:77:3"
+                },
+                {
+                  "expression": {
+                    "argumentTypes": null,
+                    "components": [
+                      {
+                        "argumentTypes": null,
+                        "expression": {
+                          "argumentTypes": null,
+                          "id": 1037,
+                          "name": "assetsForAction",
+                          "nodeType": "Identifier",
+                          "overloadedDeclarations": [],
+                          "referencedDeclaration": 1032,
+                          "src": "1400:15:3",
+                          "typeDescriptions": {
+                            "typeIdentifier": "t_struct$_AssetsForAction_$1005_memory_ptr",
+                            "typeString": "struct MockGenericExternalPositionParser.AssetsForAction memory"
+                          }
+                        },
+                        "id": 1038,
+                        "isConstant": false,
+                        "isLValue": true,
+                        "isPure": false,
+                        "lValueRequested": false,
+                        "memberName": "assetsToTransfer",
+                        "nodeType": "MemberAccess",
+                        "referencedDeclaration": 998,
+                        "src": "1400:32:3",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_array$_t_address_$dyn_memory_ptr",
+                          "typeString": "address[] memory"
+                        }
+                      },
+                      {
+                        "argumentTypes": null,
+                        "expression": {
+                          "argumentTypes": null,
+                          "id": 1039,
+                          "name": "assetsForAction",
+                          "nodeType": "Identifier",
+                          "overloadedDeclarations": [],
+                          "referencedDeclaration": 1032,
+                          "src": "1446:15:3",
+                          "typeDescriptions": {
+                            "typeIdentifier": "t_struct$_AssetsForAction_$1005_memory_ptr",
+                            "typeString": "struct MockGenericExternalPositionParser.AssetsForAction memory"
+                          }
+                        },
+                        "id": 1040,
+                        "isConstant": false,
+                        "isLValue": true,
+                        "isPure": false,
+                        "lValueRequested": false,
+                        "memberName": "amountsToTransfer",
+                        "nodeType": "MemberAccess",
+                        "referencedDeclaration": 1001,
+                        "src": "1446:33:3",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_array$_t_uint256_$dyn_memory_ptr",
+                          "typeString": "uint256[] memory"
+                        }
+                      },
+                      {
+                        "argumentTypes": null,
+                        "expression": {
+                          "argumentTypes": null,
+                          "id": 1041,
+                          "name": "assetsForAction",
+                          "nodeType": "Identifier",
+                          "overloadedDeclarations": [],
+                          "referencedDeclaration": 1032,
+                          "src": "1493:15:3",
+                          "typeDescriptions": {
+                            "typeIdentifier": "t_struct$_AssetsForAction_$1005_memory_ptr",
+                            "typeString": "struct MockGenericExternalPositionParser.AssetsForAction memory"
+                          }
+                        },
+                        "id": 1042,
+                        "isConstant": false,
+                        "isLValue": true,
+                        "isPure": false,
+                        "lValueRequested": false,
+                        "memberName": "assetsToReceive",
+                        "nodeType": "MemberAccess",
+                        "referencedDeclaration": 1004,
+                        "src": "1493:31:3",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_array$_t_address_$dyn_memory_ptr",
+                          "typeString": "address[] memory"
+                        }
+                      }
+                    ],
+                    "id": 1043,
+                    "isConstant": false,
+                    "isInlineArray": false,
+                    "isLValue": false,
+                    "isPure": false,
+                    "lValueRequested": false,
+                    "nodeType": "TupleExpression",
+                    "src": "1386:148:3",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_tuple$_t_array$_t_address_$dyn_memory_ptr_$_t_array$_t_uint256_$dyn_memory_ptr_$_t_array$_t_address_$dyn_memory_ptr_$",
+                      "typeString": "tuple(address[] memory,uint256[] memory,address[] memory)"
+                    }
+                  },
+                  "functionReturnParameters": 1030,
+                  "id": 1044,
+                  "nodeType": "Return",
+                  "src": "1379:155:3"
+                }
+              ]
+            },
+            "baseFunctions": [
+              19813
+            ],
+            "documentation": {
+              "id": 1012,
+              "nodeType": "StructuredDocumentation",
+              "src": "894:72:3",
+              "text": "@dev Returns the default assetsForAction stored for a given actionID"
+            },
+            "functionSelector": "bbd2d646",
+            "implemented": true,
+            "kind": "function",
+            "modifiers": [],
+            "name": "parseAssetsForAction",
+            "overrides": {
+              "id": 1020,
+              "nodeType": "OverrideSpecifier",
+              "overrides": [],
+              "src": "1098:8:3"
+            },
+            "parameters": {
+              "id": 1019,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 1014,
+                  "mutability": "mutable",
+                  "name": "",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 1046,
+                  "src": "1010:7:3",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 1013,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "1010:7:3",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 1016,
+                  "mutability": "mutable",
+                  "name": "_actionId",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 1046,
+                  "src": "1027:17:3",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_uint256",
+                    "typeString": "uint256"
+                  },
+                  "typeName": {
+                    "id": 1015,
+                    "name": "uint256",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "1027:7:3",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_uint256",
+                      "typeString": "uint256"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 1018,
+                  "mutability": "mutable",
+                  "name": "",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 1046,
+                  "src": "1054:12:3",
+                  "stateVariable": false,
+                  "storageLocation": "memory",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_bytes_memory_ptr",
+                    "typeString": "bytes"
+                  },
+                  "typeName": {
+                    "id": 1017,
+                    "name": "bytes",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "1054:5:3",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_bytes_storage_ptr",
+                      "typeString": "bytes"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "1000:72:3"
+            },
+            "returnParameters": {
+              "id": 1030,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 1023,
+                  "mutability": "mutable",
+                  "name": "assetsToTransfer_",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 1046,
+                  "src": "1137:34:3",
+                  "stateVariable": false,
+                  "storageLocation": "memory",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_array$_t_address_$dyn_memory_ptr",
+                    "typeString": "address[]"
+                  },
+                  "typeName": {
+                    "baseType": {
+                      "id": 1021,
+                      "name": "address",
+                      "nodeType": "ElementaryTypeName",
+                      "src": "1137:7:3",
+                      "stateMutability": "nonpayable",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_address",
+                        "typeString": "address"
+                      }
+                    },
+                    "id": 1022,
+                    "length": null,
+                    "nodeType": "ArrayTypeName",
+                    "src": "1137:9:3",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_array$_t_address_$dyn_storage_ptr",
+                      "typeString": "address[]"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 1026,
+                  "mutability": "mutable",
+                  "name": "amountsToTransfer_",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 1046,
+                  "src": "1185:35:3",
+                  "stateVariable": false,
+                  "storageLocation": "memory",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_array$_t_uint256_$dyn_memory_ptr",
+                    "typeString": "uint256[]"
+                  },
+                  "typeName": {
+                    "baseType": {
+                      "id": 1024,
+                      "name": "uint256",
+                      "nodeType": "ElementaryTypeName",
+                      "src": "1185:7:3",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_uint256",
+                        "typeString": "uint256"
+                      }
+                    },
+                    "id": 1025,
+                    "length": null,
+                    "nodeType": "ArrayTypeName",
+                    "src": "1185:9:3",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_array$_t_uint256_$dyn_storage_ptr",
+                      "typeString": "uint256[]"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 1029,
+                  "mutability": "mutable",
+                  "name": "assetsToReceive_",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 1046,
+                  "src": "1234:33:3",
+                  "stateVariable": false,
+                  "storageLocation": "memory",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_array$_t_address_$dyn_memory_ptr",
+                    "typeString": "address[]"
+                  },
+                  "typeName": {
+                    "baseType": {
+                      "id": 1027,
+                      "name": "address",
+                      "nodeType": "ElementaryTypeName",
+                      "src": "1234:7:3",
+                      "stateMutability": "nonpayable",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_address",
+                        "typeString": "address"
+                      }
+                    },
+                    "id": 1028,
+                    "length": null,
+                    "nodeType": "ArrayTypeName",
+                    "src": "1234:9:3",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_array$_t_address_$dyn_storage_ptr",
+                      "typeString": "address[]"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "1123:154:3"
+            },
+            "scope": 1107,
+            "stateMutability": "nonpayable",
+            "virtual": false,
+            "visibility": "external"
+          },
+          {
+            "id": 1072,
+            "nodeType": "FunctionDefinition",
+            "src": "1608:430:3",
+            "nodes": [],
+            "body": {
+              "id": 1071,
+              "nodeType": "Block",
+              "src": "1809:229:3",
+              "nodes": [],
+              "statements": [
+                {
+                  "expression": {
+                    "argumentTypes": null,
+                    "id": 1069,
+                    "isConstant": false,
+                    "isLValue": false,
+                    "isPure": false,
+                    "lValueRequested": false,
+                    "leftHandSide": {
+                      "argumentTypes": null,
+                      "baseExpression": {
+                        "argumentTypes": null,
+                        "id": 1061,
+                        "name": "actionIdToAssetsForAction",
+                        "nodeType": "Identifier",
+                        "overloadedDeclarations": [],
+                        "referencedDeclaration": 1011,
+                        "src": "1819:25:3",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_mapping$_t_uint256_$_t_struct$_AssetsForAction_$1005_storage_$",
+                          "typeString": "mapping(uint256 => struct MockGenericExternalPositionParser.AssetsForAction storage ref)"
+                        }
+                      },
+                      "id": 1063,
+                      "indexExpression": {
+                        "argumentTypes": null,
+                        "id": 1062,
+                        "name": "actionId",
+                        "nodeType": "Identifier",
+                        "overloadedDeclarations": [],
+                        "referencedDeclaration": 1049,
+                        "src": "1845:8:3",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_uint256",
+                          "typeString": "uint256"
+                        }
+                      },
+                      "isConstant": false,
+                      "isLValue": true,
+                      "isPure": false,
+                      "lValueRequested": true,
+                      "nodeType": "IndexAccess",
+                      "src": "1819:35:3",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_struct$_AssetsForAction_$1005_storage",
+                        "typeString": "struct MockGenericExternalPositionParser.AssetsForAction storage ref"
+                      }
+                    },
+                    "nodeType": "Assignment",
+                    "operator": "=",
+                    "rightHandSide": {
+                      "argumentTypes": null,
+                      "arguments": [
+                        {
+                          "argumentTypes": null,
+                          "id": 1065,
+                          "name": "_assetsToTransfer",
+                          "nodeType": "Identifier",
+                          "overloadedDeclarations": [],
+                          "referencedDeclaration": 1052,
+                          "src": "1905:17:3",
+                          "typeDescriptions": {
+                            "typeIdentifier": "t_array$_t_address_$dyn_memory_ptr",
+                            "typeString": "address[] memory"
+                          }
+                        },
+                        {
+                          "argumentTypes": null,
+                          "id": 1066,
+                          "name": "_amountsToTransfer",
+                          "nodeType": "Identifier",
+                          "overloadedDeclarations": [],
+                          "referencedDeclaration": 1055,
+                          "src": "1955:18:3",
+                          "typeDescriptions": {
+                            "typeIdentifier": "t_array$_t_uint256_$dyn_memory_ptr",
+                            "typeString": "uint256[] memory"
+                          }
+                        },
+                        {
+                          "argumentTypes": null,
+                          "id": 1067,
+                          "name": "_assetsToReceive",
+                          "nodeType": "Identifier",
+                          "overloadedDeclarations": [],
+                          "referencedDeclaration": 1058,
+                          "src": "2004:16:3",
+                          "typeDescriptions": {
+                            "typeIdentifier": "t_array$_t_address_$dyn_memory_ptr",
+                            "typeString": "address[] memory"
+                          }
+                        }
+                      ],
+                      "expression": {
+                        "argumentTypes": [
+                          {
+                            "typeIdentifier": "t_array$_t_address_$dyn_memory_ptr",
+                            "typeString": "address[] memory"
+                          },
+                          {
+                            "typeIdentifier": "t_array$_t_uint256_$dyn_memory_ptr",
+                            "typeString": "uint256[] memory"
+                          },
+                          {
+                            "typeIdentifier": "t_array$_t_address_$dyn_memory_ptr",
+                            "typeString": "address[] memory"
+                          }
+                        ],
+                        "id": 1064,
+                        "name": "AssetsForAction",
+                        "nodeType": "Identifier",
+                        "overloadedDeclarations": [],
+                        "referencedDeclaration": 1005,
+                        "src": "1857:15:3",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_type$_t_struct$_AssetsForAction_$1005_storage_ptr_$",
+                          "typeString": "type(struct MockGenericExternalPositionParser.AssetsForAction storage pointer)"
+                        }
+                      },
+                      "id": 1068,
+                      "isConstant": false,
+                      "isLValue": false,
+                      "isPure": false,
+                      "kind": "structConstructorCall",
+                      "lValueRequested": false,
+                      "names": [
+                        "assetsToTransfer",
+                        "amountsToTransfer",
+                        "assetsToReceive"
+                      ],
+                      "nodeType": "FunctionCall",
+                      "src": "1857:174:3",
+                      "tryCall": false,
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_struct$_AssetsForAction_$1005_memory_ptr",
+                        "typeString": "struct MockGenericExternalPositionParser.AssetsForAction memory"
+                      }
+                    },
+                    "src": "1819:212:3",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_struct$_AssetsForAction_$1005_storage",
+                      "typeString": "struct MockGenericExternalPositionParser.AssetsForAction storage ref"
+                    }
+                  },
+                  "id": 1070,
+                  "nodeType": "ExpressionStatement",
+                  "src": "1819:212:3"
+                }
+              ]
+            },
+            "documentation": {
+              "id": 1047,
+              "nodeType": "StructuredDocumentation",
+              "src": "1547:56:3",
+              "text": "@dev Sets the assets for action for a given actionId"
+            },
+            "functionSelector": "0b48f789",
+            "implemented": true,
+            "kind": "function",
+            "modifiers": [],
+            "name": "setAssetsForAction",
+            "overrides": null,
+            "parameters": {
+              "id": 1059,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 1049,
+                  "mutability": "mutable",
+                  "name": "actionId",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 1072,
+                  "src": "1645:16:3",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_uint256",
+                    "typeString": "uint256"
+                  },
+                  "typeName": {
+                    "id": 1048,
+                    "name": "uint256",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "1645:7:3",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_uint256",
+                      "typeString": "uint256"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 1052,
+                  "mutability": "mutable",
+                  "name": "_assetsToTransfer",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 1072,
+                  "src": "1671:34:3",
+                  "stateVariable": false,
+                  "storageLocation": "memory",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_array$_t_address_$dyn_memory_ptr",
+                    "typeString": "address[]"
+                  },
+                  "typeName": {
+                    "baseType": {
+                      "id": 1050,
+                      "name": "address",
+                      "nodeType": "ElementaryTypeName",
+                      "src": "1671:7:3",
+                      "stateMutability": "nonpayable",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_address",
+                        "typeString": "address"
+                      }
+                    },
+                    "id": 1051,
+                    "length": null,
+                    "nodeType": "ArrayTypeName",
+                    "src": "1671:9:3",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_array$_t_address_$dyn_storage_ptr",
+                      "typeString": "address[]"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 1055,
+                  "mutability": "mutable",
+                  "name": "_amountsToTransfer",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 1072,
+                  "src": "1715:35:3",
+                  "stateVariable": false,
+                  "storageLocation": "memory",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_array$_t_uint256_$dyn_memory_ptr",
+                    "typeString": "uint256[]"
+                  },
+                  "typeName": {
+                    "baseType": {
+                      "id": 1053,
+                      "name": "uint256",
+                      "nodeType": "ElementaryTypeName",
+                      "src": "1715:7:3",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_uint256",
+                        "typeString": "uint256"
+                      }
+                    },
+                    "id": 1054,
+                    "length": null,
+                    "nodeType": "ArrayTypeName",
+                    "src": "1715:9:3",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_array$_t_uint256_$dyn_storage_ptr",
+                      "typeString": "uint256[]"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 1058,
+                  "mutability": "mutable",
+                  "name": "_assetsToReceive",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 1072,
+                  "src": "1760:33:3",
+                  "stateVariable": false,
+                  "storageLocation": "memory",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_array$_t_address_$dyn_memory_ptr",
+                    "typeString": "address[]"
+                  },
+                  "typeName": {
+                    "baseType": {
+                      "id": 1056,
+                      "name": "address",
+                      "nodeType": "ElementaryTypeName",
+                      "src": "1760:7:3",
+                      "stateMutability": "nonpayable",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_address",
+                        "typeString": "address"
+                      }
+                    },
+                    "id": 1057,
+                    "length": null,
+                    "nodeType": "ArrayTypeName",
+                    "src": "1760:9:3",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_array$_t_address_$dyn_storage_ptr",
+                      "typeString": "address[]"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "1635:164:3"
+            },
+            "returnParameters": {
+              "id": 1060,
+              "nodeType": "ParameterList",
+              "parameters": [],
+              "src": "1809:0:3"
+            },
+            "scope": 1107,
+            "stateMutability": "nonpayable",
+            "virtual": false,
+            "visibility": "external"
+          },
+          {
+            "id": 1083,
+            "nodeType": "FunctionDefinition",
+            "src": "2084:91:3",
+            "nodes": [],
+            "body": {
+              "id": 1082,
+              "nodeType": "Block",
+              "src": "2138:37:3",
+              "nodes": [],
+              "statements": [
+                {
+                  "expression": {
+                    "argumentTypes": null,
+                    "id": 1080,
+                    "isConstant": false,
+                    "isLValue": false,
+                    "isPure": false,
+                    "lValueRequested": false,
+                    "leftHandSide": {
+                      "argumentTypes": null,
+                      "id": 1078,
+                      "name": "initArgs",
+                      "nodeType": "Identifier",
+                      "overloadedDeclarations": [],
+                      "referencedDeclaration": 1007,
+                      "src": "2148:8:3",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_bytes_storage",
+                        "typeString": "bytes storage ref"
+                      }
+                    },
+                    "nodeType": "Assignment",
+                    "operator": "=",
+                    "rightHandSide": {
+                      "argumentTypes": null,
+                      "id": 1079,
+                      "name": "_initArgs",
+                      "nodeType": "Identifier",
+                      "overloadedDeclarations": [],
+                      "referencedDeclaration": 1075,
+                      "src": "2159:9:3",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_bytes_memory_ptr",
+                        "typeString": "bytes memory"
+                      }
+                    },
+                    "src": "2148:20:3",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_bytes_storage",
+                      "typeString": "bytes storage ref"
+                    }
+                  },
+                  "id": 1081,
+                  "nodeType": "ExpressionStatement",
+                  "src": "2148:20:3"
+                }
+              ]
+            },
+            "documentation": {
+              "id": 1073,
+              "nodeType": "StructuredDocumentation",
+              "src": "2044:35:3",
+              "text": "@dev Sets the initArgs variable"
+            },
+            "functionSelector": "896d6296",
+            "implemented": true,
+            "kind": "function",
+            "modifiers": [],
+            "name": "setInitArgs",
+            "overrides": null,
+            "parameters": {
+              "id": 1076,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 1075,
+                  "mutability": "mutable",
+                  "name": "_initArgs",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 1083,
+                  "src": "2105:22:3",
+                  "stateVariable": false,
+                  "storageLocation": "memory",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_bytes_memory_ptr",
+                    "typeString": "bytes"
+                  },
+                  "typeName": {
+                    "id": 1074,
+                    "name": "bytes",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "2105:5:3",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_bytes_storage_ptr",
+                      "typeString": "bytes"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "2104:24:3"
+            },
+            "returnParameters": {
+              "id": 1077,
+              "nodeType": "ParameterList",
+              "parameters": [],
+              "src": "2138:0:3"
+            },
+            "scope": 1107,
+            "stateMutability": "nonpayable",
+            "virtual": false,
+            "visibility": "external"
+          },
+          {
+            "id": 1097,
+            "nodeType": "FunctionDefinition",
+            "src": "2221:157:3",
+            "nodes": [],
+            "body": {
+              "id": 1096,
+              "nodeType": "Block",
+              "src": "2346:32:3",
+              "nodes": [],
+              "statements": [
+                {
+                  "expression": {
+                    "argumentTypes": null,
+                    "id": 1094,
+                    "name": "initArgs",
+                    "nodeType": "Identifier",
+                    "overloadedDeclarations": [],
+                    "referencedDeclaration": 1007,
+                    "src": "2363:8:3",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_bytes_storage",
+                      "typeString": "bytes storage ref"
+                    }
+                  },
+                  "functionReturnParameters": 1093,
+                  "id": 1095,
+                  "nodeType": "Return",
+                  "src": "2356:15:3"
+                }
+              ]
+            },
+            "baseFunctions": [
+              19822
+            ],
+            "documentation": {
+              "id": 1084,
+              "nodeType": "StructuredDocumentation",
+              "src": "2181:35:3",
+              "text": "@dev Sets the initArgs variable"
+            },
+            "functionSelector": "db16c72e",
+            "implemented": true,
+            "kind": "function",
+            "modifiers": [],
+            "name": "parseInitArgs",
+            "overrides": {
+              "id": 1090,
+              "nodeType": "OverrideSpecifier",
+              "overrides": [],
+              "src": "2292:8:3"
+            },
+            "parameters": {
+              "id": 1089,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 1086,
+                  "mutability": "mutable",
+                  "name": "",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 1097,
+                  "src": "2244:7:3",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 1085,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "2244:7:3",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 1088,
+                  "mutability": "mutable",
+                  "name": "",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 1097,
+                  "src": "2253:12:3",
+                  "stateVariable": false,
+                  "storageLocation": "memory",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_bytes_memory_ptr",
+                    "typeString": "bytes"
+                  },
+                  "typeName": {
+                    "id": 1087,
+                    "name": "bytes",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "2253:5:3",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_bytes_storage_ptr",
+                      "typeString": "bytes"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "2243:23:3"
+            },
+            "returnParameters": {
+              "id": 1093,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 1092,
+                  "mutability": "mutable",
+                  "name": "initArgs_",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 1097,
+                  "src": "2318:22:3",
+                  "stateVariable": false,
+                  "storageLocation": "memory",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_bytes_memory_ptr",
+                    "typeString": "bytes"
+                  },
+                  "typeName": {
+                    "id": 1091,
+                    "name": "bytes",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "2318:5:3",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_bytes_storage_ptr",
+                      "typeString": "bytes"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "2317:24:3"
+            },
+            "scope": 1107,
+            "stateMutability": "nonpayable",
+            "virtual": false,
+            "visibility": "external"
+          },
+          {
+            "id": 1106,
+            "nodeType": "FunctionDefinition",
+            "src": "2427:100:3",
+            "nodes": [],
+            "body": {
+              "id": 1105,
+              "nodeType": "Block",
+              "src": "2495:32:3",
+              "nodes": [],
+              "statements": [
+                {
+                  "expression": {
+                    "argumentTypes": null,
+                    "id": 1103,
+                    "name": "initArgs",
+                    "nodeType": "Identifier",
+                    "overloadedDeclarations": [],
+                    "referencedDeclaration": 1007,
+                    "src": "2512:8:3",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_bytes_storage",
+                      "typeString": "bytes storage ref"
+                    }
+                  },
+                  "functionReturnParameters": 1102,
+                  "id": 1104,
+                  "nodeType": "Return",
+                  "src": "2505:15:3"
+                }
+              ]
+            },
+            "documentation": {
+              "id": 1098,
+              "nodeType": "StructuredDocumentation",
+              "src": "2384:38:3",
+              "text": "@dev Returns the initArgs variable"
+            },
+            "functionSelector": "c5dcfaf5",
+            "implemented": true,
+            "kind": "function",
+            "modifiers": [],
+            "name": "getInitArgs",
+            "overrides": null,
+            "parameters": {
+              "id": 1099,
+              "nodeType": "ParameterList",
+              "parameters": [],
+              "src": "2447:2:3"
+            },
+            "returnParameters": {
+              "id": 1102,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 1101,
+                  "mutability": "mutable",
+                  "name": "initArgs_",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 1106,
+                  "src": "2471:22:3",
+                  "stateVariable": false,
+                  "storageLocation": "memory",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_bytes_memory_ptr",
+                    "typeString": "bytes"
+                  },
+                  "typeName": {
+                    "id": 1100,
+                    "name": "bytes",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "2471:5:3",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_bytes_storage_ptr",
+                      "typeString": "bytes"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "2470:24:3"
+            },
+            "scope": 1107,
+            "stateMutability": "view",
+            "virtual": false,
+            "visibility": "public"
+          }
+        ],
+        "abstract": false,
+        "baseContracts": [
+          {
+            "arguments": null,
+            "baseName": {
+              "contractScope": null,
+              "id": 994,
+              "name": "IExternalPositionParser",
+              "nodeType": "UserDefinedTypeName",
+              "referencedDeclaration": 19823,
+              "src": "615:23:3",
+              "typeDescriptions": {
+                "typeIdentifier": "t_contract$_IExternalPositionParser_$19823",
+                "typeString": "contract IExternalPositionParser"
+              }
+            },
+            "id": 995,
+            "nodeType": "InheritanceSpecifier",
+            "src": "615:23:3"
+          }
+        ],
+        "contractDependencies": [
+          19823
+        ],
+        "contractKind": "contract",
+        "documentation": {
+          "id": 993,
+          "nodeType": "StructuredDocumentation",
+          "src": "386:183:3",
+          "text": "@title MockGenericExternalPositionParser Contract\n @author Enzyme Council <security@enzyme.finance>\n @notice Provides a generic external position parser to be used on tests"
+        },
+        "fullyImplemented": true,
+        "linearizedBaseContracts": [
+          1107,
+          19823
+        ],
+        "name": "MockGenericExternalPositionParser",
+        "scope": 1108
+      }
+    ],
+    "license": "GPL-3.0"
+  },
+  "id": 3
+}

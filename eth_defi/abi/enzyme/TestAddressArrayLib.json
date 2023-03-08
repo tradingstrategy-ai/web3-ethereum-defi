@@ -1,0 +1,465 @@
+{
+  "abi": [
+    {
+      "inputs": [
+        {
+          "internalType": "address[]",
+          "name": "_array",
+          "type": "address[]"
+        },
+        {
+          "internalType": "address[]",
+          "name": "_arrayToMerge",
+          "type": "address[]"
+        }
+      ],
+      "name": "mergeArray",
+      "outputs": [
+        {
+          "internalType": "address[]",
+          "name": "nextArray_",
+          "type": "address[]"
+        }
+      ],
+      "stateMutability": "pure",
+      "type": "function"
+    }
+  ],
+  "bytecode": {
+    "object": "0x608060405234801561001057600080fd5b50610373806100206000396000f3fe608060405234801561001057600080fd5b506004361061002b5760003560e01c806308a4fce014610030575b600080fd5b6101576004803603604081101561004657600080fd5b81019060208101813564010000000081111561006157600080fd5b82018360208201111561007357600080fd5b8035906020019184602083028401116401000000008311171561009557600080fd5b91908080602002602001604051908101604052809392919081815260200183836020028082843760009201919091525092959493602081019350359150506401000000008111156100e557600080fd5b8201836020820111156100f757600080fd5b8035906020019184602083028401116401000000008311171561011957600080fd5b9190808060200260200160405190810160405280939291908181526020018383602002808284376000920191909152509295506101a7945050505050565b60408051602080825283518183015283519192839290830191858101910280838360005b8381101561019357818101518382015260200161017b565b505050509050019250505060405180910390f35b60606101b383836101bc565b90505b92915050565b60606000805b83518110156101fb576101e8858583815181106101db57fe5b6020026020010151610310565b6101f3576001909101905b6001016101c2565b508061020a57839150506101b6565b8084510167ffffffffffffffff8111801561022457600080fd5b5060405190808252806020026020018201604052801561024e578160200160208202803683370190505b50915060005b845181101561029d5784818151811061026957fe5b602002602001015183828151811061027d57fe5b6001600160a01b0390921660209283029190910190910152600101610254565b50835160005b8451811015610307576102bc868683815181106101db57fe5b6102ff578481815181106102cc57fe5b60200260200101518483815181106102e057fe5b6001600160a01b03909216602092830291909101909101526001909101905b6001016102a3565b50505092915050565b6000805b835181101561035c5783818151811061032957fe5b60200260200101516001600160a01b0316836001600160a01b031614156103545760019150506101b6565b600101610314565b506000939250505056fea164736f6c634300060c000a",
+    "sourceMap": "474:292:370:-:0;;;;;;;;;;;;;;;;;;;",
+    "linkReferences": {}
+  },
+  "deployedBytecode": {
+    "object": "0x608060405234801561001057600080fd5b506004361061002b5760003560e01c806308a4fce014610030575b600080fd5b6101576004803603604081101561004657600080fd5b81019060208101813564010000000081111561006157600080fd5b82018360208201111561007357600080fd5b8035906020019184602083028401116401000000008311171561009557600080fd5b91908080602002602001604051908101604052809392919081815260200183836020028082843760009201919091525092959493602081019350359150506401000000008111156100e557600080fd5b8201836020820111156100f757600080fd5b8035906020019184602083028401116401000000008311171561011957600080fd5b9190808060200260200160405190810160405280939291908181526020018383602002808284376000920191909152509295506101a7945050505050565b60408051602080825283518183015283519192839290830191858101910280838360005b8381101561019357818101518382015260200161017b565b505050509050019250505060405180910390f35b60606101b383836101bc565b90505b92915050565b60606000805b83518110156101fb576101e8858583815181106101db57fe5b6020026020010151610310565b6101f3576001909101905b6001016101c2565b508061020a57839150506101b6565b8084510167ffffffffffffffff8111801561022457600080fd5b5060405190808252806020026020018201604052801561024e578160200160208202803683370190505b50915060005b845181101561029d5784818151811061026957fe5b602002602001015183828151811061027d57fe5b6001600160a01b0390921660209283029190910190910152600101610254565b50835160005b8451811015610307576102bc868683815181106101db57fe5b6102ff578481815181106102cc57fe5b60200260200101518483815181106102e057fe5b6001600160a01b03909216602092830291909101909101526001909101905b6001016102a3565b50505092915050565b6000805b835181101561035c5783818151811061032957fe5b60200260200101516001600160a01b0316836001600160a01b031614156103545760019150506101b6565b600101610314565b506000939250505056fea164736f6c634300060c000a",
+    "sourceMap": "474:292:370:-:0;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;551:213;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;-1:-1:-1;551:213:370;;;;;;;;-1:-1:-1;551:213:370;;-1:-1:-1;;551:213:370;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;-1:-1:-1;551:213:370;;-1:-1:-1;551:213:370;;-1:-1:-1;;;;;551:213:370:i;:::-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;675:27;725:32;:6;743:13;725:17;:32::i;:::-;718:39;;551:213;;;;;:::o;2967:924:354:-;3090:27;3133:26;3174:9;3169:164;3189:13;:20;3185:1;:24;3169:164;;;3235:33;3244:5;3251:13;3265:1;3251:16;;;;;;;;;;;;;;3235:8;:33::i;:::-;3230:93;;3288:20;;;;;3230:93;3211:3;;3169:164;;;-1:-1:-1;3347:23:354;3343:66;;3393:5;3386:12;;;;;3343:66;3461:18;3446:5;:12;:33;3432:48;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;-1:-1:-1;3432:48:354;;3419:61;;3495:9;3490:88;3510:5;:12;3506:1;:16;3490:88;;;3559:5;3565:1;3559:8;;;;;;;;;;;;;;3543:10;3554:1;3543:13;;;;;;;;-1:-1:-1;;;;;3543:24:354;;;:13;;;;;;;;;;;:24;3524:3;;3490:88;;;-1:-1:-1;3612:12:354;;3587:22;3634:223;3654:13;:20;3650:1;:24;3634:223;;;3700:33;3709:5;3716:13;3730:1;3716:16;;;;;;;3700:33;3695:152;;3782:13;3796:1;3782:16;;;;;;;;;;;;;;3753:10;3764:14;3753:26;;;;;;;;-1:-1:-1;;;;;3753:45:354;;;:26;;;;;;;;;;;:45;3816:16;;;;;3695:152;3676:3;;3634:223;;;;3867:17;;2967:924;;;;:::o;2489:299::-;2595:17;2633:9;2628:132;2648:5;:12;2644:1;:16;2628:132;;;2696:5;2702:1;2696:8;;;;;;;;;;;;;;-1:-1:-1;;;;;2685:19:354;:7;-1:-1:-1;;;;;2685:19:354;;2681:69;;;2731:4;2724:11;;;;;2681:69;2662:3;;2628:132;;;-1:-1:-1;2776:5:354;;2489:299;-1:-1:-1;;;2489:299:354:o",
+    "linkReferences": {}
+  },
+  "methodIdentifiers": {
+    "mergeArray(address[],address[])": "08a4fce0"
+  },
+  "rawMetadata": "{\"compiler\":{\"version\":\"0.6.12+commit.27d51765\"},\"language\":\"Solidity\",\"output\":{\"abi\":[{\"inputs\":[{\"internalType\":\"address[]\",\"name\":\"_array\",\"type\":\"address[]\"},{\"internalType\":\"address[]\",\"name\":\"_arrayToMerge\",\"type\":\"address[]\"}],\"name\":\"mergeArray\",\"outputs\":[{\"internalType\":\"address[]\",\"name\":\"nextArray_\",\"type\":\"address[]\"}],\"stateMutability\":\"pure\",\"type\":\"function\"}],\"devdoc\":{\"author\":\"Enzyme Council <security@enzyme.finance>\",\"kind\":\"dev\",\"methods\":{},\"title\":\"TestAddressArrayLib Contract\",\"version\":1},\"userdoc\":{\"kind\":\"user\",\"methods\":{},\"notice\":\"A test implementation of AddressArrayLib\",\"version\":1}},\"settings\":{\"compilationTarget\":{\"contracts/test/TestAddressArrayLib.sol\":\"TestAddressArrayLib\"},\"evmVersion\":\"istanbul\",\"libraries\":{},\"metadata\":{\"bytecodeHash\":\"none\"},\"optimizer\":{\"details\":{\"constantOptimizer\":true,\"cse\":true,\"deduplicate\":true,\"jumpdestRemover\":true,\"orderLiterals\":true,\"peephole\":true,\"yul\":false},\"runs\":200},\"remappings\":[\":@enzyme/=contracts/\",\":@openzeppelin-solc-0.7/=node_modules/@openzeppelin-solc-0.7/\",\":@openzeppelin/=node_modules/@openzeppelin/\",\":@uniswap/=node_modules/@uniswap/\",\":base64-sol/=node_modules/base64-sol/\",\":ds-test/=lib/forge-std/lib/ds-test/src/\",\":forge-std/=lib/forge-std/src/\",\":hardhat-deploy/=node_modules/hardhat-deploy/\",\":hardhat/=node_modules/hardhat/\"]},\"sources\":{\"contracts/release/utils/AddressArrayLib.sol\":{\"keccak256\":\"0xd76e220cc754d7c939e54c18d4060f843ca798bccaf9a9dbbd428e38d0f0960f\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://bf0cbaedaec3390b6912ecef7bf62b2e8ec00d7f2b4f0045bab121b812e6f9d6\",\"dweb:/ipfs/QmSd5kxsv5x37TXeRDD91YmVCVA3GVFishdVyC2B9ed9ap\"]},\"contracts/test/TestAddressArrayLib.sol\":{\"keccak256\":\"0xe3c3d9a23be5b3ef78f3c0b51b2f5b0ac4227bcc7f435b569cb27d66ee76bb4d\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://65a727bb11e4e774c115e0d1ddbed8fa77c30f79b084846319768f87a28a8aa7\",\"dweb:/ipfs/QmRjZb1wQ1GKW5mYxH3ighXy1tgh79S2ZDaC7n1SJjUzK6\"]}},\"version\":1}",
+  "metadata": {
+    "compiler": {
+      "version": "0.6.12+commit.27d51765"
+    },
+    "language": "Solidity",
+    "output": {
+      "abi": [
+        {
+          "inputs": [
+            {
+              "internalType": "address[]",
+              "name": "_array",
+              "type": "address[]"
+            },
+            {
+              "internalType": "address[]",
+              "name": "_arrayToMerge",
+              "type": "address[]"
+            }
+          ],
+          "stateMutability": "pure",
+          "type": "function",
+          "name": "mergeArray",
+          "outputs": [
+            {
+              "internalType": "address[]",
+              "name": "nextArray_",
+              "type": "address[]"
+            }
+          ]
+        }
+      ],
+      "devdoc": {
+        "kind": "dev",
+        "methods": {},
+        "version": 1
+      },
+      "userdoc": {
+        "kind": "user",
+        "methods": {},
+        "version": 1
+      }
+    },
+    "settings": {
+      "remappings": [
+        ":@enzyme/=contracts/",
+        ":@openzeppelin-solc-0.7/=node_modules/@openzeppelin-solc-0.7/",
+        ":@openzeppelin/=node_modules/@openzeppelin/",
+        ":@uniswap/=node_modules/@uniswap/",
+        ":base64-sol/=node_modules/base64-sol/",
+        ":ds-test/=lib/forge-std/lib/ds-test/src/",
+        ":forge-std/=lib/forge-std/src/",
+        ":hardhat-deploy/=node_modules/hardhat-deploy/",
+        ":hardhat/=node_modules/hardhat/"
+      ],
+      "optimizer": {
+        "runs": 200,
+        "details": {
+          "peephole": true,
+          "jumpdestRemover": true,
+          "orderLiterals": true,
+          "deduplicate": true,
+          "cse": true,
+          "constantOptimizer": true,
+          "yul": false
+        }
+      },
+      "metadata": {
+        "bytecodeHash": "none"
+      },
+      "compilationTarget": {
+        "contracts/test/TestAddressArrayLib.sol": "TestAddressArrayLib"
+      },
+      "libraries": {}
+    },
+    "sources": {
+      "contracts/release/utils/AddressArrayLib.sol": {
+        "keccak256": "0xd76e220cc754d7c939e54c18d4060f843ca798bccaf9a9dbbd428e38d0f0960f",
+        "urls": [
+          "bzz-raw://bf0cbaedaec3390b6912ecef7bf62b2e8ec00d7f2b4f0045bab121b812e6f9d6",
+          "dweb:/ipfs/QmSd5kxsv5x37TXeRDD91YmVCVA3GVFishdVyC2B9ed9ap"
+        ],
+        "license": "GPL-3.0"
+      },
+      "contracts/test/TestAddressArrayLib.sol": {
+        "keccak256": "0xe3c3d9a23be5b3ef78f3c0b51b2f5b0ac4227bcc7f435b569cb27d66ee76bb4d",
+        "urls": [
+          "bzz-raw://65a727bb11e4e774c115e0d1ddbed8fa77c30f79b084846319768f87a28a8aa7",
+          "dweb:/ipfs/QmRjZb1wQ1GKW5mYxH3ighXy1tgh79S2ZDaC7n1SJjUzK6"
+        ],
+        "license": "GPL-3.0"
+      }
+    },
+    "version": 1
+  },
+  "ast": {
+    "absolutePath": "contracts/test/TestAddressArrayLib.sol",
+    "id": 79830,
+    "exportedSymbols": {
+      "TestAddressArrayLib": [
+        79829
+      ]
+    },
+    "nodeType": "SourceUnit",
+    "src": "255:512:370",
+    "nodes": [
+      {
+        "id": 79804,
+        "nodeType": "PragmaDirective",
+        "src": "255:23:370",
+        "nodes": [],
+        "literals": [
+          "solidity",
+          "0.6",
+          ".12"
+        ]
+      },
+      {
+        "id": 79805,
+        "nodeType": "ImportDirective",
+        "src": "280:46:370",
+        "nodes": [],
+        "absolutePath": "contracts/release/utils/AddressArrayLib.sol",
+        "file": "../release/utils/AddressArrayLib.sol",
+        "scope": 79830,
+        "sourceUnit": 76994,
+        "symbolAliases": [],
+        "unitAlias": ""
+      },
+      {
+        "id": 79829,
+        "nodeType": "ContractDefinition",
+        "src": "474:292:370",
+        "nodes": [
+          {
+            "id": 79810,
+            "nodeType": "UsingForDirective",
+            "src": "509:36:370",
+            "nodes": [],
+            "libraryName": {
+              "contractScope": null,
+              "id": 79807,
+              "name": "AddressArrayLib",
+              "nodeType": "UserDefinedTypeName",
+              "referencedDeclaration": 76993,
+              "src": "515:15:370",
+              "typeDescriptions": {
+                "typeIdentifier": "t_contract$_AddressArrayLib_$76993",
+                "typeString": "library AddressArrayLib"
+              }
+            },
+            "typeName": {
+              "baseType": {
+                "id": 79808,
+                "name": "address",
+                "nodeType": "ElementaryTypeName",
+                "src": "535:7:370",
+                "stateMutability": "nonpayable",
+                "typeDescriptions": {
+                  "typeIdentifier": "t_address",
+                  "typeString": "address"
+                }
+              },
+              "id": 79809,
+              "length": null,
+              "nodeType": "ArrayTypeName",
+              "src": "535:9:370",
+              "typeDescriptions": {
+                "typeIdentifier": "t_array$_t_address_$dyn_storage_ptr",
+                "typeString": "address[]"
+              }
+            }
+          },
+          {
+            "id": 79828,
+            "nodeType": "FunctionDefinition",
+            "src": "551:213:370",
+            "nodes": [],
+            "body": {
+              "id": 79827,
+              "nodeType": "Block",
+              "src": "708:56:370",
+              "nodes": [],
+              "statements": [
+                {
+                  "expression": {
+                    "argumentTypes": null,
+                    "arguments": [
+                      {
+                        "argumentTypes": null,
+                        "id": 79824,
+                        "name": "_arrayToMerge",
+                        "nodeType": "Identifier",
+                        "overloadedDeclarations": [],
+                        "referencedDeclaration": 79816,
+                        "src": "743:13:370",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_array$_t_address_$dyn_memory_ptr",
+                          "typeString": "address[] memory"
+                        }
+                      }
+                    ],
+                    "expression": {
+                      "argumentTypes": [
+                        {
+                          "typeIdentifier": "t_array$_t_address_$dyn_memory_ptr",
+                          "typeString": "address[] memory"
+                        }
+                      ],
+                      "expression": {
+                        "argumentTypes": null,
+                        "id": 79822,
+                        "name": "_array",
+                        "nodeType": "Identifier",
+                        "overloadedDeclarations": [],
+                        "referencedDeclaration": 79813,
+                        "src": "725:6:370",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_array$_t_address_$dyn_memory_ptr",
+                          "typeString": "address[] memory"
+                        }
+                      },
+                      "id": 79823,
+                      "isConstant": false,
+                      "isLValue": false,
+                      "isPure": false,
+                      "lValueRequested": false,
+                      "memberName": "mergeArray",
+                      "nodeType": "MemberAccess",
+                      "referencedDeclaration": 76806,
+                      "src": "725:17:370",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_function_internal_pure$_t_array$_t_address_$dyn_memory_ptr_$_t_array$_t_address_$dyn_memory_ptr_$returns$_t_array$_t_address_$dyn_memory_ptr_$bound_to$_t_array$_t_address_$dyn_memory_ptr_$",
+                        "typeString": "function (address[] memory,address[] memory) pure returns (address[] memory)"
+                      }
+                    },
+                    "id": 79825,
+                    "isConstant": false,
+                    "isLValue": false,
+                    "isPure": false,
+                    "kind": "functionCall",
+                    "lValueRequested": false,
+                    "names": [],
+                    "nodeType": "FunctionCall",
+                    "src": "725:32:370",
+                    "tryCall": false,
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_array$_t_address_$dyn_memory_ptr",
+                      "typeString": "address[] memory"
+                    }
+                  },
+                  "functionReturnParameters": 79821,
+                  "id": 79826,
+                  "nodeType": "Return",
+                  "src": "718:39:370"
+                }
+              ]
+            },
+            "documentation": null,
+            "functionSelector": "08a4fce0",
+            "implemented": true,
+            "kind": "function",
+            "modifiers": [],
+            "name": "mergeArray",
+            "overrides": null,
+            "parameters": {
+              "id": 79817,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 79813,
+                  "mutability": "mutable",
+                  "name": "_array",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 79828,
+                  "src": "571:23:370",
+                  "stateVariable": false,
+                  "storageLocation": "memory",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_array$_t_address_$dyn_memory_ptr",
+                    "typeString": "address[]"
+                  },
+                  "typeName": {
+                    "baseType": {
+                      "id": 79811,
+                      "name": "address",
+                      "nodeType": "ElementaryTypeName",
+                      "src": "571:7:370",
+                      "stateMutability": "nonpayable",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_address",
+                        "typeString": "address"
+                      }
+                    },
+                    "id": 79812,
+                    "length": null,
+                    "nodeType": "ArrayTypeName",
+                    "src": "571:9:370",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_array$_t_address_$dyn_storage_ptr",
+                      "typeString": "address[]"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 79816,
+                  "mutability": "mutable",
+                  "name": "_arrayToMerge",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 79828,
+                  "src": "596:30:370",
+                  "stateVariable": false,
+                  "storageLocation": "memory",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_array$_t_address_$dyn_memory_ptr",
+                    "typeString": "address[]"
+                  },
+                  "typeName": {
+                    "baseType": {
+                      "id": 79814,
+                      "name": "address",
+                      "nodeType": "ElementaryTypeName",
+                      "src": "596:7:370",
+                      "stateMutability": "nonpayable",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_address",
+                        "typeString": "address"
+                      }
+                    },
+                    "id": 79815,
+                    "length": null,
+                    "nodeType": "ArrayTypeName",
+                    "src": "596:9:370",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_array$_t_address_$dyn_storage_ptr",
+                      "typeString": "address[]"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "570:57:370"
+            },
+            "returnParameters": {
+              "id": 79821,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 79820,
+                  "mutability": "mutable",
+                  "name": "nextArray_",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 79828,
+                  "src": "675:27:370",
+                  "stateVariable": false,
+                  "storageLocation": "memory",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_array$_t_address_$dyn_memory_ptr",
+                    "typeString": "address[]"
+                  },
+                  "typeName": {
+                    "baseType": {
+                      "id": 79818,
+                      "name": "address",
+                      "nodeType": "ElementaryTypeName",
+                      "src": "675:7:370",
+                      "stateMutability": "nonpayable",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_address",
+                        "typeString": "address"
+                      }
+                    },
+                    "id": 79819,
+                    "length": null,
+                    "nodeType": "ArrayTypeName",
+                    "src": "675:9:370",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_array$_t_address_$dyn_storage_ptr",
+                      "typeString": "address[]"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "674:29:370"
+            },
+            "scope": 79829,
+            "stateMutability": "pure",
+            "virtual": false,
+            "visibility": "external"
+          }
+        ],
+        "abstract": false,
+        "baseContracts": [],
+        "contractDependencies": [],
+        "contractKind": "contract",
+        "documentation": {
+          "id": 79806,
+          "nodeType": "StructuredDocumentation",
+          "src": "328:146:370",
+          "text": "@title TestAddressArrayLib Contract\n @author Enzyme Council <security@enzyme.finance>\n @notice A test implementation of AddressArrayLib"
+        },
+        "fullyImplemented": true,
+        "linearizedBaseContracts": [
+          79829
+        ],
+        "name": "TestAddressArrayLib",
+        "scope": 79830
+      }
+    ],
+    "license": "GPL-3.0"
+  },
+  "id": 370
+}

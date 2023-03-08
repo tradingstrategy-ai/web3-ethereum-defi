@@ -1,7 +1,4 @@
 {
-  "_format": "hh-sol-artifact-1",
-  "contractName": "ExtensionBase",
-  "sourceName": "contracts/release/extensions/utils/ExtensionBase.sol",
   "abi": [
     {
       "inputs": [
@@ -145,8 +142,1696 @@
       "type": "function"
     }
   ],
-  "bytecode": "0x",
-  "deployedBytecode": "0x",
-  "linkReferences": {},
-  "deployedLinkReferences": {}
+  "bytecode": {
+    "object": "0x",
+    "sourceMap": "",
+    "linkReferences": {}
+  },
+  "deployedBytecode": {
+    "object": "0x",
+    "sourceMap": "",
+    "linkReferences": {}
+  },
+  "methodIdentifiers": {
+    "activateForFund(bool)": "80d57063",
+    "deactivateForFund()": "bd8e959a",
+    "getFundDeployer()": "97c0ac87",
+    "getOwner()": "893d20e8",
+    "getVaultProxyForFund(address)": "46790346",
+    "receiveCallFromComptroller(address,uint256,bytes)": "1bee801e",
+    "setConfigForFund(address,address,bytes)": "f067cc11"
+  },
+  "rawMetadata": "{\"compiler\":{\"version\":\"0.6.12+commit.27d51765\"},\"language\":\"Solidity\",\"output\":{\"abi\":[{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_fundDeployer\",\"type\":\"address\"}],\"stateMutability\":\"nonpayable\",\"type\":\"constructor\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"comptrollerProxy\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"vaultProxy\",\"type\":\"address\"}],\"name\":\"ValidatedVaultProxySetForFund\",\"type\":\"event\"},{\"inputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"name\":\"activateForFund\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"deactivateForFund\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getFundDeployer\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"fundDeployer_\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getOwner\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"owner_\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_comptrollerProxy\",\"type\":\"address\"}],\"name\":\"getVaultProxyForFund\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"vaultProxy_\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"},{\"internalType\":\"bytes\",\"name\":\"\",\"type\":\"bytes\"}],\"name\":\"receiveCallFromComptroller\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"},{\"internalType\":\"bytes\",\"name\":\"\",\"type\":\"bytes\"}],\"name\":\"setConfigForFund\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"}],\"devdoc\":{\"author\":\"Enzyme Council <security@enzyme.finance>\",\"kind\":\"dev\",\"methods\":{\"activateForFund(bool)\":{\"details\":\"Unimplemented by default, may be overridden.\"},\"deactivateForFund()\":{\"details\":\"Unimplemented by default, may be overridden.\"},\"getFundDeployer()\":{\"returns\":{\"fundDeployer_\":\"The `FUND_DEPLOYER` variable value\"}},\"getOwner()\":{\"details\":\"Ownership is deferred to the owner of the FundDeployer contract\",\"returns\":{\"owner_\":\"The owner\"}},\"getVaultProxyForFund(address)\":{\"params\":{\"_comptrollerProxy\":\"The ComptrollerProxy of the fund\"},\"returns\":{\"vaultProxy_\":\"The VaultProxy of the fund\"}},\"receiveCallFromComptroller(address,uint256,bytes)\":{\"details\":\"Unimplemented by default, may be overridden.\"},\"setConfigForFund(address,address,bytes)\":{\"details\":\"Unimplemented by default, may be overridden.\"}},\"title\":\"ExtensionBase Contract\",\"version\":1},\"userdoc\":{\"kind\":\"user\",\"methods\":{\"activateForFund(bool)\":{\"notice\":\"Allows extension to run logic during fund activation\"},\"deactivateForFund()\":{\"notice\":\"Allows extension to run logic during fund deactivation (destruct)\"},\"getFundDeployer()\":{\"notice\":\"Gets the `FUND_DEPLOYER` variable\"},\"getOwner()\":{\"notice\":\"Gets the owner of this contract\"},\"getVaultProxyForFund(address)\":{\"notice\":\"Gets the verified VaultProxy for a given ComptrollerProxy\"},\"receiveCallFromComptroller(address,uint256,bytes)\":{\"notice\":\"Receives calls from ComptrollerLib.callOnExtension() and dispatches the appropriate action\"},\"setConfigForFund(address,address,bytes)\":{\"notice\":\"Allows extension to run logic during fund configuration\"}},\"notice\":\"Base class for an extension\",\"version\":1}},\"settings\":{\"compilationTarget\":{\"contracts/release/extensions/utils/ExtensionBase.sol\":\"ExtensionBase\"},\"evmVersion\":\"istanbul\",\"libraries\":{},\"metadata\":{\"bytecodeHash\":\"none\"},\"optimizer\":{\"details\":{\"constantOptimizer\":true,\"cse\":true,\"deduplicate\":true,\"jumpdestRemover\":true,\"orderLiterals\":true,\"peephole\":true,\"yul\":false},\"runs\":200},\"remappings\":[\":@enzyme/=contracts/\",\":@openzeppelin-solc-0.7/=node_modules/@openzeppelin-solc-0.7/\",\":@openzeppelin/=node_modules/@openzeppelin/\",\":@uniswap/=node_modules/@uniswap/\",\":base64-sol/=node_modules/base64-sol/\",\":ds-test/=lib/forge-std/lib/ds-test/src/\",\":forge-std/=lib/forge-std/src/\",\":hardhat-deploy/=node_modules/hardhat-deploy/\",\":hardhat/=node_modules/hardhat/\"]},\"sources\":{\"contracts/release/core/fund-deployer/IFundDeployer.sol\":{\"keccak256\":\"0x5b901b81b3a4ef3d30ef9b4a1fa7fdd6526dfacd66e9971d1f988c2b63334314\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://79eba24bcad7e3abddafd20b518add8d5acb1e8de250a0e20050dfbe2f2d8aea\",\"dweb:/ipfs/QmYq9QYKr1UJaVyhkkSEfeiJ68TwGbwrmZsgRTPjVjkpUp\"]},\"contracts/release/extensions/IExtension.sol\":{\"keccak256\":\"0x59aaa2ddd32c24271bd4a57e9e1f3426570a78cd56d6d11e63786f36c916e94b\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://6b476ec92f0691d70a616aa76ecf5fb33725d5fe02ea59a2e5f9b582f662dc70\",\"dweb:/ipfs/QmQZ2xJqWSA4YHveB6RoYuU5gx7DGk7ra6KFp6KvV6Kn1t\"]},\"contracts/release/extensions/utils/ExtensionBase.sol\":{\"keccak256\":\"0xae68767766f6459bd2cd9dbd39df74f2c2f68f2150885bbce410e4091c807bb1\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://ce4c49522a39f618cc76feb474260fe910949f38e83b5f4518f1f245ba6eb876\",\"dweb:/ipfs/QmZ4wciRpziZAS4HRQy44Sgzm4GM4Wzme9zYnABzR6Cbzo\"]},\"contracts/release/utils/FundDeployerOwnerMixin.sol\":{\"keccak256\":\"0xd415583828581051080d575f058643f4975d7048fda0d1765122b260d9d14934\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://8191af7a3cd0867af1a401d3cba1294be054c761c2276d21bff7c9296ecc6927\",\"dweb:/ipfs/QmYBSrx1XrcqMNkH2Q6ALuczRv6LgpzVHvFH3DjvCu6SaM\"]}},\"version\":1}",
+  "metadata": {
+    "compiler": {
+      "version": "0.6.12+commit.27d51765"
+    },
+    "language": "Solidity",
+    "output": {
+      "abi": [
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "_fundDeployer",
+              "type": "address"
+            }
+          ],
+          "stateMutability": "nonpayable",
+          "type": "constructor"
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "comptrollerProxy",
+              "type": "address",
+              "indexed": true
+            },
+            {
+              "internalType": "address",
+              "name": "vaultProxy",
+              "type": "address",
+              "indexed": true
+            }
+          ],
+          "type": "event",
+          "name": "ValidatedVaultProxySetForFund",
+          "anonymous": false
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "bool",
+              "name": "",
+              "type": "bool"
+            }
+          ],
+          "stateMutability": "nonpayable",
+          "type": "function",
+          "name": "activateForFund"
+        },
+        {
+          "inputs": [],
+          "stateMutability": "nonpayable",
+          "type": "function",
+          "name": "deactivateForFund"
+        },
+        {
+          "inputs": [],
+          "stateMutability": "view",
+          "type": "function",
+          "name": "getFundDeployer",
+          "outputs": [
+            {
+              "internalType": "address",
+              "name": "fundDeployer_",
+              "type": "address"
+            }
+          ]
+        },
+        {
+          "inputs": [],
+          "stateMutability": "view",
+          "type": "function",
+          "name": "getOwner",
+          "outputs": [
+            {
+              "internalType": "address",
+              "name": "owner_",
+              "type": "address"
+            }
+          ]
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "_comptrollerProxy",
+              "type": "address"
+            }
+          ],
+          "stateMutability": "view",
+          "type": "function",
+          "name": "getVaultProxyForFund",
+          "outputs": [
+            {
+              "internalType": "address",
+              "name": "vaultProxy_",
+              "type": "address"
+            }
+          ]
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "",
+              "type": "address"
+            },
+            {
+              "internalType": "uint256",
+              "name": "",
+              "type": "uint256"
+            },
+            {
+              "internalType": "bytes",
+              "name": "",
+              "type": "bytes"
+            }
+          ],
+          "stateMutability": "nonpayable",
+          "type": "function",
+          "name": "receiveCallFromComptroller"
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "",
+              "type": "address"
+            },
+            {
+              "internalType": "address",
+              "name": "",
+              "type": "address"
+            },
+            {
+              "internalType": "bytes",
+              "name": "",
+              "type": "bytes"
+            }
+          ],
+          "stateMutability": "nonpayable",
+          "type": "function",
+          "name": "setConfigForFund"
+        }
+      ],
+      "devdoc": {
+        "kind": "dev",
+        "methods": {
+          "activateForFund(bool)": {
+            "details": "Unimplemented by default, may be overridden."
+          },
+          "deactivateForFund()": {
+            "details": "Unimplemented by default, may be overridden."
+          },
+          "getFundDeployer()": {
+            "returns": {
+              "fundDeployer_": "The `FUND_DEPLOYER` variable value"
+            }
+          },
+          "getOwner()": {
+            "details": "Ownership is deferred to the owner of the FundDeployer contract",
+            "returns": {
+              "owner_": "The owner"
+            }
+          },
+          "getVaultProxyForFund(address)": {
+            "params": {
+              "_comptrollerProxy": "The ComptrollerProxy of the fund"
+            },
+            "returns": {
+              "vaultProxy_": "The VaultProxy of the fund"
+            }
+          },
+          "receiveCallFromComptroller(address,uint256,bytes)": {
+            "details": "Unimplemented by default, may be overridden."
+          },
+          "setConfigForFund(address,address,bytes)": {
+            "details": "Unimplemented by default, may be overridden."
+          }
+        },
+        "version": 1
+      },
+      "userdoc": {
+        "kind": "user",
+        "methods": {
+          "activateForFund(bool)": {
+            "notice": "Allows extension to run logic during fund activation"
+          },
+          "deactivateForFund()": {
+            "notice": "Allows extension to run logic during fund deactivation (destruct)"
+          },
+          "getFundDeployer()": {
+            "notice": "Gets the `FUND_DEPLOYER` variable"
+          },
+          "getOwner()": {
+            "notice": "Gets the owner of this contract"
+          },
+          "getVaultProxyForFund(address)": {
+            "notice": "Gets the verified VaultProxy for a given ComptrollerProxy"
+          },
+          "receiveCallFromComptroller(address,uint256,bytes)": {
+            "notice": "Receives calls from ComptrollerLib.callOnExtension() and dispatches the appropriate action"
+          },
+          "setConfigForFund(address,address,bytes)": {
+            "notice": "Allows extension to run logic during fund configuration"
+          }
+        },
+        "version": 1
+      }
+    },
+    "settings": {
+      "remappings": [
+        ":@enzyme/=contracts/",
+        ":@openzeppelin-solc-0.7/=node_modules/@openzeppelin-solc-0.7/",
+        ":@openzeppelin/=node_modules/@openzeppelin/",
+        ":@uniswap/=node_modules/@uniswap/",
+        ":base64-sol/=node_modules/base64-sol/",
+        ":ds-test/=lib/forge-std/lib/ds-test/src/",
+        ":forge-std/=lib/forge-std/src/",
+        ":hardhat-deploy/=node_modules/hardhat-deploy/",
+        ":hardhat/=node_modules/hardhat/"
+      ],
+      "optimizer": {
+        "runs": 200,
+        "details": {
+          "peephole": true,
+          "jumpdestRemover": true,
+          "orderLiterals": true,
+          "deduplicate": true,
+          "cse": true,
+          "constantOptimizer": true,
+          "yul": false
+        }
+      },
+      "metadata": {
+        "bytecodeHash": "none"
+      },
+      "compilationTarget": {
+        "contracts/release/extensions/utils/ExtensionBase.sol": "ExtensionBase"
+      },
+      "libraries": {}
+    },
+    "sources": {
+      "contracts/release/core/fund-deployer/IFundDeployer.sol": {
+        "keccak256": "0x5b901b81b3a4ef3d30ef9b4a1fa7fdd6526dfacd66e9971d1f988c2b63334314",
+        "urls": [
+          "bzz-raw://79eba24bcad7e3abddafd20b518add8d5acb1e8de250a0e20050dfbe2f2d8aea",
+          "dweb:/ipfs/QmYq9QYKr1UJaVyhkkSEfeiJ68TwGbwrmZsgRTPjVjkpUp"
+        ],
+        "license": "GPL-3.0"
+      },
+      "contracts/release/extensions/IExtension.sol": {
+        "keccak256": "0x59aaa2ddd32c24271bd4a57e9e1f3426570a78cd56d6d11e63786f36c916e94b",
+        "urls": [
+          "bzz-raw://6b476ec92f0691d70a616aa76ecf5fb33725d5fe02ea59a2e5f9b582f662dc70",
+          "dweb:/ipfs/QmQZ2xJqWSA4YHveB6RoYuU5gx7DGk7ra6KFp6KvV6Kn1t"
+        ],
+        "license": "GPL-3.0"
+      },
+      "contracts/release/extensions/utils/ExtensionBase.sol": {
+        "keccak256": "0xae68767766f6459bd2cd9dbd39df74f2c2f68f2150885bbce410e4091c807bb1",
+        "urls": [
+          "bzz-raw://ce4c49522a39f618cc76feb474260fe910949f38e83b5f4518f1f245ba6eb876",
+          "dweb:/ipfs/QmZ4wciRpziZAS4HRQy44Sgzm4GM4Wzme9zYnABzR6Cbzo"
+        ],
+        "license": "GPL-3.0"
+      },
+      "contracts/release/utils/FundDeployerOwnerMixin.sol": {
+        "keccak256": "0xd415583828581051080d575f058643f4975d7048fda0d1765122b260d9d14934",
+        "urls": [
+          "bzz-raw://8191af7a3cd0867af1a401d3cba1294be054c761c2276d21bff7c9296ecc6927",
+          "dweb:/ipfs/QmYBSrx1XrcqMNkH2Q6ALuczRv6LgpzVHvFH3DjvCu6SaM"
+        ],
+        "license": "GPL-3.0"
+      }
+    },
+    "version": 1
+  },
+  "ast": {
+    "absolutePath": "contracts/release/extensions/utils/ExtensionBase.sol",
+    "id": 6051,
+    "exportedSymbols": {
+      "ExtensionBase": [
+        6050
+      ]
+    },
+    "nodeType": "SourceUnit",
+    "src": "255:2638:18",
+    "nodes": [
+      {
+        "id": 5932,
+        "nodeType": "PragmaDirective",
+        "src": "255:23:18",
+        "nodes": [],
+        "literals": [
+          "solidity",
+          "0.6",
+          ".12"
+        ]
+      },
+      {
+        "id": 5933,
+        "nodeType": "ImportDirective",
+        "src": "280:48:18",
+        "nodes": [],
+        "absolutePath": "contracts/release/utils/FundDeployerOwnerMixin.sol",
+        "file": "../../utils/FundDeployerOwnerMixin.sol",
+        "scope": 6051,
+        "sourceUnit": 7684,
+        "symbolAliases": [],
+        "unitAlias": ""
+      },
+      {
+        "id": 5934,
+        "nodeType": "ImportDirective",
+        "src": "329:27:18",
+        "nodes": [],
+        "absolutePath": "contracts/release/extensions/IExtension.sol",
+        "file": "../IExtension.sol",
+        "scope": 6051,
+        "sourceUnit": 5160,
+        "symbolAliases": [],
+        "unitAlias": ""
+      },
+      {
+        "id": 6050,
+        "nodeType": "ContractDefinition",
+        "src": "485:2407:18",
+        "nodes": [
+          {
+            "id": 5945,
+            "nodeType": "EventDefinition",
+            "src": "561:120:18",
+            "nodes": [],
+            "anonymous": false,
+            "documentation": null,
+            "name": "ValidatedVaultProxySetForFund",
+            "parameters": {
+              "id": 5944,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 5941,
+                  "indexed": true,
+                  "mutability": "mutable",
+                  "name": "comptrollerProxy",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 5945,
+                  "src": "606:32:18",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 5940,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "606:7:18",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 5943,
+                  "indexed": true,
+                  "mutability": "mutable",
+                  "name": "vaultProxy",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 5945,
+                  "src": "648:26:18",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 5942,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "648:7:18",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "596:84:18"
+            }
+          },
+          {
+            "id": 5949,
+            "nodeType": "VariableDeclaration",
+            "src": "687:65:18",
+            "nodes": [],
+            "constant": false,
+            "mutability": "mutable",
+            "name": "comptrollerProxyToVaultProxy",
+            "overrides": null,
+            "scope": 6050,
+            "stateVariable": true,
+            "storageLocation": "default",
+            "typeDescriptions": {
+              "typeIdentifier": "t_mapping$_t_address_$_t_address_$",
+              "typeString": "mapping(address => address)"
+            },
+            "typeName": {
+              "id": 5948,
+              "keyType": {
+                "id": 5946,
+                "name": "address",
+                "nodeType": "ElementaryTypeName",
+                "src": "695:7:18",
+                "typeDescriptions": {
+                  "typeIdentifier": "t_address",
+                  "typeString": "address"
+                }
+              },
+              "nodeType": "Mapping",
+              "src": "687:27:18",
+              "typeDescriptions": {
+                "typeIdentifier": "t_mapping$_t_address_$_t_address_$",
+                "typeString": "mapping(address => address)"
+              },
+              "valueType": {
+                "id": 5947,
+                "name": "address",
+                "nodeType": "ElementaryTypeName",
+                "src": "706:7:18",
+                "stateMutability": "nonpayable",
+                "typeDescriptions": {
+                  "typeIdentifier": "t_address",
+                  "typeString": "address"
+                }
+              }
+            },
+            "value": null,
+            "visibility": "internal"
+          },
+          {
+            "id": 5962,
+            "nodeType": "ModifierDefinition",
+            "src": "759:140:18",
+            "nodes": [],
+            "body": {
+              "id": 5961,
+              "nodeType": "Block",
+              "src": "787:112:18",
+              "nodes": [],
+              "statements": [
+                {
+                  "expression": {
+                    "argumentTypes": null,
+                    "arguments": [
+                      {
+                        "argumentTypes": null,
+                        "commonType": {
+                          "typeIdentifier": "t_address",
+                          "typeString": "address"
+                        },
+                        "id": 5956,
+                        "isConstant": false,
+                        "isLValue": false,
+                        "isPure": false,
+                        "lValueRequested": false,
+                        "leftExpression": {
+                          "argumentTypes": null,
+                          "expression": {
+                            "argumentTypes": null,
+                            "id": 5952,
+                            "name": "msg",
+                            "nodeType": "Identifier",
+                            "overloadedDeclarations": [],
+                            "referencedDeclaration": -15,
+                            "src": "805:3:18",
+                            "typeDescriptions": {
+                              "typeIdentifier": "t_magic_message",
+                              "typeString": "msg"
+                            }
+                          },
+                          "id": 5953,
+                          "isConstant": false,
+                          "isLValue": false,
+                          "isPure": false,
+                          "lValueRequested": false,
+                          "memberName": "sender",
+                          "nodeType": "MemberAccess",
+                          "referencedDeclaration": null,
+                          "src": "805:10:18",
+                          "typeDescriptions": {
+                            "typeIdentifier": "t_address_payable",
+                            "typeString": "address payable"
+                          }
+                        },
+                        "nodeType": "BinaryOperation",
+                        "operator": "==",
+                        "rightExpression": {
+                          "argumentTypes": null,
+                          "arguments": [],
+                          "expression": {
+                            "argumentTypes": [],
+                            "id": 5954,
+                            "name": "getFundDeployer",
+                            "nodeType": "Identifier",
+                            "overloadedDeclarations": [],
+                            "referencedDeclaration": 7682,
+                            "src": "819:15:18",
+                            "typeDescriptions": {
+                              "typeIdentifier": "t_function_internal_view$__$returns$_t_address_$",
+                              "typeString": "function () view returns (address)"
+                            }
+                          },
+                          "id": 5955,
+                          "isConstant": false,
+                          "isLValue": false,
+                          "isPure": false,
+                          "kind": "functionCall",
+                          "lValueRequested": false,
+                          "names": [],
+                          "nodeType": "FunctionCall",
+                          "src": "819:17:18",
+                          "tryCall": false,
+                          "typeDescriptions": {
+                            "typeIdentifier": "t_address",
+                            "typeString": "address"
+                          }
+                        },
+                        "src": "805:31:18",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_bool",
+                          "typeString": "bool"
+                        }
+                      },
+                      {
+                        "argumentTypes": null,
+                        "hexValue": "4f6e6c79207468652046756e644465706c6f7965722063616e206d616b6520746869732063616c6c",
+                        "id": 5957,
+                        "isConstant": false,
+                        "isLValue": false,
+                        "isPure": true,
+                        "kind": "string",
+                        "lValueRequested": false,
+                        "nodeType": "Literal",
+                        "src": "838:42:18",
+                        "subdenomination": null,
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_stringliteral_90f917c0bab59ba942381e8a382d735b0c6f0f5546a8b21d01d8c9e89c2fcce5",
+                          "typeString": "literal_string \"Only the FundDeployer can make this call\""
+                        },
+                        "value": "Only the FundDeployer can make this call"
+                      }
+                    ],
+                    "expression": {
+                      "argumentTypes": [
+                        {
+                          "typeIdentifier": "t_bool",
+                          "typeString": "bool"
+                        },
+                        {
+                          "typeIdentifier": "t_stringliteral_90f917c0bab59ba942381e8a382d735b0c6f0f5546a8b21d01d8c9e89c2fcce5",
+                          "typeString": "literal_string \"Only the FundDeployer can make this call\""
+                        }
+                      ],
+                      "id": 5951,
+                      "name": "require",
+                      "nodeType": "Identifier",
+                      "overloadedDeclarations": [
+                        -18,
+                        -18
+                      ],
+                      "referencedDeclaration": -18,
+                      "src": "797:7:18",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_function_require_pure$_t_bool_$_t_string_memory_ptr_$returns$__$",
+                        "typeString": "function (bool,string memory) pure"
+                      }
+                    },
+                    "id": 5958,
+                    "isConstant": false,
+                    "isLValue": false,
+                    "isPure": false,
+                    "kind": "functionCall",
+                    "lValueRequested": false,
+                    "names": [],
+                    "nodeType": "FunctionCall",
+                    "src": "797:84:18",
+                    "tryCall": false,
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_tuple$__$",
+                      "typeString": "tuple()"
+                    }
+                  },
+                  "id": 5959,
+                  "nodeType": "ExpressionStatement",
+                  "src": "797:84:18"
+                },
+                {
+                  "id": 5960,
+                  "nodeType": "PlaceholderStatement",
+                  "src": "891:1:18"
+                }
+              ]
+            },
+            "documentation": null,
+            "name": "onlyFundDeployer",
+            "overrides": null,
+            "parameters": {
+              "id": 5950,
+              "nodeType": "ParameterList",
+              "parameters": [],
+              "src": "784:2:18"
+            },
+            "virtual": false,
+            "visibility": "internal"
+          },
+          {
+            "id": 5971,
+            "nodeType": "FunctionDefinition",
+            "src": "905:82:18",
+            "nodes": [],
+            "body": {
+              "id": 5970,
+              "nodeType": "Block",
+              "src": "985:2:18",
+              "nodes": [],
+              "statements": []
+            },
+            "documentation": null,
+            "implemented": true,
+            "kind": "constructor",
+            "modifiers": [
+              {
+                "arguments": [
+                  {
+                    "argumentTypes": null,
+                    "id": 5967,
+                    "name": "_fundDeployer",
+                    "nodeType": "Identifier",
+                    "overloadedDeclarations": [],
+                    "referencedDeclaration": 5964,
+                    "src": "970:13:18",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  }
+                ],
+                "id": 5968,
+                "modifierName": {
+                  "argumentTypes": null,
+                  "id": 5966,
+                  "name": "FundDeployerOwnerMixin",
+                  "nodeType": "Identifier",
+                  "overloadedDeclarations": [],
+                  "referencedDeclaration": 7683,
+                  "src": "947:22:18",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_type$_t_contract$_FundDeployerOwnerMixin_$7683_$",
+                    "typeString": "type(contract FundDeployerOwnerMixin)"
+                  }
+                },
+                "nodeType": "ModifierInvocation",
+                "src": "947:37:18"
+              }
+            ],
+            "name": "",
+            "overrides": null,
+            "parameters": {
+              "id": 5965,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 5964,
+                  "mutability": "mutable",
+                  "name": "_fundDeployer",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 5971,
+                  "src": "917:21:18",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 5963,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "917:7:18",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "916:23:18"
+            },
+            "returnParameters": {
+              "id": 5969,
+              "nodeType": "ParameterList",
+              "parameters": [],
+              "src": "985:0:18"
+            },
+            "scope": 6050,
+            "stateMutability": "nonpayable",
+            "virtual": false,
+            "visibility": "public"
+          },
+          {
+            "id": 5980,
+            "nodeType": "FunctionDefinition",
+            "src": "1120:80:18",
+            "nodes": [],
+            "body": {
+              "id": 5979,
+              "nodeType": "Block",
+              "src": "1177:23:18",
+              "nodes": [],
+              "statements": [
+                {
+                  "expression": null,
+                  "functionReturnParameters": 5977,
+                  "id": 5978,
+                  "nodeType": "Return",
+                  "src": "1187:7:18"
+                }
+              ]
+            },
+            "baseFunctions": [
+              5137
+            ],
+            "documentation": {
+              "id": 5972,
+              "nodeType": "StructuredDocumentation",
+              "src": "993:122:18",
+              "text": "@notice Allows extension to run logic during fund activation\n @dev Unimplemented by default, may be overridden."
+            },
+            "functionSelector": "80d57063",
+            "implemented": true,
+            "kind": "function",
+            "modifiers": [],
+            "name": "activateForFund",
+            "overrides": {
+              "id": 5976,
+              "nodeType": "OverrideSpecifier",
+              "overrides": [],
+              "src": "1168:8:18"
+            },
+            "parameters": {
+              "id": 5975,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 5974,
+                  "mutability": "mutable",
+                  "name": "",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 5980,
+                  "src": "1145:4:18",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_bool",
+                    "typeString": "bool"
+                  },
+                  "typeName": {
+                    "id": 5973,
+                    "name": "bool",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "1145:4:18",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_bool",
+                      "typeString": "bool"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "1144:6:18"
+            },
+            "returnParameters": {
+              "id": 5977,
+              "nodeType": "ParameterList",
+              "parameters": [],
+              "src": "1177:0:18"
+            },
+            "scope": 6050,
+            "stateMutability": "nonpayable",
+            "virtual": true,
+            "visibility": "external"
+          },
+          {
+            "id": 5987,
+            "nodeType": "FunctionDefinition",
+            "src": "1346:78:18",
+            "nodes": [],
+            "body": {
+              "id": 5986,
+              "nodeType": "Block",
+              "src": "1401:23:18",
+              "nodes": [],
+              "statements": [
+                {
+                  "expression": null,
+                  "functionReturnParameters": 5984,
+                  "id": 5985,
+                  "nodeType": "Return",
+                  "src": "1411:7:18"
+                }
+              ]
+            },
+            "baseFunctions": [
+              5140
+            ],
+            "documentation": {
+              "id": 5981,
+              "nodeType": "StructuredDocumentation",
+              "src": "1206:135:18",
+              "text": "@notice Allows extension to run logic during fund deactivation (destruct)\n @dev Unimplemented by default, may be overridden."
+            },
+            "functionSelector": "bd8e959a",
+            "implemented": true,
+            "kind": "function",
+            "modifiers": [],
+            "name": "deactivateForFund",
+            "overrides": {
+              "id": 5983,
+              "nodeType": "OverrideSpecifier",
+              "overrides": [],
+              "src": "1392:8:18"
+            },
+            "parameters": {
+              "id": 5982,
+              "nodeType": "ParameterList",
+              "parameters": [],
+              "src": "1372:2:18"
+            },
+            "returnParameters": {
+              "id": 5984,
+              "nodeType": "ParameterList",
+              "parameters": [],
+              "src": "1401:0:18"
+            },
+            "scope": 6050,
+            "stateMutability": "nonpayable",
+            "virtual": true,
+            "visibility": "external"
+          },
+          {
+            "id": 6003,
+            "nodeType": "FunctionDefinition",
+            "src": "1603:208:18",
+            "nodes": [],
+            "body": {
+              "id": 6002,
+              "nodeType": "Block",
+              "src": "1729:82:18",
+              "nodes": [],
+              "statements": [
+                {
+                  "expression": {
+                    "argumentTypes": null,
+                    "arguments": [
+                      {
+                        "argumentTypes": null,
+                        "hexValue": "7265636569766543616c6c46726f6d436f6d7074726f6c6c65723a20556e696d706c656d656e74656420666f7220457874656e73696f6e",
+                        "id": 5999,
+                        "isConstant": false,
+                        "isLValue": false,
+                        "isPure": true,
+                        "kind": "string",
+                        "lValueRequested": false,
+                        "nodeType": "Literal",
+                        "src": "1746:57:18",
+                        "subdenomination": null,
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_stringliteral_8e1f8a22750072e68eaf7bf81d6bb4fdc2fa4621c57c32a009d3f7de75246472",
+                          "typeString": "literal_string \"receiveCallFromComptroller: Unimplemented for Extension\""
+                        },
+                        "value": "receiveCallFromComptroller: Unimplemented for Extension"
+                      }
+                    ],
+                    "expression": {
+                      "argumentTypes": [
+                        {
+                          "typeIdentifier": "t_stringliteral_8e1f8a22750072e68eaf7bf81d6bb4fdc2fa4621c57c32a009d3f7de75246472",
+                          "typeString": "literal_string \"receiveCallFromComptroller: Unimplemented for Extension\""
+                        }
+                      ],
+                      "id": 5998,
+                      "name": "revert",
+                      "nodeType": "Identifier",
+                      "overloadedDeclarations": [
+                        -19,
+                        -19
+                      ],
+                      "referencedDeclaration": -19,
+                      "src": "1739:6:18",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_function_revert_pure$_t_string_memory_ptr_$returns$__$",
+                        "typeString": "function (string memory) pure"
+                      }
+                    },
+                    "id": 6000,
+                    "isConstant": false,
+                    "isLValue": false,
+                    "isPure": false,
+                    "kind": "functionCall",
+                    "lValueRequested": false,
+                    "names": [],
+                    "nodeType": "FunctionCall",
+                    "src": "1739:65:18",
+                    "tryCall": false,
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_tuple$__$",
+                      "typeString": "tuple()"
+                    }
+                  },
+                  "id": 6001,
+                  "nodeType": "ExpressionStatement",
+                  "src": "1739:65:18"
+                }
+              ]
+            },
+            "baseFunctions": [
+              5149
+            ],
+            "documentation": {
+              "id": 5988,
+              "nodeType": "StructuredDocumentation",
+              "src": "1430:168:18",
+              "text": "@notice Receives calls from ComptrollerLib.callOnExtension()\n and dispatches the appropriate action\n @dev Unimplemented by default, may be overridden."
+            },
+            "functionSelector": "1bee801e",
+            "implemented": true,
+            "kind": "function",
+            "modifiers": [],
+            "name": "receiveCallFromComptroller",
+            "overrides": {
+              "id": 5996,
+              "nodeType": "OverrideSpecifier",
+              "overrides": [],
+              "src": "1720:8:18"
+            },
+            "parameters": {
+              "id": 5995,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 5990,
+                  "mutability": "mutable",
+                  "name": "",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 6003,
+                  "src": "1648:7:18",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 5989,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "1648:7:18",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 5992,
+                  "mutability": "mutable",
+                  "name": "",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 6003,
+                  "src": "1665:7:18",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_uint256",
+                    "typeString": "uint256"
+                  },
+                  "typeName": {
+                    "id": 5991,
+                    "name": "uint256",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "1665:7:18",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_uint256",
+                      "typeString": "uint256"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 5994,
+                  "mutability": "mutable",
+                  "name": "",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 6003,
+                  "src": "1682:14:18",
+                  "stateVariable": false,
+                  "storageLocation": "calldata",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_bytes_calldata_ptr",
+                    "typeString": "bytes"
+                  },
+                  "typeName": {
+                    "id": 5993,
+                    "name": "bytes",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "1682:5:18",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_bytes_storage_ptr",
+                      "typeString": "bytes"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "1638:64:18"
+            },
+            "returnParameters": {
+              "id": 5997,
+              "nodeType": "ParameterList",
+              "parameters": [],
+              "src": "1729:0:18"
+            },
+            "scope": 6050,
+            "stateMutability": "nonpayable",
+            "virtual": true,
+            "visibility": "external"
+          },
+          {
+            "id": 6016,
+            "nodeType": "FunctionDefinition",
+            "src": "1947:139:18",
+            "nodes": [],
+            "body": {
+              "id": 6015,
+              "nodeType": "Block",
+              "src": "2063:23:18",
+              "nodes": [],
+              "statements": [
+                {
+                  "expression": null,
+                  "functionReturnParameters": 6013,
+                  "id": 6014,
+                  "nodeType": "Return",
+                  "src": "2073:7:18"
+                }
+              ]
+            },
+            "baseFunctions": [
+              5158
+            ],
+            "documentation": {
+              "id": 6004,
+              "nodeType": "StructuredDocumentation",
+              "src": "1817:125:18",
+              "text": "@notice Allows extension to run logic during fund configuration\n @dev Unimplemented by default, may be overridden."
+            },
+            "functionSelector": "f067cc11",
+            "implemented": true,
+            "kind": "function",
+            "modifiers": [],
+            "name": "setConfigForFund",
+            "overrides": {
+              "id": 6012,
+              "nodeType": "OverrideSpecifier",
+              "overrides": [],
+              "src": "2054:8:18"
+            },
+            "parameters": {
+              "id": 6011,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 6006,
+                  "mutability": "mutable",
+                  "name": "",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 6016,
+                  "src": "1982:7:18",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 6005,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "1982:7:18",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 6008,
+                  "mutability": "mutable",
+                  "name": "",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 6016,
+                  "src": "1999:7:18",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 6007,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "1999:7:18",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 6010,
+                  "mutability": "mutable",
+                  "name": "",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 6016,
+                  "src": "2016:14:18",
+                  "stateVariable": false,
+                  "storageLocation": "calldata",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_bytes_calldata_ptr",
+                    "typeString": "bytes"
+                  },
+                  "typeName": {
+                    "id": 6009,
+                    "name": "bytes",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "2016:5:18",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_bytes_storage_ptr",
+                      "typeString": "bytes"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "1972:64:18"
+            },
+            "returnParameters": {
+              "id": 6013,
+              "nodeType": "ParameterList",
+              "parameters": [],
+              "src": "2063:0:18"
+            },
+            "scope": 6050,
+            "stateMutability": "nonpayable",
+            "virtual": true,
+            "visibility": "external"
+          },
+          {
+            "id": 6036,
+            "nodeType": "FunctionDefinition",
+            "src": "2172:246:18",
+            "nodes": [],
+            "body": {
+              "id": 6035,
+              "nodeType": "Block",
+              "src": "2263:155:18",
+              "nodes": [],
+              "statements": [
+                {
+                  "expression": {
+                    "argumentTypes": null,
+                    "id": 6028,
+                    "isConstant": false,
+                    "isLValue": false,
+                    "isPure": false,
+                    "lValueRequested": false,
+                    "leftHandSide": {
+                      "argumentTypes": null,
+                      "baseExpression": {
+                        "argumentTypes": null,
+                        "id": 6024,
+                        "name": "comptrollerProxyToVaultProxy",
+                        "nodeType": "Identifier",
+                        "overloadedDeclarations": [],
+                        "referencedDeclaration": 5949,
+                        "src": "2273:28:18",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_mapping$_t_address_$_t_address_$",
+                          "typeString": "mapping(address => address)"
+                        }
+                      },
+                      "id": 6026,
+                      "indexExpression": {
+                        "argumentTypes": null,
+                        "id": 6025,
+                        "name": "_comptrollerProxy",
+                        "nodeType": "Identifier",
+                        "overloadedDeclarations": [],
+                        "referencedDeclaration": 6019,
+                        "src": "2302:17:18",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_address",
+                          "typeString": "address"
+                        }
+                      },
+                      "isConstant": false,
+                      "isLValue": true,
+                      "isPure": false,
+                      "lValueRequested": true,
+                      "nodeType": "IndexAccess",
+                      "src": "2273:47:18",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_address",
+                        "typeString": "address"
+                      }
+                    },
+                    "nodeType": "Assignment",
+                    "operator": "=",
+                    "rightHandSide": {
+                      "argumentTypes": null,
+                      "id": 6027,
+                      "name": "_vaultProxy",
+                      "nodeType": "Identifier",
+                      "overloadedDeclarations": [],
+                      "referencedDeclaration": 6021,
+                      "src": "2323:11:18",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_address",
+                        "typeString": "address"
+                      }
+                    },
+                    "src": "2273:61:18",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "id": 6029,
+                  "nodeType": "ExpressionStatement",
+                  "src": "2273:61:18"
+                },
+                {
+                  "eventCall": {
+                    "argumentTypes": null,
+                    "arguments": [
+                      {
+                        "argumentTypes": null,
+                        "id": 6031,
+                        "name": "_comptrollerProxy",
+                        "nodeType": "Identifier",
+                        "overloadedDeclarations": [],
+                        "referencedDeclaration": 6019,
+                        "src": "2380:17:18",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_address",
+                          "typeString": "address"
+                        }
+                      },
+                      {
+                        "argumentTypes": null,
+                        "id": 6032,
+                        "name": "_vaultProxy",
+                        "nodeType": "Identifier",
+                        "overloadedDeclarations": [],
+                        "referencedDeclaration": 6021,
+                        "src": "2399:11:18",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_address",
+                          "typeString": "address"
+                        }
+                      }
+                    ],
+                    "expression": {
+                      "argumentTypes": [
+                        {
+                          "typeIdentifier": "t_address",
+                          "typeString": "address"
+                        },
+                        {
+                          "typeIdentifier": "t_address",
+                          "typeString": "address"
+                        }
+                      ],
+                      "id": 6030,
+                      "name": "ValidatedVaultProxySetForFund",
+                      "nodeType": "Identifier",
+                      "overloadedDeclarations": [],
+                      "referencedDeclaration": 5945,
+                      "src": "2350:29:18",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_function_event_nonpayable$_t_address_$_t_address_$returns$__$",
+                        "typeString": "function (address,address)"
+                      }
+                    },
+                    "id": 6033,
+                    "isConstant": false,
+                    "isLValue": false,
+                    "isPure": false,
+                    "kind": "functionCall",
+                    "lValueRequested": false,
+                    "names": [],
+                    "nodeType": "FunctionCall",
+                    "src": "2350:61:18",
+                    "tryCall": false,
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_tuple$__$",
+                      "typeString": "tuple()"
+                    }
+                  },
+                  "id": 6034,
+                  "nodeType": "EmitStatement",
+                  "src": "2345:66:18"
+                }
+              ]
+            },
+            "documentation": {
+              "id": 6017,
+              "nodeType": "StructuredDocumentation",
+              "src": "2092:75:18",
+              "text": "@dev Helper to store the validated ComptrollerProxy-VaultProxy relation"
+            },
+            "implemented": true,
+            "kind": "function",
+            "modifiers": [],
+            "name": "__setValidatedVaultProxy",
+            "overrides": null,
+            "parameters": {
+              "id": 6022,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 6019,
+                  "mutability": "mutable",
+                  "name": "_comptrollerProxy",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 6036,
+                  "src": "2206:25:18",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 6018,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "2206:7:18",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 6021,
+                  "mutability": "mutable",
+                  "name": "_vaultProxy",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 6036,
+                  "src": "2233:19:18",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 6020,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "2233:7:18",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "2205:48:18"
+            },
+            "returnParameters": {
+              "id": 6023,
+              "nodeType": "ParameterList",
+              "parameters": [],
+              "src": "2263:0:18"
+            },
+            "scope": 6050,
+            "stateMutability": "nonpayable",
+            "virtual": false,
+            "visibility": "internal"
+          },
+          {
+            "id": 6049,
+            "nodeType": "FunctionDefinition",
+            "src": "2692:198:18",
+            "nodes": [],
+            "body": {
+              "id": 6048,
+              "nodeType": "Block",
+              "src": "2819:71:18",
+              "nodes": [],
+              "statements": [
+                {
+                  "expression": {
+                    "argumentTypes": null,
+                    "baseExpression": {
+                      "argumentTypes": null,
+                      "id": 6044,
+                      "name": "comptrollerProxyToVaultProxy",
+                      "nodeType": "Identifier",
+                      "overloadedDeclarations": [],
+                      "referencedDeclaration": 5949,
+                      "src": "2836:28:18",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_mapping$_t_address_$_t_address_$",
+                        "typeString": "mapping(address => address)"
+                      }
+                    },
+                    "id": 6046,
+                    "indexExpression": {
+                      "argumentTypes": null,
+                      "id": 6045,
+                      "name": "_comptrollerProxy",
+                      "nodeType": "Identifier",
+                      "overloadedDeclarations": [],
+                      "referencedDeclaration": 6039,
+                      "src": "2865:17:18",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_address",
+                        "typeString": "address"
+                      }
+                    },
+                    "isConstant": false,
+                    "isLValue": true,
+                    "isPure": false,
+                    "lValueRequested": false,
+                    "nodeType": "IndexAccess",
+                    "src": "2836:47:18",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "functionReturnParameters": 6043,
+                  "id": 6047,
+                  "nodeType": "Return",
+                  "src": "2829:54:18"
+                }
+              ]
+            },
+            "documentation": {
+              "id": 6037,
+              "nodeType": "StructuredDocumentation",
+              "src": "2497:190:18",
+              "text": "@notice Gets the verified VaultProxy for a given ComptrollerProxy\n @param _comptrollerProxy The ComptrollerProxy of the fund\n @return vaultProxy_ The VaultProxy of the fund"
+            },
+            "functionSelector": "46790346",
+            "implemented": true,
+            "kind": "function",
+            "modifiers": [],
+            "name": "getVaultProxyForFund",
+            "overrides": null,
+            "parameters": {
+              "id": 6040,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 6039,
+                  "mutability": "mutable",
+                  "name": "_comptrollerProxy",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 6049,
+                  "src": "2722:25:18",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 6038,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "2722:7:18",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "2721:27:18"
+            },
+            "returnParameters": {
+              "id": 6043,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 6042,
+                  "mutability": "mutable",
+                  "name": "vaultProxy_",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 6049,
+                  "src": "2794:19:18",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 6041,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "2794:7:18",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "2793:21:18"
+            },
+            "scope": 6050,
+            "stateMutability": "view",
+            "virtual": false,
+            "visibility": "public"
+          }
+        ],
+        "abstract": true,
+        "baseContracts": [
+          {
+            "arguments": null,
+            "baseName": {
+              "contractScope": null,
+              "id": 5936,
+              "name": "IExtension",
+              "nodeType": "UserDefinedTypeName",
+              "referencedDeclaration": 5159,
+              "src": "520:10:18",
+              "typeDescriptions": {
+                "typeIdentifier": "t_contract$_IExtension_$5159",
+                "typeString": "contract IExtension"
+              }
+            },
+            "id": 5937,
+            "nodeType": "InheritanceSpecifier",
+            "src": "520:10:18"
+          },
+          {
+            "arguments": null,
+            "baseName": {
+              "contractScope": null,
+              "id": 5938,
+              "name": "FundDeployerOwnerMixin",
+              "nodeType": "UserDefinedTypeName",
+              "referencedDeclaration": 7683,
+              "src": "532:22:18",
+              "typeDescriptions": {
+                "typeIdentifier": "t_contract$_FundDeployerOwnerMixin_$7683",
+                "typeString": "contract FundDeployerOwnerMixin"
+              }
+            },
+            "id": 5939,
+            "nodeType": "InheritanceSpecifier",
+            "src": "532:22:18"
+          }
+        ],
+        "contractDependencies": [
+          5159,
+          7683
+        ],
+        "contractKind": "contract",
+        "documentation": {
+          "id": 5935,
+          "nodeType": "StructuredDocumentation",
+          "src": "358:127:18",
+          "text": "@title ExtensionBase Contract\n @author Enzyme Council <security@enzyme.finance>\n @notice Base class for an extension"
+        },
+        "fullyImplemented": true,
+        "linearizedBaseContracts": [
+          6050,
+          7683,
+          5159
+        ],
+        "name": "ExtensionBase",
+        "scope": 6051
+      }
+    ],
+    "license": "GPL-3.0"
+  },
+  "id": 18
 }

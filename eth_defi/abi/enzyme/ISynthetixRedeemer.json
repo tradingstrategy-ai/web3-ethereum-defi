@@ -1,7 +1,4 @@
 {
-  "_format": "hh-sol-artifact-1",
-  "contractName": "ISynthetixRedeemer",
-  "sourceName": "contracts/release/interfaces/ISynthetixRedeemer.sol",
   "abi": [
     {
       "inputs": [
@@ -17,8 +14,211 @@
       "type": "function"
     }
   ],
-  "bytecode": "0x",
-  "deployedBytecode": "0x",
-  "linkReferences": {},
-  "deployedLinkReferences": {}
+  "bytecode": {
+    "object": "0x",
+    "sourceMap": "",
+    "linkReferences": {}
+  },
+  "deployedBytecode": {
+    "object": "0x",
+    "sourceMap": "",
+    "linkReferences": {}
+  },
+  "methodIdentifiers": {
+    "redeemAll(address[])": "d6232e89"
+  },
+  "rawMetadata": "{\"compiler\":{\"version\":\"0.6.12+commit.27d51765\"},\"language\":\"Solidity\",\"output\":{\"abi\":[{\"inputs\":[{\"internalType\":\"address[]\",\"name\":\"\",\"type\":\"address[]\"}],\"name\":\"redeemAll\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"}],\"devdoc\":{\"author\":\"Enzyme Council <security@enzyme.finance>\",\"kind\":\"dev\",\"methods\":{},\"title\":\"ISynthetixRedeemer Interface\",\"version\":1},\"userdoc\":{\"kind\":\"user\",\"methods\":{},\"version\":1}},\"settings\":{\"compilationTarget\":{\"contracts/release/interfaces/ISynthetixRedeemer.sol\":\"ISynthetixRedeemer\"},\"evmVersion\":\"istanbul\",\"libraries\":{},\"metadata\":{\"bytecodeHash\":\"none\"},\"optimizer\":{\"details\":{\"constantOptimizer\":true,\"cse\":true,\"deduplicate\":true,\"jumpdestRemover\":true,\"orderLiterals\":true,\"peephole\":true,\"yul\":false},\"runs\":200},\"remappings\":[\":@enzyme/=contracts/\",\":@openzeppelin-solc-0.7/=node_modules/@openzeppelin-solc-0.7/\",\":@openzeppelin/=node_modules/@openzeppelin/\",\":@uniswap/=node_modules/@uniswap/\",\":base64-sol/=node_modules/base64-sol/\",\":ds-test/=lib/forge-std/lib/ds-test/src/\",\":forge-std/=lib/forge-std/src/\",\":hardhat-deploy/=node_modules/hardhat-deploy/\",\":hardhat/=node_modules/hardhat/\"]},\"sources\":{\"contracts/release/interfaces/ISynthetixRedeemer.sol\":{\"keccak256\":\"0xd2da4586a6de782c91bdf602f5f2cc408c080e42ad5023b5cc42f04eedb43238\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://22625ee876bf58a980ff7fd5a974d7c3ac2608d652ad044b05cf0799cb902817\",\"dweb:/ipfs/QmSAL2Q8wEXmA8B7Pxof8LUtbnXWiBpuVz5kFuFqdMeQvR\"]}},\"version\":1}",
+  "metadata": {
+    "compiler": {
+      "version": "0.6.12+commit.27d51765"
+    },
+    "language": "Solidity",
+    "output": {
+      "abi": [
+        {
+          "inputs": [
+            {
+              "internalType": "address[]",
+              "name": "",
+              "type": "address[]"
+            }
+          ],
+          "stateMutability": "nonpayable",
+          "type": "function",
+          "name": "redeemAll"
+        }
+      ],
+      "devdoc": {
+        "kind": "dev",
+        "methods": {},
+        "version": 1
+      },
+      "userdoc": {
+        "kind": "user",
+        "methods": {},
+        "version": 1
+      }
+    },
+    "settings": {
+      "remappings": [
+        ":@enzyme/=contracts/",
+        ":@openzeppelin-solc-0.7/=node_modules/@openzeppelin-solc-0.7/",
+        ":@openzeppelin/=node_modules/@openzeppelin/",
+        ":@uniswap/=node_modules/@uniswap/",
+        ":base64-sol/=node_modules/base64-sol/",
+        ":ds-test/=lib/forge-std/lib/ds-test/src/",
+        ":forge-std/=lib/forge-std/src/",
+        ":hardhat-deploy/=node_modules/hardhat-deploy/",
+        ":hardhat/=node_modules/hardhat/"
+      ],
+      "optimizer": {
+        "runs": 200,
+        "details": {
+          "peephole": true,
+          "jumpdestRemover": true,
+          "orderLiterals": true,
+          "deduplicate": true,
+          "cse": true,
+          "constantOptimizer": true,
+          "yul": false
+        }
+      },
+      "metadata": {
+        "bytecodeHash": "none"
+      },
+      "compilationTarget": {
+        "contracts/release/interfaces/ISynthetixRedeemer.sol": "ISynthetixRedeemer"
+      },
+      "libraries": {}
+    },
+    "sources": {
+      "contracts/release/interfaces/ISynthetixRedeemer.sol": {
+        "keccak256": "0xd2da4586a6de782c91bdf602f5f2cc408c080e42ad5023b5cc42f04eedb43238",
+        "urls": [
+          "bzz-raw://22625ee876bf58a980ff7fd5a974d7c3ac2608d652ad044b05cf0799cb902817",
+          "dweb:/ipfs/QmSAL2Q8wEXmA8B7Pxof8LUtbnXWiBpuVz5kFuFqdMeQvR"
+        ],
+        "license": "GPL-3.0"
+      }
+    },
+    "version": 1
+  },
+  "ast": {
+    "absolutePath": "contracts/release/interfaces/ISynthetixRedeemer.sol",
+    "id": 15661,
+    "exportedSymbols": {
+      "ISynthetixRedeemer": [
+        15660
+      ]
+    },
+    "nodeType": "SourceUnit",
+    "src": "255:204:71",
+    "nodes": [
+      {
+        "id": 15652,
+        "nodeType": "PragmaDirective",
+        "src": "255:23:71",
+        "nodes": [],
+        "literals": [
+          "solidity",
+          "0.6",
+          ".12"
+        ]
+      },
+      {
+        "id": 15660,
+        "nodeType": "ContractDefinition",
+        "src": "373:85:71",
+        "nodes": [
+          {
+            "id": 15659,
+            "nodeType": "FunctionDefinition",
+            "src": "408:48:71",
+            "nodes": [],
+            "documentation": null,
+            "functionSelector": "d6232e89",
+            "implemented": false,
+            "kind": "function",
+            "modifiers": [],
+            "name": "redeemAll",
+            "overrides": null,
+            "parameters": {
+              "id": 15657,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 15656,
+                  "mutability": "mutable",
+                  "name": "",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 15659,
+                  "src": "427:18:71",
+                  "stateVariable": false,
+                  "storageLocation": "calldata",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_array$_t_address_$dyn_calldata_ptr",
+                    "typeString": "address[]"
+                  },
+                  "typeName": {
+                    "baseType": {
+                      "id": 15654,
+                      "name": "address",
+                      "nodeType": "ElementaryTypeName",
+                      "src": "427:7:71",
+                      "stateMutability": "nonpayable",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_address",
+                        "typeString": "address"
+                      }
+                    },
+                    "id": 15655,
+                    "length": null,
+                    "nodeType": "ArrayTypeName",
+                    "src": "427:9:71",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_array$_t_address_$dyn_storage_ptr",
+                      "typeString": "address[]"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "426:20:71"
+            },
+            "returnParameters": {
+              "id": 15658,
+              "nodeType": "ParameterList",
+              "parameters": [],
+              "src": "455:0:71"
+            },
+            "scope": 15660,
+            "stateMutability": "nonpayable",
+            "virtual": false,
+            "visibility": "external"
+          }
+        ],
+        "abstract": false,
+        "baseContracts": [],
+        "contractDependencies": [],
+        "contractKind": "interface",
+        "documentation": {
+          "id": 15653,
+          "nodeType": "StructuredDocumentation",
+          "src": "280:93:71",
+          "text": "@title ISynthetixRedeemer Interface\n @author Enzyme Council <security@enzyme.finance>"
+        },
+        "fullyImplemented": false,
+        "linearizedBaseContracts": [
+          15660
+        ],
+        "name": "ISynthetixRedeemer",
+        "scope": 15661
+      }
+    ],
+    "license": "GPL-3.0"
+  },
+  "id": 71
 }

@@ -1,0 +1,762 @@
+{
+  "abi": [
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "_dispatcher",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "nonpayable",
+      "type": "constructor"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "derivative",
+          "type": "address"
+        },
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "underlying",
+          "type": "address"
+        }
+      ],
+      "name": "DerivativeAdded",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "derivative",
+          "type": "address"
+        }
+      ],
+      "name": "DerivativeRemoved",
+      "type": "event"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address[]",
+          "name": "_derivatives",
+          "type": "address[]"
+        },
+        {
+          "internalType": "address[]",
+          "name": "_underlyings",
+          "type": "address[]"
+        }
+      ],
+      "name": "addDerivatives",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "_derivative",
+          "type": "address"
+        },
+        {
+          "internalType": "uint256",
+          "name": "_derivativeAmount",
+          "type": "uint256"
+        }
+      ],
+      "name": "calcUnderlyingValues",
+      "outputs": [
+        {
+          "internalType": "address[]",
+          "name": "underlyings_",
+          "type": "address[]"
+        },
+        {
+          "internalType": "uint256[]",
+          "name": "underlyingAmounts_",
+          "type": "uint256[]"
+        }
+      ],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "getFundDeployer",
+      "outputs": [
+        {
+          "internalType": "address",
+          "name": "fundDeployer_",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "getOwner",
+      "outputs": [
+        {
+          "internalType": "address",
+          "name": "owner_",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "_derivative",
+          "type": "address"
+        }
+      ],
+      "name": "getUnderlyingForDerivative",
+      "outputs": [
+        {
+          "internalType": "address",
+          "name": "underlying_",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "_asset",
+          "type": "address"
+        }
+      ],
+      "name": "isSupportedAsset",
+      "outputs": [
+        {
+          "internalType": "bool",
+          "name": "isSupported_",
+          "type": "bool"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address[]",
+          "name": "_derivatives",
+          "type": "address[]"
+        }
+      ],
+      "name": "removeDerivatives",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    }
+  ],
+  "bytecode": {
+    "object": "0x60a060405234801561001057600080fd5b50604051610d23380380610d238339818101604052602081101561003357600080fd5b5051606081901b6001600160601b0319166080526001600160a01b0316610cb761006c600039806108095280610a4e5250610cb76000f3fe608060405234801561001057600080fd5b506004361061007d5760003560e01c8063893d20e81161005b578063893d20e8146102b25780638f72b136146102ba57806397c0ac871461035d5780639be918e6146103655761007d565b806339cbb63c1461008257806366adb867146101ab578063727212f6146101ed575b600080fd5b6101a96004803603604081101561009857600080fd5b8101906020810181356401000000008111156100b357600080fd5b8201836020820111156100c557600080fd5b803590602001918460208302840111640100000000831117156100e757600080fd5b919080806020026020016040519081016040528093929190818152602001838360200280828437600092019190915250929594936020810193503591505064010000000081111561013757600080fd5b82018360208201111561014957600080fd5b8035906020019184602083028401116401000000008311171561016b57600080fd5b91908080602002602001604051908101604052809392919081815260200183836020028082843760009201919091525092955061039f945050505050565b005b6101d1600480360360208110156101c157600080fd5b50356001600160a01b031661070c565b604080516001600160a01b039092168252519081900360200190f35b6102196004803603604081101561020357600080fd5b506001600160a01b03813516906020013561072a565b604051808060200180602001838103835285818151815260200191508051906020019060200280838360005b8381101561025d578181015183820152602001610245565b50505050905001838103825284818151815260200191508051906020019060200280838360005b8381101561029c578181015183820152602001610284565b5050505090500194505050505060405180910390f35b6101d1610805565b6101a9600480360360208110156102d057600080fd5b8101906020810181356401000000008111156102eb57600080fd5b8201836020820111156102fd57600080fd5b8035906020019184602083028401116401000000008311171561031f57600080fd5b919080806020026020016040519081016040528093929190818152602001838360200280828437600092019190915250929550610891945050505050565b6101d1610a4c565b61038b6004803603602081101561037b57600080fd5b50356001600160a01b0316610a70565b604080519115158252519081900360200190f35b6103a7610805565b6001600160a01b0316336001600160a01b0316146103f65760405162461bcd60e51b8152600401808060200182810382526049815260200180610bc96049913960600191505060405180910390fd5b60008251116104365760405162461bcd60e51b8152600401808060200182810382526022815260200180610c636022913960400191505060405180910390fd5b805182511461048c576040805162461bcd60e51b815260206004820152601e60248201527f61646444657269766174697665733a20556e657175616c206172726179730000604482015290519081900360640190fd5b60005b82518110156107075760006001600160a01b03168382815181106104af57fe5b60200260200101516001600160a01b03161415610513576040805162461bcd60e51b815260206004820181905260248201527f61646444657269766174697665733a20456d7074792064657269766174697665604482015290519081900360640190fd5b60006001600160a01b031682828151811061052a57fe5b60200260200101516001600160a01b0316141561058e576040805162461bcd60e51b815260206004820181905260248201527f61646444657269766174697665733a20456d70747920756e6465726c79696e67604482015290519081900360640190fd5b60006001600160a01b03166105b58483815181106105a857fe5b602002602001015161070c565b6001600160a01b0316146105fa5760405162461bcd60e51b8152600401808060200182810382526021815260200180610c126021913960400191505060405180910390fd5b61062a83828151811061060957fe5b602002602001015183838151811061061d57fe5b6020026020010151610a8d565b81818151811061063657fe5b602002602001015160008085848151811061064d57fe5b60200260200101516001600160a01b03166001600160a01b0316815260200190815260200160002060006101000a8154816001600160a01b0302191690836001600160a01b031602179055508181815181106106a557fe5b60200260200101516001600160a01b03168382815181106106c257fe5b60200260200101516001600160a01b03167faa4ae250fb435bb4b31ed0b95822bc179fc6c5dd0c727c3ffe08d444025efd9860405160405180910390a360010161048f565b505050565b6001600160a01b039081166000908152602081905260409020541690565b60608060006107388561070c565b90506001600160a01b03811661077f5760405162461bcd60e51b8152600401808060200182810382526030815260200180610c336030913960400191505060405180910390fd5b604080516001808252818301909252906020808301908036833701905050925080836000815181106107ad57fe5b6001600160a01b039290921660209283029190910182015260408051600180825281830190925291828101908036833701905050915083826000815181106107f157fe5b602002602001018181525050509250929050565b60007f00000000000000000000000000000000000000000000000000000000000000006001600160a01b031663893d20e86040518163ffffffff1660e01b815260040160206040518083038186803b15801561086057600080fd5b505afa158015610874573d6000803e3d6000fd5b505050506040513d602081101561088a57600080fd5b5051905090565b610899610805565b6001600160a01b0316336001600160a01b0316146108e85760405162461bcd60e51b8152600401808060200182810382526049815260200180610bc96049913960600191505060405180910390fd5b60008151116109285760405162461bcd60e51b8152600401808060200182810382526025815260200180610ba46025913960400191505060405180910390fd5b60005b8151811015610a485760006001600160a01b031661094e8383815181106105a857fe5b6001600160a01b031614156109aa576040805162461bcd60e51b815260206004820181905260248201527f72656d6f766544657269766174697665733a2056616c7565206e6f7420736574604482015290519081900360640190fd5b6000808383815181106109b957fe5b60200260200101516001600160a01b03166001600160a01b0316815260200190815260200160002060006101000a8154906001600160a01b030219169055818181518110610a0357fe5b60200260200101516001600160a01b03167fc15eb25d807b570f4567baf6e97c7b26d58a7d0512dc85e8db15375a056b860460405160405180910390a260010161092b565b5050565b7f000000000000000000000000000000000000000000000000000000000000000090565b600080610a7c8361070c565b6001600160a01b0316141592915050565b806001600160a01b031663313ce5676040518163ffffffff1660e01b815260040160206040518083038186803b158015610ac657600080fd5b505afa158015610ada573d6000803e3d6000fd5b505050506040513d6020811015610af057600080fd5b50516040805163313ce56760e01b8152905160ff909216916001600160a01b0385169163313ce567916004808301926020929190829003018186803b158015610b3857600080fd5b505afa158015610b4c573d6000803e3d6000fd5b505050506040513d6020811015610b6257600080fd5b505160ff1614610a485760405162461bcd60e51b8152600401808060200182810382526026815260200180610c856026913960400191505060405180910390fdfe72656d6f766544657269766174697665733a20456d707479205f64657269766174697665736f6e6c7946756e644465706c6f7965724f776e65723a204f6e6c79207468652046756e644465706c6f796572206f776e65722063616e2063616c6c20746869732066756e6374696f6e61646444657269766174697665733a2056616c756520616c72656164792073657463616c63556e6465726c79696e6756616c7565733a204e6f74206120737570706f72746564206465726976617469766561646444657269766174697665733a20456d707479205f64657269766174697665735f5f76616c6964617465446572697661746976653a20556e657175616c20646563696d616c73a164736f6c634300060c000a",
+    "sourceMap": "568:168:372:-:0;;;648:86;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;-1:-1:-1;648:86:372;864:29:358;;;;-1:-1:-1;;;;;;864:29:358;;;-1:-1:-1;;;;;568:168:372;;;;;;;;",
+    "linkReferences": {}
+  },
+  "deployedBytecode": {
+    "object": "0x608060405234801561001057600080fd5b506004361061007d5760003560e01c8063893d20e81161005b578063893d20e8146102b25780638f72b136146102ba57806397c0ac871461035d5780639be918e6146103655761007d565b806339cbb63c1461008257806366adb867146101ab578063727212f6146101ed575b600080fd5b6101a96004803603604081101561009857600080fd5b8101906020810181356401000000008111156100b357600080fd5b8201836020820111156100c557600080fd5b803590602001918460208302840111640100000000831117156100e757600080fd5b919080806020026020016040519081016040528093929190818152602001838360200280828437600092019190915250929594936020810193503591505064010000000081111561013757600080fd5b82018360208201111561014957600080fd5b8035906020019184602083028401116401000000008311171561016b57600080fd5b91908080602002602001604051908101604052809392919081815260200183836020028082843760009201919091525092955061039f945050505050565b005b6101d1600480360360208110156101c157600080fd5b50356001600160a01b031661070c565b604080516001600160a01b039092168252519081900360200190f35b6102196004803603604081101561020357600080fd5b506001600160a01b03813516906020013561072a565b604051808060200180602001838103835285818151815260200191508051906020019060200280838360005b8381101561025d578181015183820152602001610245565b50505050905001838103825284818151815260200191508051906020019060200280838360005b8381101561029c578181015183820152602001610284565b5050505090500194505050505060405180910390f35b6101d1610805565b6101a9600480360360208110156102d057600080fd5b8101906020810181356401000000008111156102eb57600080fd5b8201836020820111156102fd57600080fd5b8035906020019184602083028401116401000000008311171561031f57600080fd5b919080806020026020016040519081016040528093929190818152602001838360200280828437600092019190915250929550610891945050505050565b6101d1610a4c565b61038b6004803603602081101561037b57600080fd5b50356001600160a01b0316610a70565b604080519115158252519081900360200190f35b6103a7610805565b6001600160a01b0316336001600160a01b0316146103f65760405162461bcd60e51b8152600401808060200182810382526049815260200180610bc96049913960600191505060405180910390fd5b60008251116104365760405162461bcd60e51b8152600401808060200182810382526022815260200180610c636022913960400191505060405180910390fd5b805182511461048c576040805162461bcd60e51b815260206004820152601e60248201527f61646444657269766174697665733a20556e657175616c206172726179730000604482015290519081900360640190fd5b60005b82518110156107075760006001600160a01b03168382815181106104af57fe5b60200260200101516001600160a01b03161415610513576040805162461bcd60e51b815260206004820181905260248201527f61646444657269766174697665733a20456d7074792064657269766174697665604482015290519081900360640190fd5b60006001600160a01b031682828151811061052a57fe5b60200260200101516001600160a01b0316141561058e576040805162461bcd60e51b815260206004820181905260248201527f61646444657269766174697665733a20456d70747920756e6465726c79696e67604482015290519081900360640190fd5b60006001600160a01b03166105b58483815181106105a857fe5b602002602001015161070c565b6001600160a01b0316146105fa5760405162461bcd60e51b8152600401808060200182810382526021815260200180610c126021913960400191505060405180910390fd5b61062a83828151811061060957fe5b602002602001015183838151811061061d57fe5b6020026020010151610a8d565b81818151811061063657fe5b602002602001015160008085848151811061064d57fe5b60200260200101516001600160a01b03166001600160a01b0316815260200190815260200160002060006101000a8154816001600160a01b0302191690836001600160a01b031602179055508181815181106106a557fe5b60200260200101516001600160a01b03168382815181106106c257fe5b60200260200101516001600160a01b03167faa4ae250fb435bb4b31ed0b95822bc179fc6c5dd0c727c3ffe08d444025efd9860405160405180910390a360010161048f565b505050565b6001600160a01b039081166000908152602081905260409020541690565b60608060006107388561070c565b90506001600160a01b03811661077f5760405162461bcd60e51b8152600401808060200182810382526030815260200180610c336030913960400191505060405180910390fd5b604080516001808252818301909252906020808301908036833701905050925080836000815181106107ad57fe5b6001600160a01b039290921660209283029190910182015260408051600180825281830190925291828101908036833701905050915083826000815181106107f157fe5b602002602001018181525050509250929050565b60007f00000000000000000000000000000000000000000000000000000000000000006001600160a01b031663893d20e86040518163ffffffff1660e01b815260040160206040518083038186803b15801561086057600080fd5b505afa158015610874573d6000803e3d6000fd5b505050506040513d602081101561088a57600080fd5b5051905090565b610899610805565b6001600160a01b0316336001600160a01b0316146108e85760405162461bcd60e51b8152600401808060200182810382526049815260200180610bc96049913960600191505060405180910390fd5b60008151116109285760405162461bcd60e51b8152600401808060200182810382526025815260200180610ba46025913960400191505060405180910390fd5b60005b8151811015610a485760006001600160a01b031661094e8383815181106105a857fe5b6001600160a01b031614156109aa576040805162461bcd60e51b815260206004820181905260248201527f72656d6f766544657269766174697665733a2056616c7565206e6f7420736574604482015290519081900360640190fd5b6000808383815181106109b957fe5b60200260200101516001600160a01b03166001600160a01b0316815260200190815260200160002060006101000a8154906001600160a01b030219169055818181518110610a0357fe5b60200260200101516001600160a01b03167fc15eb25d807b570f4567baf6e97c7b26d58a7d0512dc85e8db15375a056b860460405160405180910390a260010161092b565b5050565b7f000000000000000000000000000000000000000000000000000000000000000090565b600080610a7c8361070c565b6001600160a01b0316141592915050565b806001600160a01b031663313ce5676040518163ffffffff1660e01b815260040160206040518083038186803b158015610ac657600080fd5b505afa158015610ada573d6000803e3d6000fd5b505050506040513d6020811015610af057600080fd5b50516040805163313ce56760e01b8152905160ff909216916001600160a01b0385169163313ce567916004808301926020929190829003018186803b158015610b3857600080fd5b505afa158015610b4c573d6000803e3d6000fd5b505050506040513d6020811015610b6257600080fd5b505160ff1614610a485760405162461bcd60e51b8152600401808060200182810382526026815260200180610c856026913960400191505060405180910390fdfe72656d6f766544657269766174697665733a20456d707479205f64657269766174697665736f6e6c7946756e644465706c6f7965724f776e65723a204f6e6c79207468652046756e644465706c6f796572206f776e65722063616e2063616c6c20746869732066756e6374696f6e61646444657269766174697665733a2056616c756520616c72656164792073657463616c63556e6465726c79696e6756616c7565733a204e6f74206120737570706f72746564206465726976617469766561646444657269766174697665733a20456d707479205f64657269766174697665735f5f76616c6964617465446572697661746976653a20556e657175616c20646563696d616c73a164736f6c634300060c000a",
+    "sourceMap": "568:168:372:-:0;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;1158:951:252;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;-1:-1:-1;1158:951:252;;;;;;;;-1:-1:-1;1158:951:252;;-1:-1:-1;;1158:951:252;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;-1:-1:-1;1158:951:252;;-1:-1:-1;1158:951:252;;-1:-1:-1;;;;;1158:951:252:i;:::-;;3223:186;;;;;;;;;;;;;;;;-1:-1:-1;3223:186:252;-1:-1:-1;;;;;3223:186:252;;:::i;:::-;;;;-1:-1:-1;;;;;3223:186:252;;;;;;;;;;;;;;1329:604:250;;;;;;;;;;;;;;;;-1:-1:-1;;;;;;1329:604:250;;;;;;;;:::i;:::-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;1064:120:358;;;:::i;2225:523:252:-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;-1:-1:-1;2225:523:252;;-1:-1:-1;2225:523:252;;-1:-1:-1;;;;;2225:523:252:i;1378:108:358:-;;;:::i;2106:165:250:-;;;;;;;;;;;;;;;;-1:-1:-1;2106:165:250;-1:-1:-1;;;;;2106:165:250;;:::i;:::-;;;;;;;;;;;;;;;;;;1158:951:252;679:10:358;:8;:10::i;:::-;-1:-1:-1;;;;;665:24:358;:10;-1:-1:-1;;;;;665:24:358;;644:144;;;;-1:-1:-1;;;644:144:358;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;1351:1:252::1;1329:12;:19;:23;1321:70;;;;-1:-1:-1::0;;;1321:70:252::1;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;1432:12;:19;1409:12;:19;:42;1401:85;;;::::0;;-1:-1:-1;;;1401:85:252;;::::1;;::::0;::::1;::::0;::::1;::::0;;;;::::1;::::0;;;;;;;;;;;;;::::1;;1502:9;1497:606;1517:12;:19;1513:1;:23;1497:606;;;1592:1;-1:-1:-1::0;;;;;1565:29:252::1;:12;1578:1;1565:15;;;;;;;;;;;;;;-1:-1:-1::0;;;;;1565:29:252::1;;;1557:74;;;::::0;;-1:-1:-1;;;1557:74:252;;::::1;;::::0;::::1;::::0;;;;;;;::::1;::::0;;;;;;;;;;;;;::::1;;1680:1;-1:-1:-1::0;;;;;1653:29:252::1;:12;1666:1;1653:15;;;;;;;;;;;;;;-1:-1:-1::0;;;;;1653:29:252::1;;;1645:74;;;::::0;;-1:-1:-1;;;1645:74:252;;::::1;;::::0;::::1;::::0;;;;;;;::::1;::::0;;;;;;;;;;;;;::::1;;1813:1;-1:-1:-1::0;;;;;1758:57:252::1;:43;1785:12;1798:1;1785:15;;;;;;;;;;;;;;1758:26;:43::i;:::-;-1:-1:-1::0;;;;;1758:57:252::1;;1733:149;;;;-1:-1:-1::0;;;1733:149:252::1;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;1897:54;1918:12;1931:1;1918:15;;;;;;;;;;;;;;1935:12;1948:1;1935:15;;;;;;;;;;;;;;1897:20;:54::i;:::-;2008:12;2021:1;2008:15;;;;;;;;;;;;;;1966:22;:39:::0;1989:12:::1;2002:1;1989:15;;;;;;;;;;;;;;-1:-1:-1::0;;;;;1966:39:252::1;-1:-1:-1::0;;;;;1966:39:252::1;;;;;;;;;;;;;:57;;;;;-1:-1:-1::0;;;;;1966:57:252::1;;;;;-1:-1:-1::0;;;;;1966:57:252::1;;;;;;2076:12;2089:1;2076:15;;;;;;;;;;;;;;-1:-1:-1::0;;;;;2043:49:252::1;2059:12;2072:1;2059:15;;;;;;;;;;;;;;-1:-1:-1::0;;;;;2043:49:252::1;;;;;;;;;;;1538:3;;1497:606;;;;1158:951:::0;;:::o;3223:186::-;-1:-1:-1;;;;;3367:35:252;;;3325:19;3367:35;;;;;;;;;;;;;3223:186::o;1329:604:250:-;1458:29;1489:35;1540:18;1561:39;1588:11;1561:26;:39::i;:::-;1540:60;-1:-1:-1;;;;;;1618:24:250;;1610:85;;;;-1:-1:-1;;;1610:85:250;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;1721:16;;;1735:1;1721:16;;;;;;;;;;;;;;;;;;;;;-1:-1:-1;1721:16:250;1706:31;;1765:10;1747:12;1760:1;1747:15;;;;;;;;-1:-1:-1;;;;;1747:28:250;;;;:15;;;;;;;;;;:28;1807:16;;;1821:1;1807:16;;;;;;;;;;;;;;1747:15;1807:16;;;;;-1:-1:-1;1807:16:250;1786:37;;1857:17;1833:18;1852:1;1833:21;;;;;;;;;;;;;:41;;;;;1885;1329:604;;;;;:::o;1064:120:358:-;1105:14;1152:13;-1:-1:-1;;;;;1138:37:358;;:39;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;-1:-1:-1;1138:39:358;;-1:-1:-1;1064:120:358;:::o;2225:523:252:-;679:10:358;:8;:10::i;:::-;-1:-1:-1;;;;;665:24:358;:10;-1:-1:-1;;;;;665:24:358;;644:144;;;;-1:-1:-1;;;644:144:358;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;2354:1:252::1;2332:12;:19;:23;2324:73;;;;-1:-1:-1::0;;;2324:73:252::1;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;2413:9;2408:334;2428:12;:19;2424:1;:23;2408:334;;;2548:1;-1:-1:-1::0;;;;;2493:57:252::1;:43;2520:12;2533:1;2520:15;;;;;;;2493:43;-1:-1:-1::0;;;;;2493:57:252::1;;;2468:148;;;::::0;;-1:-1:-1;;;2468:148:252;;::::1;;::::0;::::1;::::0;;;;;;;::::1;::::0;;;;;;;;;;;;;::::1;;2638:22;:39:::0;2661:12:::1;2674:1;2661:15;;;;;;;;;;;;;;-1:-1:-1::0;;;;;2638:39:252::1;-1:-1:-1::0;;;;;2638:39:252::1;;;;;;;;;;;;;2631:46;;;;;-1:-1:-1::0;;;;;2631:46:252::1;;;;;2715:12;2728:1;2715:15;;;;;;;;;;;;;;-1:-1:-1::0;;;;;2697:34:252::1;;;;;;;;;;;2449:3;;2408:334;;;;2225:523:::0;:::o;1378:108:358:-;1466:13;1378:108;:::o;2106:165:250:-;2180:17;;2216:34;2243:6;2216:26;:34::i;:::-;-1:-1:-1;;;;;2216:48:250;;;;2106:165;-1:-1:-1;;2106:165:250:o;2469:290::-;2665:11;-1:-1:-1;;;;;2659:27:250;;:29;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;-1:-1:-1;2659:29:250;2626;;;-1:-1:-1;;;2626:29:250;;;;:62;;;;;-1:-1:-1;;;;;2626:27:250;;;;;:29;;;;;2659;;2626;;;;;;;:27;:29;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;-1:-1:-1;2626:29:250;:62;;;2605:147;;;;-1:-1:-1;;;2605:147:250;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;",
+    "linkReferences": {},
+    "immutableReferences": {
+      "78707": [
+        {
+          "start": 2057,
+          "length": 32
+        },
+        {
+          "start": 2638,
+          "length": 32
+        }
+      ]
+    }
+  },
+  "methodIdentifiers": {
+    "addDerivatives(address[],address[])": "39cbb63c",
+    "calcUnderlyingValues(address,uint256)": "727212f6",
+    "getFundDeployer()": "97c0ac87",
+    "getOwner()": "893d20e8",
+    "getUnderlyingForDerivative(address)": "66adb867",
+    "isSupportedAsset(address)": "9be918e6",
+    "removeDerivatives(address[])": "8f72b136"
+  },
+  "rawMetadata": "{\"compiler\":{\"version\":\"0.6.12+commit.27d51765\"},\"language\":\"Solidity\",\"output\":{\"abi\":[{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_dispatcher\",\"type\":\"address\"}],\"stateMutability\":\"nonpayable\",\"type\":\"constructor\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"derivative\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"underlying\",\"type\":\"address\"}],\"name\":\"DerivativeAdded\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"derivative\",\"type\":\"address\"}],\"name\":\"DerivativeRemoved\",\"type\":\"event\"},{\"inputs\":[{\"internalType\":\"address[]\",\"name\":\"_derivatives\",\"type\":\"address[]\"},{\"internalType\":\"address[]\",\"name\":\"_underlyings\",\"type\":\"address[]\"}],\"name\":\"addDerivatives\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_derivative\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"_derivativeAmount\",\"type\":\"uint256\"}],\"name\":\"calcUnderlyingValues\",\"outputs\":[{\"internalType\":\"address[]\",\"name\":\"underlyings_\",\"type\":\"address[]\"},{\"internalType\":\"uint256[]\",\"name\":\"underlyingAmounts_\",\"type\":\"uint256[]\"}],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getFundDeployer\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"fundDeployer_\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getOwner\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"owner_\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_derivative\",\"type\":\"address\"}],\"name\":\"getUnderlyingForDerivative\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"underlying_\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_asset\",\"type\":\"address\"}],\"name\":\"isSupportedAsset\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"isSupported_\",\"type\":\"bool\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address[]\",\"name\":\"_derivatives\",\"type\":\"address[]\"}],\"name\":\"removeDerivatives\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"}],\"devdoc\":{\"author\":\"Enzyme Council <security@enzyme.finance>\",\"kind\":\"dev\",\"methods\":{\"addDerivatives(address[],address[])\":{\"params\":{\"_derivatives\":\"The derivatives to add\",\"_underlyings\":\"The corresponding underlyings to add\"}},\"calcUnderlyingValues(address,uint256)\":{\"params\":{\"_derivative\":\"The derivative to convert\",\"_derivativeAmount\":\"The amount of the derivative to convert\"},\"returns\":{\"underlyingAmounts_\":\"The amount of each underlying asset for the equivalent derivative amount\",\"underlyings_\":\"The underlying assets for the _derivative\"}},\"getFundDeployer()\":{\"returns\":{\"fundDeployer_\":\"The `FUND_DEPLOYER` variable value\"}},\"getOwner()\":{\"details\":\"Ownership is deferred to the owner of the FundDeployer contract\",\"returns\":{\"owner_\":\"The owner\"}},\"getUnderlyingForDerivative(address)\":{\"params\":{\"_derivative\":\"The derivative for which to get the underlying asset\"},\"returns\":{\"underlying_\":\"The underlying asset\"}},\"isSupportedAsset(address)\":{\"params\":{\"_asset\":\"The asset to check\"},\"returns\":{\"isSupported_\":\"True if the asset is supported\"}},\"removeDerivatives(address[])\":{\"params\":{\"_derivatives\":\"The derivatives to remove\"}}},\"title\":\"TestSingleUnderlyingDerivativeRegistry Contract\",\"version\":1},\"userdoc\":{\"kind\":\"user\",\"methods\":{\"addDerivatives(address[],address[])\":{\"notice\":\"Adds derivatives with corresponding underlyings to the price feed\"},\"calcUnderlyingValues(address,uint256)\":{\"notice\":\"Converts a given amount of a derivative to its underlying asset values\"},\"getFundDeployer()\":{\"notice\":\"Gets the `FUND_DEPLOYER` variable\"},\"getOwner()\":{\"notice\":\"Gets the owner of this contract\"},\"getUnderlyingForDerivative(address)\":{\"notice\":\"Gets the underlying asset for a given derivative\"},\"isSupportedAsset(address)\":{\"notice\":\"Checks if an asset is supported by the price feed\"},\"removeDerivatives(address[])\":{\"notice\":\"Removes derivatives from the price feed\"}},\"notice\":\"A test implementation of PeggedDerivativesPriceFeedBase\",\"version\":1}},\"settings\":{\"compilationTarget\":{\"contracts/test/TestPeggedDerivativesPriceFeed.sol\":\"TestPeggedDerivativesPriceFeed\"},\"evmVersion\":\"istanbul\",\"libraries\":{},\"metadata\":{\"bytecodeHash\":\"none\"},\"optimizer\":{\"details\":{\"constantOptimizer\":true,\"cse\":true,\"deduplicate\":true,\"jumpdestRemover\":true,\"orderLiterals\":true,\"peephole\":true,\"yul\":false},\"runs\":200},\"remappings\":[\":@enzyme/=contracts/\",\":@openzeppelin-solc-0.7/=node_modules/@openzeppelin-solc-0.7/\",\":@openzeppelin/=node_modules/@openzeppelin/\",\":@uniswap/=node_modules/@uniswap/\",\":base64-sol/=node_modules/base64-sol/\",\":ds-test/=lib/forge-std/lib/ds-test/src/\",\":forge-std/=lib/forge-std/src/\",\":hardhat-deploy/=node_modules/hardhat-deploy/\",\":hardhat/=node_modules/hardhat/\"]},\"sources\":{\"contracts/release/core/fund-deployer/IFundDeployer.sol\":{\"keccak256\":\"0x5b901b81b3a4ef3d30ef9b4a1fa7fdd6526dfacd66e9971d1f988c2b63334314\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://79eba24bcad7e3abddafd20b518add8d5acb1e8de250a0e20050dfbe2f2d8aea\",\"dweb:/ipfs/QmYq9QYKr1UJaVyhkkSEfeiJ68TwGbwrmZsgRTPjVjkpUp\"]},\"contracts/release/infrastructure/price-feeds/derivatives/IDerivativePriceFeed.sol\":{\"keccak256\":\"0x5abbc57ccbf28b2c27a0ee496f0a949a0039912975e8f9a65312d884edd05332\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://9cfb87b8df1f3f58c556907e2a9cc197fa5bb90ad9bc9d4717e95fd63258d80e\",\"dweb:/ipfs/QmWxLvfq9NNJJZueeHD5EYWdRwrgzmrVdLUqp9Ta7A9ccK\"]},\"contracts/release/infrastructure/price-feeds/derivatives/feeds/utils/PeggedDerivativesPriceFeedBase.sol\":{\"keccak256\":\"0x1bfcfa32fd2ff255d3b371367e733bc5dd616f1e6244d272da7468067479702d\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://0fa04e528bb5fb52d2bdbaa0532f1d0ea710d75622992156dc788dedbb8553df\",\"dweb:/ipfs/Qmdpw5aquGqFDD1tpUX6Ax7X4jx52WcoTjfoHVJozRSWpG\"]},\"contracts/release/infrastructure/price-feeds/derivatives/feeds/utils/SingleUnderlyingDerivativeRegistryMixin.sol\":{\"keccak256\":\"0xeb2aab819af80382ad562d5a80863484a42caa7888f811817eb283894a1852e7\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://8846bfa874ede75fbcd3053d45a1647cad0aabbb26e4189998e8c517961c2bb6\",\"dweb:/ipfs/QmV4Bgx9VfX6kaoyZuaBDf2xyTY4ZmjniZTX8TrEmhU4Pv\"]},\"contracts/release/utils/FundDeployerOwnerMixin.sol\":{\"keccak256\":\"0xd415583828581051080d575f058643f4975d7048fda0d1765122b260d9d14934\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://8191af7a3cd0867af1a401d3cba1294be054c761c2276d21bff7c9296ecc6927\",\"dweb:/ipfs/QmYBSrx1XrcqMNkH2Q6ALuczRv6LgpzVHvFH3DjvCu6SaM\"]},\"contracts/test/TestPeggedDerivativesPriceFeed.sol\":{\"keccak256\":\"0x66af58124bbd896c4fd6bcd1639de37ac4b7ba5cc81a06b01c402d6ba4afe4c8\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://1009e149a27adbb632303b14652187b9e504fb8d9a03f840c5b53b69233c884d\",\"dweb:/ipfs/QmRBHpUeTKeTFatRwtD9Lfv5bSDaRvBwP2fGvcM75buTm9\"]},\"node_modules/@openzeppelin/contracts/math/SafeMath.sol\":{\"keccak256\":\"0xcc78a17dd88fa5a2edc60c8489e2f405c0913b377216a5b26b35656b2d0dab52\",\"license\":\"MIT\",\"urls\":[\"bzz-raw://526dc85e1f9b9b45830e202568d267d93dde7a4fcccf4ad7798dadcd92304d3c\",\"dweb:/ipfs/QmaoXMB972J3cSDLtBq3xBo4jLwqD2uzXTwujtSPqkYVhR\"]},\"node_modules/@openzeppelin/contracts/token/ERC20/ERC20.sol\":{\"keccak256\":\"0xca0c2396dbeb3503b51abf4248ebf77a1461edad513c01529df51850a012bee3\",\"license\":\"MIT\",\"urls\":[\"bzz-raw://991b44ff44e0496e8554a90f4c0512c28faed45104d40430019f3c67ea67740e\",\"dweb:/ipfs/Qmc3nRapVbcctELoZS5qe17zLkFB3bETBfwzCTMF1CSuGE\"]},\"node_modules/@openzeppelin/contracts/token/ERC20/IERC20.sol\":{\"keccak256\":\"0x5f02220344881ce43204ae4a6281145a67bc52c2bb1290a791857df3d19d78f5\",\"license\":\"MIT\",\"urls\":[\"bzz-raw://24427744bd3e6cb73c17010119af12a318289c0253a4d9acb8576c9fb3797b08\",\"dweb:/ipfs/QmTLDqpKRBuxGxRAmjgXt9AkXyACW3MtKzi7PYjm5iMfGC\"]},\"node_modules/@openzeppelin/contracts/utils/Context.sol\":{\"keccak256\":\"0x8d3cb350f04ff49cfb10aef08d87f19dcbaecc8027b0bed12f3275cd12f38cf0\",\"license\":\"MIT\",\"urls\":[\"bzz-raw://ded47ec7c96750f9bd04bbbc84f659992d4ba901cb7b532a52cd468272cf378f\",\"dweb:/ipfs/QmfBrGtQP7rZEqEg6Wz6jh2N2Kukpj1z5v3CGWmAqrzm96\"]}},\"version\":1}",
+  "metadata": {
+    "compiler": {
+      "version": "0.6.12+commit.27d51765"
+    },
+    "language": "Solidity",
+    "output": {
+      "abi": [
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "_dispatcher",
+              "type": "address"
+            }
+          ],
+          "stateMutability": "nonpayable",
+          "type": "constructor"
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "derivative",
+              "type": "address",
+              "indexed": true
+            },
+            {
+              "internalType": "address",
+              "name": "underlying",
+              "type": "address",
+              "indexed": true
+            }
+          ],
+          "type": "event",
+          "name": "DerivativeAdded",
+          "anonymous": false
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "derivative",
+              "type": "address",
+              "indexed": true
+            }
+          ],
+          "type": "event",
+          "name": "DerivativeRemoved",
+          "anonymous": false
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "address[]",
+              "name": "_derivatives",
+              "type": "address[]"
+            },
+            {
+              "internalType": "address[]",
+              "name": "_underlyings",
+              "type": "address[]"
+            }
+          ],
+          "stateMutability": "nonpayable",
+          "type": "function",
+          "name": "addDerivatives"
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "_derivative",
+              "type": "address"
+            },
+            {
+              "internalType": "uint256",
+              "name": "_derivativeAmount",
+              "type": "uint256"
+            }
+          ],
+          "stateMutability": "nonpayable",
+          "type": "function",
+          "name": "calcUnderlyingValues",
+          "outputs": [
+            {
+              "internalType": "address[]",
+              "name": "underlyings_",
+              "type": "address[]"
+            },
+            {
+              "internalType": "uint256[]",
+              "name": "underlyingAmounts_",
+              "type": "uint256[]"
+            }
+          ]
+        },
+        {
+          "inputs": [],
+          "stateMutability": "view",
+          "type": "function",
+          "name": "getFundDeployer",
+          "outputs": [
+            {
+              "internalType": "address",
+              "name": "fundDeployer_",
+              "type": "address"
+            }
+          ]
+        },
+        {
+          "inputs": [],
+          "stateMutability": "view",
+          "type": "function",
+          "name": "getOwner",
+          "outputs": [
+            {
+              "internalType": "address",
+              "name": "owner_",
+              "type": "address"
+            }
+          ]
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "_derivative",
+              "type": "address"
+            }
+          ],
+          "stateMutability": "view",
+          "type": "function",
+          "name": "getUnderlyingForDerivative",
+          "outputs": [
+            {
+              "internalType": "address",
+              "name": "underlying_",
+              "type": "address"
+            }
+          ]
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "_asset",
+              "type": "address"
+            }
+          ],
+          "stateMutability": "view",
+          "type": "function",
+          "name": "isSupportedAsset",
+          "outputs": [
+            {
+              "internalType": "bool",
+              "name": "isSupported_",
+              "type": "bool"
+            }
+          ]
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "address[]",
+              "name": "_derivatives",
+              "type": "address[]"
+            }
+          ],
+          "stateMutability": "nonpayable",
+          "type": "function",
+          "name": "removeDerivatives"
+        }
+      ],
+      "devdoc": {
+        "kind": "dev",
+        "methods": {
+          "addDerivatives(address[],address[])": {
+            "params": {
+              "_derivatives": "The derivatives to add",
+              "_underlyings": "The corresponding underlyings to add"
+            }
+          },
+          "calcUnderlyingValues(address,uint256)": {
+            "params": {
+              "_derivative": "The derivative to convert",
+              "_derivativeAmount": "The amount of the derivative to convert"
+            },
+            "returns": {
+              "underlyingAmounts_": "The amount of each underlying asset for the equivalent derivative amount",
+              "underlyings_": "The underlying assets for the _derivative"
+            }
+          },
+          "getFundDeployer()": {
+            "returns": {
+              "fundDeployer_": "The `FUND_DEPLOYER` variable value"
+            }
+          },
+          "getOwner()": {
+            "details": "Ownership is deferred to the owner of the FundDeployer contract",
+            "returns": {
+              "owner_": "The owner"
+            }
+          },
+          "getUnderlyingForDerivative(address)": {
+            "params": {
+              "_derivative": "The derivative for which to get the underlying asset"
+            },
+            "returns": {
+              "underlying_": "The underlying asset"
+            }
+          },
+          "isSupportedAsset(address)": {
+            "params": {
+              "_asset": "The asset to check"
+            },
+            "returns": {
+              "isSupported_": "True if the asset is supported"
+            }
+          },
+          "removeDerivatives(address[])": {
+            "params": {
+              "_derivatives": "The derivatives to remove"
+            }
+          }
+        },
+        "version": 1
+      },
+      "userdoc": {
+        "kind": "user",
+        "methods": {
+          "addDerivatives(address[],address[])": {
+            "notice": "Adds derivatives with corresponding underlyings to the price feed"
+          },
+          "calcUnderlyingValues(address,uint256)": {
+            "notice": "Converts a given amount of a derivative to its underlying asset values"
+          },
+          "getFundDeployer()": {
+            "notice": "Gets the `FUND_DEPLOYER` variable"
+          },
+          "getOwner()": {
+            "notice": "Gets the owner of this contract"
+          },
+          "getUnderlyingForDerivative(address)": {
+            "notice": "Gets the underlying asset for a given derivative"
+          },
+          "isSupportedAsset(address)": {
+            "notice": "Checks if an asset is supported by the price feed"
+          },
+          "removeDerivatives(address[])": {
+            "notice": "Removes derivatives from the price feed"
+          }
+        },
+        "version": 1
+      }
+    },
+    "settings": {
+      "remappings": [
+        ":@enzyme/=contracts/",
+        ":@openzeppelin-solc-0.7/=node_modules/@openzeppelin-solc-0.7/",
+        ":@openzeppelin/=node_modules/@openzeppelin/",
+        ":@uniswap/=node_modules/@uniswap/",
+        ":base64-sol/=node_modules/base64-sol/",
+        ":ds-test/=lib/forge-std/lib/ds-test/src/",
+        ":forge-std/=lib/forge-std/src/",
+        ":hardhat-deploy/=node_modules/hardhat-deploy/",
+        ":hardhat/=node_modules/hardhat/"
+      ],
+      "optimizer": {
+        "runs": 200,
+        "details": {
+          "peephole": true,
+          "jumpdestRemover": true,
+          "orderLiterals": true,
+          "deduplicate": true,
+          "cse": true,
+          "constantOptimizer": true,
+          "yul": false
+        }
+      },
+      "metadata": {
+        "bytecodeHash": "none"
+      },
+      "compilationTarget": {
+        "contracts/test/TestPeggedDerivativesPriceFeed.sol": "TestPeggedDerivativesPriceFeed"
+      },
+      "libraries": {}
+    },
+    "sources": {
+      "contracts/release/core/fund-deployer/IFundDeployer.sol": {
+        "keccak256": "0x5b901b81b3a4ef3d30ef9b4a1fa7fdd6526dfacd66e9971d1f988c2b63334314",
+        "urls": [
+          "bzz-raw://79eba24bcad7e3abddafd20b518add8d5acb1e8de250a0e20050dfbe2f2d8aea",
+          "dweb:/ipfs/QmYq9QYKr1UJaVyhkkSEfeiJ68TwGbwrmZsgRTPjVjkpUp"
+        ],
+        "license": "GPL-3.0"
+      },
+      "contracts/release/infrastructure/price-feeds/derivatives/IDerivativePriceFeed.sol": {
+        "keccak256": "0x5abbc57ccbf28b2c27a0ee496f0a949a0039912975e8f9a65312d884edd05332",
+        "urls": [
+          "bzz-raw://9cfb87b8df1f3f58c556907e2a9cc197fa5bb90ad9bc9d4717e95fd63258d80e",
+          "dweb:/ipfs/QmWxLvfq9NNJJZueeHD5EYWdRwrgzmrVdLUqp9Ta7A9ccK"
+        ],
+        "license": "GPL-3.0"
+      },
+      "contracts/release/infrastructure/price-feeds/derivatives/feeds/utils/PeggedDerivativesPriceFeedBase.sol": {
+        "keccak256": "0x1bfcfa32fd2ff255d3b371367e733bc5dd616f1e6244d272da7468067479702d",
+        "urls": [
+          "bzz-raw://0fa04e528bb5fb52d2bdbaa0532f1d0ea710d75622992156dc788dedbb8553df",
+          "dweb:/ipfs/Qmdpw5aquGqFDD1tpUX6Ax7X4jx52WcoTjfoHVJozRSWpG"
+        ],
+        "license": "GPL-3.0"
+      },
+      "contracts/release/infrastructure/price-feeds/derivatives/feeds/utils/SingleUnderlyingDerivativeRegistryMixin.sol": {
+        "keccak256": "0xeb2aab819af80382ad562d5a80863484a42caa7888f811817eb283894a1852e7",
+        "urls": [
+          "bzz-raw://8846bfa874ede75fbcd3053d45a1647cad0aabbb26e4189998e8c517961c2bb6",
+          "dweb:/ipfs/QmV4Bgx9VfX6kaoyZuaBDf2xyTY4ZmjniZTX8TrEmhU4Pv"
+        ],
+        "license": "GPL-3.0"
+      },
+      "contracts/release/utils/FundDeployerOwnerMixin.sol": {
+        "keccak256": "0xd415583828581051080d575f058643f4975d7048fda0d1765122b260d9d14934",
+        "urls": [
+          "bzz-raw://8191af7a3cd0867af1a401d3cba1294be054c761c2276d21bff7c9296ecc6927",
+          "dweb:/ipfs/QmYBSrx1XrcqMNkH2Q6ALuczRv6LgpzVHvFH3DjvCu6SaM"
+        ],
+        "license": "GPL-3.0"
+      },
+      "contracts/test/TestPeggedDerivativesPriceFeed.sol": {
+        "keccak256": "0x66af58124bbd896c4fd6bcd1639de37ac4b7ba5cc81a06b01c402d6ba4afe4c8",
+        "urls": [
+          "bzz-raw://1009e149a27adbb632303b14652187b9e504fb8d9a03f840c5b53b69233c884d",
+          "dweb:/ipfs/QmRBHpUeTKeTFatRwtD9Lfv5bSDaRvBwP2fGvcM75buTm9"
+        ],
+        "license": "GPL-3.0"
+      },
+      "node_modules/@openzeppelin/contracts/math/SafeMath.sol": {
+        "keccak256": "0xcc78a17dd88fa5a2edc60c8489e2f405c0913b377216a5b26b35656b2d0dab52",
+        "urls": [
+          "bzz-raw://526dc85e1f9b9b45830e202568d267d93dde7a4fcccf4ad7798dadcd92304d3c",
+          "dweb:/ipfs/QmaoXMB972J3cSDLtBq3xBo4jLwqD2uzXTwujtSPqkYVhR"
+        ],
+        "license": "MIT"
+      },
+      "node_modules/@openzeppelin/contracts/token/ERC20/ERC20.sol": {
+        "keccak256": "0xca0c2396dbeb3503b51abf4248ebf77a1461edad513c01529df51850a012bee3",
+        "urls": [
+          "bzz-raw://991b44ff44e0496e8554a90f4c0512c28faed45104d40430019f3c67ea67740e",
+          "dweb:/ipfs/Qmc3nRapVbcctELoZS5qe17zLkFB3bETBfwzCTMF1CSuGE"
+        ],
+        "license": "MIT"
+      },
+      "node_modules/@openzeppelin/contracts/token/ERC20/IERC20.sol": {
+        "keccak256": "0x5f02220344881ce43204ae4a6281145a67bc52c2bb1290a791857df3d19d78f5",
+        "urls": [
+          "bzz-raw://24427744bd3e6cb73c17010119af12a318289c0253a4d9acb8576c9fb3797b08",
+          "dweb:/ipfs/QmTLDqpKRBuxGxRAmjgXt9AkXyACW3MtKzi7PYjm5iMfGC"
+        ],
+        "license": "MIT"
+      },
+      "node_modules/@openzeppelin/contracts/utils/Context.sol": {
+        "keccak256": "0x8d3cb350f04ff49cfb10aef08d87f19dcbaecc8027b0bed12f3275cd12f38cf0",
+        "urls": [
+          "bzz-raw://ded47ec7c96750f9bd04bbbc84f659992d4ba901cb7b532a52cd468272cf378f",
+          "dweb:/ipfs/QmfBrGtQP7rZEqEg6Wz6jh2N2Kukpj1z5v3CGWmAqrzm96"
+        ],
+        "license": "MIT"
+      }
+    },
+    "version": 1
+  },
+  "ast": {
+    "absolutePath": "contracts/test/TestPeggedDerivativesPriceFeed.sol",
+    "id": 79863,
+    "exportedSymbols": {
+      "TestPeggedDerivativesPriceFeed": [
+        79862
+      ]
+    },
+    "nodeType": "SourceUnit",
+    "src": "255:482:372",
+    "nodes": [
+      {
+        "id": 79848,
+        "nodeType": "PragmaDirective",
+        "src": "255:23:372",
+        "nodes": [],
+        "literals": [
+          "solidity",
+          "0.6",
+          ".12"
+        ]
+      },
+      {
+        "id": 79849,
+        "nodeType": "ImportDirective",
+        "src": "280:106:372",
+        "nodes": [],
+        "absolutePath": "contracts/release/infrastructure/price-feeds/derivatives/feeds/utils/PeggedDerivativesPriceFeedBase.sol",
+        "file": "../release/infrastructure/price-feeds/derivatives/feeds/utils/PeggedDerivativesPriceFeedBase.sol",
+        "scope": 79863,
+        "sourceUnit": 66238,
+        "symbolAliases": [],
+        "unitAlias": ""
+      },
+      {
+        "id": 79862,
+        "nodeType": "ContractDefinition",
+        "src": "568:168:372",
+        "nodes": [
+          {
+            "id": 79861,
+            "nodeType": "FunctionDefinition",
+            "src": "648:86:372",
+            "nodes": [],
+            "body": {
+              "id": 79860,
+              "nodeType": "Block",
+              "src": "732:2:372",
+              "nodes": [],
+              "statements": []
+            },
+            "documentation": null,
+            "implemented": true,
+            "kind": "constructor",
+            "modifiers": [
+              {
+                "arguments": [
+                  {
+                    "argumentTypes": null,
+                    "id": 79857,
+                    "name": "_dispatcher",
+                    "nodeType": "Identifier",
+                    "overloadedDeclarations": [],
+                    "referencedDeclaration": 79854,
+                    "src": "719:11:372",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  }
+                ],
+                "id": 79858,
+                "modifierName": {
+                  "argumentTypes": null,
+                  "id": 79856,
+                  "name": "PeggedDerivativesPriceFeedBase",
+                  "nodeType": "Identifier",
+                  "overloadedDeclarations": [],
+                  "referencedDeclaration": 66237,
+                  "src": "688:30:372",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_type$_t_contract$_PeggedDerivativesPriceFeedBase_$66237_$",
+                    "typeString": "type(contract PeggedDerivativesPriceFeedBase)"
+                  }
+                },
+                "nodeType": "ModifierInvocation",
+                "src": "688:43:372"
+              }
+            ],
+            "name": "",
+            "overrides": null,
+            "parameters": {
+              "id": 79855,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 79854,
+                  "mutability": "mutable",
+                  "name": "_dispatcher",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 79861,
+                  "src": "660:19:372",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 79853,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "660:7:372",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "659:21:372"
+            },
+            "returnParameters": {
+              "id": 79859,
+              "nodeType": "ParameterList",
+              "parameters": [],
+              "src": "732:0:372"
+            },
+            "scope": 79862,
+            "stateMutability": "nonpayable",
+            "virtual": false,
+            "visibility": "public"
+          }
+        ],
+        "abstract": false,
+        "baseContracts": [
+          {
+            "arguments": null,
+            "baseName": {
+              "contractScope": null,
+              "id": 79851,
+              "name": "PeggedDerivativesPriceFeedBase",
+              "nodeType": "UserDefinedTypeName",
+              "referencedDeclaration": 66237,
+              "src": "611:30:372",
+              "typeDescriptions": {
+                "typeIdentifier": "t_contract$_PeggedDerivativesPriceFeedBase_$66237",
+                "typeString": "contract PeggedDerivativesPriceFeedBase"
+              }
+            },
+            "id": 79852,
+            "nodeType": "InheritanceSpecifier",
+            "src": "611:30:372"
+          }
+        ],
+        "contractDependencies": [
+          62423,
+          66237,
+          66584,
+          78753
+        ],
+        "contractKind": "contract",
+        "documentation": {
+          "id": 79850,
+          "nodeType": "StructuredDocumentation",
+          "src": "388:180:372",
+          "text": "@title TestSingleUnderlyingDerivativeRegistry Contract\n @author Enzyme Council <security@enzyme.finance>\n @notice A test implementation of PeggedDerivativesPriceFeedBase"
+        },
+        "fullyImplemented": true,
+        "linearizedBaseContracts": [
+          79862,
+          66237,
+          66584,
+          78753,
+          62423
+        ],
+        "name": "TestPeggedDerivativesPriceFeed",
+        "scope": 79863
+      }
+    ],
+    "license": "GPL-3.0"
+  },
+  "id": 372
+}

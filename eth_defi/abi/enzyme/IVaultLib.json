@@ -1,0 +1,347 @@
+{
+  "abi": [],
+  "bytecode": {
+    "object": "0x",
+    "sourceMap": "",
+    "linkReferences": {}
+  },
+  "deployedBytecode": {
+    "object": "0x",
+    "sourceMap": "",
+    "linkReferences": {}
+  },
+  "methodIdentifiers": {},
+  "rawMetadata": "{\"compiler\":{\"version\":\"0.8.17+commit.8df45f5f\"},\"language\":\"Solidity\",\"output\":{\"abi\":[],\"devdoc\":{\"kind\":\"dev\",\"methods\":{},\"version\":1},\"userdoc\":{\"kind\":\"user\",\"methods\":{},\"version\":1}},\"settings\":{\"compilationTarget\":{\"tests/interfaces/IPlaceholderInterfaces.sol\":\"IVaultLib\"},\"evmVersion\":\"london\",\"libraries\":{},\"metadata\":{\"bytecodeHash\":\"none\"},\"optimizer\":{\"details\":{\"constantOptimizer\":true,\"cse\":true,\"deduplicate\":true,\"inliner\":true,\"jumpdestRemover\":true,\"orderLiterals\":true,\"peephole\":true,\"yul\":false},\"runs\":200},\"remappings\":[\":@enzyme/=contracts/\",\":@openzeppelin-solc-0.7/=node_modules/@openzeppelin-solc-0.7/\",\":@openzeppelin/=node_modules/@openzeppelin/\",\":@uniswap/=node_modules/@uniswap/\",\":base64-sol/=node_modules/base64-sol/\",\":ds-test/=lib/forge-std/lib/ds-test/src/\",\":forge-std/=lib/forge-std/src/\",\":hardhat-deploy/=node_modules/hardhat-deploy/\",\":hardhat/=node_modules/hardhat/\"]},\"sources\":{\"tests/interfaces/IPlaceholderInterfaces.sol\":{\"keccak256\":\"0x0c264d9b06f2e31b285981c77c05ae4d287abd6cbce88ec3c0944f626a6a1665\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://49a0a32e6ca716cbaafd52b0e42005a687fa660ab4bc637438223501d6b8b9b7\",\"dweb:/ipfs/QmRx25foNPnmFUJTR3F5vnLEVKXNiP9MYQbnyZFmvJnsy1\"]}},\"version\":1}",
+  "metadata": {
+    "compiler": {
+      "version": "0.8.17+commit.8df45f5f"
+    },
+    "language": "Solidity",
+    "output": {
+      "abi": [],
+      "devdoc": {
+        "kind": "dev",
+        "methods": {},
+        "version": 1
+      },
+      "userdoc": {
+        "kind": "user",
+        "methods": {},
+        "version": 1
+      }
+    },
+    "settings": {
+      "remappings": [
+        ":@enzyme/=contracts/",
+        ":@openzeppelin-solc-0.7/=node_modules/@openzeppelin-solc-0.7/",
+        ":@openzeppelin/=node_modules/@openzeppelin/",
+        ":@uniswap/=node_modules/@uniswap/",
+        ":base64-sol/=node_modules/base64-sol/",
+        ":ds-test/=lib/forge-std/lib/ds-test/src/",
+        ":forge-std/=lib/forge-std/src/",
+        ":hardhat-deploy/=node_modules/hardhat-deploy/",
+        ":hardhat/=node_modules/hardhat/"
+      ],
+      "optimizer": {
+        "runs": 200,
+        "details": {
+          "peephole": true,
+          "inliner": true,
+          "jumpdestRemover": true,
+          "orderLiterals": true,
+          "deduplicate": true,
+          "cse": true,
+          "constantOptimizer": true,
+          "yul": false
+        }
+      },
+      "metadata": {
+        "bytecodeHash": "none"
+      },
+      "compilationTarget": {
+        "tests/interfaces/IPlaceholderInterfaces.sol": "IVaultLib"
+      },
+      "libraries": {}
+    },
+    "sources": {
+      "tests/interfaces/IPlaceholderInterfaces.sol": {
+        "keccak256": "0x0c264d9b06f2e31b285981c77c05ae4d287abd6cbce88ec3c0944f626a6a1665",
+        "urls": [
+          "bzz-raw://49a0a32e6ca716cbaafd52b0e42005a687fa660ab4bc637438223501d6b8b9b7",
+          "dweb:/ipfs/QmRx25foNPnmFUJTR3F5vnLEVKXNiP9MYQbnyZFmvJnsy1"
+        ],
+        "license": "GPL-3.0"
+      }
+    },
+    "version": 1
+  },
+  "ast": {
+    "absolutePath": "tests/interfaces/IPlaceholderInterfaces.sol",
+    "id": 30446,
+    "exportedSymbols": {
+      "IAaveV2ATokenListOwner": [
+        30445
+      ],
+      "IComptrollerLib": [
+        30440
+      ],
+      "IExternalPositionFactory": [
+        30435
+      ],
+      "IExternalPositionManager": [
+        30441
+      ],
+      "IFeeManager": [
+        30442
+      ],
+      "IGasRelayPaymasterFactory": [
+        30437
+      ],
+      "IGasRelayPaymasterLib": [
+        30436
+      ],
+      "IIntegrationManager": [
+        30443
+      ],
+      "IProtocolFeeReserveLib": [
+        30438
+      ],
+      "IProtocolFeeReserveProxy": [
+        30439
+      ],
+      "IVaultLib": [
+        30444
+      ]
+    },
+    "nodeType": "SourceUnit",
+    "src": "255:414:49",
+    "nodes": [
+      {
+        "id": 30434,
+        "nodeType": "PragmaDirective",
+        "src": "255:32:49",
+        "nodes": [],
+        "literals": [
+          "solidity",
+          ">=",
+          "0.6",
+          ".12",
+          "<",
+          "0.9",
+          ".0"
+        ]
+      },
+      {
+        "id": 30435,
+        "nodeType": "ContractDefinition",
+        "src": "289:37:49",
+        "nodes": [],
+        "abstract": false,
+        "baseContracts": [],
+        "canonicalName": "IExternalPositionFactory",
+        "contractDependencies": [],
+        "contractKind": "interface",
+        "fullyImplemented": true,
+        "linearizedBaseContracts": [
+          30435
+        ],
+        "name": "IExternalPositionFactory",
+        "nameLocation": "299:24:49",
+        "scope": 30446,
+        "usedErrors": []
+      },
+      {
+        "id": 30436,
+        "nodeType": "ContractDefinition",
+        "src": "328:34:49",
+        "nodes": [],
+        "abstract": false,
+        "baseContracts": [],
+        "canonicalName": "IGasRelayPaymasterLib",
+        "contractDependencies": [],
+        "contractKind": "interface",
+        "fullyImplemented": true,
+        "linearizedBaseContracts": [
+          30436
+        ],
+        "name": "IGasRelayPaymasterLib",
+        "nameLocation": "338:21:49",
+        "scope": 30446,
+        "usedErrors": []
+      },
+      {
+        "id": 30437,
+        "nodeType": "ContractDefinition",
+        "src": "364:38:49",
+        "nodes": [],
+        "abstract": false,
+        "baseContracts": [],
+        "canonicalName": "IGasRelayPaymasterFactory",
+        "contractDependencies": [],
+        "contractKind": "interface",
+        "fullyImplemented": true,
+        "linearizedBaseContracts": [
+          30437
+        ],
+        "name": "IGasRelayPaymasterFactory",
+        "nameLocation": "374:25:49",
+        "scope": 30446,
+        "usedErrors": []
+      },
+      {
+        "id": 30438,
+        "nodeType": "ContractDefinition",
+        "src": "404:35:49",
+        "nodes": [],
+        "abstract": false,
+        "baseContracts": [],
+        "canonicalName": "IProtocolFeeReserveLib",
+        "contractDependencies": [],
+        "contractKind": "interface",
+        "fullyImplemented": true,
+        "linearizedBaseContracts": [
+          30438
+        ],
+        "name": "IProtocolFeeReserveLib",
+        "nameLocation": "414:22:49",
+        "scope": 30446,
+        "usedErrors": []
+      },
+      {
+        "id": 30439,
+        "nodeType": "ContractDefinition",
+        "src": "441:37:49",
+        "nodes": [],
+        "abstract": false,
+        "baseContracts": [],
+        "canonicalName": "IProtocolFeeReserveProxy",
+        "contractDependencies": [],
+        "contractKind": "interface",
+        "fullyImplemented": true,
+        "linearizedBaseContracts": [
+          30439
+        ],
+        "name": "IProtocolFeeReserveProxy",
+        "nameLocation": "451:24:49",
+        "scope": 30446,
+        "usedErrors": []
+      },
+      {
+        "id": 30440,
+        "nodeType": "ContractDefinition",
+        "src": "480:28:49",
+        "nodes": [],
+        "abstract": false,
+        "baseContracts": [],
+        "canonicalName": "IComptrollerLib",
+        "contractDependencies": [],
+        "contractKind": "interface",
+        "fullyImplemented": true,
+        "linearizedBaseContracts": [
+          30440
+        ],
+        "name": "IComptrollerLib",
+        "nameLocation": "490:15:49",
+        "scope": 30446,
+        "usedErrors": []
+      },
+      {
+        "id": 30441,
+        "nodeType": "ContractDefinition",
+        "src": "510:37:49",
+        "nodes": [],
+        "abstract": false,
+        "baseContracts": [],
+        "canonicalName": "IExternalPositionManager",
+        "contractDependencies": [],
+        "contractKind": "interface",
+        "fullyImplemented": true,
+        "linearizedBaseContracts": [
+          30441
+        ],
+        "name": "IExternalPositionManager",
+        "nameLocation": "520:24:49",
+        "scope": 30446,
+        "usedErrors": []
+      },
+      {
+        "id": 30442,
+        "nodeType": "ContractDefinition",
+        "src": "549:24:49",
+        "nodes": [],
+        "abstract": false,
+        "baseContracts": [],
+        "canonicalName": "IFeeManager",
+        "contractDependencies": [],
+        "contractKind": "interface",
+        "fullyImplemented": true,
+        "linearizedBaseContracts": [
+          30442
+        ],
+        "name": "IFeeManager",
+        "nameLocation": "559:11:49",
+        "scope": 30446,
+        "usedErrors": []
+      },
+      {
+        "id": 30443,
+        "nodeType": "ContractDefinition",
+        "src": "575:32:49",
+        "nodes": [],
+        "abstract": false,
+        "baseContracts": [],
+        "canonicalName": "IIntegrationManager",
+        "contractDependencies": [],
+        "contractKind": "interface",
+        "fullyImplemented": true,
+        "linearizedBaseContracts": [
+          30443
+        ],
+        "name": "IIntegrationManager",
+        "nameLocation": "585:19:49",
+        "scope": 30446,
+        "usedErrors": []
+      },
+      {
+        "id": 30444,
+        "nodeType": "ContractDefinition",
+        "src": "609:22:49",
+        "nodes": [],
+        "abstract": false,
+        "baseContracts": [],
+        "canonicalName": "IVaultLib",
+        "contractDependencies": [],
+        "contractKind": "interface",
+        "fullyImplemented": true,
+        "linearizedBaseContracts": [
+          30444
+        ],
+        "name": "IVaultLib",
+        "nameLocation": "619:9:49",
+        "scope": 30446,
+        "usedErrors": []
+      },
+      {
+        "id": 30445,
+        "nodeType": "ContractDefinition",
+        "src": "633:35:49",
+        "nodes": [],
+        "abstract": false,
+        "baseContracts": [],
+        "canonicalName": "IAaveV2ATokenListOwner",
+        "contractDependencies": [],
+        "contractKind": "interface",
+        "fullyImplemented": true,
+        "linearizedBaseContracts": [
+          30445
+        ],
+        "name": "IAaveV2ATokenListOwner",
+        "nameLocation": "643:22:49",
+        "scope": 30446,
+        "usedErrors": []
+      }
+    ],
+    "license": "GPL-3.0"
+  },
+  "id": 49
+}

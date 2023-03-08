@@ -1,0 +1,372 @@
+{
+  "abi": [
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "_from",
+          "type": "address"
+        },
+        {
+          "internalType": "address",
+          "name": "_to",
+          "type": "address"
+        },
+        {
+          "internalType": "uint256",
+          "name": "_amount",
+          "type": "uint256"
+        }
+      ],
+      "name": "get_best_rate",
+      "outputs": [
+        {
+          "internalType": "address",
+          "name": "bestPool_",
+          "type": "address"
+        },
+        {
+          "internalType": "uint256",
+          "name": "amountReceived_",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    }
+  ],
+  "bytecode": {
+    "object": "0x",
+    "sourceMap": "",
+    "linkReferences": {}
+  },
+  "deployedBytecode": {
+    "object": "0x",
+    "sourceMap": "",
+    "linkReferences": {}
+  },
+  "methodIdentifiers": {
+    "get_best_rate(address,address,uint256)": "4e21df75"
+  },
+  "rawMetadata": "{\"compiler\":{\"version\":\"0.6.12+commit.27d51765\"},\"language\":\"Solidity\",\"output\":{\"abi\":[{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_from\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"_to\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"_amount\",\"type\":\"uint256\"}],\"name\":\"get_best_rate\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"bestPool_\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"amountReceived_\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"}],\"devdoc\":{\"author\":\"Enzyme Council <security@enzyme.finance>\",\"kind\":\"dev\",\"methods\":{},\"title\":\"ITestCurveSwaps Interface\",\"version\":1},\"userdoc\":{\"kind\":\"user\",\"methods\":{},\"version\":1}},\"settings\":{\"compilationTarget\":{\"contracts/test/interfaces/ITestCurveSwaps.sol\":\"ITestCurveSwaps\"},\"evmVersion\":\"istanbul\",\"libraries\":{},\"metadata\":{\"bytecodeHash\":\"none\"},\"optimizer\":{\"details\":{\"constantOptimizer\":true,\"cse\":true,\"deduplicate\":true,\"jumpdestRemover\":true,\"orderLiterals\":true,\"peephole\":true,\"yul\":false},\"runs\":200},\"remappings\":[\":@enzyme/=contracts/\",\":@openzeppelin-solc-0.7/=node_modules/@openzeppelin-solc-0.7/\",\":@openzeppelin/=node_modules/@openzeppelin/\",\":@uniswap/=node_modules/@uniswap/\",\":base64-sol/=node_modules/base64-sol/\",\":ds-test/=lib/forge-std/lib/ds-test/src/\",\":forge-std/=lib/forge-std/src/\",\":hardhat-deploy/=node_modules/hardhat-deploy/\",\":hardhat/=node_modules/hardhat/\"]},\"sources\":{\"contracts/test/interfaces/ITestCurveSwaps.sol\":{\"keccak256\":\"0x17cf2afe9bf9f5d31a2028e7aafd32773450c893cc6ff15cfe2711998767e8c6\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://edb598a01e35d4cd9a535362e6a70b16e31b6165024a2da5bfb88bdc5c0f2ace\",\"dweb:/ipfs/QmYqbyCWFSWB3JLeyXvR6PqkQMrc1LdEpUGRAQCBJYTcHE\"]}},\"version\":1}",
+  "metadata": {
+    "compiler": {
+      "version": "0.6.12+commit.27d51765"
+    },
+    "language": "Solidity",
+    "output": {
+      "abi": [
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "_from",
+              "type": "address"
+            },
+            {
+              "internalType": "address",
+              "name": "_to",
+              "type": "address"
+            },
+            {
+              "internalType": "uint256",
+              "name": "_amount",
+              "type": "uint256"
+            }
+          ],
+          "stateMutability": "view",
+          "type": "function",
+          "name": "get_best_rate",
+          "outputs": [
+            {
+              "internalType": "address",
+              "name": "bestPool_",
+              "type": "address"
+            },
+            {
+              "internalType": "uint256",
+              "name": "amountReceived_",
+              "type": "uint256"
+            }
+          ]
+        }
+      ],
+      "devdoc": {
+        "kind": "dev",
+        "methods": {},
+        "version": 1
+      },
+      "userdoc": {
+        "kind": "user",
+        "methods": {},
+        "version": 1
+      }
+    },
+    "settings": {
+      "remappings": [
+        ":@enzyme/=contracts/",
+        ":@openzeppelin-solc-0.7/=node_modules/@openzeppelin-solc-0.7/",
+        ":@openzeppelin/=node_modules/@openzeppelin/",
+        ":@uniswap/=node_modules/@uniswap/",
+        ":base64-sol/=node_modules/base64-sol/",
+        ":ds-test/=lib/forge-std/lib/ds-test/src/",
+        ":forge-std/=lib/forge-std/src/",
+        ":hardhat-deploy/=node_modules/hardhat-deploy/",
+        ":hardhat/=node_modules/hardhat/"
+      ],
+      "optimizer": {
+        "runs": 200,
+        "details": {
+          "peephole": true,
+          "jumpdestRemover": true,
+          "orderLiterals": true,
+          "deduplicate": true,
+          "cse": true,
+          "constantOptimizer": true,
+          "yul": false
+        }
+      },
+      "metadata": {
+        "bytecodeHash": "none"
+      },
+      "compilationTarget": {
+        "contracts/test/interfaces/ITestCurveSwaps.sol": "ITestCurveSwaps"
+      },
+      "libraries": {}
+    },
+    "sources": {
+      "contracts/test/interfaces/ITestCurveSwaps.sol": {
+        "keccak256": "0x17cf2afe9bf9f5d31a2028e7aafd32773450c893cc6ff15cfe2711998767e8c6",
+        "urls": [
+          "bzz-raw://edb598a01e35d4cd9a535362e6a70b16e31b6165024a2da5bfb88bdc5c0f2ace",
+          "dweb:/ipfs/QmYqbyCWFSWB3JLeyXvR6PqkQMrc1LdEpUGRAQCBJYTcHE"
+        ],
+        "license": "GPL-3.0"
+      }
+    },
+    "version": 1
+  },
+  "ast": {
+    "absolutePath": "contracts/test/interfaces/ITestCurveSwaps.sol",
+    "id": 80447,
+    "exportedSymbols": {
+      "ITestCurveSwaps": [
+        80446
+      ]
+    },
+    "nodeType": "SourceUnit",
+    "src": "253:315:395",
+    "nodes": [
+      {
+        "id": 80431,
+        "nodeType": "PragmaDirective",
+        "src": "253:23:395",
+        "nodes": [],
+        "literals": [
+          "solidity",
+          "0.6",
+          ".12"
+        ]
+      },
+      {
+        "id": 80446,
+        "nodeType": "ContractDefinition",
+        "src": "368:199:395",
+        "nodes": [
+          {
+            "id": 80445,
+            "nodeType": "FunctionDefinition",
+            "src": "400:165:395",
+            "nodes": [],
+            "documentation": null,
+            "functionSelector": "4e21df75",
+            "implemented": false,
+            "kind": "function",
+            "modifiers": [],
+            "name": "get_best_rate",
+            "overrides": null,
+            "parameters": {
+              "id": 80439,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 80434,
+                  "mutability": "mutable",
+                  "name": "_from",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 80445,
+                  "src": "432:13:395",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 80433,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "432:7:395",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 80436,
+                  "mutability": "mutable",
+                  "name": "_to",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 80445,
+                  "src": "455:11:395",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 80435,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "455:7:395",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 80438,
+                  "mutability": "mutable",
+                  "name": "_amount",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 80445,
+                  "src": "476:15:395",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_uint256",
+                    "typeString": "uint256"
+                  },
+                  "typeName": {
+                    "id": 80437,
+                    "name": "uint256",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "476:7:395",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_uint256",
+                      "typeString": "uint256"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "422:75:395"
+            },
+            "returnParameters": {
+              "id": 80444,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 80441,
+                  "mutability": "mutable",
+                  "name": "bestPool_",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 80445,
+                  "src": "521:17:395",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 80440,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "521:7:395",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 80443,
+                  "mutability": "mutable",
+                  "name": "amountReceived_",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 80445,
+                  "src": "540:23:395",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_uint256",
+                    "typeString": "uint256"
+                  },
+                  "typeName": {
+                    "id": 80442,
+                    "name": "uint256",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "540:7:395",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_uint256",
+                      "typeString": "uint256"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "520:44:395"
+            },
+            "scope": 80446,
+            "stateMutability": "view",
+            "virtual": false,
+            "visibility": "external"
+          }
+        ],
+        "abstract": false,
+        "baseContracts": [],
+        "contractDependencies": [],
+        "contractKind": "interface",
+        "documentation": {
+          "id": 80432,
+          "nodeType": "StructuredDocumentation",
+          "src": "278:90:395",
+          "text": "@title ITestCurveSwaps Interface\n @author Enzyme Council <security@enzyme.finance>"
+        },
+        "fullyImplemented": false,
+        "linearizedBaseContracts": [
+          80446
+        ],
+        "name": "ITestCurveSwaps",
+        "scope": 80447
+      }
+    ],
+    "license": "GPL-3.0"
+  },
+  "id": 395
+}

@@ -1,7 +1,4 @@
 {
-  "_format": "hh-sol-artifact-1",
-  "contractName": "ExitRateFeeBase",
-  "sourceName": "contracts/release/extensions/fee-manager/fees/utils/ExitRateFeeBase.sol",
   "abi": [
     {
       "inputs": [
@@ -349,8 +346,4383 @@
       "type": "function"
     }
   ],
-  "bytecode": "0x",
-  "deployedBytecode": "0x",
-  "linkReferences": {},
-  "deployedLinkReferences": {}
+  "bytecode": {
+    "object": "0x",
+    "sourceMap": "",
+    "linkReferences": {}
+  },
+  "deployedBytecode": {
+    "object": "0x",
+    "sourceMap": "",
+    "linkReferences": {}
+  },
+  "methodIdentifiers": {
+    "activateForFund(address,address)": "3146d058",
+    "addFundSettings(address,bytes)": "0f5f6b4f",
+    "getFeeManager()": "f2d63826",
+    "getInKindRateForFund(address)": "223e6505",
+    "getRecipientForFund(address)": "62780b3c",
+    "getSettlementType()": "7bdd5b1d",
+    "getSpecificAssetsRateForFund(address)": "a8a0fa7d",
+    "payout(address,address)": "b78b4813",
+    "settle(address,address,uint8,bytes,uint256)": "41892d7e",
+    "settlesOnHook(uint8)": "320f0ddd",
+    "update(address,address,uint8,bytes,uint256)": "233faf5f",
+    "updatesOnHook(uint8)": "e337a91f"
+  },
+  "rawMetadata": "{\"compiler\":{\"version\":\"0.6.12+commit.27d51765\"},\"language\":\"Solidity\",\"output\":{\"abi\":[{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_feeManager\",\"type\":\"address\"},{\"internalType\":\"enum IFeeManager.SettlementType\",\"name\":\"_settlementType\",\"type\":\"uint8\"}],\"stateMutability\":\"nonpayable\",\"type\":\"constructor\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"comptrollerProxy\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"inKindRate\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"specificAssetsRate\",\"type\":\"uint256\"}],\"name\":\"FundSettingsAdded\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"comptrollerProxy\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"payer\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"sharesQuantity\",\"type\":\"uint256\"},{\"indexed\":true,\"internalType\":\"bool\",\"name\":\"forSpecificAssets\",\"type\":\"bool\"}],\"name\":\"Settled\",\"type\":\"event\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"name\":\"activateForFund\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_comptrollerProxy\",\"type\":\"address\"},{\"internalType\":\"bytes\",\"name\":\"_settingsData\",\"type\":\"bytes\"}],\"name\":\"addFundSettings\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getFeeManager\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"feeManager_\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_comptrollerProxy\",\"type\":\"address\"}],\"name\":\"getInKindRateForFund\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"rate_\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"name\":\"getRecipientForFund\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"recipient_\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getSettlementType\",\"outputs\":[{\"internalType\":\"enum IFeeManager.SettlementType\",\"name\":\"settlementType_\",\"type\":\"uint8\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_comptrollerProxy\",\"type\":\"address\"}],\"name\":\"getSpecificAssetsRateForFund\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"rate_\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"name\":\"payout\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_comptrollerProxy\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"},{\"internalType\":\"enum IFeeManager.FeeHook\",\"name\":\"\",\"type\":\"uint8\"},{\"internalType\":\"bytes\",\"name\":\"_settlementData\",\"type\":\"bytes\"},{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"name\":\"settle\",\"outputs\":[{\"internalType\":\"enum IFeeManager.SettlementType\",\"name\":\"settlementType_\",\"type\":\"uint8\"},{\"internalType\":\"address\",\"name\":\"payer_\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"sharesDue_\",\"type\":\"uint256\"}],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"enum IFeeManager.FeeHook\",\"name\":\"_hook\",\"type\":\"uint8\"}],\"name\":\"settlesOnHook\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"settles_\",\"type\":\"bool\"},{\"internalType\":\"bool\",\"name\":\"usesGav_\",\"type\":\"bool\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"},{\"internalType\":\"enum IFeeManager.FeeHook\",\"name\":\"\",\"type\":\"uint8\"},{\"internalType\":\"bytes\",\"name\":\"\",\"type\":\"bytes\"},{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"name\":\"update\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"enum IFeeManager.FeeHook\",\"name\":\"\",\"type\":\"uint8\"}],\"name\":\"updatesOnHook\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"updates_\",\"type\":\"bool\"},{\"internalType\":\"bool\",\"name\":\"usesGav_\",\"type\":\"bool\"}],\"stateMutability\":\"view\",\"type\":\"function\"}],\"devdoc\":{\"author\":\"Enzyme Council <security@enzyme.finance>\",\"kind\":\"dev\",\"methods\":{\"activateForFund(address,address)\":{\"details\":\"Unimplemented by default, may be overrode.\"},\"addFundSettings(address,bytes)\":{\"params\":{\"_comptrollerProxy\":\"The ComptrollerProxy of the fund\",\"_settingsData\":\"Encoded settings to apply to the fee for a fund\"}},\"getFeeManager()\":{\"returns\":{\"feeManager_\":\"The `FEE_MANAGER` variable value\"}},\"getInKindRateForFund(address)\":{\"params\":{\"_comptrollerProxy\":\"The ComptrollerProxy contract for the fund\"},\"returns\":{\"rate_\":\"The fee rate\"}},\"getRecipientForFund(address)\":{\"details\":\"address(0) signifies the VaultProxy owner. Returns address(0) by default, can be overridden by fee.\"},\"getSettlementType()\":{\"returns\":{\"settlementType_\":\"The `SETTLEMENT_TYPE` variable value\"}},\"getSpecificAssetsRateForFund(address)\":{\"params\":{\"_comptrollerProxy\":\"The ComptrollerProxy contract for the fund\"},\"returns\":{\"rate_\":\"The fee rate\"}},\"payout(address,address)\":{\"details\":\"Returns false by default, can be overridden by fee\"},\"settle(address,address,uint8,bytes,uint256)\":{\"params\":{\"_comptrollerProxy\":\"The ComptrollerProxy of the fund\",\"_settlementData\":\"Encoded args to use in calculating the settlement\"},\"returns\":{\"payer_\":\"The payer of shares due\",\"settlementType_\":\"The type of settlement\",\"sharesDue_\":\"The amount of shares due\"}},\"settlesOnHook(uint8)\":{\"params\":{\"_hook\":\"The FeeHook\"},\"returns\":{\"settles_\":\"True if the fee settles on the _hook\",\"usesGav_\":\"True if the fee uses GAV during settle() for the _hook\"}},\"update(address,address,uint8,bytes,uint256)\":{\"details\":\"Unimplemented by default, can be overridden by fee\"},\"updatesOnHook(uint8)\":{\"details\":\"Returns false values by default, can be overridden by fee\",\"returns\":{\"updates_\":\"True if the fee updates on the _hook\",\"usesGav_\":\"True if the fee uses GAV during update() for the _hook\"}}},\"title\":\"ExitRateFeeBase Contract\",\"version\":1},\"userdoc\":{\"kind\":\"user\",\"methods\":{\"activateForFund(address,address)\":{\"notice\":\"Allows Fee to run logic during fund activation\"},\"addFundSettings(address,bytes)\":{\"notice\":\"Add the initial fee settings for a fund\"},\"getFeeManager()\":{\"notice\":\"Gets the `FEE_MANAGER` variable\"},\"getInKindRateForFund(address)\":{\"notice\":\"Gets the fee rate for an in-kind redemption\"},\"getRecipientForFund(address)\":{\"notice\":\"Gets the recipient of the fee for a given fund\"},\"getSettlementType()\":{\"notice\":\"Gets the `SETTLEMENT_TYPE` variable\"},\"getSpecificAssetsRateForFund(address)\":{\"notice\":\"Gets the fee rate for a specific assets redemption\"},\"payout(address,address)\":{\"notice\":\"Runs payout logic for a fee that utilizes shares outstanding as its settlement type\"},\"settle(address,address,uint8,bytes,uint256)\":{\"notice\":\"Settles the fee\"},\"settlesOnHook(uint8)\":{\"notice\":\"Gets whether the fee settles and requires GAV on a particular hook\"},\"update(address,address,uint8,bytes,uint256)\":{\"notice\":\"Update fee state after all settlement has occurred during a given fee hook\"},\"updatesOnHook(uint8)\":{\"notice\":\"Gets whether the fee updates and requires GAV on a particular hook\"}},\"notice\":\"Calculates a fee based on a rate to be charged to an investor upon exiting a fund\",\"version\":1}},\"settings\":{\"compilationTarget\":{\"contracts/release/extensions/fee-manager/fees/utils/ExitRateFeeBase.sol\":\"ExitRateFeeBase\"},\"evmVersion\":\"istanbul\",\"libraries\":{},\"metadata\":{\"bytecodeHash\":\"none\"},\"optimizer\":{\"details\":{\"constantOptimizer\":true,\"cse\":true,\"deduplicate\":true,\"jumpdestRemover\":true,\"orderLiterals\":true,\"peephole\":true,\"yul\":false},\"runs\":200},\"remappings\":[\":@enzyme/=contracts/\",\":@openzeppelin-solc-0.7/=node_modules/@openzeppelin-solc-0.7/\",\":@openzeppelin/=node_modules/@openzeppelin/\",\":@uniswap/=node_modules/@uniswap/\",\":base64-sol/=node_modules/base64-sol/\",\":ds-test/=lib/forge-std/lib/ds-test/src/\",\":forge-std/=lib/forge-std/src/\",\":hardhat-deploy/=node_modules/hardhat-deploy/\",\":hardhat/=node_modules/hardhat/\"]},\"sources\":{\"contracts/release/extensions/fee-manager/IFee.sol\":{\"keccak256\":\"0x38e3f324c67f3205e38197165586ea82ca226069902f34214bcde76cf905fcff\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://c1fff656d1bdde3324421bc9e77cbfc4e80baf4e665f8713fdb65611b046f4b0\",\"dweb:/ipfs/QmVRFjNwmsVHdh4sp3DWdL74VWmhRhPZE5kDxJiuPL8Gu2\"]},\"contracts/release/extensions/fee-manager/IFeeManager.sol\":{\"keccak256\":\"0x26accd01ce839ee396cbaf3f72d93f2135656845c3e74c4ae575f8b02b8efd51\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://1462f4081d1aa407faa1a92bb94ecae526a6792c79052dd446d898e75b3e5e22\",\"dweb:/ipfs/QmQzLS7raSD2ojJbxoraorzA8wRTS2iQtpaedm1x47teod\"]},\"contracts/release/extensions/fee-manager/fees/utils/ExitRateFeeBase.sol\":{\"keccak256\":\"0x5db95baa1ba9312cf22745331635831ac765913a661c69bfdd5b63010ba524f3\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://d1aae0eb8b22a98647ec2950eb793f6f65f590e3d52fa04eb75a940086bad09d\",\"dweb:/ipfs/QmPHVpcgSqxsG4kBZzqqy7YYi2ao8QpNgBR6McpqAcmu8R\"]},\"contracts/release/extensions/fee-manager/fees/utils/FeeBase.sol\":{\"keccak256\":\"0x485c03e3088b6dc9828d2e895cce6856501448b4a2c71a0acae4e012bc644b14\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://b63aef3cd20eb4dd585632c74619235ef1d5c3c2c52fd61f8802d0a50569b767\",\"dweb:/ipfs/QmSuTYChj2j8NnLYCg47feAJ5P9NheQpK46fG6fhmMtimA\"]},\"node_modules/@openzeppelin/contracts/math/SafeMath.sol\":{\"keccak256\":\"0xcc78a17dd88fa5a2edc60c8489e2f405c0913b377216a5b26b35656b2d0dab52\",\"license\":\"MIT\",\"urls\":[\"bzz-raw://526dc85e1f9b9b45830e202568d267d93dde7a4fcccf4ad7798dadcd92304d3c\",\"dweb:/ipfs/QmaoXMB972J3cSDLtBq3xBo4jLwqD2uzXTwujtSPqkYVhR\"]}},\"version\":1}",
+  "metadata": {
+    "compiler": {
+      "version": "0.6.12+commit.27d51765"
+    },
+    "language": "Solidity",
+    "output": {
+      "abi": [
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "_feeManager",
+              "type": "address"
+            },
+            {
+              "internalType": "enum IFeeManager.SettlementType",
+              "name": "_settlementType",
+              "type": "uint8"
+            }
+          ],
+          "stateMutability": "nonpayable",
+          "type": "constructor"
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "comptrollerProxy",
+              "type": "address",
+              "indexed": true
+            },
+            {
+              "internalType": "uint256",
+              "name": "inKindRate",
+              "type": "uint256",
+              "indexed": false
+            },
+            {
+              "internalType": "uint256",
+              "name": "specificAssetsRate",
+              "type": "uint256",
+              "indexed": false
+            }
+          ],
+          "type": "event",
+          "name": "FundSettingsAdded",
+          "anonymous": false
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "comptrollerProxy",
+              "type": "address",
+              "indexed": true
+            },
+            {
+              "internalType": "address",
+              "name": "payer",
+              "type": "address",
+              "indexed": true
+            },
+            {
+              "internalType": "uint256",
+              "name": "sharesQuantity",
+              "type": "uint256",
+              "indexed": false
+            },
+            {
+              "internalType": "bool",
+              "name": "forSpecificAssets",
+              "type": "bool",
+              "indexed": true
+            }
+          ],
+          "type": "event",
+          "name": "Settled",
+          "anonymous": false
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "",
+              "type": "address"
+            },
+            {
+              "internalType": "address",
+              "name": "",
+              "type": "address"
+            }
+          ],
+          "stateMutability": "nonpayable",
+          "type": "function",
+          "name": "activateForFund"
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "_comptrollerProxy",
+              "type": "address"
+            },
+            {
+              "internalType": "bytes",
+              "name": "_settingsData",
+              "type": "bytes"
+            }
+          ],
+          "stateMutability": "nonpayable",
+          "type": "function",
+          "name": "addFundSettings"
+        },
+        {
+          "inputs": [],
+          "stateMutability": "view",
+          "type": "function",
+          "name": "getFeeManager",
+          "outputs": [
+            {
+              "internalType": "address",
+              "name": "feeManager_",
+              "type": "address"
+            }
+          ]
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "_comptrollerProxy",
+              "type": "address"
+            }
+          ],
+          "stateMutability": "view",
+          "type": "function",
+          "name": "getInKindRateForFund",
+          "outputs": [
+            {
+              "internalType": "uint256",
+              "name": "rate_",
+              "type": "uint256"
+            }
+          ]
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "",
+              "type": "address"
+            }
+          ],
+          "stateMutability": "view",
+          "type": "function",
+          "name": "getRecipientForFund",
+          "outputs": [
+            {
+              "internalType": "address",
+              "name": "recipient_",
+              "type": "address"
+            }
+          ]
+        },
+        {
+          "inputs": [],
+          "stateMutability": "view",
+          "type": "function",
+          "name": "getSettlementType",
+          "outputs": [
+            {
+              "internalType": "enum IFeeManager.SettlementType",
+              "name": "settlementType_",
+              "type": "uint8"
+            }
+          ]
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "_comptrollerProxy",
+              "type": "address"
+            }
+          ],
+          "stateMutability": "view",
+          "type": "function",
+          "name": "getSpecificAssetsRateForFund",
+          "outputs": [
+            {
+              "internalType": "uint256",
+              "name": "rate_",
+              "type": "uint256"
+            }
+          ]
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "",
+              "type": "address"
+            },
+            {
+              "internalType": "address",
+              "name": "",
+              "type": "address"
+            }
+          ],
+          "stateMutability": "nonpayable",
+          "type": "function",
+          "name": "payout",
+          "outputs": [
+            {
+              "internalType": "bool",
+              "name": "",
+              "type": "bool"
+            }
+          ]
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "_comptrollerProxy",
+              "type": "address"
+            },
+            {
+              "internalType": "address",
+              "name": "",
+              "type": "address"
+            },
+            {
+              "internalType": "enum IFeeManager.FeeHook",
+              "name": "",
+              "type": "uint8"
+            },
+            {
+              "internalType": "bytes",
+              "name": "_settlementData",
+              "type": "bytes"
+            },
+            {
+              "internalType": "uint256",
+              "name": "",
+              "type": "uint256"
+            }
+          ],
+          "stateMutability": "nonpayable",
+          "type": "function",
+          "name": "settle",
+          "outputs": [
+            {
+              "internalType": "enum IFeeManager.SettlementType",
+              "name": "settlementType_",
+              "type": "uint8"
+            },
+            {
+              "internalType": "address",
+              "name": "payer_",
+              "type": "address"
+            },
+            {
+              "internalType": "uint256",
+              "name": "sharesDue_",
+              "type": "uint256"
+            }
+          ]
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "enum IFeeManager.FeeHook",
+              "name": "_hook",
+              "type": "uint8"
+            }
+          ],
+          "stateMutability": "view",
+          "type": "function",
+          "name": "settlesOnHook",
+          "outputs": [
+            {
+              "internalType": "bool",
+              "name": "settles_",
+              "type": "bool"
+            },
+            {
+              "internalType": "bool",
+              "name": "usesGav_",
+              "type": "bool"
+            }
+          ]
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "",
+              "type": "address"
+            },
+            {
+              "internalType": "address",
+              "name": "",
+              "type": "address"
+            },
+            {
+              "internalType": "enum IFeeManager.FeeHook",
+              "name": "",
+              "type": "uint8"
+            },
+            {
+              "internalType": "bytes",
+              "name": "",
+              "type": "bytes"
+            },
+            {
+              "internalType": "uint256",
+              "name": "",
+              "type": "uint256"
+            }
+          ],
+          "stateMutability": "nonpayable",
+          "type": "function",
+          "name": "update"
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "enum IFeeManager.FeeHook",
+              "name": "",
+              "type": "uint8"
+            }
+          ],
+          "stateMutability": "view",
+          "type": "function",
+          "name": "updatesOnHook",
+          "outputs": [
+            {
+              "internalType": "bool",
+              "name": "updates_",
+              "type": "bool"
+            },
+            {
+              "internalType": "bool",
+              "name": "usesGav_",
+              "type": "bool"
+            }
+          ]
+        }
+      ],
+      "devdoc": {
+        "kind": "dev",
+        "methods": {
+          "activateForFund(address,address)": {
+            "details": "Unimplemented by default, may be overrode."
+          },
+          "addFundSettings(address,bytes)": {
+            "params": {
+              "_comptrollerProxy": "The ComptrollerProxy of the fund",
+              "_settingsData": "Encoded settings to apply to the fee for a fund"
+            }
+          },
+          "getFeeManager()": {
+            "returns": {
+              "feeManager_": "The `FEE_MANAGER` variable value"
+            }
+          },
+          "getInKindRateForFund(address)": {
+            "params": {
+              "_comptrollerProxy": "The ComptrollerProxy contract for the fund"
+            },
+            "returns": {
+              "rate_": "The fee rate"
+            }
+          },
+          "getRecipientForFund(address)": {
+            "details": "address(0) signifies the VaultProxy owner. Returns address(0) by default, can be overridden by fee."
+          },
+          "getSettlementType()": {
+            "returns": {
+              "settlementType_": "The `SETTLEMENT_TYPE` variable value"
+            }
+          },
+          "getSpecificAssetsRateForFund(address)": {
+            "params": {
+              "_comptrollerProxy": "The ComptrollerProxy contract for the fund"
+            },
+            "returns": {
+              "rate_": "The fee rate"
+            }
+          },
+          "payout(address,address)": {
+            "details": "Returns false by default, can be overridden by fee"
+          },
+          "settle(address,address,uint8,bytes,uint256)": {
+            "params": {
+              "_comptrollerProxy": "The ComptrollerProxy of the fund",
+              "_settlementData": "Encoded args to use in calculating the settlement"
+            },
+            "returns": {
+              "payer_": "The payer of shares due",
+              "settlementType_": "The type of settlement",
+              "sharesDue_": "The amount of shares due"
+            }
+          },
+          "settlesOnHook(uint8)": {
+            "params": {
+              "_hook": "The FeeHook"
+            },
+            "returns": {
+              "settles_": "True if the fee settles on the _hook",
+              "usesGav_": "True if the fee uses GAV during settle() for the _hook"
+            }
+          },
+          "update(address,address,uint8,bytes,uint256)": {
+            "details": "Unimplemented by default, can be overridden by fee"
+          },
+          "updatesOnHook(uint8)": {
+            "details": "Returns false values by default, can be overridden by fee",
+            "returns": {
+              "updates_": "True if the fee updates on the _hook",
+              "usesGav_": "True if the fee uses GAV during update() for the _hook"
+            }
+          }
+        },
+        "version": 1
+      },
+      "userdoc": {
+        "kind": "user",
+        "methods": {
+          "activateForFund(address,address)": {
+            "notice": "Allows Fee to run logic during fund activation"
+          },
+          "addFundSettings(address,bytes)": {
+            "notice": "Add the initial fee settings for a fund"
+          },
+          "getFeeManager()": {
+            "notice": "Gets the `FEE_MANAGER` variable"
+          },
+          "getInKindRateForFund(address)": {
+            "notice": "Gets the fee rate for an in-kind redemption"
+          },
+          "getRecipientForFund(address)": {
+            "notice": "Gets the recipient of the fee for a given fund"
+          },
+          "getSettlementType()": {
+            "notice": "Gets the `SETTLEMENT_TYPE` variable"
+          },
+          "getSpecificAssetsRateForFund(address)": {
+            "notice": "Gets the fee rate for a specific assets redemption"
+          },
+          "payout(address,address)": {
+            "notice": "Runs payout logic for a fee that utilizes shares outstanding as its settlement type"
+          },
+          "settle(address,address,uint8,bytes,uint256)": {
+            "notice": "Settles the fee"
+          },
+          "settlesOnHook(uint8)": {
+            "notice": "Gets whether the fee settles and requires GAV on a particular hook"
+          },
+          "update(address,address,uint8,bytes,uint256)": {
+            "notice": "Update fee state after all settlement has occurred during a given fee hook"
+          },
+          "updatesOnHook(uint8)": {
+            "notice": "Gets whether the fee updates and requires GAV on a particular hook"
+          }
+        },
+        "version": 1
+      }
+    },
+    "settings": {
+      "remappings": [
+        ":@enzyme/=contracts/",
+        ":@openzeppelin-solc-0.7/=node_modules/@openzeppelin-solc-0.7/",
+        ":@openzeppelin/=node_modules/@openzeppelin/",
+        ":@uniswap/=node_modules/@uniswap/",
+        ":base64-sol/=node_modules/base64-sol/",
+        ":ds-test/=lib/forge-std/lib/ds-test/src/",
+        ":forge-std/=lib/forge-std/src/",
+        ":hardhat-deploy/=node_modules/hardhat-deploy/",
+        ":hardhat/=node_modules/hardhat/"
+      ],
+      "optimizer": {
+        "runs": 200,
+        "details": {
+          "peephole": true,
+          "jumpdestRemover": true,
+          "orderLiterals": true,
+          "deduplicate": true,
+          "cse": true,
+          "constantOptimizer": true,
+          "yul": false
+        }
+      },
+      "metadata": {
+        "bytecodeHash": "none"
+      },
+      "compilationTarget": {
+        "contracts/release/extensions/fee-manager/fees/utils/ExitRateFeeBase.sol": "ExitRateFeeBase"
+      },
+      "libraries": {}
+    },
+    "sources": {
+      "contracts/release/extensions/fee-manager/IFee.sol": {
+        "keccak256": "0x38e3f324c67f3205e38197165586ea82ca226069902f34214bcde76cf905fcff",
+        "urls": [
+          "bzz-raw://c1fff656d1bdde3324421bc9e77cbfc4e80baf4e665f8713fdb65611b046f4b0",
+          "dweb:/ipfs/QmVRFjNwmsVHdh4sp3DWdL74VWmhRhPZE5kDxJiuPL8Gu2"
+        ],
+        "license": "GPL-3.0"
+      },
+      "contracts/release/extensions/fee-manager/IFeeManager.sol": {
+        "keccak256": "0x26accd01ce839ee396cbaf3f72d93f2135656845c3e74c4ae575f8b02b8efd51",
+        "urls": [
+          "bzz-raw://1462f4081d1aa407faa1a92bb94ecae526a6792c79052dd446d898e75b3e5e22",
+          "dweb:/ipfs/QmQzLS7raSD2ojJbxoraorzA8wRTS2iQtpaedm1x47teod"
+        ],
+        "license": "GPL-3.0"
+      },
+      "contracts/release/extensions/fee-manager/fees/utils/ExitRateFeeBase.sol": {
+        "keccak256": "0x5db95baa1ba9312cf22745331635831ac765913a661c69bfdd5b63010ba524f3",
+        "urls": [
+          "bzz-raw://d1aae0eb8b22a98647ec2950eb793f6f65f590e3d52fa04eb75a940086bad09d",
+          "dweb:/ipfs/QmPHVpcgSqxsG4kBZzqqy7YYi2ao8QpNgBR6McpqAcmu8R"
+        ],
+        "license": "GPL-3.0"
+      },
+      "contracts/release/extensions/fee-manager/fees/utils/FeeBase.sol": {
+        "keccak256": "0x485c03e3088b6dc9828d2e895cce6856501448b4a2c71a0acae4e012bc644b14",
+        "urls": [
+          "bzz-raw://b63aef3cd20eb4dd585632c74619235ef1d5c3c2c52fd61f8802d0a50569b767",
+          "dweb:/ipfs/QmSuTYChj2j8NnLYCg47feAJ5P9NheQpK46fG6fhmMtimA"
+        ],
+        "license": "GPL-3.0"
+      },
+      "node_modules/@openzeppelin/contracts/math/SafeMath.sol": {
+        "keccak256": "0xcc78a17dd88fa5a2edc60c8489e2f405c0913b377216a5b26b35656b2d0dab52",
+        "urls": [
+          "bzz-raw://526dc85e1f9b9b45830e202568d267d93dde7a4fcccf4ad7798dadcd92304d3c",
+          "dweb:/ipfs/QmaoXMB972J3cSDLtBq3xBo4jLwqD2uzXTwujtSPqkYVhR"
+        ],
+        "license": "MIT"
+      }
+    },
+    "version": 1
+  },
+  "ast": {
+    "absolutePath": "contracts/release/extensions/fee-manager/fees/utils/ExitRateFeeBase.sol",
+    "id": 40419,
+    "exportedSymbols": {
+      "ExitRateFeeBase": [
+        40418
+      ]
+    },
+    "nodeType": "SourceUnit",
+    "src": "255:5457:153",
+    "nodes": [
+      {
+        "id": 40132,
+        "nodeType": "PragmaDirective",
+        "src": "255:23:153",
+        "nodes": [],
+        "literals": [
+          "solidity",
+          "0.6",
+          ".12"
+        ]
+      },
+      {
+        "id": 40133,
+        "nodeType": "ImportDirective",
+        "src": "280:51:153",
+        "nodes": [],
+        "absolutePath": "node_modules/@openzeppelin/contracts/math/SafeMath.sol",
+        "file": "@openzeppelin/contracts/math/SafeMath.sol",
+        "scope": 40419,
+        "sourceUnit": 82519,
+        "symbolAliases": [],
+        "unitAlias": ""
+      },
+      {
+        "id": 40134,
+        "nodeType": "ImportDirective",
+        "src": "332:23:153",
+        "nodes": [],
+        "absolutePath": "contracts/release/extensions/fee-manager/fees/utils/FeeBase.sol",
+        "file": "./FeeBase.sol",
+        "scope": 40419,
+        "sourceUnit": 40603,
+        "symbolAliases": [],
+        "unitAlias": ""
+      },
+      {
+        "id": 40418,
+        "nodeType": "ContractDefinition",
+        "src": "540:5171:153",
+        "nodes": [
+          {
+            "id": 40140,
+            "nodeType": "UsingForDirective",
+            "src": "591:27:153",
+            "nodes": [],
+            "libraryName": {
+              "contractScope": null,
+              "id": 40138,
+              "name": "SafeMath",
+              "nodeType": "UserDefinedTypeName",
+              "referencedDeclaration": 82518,
+              "src": "597:8:153",
+              "typeDescriptions": {
+                "typeIdentifier": "t_contract$_SafeMath_$82518",
+                "typeString": "library SafeMath"
+              }
+            },
+            "typeName": {
+              "id": 40139,
+              "name": "uint256",
+              "nodeType": "ElementaryTypeName",
+              "src": "610:7:153",
+              "typeDescriptions": {
+                "typeIdentifier": "t_uint256",
+                "typeString": "uint256"
+              }
+            }
+          },
+          {
+            "id": 40148,
+            "nodeType": "EventDefinition",
+            "src": "624:136:153",
+            "nodes": [],
+            "anonymous": false,
+            "documentation": null,
+            "name": "FundSettingsAdded",
+            "parameters": {
+              "id": 40147,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 40142,
+                  "indexed": true,
+                  "mutability": "mutable",
+                  "name": "comptrollerProxy",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 40148,
+                  "src": "657:32:153",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 40141,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "657:7:153",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 40144,
+                  "indexed": false,
+                  "mutability": "mutable",
+                  "name": "inKindRate",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 40148,
+                  "src": "699:18:153",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_uint256",
+                    "typeString": "uint256"
+                  },
+                  "typeName": {
+                    "id": 40143,
+                    "name": "uint256",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "699:7:153",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_uint256",
+                      "typeString": "uint256"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 40146,
+                  "indexed": false,
+                  "mutability": "mutable",
+                  "name": "specificAssetsRate",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 40148,
+                  "src": "727:26:153",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_uint256",
+                    "typeString": "uint256"
+                  },
+                  "typeName": {
+                    "id": 40145,
+                    "name": "uint256",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "727:7:153",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_uint256",
+                      "typeString": "uint256"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "647:112:153"
+            }
+          },
+          {
+            "id": 40158,
+            "nodeType": "EventDefinition",
+            "src": "766:165:153",
+            "nodes": [],
+            "anonymous": false,
+            "documentation": null,
+            "name": "Settled",
+            "parameters": {
+              "id": 40157,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 40150,
+                  "indexed": true,
+                  "mutability": "mutable",
+                  "name": "comptrollerProxy",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 40158,
+                  "src": "789:32:153",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 40149,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "789:7:153",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 40152,
+                  "indexed": true,
+                  "mutability": "mutable",
+                  "name": "payer",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 40158,
+                  "src": "831:21:153",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 40151,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "831:7:153",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 40154,
+                  "indexed": false,
+                  "mutability": "mutable",
+                  "name": "sharesQuantity",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 40158,
+                  "src": "862:22:153",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_uint256",
+                    "typeString": "uint256"
+                  },
+                  "typeName": {
+                    "id": 40153,
+                    "name": "uint256",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "862:7:153",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_uint256",
+                      "typeString": "uint256"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 40156,
+                  "indexed": true,
+                  "mutability": "mutable",
+                  "name": "forSpecificAssets",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 40158,
+                  "src": "894:30:153",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_bool",
+                    "typeString": "bool"
+                  },
+                  "typeName": {
+                    "id": 40155,
+                    "name": "bool",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "894:4:153",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_bool",
+                      "typeString": "bool"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "779:151:153"
+            }
+          },
+          {
+            "id": 40163,
+            "nodeType": "StructDefinition",
+            "src": "937:84:153",
+            "nodes": [],
+            "canonicalName": "ExitRateFeeBase.FeeInfo",
+            "members": [
+              {
+                "constant": false,
+                "id": 40160,
+                "mutability": "mutable",
+                "name": "inKindRate",
+                "nodeType": "VariableDeclaration",
+                "overrides": null,
+                "scope": 40163,
+                "src": "962:17:153",
+                "stateVariable": false,
+                "storageLocation": "default",
+                "typeDescriptions": {
+                  "typeIdentifier": "t_uint16",
+                  "typeString": "uint16"
+                },
+                "typeName": {
+                  "id": 40159,
+                  "name": "uint16",
+                  "nodeType": "ElementaryTypeName",
+                  "src": "962:6:153",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_uint16",
+                    "typeString": "uint16"
+                  }
+                },
+                "value": null,
+                "visibility": "internal"
+              },
+              {
+                "constant": false,
+                "id": 40162,
+                "mutability": "mutable",
+                "name": "specificAssetsRate",
+                "nodeType": "VariableDeclaration",
+                "overrides": null,
+                "scope": 40163,
+                "src": "989:25:153",
+                "stateVariable": false,
+                "storageLocation": "default",
+                "typeDescriptions": {
+                  "typeIdentifier": "t_uint16",
+                  "typeString": "uint16"
+                },
+                "typeName": {
+                  "id": 40161,
+                  "name": "uint16",
+                  "nodeType": "ElementaryTypeName",
+                  "src": "989:6:153",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_uint16",
+                    "typeString": "uint16"
+                  }
+                },
+                "value": null,
+                "visibility": "internal"
+              }
+            ],
+            "name": "FeeInfo",
+            "scope": 40418,
+            "visibility": "public"
+          },
+          {
+            "id": 40166,
+            "nodeType": "VariableDeclaration",
+            "src": "1027:52:153",
+            "nodes": [],
+            "constant": true,
+            "mutability": "constant",
+            "name": "ONE_HUNDRED_PERCENT",
+            "overrides": null,
+            "scope": 40418,
+            "stateVariable": true,
+            "storageLocation": "default",
+            "typeDescriptions": {
+              "typeIdentifier": "t_uint256",
+              "typeString": "uint256"
+            },
+            "typeName": {
+              "id": 40164,
+              "name": "uint256",
+              "nodeType": "ElementaryTypeName",
+              "src": "1027:7:153",
+              "typeDescriptions": {
+                "typeIdentifier": "t_uint256",
+                "typeString": "uint256"
+              }
+            },
+            "value": {
+              "argumentTypes": null,
+              "hexValue": "3130303030",
+              "id": 40165,
+              "isConstant": false,
+              "isLValue": false,
+              "isPure": true,
+              "kind": "number",
+              "lValueRequested": false,
+              "nodeType": "Literal",
+              "src": "1074:5:153",
+              "subdenomination": null,
+              "typeDescriptions": {
+                "typeIdentifier": "t_rational_10000_by_1",
+                "typeString": "int_const 10000"
+              },
+              "value": "10000"
+            },
+            "visibility": "private"
+          },
+          {
+            "id": 40168,
+            "nodeType": "VariableDeclaration",
+            "src": "1085:60:153",
+            "nodes": [],
+            "constant": false,
+            "mutability": "immutable",
+            "name": "SETTLEMENT_TYPE",
+            "overrides": null,
+            "scope": 40418,
+            "stateVariable": true,
+            "storageLocation": "default",
+            "typeDescriptions": {
+              "typeIdentifier": "t_enum$_SettlementType_$38584",
+              "typeString": "enum IFeeManager.SettlementType"
+            },
+            "typeName": {
+              "contractScope": null,
+              "id": 40167,
+              "name": "IFeeManager.SettlementType",
+              "nodeType": "UserDefinedTypeName",
+              "referencedDeclaration": 38584,
+              "src": "1085:26:153",
+              "typeDescriptions": {
+                "typeIdentifier": "t_enum$_SettlementType_$38584",
+                "typeString": "enum IFeeManager.SettlementType"
+              }
+            },
+            "value": null,
+            "visibility": "private"
+          },
+          {
+            "id": 40172,
+            "nodeType": "VariableDeclaration",
+            "src": "1152:61:153",
+            "nodes": [],
+            "constant": false,
+            "mutability": "mutable",
+            "name": "comptrollerProxyToFeeInfo",
+            "overrides": null,
+            "scope": 40418,
+            "stateVariable": true,
+            "storageLocation": "default",
+            "typeDescriptions": {
+              "typeIdentifier": "t_mapping$_t_address_$_t_struct$_FeeInfo_$40163_storage_$",
+              "typeString": "mapping(address => struct ExitRateFeeBase.FeeInfo)"
+            },
+            "typeName": {
+              "id": 40171,
+              "keyType": {
+                "id": 40169,
+                "name": "address",
+                "nodeType": "ElementaryTypeName",
+                "src": "1160:7:153",
+                "typeDescriptions": {
+                  "typeIdentifier": "t_address",
+                  "typeString": "address"
+                }
+              },
+              "nodeType": "Mapping",
+              "src": "1152:27:153",
+              "typeDescriptions": {
+                "typeIdentifier": "t_mapping$_t_address_$_t_struct$_FeeInfo_$40163_storage_$",
+                "typeString": "mapping(address => struct ExitRateFeeBase.FeeInfo)"
+              },
+              "valueType": {
+                "contractScope": null,
+                "id": 40170,
+                "name": "FeeInfo",
+                "nodeType": "UserDefinedTypeName",
+                "referencedDeclaration": 40163,
+                "src": "1171:7:153",
+                "typeDescriptions": {
+                  "typeIdentifier": "t_struct$_FeeInfo_$40163_storage_ptr",
+                  "typeString": "struct ExitRateFeeBase.FeeInfo"
+                }
+              }
+            },
+            "value": null,
+            "visibility": "private"
+          },
+          {
+            "id": 40202,
+            "nodeType": "FunctionDefinition",
+            "src": "1220:390:153",
+            "nodes": [],
+            "body": {
+              "id": 40201,
+              "nodeType": "Block",
+              "src": "1345:265:153",
+              "nodes": [],
+              "statements": [
+                {
+                  "expression": {
+                    "argumentTypes": null,
+                    "arguments": [
+                      {
+                        "argumentTypes": null,
+                        "commonType": {
+                          "typeIdentifier": "t_bool",
+                          "typeString": "bool"
+                        },
+                        "id": 40193,
+                        "isConstant": false,
+                        "isLValue": false,
+                        "isPure": false,
+                        "lValueRequested": false,
+                        "leftExpression": {
+                          "argumentTypes": null,
+                          "commonType": {
+                            "typeIdentifier": "t_enum$_SettlementType_$38584",
+                            "typeString": "enum IFeeManager.SettlementType"
+                          },
+                          "id": 40187,
+                          "isConstant": false,
+                          "isLValue": false,
+                          "isPure": false,
+                          "lValueRequested": false,
+                          "leftExpression": {
+                            "argumentTypes": null,
+                            "id": 40183,
+                            "name": "_settlementType",
+                            "nodeType": "Identifier",
+                            "overloadedDeclarations": [],
+                            "referencedDeclaration": 40176,
+                            "src": "1376:15:153",
+                            "typeDescriptions": {
+                              "typeIdentifier": "t_enum$_SettlementType_$38584",
+                              "typeString": "enum IFeeManager.SettlementType"
+                            }
+                          },
+                          "nodeType": "BinaryOperation",
+                          "operator": "==",
+                          "rightExpression": {
+                            "argumentTypes": null,
+                            "expression": {
+                              "argumentTypes": null,
+                              "expression": {
+                                "argumentTypes": null,
+                                "id": 40184,
+                                "name": "IFeeManager",
+                                "nodeType": "Identifier",
+                                "overloadedDeclarations": [],
+                                "referencedDeclaration": 38594,
+                                "src": "1395:11:153",
+                                "typeDescriptions": {
+                                  "typeIdentifier": "t_type$_t_contract$_IFeeManager_$38594_$",
+                                  "typeString": "type(contract IFeeManager)"
+                                }
+                              },
+                              "id": 40185,
+                              "isConstant": false,
+                              "isLValue": false,
+                              "isPure": false,
+                              "lValueRequested": false,
+                              "memberName": "SettlementType",
+                              "nodeType": "MemberAccess",
+                              "referencedDeclaration": 38584,
+                              "src": "1395:26:153",
+                              "typeDescriptions": {
+                                "typeIdentifier": "t_type$_t_enum$_SettlementType_$38584_$",
+                                "typeString": "type(enum IFeeManager.SettlementType)"
+                              }
+                            },
+                            "id": 40186,
+                            "isConstant": false,
+                            "isLValue": false,
+                            "isPure": true,
+                            "lValueRequested": false,
+                            "memberName": "Burn",
+                            "nodeType": "MemberAccess",
+                            "referencedDeclaration": null,
+                            "src": "1395:31:153",
+                            "typeDescriptions": {
+                              "typeIdentifier": "t_enum$_SettlementType_$38584",
+                              "typeString": "enum IFeeManager.SettlementType"
+                            }
+                          },
+                          "src": "1376:50:153",
+                          "typeDescriptions": {
+                            "typeIdentifier": "t_bool",
+                            "typeString": "bool"
+                          }
+                        },
+                        "nodeType": "BinaryOperation",
+                        "operator": "||",
+                        "rightExpression": {
+                          "argumentTypes": null,
+                          "commonType": {
+                            "typeIdentifier": "t_enum$_SettlementType_$38584",
+                            "typeString": "enum IFeeManager.SettlementType"
+                          },
+                          "id": 40192,
+                          "isConstant": false,
+                          "isLValue": false,
+                          "isPure": false,
+                          "lValueRequested": false,
+                          "leftExpression": {
+                            "argumentTypes": null,
+                            "id": 40188,
+                            "name": "_settlementType",
+                            "nodeType": "Identifier",
+                            "overloadedDeclarations": [],
+                            "referencedDeclaration": 40176,
+                            "src": "1446:15:153",
+                            "typeDescriptions": {
+                              "typeIdentifier": "t_enum$_SettlementType_$38584",
+                              "typeString": "enum IFeeManager.SettlementType"
+                            }
+                          },
+                          "nodeType": "BinaryOperation",
+                          "operator": "==",
+                          "rightExpression": {
+                            "argumentTypes": null,
+                            "expression": {
+                              "argumentTypes": null,
+                              "expression": {
+                                "argumentTypes": null,
+                                "id": 40189,
+                                "name": "IFeeManager",
+                                "nodeType": "Identifier",
+                                "overloadedDeclarations": [],
+                                "referencedDeclaration": 38594,
+                                "src": "1465:11:153",
+                                "typeDescriptions": {
+                                  "typeIdentifier": "t_type$_t_contract$_IFeeManager_$38594_$",
+                                  "typeString": "type(contract IFeeManager)"
+                                }
+                              },
+                              "id": 40190,
+                              "isConstant": false,
+                              "isLValue": false,
+                              "isPure": false,
+                              "lValueRequested": false,
+                              "memberName": "SettlementType",
+                              "nodeType": "MemberAccess",
+                              "referencedDeclaration": 38584,
+                              "src": "1465:26:153",
+                              "typeDescriptions": {
+                                "typeIdentifier": "t_type$_t_enum$_SettlementType_$38584_$",
+                                "typeString": "type(enum IFeeManager.SettlementType)"
+                              }
+                            },
+                            "id": 40191,
+                            "isConstant": false,
+                            "isLValue": false,
+                            "isPure": true,
+                            "lValueRequested": false,
+                            "memberName": "Direct",
+                            "nodeType": "MemberAccess",
+                            "referencedDeclaration": null,
+                            "src": "1465:33:153",
+                            "typeDescriptions": {
+                              "typeIdentifier": "t_enum$_SettlementType_$38584",
+                              "typeString": "enum IFeeManager.SettlementType"
+                            }
+                          },
+                          "src": "1446:52:153",
+                          "typeDescriptions": {
+                            "typeIdentifier": "t_bool",
+                            "typeString": "bool"
+                          }
+                        },
+                        "src": "1376:122:153",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_bool",
+                          "typeString": "bool"
+                        }
+                      },
+                      {
+                        "argumentTypes": null,
+                        "hexValue": "636f6e7374727563746f723a20496e76616c6964205f736574746c656d656e7454797065",
+                        "id": 40194,
+                        "isConstant": false,
+                        "isLValue": false,
+                        "isPure": true,
+                        "kind": "string",
+                        "lValueRequested": false,
+                        "nodeType": "Literal",
+                        "src": "1512:38:153",
+                        "subdenomination": null,
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_stringliteral_ee9bd7c27e1d7adbfeb0c912fb95f8eb0e0122bca881086147d57e7ed82268ab",
+                          "typeString": "literal_string \"constructor: Invalid _settlementType\""
+                        },
+                        "value": "constructor: Invalid _settlementType"
+                      }
+                    ],
+                    "expression": {
+                      "argumentTypes": [
+                        {
+                          "typeIdentifier": "t_bool",
+                          "typeString": "bool"
+                        },
+                        {
+                          "typeIdentifier": "t_stringliteral_ee9bd7c27e1d7adbfeb0c912fb95f8eb0e0122bca881086147d57e7ed82268ab",
+                          "typeString": "literal_string \"constructor: Invalid _settlementType\""
+                        }
+                      ],
+                      "id": 40182,
+                      "name": "require",
+                      "nodeType": "Identifier",
+                      "overloadedDeclarations": [
+                        -18,
+                        -18
+                      ],
+                      "referencedDeclaration": -18,
+                      "src": "1355:7:153",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_function_require_pure$_t_bool_$_t_string_memory_ptr_$returns$__$",
+                        "typeString": "function (bool,string memory) pure"
+                      }
+                    },
+                    "id": 40195,
+                    "isConstant": false,
+                    "isLValue": false,
+                    "isPure": false,
+                    "kind": "functionCall",
+                    "lValueRequested": false,
+                    "names": [],
+                    "nodeType": "FunctionCall",
+                    "src": "1355:205:153",
+                    "tryCall": false,
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_tuple$__$",
+                      "typeString": "tuple()"
+                    }
+                  },
+                  "id": 40196,
+                  "nodeType": "ExpressionStatement",
+                  "src": "1355:205:153"
+                },
+                {
+                  "expression": {
+                    "argumentTypes": null,
+                    "id": 40199,
+                    "isConstant": false,
+                    "isLValue": false,
+                    "isPure": false,
+                    "lValueRequested": false,
+                    "leftHandSide": {
+                      "argumentTypes": null,
+                      "id": 40197,
+                      "name": "SETTLEMENT_TYPE",
+                      "nodeType": "Identifier",
+                      "overloadedDeclarations": [],
+                      "referencedDeclaration": 40168,
+                      "src": "1570:15:153",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_enum$_SettlementType_$38584",
+                        "typeString": "enum IFeeManager.SettlementType"
+                      }
+                    },
+                    "nodeType": "Assignment",
+                    "operator": "=",
+                    "rightHandSide": {
+                      "argumentTypes": null,
+                      "id": 40198,
+                      "name": "_settlementType",
+                      "nodeType": "Identifier",
+                      "overloadedDeclarations": [],
+                      "referencedDeclaration": 40176,
+                      "src": "1588:15:153",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_enum$_SettlementType_$38584",
+                        "typeString": "enum IFeeManager.SettlementType"
+                      }
+                    },
+                    "src": "1570:33:153",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_enum$_SettlementType_$38584",
+                      "typeString": "enum IFeeManager.SettlementType"
+                    }
+                  },
+                  "id": 40200,
+                  "nodeType": "ExpressionStatement",
+                  "src": "1570:33:153"
+                }
+              ]
+            },
+            "documentation": null,
+            "implemented": true,
+            "kind": "constructor",
+            "modifiers": [
+              {
+                "arguments": [
+                  {
+                    "argumentTypes": null,
+                    "id": 40179,
+                    "name": "_feeManager",
+                    "nodeType": "Identifier",
+                    "overloadedDeclarations": [],
+                    "referencedDeclaration": 40174,
+                    "src": "1328:11:153",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  }
+                ],
+                "id": 40180,
+                "modifierName": {
+                  "argumentTypes": null,
+                  "id": 40178,
+                  "name": "FeeBase",
+                  "nodeType": "Identifier",
+                  "overloadedDeclarations": [],
+                  "referencedDeclaration": 40602,
+                  "src": "1320:7:153",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_type$_t_contract$_FeeBase_$40602_$",
+                    "typeString": "type(contract FeeBase)"
+                  }
+                },
+                "nodeType": "ModifierInvocation",
+                "src": "1320:20:153"
+              }
+            ],
+            "name": "",
+            "overrides": null,
+            "parameters": {
+              "id": 40177,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 40174,
+                  "mutability": "mutable",
+                  "name": "_feeManager",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 40202,
+                  "src": "1232:19:153",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 40173,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "1232:7:153",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 40176,
+                  "mutability": "mutable",
+                  "name": "_settlementType",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 40202,
+                  "src": "1253:42:153",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_enum$_SettlementType_$38584",
+                    "typeString": "enum IFeeManager.SettlementType"
+                  },
+                  "typeName": {
+                    "contractScope": null,
+                    "id": 40175,
+                    "name": "IFeeManager.SettlementType",
+                    "nodeType": "UserDefinedTypeName",
+                    "referencedDeclaration": 38584,
+                    "src": "1253:26:153",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_enum$_SettlementType_$38584",
+                      "typeString": "enum IFeeManager.SettlementType"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "1231:65:153"
+            },
+            "returnParameters": {
+              "id": 40181,
+              "nodeType": "ParameterList",
+              "parameters": [],
+              "src": "1345:0:153"
+            },
+            "scope": 40418,
+            "stateMutability": "nonpayable",
+            "virtual": false,
+            "visibility": "public"
+          },
+          {
+            "id": 40257,
+            "nodeType": "FunctionDefinition",
+            "src": "1842:789:153",
+            "nodes": [],
+            "body": {
+              "id": 40256,
+              "nodeType": "Block",
+              "src": "1999:632:153",
+              "nodes": [],
+              "statements": [
+                {
+                  "assignments": [
+                    40214,
+                    40216
+                  ],
+                  "declarations": [
+                    {
+                      "constant": false,
+                      "id": 40214,
+                      "mutability": "mutable",
+                      "name": "inKindRate",
+                      "nodeType": "VariableDeclaration",
+                      "overrides": null,
+                      "scope": 40256,
+                      "src": "2010:17:153",
+                      "stateVariable": false,
+                      "storageLocation": "default",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_uint16",
+                        "typeString": "uint16"
+                      },
+                      "typeName": {
+                        "id": 40213,
+                        "name": "uint16",
+                        "nodeType": "ElementaryTypeName",
+                        "src": "2010:6:153",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_uint16",
+                          "typeString": "uint16"
+                        }
+                      },
+                      "value": null,
+                      "visibility": "internal"
+                    },
+                    {
+                      "constant": false,
+                      "id": 40216,
+                      "mutability": "mutable",
+                      "name": "specificAssetsRate",
+                      "nodeType": "VariableDeclaration",
+                      "overrides": null,
+                      "scope": 40256,
+                      "src": "2029:25:153",
+                      "stateVariable": false,
+                      "storageLocation": "default",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_uint16",
+                        "typeString": "uint16"
+                      },
+                      "typeName": {
+                        "id": 40215,
+                        "name": "uint16",
+                        "nodeType": "ElementaryTypeName",
+                        "src": "2029:6:153",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_uint16",
+                          "typeString": "uint16"
+                        }
+                      },
+                      "value": null,
+                      "visibility": "internal"
+                    }
+                  ],
+                  "id": 40226,
+                  "initialValue": {
+                    "argumentTypes": null,
+                    "arguments": [
+                      {
+                        "argumentTypes": null,
+                        "id": 40219,
+                        "name": "_settingsData",
+                        "nodeType": "Identifier",
+                        "overloadedDeclarations": [],
+                        "referencedDeclaration": 40207,
+                        "src": "2082:13:153",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_bytes_calldata_ptr",
+                          "typeString": "bytes calldata"
+                        }
+                      },
+                      {
+                        "argumentTypes": null,
+                        "components": [
+                          {
+                            "argumentTypes": null,
+                            "id": 40221,
+                            "isConstant": false,
+                            "isLValue": false,
+                            "isPure": true,
+                            "lValueRequested": false,
+                            "nodeType": "ElementaryTypeNameExpression",
+                            "src": "2110:6:153",
+                            "typeDescriptions": {
+                              "typeIdentifier": "t_type$_t_uint16_$",
+                              "typeString": "type(uint16)"
+                            },
+                            "typeName": {
+                              "id": 40220,
+                              "name": "uint16",
+                              "nodeType": "ElementaryTypeName",
+                              "src": "2110:6:153",
+                              "typeDescriptions": {
+                                "typeIdentifier": null,
+                                "typeString": null
+                              }
+                            }
+                          },
+                          {
+                            "argumentTypes": null,
+                            "id": 40223,
+                            "isConstant": false,
+                            "isLValue": false,
+                            "isPure": true,
+                            "lValueRequested": false,
+                            "nodeType": "ElementaryTypeNameExpression",
+                            "src": "2118:6:153",
+                            "typeDescriptions": {
+                              "typeIdentifier": "t_type$_t_uint16_$",
+                              "typeString": "type(uint16)"
+                            },
+                            "typeName": {
+                              "id": 40222,
+                              "name": "uint16",
+                              "nodeType": "ElementaryTypeName",
+                              "src": "2118:6:153",
+                              "typeDescriptions": {
+                                "typeIdentifier": null,
+                                "typeString": null
+                              }
+                            }
+                          }
+                        ],
+                        "id": 40224,
+                        "isConstant": false,
+                        "isInlineArray": false,
+                        "isLValue": false,
+                        "isPure": true,
+                        "lValueRequested": false,
+                        "nodeType": "TupleExpression",
+                        "src": "2109:16:153",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_tuple$_t_type$_t_uint16_$_$_t_type$_t_uint16_$_$",
+                          "typeString": "tuple(type(uint16),type(uint16))"
+                        }
+                      }
+                    ],
+                    "expression": {
+                      "argumentTypes": [
+                        {
+                          "typeIdentifier": "t_bytes_calldata_ptr",
+                          "typeString": "bytes calldata"
+                        },
+                        {
+                          "typeIdentifier": "t_tuple$_t_type$_t_uint16_$_$_t_type$_t_uint16_$_$",
+                          "typeString": "tuple(type(uint16),type(uint16))"
+                        }
+                      ],
+                      "expression": {
+                        "argumentTypes": null,
+                        "id": 40217,
+                        "name": "abi",
+                        "nodeType": "Identifier",
+                        "overloadedDeclarations": [],
+                        "referencedDeclaration": -1,
+                        "src": "2058:3:153",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_magic_abi",
+                          "typeString": "abi"
+                        }
+                      },
+                      "id": 40218,
+                      "isConstant": false,
+                      "isLValue": false,
+                      "isPure": true,
+                      "lValueRequested": false,
+                      "memberName": "decode",
+                      "nodeType": "MemberAccess",
+                      "referencedDeclaration": null,
+                      "src": "2058:10:153",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_function_abidecode_pure$__$returns$__$",
+                        "typeString": "function () pure"
+                      }
+                    },
+                    "id": 40225,
+                    "isConstant": false,
+                    "isLValue": false,
+                    "isPure": false,
+                    "kind": "functionCall",
+                    "lValueRequested": false,
+                    "names": [],
+                    "nodeType": "FunctionCall",
+                    "src": "2058:77:153",
+                    "tryCall": false,
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_tuple$_t_uint16_$_t_uint16_$",
+                      "typeString": "tuple(uint16,uint16)"
+                    }
+                  },
+                  "nodeType": "VariableDeclarationStatement",
+                  "src": "2009:126:153"
+                },
+                {
+                  "expression": {
+                    "argumentTypes": null,
+                    "arguments": [
+                      {
+                        "argumentTypes": null,
+                        "commonType": {
+                          "typeIdentifier": "t_uint256",
+                          "typeString": "uint256"
+                        },
+                        "id": 40230,
+                        "isConstant": false,
+                        "isLValue": false,
+                        "isPure": false,
+                        "lValueRequested": false,
+                        "leftExpression": {
+                          "argumentTypes": null,
+                          "id": 40228,
+                          "name": "inKindRate",
+                          "nodeType": "Identifier",
+                          "overloadedDeclarations": [],
+                          "referencedDeclaration": 40214,
+                          "src": "2153:10:153",
+                          "typeDescriptions": {
+                            "typeIdentifier": "t_uint16",
+                            "typeString": "uint16"
+                          }
+                        },
+                        "nodeType": "BinaryOperation",
+                        "operator": "<",
+                        "rightExpression": {
+                          "argumentTypes": null,
+                          "id": 40229,
+                          "name": "ONE_HUNDRED_PERCENT",
+                          "nodeType": "Identifier",
+                          "overloadedDeclarations": [],
+                          "referencedDeclaration": 40166,
+                          "src": "2166:19:153",
+                          "typeDescriptions": {
+                            "typeIdentifier": "t_uint256",
+                            "typeString": "uint256"
+                          }
+                        },
+                        "src": "2153:32:153",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_bool",
+                          "typeString": "bool"
+                        }
+                      },
+                      {
+                        "argumentTypes": null,
+                        "hexValue": "61646446756e6453657474696e67733a20696e4b696e6452617465206d6178206578636565646564",
+                        "id": 40231,
+                        "isConstant": false,
+                        "isLValue": false,
+                        "isPure": true,
+                        "kind": "string",
+                        "lValueRequested": false,
+                        "nodeType": "Literal",
+                        "src": "2187:42:153",
+                        "subdenomination": null,
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_stringliteral_096c839bef99066eff1529dd118d15009073576ce4ee364f3a540508f1354b54",
+                          "typeString": "literal_string \"addFundSettings: inKindRate max exceeded\""
+                        },
+                        "value": "addFundSettings: inKindRate max exceeded"
+                      }
+                    ],
+                    "expression": {
+                      "argumentTypes": [
+                        {
+                          "typeIdentifier": "t_bool",
+                          "typeString": "bool"
+                        },
+                        {
+                          "typeIdentifier": "t_stringliteral_096c839bef99066eff1529dd118d15009073576ce4ee364f3a540508f1354b54",
+                          "typeString": "literal_string \"addFundSettings: inKindRate max exceeded\""
+                        }
+                      ],
+                      "id": 40227,
+                      "name": "require",
+                      "nodeType": "Identifier",
+                      "overloadedDeclarations": [
+                        -18,
+                        -18
+                      ],
+                      "referencedDeclaration": -18,
+                      "src": "2145:7:153",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_function_require_pure$_t_bool_$_t_string_memory_ptr_$returns$__$",
+                        "typeString": "function (bool,string memory) pure"
+                      }
+                    },
+                    "id": 40232,
+                    "isConstant": false,
+                    "isLValue": false,
+                    "isPure": false,
+                    "kind": "functionCall",
+                    "lValueRequested": false,
+                    "names": [],
+                    "nodeType": "FunctionCall",
+                    "src": "2145:85:153",
+                    "tryCall": false,
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_tuple$__$",
+                      "typeString": "tuple()"
+                    }
+                  },
+                  "id": 40233,
+                  "nodeType": "ExpressionStatement",
+                  "src": "2145:85:153"
+                },
+                {
+                  "expression": {
+                    "argumentTypes": null,
+                    "arguments": [
+                      {
+                        "argumentTypes": null,
+                        "commonType": {
+                          "typeIdentifier": "t_uint256",
+                          "typeString": "uint256"
+                        },
+                        "id": 40237,
+                        "isConstant": false,
+                        "isLValue": false,
+                        "isPure": false,
+                        "lValueRequested": false,
+                        "leftExpression": {
+                          "argumentTypes": null,
+                          "id": 40235,
+                          "name": "specificAssetsRate",
+                          "nodeType": "Identifier",
+                          "overloadedDeclarations": [],
+                          "referencedDeclaration": 40216,
+                          "src": "2261:18:153",
+                          "typeDescriptions": {
+                            "typeIdentifier": "t_uint16",
+                            "typeString": "uint16"
+                          }
+                        },
+                        "nodeType": "BinaryOperation",
+                        "operator": "<",
+                        "rightExpression": {
+                          "argumentTypes": null,
+                          "id": 40236,
+                          "name": "ONE_HUNDRED_PERCENT",
+                          "nodeType": "Identifier",
+                          "overloadedDeclarations": [],
+                          "referencedDeclaration": 40166,
+                          "src": "2282:19:153",
+                          "typeDescriptions": {
+                            "typeIdentifier": "t_uint256",
+                            "typeString": "uint256"
+                          }
+                        },
+                        "src": "2261:40:153",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_bool",
+                          "typeString": "bool"
+                        }
+                      },
+                      {
+                        "argumentTypes": null,
+                        "hexValue": "61646446756e6453657474696e67733a20737065636966696341737365747352617465206d6178206578636565646564",
+                        "id": 40238,
+                        "isConstant": false,
+                        "isLValue": false,
+                        "isPure": true,
+                        "kind": "string",
+                        "lValueRequested": false,
+                        "nodeType": "Literal",
+                        "src": "2315:50:153",
+                        "subdenomination": null,
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_stringliteral_6af7a16bb3bd34afbd0d878a6cb0f370b21e4a1697709e9648a2635f1d245962",
+                          "typeString": "literal_string \"addFundSettings: specificAssetsRate max exceeded\""
+                        },
+                        "value": "addFundSettings: specificAssetsRate max exceeded"
+                      }
+                    ],
+                    "expression": {
+                      "argumentTypes": [
+                        {
+                          "typeIdentifier": "t_bool",
+                          "typeString": "bool"
+                        },
+                        {
+                          "typeIdentifier": "t_stringliteral_6af7a16bb3bd34afbd0d878a6cb0f370b21e4a1697709e9648a2635f1d245962",
+                          "typeString": "literal_string \"addFundSettings: specificAssetsRate max exceeded\""
+                        }
+                      ],
+                      "id": 40234,
+                      "name": "require",
+                      "nodeType": "Identifier",
+                      "overloadedDeclarations": [
+                        -18,
+                        -18
+                      ],
+                      "referencedDeclaration": -18,
+                      "src": "2240:7:153",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_function_require_pure$_t_bool_$_t_string_memory_ptr_$returns$__$",
+                        "typeString": "function (bool,string memory) pure"
+                      }
+                    },
+                    "id": 40239,
+                    "isConstant": false,
+                    "isLValue": false,
+                    "isPure": false,
+                    "kind": "functionCall",
+                    "lValueRequested": false,
+                    "names": [],
+                    "nodeType": "FunctionCall",
+                    "src": "2240:135:153",
+                    "tryCall": false,
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_tuple$__$",
+                      "typeString": "tuple()"
+                    }
+                  },
+                  "id": 40240,
+                  "nodeType": "ExpressionStatement",
+                  "src": "2240:135:153"
+                },
+                {
+                  "expression": {
+                    "argumentTypes": null,
+                    "id": 40248,
+                    "isConstant": false,
+                    "isLValue": false,
+                    "isPure": false,
+                    "lValueRequested": false,
+                    "leftHandSide": {
+                      "argumentTypes": null,
+                      "baseExpression": {
+                        "argumentTypes": null,
+                        "id": 40241,
+                        "name": "comptrollerProxyToFeeInfo",
+                        "nodeType": "Identifier",
+                        "overloadedDeclarations": [],
+                        "referencedDeclaration": 40172,
+                        "src": "2386:25:153",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_mapping$_t_address_$_t_struct$_FeeInfo_$40163_storage_$",
+                          "typeString": "mapping(address => struct ExitRateFeeBase.FeeInfo storage ref)"
+                        }
+                      },
+                      "id": 40243,
+                      "indexExpression": {
+                        "argumentTypes": null,
+                        "id": 40242,
+                        "name": "_comptrollerProxy",
+                        "nodeType": "Identifier",
+                        "overloadedDeclarations": [],
+                        "referencedDeclaration": 40205,
+                        "src": "2412:17:153",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_address",
+                          "typeString": "address"
+                        }
+                      },
+                      "isConstant": false,
+                      "isLValue": true,
+                      "isPure": false,
+                      "lValueRequested": true,
+                      "nodeType": "IndexAccess",
+                      "src": "2386:44:153",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_struct$_FeeInfo_$40163_storage",
+                        "typeString": "struct ExitRateFeeBase.FeeInfo storage ref"
+                      }
+                    },
+                    "nodeType": "Assignment",
+                    "operator": "=",
+                    "rightHandSide": {
+                      "argumentTypes": null,
+                      "arguments": [
+                        {
+                          "argumentTypes": null,
+                          "id": 40245,
+                          "name": "inKindRate",
+                          "nodeType": "Identifier",
+                          "overloadedDeclarations": [],
+                          "referencedDeclaration": 40214,
+                          "src": "2467:10:153",
+                          "typeDescriptions": {
+                            "typeIdentifier": "t_uint16",
+                            "typeString": "uint16"
+                          }
+                        },
+                        {
+                          "argumentTypes": null,
+                          "id": 40246,
+                          "name": "specificAssetsRate",
+                          "nodeType": "Identifier",
+                          "overloadedDeclarations": [],
+                          "referencedDeclaration": 40216,
+                          "src": "2511:18:153",
+                          "typeDescriptions": {
+                            "typeIdentifier": "t_uint16",
+                            "typeString": "uint16"
+                          }
+                        }
+                      ],
+                      "expression": {
+                        "argumentTypes": [
+                          {
+                            "typeIdentifier": "t_uint16",
+                            "typeString": "uint16"
+                          },
+                          {
+                            "typeIdentifier": "t_uint16",
+                            "typeString": "uint16"
+                          }
+                        ],
+                        "id": 40244,
+                        "name": "FeeInfo",
+                        "nodeType": "Identifier",
+                        "overloadedDeclarations": [],
+                        "referencedDeclaration": 40163,
+                        "src": "2433:7:153",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_type$_t_struct$_FeeInfo_$40163_storage_ptr_$",
+                          "typeString": "type(struct ExitRateFeeBase.FeeInfo storage pointer)"
+                        }
+                      },
+                      "id": 40247,
+                      "isConstant": false,
+                      "isLValue": false,
+                      "isPure": false,
+                      "kind": "structConstructorCall",
+                      "lValueRequested": false,
+                      "names": [
+                        "inKindRate",
+                        "specificAssetsRate"
+                      ],
+                      "nodeType": "FunctionCall",
+                      "src": "2433:107:153",
+                      "tryCall": false,
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_struct$_FeeInfo_$40163_memory_ptr",
+                        "typeString": "struct ExitRateFeeBase.FeeInfo memory"
+                      }
+                    },
+                    "src": "2386:154:153",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_struct$_FeeInfo_$40163_storage",
+                      "typeString": "struct ExitRateFeeBase.FeeInfo storage ref"
+                    }
+                  },
+                  "id": 40249,
+                  "nodeType": "ExpressionStatement",
+                  "src": "2386:154:153"
+                },
+                {
+                  "eventCall": {
+                    "argumentTypes": null,
+                    "arguments": [
+                      {
+                        "argumentTypes": null,
+                        "id": 40251,
+                        "name": "_comptrollerProxy",
+                        "nodeType": "Identifier",
+                        "overloadedDeclarations": [],
+                        "referencedDeclaration": 40205,
+                        "src": "2574:17:153",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_address",
+                          "typeString": "address"
+                        }
+                      },
+                      {
+                        "argumentTypes": null,
+                        "id": 40252,
+                        "name": "inKindRate",
+                        "nodeType": "Identifier",
+                        "overloadedDeclarations": [],
+                        "referencedDeclaration": 40214,
+                        "src": "2593:10:153",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_uint16",
+                          "typeString": "uint16"
+                        }
+                      },
+                      {
+                        "argumentTypes": null,
+                        "id": 40253,
+                        "name": "specificAssetsRate",
+                        "nodeType": "Identifier",
+                        "overloadedDeclarations": [],
+                        "referencedDeclaration": 40216,
+                        "src": "2605:18:153",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_uint16",
+                          "typeString": "uint16"
+                        }
+                      }
+                    ],
+                    "expression": {
+                      "argumentTypes": [
+                        {
+                          "typeIdentifier": "t_address",
+                          "typeString": "address"
+                        },
+                        {
+                          "typeIdentifier": "t_uint16",
+                          "typeString": "uint16"
+                        },
+                        {
+                          "typeIdentifier": "t_uint16",
+                          "typeString": "uint16"
+                        }
+                      ],
+                      "id": 40250,
+                      "name": "FundSettingsAdded",
+                      "nodeType": "Identifier",
+                      "overloadedDeclarations": [],
+                      "referencedDeclaration": 40148,
+                      "src": "2556:17:153",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_function_event_nonpayable$_t_address_$_t_uint256_$_t_uint256_$returns$__$",
+                        "typeString": "function (address,uint256,uint256)"
+                      }
+                    },
+                    "id": 40254,
+                    "isConstant": false,
+                    "isLValue": false,
+                    "isPure": false,
+                    "kind": "functionCall",
+                    "lValueRequested": false,
+                    "names": [],
+                    "nodeType": "FunctionCall",
+                    "src": "2556:68:153",
+                    "tryCall": false,
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_tuple$__$",
+                      "typeString": "tuple()"
+                    }
+                  },
+                  "id": 40255,
+                  "nodeType": "EmitStatement",
+                  "src": "2551:73:153"
+                }
+              ]
+            },
+            "baseFunctions": [
+              38501
+            ],
+            "documentation": {
+              "id": 40203,
+              "nodeType": "StructuredDocumentation",
+              "src": "1643:194:153",
+              "text": "@notice Add the initial fee settings for a fund\n @param _comptrollerProxy The ComptrollerProxy of the fund\n @param _settingsData Encoded settings to apply to the fee for a fund"
+            },
+            "functionSelector": "0f5f6b4f",
+            "implemented": true,
+            "kind": "function",
+            "modifiers": [
+              {
+                "arguments": null,
+                "id": 40211,
+                "modifierName": {
+                  "argumentTypes": null,
+                  "id": 40210,
+                  "name": "onlyFeeManager",
+                  "nodeType": "Identifier",
+                  "overloadedDeclarations": [],
+                  "referencedDeclaration": 40438,
+                  "src": "1980:14:153",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_modifier$__$",
+                    "typeString": "modifier ()"
+                  }
+                },
+                "nodeType": "ModifierInvocation",
+                "src": "1980:14:153"
+              }
+            ],
+            "name": "addFundSettings",
+            "overrides": {
+              "id": 40209,
+              "nodeType": "OverrideSpecifier",
+              "overrides": [],
+              "src": "1963:8:153"
+            },
+            "parameters": {
+              "id": 40208,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 40205,
+                  "mutability": "mutable",
+                  "name": "_comptrollerProxy",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 40257,
+                  "src": "1867:25:153",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 40204,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "1867:7:153",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 40207,
+                  "mutability": "mutable",
+                  "name": "_settingsData",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 40257,
+                  "src": "1894:28:153",
+                  "stateVariable": false,
+                  "storageLocation": "calldata",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_bytes_calldata_ptr",
+                    "typeString": "bytes"
+                  },
+                  "typeName": {
+                    "id": 40206,
+                    "name": "bytes",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "1894:5:153",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_bytes_storage_ptr",
+                      "typeString": "bytes"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "1866:57:153"
+            },
+            "returnParameters": {
+              "id": 40212,
+              "nodeType": "ParameterList",
+              "parameters": [],
+              "src": "1999:0:153"
+            },
+            "scope": 40418,
+            "stateMutability": "nonpayable",
+            "virtual": true,
+            "visibility": "public"
+          },
+          {
+            "id": 40353,
+            "nodeType": "FunctionDefinition",
+            "src": "2970:1102:153",
+            "nodes": [],
+            "body": {
+              "id": 40352,
+              "nodeType": "Block",
+              "src": "3334:738:153",
+              "nodes": [],
+              "statements": [
+                {
+                  "assignments": [
+                    40281
+                  ],
+                  "declarations": [
+                    {
+                      "constant": false,
+                      "id": 40281,
+                      "mutability": "mutable",
+                      "name": "forSpecificAssets",
+                      "nodeType": "VariableDeclaration",
+                      "overrides": null,
+                      "scope": 40352,
+                      "src": "3344:22:153",
+                      "stateVariable": false,
+                      "storageLocation": "default",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_bool",
+                        "typeString": "bool"
+                      },
+                      "typeName": {
+                        "id": 40280,
+                        "name": "bool",
+                        "nodeType": "ElementaryTypeName",
+                        "src": "3344:4:153",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_bool",
+                          "typeString": "bool"
+                        }
+                      },
+                      "value": null,
+                      "visibility": "internal"
+                    }
+                  ],
+                  "id": 40282,
+                  "initialValue": null,
+                  "nodeType": "VariableDeclarationStatement",
+                  "src": "3344:22:153"
+                },
+                {
+                  "assignments": [
+                    40284
+                  ],
+                  "declarations": [
+                    {
+                      "constant": false,
+                      "id": 40284,
+                      "mutability": "mutable",
+                      "name": "sharesRedeemed",
+                      "nodeType": "VariableDeclaration",
+                      "overrides": null,
+                      "scope": 40352,
+                      "src": "3376:22:153",
+                      "stateVariable": false,
+                      "storageLocation": "default",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_uint256",
+                        "typeString": "uint256"
+                      },
+                      "typeName": {
+                        "id": 40283,
+                        "name": "uint256",
+                        "nodeType": "ElementaryTypeName",
+                        "src": "3376:7:153",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_uint256",
+                          "typeString": "uint256"
+                        }
+                      },
+                      "value": null,
+                      "visibility": "internal"
+                    }
+                  ],
+                  "id": 40285,
+                  "initialValue": null,
+                  "nodeType": "VariableDeclarationStatement",
+                  "src": "3376:22:153"
+                },
+                {
+                  "expression": {
+                    "argumentTypes": null,
+                    "id": 40293,
+                    "isConstant": false,
+                    "isLValue": false,
+                    "isPure": false,
+                    "lValueRequested": false,
+                    "leftHandSide": {
+                      "argumentTypes": null,
+                      "components": [
+                        {
+                          "argumentTypes": null,
+                          "id": 40286,
+                          "name": "payer_",
+                          "nodeType": "Identifier",
+                          "overloadedDeclarations": [],
+                          "referencedDeclaration": 40276,
+                          "src": "3409:6:153",
+                          "typeDescriptions": {
+                            "typeIdentifier": "t_address",
+                            "typeString": "address"
+                          }
+                        },
+                        {
+                          "argumentTypes": null,
+                          "id": 40287,
+                          "name": "sharesRedeemed",
+                          "nodeType": "Identifier",
+                          "overloadedDeclarations": [],
+                          "referencedDeclaration": 40284,
+                          "src": "3417:14:153",
+                          "typeDescriptions": {
+                            "typeIdentifier": "t_uint256",
+                            "typeString": "uint256"
+                          }
+                        },
+                        {
+                          "argumentTypes": null,
+                          "id": 40288,
+                          "name": "forSpecificAssets",
+                          "nodeType": "Identifier",
+                          "overloadedDeclarations": [],
+                          "referencedDeclaration": 40281,
+                          "src": "3433:17:153",
+                          "typeDescriptions": {
+                            "typeIdentifier": "t_bool",
+                            "typeString": "bool"
+                          }
+                        }
+                      ],
+                      "id": 40289,
+                      "isConstant": false,
+                      "isInlineArray": false,
+                      "isLValue": true,
+                      "isPure": false,
+                      "lValueRequested": true,
+                      "nodeType": "TupleExpression",
+                      "src": "3408:43:153",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_tuple$_t_address_$_t_uint256_$_t_bool_$",
+                        "typeString": "tuple(address,uint256,bool)"
+                      }
+                    },
+                    "nodeType": "Assignment",
+                    "operator": "=",
+                    "rightHandSide": {
+                      "argumentTypes": null,
+                      "arguments": [
+                        {
+                          "argumentTypes": null,
+                          "id": 40291,
+                          "name": "_settlementData",
+                          "nodeType": "Identifier",
+                          "overloadedDeclarations": [],
+                          "referencedDeclaration": 40266,
+                          "src": "3505:15:153",
+                          "typeDescriptions": {
+                            "typeIdentifier": "t_bytes_calldata_ptr",
+                            "typeString": "bytes calldata"
+                          }
+                        }
+                      ],
+                      "expression": {
+                        "argumentTypes": [
+                          {
+                            "typeIdentifier": "t_bytes_calldata_ptr",
+                            "typeString": "bytes calldata"
+                          }
+                        ],
+                        "id": 40290,
+                        "name": "__decodePreRedeemSharesSettlementData",
+                        "nodeType": "Identifier",
+                        "overloadedDeclarations": [],
+                        "referencedDeclaration": 40567,
+                        "src": "3454:37:153",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_function_internal_pure$_t_bytes_memory_ptr_$returns$_t_address_$_t_uint256_$_t_bool_$",
+                          "typeString": "function (bytes memory) pure returns (address,uint256,bool)"
+                        }
+                      },
+                      "id": 40292,
+                      "isConstant": false,
+                      "isLValue": false,
+                      "isPure": false,
+                      "kind": "functionCall",
+                      "lValueRequested": false,
+                      "names": [],
+                      "nodeType": "FunctionCall",
+                      "src": "3454:76:153",
+                      "tryCall": false,
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_tuple$_t_address_$_t_uint256_$_t_bool_$",
+                        "typeString": "tuple(address,uint256,bool)"
+                      }
+                    },
+                    "src": "3408:122:153",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_tuple$__$",
+                      "typeString": "tuple()"
+                    }
+                  },
+                  "id": 40294,
+                  "nodeType": "ExpressionStatement",
+                  "src": "3408:122:153"
+                },
+                {
+                  "assignments": [
+                    40296
+                  ],
+                  "declarations": [
+                    {
+                      "constant": false,
+                      "id": 40296,
+                      "mutability": "mutable",
+                      "name": "rate",
+                      "nodeType": "VariableDeclaration",
+                      "overrides": null,
+                      "scope": 40352,
+                      "src": "3541:12:153",
+                      "stateVariable": false,
+                      "storageLocation": "default",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_uint256",
+                        "typeString": "uint256"
+                      },
+                      "typeName": {
+                        "id": 40295,
+                        "name": "uint256",
+                        "nodeType": "ElementaryTypeName",
+                        "src": "3541:7:153",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_uint256",
+                          "typeString": "uint256"
+                        }
+                      },
+                      "value": null,
+                      "visibility": "internal"
+                    }
+                  ],
+                  "id": 40297,
+                  "initialValue": null,
+                  "nodeType": "VariableDeclarationStatement",
+                  "src": "3541:12:153"
+                },
+                {
+                  "condition": {
+                    "argumentTypes": null,
+                    "id": 40298,
+                    "name": "forSpecificAssets",
+                    "nodeType": "Identifier",
+                    "overloadedDeclarations": [],
+                    "referencedDeclaration": 40281,
+                    "src": "3567:17:153",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_bool",
+                      "typeString": "bool"
+                    }
+                  },
+                  "falseBody": {
+                    "id": 40312,
+                    "nodeType": "Block",
+                    "src": "3671:71:153",
+                    "statements": [
+                      {
+                        "expression": {
+                          "argumentTypes": null,
+                          "id": 40310,
+                          "isConstant": false,
+                          "isLValue": false,
+                          "isPure": false,
+                          "lValueRequested": false,
+                          "leftHandSide": {
+                            "argumentTypes": null,
+                            "id": 40306,
+                            "name": "rate",
+                            "nodeType": "Identifier",
+                            "overloadedDeclarations": [],
+                            "referencedDeclaration": 40296,
+                            "src": "3685:4:153",
+                            "typeDescriptions": {
+                              "typeIdentifier": "t_uint256",
+                              "typeString": "uint256"
+                            }
+                          },
+                          "nodeType": "Assignment",
+                          "operator": "=",
+                          "rightHandSide": {
+                            "argumentTypes": null,
+                            "arguments": [
+                              {
+                                "argumentTypes": null,
+                                "id": 40308,
+                                "name": "_comptrollerProxy",
+                                "nodeType": "Identifier",
+                                "overloadedDeclarations": [],
+                                "referencedDeclaration": 40260,
+                                "src": "3713:17:153",
+                                "typeDescriptions": {
+                                  "typeIdentifier": "t_address",
+                                  "typeString": "address"
+                                }
+                              }
+                            ],
+                            "expression": {
+                              "argumentTypes": [
+                                {
+                                  "typeIdentifier": "t_address",
+                                  "typeString": "address"
+                                }
+                              ],
+                              "id": 40307,
+                              "name": "getInKindRateForFund",
+                              "nodeType": "Identifier",
+                              "overloadedDeclarations": [],
+                              "referencedDeclaration": 40394,
+                              "src": "3692:20:153",
+                              "typeDescriptions": {
+                                "typeIdentifier": "t_function_internal_view$_t_address_$returns$_t_uint256_$",
+                                "typeString": "function (address) view returns (uint256)"
+                              }
+                            },
+                            "id": 40309,
+                            "isConstant": false,
+                            "isLValue": false,
+                            "isPure": false,
+                            "kind": "functionCall",
+                            "lValueRequested": false,
+                            "names": [],
+                            "nodeType": "FunctionCall",
+                            "src": "3692:39:153",
+                            "tryCall": false,
+                            "typeDescriptions": {
+                              "typeIdentifier": "t_uint256",
+                              "typeString": "uint256"
+                            }
+                          },
+                          "src": "3685:46:153",
+                          "typeDescriptions": {
+                            "typeIdentifier": "t_uint256",
+                            "typeString": "uint256"
+                          }
+                        },
+                        "id": 40311,
+                        "nodeType": "ExpressionStatement",
+                        "src": "3685:46:153"
+                      }
+                    ]
+                  },
+                  "id": 40313,
+                  "nodeType": "IfStatement",
+                  "src": "3563:179:153",
+                  "trueBody": {
+                    "id": 40305,
+                    "nodeType": "Block",
+                    "src": "3586:79:153",
+                    "statements": [
+                      {
+                        "expression": {
+                          "argumentTypes": null,
+                          "id": 40303,
+                          "isConstant": false,
+                          "isLValue": false,
+                          "isPure": false,
+                          "lValueRequested": false,
+                          "leftHandSide": {
+                            "argumentTypes": null,
+                            "id": 40299,
+                            "name": "rate",
+                            "nodeType": "Identifier",
+                            "overloadedDeclarations": [],
+                            "referencedDeclaration": 40296,
+                            "src": "3600:4:153",
+                            "typeDescriptions": {
+                              "typeIdentifier": "t_uint256",
+                              "typeString": "uint256"
+                            }
+                          },
+                          "nodeType": "Assignment",
+                          "operator": "=",
+                          "rightHandSide": {
+                            "argumentTypes": null,
+                            "arguments": [
+                              {
+                                "argumentTypes": null,
+                                "id": 40301,
+                                "name": "_comptrollerProxy",
+                                "nodeType": "Identifier",
+                                "overloadedDeclarations": [],
+                                "referencedDeclaration": 40260,
+                                "src": "3636:17:153",
+                                "typeDescriptions": {
+                                  "typeIdentifier": "t_address",
+                                  "typeString": "address"
+                                }
+                              }
+                            ],
+                            "expression": {
+                              "argumentTypes": [
+                                {
+                                  "typeIdentifier": "t_address",
+                                  "typeString": "address"
+                                }
+                              ],
+                              "id": 40300,
+                              "name": "getSpecificAssetsRateForFund",
+                              "nodeType": "Identifier",
+                              "overloadedDeclarations": [],
+                              "referencedDeclaration": 40417,
+                              "src": "3607:28:153",
+                              "typeDescriptions": {
+                                "typeIdentifier": "t_function_internal_view$_t_address_$returns$_t_uint256_$",
+                                "typeString": "function (address) view returns (uint256)"
+                              }
+                            },
+                            "id": 40302,
+                            "isConstant": false,
+                            "isLValue": false,
+                            "isPure": false,
+                            "kind": "functionCall",
+                            "lValueRequested": false,
+                            "names": [],
+                            "nodeType": "FunctionCall",
+                            "src": "3607:47:153",
+                            "tryCall": false,
+                            "typeDescriptions": {
+                              "typeIdentifier": "t_uint256",
+                              "typeString": "uint256"
+                            }
+                          },
+                          "src": "3600:54:153",
+                          "typeDescriptions": {
+                            "typeIdentifier": "t_uint256",
+                            "typeString": "uint256"
+                          }
+                        },
+                        "id": 40304,
+                        "nodeType": "ExpressionStatement",
+                        "src": "3600:54:153"
+                      }
+                    ]
+                  }
+                },
+                {
+                  "expression": {
+                    "argumentTypes": null,
+                    "id": 40322,
+                    "isConstant": false,
+                    "isLValue": false,
+                    "isPure": false,
+                    "lValueRequested": false,
+                    "leftHandSide": {
+                      "argumentTypes": null,
+                      "id": 40314,
+                      "name": "sharesDue_",
+                      "nodeType": "Identifier",
+                      "overloadedDeclarations": [],
+                      "referencedDeclaration": 40278,
+                      "src": "3752:10:153",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_uint256",
+                        "typeString": "uint256"
+                      }
+                    },
+                    "nodeType": "Assignment",
+                    "operator": "=",
+                    "rightHandSide": {
+                      "argumentTypes": null,
+                      "arguments": [
+                        {
+                          "argumentTypes": null,
+                          "id": 40320,
+                          "name": "ONE_HUNDRED_PERCENT",
+                          "nodeType": "Identifier",
+                          "overloadedDeclarations": [],
+                          "referencedDeclaration": 40166,
+                          "src": "3794:19:153",
+                          "typeDescriptions": {
+                            "typeIdentifier": "t_uint256",
+                            "typeString": "uint256"
+                          }
+                        }
+                      ],
+                      "expression": {
+                        "argumentTypes": [
+                          {
+                            "typeIdentifier": "t_uint256",
+                            "typeString": "uint256"
+                          }
+                        ],
+                        "expression": {
+                          "argumentTypes": null,
+                          "arguments": [
+                            {
+                              "argumentTypes": null,
+                              "id": 40317,
+                              "name": "rate",
+                              "nodeType": "Identifier",
+                              "overloadedDeclarations": [],
+                              "referencedDeclaration": 40296,
+                              "src": "3784:4:153",
+                              "typeDescriptions": {
+                                "typeIdentifier": "t_uint256",
+                                "typeString": "uint256"
+                              }
+                            }
+                          ],
+                          "expression": {
+                            "argumentTypes": [
+                              {
+                                "typeIdentifier": "t_uint256",
+                                "typeString": "uint256"
+                              }
+                            ],
+                            "expression": {
+                              "argumentTypes": null,
+                              "id": 40315,
+                              "name": "sharesRedeemed",
+                              "nodeType": "Identifier",
+                              "overloadedDeclarations": [],
+                              "referencedDeclaration": 40284,
+                              "src": "3765:14:153",
+                              "typeDescriptions": {
+                                "typeIdentifier": "t_uint256",
+                                "typeString": "uint256"
+                              }
+                            },
+                            "id": 40316,
+                            "isConstant": false,
+                            "isLValue": false,
+                            "isPure": false,
+                            "lValueRequested": false,
+                            "memberName": "mul",
+                            "nodeType": "MemberAccess",
+                            "referencedDeclaration": 82401,
+                            "src": "3765:18:153",
+                            "typeDescriptions": {
+                              "typeIdentifier": "t_function_internal_pure$_t_uint256_$_t_uint256_$returns$_t_uint256_$bound_to$_t_uint256_$",
+                              "typeString": "function (uint256,uint256) pure returns (uint256)"
+                            }
+                          },
+                          "id": 40318,
+                          "isConstant": false,
+                          "isLValue": false,
+                          "isPure": false,
+                          "kind": "functionCall",
+                          "lValueRequested": false,
+                          "names": [],
+                          "nodeType": "FunctionCall",
+                          "src": "3765:24:153",
+                          "tryCall": false,
+                          "typeDescriptions": {
+                            "typeIdentifier": "t_uint256",
+                            "typeString": "uint256"
+                          }
+                        },
+                        "id": 40319,
+                        "isConstant": false,
+                        "isLValue": false,
+                        "isPure": false,
+                        "lValueRequested": false,
+                        "memberName": "div",
+                        "nodeType": "MemberAccess",
+                        "referencedDeclaration": 82423,
+                        "src": "3765:28:153",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_function_internal_pure$_t_uint256_$_t_uint256_$returns$_t_uint256_$bound_to$_t_uint256_$",
+                          "typeString": "function (uint256,uint256) pure returns (uint256)"
+                        }
+                      },
+                      "id": 40321,
+                      "isConstant": false,
+                      "isLValue": false,
+                      "isPure": false,
+                      "kind": "functionCall",
+                      "lValueRequested": false,
+                      "names": [],
+                      "nodeType": "FunctionCall",
+                      "src": "3765:49:153",
+                      "tryCall": false,
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_uint256",
+                        "typeString": "uint256"
+                      }
+                    },
+                    "src": "3752:62:153",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_uint256",
+                      "typeString": "uint256"
+                    }
+                  },
+                  "id": 40323,
+                  "nodeType": "ExpressionStatement",
+                  "src": "3752:62:153"
+                },
+                {
+                  "condition": {
+                    "argumentTypes": null,
+                    "commonType": {
+                      "typeIdentifier": "t_uint256",
+                      "typeString": "uint256"
+                    },
+                    "id": 40326,
+                    "isConstant": false,
+                    "isLValue": false,
+                    "isPure": false,
+                    "lValueRequested": false,
+                    "leftExpression": {
+                      "argumentTypes": null,
+                      "id": 40324,
+                      "name": "sharesDue_",
+                      "nodeType": "Identifier",
+                      "overloadedDeclarations": [],
+                      "referencedDeclaration": 40278,
+                      "src": "3829:10:153",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_uint256",
+                        "typeString": "uint256"
+                      }
+                    },
+                    "nodeType": "BinaryOperation",
+                    "operator": "==",
+                    "rightExpression": {
+                      "argumentTypes": null,
+                      "hexValue": "30",
+                      "id": 40325,
+                      "isConstant": false,
+                      "isLValue": false,
+                      "isPure": true,
+                      "kind": "number",
+                      "lValueRequested": false,
+                      "nodeType": "Literal",
+                      "src": "3843:1:153",
+                      "subdenomination": null,
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_rational_0_by_1",
+                        "typeString": "int_const 0"
+                      },
+                      "value": "0"
+                    },
+                    "src": "3829:15:153",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_bool",
+                      "typeString": "bool"
+                    }
+                  },
+                  "falseBody": null,
+                  "id": 40338,
+                  "nodeType": "IfStatement",
+                  "src": "3825:101:153",
+                  "trueBody": {
+                    "id": 40337,
+                    "nodeType": "Block",
+                    "src": "3846:80:153",
+                    "statements": [
+                      {
+                        "expression": {
+                          "argumentTypes": null,
+                          "components": [
+                            {
+                              "argumentTypes": null,
+                              "expression": {
+                                "argumentTypes": null,
+                                "expression": {
+                                  "argumentTypes": null,
+                                  "id": 40327,
+                                  "name": "IFeeManager",
+                                  "nodeType": "Identifier",
+                                  "overloadedDeclarations": [],
+                                  "referencedDeclaration": 38594,
+                                  "src": "3868:11:153",
+                                  "typeDescriptions": {
+                                    "typeIdentifier": "t_type$_t_contract$_IFeeManager_$38594_$",
+                                    "typeString": "type(contract IFeeManager)"
+                                  }
+                                },
+                                "id": 40328,
+                                "isConstant": false,
+                                "isLValue": false,
+                                "isPure": false,
+                                "lValueRequested": false,
+                                "memberName": "SettlementType",
+                                "nodeType": "MemberAccess",
+                                "referencedDeclaration": 38584,
+                                "src": "3868:26:153",
+                                "typeDescriptions": {
+                                  "typeIdentifier": "t_type$_t_enum$_SettlementType_$38584_$",
+                                  "typeString": "type(enum IFeeManager.SettlementType)"
+                                }
+                              },
+                              "id": 40329,
+                              "isConstant": false,
+                              "isLValue": false,
+                              "isPure": true,
+                              "lValueRequested": false,
+                              "memberName": "None",
+                              "nodeType": "MemberAccess",
+                              "referencedDeclaration": null,
+                              "src": "3868:31:153",
+                              "typeDescriptions": {
+                                "typeIdentifier": "t_enum$_SettlementType_$38584",
+                                "typeString": "enum IFeeManager.SettlementType"
+                              }
+                            },
+                            {
+                              "argumentTypes": null,
+                              "arguments": [
+                                {
+                                  "argumentTypes": null,
+                                  "hexValue": "30",
+                                  "id": 40332,
+                                  "isConstant": false,
+                                  "isLValue": false,
+                                  "isPure": true,
+                                  "kind": "number",
+                                  "lValueRequested": false,
+                                  "nodeType": "Literal",
+                                  "src": "3909:1:153",
+                                  "subdenomination": null,
+                                  "typeDescriptions": {
+                                    "typeIdentifier": "t_rational_0_by_1",
+                                    "typeString": "int_const 0"
+                                  },
+                                  "value": "0"
+                                }
+                              ],
+                              "expression": {
+                                "argumentTypes": [
+                                  {
+                                    "typeIdentifier": "t_rational_0_by_1",
+                                    "typeString": "int_const 0"
+                                  }
+                                ],
+                                "id": 40331,
+                                "isConstant": false,
+                                "isLValue": false,
+                                "isPure": true,
+                                "lValueRequested": false,
+                                "nodeType": "ElementaryTypeNameExpression",
+                                "src": "3901:7:153",
+                                "typeDescriptions": {
+                                  "typeIdentifier": "t_type$_t_address_$",
+                                  "typeString": "type(address)"
+                                },
+                                "typeName": {
+                                  "id": 40330,
+                                  "name": "address",
+                                  "nodeType": "ElementaryTypeName",
+                                  "src": "3901:7:153",
+                                  "typeDescriptions": {
+                                    "typeIdentifier": null,
+                                    "typeString": null
+                                  }
+                                }
+                              },
+                              "id": 40333,
+                              "isConstant": false,
+                              "isLValue": false,
+                              "isPure": true,
+                              "kind": "typeConversion",
+                              "lValueRequested": false,
+                              "names": [],
+                              "nodeType": "FunctionCall",
+                              "src": "3901:10:153",
+                              "tryCall": false,
+                              "typeDescriptions": {
+                                "typeIdentifier": "t_address_payable",
+                                "typeString": "address payable"
+                              }
+                            },
+                            {
+                              "argumentTypes": null,
+                              "hexValue": "30",
+                              "id": 40334,
+                              "isConstant": false,
+                              "isLValue": false,
+                              "isPure": true,
+                              "kind": "number",
+                              "lValueRequested": false,
+                              "nodeType": "Literal",
+                              "src": "3913:1:153",
+                              "subdenomination": null,
+                              "typeDescriptions": {
+                                "typeIdentifier": "t_rational_0_by_1",
+                                "typeString": "int_const 0"
+                              },
+                              "value": "0"
+                            }
+                          ],
+                          "id": 40335,
+                          "isConstant": false,
+                          "isInlineArray": false,
+                          "isLValue": false,
+                          "isPure": true,
+                          "lValueRequested": false,
+                          "nodeType": "TupleExpression",
+                          "src": "3867:48:153",
+                          "typeDescriptions": {
+                            "typeIdentifier": "t_tuple$_t_enum$_SettlementType_$38584_$_t_address_payable_$_t_rational_0_by_1_$",
+                            "typeString": "tuple(enum IFeeManager.SettlementType,address payable,int_const 0)"
+                          }
+                        },
+                        "functionReturnParameters": 40279,
+                        "id": 40336,
+                        "nodeType": "Return",
+                        "src": "3860:55:153"
+                      }
+                    ]
+                  }
+                },
+                {
+                  "eventCall": {
+                    "argumentTypes": null,
+                    "arguments": [
+                      {
+                        "argumentTypes": null,
+                        "id": 40340,
+                        "name": "_comptrollerProxy",
+                        "nodeType": "Identifier",
+                        "overloadedDeclarations": [],
+                        "referencedDeclaration": 40260,
+                        "src": "3949:17:153",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_address",
+                          "typeString": "address"
+                        }
+                      },
+                      {
+                        "argumentTypes": null,
+                        "id": 40341,
+                        "name": "payer_",
+                        "nodeType": "Identifier",
+                        "overloadedDeclarations": [],
+                        "referencedDeclaration": 40276,
+                        "src": "3968:6:153",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_address",
+                          "typeString": "address"
+                        }
+                      },
+                      {
+                        "argumentTypes": null,
+                        "id": 40342,
+                        "name": "sharesDue_",
+                        "nodeType": "Identifier",
+                        "overloadedDeclarations": [],
+                        "referencedDeclaration": 40278,
+                        "src": "3976:10:153",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_uint256",
+                          "typeString": "uint256"
+                        }
+                      },
+                      {
+                        "argumentTypes": null,
+                        "id": 40343,
+                        "name": "forSpecificAssets",
+                        "nodeType": "Identifier",
+                        "overloadedDeclarations": [],
+                        "referencedDeclaration": 40281,
+                        "src": "3988:17:153",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_bool",
+                          "typeString": "bool"
+                        }
+                      }
+                    ],
+                    "expression": {
+                      "argumentTypes": [
+                        {
+                          "typeIdentifier": "t_address",
+                          "typeString": "address"
+                        },
+                        {
+                          "typeIdentifier": "t_address",
+                          "typeString": "address"
+                        },
+                        {
+                          "typeIdentifier": "t_uint256",
+                          "typeString": "uint256"
+                        },
+                        {
+                          "typeIdentifier": "t_bool",
+                          "typeString": "bool"
+                        }
+                      ],
+                      "id": 40339,
+                      "name": "Settled",
+                      "nodeType": "Identifier",
+                      "overloadedDeclarations": [],
+                      "referencedDeclaration": 40158,
+                      "src": "3941:7:153",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_function_event_nonpayable$_t_address_$_t_address_$_t_uint256_$_t_bool_$returns$__$",
+                        "typeString": "function (address,address,uint256,bool)"
+                      }
+                    },
+                    "id": 40344,
+                    "isConstant": false,
+                    "isLValue": false,
+                    "isPure": false,
+                    "kind": "functionCall",
+                    "lValueRequested": false,
+                    "names": [],
+                    "nodeType": "FunctionCall",
+                    "src": "3941:65:153",
+                    "tryCall": false,
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_tuple$__$",
+                      "typeString": "tuple()"
+                    }
+                  },
+                  "id": 40345,
+                  "nodeType": "EmitStatement",
+                  "src": "3936:70:153"
+                },
+                {
+                  "expression": {
+                    "argumentTypes": null,
+                    "components": [
+                      {
+                        "argumentTypes": null,
+                        "arguments": [],
+                        "expression": {
+                          "argumentTypes": [],
+                          "id": 40346,
+                          "name": "getSettlementType",
+                          "nodeType": "Identifier",
+                          "overloadedDeclarations": [],
+                          "referencedDeclaration": 40403,
+                          "src": "4025:17:153",
+                          "typeDescriptions": {
+                            "typeIdentifier": "t_function_internal_view$__$returns$_t_enum$_SettlementType_$38584_$",
+                            "typeString": "function () view returns (enum IFeeManager.SettlementType)"
+                          }
+                        },
+                        "id": 40347,
+                        "isConstant": false,
+                        "isLValue": false,
+                        "isPure": false,
+                        "kind": "functionCall",
+                        "lValueRequested": false,
+                        "names": [],
+                        "nodeType": "FunctionCall",
+                        "src": "4025:19:153",
+                        "tryCall": false,
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_enum$_SettlementType_$38584",
+                          "typeString": "enum IFeeManager.SettlementType"
+                        }
+                      },
+                      {
+                        "argumentTypes": null,
+                        "id": 40348,
+                        "name": "payer_",
+                        "nodeType": "Identifier",
+                        "overloadedDeclarations": [],
+                        "referencedDeclaration": 40276,
+                        "src": "4046:6:153",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_address",
+                          "typeString": "address"
+                        }
+                      },
+                      {
+                        "argumentTypes": null,
+                        "id": 40349,
+                        "name": "sharesDue_",
+                        "nodeType": "Identifier",
+                        "overloadedDeclarations": [],
+                        "referencedDeclaration": 40278,
+                        "src": "4054:10:153",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_uint256",
+                          "typeString": "uint256"
+                        }
+                      }
+                    ],
+                    "id": 40350,
+                    "isConstant": false,
+                    "isInlineArray": false,
+                    "isLValue": false,
+                    "isPure": false,
+                    "lValueRequested": false,
+                    "nodeType": "TupleExpression",
+                    "src": "4024:41:153",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_tuple$_t_enum$_SettlementType_$38584_$_t_address_$_t_uint256_$",
+                      "typeString": "tuple(enum IFeeManager.SettlementType,address,uint256)"
+                    }
+                  },
+                  "functionReturnParameters": 40279,
+                  "id": 40351,
+                  "nodeType": "Return",
+                  "src": "4017:48:153"
+                }
+              ]
+            },
+            "baseFunctions": [
+              38536
+            ],
+            "documentation": {
+              "id": 40258,
+              "nodeType": "StructuredDocumentation",
+              "src": "2637:328:153",
+              "text": "@notice Settles the fee\n @param _comptrollerProxy The ComptrollerProxy of the fund\n @param _settlementData Encoded args to use in calculating the settlement\n @return settlementType_ The type of settlement\n @return payer_ The payer of shares due\n @return sharesDue_ The amount of shares due"
+            },
+            "functionSelector": "41892d7e",
+            "implemented": true,
+            "kind": "function",
+            "modifiers": [
+              {
+                "arguments": null,
+                "id": 40272,
+                "modifierName": {
+                  "argumentTypes": null,
+                  "id": 40271,
+                  "name": "onlyFeeManager",
+                  "nodeType": "Identifier",
+                  "overloadedDeclarations": [],
+                  "referencedDeclaration": 40438,
+                  "src": "3172:14:153",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_modifier$__$",
+                    "typeString": "modifier ()"
+                  }
+                },
+                "nodeType": "ModifierInvocation",
+                "src": "3172:14:153"
+              }
+            ],
+            "name": "settle",
+            "overrides": {
+              "id": 40270,
+              "nodeType": "OverrideSpecifier",
+              "overrides": [],
+              "src": "3155:8:153"
+            },
+            "parameters": {
+              "id": 40269,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 40260,
+                  "mutability": "mutable",
+                  "name": "_comptrollerProxy",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 40353,
+                  "src": "2995:25:153",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 40259,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "2995:7:153",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 40262,
+                  "mutability": "mutable",
+                  "name": "",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 40353,
+                  "src": "3030:7:153",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 40261,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "3030:7:153",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 40264,
+                  "mutability": "mutable",
+                  "name": "",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 40353,
+                  "src": "3047:19:153",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_enum$_FeeHook_$38577",
+                    "typeString": "enum IFeeManager.FeeHook"
+                  },
+                  "typeName": {
+                    "contractScope": null,
+                    "id": 40263,
+                    "name": "IFeeManager.FeeHook",
+                    "nodeType": "UserDefinedTypeName",
+                    "referencedDeclaration": 38577,
+                    "src": "3047:19:153",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_enum$_FeeHook_$38577",
+                      "typeString": "enum IFeeManager.FeeHook"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 40266,
+                  "mutability": "mutable",
+                  "name": "_settlementData",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 40353,
+                  "src": "3076:30:153",
+                  "stateVariable": false,
+                  "storageLocation": "calldata",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_bytes_calldata_ptr",
+                    "typeString": "bytes"
+                  },
+                  "typeName": {
+                    "id": 40265,
+                    "name": "bytes",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "3076:5:153",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_bytes_storage_ptr",
+                      "typeString": "bytes"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 40268,
+                  "mutability": "mutable",
+                  "name": "",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 40353,
+                  "src": "3116:7:153",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_uint256",
+                    "typeString": "uint256"
+                  },
+                  "typeName": {
+                    "id": 40267,
+                    "name": "uint256",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "3116:7:153",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_uint256",
+                      "typeString": "uint256"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "2985:144:153"
+            },
+            "returnParameters": {
+              "id": 40279,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 40274,
+                  "mutability": "mutable",
+                  "name": "settlementType_",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 40353,
+                  "src": "3217:42:153",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_enum$_SettlementType_$38584",
+                    "typeString": "enum IFeeManager.SettlementType"
+                  },
+                  "typeName": {
+                    "contractScope": null,
+                    "id": 40273,
+                    "name": "IFeeManager.SettlementType",
+                    "nodeType": "UserDefinedTypeName",
+                    "referencedDeclaration": 38584,
+                    "src": "3217:26:153",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_enum$_SettlementType_$38584",
+                      "typeString": "enum IFeeManager.SettlementType"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 40276,
+                  "mutability": "mutable",
+                  "name": "payer_",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 40353,
+                  "src": "3273:14:153",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 40275,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "3273:7:153",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 40278,
+                  "mutability": "mutable",
+                  "name": "sharesDue_",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 40353,
+                  "src": "3301:18:153",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_uint256",
+                    "typeString": "uint256"
+                  },
+                  "typeName": {
+                    "id": 40277,
+                    "name": "uint256",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "3301:7:153",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_uint256",
+                      "typeString": "uint256"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "3203:126:153"
+            },
+            "scope": 40418,
+            "stateMutability": "nonpayable",
+            "virtual": false,
+            "visibility": "external"
+          },
+          {
+            "id": 40380,
+            "nodeType": "FunctionDefinition",
+            "src": "4336:291:153",
+            "nodes": [],
+            "body": {
+              "id": 40379,
+              "nodeType": "Block",
+              "src": "4484:143:153",
+              "nodes": [],
+              "statements": [
+                {
+                  "condition": {
+                    "argumentTypes": null,
+                    "commonType": {
+                      "typeIdentifier": "t_enum$_FeeHook_$38577",
+                      "typeString": "enum IFeeManager.FeeHook"
+                    },
+                    "id": 40368,
+                    "isConstant": false,
+                    "isLValue": false,
+                    "isPure": false,
+                    "lValueRequested": false,
+                    "leftExpression": {
+                      "argumentTypes": null,
+                      "id": 40364,
+                      "name": "_hook",
+                      "nodeType": "Identifier",
+                      "overloadedDeclarations": [],
+                      "referencedDeclaration": 40356,
+                      "src": "4498:5:153",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_enum$_FeeHook_$38577",
+                        "typeString": "enum IFeeManager.FeeHook"
+                      }
+                    },
+                    "nodeType": "BinaryOperation",
+                    "operator": "==",
+                    "rightExpression": {
+                      "argumentTypes": null,
+                      "expression": {
+                        "argumentTypes": null,
+                        "expression": {
+                          "argumentTypes": null,
+                          "id": 40365,
+                          "name": "IFeeManager",
+                          "nodeType": "Identifier",
+                          "overloadedDeclarations": [],
+                          "referencedDeclaration": 38594,
+                          "src": "4507:11:153",
+                          "typeDescriptions": {
+                            "typeIdentifier": "t_type$_t_contract$_IFeeManager_$38594_$",
+                            "typeString": "type(contract IFeeManager)"
+                          }
+                        },
+                        "id": 40366,
+                        "isConstant": false,
+                        "isLValue": false,
+                        "isPure": false,
+                        "lValueRequested": false,
+                        "memberName": "FeeHook",
+                        "nodeType": "MemberAccess",
+                        "referencedDeclaration": 38577,
+                        "src": "4507:19:153",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_type$_t_enum$_FeeHook_$38577_$",
+                          "typeString": "type(enum IFeeManager.FeeHook)"
+                        }
+                      },
+                      "id": 40367,
+                      "isConstant": false,
+                      "isLValue": false,
+                      "isPure": true,
+                      "lValueRequested": false,
+                      "memberName": "PreRedeemShares",
+                      "nodeType": "MemberAccess",
+                      "referencedDeclaration": null,
+                      "src": "4507:35:153",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_enum$_FeeHook_$38577",
+                        "typeString": "enum IFeeManager.FeeHook"
+                      }
+                    },
+                    "src": "4498:44:153",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_bool",
+                      "typeString": "bool"
+                    }
+                  },
+                  "falseBody": null,
+                  "id": 40374,
+                  "nodeType": "IfStatement",
+                  "src": "4494:95:153",
+                  "trueBody": {
+                    "id": 40373,
+                    "nodeType": "Block",
+                    "src": "4544:45:153",
+                    "statements": [
+                      {
+                        "expression": {
+                          "argumentTypes": null,
+                          "components": [
+                            {
+                              "argumentTypes": null,
+                              "hexValue": "74727565",
+                              "id": 40369,
+                              "isConstant": false,
+                              "isLValue": false,
+                              "isPure": true,
+                              "kind": "bool",
+                              "lValueRequested": false,
+                              "nodeType": "Literal",
+                              "src": "4566:4:153",
+                              "subdenomination": null,
+                              "typeDescriptions": {
+                                "typeIdentifier": "t_bool",
+                                "typeString": "bool"
+                              },
+                              "value": "true"
+                            },
+                            {
+                              "argumentTypes": null,
+                              "hexValue": "66616c7365",
+                              "id": 40370,
+                              "isConstant": false,
+                              "isLValue": false,
+                              "isPure": true,
+                              "kind": "bool",
+                              "lValueRequested": false,
+                              "nodeType": "Literal",
+                              "src": "4572:5:153",
+                              "subdenomination": null,
+                              "typeDescriptions": {
+                                "typeIdentifier": "t_bool",
+                                "typeString": "bool"
+                              },
+                              "value": "false"
+                            }
+                          ],
+                          "id": 40371,
+                          "isConstant": false,
+                          "isInlineArray": false,
+                          "isLValue": false,
+                          "isPure": true,
+                          "lValueRequested": false,
+                          "nodeType": "TupleExpression",
+                          "src": "4565:13:153",
+                          "typeDescriptions": {
+                            "typeIdentifier": "t_tuple$_t_bool_$_t_bool_$",
+                            "typeString": "tuple(bool,bool)"
+                          }
+                        },
+                        "functionReturnParameters": 40363,
+                        "id": 40372,
+                        "nodeType": "Return",
+                        "src": "4558:20:153"
+                      }
+                    ]
+                  }
+                },
+                {
+                  "expression": {
+                    "argumentTypes": null,
+                    "components": [
+                      {
+                        "argumentTypes": null,
+                        "hexValue": "66616c7365",
+                        "id": 40375,
+                        "isConstant": false,
+                        "isLValue": false,
+                        "isPure": true,
+                        "kind": "bool",
+                        "lValueRequested": false,
+                        "nodeType": "Literal",
+                        "src": "4607:5:153",
+                        "subdenomination": null,
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_bool",
+                          "typeString": "bool"
+                        },
+                        "value": "false"
+                      },
+                      {
+                        "argumentTypes": null,
+                        "hexValue": "66616c7365",
+                        "id": 40376,
+                        "isConstant": false,
+                        "isLValue": false,
+                        "isPure": true,
+                        "kind": "bool",
+                        "lValueRequested": false,
+                        "nodeType": "Literal",
+                        "src": "4614:5:153",
+                        "subdenomination": null,
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_bool",
+                          "typeString": "bool"
+                        },
+                        "value": "false"
+                      }
+                    ],
+                    "id": 40377,
+                    "isConstant": false,
+                    "isInlineArray": false,
+                    "isLValue": false,
+                    "isPure": true,
+                    "lValueRequested": false,
+                    "nodeType": "TupleExpression",
+                    "src": "4606:14:153",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_tuple$_t_bool_$_t_bool_$",
+                      "typeString": "tuple(bool,bool)"
+                    }
+                  },
+                  "functionReturnParameters": 40363,
+                  "id": 40378,
+                  "nodeType": "Return",
+                  "src": "4599:21:153"
+                }
+              ]
+            },
+            "baseFunctions": [
+              38545
+            ],
+            "documentation": {
+              "id": 40354,
+              "nodeType": "StructuredDocumentation",
+              "src": "4078:253:153",
+              "text": "@notice Gets whether the fee settles and requires GAV on a particular hook\n @param _hook The FeeHook\n @return settles_ True if the fee settles on the _hook\n @return usesGav_ True if the fee uses GAV during settle() for the _hook"
+            },
+            "functionSelector": "320f0ddd",
+            "implemented": true,
+            "kind": "function",
+            "modifiers": [],
+            "name": "settlesOnHook",
+            "overrides": {
+              "id": 40358,
+              "nodeType": "OverrideSpecifier",
+              "overrides": [],
+              "src": "4424:8:153"
+            },
+            "parameters": {
+              "id": 40357,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 40356,
+                  "mutability": "mutable",
+                  "name": "_hook",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 40380,
+                  "src": "4359:25:153",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_enum$_FeeHook_$38577",
+                    "typeString": "enum IFeeManager.FeeHook"
+                  },
+                  "typeName": {
+                    "contractScope": null,
+                    "id": 40355,
+                    "name": "IFeeManager.FeeHook",
+                    "nodeType": "UserDefinedTypeName",
+                    "referencedDeclaration": 38577,
+                    "src": "4359:19:153",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_enum$_FeeHook_$38577",
+                      "typeString": "enum IFeeManager.FeeHook"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "4358:27:153"
+            },
+            "returnParameters": {
+              "id": 40363,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 40360,
+                  "mutability": "mutable",
+                  "name": "settles_",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 40380,
+                  "src": "4450:13:153",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_bool",
+                    "typeString": "bool"
+                  },
+                  "typeName": {
+                    "id": 40359,
+                    "name": "bool",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "4450:4:153",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_bool",
+                      "typeString": "bool"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 40362,
+                  "mutability": "mutable",
+                  "name": "usesGav_",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 40380,
+                  "src": "4465:13:153",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_bool",
+                    "typeString": "bool"
+                  },
+                  "typeName": {
+                    "id": 40361,
+                    "name": "bool",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "4465:4:153",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_bool",
+                      "typeString": "bool"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "4449:30:153"
+            },
+            "scope": 40418,
+            "stateMutability": "view",
+            "virtual": false,
+            "visibility": "external"
+          },
+          {
+            "id": 40394,
+            "nodeType": "FunctionDefinition",
+            "src": "4877:172:153",
+            "nodes": [],
+            "body": {
+              "id": 40393,
+              "nodeType": "Block",
+              "src": "4970:79:153",
+              "nodes": [],
+              "statements": [
+                {
+                  "expression": {
+                    "argumentTypes": null,
+                    "expression": {
+                      "argumentTypes": null,
+                      "baseExpression": {
+                        "argumentTypes": null,
+                        "id": 40388,
+                        "name": "comptrollerProxyToFeeInfo",
+                        "nodeType": "Identifier",
+                        "overloadedDeclarations": [],
+                        "referencedDeclaration": 40172,
+                        "src": "4987:25:153",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_mapping$_t_address_$_t_struct$_FeeInfo_$40163_storage_$",
+                          "typeString": "mapping(address => struct ExitRateFeeBase.FeeInfo storage ref)"
+                        }
+                      },
+                      "id": 40390,
+                      "indexExpression": {
+                        "argumentTypes": null,
+                        "id": 40389,
+                        "name": "_comptrollerProxy",
+                        "nodeType": "Identifier",
+                        "overloadedDeclarations": [],
+                        "referencedDeclaration": 40383,
+                        "src": "5013:17:153",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_address",
+                          "typeString": "address"
+                        }
+                      },
+                      "isConstant": false,
+                      "isLValue": true,
+                      "isPure": false,
+                      "lValueRequested": false,
+                      "nodeType": "IndexAccess",
+                      "src": "4987:44:153",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_struct$_FeeInfo_$40163_storage",
+                        "typeString": "struct ExitRateFeeBase.FeeInfo storage ref"
+                      }
+                    },
+                    "id": 40391,
+                    "isConstant": false,
+                    "isLValue": true,
+                    "isPure": false,
+                    "lValueRequested": false,
+                    "memberName": "inKindRate",
+                    "nodeType": "MemberAccess",
+                    "referencedDeclaration": 40160,
+                    "src": "4987:55:153",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_uint16",
+                      "typeString": "uint16"
+                    }
+                  },
+                  "functionReturnParameters": 40387,
+                  "id": 40392,
+                  "nodeType": "Return",
+                  "src": "4980:62:153"
+                }
+              ]
+            },
+            "documentation": {
+              "id": 40381,
+              "nodeType": "StructuredDocumentation",
+              "src": "4706:166:153",
+              "text": "@notice Gets the fee rate for an in-kind redemption\n @param _comptrollerProxy The ComptrollerProxy contract for the fund\n @return rate_ The fee rate"
+            },
+            "functionSelector": "223e6505",
+            "implemented": true,
+            "kind": "function",
+            "modifiers": [],
+            "name": "getInKindRateForFund",
+            "overrides": null,
+            "parameters": {
+              "id": 40384,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 40383,
+                  "mutability": "mutable",
+                  "name": "_comptrollerProxy",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 40394,
+                  "src": "4907:25:153",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 40382,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "4907:7:153",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "4906:27:153"
+            },
+            "returnParameters": {
+              "id": 40387,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 40386,
+                  "mutability": "mutable",
+                  "name": "rate_",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 40394,
+                  "src": "4955:13:153",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_uint256",
+                    "typeString": "uint256"
+                  },
+                  "typeName": {
+                    "id": 40385,
+                    "name": "uint256",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "4955:7:153",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_uint256",
+                      "typeString": "uint256"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "4954:15:153"
+            },
+            "scope": 40418,
+            "stateMutability": "view",
+            "virtual": false,
+            "visibility": "public"
+          },
+          {
+            "id": 40403,
+            "nodeType": "FunctionDefinition",
+            "src": "5176:133:153",
+            "nodes": [],
+            "body": {
+              "id": 40402,
+              "nodeType": "Block",
+              "src": "5270:39:153",
+              "nodes": [],
+              "statements": [
+                {
+                  "expression": {
+                    "argumentTypes": null,
+                    "id": 40400,
+                    "name": "SETTLEMENT_TYPE",
+                    "nodeType": "Identifier",
+                    "overloadedDeclarations": [],
+                    "referencedDeclaration": 40168,
+                    "src": "5287:15:153",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_enum$_SettlementType_$38584",
+                      "typeString": "enum IFeeManager.SettlementType"
+                    }
+                  },
+                  "functionReturnParameters": 40399,
+                  "id": 40401,
+                  "nodeType": "Return",
+                  "src": "5280:22:153"
+                }
+              ]
+            },
+            "documentation": {
+              "id": 40395,
+              "nodeType": "StructuredDocumentation",
+              "src": "5055:116:153",
+              "text": "@notice Gets the `SETTLEMENT_TYPE` variable\n @return settlementType_ The `SETTLEMENT_TYPE` variable value"
+            },
+            "functionSelector": "7bdd5b1d",
+            "implemented": true,
+            "kind": "function",
+            "modifiers": [],
+            "name": "getSettlementType",
+            "overrides": null,
+            "parameters": {
+              "id": 40396,
+              "nodeType": "ParameterList",
+              "parameters": [],
+              "src": "5202:2:153"
+            },
+            "returnParameters": {
+              "id": 40399,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 40398,
+                  "mutability": "mutable",
+                  "name": "settlementType_",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 40403,
+                  "src": "5226:42:153",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_enum$_SettlementType_$38584",
+                    "typeString": "enum IFeeManager.SettlementType"
+                  },
+                  "typeName": {
+                    "contractScope": null,
+                    "id": 40397,
+                    "name": "IFeeManager.SettlementType",
+                    "nodeType": "UserDefinedTypeName",
+                    "referencedDeclaration": 38584,
+                    "src": "5226:26:153",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_enum$_SettlementType_$38584",
+                      "typeString": "enum IFeeManager.SettlementType"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "5225:44:153"
+            },
+            "scope": 40418,
+            "stateMutability": "view",
+            "virtual": false,
+            "visibility": "public"
+          },
+          {
+            "id": 40417,
+            "nodeType": "FunctionDefinition",
+            "src": "5493:216:153",
+            "nodes": [],
+            "body": {
+              "id": 40416,
+              "nodeType": "Block",
+              "src": "5622:87:153",
+              "nodes": [],
+              "statements": [
+                {
+                  "expression": {
+                    "argumentTypes": null,
+                    "expression": {
+                      "argumentTypes": null,
+                      "baseExpression": {
+                        "argumentTypes": null,
+                        "id": 40411,
+                        "name": "comptrollerProxyToFeeInfo",
+                        "nodeType": "Identifier",
+                        "overloadedDeclarations": [],
+                        "referencedDeclaration": 40172,
+                        "src": "5639:25:153",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_mapping$_t_address_$_t_struct$_FeeInfo_$40163_storage_$",
+                          "typeString": "mapping(address => struct ExitRateFeeBase.FeeInfo storage ref)"
+                        }
+                      },
+                      "id": 40413,
+                      "indexExpression": {
+                        "argumentTypes": null,
+                        "id": 40412,
+                        "name": "_comptrollerProxy",
+                        "nodeType": "Identifier",
+                        "overloadedDeclarations": [],
+                        "referencedDeclaration": 40406,
+                        "src": "5665:17:153",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_address",
+                          "typeString": "address"
+                        }
+                      },
+                      "isConstant": false,
+                      "isLValue": true,
+                      "isPure": false,
+                      "lValueRequested": false,
+                      "nodeType": "IndexAccess",
+                      "src": "5639:44:153",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_struct$_FeeInfo_$40163_storage",
+                        "typeString": "struct ExitRateFeeBase.FeeInfo storage ref"
+                      }
+                    },
+                    "id": 40414,
+                    "isConstant": false,
+                    "isLValue": true,
+                    "isPure": false,
+                    "lValueRequested": false,
+                    "memberName": "specificAssetsRate",
+                    "nodeType": "MemberAccess",
+                    "referencedDeclaration": 40162,
+                    "src": "5639:63:153",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_uint16",
+                      "typeString": "uint16"
+                    }
+                  },
+                  "functionReturnParameters": 40410,
+                  "id": 40415,
+                  "nodeType": "Return",
+                  "src": "5632:70:153"
+                }
+              ]
+            },
+            "documentation": {
+              "id": 40404,
+              "nodeType": "StructuredDocumentation",
+              "src": "5315:173:153",
+              "text": "@notice Gets the fee rate for a specific assets redemption\n @param _comptrollerProxy The ComptrollerProxy contract for the fund\n @return rate_ The fee rate"
+            },
+            "functionSelector": "a8a0fa7d",
+            "implemented": true,
+            "kind": "function",
+            "modifiers": [],
+            "name": "getSpecificAssetsRateForFund",
+            "overrides": null,
+            "parameters": {
+              "id": 40407,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 40406,
+                  "mutability": "mutable",
+                  "name": "_comptrollerProxy",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 40417,
+                  "src": "5531:25:153",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 40405,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "5531:7:153",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "5530:27:153"
+            },
+            "returnParameters": {
+              "id": 40410,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 40409,
+                  "mutability": "mutable",
+                  "name": "rate_",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 40417,
+                  "src": "5603:13:153",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_uint256",
+                    "typeString": "uint256"
+                  },
+                  "typeName": {
+                    "id": 40408,
+                    "name": "uint256",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "5603:7:153",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_uint256",
+                      "typeString": "uint256"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "5602:15:153"
+            },
+            "scope": 40418,
+            "stateMutability": "view",
+            "virtual": false,
+            "visibility": "public"
+          }
+        ],
+        "abstract": true,
+        "baseContracts": [
+          {
+            "arguments": null,
+            "baseName": {
+              "contractScope": null,
+              "id": 40136,
+              "name": "FeeBase",
+              "nodeType": "UserDefinedTypeName",
+              "referencedDeclaration": 40602,
+              "src": "577:7:153",
+              "typeDescriptions": {
+                "typeIdentifier": "t_contract$_FeeBase_$40602",
+                "typeString": "contract FeeBase"
+              }
+            },
+            "id": 40137,
+            "nodeType": "InheritanceSpecifier",
+            "src": "577:7:153"
+          }
+        ],
+        "contractDependencies": [
+          38568,
+          40602
+        ],
+        "contractKind": "contract",
+        "documentation": {
+          "id": 40135,
+          "nodeType": "StructuredDocumentation",
+          "src": "357:183:153",
+          "text": "@title ExitRateFeeBase Contract\n @author Enzyme Council <security@enzyme.finance>\n @notice Calculates a fee based on a rate to be charged to an investor upon exiting a fund"
+        },
+        "fullyImplemented": true,
+        "linearizedBaseContracts": [
+          40418,
+          40602,
+          38568
+        ],
+        "name": "ExitRateFeeBase",
+        "scope": 40419
+      }
+    ],
+    "license": "GPL-3.0"
+  },
+  "id": 153
 }

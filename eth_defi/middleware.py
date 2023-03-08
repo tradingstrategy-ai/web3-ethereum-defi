@@ -20,6 +20,9 @@ from requests.exceptions import (
     Timeout,
     TooManyRedirects,
 )
+from web3._utils.transactions import get_buffered_gas_estimate
+from eth_utils.toolz import assoc
+from web3.exceptions import ContractLogicError
 
 from web3.middleware.exception_retry_request import check_if_retry_on_failure
 from web3.types import RPCEndpoint, RPCResponse
@@ -200,3 +203,51 @@ def http_retry_request_with_sleep_middleware(
         retryable_status_codes=DEFAULT_RETRYABLE_HTTP_STATUS_CODES,
         retryable_rpc_error_codes=DEFAULT_RETRYABLE_RPC_ERROR_CODES,
     )
+
+
+def raise_on_revert_middleware(
+        make_request: Callable[[RPCEndpoint, Any], Any],
+        web3: "Web3",
+) -> Callable[[RPCEndpoint, Any], Any]:
+    """Automatically show the transaction revert reason in Python traceback.
+
+    - Designed to make writing unit tests more productive
+
+    - Transaction will already revert in `eth_estimateGas` call unless you have manually
+      set the gas limit for your transaction
+
+    - If a transaction fails, this middleware display its revert reason in Python exception message
+
+    - Tested with Anvil testing backend
+
+    - May interfere with :py:func:`http_retry_request_with_sleep_middleware`, others,
+      so don't use in production
+
+    .. code-block::
+
+        from eth_defi.middleware import revert_reason_middleware
+
+        # Fix the web3.py stock gas estimate middlware with smarted one
+        web3.middleware_onion.replace("gas_estimate", revert_reason_aware_buffered_gas_estimate_middleware)
+
+        # Now you check the revert reason as the following
+
+    """
+    def middleware(method: RPCEndpoint, params: Any) -> RPCResponse:
+        if method == 'eth_sendTransaction':
+            transaction = params[0]
+            if 'gas' not in transaction:
+                try:
+                    transaction = assoc(
+                        transaction,
+                        'gas',
+                        hex(get_buffered_gas_estimate(web3, transaction)),
+                    )
+                except ContractLogicError as e:
+                    import ipdb ; ipdb.set_trace()
+                    raise e
+
+                return make_request(method, [transaction])
+        return make_request(method, params)
+
+    return middleware

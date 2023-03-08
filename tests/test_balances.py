@@ -64,7 +64,7 @@ def aave(web3, deployer) -> Contract:
     return token
 
 
-def test_portfolio_current(web3: Web3, deployer: str, user_1: str, usdc: Contract, aave: Contract):
+def test_portfolio_current(web3: Web3, deployer: str, user_1, usdc: Contract, aave: Contract):
     """Analyse current holdings of an address."""
 
     # Load up the user with some tokens
@@ -75,7 +75,7 @@ def test_portfolio_current(web3: Web3, deployer: str, user_1: str, usdc: Contrac
     assert balances[aave.address] == 200
 
 
-def test_portfolio_past(web3: Web3, deployer: str, user_1: str, usdc: Contract, aave: Contract):
+def test_portfolio_past(web3: Web3, deployer: str, user_1, usdc: Contract, aave: Contract):
     """Analyse past holdings of an address."""
 
     # Load up the user with some tokens
@@ -110,7 +110,7 @@ def test_portfolio_past(web3: Web3, deployer: str, user_1: str, usdc: Contract, 
 #     assert balances[aave.address].decimals == 18
 
 
-def test_portfolio_two_transactions(web3: Web3, deployer: str, user_1: str, usdc: Contract, aave: Contract):
+def test_portfolio_two_transactions(web3: Web3, deployer: str, user_1, usdc: Contract, aave: Contract):
     """Get the balance after two top up transactions."""
     usdc.functions.transfer(user_1, 500).transact({"from": deployer})
     usdc.functions.transfer(user_1, 300).transact({"from": deployer})
@@ -118,7 +118,7 @@ def test_portfolio_two_transactions(web3: Web3, deployer: str, user_1: str, usdc
     assert balances[usdc.address] == 800
 
 
-def test_portfolio_debit_transactions(web3: Web3, deployer: str, user_1: str, usdc: Contract, aave: Contract):
+def test_portfolio_debit_transactions(web3: Web3, deployer: str, user_1, usdc: Contract, aave: Contract):
     """Get the balance after debit  transactions."""
     usdc.functions.transfer(user_1, 500).transact({"from": deployer})
     usdc.functions.transfer(deployer, 300).transact({"from": user_1})
@@ -126,7 +126,7 @@ def test_portfolio_debit_transactions(web3: Web3, deployer: str, user_1: str, us
     assert balances[usdc.address] == 200
 
 
-def test_portfolio_token_list(web3: Web3, deployer: str, user_1: str, usdc: Contract, aave: Contract):
+def test_portfolio_token_list(web3: Web3, deployer: str, user_1, usdc: Contract, aave: Contract):
     """Analyse current holdings by a token list."""
     # Create a set of tokens
     tokens = {aave.address, usdc.address}

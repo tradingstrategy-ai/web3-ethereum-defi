@@ -1,0 +1,755 @@
+{
+  "abi": [
+    {
+      "inputs": [
+        {
+          "components": [
+            {
+              "internalType": "address",
+              "name": "lendingPool",
+              "type": "address"
+            },
+            {
+              "internalType": "address",
+              "name": "lendingPoolAddressProvider",
+              "type": "address"
+            }
+          ],
+          "internalType": "struct AaveDeployment.DeployAaveParams",
+          "name": "_params",
+          "type": "tuple"
+        }
+      ],
+      "name": "createAaveDeployment",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    }
+  ],
+  "bytecode": {
+    "object": "0x",
+    "sourceMap": "",
+    "linkReferences": {}
+  },
+  "deployedBytecode": {
+    "object": "0x",
+    "sourceMap": "",
+    "linkReferences": {}
+  },
+  "methodIdentifiers": {
+    "createAaveDeployment((address,address))": "263de405"
+  },
+  "rawMetadata": "{\"compiler\":{\"version\":\"0.8.17+commit.8df45f5f\"},\"language\":\"Solidity\",\"output\":{\"abi\":[{\"inputs\":[{\"components\":[{\"internalType\":\"address\",\"name\":\"lendingPool\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"lendingPoolAddressProvider\",\"type\":\"address\"}],\"internalType\":\"struct AaveDeployment.DeployAaveParams\",\"name\":\"_params\",\"type\":\"tuple\"}],\"name\":\"createAaveDeployment\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"}],\"devdoc\":{\"kind\":\"dev\",\"methods\":{},\"version\":1},\"userdoc\":{\"kind\":\"user\",\"methods\":{},\"version\":1}},\"settings\":{\"compilationTarget\":{\"tests/scaffolding/aave/AaveTest.sol\":\"AaveTest\"},\"evmVersion\":\"london\",\"libraries\":{},\"metadata\":{\"bytecodeHash\":\"none\"},\"optimizer\":{\"details\":{\"constantOptimizer\":true,\"cse\":true,\"deduplicate\":true,\"inliner\":true,\"jumpdestRemover\":true,\"orderLiterals\":true,\"peephole\":true,\"yul\":false},\"runs\":200},\"remappings\":[\":@enzyme/=contracts/\",\":@openzeppelin-solc-0.7/=node_modules/@openzeppelin-solc-0.7/\",\":@openzeppelin/=node_modules/@openzeppelin/\",\":@uniswap/=node_modules/@uniswap/\",\":base64-sol/=node_modules/base64-sol/\",\":ds-test/=lib/forge-std/lib/ds-test/src/\",\":forge-std/=lib/forge-std/src/\",\":hardhat-deploy/=node_modules/hardhat-deploy/\",\":hardhat/=node_modules/hardhat/\"]},\"sources\":{\"lib/forge-std/src/Base.sol\":{\"keccak256\":\"0x609e3a00319169988cc8272e837f350a9ba77cf8f8f62e4897a8e4a8a5f0fb27\",\"license\":\"MIT\",\"urls\":[\"bzz-raw://b24435e35ba5b080ebd6e8976c23fb735c7212d042be8462ffd2ea50c5250363\",\"dweb:/ipfs/QmPeVvN7FS4oMmCuYAeRdZihTfrG4tA7Vvunuvv59a6wre\"]},\"lib/forge-std/src/Script.sol\":{\"keccak256\":\"0xd566affaba92598bcd059dcb3714a968aeedb365ec0d666815e8b38519e0f433\",\"license\":\"MIT\",\"urls\":[\"bzz-raw://2fb5f7a97d2a7a06e10c198b60f05e64176eb4ef306b72800c168e7a7ec51693\",\"dweb:/ipfs/Qmcep4r7YEU3BwFJNTTxZsdCVzBYdtcVp8oDtmwLoZGRzP\"]},\"lib/forge-std/src/StdChains.sol\":{\"keccak256\":\"0x097b75f7171af89f433407e040d11b22fc26e2fe03793c2cfe18cad390d7af8b\",\"license\":\"MIT\",\"urls\":[\"bzz-raw://19d1dca7b398e517499ffa65ad44df69cdd016f37dc57e2d07d50279d3ddee17\",\"dweb:/ipfs/QmfMFR25367GB5PoBi1KZxWs1hZcJtC3eANiioG3dKj8ah\"]},\"lib/forge-std/src/StdCheats.sol\":{\"keccak256\":\"0xf6746576912986486f4e5eccdb6b3bbb03e47c4da75a59acc4b1c313b8d31d9f\",\"license\":\"MIT\",\"urls\":[\"bzz-raw://01fd4243d8a85cc7f07b6c5ac9e3f5f38b2443ef82025953c3badb39099fe2e4\",\"dweb:/ipfs/QmVDUyQ3tE4a2b87wJDAkwwyFwRpUPGuy8yJDV9JgHqnrd\"]},\"lib/forge-std/src/StdJson.sol\":{\"keccak256\":\"0x9e2a7521190c462a0667706385f1c52a816220a9813ca8ac520fba7ba45d660b\",\"license\":\"MIT\",\"urls\":[\"bzz-raw://7d23017fe6570b28130a731b86179352b93a5fb5af32f11559837afc1186293c\",\"dweb:/ipfs/QmR3p6zG5Kmcr8gKocFCSopLHfXv1AziPJbH17nKyMxwxV\"]},\"lib/forge-std/src/StdMath.sol\":{\"keccak256\":\"0xd90ad4fd8aeaeb8929964e686e769fdedd5eded3fc3815df194a0ab9f91a3fb2\",\"license\":\"MIT\",\"urls\":[\"bzz-raw://7919b70f636c7b805223992f28ad1ad0145d6c1385b5931a3589aface5fe6c92\",\"dweb:/ipfs/QmY7FRaULwoGgFteF8GawjQJRfasNgpWnU2aiMsFrYpuTC\"]},\"lib/forge-std/src/StdStorage.sol\":{\"keccak256\":\"0xd1517df281f973dba8b7ba52c02d3df552b60d91b8f47e4669049da648778673\",\"license\":\"MIT\",\"urls\":[\"bzz-raw://52e43264f58a5dcfd985f3c99aa81064805aa8f1c2b4c6521fd63d45cdbba8d5\",\"dweb:/ipfs/QmUMTF6cRjt5tCQrrgQDXVRmHQLjevNsTvLFdaA1m9TBj9\"]},\"lib/forge-std/src/StdUtils.sol\":{\"keccak256\":\"0x6584855fecbe5b6a9f8ebdb26b37c58532c5bc5cc6e1737dfa7c8a045087be55\",\"license\":\"MIT\",\"urls\":[\"bzz-raw://40a35a4d292b4fed02e11d5f25fb474f10a7c4eb99f75b5383dc23fcb6e55d3c\",\"dweb:/ipfs/QmYZ2nz1EmNh4xLWf4YybZoa1Da1z3Wq3w4pneMhkouMi4\"]},\"lib/forge-std/src/Vm.sol\":{\"keccak256\":\"0xe0cfe5ca62fb9d9366be870999bd82802d6b913c1f960f67b8f17060008f2d1a\",\"license\":\"MIT\",\"urls\":[\"bzz-raw://ddadc1e899953cb26e7d87c0f27284d02f09b611cfd3300e321c33dc2c65d0b3\",\"dweb:/ipfs/Qmbmrdph3D5YweihJSPM6sopZcSKWMox2ZM89dyonfhrq8\"]},\"lib/forge-std/src/console.sol\":{\"keccak256\":\"0x91d5413c2434ca58fd278b6e1e79fd98d10c83931cc2596a6038eee4daeb34ba\",\"license\":\"MIT\",\"urls\":[\"bzz-raw://91ccea707361e48b9b7a161fe81f496b9932bc471e9c4e4e1e9c283f2453cc70\",\"dweb:/ipfs/QmcB66sZhQ6Kz7MUHcLE78YXRUZxoZnnxZjN6yATsbB2ec\"]},\"lib/forge-std/src/console2.sol\":{\"keccak256\":\"0xcd5706f5a7025825d9fd389c89b49bf571f9abaea8a062dc4048320b5b43bf46\",\"license\":\"MIT\",\"urls\":[\"bzz-raw://c066485a7d4bd18d44efb4c89274b0959e8066b9a480383a2ce07d7f31555f88\",\"dweb:/ipfs/QmckeYfA5FtAjcxaytq69Dpj6uY57tbQ61kNPPxXi9kgbW\"]},\"lib/forge-std/src/interfaces/IMulticall3.sol\":{\"keccak256\":\"0x7aac1389150499a922d1f9ef5749c908cef127cb2075b92fa17e9cb611263d0a\",\"license\":\"MIT\",\"urls\":[\"bzz-raw://d95ebb7c7c463e08ebc12dab639945752fb2480acfc6e86da32f72732a7fd0c0\",\"dweb:/ipfs/QmNXK8P8oPWwajsQHvAHw3JPyQidPLCGQN3hWu1Lk6PBL2\"]},\"node_modules/@openzeppelin/contractsV4/token/ERC20/ERC20.sol\":{\"keccak256\":\"0x4ffc0547c02ad22925310c585c0f166f8759e2648a09e9b489100c42f15dd98d\",\"license\":\"MIT\",\"urls\":[\"bzz-raw://15f52f51413a9de1ff191e2f6367c62178e1df7806d7880fe857a98b0b66253d\",\"dweb:/ipfs/QmaQG1fwfgUt5E9nu2cccFiV47B2V78MM1tCy1qB7n4MsH\"]},\"node_modules/@openzeppelin/contractsV4/token/ERC20/IERC20.sol\":{\"keccak256\":\"0x9750c6b834f7b43000631af5cc30001c5f547b3ceb3635488f140f60e897ea6b\",\"license\":\"MIT\",\"urls\":[\"bzz-raw://5a7d5b1ef5d8d5889ad2ed89d8619c09383b80b72ab226e0fe7bde1636481e34\",\"dweb:/ipfs/QmebXWgtEfumQGBdVeM6c71McLixYXQP5Bk6kKXuoY4Bmr\"]},\"node_modules/@openzeppelin/contractsV4/token/ERC20/extensions/IERC20Metadata.sol\":{\"keccak256\":\"0x8de418a5503946cabe331f35fe242d3201a73f67f77aaeb7110acb1f30423aca\",\"license\":\"MIT\",\"urls\":[\"bzz-raw://5a376d3dda2cb70536c0a45c208b29b34ac560c4cb4f513a42079f96ba47d2dd\",\"dweb:/ipfs/QmZQg6gn1sUpM8wHzwNvSnihumUCAhxD119MpXeKp8B9s8\"]},\"node_modules/@openzeppelin/contractsV4/utils/Context.sol\":{\"keccak256\":\"0xe2e337e6dde9ef6b680e07338c493ebea1b5fd09b43424112868e9cc1706bca7\",\"license\":\"MIT\",\"urls\":[\"bzz-raw://6df0ddf21ce9f58271bdfaa85cde98b200ef242a05a3f85c2bc10a8294800a92\",\"dweb:/ipfs/QmRK2Y5Yc6BK7tGKkgsgn3aJEQGi5aakeSPZvS65PV8Xp3\"]},\"tests/TestEnvironment.sol\":{\"keccak256\":\"0x8f59201e23d5e5b39567d43213517e342bdf593a66b7ff1ffc3759a1e354cf4d\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://53cc8e0825d322265fbf0c59f75f28ae31b6c09da0934cfeeeeb3141fc3cbb60\",\"dweb:/ipfs/QmehKFv8oxfQf4P4hzp9iimEs8mujeQtozerKSy16redWL\"]},\"tests/deployment/CoreDeployment.sol\":{\"keccak256\":\"0x7c60de4a9993f09ded2ededc447f92db51eec2d52406c34909b8485d768212d9\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://032852ddf1a41f66dec6708da48a9b98e91f7ec74a930a4827151870001de3ac\",\"dweb:/ipfs/QmUBWGN8AQ1K7NogfaVzjnWTzkRZbhWZhvEE88vPXoyQj5\"]},\"tests/deployment/Deployer.sol\":{\"keccak256\":\"0x06d6d673d5a1fa3ba0cee2bad376a67e2c6f1d8ddc8cea8d2fc5482f02bd6e1b\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://01dd1f8fd96de870d3c2108b5efaece1d15f3b3a5539502058b3528f4af623ae\",\"dweb:/ipfs/QmenLdpSUyRz8Ng2W4JyNBQeZSeAVno4dyxhQ3qYYK3URq\"]},\"tests/interfaces/IAaveV2Adapter.sol\":{\"keccak256\":\"0x78356eb46b48f57339ae633bc719a9fa3669ed70481fb03a5737dfa91b81eb32\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://239b5a15e131f7c4b9fc7e28b2c5c8d5bf91838a39ec3c791b568f79398a64e2\",\"dweb:/ipfs/QmRTCjm7uog9CitEmmJWvDYtocSS3DrP4QfhW9Mf7igqXx\"]},\"tests/interfaces/IAddressListRegistry.sol\":{\"keccak256\":\"0x63302f2cba6cb7e083df5f8e58935d553aed77eddd636cdfca624a69d1dc67c1\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://58fc3ceef1699198a05d3de52c458bb883a34e64189a6c9402831eda2217de53\",\"dweb:/ipfs/QmVeiZqzKtUvgnNKDKbFNXenuy1BhbwL5KBZo9zfiboN9u\"]},\"tests/interfaces/IChainlinkPriceFeedMixin.sol\":{\"keccak256\":\"0x8885852b4c72ad3d10986d243bd2ef35353ca98814a817b8bbaf622c28f2b5bf\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://342981ed8e189ac0bd674192715983412e5e20ee4fe5ae6822cd539c630ed3d1\",\"dweb:/ipfs/QmSFx6EJr5MAGjW8MkQ3V45kHim186TNSq3CHGUxr9n2xy\"]},\"tests/interfaces/IDispatcher.sol\":{\"keccak256\":\"0x144ef00aad1f9baed31064ca6950a04ded9cdf53df81fa93de2588d096ee9ca1\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://968bc905c713f480fa8d5ca96dd9081662f5a0cec134b893ca7d248bafe09e78\",\"dweb:/ipfs/QmX4ZhiGmiaaBFp3WEj5RpSwuALpyLDf8yQ3RhE8bKJXyn\"]},\"tests/interfaces/IERC20.sol\":{\"keccak256\":\"0xe094b4314e93b0f7954558ed5aee912f9ff8b2fc9634bbb32ee3827e2c341b45\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://89a80909c7c6aee739911b0210f34aab6c48a1f86da9f61bda2986addc605c77\",\"dweb:/ipfs/QmdbXSSA6yjeqPadFMd7siqU3Bv5XA2VyxzRYC3uWrRxrX\"]},\"tests/interfaces/IExternalPositionFactory.sol\":{\"keccak256\":\"0x11483d4610b4feaf3e920b00a529df6504a177d399f777fea0882c725774901a\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://6c4eb5e9c14a6bfc7322101e1acbfb0c36d6692d2bdaadeeb6750e28352829c6\",\"dweb:/ipfs/QmWbEw9gqGHY96axVeCpqwSoTgYHkHCh5ykEDVDc5EwyaD\"]},\"tests/interfaces/IExternalPositionManager.sol\":{\"keccak256\":\"0x8bd3193129d3ad5f4d1eb052f5f1bd0064fcd60816b89c0d7354aaf7705ded90\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://b4a7d15d3568774ef9118cfbdb03fc073c674b09f4b5419855ae9497a39c3c01\",\"dweb:/ipfs/QmVnW3CiBvfimTFU52RKg4WDVU5sfyLASkdJ7tf6enWjrB\"]},\"tests/interfaces/IFundDeployer.sol\":{\"keccak256\":\"0x3a0c342089c42bb78dad128516a27e6e12516bdddc909727acbea4acb67c62b2\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://278327aa209b55db10e8634f9a898b81bb0ed11c048ead9e239e944439f67c53\",\"dweb:/ipfs/QmenHznU7xY82mdgGwSNrGreWQyv8PvxSu4A2LVSk5wEXg\"]},\"tests/interfaces/IMigrationHookHandler.sol\":{\"keccak256\":\"0xe39c8745fda9fbce6572683e0b224c6e6ef0ba72eed1b95242795debea5f2134\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://6e31e1241af98b105d840606b7cb1acf0fa221df364c198ca61f8a347a81c99d\",\"dweb:/ipfs/QmNae1yw8kJZh7vGdwHSvVjJpq3brbpCc7mc3BHQoPs7bt\"]},\"tests/interfaces/IPlaceholderInterfaces.sol\":{\"keccak256\":\"0x0c264d9b06f2e31b285981c77c05ae4d287abd6cbce88ec3c0944f626a6a1665\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://49a0a32e6ca716cbaafd52b0e42005a687fa660ab4bc637438223501d6b8b9b7\",\"dweb:/ipfs/QmRx25foNPnmFUJTR3F5vnLEVKXNiP9MYQbnyZFmvJnsy1\"]},\"tests/interfaces/IPolicyManager.sol\":{\"keccak256\":\"0xaa85870df010e9a9a8975210cadca907e9a1b506b23070d32a773a8b776b7c96\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://fb745e45839f90960398d12412b7654543dc5e1859c4e1907cc6fbeac2c46908\",\"dweb:/ipfs/QmVdqVxDBWpvsZTDZXoxvWDrEwt4gQwVG8CURETzMwpUHE\"]},\"tests/interfaces/IProtocolFeeTracker.sol\":{\"keccak256\":\"0x3476e21cb06deaefdcdc26f8afec6f408bd8ad73c07ecbc03113cb4036419752\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://3d0f21986d63971dc0764f5d3dadfd276871a28640d115fed295b36205a33daf\",\"dweb:/ipfs/QmSZM1QFRwaWkmw3b9Zdfb4GfHG1DrQNcz1BpewekPGRU3\"]},\"tests/interfaces/IValueInterpreter.sol\":{\"keccak256\":\"0x2020efff82983f259b26ba97e231374d0220d9bd029fe28a0cefcf685689b66d\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://ef2a71d76b603d82a4accb77dc47d59e0be9e4e6b058cb065ca05a7d43d74757\",\"dweb:/ipfs/QmVZRKwq9wtUkZuKCpW2H5LxjzRgY4WMSRbzyHccpVHRbx\"]},\"tests/interfaces/IWETH.sol\":{\"keccak256\":\"0x085b309f6853fc1cba4dc19df1e4cbfa1865349e76bf7131d14879edd1577c48\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://f901659cf7c7b9e5fc4496f47fb2f6a8f4c76b0bf623b495dc3897760b87a7e1\",\"dweb:/ipfs/QmNvWhNM3VFPDKDX4qZ4JM2xAbvTP2TS9JqG5mXJFDj9bE\"]},\"tests/scaffolding/aave/AaveDeployment.sol\":{\"keccak256\":\"0x19a787cd68484813aba598132eb76a8f072a5c44e5b4bbdc33093ade2c332258\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://30f849f18f8abfaa70f2f1fa908e8976849cb4e88c66462cd6b43f36adc517ba\",\"dweb:/ipfs/QmVu9anrtz7BnSmVtuGfe1hjT8v1JVtVi1VMP15yaj3wKs\"]},\"tests/scaffolding/aave/AaveTest.sol\":{\"keccak256\":\"0xa61ff4b437cc96250bf4ba20c169279b0b22dd3378d5b47bf7a94310816f7336\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://617708cf7d7da39526fed43c89c325e3add4400e217a9c9efcfd4940bf430f8e\",\"dweb:/ipfs/Qmbr8ixtDcpt2RdsAZcftzPfDa3zJ2L8LQqv8yMaRWw5vK\"]}},\"version\":1}",
+  "metadata": {
+    "compiler": {
+      "version": "0.8.17+commit.8df45f5f"
+    },
+    "language": "Solidity",
+    "output": {
+      "abi": [
+        {
+          "inputs": [
+            {
+              "internalType": "struct AaveDeployment.DeployAaveParams",
+              "name": "_params",
+              "type": "tuple",
+              "components": [
+                {
+                  "internalType": "address",
+                  "name": "lendingPool",
+                  "type": "address"
+                },
+                {
+                  "internalType": "address",
+                  "name": "lendingPoolAddressProvider",
+                  "type": "address"
+                }
+              ]
+            }
+          ],
+          "stateMutability": "nonpayable",
+          "type": "function",
+          "name": "createAaveDeployment"
+        }
+      ],
+      "devdoc": {
+        "kind": "dev",
+        "methods": {},
+        "version": 1
+      },
+      "userdoc": {
+        "kind": "user",
+        "methods": {},
+        "version": 1
+      }
+    },
+    "settings": {
+      "remappings": [
+        ":@enzyme/=contracts/",
+        ":@openzeppelin-solc-0.7/=node_modules/@openzeppelin-solc-0.7/",
+        ":@openzeppelin/=node_modules/@openzeppelin/",
+        ":@uniswap/=node_modules/@uniswap/",
+        ":base64-sol/=node_modules/base64-sol/",
+        ":ds-test/=lib/forge-std/lib/ds-test/src/",
+        ":forge-std/=lib/forge-std/src/",
+        ":hardhat-deploy/=node_modules/hardhat-deploy/",
+        ":hardhat/=node_modules/hardhat/"
+      ],
+      "optimizer": {
+        "runs": 200,
+        "details": {
+          "peephole": true,
+          "inliner": true,
+          "jumpdestRemover": true,
+          "orderLiterals": true,
+          "deduplicate": true,
+          "cse": true,
+          "constantOptimizer": true,
+          "yul": false
+        }
+      },
+      "metadata": {
+        "bytecodeHash": "none"
+      },
+      "compilationTarget": {
+        "tests/scaffolding/aave/AaveTest.sol": "AaveTest"
+      },
+      "libraries": {}
+    },
+    "sources": {
+      "lib/forge-std/src/Base.sol": {
+        "keccak256": "0x609e3a00319169988cc8272e837f350a9ba77cf8f8f62e4897a8e4a8a5f0fb27",
+        "urls": [
+          "bzz-raw://b24435e35ba5b080ebd6e8976c23fb735c7212d042be8462ffd2ea50c5250363",
+          "dweb:/ipfs/QmPeVvN7FS4oMmCuYAeRdZihTfrG4tA7Vvunuvv59a6wre"
+        ],
+        "license": "MIT"
+      },
+      "lib/forge-std/src/Script.sol": {
+        "keccak256": "0xd566affaba92598bcd059dcb3714a968aeedb365ec0d666815e8b38519e0f433",
+        "urls": [
+          "bzz-raw://2fb5f7a97d2a7a06e10c198b60f05e64176eb4ef306b72800c168e7a7ec51693",
+          "dweb:/ipfs/Qmcep4r7YEU3BwFJNTTxZsdCVzBYdtcVp8oDtmwLoZGRzP"
+        ],
+        "license": "MIT"
+      },
+      "lib/forge-std/src/StdChains.sol": {
+        "keccak256": "0x097b75f7171af89f433407e040d11b22fc26e2fe03793c2cfe18cad390d7af8b",
+        "urls": [
+          "bzz-raw://19d1dca7b398e517499ffa65ad44df69cdd016f37dc57e2d07d50279d3ddee17",
+          "dweb:/ipfs/QmfMFR25367GB5PoBi1KZxWs1hZcJtC3eANiioG3dKj8ah"
+        ],
+        "license": "MIT"
+      },
+      "lib/forge-std/src/StdCheats.sol": {
+        "keccak256": "0xf6746576912986486f4e5eccdb6b3bbb03e47c4da75a59acc4b1c313b8d31d9f",
+        "urls": [
+          "bzz-raw://01fd4243d8a85cc7f07b6c5ac9e3f5f38b2443ef82025953c3badb39099fe2e4",
+          "dweb:/ipfs/QmVDUyQ3tE4a2b87wJDAkwwyFwRpUPGuy8yJDV9JgHqnrd"
+        ],
+        "license": "MIT"
+      },
+      "lib/forge-std/src/StdJson.sol": {
+        "keccak256": "0x9e2a7521190c462a0667706385f1c52a816220a9813ca8ac520fba7ba45d660b",
+        "urls": [
+          "bzz-raw://7d23017fe6570b28130a731b86179352b93a5fb5af32f11559837afc1186293c",
+          "dweb:/ipfs/QmR3p6zG5Kmcr8gKocFCSopLHfXv1AziPJbH17nKyMxwxV"
+        ],
+        "license": "MIT"
+      },
+      "lib/forge-std/src/StdMath.sol": {
+        "keccak256": "0xd90ad4fd8aeaeb8929964e686e769fdedd5eded3fc3815df194a0ab9f91a3fb2",
+        "urls": [
+          "bzz-raw://7919b70f636c7b805223992f28ad1ad0145d6c1385b5931a3589aface5fe6c92",
+          "dweb:/ipfs/QmY7FRaULwoGgFteF8GawjQJRfasNgpWnU2aiMsFrYpuTC"
+        ],
+        "license": "MIT"
+      },
+      "lib/forge-std/src/StdStorage.sol": {
+        "keccak256": "0xd1517df281f973dba8b7ba52c02d3df552b60d91b8f47e4669049da648778673",
+        "urls": [
+          "bzz-raw://52e43264f58a5dcfd985f3c99aa81064805aa8f1c2b4c6521fd63d45cdbba8d5",
+          "dweb:/ipfs/QmUMTF6cRjt5tCQrrgQDXVRmHQLjevNsTvLFdaA1m9TBj9"
+        ],
+        "license": "MIT"
+      },
+      "lib/forge-std/src/StdUtils.sol": {
+        "keccak256": "0x6584855fecbe5b6a9f8ebdb26b37c58532c5bc5cc6e1737dfa7c8a045087be55",
+        "urls": [
+          "bzz-raw://40a35a4d292b4fed02e11d5f25fb474f10a7c4eb99f75b5383dc23fcb6e55d3c",
+          "dweb:/ipfs/QmYZ2nz1EmNh4xLWf4YybZoa1Da1z3Wq3w4pneMhkouMi4"
+        ],
+        "license": "MIT"
+      },
+      "lib/forge-std/src/Vm.sol": {
+        "keccak256": "0xe0cfe5ca62fb9d9366be870999bd82802d6b913c1f960f67b8f17060008f2d1a",
+        "urls": [
+          "bzz-raw://ddadc1e899953cb26e7d87c0f27284d02f09b611cfd3300e321c33dc2c65d0b3",
+          "dweb:/ipfs/Qmbmrdph3D5YweihJSPM6sopZcSKWMox2ZM89dyonfhrq8"
+        ],
+        "license": "MIT"
+      },
+      "lib/forge-std/src/console.sol": {
+        "keccak256": "0x91d5413c2434ca58fd278b6e1e79fd98d10c83931cc2596a6038eee4daeb34ba",
+        "urls": [
+          "bzz-raw://91ccea707361e48b9b7a161fe81f496b9932bc471e9c4e4e1e9c283f2453cc70",
+          "dweb:/ipfs/QmcB66sZhQ6Kz7MUHcLE78YXRUZxoZnnxZjN6yATsbB2ec"
+        ],
+        "license": "MIT"
+      },
+      "lib/forge-std/src/console2.sol": {
+        "keccak256": "0xcd5706f5a7025825d9fd389c89b49bf571f9abaea8a062dc4048320b5b43bf46",
+        "urls": [
+          "bzz-raw://c066485a7d4bd18d44efb4c89274b0959e8066b9a480383a2ce07d7f31555f88",
+          "dweb:/ipfs/QmckeYfA5FtAjcxaytq69Dpj6uY57tbQ61kNPPxXi9kgbW"
+        ],
+        "license": "MIT"
+      },
+      "lib/forge-std/src/interfaces/IMulticall3.sol": {
+        "keccak256": "0x7aac1389150499a922d1f9ef5749c908cef127cb2075b92fa17e9cb611263d0a",
+        "urls": [
+          "bzz-raw://d95ebb7c7c463e08ebc12dab639945752fb2480acfc6e86da32f72732a7fd0c0",
+          "dweb:/ipfs/QmNXK8P8oPWwajsQHvAHw3JPyQidPLCGQN3hWu1Lk6PBL2"
+        ],
+        "license": "MIT"
+      },
+      "node_modules/@openzeppelin/contractsV4/token/ERC20/ERC20.sol": {
+        "keccak256": "0x4ffc0547c02ad22925310c585c0f166f8759e2648a09e9b489100c42f15dd98d",
+        "urls": [
+          "bzz-raw://15f52f51413a9de1ff191e2f6367c62178e1df7806d7880fe857a98b0b66253d",
+          "dweb:/ipfs/QmaQG1fwfgUt5E9nu2cccFiV47B2V78MM1tCy1qB7n4MsH"
+        ],
+        "license": "MIT"
+      },
+      "node_modules/@openzeppelin/contractsV4/token/ERC20/IERC20.sol": {
+        "keccak256": "0x9750c6b834f7b43000631af5cc30001c5f547b3ceb3635488f140f60e897ea6b",
+        "urls": [
+          "bzz-raw://5a7d5b1ef5d8d5889ad2ed89d8619c09383b80b72ab226e0fe7bde1636481e34",
+          "dweb:/ipfs/QmebXWgtEfumQGBdVeM6c71McLixYXQP5Bk6kKXuoY4Bmr"
+        ],
+        "license": "MIT"
+      },
+      "node_modules/@openzeppelin/contractsV4/token/ERC20/extensions/IERC20Metadata.sol": {
+        "keccak256": "0x8de418a5503946cabe331f35fe242d3201a73f67f77aaeb7110acb1f30423aca",
+        "urls": [
+          "bzz-raw://5a376d3dda2cb70536c0a45c208b29b34ac560c4cb4f513a42079f96ba47d2dd",
+          "dweb:/ipfs/QmZQg6gn1sUpM8wHzwNvSnihumUCAhxD119MpXeKp8B9s8"
+        ],
+        "license": "MIT"
+      },
+      "node_modules/@openzeppelin/contractsV4/utils/Context.sol": {
+        "keccak256": "0xe2e337e6dde9ef6b680e07338c493ebea1b5fd09b43424112868e9cc1706bca7",
+        "urls": [
+          "bzz-raw://6df0ddf21ce9f58271bdfaa85cde98b200ef242a05a3f85c2bc10a8294800a92",
+          "dweb:/ipfs/QmRK2Y5Yc6BK7tGKkgsgn3aJEQGi5aakeSPZvS65PV8Xp3"
+        ],
+        "license": "MIT"
+      },
+      "tests/TestEnvironment.sol": {
+        "keccak256": "0x8f59201e23d5e5b39567d43213517e342bdf593a66b7ff1ffc3759a1e354cf4d",
+        "urls": [
+          "bzz-raw://53cc8e0825d322265fbf0c59f75f28ae31b6c09da0934cfeeeeb3141fc3cbb60",
+          "dweb:/ipfs/QmehKFv8oxfQf4P4hzp9iimEs8mujeQtozerKSy16redWL"
+        ],
+        "license": "GPL-3.0"
+      },
+      "tests/deployment/CoreDeployment.sol": {
+        "keccak256": "0x7c60de4a9993f09ded2ededc447f92db51eec2d52406c34909b8485d768212d9",
+        "urls": [
+          "bzz-raw://032852ddf1a41f66dec6708da48a9b98e91f7ec74a930a4827151870001de3ac",
+          "dweb:/ipfs/QmUBWGN8AQ1K7NogfaVzjnWTzkRZbhWZhvEE88vPXoyQj5"
+        ],
+        "license": "GPL-3.0"
+      },
+      "tests/deployment/Deployer.sol": {
+        "keccak256": "0x06d6d673d5a1fa3ba0cee2bad376a67e2c6f1d8ddc8cea8d2fc5482f02bd6e1b",
+        "urls": [
+          "bzz-raw://01dd1f8fd96de870d3c2108b5efaece1d15f3b3a5539502058b3528f4af623ae",
+          "dweb:/ipfs/QmenLdpSUyRz8Ng2W4JyNBQeZSeAVno4dyxhQ3qYYK3URq"
+        ],
+        "license": "GPL-3.0"
+      },
+      "tests/interfaces/IAaveV2Adapter.sol": {
+        "keccak256": "0x78356eb46b48f57339ae633bc719a9fa3669ed70481fb03a5737dfa91b81eb32",
+        "urls": [
+          "bzz-raw://239b5a15e131f7c4b9fc7e28b2c5c8d5bf91838a39ec3c791b568f79398a64e2",
+          "dweb:/ipfs/QmRTCjm7uog9CitEmmJWvDYtocSS3DrP4QfhW9Mf7igqXx"
+        ],
+        "license": "GPL-3.0"
+      },
+      "tests/interfaces/IAddressListRegistry.sol": {
+        "keccak256": "0x63302f2cba6cb7e083df5f8e58935d553aed77eddd636cdfca624a69d1dc67c1",
+        "urls": [
+          "bzz-raw://58fc3ceef1699198a05d3de52c458bb883a34e64189a6c9402831eda2217de53",
+          "dweb:/ipfs/QmVeiZqzKtUvgnNKDKbFNXenuy1BhbwL5KBZo9zfiboN9u"
+        ],
+        "license": "GPL-3.0"
+      },
+      "tests/interfaces/IChainlinkPriceFeedMixin.sol": {
+        "keccak256": "0x8885852b4c72ad3d10986d243bd2ef35353ca98814a817b8bbaf622c28f2b5bf",
+        "urls": [
+          "bzz-raw://342981ed8e189ac0bd674192715983412e5e20ee4fe5ae6822cd539c630ed3d1",
+          "dweb:/ipfs/QmSFx6EJr5MAGjW8MkQ3V45kHim186TNSq3CHGUxr9n2xy"
+        ],
+        "license": "GPL-3.0"
+      },
+      "tests/interfaces/IDispatcher.sol": {
+        "keccak256": "0x144ef00aad1f9baed31064ca6950a04ded9cdf53df81fa93de2588d096ee9ca1",
+        "urls": [
+          "bzz-raw://968bc905c713f480fa8d5ca96dd9081662f5a0cec134b893ca7d248bafe09e78",
+          "dweb:/ipfs/QmX4ZhiGmiaaBFp3WEj5RpSwuALpyLDf8yQ3RhE8bKJXyn"
+        ],
+        "license": "GPL-3.0"
+      },
+      "tests/interfaces/IERC20.sol": {
+        "keccak256": "0xe094b4314e93b0f7954558ed5aee912f9ff8b2fc9634bbb32ee3827e2c341b45",
+        "urls": [
+          "bzz-raw://89a80909c7c6aee739911b0210f34aab6c48a1f86da9f61bda2986addc605c77",
+          "dweb:/ipfs/QmdbXSSA6yjeqPadFMd7siqU3Bv5XA2VyxzRYC3uWrRxrX"
+        ],
+        "license": "GPL-3.0"
+      },
+      "tests/interfaces/IExternalPositionFactory.sol": {
+        "keccak256": "0x11483d4610b4feaf3e920b00a529df6504a177d399f777fea0882c725774901a",
+        "urls": [
+          "bzz-raw://6c4eb5e9c14a6bfc7322101e1acbfb0c36d6692d2bdaadeeb6750e28352829c6",
+          "dweb:/ipfs/QmWbEw9gqGHY96axVeCpqwSoTgYHkHCh5ykEDVDc5EwyaD"
+        ],
+        "license": "GPL-3.0"
+      },
+      "tests/interfaces/IExternalPositionManager.sol": {
+        "keccak256": "0x8bd3193129d3ad5f4d1eb052f5f1bd0064fcd60816b89c0d7354aaf7705ded90",
+        "urls": [
+          "bzz-raw://b4a7d15d3568774ef9118cfbdb03fc073c674b09f4b5419855ae9497a39c3c01",
+          "dweb:/ipfs/QmVnW3CiBvfimTFU52RKg4WDVU5sfyLASkdJ7tf6enWjrB"
+        ],
+        "license": "GPL-3.0"
+      },
+      "tests/interfaces/IFundDeployer.sol": {
+        "keccak256": "0x3a0c342089c42bb78dad128516a27e6e12516bdddc909727acbea4acb67c62b2",
+        "urls": [
+          "bzz-raw://278327aa209b55db10e8634f9a898b81bb0ed11c048ead9e239e944439f67c53",
+          "dweb:/ipfs/QmenHznU7xY82mdgGwSNrGreWQyv8PvxSu4A2LVSk5wEXg"
+        ],
+        "license": "GPL-3.0"
+      },
+      "tests/interfaces/IMigrationHookHandler.sol": {
+        "keccak256": "0xe39c8745fda9fbce6572683e0b224c6e6ef0ba72eed1b95242795debea5f2134",
+        "urls": [
+          "bzz-raw://6e31e1241af98b105d840606b7cb1acf0fa221df364c198ca61f8a347a81c99d",
+          "dweb:/ipfs/QmNae1yw8kJZh7vGdwHSvVjJpq3brbpCc7mc3BHQoPs7bt"
+        ],
+        "license": "GPL-3.0"
+      },
+      "tests/interfaces/IPlaceholderInterfaces.sol": {
+        "keccak256": "0x0c264d9b06f2e31b285981c77c05ae4d287abd6cbce88ec3c0944f626a6a1665",
+        "urls": [
+          "bzz-raw://49a0a32e6ca716cbaafd52b0e42005a687fa660ab4bc637438223501d6b8b9b7",
+          "dweb:/ipfs/QmRx25foNPnmFUJTR3F5vnLEVKXNiP9MYQbnyZFmvJnsy1"
+        ],
+        "license": "GPL-3.0"
+      },
+      "tests/interfaces/IPolicyManager.sol": {
+        "keccak256": "0xaa85870df010e9a9a8975210cadca907e9a1b506b23070d32a773a8b776b7c96",
+        "urls": [
+          "bzz-raw://fb745e45839f90960398d12412b7654543dc5e1859c4e1907cc6fbeac2c46908",
+          "dweb:/ipfs/QmVdqVxDBWpvsZTDZXoxvWDrEwt4gQwVG8CURETzMwpUHE"
+        ],
+        "license": "GPL-3.0"
+      },
+      "tests/interfaces/IProtocolFeeTracker.sol": {
+        "keccak256": "0x3476e21cb06deaefdcdc26f8afec6f408bd8ad73c07ecbc03113cb4036419752",
+        "urls": [
+          "bzz-raw://3d0f21986d63971dc0764f5d3dadfd276871a28640d115fed295b36205a33daf",
+          "dweb:/ipfs/QmSZM1QFRwaWkmw3b9Zdfb4GfHG1DrQNcz1BpewekPGRU3"
+        ],
+        "license": "GPL-3.0"
+      },
+      "tests/interfaces/IValueInterpreter.sol": {
+        "keccak256": "0x2020efff82983f259b26ba97e231374d0220d9bd029fe28a0cefcf685689b66d",
+        "urls": [
+          "bzz-raw://ef2a71d76b603d82a4accb77dc47d59e0be9e4e6b058cb065ca05a7d43d74757",
+          "dweb:/ipfs/QmVZRKwq9wtUkZuKCpW2H5LxjzRgY4WMSRbzyHccpVHRbx"
+        ],
+        "license": "GPL-3.0"
+      },
+      "tests/interfaces/IWETH.sol": {
+        "keccak256": "0x085b309f6853fc1cba4dc19df1e4cbfa1865349e76bf7131d14879edd1577c48",
+        "urls": [
+          "bzz-raw://f901659cf7c7b9e5fc4496f47fb2f6a8f4c76b0bf623b495dc3897760b87a7e1",
+          "dweb:/ipfs/QmNvWhNM3VFPDKDX4qZ4JM2xAbvTP2TS9JqG5mXJFDj9bE"
+        ],
+        "license": "GPL-3.0"
+      },
+      "tests/scaffolding/aave/AaveDeployment.sol": {
+        "keccak256": "0x19a787cd68484813aba598132eb76a8f072a5c44e5b4bbdc33093ade2c332258",
+        "urls": [
+          "bzz-raw://30f849f18f8abfaa70f2f1fa908e8976849cb4e88c66462cd6b43f36adc517ba",
+          "dweb:/ipfs/QmVu9anrtz7BnSmVtuGfe1hjT8v1JVtVi1VMP15yaj3wKs"
+        ],
+        "license": "GPL-3.0"
+      },
+      "tests/scaffolding/aave/AaveTest.sol": {
+        "keccak256": "0xa61ff4b437cc96250bf4ba20c169279b0b22dd3378d5b47bf7a94310816f7336",
+        "urls": [
+          "bzz-raw://617708cf7d7da39526fed43c89c325e3add4400e217a9c9efcfd4940bf430f8e",
+          "dweb:/ipfs/Qmbr8ixtDcpt2RdsAZcftzPfDa3zJ2L8LQqv8yMaRWw5vK"
+        ],
+        "license": "GPL-3.0"
+      }
+    },
+    "version": 1
+  },
+  "ast": {
+    "absolutePath": "tests/scaffolding/aave/AaveTest.sol",
+    "id": 33412,
+    "exportedSymbols": {
+      "AaveDeployment": [
+        33384
+      ],
+      "AaveTest": [
+        33411
+      ]
+    },
+    "nodeType": "SourceUnit",
+    "src": "255:321:64",
+    "nodes": [
+      {
+        "id": 33386,
+        "nodeType": "PragmaDirective",
+        "src": "255:23:64",
+        "nodes": [],
+        "literals": [
+          "solidity",
+          "0.8",
+          ".17"
+        ]
+      },
+      {
+        "id": 33388,
+        "nodeType": "ImportDirective",
+        "src": "280:52:64",
+        "nodes": [],
+        "absolutePath": "tests/scaffolding/aave/AaveDeployment.sol",
+        "file": "./AaveDeployment.sol",
+        "nameLocation": "-1:-1:-1",
+        "scope": 33412,
+        "sourceUnit": 33385,
+        "symbolAliases": [
+          {
+            "foreign": {
+              "id": 33387,
+              "name": "AaveDeployment",
+              "nodeType": "Identifier",
+              "overloadedDeclarations": [],
+              "referencedDeclaration": 33384,
+              "src": "288:14:64",
+              "typeDescriptions": {}
+            },
+            "nameLocation": "-1:-1:-1"
+          }
+        ],
+        "unitAlias": ""
+      },
+      {
+        "id": 33411,
+        "nodeType": "ContractDefinition",
+        "src": "334:241:64",
+        "nodes": [
+          {
+            "id": 33391,
+            "nodeType": "VariableDeclaration",
+            "src": "367:38:64",
+            "nodes": [],
+            "constant": false,
+            "mutability": "mutable",
+            "name": "aaveDeployment",
+            "nameLocation": "391:14:64",
+            "scope": 33411,
+            "stateVariable": true,
+            "storageLocation": "default",
+            "typeDescriptions": {
+              "typeIdentifier": "t_contract$_AaveDeployment_$33384",
+              "typeString": "contract AaveDeployment"
+            },
+            "typeName": {
+              "id": 33390,
+              "nodeType": "UserDefinedTypeName",
+              "pathNode": {
+                "id": 33389,
+                "name": "AaveDeployment",
+                "nameLocations": [
+                  "367:14:64"
+                ],
+                "nodeType": "IdentifierPath",
+                "referencedDeclaration": 33384,
+                "src": "367:14:64"
+              },
+              "referencedDeclaration": 33384,
+              "src": "367:14:64",
+              "typeDescriptions": {
+                "typeIdentifier": "t_contract$_AaveDeployment_$33384",
+                "typeString": "contract AaveDeployment"
+              }
+            },
+            "visibility": "internal"
+          },
+          {
+            "id": 33410,
+            "nodeType": "FunctionDefinition",
+            "src": "412:161:64",
+            "nodes": [],
+            "body": {
+              "id": 33409,
+              "nodeType": "Block",
+              "src": "497:76:64",
+              "nodes": [],
+              "statements": [
+                {
+                  "expression": {
+                    "id": 33407,
+                    "isConstant": false,
+                    "isLValue": false,
+                    "isPure": false,
+                    "lValueRequested": false,
+                    "leftHandSide": {
+                      "id": 33397,
+                      "name": "aaveDeployment",
+                      "nodeType": "Identifier",
+                      "overloadedDeclarations": [],
+                      "referencedDeclaration": 33391,
+                      "src": "507:14:64",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_contract$_AaveDeployment_$33384",
+                        "typeString": "contract AaveDeployment"
+                      }
+                    },
+                    "nodeType": "Assignment",
+                    "operator": "=",
+                    "rightHandSide": {
+                      "arguments": [
+                        {
+                          "arguments": [
+                            {
+                              "id": 33403,
+                              "name": "this",
+                              "nodeType": "Identifier",
+                              "overloadedDeclarations": [],
+                              "referencedDeclaration": -28,
+                              "src": "551:4:64",
+                              "typeDescriptions": {
+                                "typeIdentifier": "t_contract$_AaveTest_$33411",
+                                "typeString": "contract AaveTest"
+                              }
+                            }
+                          ],
+                          "expression": {
+                            "argumentTypes": [
+                              {
+                                "typeIdentifier": "t_contract$_AaveTest_$33411",
+                                "typeString": "contract AaveTest"
+                              }
+                            ],
+                            "id": 33402,
+                            "isConstant": false,
+                            "isLValue": false,
+                            "isPure": true,
+                            "lValueRequested": false,
+                            "nodeType": "ElementaryTypeNameExpression",
+                            "src": "543:7:64",
+                            "typeDescriptions": {
+                              "typeIdentifier": "t_type$_t_address_$",
+                              "typeString": "type(address)"
+                            },
+                            "typeName": {
+                              "id": 33401,
+                              "name": "address",
+                              "nodeType": "ElementaryTypeName",
+                              "src": "543:7:64",
+                              "typeDescriptions": {}
+                            }
+                          },
+                          "id": 33404,
+                          "isConstant": false,
+                          "isLValue": false,
+                          "isPure": false,
+                          "kind": "typeConversion",
+                          "lValueRequested": false,
+                          "nameLocations": [],
+                          "names": [],
+                          "nodeType": "FunctionCall",
+                          "src": "543:13:64",
+                          "tryCall": false,
+                          "typeDescriptions": {
+                            "typeIdentifier": "t_address",
+                            "typeString": "address"
+                          }
+                        },
+                        {
+                          "id": 33405,
+                          "name": "_params",
+                          "nodeType": "Identifier",
+                          "overloadedDeclarations": [],
+                          "referencedDeclaration": 33394,
+                          "src": "558:7:64",
+                          "typeDescriptions": {
+                            "typeIdentifier": "t_struct$_DeployAaveParams_$33196_memory_ptr",
+                            "typeString": "struct AaveDeployment.DeployAaveParams memory"
+                          }
+                        }
+                      ],
+                      "expression": {
+                        "argumentTypes": [
+                          {
+                            "typeIdentifier": "t_address",
+                            "typeString": "address"
+                          },
+                          {
+                            "typeIdentifier": "t_struct$_DeployAaveParams_$33196_memory_ptr",
+                            "typeString": "struct AaveDeployment.DeployAaveParams memory"
+                          }
+                        ],
+                        "id": 33400,
+                        "isConstant": false,
+                        "isLValue": false,
+                        "isPure": false,
+                        "lValueRequested": false,
+                        "nodeType": "NewExpression",
+                        "src": "524:18:64",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_function_creation_nonpayable$_t_address_$_t_struct$_DeployAaveParams_$33196_memory_ptr_$returns$_t_contract$_AaveDeployment_$33384_$",
+                          "typeString": "function (address,struct AaveDeployment.DeployAaveParams memory) returns (contract AaveDeployment)"
+                        },
+                        "typeName": {
+                          "id": 33399,
+                          "nodeType": "UserDefinedTypeName",
+                          "pathNode": {
+                            "id": 33398,
+                            "name": "AaveDeployment",
+                            "nameLocations": [
+                              "528:14:64"
+                            ],
+                            "nodeType": "IdentifierPath",
+                            "referencedDeclaration": 33384,
+                            "src": "528:14:64"
+                          },
+                          "referencedDeclaration": 33384,
+                          "src": "528:14:64",
+                          "typeDescriptions": {
+                            "typeIdentifier": "t_contract$_AaveDeployment_$33384",
+                            "typeString": "contract AaveDeployment"
+                          }
+                        }
+                      },
+                      "id": 33406,
+                      "isConstant": false,
+                      "isLValue": false,
+                      "isPure": false,
+                      "kind": "functionCall",
+                      "lValueRequested": false,
+                      "nameLocations": [],
+                      "names": [],
+                      "nodeType": "FunctionCall",
+                      "src": "524:42:64",
+                      "tryCall": false,
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_contract$_AaveDeployment_$33384",
+                        "typeString": "contract AaveDeployment"
+                      }
+                    },
+                    "src": "507:59:64",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_contract$_AaveDeployment_$33384",
+                      "typeString": "contract AaveDeployment"
+                    }
+                  },
+                  "id": 33408,
+                  "nodeType": "ExpressionStatement",
+                  "src": "507:59:64"
+                }
+              ]
+            },
+            "functionSelector": "263de405",
+            "implemented": true,
+            "kind": "function",
+            "modifiers": [],
+            "name": "createAaveDeployment",
+            "nameLocation": "421:20:64",
+            "parameters": {
+              "id": 33395,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 33394,
+                  "mutability": "mutable",
+                  "name": "_params",
+                  "nameLocation": "481:7:64",
+                  "nodeType": "VariableDeclaration",
+                  "scope": 33410,
+                  "src": "442:46:64",
+                  "stateVariable": false,
+                  "storageLocation": "memory",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_struct$_DeployAaveParams_$33196_memory_ptr",
+                    "typeString": "struct AaveDeployment.DeployAaveParams"
+                  },
+                  "typeName": {
+                    "id": 33393,
+                    "nodeType": "UserDefinedTypeName",
+                    "pathNode": {
+                      "id": 33392,
+                      "name": "AaveDeployment.DeployAaveParams",
+                      "nameLocations": [
+                        "442:14:64",
+                        "457:16:64"
+                      ],
+                      "nodeType": "IdentifierPath",
+                      "referencedDeclaration": 33196,
+                      "src": "442:31:64"
+                    },
+                    "referencedDeclaration": 33196,
+                    "src": "442:31:64",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_struct$_DeployAaveParams_$33196_storage_ptr",
+                      "typeString": "struct AaveDeployment.DeployAaveParams"
+                    }
+                  },
+                  "visibility": "internal"
+                }
+              ],
+              "src": "441:48:64"
+            },
+            "returnParameters": {
+              "id": 33396,
+              "nodeType": "ParameterList",
+              "parameters": [],
+              "src": "497:0:64"
+            },
+            "scope": 33411,
+            "stateMutability": "nonpayable",
+            "virtual": false,
+            "visibility": "public"
+          }
+        ],
+        "abstract": true,
+        "baseContracts": [],
+        "canonicalName": "AaveTest",
+        "contractDependencies": [
+          33384
+        ],
+        "contractKind": "contract",
+        "fullyImplemented": true,
+        "linearizedBaseContracts": [
+          33411
+        ],
+        "name": "AaveTest",
+        "nameLocation": "352:8:64",
+        "scope": 33412,
+        "usedErrors": []
+      }
+    ],
+    "license": "GPL-3.0"
+  },
+  "id": 64
+}

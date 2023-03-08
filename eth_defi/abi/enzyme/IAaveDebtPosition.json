@@ -1,7 +1,4 @@
 {
-  "_format": "hh-sol-artifact-1",
-  "contractName": "IAaveDebtPosition",
-  "sourceName": "contracts/release/extensions/external-position-manager/external-positions/aave-v2-debt/IAaveDebtPosition.sol",
   "abi": [
     {
       "inputs": [],
@@ -85,8 +82,384 @@
       "type": "function"
     }
   ],
-  "bytecode": "0x",
-  "deployedBytecode": "0x",
-  "linkReferences": {},
-  "deployedLinkReferences": {}
+  "bytecode": {
+    "object": "0x",
+    "sourceMap": "",
+    "linkReferences": {}
+  },
+  "deployedBytecode": {
+    "object": "0x",
+    "sourceMap": "",
+    "linkReferences": {}
+  },
+  "methodIdentifiers": {
+    "getDebtAssets()": "ecd658b4",
+    "getDebtTokenForBorrowedAsset(address)": "66b4c5d1",
+    "getManagedAssets()": "80daddb8",
+    "init(bytes)": "4ddf47d4",
+    "receiveCallFromVault(bytes)": "e5c23a97"
+  },
+  "rawMetadata": "{\"compiler\":{\"version\":\"0.6.12+commit.27d51765\"},\"language\":\"Solidity\",\"output\":{\"abi\":[{\"inputs\":[],\"name\":\"getDebtAssets\",\"outputs\":[{\"internalType\":\"address[]\",\"name\":\"\",\"type\":\"address[]\"},{\"internalType\":\"uint256[]\",\"name\":\"\",\"type\":\"uint256[]\"}],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"name\":\"getDebtTokenForBorrowedAsset\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getManagedAssets\",\"outputs\":[{\"internalType\":\"address[]\",\"name\":\"\",\"type\":\"address[]\"},{\"internalType\":\"uint256[]\",\"name\":\"\",\"type\":\"uint256[]\"}],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes\",\"name\":\"\",\"type\":\"bytes\"}],\"name\":\"init\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes\",\"name\":\"\",\"type\":\"bytes\"}],\"name\":\"receiveCallFromVault\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"}],\"devdoc\":{\"author\":\"Enzyme Council <security@enzyme.finance>\",\"kind\":\"dev\",\"methods\":{},\"title\":\"IAaveDebtPosition Interface\",\"version\":1},\"userdoc\":{\"kind\":\"user\",\"methods\":{},\"version\":1}},\"settings\":{\"compilationTarget\":{\"contracts/release/extensions/external-position-manager/external-positions/aave-v2-debt/IAaveDebtPosition.sol\":\"IAaveDebtPosition\"},\"evmVersion\":\"istanbul\",\"libraries\":{},\"metadata\":{\"bytecodeHash\":\"none\"},\"optimizer\":{\"details\":{\"constantOptimizer\":true,\"cse\":true,\"deduplicate\":true,\"jumpdestRemover\":true,\"orderLiterals\":true,\"peephole\":true,\"yul\":false},\"runs\":200},\"remappings\":[\":@enzyme/=contracts/\",\":@openzeppelin-solc-0.7/=node_modules/@openzeppelin-solc-0.7/\",\":@openzeppelin/=node_modules/@openzeppelin/\",\":@uniswap/=node_modules/@uniswap/\",\":base64-sol/=node_modules/base64-sol/\",\":ds-test/=lib/forge-std/lib/ds-test/src/\",\":forge-std/=lib/forge-std/src/\",\":hardhat-deploy/=node_modules/hardhat-deploy/\",\":hardhat/=node_modules/hardhat/\"]},\"sources\":{\"contracts/persistent/external-positions/IExternalPosition.sol\":{\"keccak256\":\"0x00e6ea9721e5fd1e72215e4c744306097d7f8b1a834cced5d65a17a924f750ad\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://2ad763df961067233f8631d1cd386a0cf41f8e83e419ace84ec4424214db8efa\",\"dweb:/ipfs/QmNVZCeyA9uqKrhBeCAmTVswWybN9TQAxngVPZUZZ6X4dM\"]},\"contracts/release/extensions/external-position-manager/external-positions/aave-v2-debt/IAaveDebtPosition.sol\":{\"keccak256\":\"0x985176b234fc2cd4d67def55a7fc5579f79e8df6c3c95de5a88e33c8f0bab945\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://4fd89871e75f2c98641f76494cb8f08a3be719209031fc454e482e586932e5b3\",\"dweb:/ipfs/QmSZMLWuvyWNFJNWKvChPn9fmr9YVb2L2D3ZMPBBhYWndf\"]}},\"version\":1}",
+  "metadata": {
+    "compiler": {
+      "version": "0.6.12+commit.27d51765"
+    },
+    "language": "Solidity",
+    "output": {
+      "abi": [
+        {
+          "inputs": [],
+          "stateMutability": "nonpayable",
+          "type": "function",
+          "name": "getDebtAssets",
+          "outputs": [
+            {
+              "internalType": "address[]",
+              "name": "",
+              "type": "address[]"
+            },
+            {
+              "internalType": "uint256[]",
+              "name": "",
+              "type": "uint256[]"
+            }
+          ]
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "",
+              "type": "address"
+            }
+          ],
+          "stateMutability": "view",
+          "type": "function",
+          "name": "getDebtTokenForBorrowedAsset",
+          "outputs": [
+            {
+              "internalType": "address",
+              "name": "",
+              "type": "address"
+            }
+          ]
+        },
+        {
+          "inputs": [],
+          "stateMutability": "nonpayable",
+          "type": "function",
+          "name": "getManagedAssets",
+          "outputs": [
+            {
+              "internalType": "address[]",
+              "name": "",
+              "type": "address[]"
+            },
+            {
+              "internalType": "uint256[]",
+              "name": "",
+              "type": "uint256[]"
+            }
+          ]
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "bytes",
+              "name": "",
+              "type": "bytes"
+            }
+          ],
+          "stateMutability": "nonpayable",
+          "type": "function",
+          "name": "init"
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "bytes",
+              "name": "",
+              "type": "bytes"
+            }
+          ],
+          "stateMutability": "nonpayable",
+          "type": "function",
+          "name": "receiveCallFromVault"
+        }
+      ],
+      "devdoc": {
+        "kind": "dev",
+        "methods": {},
+        "version": 1
+      },
+      "userdoc": {
+        "kind": "user",
+        "methods": {},
+        "version": 1
+      }
+    },
+    "settings": {
+      "remappings": [
+        ":@enzyme/=contracts/",
+        ":@openzeppelin-solc-0.7/=node_modules/@openzeppelin-solc-0.7/",
+        ":@openzeppelin/=node_modules/@openzeppelin/",
+        ":@uniswap/=node_modules/@uniswap/",
+        ":base64-sol/=node_modules/base64-sol/",
+        ":ds-test/=lib/forge-std/lib/ds-test/src/",
+        ":forge-std/=lib/forge-std/src/",
+        ":hardhat-deploy/=node_modules/hardhat-deploy/",
+        ":hardhat/=node_modules/hardhat/"
+      ],
+      "optimizer": {
+        "runs": 200,
+        "details": {
+          "peephole": true,
+          "jumpdestRemover": true,
+          "orderLiterals": true,
+          "deduplicate": true,
+          "cse": true,
+          "constantOptimizer": true,
+          "yul": false
+        }
+      },
+      "metadata": {
+        "bytecodeHash": "none"
+      },
+      "compilationTarget": {
+        "contracts/release/extensions/external-position-manager/external-positions/aave-v2-debt/IAaveDebtPosition.sol": "IAaveDebtPosition"
+      },
+      "libraries": {}
+    },
+    "sources": {
+      "contracts/persistent/external-positions/IExternalPosition.sol": {
+        "keccak256": "0x00e6ea9721e5fd1e72215e4c744306097d7f8b1a834cced5d65a17a924f750ad",
+        "urls": [
+          "bzz-raw://2ad763df961067233f8631d1cd386a0cf41f8e83e419ace84ec4424214db8efa",
+          "dweb:/ipfs/QmNVZCeyA9uqKrhBeCAmTVswWybN9TQAxngVPZUZZ6X4dM"
+        ],
+        "license": "GPL-3.0"
+      },
+      "contracts/release/extensions/external-position-manager/external-positions/aave-v2-debt/IAaveDebtPosition.sol": {
+        "keccak256": "0x985176b234fc2cd4d67def55a7fc5579f79e8df6c3c95de5a88e33c8f0bab945",
+        "urls": [
+          "bzz-raw://4fd89871e75f2c98641f76494cb8f08a3be719209031fc454e482e586932e5b3",
+          "dweb:/ipfs/QmSZMLWuvyWNFJNWKvChPn9fmr9YVb2L2D3ZMPBBhYWndf"
+        ],
+        "license": "GPL-3.0"
+      }
+    },
+    "version": 1
+  },
+  "ast": {
+    "absolutePath": "contracts/release/extensions/external-position-manager/external-positions/aave-v2-debt/IAaveDebtPosition.sol",
+    "id": 7426,
+    "exportedSymbols": {
+      "IAaveDebtPosition": [
+        7425
+      ]
+    },
+    "nodeType": "SourceUnit",
+    "src": "253:465:25",
+    "nodes": [
+      {
+        "id": 7407,
+        "nodeType": "ImportDirective",
+        "src": "253:76:25",
+        "nodes": [],
+        "absolutePath": "contracts/persistent/external-positions/IExternalPosition.sol",
+        "file": "../../../../../persistent/external-positions/IExternalPosition.sol",
+        "scope": 7426,
+        "sourceUnit": 950,
+        "symbolAliases": [],
+        "unitAlias": ""
+      },
+      {
+        "id": 7408,
+        "nodeType": "PragmaDirective",
+        "src": "331:23:25",
+        "nodes": [],
+        "literals": [
+          "solidity",
+          "0.6",
+          ".12"
+        ]
+      },
+      {
+        "id": 7425,
+        "nodeType": "ContractDefinition",
+        "src": "448:269:25",
+        "nodes": [
+          {
+            "id": 7417,
+            "nodeType": "EnumDefinition",
+            "src": "503:127:25",
+            "nodes": [],
+            "canonicalName": "IAaveDebtPosition.Actions",
+            "members": [
+              {
+                "id": 7412,
+                "name": "AddCollateral",
+                "nodeType": "EnumValue",
+                "src": "526:13:25"
+              },
+              {
+                "id": 7413,
+                "name": "RemoveCollateral",
+                "nodeType": "EnumValue",
+                "src": "549:16:25"
+              },
+              {
+                "id": 7414,
+                "name": "Borrow",
+                "nodeType": "EnumValue",
+                "src": "575:6:25"
+              },
+              {
+                "id": 7415,
+                "name": "RepayBorrow",
+                "nodeType": "EnumValue",
+                "src": "591:11:25"
+              },
+              {
+                "id": 7416,
+                "name": "ClaimRewards",
+                "nodeType": "EnumValue",
+                "src": "612:12:25"
+              }
+            ],
+            "name": "Actions"
+          },
+          {
+            "id": 7424,
+            "nodeType": "FunctionDefinition",
+            "src": "636:79:25",
+            "nodes": [],
+            "documentation": null,
+            "functionSelector": "66b4c5d1",
+            "implemented": false,
+            "kind": "function",
+            "modifiers": [],
+            "name": "getDebtTokenForBorrowedAsset",
+            "overrides": null,
+            "parameters": {
+              "id": 7420,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 7419,
+                  "mutability": "mutable",
+                  "name": "",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 7424,
+                  "src": "674:7:25",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 7418,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "674:7:25",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "673:9:25"
+            },
+            "returnParameters": {
+              "id": 7423,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 7422,
+                  "mutability": "mutable",
+                  "name": "",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 7424,
+                  "src": "706:7:25",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 7421,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "706:7:25",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "705:9:25"
+            },
+            "scope": 7425,
+            "stateMutability": "view",
+            "virtual": false,
+            "visibility": "external"
+          }
+        ],
+        "abstract": false,
+        "baseContracts": [
+          {
+            "arguments": null,
+            "baseName": {
+              "contractScope": null,
+              "id": 7410,
+              "name": "IExternalPosition",
+              "nodeType": "UserDefinedTypeName",
+              "referencedDeclaration": 949,
+              "src": "479:17:25",
+              "typeDescriptions": {
+                "typeIdentifier": "t_contract$_IExternalPosition_$949",
+                "typeString": "contract IExternalPosition"
+              }
+            },
+            "id": 7411,
+            "nodeType": "InheritanceSpecifier",
+            "src": "479:17:25"
+          }
+        ],
+        "contractDependencies": [
+          949
+        ],
+        "contractKind": "interface",
+        "documentation": {
+          "id": 7409,
+          "nodeType": "StructuredDocumentation",
+          "src": "356:92:25",
+          "text": "@title IAaveDebtPosition Interface\n @author Enzyme Council <security@enzyme.finance>"
+        },
+        "fullyImplemented": false,
+        "linearizedBaseContracts": [
+          7425,
+          949
+        ],
+        "name": "IAaveDebtPosition",
+        "scope": 7426
+      }
+    ],
+    "license": "GPL-3.0"
+  },
+  "id": 25
 }

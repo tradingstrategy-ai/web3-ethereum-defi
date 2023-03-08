@@ -1,0 +1,602 @@
+{
+  "abi": [
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "_derivative",
+          "type": "address"
+        },
+        {
+          "internalType": "address",
+          "name": "_underlying",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "nonpayable",
+      "type": "constructor"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "_derivative",
+          "type": "address"
+        },
+        {
+          "internalType": "uint256",
+          "name": "_derivativeAmount",
+          "type": "uint256"
+        }
+      ],
+      "name": "calcUnderlyingValues",
+      "outputs": [
+        {
+          "internalType": "address[]",
+          "name": "underlyings_",
+          "type": "address[]"
+        },
+        {
+          "internalType": "uint256[]",
+          "name": "underlyingAmounts_",
+          "type": "uint256[]"
+        }
+      ],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "getDerivative",
+      "outputs": [
+        {
+          "internalType": "address",
+          "name": "derivative_",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "getUnderlying",
+      "outputs": [
+        {
+          "internalType": "address",
+          "name": "underlying_",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "_asset",
+          "type": "address"
+        }
+      ],
+      "name": "isSupportedAsset",
+      "outputs": [
+        {
+          "internalType": "bool",
+          "name": "isSupported_",
+          "type": "bool"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    }
+  ],
+  "bytecode": {
+    "object": "0x60c060405234801561001057600080fd5b506040516104e23803806104e28339818101604052604081101561003357600080fd5b5080516020918201516040805163313ce56760e01b8152905192939192849284926001600160a01b0384169263313ce56792600480840193919291829003018186803b15801561008257600080fd5b505afa158015610096573d6000803e3d6000fd5b505050506040513d60208110156100ac57600080fd5b50516040805163313ce56760e01b8152905160ff909216916001600160a01b0385169163313ce567916004808301926020929190829003018186803b1580156100f457600080fd5b505afa158015610108573d6000803e3d6000fd5b505050506040513d602081101561011e57600080fd5b505160ff1614610175576040805162461bcd60e51b815260206004820152601d60248201527f636f6e7374727563746f723a20556e657175616c20646563696d616c73000000604482015290519081900360640190fd5b6001600160601b0319606092831b8116608052911b1660a052505060805160601c60a05160601c61031f6101c360003980610209528061028e52508061017e52806102b2525061031f6000f3fe608060405234801561001057600080fd5b506004361061004c5760003560e01c80636d4a681a14610051578063727212f6146100755780639816f4731461013a5780639be918e614610142575b600080fd5b61005961017c565b604080516001600160a01b039092168252519081900360200190f35b6100a16004803603604081101561008b57600080fd5b506001600160a01b0381351690602001356101a0565b604051808060200180602001838103835285818151815260200191508051906020019060200280838360005b838110156100e55781810151838201526020016100cd565b50505050905001838103825284818151815260200191508051906020019060200280838360005b8381101561012457818101518382015260200161010c565b5050505090500194505050505060405180910390f35b61005961028c565b6101686004803603602081101561015857600080fd5b50356001600160a01b03166102b0565b604080519115158252519081900360200190f35b7f000000000000000000000000000000000000000000000000000000000000000090565b6060806101ac846102b0565b6101e75760405162461bcd60e51b81526004018080602001828103825260308152602001806102e36030913960400191505060405180910390fd5b60408051600180825281830190925290602080830190803683370190505091507f00000000000000000000000000000000000000000000000000000000000000008260008151811061023557fe5b6001600160a01b0392909216602092830291909101820152604080516001808252818301909252918281019080368337019050509050828160008151811061027957fe5b6020026020010181815250509250929050565b7f000000000000000000000000000000000000000000000000000000000000000090565b7f00000000000000000000000000000000000000000000000000000000000000006001600160a01b039081169116149056fe63616c63556e6465726c79696e6756616c7565733a204e6f74206120737570706f727465642064657269766174697665a164736f6c634300060c000a",
+    "sourceMap": "576:237:374:-:0;;;666:145;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;-1:-1:-1;666:145:374;;;;;;;;872:29:251;;-1:-1:-1;;;872:29:251;;;;666:145:374;;;;;;;;-1:-1:-1;;;;;872:27:251;;;;;:29;;;;;666:145:374;;872:29:251;;;;;;:27;:29;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;-1:-1:-1;872:29:251;839;;;-1:-1:-1;;;839:29:251;;;;:62;;;;;-1:-1:-1;;;;;839:27:251;;;;;:29;;;;;872;;839;;;;;;;:27;:29;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;-1:-1:-1;839:29:251;:62;;;818:138;;;;;-1:-1:-1;;;818:138:251;;;;;;;;;;;;;;;;;;;;;;;;;;;;-1:-1:-1;;;;;;967:24:251;;;;;;;;1001;;;;;-1:-1:-1;;576:237:374;;;;;;;;;;;;;;;;",
+    "linkReferences": {}
+  },
+  "deployedBytecode": {
+    "object": "0x608060405234801561001057600080fd5b506004361061004c5760003560e01c80636d4a681a14610051578063727212f6146100755780639816f4731461013a5780639be918e614610142575b600080fd5b61005961017c565b604080516001600160a01b039092168252519081900360200190f35b6100a16004803603604081101561008b57600080fd5b506001600160a01b0381351690602001356101a0565b604051808060200180602001838103835285818151815260200191508051906020019060200280838360005b838110156100e55781810151838201526020016100cd565b50505050905001838103825284818151815260200191508051906020019060200280838360005b8381101561012457818101518382015260200161010c565b5050505090500194505050505060405180910390f35b61005961028c565b6101686004803603602081101561015857600080fd5b50356001600160a01b03166102b0565b604080519115158252519081900360200190f35b7f000000000000000000000000000000000000000000000000000000000000000090565b6060806101ac846102b0565b6101e75760405162461bcd60e51b81526004018080602001828103825260308152602001806102e36030913960400191505060405180910390fd5b60408051600180825281830190925290602080830190803683370190505091507f00000000000000000000000000000000000000000000000000000000000000008260008151811061023557fe5b6001600160a01b0392909216602092830291909101820152604080516001808252818301909252918281019080368337019050509050828160008151811061027957fe5b6020026020010181815250509250929050565b7f000000000000000000000000000000000000000000000000000000000000000090565b7f00000000000000000000000000000000000000000000000000000000000000006001600160a01b039081169116149056fe63616c63556e6465726c79696e6756616c7565733a204e6f74206120737570706f727465642064657269766174697665a164736f6c634300060c000a",
+    "sourceMap": "576:237:374:-:0;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;2468:103:251;;;:::i;:::-;;;;-1:-1:-1;;;;;2468:103:251;;;;;;;;;;;;;;1430:538;;;;;;;;;;;;;;;;-1:-1:-1;;;;;;1430:538:251;;;;;;;;:::i;:::-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;2690:103;;;:::i;2141:135::-;;;;;;;;;;;;;;;;-1:-1:-1;2141:135:251;-1:-1:-1;;;;;2141:135:251;;:::i;:::-;;;;;;;;;;;;;;;;;;2468:103;2554:10;2468:103;:::o;1430:538::-;1559:29;1590:35;1649:29;1666:11;1649:16;:29::i;:::-;1641:90;;;;-1:-1:-1;;;1641:90:251;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;1757:16;;;1771:1;1757:16;;;;;;;;;;;;;;;;;;;;;-1:-1:-1;1757:16:251;1742:31;;1801:10;1783:12;1796:1;1783:15;;;;;;;;-1:-1:-1;;;;;1783:28:251;;;;:15;;;;;;;;;;:28;1842:16;;;1856:1;1842:16;;;;;;;;;;;;;;1783:15;1842:16;;;;;-1:-1:-1;1842:16:251;1821:37;;1892:17;1868:18;1887:1;1868:21;;;;;;;;;;;;;:41;;;;;1430:538;;;;;:::o;2690:103::-;2776:10;2690:103;:::o;2141:135::-;2259:10;-1:-1:-1;;;;;2249:20:251;;;;;;;2141:135::o",
+    "linkReferences": {},
+    "immutableReferences": {
+      "66246": [
+        {
+          "start": 382,
+          "length": 32
+        },
+        {
+          "start": 690,
+          "length": 32
+        }
+      ],
+      "66248": [
+        {
+          "start": 521,
+          "length": 32
+        },
+        {
+          "start": 654,
+          "length": 32
+        }
+      ]
+    }
+  },
+  "methodIdentifiers": {
+    "calcUnderlyingValues(address,uint256)": "727212f6",
+    "getDerivative()": "6d4a681a",
+    "getUnderlying()": "9816f473",
+    "isSupportedAsset(address)": "9be918e6"
+  },
+  "rawMetadata": "{\"compiler\":{\"version\":\"0.6.12+commit.27d51765\"},\"language\":\"Solidity\",\"output\":{\"abi\":[{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_derivative\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"_underlying\",\"type\":\"address\"}],\"stateMutability\":\"nonpayable\",\"type\":\"constructor\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_derivative\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"_derivativeAmount\",\"type\":\"uint256\"}],\"name\":\"calcUnderlyingValues\",\"outputs\":[{\"internalType\":\"address[]\",\"name\":\"underlyings_\",\"type\":\"address[]\"},{\"internalType\":\"uint256[]\",\"name\":\"underlyingAmounts_\",\"type\":\"uint256[]\"}],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getDerivative\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"derivative_\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getUnderlying\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"underlying_\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_asset\",\"type\":\"address\"}],\"name\":\"isSupportedAsset\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"isSupported_\",\"type\":\"bool\"}],\"stateMutability\":\"view\",\"type\":\"function\"}],\"devdoc\":{\"author\":\"Enzyme Council <security@enzyme.finance>\",\"kind\":\"dev\",\"methods\":{\"calcUnderlyingValues(address,uint256)\":{\"params\":{\"_derivative\":\"The derivative to convert\",\"_derivativeAmount\":\"The amount of the derivative to convert\"},\"returns\":{\"underlyingAmounts_\":\"The amount of each underlying asset for the equivalent derivative amount\",\"underlyings_\":\"The underlying assets for the _derivative\"}},\"getDerivative()\":{\"returns\":{\"derivative_\":\"The `DERIVATIVE` variable value\"}},\"getUnderlying()\":{\"returns\":{\"underlying_\":\"The `UNDERLYING` variable value\"}},\"isSupportedAsset(address)\":{\"params\":{\"_asset\":\"The asset to check\"},\"returns\":{\"isSupported_\":\"True if the asset is supported\"}}},\"title\":\"TestSingleUnderlyingDerivativeRegistry Contract\",\"version\":1},\"userdoc\":{\"kind\":\"user\",\"methods\":{\"calcUnderlyingValues(address,uint256)\":{\"notice\":\"Converts a given amount of a derivative to its underlying asset values\"},\"getDerivative()\":{\"notice\":\"Gets the `DERIVATIVE` variable value\"},\"getUnderlying()\":{\"notice\":\"Gets the `UNDERLYING` variable value\"},\"isSupportedAsset(address)\":{\"notice\":\"Checks if an asset is supported by the price feed\"}},\"notice\":\"A test implementation of SinglePeggedDerivativePriceFeedBase\",\"version\":1}},\"settings\":{\"compilationTarget\":{\"contracts/test/TestSinglePeggedDerivativePriceFeed.sol\":\"TestSinglePeggedDerivativePriceFeed\"},\"evmVersion\":\"istanbul\",\"libraries\":{},\"metadata\":{\"bytecodeHash\":\"none\"},\"optimizer\":{\"details\":{\"constantOptimizer\":true,\"cse\":true,\"deduplicate\":true,\"jumpdestRemover\":true,\"orderLiterals\":true,\"peephole\":true,\"yul\":false},\"runs\":200},\"remappings\":[\":@enzyme/=contracts/\",\":@openzeppelin-solc-0.7/=node_modules/@openzeppelin-solc-0.7/\",\":@openzeppelin/=node_modules/@openzeppelin/\",\":@uniswap/=node_modules/@uniswap/\",\":base64-sol/=node_modules/base64-sol/\",\":ds-test/=lib/forge-std/lib/ds-test/src/\",\":forge-std/=lib/forge-std/src/\",\":hardhat-deploy/=node_modules/hardhat-deploy/\",\":hardhat/=node_modules/hardhat/\"]},\"sources\":{\"contracts/release/infrastructure/price-feeds/derivatives/IDerivativePriceFeed.sol\":{\"keccak256\":\"0x5abbc57ccbf28b2c27a0ee496f0a949a0039912975e8f9a65312d884edd05332\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://9cfb87b8df1f3f58c556907e2a9cc197fa5bb90ad9bc9d4717e95fd63258d80e\",\"dweb:/ipfs/QmWxLvfq9NNJJZueeHD5EYWdRwrgzmrVdLUqp9Ta7A9ccK\"]},\"contracts/release/infrastructure/price-feeds/derivatives/feeds/utils/SinglePeggedDerivativePriceFeedBase.sol\":{\"keccak256\":\"0xcbcb93a3c4ad003660705d351aa9741174add393ca99fe2cf9346d6d4a055479\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://cb3e7a9d4972928ff1ba55de58285e910a88563ce0be81a7813c5c9bc9966dd9\",\"dweb:/ipfs/QmSWntaSEGdhgmBsFRbRLrpfbt4Fs5gZ2rFMEQ7eBNdjq9\"]},\"contracts/test/TestSinglePeggedDerivativePriceFeed.sol\":{\"keccak256\":\"0x795e89e751321f4c5742a5c47400c4a081e111b66a628b8d81f98eac039c60e2\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://0125c07ea3c2b45c0449bf0c4b3ff4476e1722dbd94ec4e403b221db34da8911\",\"dweb:/ipfs/QmczGyL8PAs1sD2GheYYvseLe1Xkwx2HU4iCPhjU8paLn9\"]},\"node_modules/@openzeppelin/contracts/math/SafeMath.sol\":{\"keccak256\":\"0xcc78a17dd88fa5a2edc60c8489e2f405c0913b377216a5b26b35656b2d0dab52\",\"license\":\"MIT\",\"urls\":[\"bzz-raw://526dc85e1f9b9b45830e202568d267d93dde7a4fcccf4ad7798dadcd92304d3c\",\"dweb:/ipfs/QmaoXMB972J3cSDLtBq3xBo4jLwqD2uzXTwujtSPqkYVhR\"]},\"node_modules/@openzeppelin/contracts/token/ERC20/ERC20.sol\":{\"keccak256\":\"0xca0c2396dbeb3503b51abf4248ebf77a1461edad513c01529df51850a012bee3\",\"license\":\"MIT\",\"urls\":[\"bzz-raw://991b44ff44e0496e8554a90f4c0512c28faed45104d40430019f3c67ea67740e\",\"dweb:/ipfs/Qmc3nRapVbcctELoZS5qe17zLkFB3bETBfwzCTMF1CSuGE\"]},\"node_modules/@openzeppelin/contracts/token/ERC20/IERC20.sol\":{\"keccak256\":\"0x5f02220344881ce43204ae4a6281145a67bc52c2bb1290a791857df3d19d78f5\",\"license\":\"MIT\",\"urls\":[\"bzz-raw://24427744bd3e6cb73c17010119af12a318289c0253a4d9acb8576c9fb3797b08\",\"dweb:/ipfs/QmTLDqpKRBuxGxRAmjgXt9AkXyACW3MtKzi7PYjm5iMfGC\"]},\"node_modules/@openzeppelin/contracts/utils/Context.sol\":{\"keccak256\":\"0x8d3cb350f04ff49cfb10aef08d87f19dcbaecc8027b0bed12f3275cd12f38cf0\",\"license\":\"MIT\",\"urls\":[\"bzz-raw://ded47ec7c96750f9bd04bbbc84f659992d4ba901cb7b532a52cd468272cf378f\",\"dweb:/ipfs/QmfBrGtQP7rZEqEg6Wz6jh2N2Kukpj1z5v3CGWmAqrzm96\"]}},\"version\":1}",
+  "metadata": {
+    "compiler": {
+      "version": "0.6.12+commit.27d51765"
+    },
+    "language": "Solidity",
+    "output": {
+      "abi": [
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "_derivative",
+              "type": "address"
+            },
+            {
+              "internalType": "address",
+              "name": "_underlying",
+              "type": "address"
+            }
+          ],
+          "stateMutability": "nonpayable",
+          "type": "constructor"
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "_derivative",
+              "type": "address"
+            },
+            {
+              "internalType": "uint256",
+              "name": "_derivativeAmount",
+              "type": "uint256"
+            }
+          ],
+          "stateMutability": "nonpayable",
+          "type": "function",
+          "name": "calcUnderlyingValues",
+          "outputs": [
+            {
+              "internalType": "address[]",
+              "name": "underlyings_",
+              "type": "address[]"
+            },
+            {
+              "internalType": "uint256[]",
+              "name": "underlyingAmounts_",
+              "type": "uint256[]"
+            }
+          ]
+        },
+        {
+          "inputs": [],
+          "stateMutability": "view",
+          "type": "function",
+          "name": "getDerivative",
+          "outputs": [
+            {
+              "internalType": "address",
+              "name": "derivative_",
+              "type": "address"
+            }
+          ]
+        },
+        {
+          "inputs": [],
+          "stateMutability": "view",
+          "type": "function",
+          "name": "getUnderlying",
+          "outputs": [
+            {
+              "internalType": "address",
+              "name": "underlying_",
+              "type": "address"
+            }
+          ]
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "_asset",
+              "type": "address"
+            }
+          ],
+          "stateMutability": "view",
+          "type": "function",
+          "name": "isSupportedAsset",
+          "outputs": [
+            {
+              "internalType": "bool",
+              "name": "isSupported_",
+              "type": "bool"
+            }
+          ]
+        }
+      ],
+      "devdoc": {
+        "kind": "dev",
+        "methods": {
+          "calcUnderlyingValues(address,uint256)": {
+            "params": {
+              "_derivative": "The derivative to convert",
+              "_derivativeAmount": "The amount of the derivative to convert"
+            },
+            "returns": {
+              "underlyingAmounts_": "The amount of each underlying asset for the equivalent derivative amount",
+              "underlyings_": "The underlying assets for the _derivative"
+            }
+          },
+          "getDerivative()": {
+            "returns": {
+              "derivative_": "The `DERIVATIVE` variable value"
+            }
+          },
+          "getUnderlying()": {
+            "returns": {
+              "underlying_": "The `UNDERLYING` variable value"
+            }
+          },
+          "isSupportedAsset(address)": {
+            "params": {
+              "_asset": "The asset to check"
+            },
+            "returns": {
+              "isSupported_": "True if the asset is supported"
+            }
+          }
+        },
+        "version": 1
+      },
+      "userdoc": {
+        "kind": "user",
+        "methods": {
+          "calcUnderlyingValues(address,uint256)": {
+            "notice": "Converts a given amount of a derivative to its underlying asset values"
+          },
+          "getDerivative()": {
+            "notice": "Gets the `DERIVATIVE` variable value"
+          },
+          "getUnderlying()": {
+            "notice": "Gets the `UNDERLYING` variable value"
+          },
+          "isSupportedAsset(address)": {
+            "notice": "Checks if an asset is supported by the price feed"
+          }
+        },
+        "version": 1
+      }
+    },
+    "settings": {
+      "remappings": [
+        ":@enzyme/=contracts/",
+        ":@openzeppelin-solc-0.7/=node_modules/@openzeppelin-solc-0.7/",
+        ":@openzeppelin/=node_modules/@openzeppelin/",
+        ":@uniswap/=node_modules/@uniswap/",
+        ":base64-sol/=node_modules/base64-sol/",
+        ":ds-test/=lib/forge-std/lib/ds-test/src/",
+        ":forge-std/=lib/forge-std/src/",
+        ":hardhat-deploy/=node_modules/hardhat-deploy/",
+        ":hardhat/=node_modules/hardhat/"
+      ],
+      "optimizer": {
+        "runs": 200,
+        "details": {
+          "peephole": true,
+          "jumpdestRemover": true,
+          "orderLiterals": true,
+          "deduplicate": true,
+          "cse": true,
+          "constantOptimizer": true,
+          "yul": false
+        }
+      },
+      "metadata": {
+        "bytecodeHash": "none"
+      },
+      "compilationTarget": {
+        "contracts/test/TestSinglePeggedDerivativePriceFeed.sol": "TestSinglePeggedDerivativePriceFeed"
+      },
+      "libraries": {}
+    },
+    "sources": {
+      "contracts/release/infrastructure/price-feeds/derivatives/IDerivativePriceFeed.sol": {
+        "keccak256": "0x5abbc57ccbf28b2c27a0ee496f0a949a0039912975e8f9a65312d884edd05332",
+        "urls": [
+          "bzz-raw://9cfb87b8df1f3f58c556907e2a9cc197fa5bb90ad9bc9d4717e95fd63258d80e",
+          "dweb:/ipfs/QmWxLvfq9NNJJZueeHD5EYWdRwrgzmrVdLUqp9Ta7A9ccK"
+        ],
+        "license": "GPL-3.0"
+      },
+      "contracts/release/infrastructure/price-feeds/derivatives/feeds/utils/SinglePeggedDerivativePriceFeedBase.sol": {
+        "keccak256": "0xcbcb93a3c4ad003660705d351aa9741174add393ca99fe2cf9346d6d4a055479",
+        "urls": [
+          "bzz-raw://cb3e7a9d4972928ff1ba55de58285e910a88563ce0be81a7813c5c9bc9966dd9",
+          "dweb:/ipfs/QmSWntaSEGdhgmBsFRbRLrpfbt4Fs5gZ2rFMEQ7eBNdjq9"
+        ],
+        "license": "GPL-3.0"
+      },
+      "contracts/test/TestSinglePeggedDerivativePriceFeed.sol": {
+        "keccak256": "0x795e89e751321f4c5742a5c47400c4a081e111b66a628b8d81f98eac039c60e2",
+        "urls": [
+          "bzz-raw://0125c07ea3c2b45c0449bf0c4b3ff4476e1722dbd94ec4e403b221db34da8911",
+          "dweb:/ipfs/QmczGyL8PAs1sD2GheYYvseLe1Xkwx2HU4iCPhjU8paLn9"
+        ],
+        "license": "GPL-3.0"
+      },
+      "node_modules/@openzeppelin/contracts/math/SafeMath.sol": {
+        "keccak256": "0xcc78a17dd88fa5a2edc60c8489e2f405c0913b377216a5b26b35656b2d0dab52",
+        "urls": [
+          "bzz-raw://526dc85e1f9b9b45830e202568d267d93dde7a4fcccf4ad7798dadcd92304d3c",
+          "dweb:/ipfs/QmaoXMB972J3cSDLtBq3xBo4jLwqD2uzXTwujtSPqkYVhR"
+        ],
+        "license": "MIT"
+      },
+      "node_modules/@openzeppelin/contracts/token/ERC20/ERC20.sol": {
+        "keccak256": "0xca0c2396dbeb3503b51abf4248ebf77a1461edad513c01529df51850a012bee3",
+        "urls": [
+          "bzz-raw://991b44ff44e0496e8554a90f4c0512c28faed45104d40430019f3c67ea67740e",
+          "dweb:/ipfs/Qmc3nRapVbcctELoZS5qe17zLkFB3bETBfwzCTMF1CSuGE"
+        ],
+        "license": "MIT"
+      },
+      "node_modules/@openzeppelin/contracts/token/ERC20/IERC20.sol": {
+        "keccak256": "0x5f02220344881ce43204ae4a6281145a67bc52c2bb1290a791857df3d19d78f5",
+        "urls": [
+          "bzz-raw://24427744bd3e6cb73c17010119af12a318289c0253a4d9acb8576c9fb3797b08",
+          "dweb:/ipfs/QmTLDqpKRBuxGxRAmjgXt9AkXyACW3MtKzi7PYjm5iMfGC"
+        ],
+        "license": "MIT"
+      },
+      "node_modules/@openzeppelin/contracts/utils/Context.sol": {
+        "keccak256": "0x8d3cb350f04ff49cfb10aef08d87f19dcbaecc8027b0bed12f3275cd12f38cf0",
+        "urls": [
+          "bzz-raw://ded47ec7c96750f9bd04bbbc84f659992d4ba901cb7b532a52cd468272cf378f",
+          "dweb:/ipfs/QmfBrGtQP7rZEqEg6Wz6jh2N2Kukpj1z5v3CGWmAqrzm96"
+        ],
+        "license": "MIT"
+      }
+    },
+    "version": 1
+  },
+  "ast": {
+    "absolutePath": "contracts/test/TestSinglePeggedDerivativePriceFeed.sol",
+    "id": 79951,
+    "exportedSymbols": {
+      "TestSinglePeggedDerivativePriceFeed": [
+        79950
+      ]
+    },
+    "nodeType": "SourceUnit",
+    "src": "253:561:374",
+    "nodes": [
+      {
+        "id": 79933,
+        "nodeType": "PragmaDirective",
+        "src": "253:23:374",
+        "nodes": [],
+        "literals": [
+          "solidity",
+          "0.6",
+          ".12"
+        ]
+      },
+      {
+        "id": 79934,
+        "nodeType": "ImportDirective",
+        "src": "278:111:374",
+        "nodes": [],
+        "absolutePath": "contracts/release/infrastructure/price-feeds/derivatives/feeds/utils/SinglePeggedDerivativePriceFeedBase.sol",
+        "file": "../release/infrastructure/price-feeds/derivatives/feeds/utils/SinglePeggedDerivativePriceFeedBase.sol",
+        "scope": 79951,
+        "sourceUnit": 66368,
+        "symbolAliases": [],
+        "unitAlias": ""
+      },
+      {
+        "id": 79950,
+        "nodeType": "ContractDefinition",
+        "src": "576:237:374",
+        "nodes": [
+          {
+            "id": 79949,
+            "nodeType": "FunctionDefinition",
+            "src": "666:145:374",
+            "nodes": [],
+            "body": {
+              "id": 79948,
+              "nodeType": "Block",
+              "src": "809:2:374",
+              "nodes": [],
+              "statements": []
+            },
+            "documentation": null,
+            "implemented": true,
+            "kind": "constructor",
+            "modifiers": [
+              {
+                "arguments": [
+                  {
+                    "argumentTypes": null,
+                    "id": 79944,
+                    "name": "_derivative",
+                    "nodeType": "Identifier",
+                    "overloadedDeclarations": [],
+                    "referencedDeclaration": 79939,
+                    "src": "779:11:374",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  {
+                    "argumentTypes": null,
+                    "id": 79945,
+                    "name": "_underlying",
+                    "nodeType": "Identifier",
+                    "overloadedDeclarations": [],
+                    "referencedDeclaration": 79941,
+                    "src": "792:11:374",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  }
+                ],
+                "id": 79946,
+                "modifierName": {
+                  "argumentTypes": null,
+                  "id": 79943,
+                  "name": "SinglePeggedDerivativePriceFeedBase",
+                  "nodeType": "Identifier",
+                  "overloadedDeclarations": [],
+                  "referencedDeclaration": 66367,
+                  "src": "743:35:374",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_type$_t_contract$_SinglePeggedDerivativePriceFeedBase_$66367_$",
+                    "typeString": "type(contract SinglePeggedDerivativePriceFeedBase)"
+                  }
+                },
+                "nodeType": "ModifierInvocation",
+                "src": "743:61:374"
+              }
+            ],
+            "name": "",
+            "overrides": null,
+            "parameters": {
+              "id": 79942,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 79939,
+                  "mutability": "mutable",
+                  "name": "_derivative",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 79949,
+                  "src": "678:19:374",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 79938,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "678:7:374",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 79941,
+                  "mutability": "mutable",
+                  "name": "_underlying",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 79949,
+                  "src": "699:19:374",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 79940,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "699:7:374",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "677:42:374"
+            },
+            "returnParameters": {
+              "id": 79947,
+              "nodeType": "ParameterList",
+              "parameters": [],
+              "src": "809:0:374"
+            },
+            "scope": 79950,
+            "stateMutability": "nonpayable",
+            "virtual": false,
+            "visibility": "public"
+          }
+        ],
+        "abstract": false,
+        "baseContracts": [
+          {
+            "arguments": null,
+            "baseName": {
+              "contractScope": null,
+              "id": 79936,
+              "name": "SinglePeggedDerivativePriceFeedBase",
+              "nodeType": "UserDefinedTypeName",
+              "referencedDeclaration": 66367,
+              "src": "624:35:374",
+              "typeDescriptions": {
+                "typeIdentifier": "t_contract$_SinglePeggedDerivativePriceFeedBase_$66367",
+                "typeString": "contract SinglePeggedDerivativePriceFeedBase"
+              }
+            },
+            "id": 79937,
+            "nodeType": "InheritanceSpecifier",
+            "src": "624:35:374"
+          }
+        ],
+        "contractDependencies": [
+          62423,
+          66367
+        ],
+        "contractKind": "contract",
+        "documentation": {
+          "id": 79935,
+          "nodeType": "StructuredDocumentation",
+          "src": "391:185:374",
+          "text": "@title TestSingleUnderlyingDerivativeRegistry Contract\n @author Enzyme Council <security@enzyme.finance>\n @notice A test implementation of SinglePeggedDerivativePriceFeedBase"
+        },
+        "fullyImplemented": true,
+        "linearizedBaseContracts": [
+          79950,
+          66367,
+          62423
+        ],
+        "name": "TestSinglePeggedDerivativePriceFeed",
+        "scope": 79951
+      }
+    ],
+    "license": "GPL-3.0"
+  },
+  "id": 374
+}
