@@ -57,7 +57,7 @@ def user_2() -> LocalAccount:
 
 
 @pytest.fixture()
-def ganache_bnb_chain_fork(large_busd_holder, user_1, fund_client) -> str:
+def ganache_bnb_chain_fork(large_busd_holder, user_1, user_1) -> str:
     """Create a testable fork of live BNB chain.
 
     :return: JSON-RPC URL for Web3

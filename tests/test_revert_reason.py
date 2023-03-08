@@ -57,7 +57,7 @@ def user_1() -> LocalAccount:
 
 
 @pytest.fixture(scope="module")
-def fund_client() -> LocalAccount:
+def user_1() -> LocalAccount:
     """User account.
 
     Do some account allocation for tests.
@@ -96,7 +96,7 @@ def web3(anvil_bnb_chain_fork: str, user_1):
     return web3
 
 
-def test_revert_reason(web3: Web3, large_busd_holder: HexAddress, user_1, fund_client):
+def test_revert_reason(web3: Web3, large_busd_holder: HexAddress, user_1, user_1):
     """Revert reason can be extracted from the transaction.
 
     We test this by sending BUSD with insufficient token balance.
@@ -113,7 +113,7 @@ def test_revert_reason(web3: Web3, large_busd_holder: HexAddress, user_1, fund_c
 
     # user_1 doese not have BUSD so this tx will fail
     # and BUSD ERC-20 contract should give the revert reason
-    tx_hash = busd.functions.transfer(fund_client.address, 500 * 10 ** 18).transact({"from": user_1.address, "gas": 500_000})
+    tx_hash = busd.functions.transfer(user_1.address, 500 * 10 ** 18).transact({"from": user_1.address, "gas": 500_000})
 
     receipts = wait_transactions_to_complete(web3, [tx_hash])
 

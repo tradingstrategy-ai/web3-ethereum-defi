@@ -13,7 +13,7 @@ def test_deploy_enzyme(
         web3: Web3,
         deployer: HexAddress,
         user_1: HexAddress,
-        fund_client: HexAddress,
+        user_1: HexAddress,
         weth: Contract,
         mln: Contract,
         usdc: Contract,
@@ -48,10 +48,10 @@ def test_deploy_enzyme(
     # See Shares.sol
     #
     # Buy shares for 500 USDC, receive min share
-    usdc.functions.transfer(fund_client, 500 * 10 ** 6).transact({"from": deployer})
-    usdc.functions.approve(comptroller.address, 500*10**6).transact({"from": fund_client})
-    comptroller.functions.buyShares(500*10**6, 1).transact({"from": fund_client})
+    usdc.functions.transfer(user_1, 500 * 10 ** 6).transact({"from": deployer})
+    usdc.functions.approve(comptroller.address, 500*10**6).transact({"from": user_1})
+    comptroller.functions.buyShares(500*10**6, 1).transact({"from": user_1})
 
     # See user 2 received shares
-    balance = vault.functions.balanceOf(fund_client).call()
+    balance = vault.functions.balanceOf(user_1).call()
     assert balance == 500*10**6
