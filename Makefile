@@ -24,6 +24,9 @@ aavev3:
 
 # Compile and copy Enzyme contract ABIs from their Github repository
 # Needs pnpm: curl -fsSL https://get.pnpm.io/install.sh | sh -
+#
+# NOTE: Currently needs Enzyme branch that is being ported to Forge.
+#
 enzyme:
 	@rm -f eth_defi/abi/enzyme/*.json || false
 	@(cd contracts/enzyme && pnpm install)
@@ -45,7 +48,7 @@ clean:
 # Compile all contracts we are using
 #
 # Move ABI files to within a Python package for PyPi distribution
-compile-projects-and-prepare-abi: sushi-and-inhouse copy-uniswapv3-abi aavev3 enzyme dhedge
+compile-projects-and-prepare-abi: sushi-and-inhouse copy-uniswapv3-abi aavev3 dhedge
 
 all: clean-docs compile-projects-and-prepare-abi build-docs
 
