@@ -36,8 +36,7 @@ def anvil() -> AnvilLaunch:
     anvil = launch_anvil(
         hardfork="london",
         gas_limit=15_000_000,  # Max 5M gas per block, or per transaction in test automining
-        # Enable structured logs if debug_traceTransaction() is called
-        steps_tracing=True,
+        port=20001,
     )
     try:
 

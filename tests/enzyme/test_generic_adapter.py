@@ -148,4 +148,4 @@ def test_generic_adapter_uniswap_v2(
 
     # Now after the swap the vault should have some WETH
     assert weth.functions.balanceOf(vault.address).call() == pytest.approx(93398910964326424)
-    assert usdc.functions.balanceOf(vault.address).call() == 350 * 10**16
+    assert usdc.functions.balanceOf(vault.address).call() == 350 * 10**6
