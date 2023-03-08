@@ -60,7 +60,7 @@ def user_2() -> LocalAccount:
 
 
 @pytest.fixture()
-def anvil_bnb_chain_fork(request, large_busd_holder, fund_owner, fund_client) -> str:
+def anvil_bnb_chain_fork(request, large_busd_holder, user_1, fund_client) -> str:
     """Create a testable fork of live BNB chain.
 
     :return: JSON-RPC URL for Web3
@@ -101,14 +101,14 @@ def test_anvil_forked_chain_id(web3: Web3):
     assert web3.eth.chain_id == 56
 
 
-def test_anvil_fork_busd_details(web3: Web3, large_busd_holder: HexAddress, fund_owner):
+def test_anvil_fork_busd_details(web3: Web3, large_busd_holder: HexAddress, user_1):
     """Checks BUSD deployment on BNB chain."""
     busd = fetch_erc20_details(web3, "0xe9e7CEA3DedcA5984780Bafc599bD69ADd087D56")
     assert busd.symbol == "BUSD"
     assert (busd.total_supply / (10**18)) > 1_000_000_000, "More than $1B BUSD minted"
 
 
-def test_anvil_fork_transfer_busd(web3: Web3, large_busd_holder: HexAddress, fund_owner):
+def test_anvil_fork_transfer_busd(web3: Web3, large_busd_holder: HexAddress, user_1):
     """Forks the BNB chain mainnet and transfers from USDC to the user."""
 
     # BUSD deployment on BNB chain
@@ -117,13 +117,13 @@ def test_anvil_fork_transfer_busd(web3: Web3, large_busd_holder: HexAddress, fun
     busd = busd_details.contract
 
     # Transfer 500 BUSD to the user 1
-    tx_hash = busd.functions.transfer(fund_owner.address, 500 * 10 ** 18).transact({"from": large_busd_holder})
+    tx_hash = busd.functions.transfer(user_1.address, 500 * 10 ** 18).transact({"from": large_busd_holder})
 
     # Because Ganache has instamine turned on by default, we do not need to wait for the transaction
     receipt = web3.eth.get_transaction_receipt(tx_hash)
     assert receipt.status == 1, "BUSD transfer reverted"
 
-    assert busd.functions.balanceOf(fund_owner.address).call() == 500 * 10 ** 18
+    assert busd.functions.balanceOf(user_1.address).call() == 500 * 10 ** 18
 
 
 # def test_revert_reason_middleware(web3: Web3, large_busd_holder: HexAddress, user_1: LocalAccount, user_2: LocalAccount):

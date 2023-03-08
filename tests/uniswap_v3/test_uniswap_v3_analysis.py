@@ -124,7 +124,7 @@ def weth_usdc_pool(web3, deployer, uniswap_v3, weth, usdc, weth_usdc_fee) -> Hex
 def test_analyse_by_receipt(
     web3: Web3,
     deployer: str,
-        fund_owner,
+        user_1,
     uniswap_v3: UniswapV3Deployment,
     weth: Contract,
     usdc: Contract,
@@ -137,8 +137,8 @@ def test_analyse_by_receipt(
 
     # Give user_1 some cash to buy ETH and approve it on the router
     usdc_amount_to_pay = 500 * 10**6
-    usdc.functions.transfer(fund_owner, usdc_amount_to_pay).transact({"from": deployer})
-    usdc.functions.approve(router.address, usdc_amount_to_pay).transact({"from": fund_owner})
+    usdc.functions.transfer(user_1, usdc_amount_to_pay).transact({"from": deployer})
+    usdc.functions.approve(router.address, usdc_amount_to_pay).transact({"from": user_1})
 
     # Perform a swap USDC->WETH
     path = [usdc.address, weth.address]  # Path tell how the swap is routed
@@ -147,12 +147,12 @@ def test_analyse_by_receipt(
     tx_hash = router.functions.exactInput(
         (
             encoded_path,
-            fund_owner,
+            user_1,
             FOREVER_DEADLINE,
             10 * 10 ** 6,
             0,
         )
-    ).transact({"from": fund_owner})
+    ).transact({"from": user_1})
 
     tx = web3.eth.get_transaction(tx_hash)
     receipt = web3.eth.get_transaction_receipt(tx_hash)
@@ -165,20 +165,20 @@ def test_analyse_by_receipt(
     assert analysis.amount_out_decimals == 18
     assert analysis.amount_in_decimals == 6
 
-    all_weth_amount = weth.functions.balanceOf(fund_owner).call()
-    weth.functions.approve(router.address, all_weth_amount).transact({"from": fund_owner})
+    all_weth_amount = weth.functions.balanceOf(user_1).call()
+    weth.functions.approve(router.address, all_weth_amount).transact({"from": user_1})
 
     # Perform the reverse swap WETH->USDC
     reverse_path = [weth.address, usdc.address]  # Path tell how the swap is routed
     tx_hash = router.functions.exactInput(
         (
             encode_path(reverse_path, [weth_usdc_fee]),
-            fund_owner,
+            user_1,
             FOREVER_DEADLINE,
             all_weth_amount - 1000,
             0,
         )
-    ).transact({"from": fund_owner})
+    ).transact({"from": user_1})
 
     tx = web3.eth.get_transaction(tx_hash)
     receipt = web3.eth.get_transaction_receipt(tx_hash)

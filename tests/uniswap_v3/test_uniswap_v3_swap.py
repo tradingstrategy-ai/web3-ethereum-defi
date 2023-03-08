@@ -296,7 +296,7 @@ def test_swap_slippage_revert(
     usdc: Contract,
     weth_usdc_pool: Contract,
     hot_wallet: LocalAccount,
-        fund_owner,
+        user_1,
     pool_trading_fee: int,
 ):
     """Use local hot wallet to try to buy WETH on Uniswap v3 using mock USDC with slippage protection
@@ -314,8 +314,8 @@ def test_swap_slippage_revert(
     usdc.functions.approve(router.address, usdc_amount_to_pay).transact({"from": hw_address})
 
     # give user_1 some cash as well
-    usdc.functions.transfer(fund_owner, usdc_amount_to_pay).transact({"from": deployer})
-    usdc.functions.approve(router.address, usdc_amount_to_pay).transact({"from": fund_owner})
+    usdc.functions.transfer(user_1, usdc_amount_to_pay).transact({"from": deployer})
+    usdc.functions.approve(router.address, usdc_amount_to_pay).transact({"from": user_1})
 
     # prepare a swap USDC->WETH
     swap_func = swap_with_slippage_protection(
@@ -352,12 +352,12 @@ def test_swap_slippage_revert(
     router.functions.exactInput(
         (
             encode_path([usdc.address, weth.address], [pool_trading_fee]),
-            fund_owner,
+            user_1,
             FOREVER_DEADLINE,
             110 * 10 ** 18,
             0,
         )
-    ).transact({"from": fund_owner})
+    ).transact({"from": user_1})
 
     # the price now should be lower than when we create tx1 (we get less ETH back)
     new_price = price_helper.get_amount_out(

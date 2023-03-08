@@ -19,8 +19,8 @@ from eth_defi.uniswap_v3.constants import FOREVER_DEADLINE
 def dual_token_deployment(
         web3: Web3,
         deployer: HexAddress,
-        fund_owner: HexAddress,
-        fund_customer: HexAddress,
+        user_1: HexAddress,
+        user_2,
         weth: Contract,
         mln: Contract,
         usdc: Contract,
@@ -54,9 +54,9 @@ def dual_token_deployment(
 def test_generic_adapter_uniswap_v2(
         web3: Web3,
         deployer: HexAddress,
-        fund_owner: HexAddress,
-        fund_customer: HexAddress,
-        fund_customer_2: HexAddress,
+        user_1: HexAddress,
+        user_2,
+        user_3,
         weth: Contract,
         mln: Contract,
         usdc: Contract,
@@ -88,21 +88,21 @@ def test_generic_adapter_uniswap_v2(
     assert generic_adapter.functions.getIntegrationManager().call() == deployment.contracts.integration_manager.address
 
     comptroller, vault = deployment.create_new_vault(
-        fund_owner,
+        user_1,
         usdc,
     )
 
     assert comptroller.functions.getDenominationAsset().call() == usdc.address
     assert vault.functions.getTrackedAssets().call() == [usdc.address]
-    assert vault.functions.canManageAssets(fund_owner).call() is True
+    assert vault.functions.canManageAssets(user_1).call() is True
 
     # User 2 buys into the vault
     # See Shares.sol
     #
     # Buy shares for 500 USDC, receive min share
-    usdc.functions.transfer(fund_customer, 500 * 10 ** 6).transact({"from": deployer})
-    usdc.functions.approve(comptroller.address, 500*10**6).transact({"from": fund_customer})
-    comptroller.functions.buyShares(500*10**6, 1).transact({"from": fund_customer})
+    usdc.functions.transfer(user_2, 500 * 10 ** 6).transact({"from": deployer})
+    usdc.functions.approve(comptroller.address, 500*10**6).transact({"from": user_2})
+    comptroller.functions.buyShares(500*10**6, 1).transact({"from": user_2})
 
     # Check that the vault has balance
     balance = usdc.functions.balanceOf(vault.address).call()
@@ -143,7 +143,7 @@ def test_generic_adapter_uniswap_v2(
         spend_assets=spend_assets,
     )
 
-    tx_hash = bound_call.transact({"from": fund_owner, "gas": 1_000_000})
+    tx_hash = bound_call.transact({"from": user_1, "gas": 1_000_000})
     assert_transaction_success_with_explanation(web3, tx_hash)
 
     # Now after the swap the vault should have some WETH

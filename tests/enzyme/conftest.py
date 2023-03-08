@@ -88,7 +88,7 @@ def uniswap_v2(web3: Web3, deployer: HexAddress) -> UniswapV2Deployment:
 
 
 @pytest.fixture()
-def fund_owner(web3) -> HexAddress:
+def user_1(web3) -> HexAddress:
     """User account.
 
     Do some account allocation for tests.
@@ -97,7 +97,7 @@ def fund_owner(web3) -> HexAddress:
 
 
 @pytest.fixture()
-def fund_customer(web3) -> HexAddress:
+def user_2(web3) -> HexAddress:
     """User account.
 
     Do some account allocation for tests.
@@ -106,7 +106,7 @@ def fund_customer(web3) -> HexAddress:
 
 
 @pytest.fixture()
-def fund_customer_2(web3) -> HexAddress:
+def user_3(web3) -> HexAddress:
     """User account.
 
     Do some account allocation for tests.

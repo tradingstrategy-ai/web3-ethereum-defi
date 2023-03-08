@@ -78,10 +78,10 @@ def web3(anvil_bnb_chain_fork: str):
 
 
 @pytest.fixture
-def hot_wallet(fund_owner, web3: Web3) -> HotWallet:
+def hot_wallet(user_1, web3: Web3) -> HotWallet:
     """Hot wallet implementation."""
-    assert isinstance(fund_owner, LocalAccount)
-    wallet = HotWallet(fund_owner)
+    assert isinstance(user_1, LocalAccount)
+    wallet = HotWallet(user_1)
     wallet.sync_nonce(web3)
     return wallet
 

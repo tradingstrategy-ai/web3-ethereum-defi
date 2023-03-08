@@ -12,7 +12,7 @@ from eth_defi.enzyme.deployment import EnzymeDeployment, RateAsset
 def test_deploy_enzyme(
         web3: Web3,
         deployer: HexAddress,
-        fund_owner: HexAddress,
+        user_1: HexAddress,
         fund_client: HexAddress,
         weth: Contract,
         mln: Contract,
@@ -37,7 +37,7 @@ def test_deploy_enzyme(
     )
 
     comptroller, vault = deployment.create_new_vault(
-        fund_owner,
+        user_1,
         usdc,
     )
 

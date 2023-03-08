@@ -85,7 +85,7 @@ def weth(uniswap_v2) -> Contract:
     return uniswap_v2.weth
 
 
-def test_analyse_buy_success(web3: Web3, deployer: str, fund_owner, uniswap_v2: UniswapV2Deployment, weth: Contract, usdc: Contract):
+def test_analyse_buy_success(web3: Web3, deployer: str, user_1, uniswap_v2: UniswapV2Deployment, weth: Contract, usdc: Contract):
     """Aanlyze the Uniswap v2 trade."""
 
     # Create the trading pair and add initial liquidity
@@ -103,8 +103,8 @@ def test_analyse_buy_success(web3: Web3, deployer: str, fund_owner, uniswap_v2: 
 
     # Give user_1 some cash to buy ETH and approve it on the router
     usdc_amount_to_pay = 500 * 10**6
-    usdc.functions.transfer(fund_owner, usdc_amount_to_pay).transact({"from": deployer})
-    usdc.functions.approve(router.address, usdc_amount_to_pay).transact({"from": fund_owner})
+    usdc.functions.transfer(user_1, usdc_amount_to_pay).transact({"from": deployer})
+    usdc.functions.approve(router.address, usdc_amount_to_pay).transact({"from": user_1})
 
     # Perform a swap USDC->WETH
     path = [usdc.address, weth.address]  # Path tell how the swap is routed
@@ -113,9 +113,9 @@ def test_analyse_buy_success(web3: Web3, deployer: str, fund_owner, uniswap_v2: 
         usdc_amount_to_pay,
         0,
         path,
-        fund_owner,
+        user_1,
         FOREVER_DEADLINE,
-    ).transact({"from": fund_owner})
+    ).transact({"from": user_1})
 
     analysis = analyse_trade_by_hash(web3, uniswap_v2, tx_hash)
     assert isinstance(analysis, TradeSuccess)
@@ -125,7 +125,7 @@ def test_analyse_buy_success(web3: Web3, deployer: str, fund_owner, uniswap_v2: 
     assert analysis.amount_out_decimals == 18
 
 
-def test_analyse_sell_success(web3: Web3, deployer: str, fund_owner, uniswap_v2: UniswapV2Deployment, weth: Contract, usdc: Contract):
+def test_analyse_sell_success(web3: Web3, deployer: str, user_1, uniswap_v2: UniswapV2Deployment, weth: Contract, usdc: Contract):
     """Aanlyse a Uniswap v2 trade going to different direction."""
 
     # Create the trading pair and add initial liquidity
@@ -143,8 +143,8 @@ def test_analyse_sell_success(web3: Web3, deployer: str, fund_owner, uniswap_v2:
 
     # Give user_1 some cash to buy ETH and approve it on the router
     usdc_amount_to_pay = 500 * 10**6
-    usdc.functions.transfer(fund_owner, usdc_amount_to_pay).transact({"from": deployer})
-    usdc.functions.approve(router.address, usdc_amount_to_pay).transact({"from": fund_owner})
+    usdc.functions.transfer(user_1, usdc_amount_to_pay).transact({"from": deployer})
+    usdc.functions.approve(router.address, usdc_amount_to_pay).transact({"from": user_1})
 
     # Perform a swap USDC->WETH
     path = [usdc.address, weth.address]  # Path tell how the swap is routed
@@ -153,12 +153,12 @@ def test_analyse_sell_success(web3: Web3, deployer: str, fund_owner, uniswap_v2:
         usdc_amount_to_pay,
         0,
         path,
-        fund_owner,
+        user_1,
         FOREVER_DEADLINE,
-    ).transact({"from": fund_owner})
+    ).transact({"from": user_1})
 
-    all_weth_amount = weth.functions.balanceOf(fund_owner).call()
-    weth.functions.approve(router.address, all_weth_amount).transact({"from": fund_owner})
+    all_weth_amount = weth.functions.balanceOf(user_1).call()
+    weth.functions.approve(router.address, all_weth_amount).transact({"from": user_1})
 
     # Perform the reverse swap WETH->USDC
     reverse_path = [weth.address, usdc.address]  # Path tell how the swap is routed
@@ -166,12 +166,12 @@ def test_analyse_sell_success(web3: Web3, deployer: str, fund_owner, uniswap_v2:
         all_weth_amount,
         0,
         reverse_path,
-        fund_owner,
+        user_1,
         FOREVER_DEADLINE,
-    ).transact({"from": fund_owner})
+    ).transact({"from": user_1})
 
     # user_1 has less than 500 USDC left to loses in the LP fees
-    usdc_left = usdc.functions.balanceOf(fund_owner).call() / (10.0 ** 6)
+    usdc_left = usdc.functions.balanceOf(user_1).call() / (10.0 ** 6)
     assert usdc_left == pytest.approx(497.0895)
 
     analysis = analyse_trade_by_hash(web3, uniswap_v2, tx_hash)
@@ -182,7 +182,7 @@ def test_analyse_sell_success(web3: Web3, deployer: str, fund_owner, uniswap_v2:
     assert analysis.amount_in_decimals == 18
 
 
-def test_analyse_trade_failed(eth_tester: EthereumTester, web3: Web3, deployer: str, fund_owner, uniswap_v2: UniswapV2Deployment, weth: Contract, usdc: Contract):
+def test_analyse_trade_failed(eth_tester: EthereumTester, web3: Web3, deployer: str, user_1, uniswap_v2: UniswapV2Deployment, weth: Contract, usdc: Contract):
     """Aanlyze reverted Uniswap v2 trade."""
 
     # Create the trading pair and add initial liquidity
@@ -200,8 +200,8 @@ def test_analyse_trade_failed(eth_tester: EthereumTester, web3: Web3, deployer: 
 
     # Fail reason: Do not approve() enough USDC
     usdc_amount_to_pay = 500 * 10**6
-    usdc.functions.transfer(fund_owner, usdc_amount_to_pay).transact({"from": deployer})
-    usdc.functions.approve(router.address, 1).transact({"from": fund_owner})
+    usdc.functions.transfer(user_1, usdc_amount_to_pay).transact({"from": deployer})
+    usdc.functions.approve(router.address, 1).transact({"from": user_1})
 
     # We need to disable auto mine in order to test
     # revert messages properly
@@ -210,9 +210,9 @@ def test_analyse_trade_failed(eth_tester: EthereumTester, web3: Web3, deployer: 
         # Perform a swap USDC->WETH
         path = [usdc.address, weth.address]  # Path tell how the swap is routed
         # https://docs.uniswap.org/protocol/V2/reference/smart-contracts/router-02#swapexacttokensfortokens
-        tx_hash = router.functions.swapExactTokensForTokens(usdc_amount_to_pay, 0, path, fund_owner, FOREVER_DEADLINE, ).transact(
+        tx_hash = router.functions.swapExactTokensForTokens(usdc_amount_to_pay, 0, path, user_1, FOREVER_DEADLINE, ).transact(
             {
-                "from": fund_owner,
+                "from": user_1,
                 # We need to pass explicit gas, otherwise
                 # we get eth_tester.exceptions.TransactionFailed: execution reverted: TransferHelper: TRANSFER_FROM_FAILED
                 # from eth_estimateGas
@@ -230,7 +230,7 @@ def test_analyse_trade_failed(eth_tester: EthereumTester, web3: Web3, deployer: 
         eth_tester.enable_auto_mine_transactions()
 
 
-def test_analyse_by_recept(web3: Web3, deployer: str, fund_owner, uniswap_v2: UniswapV2Deployment, weth: Contract, usdc: Contract):
+def test_analyse_by_recept(web3: Web3, deployer: str, user_1, uniswap_v2: UniswapV2Deployment, weth: Contract, usdc: Contract):
     """Aanlyse a Uniswap v2 trade by receipt."""
 
     # Create the trading pair and add initial liquidity
@@ -248,8 +248,8 @@ def test_analyse_by_recept(web3: Web3, deployer: str, fund_owner, uniswap_v2: Un
 
     # Give user_1 some cash to buy ETH and approve it on the router
     usdc_amount_to_pay = 500 * 10**6
-    usdc.functions.transfer(fund_owner, usdc_amount_to_pay).transact({"from": deployer})
-    usdc.functions.approve(router.address, usdc_amount_to_pay).transact({"from": fund_owner})
+    usdc.functions.transfer(user_1, usdc_amount_to_pay).transact({"from": deployer})
+    usdc.functions.approve(router.address, usdc_amount_to_pay).transact({"from": user_1})
 
     # Perform a swap USDC->WETH
     path = [usdc.address, weth.address]  # Path tell how the swap is routed
@@ -258,12 +258,12 @@ def test_analyse_by_recept(web3: Web3, deployer: str, fund_owner, uniswap_v2: Un
         usdc_amount_to_pay,
         0,
         path,
-        fund_owner,
+        user_1,
         FOREVER_DEADLINE,
-    ).transact({"from": fund_owner})
+    ).transact({"from": user_1})
 
-    all_weth_amount = weth.functions.balanceOf(fund_owner).call()
-    weth.functions.approve(router.address, all_weth_amount).transact({"from": fund_owner})
+    all_weth_amount = weth.functions.balanceOf(user_1).call()
+    weth.functions.approve(router.address, all_weth_amount).transact({"from": user_1})
 
     # Perform the reverse swap WETH->USDC
     reverse_path = [weth.address, usdc.address]  # Path tell how the swap is routed
@@ -271,9 +271,9 @@ def test_analyse_by_recept(web3: Web3, deployer: str, fund_owner, uniswap_v2: Un
         all_weth_amount,
         0,
         reverse_path,
-        fund_owner,
+        user_1,
         FOREVER_DEADLINE,
-    ).transact({"from": fund_owner})
+    ).transact({"from": user_1})
 
     tx = web3.eth.get_transaction(tx_hash)
     receipt = web3.eth.get_transaction_receipt(tx_hash)

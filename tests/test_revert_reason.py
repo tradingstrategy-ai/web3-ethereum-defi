@@ -86,17 +86,17 @@ def anvil_bnb_chain_fork(request, large_busd_holder) -> str:
 
 
 @pytest.fixture
-def web3(anvil_bnb_chain_fork: str, fund_owner):
+def web3(anvil_bnb_chain_fork: str, user_1):
     """Set up a local unit testing blockchain."""
     # https://web3py.readthedocs.io/en/stable/examples.html#contract-unit-tests-in-python
     web3 = Web3(HTTPProvider(anvil_bnb_chain_fork))
     install_chain_middleware(web3)
-    web3.middleware_onion.add(construct_sign_and_send_raw_middleware(fund_owner))
+    web3.middleware_onion.add(construct_sign_and_send_raw_middleware(user_1))
     web3.eth.set_gas_price_strategy(node_default_gas_price_strategy)
     return web3
 
 
-def test_revert_reason(web3: Web3, large_busd_holder: HexAddress, fund_owner, fund_client):
+def test_revert_reason(web3: Web3, large_busd_holder: HexAddress, user_1, fund_client):
     """Revert reason can be extracted from the transaction.
 
     We test this by sending BUSD with insufficient token balance.
@@ -108,12 +108,12 @@ def test_revert_reason(web3: Web3, large_busd_holder: HexAddress, fund_owner, fu
     busd = busd_details.contract
 
     # Make sure user_1 has enough BNB
-    tx_hash = web3.eth.send_transaction({"from": large_busd_holder, "to": fund_owner.address, "value": 10 ** 18})
+    tx_hash = web3.eth.send_transaction({"from": large_busd_holder, "to": user_1.address, "value": 10 ** 18})
     wait_transactions_to_complete(web3, [tx_hash])
 
     # user_1 doese not have BUSD so this tx will fail
     # and BUSD ERC-20 contract should give the revert reason
-    tx_hash = busd.functions.transfer(fund_client.address, 500 * 10 ** 18).transact({"from": fund_owner.address, "gas": 500_000})
+    tx_hash = busd.functions.transfer(fund_client.address, 500 * 10 ** 18).transact({"from": user_1.address, "gas": 500_000})
 
     receipts = wait_transactions_to_complete(web3, [tx_hash])
 
