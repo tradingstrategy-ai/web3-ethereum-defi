@@ -6,7 +6,7 @@ from eth_typing import HexAddress
 from web3 import Web3
 from web3.contract import Contract
 
-from eth_defi.abi import encode_function_args
+from eth_defi.abi import encode_function_args, encode_function_call
 from eth_defi.deploy import deploy_contract, get_or_create_contract_registry
 from eth_defi.enzyme.deployment import EnzymeDeployment, RateAsset
 from eth_defi.enzyme.generic_adapter import execute_calls_for_generic_adapter
@@ -119,13 +119,12 @@ def test_generic_adapter_uniswap_v2(
     min_incoming_assets_amounts = [expected_incoming_amount]
 
     # The vault performs a swap on Uniswap v2
-    # https://github.com/ethereum/web3.py/blob/168fceaf5c6829a8edeb510b997940064295ecf8/web3/_utils/contracts.py#L211
-    encoded_approve = encode_function_args(
+    encoded_approve = encode_function_call(
         usdc.functions.approve,
         [uniswap_v2.router.address, usdc_swap_amount]
     )
 
-    encoded_swapExactTokensForTokens = encode_function_args(
+    encoded_swapExactTokensForTokens = encode_function_call(
         uniswap_v2.router.functions.swapExactTokensForTokens,
         [usdc_swap_amount, 1, path, generic_adapter.address, FOREVER_DEADLINE]
     )
@@ -146,3 +145,7 @@ def test_generic_adapter_uniswap_v2(
 
     tx_hash = bound_call.transact({"from": fund_owner, "gas": 1_000_000})
     assert_transaction_success_with_explanation(web3, tx_hash)
+
+    # Now after the swap the vault should have some WETH
+    assert weth.functions.balanceOf(vault.address).call() == pytest.approx(93398910964326424)
+    assert usdc.functions.balanceOf(vault.address).call() == 350 * 10**16

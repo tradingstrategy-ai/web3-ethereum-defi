@@ -3,7 +3,7 @@
 - This code is very preliminary and has not been througly tested with different smart contracts,
   so patches welcome
 
-- Internally use evm-trace from Ape: https://github.com/ApeWorX/evm-trace
+- Internally use `evm-trace library from Ape <https://github.com/ApeWorX/evm-trace>`__
 """
 import enum
 import logging
@@ -29,11 +29,12 @@ class TraceNotEnabled(Exception):
     """Tracing is not enabled on the backend."""
 
 
-
 class TraceMethod(enum.Enum):
     """What kind of transaction tracing method we use.
 
-    See Anvil manual: https://book.getfoundry.sh/reference/anvil/
+    - `See Anvil manual for more information <https://book.getfoundry.sh/reference/anvil/>`__
+
+    - `GoEthereum method not supported <https://github.com/foundry-rs/foundry/discussions/4498>`__
     """
 
     #: Use debug_traceTransaction

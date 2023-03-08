@@ -4,14 +4,14 @@
 """
 import json
 from pathlib import Path
-from typing import Optional, Type, Union, Collection, Any
+from typing import Optional, Type, Union, Collection, Any, Sequence
 
 import eth_abi
 from eth_abi import decode
 from eth_typing import HexAddress
 from hexbytes import HexBytes
 from web3 import Web3
-from web3._utils.contracts import get_function_info
+from web3._utils.contracts import get_function_info, encode_abi
 from web3.contract.contract import Contract, ContractFunction
 
 # Cache loaded ABI files in-process memory for speedup
@@ -124,7 +124,7 @@ def get_transaction_data_field(tx: AttributeDict) -> str:
         return tx["input"]
 
 
-def encode_with_signature(function_signature: str, args: Collection[Any]) -> bytes:
+def encode_with_signature(function_signature: str, args: Sequence) -> bytes:
     """Mimic Solidity's abi.encodeWithSignature() in Python.
 
     This is a Python equivalent for `abi.encodeWithSignature()`.
@@ -156,7 +156,7 @@ def encode_with_signature(function_signature: str, args: Collection[Any]) -> byt
 
 def encode_function_args(
         func: ContractFunction,
-        args: Collection[any]
+        args: Sequence
 ) -> bytes:
     """Mimic Solidity's abi.encodeWithSignature() in Python.
 
@@ -181,6 +181,42 @@ def encode_function_args(
     arg_types = [t["type"] for t in fn_abi["inputs"]]
     encoded_args = eth_abi.encode(arg_types, args)
     return encoded_args
+
+
+def encode_function_call(
+        func: ContractFunction,
+        args: Sequence,
+) -> HexBytes:
+    """Encode function selector + its arguments as data payload.
+
+    Uses `web3.Contract.functions` prepared function as the ABI source.
+
+    See also :py:func:`encode_function_args`.
+
+    :param func:
+        Function which arguments we are going to encode.
+
+    :param args:
+        Argument values to be encoded.
+
+    :return:
+        Solidity's function selector + argument payload.
+
+    """
+    w3 = func.w3
+    contract_abi = func.contract_abi
+    fn_abi = func.abi
+    fn_identifier = func.function_identifier
+    fn_abi, fn_selector, fn_arguments = get_function_info(
+        # type ignored b/c fn_id here is always str b/c FallbackFn is handled above
+        fn_identifier,  # type: ignore
+        w3.codec,
+        contract_abi,
+        fn_abi,
+        args,
+    )
+    encoded = encode_abi(w3, fn_abi, fn_arguments, fn_selector)
+    return HexBytes(encoded)
 
 
 def decode_function_args(
