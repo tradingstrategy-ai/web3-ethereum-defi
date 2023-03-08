@@ -1,6 +1,6 @@
 {{ fullname | smart_fullname | escape | underline}}
 
-Documentation for `{{ fullname }}` module.
+Documentation for `{{ fullname }}` Python module.
 
 .. automodule:: {{ fullname }}
 

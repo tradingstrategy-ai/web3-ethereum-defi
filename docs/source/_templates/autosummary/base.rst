@@ -4,7 +4,7 @@
 
 {% if objtype == "class" %}
 
-Documentation for `{{ fullname }}` class.
+Documentation for `{{ fullname }}` Python class.
 
 .. autoclass:: {{ objname }}
    :members:
