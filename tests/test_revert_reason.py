@@ -57,7 +57,7 @@ def user_1() -> LocalAccount:
 
 
 @pytest.fixture(scope="module")
-def user_1() -> LocalAccount:
+def user_2() -> LocalAccount:
     """User account.
 
     Do some account allocation for tests.
@@ -113,7 +113,7 @@ def test_revert_reason(web3: Web3, large_busd_holder: HexAddress, user_1, user_2
 
     # user_1 doese not have BUSD so this tx will fail
     # and BUSD ERC-20 contract should give the revert reason
-    tx_hash = busd.functions.transfer(user_1.address, 500 * 10 ** 18).transact({"from": user_1.address, "gas": 500_000})
+    tx_hash = busd.functions.transfer(user_2.address, 500 * 10 ** 18).transact({"from": user_1.address, "gas": 500_000})
 
     receipts = wait_transactions_to_complete(web3, [tx_hash])
 
