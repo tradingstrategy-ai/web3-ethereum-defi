@@ -1,3 +1,5 @@
+"""Solidity stack trace tests."""
+
 import pytest
 from eth_typing import HexAddress
 from hexbytes import HexBytes
