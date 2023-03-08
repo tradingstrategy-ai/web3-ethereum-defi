@@ -120,7 +120,7 @@ def test_anvil_fork_transfer_busd(web3: Web3, large_busd_holder: HexAddress, use
     tx_hash = busd.functions.transfer(user_1.address, 500 * 10 ** 18).transact({"from": large_busd_holder})
 
     # Because Ganache has instamine turned on by default, we do not need to wait for the transaction
-    receipt = web3.eth.get_transaction_receipt(tx_hash)
+    receipt = web3.eth.wait_for_transaction_receipt(tx_hash)
     assert receipt.status == 1, "BUSD transfer reverted"
 
     assert busd.functions.balanceOf(user_1.address).call() == 500 * 10 ** 18
