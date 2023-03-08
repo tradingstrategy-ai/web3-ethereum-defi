@@ -48,6 +48,7 @@ Features include
 * [Fully type hinted](https://web3-ethereum-defi.readthedocs.io/) for good developer experience
 * [Parallel transaction execution](https://web3-ethereum-defi.readthedocs.io/en/latest/_autosummary/eth_defi.txmonitor.html)
 * [Mainnet forking with Anvil](https://web3-ethereum-defi.readthedocs.io/api/_autosummary/eth_defi.anvil.html#module-eth_defi.anvil)
+* [Solidity stack traces](https://web3-ethereum-defi.readthedocs.io/api/_autosummary/eth_defi.trace.html)
 * [Trading](https://web3-ethereum-defi.readthedocs.io/api/index.html)
 * [Loans](https://web3-ethereum-defi.readthedocs.io/api/index.html)
 * [ERC-20 token issuance and manipulation](https://web3-ethereum-defi.readthedocs.io/en/latest/_autosummary/eth_defi.token.html#module-eth_defi.token)
@@ -60,7 +61,7 @@ Web3-Ethereum-Defi supports
 * Enzyme Protocol
 * dHEDGE Protocol
 * More integrations to come
-* Over 600 precompiled Solidity ABI files 
+* Built-in integration for over 600 smart contracts with precompiled Solidity ABI files 
 
 [Read the full API documentation](https://web3-ethereum-defi.readthedocs.io/)).
 For code examples please see below.
