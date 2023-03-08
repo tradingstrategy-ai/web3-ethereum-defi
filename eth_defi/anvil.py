@@ -3,14 +3,16 @@
 - `Anvil <https://github.com/foundry-rs/foundry/blob/master/anvil/README.md>`__
   is a blazing-fast local testnet node implementation in Rust.
 
-- Anvil may be used as an alternative to Ganache.
+- Anvil can replace :py:class:`eth_tester.main.EthereumTester` as the unit/integration test backend.
 
 - Anvil is mostly used in mainnet fork test cases.
+
+- Anvil is a more stable an alternative to Ganache (:py:mod:`eth_defi.ganache`)
 
 - Anvil is part of `Foundry <https://github.com/foundry-rs/foundry>`__,
   a toolkit for Ethereum application development.
 
-To install Anvil:
+To install Anvil on your UNIX computer:
 
 .. code-block:: shell
 
@@ -21,6 +23,8 @@ To install Anvil:
 This will install `foundryup`, `anvil` at `~/.foundry/bin` and adds the folder to your shell rc file `PATH`.
 
 For more information see `Anvil reference <https://book.getfoundry.sh/reference/anvil/>`__.
+
+See also :py:mod:`eth_defi.trace` for Solidity tracebacks using Anvil.
 
 This code was originally lifted from Brownie project.
 """
@@ -201,7 +205,12 @@ def launch_anvil(
     This function waits `launch_wait_seconds` in order to `anvil` process to start
     and complete the chain fork.
 
-    Here is an example that forks BNB chain mainnet and transfer 500 BUSD stablecoin to a test
+    **Unit test backend**:
+
+    - See `eth_defi.tests.enzyme.conftest <https://github.com/tradingstrategy-ai/web3-ethereum-defi/blob/master/tests/enzyme/conftest.py>`__ for an example
+      how to use Anvil in your Python based unit test suite
+
+    **Mainnet fork**: Here is an example that forks BNB chain mainnet and transfer 500 BUSD stablecoin to a test
     account we control:
 
     .. code-block:: python
@@ -270,6 +279,12 @@ def launch_anvil(
 
         # Kill any process listening to localhost:19999
         kill -SIGKILL $(lsof -ti:19999)
+
+    See also
+
+    - :py:func:`eth_defi.trace.assert_transaction_success_with_explanation`
+
+    - :py:func:`eth_defi.trace.print_symbolic_trace`
 
     :param cmd:
         Override `anvil` command. If not given we look up from `PATH`.

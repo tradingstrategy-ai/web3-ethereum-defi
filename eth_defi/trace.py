@@ -1,9 +1,12 @@
-"""Symbolic transaction tracing and Solidity stack traces.
+"""Symbolic transaction tracing and human-readable Solidity stack traces.
 
 - This code is very preliminary and has not been througly tested with different smart contracts,
   so patches welcome
 
 - Internally use `evm-trace library from Ape <https://github.com/ApeWorX/evm-trace>`__
+
+- Currently only works with Anvil (:py:mod:`eth_defi.anvil`) backend
+
 """
 import enum
 import logging
@@ -128,6 +131,17 @@ def print_symbolic_trace(
     - Transaction must have its `gas` parameter set, otherwise transaction is never broadcasted
       because it fails in estimate gas phase
 
+
+    Example output:
+
+    .. code-block:: text
+
+        E           AssertionError: Transaction failed: AttributeDict({'hash': HexBytes('0xaa70b2f76ad9f32f7c722390535d5a806b4d815f3d8d460e5d18cdba3b1c8c2d'), 'nonce': 2, 'blockHash': HexBytes('0x1d2a1d36185bebb373639e1eb4ddbe9f7f3347fa6dd7bcbbe5e5905fe6a1f4ed'), 'blockNumber': 3, 'transactionIndex': 0, 'from': '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266', 'to': '0x5FbDB2315678afecb367f032d93F642f64180aa3', 'value': 0, 'gasPrice': 768647811, 'gas': 500000, 'input': '0x25ad8c83000000000000000000000000e7f1725e7734ce288f8367e1bb143e90bb3f0512', 'v': 1, 'r': HexBytes('0x43336f08be93aec7ecf456c724d3c29c6cebc589ab3fe6199ee783a627bbcda8'), 's': HexBytes('0x74002a6cdd84b81932e36ac0725591460b09eaaa6b0dd615c0c5d43171467c8a'), 'type': 2, 'accessList': [], 'maxPriorityFeePerGas': 0, 'maxFeePerGas': 1768647811, 'chainId': 31337})
+        E           Revert reason: execution reverted: Big bada boom
+        E           Solidity stack trace:
+        E           CALL: RevertTest.revert2(second=0xe7f1725e7734ce288f8367e1bb143e90bb3f0512) [3284 gas]
+        E           └── CALL: RevertTest2.boom() [230 gas]
+
     See also
 
     - :py:func:`eth_defi.anvil.launch_anvil`.
@@ -167,6 +181,66 @@ def print_symbolic_trace(
 
     """
     return SymbolicTreeRepresentation.get_tree_display(contract_registry, calltree)
+
+
+def assert_transaction_success_with_explanation(
+        web3: Web3,
+        tx_hash: HexBytes,
+):
+    """Checks if a transaction succeeds and give a verbose explanation why not..
+
+    Designed to  be used on Anvil backend based tests.
+
+    If it's a failure then print
+
+    - The revert reason string
+
+    - Solidity stack trace where the transaction reverted
+
+    Example usage:
+
+    .. code-block:: python
+
+        tx_hash = contract.functions.myFunction().transact({"from": fund_owner, "gas": 1_000_000})
+        assert_transaction_success_with_explaination(web3, tx_hash)
+
+    Example output:
+
+    .. code-block:: text
+
+        E           AssertionError: Transaction failed: AttributeDict({'hash': HexBytes('0xaa70b2f76ad9f32f7c722390535d5a806b4d815f3d8d460e5d18cdba3b1c8c2d'), 'nonce': 2, 'blockHash': HexBytes('0x1d2a1d36185bebb373639e1eb4ddbe9f7f3347fa6dd7bcbbe5e5905fe6a1f4ed'), 'blockNumber': 3, 'transactionIndex': 0, 'from': '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266', 'to': '0x5FbDB2315678afecb367f032d93F642f64180aa3', 'value': 0, 'gasPrice': 768647811, 'gas': 500000, 'input': '0x25ad8c83000000000000000000000000e7f1725e7734ce288f8367e1bb143e90bb3f0512', 'v': 1, 'r': HexBytes('0x43336f08be93aec7ecf456c724d3c29c6cebc589ab3fe6199ee783a627bbcda8'), 's': HexBytes('0x74002a6cdd84b81932e36ac0725591460b09eaaa6b0dd615c0c5d43171467c8a'), 'type': 2, 'accessList': [], 'maxPriorityFeePerGas': 0, 'maxFeePerGas': 1768647811, 'chainId': 31337})
+        E           Revert reason: execution reverted: Big bada boom
+        E           Solidity stack trace:
+        E           CALL: RevertTest.revert2(second=0xe7f1725e7734ce288f8367e1bb143e90bb3f0512) [3284 gas]
+        E           └── CALL: RevertTest2.boom() [230 gas]
+
+    See also :py:func:`print_symbolic_trace`.
+
+    :param web3:
+        Web3 instance
+
+    :param tx_hash:
+        A transaction (mined/not mined) we want to make sure has succeeded.
+
+        Gas limit must have been set for this transaction.
+
+    :raise AssertionError:
+        Outputs a verbose AssertionError on what went wrong.
+    """
+
+    receipt = web3.eth.wait_for_transaction_receipt(tx_hash)
+    if receipt["status"] == 0:
+        # Explain why the transaction failed
+        tx_details = web3.eth.get_transaction(tx_hash)
+        revert_reason = fetch_transaction_revert_reason(web3, tx_hash)
+        trace_data = trace_evm_transaction(web3, tx_hash, TraceMethod.parity)
+        trace_output = print_symbolic_trace(get_or_create_contract_registry(web3), trace_data)
+        raise AssertionError(
+            f"Transaction failed: {tx_details}\n"
+            f"Revert reason: {revert_reason}\n"
+            f"Solidity stack trace:\n"
+            f"{trace_output}\n"
+        )
 
 
 class SymbolicTreeRepresentation:
@@ -293,64 +367,3 @@ class SymbolicTreeRepresentation:
     @staticmethod
     def get_tree_display(contract_registry: ContractRegistry, call: "CallTreeNode") -> str:
         return "\n".join([str(t) for t in SymbolicTreeRepresentation.make_tree(contract_registry, call)])
-
-
-def assert_transaction_success_with_explanation(
-        web3: Web3,
-        tx_hash: HexBytes,
-):
-    """Checks if a transaction succeeds and give a verbose explanation why not..
-
-    Designed to  be used on Anvil backend based tests.
-
-    If it's a failure then print
-
-    - The revert reason string
-
-    - Solidity stack trace where the transaction reverted
-
-    Example usage:
-
-    .. code-block:: python
-
-        tx_hash = contract.functions.myFunction().transact({"from": fund_owner, "gas": 1_000_000})
-        assert_transaction_success_with_explaination(web3, tx_hash)
-
-    Example output:
-
-    .. code-block:: text
-
-        E           AssertionError: Transaction failed: AttributeDict({'hash': HexBytes('0xaa70b2f76ad9f32f7c722390535d5a806b4d815f3d8d460e5d18cdba3b1c8c2d'), 'nonce': 2, 'blockHash': HexBytes('0x1d2a1d36185bebb373639e1eb4ddbe9f7f3347fa6dd7bcbbe5e5905fe6a1f4ed'), 'blockNumber': 3, 'transactionIndex': 0, 'from': '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266', 'to': '0x5FbDB2315678afecb367f032d93F642f64180aa3', 'value': 0, 'gasPrice': 768647811, 'gas': 500000, 'input': '0x25ad8c83000000000000000000000000e7f1725e7734ce288f8367e1bb143e90bb3f0512', 'v': 1, 'r': HexBytes('0x43336f08be93aec7ecf456c724d3c29c6cebc589ab3fe6199ee783a627bbcda8'), 's': HexBytes('0x74002a6cdd84b81932e36ac0725591460b09eaaa6b0dd615c0c5d43171467c8a'), 'type': 2, 'accessList': [], 'maxPriorityFeePerGas': 0, 'maxFeePerGas': 1768647811, 'chainId': 31337})
-        E           Revert reason: execution reverted: Big bada boom
-        E           Solidity stack trace:
-        E           CALL: RevertTest.revert2(second=0xe7f1725e7734ce288f8367e1bb143e90bb3f0512) [3284 gas]
-        E           └── CALL: RevertTest2.boom() [230 gas]
-
-    See also :py:func:`print_symbolic_trace`.
-
-    :param web3:
-        Web3 instance
-
-    :param tx_hash:
-        A transaction (mined/not mined) we want to make sure has succeeded.
-
-        Gas limit must have been set for this transaction.
-
-    :raise AssertionError:
-        Outputs a verbose AssertionError on what went wrong.
-    """
-
-    receipt = web3.eth.wait_for_transaction_receipt(tx_hash)
-    if receipt["status"] == 0:
-        # Explain why the transaction failed
-        tx_details = web3.eth.get_transaction(tx_hash)
-        revert_reason = fetch_transaction_revert_reason(web3, tx_hash)
-        trace_data = trace_evm_transaction(web3, tx_hash, TraceMethod.parity)
-        trace_output = print_symbolic_trace(get_or_create_contract_registry(web3), trace_data)
-        raise AssertionError(
-            f"Transaction failed: {tx_details}\n"
-            f"Revert reason: {revert_reason}\n"
-            f"Solidity stack trace:\n"
-            f"{trace_output}\n"
-        )
-
