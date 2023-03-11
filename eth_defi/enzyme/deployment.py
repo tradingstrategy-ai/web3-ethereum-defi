@@ -1,6 +1,22 @@
 """Enzyme protocol deployment.
 
 Functions to fetch live on-chain Enzyme deployment or deploy your own unit testing version.
+
+Setting the Enzyme to debug mode:
+
+.. code-block:: javascript
+
+    window.enzymeDebug = true;
+
+Enables
+
+- Testnet deployments
+
+- Impersonator wallet
+
+See Enzyme Subgraphs: ---
+
+
 """
 import enum
 import re
@@ -41,7 +57,13 @@ class EnzymeContracts:
     external_position_factory: Contract = None
     protocol_fee_reserve_lib: Contract = None
     protocol_fee_reserve_proxy: Contract = None
+
+    #: Enzyme Council maintained address list.
+    #:
+    #: Audited adapters.
+    #:
     address_list_registry: Contract = None
+
     fund_deployer: Contract = None
     value_interpreter: Contract = None
     policy_manager: Contract = None
