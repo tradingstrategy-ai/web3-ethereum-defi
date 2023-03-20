@@ -49,7 +49,9 @@ class EnzymeDeploymentError(Exception):
 class EnzymeContracts:
     """Manage the registry of Enzyme contracts.
 
-    Mimics Deployer.sol.
+    `See Enzyme specification documentation for overview of different contracts <https://specs.enzyme.finance/>`__.
+
+    Mimics Deployer.sol from Enzyme unit tests.
     """
     web3: Web3
     deployer: HexAddress

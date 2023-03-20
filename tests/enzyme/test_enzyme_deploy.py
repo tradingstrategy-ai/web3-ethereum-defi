@@ -99,3 +99,19 @@ def test_vault_api(
     assert vault.get_denomination_asset() == usdc.address
     assert vault.get_tracked_assets() == [usdc.address]
 
+    # Accounting
+    assert vault.get_total_supply() == 0
+    assert vault.get_gross_asset_value() == 0
+    assert vault.get_share_gross_asset_value() == 1 * 10**18
+
+    # User 2 buys into the vault
+    # See Shares.sol
+    #
+    # Buy shares for 500 USDC, receive min share
+    usdc.functions.transfer(user_1, 500 * 10 ** 6).transact({"from": deployer})
+    usdc.functions.approve(vault.comptroller.address, 500*10**6).transact({"from": user_1})
+    vault.comptroller.functions.buyShares(500*10**6, 1).transact({"from": user_1})
+
+    assert vault.get_total_supply() == 500 * 10**6
+    assert vault.get_gross_asset_value() == 500 * 10**6
+    assert vault.get_share_gross_asset_value() == 1 * 10**18
