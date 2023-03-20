@@ -1,24 +1,28 @@
-"""Deploy Enzyme protcol v4.
+"""Read Enzyme vault events.
 
-Based on https://github.com/enzymefinance/protocol/blob/v4/packages/protocol/tests/release/e2e/FundManagementWalkthrough.test.ts
 """
 from eth_typing import HexAddress
 from web3 import Web3
 from web3.contract import Contract
 
 from eth_defi.enzyme.deployment import EnzymeDeployment, RateAsset
-from eth_defi.enzyme.vault import Vault
+from eth_defi.uniswap_v2.deployment import UniswapV2Deployment
 
 
-def test_deploy_enzyme(
+def test_read_deposit(
         web3: Web3,
         deployer: HexAddress,
         user_1: HexAddress,
-        user_2: HexAddress,
+        user_2,
+        user_3,
         weth: Contract,
         mln: Contract,
         usdc: Contract,
+        weth_usd_mock_chainlink_aggregator: Contract,
         usdc_usd_mock_chainlink_aggregator: Contract,
+        dual_token_deployment: EnzymeDeployment,
+        uniswap_v2: UniswapV2Deployment,
+        weth_usdc_pair: Contract,
 ):
     """Deploy Enzyme protocol, single USDC nominated vault and buy in."""
 
@@ -56,46 +60,3 @@ def test_deploy_enzyme(
     # See user 2 received shares
     balance = vault.functions.balanceOf(user_1).call()
     assert balance == 500*10**6
-
-
-def test_vault_api(
-        web3: Web3,
-        deployer: HexAddress,
-        user_1: HexAddress,
-        user_2: HexAddress,
-        weth: Contract,
-        mln: Contract,
-        usdc: Contract,
-        usdc_usd_mock_chainlink_aggregator: Contract,
-):
-    """Test vault wrapper class."""
-
-    deployment = EnzymeDeployment.deploy_core(
-        web3,
-        deployer,
-        mln,
-        weth,
-    )
-
-    # Create a vault for user 1
-    # where we nominate everything in USDC
-    deployment.add_primitive(
-        usdc,
-        usdc_usd_mock_chainlink_aggregator,
-        RateAsset.USD,
-    )
-
-    comptroller_contract, vault_contract = deployment.create_new_vault(
-        user_1,
-        usdc,
-        fund_name="Cow says Moo",
-        fund_symbol="MOO"
-    )
-
-    vault = Vault(vault_contract, comptroller_contract)
-
-    assert vault.get_name() == "Cow says Moo"
-    assert vault.get_symbol() == "MOO"
-    assert vault.get_denomination_asset() == usdc.address
-    assert vault.get_tracked_assets() == [usdc.address]
-
