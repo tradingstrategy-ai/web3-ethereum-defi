@@ -2,6 +2,7 @@ Developer guide
 ===============
 
 Here are instructions for new developers how to get started with the development of `web3-ethereum-defi <https://github.com/tradingstrategy-ai/web3-ethereum-defi>`_ package.
+This concerns you only if you indent to contribute to the package code itself - if you use the package as a dependency then this might not be relevant for oyu.
 
 Prerequisites
 -------------
