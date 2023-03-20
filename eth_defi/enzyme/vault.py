@@ -137,9 +137,12 @@ class Vault:
         Call the Solidity function that does this on the smart contract side.
 
         See `ComptrollerLib.sol`.
+<<<<<<< HEAD
 
         :return:
             TODO - no idea
+=======
+>>>>>>> 7296378 (More Enzyme vault functionality coverage)
         """
         return self.comptroller.functions.calcGav().call()
 
@@ -149,9 +152,12 @@ class Vault:
         Call the Solidity function that does this on the smart contract side.
 
         See `ComptrollerLib.sol`.
+<<<<<<< HEAD
 
         :return:
             TODO - no idea
+=======
+>>>>>>> 7296378 (More Enzyme vault functionality coverage)
         """
         return self.comptroller.functions.calcGrossShareValue().call()
 
