@@ -1,10 +1,13 @@
 """Vault-specific management."""
 from dataclasses import dataclass
+from functools import cached_property
 from typing import Collection
 
 from eth_typing import HexAddress
 from web3 import Web3
 from web3.contract import Contract
+
+from eth_defi.token import TokenDetails, fetch_erc20_details
 
 
 @dataclass
@@ -44,6 +47,34 @@ class Vault:
         """
         return self.vault.w3
 
+    @cached_property
+    def denomination_token(self) -> TokenDetails:
+        """Get the denominator token for withdrawal/deposit.
+
+        - Read the token on-chain details.
+
+        - Cache the results for the future calls
+
+        :return:
+            Usually ERC-20 details for USDC
+
+        """
+        return fetch_erc20_details(self.web3, self.get_denomination_asset())
+
+    @cached_property
+    def shares_token(self) -> TokenDetails:
+        """Get the shares token for withdrawal/deposit.
+
+        - Read the token on-chain details.
+
+        - Cache the results for the future calls
+
+        :return:
+            ERC-20 details for a token with the fund name/symbol and 18 decimals.
+
+        """
+        return fetch_erc20_details(self.web3, self.get_shares_asset())
+
     def get_owner(self) -> HexAddress:
         """Who is the vault owner.
 
@@ -82,8 +113,15 @@ class Vault:
         return self.vault.functions.decimals().call()
 
     def get_denomination_asset(self) -> HexAddress:
-        """Get the reserve asset for this vault."""
+        """Get the reserve ERC-20 asset for this vault."""
         return self.comptroller.functions.getDenominationAsset().call()
+
+    def get_shares_asset(self) -> HexAddress:
+        """Get the shares ERC-20 token for this vault.
+
+        Enzyme vault acts as ERC-20 contract as well.
+        """
+        return self.vault.address
 
     def get_tracked_assets(self) -> Collection[HexAddress]:
         """Get the list of assets this vault tracks.
@@ -99,6 +137,9 @@ class Vault:
         Call the Solidity function that does this on the smart contract side.
 
         See `ComptrollerLib.sol`.
+
+        :return:
+            TODO - no idea
         """
         return self.comptroller.functions.calcGav().call()
 
@@ -108,6 +149,9 @@ class Vault:
         Call the Solidity function that does this on the smart contract side.
 
         See `ComptrollerLib.sol`.
+
+        :return:
+            TODO - no idea
         """
         return self.comptroller.functions.calcGrossShareValue().call()
 

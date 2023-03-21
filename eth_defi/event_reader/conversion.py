@@ -23,7 +23,7 @@ def convert_uint256_bytes_to_address(raw: bytes) -> ChecksumAddress:
         high speed operations.
     """
     assert len(raw) == 32
-    return Web3.toChecksumAddress(raw[12:])
+    return Web3.to_checksum_address(raw[12:])
 
 
 def convert_int256_bytes_to_int(bytes32: bytes, *, signed: bool = False) -> int:

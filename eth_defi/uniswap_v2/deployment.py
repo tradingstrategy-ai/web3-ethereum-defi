@@ -118,7 +118,7 @@ def deploy_factory_sushi(web3: Web3, deployer: str) -> Contract:
     # https://ethereum.stackexchange.com/a/73872/620
     tx_hash = web3.eth.send_transaction({"from": deployer, "data": _SUSHI_FACTORY_DEPLOYMENT_DATA})
     tx_receipt = web3.eth.wait_for_transaction_receipt(tx_hash)
-    instance = UniswapV2Factory(address=tx_receipt.contractAddress)
+    instance = UniswapV2Factory(address=tx_receipt["contractAddress"])
     return instance
 
 
@@ -187,6 +187,12 @@ def deploy_trading_pair(
     """
 
     assert token_a.address != token_b.address
+
+    if token_a.address > token_b.address:
+        # Swap around to satisfy Uni v2 address sort criteria
+        token_a, token_b = token_b, token_a
+        liquidity_a, liquidity_b = liquidity_b, liquidity_a
+
     assert int(token_a.address, 16) < int(token_b.address, 16), "Uniswap v2 pairs must be always expressed in the ascending sorted order of their addresses"
 
     factory = deployment.factory

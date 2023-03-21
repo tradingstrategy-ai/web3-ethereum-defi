@@ -55,7 +55,7 @@ def test_deploy_enzyme(
 
     # See user 2 received shares
     balance = vault.functions.balanceOf(user_1).call()
-    assert balance == 500*10**6
+    assert balance == 500*10**18
 
 
 def test_vault_api(
@@ -102,7 +102,7 @@ def test_vault_api(
     # Accounting
     assert vault.get_total_supply() == 0
     assert vault.get_gross_asset_value() == 0
-    assert vault.get_share_gross_asset_value() == 1 * 10**18
+    assert vault.get_share_gross_asset_value() == 1 * 10**6
 
     # User 2 buys into the vault
     # See Shares.sol
@@ -112,6 +112,16 @@ def test_vault_api(
     usdc.functions.approve(vault.comptroller.address, 500*10**6).transact({"from": user_1})
     vault.comptroller.functions.buyShares(500*10**6, 1).transact({"from": user_1})
 
-    assert vault.get_total_supply() == 500 * 10**6
+    assert vault.get_total_supply() == 500 * 10**18
     assert vault.get_gross_asset_value() == 500 * 10**6
-    assert vault.get_share_gross_asset_value() == 1 * 10**18
+    assert vault.get_share_gross_asset_value() == 1 * 10**6
+
+    # Denomination token checks
+    assert vault.denomination_token.address == usdc.address
+    assert vault.denomination_token.decimals == 6
+
+    # Shares token checks
+    assert vault.shares_token.address == vault_contract.address
+    assert vault.shares_token.decimals == 18
+    assert vault.shares_token.name == "Cow says Moo"
+    assert vault.shares_token.symbol == "MOO"
