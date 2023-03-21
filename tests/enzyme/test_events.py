@@ -103,6 +103,7 @@ def test_read_deposit(
 
     old_end_block = end_block
     end_block = web3.eth.block_number
+    print("Reading range", old_end_block, end_block)
     balance_events = list(fetch_vault_balance_events(vault, old_end_block, end_block, read_events))
 
     # Check the deposit event was correctly read
