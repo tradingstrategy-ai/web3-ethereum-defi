@@ -10,7 +10,7 @@ from decimal import Decimal
 
 import pytest
 from eth_typing import HexAddress
-from web3 import Web3, HTTPProvider
+from web3 import Web3
 from web3.contract import Contract
 
 from eth_defi.anvil import mine
@@ -117,9 +117,7 @@ def test_read_deposit(
     old_end_block = end_block
     end_block = web3.eth.block_number
 
-    mine(web3)  # TODO: Fix Github CI issues?
-
-    print("Reading range", old_end_block, end_block)
+    print("Reading range", old_end_block - 1, end_block + 1)  # TODO: Github CI, Anvil hack
     balance_events = list(fetch_vault_balance_events(vault, old_end_block, end_block, read_events))
 
     assert len(balance_events) == 1
