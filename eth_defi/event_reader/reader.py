@@ -84,9 +84,9 @@ class ProgressUpdate(Protocol):
 class Web3EventReader(Protocol):
     """Pass the event reader callable around.
 
-    An abstract wrapper over event reader iterator.
+    An interface over event reader iterator.
 
-    - Helps to pass event reader API in the arguments
+    - Helps to type decorate event reader callable in the function arguments
 
     - The event reader implementation may be single-threaded, multithreaded, async based, etc.
 
@@ -95,6 +95,16 @@ class Web3EventReader(Protocol):
     - :py:func:`extract_events`
 
     - :py:func:`extract_events_concurrent`
+
+    Example by using a single-thread reader:
+
+    .. code-block:: python
+
+        from eth_defi.event_reader.reader import extract_events, Web3EventReader
+        from eth_defi.enzyme.events import fetch_vault_balance_events
+
+        read_events: Web3EventReader = cast(Web3EventReader, partial(extract_events))
+        balance_events = list(fetch_vault_balance_events(vault, start_block, end_block, read_events))
     """
 
     def __call__(
