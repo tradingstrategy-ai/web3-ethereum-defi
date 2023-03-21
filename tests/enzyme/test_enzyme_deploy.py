@@ -102,11 +102,7 @@ def test_vault_api(
     # Accounting
     assert vault.get_total_supply() == 0
     assert vault.get_gross_asset_value() == 0
-<<<<<<< HEAD
     assert vault.get_share_gross_asset_value() == 1 * 10**6
-=======
-    assert vault.get_share_gross_asset_value() == 1 * 10**18
->>>>>>> 7296378 (More Enzyme vault functionality coverage)
 
     # User 2 buys into the vault
     # See Shares.sol
@@ -116,7 +112,6 @@ def test_vault_api(
     usdc.functions.approve(vault.comptroller.address, 500*10**6).transact({"from": user_1})
     vault.comptroller.functions.buyShares(500*10**6, 1).transact({"from": user_1})
 
-<<<<<<< HEAD
     assert vault.get_total_supply() == 500 * 10**18
     assert vault.get_gross_asset_value() == 500 * 10**6
     assert vault.get_share_gross_asset_value() == 1 * 10**6
@@ -130,8 +125,3 @@ def test_vault_api(
     assert vault.shares_token.decimals == 18
     assert vault.shares_token.name == "Cow says Moo"
     assert vault.shares_token.symbol == "MOO"
-=======
-    assert vault.get_total_supply() == 500 * 10**6
-    assert vault.get_gross_asset_value() == 500 * 10**6
-    assert vault.get_share_gross_asset_value() == 1 * 10**18
->>>>>>> 7296378 (More Enzyme vault functionality coverage)
