@@ -13,6 +13,7 @@ from eth_typing import HexAddress
 from web3 import Web3, HTTPProvider
 from web3.contract import Contract
 
+from eth_defi.anvil import mine
 from eth_defi.enzyme.deployment import EnzymeDeployment, RateAsset
 from eth_defi.enzyme.events import fetch_vault_balance_events, Deposit
 from eth_defi.enzyme.vault import Vault
@@ -115,6 +116,9 @@ def test_read_deposit(
 
     old_end_block = end_block
     end_block = web3.eth.block_number
+
+    mine(web3)  # TODO: Fix Github CI issues?
+
     print("Reading range", old_end_block, end_block)
     balance_events = list(fetch_vault_balance_events(vault, old_end_block, end_block, read_events))
 
@@ -126,5 +130,3 @@ def test_read_deposit(
     assert deposit.user == user_1
     assert deposit.investment_amount == Decimal(500)
     assert deposit.shares_issued == Decimal(500)
-
-
