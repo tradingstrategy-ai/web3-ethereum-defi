@@ -13,8 +13,11 @@ from eth_typing import HexAddress
 from web3 import Web3
 from web3.contract import Contract
 
+from eth_defi.abi import encode_function_call
+from eth_defi.deploy import deploy_contract
 from eth_defi.enzyme.deployment import EnzymeDeployment, RateAsset
 from eth_defi.enzyme.events import fetch_vault_balance_events, Deposit, Withdrawal
+from eth_defi.enzyme.uniswap_v2 import prepare_swap
 from eth_defi.enzyme.vault import Vault
 from eth_defi.event_reader.reader import extract_events, Web3EventReader
 from eth_defi.trace import assert_transaction_success_with_explanation, TransactionAssertionError
@@ -26,7 +29,6 @@ def deployment(
         web3: Web3,
         deployer: HexAddress,
         user_1: HexAddress,
-        user_2,
         weth: Contract,
         mln: Contract,
         usdc: Contract,
@@ -53,27 +55,30 @@ def deployment(
         weth_usd_mock_chainlink_aggregator,
         RateAsset.USD,
     )
-
     return deployment
 
 
-def test_read_deposit(
+@pytest.fixture()
+def generic_adapter(
         web3: Web3,
-        deployer: HexAddress,
-        user_1: HexAddress,
-        user_2,
-        user_3,
-        weth: Contract,
-        mln: Contract,
-        usdc: Contract,
-        weth_usd_mock_chainlink_aggregator: Contract,
-        usdc_usd_mock_chainlink_aggregator: Contract,
         deployment: EnzymeDeployment,
-        uniswap_v2: UniswapV2Deployment,
-        weth_usdc_pair: Contract,
-):
-    """Translate Enzyme smart contract events to our internal deposit format."""
+        deployer: HexAddress,
 
+):
+    """Deploy generic adapter contract."""
+    generic_adapter = deploy_contract(web3, f"enzyme/GenericAdapter.json", deployer, deployment.contracts.integration_manager.address)
+    return generic_adapter
+
+
+@pytest.fixture()
+def vault(
+        deployment,
+        user_1: HexAddress,
+        usdc: Contract,
+) -> Vault:
+    """Create a vault for the tests.
+
+    """
     comptroller_contract, vault_contract = deployment.create_new_vault(
         user_1,
         usdc,
@@ -82,6 +87,18 @@ def test_read_deposit(
     )
 
     vault = Vault(vault_contract, comptroller_contract)
+    return vault
+
+
+
+def test_read_deposit(
+        web3: Web3,
+        deployer: HexAddress,
+        user_1: HexAddress,
+        usdc: Contract,
+        vault: Vault,
+):
+    """Translate Enzyme smart contract events to our internal deposit format."""
 
     read_events: Web3EventReader = cast(Web3EventReader, partial(extract_events))
 
@@ -120,27 +137,10 @@ def test_read_withdrawal(
         web3: Web3,
         deployer: HexAddress,
         user_1: HexAddress,
-        user_2,
-        user_3,
-        weth: Contract,
-        mln: Contract,
         usdc: Contract,
-        weth_usd_mock_chainlink_aggregator: Contract,
-        usdc_usd_mock_chainlink_aggregator: Contract,
-        deployment: EnzymeDeployment,
-        uniswap_v2: UniswapV2Deployment,
-        weth_usdc_pair: Contract,
+        vault: Vault,
 ):
     """Translate Enzyme smart contract events to our internal withdrawal format."""
-
-    comptroller_contract, vault_contract = deployment.create_new_vault(
-        user_1,
-        usdc,
-        fund_name="Cow says Moo",
-        fund_symbol="MOO"
-    )
-
-    vault = Vault(vault_contract, comptroller_contract)
 
     read_events: Web3EventReader = cast(Web3EventReader, partial(extract_events))
 
@@ -199,3 +199,93 @@ def test_read_withdrawal(
     with pytest.raises(TransactionAssertionError):
         assert_transaction_success_with_explanation(web3, tx_hash)
 
+
+def test_read_withdrawal_in_kind(
+        web3: Web3,
+        deployer: HexAddress,
+        vault: Vault,
+        user_1: HexAddress,
+        user_2: HexAddress,
+        weth: Contract,
+        usdc: Contract,
+        deployment: EnzymeDeployment,
+        uniswap_v2: UniswapV2Deployment,
+        generic_adapter: Contract,
+        weth_usdc_pair: Contract,
+):
+    """Attempt withdrawal of undetlying Enzyme assets.
+
+    - The vault has 2 shareholders
+
+    - The vault swaps some USDC->ETH, so that it holds two tokens
+
+    - See that redemption gives us assets in both tokens
+    """
+
+    read_events: Web3EventReader = cast(Web3EventReader, partial(extract_events))
+
+    # User 1 buys into the vault
+    #
+    # Buy shares for 500 USDC
+    usdc.functions.transfer(user_1, 500 * 10 ** 6).transact({"from": deployer})
+    usdc.functions.approve(vault.comptroller.address, 500*10**6).transact({"from": user_1})
+    vault.comptroller.functions.buyShares(500*10**6, 1).transact({"from": user_1})
+
+    # User 2 buys into the vault
+    #
+    # Buy shares for 1000 USDC
+    usdc.functions.transfer(user_2, 1000 * 10 ** 6).transact({"from": deployer})
+    usdc.functions.approve(vault.comptroller.address, 1000*10**6).transact({"from": user_2})
+    vault.comptroller.functions.buyShares(1000*10**6, 1).transact({"from": user_2})
+    assert vault.get_total_supply() == 1500 * 10**18
+
+    # Vault swaps USDC->ETH for both users
+    # Buy ETH worth of 200 USD
+    prepared_tx = prepare_swap(
+        deployment,
+        vault,
+        uniswap_v2,
+        generic_adapter,
+        usdc,
+        weth,
+        200 * 10**6,  # 200 USD
+    )
+
+    tx_hash = prepared_tx.transact({"from": user_1})
+    assert_transaction_success_with_explanation(web3, tx_hash)
+
+    assert usdc.functions.balanceOf(vault.vault.address).call() == 1300 * 10**6
+    assert weth.functions.balanceOf(vault.vault.address).call() == 124500872629987902  # 0.12450087262998791
+
+    # Initiate in-kind withdrawal for the user 2, withdraw all shares
+    current_block = web3.eth.block_number
+    share_count = vault.get_share_count_for_user(user_2)
+    tx_hash = vault.comptroller.functions.redeemSharesInKind(user_2, share_count, [], []).transact({"from": user_2})
+    assert_transaction_success_with_explanation(web3, tx_hash)
+    end_block = web3.eth.block_number
+
+    # Vault positions have decreased
+    assert usdc.functions.balanceOf(vault.vault.address).call() == 433333334
+    assert weth.functions.balanceOf(vault.vault.address).call() == 41500290876662634
+
+    # Withdrawal event was fired
+    balance_events = list(fetch_vault_balance_events(vault, current_block, end_block, read_events))
+    assert len(balance_events) == 1
+
+    withdrawal = balance_events[0]
+    assert isinstance(withdrawal, Withdrawal)
+
+    # Withdraw data is correct for two in-kind assets
+    assert withdrawal.receiver == user_2
+    assert withdrawal.redeemer == user_2
+    assert len(withdrawal.redeemed_assets) == 2
+    asset, amount = withdrawal.redeemed_assets[0]
+    assert asset.address == usdc.address
+    assert asset.convert_to_decimals(amount) == pytest.approx(Decimal('866.666666'))
+    asset, amount = withdrawal.redeemed_assets[1]
+    assert asset.address == weth.address
+    assert asset.convert_to_decimals(amount) == pytest.approx(Decimal('0.083000581753325268'))
+
+    # User 2 got its assets
+    assert usdc.functions.balanceOf(user_2).call() == 866666666
+    assert weth.functions.balanceOf(user_2).call() == 83000581753325268
