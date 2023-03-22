@@ -229,10 +229,10 @@ class Withdrawal(EnzymeBalanceEvent):
 
 
 def fetch_vault_balance_events(
-        vault: Vault,
-        start_block: int,
-        end_block: int,
-        read_events: Web3EventReader,
+    vault: Vault,
+    start_block: int,
+    end_block: int,
+    read_events: Web3EventReader,
 ) -> Iterable[EnzymeBalanceEvent]:
     """Get the deposits to Enzyme vault in a specific time range.
 

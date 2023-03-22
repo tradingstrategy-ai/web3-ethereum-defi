@@ -36,45 +36,30 @@ def _addressify_collection(assets: Collection[Contract | HexAddress]):
     return [_addressify(a) for a in assets]
 
 
-def encode_generic_adapter_execute_calls_args(
-        incoming_assets: Collection[Asset],
-        min_incoming_asset_amounts: Collection[int],
-        spend_assets: Collection[Asset],
-        spend_asset_amounts: Collection[int],
-        external_calls: Collection[ExternalCall]
-):
+def encode_generic_adapter_execute_calls_args(incoming_assets: Collection[Asset], min_incoming_asset_amounts: Collection[int], spend_assets: Collection[Asset], spend_asset_amounts: Collection[int], external_calls: Collection[ExternalCall]):
     """Encode arguments for a generic adapter call."""
 
-#   const encodedExternalCallsData = encodeArgs(
-#     ['address[]', 'bytes[]'],
-#     [externalCallsData.contracts, externalCallsData.callsData],
-#   );
+    #   const encodedExternalCallsData = encodeArgs(
+    #     ['address[]', 'bytes[]'],
+    #     [externalCallsData.contracts, externalCallsData.callsData],
+    #   );
 
     addresses = [_addressify(t[0]) for t in external_calls]
     datas = [t[1] for t in external_calls]
 
     try:
-        encoded_external_calls_data = encode(
-            ['address[]', 'bytes[]'],
-            [addresses, datas]
-        )
+        encoded_external_calls_data = encode(["address[]", "bytes[]"], [addresses, datas])
     except EncodingError as e:
         raise EncodingError(f"Could not encode: {addresses} {datas}") from e
 
-#   return encodeArgs(
-#     ['address[]', 'uint256[]', 'address[]', 'uint256[]', 'bytes'],
-#     [incomingAssets, minIncomingAssetAmounts, spendAssets, spendAssetAmounts, encodedExternalCallsData],
-#   );
+    #   return encodeArgs(
+    #     ['address[]', 'uint256[]', 'address[]', 'uint256[]', 'bytes'],
+    #     [incomingAssets, minIncomingAssetAmounts, spendAssets, spendAssetAmounts, encodedExternalCallsData],
+    #   );
 
     all_args_encoded = encode(
-        ['address[]', 'uint256[]', 'address[]', 'uint256[]', 'bytes'],
-        [
-            _addressify_collection(incoming_assets),
-            min_incoming_asset_amounts,
-            _addressify_collection(spend_assets),
-            spend_asset_amounts,
-            encoded_external_calls_data
-        ],
+        ["address[]", "uint256[]", "address[]", "uint256[]", "bytes"],
+        [_addressify_collection(incoming_assets), min_incoming_asset_amounts, _addressify_collection(spend_assets), spend_asset_amounts, encoded_external_calls_data],
     )
 
     return all_args_encoded
@@ -105,25 +90,18 @@ def encode_call_on_integration_args(
     assert len(selector) == 4, f"Selector is {selector} {type(selector)}"
     assert len(encoded_call_args) > 0
 
-    return encode(
-        ['address', 'bytes4', 'bytes'],
-        [
-            _addressify(adapter),
-            selector,
-            encoded_call_args
-        ]
-    )
+    return encode(["address", "bytes4", "bytes"], [_addressify(adapter), selector, encoded_call_args])
 
 
 def execute_calls_for_generic_adapter(
-        comptroller: Contract,
-        external_calls: Collection[ExternalCall],
-        generic_adapter: Contract,
-        integration_manager: Contract,
-        incoming_assets: Collection[Asset],
-        min_incoming_asset_amounts: Collection[int],
-        spend_assets: Collection[Asset],
-        spend_asset_amounts: Collection[int],
+    comptroller: Contract,
+    external_calls: Collection[ExternalCall],
+    generic_adapter: Contract,
+    integration_manager: Contract,
+    incoming_assets: Collection[Asset],
+    min_incoming_asset_amounts: Collection[int],
+    spend_assets: Collection[Asset],
+    spend_asset_amounts: Collection[int],
 ) -> ContractFunction:
     """Create a vault buy/sell transaction using a generic adapter.
 
@@ -131,17 +109,7 @@ def execute_calls_for_generic_adapter(
         A contract function object with bound arguments
     """
 
-    logger.info(
-        "execute_calls_for_generic_adapter(): %s %s %s %s %s %s %s %s",
-        comptroller,
-        external_calls,
-        generic_adapter,
-        integration_manager,
-        incoming_assets,
-        min_incoming_asset_amounts,
-        spend_assets,
-        spend_asset_amounts
-    )
+    logger.info("execute_calls_for_generic_adapter(): %s %s %s %s %s %s %s %s", comptroller, external_calls, generic_adapter, integration_manager, incoming_assets, min_incoming_asset_amounts, spend_assets, spend_asset_amounts)
 
     # Sanity checks
     assert isinstance(comptroller, Contract)
@@ -168,10 +136,6 @@ def execute_calls_for_generic_adapter(
     )
 
     # See ComptrollerLib.sol
-    call = comptroller.functions.callOnExtension(
-        integration_manager.address,
-        IntegrationManagerActionId.CallOnIntegration.value,
-        call_args
-    )
+    call = comptroller.functions.callOnExtension(integration_manager.address, IntegrationManagerActionId.CallOnIntegration.value, call_args)
 
     return call

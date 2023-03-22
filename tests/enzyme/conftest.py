@@ -56,9 +56,9 @@ def anvil(request: FixtureRequest) -> AnvilLaunch:
     try:
 
         # Make the initial snapshot ("zero state") to which we revert between tests
-        #web3 = Web3(HTTPProvider(anvil.json_rpc_url))
-        #snapshot_id = make_anvil_custom_rpc_request(web3, "evm_snapshot")
-        #assert snapshot_id == "0x0"
+        # web3 = Web3(HTTPProvider(anvil.json_rpc_url))
+        # snapshot_id = make_anvil_custom_rpc_request(web3, "evm_snapshot")
+        # assert snapshot_id == "0x0"
         yield anvil
     finally:
         anvil.close(log_level=log_level)
@@ -95,11 +95,7 @@ def deployer(web3) -> HexAddress:
 def uniswap_v2(web3: Web3, deployer: HexAddress) -> UniswapV2Deployment:
     """Deploy Uniswap, WETH token."""
     assert web3.eth.get_balance(deployer) > 0
-    deployment = deploy_uniswap_v2_like(
-        web3,
-        deployer,
-        give_weth=500  # Will also deploy WETH9 and give the deployer this many WETH tokens
-    )
+    deployment = deploy_uniswap_v2_like(web3, deployer, give_weth=500)  # Will also deploy WETH9 and give the deployer this many WETH tokens
     return deployment
 
 
@@ -160,8 +156,8 @@ def weth_usdc_pair(web3, deployer, uniswap_v2, usdc, weth) -> Contract:
         uniswap_v2,
         usdc,
         weth,
-        deposit*10**6,
-        (deposit//1600)*10**18,
+        deposit * 10**6,
+        (deposit // 1600) * 10**18,
     )
 
     return pair
@@ -169,8 +165,7 @@ def weth_usdc_pair(web3, deployer, uniswap_v2, usdc, weth) -> Contract:
 
 @pytest.fixture()
 def mln(web3, deployer) -> Contract:
-    """Mock MLN token.
-    """
+    """Mock MLN token."""
     token = create_token(web3, deployer, "Melon", "MLN", 5_000_000 * 10**18)
     return token
 
@@ -203,5 +198,3 @@ def usdc_usd_mock_chainlink_aggregator(web3, deployer) -> Contract:
     )
     aggregator.functions.setValue(1 * 10**6).transact({"from": deployer})
     return aggregator
-
-

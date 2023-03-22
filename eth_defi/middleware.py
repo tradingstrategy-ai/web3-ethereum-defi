@@ -206,8 +206,8 @@ def http_retry_request_with_sleep_middleware(
 
 
 def raise_on_revert_middleware(
-        make_request: Callable[[RPCEndpoint, Any], Any],
-        web3: "Web3",
+    make_request: Callable[[RPCEndpoint, Any], Any],
+    web3: "Web3",
 ) -> Callable[[RPCEndpoint, Any], Any]:
     """Automatically show the transaction revert reason in Python traceback.
 
@@ -233,18 +233,21 @@ def raise_on_revert_middleware(
         # Now you check the revert reason as the following
 
     """
+
     def middleware(method: RPCEndpoint, params: Any) -> RPCResponse:
-        if method == 'eth_sendTransaction':
+        if method == "eth_sendTransaction":
             transaction = params[0]
-            if 'gas' not in transaction:
+            if "gas" not in transaction:
                 try:
                     transaction = assoc(
                         transaction,
-                        'gas',
+                        "gas",
                         hex(get_buffered_gas_estimate(web3, transaction)),
                     )
                 except ContractLogicError as e:
-                    import ipdb ; ipdb.set_trace()
+                    import ipdb
+
+                    ipdb.set_trace()
                     raise e
 
                 return make_request(method, [transaction])

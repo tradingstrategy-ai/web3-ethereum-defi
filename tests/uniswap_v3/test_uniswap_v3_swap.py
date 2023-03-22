@@ -296,7 +296,7 @@ def test_swap_slippage_revert(
     usdc: Contract,
     weth_usdc_pool: Contract,
     hot_wallet: LocalAccount,
-        user_1,
+    user_1,
     pool_trading_fee: int,
 ):
     """Use local hot wallet to try to buy WETH on Uniswap v3 using mock USDC with slippage protection
@@ -354,7 +354,7 @@ def test_swap_slippage_revert(
             encode_path([usdc.address, weth.address], [pool_trading_fee]),
             user_1,
             FOREVER_DEADLINE,
-            110 * 10 ** 18,
+            110 * 10**18,
             0,
         )
     ).transact({"from": user_1})

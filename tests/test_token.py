@@ -70,13 +70,13 @@ def test_tranfer_tokens_between_users(web3: Web3, deployer: str, user_1, user_2)
     token = create_token(web3, deployer, "Telos EVM rocks", "TELOS", 100_000 * 10**18)
 
     # Move 10 tokens from deployer to user1
-    token.functions.transfer(user_1, 10 * 10 ** 18).transact({"from": deployer})
-    assert token.functions.balanceOf(user_1).call() == 10 * 10 ** 18
+    token.functions.transfer(user_1, 10 * 10**18).transact({"from": deployer})
+    assert token.functions.balanceOf(user_1).call() == 10 * 10**18
 
     # Move 10 tokens from deployer to user1
-    token.functions.transfer(user_2, 6 * 10 ** 18).transact({"from": user_1})
-    assert token.functions.balanceOf(user_1).call() == 4 * 10 ** 18
-    assert token.functions.balanceOf(user_2).call() == 6 * 10 ** 18
+    token.functions.transfer(user_2, 6 * 10**18).transact({"from": user_1})
+    assert token.functions.balanceOf(user_1).call() == 4 * 10**18
+    assert token.functions.balanceOf(user_2).call() == 6 * 10**18
 
 
 def test_tranfer_too_much(web3: Web3, deployer: str, user_1, user_2):
@@ -84,12 +84,12 @@ def test_tranfer_too_much(web3: Web3, deployer: str, user_1, user_2):
     token = create_token(web3, deployer, "Telos EVM rocks", "TELOS", 100_000 * 10**18)
 
     # Move 10 tokens from deployer to user1
-    token.functions.transfer(user_1, 10 * 10 ** 18).transact({"from": deployer})
-    assert token.functions.balanceOf(user_1).call() == 10 * 10 ** 18
+    token.functions.transfer(user_1, 10 * 10**18).transact({"from": deployer})
+    assert token.functions.balanceOf(user_1).call() == 10 * 10**18
 
     # Attempt to move 11 tokens from deployer to user1
     with pytest.raises(TransactionFailed) as excinfo:
-        token.functions.transfer(user_1, 11 * 10 ** 18).transact({"from": user_1})
+        token.functions.transfer(user_1, 11 * 10**18).transact({"from": user_1})
     assert str(excinfo.value) == "execution reverted: ERC20: transfer amount exceeds balance"
 
 

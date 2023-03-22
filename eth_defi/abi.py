@@ -148,16 +148,13 @@ def encode_with_signature(function_signature: str, args: Sequence) -> bytes:
     assert type(args) in (tuple, list)
 
     function_selector = Web3.keccak(text=function_signature)
-    selector_text = function_signature[function_signature.find("(")+1:function_signature.rfind(")")]
+    selector_text = function_signature[function_signature.find("(") + 1 : function_signature.rfind(")")]
     arg_types = selector_text.split(",")
     encoded_args = eth_abi.encode(arg_types, args)
     return function_selector + encoded_args
 
 
-def encode_function_args(
-        func: ContractFunction,
-        args: Sequence
-) -> bytes:
+def encode_function_args(func: ContractFunction, args: Sequence) -> bytes:
     """Mimic Solidity's abi.encodeWithSignature() in Python.
 
     Uses `web3.Contract.functions` prepared function as the ABI source.
@@ -184,8 +181,8 @@ def encode_function_args(
 
 
 def encode_function_call(
-        func: ContractFunction,
-        args: Sequence,
+    func: ContractFunction,
+    args: Sequence,
 ) -> HexBytes:
     """Encode function selector + its arguments as data payload.
 
@@ -220,8 +217,8 @@ def encode_function_call(
 
 
 def decode_function_args(
-        func: ContractFunction,
-        data: bytes | HexBytes,
+    func: ContractFunction,
+    data: bytes | HexBytes,
 ) -> dict:
     """Decode binary CALL or CALLDATA to a Solidity function,
 

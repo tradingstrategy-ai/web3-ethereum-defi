@@ -1,5 +1,4 @@
 """Prepare Uniswap v2 swaps through Enzyme vault."""
-from typing import Callable
 
 from web3.contract import Contract
 from web3.contract.contract import ContractFunction
@@ -11,14 +10,7 @@ from eth_defi.enzyme.vault import Vault
 from eth_defi.uniswap_v2.deployment import UniswapV2Deployment, FOREVER_DEADLINE
 
 
-def prepare_swap(
-        enzyme: EnzymeDeployment,
-        vault: Vault,
-        uniswap_v2: UniswapV2Deployment,
-        generic_adapter: Contract,
-        token_in: Contract,
-        token_out: Contract,
-        swap_amount: int) -> ContractFunction:
+def prepare_swap(enzyme: EnzymeDeployment, vault: Vault, uniswap_v2: UniswapV2Deployment, generic_adapter: Contract, token_in: Contract, token_out: Contract, swap_amount: int) -> ContractFunction:
     """Prepare a Uniswap v2 swap transaction for Enzyme vault.
 
     - Tells the Enzyme vault to swap some tokens
@@ -75,7 +67,7 @@ def prepare_swap(
         Token in amount, raw
 
     :return:
-        Transaction object for which we can call
+        Transaction object that can be signed and executed
     """
 
     # Prepare the swap parameters
@@ -88,15 +80,9 @@ def prepare_swap(
     min_incoming_assets_amounts = [expected_incoming_amount]
 
     # The vault performs a swap on Uniswap v2
-    encoded_approve = encode_function_call(
-        token_in.functions.approve,
-        [uniswap_v2.router.address, token_in_swap_amount]
-    )
+    encoded_approve = encode_function_call(token_in.functions.approve, [uniswap_v2.router.address, token_in_swap_amount])
 
-    encoded_swapExactTokensForTokens = encode_function_call(
-        uniswap_v2.router.functions.swapExactTokensForTokens,
-        [token_in_swap_amount, 1, path, generic_adapter.address, FOREVER_DEADLINE]
-    )
+    encoded_swapExactTokensForTokens = encode_function_call(uniswap_v2.router.functions.swapExactTokensForTokens, [token_in_swap_amount, 1, path, generic_adapter.address, FOREVER_DEADLINE])
 
     bound_call = execute_calls_for_generic_adapter(
         comptroller=vault.comptroller,
