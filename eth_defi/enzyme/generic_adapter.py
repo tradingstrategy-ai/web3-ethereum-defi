@@ -1,4 +1,15 @@
-"""Enzyme generic adapter helpers."""
+"""Enzyme generic adapter helpers.
+
+- GenericAdapter is a vault adapter that allow the vault to perform any transaction
+
+- GenericAdapter is not yet part of standard Enzyme distribution (not audited)
+
+- Transactions are send in ABI encoded bundles
+
+- Bundle can contain one or more smart contract calls like `approve()` and then `swapExactTokensForTokens()`
+
+See :py:func:`eth_defi.enzyme.uniswap_v2.prepare_swap` how to use the generic adapter to make trades.
+"""
 import logging
 from typing import TypeAlias, Collection, Tuple, Final
 
