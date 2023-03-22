@@ -305,8 +305,9 @@ def launch_anvil(
 
     :param block_time:
 
-        How long Anvil takes to mine a block. Default is zero and any RPC transaction
-        will immediately return with the transaction inclusion.
+        How long Anvil takes to mine a block. Default is zero:
+        Anvil is in `automining mode <https://book.getfoundry.sh/reference/anvil/>`__
+        and creates a new block for each new transaction.
 
         Set to `1` or higher so that you can poll the transaction as you would do with
         a live JSON-RPC node.
