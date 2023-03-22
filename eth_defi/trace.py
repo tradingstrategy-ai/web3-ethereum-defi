@@ -32,6 +32,13 @@ class TraceNotEnabled(Exception):
     """Tracing is not enabled on the backend."""
 
 
+class TransactionAssertionError(AssertionError):
+    """Exception thrown when unit test transaction asset fails.
+
+    See :py:func:`assert_transaction_success_with_explanation`.
+    """
+
+
 class TraceMethod(enum.Enum):
     """What kind of transaction tracing method we use.
 
@@ -224,7 +231,7 @@ def assert_transaction_success_with_explanation(
 
         Gas limit must have been set for this transaction.
 
-    :raise AssertionError:
+    :raise TransactionAssertionError:
         Outputs a verbose AssertionError on what went wrong.
     """
 
@@ -235,7 +242,7 @@ def assert_transaction_success_with_explanation(
         revert_reason = fetch_transaction_revert_reason(web3, tx_hash)
         trace_data = trace_evm_transaction(web3, tx_hash, TraceMethod.parity)
         trace_output = print_symbolic_trace(get_or_create_contract_registry(web3), trace_data)
-        raise AssertionError(
+        raise TransactionAssertionError(
             f"Transaction failed: {tx_details}\n"
             f"Revert reason: {revert_reason}\n"
             f"Solidity stack trace:\n"
