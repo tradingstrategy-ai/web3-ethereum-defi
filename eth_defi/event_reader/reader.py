@@ -80,6 +80,63 @@ class ProgressUpdate(Protocol):
         """
 
 
+# For typing.Protocol see https://stackoverflow.com/questions/68472236/type-hint-for-callable-that-takes-kwargs
+class Web3EventReader(Protocol):
+    """Pass the event reader callable around.
+
+    An interface over event reader iterator.
+
+    - Helps to type decorate event reader callable in the function arguments
+
+    - The event reader implementation may be single-threaded, multithreaded, async based, etc.
+
+    For concrete implementation see
+
+    - :py:func:`extract_events`
+
+    - :py:func:`extract_events_concurrent`
+
+    Example by using a single-thread reader:
+
+    .. code-block:: python
+
+        from eth_defi.event_reader.reader import extract_events, Web3EventReader
+        from eth_defi.enzyme.events import fetch_vault_balance_events
+
+        read_events: Web3EventReader = cast(Web3EventReader, partial(extract_events))
+        balance_events = list(fetch_vault_balance_events(vault, start_block, end_block, read_events))
+    """
+
+    def __call__(
+        self,
+        web3: Web3,
+        start_block: int,
+        end_block: int,
+        filter: Filter,
+    ):
+        """Read events for a block range.
+
+        :param start_block:
+            First block to process (inclusive)
+
+        :param end_block:
+            Last block to process (inclusive)
+
+        :param filter:
+            Internal filter used to match logs.
+
+        :param end_block:
+            The last block in our total scan range.
+
+        :raise ChainReorganisationDetected:
+            If used with chain reorganisation monitor, detect any changes in the underlying chain state.
+
+            See :py:mod:`eth_defi.reader.reorganisation_monitor` for details.
+        """
+
+
+
+
 def extract_timestamps_json_rpc(
     web3: Web3,
     start_block: int,

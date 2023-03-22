@@ -72,12 +72,12 @@ def deploy_contract(
     tx_receipt = web3.eth.wait_for_transaction_receipt(tx_hash)
 
     instance = Contract(
-        address=tx_receipt.contractAddress,
+        address=tx_receipt["contractAddress"],
     )
 
     if register_for_tracing:
         instance.name = contract_name
-        register_contract(web3, tx_receipt.contractAddress, instance)
+        register_contract(web3, tx_receipt["contractAddress"], instance)
 
     return instance
 

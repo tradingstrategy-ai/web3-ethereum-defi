@@ -13,6 +13,7 @@ from web3 import EthereumTesterProvider, Web3, HTTPProvider
 from web3.contract import Contract
 
 from eth_defi.anvil import AnvilLaunch, launch_anvil, make_anvil_custom_rpc_request
+from eth_defi.chain import install_chain_middleware
 from eth_defi.deploy import deploy_contract
 from eth_defi.token import create_token
 from eth_defi.uniswap_v2.deployment import deploy_uniswap_v2_like, UniswapV2Deployment, deploy_trading_pair
@@ -55,11 +56,13 @@ def web3(anvil: AnvilLaunch) -> Web3:
 
     Also perform the Anvil state reset for each test.
     """
-    #tester = EthereumTesterProvider()
-    # web3 = Web3(tester)
     web3 = Web3(HTTPProvider(anvil.json_rpc_url))
-    # snapshot_id = "0x0"
-    # make_anvil_custom_rpc_request(web3, "evm_revert", [snapshot_id])
+
+    # Get rid of attributeddict
+    web3.middleware_onion.clear()
+
+    install_chain_middleware(web3)
+
     return web3
 
 
@@ -124,7 +127,7 @@ def usdc(web3, deployer) -> Contract:
 
     All initial start goes to `deployer`
     """
-    token = create_token(web3, deployer, "USD Coin", "USDC", 100_000_000 * 10**6)
+    token = create_token(web3, deployer, "USD Coin", "USDC", 100_000_000 * 10**6, decimals=6)
     return token
 
 
