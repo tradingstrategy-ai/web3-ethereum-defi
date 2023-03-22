@@ -114,9 +114,10 @@ def test_read_deposit(
     usdc.functions.approve(vault.comptroller.address, 500*10**6).transact({"from": user_1})
     vault.comptroller.functions.buyShares(500*10**6, 1).transact({"from": user_1})
 
+    assert vault.get_total_supply() == 500 * 10**18
+
     old_end_block = end_block
     end_block = web3.eth.block_number
-
     print("Reading range", old_end_block - 1, end_block + 1)  # TODO: Github CI, Anvil hack
     balance_events = list(fetch_vault_balance_events(vault, old_end_block, end_block, read_events))
 
