@@ -9,6 +9,11 @@
 - Bundle can contain one or more smart contract calls like `approve()` and then `swapExactTokensForTokens()`
 
 See :py:func:`eth_defi.enzyme.uniswap_v2.prepare_swap` how to use the generic adapter to make trades.
+
+.. warning::
+
+    GenericAdapter is unaudited and dangerous. Do not use in production yet.
+
 """
 import logging
 from typing import TypeAlias, Collection, Tuple, Final

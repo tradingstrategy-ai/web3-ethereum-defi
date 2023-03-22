@@ -1,4 +1,7 @@
-"""Vault-specific management."""
+"""Vault-specific management.
+
+See :py:class:`Vault`.
+"""
 from dataclasses import dataclass
 from functools import cached_property
 from typing import Collection
@@ -13,6 +16,19 @@ from eth_defi.token import TokenDetails, fetch_erc20_details
 @dataclass
 class Vault:
     """Enzyme vault wrapper.
+
+    - Vaults are Enzyme Protocol "funds" where you have investors and assets
+
+    - Investors have ownership of vault assets with a share token
+
+    - Each vault has its denomiation asset, e.g. USDC that you use for the buy in
+
+    - You buy-in to a vault using `buyShares`
+
+    - Redemption is "in-kind" and you swap your share tokens to the tokens
+      of underlying open positions and other assets
+
+    - A separate vault owner (fund owner) can make the vault to perform trades
 
     Vault in Enzyme are presented by two smart contracts
 
