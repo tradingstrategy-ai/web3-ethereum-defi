@@ -11,14 +11,14 @@ from eth_defi.enzyme.vault import Vault
 
 
 def test_deploy_enzyme(
-        web3: Web3,
-        deployer: HexAddress,
-        user_1: HexAddress,
-        user_2: HexAddress,
-        weth: Contract,
-        mln: Contract,
-        usdc: Contract,
-        usdc_usd_mock_chainlink_aggregator: Contract,
+    web3: Web3,
+    deployer: HexAddress,
+    user_1: HexAddress,
+    user_2: HexAddress,
+    weth: Contract,
+    mln: Contract,
+    usdc: Contract,
+    usdc_usd_mock_chainlink_aggregator: Contract,
 ):
     """Deploy Enzyme protocol, single USDC nominated vault and buy in."""
 
@@ -49,24 +49,24 @@ def test_deploy_enzyme(
     # See Shares.sol
     #
     # Buy shares for 500 USDC, receive min share
-    usdc.functions.transfer(user_1, 500 * 10 ** 6).transact({"from": deployer})
-    usdc.functions.approve(comptroller.address, 500*10**6).transact({"from": user_1})
-    comptroller.functions.buyShares(500*10**6, 1).transact({"from": user_1})
+    usdc.functions.transfer(user_1, 500 * 10**6).transact({"from": deployer})
+    usdc.functions.approve(comptroller.address, 500 * 10**6).transact({"from": user_1})
+    comptroller.functions.buyShares(500 * 10**6, 1).transact({"from": user_1})
 
     # See user 2 received shares
     balance = vault.functions.balanceOf(user_1).call()
-    assert balance == 500*10**18
+    assert balance == 500 * 10**18
 
 
 def test_vault_api(
-        web3: Web3,
-        deployer: HexAddress,
-        user_1: HexAddress,
-        user_2: HexAddress,
-        weth: Contract,
-        mln: Contract,
-        usdc: Contract,
-        usdc_usd_mock_chainlink_aggregator: Contract,
+    web3: Web3,
+    deployer: HexAddress,
+    user_1: HexAddress,
+    user_2: HexAddress,
+    weth: Contract,
+    mln: Contract,
+    usdc: Contract,
+    usdc_usd_mock_chainlink_aggregator: Contract,
 ):
     """Test vault wrapper class."""
 
@@ -85,12 +85,7 @@ def test_vault_api(
         RateAsset.USD,
     )
 
-    comptroller_contract, vault_contract = deployment.create_new_vault(
-        user_1,
-        usdc,
-        fund_name="Cow says Moo",
-        fund_symbol="MOO"
-    )
+    comptroller_contract, vault_contract = deployment.create_new_vault(user_1, usdc, fund_name="Cow says Moo", fund_symbol="MOO")
 
     vault = Vault(vault_contract, comptroller_contract)
 
@@ -108,9 +103,9 @@ def test_vault_api(
     # See Shares.sol
     #
     # Buy shares for 500 USDC, receive min share
-    usdc.functions.transfer(user_1, 500 * 10 ** 6).transact({"from": deployer})
-    usdc.functions.approve(vault.comptroller.address, 500*10**6).transact({"from": user_1})
-    vault.comptroller.functions.buyShares(500*10**6, 1).transact({"from": user_1})
+    usdc.functions.transfer(user_1, 500 * 10**6).transact({"from": deployer})
+    usdc.functions.approve(vault.comptroller.address, 500 * 10**6).transact({"from": user_1})
+    vault.comptroller.functions.buyShares(500 * 10**6, 1).transact({"from": user_1})
 
     assert vault.get_total_supply() == 500 * 10**18
     assert vault.get_gross_asset_value() == 500 * 10**6

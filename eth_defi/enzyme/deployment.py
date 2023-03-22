@@ -37,6 +37,7 @@ from eth_defi.revert_reason import fetch_transaction_revert_reason
 
 class RateAsset(enum.Enum):
     """See IChainlinkPriceFeedMixin.sol"""
+
     ETH = 0
     USD = 1
 
@@ -53,6 +54,7 @@ class EnzymeContracts:
 
     Mimics Deployer.sol from Enzyme unit tests.
     """
+
     web3: Web3
     deployer: HexAddress
     dispatcher: Contract = None
@@ -85,7 +87,7 @@ class EnzymeContracts:
         """
         # Convert to snake case
         # https://stackoverflow.com/a/1176023/315168
-        var_name = re.sub(r'(?<!^)(?=[A-Z])', '_', contract_name).lower()
+        var_name = re.sub(r"(?<!^)(?=[A-Z])", "_", contract_name).lower()
         contract = deploy_contract(self.web3, f"enzyme/{contract_name}.json", self.deployer, *args)
         setattr(self, var_name, contract)
 
@@ -122,11 +124,11 @@ class EnzymeDeployment:
     weth: Contract
 
     def add_primitive(
-            self,
-            token: Contract,
-            aggregator: Contract,
-            rate_asset: RateAsset,
-        ):
+        self,
+        token: Contract,
+        aggregator: Contract,
+        rate_asset: RateAsset,
+    ):
         """Add a primitive asset to a Enzyme protocol.
 
         This will tell Enzyme how to value this asset.
@@ -148,14 +150,14 @@ class EnzymeDeployment:
         value_interpreter.functions.addPrimitives(primitives, aggregators, rate_assets).transact({"from": self.deployer})
 
     def create_new_vault(
-            self,
-            owner: HexAddress,
-            denomination_asset: Contract,
-            fund_name = "Example Fund",
-            fund_symbol = "EXAMPLE",
-            shares_action_time_lock: int = 0,
-            fee_manager_config_data = b"",
-            policy_manager_config_data = b"",
+        self,
+        owner: HexAddress,
+        denomination_asset: Contract,
+        fund_name="Example Fund",
+        fund_symbol="EXAMPLE",
+        shares_action_time_lock: int = 0,
+        fee_manager_config_data=b"",
+        policy_manager_config_data=b"",
     ) -> Tuple[Contract, Contract]:
         """
         Creates a new fund (vault).
@@ -169,17 +171,11 @@ class EnzymeDeployment:
         """
 
         fund_deployer = self.contracts.fund_deployer
-        tx_hash = fund_deployer.functions.createNewFund(
-            owner,
-            fund_name,
-            fund_symbol,
-            denomination_asset.address,
-            shares_action_time_lock,
-            fee_manager_config_data,
-            policy_manager_config_data,
-        ).transact({
-            "from": self.deployer,
-        })
+        tx_hash = fund_deployer.functions.createNewFund(owner, fund_name, fund_symbol, denomination_asset.address, shares_action_time_lock, fee_manager_config_data, policy_manager_config_data,).transact(
+            {
+                "from": self.deployer,
+            }
+        )
         receipt = self.web3.eth.wait_for_transaction_receipt(tx_hash)
         if receipt["status"] != 1:
             reason = fetch_transaction_revert_reason(self.web3, tx_hash)
@@ -197,27 +193,27 @@ class EnzymeDeployment:
 
     @staticmethod
     def deploy_core(
-            web3: Web3,
-            deployer: HexAddress,
-            mln: Contract,
-            weth: Contract,
-            chainlink_stale_rate_threshold = 3650 * 24 * 3600,  # 10 years
-            vault_position_limit = 20,
-            vault_mln_burner = "0x0000000000000000000000000000000000000000",
+        web3: Web3,
+        deployer: HexAddress,
+        mln: Contract,
+        weth: Contract,
+        chainlink_stale_rate_threshold=3650 * 24 * 3600,  # 10 years
+        vault_position_limit=20,
+        vault_mln_burner="0x0000000000000000000000000000000000000000",
     ) -> "EnzymeDeployment":
         """Make a test Enzyme deployment.
 
         Designed to be used in unit testing.
 
         This is copied from the Forge test suite `deployLiveRelease()`.
-        
+
         See
-        
+
         - contracts/enzyme/tests/deployment
-        
+
         :param deployer:
             EVM account used for the deployment
-            
+
         """
 
         weth_address = weth.address
@@ -247,30 +243,22 @@ class EnzymeDeployment:
             contracts.deploy("ExternalPositionManager", contracts.fund_deployer.address, contracts.external_position_factory.address, contracts.policy_manager.address)
             contracts.deploy("FeeManager", contracts.fund_deployer.address)
             contracts.deploy("IntegrationManager", contracts.fund_deployer.address, contracts.policy_manager.address, contracts.value_interpreter.address)
-            contracts.deploy("ComptrollerLib",
-                             contracts.dispatcher.address,
-                             contracts.protocol_fee_reserve_proxy.address,
-                             contracts.fund_deployer.address,
-                             contracts.value_interpreter.address,
-                             contracts.external_position_manager.address,
-                             contracts.fee_manager.address,
-                             contracts.integration_manager.address,
-                             contracts.policy_manager.address,
-                             contracts.gas_relay_paymaster_factory.address,
-                             mln_address,
-                             weth_address,
-                             )
+            contracts.deploy(
+                "ComptrollerLib",
+                contracts.dispatcher.address,
+                contracts.protocol_fee_reserve_proxy.address,
+                contracts.fund_deployer.address,
+                contracts.value_interpreter.address,
+                contracts.external_position_manager.address,
+                contracts.fee_manager.address,
+                contracts.integration_manager.address,
+                contracts.policy_manager.address,
+                contracts.gas_relay_paymaster_factory.address,
+                mln_address,
+                weth_address,
+            )
             contracts.deploy("ProtocolFeeTracker", contracts.fund_deployer.address)
-            contracts.deploy("VaultLib",
-                             contracts.external_position_manager.address,
-                             contracts.gas_relay_paymaster_factory.address,
-                             contracts.protocol_fee_reserve_proxy.address,
-                             contracts.protocol_fee_tracker.address,
-                             mln_address,
-                             vault_mln_burner,
-                             weth_address,
-                             vault_position_limit
-                             )
+            contracts.deploy("VaultLib", contracts.external_position_manager.address, contracts.gas_relay_paymaster_factory.address, contracts.protocol_fee_reserve_proxy.address, contracts.protocol_fee_tracker.address, mln_address, vault_mln_burner, weth_address, vault_position_limit)
 
         def _set_fund_deployer_pseudo_vars():
             # Mimic setFundDeployerPseudoVars()

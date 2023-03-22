@@ -17,15 +17,15 @@ from eth_defi.uniswap_v3.constants import FOREVER_DEADLINE
 
 @pytest.fixture
 def dual_token_deployment(
-        web3: Web3,
-        deployer: HexAddress,
-        user_1: HexAddress,
-        user_2,
-        weth: Contract,
-        mln: Contract,
-        usdc: Contract,
-        weth_usd_mock_chainlink_aggregator: Contract,
-        usdc_usd_mock_chainlink_aggregator: Contract,
+    web3: Web3,
+    deployer: HexAddress,
+    user_1: HexAddress,
+    user_2,
+    weth: Contract,
+    mln: Contract,
+    usdc: Contract,
+    weth_usd_mock_chainlink_aggregator: Contract,
+    usdc_usd_mock_chainlink_aggregator: Contract,
 ) -> EnzymeDeployment:
     """Create Enzyme deployment that supports WETH and USDC tokens"""
 
@@ -52,19 +52,19 @@ def dual_token_deployment(
 
 
 def test_generic_adapter_uniswap_v2(
-        web3: Web3,
-        deployer: HexAddress,
-        user_1: HexAddress,
-        user_2,
-        user_3,
-        weth: Contract,
-        mln: Contract,
-        usdc: Contract,
-        weth_usd_mock_chainlink_aggregator: Contract,
-        usdc_usd_mock_chainlink_aggregator: Contract,
-        dual_token_deployment: EnzymeDeployment,
-        uniswap_v2: UniswapV2Deployment,
-        weth_usdc_pair: Contract,
+    web3: Web3,
+    deployer: HexAddress,
+    user_1: HexAddress,
+    user_2,
+    user_3,
+    weth: Contract,
+    mln: Contract,
+    usdc: Contract,
+    weth_usd_mock_chainlink_aggregator: Contract,
+    usdc_usd_mock_chainlink_aggregator: Contract,
+    dual_token_deployment: EnzymeDeployment,
+    uniswap_v2: UniswapV2Deployment,
+    weth_usdc_pair: Contract,
 ):
     """Deploy Enzyme protocol with a generic adapter and trade with it
 
@@ -73,14 +73,14 @@ def test_generic_adapter_uniswap_v2(
     - Make a trade for our Uniswap v2 using this adapter
 
     - See that fund shares are calculated correctly.
-    
+
     See https://github.com/avantgardefinance/protocol/blob/feat/generic-adapter/tests/release/extensions/integration-manager/integrations/GenericAdapter.test.ts
     """
 
     # Check we have necessary Uniswap v2 liquidity available
     pair = uniswap_v2.get_pair_contract(weth.address, usdc.address)
-    assert usdc.functions.balanceOf(pair.address).call() == 200_000*10**6
-    assert weth.functions.balanceOf(pair.address).call() == 125*10**18
+    assert usdc.functions.balanceOf(pair.address).call() == 200_000 * 10**6
+    assert weth.functions.balanceOf(pair.address).call() == 125 * 10**18
 
     deployment = dual_token_deployment
 
@@ -100,13 +100,13 @@ def test_generic_adapter_uniswap_v2(
     # See Shares.sol
     #
     # Buy shares for 500 USDC, receive min share
-    usdc.functions.transfer(user_2, 500 * 10 ** 6).transact({"from": deployer})
-    usdc.functions.approve(comptroller.address, 500*10**6).transact({"from": user_2})
-    comptroller.functions.buyShares(500*10**6, 1).transact({"from": user_2})
+    usdc.functions.transfer(user_2, 500 * 10**6).transact({"from": deployer})
+    usdc.functions.approve(comptroller.address, 500 * 10**6).transact({"from": user_2})
+    comptroller.functions.buyShares(500 * 10**6, 1).transact({"from": user_2})
 
     # Check that the vault has balance
     balance = usdc.functions.balanceOf(vault.address).call()
-    assert balance == 500*10**6
+    assert balance == 500 * 10**6
 
     # Prepare the swap parameters
     usdc_swap_amount = 150 * 10**6  # 150 USDC
@@ -119,15 +119,9 @@ def test_generic_adapter_uniswap_v2(
     min_incoming_assets_amounts = [expected_incoming_amount]
 
     # The vault performs a swap on Uniswap v2
-    encoded_approve = encode_function_call(
-        usdc.functions.approve,
-        [uniswap_v2.router.address, usdc_swap_amount]
-    )
+    encoded_approve = encode_function_call(usdc.functions.approve, [uniswap_v2.router.address, usdc_swap_amount])
 
-    encoded_swapExactTokensForTokens = encode_function_call(
-        uniswap_v2.router.functions.swapExactTokensForTokens,
-        [usdc_swap_amount, 1, path, generic_adapter.address, FOREVER_DEADLINE]
-    )
+    encoded_swapExactTokensForTokens = encode_function_call(uniswap_v2.router.functions.swapExactTokensForTokens, [usdc_swap_amount, 1, path, generic_adapter.address, FOREVER_DEADLINE])
 
     bound_call = execute_calls_for_generic_adapter(
         comptroller=comptroller,

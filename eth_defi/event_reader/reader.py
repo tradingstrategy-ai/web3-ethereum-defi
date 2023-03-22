@@ -135,8 +135,6 @@ class Web3EventReader(Protocol):
         """
 
 
-
-
 def extract_timestamps_json_rpc(
     web3: Web3,
     start_block: int,

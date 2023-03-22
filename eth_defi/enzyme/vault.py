@@ -155,3 +155,10 @@ class Vault:
         """
         return self.comptroller.functions.calcGrossShareValue().call()
 
+    def get_share_count_for_user(self, user: HexAddress) -> int:
+        """How mayn shares a user has.
+
+        :return:
+            Raw token amount
+        """
+        return self.vault.functions.balanceOf(user).call()

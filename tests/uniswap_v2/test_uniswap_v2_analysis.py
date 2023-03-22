@@ -171,7 +171,7 @@ def test_analyse_sell_success(web3: Web3, deployer: str, user_1, uniswap_v2: Uni
     ).transact({"from": user_1})
 
     # user_1 has less than 500 USDC left to loses in the LP fees
-    usdc_left = usdc.functions.balanceOf(user_1).call() / (10.0 ** 6)
+    usdc_left = usdc.functions.balanceOf(user_1).call() / (10.0**6)
     assert usdc_left == pytest.approx(497.0895)
 
     analysis = analyse_trade_by_hash(web3, uniswap_v2, tx_hash)
@@ -210,7 +210,7 @@ def test_analyse_trade_failed(eth_tester: EthereumTester, web3: Web3, deployer: 
         # Perform a swap USDC->WETH
         path = [usdc.address, weth.address]  # Path tell how the swap is routed
         # https://docs.uniswap.org/protocol/V2/reference/smart-contracts/router-02#swapexacttokensfortokens
-        tx_hash = router.functions.swapExactTokensForTokens(usdc_amount_to_pay, 0, path, user_1, FOREVER_DEADLINE, ).transact(
+        tx_hash = router.functions.swapExactTokensForTokens(usdc_amount_to_pay, 0, path, user_1, FOREVER_DEADLINE,).transact(
             {
                 "from": user_1,
                 # We need to pass explicit gas, otherwise

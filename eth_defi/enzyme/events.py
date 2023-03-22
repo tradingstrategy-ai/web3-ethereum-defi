@@ -1,12 +1,16 @@
 """Enzyme protocol event reader.
 
-Read different events from Enzyme vaults that are necessary for trading.
+- High level interface for Enzyme deposit and withdrawal events, with unit conversion
+  and token data look up
+
+- Read different events from Enzyme vaults that are necessary for managing the available
+  trading capital
 
 """
 from decimal import Decimal
 from dataclasses import dataclass
 from functools import cached_property
-from typing import Iterable, Tuple, List
+from typing import Iterable, Tuple, List, Collection
 
 from eth_typing import HexAddress
 from hexbytes import HexBytes
@@ -25,16 +29,6 @@ class EnzymeBalanceEvent:
 
     Wrap the underlying raw JSON-RPC eth_getLogs data to something more manageable.
 
-    SharesBought is:
-
-    .. code-block:: text
-
-        event SharesBought(
-            address indexed buyer,
-            uint256 investmentAmount,
-            uint256 sharesIssued,
-            uint256 sharesReceived
-        );
     """
 
     #: Enzyme vault instance
@@ -76,11 +70,16 @@ class EnzymeBalanceEvent:
 
         """
         event_name = event_data["event"].event_name
+
+        # web3.cotract.Contact.Event expects binary data here
+        # and we cannot pass raw JSON-RPC
+        event_data["topics"] = [HexBytes(t) for t in event_data["topics"]]
+
         match event_name:
             case "SharesBought":
                 return Deposit(vault, event_data)
             case "SharesRedeemed":
-                return Withdraw(vault, event_data)
+                return Withdrawal(vault, event_data)
             case _:
                 raise RuntimeError(f"Unsupported event: {event_name}")
 
@@ -118,11 +117,6 @@ class EnzymeBalanceEvent:
         """
         return self.vault.shares_token
 
-    @cached_property
-    def user(self) -> HexAddress:
-        """Address of the user how bought/redeemed shares."""
-        return convert_uint256_bytes_to_address(HexBytes(self.event_data["topics"][1]))
-
 
 @dataclass
 class Deposit(EnzymeBalanceEvent):
@@ -131,38 +125,114 @@ class Deposit(EnzymeBalanceEvent):
     - Wraps `SharesBought` event
 
     - See `ComptrollerLib.sol`
+
+    The solidity event:
+
+    .. code-block:: text
+
+        event SharesBought(
+            address indexed buyer,
+            uint256 investmentAmount,
+            uint256 sharesIssued,
+            uint256 sharesReceived
+        );
     """
 
-    @cached_property
+    @property
     def investment_amount(self) -> Decimal:
         """Amount of deposit/withdrawal in the denominator token."""
         token = self.denomination_token
         raw_amount = self.arguments[0]
         return token.convert_to_decimals(convert_int256_bytes_to_int(raw_amount))
 
-    @cached_property
+    @property
     def shares_issued(self) -> Decimal:
         """Amount of deposit/withdrawal in the denominator token."""
         token = self.shares_token
         raw_amount = self.arguments[1]
         return token.convert_to_decimals(convert_int256_bytes_to_int(raw_amount))
 
+    @cached_property
+    def receiver(self) -> HexAddress:
+        """Address of the user who received the bought shares."""
+        return convert_uint256_bytes_to_address(HexBytes(self.event_data["topics"][1]))
+
 
 @dataclass
-class Withdraw(EnzymeBalanceEvent):
+class Withdrawal(EnzymeBalanceEvent):
     """Enzyme deposit event wrapper.
+
+    Currently only supports `redeemSharesInKind` withdrawal method.
+    This means we get the tokens of the undetlying positions directly to the investor wallet
+    without sellign them.
 
     - Wraps `SharesRedeemed` event
 
     - See `ComptrollerLib.sol`
+
+    - See `redeemSharesInKind()`
+
+    The solidity event:
+
+    .. code-block:: text
+
+        event SharesRedeemed(
+            address indexed redeemer,
+            address indexed recipient,
+            uint256 sharesAmount,
+            address[] receivedAssets,
+            uint256[] receivedAssetAmounts
+        );
     """
+
+    @property
+    def redeem_amount(self) -> Decimal:
+        """Amount of withdrawal in the number of shares."""
+        token = self.shares_token
+        raw_amount = self.arguments[0]
+        return token.convert_to_decimals(convert_int256_bytes_to_int(raw_amount))
+
+    @cached_property
+    def redeemed_assets(self) -> List[Tuple[TokenDetails, int]]:
+        """Get the list of assets in this withdrawal.
+
+        :return:
+            List of (redeemed token, raw token amount) tuples
+        """
+        web3 = self.web3
+
+        # Decode using Web3.py to handle list decoding nicely
+        # Slower, but we do not care
+
+        SharesRedeemed = self.event_data["event"]
+        processed = SharesRedeemed().process_log(self.event_data)
+        addresses = processed["args"]["receivedAssets"]
+        amounts = processed["args"]["receivedAssetAmounts"]
+        details = [fetch_erc20_details(web3, address) for address in addresses]
+        return list(zip(details, amounts))
+
+    @property
+    def receiver(self) -> HexAddress:
+        """Address of the user who received the assets.
+
+        Can be different from the redeemer.
+        """
+        return convert_uint256_bytes_to_address(HexBytes(self.event_data["topics"][2]))
+
+    @property
+    def redeemer(self) -> HexAddress:
+        """Address of the user who did the redemption transaction.
+
+        Can be different from the receiver.
+        """
+        return convert_uint256_bytes_to_address(HexBytes(self.event_data["topics"][1]))
 
 
 def fetch_vault_balance_events(
-        vault: Vault,
-        start_block: int,
-        end_block: int,
-        read_events: Web3EventReader,
+    vault: Vault,
+    start_block: int,
+    end_block: int,
+    read_events: Web3EventReader,
 ) -> Iterable[EnzymeBalanceEvent]:
     """Get the deposits to Enzyme vault in a specific time range.
 
@@ -190,4 +260,5 @@ def fetch_vault_balance_events(
         end_block,
         filter=filter,
     ):
+        print(solidity_event)
         yield EnzymeBalanceEvent.wrap(vault, solidity_event)
