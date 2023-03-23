@@ -60,7 +60,6 @@ rtd-dep-export:
 
 # Build docs locally
 build-docs:
-	@poetry install -E docs
 	@(cd docs && make html)
 
 # Nuke the old docs build to ensure all pages are regenerated

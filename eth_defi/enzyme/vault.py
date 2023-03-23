@@ -1,4 +1,4 @@
-"""Vault-specific management.
+"""High level interface to read Enzyme vaults.
 
 See :py:class:`Vault`.
 """
