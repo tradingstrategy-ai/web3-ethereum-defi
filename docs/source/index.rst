@@ -4,14 +4,17 @@ Web3-Ethereum-Defi package documentation
 .. meta::
    :description: Web3 and DeFi API for Python
 
-This is the API documentation for Python `web3-ethereum-defi <https://github.com/tradingstrategy-ai/web3-ethereum-defi>`__ package.
+Welcome to the documentation for Python `web3-ethereum-defi <https://github.com/tradingstrategy-ai/web3-ethereum-defi>`__ package.
 
-This project contains high level Python API for smart contracts,
+The project contains high level Python API for smart contracts,
 DeFi trading, wallet management, automated test suites and backend integrations on EVM based blockchains.
 Supported blockchains include Ethereum, BNB Chain, Polygon, Avalanche C-chain, Arbitrum, others.
 
 Supported DeFi protocols include Uniswap and its forks (PancakeSwap, Trader Joe, QuickSwap),
 Aave, Enzyme, dHEDGE.
+
+The project builts on the top of `Web3.py library <https://web3py.readthedocs.io/en/stable/>`__,
+adding better developer experience through integrations, debug tools and documentation.
 
 See `the project README for more information <https://github.com/tradingstrategy-ai/web3-ethereum-defi>`__.
 
