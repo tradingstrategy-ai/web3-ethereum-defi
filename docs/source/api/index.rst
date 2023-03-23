@@ -4,9 +4,11 @@
 API documentation
 =================
 
-This is the API documentation for Python `web3-ethereum-defi` package.
-See `the project README for an overview <https://github.com/tradingstrategy-ai/web3-ethereum-defi>`_.
+`web3-ethereum-defi <https://pypi.org/project/web3-ethereum-defi/>__` package comes with 100% API documentation coverage.
 
+- Most APIs have inline code examples for functions and classes
+
+- For more code examples check out `tests folder <https://github.com/tradingstrategy-ai/web3-ethereum-defi/tree/master/tests>`__
 
 API modules
 =================

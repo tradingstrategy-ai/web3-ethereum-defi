@@ -10,7 +10,7 @@ This project contains high level Python API for smart contracts,
 DeFi trading, wallet management, automated test suites and backend integrations on EVM based blockchains.
 Supported blockchains include Ethereum, BNB Chain, Polygon, Avalanche C-chain, Arbitrum, others.
 
-See `the project README for an overview <https://github.com/tradingstrategy-ai/web3-ethereum-defi>`__.
+See `the project README for more information <https://github.com/tradingstrategy-ai/web3-ethereum-defi>`__.
 
 Table of contents
 =================
@@ -29,8 +29,8 @@ More information
 ================
 
 * `README <https://github.com/tradingstrategy-ai/web3-ethereum-defi>`_
+* `Changelog <https://github.com/tradingstrategy-ai/web3-ethereum-defi/blob/master/CHANGELOG.md>`_
 * `Github <https://github.com/tradingstrategy-ai/web3-ethereum-defi>`_
 * `Discord <https://tradingstrategy.ai/community>`_
 * `Twitter <https://twitter.com/TradingProtocol/>`_
 * `Newsletter <https://tradingstrategy.ai/newsletter>`_
-* `Supported smart contracts list <https://github.com/tradingstrategy-ai/web3-ethereum-defi/tree/master/contracts>`_
