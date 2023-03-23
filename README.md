@@ -6,8 +6,9 @@
 
 # Web3-Ethereum-Defi
 
-This project contains common Ethereum smart contracts and utilities, 
-for trading, wallets, automated test suites and backend integrations for EVM based blockchains.  
+This project contains high level Python API for smart contracts, 
+DeFi trading, wallet management, automated test suites and backend integrations on EVM based blockchains.
+Supported blockchains include Ethereum, BNB Chain, Polygon, Avalanche C-chain, Arbitrum, others.
  
 * [Use Cases](#use-cases)
 * [Features](#features)
