@@ -10,6 +10,9 @@ This project contains high level Python API for smart contracts,
 DeFi trading, wallet management, automated test suites and backend integrations on EVM based blockchains.
 Supported blockchains include Ethereum, BNB Chain, Polygon, Avalanche C-chain, Arbitrum, others.
 
+Supported DeFi protocols include Uniswap and its forks (PancakeSwap, Trader Joe, QuickSwap),
+Aave, Enzyme, dHEDGE.
+
 See `the project README for more information <https://github.com/tradingstrategy-ai/web3-ethereum-defi>`__.
 
 Table of contents
