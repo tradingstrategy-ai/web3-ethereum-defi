@@ -1,4 +1,4 @@
-# Current
+# 0.15
 
 - Migrate to Web3.py 6.0. Notable Web3.py API changes:
   - `toChecksumAddress` -> `to_checksum_address`
@@ -9,9 +9,10 @@
 - Support Anvil as the unit test backend ove `EthereumTester` - Anvil is much faster
 - `deploy_contract()` tracks deployed contracts and their ABIs so we can print symbolic Solidity stack traces
 - Print Solidity stack traces of failed transactions using `print_symbolic_trace()` and `trace_evm_transaction()`
-- Adding Enzyme Protocol ABI files and compile commands
+- Adding initial Enzyme Protocol APIs
 - Adding dHEDGE Protocol ABI files and compile commands
 - Add `revert_reason_middleware`
+- Documentation restructure
 
 # 0.14.1
 
