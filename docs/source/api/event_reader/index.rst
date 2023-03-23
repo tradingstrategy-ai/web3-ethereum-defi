@@ -5,6 +5,13 @@ Solidity event reader is a high-performance, parallerised, optimised, event read
 
 It works with GoEthereum, Erigon, free and commercial Ethereum JSON-RPC service providers.
 
+The event reader supports chain reorganisation detection and can handle blockchain rewinds
+where the blocks at the chain tip change.
+
+Multiple options are offered to save the block data (headers, events), so that
+any historical event scan that takes long time be interrupted and successfully
+resumed from the data on disk.
+
 .. autosummary::
    :toctree: _autosummary_block_reader
    :recursive:
