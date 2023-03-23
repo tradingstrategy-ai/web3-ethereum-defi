@@ -10,9 +10,6 @@ API documentation
 
 - For more code examples check out `tests folder <https://github.com/tradingstrategy-ai/web3-ethereum-defi/tree/master/tests>`__
 
-API modules
-=================
-
 .. toctree::
    :maxdepth: 1
 
