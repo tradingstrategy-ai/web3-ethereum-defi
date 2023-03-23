@@ -4,7 +4,7 @@
 API documentation
 =================
 
-`web3-ethereum-defi <https://pypi.org/project/web3-ethereum-defi/>__` package comes with 100% API documentation coverage.
+`web3-ethereum-defi <https://pypi.org/project/web3-ethereum-defi/>`__ Python package comes with 100% API documentation coverage.
 
 - Most APIs have inline code examples for functions and classes
 
