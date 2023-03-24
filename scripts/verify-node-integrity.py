@@ -99,7 +99,11 @@ from eth_defi.event_reader.web3factory import TunedWeb3Factory
 
 @dataclass
 class BlockIntegrityFailure:
-    """Describe block data errors."""
+    """Describe block data errors.
+
+    Signal the node verifier had errors on a specific block.
+    The subclasses will tell the exact error type.
+    """
 
     block_number: int
 
