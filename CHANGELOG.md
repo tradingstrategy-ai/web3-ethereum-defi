@@ -1,6 +1,6 @@
 # 0.15.1
 
-- Added 
+- Added [a script for verifying the integrity of your EVM JSON-RPC node data](https://web3-ethereum-defi.readthedocs.io/tutorials/index.html)
 - Added `TunedWeb3Factory(thread_local_cache)` option for more performant web3 connection when using thread pooling
 
 # 0.15
