@@ -280,7 +280,7 @@ def main():
     print(f"Checking {len(task_args):,} blocks")
 
     if max_workers > 1:
-        print(f"Doing multithread scan using {max_workers} works")
+        print(f"Doing multithread scan using {max_workers} workers")
         # Do a parallel scan for the maximum speed
         #
         # Set up a futureproof task manager
