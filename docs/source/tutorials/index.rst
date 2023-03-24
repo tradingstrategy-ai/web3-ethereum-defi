@@ -29,6 +29,7 @@ Example tutorials
    :maxdepth: 1
 
    transfer
+   verify-node-integrity
    live-price
    uniswap-v3-liquidity-analysis
    uniswap-v3-price-analysis
@@ -37,4 +38,5 @@ Example tutorials
    aave-v3-interest-analysis
 
 `For more examples, browse tests folder on Github <https://github.com/tradingstrategy-ai/web3-ethereum-defi/tree/master/tests>`__.
-You can also search function names in the repository using Github search.
+You can also search function names in `the repository <<https://github.com/tradingstrategy-ai/web3-ethereum-defi/>`__
+using Github search.

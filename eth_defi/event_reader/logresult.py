@@ -5,7 +5,7 @@ from typing import TypedDict, List, Optional
 from web3.contract.contract import ContractEvent
 
 
-class   LogContext:
+class LogContext:
     """A helper you can pass around for the log results.
 
     Subclass this and add your own data / methods.

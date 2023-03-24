@@ -52,11 +52,12 @@ class TunedWeb3Factory(Web3Factory):
     - Use faster `ujson` instead of stdlib json to decode the responses
     """
 
-    def __init__(self,
-                 json_rpc_url: str,
-                 http_adapter: Optional[HTTPAdapter] = None,
-                 thread_local_cache=False,
-                 ):
+    def __init__(
+        self,
+        json_rpc_url: str,
+        http_adapter: Optional[HTTPAdapter] = None,
+        thread_local_cache=False,
+    ):
         """Set up a factory.
 
         :param json_rpc_url:
@@ -68,8 +69,11 @@ class TunedWeb3Factory(Web3Factory):
             Parameters for `requests` library.
             Default to pool size 10.
 
-        :param thread_local:
+        :param thread_local_cache:
             Construct the web3 connection only once per thread.
+
+            If you are using thread pooling, recycles the connection
+            across different factory calls.
 
         """
         self.json_rpc_url = json_rpc_url
