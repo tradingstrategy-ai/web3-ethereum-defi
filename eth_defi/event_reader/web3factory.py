@@ -1,7 +1,10 @@
-"""Web3 connection factory."""
+"""Web3 connection factory.
+
+Methods for creating Web3 connections over multiple threads and processes.
+"""
 
 # For typing.Protocol see https://stackoverflow.com/questions/68472236/type-hint-for-callable-that-takes-kwargs
-from typing import Protocol, Optional
+from typing import Protocol, Optional, Any
 
 import requests
 from requests.adapters import HTTPAdapter
@@ -9,18 +12,27 @@ from web3 import HTTPProvider, Web3
 
 from eth_defi.chain import install_chain_middleware, install_retry_middleware
 from eth_defi.event_reader.fast_json_rpc import patch_web3
-from eth_defi.event_reader.logresult import LogContext
-from eth_defi.middleware import http_retry_request_with_sleep_middleware
 
 
 class Web3Factory(Protocol):
     """Create a new Web3 connection.
 
-    When each worker is initialised, the factory is called to get JSON-RPC connection.
+    - Web3 connection cannot be passed across thread/process boundaries
+
+    - Help to setup TCP/IP connections and Web3 instance over it in threads and processes
+
+    - When each worker is initialised, the factory is called to get JSON-RPC connection
     """
 
-    def __call__(self, context: LogContext) -> Web3:
-        pass
+    def __call__(self, context: Optional[Any] = None) -> Web3:
+        """Create a new Web3 connection.
+
+        :param context:
+            Any context arguments a special factory might need.
+
+        :return:
+            New Web3 connection
+        """
 
 
 class TunedWeb3Factory(Web3Factory):
@@ -28,6 +40,10 @@ class TunedWeb3Factory(Web3Factory):
 
     A factory that allows us to pass web3 connection creation method
     across thread and process bounderies.
+
+    - Disable AttributedDict middleware and other middleware that slows us down
+
+    - Enable graceful retries in the case of network errors and API throttling
     """
 
     def __init__(self, json_rpc_url: str, http_adapter: Optional[HTTPAdapter] = None):
@@ -50,7 +66,7 @@ class TunedWeb3Factory(Web3Factory):
 
         self.http_adapter = http_adapter
 
-    def __call__(self, context: LogContext) -> Web3:
+    def __call__(self, context: Optional[Any] = None) -> Web3:
         """Create a new Web3 connection.
 
         - Get rid of middleware
@@ -86,5 +102,5 @@ class SimpleWeb3Factory:
     def __init__(self, web3: Web3):
         self.web3 = web3
 
-    def __call__(self, context: LogContext) -> Web3:
+    def __call__(self, context: Optional[Any] = None) -> Web3:
         return self.web3
