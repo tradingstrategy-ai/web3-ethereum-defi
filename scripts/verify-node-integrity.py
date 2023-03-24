@@ -279,12 +279,6 @@ def main():
 
     assert json_rpc_url, f"You need to give JSON_RPC_URL environment variable pointing ot your full node"
 
-    # Setup connection
-    web3 = Web3(HTTPProvider(json_rpc_url))
-
-    # Clear AttributedDict middleware that slows us down
-    web3.middleware_onion.clear()
-
     # Set up HTTP connection pool parameters and factory
     # for creating web3 connections inside worker threads
     http_adapter = requests.adapters.HTTPAdapter(pool_connections=max_workers, pool_maxsize=max_workers)
