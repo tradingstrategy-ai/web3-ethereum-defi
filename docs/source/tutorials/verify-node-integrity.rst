@@ -36,7 +36,7 @@ modes like RPC nodes just failing to return core data (e.g. polygon-rpc.com).
 
 Here are some usage examples for UNIX shell.
 
-First set up your JSON-RPC connection URL (with any secret tokens):
+First set up your JSON-RPC connection URL (with any secret tokens:
 
 .. code-block:: shell
 
