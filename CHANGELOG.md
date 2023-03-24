@@ -1,3 +1,8 @@
+# 0.15.1
+
+- Added 
+- Added `TunedWeb3Factory(thread_local_cache)` option for more performant web3 connection when using thread pooling
+
 # 0.15
 
 - Migrate to Web3.py 6.0. Notable Web3.py API changes:

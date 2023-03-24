@@ -121,7 +121,7 @@ To format any of your code:
 
     # Black comes in dev dependencies
     poetry shell
-    black eth_defi tests
+    black eth_defi tests scripts
 
 Pull requests
 -------------
