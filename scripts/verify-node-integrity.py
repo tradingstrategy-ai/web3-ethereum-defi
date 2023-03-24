@@ -270,12 +270,11 @@ def check_block(web3_factory, block_no: int, max_tx_checks=20) -> Optional[Block
 
 def main():
 
+    # Read arguments
     check_count = int(os.environ.get("CHECK_COUNT", "100"))
-
     json_rpc_url = os.environ.get("JSON_RPC_URL")
-
     max_workers = int(os.environ.get("MAX_WORKERS", "10"))
-
+    start_block = int(os.environ.get("START_BLOCK", "1"))
     assert json_rpc_url, f"You need to give JSON_RPC_URL environment variable pointing ot your full node"
 
     # Set up HTTP connection pool parameters and factory
@@ -290,7 +289,7 @@ def main():
     # Always check block 1 because it is most likely to fail
     last_block = web3.eth.block_number
 
-    print(f"Chain {web3.eth.chain_id}, checking block range 1 - {last_block:,}")
+    print(f"Chain {web3.eth.chain_id}, checking block range {start_block:,} - {last_block:,}")
 
     # List of (web3 factory, block number) tuples
     task_args: List[Tuple[TunedWeb3Factory, int]] = []
@@ -303,7 +302,7 @@ def main():
 
     # Set up the task queue for checks
     for check_no in range(check_count):
-        task_args.append((web3_factory, random.randint(2, last_block)))
+        task_args.append((web3_factory, random.randint(start_block, last_block)))
 
     # Order checks by a block number
     task_args = sorted(task_args, key=lambda t: t[1])

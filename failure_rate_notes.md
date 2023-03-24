@@ -2,6 +2,10 @@
 
 Pokt / Ethereum: found 977 uncertain/failed blocks out of 1,000 with the failure rate of 97.7%
 
+## Pokt
+
+## Ethereum mainnet
+
 ```
 Finished, found 493 uncertain/failed blocks out of 1,000 with the failure rate of 49.3%
 
@@ -22,6 +26,8 @@ Double check uncertain blocks manually and with a block explorer:
 
 ```
 
+## BNB Smart Cain
+
 Pokt / BNB Chain: found 977 uncertain/failed blocks out of 1,000 with the failure rate of 97.7%
 
 ```
@@ -37,5 +43,21 @@ Double check uncertain blocks manually and with a block explorer:
     Block 4,711,128 - could not fetch transaction receipt for transaction 0xbf822bffa3c746bd8166426cc4de4c866e21109a017250d2468c2c072e325e9e
     Block 5,368,886 - block missing
     Block 4,911,197 - could not fetch transaction data for transaction 0x94f5ab6eef1335c1b7f3e97c64279e1408e5e00e1c00b2043d367b3173d0ef9f
+```
+
+### Ethereum mainnet archival
+
+```shell
+START_BLOCK=4000000 CHECK_COUNT=1000 python scripts/verify-node-integrity.py
+```
+
+```
+Finished, found 9 uncertain/failed blocks out of 1,000 with the failure rate of 0.9%
+```
+
+### BNB Smart Chain Archival
+
+```
+Finished, found 2 uncertain/failed blocks out of 1,000 with the failure rate of 0.2%
 ```
 
