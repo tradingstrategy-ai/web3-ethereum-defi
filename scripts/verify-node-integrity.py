@@ -90,7 +90,6 @@ import futureproof
 import requests
 from eth.constants import ZERO_ADDRESS
 from hexbytes import HexBytes
-from web3 import Web3, HTTPProvider
 from web3.exceptions import TransactionNotFound, BlockNotFound
 
 from eth_defi.event_reader.conversion import convert_jsonrpc_value_to_int
