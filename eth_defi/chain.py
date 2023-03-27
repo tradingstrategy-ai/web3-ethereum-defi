@@ -45,7 +45,9 @@ def install_retry_middleware(web3: Web3):
 def install_api_call_counter_middleware(web3: Web3) -> Counter:
     """Install API call counter middleware.
 
-    - Every time a Web3 API is called increase it's count.
+    Measure total and per-API EVM call counts for your application.
+
+    - Every time a Web3 API is called increase its count.
 
     - Attach `web3.api_counter` object to the connection
 
@@ -65,6 +67,7 @@ def install_api_call_counter_middleware(web3: Web3) -> Counter:
         assert counter["total"] == 1
         assert counter["eth_chainId"] == 1
 
+        # Make another API call
         _ = web3.eth.block_number
 
         assert counter["total"] == 2

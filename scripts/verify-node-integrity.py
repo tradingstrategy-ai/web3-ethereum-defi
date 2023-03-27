@@ -354,11 +354,14 @@ def main():
     failed_blocks = [b for b in results if b is not None]
     failure_rate = len(failed_blocks) / check_count
     print(f"Finished, found {len(failed_blocks):,} uncertain/failed blocks out of {check_count:,} with the failure rate of {failure_rate * 100:.1f}%")
-    block_per_second = len(results) / duration
+    blocks = len(results)
+    block_per_second = blocks / duration
     api_call_counts = web3_factory.get_total_api_call_counts()
     api_calls_per_second = api_call_counts["total"] / duration
-    print(f"Block per second {block_per_second:.2f}")
-    print(f"API calls per second {api_calls_per_second:.2f}")
+    api_calls_per_block = api_call_counts["total"] / blocks
+    print(f"Blocks checked per second: {block_per_second:.2f}")
+    print(f"API calls per second: {api_calls_per_second:.2f}")
+    print(f"API calls per block: {api_calls_per_block:.2f}")
 
     if failed_blocks:
         print("Double check uncertain blocks manually and with a block explorer:")
