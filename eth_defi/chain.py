@@ -3,15 +3,17 @@
 Many chains like Polygon and BNB Chain may need their own Web3 connection tuning.
 In this module, we have helpers.
 """
-
+from collections import Counter
+from typing import Callable, Optional, Any
 #: These chains need POA middleware
 from urllib.parse import urljoin
 
 import requests
 from web3 import Web3, HTTPProvider
 from web3.middleware import geth_poa_middleware
+from web3.types import RPCEndpoint, RPCResponse
 
-from eth_defi.middleware import http_retry_request_with_sleep_middleware
+from eth_defi.middleware import http_retry_request_with_sleep_middleware, api_counter_middleware
 
 POA_MIDDLEWARE_NEEDED_CHAIN_IDS = {
     56,  # BNB Chain
@@ -37,6 +39,53 @@ def install_retry_middleware(web3: Web3):
     gracefully do exponential backoff retries.
     """
     web3.middleware_onion.inject(http_retry_request_with_sleep_middleware, layer=0)
+
+
+def install_api_call_counter_middleware(web3: Web3) -> Counter:
+    """Install API call counter middleware.
+
+    - Every time a Web3 API is called increase it's count.
+
+    - Attach `web3.api_counter` object to the connection
+
+    Example:
+
+    .. code-block:: python
+
+        from eth_defi.chain import install_api_call_counter_middleware
+
+        web3 = Web3(tester)
+
+        counter = install_api_call_counter_middleware(web3)
+
+        # Make an API call
+        _ = web3.eth.chain_id
+
+        assert counter["total"] == 1
+        assert counter["eth_chainId"] == 1
+
+        _ = web3.eth.block_number
+
+        assert counter["total"] == 2
+        assert counter["eth_blockNumber"] == 1
+
+    :return:
+        Counter object with columns per RPC endpoint and "toal"
+    """
+    api_counter = Counter()
+
+    def factory(
+        make_request: Callable[[RPCEndpoint, Any], Any],
+        web3: "Web3"):
+            def middleware(method: RPCEndpoint, params: Any) -> Optional[RPCResponse]:
+                api_counter[method] += 1
+                api_counter["total"] += 1
+                return make_request(method, params)
+
+            return middleware
+
+    web3.middleware_onion.inject(factory, layer=0)
+    return api_counter
 
 
 def has_graphql_support(provider: HTTPProvider) -> bool:
