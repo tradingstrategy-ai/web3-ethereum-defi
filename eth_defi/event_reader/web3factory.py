@@ -2,14 +2,15 @@
 
 Methods for creating Web3 connections over multiple threads and processes.
 """
+from collections import Counter
 from threading import local
-from typing import Protocol, Optional, Any
+from typing import Protocol, Optional, Any, Dict, List
 
 import requests
 from requests.adapters import HTTPAdapter
 from web3 import HTTPProvider, Web3
 
-from eth_defi.chain import install_chain_middleware, install_retry_middleware
+from eth_defi.chain import install_chain_middleware, install_retry_middleware, install_api_call_counter_middleware
 from eth_defi.event_reader.fast_json_rpc import patch_web3
 
 
@@ -57,6 +58,7 @@ class TunedWeb3Factory(Web3Factory):
         json_rpc_url: str,
         http_adapter: Optional[HTTPAdapter] = None,
         thread_local_cache=False,
+        api_counter=False,
     ):
         """Set up a factory.
 
@@ -75,6 +77,9 @@ class TunedWeb3Factory(Web3Factory):
             If you are using thread pooling, recycles the connection
             across different factory calls.
 
+        :param api_counter:
+            Enable API counters
+
         """
         self.json_rpc_url = json_rpc_url
 
@@ -83,6 +88,12 @@ class TunedWeb3Factory(Web3Factory):
 
         self.http_adapter = http_adapter
         self.thread_local_cache = thread_local_cache
+
+        if api_counter:
+            assert self.thread_local_cache, "You must use thread locals with API counters for now"
+            self.api_counters: List[Counter] = []
+        else:
+            self.api_counters = None
 
     def __call__(self, context: Optional[Any] = None) -> Web3:
         """Create a new Web3 connection.
@@ -113,7 +124,17 @@ class TunedWeb3Factory(Web3Factory):
         if self.thread_local_cache:
             _web3_thread_local_cache.web3 = web3
 
+        if self.api_counters is not None:
+            counter = install_api_call_counter_middleware(web3)
+            self.api_counters.append(counter)
+
         return web3
+
+    def get_total_api_call_counts(self) -> Counter:
+        """Sum API call counts across all threads"""
+        assert len(self.api_counters) > 0, "No API count enabled"
+        # https://stackoverflow.com/a/37337341/315168
+        return sum(self.api_counters, Counter())
 
 
 class SimpleWeb3Factory:

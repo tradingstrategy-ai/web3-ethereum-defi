@@ -11,7 +11,7 @@ Most for dealing with JSON-RPC unreliability issues with retries.
 
 from web3 import Web3
 import time
-from typing import Callable, Any, Collection, Type, Tuple, Optional, TypeAlias, Union
+from typing import Callable, Any, Collection, Type, Tuple, Optional, TypeAlias, Union, Counter
 import logging
 
 from requests.exceptions import (
@@ -238,19 +238,26 @@ def raise_on_revert_middleware(
         if method == "eth_sendTransaction":
             transaction = params[0]
             if "gas" not in transaction:
-                try:
-                    transaction = assoc(
-                        transaction,
-                        "gas",
-                        hex(get_buffered_gas_estimate(web3, transaction)),
-                    )
-                except ContractLogicError as e:
-                    import ipdb
-
-                    ipdb.set_trace()
-                    raise e
-
+                transaction = assoc(
+                    transaction,
+                    "gas",
+                    hex(get_buffered_gas_estimate(web3, transaction)),
+                )
                 return make_request(method, [transaction])
         return make_request(method, params)
 
     return middleware
+
+
+def api_counter_middleware(
+    counter: Counter,
+    make_request: Callable[[RPCEndpoint, Any], RPCResponse],
+) -> Callable[[RPCEndpoint, Any], RPCResponse]:
+    """
+    Count API requests.
+
+    See :py:func:`eth_defi.chain.install_api_call_counter_middleware` for usage.
+
+    See :py:func:`http_retry_request_with_sleep_middleware` for usage.
+
+    """

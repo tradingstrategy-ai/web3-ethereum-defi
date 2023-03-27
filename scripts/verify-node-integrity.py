@@ -48,6 +48,12 @@ Run a check for 100 randomly selected blocks:
 
     CHECK_COUNT=100 python scripts/verify-node-integrity.py
 
+Run a check for 100 randomly selected blocks from the last 10,000 blocks of the chain:
+
+.. code-block:: shell
+
+    START_BLOCK=-10000 CHECK_COUNT=100 python scripts/verify-node-integrity.py
+
 Run in a single-thread example, good for debugging):
 
 .. code-block:: shell
@@ -82,6 +88,7 @@ In the case of errors you will see:
 """
 import os
 import random
+import time
 from dataclasses import dataclass
 from itertools import starmap
 from typing import List, Tuple, Optional
@@ -177,7 +184,7 @@ class RandomTransactionDataFailure(BlockIntegrityFailure):
         return f"Block {self.block_number:,} - could not fetch transaction data {self.tx_hash.hex()} - error {self.error}"
 
 
-def check_block(web3_factory, block_no: int, max_tx_checks=20) -> Optional[BlockIntegrityFailure]:
+def check_block(web3_factory, block_no: int, max_tx_checks=20, low_block_tx_threshold=10) -> Optional[BlockIntegrityFailure]:
     """A worker function to check the integrity of a specific block over EVM-compatible JSON-RPC.
 
     - Check block data downloads (should always happen)
@@ -205,9 +212,9 @@ def check_block(web3_factory, block_no: int, max_tx_checks=20) -> Optional[Block
     # - Check the transaction is a smart contract transaction
     # - Assume transaction may or may not event emits
     txs = block["transactions"]
-    if len(txs) < 2:
+    if len(txs) < low_block_tx_threshold:
         # Ignore first tx which is always coinbase tx
-        print(f"Block {block_no:,} ok - no transactions")
+        print(f"Block {block_no:,} ok - has low amount of transactions {len(txs)} and no log check attempted")
         return None
 
     # Try to find at least one transaction with logs
@@ -274,7 +281,7 @@ def main():
     check_count = int(os.environ.get("CHECK_COUNT", "100"))
     json_rpc_url = os.environ.get("JSON_RPC_URL")
     max_workers = int(os.environ.get("MAX_WORKERS", "10"))
-    start_block = int(os.environ.get("START_BLOCK", "1"))
+    start_block = int(os.environ.get("START_BLOCK", "1"))  # Negative start block scans from the end of the chain
     assert json_rpc_url, f"You need to give JSON_RPC_URL environment variable pointing ot your full node"
 
     # Set up HTTP connection pool parameters and factory
@@ -283,11 +290,15 @@ def main():
     # Special Web3 factory function that is
     # - optimised for speed of JSON-RPC
     # - can gracefully throttle when API rate limit reached
-    web3_factory = TunedWeb3Factory(json_rpc_url, http_adapter, thread_local_cache=True)
+    web3_factory = TunedWeb3Factory(json_rpc_url, http_adapter, thread_local_cache=True, api_counter=True)
     web3 = web3_factory()
 
     # Always check block 1 because it is most likely to fail
     last_block = web3.eth.block_number
+
+    # Choose N blocks from the end of the chain
+    if start_block < 0:
+        start_block = last_block + start_block
 
     print(f"Chain {web3.eth.chain_id}, checking block range {start_block:,} - {last_block:,}")
 
@@ -308,6 +319,8 @@ def main():
     task_args = sorted(task_args, key=lambda t: t[1])
 
     print(f"Checking {len(task_args):,} blocks")
+
+    start = time.time()
 
     if max_workers > 1:
         print(f"Doing multithread scan using {max_workers} workers")
@@ -335,10 +348,21 @@ def main():
         # Force workers to finish
         results = list(iter)
 
+    duration = time.time() - start
+
     # Count failures
     failed_blocks = [b for b in results if b is not None]
     failure_rate = len(failed_blocks) / check_count
     print(f"Finished, found {len(failed_blocks):,} uncertain/failed blocks out of {check_count:,} with the failure rate of {failure_rate * 100:.1f}%")
+    blocks = len(results)
+    block_per_second = blocks / duration
+    api_call_counts = web3_factory.get_total_api_call_counts()
+    api_calls_per_second = api_call_counts["total"] / duration
+    api_calls_per_block = api_call_counts["total"] / blocks
+    print(f"Blocks checked per second: {block_per_second:.2f}")
+    print(f"API calls per second: {api_calls_per_second:.2f}")
+    print(f"API calls per block: {api_calls_per_block:.2f}")
+
     if failed_blocks:
         print("Double check uncertain blocks manually and with a block explorer:")
         failure_reason: BlockIntegrityFailure

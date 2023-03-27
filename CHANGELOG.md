@@ -1,3 +1,9 @@
+# Current
+
+- Add API call count middleware
+- Fix: Clean accidentally released breakpoint code in revert middleware 
+
+
 # 0.15.1
 
 - Added [a script for verifying the integrity of your EVM JSON-RPC node data](https://web3-ethereum-defi.readthedocs.io/tutorials/index.html)

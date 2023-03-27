@@ -9,9 +9,9 @@ import os
 import pytest
 import requests
 from requests import Response, HTTPError
-from web3 import HTTPProvider, Web3
+from web3 import HTTPProvider, Web3, EthereumTesterProvider
 
-from eth_defi.chain import install_chain_middleware, install_retry_middleware
+from eth_defi.chain import install_chain_middleware, install_retry_middleware, install_api_call_counter_middleware
 from eth_defi.middleware import is_retryable_http_exception
 
 
@@ -55,3 +55,22 @@ def test_pokt_network_broken():
     """Test for Internal server error from Pokt relay."""
     exc = ValueError({"message": "Internal JSON-RPC error.", "code": -32603})
     assert is_retryable_http_exception(exc)
+
+
+def test_api_counter():
+    """Test API counter middleware."""
+    tester = EthereumTesterProvider()
+    web3 = Web3(tester)
+
+    counter = install_api_call_counter_middleware(web3)
+
+    # Make an API call
+    _ = web3.eth.chain_id
+
+    assert counter["total"] == 1
+    assert counter["eth_chainId"] == 1
+
+    _ = web3.eth.block_number
+
+    assert counter["total"] == 2
+    assert counter["eth_blockNumber"] == 1
