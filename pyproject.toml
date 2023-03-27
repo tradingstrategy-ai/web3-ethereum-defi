@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "web3-ethereum-defi"
-version = "0.15.1"
+version = "0.15.2"
 description = "High level Python APIs for Ethereum-compatible smart contracts, blockchains and protocols like Uniswap, Aave, Enzyme"
 authors = ["Mikko Ohtamaa <mikko@tradingstrategy.ai>"]
 license = "MIT"

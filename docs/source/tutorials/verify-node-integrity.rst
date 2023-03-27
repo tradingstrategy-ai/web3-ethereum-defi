@@ -48,6 +48,12 @@ Run a check for 100 randomly selected blocks:
 
     CHECK_COUNT=100 python scripts/verify-node-integrity.py
 
+Run a check for 100 randomly selected blocks from the last 10,000 blocks of the chain:
+
+.. code-block:: shell
+
+    START_BLOCK=-10000 CHECK_COUNT=100 python scripts/verify-node-integrity.py
+
 Run in a single-thread example, good for debugging):
 
 .. code-block:: shell
