@@ -261,4 +261,3 @@ def api_counter_middleware(
     See :py:func:`http_retry_request_with_sleep_middleware` for usage.
 
     """
-

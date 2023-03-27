@@ -5,6 +5,7 @@ In this module, we have helpers.
 """
 from collections import Counter
 from typing import Callable, Optional, Any
+
 #: These chains need POA middleware
 from urllib.parse import urljoin
 
@@ -74,15 +75,13 @@ def install_api_call_counter_middleware(web3: Web3) -> Counter:
     """
     api_counter = Counter()
 
-    def factory(
-        make_request: Callable[[RPCEndpoint, Any], Any],
-        web3: "Web3"):
-            def middleware(method: RPCEndpoint, params: Any) -> Optional[RPCResponse]:
-                api_counter[method] += 1
-                api_counter["total"] += 1
-                return make_request(method, params)
+    def factory(make_request: Callable[[RPCEndpoint, Any], Any], web3: "Web3"):
+        def middleware(method: RPCEndpoint, params: Any) -> Optional[RPCResponse]:
+            api_counter[method] += 1
+            api_counter["total"] += 1
+            return make_request(method, params)
 
-            return middleware
+        return middleware
 
     web3.middleware_onion.inject(factory, layer=0)
     return api_counter

@@ -1,6 +1,6 @@
 # Current
 
-- Add API counter middleware
+- Add API call count middleware
 - Fix: Clean accidentally released breakpoint code in revert middleware 
 
 

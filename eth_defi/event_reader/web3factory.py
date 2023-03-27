@@ -89,7 +89,7 @@ class TunedWeb3Factory(Web3Factory):
         self.http_adapter = http_adapter
         self.thread_local_cache = thread_local_cache
 
-        if  api_counter:
+        if api_counter:
             assert self.thread_local_cache, "You must use thread locals with API counters for now"
             self.api_counters: List[Counter] = []
         else:
@@ -131,9 +131,9 @@ class TunedWeb3Factory(Web3Factory):
         return web3
 
     def get_total_api_call_counts(self) -> Counter:
-        """Get API call counts across all threads"""
-        # https://stackoverflow.com/a/37337341/315168
+        """Sum API call counts across all threads"""
         assert len(self.api_counters) > 0, "No API count enabled"
+        # https://stackoverflow.com/a/37337341/315168
         return sum(self.api_counters, Counter())
 
 
