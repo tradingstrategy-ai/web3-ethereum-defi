@@ -61,3 +61,46 @@ Finished, found 9 uncertain/failed blocks out of 1,000 with the failure rate of 
 Finished, found 2 uncertain/failed blocks out of 1,000 with the failure rate of 0.2%
 ```
 
+
+# Notes
+
+## Pokt Archive nodes useless for reading events
+
+Pokt Archive nodes may allow you to read anything between 1000 - 100,000 blocks at once.
+Because there is no standard between relayed nodes, it is not possible to efficient read events
+using Pokt Network.
+
+The smallest denominator is something called "BlockPi" that offers almost useless 1,000
+blocks at a time for reading logs.
+
+```
+Scanning blocks 1 - 50,001, done 0.0%
+Scanning blocks 50,001 - 100,001, done 0.1%
+Scanning blocks 100,001 - 150,001, done 0.2%
+Scanning blocks 150,001 - 200,001, done 0.4%
+Scanning blocks 200,001 - 250,001, done 0.5%
+Scanning blocks 250,001 - 300,001, done 0.6%
+Scanning blocks 300,001 - 350,001, done 0.7%
+Scanning blocks 350,001 - 400,001, done 0.9%
+Scanning blocks 400,001 - 450,001, done 1.0%
+Scanning blocks 450,001 - 500,001, done 1.1%
+Scanning blocks 500,001 - 550,001, done 1.2%
+Scanning blocks 550,001 - 600,001, done 1.3%
+Scanning blocks 600,001 - 650,001, done 1.5%
+Traceback (most recent call last):
+  File "/Users/moo/code/ts/trade-executor/deps/web3-ethereum-defi/scripts/fetch-enzyme-vault-info.py", line 61, in <module>
+    main()
+  File "/Users/moo/code/ts/trade-executor/deps/web3-ethereum-defi/scripts/fetch-enzyme-vault-info.py", line 56, in main
+    deploy_event = vault.fetch_deployment_event(reader)
+  File "/Users/moo/code/ts/trade-executor/deps/web3-ethereum-defi/eth_defi/enzyme/vault.py", line 223, in fetch_deployment_event
+    events = list(events_iter)
+  File "/Users/moo/code/ts/trade-executor/deps/web3-ethereum-defi/eth_defi/event_reader/reader.py", line 443, in read_events
+    for event in extract_events(
+  File "/Users/moo/code/ts/trade-executor/deps/web3-ethereum-defi/eth_defi/event_reader/reader.py", line 221, in extract_events
+    logs = web3.manager.request_blocking("eth_getLogs", (filter_params,))
+  File "/Users/moo/Library/Caches/pypoetry/virtualenvs/web3-ethereum-defi-r0lBdNCP-py3.10/lib/python3.10/site-packages/web3/manager.py", line 232, in request_blocking
+    return self.formatted_response(
+  File "/Users/moo/Library/Caches/pypoetry/virtualenvs/web3-ethereum-defi-r0lBdNCP-py3.10/lib/python3.10/site-packages/web3/manager.py", line 205, in formatted_response
+    raise ValueError(response["error"])
+ValueError: {'code': -32602, 'message': 'eth_getLogs is limited to 1024 block range. Please check the parameter requirements at  https://docs.blockpi.io/documentations/api-reference'}
+```

@@ -15,8 +15,10 @@ from typing import Callable, Dict, Iterable, List, Optional, Protocol, Set
 import futureproof
 from eth_bloom import BloomFilter
 from futureproof import ThreadPoolExecutor
+from hexbytes import HexBytes
 from web3 import Web3
 from web3.contract.contract import ContractEvent
+from web3.datastructures import AttributeDict
 
 from eth_defi.event_reader.filter import Filter
 from eth_defi.event_reader.logresult import LogContext, LogResult
@@ -79,7 +81,6 @@ class ProgressUpdate(Protocol):
             Current context
         """
 
-
 # For typing.Protocol see https://stackoverflow.com/questions/68472236/type-hint-for-callable-that-takes-kwargs
 class Web3EventReader(Protocol):
     """Pass the event reader callable around.
@@ -91,6 +92,10 @@ class Web3EventReader(Protocol):
     - The event reader implementation may be single-threaded, multithreaded, async based, etc.
 
     For concrete implementation see
+
+    - :py:func:`read_events`
+
+    - :py:func:`read_events_concurrent`
 
     - :py:func:`extract_events`
 
@@ -175,6 +180,8 @@ def extract_events(
 ) -> Iterable[LogResult]:
     """Perform eth_getLogs call over a block range.
 
+    You should use :py:func:`read_events` unless you know the block range is something your node can handle.
+
     :param start_block:
         First block to process (inclusive)
 
@@ -185,7 +192,12 @@ def extract_events(
         Internal filter used to match logs
 
     :param extract_timestamps:
-        Method to get the block timestamps
+        Method to get the block timestamps.
+
+        This might need to use expensive`eth_getBlockByNumber` JSON-RPC API call.
+        It will seriously slow down event reading.
+        Set `extract_timestamps` to `None` to not get timestamps, but fast event lookups.
+
 
     :param context:
         Passed to the all generated logs
@@ -235,7 +247,17 @@ def extract_events(
             block_number = convert_jsonrpc_value_to_int(log["blockNumber"])
             # Retrofit our information to the dict
             event_signature = log["topics"][0]
-            log["context"] = context
+
+            if isinstance(log, AttributeDict):
+                # The following code is not going to work, because AttributeDict magic
+                raise RuntimeError("AttributeDict middleware detected. Please remove it with web3.middleware_onion.clear() before attempting to read events")
+            else:
+                log["context"] = context
+
+            if type(event_signature) == HexBytes:
+                # Strings used here
+                event_signature = event_signature.hex()
+
             log["event"] = filter.topics[event_signature]
 
             # Can be hex string or integer (EthereumTester)
@@ -275,6 +297,8 @@ def extract_events_concurrent(
     extract_timestamps: Optional[Callable] = extract_timestamps_json_rpc,
 ) -> List[LogResult]:
     """Concurrency happy event extractor.
+
+    You should use :py:func:`read_events_concurrent` unless you know the block range is something your node can handle.
 
     Called by the thread pool - you probably do not want to call this directly.
 
@@ -394,7 +418,11 @@ def read_events(
         Last block to process (inclusive)
 
     :param extract_timestamps:
-        Override for different block timestamp extraction methods
+        Override for different block timestamp extraction methods.
+
+        This might need to use expensive`eth_getBlockByNumber` JSON-RPC API call.
+        It will seriously slow down event reading.
+        Set `extract_timestamps` to `None` to not get timestamps, but fast event lookups.
 
     :param chunk_size:
         How many blocks to scan in one eth_getLogs call
@@ -584,7 +612,6 @@ def read_events_concurrent(
 
     for block_num in range(start_block, end_block + 1, chunk_size):
         last_of_chunk = min(end_block, block_num + chunk_size - 1)
-
         task_list[block_num] = (
             block_num,
             last_of_chunk,

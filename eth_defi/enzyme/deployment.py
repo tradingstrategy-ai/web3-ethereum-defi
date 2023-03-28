@@ -307,7 +307,7 @@ class EnzymeDeployment:
             weth,
         )
 
-    def fetch_vault(self, vault_address: HexAddress) -> Tuple[Contract, Contract]:
+    def fetch_vault(self, vault_address: HexAddress | str) -> Tuple[Contract, Contract]:
         """Fetch existing Enzyme vault contracts.
 
         :return:

@@ -12,7 +12,7 @@ from web3.contract import Contract
 
 from eth_defi.enzyme.deployment import EnzymeDeployment
 from eth_defi.event_reader.filter import Filter
-from eth_defi.event_reader.reader import extract_events
+from eth_defi.event_reader.reader import extract_events, read_events, Web3EventReader
 from eth_defi.token import TokenDetails, fetch_erc20_details
 
 
@@ -188,8 +188,19 @@ class Vault:
         """
         return self.vault.functions.balanceOf(user).call()
 
-    def fetch_deployment_event(self) -> dict:
+    def fetch_deployment_event(self, reader: Web3EventReader, start_block=1) -> dict:
         """Get when the vault was deployed.
+
+        .. warning::
+
+            Because Ethereum nodes do not have indexes to get events per contract,
+            this scan is going to take forever.
+
+        :param start_block:
+            The first block to scan
+
+        :param reader:
+            Event reader method used
 
         :return:
             Event log details
@@ -208,14 +219,14 @@ class Vault:
 
         last_block = web3.eth.block_number
 
-        events_iter = extract_events(
+        events_iter = reader(
             web3,
-            start_block=1,
+            start_block=start_block,
             end_block=last_block,
             filter=filter
         )
 
-        events = list(events_iter)
+        for event in events_iter:
+            return event
 
-        assert len(events) == 1, f"No fund deployment event for {self.vault.address}"
-        return events[0]
+        raise AssertionError(f"No fund deployment event for {self.vault.address}")
