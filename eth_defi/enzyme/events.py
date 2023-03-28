@@ -260,5 +260,4 @@ def fetch_vault_balance_events(
         end_block,
         filter=filter,
     ):
-        print(solidity_event)
         yield EnzymeBalanceEvent.wrap(vault, solidity_event)

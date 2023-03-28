@@ -251,12 +251,8 @@ def extract_events(
             if isinstance(log, AttributeDict):
                 # The following code is not going to work, because AttributeDict magic
                 raise RuntimeError("AttributeDict middleware detected. Please remove it with web3.middleware_onion.clear() before attempting to read events")
-            else:
-                log["context"] = context
 
-            if type(event_signature) == HexBytes:
-                # Strings used here
-                event_signature = event_signature.hex()
+            log["context"] = context
 
             log["event"] = filter.topics[event_signature]
 
@@ -673,14 +669,12 @@ def read_events_concurrent(
                 # Pass through the logs and do timestamp resolution for them
                 #
                 for log in log_results:
-
                     # Check that this event is not from an alternative chain tip
                     if reorg_mon:
                         timestamp = reorg_mon.check_block_reorg(
                             convert_jsonrpc_value_to_int(log["blockNumber"]),
                             log["blockHash"],
                         )
-
                         last_timestamp = log["timestamp"] = timestamp
                     else:
                         # Assume extracted with extract_timestamps_json_rpc

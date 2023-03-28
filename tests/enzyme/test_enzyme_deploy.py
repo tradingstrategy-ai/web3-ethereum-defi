@@ -8,6 +8,7 @@ from web3.contract import Contract
 
 from eth_defi.enzyme.deployment import EnzymeDeployment, RateAsset
 from eth_defi.enzyme.vault import Vault
+from eth_defi.event_reader.reader import extract_events
 
 
 def test_deploy_enzyme(
@@ -148,7 +149,7 @@ def test_vault_api(
     assert vault.shares_token.symbol == "MOO"
 
     # Get the deployment event
-    deployment_event = vault.fetch_deployment_event()
+    deployment_event = vault.fetch_deployment_event(reader=extract_events)
     assert deployment_event["blockNumber"] > 1
 
     # Test vault fetch
