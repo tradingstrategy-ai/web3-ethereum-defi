@@ -22,7 +22,7 @@ import enum
 import re
 from dataclasses import dataclass, field
 from pprint import pformat
-from typing import Dict, Tuple
+from typing import Dict, Tuple, Optional
 
 from web3._utils.events import EventLogErrorFlags
 
@@ -33,6 +33,17 @@ from web3 import Web3
 from web3.contract import Contract
 
 from eth_defi.revert_reason import fetch_transaction_revert_reason
+
+
+#: Enzyme deployment details for Polygon
+#:
+#: See :py:meth:`EnzymeDeployment.fetch_deployment`
+#:
+#: See https://docs.enzyme.finance/developers/contracts/polygon
+#:
+POLYGON_DEPLOYMENT = {
+    "comptroller_lib": "0xf5fc0e36c85552E44354132D188C33D9361eB441",
+}
 
 
 class RateAsset(enum.Enum):
@@ -56,7 +67,7 @@ class EnzymeContracts:
     """
 
     web3: Web3
-    deployer: HexAddress
+    deployer: Optional[HexAddress]
     dispatcher: Contract = None
     external_position_factory: Contract = None
     protocol_fee_reserve_lib: Contract = None
@@ -291,6 +302,45 @@ class EnzymeDeployment:
         return EnzymeDeployment(
             web3,
             deployer,
+            contracts,
+            mln,
+            weth,
+        )
+
+    def fetch_vault(self, vault_address: HexAddress | str) -> Tuple[Contract, Contract]:
+        """Fetch existing Enzyme vault contracts.
+
+        :return:
+            Tuple (Comptroller contract, vault contract)
+        """
+        vault = self.contracts.get_deployed_contract("VaultLib", vault_address)
+        comptroller_address = vault.functions.getAccessor().call()
+        comptroller = self.contracts.get_deployed_contract("ComptrollerLib", comptroller_address)
+        return comptroller, vault
+
+    @staticmethod
+    def fetch_deployment(web3: Web3, contract_addresses: dict) -> "EnzymeDeployment":
+        """Fetch enzyme deployment and some of its contract.
+
+        Read existing Enzyme deployment from on-chain.
+
+        .. note::
+
+            Does not do complete contract resolution yet.
+
+        """
+
+        contracts = EnzymeContracts(web3, None)
+        contracts.comptroller_lib = contracts.get_deployed_contract("ComptrollerLib", contract_addresses["comptroller_lib"])
+        contracts.fund_deployer = contracts.get_deployed_contract("FundDeployer", contracts.comptroller_lib.functions.getFundDeployer().call())
+        contracts.integration_manager = contracts.get_deployed_contract("IntegrationManager", contracts.comptroller_lib.functions.getIntegrationManager().call())
+
+        mln = get_deployed_contract(web3, "ERC20MockDecimals.json", contracts.comptroller_lib.functions.getMlnToken().call())
+        weth = get_deployed_contract(web3, "ERC20MockDecimals.json", contracts.comptroller_lib.functions.getWethToken().call())
+
+        return EnzymeDeployment(
+            web3,
+            None,
             contracts,
             mln,
             weth,

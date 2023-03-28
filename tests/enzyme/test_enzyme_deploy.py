@@ -8,6 +8,7 @@ from web3.contract import Contract
 
 from eth_defi.enzyme.deployment import EnzymeDeployment, RateAsset
 from eth_defi.enzyme.vault import Vault
+from eth_defi.event_reader.reader import extract_events
 
 
 def test_deploy_enzyme(
@@ -58,6 +59,29 @@ def test_deploy_enzyme(
     assert balance == 500 * 10**18
 
 
+def test_fetch_deployment(
+    web3: Web3,
+    deployer: HexAddress,
+    user_1: HexAddress,
+    user_2: HexAddress,
+    weth: Contract,
+    mln: Contract,
+):
+    """Fetch existing Enzyme deployment."""
+
+    deployment = EnzymeDeployment.deploy_core(
+        web3,
+        deployer,
+        mln,
+        weth,
+    )
+
+    fetched = EnzymeDeployment.fetch_deployment(web3, {"comptroller_lib": deployment.contracts.comptroller_lib.address})
+
+    assert fetched.mln.address == mln.address
+    assert fetched.weth.address == weth.address
+
+
 def test_vault_api(
     web3: Web3,
     deployer: HexAddress,
@@ -87,7 +111,7 @@ def test_vault_api(
 
     comptroller_contract, vault_contract = deployment.create_new_vault(user_1, usdc, fund_name="Cow says Moo", fund_symbol="MOO")
 
-    vault = Vault(vault_contract, comptroller_contract)
+    vault = Vault(vault_contract, comptroller_contract, deployment)
 
     assert vault.get_name() == "Cow says Moo"
     assert vault.get_symbol() == "MOO"
@@ -120,3 +144,12 @@ def test_vault_api(
     assert vault.shares_token.decimals == 18
     assert vault.shares_token.name == "Cow says Moo"
     assert vault.shares_token.symbol == "MOO"
+
+    # Get the deployment event
+    deployment_event = vault.fetch_deployment_event(reader=extract_events)
+    assert deployment_event["blockNumber"] > 1
+
+    # Test vault fetch
+    comptroller2, vault2 = deployment.fetch_vault(vault.vault.address)
+    assert vault2.address == vault.vault.address
+    assert comptroller2.address == vault.comptroller.address
