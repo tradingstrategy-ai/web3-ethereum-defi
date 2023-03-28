@@ -1,3 +1,8 @@
+# Current
+
+- Add `EnzymeDeployment.fetch_vault`
+- Add `Vault.fetch_deployment_event`
+
 # 0.15.2
 
 - Add API call count middleware

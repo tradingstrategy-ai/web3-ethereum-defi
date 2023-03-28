@@ -58,7 +58,6 @@ class Vault:
     #: Emits important events like `SharesBought`, `SharesRedeemed`
     comptroller: Contract
 
-
     #: Enzyme deployment reference
     #:
     #:
@@ -219,12 +218,7 @@ class Vault:
 
         last_block = web3.eth.block_number
 
-        events_iter = reader(
-            web3,
-            start_block=start_block,
-            end_block=last_block,
-            filter=filter
-        )
+        events_iter = reader(web3, start_block=start_block, end_block=last_block, filter=filter)
 
         for event in events_iter:
             return event

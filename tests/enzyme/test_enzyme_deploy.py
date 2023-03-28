@@ -76,10 +76,7 @@ def test_fetch_deployment(
         weth,
     )
 
-    fetched = EnzymeDeployment.fetch_deployment(
-        web3,
-        {"comptroller_lib": deployment.contracts.comptroller_lib.address}
-    )
+    fetched = EnzymeDeployment.fetch_deployment(web3, {"comptroller_lib": deployment.contracts.comptroller_lib.address})
 
     assert fetched.mln.address == mln.address
     assert fetched.weth.address == weth.address
@@ -156,4 +153,3 @@ def test_vault_api(
     comptroller2, vault2 = deployment.fetch_vault(vault.vault.address)
     assert vault2.address == vault.vault.address
     assert comptroller2.address == vault.comptroller.address
-

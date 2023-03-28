@@ -81,6 +81,7 @@ class ProgressUpdate(Protocol):
             Current context
         """
 
+
 # For typing.Protocol see https://stackoverflow.com/questions/68472236/type-hint-for-callable-that-takes-kwargs
 class Web3EventReader(Protocol):
     """Pass the event reader callable around.
