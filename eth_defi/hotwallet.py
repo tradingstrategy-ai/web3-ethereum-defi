@@ -96,7 +96,7 @@ class HotWallet:
         Useful to check if you have enough cryptocurrency for the gas fees.
         """
         balance = web3.eth.get_balance(self.address)
-        return web3.fromWei(balance, "ether")
+        return web3.from_wei(balance, "ether")
 
     @staticmethod
     def from_private_key(key: str) -> "HotWallet":

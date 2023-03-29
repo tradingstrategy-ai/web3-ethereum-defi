@@ -1,7 +1,9 @@
-# Current
+# 0.15.3
 
+- Enable Python 3.11 when now the upstream Web3.py has been updated to 6.0
 - Add `EnzymeDeployment.fetch_vault`
 - Add `Vault.fetch_deployment_event`
+- Web3.py 6.0 API fixes
 
 # 0.15.2
 
