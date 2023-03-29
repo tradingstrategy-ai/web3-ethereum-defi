@@ -131,7 +131,14 @@ def test_anvil_fork_transfer_busd(web3: Web3, large_busd_holder: HexAddress, use
     assert busd.functions.balanceOf(user_1.address).call() == 500 * 10**18
 
 
+def test_anvil_latest_block(web3: Web3, large_busd_holder: HexAddress, user_1):
+    """Fetch latest block using Anvil."""
+    # Fails randomly see https://github.com/foundry-rs/foundry/issues/4666
+    latest_block = web3.eth.get_block("latest")
+
+
 # def test_revert_reason_middleware(web3: Web3, large_busd_holder: HexAddress, user_1: LocalAccount, user_2: LocalAccount):
+
 #     """Revert reason will be shown in Python tracebacks.
 #
 #     We test this by sending BUSD with insufficient token balance.

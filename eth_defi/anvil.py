@@ -377,10 +377,6 @@ def launch_anvil(
         web3 = Web3(HTTPProvider(url, request_kwargs={"timeout": 1.0}))
         while time.time() < timeout:
 
-            if process.poll() is not None:
-                # Anvil crashed - hopefully got some output
-                raise AssertionError(f"anvil process did not start up: {final_cmd}")
-
             try:
                 # See if web3 RPC works
                 current_block = web3.eth.block_number

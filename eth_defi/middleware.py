@@ -247,17 +247,3 @@ def raise_on_revert_middleware(
         return make_request(method, params)
 
     return middleware
-
-
-def api_counter_middleware(
-    counter: Counter,
-    make_request: Callable[[RPCEndpoint, Any], RPCResponse],
-) -> Callable[[RPCEndpoint, Any], RPCResponse]:
-    """
-    Count API requests.
-
-    See :py:func:`eth_defi.chain.install_api_call_counter_middleware` for usage.
-
-    See :py:func:`http_retry_request_with_sleep_middleware` for usage.
-
-    """

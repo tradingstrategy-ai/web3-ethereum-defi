@@ -14,8 +14,9 @@ from web3 import Web3, HTTPProvider
 from web3.middleware import geth_poa_middleware
 from web3.types import RPCEndpoint, RPCResponse
 
-from eth_defi.middleware import http_retry_request_with_sleep_middleware, api_counter_middleware
+from eth_defi.middleware import http_retry_request_with_sleep_middleware
 
+#: List of chain ids that need to have proof-of-authority middleweare installed
 POA_MIDDLEWARE_NEEDED_CHAIN_IDS = {
     56,  # BNB Chain
     137,  # Polygon

@@ -3,6 +3,7 @@
 - Add `EnzymeDeployment.fetch_vault`
 - Add `Vault.fetch_deployment_event`
 - Fix token sorting condition in Uniswap v2 pair deployment
+- Fix Anvil launch to do three attempts by default if the process fails to launch
 - Web3.py 6.0 release API fixes
 
 # 0.15.2
