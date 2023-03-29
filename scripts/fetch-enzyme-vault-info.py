@@ -26,7 +26,6 @@ from eth_defi.event_reader.reader import Web3EventReader, read_events
 
 
 def main():
-
     logging.basicConfig(level=os.environ.get("LOG_LEVEL", "info").upper(), handlers=[logging.StreamHandler()])
 
     json_rpc_url = os.environ.get("JSON_RPC_URL")

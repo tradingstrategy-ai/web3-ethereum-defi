@@ -276,7 +276,6 @@ def check_block(web3_factory, block_no: int, max_tx_checks=20, low_block_tx_thre
 
 
 def main():
-
     # Read arguments
     check_count = int(os.environ.get("CHECK_COUNT", "100"))
     json_rpc_url = os.environ.get("JSON_RPC_URL")

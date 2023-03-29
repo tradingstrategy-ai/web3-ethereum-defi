@@ -81,7 +81,10 @@ print(f"Default gas price given by the node is: {default_gas_price_strategy}")
 web3.eth.set_gas_price_strategy(node_default_gas_price_strategy)
 
 token = get_deployed_contract(web3, "ERC20MockDecimals.json", busd_token)
-tx = token.functions.transfer(received_address, amount,).build_transaction(
+tx = token.functions.transfer(
+    received_address,
+    amount,
+).build_transaction(
     {
         "chainId": web3.eth.chain_id,
         "gas": 100_000,  # Estimate max 100k per approval

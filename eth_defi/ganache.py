@@ -417,7 +417,6 @@ def fork_network(
             continue
 
     if current_block is None:
-
         if process.poll() is not None:
             output = process.communicate()[0].decode("utf-8")
             for line in output.split("\n"):

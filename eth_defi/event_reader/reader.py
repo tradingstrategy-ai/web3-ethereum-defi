@@ -235,7 +235,6 @@ def extract_events(
     logs = web3.manager.request_blocking("eth_getLogs", (filter_params,))
 
     if logs:
-
         if extract_timestamps is not None:
             timestamps = extract_timestamps(web3, start_block, end_block)
             if timestamps is None:
@@ -456,7 +455,6 @@ def read_events(
     last_timestamp = None
 
     for block_num in range(start_block, end_block + 1, chunk_size):
-
         # Ping our master
         if notify is not None:
             notify(block_num, start_block, end_block, chunk_size, total_events, last_timestamp, context)
@@ -639,10 +637,8 @@ def read_events_concurrent(
 
         # Iterate through the tasks in their correct order
         for block_num in tasks_pending:
-
             # The first task at the head of pending list is complete
             if block_num in completed_tasks:
-
                 # Remove task from our list
                 task = completed_tasks.pop(block_num)
                 del task_list[block_num]

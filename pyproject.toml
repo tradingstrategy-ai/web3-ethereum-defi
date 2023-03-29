@@ -41,7 +41,6 @@ pytest-mock = "^3.7.0"
 sphinx-rtd-theme = "^1.0.0"
 sphinx-sitemap = "^2.2.0"
 ipdb = "^0.13.9"
-black = "^22.1.0"
 flake8 = "^4.0.1"
 flaky = "^3.7.0"
 
@@ -49,6 +48,11 @@ flaky = "^3.7.0"
 [tool.poetry.extras]
 docs = ["Sphinx", "sphinx-rtd-theme", "sphinx-sitemap", "sphinx-autodoc-typehints", "furo", "nbsphinx"]
 data = ["jupyter", "tqdm", "pandas", "gql", "matplotlib", "plotly", "pyarrow"]
+
+# Since new Poetry version
+# TODO: CLean up dev dep gorups
+[tool.poetry.group.dev.dependencies]
+black = "^23.3.0"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]

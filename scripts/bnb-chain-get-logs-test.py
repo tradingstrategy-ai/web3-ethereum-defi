@@ -65,7 +65,6 @@ def print_roundtrip(response, *args, **kwargs):
 
 
 def main():
-
     logger = logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
 
     json_rpc_url = os.environ["JSON_RPC_BINANCE"]

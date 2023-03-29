@@ -17,7 +17,6 @@ from eth_defi.tx import decode_signed_transaction
 logger = logging.getLogger(__name__)
 
 
-
 class BroadcastFailure(Exception):
     """Could not broadcast a transaction for some reason."""
 
@@ -75,7 +74,6 @@ def wait_transactions_to_complete(
     unconfirmed_txs: Set[HexBytes] = {HexBytes(tx) for tx in txs}
 
     while len(unconfirmed_txs) > 0:
-
         # Transaction hashes that receive confirmation on this round
         confirmation_received = set()
 
@@ -172,7 +170,6 @@ def broadcast_transactions(
         # And you can guess this code is not testable. You only run in Github CI
         # and hope it works.
         if bad_node_workaround:
-
             # Try to be gentle with Ganache
             time.sleep(bad_node_sleep)
 
