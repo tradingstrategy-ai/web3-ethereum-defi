@@ -200,7 +200,6 @@ def setup_logging():
 
 
 def main():
-
     setup_logging()
 
     # HTTP 1.1 keep-alive
@@ -250,9 +249,7 @@ def main():
     next_stat_print = time.time() + stat_delay
 
     while True:
-
         try:
-
             # Figure out the next good unscanned block range,
             # and fetch block headers and timestamps for this block range
             chain_reorg_resolution = reorg_mon.update_chain()

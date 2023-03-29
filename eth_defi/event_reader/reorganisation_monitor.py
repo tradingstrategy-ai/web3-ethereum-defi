@@ -24,7 +24,6 @@ logger = logging.getLogger(__name__)
 
 @dataclass(slots=True, frozen=True)
 class ChainReorganisationResolution:
-
     #: What we know is the chain tip on our node
     last_live_block: int
 

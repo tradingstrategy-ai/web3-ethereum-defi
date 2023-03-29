@@ -32,7 +32,6 @@ def anvil() -> AnvilLaunch:
         steps_tracing=True,
     )
     try:
-
         # Make the initial snapshot ("zero state") to which we revert between tests
         web3 = Web3(HTTPProvider(anvil.json_rpc_url))
         snapshot_id = make_anvil_custom_rpc_request(web3, "evm_snapshot")

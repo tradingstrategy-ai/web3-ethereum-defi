@@ -213,7 +213,6 @@ def decode_swap(log: LogResult) -> dict:
 
 
 def main():
-
     logging.basicConfig(level=os.environ.get("LOG_LEVEL", "info").upper(), handlers=[logging.StreamHandler()])
 
     # Mute noise
@@ -257,12 +256,10 @@ def main():
     print(f"Starting to read block range {start_block:,} - {end_block:,}")
 
     with open(pairs_fname, "a") as pairs_out, open(swaps_fname, "a") as swaps_out:
-
         pairs_writer = csv.DictWriter(pairs_out, fieldnames=PAIR_FIELD_NAMES)
         swaps_writer = csv.DictWriter(swaps_out, fieldnames=SWAP_FIELD_NAMES)
 
         with tqdm(total=max_blocks) as progress_bar:
-
             #  1. Update the progress bar
             #  2. save any events in the buffer in to a file in one go
             def update_progress(current_block, start_block, end_block, chunk_size: int, total_events: int, last_timestamp: Optional[int], context: TokenCache):

@@ -363,7 +363,6 @@ def launch_anvil(
         args["block_time"] = block_time
 
     while attempts_left > 0:
-
         process, final_cmd = _launch(
             cmd,
             **args,
@@ -376,7 +375,6 @@ def launch_anvil(
 
         web3 = Web3(HTTPProvider(url, request_kwargs={"timeout": 1.0}))
         while time.time() < timeout:
-
             try:
                 # See if web3 RPC works
                 current_block = web3.eth.block_number

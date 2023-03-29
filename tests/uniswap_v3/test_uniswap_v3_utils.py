@@ -85,7 +85,6 @@ def test_encode_path(path, fees, is_exact_output, expected_encoded_path):
     ],
 )
 def test_decode_path(encoded_path: bytes, decoded_path: list):
-
     assert type(encoded_path == bytes)
     _decoded_path = decode_path(encoded_path)
 

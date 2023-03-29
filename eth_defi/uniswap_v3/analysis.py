@@ -51,7 +51,6 @@ def analyse_trade_by_receipt(
     tx_hash: str | bytes,
     tx_receipt: dict,
 ) -> TradeSuccess | TradeFail:
-
     router = uniswap.swap_router
     assert tx_receipt["to"] == router.address, f"For now, we can only analyze naive trades to the router. This tx was to {tx_receipt['to']}, router is {router.address}"
 

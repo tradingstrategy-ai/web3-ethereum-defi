@@ -41,7 +41,10 @@ web3.eth.set_gas_price_strategy(node_default_gas_price_strategy)
 
 # Attempt to send 1M BUSD that should revert
 token = get_deployed_contract(web3, "ERC20MockDecimals.json", busd_token)
-tx_hash = token.functions.transfer(received_address, 1_000_0000 * 10**18,).transact(
+tx_hash = token.functions.transfer(
+    received_address,
+    1_000_0000 * 10**18,
+).transact(
     {
         "from": account.address,
         "gas": 500_000,  # Gas must be set or we are going to get an exception in the gas estimate

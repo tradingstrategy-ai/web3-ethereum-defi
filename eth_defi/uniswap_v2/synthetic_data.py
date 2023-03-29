@@ -91,7 +91,6 @@ def generate_fake_uniswap_v2_data(
     }
 
     if base_liquidity and quote_liquidity:
-
         # Create the trading pair and add initial liquidity
         pair_address = deploy_trading_pair(web3, deployer, uniswap_v2, base_token.contract, quote_token.contract, base_liquidity, quote_liquidity)
         logger.info("Deployed %s", pair_address)
@@ -123,7 +122,6 @@ def generate_fake_uniswap_v2_data(
     eth_tester.disable_auto_mine_transactions()
 
     for block in range(number_of_blocks):
-
         trade_count = random_gen.randint(0, trades_per_block)
         block_number = web3.eth.block_number
 
@@ -134,7 +132,6 @@ def generate_fake_uniswap_v2_data(
         stats["max_price"] = max(stats["max_price"], price)
 
         for trade in range(trade_count):
-
             # Guess trade direction and how much we are going to trade
             quote_amount = Decimal(random_gen.uniform(min_trade, max_trade))
 

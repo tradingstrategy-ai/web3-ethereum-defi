@@ -207,7 +207,6 @@ def deploy_trading_pair(
     pair_address = event0["args"]["pair"]
 
     if liquidity_a > 0:
-
         router = deployment.router
 
         assert token_a.functions.balanceOf(deployer).call() > liquidity_a, f"Cannot deploy, not enough tokens for {token_a}"

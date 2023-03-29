@@ -182,7 +182,15 @@ class EnzymeDeployment:
         """
 
         fund_deployer = self.contracts.fund_deployer
-        tx_hash = fund_deployer.functions.createNewFund(owner, fund_name, fund_symbol, denomination_asset.address, shares_action_time_lock, fee_manager_config_data, policy_manager_config_data,).transact(
+        tx_hash = fund_deployer.functions.createNewFund(
+            owner,
+            fund_name,
+            fund_symbol,
+            denomination_asset.address,
+            shares_action_time_lock,
+            fee_manager_config_data,
+            policy_manager_config_data,
+        ).transact(
             {
                 "from": self.deployer,
             }

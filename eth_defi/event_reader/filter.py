@@ -37,7 +37,6 @@ class Filter:
 
     @staticmethod
     def create_filter(address: Optional[str | List[str]], event_types: List[Type[ContractEvent]]) -> "Filter":
-
         topics = {event_type.build_filter().topics[0]: event_type for event_type in event_types}
 
         filter = Filter(
