@@ -59,29 +59,6 @@ def test_deploy_enzyme(
     assert balance == 500 * 10**18
 
 
-def test_fetch_deployment(
-    web3: Web3,
-    deployer: HexAddress,
-    user_1: HexAddress,
-    user_2: HexAddress,
-    weth: Contract,
-    mln: Contract,
-):
-    """Fetch existing Enzyme deployment."""
-
-    deployment = EnzymeDeployment.deploy_core(
-        web3,
-        deployer,
-        mln,
-        weth,
-    )
-
-    fetched = EnzymeDeployment.fetch_deployment(web3, {"comptroller_lib": deployment.contracts.comptroller_lib.address})
-
-    assert fetched.mln.address == mln.address
-    assert fetched.weth.address == weth.address
-
-
 def test_vault_api(
     web3: Web3,
     deployer: HexAddress,
@@ -153,3 +130,64 @@ def test_vault_api(
     comptroller2, vault2 = deployment.fetch_vault(vault.vault.address)
     assert vault2.address == vault.vault.address
     assert comptroller2.address == vault.comptroller.address
+
+
+def test_fetch_depoyment(
+    web3: Web3,
+    deployer: HexAddress,
+    user_1: HexAddress,
+    user_2: HexAddress,
+    weth: Contract,
+    mln: Contract,
+):
+    """Fetch Enzyme deployment and vault information on-chain."""
+
+    deployment = EnzymeDeployment.deploy_core(
+        web3,
+        deployer,
+        mln,
+        weth,
+    )
+
+    fetched = EnzymeDeployment.fetch_deployment(web3, {"comptroller_lib": deployment.contracts.comptroller_lib.address})
+
+    assert fetched.mln.address == mln.address
+    assert fetched.weth.address == weth.address
+
+
+def test_fetch_vault(
+    web3: Web3,
+    deployer: HexAddress,
+    user_1: HexAddress,
+    user_2: HexAddress,
+    usdc: Contract,
+    weth: Contract,
+    mln: Contract,
+    usdc_usd_mock_chainlink_aggregator: Contract,
+):
+    """Fetch existing Enzyme vault based on the vault address only."""
+
+    deployment = EnzymeDeployment.deploy_core(
+        web3,
+        deployer,
+        mln,
+        weth,
+    )
+
+    # Create a vault for user 1
+    # where we nominate everything in USDC
+    deployment.add_primitive(
+        usdc,
+        usdc_usd_mock_chainlink_aggregator,
+        RateAsset.USD,
+    )
+
+    comptroller_contract, vault_contract = deployment.create_new_vault(
+        user_1,
+        usdc,
+    )
+
+    vault = Vault.fetch(web3, vault_contract.address)
+
+    assert vault.vault.address == vault_contract.address
+    assert vault.comptroller.address == comptroller_contract.address

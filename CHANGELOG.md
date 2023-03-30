@@ -1,3 +1,7 @@
+# Current
+
+- - Add `Vault.fetch`
+
 # 0.15.3
 
 - Add `EnzymeDeployment.fetch_vault`

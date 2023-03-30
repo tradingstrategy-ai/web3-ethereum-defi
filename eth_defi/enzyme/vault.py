@@ -6,13 +6,14 @@ from dataclasses import dataclass
 from functools import cached_property
 from typing import Collection
 
+from eth_defi.abi import get_deployed_contract
 from eth_typing import HexAddress
 from web3 import Web3
 from web3.contract import Contract
 
 from eth_defi.enzyme.deployment import EnzymeDeployment
 from eth_defi.event_reader.filter import Filter
-from eth_defi.event_reader.reader import extract_events, read_events, Web3EventReader
+from eth_defi.event_reader.reader import Web3EventReader
 from eth_defi.token import TokenDetails, fetch_erc20_details
 
 
@@ -224,3 +225,22 @@ class Vault:
             return event
 
         raise AssertionError(f"No fund deployment event for {self.vault.address}")
+
+    @staticmethod
+    def fetch(web3: Web3, vault_address: str | HexAddress) -> "Vault":
+        """Fetch Enzyme vault and deployment information based only on the vault address."""
+
+        contract_name = "VaultLib"
+        vault_contract = get_deployed_contract(web3, f"enzyme/{contract_name}.json", vault_address)
+
+        contract_name = "ComptrollerLib"
+        comptroller_address = vault_contract.functions.getAccessor().call()
+        comptroller_contract = get_deployed_contract(web3, f"enzyme/{contract_name}.json", comptroller_address)
+
+        deployment = EnzymeDeployment.fetch_deployment(web3, {"comptroller_lib": comptroller_address})
+
+        return Vault(
+            vault_contract,
+            comptroller_contract,
+            deployment,
+        )
