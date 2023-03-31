@@ -7,6 +7,7 @@
   trading capital
 
 """
+import datetime
 from decimal import Decimal
 from dataclasses import dataclass
 from functools import cached_property
@@ -79,9 +80,14 @@ class EnzymeBalanceEvent:
             case "SharesBought":
                 return Deposit(vault, event_data)
             case "SharesRedeemed":
-                return Withdrawal(vault, event_data)
+                return Redemption(vault, event_data)
             case _:
                 raise RuntimeError(f"Unsupported event: {event_name}")
+
+    @property
+    def timestamp(self) -> datetime.datetime:
+        """Return the block mined at timestamp."""
+        return datetime.datetime.utcfromtimestamp(self.event_data["timestamp"])
 
     @property
     def web3(self) -> Web3:
@@ -159,7 +165,7 @@ class Deposit(EnzymeBalanceEvent):
 
 
 @dataclass
-class Withdrawal(EnzymeBalanceEvent):
+class Redemption(EnzymeBalanceEvent):
     """Enzyme deposit event wrapper.
 
     Currently only supports `redeemSharesInKind` withdrawal method.

@@ -15,7 +15,7 @@ from web3.contract import Contract
 
 from eth_defi.deploy import deploy_contract
 from eth_defi.enzyme.deployment import EnzymeDeployment, RateAsset
-from eth_defi.enzyme.events import fetch_vault_balance_events, Deposit, Withdrawal
+from eth_defi.enzyme.events import fetch_vault_balance_events, Deposit, Redemption
 from eth_defi.enzyme.uniswap_v2 import prepare_swap
 from eth_defi.enzyme.vault import Vault
 from eth_defi.event_reader.reader import extract_events, Web3EventReader
@@ -166,7 +166,7 @@ def test_read_withdrawal(
     withdrawal = balance_events[1]
 
     assert isinstance(deposit, Deposit)
-    assert isinstance(withdrawal, Withdrawal)
+    assert isinstance(withdrawal, Redemption)
 
     assert withdrawal.receiver == user_1
     assert withdrawal.redeemer == user_1
@@ -263,7 +263,7 @@ def test_read_withdrawal_in_kind(
     assert len(balance_events) == 1
 
     withdrawal = balance_events[0]
-    assert isinstance(withdrawal, Withdrawal)
+    assert isinstance(withdrawal, Redemption)
 
     # Withdraw data is correct for two in-kind assets
     assert withdrawal.receiver == user_2

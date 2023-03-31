@@ -78,15 +78,28 @@ To use this package you need to
 
 # Install
 
+With `pip`:
+
 ```shell
-# Install with Jupyter notebook and data access libraries
 pip install "web3-ethereum-defi[data]"
 ```
+
+With `poetry`:
 
 ```shell
 # Poetry version
 poetry add -E data web3-ethereum-defi
 ```
+
+With `poetry` - master Git branch: 
+
+```shell
+git clone git@github.com:tradingstrategy-ai/web3-ethereum-defi.git
+cd web3-ethereum-defi
+poetry shell
+poetry install -E data -E docs 
+```
+
 
 
 # Code examples

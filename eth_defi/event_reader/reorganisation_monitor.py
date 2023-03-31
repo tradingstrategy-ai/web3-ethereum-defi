@@ -259,6 +259,10 @@ class ReorganisationMonitor(ABC):
 
         Spot the differences in (block number, block header) tuples
         and determine a chain reorg.
+
+        :raise ChainReorganisationDetected:
+            When any if the block data in our internal buffer
+            does not match those provided by events.
         """
         chain_last_block = self.get_last_block_live()
         check_start_at = max(self.last_block_read - self.check_depth, 1)

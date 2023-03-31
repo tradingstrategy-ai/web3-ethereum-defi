@@ -149,6 +149,8 @@ class EnzymeDeployment:
         - See ChainlinkPriceFeedMixin.sol
         """
 
+        assert isinstance(token, Contract), f"Got bad token: {token}"
+
         assert isinstance(rate_asset, RateAsset)
         assert token.functions.decimals().call() >= 6
         latest_round_data = aggregator.functions.latestRoundData().call()

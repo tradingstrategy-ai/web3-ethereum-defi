@@ -3,6 +3,7 @@
 - Add `Vault.fetch`
 - Add `eth_defi.utils.to_unix_timestamp`
 - Add `eth_defi.reorganisation_monitor.create_reorganisation_monitor`
+- Rename: `eth_defi.enzyme.events.Withdrawal` -> `Redemption`
 
 # 0.15.3
 
