@@ -5,8 +5,9 @@ import flaky
 from web3 import Web3, HTTPProvider
 
 from eth_defi.chain import install_chain_middleware
-from eth_defi.event_reader.reorganisation_monitor import MockChainAndReorganisationMonitor, JSONRPCReorganisationMonitor
+from eth_defi.event_reader.reorganisation_monitor import JSONRPCReorganisationMonitor, create_reorganisation_monitor
 
+# Allow to override for a private node to run test faster
 JSON_RPC_POLYGON = os.environ.get("JSON_RPC_POLYGON", "https://polygon-rpc.com")
 
 
@@ -24,3 +25,10 @@ def test_polygon_block_headers():
     assert end_block > 0
     assert reorg_mon.get_last_block_read() > 0
     assert reorg_mon.get_last_block_live() > 0
+
+
+def test_create_reorganisation_monitor():
+    """Create reorganisation monitor using the shortcut against a public Polygon node."""
+    web3 = Web3(HTTPProvider("https://polygon-rpc.com"))
+    mon = create_reorganisation_monitor(web3)
+    assert isinstance(mon, JSONRPCReorganisationMonitor)

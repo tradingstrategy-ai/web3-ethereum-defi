@@ -7,7 +7,7 @@ when nodes have not yet reached consensus on the chain tip around the world.
 import time
 from abc import abstractmethod, ABC
 from dataclasses import dataclass, asdict, field
-from typing import Dict, Iterable, Tuple, Optional, Type, Callable
+from typing import Dict, Iterable, Tuple, Optional, Type, Callable, cast
 import logging
 from urllib.parse import urljoin
 
@@ -16,6 +16,7 @@ from hexbytes import HexBytes
 from tqdm import tqdm
 from web3 import Web3, HTTPProvider
 
+from eth_defi.chain import has_graphql_support
 from eth_defi.event_reader.block_header import BlockHeader, Timestamp
 
 
@@ -553,3 +554,47 @@ class MockChainAndReorganisationMonitor(ReorganisationMonitor):
     def load(self, block_map: dict):
         self.simulated_blocks = block_map
         self.simulated_block_number = max(self.simulated_blocks.keys()) + 1
+
+
+def create_reorganisation_monitor(web3: Web3, check_depth=250) -> ReorganisationMonitor:
+    """Set up a chain reorganisation monitor tactic based on the node supported APIs
+
+    - Chain reorganisation monitor detects if any of blocks at the chain tip
+      have changed since the last read or during the read
+
+    - :py:func:`create_reorgation_monitor` sets up a fast /graphql API endpoint based
+      block scanner when the endpoint is offered by the node.
+      This is 10x - 50x faster than JSON-RPC.
+
+    - If `/graphql` endpoint is not available, then we fall back to JSON-RPC based
+      slow reorganisation monitoring
+
+    :param check_depth:
+        How many blocks in the past we check on the reorganisation scan to detect any changes.
+
+        If the reorganisation happens further past then the off-chain accounting will be broken.
+
+        `The maximum Polygon reorganisation depth has been 157 blocks <https://protos.com/polygon-hit-by-157-block-reorg-despite-hard-fork-to-reduce-reorgs/>`__.
+
+    :return:
+        A reorg mon instance.
+
+        Either :py:class:`GraphQLReorganisationMonitor` or :py:class:`JSONRPCReorganisationMonitor`
+    """
+
+    assert isinstance(web3.provider, HTTPProvider), f"Got provider: {web3.provider} - does not know how to perform GraphQL support check"
+
+    provider = cast(HTTPProvider, web3.provider)
+
+    json_rpc_url = provider.endpoint_uri
+
+    if has_graphql_support(provider):
+        # 10x faster /graphql implementation,
+        # not provided by public nodes
+        reorg_mon = GraphQLReorganisationMonitor(graphql_url=urljoin(json_rpc_url, "/graphql"), check_depth=check_depth)
+    else:
+        # Default slow implementation
+        logger.warning("The node does not support /graphql interface. " "Downloading block headers and timestamps will be extremely slow." "Check documentation how to configure your node or choose a smaller timeframe for the buffer of trades.")
+        reorg_mon = JSONRPCReorganisationMonitor(web3, check_depth=check_depth)
+
+    return reorg_mon
