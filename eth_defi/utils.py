@@ -1,4 +1,6 @@
 """Bunch of random utilities."""
+import calendar
+import datetime
 import logging
 import socket
 import time
@@ -95,3 +97,27 @@ def shutdown_hard(
         raise AssertionError(f"Could not terminate Anvil in {block_timeout} seconds, stdout is %d bytes, stderr is %d bytes", len(stdout), len(stderr))
 
     return stdout, stderr
+
+
+def to_unix_timestamp(dt: datetime.datetime) -> float:
+    """Convert Python UTC datetime to UNIX seconds since epoch.
+
+    Example:
+
+    .. code-block:: python
+
+        import datetime
+        from eth_defi.utils import to_unix_timestamp
+
+        dt = datetime.datetime(1970, 1, 1)
+        unix_time = to_unix_timestamp(dt)
+        assert unix_time == 0
+
+    :param dt:
+        Python datetime to convert
+
+    :return:
+        Datetime as seconds since 1970-1-1
+    """
+    # https://stackoverflow.com/a/5499906/315168
+    return calendar.timegm(dt.utctimetuple())

@@ -132,7 +132,7 @@ def test_vault_api(
     assert comptroller2.address == vault.comptroller.address
 
 
-def test_fetch_depoyment(
+def test_fetch_deployment(
     web3: Web3,
     deployer: HexAddress,
     user_1: HexAddress,

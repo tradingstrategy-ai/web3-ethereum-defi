@@ -1,6 +1,7 @@
 # Current
 
-- - Add `Vault.fetch`
+- Add `Vault.fetch`
+- Add `eth_defi.utils.to_unix_timestamp`
 
 # 0.15.3
 
