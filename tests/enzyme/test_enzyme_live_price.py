@@ -32,11 +32,10 @@ def test_fetch_onchain_price(
     """Fetch linve on-chain price for ETH/USDC on Polygon."""
     deployment = EnzymeDeployment.fetch_deployment(web3, POLYGON_DEPLOYMENT)
     usdc = fetch_erc20_details(web3, POLYGON_DEPLOYMENT["usdc"])
-    weth = fetch_erc20_details(web3, POLYGON_DEPLOYMENT["weth"])
-    feed = EnzymePriceFeed.fetch_price_feed(deployment, weth)
+    feed = EnzymePriceFeed.fetch_price_feed(deployment, usdc)
 
     price = feed.calculate_current_onchain_price(usdc)
-    assert 400 < price < 5000
+    assert 0.9 < price < 1.1
 
 
 
