@@ -27,9 +27,9 @@ class UnsupportedBaseAsset(Exception):
 
 @dataclass
 class EnzymePriceFeed:
-    """ChainLink price feedin Enzyme.
+    """High-level Python interface for Enzyme's ValueInterpreter price mechanism.
 
-    See `ChainlinkPriceFeedMixin.sol`
+    - Uses `ValueInterpreter` methods to calculate on-chain price for supported assets
     """
 
     deployment: EnzymeDeployment
@@ -70,7 +70,7 @@ class EnzymePriceFeed:
             PrimitiveAdded Solidity event
 
         :return:
-            ChainlinkFeed price feed info instance
+            Price feed instance
         """
 
         arguments = decode_data(event["data"])
@@ -86,6 +86,39 @@ class EnzymePriceFeed:
         aggregator = convert_uint256_bytes_to_address(arguments[0])
         rate_asset = convert_int256_bytes_to_int(arguments[1])
         unit = convert_int256_bytes_to_int(arguments[2])
+
+        return EnzymePriceFeed(
+            deployment,
+            primitive,
+            aggregator,
+            RateAsset(rate_asset),
+            unit,
+        )
+
+    @staticmethod
+    def fetch_price_feed(
+            deployment: EnzymeDeployment,
+            token: TokenDetails,
+    ) -> "EnzymePriceFeed":
+        """Get a price feed for a particular token.
+
+        :param deployment:
+            Enzyme deployment.
+
+        :param token:
+            Which token we are interested in.
+
+        :return:
+            Price feed instance
+        """
+
+        primitive = token.address
+
+        value_interpreter = deployment.contracts.value_interpreter
+
+        aggregator = value_interpreter.functions.getAggregatorForPrimitive(primitive).call()
+        rate_asset = value_interpreter.functions.getRateAssetForPrimitive(primitive).call()
+        unit = value_interpreter.functions.getUnitForPrimitive(primitive).call()
 
         return EnzymePriceFeed(
             deployment,
