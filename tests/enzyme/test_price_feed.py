@@ -45,17 +45,24 @@ def deployment(
         weth,
     )
 
-    deployment.add_primitive(
+    tx_hash = deployment.add_primitive(
         usdc,
         usdc_usd_mock_chainlink_aggregator,
         RateAsset.USD,
     )
+    assert_transaction_success_with_explanation(web3, tx_hash)
 
-    deployment.add_primitive(
+    tx_hash = deployment.add_primitive(
         weth,
         weth_usd_mock_chainlink_aggregator,
         RateAsset.USD,
     )
+    assert_transaction_success_with_explanation(web3, tx_hash)
+
+    # Set ethUsdAggregator needed for Enzyme's internal functionality
+    tx_hash = deployment.contracts.value_interpreter.functions.setEthUsdAggregator(weth_usd_mock_chainlink_aggregator.address).transact({"from": deployer})
+    assert_transaction_success_with_explanation(web3, tx_hash)
+
     return deployment
 
 
@@ -112,6 +119,7 @@ def test_manipulate_price(
     weth: Contract,
     usdc: Contract,
     weth_usd_mock_chainlink_aggregator: Contract,
+    usdc_usd_mock_chainlink_aggregator: Contract,
 ):
     """Set the underlying price for Enzyme price feed."""
 
@@ -123,7 +131,7 @@ def test_manipulate_price(
     mock_data = weth_usd_mock_chainlink_aggregator.functions.latestRoundData().call()
     assert len(mock_data) == 5
 
-    call = weth_usd_mock_chainlink_aggregator.functions.latestRoundData()
+    call = usdc_usd_mock_chainlink_aggregator.functions.latestRoundData()
     mock_data = assert_call_success_with_explanation(call)
     assert len(mock_data) == 5
 
@@ -134,9 +142,14 @@ def test_manipulate_price(
     call = value_interpreter.functions.calcCanonicalAssetValue(
         weth_token.address,
         raw_amount,
-        usdc_token.address,
+        usdc.address,
     )
-    result = assert_call_success_with_explanation(call)
 
     price = feed.calculate_current_onchain_price(usdc_token)
     assert price == 1600
+
+    # Bump the price a bit
+    weth_usd_mock_chainlink_aggregator.functions.setValue(1500 * 10**8).transact()
+    price = feed.calculate_current_onchain_price(usdc_token)
+    assert price == 1500
+

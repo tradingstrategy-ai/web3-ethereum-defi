@@ -143,7 +143,7 @@ class EnzymeDeployment:
         token: Contract,
         aggregator: Contract,
         rate_asset: RateAsset,
-    ):
+    ) -> str:
         """Add a primitive asset to a Enzyme protocol.
 
         This will tell Enzyme how to value this asset.
@@ -151,6 +151,9 @@ class EnzymeDeployment:
         - See ValueInterpreter.sol
 
         - See ChainlinkPriceFeedMixin.sol
+
+        :return:
+            Transaction hash for the addition
         """
 
         assert isinstance(token, Contract), f"Got bad token: {token}"
@@ -164,7 +167,8 @@ class EnzymeDeployment:
         primitives = [token.address]
         aggregators = [aggregator.address]
         rate_assets = [rate_asset.value]
-        value_interpreter.functions.addPrimitives(primitives, aggregators, rate_assets).transact({"from": self.deployer})
+        tx_hash = value_interpreter.functions.addPrimitives(primitives, aggregators, rate_assets).transact({"from": self.deployer})
+        return tx_hash
 
     def create_new_vault(
         self,

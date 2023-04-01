@@ -397,7 +397,12 @@ class SymbolicTreeRepresentation:
                 human_args = humanise_decoded_arg_data(args)
                 symbolic_args = ", ".join([f"{k}={v}" for k, v in human_args.items()])
 
-        symbolic_name = symbolic_name or address
+        if symbolic_name:
+            # We know the contract at this address by its ABI
+            symbolic_name = f"{symbolic_name}({address})"
+        else:
+            # No idea of ABI what is deployed at this address
+            symbolic_name = address
         symbolic_function = symbolic_function or function_selector.hex()
 
         cost = self.call.gas_cost
