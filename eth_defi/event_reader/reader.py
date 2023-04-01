@@ -10,12 +10,13 @@ For further reading see:
 
 import logging
 import threading
-from typing import Callable, Dict, Iterable, List, Optional, Protocol, Set
+from typing import Callable, Dict, Iterable, List, Optional, Protocol, Set, Any, TypeAlias, Union
 
 import futureproof
 from eth_bloom import BloomFilter
 from futureproof import ThreadPoolExecutor
 from hexbytes import HexBytes
+from requests.adapters import HTTPAdapter
 from web3 import Web3
 from web3.contract.contract import ContractEvent
 from web3.datastructures import AttributeDict
@@ -23,7 +24,8 @@ from web3.datastructures import AttributeDict
 from eth_defi.event_reader.filter import Filter
 from eth_defi.event_reader.logresult import LogContext, LogResult
 from eth_defi.event_reader.reorganisation_monitor import ReorganisationMonitor
-from eth_defi.event_reader.web3worker import get_worker_web3
+from eth_defi.event_reader.web3factory import TunedWeb3Factory
+from eth_defi.event_reader.web3worker import get_worker_web3, create_thread_pool_executor
 from eth_defi.event_reader.conversion import convert_jsonrpc_value_to_int
 
 
@@ -36,6 +38,17 @@ class TimestampNotFound(Exception):
 
 class BadTimestampValueReturned(Exception):
     """Timestamp does not look good."""
+
+
+#: How to pass a connection to the event readers
+#:
+#: - Single-threaded readers take Web3 instance as is, because this is the simplest
+#:
+#: - Multithreaded readers set up their own connection pools behind the scenes,
+#:   and passing a single connection around is not meaningful
+#:
+#:
+ReaderConnection: TypeAlias = Union[Web3, None]
 
 
 # For typing.Protocol see https://stackoverflow.com/questions/68472236/type-hint-for-callable-that-takes-kwargs
@@ -115,12 +128,15 @@ class Web3EventReader(Protocol):
 
     def __call__(
         self,
-        web3: Web3,
+        web3: ReaderConnection,
         start_block: int,
         end_block: int,
         filter: Filter,
     ):
         """Read events for a block range.
+
+        :param web3:
+            Web3 instance for single-threaded readers
 
         :param start_block:
             First block to process (inclusive)
@@ -687,3 +703,6 @@ def read_events_concurrent(
                 # we try to return events from this completed tasks later,
                 # when we have some results from earlier tasks first.
                 break
+
+
+
