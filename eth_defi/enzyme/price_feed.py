@@ -11,11 +11,13 @@ from web3.contract import Contract
 from web3.exceptions import ContractLogicError
 
 from eth_defi.abi import get_deployed_contract
+from eth_defi.chainlink.round_data import ChainLinkLatestRoundData
 from eth_defi.enzyme.deployment import EnzymeDeployment, RateAsset
 from eth_defi.event_reader.conversion import decode_data, convert_uint256_bytes_to_address, convert_int256_bytes_to_int
 from eth_defi.event_reader.filter import Filter
 from eth_defi.event_reader.reader import Web3EventReader
 from eth_defi.token import fetch_erc20_details, TokenDetails
+from eth_defi.utils import ZERO_ADDRESS_STR
 
 
 class UnsupportedBaseAsset(Exception):
@@ -110,13 +112,22 @@ class EnzymePriceFeed:
 
         :return:
             Price feed instance
+
+        :raise UnsupportedBaseAsset:
+            In the case there is no registered price feed for token
         """
+
+        assert isinstance(token, TokenDetails)
 
         primitive = token.address
 
         value_interpreter = deployment.contracts.value_interpreter
 
         aggregator = value_interpreter.functions.getAggregatorForPrimitive(primitive).call()
+
+        if aggregator == ZERO_ADDRESS_STR:
+            raise UnsupportedBaseAsset(f"No Enzyme configured aggregator for: {token}")
+
         rate_asset = value_interpreter.functions.getRateAssetForPrimitive(primitive).call()
         unit = value_interpreter.functions.getUnitForPrimitive(primitive).call()
 
@@ -141,6 +152,12 @@ class EnzymePriceFeed:
             "enzyme/IChainlinkAggregator.json",
             self.aggregator,
         )
+
+    def fetch_latest_round_data(self) -> ChainLinkLatestRoundData:
+        """Fetch the Chainlink round data from the underlying Chainlink price feed."""
+        aggregator = self.chainlink_aggregator
+        data = aggregator.functions.latestRoundData().call()
+        return ChainLinkLatestRoundData(data)
 
     def calculate_current_onchain_price(
             self,

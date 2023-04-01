@@ -1,5 +1,6 @@
 # Current
 
+- Add initial Chainlink support
 - Add `eth_defi.reader.multithread.MultithreadEventReader` easy to use high-level interface
 - Add preliminary `assert_call_success_with_explanation` - but looks like Anvil support is still missing, 
   so currently hacked together
