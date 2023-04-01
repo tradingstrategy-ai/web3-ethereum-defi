@@ -7,8 +7,10 @@ from typing import Tuple
 from eth_typing import HexAddress, HexStr
 from web3 import Web3
 
+from eth_defi.utils import ZERO_ADDRESS_STR
+
 #: Ethereum 0x0000000000000000000000000000000000000000 addresss
-ZERO_ADDRESS = "0x0000000000000000000000000000000000000000"
+ZERO_ADDRESS = ZERO_ADDRESS_STR
 
 
 def sort_tokens(token_a: HexAddress, token_b: HexAddress) -> Tuple[HexAddress, HexAddress]:

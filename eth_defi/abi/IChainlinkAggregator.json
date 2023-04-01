@@ -9,27 +9,27 @@
       "outputs": [
         {
           "internalType": "uint80",
-          "name": "",
+          "name": "roundId",
           "type": "uint80"
         },
         {
           "internalType": "int256",
-          "name": "",
+          "name": "answer",
           "type": "int256"
         },
         {
           "internalType": "uint256",
-          "name": "",
+          "name": "startedAt",
           "type": "uint256"
         },
         {
           "internalType": "uint256",
-          "name": "",
+          "name": "updatedAt",
           "type": "uint256"
         },
         {
           "internalType": "uint80",
-          "name": "",
+          "name": "answeredInRound",
           "type": "uint80"
         }
       ],

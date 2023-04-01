@@ -12,6 +12,10 @@ import psutil
 logger = logging.getLogger(__name__)
 
 
+#: Ethereum 0x0000000000000000000000000000000000000000 address as a string
+ZERO_ADDRESS_STR = "0x0000000000000000000000000000000000000000"
+
+
 def sanitise_string(s: str) -> str:
     """Remove null characters."""
     # https://stackoverflow.com/a/18762899/315168

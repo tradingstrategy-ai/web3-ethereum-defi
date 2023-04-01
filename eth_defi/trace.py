@@ -10,10 +10,13 @@
 """
 import enum
 import logging
-from typing import cast, Optional, Iterator
+from typing import cast, Optional, Iterator, Any
 
 from eth_typing import ChecksumAddress
 from eth_utils import to_checksum_address
+from web3._utils.contracts import prepare_transaction
+from web3.contract.contract import ContractFunction
+from web3.types import TxParams
 
 from eth_defi.abi import decode_function_args, humanise_decoded_arg_data
 from eth_defi.deploy import ContractRegistry, get_or_create_contract_registry
@@ -119,6 +122,43 @@ def trace_evm_transaction(
             raise RuntimeError("Unsupported method")
 
     return calltree
+
+
+def trace_evm_call(
+    web3: Web3,
+    tx: dict,
+    trace_method: TraceMethod = TraceMethod.parity,
+    block_reference="latest",
+) -> CallTreeNode:
+    """Trace a Solidity function call.
+
+    - See :py:func:`print_symbolic_trace` for usage
+
+    - Extract an EVM transaction stack trace from a node, using GoEthereum compatible `debug_traceTransaction`
+
+    - Currently only works with Anvil backend and if `steps_trace=True`
+
+    .. warning::
+
+        Currently not implemented. Anvil does not support `trace_call` RPC yet.
+
+    :param web3:
+        Anvil connection
+
+    :param tx:
+        Transaction object for the call
+
+    :param trace_method:
+        How to trace.
+
+        Choose between `debug_traceTransaction` and `trace_transaction` RPCs.
+    """
+
+    raise NotImplementedError("Anvil does not support yet")
+
+    assert trace_method == TraceMethod.parity, f"Only Parity style traces supported"
+    trace_call_resp = web3.manager.request_blocking("trace_call", [tx, ["trace"], block_reference])
+
 
 
 def print_symbolic_trace(
@@ -245,6 +285,49 @@ def assert_transaction_success_with_explanation(
         raise TransactionAssertionError(f"Transaction failed: {tx_details}\n" f"Revert reason: {revert_reason}\n" f"Solidity stack trace:\n" f"{trace_output}\n")
 
 
+def assert_call_success_with_explanation(
+        func: ContractFunction,
+        transaction: Optional[TxParams] = None,
+) -> Any:
+    """Make a Web3.call and if it fails get the Solidity stack trace.
+
+    - We do `debug_traceCall` first to see if the call fails
+
+    - If it does not fail we do the actual `eth_call`
+
+    .. note ::
+
+        Because Anvil does not support `trace_call` yet,
+        we just do this as sending the transaction.
+        We assume the call does not change any state.
+        See notes in :py:func:`trace_evm_call`.
+
+    If not gas given, assume 1,000,000 gas units.
+
+    :param func:
+        Prepared :py:class:`ContractFunction` call.
+
+    :param transaction:
+        Transactional parameters for the call, like gas limit and sender.
+
+    :raise TransactionAssertionError:
+        Outputs a verbose AssertionError on what went wrong.
+
+    :return:
+        Same results as you would have with `func.call(transaction)`
+    """
+
+    if transaction is None:
+        transaction = {}
+
+    if not "gas" in transaction:
+        transaction["gas"] = 1_000_000
+
+    tx_hash = func.transact(transaction)
+    assert_transaction_success_with_explanation(func.w3, tx_hash)
+    return func.call(transaction)
+
+
 class SymbolicTreeRepresentation:
     """A EVM trace tree that can resolve contract names and functions.
 
@@ -314,7 +397,12 @@ class SymbolicTreeRepresentation:
                 human_args = humanise_decoded_arg_data(args)
                 symbolic_args = ", ".join([f"{k}={v}" for k, v in human_args.items()])
 
-        symbolic_name = symbolic_name or address
+        if symbolic_name:
+            # We know the contract at this address by its ABI
+            symbolic_name = f"{symbolic_name}({address})"
+        else:
+            # No idea of ABI what is deployed at this address
+            symbolic_name = address
         symbolic_function = symbolic_function or function_selector.hex()
 
         cost = self.call.gas_cost

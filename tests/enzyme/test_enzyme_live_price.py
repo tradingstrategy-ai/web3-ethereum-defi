@@ -10,7 +10,8 @@ from web3 import Web3, HTTPProvider
 
 from eth_defi.chain import install_chain_middleware, install_retry_middleware
 from eth_defi.enzyme.deployment import EnzymeDeployment, POLYGON_DEPLOYMENT
-
+from eth_defi.enzyme.price_feed import EnzymePriceFeed
+from eth_defi.token import fetch_erc20_details
 
 JSON_RPC_POLYGON = os.environ.get("JSON_RPC_POLYGON", "https://polygon-rpc.com")
 
@@ -25,21 +26,17 @@ def web3():
     return web3
 
 
-def test_resolve_price_feed(
+def test_fetch_onchain_price(
     web3: Web3,
 ):
-    """Resolve Enzyme price feed."""
+    """Fetch linve on-chain price for ETH/USDC on Polygon."""
     deployment = EnzymeDeployment.fetch_deployment(web3, POLYGON_DEPLOYMENT)
-    weth_address = POLYGON_DEPLOYMENT["weth"]
-    deployment.resolve_usd_price_feed(weth_address)
+    usdc = fetch_erc20_details(web3, POLYGON_DEPLOYMENT["usdc"])
+    feed = EnzymePriceFeed.fetch_price_feed(deployment, usdc)
 
+    price = feed.calculate_current_onchain_price(usdc)
+    assert 0.9 < price < 1.1
 
-def test_fetch_price(
-    web3: Web3,
-):
-    """Fetch Enzyme price for ETH on Polygon."""
-    deployment = EnzymeDeployment.fetch_deployment(web3, POLYGON_DEPLOYMENT)
-    deployment.fetch_usd_price(POLYGON_DEPLOYMENT["weth"])
 
 
 
