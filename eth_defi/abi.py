@@ -3,6 +3,7 @@
 `See Github for available contracts <https://github.com/tradingstrategy-ai/web3-ethereum-defi/tree/master/eth_defi/abi>`_.
 """
 import json
+from functools import lru_cache
 from pathlib import Path
 from typing import Optional, Type, Union, Collection, Any, Sequence, Dict
 
@@ -18,17 +19,11 @@ from web3.contract.contract import Contract, ContractFunction
 from web3.datastructures import AttributeDict
 
 
-#: Cache loaded ABI data
-#:
-_abi_json_cache = {}
+# How big are our ABI and contract caches
+_CACHE_SIZE = 512
 
 
-#: Cache constructed contract instannces
-#:
-#: Filename -> Contract class cache
-_contract_class_cache: Dict[str, Type[Contract]] = {}
-
-
+@lru_cache(maxsize=_CACHE_SIZE)
 def get_abi_by_filename(fname: str) -> dict:
     """Reads a embedded ABI file and returns it.
 
@@ -40,37 +35,34 @@ def get_abi_by_filename(fname: str) -> dict:
 
     Loaded ABI files are cache in in-process memory to speed up future loading.
 
+    Any results are cached.
+
     :param web3: Web3 instance
     :param fname: `JSON filename from supported contract lists <https://github.com/tradingstrategy-ai/web3-ethereum-defi/tree/master/eth_defi/abi>`_.
     :return: Full contract interface, including `bytecode`.
     """
 
-    if fname in _abi_json_cache:
-        return _abi_json_cache[fname]
-
     here = Path(__file__).resolve().parent
     abi_path = here / "abi" / Path(fname)
     with open(abi_path, "rt", encoding="utf-8") as f:
         abi = json.load(f)
-    _abi_json_cache[fname] = abi
 
     return abi
 
 
+@lru_cache(maxsize=_CACHE_SIZE)
 def get_contract(web3: Web3, fname: str, bytecode: Optional[str] = None) -> Type[Contract]:
     """Create a Contract proxy class from our bundled contracts.
 
     `See Web3.py documentation on Contract instances <https://web3py.readthedocs.io/en/stable/contracts.html#contract-deployment-example>`_.
 
+    Any results are cached.
+
     :param web3: Web3 instance
     :param bytecode: Override bytecode payload for the contract
     :param fname: `JSON filename from supported contract lists <https://github.com/tradingstrategy-ai/web3-ethereum-defi/tree/master/eth_defi/abi>`_.
-    :return: Python class
+    :return: Contract proxy class
     """
-
-    cached = _contract_class_cache.get(fname)
-    if cached is not None:
-        return cached
 
     contract_interface = get_abi_by_filename(fname)
     abi = contract_interface["abi"]
@@ -88,7 +80,6 @@ def get_contract(web3: Web3, fname: str, bytecode: Optional[str] = None) -> Type
             pass
 
     Contract = web3.eth.contract(abi=abi, bytecode=bytecode)
-    _contract_class_cache[fname] = Contract
     return Contract
 
 

@@ -139,11 +139,11 @@ def test_manipulate_price(
     # and print a Solidity stack trace of errors if any
     value_interpreter = deployment.contracts.value_interpreter
     raw_amount = weth_token.convert_to_raw(Decimal(1))
-    call = value_interpreter.functions.calcCanonicalAssetValue(
+    res = value_interpreter.functions.calcCanonicalAssetValue(
         weth_token.address,
         raw_amount,
         usdc.address,
-    )
+    ).call()
 
     price = feed.calculate_current_onchain_price(usdc_token)
     assert price == 1600
