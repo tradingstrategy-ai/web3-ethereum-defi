@@ -180,6 +180,7 @@ class EnzymePriceFeed:
         except ContractLogicError as e:
             if "Unsupported _baseAsset" in e.args[0]:
                 raise UnsupportedBaseAsset(f"Unsupported base asset: {self.primitive_token.symbol}")
+            raise
 
 
 def fetch_price_feeds(
