@@ -15,14 +15,16 @@ Example:
 """
 import logging
 import os
+from typing import List
 
 from web3 import HTTPProvider, Web3
 
 from eth_defi.chain import install_chain_middleware
 from eth_defi.enzyme.deployment import POLYGON_DEPLOYMENT, EnzymeDeployment
-from eth_defi.enzyme.price_feed import fetch_price_feeds
+from eth_defi.enzyme.price_feed import fetch_price_feeds, EnzymePriceFeed, UnsupportedBaseAsset
 from eth_defi.event_reader.multithread import MultithreadEventReader
 from eth_defi.event_reader.progress_update import PrintProgressUpdate
+from eth_defi.token import fetch_erc20_details
 
 
 def main():
@@ -47,11 +49,12 @@ def main():
     deployment = EnzymeDeployment.fetch_deployment(web3, POLYGON_DEPLOYMENT)
     print(f"Chain {web3.eth.chain_id}, fetched Enzyme deployment with ComptrollerLib as {deployment.contracts.comptroller_lib.address}")
 
-    # Set up multithreaded Polygon event reader
+    # Set up multithreaded Polygon event reader.
+    # Print progress to the console how many blocks there are left to read.
     reader = MultithreadEventReader(json_rpc_url, max_threads=16, notify=PrintProgressUpdate(), max_blocks_once=10_000)
 
     # Iterate through all events
-    feeds = []
+    feeds: List[EnzymePriceFeed] = []
     for price_feed in fetch_price_feeds(
             deployment,
             start_block=POLYGON_DEPLOYMENT["deployed_at"],
@@ -63,8 +66,13 @@ def main():
     reader.close()
 
     print("Found Enzyme price feeds")
+    usdc = fetch_erc20_details(web3, POLYGON_DEPLOYMENT["usdc"])
     for feed in feeds:
-        print(f"   {feed}")
+        try:
+            price = feed.calculate_current_onchain_price(usdc)
+            print(f"   {feed.primitive_token.symbol}, current price is {price:,.4f} USDC")
+        except UnsupportedBaseAsset as e:
+            print(f"   {feed.primitive_token.symbol} price feed not available: unsupported base asset")
 
 
 if __name__ == "__main__":

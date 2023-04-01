@@ -15,6 +15,11 @@ from eth_defi.event_reader.web3worker import create_thread_pool_executor
 class MultithreadEventReader(Web3EventReader):
     """Multithreaded and parallel Solidity event reading.
 
+    - A high performance event reader for JSON-RPC APIs
+
+    - Uses parallel requests, but the consumer will always get the events in the order
+      they have happened on-chain
+
     - This class wraps around lower level event reading functions to
       simpler to use and well-documented example.
 

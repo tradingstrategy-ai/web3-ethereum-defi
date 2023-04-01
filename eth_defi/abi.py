@@ -4,7 +4,7 @@
 """
 import json
 from pathlib import Path
-from typing import Optional, Type, Union, Collection, Any, Sequence
+from typing import Optional, Type, Union, Collection, Any, Sequence, Dict
 
 import eth_abi
 from eth_abi import decode
@@ -17,7 +17,16 @@ from web3.contract.contract import Contract, ContractFunction
 # Cache loaded ABI files in-process memory for speedup
 from web3.datastructures import AttributeDict
 
-_cache = {}
+
+#: Cache loaded ABI data
+#:
+_abi_json_cache = {}
+
+
+#: Cache constructed contract instannces
+#:
+#: Filename -> Contract class cache
+_contract_class_cache: Dict[str, Type[Contract]] = {}
 
 
 def get_abi_by_filename(fname: str) -> dict:
@@ -36,14 +45,14 @@ def get_abi_by_filename(fname: str) -> dict:
     :return: Full contract interface, including `bytecode`.
     """
 
-    if fname in _cache:
-        return _cache[fname]
+    if fname in _abi_json_cache:
+        return _abi_json_cache[fname]
 
     here = Path(__file__).resolve().parent
     abi_path = here / "abi" / Path(fname)
     with open(abi_path, "rt", encoding="utf-8") as f:
         abi = json.load(f)
-    _cache[fname] = abi
+    _abi_json_cache[fname] = abi
 
     return abi
 
@@ -58,6 +67,11 @@ def get_contract(web3: Web3, fname: str, bytecode: Optional[str] = None) -> Type
     :param fname: `JSON filename from supported contract lists <https://github.com/tradingstrategy-ai/web3-ethereum-defi/tree/master/eth_defi/abi>`_.
     :return: Python class
     """
+
+    cached = _contract_class_cache.get(fname)
+    if cached is not None:
+        return cached
+
     contract_interface = get_abi_by_filename(fname)
     abi = contract_interface["abi"]
 
@@ -74,6 +88,7 @@ def get_contract(web3: Web3, fname: str, bytecode: Optional[str] = None) -> Type
             pass
 
     Contract = web3.eth.contract(abi=abi, bytecode=bytecode)
+    _contract_class_cache[fname] = Contract
     return Contract
 
 

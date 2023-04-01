@@ -1,9 +1,13 @@
 # Current
 
-- Add `Vault.fetch`
+- Add `eth_defi.reader.multithread.MultithreadEventReader` easy to use high-level interface
+- Add Enzyme's price feeds and some initial ChainLink support
+- Add Enzyme's `Vault.fetch`
 - Add `eth_defi.utils.to_unix_timestamp`
 - Add `eth_defi.reorganisation_monitor.create_reorganisation_monitor`
 - Rename: `eth_defi.enzyme.events.Withdrawal` -> `Redemption`
+- Optimize `get_contract` with improved caching
+- 
 
 # 0.15.3
 
