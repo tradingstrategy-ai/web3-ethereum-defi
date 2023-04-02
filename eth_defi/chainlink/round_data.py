@@ -1,4 +1,5 @@
-"""High-level Python wrapper for Chainlink round data."""
+"""High-level Python wrapper for Chainlink latest round data."""
+
 import datetime
 from decimal import Decimal
 from dataclasses import dataclass

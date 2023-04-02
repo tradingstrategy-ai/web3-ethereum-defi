@@ -36,7 +36,3 @@ def test_fetch_onchain_price(
 
     price = feed.calculate_current_onchain_price(usdc)
     assert 0.9 < price < 1.1
-
-
-
-

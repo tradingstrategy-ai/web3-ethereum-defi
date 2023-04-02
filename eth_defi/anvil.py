@@ -190,6 +190,7 @@ def launch_anvil(
     hardfork="london",
     gas_limit: Optional[int] = None,
     steps_tracing=False,
+    test_request_timeout=3.0,
 ) -> AnvilLaunch:
     """Creates Anvil unit test backend or mainnet fork.
 
@@ -334,6 +335,9 @@ def launch_anvil(
 
         See https://book.getfoundry.sh/reference/anvil/
 
+    :param test_request_timeout:
+        Set the timeout fro the JSON-RPC requests that attempt to determine if Anvil was successfully launched.
+
     """
 
     assert not is_localhost_port_listening(port), f"localhost port {port} occupied.\n" f"You might have a zombie Anvil process around.\nRun to kill: -SIGKILL $(lsof -ti:{port})"
@@ -371,13 +375,14 @@ def launch_anvil(
         # Wait until Anvil is responsive
         timeout = time.time() + launch_wait_seconds
 
-        # Use short 1.0s HTTP read timeout here - otherwise requests will wa-it > 10s if something is wrong
+        # Use short 1.0s HTTP read timeout here - otherwise requests will wait > 10s if something is wrong
 
-        web3 = Web3(HTTPProvider(url, request_kwargs={"timeout": 1.0}))
+        web3 = Web3(HTTPProvider(url, request_kwargs={"timeout": test_request_timeout}))
         while time.time() < timeout:
             try:
                 # See if web3 RPC works
                 current_block = web3.eth.block_number
+                chain_id = web3.eth.chain_id
                 break
             except (requests.exceptions.ConnectionError, requests.exceptions.ReadTimeout) as e:
                 logger.info("Anvil not ready, got exception %s", e)
@@ -404,9 +409,6 @@ def launch_anvil(
         else:
             # We have a successful launch
             break
-
-    chain_id = web3.eth.chain_id
-
     # Use f-string for a thousand separator formatting
     logger.info(f"anvil forked network {chain_id}, the current block is {current_block:,}, Anvil JSON-RPC is {url}")
 
