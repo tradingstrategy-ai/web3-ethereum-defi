@@ -18,6 +18,7 @@ API documentation
    uniswap_v3/index
    aave_v3/index
    enzyme/index
+   chainlink/index
    event_reader/index
    price_oracle/index
    data_research/index

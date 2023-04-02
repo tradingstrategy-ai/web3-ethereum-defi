@@ -32,6 +32,16 @@ class EnzymePriceFeed:
     """High-level Python interface for Enzyme's ValueInterpreter price mechanism.
 
     - Uses `ValueInterpreter` methods to calculate on-chain price for supported assets
+
+    Example:
+
+    .. code-block:: python
+
+        # Print out the price Enzyme sees for a token
+        usdc = fetch_erc20_details(web3, POLYGON_DEPLOYMENT["usdc"])
+        price = feed.calculate_current_onchain_price(usdc)
+        print(f"   {feed.primitive_token.symbol}, current price is {price:,.4f} USDC")
+
     """
 
     #: The Enzyme deploymet for which this price feed is associated with

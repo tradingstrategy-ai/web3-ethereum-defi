@@ -19,6 +19,16 @@ class ChainLinkLatestRoundData:
     Wraps `IChainlinkAggregator.latestRoundData()` response.
 
     `See AggregatorV3Interface <https://github.com/smartcontractkit/chainlink/blob/develop/contracts/src/v0.8/interfaces/AggregatorV3Interface.sol>`__.
+
+    Example:
+
+    .. code-block:: python
+
+            aggregator = chainlink_aggregator  # Point to any Chainlink aggregator contract
+            round_data = fetch_chainlink_round_data(web3, aggregator.address)
+            ago = datetime.datetime.utcnow() - round_data.update_time
+            print(f"   {feed.primitive_token.symbol}, current price is {round_data.price:,.4f} USDC, Chainlink feed is {round_data.description}, updated {ago} ago")
+
     """
 
     #: See ChainlinkAggregatorV2V3Interface.sol

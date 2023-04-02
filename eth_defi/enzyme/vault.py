@@ -45,6 +45,17 @@ class Vault:
     - `See Enzyme documentation for general information about vaults <https://docs.enzyme.finance/managers/setup/fund-basics>`__.
 
     - `See Enzyme spec for technical information about vaults <https://specs.enzyme.finance/>`__.
+
+    Example:
+
+    .. code-block:: python
+
+        vault = Vault(vault_contract, comptroller_contract, deployment)
+        print(f"Vault name: {vault.get_name()}")
+        print(f"Denominated in: {vault.denomination_token}")
+        raw_gross_asset_value = vault.get_gross_asset_value()
+        print(f"Gross asset value: {vault.denomination_token.convert_to_decimals(raw_gross_asset_value):.2f} {vault.denomination_token.symbol}")
+
     """
 
     #: Vault smart contract

@@ -11,7 +11,7 @@ DeFi trading, wallet management, automated test suites and backend integrations 
 Supported blockchains include Ethereum, BNB Chain, Polygon, Avalanche C-chain, Arbitrum, others.
 
 Supported DeFi protocols include Uniswap and its forks (PancakeSwap, Trader Joe, QuickSwap),
-Aave, Enzyme, dHEDGE.
+Aave, Enzyme, dHEDGE, Chainlink.
 
 The project builts on the top of `Web3.py library <https://web3py.readthedocs.io/en/stable/>`__,
 adding better developer experience through integrations, debug tools and documentation.
