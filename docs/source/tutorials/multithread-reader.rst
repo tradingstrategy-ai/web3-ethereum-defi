@@ -1,7 +1,7 @@
-.. _multithread-reader
+.. _multithread-reader:
 
-Solidity event high-speed multithread reader
-============================================
+Solidity event high-speed multithread reading
+=============================================
 
 Preface
 -------
@@ -19,19 +19,21 @@ The example shows How to read Solidity events, or use eth_getLogs RPC, to maximi
   we do not read, or will discard
 
 - This example needs you to have a JSON-RPC Polygon full node. A free JSON-RPC node endpoint is not sufficient,
-  as they do not store history. Try e.q. QuickNode or nodes from `ethereumnodes.com <https://ethereumnodes.com/>`__.
+  as they do not store history. Try e.g. QuickNode or nodes from `ethereumnodes.com <https://ethereumnodes.com/>`__.
 
-- In this example we read `PrimitiveAdded` events from Enzyme Protocol's Polygon deployment.
-  We limit the snapshot to 25,000,000 - 26,000,000 blocks range.
+- For the best performance, always run `local nodes at the same server or close your server where you run your application <https://twitter.com/moo9000/status/1370323189486784513>`__
 
 About the code
 --------------
+
+- In this example we read `PrimitiveAdded` events from Enzyme Protocol's Polygon deployment.
+  We limit the reading to 25,000,000 - 26,000,000 blocks range, so that the example script finished fast (under 1 minute).
 
 - We set up :py:class:`eth_defi.event_reader.multithread.MultithreadEventReader` instance
 
 - We display API call count and rates at the end using :py:func:`eth_defi.chain.install_api_call_counter_middleware`
 
-- We use :py:cass:`eth_defi.token.TokenDetails` class for human-friendly ERC-20 output, like name and symbol
+- We use :py:class:`eth_defi.token.TokenDetails` class for human-friendly ERC-20 output, like name and symbol
 
 Running the code
 ----------------
@@ -65,5 +67,5 @@ After run you will see output like:
 Example code
 ------------
 
-.. literalinclude:: ../../../scripts/multihread-reader.py
+.. literalinclude:: ../../../scripts/multithread-reader.py
    :language: python

@@ -106,6 +106,7 @@ intersphinx_mapping = {
     "py": ("https://pylib.readthedocs.io/en/latest/", None),
     "python": ("https://docs.python.org/3/", None),
     "web3": ("https://web3py.readthedocs.io/en/latest/", None),
+    "eth-typing": ("https://eth-typing.readthedocs.io/en/latest/", None),
 }
 
 html_js_files = [

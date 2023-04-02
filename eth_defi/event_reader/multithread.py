@@ -193,6 +193,9 @@ class MultithreadEventReader(Web3EventReader):
 
                 Currently timestamp reading not supported
 
+            :return:
+                Iterator for the events in the order they were written in the chain
+
             """
             yield from read_events_concurrent(
                 self.executor,

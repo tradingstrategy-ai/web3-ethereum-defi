@@ -34,6 +34,7 @@ class EnzymePriceFeed:
     - Uses `ValueInterpreter` methods to calculate on-chain price for supported assets
     """
 
+    #: The Enzyme deploymet for which this price feed is associated with
     deployment: EnzymeDeployment
 
     #: Token for which is price is for
@@ -172,7 +173,7 @@ class EnzymePriceFeed:
 
         - See `__calcConversionAmount` in `ChainlinkPriceFeedMixin`
 
-        :parma quote:
+        :param quote:
             Which quote token we want to use for the valuation
 
         :param amount:

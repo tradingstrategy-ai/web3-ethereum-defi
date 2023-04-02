@@ -29,6 +29,7 @@ Example tutorials
    :maxdepth: 1
 
    transfer
+   multithread-reader
    verify-node-integrity
    live-price
    uniswap-v3-liquidity-analysis
