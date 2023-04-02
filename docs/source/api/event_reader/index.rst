@@ -13,7 +13,7 @@ any historical event scan that takes long time be interrupted and successfully
 resumed from the data on disk.
 
 .. autosummary::
-   :toctree: _autosummary_block_reader
+   :toctree: _autosummary_enzyne
    :recursive:
 
    eth_defi.event_reader.multithread

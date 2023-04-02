@@ -11,7 +11,7 @@ and creating your own.
     This work is initial
 
 .. autosummary::
-   :toctree: _autosummary_block_reader
+   :toctree: _autosummary_chainlink
    :recursive:
 
    eth_defi.chainlink.round_data

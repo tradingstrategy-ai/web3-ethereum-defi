@@ -1,5 +1,5 @@
 """Multithreaded and parallel Solidity event reading helpers."""
-from typing import Any, Optional, List, Iterable
+from typing import Any, Optional, List, Iterable, Counter
 
 from requests.adapters import HTTPAdapter
 from web3.contract.contract import ContractEvent
@@ -26,6 +26,95 @@ class MultithreadEventReader(Web3EventReader):
     - It is designed to be used standalone (you read the events)
 
     - It is designed to be passed to the functions that expect :py:class:`Web3EventReader` protocol
+
+    See :ref:`multithread-reader` for full tutorial.
+
+    Example how to read events:
+
+    .. code-block:: python
+
+        # Get one of the contracts prepackaged ABIs from eth_defi package
+        value_interpreter_contract = get_contract(web3, "enzyme/ValueInterpreter.json")
+
+        # Read events only for this contract
+        # See https://docs.enzyme.finance/developers/contracts/polygon
+        target_contract_address = "0x66De7e286Aae66f7f3Daf693c22d16EEa48a0f45"
+
+        # Create eth_getLogs event filtering
+        filter = Filter.create_filter(
+            target_contract_address,
+            [value_interpreter_contract.events.PrimitiveAdded],
+        )
+
+        # Set up multithreaded Polygon event reader.
+        # Print progress to the console how many blocks there are left to read.
+        reader = MultithreadEventReader(
+            json_rpc_url,
+            max_threads=16,
+            notify=PrintProgressUpdate(),
+            max_blocks_once=10_000)
+
+        # Loop over the events as the multihreaded reader pool is feeding them to us.
+        # Events will always arrive in the order they happened on chain.
+        decoded_events = []
+        start = datetime.datetime.utcnow()
+        for event in reader(
+            web3,
+            start_block,
+            end_block,
+            filter=filter,
+        ):
+            # Decode the solidity event
+            #
+            # Indexed event parameters go to EVM topics, the second element is the first parameter
+            # Non-indexed event parameters go to EVM arguments, first element is the first parameter
+            arguments = decode_data(event["data"])
+            topics = event["topics"]
+
+            # event PrimitiveAdded(
+            #     address indexed primitive,
+            #     address aggregator,
+            #     RateAsset rateAsset,
+            #     uint256 unit
+            # );
+            primitive = convert_uint256_bytes_to_address(HexBytes(topics[1]))
+            aggregator = convert_uint256_bytes_to_address(arguments[0])
+            rate_asset = convert_int256_bytes_to_int(arguments[1])
+            unit = convert_int256_bytes_to_int(arguments[2])
+
+            # Primitive is a ERC-20 token, resolve its name and symbol while we are decoded the events
+            token = fetch_erc20_details(web3, primitive)
+
+            decoded = {
+                "primitive": primitive,
+                "aggregator": aggregator,
+                "rate_asset": rate_asset,
+                "unit": unit,
+                "token": token,
+            }
+
+    Example how to pass the multithread reader to a function consuming events:
+
+    .. code-block:: python
+
+        provider = cast(HTTPProvider, web3.provider)
+        json_rpc_url = provider.endpoint_uri
+        reader = MultithreadEventReader(json_rpc_url, max_threads=16)
+
+        start_block = 1
+        end_block = web3.eth.block_number
+
+        # Iterate over all price feed added events
+        # over the whole blockchain range
+        feed_iter = fetch_price_feeds(
+            deployment,
+            start_block,
+            end_block,
+            reader,
+        )
+        feeds = list(feed_iter)
+        reader.close()
+        assert len(feeds) == 2
 
     """
 
@@ -115,3 +204,10 @@ class MultithreadEventReader(Web3EventReader):
                 notify=self.notify,
                 extract_timestamps=None,
             )
+
+    def get_total_api_call_counts(self) -> Counter:
+        """Sum API call counts across all threads.
+
+        See :py:func:`eth_defi.chain.install_api_call_counter_middleware` for details.
+        """
+        return self.web3_factory.get_total_api_call_counts()
