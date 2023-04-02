@@ -1,16 +1,19 @@
 # Current
 
+- TODO
+
+# 0.16
+
 - Add initial Chainlink support
-- Add `eth_defi.reader.multithread.MultithreadEventReader` easy to use high-level interface
-- Add preliminary `assert_call_success_with_explanation` - but looks like Anvil support is still missing, 
-  so currently hacked together
-- Add Enzyme's price feeds and some initial ChainLink support
+- Add [eth_defi.reader.multithread.MultithreadEventReader for easy to use high-speed Solidity event reading](https://web3-ethereum-defi.readthedocs.io/tutorials/multithread-reader.html)
+- Add Enzyme's price feeds 
 - Add Enzyme's `Vault.fetch`
 - Add `eth_defi.utils.to_unix_timestamp`
 - Add `eth_defi.reorganisation_monitor.create_reorganisation_monitor`
 - Rename: `eth_defi.enzyme.events.Withdrawal` -> `Redemption`
 - Optimize `get_contract` with improved caching
-- 
+- Add preliminary `assert_call_success_with_explanation` - but looks like Anvil support is still missing, 
+  so currently hacked together
 
 # 0.15.3
 
