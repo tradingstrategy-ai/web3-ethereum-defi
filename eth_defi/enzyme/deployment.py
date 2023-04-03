@@ -336,31 +336,6 @@ class EnzymeDeployment:
         comptroller = self.contracts.get_deployed_contract("ComptrollerLib", comptroller_address)
         return comptroller, vault
 
-    def resolve_usd_price_feed(self, token_address: HexAddress) -> Decimal:
-        """Get a price using Enzyme configured price feeds.
-
-        - Resolve Chainlink USD price feed for the
-
-        - Resolve price
-
-        :return:
-            Human-readable price
-        """
-        pass
-
-
-    def fetch_usd_price(self, token_address: HexAddress) -> Decimal:
-        """Get a price using Enzyme configured price feeds.
-
-        - Resolve Chainlink USD price feed for the
-
-        - Resolve price
-
-        :return:
-            Human-readable price
-        """
-        pass
-
     @staticmethod
     def fetch_deployment(web3: Web3, contract_addresses: dict) -> "EnzymeDeployment":
         """Fetch enzyme deployment and some of its contract.

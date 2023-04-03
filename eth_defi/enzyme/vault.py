@@ -2,6 +2,7 @@
 
 See :py:class:`Vault`.
 """
+from decimal import Decimal
 from dataclasses import dataclass
 from functools import cached_property
 from typing import Collection
@@ -12,6 +13,7 @@ from web3 import Web3
 from web3.contract import Contract
 
 from eth_defi.enzyme.deployment import EnzymeDeployment
+from eth_defi.enzyme.price_feed import EnzymePriceFeed
 from eth_defi.event_reader.filter import Filter
 from eth_defi.event_reader.reader import Web3EventReader
 from eth_defi.token import TokenDetails, fetch_erc20_details
@@ -236,6 +238,19 @@ class Vault:
             return event
 
         raise AssertionError(f"No fund deployment event for {self.vault.address}")
+
+    def fetch_denomination_token_usd_exchange_rate(self) -> Decimal:
+        """Get the exchange rate between token/USD.
+
+        Read the exchange rate using the configured Enzyme's VaultInterpreter
+        and its Chainlink aggregators.
+
+        :return:
+            USD exchange rate
+        """
+        token = self.denomination_token
+        price_feed = EnzymePriceFeed.fetch_price_feed(self.deployment, token)
+        return price_feed.calculate_current_onchain_price(token)
 
     @staticmethod
     def fetch(web3: Web3, vault_address: str | HexAddress) -> "Vault":

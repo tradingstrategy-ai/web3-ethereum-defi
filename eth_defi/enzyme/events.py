@@ -78,6 +78,7 @@ class EnzymeBalanceEvent:
 
         match event_name:
             case "SharesBought":
+                exchange_
                 return Deposit(vault, event_data)
             case "SharesRedeemed":
                 return Redemption(vault, event_data)
@@ -251,6 +252,18 @@ def fetch_vault_balance_events(
     - Slow over long block ranges
 
     - See `ComptrollerLib.sol`
+
+    :param vault:
+        Enzyme vault of which events to get
+
+    :param start_block:
+        Scan start range (inclusive)
+
+    :param end_block:
+        Scan end range (inclusive)
+
+    :param read_events:
+        The event reader interface used to iterate eth_getLogs
     """
 
     web3 = vault.web3

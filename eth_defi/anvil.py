@@ -378,8 +378,7 @@ def launch_anvil(
         # Wait until Anvil is responsive
         timeout = time.time() + launch_wait_seconds
 
-        # Use short 1.0s HTTP read timeout here - otherwise requests will wait > 10s if something is wrong
-
+        # Use shorter read timeout here - otherwise requests will wait > 10s if something is wrong
         web3 = Web3(HTTPProvider(url, request_kwargs={"timeout": test_request_timeout}))
         while time.time() < timeout:
             try:

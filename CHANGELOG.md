@@ -1,6 +1,6 @@
 # Current
 
-- TODO
+- Add `Vault.fetch_denomination_token_usd_exchange_rate`
 
 # 0.16
 

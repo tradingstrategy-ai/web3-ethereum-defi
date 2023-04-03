@@ -153,3 +153,16 @@ def test_manipulate_price(
     price = feed.calculate_current_onchain_price(usdc_token)
     assert price == 1500
 
+
+def test_vault_denomination_token_price(
+    web3: Web3,
+    deployment: EnzymeDeployment,
+    user_1: HexAddress,
+    usdc_usd_mock_chainlink_aggregator: Contract,
+    usdc: Contract,
+):
+    """Fetch the exchange rate for the vault base token."""
+
+    comptroller_contract, vault_contract = deployment.create_new_vault(user_1, usdc, fund_name="Cow says Moo", fund_symbol="MOO")
+    vault = Vault(vault_contract, comptroller_contract, deployment)
+    assert vault.fetch_denomination_token_usd_exchange_rate() == 1
