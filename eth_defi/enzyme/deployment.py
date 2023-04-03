@@ -138,6 +138,9 @@ class EnzymeDeployment:
     #: WETH ERC-20
     weth: Contract
 
+    def __repr__(self):
+        return f"Enzyme deployment on {self.web3.eth.chain_id}, comptroller is {self.contracts.comptroller_lib.address}"
+
     def add_primitive(
         self,
         token: Contract,

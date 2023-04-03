@@ -10,9 +10,19 @@
 
 See :py:func:`eth_defi.enzyme.uniswap_v2.prepare_swap` how to use the generic adapter to make trades.
 
+- Tokens are hold in `Vault` smart contract by default. They are transferred to GenericAdapter with
+  `postActionIncomingAssetsTransferHandler` and `postActionSpendAssetsTransferHandler` function
+  modifiers on `executeCalls()`
+
+- Any `allowance()` is set on GenericAdapter address
+
 .. warning::
 
     GenericAdapter is unaudited and dangerous. Do not use in production yet.
+
+    For example, anyone can steal approve()'ed tokens in the example implementation if not handled correctly.
+
+`See the GenericAdapter source code on Github <https://github.com/tradingstrategy-ai/ethdubai-2023-hackathon/blob/master/forge/src/SushiAdapter.sol>`__.
 
 """
 import logging
@@ -41,8 +51,8 @@ EXECUTE_CALLS_SELECTOR: Final[str] = Web3.keccak(b"executeCalls(address,bytes,by
 logger = logging.getLogger(__name__)
 
 
-def _addressify(asset: Contract | HexAddress):
-    assert isinstance(asset, Contract) or type(asset) == HexAddress, f"Got bad asset: {asset}"
+def _addressify(asset: Contract | HexAddress | str):
+    assert isinstance(asset, Contract) or type(asset) == HexAddress or type(asset) == str, f"Got bad asset: {asset}"
     if isinstance(asset, Contract):
         return asset.address
     return asset
@@ -131,11 +141,11 @@ def execute_calls_for_generic_adapter(
     assert isinstance(comptroller, Contract)
     assert len(external_calls) > 0
     assert isinstance(generic_adapter, Contract)
-    assert len(incoming_assets) > 0
+    # assert len(incoming_assets) > 0
     assert isinstance(integration_manager, Contract)
-    assert len(min_incoming_asset_amounts) > 0
-    assert len(spend_asset_amounts) > 0
-    assert len(spend_assets) > 0
+    # assert len(min_incoming_asset_amounts) > 0
+    # assert len(spend_asset_amounts) > 0
+    # assert len(spend_assets) > 0
 
     execute_call_args = encode_generic_adapter_execute_calls_args(
         incoming_assets=incoming_assets,

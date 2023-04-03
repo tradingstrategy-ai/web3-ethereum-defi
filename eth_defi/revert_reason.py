@@ -138,10 +138,10 @@ def fetch_transaction_revert_reason(
     # This transaction has been included and will be reflected in a short while.
 
     receipt = web3.eth.get_transaction_receipt(tx_hash)
-    if receipt.status != 0:
+    if receipt["status"] != 0:
         logger.error("Queried revert reason for a transaction, but receipt tells it did not fail. tx_hash:%s, receipt: %s", tx_hash.hex(), receipt)
 
     current_block_number = web3.eth.block_number
     # TODO: Convert to logger record
-    logger.error(f"Transaction succeeded, when we tried to fetch its revert reason. Hash: {tx_hash.hex()}, tx block num: {tx.blockNumber}, current block number: {current_block_number}, transaction result {result.hex()}. Maybe the chain tip is unstable?")
+    logger.error(f"Transaction succeeded, when we tried to fetch its revert reason. Hash: {tx_hash.hex()}, tx block num: {tx['blockNumber']}, current block number: {current_block_number}, transaction result {result.hex()}. Maybe the chain tip is unstable?")
     return unknown_error_message
