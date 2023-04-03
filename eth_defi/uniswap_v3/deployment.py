@@ -110,7 +110,7 @@ def deploy_uniswap_v3(
     """
     # Factory takes feeSetter as an argument
     factory = deploy_uniswap_v3_factory(web3, deployer)
-    weth = deploy_contract(web3, "WETH9Mock.json", deployer)
+    weth = deploy_contract(web3, "sushi/WETH9Mock.json", deployer)
     swap_router = deploy_contract(
         web3,
         "uniswap_v3/SwapRouter.json",

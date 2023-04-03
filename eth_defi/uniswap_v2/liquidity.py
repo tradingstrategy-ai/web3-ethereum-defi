@@ -77,7 +77,7 @@ def get_liquidity(web3: Web3, pair_address: Union[HexAddress, str]) -> Liquidity
     :param pair_address: Uniswap v2 pair contract address
     """
 
-    pair = get_deployed_contract(web3, "UniswapV2Pair.json", pair_address)
+    pair = get_deployed_contract(web3, "sushi/UniswapV2Pair.json", pair_address)
 
     token0 = pair.functions.token0().call()
     assert token0 != "0x0000000000000000000000000000000000000000", "Invalid pair, token0 zero address"

@@ -4,6 +4,7 @@ pragma solidity 0.6.12;
 pragma experimental ABIEncoderV2;
 
 import "@enzyme/release/extensions/integration-manager/integrations/utils/AdapterBase.sol";
+import "@enzyme/release/core/fund/vault/VaultLib.sol";
 
 /**
  * A vault contract specific adapter/
@@ -15,7 +16,7 @@ import "@enzyme/release/extensions/integration-manager/integrations/utils/Adapte
  */
 contract VaultSpecificGenericAdapter is AdapterBase {
 
-    address public whitelistedVault;
+    address payable public whitelistedVault;
 
     // Tell enzyme what is our selector when we call this adapter
     bytes4 public constant EXECUTE_CALLS_SELECTOR = bytes4(
@@ -24,9 +25,14 @@ contract VaultSpecificGenericAdapter is AdapterBase {
 
     constructor(
         address _integrationManager,
-        address _whitelistedVault
+        address payable _whitelistedVault
     ) public AdapterBase(_integrationManager) {
         whitelistedVault = _whitelistedVault;
+
+        // Check the vault is proper vault contract
+        // Only if the crappy Solidity development tooling had interfaces people use
+        VaultLib vault = VaultLib(whitelistedVault);
+        require(vault.getCreator() != 0x0000000000000000000000000000000000000000, "Encountered funny vault");
     }
 
     // EXTERNAL FUNCTIONS

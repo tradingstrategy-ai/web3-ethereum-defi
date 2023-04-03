@@ -106,7 +106,7 @@ def test_create_no_liquidity_trading_pair(
     assert uniswap_v2.factory.functions.allPairsLength().call() == 1
     assert pair_address.startswith("0x")
     # https://github.com/sushiswap/sushiswap/blob/4fdfeb7dafe852e738c56f11a6cae855e2fc0046/contracts/uniswapv2/UniswapV2Pair.sol
-    pair = get_deployed_contract(web3, "UniswapV2Pair.json", pair_address)
+    pair = get_deployed_contract(web3, "sushi/UniswapV2Pair.json", pair_address)
     assert pair.functions.kLast().call() == 0
     assert pair.functions.token0().call() == weth.address
     assert pair.functions.token1().call() == usdc.address
@@ -134,7 +134,7 @@ def test_create_trading_pair_with_liquidity(
         17_000 * 10**18,  # 17000 USDC liquidity
     )
 
-    pair = get_deployed_contract(web3, "UniswapV2Pair.json", pair_address)
+    pair = get_deployed_contract(web3, "sushi/UniswapV2Pair.json", pair_address)
     token_a, token_b, timestamp = pair.functions.getReserves().call()
 
     # Check we got the liquidity
