@@ -23,7 +23,7 @@ class AssetDelta:
 
     #: Change
     #:
-    #: Negative for spent, positive for incoming
+    #: Negative for tokens that are going to be used for purchases in this tx, positive for incoming
     raw_amount: int
 
     def __post_init__(self):

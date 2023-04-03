@@ -5,6 +5,7 @@ Use Polygon live RPC for testing.
 """
 import os
 
+import flaky
 import pytest
 from web3 import Web3, HTTPProvider
 
@@ -25,6 +26,8 @@ def web3():
     return web3
 
 
+# Flaky because uses live endpoint
+@flaky.flaky()
 def test_fetch_enzyme_on_polygon(
     web3: Web3,
 ):
