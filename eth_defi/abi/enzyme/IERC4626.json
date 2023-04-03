@@ -1166,7 +1166,7 @@
         "absolutePath": "node_modules/@openzeppelin/contracts/token/ERC20/IERC20.sol",
         "file": "@openzeppelin/contracts/token/ERC20/IERC20.sol",
         "scope": 71841,
-        "sourceUnit": 83519,
+        "sourceUnit": 105041,
         "symbolAliases": [],
         "unitAlias": ""
       },
@@ -2698,10 +2698,10 @@
               "id": 71718,
               "name": "IERC20",
               "nodeType": "UserDefinedTypeName",
-              "referencedDeclaration": 83518,
+              "referencedDeclaration": 105040,
               "src": "511:6:300",
               "typeDescriptions": {
-                "typeIdentifier": "t_contract$_IERC20_$83518",
+                "typeIdentifier": "t_contract$_IERC20_$105040",
                 "typeString": "contract IERC20"
               }
             },
@@ -2711,7 +2711,7 @@
           }
         ],
         "contractDependencies": [
-          83518
+          105040
         ],
         "contractKind": "interface",
         "documentation": {
@@ -2723,7 +2723,7 @@
         "fullyImplemented": false,
         "linearizedBaseContracts": [
           71840,
-          83518
+          105040
         ],
         "name": "IERC4626",
         "scope": 71841

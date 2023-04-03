@@ -1,80 +1,10 @@
 {
   "abi": [
     {
-      "inputs": [],
-      "name": "getFeeBpsDefault",
-      "outputs": [
-        {
-          "internalType": "uint256",
-          "name": "feeBpsDefault_",
-          "type": "uint256"
-        }
-      ],
-      "stateMutability": "view",
-      "type": "function"
-    },
-    {
       "inputs": [
         {
           "internalType": "address",
-          "name": "_vaultProxy",
-          "type": "address"
-        }
-      ],
-      "name": "getFeeBpsForVault",
-      "outputs": [
-        {
-          "internalType": "uint256",
-          "name": "feeBps_",
-          "type": "uint256"
-        }
-      ],
-      "stateMutability": "view",
-      "type": "function"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "address",
-          "name": "_vaultProxy",
-          "type": "address"
-        }
-      ],
-      "name": "getFeeBpsOverrideForVault",
-      "outputs": [
-        {
-          "internalType": "uint256",
-          "name": "feeBpsOverride_",
-          "type": "uint256"
-        }
-      ],
-      "stateMutability": "view",
-      "type": "function"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "address",
-          "name": "_vaultProxy",
-          "type": "address"
-        }
-      ],
-      "name": "getLastPaidForVault",
-      "outputs": [
-        {
-          "internalType": "uint256",
-          "name": "lastPaid_",
-          "type": "uint256"
-        }
-      ],
-      "stateMutability": "view",
-      "type": "function"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "address",
-          "name": "_vaultProxy",
+          "name": "",
           "type": "address"
         }
       ],
@@ -89,59 +19,10 @@
       "outputs": [
         {
           "internalType": "uint256",
-          "name": "sharesDue_",
+          "name": "",
           "type": "uint256"
         }
       ],
-      "stateMutability": "nonpayable",
-      "type": "function"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "uint256",
-          "name": "_nextFeeBpsDefault",
-          "type": "uint256"
-        }
-      ],
-      "name": "setFeeBpsDefault",
-      "outputs": [],
-      "stateMutability": "nonpayable",
-      "type": "function"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "address",
-          "name": "_vaultProxy",
-          "type": "address"
-        },
-        {
-          "internalType": "uint256",
-          "name": "_nextFeeBpsOverride",
-          "type": "uint256"
-        }
-      ],
-      "name": "setFeeBpsOverrideForVault",
-      "outputs": [],
-      "stateMutability": "nonpayable",
-      "type": "function"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "address",
-          "name": "_vaultProxy",
-          "type": "address"
-        },
-        {
-          "internalType": "uint256",
-          "name": "_nextTimestamp",
-          "type": "uint256"
-        }
-      ],
-      "name": "setLastPaidForVault",
-      "outputs": [],
       "stateMutability": "nonpayable",
       "type": "function"
     }
@@ -157,99 +38,22 @@
     "linkReferences": {}
   },
   "methodIdentifiers": {
-    "getFeeBpsDefault()": "bcdba20a",
-    "getFeeBpsForVault(address)": "f8fc2961",
-    "getFeeBpsOverrideForVault(address)": "9f178188",
-    "getLastPaidForVault(address)": "b69f3652",
     "initializeForVault(address)": "0a48e041",
-    "payFee()": "29610252",
-    "setFeeBpsDefault(uint256)": "137e8d9b",
-    "setFeeBpsOverrideForVault(address,uint256)": "7c73c699",
-    "setLastPaidForVault(address,uint256)": "f033ac56"
+    "payFee()": "29610252"
   },
-  "rawMetadata": "{\"compiler\":{\"version\":\"0.8.17+commit.8df45f5f\"},\"language\":\"Solidity\",\"output\":{\"abi\":[{\"inputs\":[],\"name\":\"getFeeBpsDefault\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"feeBpsDefault_\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_vaultProxy\",\"type\":\"address\"}],\"name\":\"getFeeBpsForVault\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"feeBps_\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_vaultProxy\",\"type\":\"address\"}],\"name\":\"getFeeBpsOverrideForVault\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"feeBpsOverride_\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_vaultProxy\",\"type\":\"address\"}],\"name\":\"getLastPaidForVault\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"lastPaid_\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_vaultProxy\",\"type\":\"address\"}],\"name\":\"initializeForVault\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"payFee\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"sharesDue_\",\"type\":\"uint256\"}],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_nextFeeBpsDefault\",\"type\":\"uint256\"}],\"name\":\"setFeeBpsDefault\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_vaultProxy\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"_nextFeeBpsOverride\",\"type\":\"uint256\"}],\"name\":\"setFeeBpsOverrideForVault\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_vaultProxy\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"_nextTimestamp\",\"type\":\"uint256\"}],\"name\":\"setLastPaidForVault\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"}],\"devdoc\":{\"author\":\"Enzyme Council <security@enzyme.finance>\",\"kind\":\"dev\",\"methods\":{},\"title\":\"IProtocolFeeTracker Interface\",\"version\":1},\"userdoc\":{\"kind\":\"user\",\"methods\":{},\"version\":1}},\"settings\":{\"compilationTarget\":{\"tests/interfaces/IProtocolFeeTracker.sol\":\"IProtocolFeeTracker\"},\"evmVersion\":\"london\",\"libraries\":{},\"metadata\":{\"bytecodeHash\":\"none\"},\"optimizer\":{\"details\":{\"constantOptimizer\":true,\"cse\":true,\"deduplicate\":true,\"inliner\":true,\"jumpdestRemover\":true,\"orderLiterals\":true,\"peephole\":true,\"yul\":false},\"runs\":200},\"remappings\":[\":@enzyme/=contracts/\",\":@openzeppelin-solc-0.7/=node_modules/@openzeppelin-solc-0.7/\",\":@openzeppelin/=node_modules/@openzeppelin/\",\":@uniswap/=node_modules/@uniswap/\",\":base64-sol/=node_modules/base64-sol/\",\":ds-test/=lib/forge-std/lib/ds-test/src/\",\":forge-std/=lib/forge-std/src/\",\":hardhat-deploy/=node_modules/hardhat-deploy/\",\":hardhat/=node_modules/hardhat/\"]},\"sources\":{\"tests/interfaces/IProtocolFeeTracker.sol\":{\"keccak256\":\"0x3476e21cb06deaefdcdc26f8afec6f408bd8ad73c07ecbc03113cb4036419752\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://3d0f21986d63971dc0764f5d3dadfd276871a28640d115fed295b36205a33daf\",\"dweb:/ipfs/QmSZM1QFRwaWkmw3b9Zdfb4GfHG1DrQNcz1BpewekPGRU3\"]}},\"version\":1}",
+  "rawMetadata": "{\"compiler\":{\"version\":\"0.6.12+commit.27d51765\"},\"language\":\"Solidity\",\"output\":{\"abi\":[{\"inputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"name\":\"initializeForVault\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"payFee\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"nonpayable\",\"type\":\"function\"}],\"devdoc\":{\"author\":\"Enzyme Council <security@enzyme.finance>\",\"kind\":\"dev\",\"methods\":{},\"title\":\"IProtocolFeeTracker Interface\",\"version\":1},\"userdoc\":{\"kind\":\"user\",\"methods\":{},\"version\":1}},\"settings\":{\"compilationTarget\":{\"contracts/release/infrastructure/protocol-fees/IProtocolFeeTracker.sol\":\"IProtocolFeeTracker\"},\"evmVersion\":\"istanbul\",\"libraries\":{},\"metadata\":{\"bytecodeHash\":\"none\"},\"optimizer\":{\"details\":{\"constantOptimizer\":true,\"cse\":true,\"deduplicate\":true,\"jumpdestRemover\":true,\"orderLiterals\":true,\"peephole\":true,\"yul\":false},\"runs\":200},\"remappings\":[\":@enzyme/=contracts/\",\":@openzeppelin-solc-0.7/=node_modules/@openzeppelin-solc-0.7/\",\":@openzeppelin/=node_modules/@openzeppelin/\",\":@uniswap/=node_modules/@uniswap/\",\":base64-sol/=node_modules/base64-sol/\",\":ds-test/=lib/forge-std/lib/ds-test/src/\",\":forge-std/=lib/forge-std/src/\",\":hardhat-deploy/=node_modules/hardhat-deploy/\",\":hardhat/=node_modules/hardhat/\"]},\"sources\":{\"contracts/release/infrastructure/protocol-fees/IProtocolFeeTracker.sol\":{\"keccak256\":\"0x232b347f83457439064add7369bfe1930c7cb56f15930bb87d640e909c15e447\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://24f9af5eebdd373b1d7a598c096eb6def31b2640d54416d7d5a7226e1cef17e6\",\"dweb:/ipfs/QmStq9ByGuSYdKwTmZf52L1X6sZVJUfXTnoVbnjLLiUcHG\"]}},\"version\":1}",
   "metadata": {
     "compiler": {
-      "version": "0.8.17+commit.8df45f5f"
+      "version": "0.6.12+commit.27d51765"
     },
     "language": "Solidity",
     "output": {
       "abi": [
         {
-          "inputs": [],
-          "stateMutability": "view",
-          "type": "function",
-          "name": "getFeeBpsDefault",
-          "outputs": [
-            {
-              "internalType": "uint256",
-              "name": "feeBpsDefault_",
-              "type": "uint256"
-            }
-          ]
-        },
-        {
           "inputs": [
             {
               "internalType": "address",
-              "name": "_vaultProxy",
-              "type": "address"
-            }
-          ],
-          "stateMutability": "view",
-          "type": "function",
-          "name": "getFeeBpsForVault",
-          "outputs": [
-            {
-              "internalType": "uint256",
-              "name": "feeBps_",
-              "type": "uint256"
-            }
-          ]
-        },
-        {
-          "inputs": [
-            {
-              "internalType": "address",
-              "name": "_vaultProxy",
-              "type": "address"
-            }
-          ],
-          "stateMutability": "view",
-          "type": "function",
-          "name": "getFeeBpsOverrideForVault",
-          "outputs": [
-            {
-              "internalType": "uint256",
-              "name": "feeBpsOverride_",
-              "type": "uint256"
-            }
-          ]
-        },
-        {
-          "inputs": [
-            {
-              "internalType": "address",
-              "name": "_vaultProxy",
-              "type": "address"
-            }
-          ],
-          "stateMutability": "view",
-          "type": "function",
-          "name": "getLastPaidForVault",
-          "outputs": [
-            {
-              "internalType": "uint256",
-              "name": "lastPaid_",
-              "type": "uint256"
-            }
-          ]
-        },
-        {
-          "inputs": [
-            {
-              "internalType": "address",
-              "name": "_vaultProxy",
+              "name": "",
               "type": "address"
             }
           ],
@@ -265,56 +69,10 @@
           "outputs": [
             {
               "internalType": "uint256",
-              "name": "sharesDue_",
+              "name": "",
               "type": "uint256"
             }
           ]
-        },
-        {
-          "inputs": [
-            {
-              "internalType": "uint256",
-              "name": "_nextFeeBpsDefault",
-              "type": "uint256"
-            }
-          ],
-          "stateMutability": "nonpayable",
-          "type": "function",
-          "name": "setFeeBpsDefault"
-        },
-        {
-          "inputs": [
-            {
-              "internalType": "address",
-              "name": "_vaultProxy",
-              "type": "address"
-            },
-            {
-              "internalType": "uint256",
-              "name": "_nextFeeBpsOverride",
-              "type": "uint256"
-            }
-          ],
-          "stateMutability": "nonpayable",
-          "type": "function",
-          "name": "setFeeBpsOverrideForVault"
-        },
-        {
-          "inputs": [
-            {
-              "internalType": "address",
-              "name": "_vaultProxy",
-              "type": "address"
-            },
-            {
-              "internalType": "uint256",
-              "name": "_nextTimestamp",
-              "type": "uint256"
-            }
-          ],
-          "stateMutability": "nonpayable",
-          "type": "function",
-          "name": "setLastPaidForVault"
         }
       ],
       "devdoc": {
@@ -344,7 +102,6 @@
         "runs": 200,
         "details": {
           "peephole": true,
-          "inliner": true,
           "jumpdestRemover": true,
           "orderLiterals": true,
           "deduplicate": true,
@@ -357,16 +114,16 @@
         "bytecodeHash": "none"
       },
       "compilationTarget": {
-        "tests/interfaces/IProtocolFeeTracker.sol": "IProtocolFeeTracker"
+        "contracts/release/infrastructure/protocol-fees/IProtocolFeeTracker.sol": "IProtocolFeeTracker"
       },
       "libraries": {}
     },
     "sources": {
-      "tests/interfaces/IProtocolFeeTracker.sol": {
-        "keccak256": "0x3476e21cb06deaefdcdc26f8afec6f408bd8ad73c07ecbc03113cb4036419752",
+      "contracts/release/infrastructure/protocol-fees/IProtocolFeeTracker.sol": {
+        "keccak256": "0x232b347f83457439064add7369bfe1930c7cb56f15930bb87d640e909c15e447",
         "urls": [
-          "bzz-raw://3d0f21986d63971dc0764f5d3dadfd276871a28640d115fed295b36205a33daf",
-          "dweb:/ipfs/QmSZM1QFRwaWkmw3b9Zdfb4GfHG1DrQNcz1BpewekPGRU3"
+          "bzz-raw://24f9af5eebdd373b1d7a598c096eb6def31b2640d54416d7d5a7226e1cef17e6",
+          "dweb:/ipfs/QmStq9ByGuSYdKwTmZf52L1X6sZVJUfXTnoVbnjLLiUcHG"
         ],
         "license": "GPL-3.0"
       }
@@ -374,371 +131,57 @@
     "version": 1
   },
   "ast": {
-    "absolutePath": "tests/interfaces/IProtocolFeeTracker.sol",
-    "id": 30508,
+    "absolutePath": "contracts/release/infrastructure/protocol-fees/IProtocolFeeTracker.sol",
+    "id": 67907,
     "exportedSymbols": {
       "IProtocolFeeTracker": [
-        30507
+        67906
       ]
     },
     "nodeType": "SourceUnit",
-    "src": "255:952:51",
+    "src": "255:255:256",
     "nodes": [
       {
-        "id": 30450,
+        "id": 67894,
         "nodeType": "PragmaDirective",
-        "src": "255:32:51",
+        "src": "255:23:256",
         "nodes": [],
         "literals": [
           "solidity",
-          ">=",
           "0.6",
-          ".12",
-          "<",
-          "0.9",
-          ".0"
+          ".12"
         ]
       },
       {
-        "id": 30507,
+        "id": 67906,
         "nodeType": "ContractDefinition",
-        "src": "383:823:51",
+        "src": "374:135:256",
         "nodes": [
           {
-            "id": 30456,
+            "id": 67900,
             "nodeType": "FunctionDefinition",
-            "src": "419:75:51",
+            "src": "410:46:256",
             "nodes": [],
-            "functionSelector": "bcdba20a",
-            "implemented": false,
-            "kind": "function",
-            "modifiers": [],
-            "name": "getFeeBpsDefault",
-            "nameLocation": "428:16:51",
-            "parameters": {
-              "id": 30452,
-              "nodeType": "ParameterList",
-              "parameters": [],
-              "src": "444:2:51"
-            },
-            "returnParameters": {
-              "id": 30455,
-              "nodeType": "ParameterList",
-              "parameters": [
-                {
-                  "constant": false,
-                  "id": 30454,
-                  "mutability": "mutable",
-                  "name": "feeBpsDefault_",
-                  "nameLocation": "478:14:51",
-                  "nodeType": "VariableDeclaration",
-                  "scope": 30456,
-                  "src": "470:22:51",
-                  "stateVariable": false,
-                  "storageLocation": "default",
-                  "typeDescriptions": {
-                    "typeIdentifier": "t_uint256",
-                    "typeString": "uint256"
-                  },
-                  "typeName": {
-                    "id": 30453,
-                    "name": "uint256",
-                    "nodeType": "ElementaryTypeName",
-                    "src": "470:7:51",
-                    "typeDescriptions": {
-                      "typeIdentifier": "t_uint256",
-                      "typeString": "uint256"
-                    }
-                  },
-                  "visibility": "internal"
-                }
-              ],
-              "src": "469:24:51"
-            },
-            "scope": 30507,
-            "stateMutability": "view",
-            "virtual": false,
-            "visibility": "external"
-          },
-          {
-            "id": 30463,
-            "nodeType": "FunctionDefinition",
-            "src": "500:88:51",
-            "nodes": [],
-            "functionSelector": "f8fc2961",
-            "implemented": false,
-            "kind": "function",
-            "modifiers": [],
-            "name": "getFeeBpsForVault",
-            "nameLocation": "509:17:51",
-            "parameters": {
-              "id": 30459,
-              "nodeType": "ParameterList",
-              "parameters": [
-                {
-                  "constant": false,
-                  "id": 30458,
-                  "mutability": "mutable",
-                  "name": "_vaultProxy",
-                  "nameLocation": "535:11:51",
-                  "nodeType": "VariableDeclaration",
-                  "scope": 30463,
-                  "src": "527:19:51",
-                  "stateVariable": false,
-                  "storageLocation": "default",
-                  "typeDescriptions": {
-                    "typeIdentifier": "t_address",
-                    "typeString": "address"
-                  },
-                  "typeName": {
-                    "id": 30457,
-                    "name": "address",
-                    "nodeType": "ElementaryTypeName",
-                    "src": "527:7:51",
-                    "stateMutability": "nonpayable",
-                    "typeDescriptions": {
-                      "typeIdentifier": "t_address",
-                      "typeString": "address"
-                    }
-                  },
-                  "visibility": "internal"
-                }
-              ],
-              "src": "526:21:51"
-            },
-            "returnParameters": {
-              "id": 30462,
-              "nodeType": "ParameterList",
-              "parameters": [
-                {
-                  "constant": false,
-                  "id": 30461,
-                  "mutability": "mutable",
-                  "name": "feeBps_",
-                  "nameLocation": "579:7:51",
-                  "nodeType": "VariableDeclaration",
-                  "scope": 30463,
-                  "src": "571:15:51",
-                  "stateVariable": false,
-                  "storageLocation": "default",
-                  "typeDescriptions": {
-                    "typeIdentifier": "t_uint256",
-                    "typeString": "uint256"
-                  },
-                  "typeName": {
-                    "id": 30460,
-                    "name": "uint256",
-                    "nodeType": "ElementaryTypeName",
-                    "src": "571:7:51",
-                    "typeDescriptions": {
-                      "typeIdentifier": "t_uint256",
-                      "typeString": "uint256"
-                    }
-                  },
-                  "visibility": "internal"
-                }
-              ],
-              "src": "570:17:51"
-            },
-            "scope": 30507,
-            "stateMutability": "view",
-            "virtual": false,
-            "visibility": "external"
-          },
-          {
-            "id": 30470,
-            "nodeType": "FunctionDefinition",
-            "src": "594:128:51",
-            "nodes": [],
-            "functionSelector": "9f178188",
-            "implemented": false,
-            "kind": "function",
-            "modifiers": [],
-            "name": "getFeeBpsOverrideForVault",
-            "nameLocation": "603:25:51",
-            "parameters": {
-              "id": 30466,
-              "nodeType": "ParameterList",
-              "parameters": [
-                {
-                  "constant": false,
-                  "id": 30465,
-                  "mutability": "mutable",
-                  "name": "_vaultProxy",
-                  "nameLocation": "637:11:51",
-                  "nodeType": "VariableDeclaration",
-                  "scope": 30470,
-                  "src": "629:19:51",
-                  "stateVariable": false,
-                  "storageLocation": "default",
-                  "typeDescriptions": {
-                    "typeIdentifier": "t_address",
-                    "typeString": "address"
-                  },
-                  "typeName": {
-                    "id": 30464,
-                    "name": "address",
-                    "nodeType": "ElementaryTypeName",
-                    "src": "629:7:51",
-                    "stateMutability": "nonpayable",
-                    "typeDescriptions": {
-                      "typeIdentifier": "t_address",
-                      "typeString": "address"
-                    }
-                  },
-                  "visibility": "internal"
-                }
-              ],
-              "src": "628:21:51"
-            },
-            "returnParameters": {
-              "id": 30469,
-              "nodeType": "ParameterList",
-              "parameters": [
-                {
-                  "constant": false,
-                  "id": 30468,
-                  "mutability": "mutable",
-                  "name": "feeBpsOverride_",
-                  "nameLocation": "705:15:51",
-                  "nodeType": "VariableDeclaration",
-                  "scope": 30470,
-                  "src": "697:23:51",
-                  "stateVariable": false,
-                  "storageLocation": "default",
-                  "typeDescriptions": {
-                    "typeIdentifier": "t_uint256",
-                    "typeString": "uint256"
-                  },
-                  "typeName": {
-                    "id": 30467,
-                    "name": "uint256",
-                    "nodeType": "ElementaryTypeName",
-                    "src": "697:7:51",
-                    "typeDescriptions": {
-                      "typeIdentifier": "t_uint256",
-                      "typeString": "uint256"
-                    }
-                  },
-                  "visibility": "internal"
-                }
-              ],
-              "src": "696:25:51"
-            },
-            "scope": 30507,
-            "stateMutability": "view",
-            "virtual": false,
-            "visibility": "external"
-          },
-          {
-            "id": 30477,
-            "nodeType": "FunctionDefinition",
-            "src": "728:92:51",
-            "nodes": [],
-            "functionSelector": "b69f3652",
-            "implemented": false,
-            "kind": "function",
-            "modifiers": [],
-            "name": "getLastPaidForVault",
-            "nameLocation": "737:19:51",
-            "parameters": {
-              "id": 30473,
-              "nodeType": "ParameterList",
-              "parameters": [
-                {
-                  "constant": false,
-                  "id": 30472,
-                  "mutability": "mutable",
-                  "name": "_vaultProxy",
-                  "nameLocation": "765:11:51",
-                  "nodeType": "VariableDeclaration",
-                  "scope": 30477,
-                  "src": "757:19:51",
-                  "stateVariable": false,
-                  "storageLocation": "default",
-                  "typeDescriptions": {
-                    "typeIdentifier": "t_address",
-                    "typeString": "address"
-                  },
-                  "typeName": {
-                    "id": 30471,
-                    "name": "address",
-                    "nodeType": "ElementaryTypeName",
-                    "src": "757:7:51",
-                    "stateMutability": "nonpayable",
-                    "typeDescriptions": {
-                      "typeIdentifier": "t_address",
-                      "typeString": "address"
-                    }
-                  },
-                  "visibility": "internal"
-                }
-              ],
-              "src": "756:21:51"
-            },
-            "returnParameters": {
-              "id": 30476,
-              "nodeType": "ParameterList",
-              "parameters": [
-                {
-                  "constant": false,
-                  "id": 30475,
-                  "mutability": "mutable",
-                  "name": "lastPaid_",
-                  "nameLocation": "809:9:51",
-                  "nodeType": "VariableDeclaration",
-                  "scope": 30477,
-                  "src": "801:17:51",
-                  "stateVariable": false,
-                  "storageLocation": "default",
-                  "typeDescriptions": {
-                    "typeIdentifier": "t_uint256",
-                    "typeString": "uint256"
-                  },
-                  "typeName": {
-                    "id": 30474,
-                    "name": "uint256",
-                    "nodeType": "ElementaryTypeName",
-                    "src": "801:7:51",
-                    "typeDescriptions": {
-                      "typeIdentifier": "t_uint256",
-                      "typeString": "uint256"
-                    }
-                  },
-                  "visibility": "internal"
-                }
-              ],
-              "src": "800:19:51"
-            },
-            "scope": 30507,
-            "stateMutability": "view",
-            "virtual": false,
-            "visibility": "external"
-          },
-          {
-            "id": 30482,
-            "nodeType": "FunctionDefinition",
-            "src": "826:58:51",
-            "nodes": [],
+            "documentation": null,
             "functionSelector": "0a48e041",
             "implemented": false,
             "kind": "function",
             "modifiers": [],
             "name": "initializeForVault",
-            "nameLocation": "835:18:51",
+            "overrides": null,
             "parameters": {
-              "id": 30480,
+              "id": 67898,
               "nodeType": "ParameterList",
               "parameters": [
                 {
                   "constant": false,
-                  "id": 30479,
+                  "id": 67897,
                   "mutability": "mutable",
-                  "name": "_vaultProxy",
-                  "nameLocation": "862:11:51",
+                  "name": "",
                   "nodeType": "VariableDeclaration",
-                  "scope": 30482,
-                  "src": "854:19:51",
+                  "overrides": null,
+                  "scope": 67900,
+                  "src": "438:7:256",
                   "stateVariable": false,
                   "storageLocation": "default",
                   "typeDescriptions": {
@@ -746,62 +189,64 @@
                     "typeString": "address"
                   },
                   "typeName": {
-                    "id": 30478,
+                    "id": 67896,
                     "name": "address",
                     "nodeType": "ElementaryTypeName",
-                    "src": "854:7:51",
+                    "src": "438:7:256",
                     "stateMutability": "nonpayable",
                     "typeDescriptions": {
                       "typeIdentifier": "t_address",
                       "typeString": "address"
                     }
                   },
+                  "value": null,
                   "visibility": "internal"
                 }
               ],
-              "src": "853:21:51"
+              "src": "437:9:256"
             },
             "returnParameters": {
-              "id": 30481,
+              "id": 67899,
               "nodeType": "ParameterList",
               "parameters": [],
-              "src": "883:0:51"
+              "src": "455:0:256"
             },
-            "scope": 30507,
+            "scope": 67906,
             "stateMutability": "nonpayable",
             "virtual": false,
             "visibility": "external"
           },
           {
-            "id": 30487,
+            "id": 67905,
             "nodeType": "FunctionDefinition",
-            "src": "890:56:51",
+            "src": "462:45:256",
             "nodes": [],
+            "documentation": null,
             "functionSelector": "29610252",
             "implemented": false,
             "kind": "function",
             "modifiers": [],
             "name": "payFee",
-            "nameLocation": "899:6:51",
+            "overrides": null,
             "parameters": {
-              "id": 30483,
+              "id": 67901,
               "nodeType": "ParameterList",
               "parameters": [],
-              "src": "905:2:51"
+              "src": "477:2:256"
             },
             "returnParameters": {
-              "id": 30486,
+              "id": 67904,
               "nodeType": "ParameterList",
               "parameters": [
                 {
                   "constant": false,
-                  "id": 30485,
+                  "id": 67903,
                   "mutability": "mutable",
-                  "name": "sharesDue_",
-                  "nameLocation": "934:10:51",
+                  "name": "",
                   "nodeType": "VariableDeclaration",
-                  "scope": 30487,
-                  "src": "926:18:51",
+                  "overrides": null,
+                  "scope": 67905,
+                  "src": "498:7:256",
                   "stateVariable": false,
                   "storageLocation": "default",
                   "typeDescriptions": {
@@ -809,245 +254,22 @@
                     "typeString": "uint256"
                   },
                   "typeName": {
-                    "id": 30484,
+                    "id": 67902,
                     "name": "uint256",
                     "nodeType": "ElementaryTypeName",
-                    "src": "926:7:51",
+                    "src": "498:7:256",
                     "typeDescriptions": {
                       "typeIdentifier": "t_uint256",
                       "typeString": "uint256"
                     }
                   },
+                  "value": null,
                   "visibility": "internal"
                 }
               ],
-              "src": "925:20:51"
+              "src": "497:9:256"
             },
-            "scope": 30507,
-            "stateMutability": "nonpayable",
-            "virtual": false,
-            "visibility": "external"
-          },
-          {
-            "id": 30492,
-            "nodeType": "FunctionDefinition",
-            "src": "952:63:51",
-            "nodes": [],
-            "functionSelector": "137e8d9b",
-            "implemented": false,
-            "kind": "function",
-            "modifiers": [],
-            "name": "setFeeBpsDefault",
-            "nameLocation": "961:16:51",
-            "parameters": {
-              "id": 30490,
-              "nodeType": "ParameterList",
-              "parameters": [
-                {
-                  "constant": false,
-                  "id": 30489,
-                  "mutability": "mutable",
-                  "name": "_nextFeeBpsDefault",
-                  "nameLocation": "986:18:51",
-                  "nodeType": "VariableDeclaration",
-                  "scope": 30492,
-                  "src": "978:26:51",
-                  "stateVariable": false,
-                  "storageLocation": "default",
-                  "typeDescriptions": {
-                    "typeIdentifier": "t_uint256",
-                    "typeString": "uint256"
-                  },
-                  "typeName": {
-                    "id": 30488,
-                    "name": "uint256",
-                    "nodeType": "ElementaryTypeName",
-                    "src": "978:7:51",
-                    "typeDescriptions": {
-                      "typeIdentifier": "t_uint256",
-                      "typeString": "uint256"
-                    }
-                  },
-                  "visibility": "internal"
-                }
-              ],
-              "src": "977:28:51"
-            },
-            "returnParameters": {
-              "id": 30491,
-              "nodeType": "ParameterList",
-              "parameters": [],
-              "src": "1014:0:51"
-            },
-            "scope": 30507,
-            "stateMutability": "nonpayable",
-            "virtual": false,
-            "visibility": "external"
-          },
-          {
-            "id": 30499,
-            "nodeType": "FunctionDefinition",
-            "src": "1021:94:51",
-            "nodes": [],
-            "functionSelector": "7c73c699",
-            "implemented": false,
-            "kind": "function",
-            "modifiers": [],
-            "name": "setFeeBpsOverrideForVault",
-            "nameLocation": "1030:25:51",
-            "parameters": {
-              "id": 30497,
-              "nodeType": "ParameterList",
-              "parameters": [
-                {
-                  "constant": false,
-                  "id": 30494,
-                  "mutability": "mutable",
-                  "name": "_vaultProxy",
-                  "nameLocation": "1064:11:51",
-                  "nodeType": "VariableDeclaration",
-                  "scope": 30499,
-                  "src": "1056:19:51",
-                  "stateVariable": false,
-                  "storageLocation": "default",
-                  "typeDescriptions": {
-                    "typeIdentifier": "t_address",
-                    "typeString": "address"
-                  },
-                  "typeName": {
-                    "id": 30493,
-                    "name": "address",
-                    "nodeType": "ElementaryTypeName",
-                    "src": "1056:7:51",
-                    "stateMutability": "nonpayable",
-                    "typeDescriptions": {
-                      "typeIdentifier": "t_address",
-                      "typeString": "address"
-                    }
-                  },
-                  "visibility": "internal"
-                },
-                {
-                  "constant": false,
-                  "id": 30496,
-                  "mutability": "mutable",
-                  "name": "_nextFeeBpsOverride",
-                  "nameLocation": "1085:19:51",
-                  "nodeType": "VariableDeclaration",
-                  "scope": 30499,
-                  "src": "1077:27:51",
-                  "stateVariable": false,
-                  "storageLocation": "default",
-                  "typeDescriptions": {
-                    "typeIdentifier": "t_uint256",
-                    "typeString": "uint256"
-                  },
-                  "typeName": {
-                    "id": 30495,
-                    "name": "uint256",
-                    "nodeType": "ElementaryTypeName",
-                    "src": "1077:7:51",
-                    "typeDescriptions": {
-                      "typeIdentifier": "t_uint256",
-                      "typeString": "uint256"
-                    }
-                  },
-                  "visibility": "internal"
-                }
-              ],
-              "src": "1055:50:51"
-            },
-            "returnParameters": {
-              "id": 30498,
-              "nodeType": "ParameterList",
-              "parameters": [],
-              "src": "1114:0:51"
-            },
-            "scope": 30507,
-            "stateMutability": "nonpayable",
-            "virtual": false,
-            "visibility": "external"
-          },
-          {
-            "id": 30506,
-            "nodeType": "FunctionDefinition",
-            "src": "1121:83:51",
-            "nodes": [],
-            "functionSelector": "f033ac56",
-            "implemented": false,
-            "kind": "function",
-            "modifiers": [],
-            "name": "setLastPaidForVault",
-            "nameLocation": "1130:19:51",
-            "parameters": {
-              "id": 30504,
-              "nodeType": "ParameterList",
-              "parameters": [
-                {
-                  "constant": false,
-                  "id": 30501,
-                  "mutability": "mutable",
-                  "name": "_vaultProxy",
-                  "nameLocation": "1158:11:51",
-                  "nodeType": "VariableDeclaration",
-                  "scope": 30506,
-                  "src": "1150:19:51",
-                  "stateVariable": false,
-                  "storageLocation": "default",
-                  "typeDescriptions": {
-                    "typeIdentifier": "t_address",
-                    "typeString": "address"
-                  },
-                  "typeName": {
-                    "id": 30500,
-                    "name": "address",
-                    "nodeType": "ElementaryTypeName",
-                    "src": "1150:7:51",
-                    "stateMutability": "nonpayable",
-                    "typeDescriptions": {
-                      "typeIdentifier": "t_address",
-                      "typeString": "address"
-                    }
-                  },
-                  "visibility": "internal"
-                },
-                {
-                  "constant": false,
-                  "id": 30503,
-                  "mutability": "mutable",
-                  "name": "_nextTimestamp",
-                  "nameLocation": "1179:14:51",
-                  "nodeType": "VariableDeclaration",
-                  "scope": 30506,
-                  "src": "1171:22:51",
-                  "stateVariable": false,
-                  "storageLocation": "default",
-                  "typeDescriptions": {
-                    "typeIdentifier": "t_uint256",
-                    "typeString": "uint256"
-                  },
-                  "typeName": {
-                    "id": 30502,
-                    "name": "uint256",
-                    "nodeType": "ElementaryTypeName",
-                    "src": "1171:7:51",
-                    "typeDescriptions": {
-                      "typeIdentifier": "t_uint256",
-                      "typeString": "uint256"
-                    }
-                  },
-                  "visibility": "internal"
-                }
-              ],
-              "src": "1149:45:51"
-            },
-            "returnParameters": {
-              "id": 30505,
-              "nodeType": "ParameterList",
-              "parameters": [],
-              "src": "1203:0:51"
-            },
-            "scope": 30507,
+            "scope": 67906,
             "stateMutability": "nonpayable",
             "virtual": false,
             "visibility": "external"
@@ -1055,26 +277,23 @@
         ],
         "abstract": false,
         "baseContracts": [],
-        "canonicalName": "IProtocolFeeTracker",
         "contractDependencies": [],
         "contractKind": "interface",
         "documentation": {
-          "id": 30451,
+          "id": 67895,
           "nodeType": "StructuredDocumentation",
-          "src": "289:94:51",
+          "src": "280:94:256",
           "text": "@title IProtocolFeeTracker Interface\n @author Enzyme Council <security@enzyme.finance>"
         },
         "fullyImplemented": false,
         "linearizedBaseContracts": [
-          30507
+          67906
         ],
         "name": "IProtocolFeeTracker",
-        "nameLocation": "393:19:51",
-        "scope": 30508,
-        "usedErrors": []
+        "scope": 67907
       }
     ],
     "license": "GPL-3.0"
   },
-  "id": 51
+  "id": 256
 }

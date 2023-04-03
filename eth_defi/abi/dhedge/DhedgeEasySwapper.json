@@ -1,0 +1,629 @@
+[
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": false,
+        "internalType": "address",
+        "name": "pool",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "address",
+        "name": "depositor",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "address",
+        "name": "depositAsset",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "amount",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "address",
+        "name": "poolDepositAsset",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "liquidityMinted",
+        "type": "uint256"
+      }
+    ],
+    "name": "Deposit",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "previousOwner",
+        "type": "address"
+      },
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "newOwner",
+        "type": "address"
+      }
+    ],
+    "name": "OwnershipTransferred",
+    "type": "event"
+  },
+  {
+    "stateMutability": "payable",
+    "type": "fallback"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "",
+        "type": "address"
+      }
+    ],
+    "name": "allowedPools",
+    "outputs": [
+      {
+        "internalType": "bool",
+        "name": "",
+        "type": "bool"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "pool",
+        "type": "address"
+      },
+      {
+        "internalType": "contract IERC20Extended",
+        "name": "depositAsset",
+        "type": "address"
+      },
+      {
+        "internalType": "uint256",
+        "name": "amount",
+        "type": "uint256"
+      },
+      {
+        "internalType": "contract IERC20Extended",
+        "name": "poolDepositAsset",
+        "type": "address"
+      },
+      {
+        "internalType": "uint256",
+        "name": "expectedLiquidityMinted",
+        "type": "uint256"
+      }
+    ],
+    "name": "deposit",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "liquidityMinted",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "pool",
+        "type": "address"
+      },
+      {
+        "internalType": "contract IERC20Extended",
+        "name": "poolDepositAsset",
+        "type": "address"
+      },
+      {
+        "internalType": "uint256",
+        "name": "expectedLiquidityMinted",
+        "type": "uint256"
+      }
+    ],
+    "name": "depositNative",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "liquidityMinted",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "payable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "pool",
+        "type": "address"
+      },
+      {
+        "internalType": "contract IERC20Extended",
+        "name": "depositAsset",
+        "type": "address"
+      },
+      {
+        "internalType": "uint256",
+        "name": "amount",
+        "type": "uint256"
+      },
+      {
+        "internalType": "contract IERC20Extended",
+        "name": "poolDepositAsset",
+        "type": "address"
+      }
+    ],
+    "name": "depositQuote",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "expectedLiquidityMinted",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "feeDenominator",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "feeNumerator",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "feeSink",
+    "outputs": [
+      {
+        "internalType": "address payable",
+        "name": "",
+        "type": "address"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address payable",
+        "name": "_feeSink",
+        "type": "address"
+      },
+      {
+        "internalType": "uint256",
+        "name": "_feeNumerator",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "_feeDenominator",
+        "type": "uint256"
+      }
+    ],
+    "name": "initialize",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "",
+        "type": "address"
+      }
+    ],
+    "name": "managerFeeBypass",
+    "outputs": [
+      {
+        "internalType": "bool",
+        "name": "",
+        "type": "bool"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "owner",
+    "outputs": [
+      {
+        "internalType": "address",
+        "name": "",
+        "type": "address"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "poolFactory",
+    "outputs": [
+      {
+        "internalType": "address",
+        "name": "",
+        "type": "address"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "renounceOwnership",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "numerator",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "denominator",
+        "type": "uint256"
+      }
+    ],
+    "name": "setFee",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address payable",
+        "name": "sink",
+        "type": "address"
+      }
+    ],
+    "name": "setFeeSink",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "manager",
+        "type": "address"
+      },
+      {
+        "internalType": "bool",
+        "name": "bypass",
+        "type": "bool"
+      }
+    ],
+    "name": "setManagerFeeBypass",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "pool",
+        "type": "address"
+      },
+      {
+        "internalType": "bool",
+        "name": "allowed",
+        "type": "bool"
+      }
+    ],
+    "name": "setPoolAllowed",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "contract IUniswapV2RouterSwapOnly",
+        "name": "_swapRouter",
+        "type": "address"
+      }
+    ],
+    "name": "setSwapRouter",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "components": [
+          {
+            "internalType": "contract IUniswapV2RouterSwapOnly",
+            "name": "swapRouter",
+            "type": "address"
+          },
+          {
+            "internalType": "contract IUniswapV2Router",
+            "name": "assetType2Router",
+            "type": "address"
+          },
+          {
+            "internalType": "contract IUniswapV2Router",
+            "name": "assetType5Router",
+            "type": "address"
+          },
+          {
+            "components": [
+              {
+                "internalType": "contract ISynthetix",
+                "name": "snxProxy",
+                "type": "address"
+              },
+              {
+                "internalType": "contract IERC20Extended",
+                "name": "swapSUSDToAsset",
+                "type": "address"
+              },
+              {
+                "internalType": "contract ISynthAddressProxy",
+                "name": "sUSDProxy",
+                "type": "address"
+              }
+            ],
+            "internalType": "struct EasySwapperStructs.SynthetixProps",
+            "name": "synthetixProps",
+            "type": "tuple"
+          },
+          {
+            "internalType": "contract IERC20Extended",
+            "name": "weth",
+            "type": "address"
+          },
+          {
+            "internalType": "contract IERC20Extended",
+            "name": "nativeAssetWrapper",
+            "type": "address"
+          }
+        ],
+        "internalType": "struct EasySwapperStructs.WithdrawProps",
+        "name": "_withdrawProps",
+        "type": "tuple"
+      }
+    ],
+    "name": "setWithdrawProps",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "newOwner",
+        "type": "address"
+      }
+    ],
+    "name": "transferOwnership",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "pool",
+        "type": "address"
+      },
+      {
+        "internalType": "uint256",
+        "name": "fundTokenAmount",
+        "type": "uint256"
+      },
+      {
+        "internalType": "contract IERC20Extended",
+        "name": "withdrawalAsset",
+        "type": "address"
+      },
+      {
+        "internalType": "uint256",
+        "name": "expectedAmountOut",
+        "type": "uint256"
+      }
+    ],
+    "name": "withdraw",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "pool",
+        "type": "address"
+      },
+      {
+        "internalType": "uint256",
+        "name": "fundTokenAmount",
+        "type": "uint256"
+      },
+      {
+        "internalType": "contract IERC20Extended",
+        "name": "intermediateAsset",
+        "type": "address"
+      },
+      {
+        "internalType": "contract IERC20Extended",
+        "name": "finalAsset",
+        "type": "address"
+      },
+      {
+        "internalType": "uint256",
+        "name": "expectedAmountFinalAsset",
+        "type": "uint256"
+      }
+    ],
+    "name": "withdrawIntermediate",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "pool",
+        "type": "address"
+      },
+      {
+        "internalType": "uint256",
+        "name": "fundTokenAmount",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "expectedAmountOut",
+        "type": "uint256"
+      }
+    ],
+    "name": "withdrawNative",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "withdrawProps",
+    "outputs": [
+      {
+        "internalType": "contract IUniswapV2RouterSwapOnly",
+        "name": "swapRouter",
+        "type": "address"
+      },
+      {
+        "internalType": "contract IUniswapV2Router",
+        "name": "assetType2Router",
+        "type": "address"
+      },
+      {
+        "internalType": "contract IUniswapV2Router",
+        "name": "assetType5Router",
+        "type": "address"
+      },
+      {
+        "components": [
+          {
+            "internalType": "contract ISynthetix",
+            "name": "snxProxy",
+            "type": "address"
+          },
+          {
+            "internalType": "contract IERC20Extended",
+            "name": "swapSUSDToAsset",
+            "type": "address"
+          },
+          {
+            "internalType": "contract ISynthAddressProxy",
+            "name": "sUSDProxy",
+            "type": "address"
+          }
+        ],
+        "internalType": "struct EasySwapperStructs.SynthetixProps",
+        "name": "synthetixProps",
+        "type": "tuple"
+      },
+      {
+        "internalType": "contract IERC20Extended",
+        "name": "weth",
+        "type": "address"
+      },
+      {
+        "internalType": "contract IERC20Extended",
+        "name": "nativeAssetWrapper",
+        "type": "address"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "pool",
+        "type": "address"
+      },
+      {
+        "internalType": "uint256",
+        "name": "fundTokenAmount",
+        "type": "uint256"
+      },
+      {
+        "internalType": "contract IERC20Extended",
+        "name": "intermediateAsset",
+        "type": "address"
+      },
+      {
+        "internalType": "uint256",
+        "name": "expectedAmountSUSD",
+        "type": "uint256"
+      }
+    ],
+    "name": "withdrawSUSD",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "stateMutability": "payable",
+    "type": "receive"
+  }
+]

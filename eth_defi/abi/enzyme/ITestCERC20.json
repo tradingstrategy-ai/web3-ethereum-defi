@@ -809,7 +809,7 @@
         "absolutePath": "node_modules/@openzeppelin/contracts/token/ERC20/IERC20.sol",
         "file": "@openzeppelin/contracts/token/ERC20/IERC20.sol",
         "scope": 80157,
-        "sourceUnit": 83519,
+        "sourceUnit": 105041,
         "symbolAliases": [],
         "unitAlias": ""
       },
@@ -1497,10 +1497,10 @@
               "id": 80099,
               "name": "IERC20",
               "nodeType": "UserDefinedTypeName",
-              "referencedDeclaration": 83518,
+              "referencedDeclaration": 105040,
               "src": "448:6:381",
               "typeDescriptions": {
-                "typeIdentifier": "t_contract$_IERC20_$83518",
+                "typeIdentifier": "t_contract$_IERC20_$105040",
                 "typeString": "contract IERC20"
               }
             },
@@ -1510,7 +1510,7 @@
           }
         ],
         "contractDependencies": [
-          83518
+          105040
         ],
         "contractKind": "interface",
         "documentation": {
@@ -1522,7 +1522,7 @@
         "fullyImplemented": false,
         "linearizedBaseContracts": [
           80156,
-          83518
+          105040
         ],
         "name": "ITestCERC20",
         "scope": 80157

@@ -581,7 +581,7 @@
         "absolutePath": "node_modules/@openzeppelin/contracts/token/ERC20/ERC20.sol",
         "file": "@openzeppelin/contracts/token/ERC20/ERC20.sol",
         "scope": 66238,
-        "sourceUnit": 83382,
+        "sourceUnit": 104904,
         "symbolAliases": [],
         "unitAlias": ""
       },
@@ -1886,10 +1886,10 @@
                                 "name": "ERC20",
                                 "nodeType": "Identifier",
                                 "overloadedDeclarations": [],
-                                "referencedDeclaration": 83381,
+                                "referencedDeclaration": 104903,
                                 "src": "2626:5:250",
                                 "typeDescriptions": {
-                                  "typeIdentifier": "t_type$_t_contract$_ERC20_$83381_$",
+                                  "typeIdentifier": "t_type$_t_contract$_ERC20_$104903_$",
                                   "typeString": "type(contract ERC20)"
                                 }
                               },
@@ -1904,7 +1904,7 @@
                               "src": "2626:18:250",
                               "tryCall": false,
                               "typeDescriptions": {
-                                "typeIdentifier": "t_contract$_ERC20_$83381",
+                                "typeIdentifier": "t_contract$_ERC20_$104903",
                                 "typeString": "contract ERC20"
                               }
                             },
@@ -1915,7 +1915,7 @@
                             "lValueRequested": false,
                             "memberName": "decimals",
                             "nodeType": "MemberAccess",
-                            "referencedDeclaration": 82957,
+                            "referencedDeclaration": 104479,
                             "src": "2626:27:250",
                             "typeDescriptions": {
                               "typeIdentifier": "t_function_external_view$__$returns$_t_uint8_$",
@@ -1972,10 +1972,10 @@
                                 "name": "ERC20",
                                 "nodeType": "Identifier",
                                 "overloadedDeclarations": [],
-                                "referencedDeclaration": 83381,
+                                "referencedDeclaration": 104903,
                                 "src": "2659:5:250",
                                 "typeDescriptions": {
-                                  "typeIdentifier": "t_type$_t_contract$_ERC20_$83381_$",
+                                  "typeIdentifier": "t_type$_t_contract$_ERC20_$104903_$",
                                   "typeString": "type(contract ERC20)"
                                 }
                               },
@@ -1990,7 +1990,7 @@
                               "src": "2659:18:250",
                               "tryCall": false,
                               "typeDescriptions": {
-                                "typeIdentifier": "t_contract$_ERC20_$83381",
+                                "typeIdentifier": "t_contract$_ERC20_$104903",
                                 "typeString": "contract ERC20"
                               }
                             },
@@ -2001,7 +2001,7 @@
                             "lValueRequested": false,
                             "memberName": "decimals",
                             "nodeType": "MemberAccess",
-                            "referencedDeclaration": 82957,
+                            "referencedDeclaration": 104479,
                             "src": "2659:27:250",
                             "typeDescriptions": {
                               "typeIdentifier": "t_function_external_view$__$returns$_t_uint8_$",

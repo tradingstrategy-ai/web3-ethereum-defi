@@ -136,10 +136,16 @@ def test_vault_controlled_wallet_make_buy(
 ):
     """Buy tokens using vault controlled wallet interface."""
 
-    generic_adapter = deploy_contract(web3, f"enzyme/GenericAdapter.json", deployer, deployment.contracts.integration_manager.address)
-    assert generic_adapter.functions.getIntegrationManager().call() == deployment.contracts.integration_manager.address
-
     comptroller_contract, vault_contract = deployment.create_new_vault(hot_wallet.address, usdc, fund_name="Toholampi Juhannusjami", fund_symbol="JUUH")
+
+    generic_adapter = deploy_contract(
+        web3,
+        f"VaultSpecificGenericAdapter.json",
+        deployer,
+        deployment.contracts.integration_manager.address,
+        vault_contract.address,
+    )
+
     vault = Vault(vault_contract, comptroller_contract, deployment, generic_adapter)
     vault_wallet = VaultControlledWallet(vault, hot_wallet)
 

@@ -1,0 +1,8 @@
+[profile.default]
+# solc is a hard mistress and simply refuses to compile relative paths down in the parent tree
+# allow the file system root and hope solc shuts up, as the error is not relevant
+allow_paths = ["*", "/"]
+
+[profile.ci.fuzz]
+runs = 10_000
+

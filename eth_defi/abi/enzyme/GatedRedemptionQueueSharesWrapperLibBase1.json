@@ -1456,7 +1456,7 @@
         "absolutePath": "node_modules/@openzeppelin/contracts/token/ERC20/ERC20.sol",
         "file": "@openzeppelin/contracts/token/ERC20/ERC20.sol",
         "scope": 10539,
-        "sourceUnit": 83382,
+        "sourceUnit": 104904,
         "symbolAliases": [],
         "unitAlias": ""
       },
@@ -1468,7 +1468,7 @@
         "absolutePath": "node_modules/@openzeppelin/contracts/utils/ReentrancyGuard.sol",
         "file": "@openzeppelin/contracts/utils/ReentrancyGuard.sol",
         "scope": 10539,
-        "sourceUnit": 84091,
+        "sourceUnit": 105613,
         "symbolAliases": [],
         "unitAlias": ""
       },
@@ -3712,10 +3712,10 @@
               "id": 10360,
               "name": "ERC20",
               "nodeType": "UserDefinedTypeName",
-              "referencedDeclaration": 83381,
+              "referencedDeclaration": 104903,
               "src": "891:5:64",
               "typeDescriptions": {
-                "typeIdentifier": "t_contract$_ERC20_$83381",
+                "typeIdentifier": "t_contract$_ERC20_$104903",
                 "typeString": "contract ERC20"
               }
             },
@@ -3730,10 +3730,10 @@
               "id": 10362,
               "name": "ReentrancyGuard",
               "nodeType": "UserDefinedTypeName",
-              "referencedDeclaration": 84090,
+              "referencedDeclaration": 105612,
               "src": "898:15:64",
               "typeDescriptions": {
-                "typeIdentifier": "t_contract$_ReentrancyGuard_$84090",
+                "typeIdentifier": "t_contract$_ReentrancyGuard_$105612",
                 "typeString": "contract ReentrancyGuard"
               }
             },
@@ -3743,10 +3743,10 @@
           }
         ],
         "contractDependencies": [
-          83381,
-          83518,
-          84050,
-          84090
+          104903,
+          105040,
+          105572,
+          105612
         ],
         "contractKind": "contract",
         "documentation": {
@@ -3758,10 +3758,10 @@
         "fullyImplemented": false,
         "linearizedBaseContracts": [
           10538,
-          84090,
-          83381,
-          83518,
-          84050
+          105612,
+          104903,
+          105040,
+          105572
         ],
         "name": "GatedRedemptionQueueSharesWrapperLibBase1",
         "scope": 10539

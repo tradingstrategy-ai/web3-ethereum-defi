@@ -84,14 +84,20 @@ def test_generic_adapter_uniswap_v2(
 
     deployment = dual_token_deployment
 
-    generic_adapter = deploy_contract(web3, f"enzyme/GenericAdapter.json", deployer, deployment.contracts.integration_manager.address)
-    assert generic_adapter.functions.getIntegrationManager().call() == deployment.contracts.integration_manager.address
-
     comptroller, vault = deployment.create_new_vault(
         user_1,
         usdc,
     )
 
+    generic_adapter = deploy_contract(
+        web3,
+        f"VaultSpecificGenericAdapter.json",
+        deployer,
+        deployment.contracts.integration_manager.address,
+        vault.address,
+    )
+
+    assert generic_adapter.functions.getIntegrationManager().call() == deployment.contracts.integration_manager.address
     assert comptroller.functions.getDenominationAsset().call() == usdc.address
     assert vault.functions.getTrackedAssets().call() == [usdc.address]
     assert vault.functions.canManageAssets(user_1).call() is True
@@ -169,13 +175,19 @@ def test_generic_adapter_approve(
 
     deployment = dual_token_deployment
 
-    generic_adapter = deploy_contract(web3, f"enzyme/GenericAdapter.json", deployer, deployment.contracts.integration_manager.address)
-    assert generic_adapter.functions.getIntegrationManager().call() == deployment.contracts.integration_manager.address
-
     comptroller, vault = deployment.create_new_vault(
         user_1,
         usdc,
     )
+
+    generic_adapter = deploy_contract(
+        web3,
+        f"VaultSpecificGenericAdapter.json",
+        deployer,
+        deployment.contracts.integration_manager.address,
+        vault.address,
+    )
+    assert generic_adapter.functions.getIntegrationManager().call() == deployment.contracts.integration_manager.address
 
     usdc.functions.transfer(user_2, 500 * 10**6).transact({"from": deployer})
     usdc.functions.approve(comptroller.address, 500 * 10**6).transact({"from": user_2})

@@ -2420,7 +2420,7 @@
               ]
             },
             "baseFunctions": [
-              82939
+              104461
             ],
             "documentation": {
               "id": 69571,
@@ -2518,7 +2518,7 @@
               ]
             },
             "baseFunctions": [
-              82948
+              104470
             ],
             "documentation": {
               "id": 69581,
@@ -2608,10 +2608,10 @@
         "contractDependencies": [
           68428,
           69522,
-          83381,
-          83518,
-          84050,
-          84090
+          104903,
+          105040,
+          105572,
+          105612
         ],
         "contractKind": "contract",
         "documentation": {
@@ -2624,10 +2624,10 @@
         "linearizedBaseContracts": [
           69591,
           69522,
-          84090,
-          83381,
-          83518,
-          84050,
+          105612,
+          104903,
+          105040,
+          105572,
           68428
         ],
         "name": "StakingWrapperLibBase",

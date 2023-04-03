@@ -1,0 +1,36 @@
+[
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "stakeStartTime",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "dhtAmount",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "stakeFinishTime",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "maxVDurationTime",
+        "type": "uint256"
+      }
+    ],
+    "name": "calculateVDHT",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "vDHT",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "pure",
+    "type": "function"
+  }
+]

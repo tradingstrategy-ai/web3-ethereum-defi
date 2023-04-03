@@ -13,3 +13,6 @@
 [submodule "contracts/dhedge"]
 	path = contracts/dhedge
 	url = https://github.com/dhedge/V2-Public.git
+[submodule "contracts/in-house/lib/openzeppelin-contracts"]
+	path = contracts/in-house/lib/openzeppelin-contracts
+	url = https://github.com/OpenZeppelin/openzeppelin-contracts.git

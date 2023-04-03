@@ -1,0 +1,128 @@
+[
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "tokenId",
+        "type": "uint256"
+      },
+      {
+        "components": [
+          {
+            "internalType": "uint256",
+            "name": "dhtAmount",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "dhtStakeStartTime",
+            "type": "uint256"
+          },
+          {
+            "internalType": "address",
+            "name": "dhedgePoolAddress",
+            "type": "address"
+          },
+          {
+            "internalType": "uint256",
+            "name": "dhedgePoolAmount",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "dhedgePoolStakeStartTime",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "stakeStartTokenPrice",
+            "type": "uint256"
+          },
+          {
+            "internalType": "bool",
+            "name": "unstaked",
+            "type": "bool"
+          },
+          {
+            "internalType": "uint256",
+            "name": "unstakeTime",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "reward",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "claimedReward",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "rewardParamsEmissionsRate",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "stakeFinishTokenPrice",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "vdhtAccruedAtUnstake",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "dhedgePoolRemainingExitCooldownAtStakeTime",
+            "type": "uint256"
+          }
+        ],
+        "internalType": "struct IDhedgeStakingV2Storage.Stake",
+        "name": "stake",
+        "type": "tuple"
+      },
+      {
+        "internalType": "uint256",
+        "name": "vDHT",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "rewards",
+        "type": "uint256"
+      },
+      {
+        "internalType": "string",
+        "name": "poolSymbol",
+        "type": "string"
+      },
+      {
+        "internalType": "uint256",
+        "name": "currentTokenPrice",
+        "type": "uint256"
+      },
+      {
+        "internalType": "address",
+        "name": "dhtAddress",
+        "type": "address"
+      },
+      {
+        "internalType": "address",
+        "name": "owner",
+        "type": "address"
+      }
+    ],
+    "name": "tokenJson",
+    "outputs": [
+      {
+        "internalType": "string",
+        "name": "",
+        "type": "string"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  }
+]

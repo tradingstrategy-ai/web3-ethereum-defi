@@ -146,19 +146,19 @@
   },
   "ast": {
     "absolutePath": "contracts/release/interfaces/IChainlinkAggregator.sol",
-    "id": 15508,
+    "id": 71226,
     "exportedSymbols": {
       "IChainlinkAggregator": [
-        15507
+        71225
       ]
     },
     "nodeType": "SourceUnit",
-    "src": "255:346:65",
+    "src": "255:346:280",
     "nodes": [
       {
-        "id": 15492,
+        "id": 71210,
         "nodeType": "PragmaDirective",
-        "src": "255:23:65",
+        "src": "255:23:280",
         "nodes": [],
         "literals": [
           "solidity",
@@ -167,14 +167,14 @@
         ]
       },
       {
-        "id": 15507,
+        "id": 71225,
         "nodeType": "ContractDefinition",
-        "src": "375:225:65",
+        "src": "375:225:280",
         "nodes": [
           {
-            "id": 15506,
+            "id": 71224,
             "nodeType": "FunctionDefinition",
-            "src": "412:186:65",
+            "src": "412:186:280",
             "nodes": [],
             "documentation": null,
             "functionSelector": "feaf968c",
@@ -184,24 +184,24 @@
             "name": "latestRoundData",
             "overrides": null,
             "parameters": {
-              "id": 15494,
+              "id": 71212,
               "nodeType": "ParameterList",
               "parameters": [],
-              "src": "436:2:65"
+              "src": "436:2:280"
             },
             "returnParameters": {
-              "id": 15505,
+              "id": 71223,
               "nodeType": "ParameterList",
               "parameters": [
                 {
                   "constant": false,
-                  "id": 15496,
+                  "id": 71214,
                   "mutability": "mutable",
                   "name": "",
                   "nodeType": "VariableDeclaration",
                   "overrides": null,
-                  "scope": 15506,
-                  "src": "499:6:65",
+                  "scope": 71224,
+                  "src": "499:6:280",
                   "stateVariable": false,
                   "storageLocation": "default",
                   "typeDescriptions": {
@@ -209,10 +209,10 @@
                     "typeString": "uint80"
                   },
                   "typeName": {
-                    "id": 15495,
+                    "id": 71213,
                     "name": "uint80",
                     "nodeType": "ElementaryTypeName",
-                    "src": "499:6:65",
+                    "src": "499:6:280",
                     "typeDescriptions": {
                       "typeIdentifier": "t_uint80",
                       "typeString": "uint80"
@@ -223,13 +223,13 @@
                 },
                 {
                   "constant": false,
-                  "id": 15498,
+                  "id": 71216,
                   "mutability": "mutable",
                   "name": "",
                   "nodeType": "VariableDeclaration",
                   "overrides": null,
-                  "scope": 15506,
-                  "src": "519:6:65",
+                  "scope": 71224,
+                  "src": "519:6:280",
                   "stateVariable": false,
                   "storageLocation": "default",
                   "typeDescriptions": {
@@ -237,10 +237,10 @@
                     "typeString": "int256"
                   },
                   "typeName": {
-                    "id": 15497,
+                    "id": 71215,
                     "name": "int256",
                     "nodeType": "ElementaryTypeName",
-                    "src": "519:6:65",
+                    "src": "519:6:280",
                     "typeDescriptions": {
                       "typeIdentifier": "t_int256",
                       "typeString": "int256"
@@ -251,13 +251,13 @@
                 },
                 {
                   "constant": false,
-                  "id": 15500,
+                  "id": 71218,
                   "mutability": "mutable",
                   "name": "",
                   "nodeType": "VariableDeclaration",
                   "overrides": null,
-                  "scope": 15506,
-                  "src": "539:7:65",
+                  "scope": 71224,
+                  "src": "539:7:280",
                   "stateVariable": false,
                   "storageLocation": "default",
                   "typeDescriptions": {
@@ -265,10 +265,10 @@
                     "typeString": "uint256"
                   },
                   "typeName": {
-                    "id": 15499,
+                    "id": 71217,
                     "name": "uint256",
                     "nodeType": "ElementaryTypeName",
-                    "src": "539:7:65",
+                    "src": "539:7:280",
                     "typeDescriptions": {
                       "typeIdentifier": "t_uint256",
                       "typeString": "uint256"
@@ -279,13 +279,13 @@
                 },
                 {
                   "constant": false,
-                  "id": 15502,
+                  "id": 71220,
                   "mutability": "mutable",
                   "name": "",
                   "nodeType": "VariableDeclaration",
                   "overrides": null,
-                  "scope": 15506,
-                  "src": "560:7:65",
+                  "scope": 71224,
+                  "src": "560:7:280",
                   "stateVariable": false,
                   "storageLocation": "default",
                   "typeDescriptions": {
@@ -293,10 +293,10 @@
                     "typeString": "uint256"
                   },
                   "typeName": {
-                    "id": 15501,
+                    "id": 71219,
                     "name": "uint256",
                     "nodeType": "ElementaryTypeName",
-                    "src": "560:7:65",
+                    "src": "560:7:280",
                     "typeDescriptions": {
                       "typeIdentifier": "t_uint256",
                       "typeString": "uint256"
@@ -307,13 +307,13 @@
                 },
                 {
                   "constant": false,
-                  "id": 15504,
+                  "id": 71222,
                   "mutability": "mutable",
                   "name": "",
                   "nodeType": "VariableDeclaration",
                   "overrides": null,
-                  "scope": 15506,
-                  "src": "581:6:65",
+                  "scope": 71224,
+                  "src": "581:6:280",
                   "stateVariable": false,
                   "storageLocation": "default",
                   "typeDescriptions": {
@@ -321,10 +321,10 @@
                     "typeString": "uint80"
                   },
                   "typeName": {
-                    "id": 15503,
+                    "id": 71221,
                     "name": "uint80",
                     "nodeType": "ElementaryTypeName",
-                    "src": "581:6:65",
+                    "src": "581:6:280",
                     "typeDescriptions": {
                       "typeIdentifier": "t_uint80",
                       "typeString": "uint80"
@@ -334,9 +334,9 @@
                   "visibility": "internal"
                 }
               ],
-              "src": "485:112:65"
+              "src": "485:112:280"
             },
-            "scope": 15507,
+            "scope": 71225,
             "stateMutability": "view",
             "virtual": false,
             "visibility": "external"
@@ -347,20 +347,20 @@
         "contractDependencies": [],
         "contractKind": "interface",
         "documentation": {
-          "id": 15493,
+          "id": 71211,
           "nodeType": "StructuredDocumentation",
-          "src": "280:95:65",
+          "src": "280:95:280",
           "text": "@title IChainlinkAggregator Interface\n @author Enzyme Council <security@enzyme.finance>"
         },
         "fullyImplemented": false,
         "linearizedBaseContracts": [
-          15507
+          71225
         ],
         "name": "IChainlinkAggregator",
-        "scope": 15508
+        "scope": 71226
       }
     ],
     "license": "GPL-3.0"
   },
-  "id": 65
+  "id": 280
 }

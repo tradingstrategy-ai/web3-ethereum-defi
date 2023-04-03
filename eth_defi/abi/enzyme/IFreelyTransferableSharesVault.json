@@ -1,0 +1,214 @@
+{
+  "abi": [
+    {
+      "inputs": [],
+      "name": "sharesAreFreelyTransferable",
+      "outputs": [
+        {
+          "internalType": "bool",
+          "name": "sharesAreFreelyTransferable_",
+          "type": "bool"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    }
+  ],
+  "bytecode": {
+    "object": "0x",
+    "sourceMap": "",
+    "linkReferences": {}
+  },
+  "deployedBytecode": {
+    "object": "0x",
+    "sourceMap": "",
+    "linkReferences": {}
+  },
+  "methodIdentifiers": {
+    "sharesAreFreelyTransferable()": "28c2ad9c"
+  },
+  "rawMetadata": "{\"compiler\":{\"version\":\"0.6.12+commit.27d51765\"},\"language\":\"Solidity\",\"output\":{\"abi\":[{\"inputs\":[],\"name\":\"sharesAreFreelyTransferable\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"sharesAreFreelyTransferable_\",\"type\":\"bool\"}],\"stateMutability\":\"view\",\"type\":\"function\"}],\"devdoc\":{\"author\":\"Enzyme Council <security@enzyme.finance>\",\"details\":\"DO NOT EDIT CONTRACT\",\"kind\":\"dev\",\"methods\":{},\"title\":\"IFreelyTransferableSharesVault Interface\",\"version\":1},\"userdoc\":{\"kind\":\"user\",\"methods\":{},\"notice\":\"Provides the interface for determining whether a vault's shares are guaranteed to be freely transferable.\",\"version\":1}},\"settings\":{\"compilationTarget\":{\"contracts/persistent/vault/interfaces/IFreelyTransferableSharesVault.sol\":\"IFreelyTransferableSharesVault\"},\"evmVersion\":\"istanbul\",\"libraries\":{},\"metadata\":{\"bytecodeHash\":\"none\"},\"optimizer\":{\"details\":{\"constantOptimizer\":true,\"cse\":true,\"deduplicate\":true,\"jumpdestRemover\":true,\"orderLiterals\":true,\"peephole\":true,\"yul\":false},\"runs\":200},\"remappings\":[\":@enzyme/=contracts/\",\":@openzeppelin-solc-0.7/=node_modules/@openzeppelin-solc-0.7/\",\":@openzeppelin/=node_modules/@openzeppelin/\",\":@uniswap/=node_modules/@uniswap/\",\":base64-sol/=node_modules/base64-sol/\",\":ds-test/=lib/forge-std/lib/ds-test/src/\",\":forge-std/=lib/forge-std/src/\",\":hardhat-deploy/=node_modules/hardhat-deploy/\",\":hardhat/=node_modules/hardhat/\"]},\"sources\":{\"contracts/persistent/vault/interfaces/IFreelyTransferableSharesVault.sol\":{\"keccak256\":\"0xe31f063493e6e3a4434eaa5629c0a706b8fa0569aff3f4ef9d62e27a1928cfa0\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://12b99c370c2bb6a1e1cf8d1a8d7e90538142ebc35d03e94d8449645d9046a0fb\",\"dweb:/ipfs/QmbNwAR6455sbjoxYXaBeHpqUYpwWfWaWyMkpaJaXeBbiU\"]}},\"version\":1}",
+  "metadata": {
+    "compiler": {
+      "version": "0.6.12+commit.27d51765"
+    },
+    "language": "Solidity",
+    "output": {
+      "abi": [
+        {
+          "inputs": [],
+          "stateMutability": "view",
+          "type": "function",
+          "name": "sharesAreFreelyTransferable",
+          "outputs": [
+            {
+              "internalType": "bool",
+              "name": "sharesAreFreelyTransferable_",
+              "type": "bool"
+            }
+          ]
+        }
+      ],
+      "devdoc": {
+        "kind": "dev",
+        "methods": {},
+        "version": 1
+      },
+      "userdoc": {
+        "kind": "user",
+        "methods": {},
+        "version": 1
+      }
+    },
+    "settings": {
+      "remappings": [
+        ":@enzyme/=contracts/",
+        ":@openzeppelin-solc-0.7/=node_modules/@openzeppelin-solc-0.7/",
+        ":@openzeppelin/=node_modules/@openzeppelin/",
+        ":@uniswap/=node_modules/@uniswap/",
+        ":base64-sol/=node_modules/base64-sol/",
+        ":ds-test/=lib/forge-std/lib/ds-test/src/",
+        ":forge-std/=lib/forge-std/src/",
+        ":hardhat-deploy/=node_modules/hardhat-deploy/",
+        ":hardhat/=node_modules/hardhat/"
+      ],
+      "optimizer": {
+        "runs": 200,
+        "details": {
+          "peephole": true,
+          "jumpdestRemover": true,
+          "orderLiterals": true,
+          "deduplicate": true,
+          "cse": true,
+          "constantOptimizer": true,
+          "yul": false
+        }
+      },
+      "metadata": {
+        "bytecodeHash": "none"
+      },
+      "compilationTarget": {
+        "contracts/persistent/vault/interfaces/IFreelyTransferableSharesVault.sol": "IFreelyTransferableSharesVault"
+      },
+      "libraries": {}
+    },
+    "sources": {
+      "contracts/persistent/vault/interfaces/IFreelyTransferableSharesVault.sol": {
+        "keccak256": "0xe31f063493e6e3a4434eaa5629c0a706b8fa0569aff3f4ef9d62e27a1928cfa0",
+        "urls": [
+          "bzz-raw://12b99c370c2bb6a1e1cf8d1a8d7e90538142ebc35d03e94d8449645d9046a0fb",
+          "dweb:/ipfs/QmbNwAR6455sbjoxYXaBeHpqUYpwWfWaWyMkpaJaXeBbiU"
+        ],
+        "license": "GPL-3.0"
+      }
+    },
+    "version": 1
+  },
+  "ast": {
+    "absolutePath": "contracts/persistent/vault/interfaces/IFreelyTransferableSharesVault.sol",
+    "id": 11741,
+    "exportedSymbols": {
+      "IFreelyTransferableSharesVault": [
+        11740
+      ]
+    },
+    "nodeType": "SourceUnit",
+    "src": "255:453:71",
+    "nodes": [
+      {
+        "id": 11733,
+        "nodeType": "PragmaDirective",
+        "src": "255:23:71",
+        "nodes": [],
+        "literals": [
+          "solidity",
+          "0.6",
+          ".12"
+        ]
+      },
+      {
+        "id": 11740,
+        "nodeType": "ContractDefinition",
+        "src": "537:170:71",
+        "nodes": [
+          {
+            "id": 11739,
+            "nodeType": "FunctionDefinition",
+            "src": "584:121:71",
+            "nodes": [],
+            "documentation": null,
+            "functionSelector": "28c2ad9c",
+            "implemented": false,
+            "kind": "function",
+            "modifiers": [],
+            "name": "sharesAreFreelyTransferable",
+            "overrides": null,
+            "parameters": {
+              "id": 11735,
+              "nodeType": "ParameterList",
+              "parameters": [],
+              "src": "620:2:71"
+            },
+            "returnParameters": {
+              "id": 11738,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 11737,
+                  "mutability": "mutable",
+                  "name": "sharesAreFreelyTransferable_",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 11739,
+                  "src": "670:33:71",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_bool",
+                    "typeString": "bool"
+                  },
+                  "typeName": {
+                    "id": 11736,
+                    "name": "bool",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "670:4:71",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_bool",
+                      "typeString": "bool"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "669:35:71"
+            },
+            "scope": 11740,
+            "stateMutability": "view",
+            "virtual": false,
+            "visibility": "external"
+          }
+        ],
+        "abstract": false,
+        "baseContracts": [],
+        "contractDependencies": [],
+        "contractKind": "interface",
+        "documentation": {
+          "id": 11734,
+          "nodeType": "StructuredDocumentation",
+          "src": "280:257:71",
+          "text": "@title IFreelyTransferableSharesVault Interface\n @author Enzyme Council <security@enzyme.finance>\n @notice Provides the interface for determining whether a vault's shares\n are guaranteed to be freely transferable.\n @dev DO NOT EDIT CONTRACT"
+        },
+        "fullyImplemented": false,
+        "linearizedBaseContracts": [
+          11740
+        ],
+        "name": "IFreelyTransferableSharesVault",
+        "scope": 11741
+      }
+    ],
+    "license": "GPL-3.0"
+  },
+  "id": 71
+}

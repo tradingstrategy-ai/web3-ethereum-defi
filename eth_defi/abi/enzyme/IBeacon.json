@@ -106,19 +106,19 @@
   },
   "ast": {
     "absolutePath": "contracts/release/utils/beacon-proxy/IBeacon.sol",
-    "id": 7738,
+    "id": 79693,
     "exportedSymbols": {
       "IBeacon": [
-        7737
+        79692
       ]
     },
     "nodeType": "SourceUnit",
-    "src": "255:193:34",
+    "src": "255:193:366",
     "nodes": [
       {
-        "id": 7730,
+        "id": 79685,
         "nodeType": "PragmaDirective",
-        "src": "255:23:34",
+        "src": "255:23:366",
         "nodes": [],
         "literals": [
           "solidity",
@@ -127,14 +127,14 @@
         ]
       },
       {
-        "id": 7737,
+        "id": 79692,
         "nodeType": "ContractDefinition",
-        "src": "362:85:34",
+        "src": "362:85:366",
         "nodes": [
           {
-            "id": 7736,
+            "id": 79691,
             "nodeType": "FunctionDefinition",
-            "src": "386:59:34",
+            "src": "386:59:366",
             "nodes": [],
             "documentation": null,
             "functionSelector": "98a7c4c7",
@@ -144,24 +144,24 @@
             "name": "getCanonicalLib",
             "overrides": null,
             "parameters": {
-              "id": 7732,
+              "id": 79687,
               "nodeType": "ParameterList",
               "parameters": [],
-              "src": "410:2:34"
+              "src": "410:2:366"
             },
             "returnParameters": {
-              "id": 7735,
+              "id": 79690,
               "nodeType": "ParameterList",
               "parameters": [
                 {
                   "constant": false,
-                  "id": 7734,
+                  "id": 79689,
                   "mutability": "mutable",
                   "name": "",
                   "nodeType": "VariableDeclaration",
                   "overrides": null,
-                  "scope": 7736,
-                  "src": "436:7:34",
+                  "scope": 79691,
+                  "src": "436:7:366",
                   "stateVariable": false,
                   "storageLocation": "default",
                   "typeDescriptions": {
@@ -169,10 +169,10 @@
                     "typeString": "address"
                   },
                   "typeName": {
-                    "id": 7733,
+                    "id": 79688,
                     "name": "address",
                     "nodeType": "ElementaryTypeName",
-                    "src": "436:7:34",
+                    "src": "436:7:366",
                     "stateMutability": "nonpayable",
                     "typeDescriptions": {
                       "typeIdentifier": "t_address",
@@ -183,9 +183,9 @@
                   "visibility": "internal"
                 }
               ],
-              "src": "435:9:34"
+              "src": "435:9:366"
             },
-            "scope": 7737,
+            "scope": 79692,
             "stateMutability": "view",
             "virtual": false,
             "visibility": "external"
@@ -196,20 +196,20 @@
         "contractDependencies": [],
         "contractKind": "interface",
         "documentation": {
-          "id": 7731,
+          "id": 79686,
           "nodeType": "StructuredDocumentation",
-          "src": "280:82:34",
+          "src": "280:82:366",
           "text": "@title IBeacon interface\n @author Enzyme Council <security@enzyme.finance>"
         },
         "fullyImplemented": false,
         "linearizedBaseContracts": [
-          7737
+          79692
         ],
         "name": "IBeacon",
-        "scope": 7738
+        "scope": 79693
       }
     ],
     "license": "GPL-3.0"
   },
-  "id": 34
+  "id": 366
 }

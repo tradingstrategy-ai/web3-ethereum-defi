@@ -58,17 +58,6 @@ def deployment(
 
 
 @pytest.fixture()
-def generic_adapter(
-    web3: Web3,
-    deployment: EnzymeDeployment,
-    deployer: HexAddress,
-):
-    """Deploy generic adapter contract."""
-    generic_adapter = deploy_contract(web3, f"enzyme/GenericAdapter.json", deployer, deployment.contracts.integration_manager.address)
-    return generic_adapter
-
-
-@pytest.fixture()
 def vault(
     deployment,
     user_1: HexAddress,
@@ -79,6 +68,24 @@ def vault(
 
     vault = Vault(vault_contract, comptroller_contract, deployment)
     return vault
+
+
+@pytest.fixture()
+def generic_adapter(
+    web3: Web3,
+    deployment: EnzymeDeployment,
+    vault: Vault,
+    deployer: HexAddress,
+):
+    """Deploy generic adapter contract."""
+    generic_adapter = deploy_contract(
+        web3,
+        f"VaultSpecificGenericAdapter.json",
+        deployer,
+        deployment.contracts.integration_manager.address,
+        vault.address,
+    )
+    return generic_adapter
 
 
 def test_read_deposit(

@@ -74,7 +74,7 @@ def fetch_erc20_balances_by_transfer_event(
     :return: Map of (token address, amount)
     """
 
-    IERC20 = get_contract(web3, "IERC20.json")
+    IERC20 = get_contract(web3, "sushi/IERC20.json")
     Transfer = IERC20.events.Transfer
 
     balances = Counter()
@@ -125,7 +125,7 @@ def fetch_erc20_balances_by_token_list(web3: Web3, owner: HexAddress, tokens: Se
 
     balances = {}
     for address in tokens:
-        erc_20 = get_deployed_contract(web3, "IERC20.json", address)
+        erc_20 = get_deployed_contract(web3, "sushi/IERC20.json", address)
         balances[address] = erc_20.functions.balanceOf(owner).call()
 
     return balances

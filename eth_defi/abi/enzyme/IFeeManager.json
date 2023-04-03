@@ -125,19 +125,19 @@
   },
   "ast": {
     "absolutePath": "contracts/release/extensions/fee-manager/IFeeManager.sol",
-    "id": 5186,
+    "id": 38595,
     "exportedSymbols": {
       "IFeeManager": [
-        5185
+        38594
       ]
     },
     "nodeType": "SourceUnit",
-    "src": "255:648:14",
+    "src": "255:648:144",
     "nodes": [
       {
-        "id": 5161,
+        "id": 38570,
         "nodeType": "PragmaDirective",
-        "src": "255:23:14",
+        "src": "255:23:144",
         "nodes": [],
         "literals": [
           "solidity",
@@ -146,9 +146,9 @@
         ]
       },
       {
-        "id": 5162,
+        "id": 38571,
         "nodeType": "PragmaDirective",
-        "src": "279:33:14",
+        "src": "279:33:144",
         "nodes": [],
         "literals": [
           "experimental",
@@ -156,94 +156,94 @@
         ]
       },
       {
-        "id": 5185,
+        "id": 38594,
         "nodeType": "ContractDefinition",
-        "src": "440:462:14",
+        "src": "440:462:144",
         "nodes": [
           {
-            "id": 5168,
+            "id": 38577,
             "nodeType": "EnumDefinition",
-            "src": "541:109:14",
+            "src": "541:109:144",
             "nodes": [],
             "canonicalName": "IFeeManager.FeeHook",
             "members": [
               {
-                "id": 5164,
+                "id": 38573,
                 "name": "Continuous",
                 "nodeType": "EnumValue",
-                "src": "564:10:14"
+                "src": "564:10:144"
               },
               {
-                "id": 5165,
+                "id": 38574,
                 "name": "PreBuyShares",
                 "nodeType": "EnumValue",
-                "src": "584:12:14"
+                "src": "584:12:144"
               },
               {
-                "id": 5166,
+                "id": 38575,
                 "name": "PostBuyShares",
                 "nodeType": "EnumValue",
-                "src": "606:13:14"
+                "src": "606:13:144"
               },
               {
-                "id": 5167,
+                "id": 38576,
                 "name": "PreRedeemShares",
                 "nodeType": "EnumValue",
-                "src": "629:15:14"
+                "src": "629:15:144"
               }
             ],
             "name": "FeeHook"
           },
           {
-            "id": 5175,
+            "id": 38584,
             "nodeType": "EnumDefinition",
-            "src": "655:146:14",
+            "src": "655:146:144",
             "nodes": [],
             "canonicalName": "IFeeManager.SettlementType",
             "members": [
               {
-                "id": 5169,
+                "id": 38578,
                 "name": "None",
                 "nodeType": "EnumValue",
-                "src": "685:4:14"
+                "src": "685:4:144"
               },
               {
-                "id": 5170,
+                "id": 38579,
                 "name": "Direct",
                 "nodeType": "EnumValue",
-                "src": "699:6:14"
+                "src": "699:6:144"
               },
               {
-                "id": 5171,
+                "id": 38580,
                 "name": "Mint",
                 "nodeType": "EnumValue",
-                "src": "715:4:14"
+                "src": "715:4:144"
               },
               {
-                "id": 5172,
+                "id": 38581,
                 "name": "Burn",
                 "nodeType": "EnumValue",
-                "src": "729:4:14"
+                "src": "729:4:144"
               },
               {
-                "id": 5173,
+                "id": 38582,
                 "name": "MintSharesOutstanding",
                 "nodeType": "EnumValue",
-                "src": "743:21:14"
+                "src": "743:21:144"
               },
               {
-                "id": 5174,
+                "id": 38583,
                 "name": "BurnSharesOutstanding",
                 "nodeType": "EnumValue",
-                "src": "774:21:14"
+                "src": "774:21:144"
               }
             ],
             "name": "SettlementType"
           },
           {
-            "id": 5184,
+            "id": 38593,
             "nodeType": "FunctionDefinition",
-            "src": "807:93:14",
+            "src": "807:93:144",
             "nodes": [],
             "documentation": null,
             "functionSelector": "7759c164",
@@ -253,33 +253,33 @@
             "name": "invokeHook",
             "overrides": null,
             "parameters": {
-              "id": 5182,
+              "id": 38591,
               "nodeType": "ParameterList",
               "parameters": [
                 {
                   "constant": false,
-                  "id": 5177,
+                  "id": 38586,
                   "mutability": "mutable",
                   "name": "",
                   "nodeType": "VariableDeclaration",
                   "overrides": null,
-                  "scope": 5184,
-                  "src": "836:7:14",
+                  "scope": 38593,
+                  "src": "836:7:144",
                   "stateVariable": false,
                   "storageLocation": "default",
                   "typeDescriptions": {
-                    "typeIdentifier": "t_enum$_FeeHook_$5168",
+                    "typeIdentifier": "t_enum$_FeeHook_$38577",
                     "typeString": "enum IFeeManager.FeeHook"
                   },
                   "typeName": {
                     "contractScope": null,
-                    "id": 5176,
+                    "id": 38585,
                     "name": "FeeHook",
                     "nodeType": "UserDefinedTypeName",
-                    "referencedDeclaration": 5168,
-                    "src": "836:7:14",
+                    "referencedDeclaration": 38577,
+                    "src": "836:7:144",
                     "typeDescriptions": {
-                      "typeIdentifier": "t_enum$_FeeHook_$5168",
+                      "typeIdentifier": "t_enum$_FeeHook_$38577",
                       "typeString": "enum IFeeManager.FeeHook"
                     }
                   },
@@ -288,13 +288,13 @@
                 },
                 {
                   "constant": false,
-                  "id": 5179,
+                  "id": 38588,
                   "mutability": "mutable",
                   "name": "",
                   "nodeType": "VariableDeclaration",
                   "overrides": null,
-                  "scope": 5184,
-                  "src": "853:14:14",
+                  "scope": 38593,
+                  "src": "853:14:144",
                   "stateVariable": false,
                   "storageLocation": "calldata",
                   "typeDescriptions": {
@@ -302,10 +302,10 @@
                     "typeString": "bytes"
                   },
                   "typeName": {
-                    "id": 5178,
+                    "id": 38587,
                     "name": "bytes",
                     "nodeType": "ElementaryTypeName",
-                    "src": "853:5:14",
+                    "src": "853:5:144",
                     "typeDescriptions": {
                       "typeIdentifier": "t_bytes_storage_ptr",
                       "typeString": "bytes"
@@ -316,13 +316,13 @@
                 },
                 {
                   "constant": false,
-                  "id": 5181,
+                  "id": 38590,
                   "mutability": "mutable",
                   "name": "",
                   "nodeType": "VariableDeclaration",
                   "overrides": null,
-                  "scope": 5184,
-                  "src": "877:7:14",
+                  "scope": 38593,
+                  "src": "877:7:144",
                   "stateVariable": false,
                   "storageLocation": "default",
                   "typeDescriptions": {
@@ -330,10 +330,10 @@
                     "typeString": "uint256"
                   },
                   "typeName": {
-                    "id": 5180,
+                    "id": 38589,
                     "name": "uint256",
                     "nodeType": "ElementaryTypeName",
-                    "src": "877:7:14",
+                    "src": "877:7:144",
                     "typeDescriptions": {
                       "typeIdentifier": "t_uint256",
                       "typeString": "uint256"
@@ -343,15 +343,15 @@
                   "visibility": "internal"
                 }
               ],
-              "src": "826:64:14"
+              "src": "826:64:144"
             },
             "returnParameters": {
-              "id": 5183,
+              "id": 38592,
               "nodeType": "ParameterList",
               "parameters": [],
-              "src": "899:0:14"
+              "src": "899:0:144"
             },
-            "scope": 5185,
+            "scope": 38594,
             "stateMutability": "nonpayable",
             "virtual": false,
             "visibility": "external"
@@ -362,20 +362,20 @@
         "contractDependencies": [],
         "contractKind": "interface",
         "documentation": {
-          "id": 5163,
+          "id": 38572,
           "nodeType": "StructuredDocumentation",
-          "src": "314:126:14",
+          "src": "314:126:144",
           "text": "@title FeeManager Interface\n @author Enzyme Council <security@enzyme.finance>\n @notice Interface for the FeeManager"
         },
         "fullyImplemented": false,
         "linearizedBaseContracts": [
-          5185
+          38594
         ],
         "name": "IFeeManager",
-        "scope": 5186
+        "scope": 38595
       }
     ],
     "license": "GPL-3.0"
   },
-  "id": 14
+  "id": 144
 }

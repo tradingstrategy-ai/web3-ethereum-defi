@@ -117,19 +117,19 @@
   },
   "ast": {
     "absolutePath": "contracts/persistent/vault/utils/ProxiableVaultLib.sol",
-    "id": 1520,
+    "id": 11830,
     "exportedSymbols": {
       "ProxiableVaultLib": [
-        1519
+        11829
       ]
     },
     "nodeType": "SourceUnit",
-    "src": "255:1492:12",
+    "src": "255:1492:74",
     "nodes": [
       {
-        "id": 1486,
+        "id": 11796,
         "nodeType": "PragmaDirective",
-        "src": "255:23:12",
+        "src": "255:23:74",
         "nodes": [],
         "literals": [
           "solidity",
@@ -138,19 +138,19 @@
         ]
       },
       {
-        "id": 1519,
+        "id": 11829,
         "nodeType": "ContractDefinition",
-        "src": "733:1013:12",
+        "src": "733:1013:74",
         "nodes": [
           {
-            "id": 1509,
+            "id": 11819,
             "nodeType": "FunctionDefinition",
-            "src": "856:529:12",
+            "src": "856:529:74",
             "nodes": [],
             "body": {
-              "id": 1508,
+              "id": 11818,
               "nodeType": "Block",
-              "src": "917:468:12",
+              "src": "917:468:74",
               "nodes": [],
               "statements": [
                 {
@@ -163,7 +163,7 @@
                           "typeIdentifier": "t_bytes32",
                           "typeString": "bytes32"
                         },
-                        "id": 1503,
+                        "id": 11813,
                         "isConstant": false,
                         "isLValue": false,
                         "isPure": false,
@@ -174,14 +174,14 @@
                             {
                               "argumentTypes": null,
                               "hexValue": "307830323762393537306539666564633161383062393337616539613036383631653566616566333939323439316166333062363834613634623366626563376135",
-                              "id": 1496,
+                              "id": 11806,
                               "isConstant": false,
                               "isLValue": false,
                               "isPure": true,
                               "kind": "number",
                               "lValueRequested": false,
                               "nodeType": "Literal",
-                              "src": "956:66:12",
+                              "src": "956:66:74",
                               "subdenomination": null,
                               "typeDescriptions": {
                                 "typeIdentifier": "t_rational_1122979290496579755055773057015253168412838052066423730424559306272128550821_by_1",
@@ -197,29 +197,29 @@
                                 "typeString": "int_const 1122...(68 digits omitted)...0821"
                               }
                             ],
-                            "id": 1495,
+                            "id": 11805,
                             "isConstant": false,
                             "isLValue": false,
                             "isPure": true,
                             "lValueRequested": false,
                             "nodeType": "ElementaryTypeNameExpression",
-                            "src": "948:7:12",
+                            "src": "948:7:74",
                             "typeDescriptions": {
                               "typeIdentifier": "t_type$_t_bytes32_$",
                               "typeString": "type(bytes32)"
                             },
                             "typeName": {
-                              "id": 1494,
+                              "id": 11804,
                               "name": "bytes32",
                               "nodeType": "ElementaryTypeName",
-                              "src": "948:7:12",
+                              "src": "948:7:74",
                               "typeDescriptions": {
                                 "typeIdentifier": null,
                                 "typeString": null
                               }
                             }
                           },
-                          "id": 1497,
+                          "id": 11807,
                           "isConstant": false,
                           "isLValue": false,
                           "isPure": true,
@@ -227,7 +227,7 @@
                           "lValueRequested": false,
                           "names": [],
                           "nodeType": "FunctionCall",
-                          "src": "948:75:12",
+                          "src": "948:75:74",
                           "tryCall": false,
                           "typeDescriptions": {
                             "typeIdentifier": "t_bytes32",
@@ -246,12 +246,12 @@
                               "arguments": [
                                 {
                                   "argumentTypes": null,
-                                  "id": 1499,
+                                  "id": 11809,
                                   "name": "_nextVaultLib",
                                   "nodeType": "Identifier",
                                   "overloadedDeclarations": [],
-                                  "referencedDeclaration": 1490,
-                                  "src": "1061:13:12",
+                                  "referencedDeclaration": 11800,
+                                  "src": "1061:13:74",
                                   "typeDescriptions": {
                                     "typeIdentifier": "t_address",
                                     "typeString": "address"
@@ -265,18 +265,18 @@
                                     "typeString": "address"
                                   }
                                 ],
-                                "id": 1498,
+                                "id": 11808,
                                 "name": "ProxiableVaultLib",
                                 "nodeType": "Identifier",
                                 "overloadedDeclarations": [],
-                                "referencedDeclaration": 1519,
-                                "src": "1043:17:12",
+                                "referencedDeclaration": 11829,
+                                "src": "1043:17:74",
                                 "typeDescriptions": {
-                                  "typeIdentifier": "t_type$_t_contract$_ProxiableVaultLib_$1519_$",
+                                  "typeIdentifier": "t_type$_t_contract$_ProxiableVaultLib_$11829_$",
                                   "typeString": "type(contract ProxiableVaultLib)"
                                 }
                               },
-                              "id": 1500,
+                              "id": 11810,
                               "isConstant": false,
                               "isLValue": false,
                               "isPure": false,
@@ -284,28 +284,28 @@
                               "lValueRequested": false,
                               "names": [],
                               "nodeType": "FunctionCall",
-                              "src": "1043:32:12",
+                              "src": "1043:32:74",
                               "tryCall": false,
                               "typeDescriptions": {
-                                "typeIdentifier": "t_contract$_ProxiableVaultLib_$1519",
+                                "typeIdentifier": "t_contract$_ProxiableVaultLib_$11829",
                                 "typeString": "contract ProxiableVaultLib"
                               }
                             },
-                            "id": 1501,
+                            "id": 11811,
                             "isConstant": false,
                             "isLValue": false,
                             "isPure": false,
                             "lValueRequested": false,
                             "memberName": "proxiableUUID",
                             "nodeType": "MemberAccess",
-                            "referencedDeclaration": 1518,
-                            "src": "1043:46:12",
+                            "referencedDeclaration": 11828,
+                            "src": "1043:46:74",
                             "typeDescriptions": {
                               "typeIdentifier": "t_function_external_pure$__$returns$_t_bytes32_$",
                               "typeString": "function () pure external returns (bytes32)"
                             }
                           },
-                          "id": 1502,
+                          "id": 11812,
                           "isConstant": false,
                           "isLValue": false,
                           "isPure": false,
@@ -313,14 +313,14 @@
                           "lValueRequested": false,
                           "names": [],
                           "nodeType": "FunctionCall",
-                          "src": "1043:48:12",
+                          "src": "1043:48:74",
                           "tryCall": false,
                           "typeDescriptions": {
                             "typeIdentifier": "t_bytes32",
                             "typeString": "bytes32"
                           }
                         },
-                        "src": "948:143:12",
+                        "src": "948:143:74",
                         "typeDescriptions": {
                           "typeIdentifier": "t_bool",
                           "typeString": "bool"
@@ -329,14 +329,14 @@
                       {
                         "argumentTypes": null,
                         "hexValue": "5f5f757064617465436f6465416464726573733a205f6e6578745661756c744c6962206e6f7420636f6d70617469626c65",
-                        "id": 1504,
+                        "id": 11814,
                         "isConstant": false,
                         "isLValue": false,
                         "isPure": true,
                         "kind": "string",
                         "lValueRequested": false,
                         "nodeType": "Literal",
-                        "src": "1105:51:12",
+                        "src": "1105:51:74",
                         "subdenomination": null,
                         "typeDescriptions": {
                           "typeIdentifier": "t_stringliteral_16999d65bdff694bf0427721bb28250ef90bdd712b6dfbf3781395469cdd6c46",
@@ -356,7 +356,7 @@
                           "typeString": "literal_string \"__updateCodeAddress: _nextVaultLib not compatible\""
                         }
                       ],
-                      "id": 1493,
+                      "id": 11803,
                       "name": "require",
                       "nodeType": "Identifier",
                       "overloadedDeclarations": [
@@ -364,13 +364,13 @@
                         -18
                       ],
                       "referencedDeclaration": -18,
-                      "src": "927:7:12",
+                      "src": "927:7:74",
                       "typeDescriptions": {
                         "typeIdentifier": "t_function_require_pure$_t_bool_$_t_string_memory_ptr_$returns$__$",
                         "typeString": "function (bool,string memory) pure"
                       }
                     },
-                    "id": 1505,
+                    "id": 11815,
                     "isConstant": false,
                     "isLValue": false,
                     "isPure": false,
@@ -378,21 +378,21 @@
                     "lValueRequested": false,
                     "names": [],
                     "nodeType": "FunctionCall",
-                    "src": "927:239:12",
+                    "src": "927:239:74",
                     "tryCall": false,
                     "typeDescriptions": {
                       "typeIdentifier": "t_tuple$__$",
                       "typeString": "tuple()"
                     }
                   },
-                  "id": 1506,
+                  "id": 11816,
                   "nodeType": "ExpressionStatement",
-                  "src": "927:239:12"
+                  "src": "927:239:74"
                 },
                 {
                   "AST": {
                     "nodeType": "YulBlock",
-                    "src": "1185:194:12",
+                    "src": "1185:194:74",
                     "statements": [
                       {
                         "expression": {
@@ -400,49 +400,49 @@
                             {
                               "kind": "number",
                               "nodeType": "YulLiteral",
-                              "src": "1258:66:12",
+                              "src": "1258:66:74",
                               "type": "",
                               "value": "0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc"
                             },
                             {
                               "name": "_nextVaultLib",
                               "nodeType": "YulIdentifier",
-                              "src": "1342:13:12"
+                              "src": "1342:13:74"
                             }
                           ],
                           "functionName": {
                             "name": "sstore",
                             "nodeType": "YulIdentifier",
-                            "src": "1234:6:12"
+                            "src": "1234:6:74"
                           },
                           "nodeType": "YulFunctionCall",
-                          "src": "1234:135:12"
+                          "src": "1234:135:74"
                         },
                         "nodeType": "YulExpressionStatement",
-                        "src": "1234:135:12"
+                        "src": "1234:135:74"
                       }
                     ]
                   },
                   "evmVersion": "istanbul",
                   "externalReferences": [
                     {
-                      "declaration": 1490,
+                      "declaration": 11800,
                       "isOffset": false,
                       "isSlot": false,
-                      "src": "1342:13:12",
+                      "src": "1342:13:74",
                       "valueSize": 1
                     }
                   ],
-                  "id": 1507,
+                  "id": 11817,
                   "nodeType": "InlineAssembly",
-                  "src": "1176:203:12"
+                  "src": "1176:203:74"
                 }
               ]
             },
             "documentation": {
-              "id": 1488,
+              "id": 11798,
               "nodeType": "StructuredDocumentation",
-              "src": "775:76:12",
+              "src": "775:76:74",
               "text": "@dev Updates the target of the proxy to be the contract at _nextVaultLib"
             },
             "implemented": true,
@@ -451,18 +451,18 @@
             "name": "__updateCodeAddress",
             "overrides": null,
             "parameters": {
-              "id": 1491,
+              "id": 11801,
               "nodeType": "ParameterList",
               "parameters": [
                 {
                   "constant": false,
-                  "id": 1490,
+                  "id": 11800,
                   "mutability": "mutable",
                   "name": "_nextVaultLib",
                   "nodeType": "VariableDeclaration",
                   "overrides": null,
-                  "scope": 1509,
-                  "src": "885:21:12",
+                  "scope": 11819,
+                  "src": "885:21:74",
                   "stateVariable": false,
                   "storageLocation": "default",
                   "typeDescriptions": {
@@ -470,10 +470,10 @@
                     "typeString": "address"
                   },
                   "typeName": {
-                    "id": 1489,
+                    "id": 11799,
                     "name": "address",
                     "nodeType": "ElementaryTypeName",
-                    "src": "885:7:12",
+                    "src": "885:7:74",
                     "stateMutability": "nonpayable",
                     "typeDescriptions": {
                       "typeIdentifier": "t_address",
@@ -484,42 +484,42 @@
                   "visibility": "internal"
                 }
               ],
-              "src": "884:23:12"
+              "src": "884:23:74"
             },
             "returnParameters": {
-              "id": 1492,
+              "id": 11802,
               "nodeType": "ParameterList",
               "parameters": [],
-              "src": "917:0:12"
+              "src": "917:0:74"
             },
-            "scope": 1519,
+            "scope": 11829,
             "stateMutability": "nonpayable",
             "virtual": false,
             "visibility": "internal"
           },
           {
-            "id": 1518,
+            "id": 11828,
             "nodeType": "FunctionDefinition",
-            "src": "1593:151:12",
+            "src": "1593:151:74",
             "nodes": [],
             "body": {
-              "id": 1517,
+              "id": 11827,
               "nodeType": "Block",
-              "src": "1654:90:12",
+              "src": "1654:90:74",
               "nodes": [],
               "statements": [
                 {
                   "expression": {
                     "argumentTypes": null,
                     "hexValue": "307830323762393537306539666564633161383062393337616539613036383631653566616566333939323439316166333062363834613634623366626563376135",
-                    "id": 1515,
+                    "id": 11825,
                     "isConstant": false,
                     "isLValue": false,
                     "isPure": true,
                     "kind": "number",
                     "lValueRequested": false,
                     "nodeType": "Literal",
-                    "src": "1671:66:12",
+                    "src": "1671:66:74",
                     "subdenomination": null,
                     "typeDescriptions": {
                       "typeIdentifier": "t_rational_1122979290496579755055773057015253168412838052066423730424559306272128550821_by_1",
@@ -527,17 +527,17 @@
                     },
                     "value": "0x027b9570e9fedc1a80b937ae9a06861e5faef3992491af30b684a64b3fbec7a5"
                   },
-                  "functionReturnParameters": 1514,
-                  "id": 1516,
+                  "functionReturnParameters": 11824,
+                  "id": 11826,
                   "nodeType": "Return",
-                  "src": "1664:73:12"
+                  "src": "1664:73:74"
                 }
               ]
             },
             "documentation": {
-              "id": 1510,
+              "id": 11820,
               "nodeType": "StructuredDocumentation",
-              "src": "1391:197:12",
+              "src": "1391:197:74",
               "text": "@notice Returns a unique bytes32 hash for VaultLib instances\n @return uuid_ The bytes32 hash representing the UUID\n @dev The UUID is `bytes32(keccak256('mln.proxiable.vaultlib'))`"
             },
             "functionSelector": "52d1902d",
@@ -547,24 +547,24 @@
             "name": "proxiableUUID",
             "overrides": null,
             "parameters": {
-              "id": 1511,
+              "id": 11821,
               "nodeType": "ParameterList",
               "parameters": [],
-              "src": "1615:2:12"
+              "src": "1615:2:74"
             },
             "returnParameters": {
-              "id": 1514,
+              "id": 11824,
               "nodeType": "ParameterList",
               "parameters": [
                 {
                   "constant": false,
-                  "id": 1513,
+                  "id": 11823,
                   "mutability": "mutable",
                   "name": "uuid_",
                   "nodeType": "VariableDeclaration",
                   "overrides": null,
-                  "scope": 1518,
-                  "src": "1639:13:12",
+                  "scope": 11828,
+                  "src": "1639:13:74",
                   "stateVariable": false,
                   "storageLocation": "default",
                   "typeDescriptions": {
@@ -572,10 +572,10 @@
                     "typeString": "bytes32"
                   },
                   "typeName": {
-                    "id": 1512,
+                    "id": 11822,
                     "name": "bytes32",
                     "nodeType": "ElementaryTypeName",
-                    "src": "1639:7:12",
+                    "src": "1639:7:74",
                     "typeDescriptions": {
                       "typeIdentifier": "t_bytes32",
                       "typeString": "bytes32"
@@ -585,9 +585,9 @@
                   "visibility": "internal"
                 }
               ],
-              "src": "1638:15:12"
+              "src": "1638:15:74"
             },
-            "scope": 1519,
+            "scope": 11829,
             "stateMutability": "pure",
             "virtual": false,
             "visibility": "public"
@@ -598,20 +598,20 @@
         "contractDependencies": [],
         "contractKind": "contract",
         "documentation": {
-          "id": 1487,
+          "id": 11797,
           "nodeType": "StructuredDocumentation",
-          "src": "280:453:12",
+          "src": "280:453:74",
           "text": "@title ProxiableVaultLib Contract\n @author Enzyme Council <security@enzyme.finance>\n @notice A contract that defines the upgrade behavior for VaultLib instances\n @dev The recommended implementation of the target of a proxy according to EIP-1822 and EIP-1967\n Code position in storage is `bytes32(uint256(keccak256('eip1967.proxy.implementation')) - 1)`,\n which is \"0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc\"."
         },
         "fullyImplemented": true,
         "linearizedBaseContracts": [
-          1519
+          11829
         ],
         "name": "ProxiableVaultLib",
-        "scope": 1520
+        "scope": 11830
       }
     ],
     "license": "GPL-3.0"
   },
-  "id": 12
+  "id": 74
 }

@@ -118,19 +118,19 @@
   },
   "ast": {
     "absolutePath": "contracts/release/extensions/external-position-manager/IExternalPositionManager.sol",
-    "id": 7035,
+    "id": 19793,
     "exportedSymbols": {
       "IExternalPositionManager": [
-        7034
+        19792
       ]
     },
     "nodeType": "SourceUnit",
-    "src": "255:571:21",
+    "src": "255:571:86",
     "nodes": [
       {
-        "id": 7015,
+        "id": 19773,
         "nodeType": "PragmaDirective",
-        "src": "255:23:21",
+        "src": "255:23:86",
         "nodes": [],
         "literals": [
           "solidity",
@@ -139,26 +139,26 @@
         ]
       },
       {
-        "id": 7034,
+        "id": 19792,
         "nodeType": "ContractDefinition",
-        "src": "433:392:21",
+        "src": "433:392:86",
         "nodes": [
           {
-            "id": 7021,
+            "id": 19779,
             "nodeType": "StructDefinition",
-            "src": "474:84:21",
+            "src": "474:84:86",
             "nodes": [],
             "canonicalName": "IExternalPositionManager.ExternalPositionTypeInfo",
             "members": [
               {
                 "constant": false,
-                "id": 7018,
+                "id": 19776,
                 "mutability": "mutable",
                 "name": "parser",
                 "nodeType": "VariableDeclaration",
                 "overrides": null,
-                "scope": 7021,
-                "src": "516:14:21",
+                "scope": 19779,
+                "src": "516:14:86",
                 "stateVariable": false,
                 "storageLocation": "default",
                 "typeDescriptions": {
@@ -166,10 +166,10 @@
                   "typeString": "address"
                 },
                 "typeName": {
-                  "id": 7017,
+                  "id": 19775,
                   "name": "address",
                   "nodeType": "ElementaryTypeName",
-                  "src": "516:7:21",
+                  "src": "516:7:86",
                   "stateMutability": "nonpayable",
                   "typeDescriptions": {
                     "typeIdentifier": "t_address",
@@ -181,13 +181,13 @@
               },
               {
                 "constant": false,
-                "id": 7020,
+                "id": 19778,
                 "mutability": "mutable",
                 "name": "lib",
                 "nodeType": "VariableDeclaration",
                 "overrides": null,
-                "scope": 7021,
-                "src": "540:11:21",
+                "scope": 19779,
+                "src": "540:11:86",
                 "stateVariable": false,
                 "storageLocation": "default",
                 "typeDescriptions": {
@@ -195,10 +195,10 @@
                   "typeString": "address"
                 },
                 "typeName": {
-                  "id": 7019,
+                  "id": 19777,
                   "name": "address",
                   "nodeType": "ElementaryTypeName",
-                  "src": "540:7:21",
+                  "src": "540:7:86",
                   "stateMutability": "nonpayable",
                   "typeDescriptions": {
                     "typeIdentifier": "t_address",
@@ -210,47 +210,47 @@
               }
             ],
             "name": "ExternalPositionTypeInfo",
-            "scope": 7034,
+            "scope": 19792,
             "visibility": "public"
           },
           {
-            "id": 7026,
+            "id": 19784,
             "nodeType": "EnumDefinition",
-            "src": "563:174:21",
+            "src": "563:174:86",
             "nodes": [],
             "canonicalName": "IExternalPositionManager.ExternalPositionManagerActions",
             "members": [
               {
-                "id": 7022,
+                "id": 19780,
                 "name": "CreateExternalPosition",
                 "nodeType": "EnumValue",
-                "src": "609:22:21"
+                "src": "609:22:86"
               },
               {
-                "id": 7023,
+                "id": 19781,
                 "name": "CallOnExternalPosition",
                 "nodeType": "EnumValue",
-                "src": "641:22:21"
+                "src": "641:22:86"
               },
               {
-                "id": 7024,
+                "id": 19782,
                 "name": "RemoveExternalPosition",
                 "nodeType": "EnumValue",
-                "src": "673:22:21"
+                "src": "673:22:86"
               },
               {
-                "id": 7025,
+                "id": 19783,
                 "name": "ReactivateExternalPosition",
                 "nodeType": "EnumValue",
-                "src": "705:26:21"
+                "src": "705:26:86"
               }
             ],
             "name": "ExternalPositionManagerActions"
           },
           {
-            "id": 7033,
+            "id": 19791,
             "nodeType": "FunctionDefinition",
-            "src": "743:80:21",
+            "src": "743:80:86",
             "nodes": [],
             "documentation": null,
             "functionSelector": "75d8bb0e",
@@ -260,18 +260,18 @@
             "name": "getExternalPositionLibForType",
             "overrides": null,
             "parameters": {
-              "id": 7029,
+              "id": 19787,
               "nodeType": "ParameterList",
               "parameters": [
                 {
                   "constant": false,
-                  "id": 7028,
+                  "id": 19786,
                   "mutability": "mutable",
                   "name": "",
                   "nodeType": "VariableDeclaration",
                   "overrides": null,
-                  "scope": 7033,
-                  "src": "782:7:21",
+                  "scope": 19791,
+                  "src": "782:7:86",
                   "stateVariable": false,
                   "storageLocation": "default",
                   "typeDescriptions": {
@@ -279,10 +279,10 @@
                     "typeString": "uint256"
                   },
                   "typeName": {
-                    "id": 7027,
+                    "id": 19785,
                     "name": "uint256",
                     "nodeType": "ElementaryTypeName",
-                    "src": "782:7:21",
+                    "src": "782:7:86",
                     "typeDescriptions": {
                       "typeIdentifier": "t_uint256",
                       "typeString": "uint256"
@@ -292,21 +292,21 @@
                   "visibility": "internal"
                 }
               ],
-              "src": "781:9:21"
+              "src": "781:9:86"
             },
             "returnParameters": {
-              "id": 7032,
+              "id": 19790,
               "nodeType": "ParameterList",
               "parameters": [
                 {
                   "constant": false,
-                  "id": 7031,
+                  "id": 19789,
                   "mutability": "mutable",
                   "name": "",
                   "nodeType": "VariableDeclaration",
                   "overrides": null,
-                  "scope": 7033,
-                  "src": "814:7:21",
+                  "scope": 19791,
+                  "src": "814:7:86",
                   "stateVariable": false,
                   "storageLocation": "default",
                   "typeDescriptions": {
@@ -314,10 +314,10 @@
                     "typeString": "address"
                   },
                   "typeName": {
-                    "id": 7030,
+                    "id": 19788,
                     "name": "address",
                     "nodeType": "ElementaryTypeName",
-                    "src": "814:7:21",
+                    "src": "814:7:86",
                     "stateMutability": "nonpayable",
                     "typeDescriptions": {
                       "typeIdentifier": "t_address",
@@ -328,9 +328,9 @@
                   "visibility": "internal"
                 }
               ],
-              "src": "813:9:21"
+              "src": "813:9:86"
             },
-            "scope": 7034,
+            "scope": 19792,
             "stateMutability": "view",
             "virtual": false,
             "visibility": "external"
@@ -341,20 +341,20 @@
         "contractDependencies": [],
         "contractKind": "interface",
         "documentation": {
-          "id": 7016,
+          "id": 19774,
           "nodeType": "StructuredDocumentation",
-          "src": "280:153:21",
+          "src": "280:153:86",
           "text": "@title IExternalPositionManager interface\n @author Enzyme Council <security@enzyme.finance>\n @notice Interface for the ExternalPositionManager"
         },
         "fullyImplemented": false,
         "linearizedBaseContracts": [
-          7034
+          19792
         ],
         "name": "IExternalPositionManager",
-        "scope": 7035
+        "scope": 19793
       }
     ],
     "license": "GPL-3.0"
   },
-  "id": 21
+  "id": 86
 }

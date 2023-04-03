@@ -1,0 +1,211 @@
+[
+  {
+    "inputs": [],
+    "name": "POOL_TOKEN_UNIT",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "UNIT",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "vDHTAmount",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "poolTokensStaked",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "tokenPriceStart",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "tokenPriceFinish",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "stakeStartTime",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "stakeFinishTime",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "stakeEmissionsRate",
+        "type": "uint256"
+      },
+      {
+        "components": [
+          {
+            "internalType": "uint256",
+            "name": "stakeDurationDelaySeconds",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "maxDurationBoostSeconds",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "maxPerformanceBoostNumerator",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "maxPerformanceBoostDenominator",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "stakingRatio",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "emissionsRate",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "emissionsRateDenominator",
+            "type": "uint256"
+          }
+        ],
+        "internalType": "struct IDhedgeStakingV2Storage.RewardParams",
+        "name": "rewardParams",
+        "type": "tuple"
+      }
+    ],
+    "name": "calculateDhtRewardAmount",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "pure",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "vDHTAmount",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "totalValue",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "stakingRatio",
+        "type": "uint256"
+      }
+    ],
+    "name": "calculateMaxVDHTAllowed",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "pure",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "tokenPriceStart",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "tokenPriceFinish",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "maxPerformanceBoostNumerator",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "maxPerformanceBoostDenominator",
+        "type": "uint256"
+      }
+    ],
+    "name": "calculatePerformanceFactor",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "pure",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "stakeStartTime",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "stakeFinishTime",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "maxDurationBoostSeconds",
+        "type": "uint256"
+      }
+    ],
+    "name": "calculateStakeDurationFactor",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "pure",
+    "type": "function"
+  }
+]

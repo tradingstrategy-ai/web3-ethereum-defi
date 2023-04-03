@@ -320,7 +320,7 @@
         "absolutePath": "node_modules/@openzeppelin/contracts/token/ERC20/ERC20.sol",
         "file": "@openzeppelin/contracts/token/ERC20/ERC20.sol",
         "scope": 552,
-        "sourceUnit": 83382,
+        "sourceUnit": 104904,
         "symbolAliases": [],
         "unitAlias": ""
       },
@@ -1262,10 +1262,10 @@
                                       "name": "ERC20",
                                       "nodeType": "Identifier",
                                       "overloadedDeclarations": [],
-                                      "referencedDeclaration": 83381,
+                                      "referencedDeclaration": 104903,
                                       "src": "2013:5:1",
                                       "typeDescriptions": {
-                                        "typeIdentifier": "t_type$_t_contract$_ERC20_$83381_$",
+                                        "typeIdentifier": "t_type$_t_contract$_ERC20_$104903_$",
                                         "typeString": "type(contract ERC20)"
                                       }
                                     },
@@ -1280,7 +1280,7 @@
                                     "src": "2013:21:1",
                                     "tryCall": false,
                                     "typeDescriptions": {
-                                      "typeIdentifier": "t_contract$_ERC20_$83381",
+                                      "typeIdentifier": "t_contract$_ERC20_$104903",
                                       "typeString": "contract ERC20"
                                     }
                                   },
@@ -1291,10 +1291,10 @@
                                   "lValueRequested": false,
                                   "memberName": "safeTransferFrom",
                                   "nodeType": "MemberAccess",
-                                  "referencedDeclaration": 83577,
+                                  "referencedDeclaration": 105099,
                                   "src": "2013:38:1",
                                   "typeDescriptions": {
-                                    "typeIdentifier": "t_function_internal_nonpayable$_t_contract$_IERC20_$83518_$_t_address_$_t_address_$_t_uint256_$returns$__$bound_to$_t_contract$_IERC20_$83518_$",
+                                    "typeIdentifier": "t_function_internal_nonpayable$_t_contract$_IERC20_$105040_$_t_address_$_t_address_$_t_uint256_$returns$__$bound_to$_t_contract$_IERC20_$105040_$",
                                     "typeString": "function (contract IERC20,address,address,uint256)"
                                   }
                                 },
@@ -5811,10 +5811,10 @@
                                 "name": "ERC20",
                                 "nodeType": "Identifier",
                                 "overloadedDeclarations": [],
-                                "referencedDeclaration": 83381,
+                                "referencedDeclaration": 104903,
                                 "src": "7201:5:1",
                                 "typeDescriptions": {
-                                  "typeIdentifier": "t_type$_t_contract$_ERC20_$83381_$",
+                                  "typeIdentifier": "t_type$_t_contract$_ERC20_$104903_$",
                                   "typeString": "type(contract ERC20)"
                                 }
                               },
@@ -5829,7 +5829,7 @@
                               "src": "7201:21:1",
                               "tryCall": false,
                               "typeDescriptions": {
-                                "typeIdentifier": "t_contract$_ERC20_$83381",
+                                "typeIdentifier": "t_contract$_ERC20_$104903",
                                 "typeString": "contract ERC20"
                               }
                             },
@@ -5840,10 +5840,10 @@
                             "lValueRequested": false,
                             "memberName": "safeApprove",
                             "nodeType": "MemberAccess",
-                            "referencedDeclaration": 83620,
+                            "referencedDeclaration": 105142,
                             "src": "7201:33:1",
                             "typeDescriptions": {
-                              "typeIdentifier": "t_function_internal_nonpayable$_t_contract$_IERC20_$83518_$_t_address_$_t_uint256_$returns$__$bound_to$_t_contract$_IERC20_$83518_$",
+                              "typeIdentifier": "t_function_internal_nonpayable$_t_contract$_IERC20_$105040_$_t_address_$_t_uint256_$returns$__$bound_to$_t_contract$_IERC20_$105040_$",
                               "typeString": "function (contract IERC20,address,uint256)"
                             }
                           },
