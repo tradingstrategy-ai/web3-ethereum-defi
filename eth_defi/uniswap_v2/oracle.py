@@ -174,7 +174,7 @@ def update_price_oracle_with_sync_events_single_thread(
 
     assert pair_contract_address
 
-    Pair = get_contract(web3, "UniswapV2Pair.json")
+    Pair = get_contract(web3, "sushi/UniswapV2Pair.json")
 
     signatures = Pair.events.Sync.build_filter().topics
     assert len(signatures) == 1
@@ -236,7 +236,7 @@ def update_live_price_feed(
         }
     )
 
-    Pair = get_contract(web3, "UniswapV2Pair.json")
+    Pair = get_contract(web3, "sushi/UniswapV2Pair.json")
     events = [Pair.events.Sync]
 
     pair_details = fetch_pair_details(web3, pair_contract_address)

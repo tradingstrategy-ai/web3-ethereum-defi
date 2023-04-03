@@ -113,7 +113,7 @@ def deploy_factory_sushi(web3: Web3, deployer: str) -> Contract:
     :param deployer: Deployer adresss
     :return: Factory contract instance
     """
-    UniswapV2Factory = get_contract(web3, "UniswapV2Factory.json", bytecode=_SUSHI_FACTORY_BYTECODE)
+    UniswapV2Factory = get_contract(web3, "sushi/UniswapV2Factory.json", bytecode=_SUSHI_FACTORY_BYTECODE)
 
     # https://ethereum.stackexchange.com/a/73872/620
     tx_hash = web3.eth.send_transaction({"from": deployer, "data": _SUSHI_FACTORY_DEPLOYMENT_DATA})
@@ -149,13 +149,13 @@ def deploy_uniswap_v2_like(web3: Web3, deployer: str, give_weth=10_000, init_cod
 
     # Factory takes feeSetter as an argument
     factory = deploy_factory_sushi(web3, deployer)
-    weth = deploy_contract(web3, "WETH9Mock.json", deployer)
-    router = deploy_contract(web3, "UniswapV2Router02.json", deployer, factory.address, weth.address)
+    weth = deploy_contract(web3, "sushi/WETH9Mock.json", deployer)
+    router = deploy_contract(web3, "sushi/UniswapV2Router02.json", deployer, factory.address, weth.address)
 
     if give_weth:
         weth.functions.deposit().transact({"from": deployer, "value": give_weth * 10**18})
 
-    PairContract = get_contract(web3, "UniswapV2Pair.json")
+    PairContract = get_contract(web3, "sushi/UniswapV2Pair.json")
 
     return UniswapV2Deployment(web3, factory, weth, router, init_code_hash, PairContract)
 
@@ -275,23 +275,23 @@ def fetch_deployment(
     :return:
         Data class representing Uniswap v3 exchange deployment
     """
-    factory = get_deployed_contract(web3, "UniswapV2Factory.json", factory_address)
+    factory = get_deployed_contract(web3, "sushi/UniswapV2Factory.json", factory_address)
     # https://github.com/sushiswap/sushiswap/blob/4fdfeb7dafe852e738c56f11a6cae855e2fc0046/contracts/uniswapv2/UniswapV2Factory.sol#L26
     if init_code_hash is None:
         init_code_hash = factory.functions.pairCodeHash().call().hex()
-    router = get_deployed_contract(web3, "UniswapV2Router02.json", router_address)
+    router = get_deployed_contract(web3, "sushi/UniswapV2Router02.json", router_address)
 
     # https://github.com/sushiswap/sushiswap/blob/4fdfeb7dafe852e738c56f11a6cae855e2fc0046/contracts/uniswapv2/UniswapV2Router02.sol#L17
     try:
         weth_address = router.functions.WETH().call()
-        weth = get_deployed_contract(web3, "WETH9Mock.json", weth_address)
+        weth = get_deployed_contract(web3, "sushi/WETH9Mock.json", weth_address)
     except ContractLogicError as e:
         if not allow_different_weth_var:
             raise e
         weth_address = None
         weth = None
 
-    PairContract = get_contract(web3, "UniswapV2Pair.json")
+    PairContract = get_contract(web3, "sushi/UniswapV2Pair.json")
     return UniswapV2Deployment(
         web3,
         factory,
@@ -312,8 +312,8 @@ def mock_partial_deployment_for_analysis(web3: Web3, router_address: str) -> Uni
 
     factory = None
     init_code_hash = INIT_CODE_HASH_MISSING
-    router = get_deployed_contract(web3, "UniswapV2Router02.json", router_address)
-    PairContract = get_contract(web3, "UniswapV2Pair.json")
+    router = get_deployed_contract(web3, "sushi/UniswapV2Router02.json", router_address)
+    PairContract = get_contract(web3, "sushi/UniswapV2Pair.json")
     weth = None
     return UniswapV2Deployment(
         web3,

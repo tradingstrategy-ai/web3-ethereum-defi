@@ -37,7 +37,7 @@ def test_read_events_bad_timestamps(web3):
     """Reading fails with a bad timestamp provider."""
 
     # Get contracts
-    Factory = get_contract(web3, "UniswapV2Factory.json")
+    Factory = get_contract(web3, "sushi/UniswapV2Factory.json")
 
     events = [
         Factory.events.PairCreated,
@@ -92,7 +92,7 @@ def test_read_events_two_blocks(web3):
     """
 
     # Get contracts
-    Pair = get_contract(web3, "UniswapV2Pair.json")
+    Pair = get_contract(web3, "sushi/UniswapV2Pair.json")
 
     events = [
         Pair.events.Swap,
@@ -125,7 +125,7 @@ def test_read_events_concurrent_two_blocks_concurrent(web3):
     """
 
     # Get contracts
-    Pair = get_contract(web3, "UniswapV2Pair.json")
+    Pair = get_contract(web3, "sushi/UniswapV2Pair.json")
 
     events = [
         Pair.events.Swap,
