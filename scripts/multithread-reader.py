@@ -58,11 +58,7 @@ def main():
 
     # Set up multithreaded Polygon event reader.
     # Print progress to the console how many blocks there are left to read.
-    reader = MultithreadEventReader(
-        json_rpc_url,
-        max_threads=16,
-        notify=PrintProgressUpdate(),
-        max_blocks_once=10_000)
+    reader = MultithreadEventReader(json_rpc_url, max_threads=16, notify=PrintProgressUpdate(), max_blocks_once=10_000)
 
     # Loop over the events as the multihreaded reader pool is feeding them to us.
     # Events will always arrive in the order they happened on chain.

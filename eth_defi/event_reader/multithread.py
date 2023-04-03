@@ -178,35 +178,36 @@ class MultithreadEventReader(Web3EventReader):
         self.executor.join()
         self.http_adapter.close()
 
-    def __call__(self,
+    def __call__(
+        self,
         web3: ReaderConnection,
         start_block: int,
         end_block: int,
         events: Optional[List[ContractEvent]] = None,
         filter: Optional[Filter] = None,
-        ) -> Iterable[LogResult]:
-            """Wrap the underlying low-level function.
+    ) -> Iterable[LogResult]:
+        """Wrap the underlying low-level function.
 
-            Wrap :py:func:`eth_defi.reader.reader.read_events_concurrent` using worker pools we have set up.
+        Wrap :py:func:`eth_defi.reader.reader.read_events_concurrent` using worker pools we have set up.
 
-            .. note ::
+        .. note ::
 
-                Currently timestamp reading not supported
+            Currently timestamp reading not supported
 
-            :return:
-                Iterator for the events in the order they were written in the chain
+        :return:
+            Iterator for the events in the order they were written in the chain
 
-            """
-            yield from read_events_concurrent(
-                self.executor,
-                start_block,
-                end_block,
-                events=events,
-                filter=filter,
-                reorg_mon=self.reorg_mon,
-                notify=self.notify,
-                extract_timestamps=None,
-            )
+        """
+        yield from read_events_concurrent(
+            self.executor,
+            start_block,
+            end_block,
+            events=events,
+            filter=filter,
+            reorg_mon=self.reorg_mon,
+            notify=self.notify,
+            extract_timestamps=None,
+        )
 
     def get_total_api_call_counts(self) -> Counter:
         """Sum API call counts across all threads.

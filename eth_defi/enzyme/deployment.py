@@ -53,6 +53,7 @@ POLYGON_DEPLOYMENT = {
 
 class RateAsset(enum.Enum):
     """See IChainlinkPriceFeedMixin.sol"""
+
     ETH = 0
     USD = 1
 

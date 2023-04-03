@@ -116,9 +116,7 @@ class VaultControlledWallet:
     - Vault owner can only broadcast specific transactions allowed by Enzyme's GenericAdapter
     """
 
-    def __init__(self,
-            vault: Vault,
-            hot_wallet: HotWallet):
+    def __init__(self, vault: Vault, hot_wallet: HotWallet):
         """Create a vault controlling wallet.
 
         :param hot_wallet:
@@ -152,9 +150,7 @@ class VaultControlledWallet:
 
         bound_call = execute_calls_for_generic_adapter(
             comptroller=vault.comptroller,
-            external_calls=(
-                (tx.contract, tx.encode_payload()),
-            ),
+            external_calls=((tx.contract, tx.encode_payload()),),
             generic_adapter=self.generic_adapter,
             incoming_assets=tx.incoming_assets,
             integration_manager=deployment.contracts.integration_manager,
@@ -163,8 +159,10 @@ class VaultControlledWallet:
             spend_assets=tx.spend_assets,
         )
 
-        tx = bound_call.build_transaction({
-            "from": self.hot_wallet.address,
-            "gas": tx.gas_limit,
-        })
+        tx = bound_call.build_transaction(
+            {
+                "from": self.hot_wallet.address,
+                "gas": tx.gas_limit,
+            }
+        )
         return self.hot_wallet.sign_transaction_with_new_nonce(tx)

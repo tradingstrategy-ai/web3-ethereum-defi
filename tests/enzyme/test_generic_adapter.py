@@ -192,9 +192,7 @@ def test_generic_adapter_approve(
 
     bound_call = execute_calls_for_generic_adapter(
         comptroller=comptroller,
-        external_calls=(
-            (usdc, encoded_approve),
-        ),
+        external_calls=((usdc, encoded_approve),),
         generic_adapter=generic_adapter,
         incoming_assets=[],
         integration_manager=deployment.contracts.integration_manager,

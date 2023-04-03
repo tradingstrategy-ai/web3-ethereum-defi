@@ -366,7 +366,6 @@ def launch_anvil(
         assert block_time > 0, f"Got bad block time {block_time}"
         args["block_time"] = block_time
 
-
     current_block = chain_id = None
 
     while attempts_left > 0:

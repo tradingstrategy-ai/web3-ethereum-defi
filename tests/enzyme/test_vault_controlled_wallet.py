@@ -1,33 +1,21 @@
-"""Test transactions using the vault owner interface.
+"""Test vault's wallet like interface.
 
 """
 import secrets
-from functools import partial
-from typing import cast
-from decimal import Decimal
 
 import pytest
-from eth.constants import ZERO_ADDRESS
 from eth_account import Account
-from eth_account.signers.local import LocalAccount
 from eth_typing import HexAddress
 from hexbytes import HexBytes
-from web3 import Web3, HTTPProvider
+from web3 import Web3
 from web3.contract import Contract
-from web3.exceptions import ContractLogicError
 
 from eth_defi.deploy import deploy_contract
 from eth_defi.enzyme.deployment import EnzymeDeployment, RateAsset
-from eth_defi.enzyme.events import fetch_vault_balance_events, Deposit, Redemption
-from eth_defi.enzyme.price_feed import fetch_price_feeds, EnzymePriceFeed
-from eth_defi.enzyme.uniswap_v2 import prepare_swap
 from eth_defi.enzyme.vault import Vault
 from eth_defi.enzyme.vault_controlled_wallet import VaultControlledWallet, EnzymeVaultTransaction, AssetDelta
-from eth_defi.event_reader.multithread import MultithreadEventReader
-from eth_defi.event_reader.reader import extract_events, Web3EventReader
 from eth_defi.hotwallet import HotWallet
-from eth_defi.token import fetch_erc20_details
-from eth_defi.trace import assert_transaction_success_with_explanation, TransactionAssertionError, assert_call_success_with_explanation
+from eth_defi.trace import assert_transaction_success_with_explanation
 from eth_defi.uniswap_v2.deployment import UniswapV2Deployment, FOREVER_DEADLINE
 
 
@@ -41,13 +29,13 @@ def hot_wallet(web3, deployer, user_1, usdc: Contract) -> HotWallet:
     account = Account.from_key(private_key)
     wallet = HotWallet(account)
     wallet.sync_nonce(web3)
-    tx_hash = web3.eth.send_transaction({"to": wallet.address, "from": user_1, "value": 15*10**18})
+    tx_hash = web3.eth.send_transaction({"to": wallet.address, "from": user_1, "value": 15 * 10**18})
     assert_transaction_success_with_explanation(web3, tx_hash)
-    tx_hash = usdc.functions.transfer(wallet.address, 500*10**6).transact({"from": deployer})
+    tx_hash = usdc.functions.transfer(wallet.address, 500 * 10**6).transact({"from": deployer})
     assert_transaction_success_with_explanation(web3, tx_hash)
 
     # See howt wallet works
-    tx_data = usdc.functions.transfer(deployer, 1*10**6).build_transaction({"from": wallet.address, "gas": 100_000})
+    tx_data = usdc.functions.transfer(deployer, 1 * 10**6).build_transaction({"from": wallet.address, "gas": 100_000})
     signed = wallet.sign_transaction_with_new_nonce(tx_data)
     tx_hash = web3.eth.send_raw_transaction(signed.raw_transaction)
     assert_transaction_success_with_explanation(web3, tx_hash)
@@ -129,7 +117,7 @@ def test_repr(
         asset_deltas=[
             AssetDelta(weth.address, expected_incoming_amount),
             AssetDelta(usdc.address, -expected_outgoing_amount),
-        ]
+        ],
     )
     # Check EnzymeVaultTransaction.__repr__
     str(buy_tx)
@@ -199,16 +187,12 @@ def test_vault_controlled_wallet_make_buy(
         asset_deltas=[
             AssetDelta(weth.address, int(token_out_amount * slippage_tolenrance)),
             AssetDelta(usdc.address, -token_in_amount),
-        ]
+        ],
     )
 
     signed = vault_wallet.sign_transaction_with_new_nonce(buy_tx)
     tx_hash = web3.eth.send_raw_transaction(signed.raw_transaction)
-    try:
-        assert_transaction_success_with_explanation(web3, tx_hash)
-    except Exception as e:
-        import ipdb ; ipdb.set_trace()
-        pass
+    assert_transaction_success_with_explanation(web3, tx_hash)
 
     assert weth.functions.balanceOf(vault.address).call() > 0
     assert usdc.functions.balanceOf(vault.address).call() == 0

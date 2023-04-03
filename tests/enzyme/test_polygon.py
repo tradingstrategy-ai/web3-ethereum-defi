@@ -32,4 +32,3 @@ def test_fetch_enzyme_on_polygon(
     deployment = EnzymeDeployment.fetch_deployment(web3, POLYGON_DEPLOYMENT)
     assert deployment.mln.functions.symbol().call() == "MLN"
     assert deployment.weth.functions.symbol().call() == "WMATIC"
-

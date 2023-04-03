@@ -84,7 +84,7 @@ class Vault:
     #: The Enzyme deployment does not know anything about the generic adapter.
     #: The generic adapter whitelists Enzyme's integration manager on the launch.
     #: Thus, it is not possible to resolve any GenericAdapter deployment,
-    #; but we need to track them ourselves for each chain.
+    # ; but we need to track them ourselves for each chain.
     #:
     generic_adapter: Optional[Contract] = None
 

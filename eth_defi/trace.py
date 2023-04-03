@@ -160,7 +160,6 @@ def trace_evm_call(
     trace_call_resp = web3.manager.request_blocking("trace_call", [tx, ["trace"], block_reference])
 
 
-
 def print_symbolic_trace(
     contract_registry: ContractRegistry,
     calltree: CallTreeNode,
@@ -286,8 +285,8 @@ def assert_transaction_success_with_explanation(
 
 
 def assert_call_success_with_explanation(
-        func: ContractFunction,
-        transaction: Optional[TxParams] = None,
+    func: ContractFunction,
+    transaction: Optional[TxParams] = None,
 ) -> Any:
     """Make a Web3.call and if it fails get the Solidity stack trace.
 
