@@ -85,6 +85,11 @@ class Vault:
         """
         return self.vault.w3
 
+    @property
+    def address(self) -> HexAddress:
+        """The address of the vault contract."""
+        return self.vault.address
+
     @cached_property
     def denomination_token(self) -> TokenDetails:
         """Get the denominator token for withdrawal/deposit.
