@@ -79,10 +79,10 @@ def main():
     # Iterate through all events
     feeds: List[EnzymePriceFeed] = []
     for price_feed in fetch_price_feeds(
-            deployment,
-            start_block=POLYGON_DEPLOYMENT["deployed_at"],
-            end_block=end_block,
-            read_events=reader,
+        deployment,
+        start_block=POLYGON_DEPLOYMENT["deployed_at"],
+        end_block=end_block,
+        read_events=reader,
     ):
         feeds.append(price_feed)
 

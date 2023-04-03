@@ -5,7 +5,7 @@ See :py:class:`Vault`.
 from decimal import Decimal
 from dataclasses import dataclass
 from functools import cached_property
-from typing import Collection
+from typing import Collection, Optional
 
 from eth_defi.abi import get_deployed_contract
 from eth_typing import HexAddress
@@ -77,6 +77,17 @@ class Vault:
     #:
     deployment: EnzymeDeployment
 
+    #: Our custom adapter for vault trades.
+    #:
+    #: See :py:mod:`~eth_defi.enzyme.generic_adapter.
+    #:
+    #: The Enzyme deployment does not know anything about the generic adapter.
+    #: The generic adapter whitelists Enzyme's integration manager on the launch.
+    #: Thus, it is not possible to resolve any GenericAdapter deployment,
+    # ; but we need to track them ourselves for each chain.
+    #:
+    generic_adapter: Optional[Contract] = None
+
     @property
     def web3(self) -> Web3:
         """Web3 connection.
@@ -84,6 +95,11 @@ class Vault:
         Used for reading JSON-RPC calls
         """
         return self.vault.w3
+
+    @property
+    def address(self) -> HexAddress:
+        """The address of the vault contract."""
+        return self.vault.address
 
     @cached_property
     def denomination_token(self) -> TokenDetails:

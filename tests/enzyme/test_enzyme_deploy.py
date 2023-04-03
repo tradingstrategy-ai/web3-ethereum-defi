@@ -87,7 +87,6 @@ def test_vault_api(
     )
 
     comptroller_contract, vault_contract = deployment.create_new_vault(user_1, usdc, fund_name="Cow says Moo", fund_symbol="MOO")
-
     vault = Vault(vault_contract, comptroller_contract, deployment)
 
     assert vault.get_name() == "Cow says Moo"

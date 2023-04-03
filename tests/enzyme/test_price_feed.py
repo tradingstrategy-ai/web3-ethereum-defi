@@ -92,12 +92,7 @@ def test_fetch_price_feeds(
     assert feeds[1].primitive_token.symbol == "WETH"
 
 
-def test_unsupported_base_asset(
-    web3: Web3,
-    deployment: EnzymeDeployment,
-    weth: Contract,
-    usdc: Contract,
-    weth_usd_mock_chainlink_aggregator: Contract):
+def test_unsupported_base_asset(web3: Web3, deployment: EnzymeDeployment, weth: Contract, usdc: Contract, weth_usd_mock_chainlink_aggregator: Contract):
     """See what ValueInterpreter replies if it does not know about the asset"""
 
     # Check the underlying price feed is correctly configured
@@ -110,7 +105,7 @@ def test_unsupported_base_asset(
             raw_amount,
             usdc.address,
         ).call()
-    assert e.value.args[0] == 'execution reverted: __calcAssetValue: Unsupported _baseAsset'
+    assert e.value.args[0] == "execution reverted: __calcAssetValue: Unsupported _baseAsset"
 
 
 def test_manipulate_price(

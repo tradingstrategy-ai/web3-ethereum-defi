@@ -35,6 +35,11 @@ class SignedTransactionWithNonce(NamedTuple):
     #: If broadcast fails, retain the source so we can debug the cause
     source: Optional[dict] = None
 
+    @property
+    def raw_transaction(self) -> HexBytes:
+        """Get the bytes to be broadcasted to the P2P network."""
+        return self.rawTransaction
+
     def __getitem__(self, index):
         return __getitem__(self, index)
 

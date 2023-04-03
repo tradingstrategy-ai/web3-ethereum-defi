@@ -110,8 +110,8 @@ class EnzymePriceFeed:
 
     @staticmethod
     def fetch_price_feed(
-            deployment: EnzymeDeployment,
-            token: TokenDetails,
+        deployment: EnzymeDeployment,
+        token: TokenDetails,
     ) -> "EnzymePriceFeed":
         """Get a price feed for a particular token.
 
@@ -171,14 +171,14 @@ class EnzymePriceFeed:
         return ChainLinkLatestRoundData(data)
 
     def calculate_current_onchain_price(
-            self,
-            quote: TokenDetails,
-            amount: Decimal=Decimal(1),
+        self,
+        quote: TokenDetails,
+        amount: Decimal = Decimal(1),
     ) -> Decimal:
         """Get the primitive asset price for this price feed.
 
         Use Enzyme's ValueInterpreter to calculate a price in ETH or USD.
-        
+
         - See `calcCanonicalAssetsTotalValue` in `ValueInterpreter`
 
         - See `__calcConversionAmount` in `ChainlinkPriceFeedMixin`

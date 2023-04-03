@@ -143,3 +143,65 @@ def test_generic_adapter_uniswap_v2(
     # Now after the swap the vault should have some WETH
     assert weth.functions.balanceOf(vault.address).call() == pytest.approx(93398910964326424)
     assert usdc.functions.balanceOf(vault.address).call() == 350 * 10**6
+
+
+def test_generic_adapter_approve(
+    web3: Web3,
+    deployer: HexAddress,
+    user_1: HexAddress,
+    user_2,
+    user_3,
+    weth: Contract,
+    mln: Contract,
+    usdc: Contract,
+    weth_usd_mock_chainlink_aggregator: Contract,
+    usdc_usd_mock_chainlink_aggregator: Contract,
+    dual_token_deployment: EnzymeDeployment,
+    uniswap_v2: UniswapV2Deployment,
+    weth_usdc_pair: Contract,
+):
+    """Check approve() sets allowance correctly for vault.
+
+    - Any approvals will be set on GenericAdapter contract
+
+    - Assets are transferred to GenericAdapter on
+    """
+
+    deployment = dual_token_deployment
+
+    generic_adapter = deploy_contract(web3, f"enzyme/GenericAdapter.json", deployer, deployment.contracts.integration_manager.address)
+    assert generic_adapter.functions.getIntegrationManager().call() == deployment.contracts.integration_manager.address
+
+    comptroller, vault = deployment.create_new_vault(
+        user_1,
+        usdc,
+    )
+
+    usdc.functions.transfer(user_2, 500 * 10**6).transact({"from": deployer})
+    usdc.functions.approve(comptroller.address, 500 * 10**6).transact({"from": user_2})
+    comptroller.functions.buyShares(500 * 10**6, 1).transact({"from": user_2})
+
+    # Check that the vault has balance
+    balance = usdc.functions.balanceOf(vault.address).call()
+    assert balance == 500 * 10**6
+
+    approve_amount = 100 * 10**6
+
+    # The vault performs a swap on Uniswap v2
+    encoded_approve = encode_function_call(usdc.functions.approve, [uniswap_v2.router.address, approve_amount])
+
+    bound_call = execute_calls_for_generic_adapter(
+        comptroller=comptroller,
+        external_calls=((usdc, encoded_approve),),
+        generic_adapter=generic_adapter,
+        incoming_assets=[],
+        integration_manager=deployment.contracts.integration_manager,
+        min_incoming_asset_amounts=[],
+        spend_asset_amounts=[],
+        spend_assets=[],
+    )
+
+    tx_hash = bound_call.transact({"from": user_1, "gas": 1_000_000})
+    assert_transaction_success_with_explanation(web3, tx_hash)
+
+    assert usdc.functions.allowance(generic_adapter.address, uniswap_v2.router.address).call() == approve_amount

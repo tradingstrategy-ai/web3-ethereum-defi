@@ -66,16 +66,12 @@ class ChainLinkLatestRoundData:
 
     @property
     def price(self) -> Decimal:
-        """Human-readable price in this response.
-
-        """
+        """Human-readable price in this response."""
         return Decimal(self.answer) / Decimal(10**self.decimals)
 
     @cached_property
     def description(self) -> str:
-        """Chainlink provided description of this feed
-
-        """
+        """Chainlink provided description of this feed"""
         return self.aggregator.functions.description().call()
 
 

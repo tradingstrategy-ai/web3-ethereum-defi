@@ -703,6 +703,3 @@ def read_events_concurrent(
                 # we try to return events from this completed tasks later,
                 # when we have some results from earlier tasks first.
                 break
-
-
-
