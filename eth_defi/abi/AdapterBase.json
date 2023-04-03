@@ -1,0 +1,2073 @@
+{
+  "abi": [
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "_integrationManager",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "nonpayable",
+      "type": "constructor"
+    },
+    {
+      "inputs": [],
+      "name": "CLAIM_REWARDS_SELECTOR",
+      "outputs": [
+        {
+          "internalType": "bytes4",
+          "name": "",
+          "type": "bytes4"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "LEND_AND_STAKE_SELECTOR",
+      "outputs": [
+        {
+          "internalType": "bytes4",
+          "name": "",
+          "type": "bytes4"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "LEND_SELECTOR",
+      "outputs": [
+        {
+          "internalType": "bytes4",
+          "name": "",
+          "type": "bytes4"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "REDEEM_SELECTOR",
+      "outputs": [
+        {
+          "internalType": "bytes4",
+          "name": "",
+          "type": "bytes4"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "STAKE_SELECTOR",
+      "outputs": [
+        {
+          "internalType": "bytes4",
+          "name": "",
+          "type": "bytes4"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "TAKE_MULTIPLE_ORDERS_SELECTOR",
+      "outputs": [
+        {
+          "internalType": "bytes4",
+          "name": "",
+          "type": "bytes4"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "TAKE_ORDER_SELECTOR",
+      "outputs": [
+        {
+          "internalType": "bytes4",
+          "name": "",
+          "type": "bytes4"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "UNSTAKE_AND_REDEEM_SELECTOR",
+      "outputs": [
+        {
+          "internalType": "bytes4",
+          "name": "",
+          "type": "bytes4"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "UNSTAKE_SELECTOR",
+      "outputs": [
+        {
+          "internalType": "bytes4",
+          "name": "",
+          "type": "bytes4"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "getIntegrationManager",
+      "outputs": [
+        {
+          "internalType": "address",
+          "name": "integrationManager_",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "_vaultProxy",
+          "type": "address"
+        },
+        {
+          "internalType": "bytes4",
+          "name": "_selector",
+          "type": "bytes4"
+        },
+        {
+          "internalType": "bytes",
+          "name": "_encodedCallArgs",
+          "type": "bytes"
+        }
+      ],
+      "name": "parseAssetsForAction",
+      "outputs": [
+        {
+          "internalType": "enum IIntegrationManager.SpendAssetsHandleType",
+          "name": "spendAssetsHandleType_",
+          "type": "uint8"
+        },
+        {
+          "internalType": "address[]",
+          "name": "spendAssets_",
+          "type": "address[]"
+        },
+        {
+          "internalType": "uint256[]",
+          "name": "spendAssetAmounts_",
+          "type": "uint256[]"
+        },
+        {
+          "internalType": "address[]",
+          "name": "incomingAssets_",
+          "type": "address[]"
+        },
+        {
+          "internalType": "uint256[]",
+          "name": "minIncomingAssetAmounts_",
+          "type": "uint256[]"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    }
+  ],
+  "bytecode": {
+    "object": "0x",
+    "sourceMap": "",
+    "linkReferences": {}
+  },
+  "deployedBytecode": {
+    "object": "0x",
+    "sourceMap": "",
+    "linkReferences": {}
+  },
+  "methodIdentifiers": {
+    "CLAIM_REWARDS_SELECTOR()": "40da225d",
+    "LEND_AND_STAKE_SELECTOR()": "131461c0",
+    "LEND_SELECTOR()": "257cb1a3",
+    "REDEEM_SELECTOR()": "f7d882b5",
+    "STAKE_SELECTOR()": "3ffc1591",
+    "TAKE_MULTIPLE_ORDERS_SELECTOR()": "c32990a2",
+    "TAKE_ORDER_SELECTOR()": "863e5ad0",
+    "UNSTAKE_AND_REDEEM_SELECTOR()": "080456c1",
+    "UNSTAKE_SELECTOR()": "b23228cf",
+    "getIntegrationManager()": "e7c45690",
+    "parseAssetsForAction(address,bytes4,bytes)": "c54efee5"
+  },
+  "rawMetadata": "{\"compiler\":{\"version\":\"0.6.12+commit.27d51765\"},\"language\":\"Solidity\",\"output\":{\"abi\":[{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_integrationManager\",\"type\":\"address\"}],\"stateMutability\":\"nonpayable\",\"type\":\"constructor\"},{\"inputs\":[],\"name\":\"CLAIM_REWARDS_SELECTOR\",\"outputs\":[{\"internalType\":\"bytes4\",\"name\":\"\",\"type\":\"bytes4\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"LEND_AND_STAKE_SELECTOR\",\"outputs\":[{\"internalType\":\"bytes4\",\"name\":\"\",\"type\":\"bytes4\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"LEND_SELECTOR\",\"outputs\":[{\"internalType\":\"bytes4\",\"name\":\"\",\"type\":\"bytes4\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"REDEEM_SELECTOR\",\"outputs\":[{\"internalType\":\"bytes4\",\"name\":\"\",\"type\":\"bytes4\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"STAKE_SELECTOR\",\"outputs\":[{\"internalType\":\"bytes4\",\"name\":\"\",\"type\":\"bytes4\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"TAKE_MULTIPLE_ORDERS_SELECTOR\",\"outputs\":[{\"internalType\":\"bytes4\",\"name\":\"\",\"type\":\"bytes4\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"TAKE_ORDER_SELECTOR\",\"outputs\":[{\"internalType\":\"bytes4\",\"name\":\"\",\"type\":\"bytes4\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"UNSTAKE_AND_REDEEM_SELECTOR\",\"outputs\":[{\"internalType\":\"bytes4\",\"name\":\"\",\"type\":\"bytes4\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"UNSTAKE_SELECTOR\",\"outputs\":[{\"internalType\":\"bytes4\",\"name\":\"\",\"type\":\"bytes4\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getIntegrationManager\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"integrationManager_\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_vaultProxy\",\"type\":\"address\"},{\"internalType\":\"bytes4\",\"name\":\"_selector\",\"type\":\"bytes4\"},{\"internalType\":\"bytes\",\"name\":\"_encodedCallArgs\",\"type\":\"bytes\"}],\"name\":\"parseAssetsForAction\",\"outputs\":[{\"internalType\":\"enum IIntegrationManager.SpendAssetsHandleType\",\"name\":\"spendAssetsHandleType_\",\"type\":\"uint8\"},{\"internalType\":\"address[]\",\"name\":\"spendAssets_\",\"type\":\"address[]\"},{\"internalType\":\"uint256[]\",\"name\":\"spendAssetAmounts_\",\"type\":\"uint256[]\"},{\"internalType\":\"address[]\",\"name\":\"incomingAssets_\",\"type\":\"address[]\"},{\"internalType\":\"uint256[]\",\"name\":\"minIncomingAssetAmounts_\",\"type\":\"uint256[]\"}],\"stateMutability\":\"view\",\"type\":\"function\"}],\"devdoc\":{\"author\":\"Enzyme Council <security@enzyme.finance>\",\"kind\":\"dev\",\"methods\":{\"getIntegrationManager()\":{\"returns\":{\"integrationManager_\":\"The `INTEGRATION_MANAGER` variable value\"}}},\"title\":\"AdapterBase Contract\",\"version\":1},\"userdoc\":{\"kind\":\"user\",\"methods\":{\"getIntegrationManager()\":{\"notice\":\"Gets the `INTEGRATION_MANAGER` variable\"}},\"notice\":\"A base contract for integration adapters\",\"version\":1}},\"settings\":{\"compilationTarget\":{\"../enzyme/contracts/release/extensions/integration-manager/integrations/utils/AdapterBase.sol\":\"AdapterBase\"},\"evmVersion\":\"istanbul\",\"libraries\":{},\"metadata\":{\"bytecodeHash\":\"ipfs\"},\"optimizer\":{\"enabled\":true,\"runs\":200},\"remappings\":[\":# @openzeppelin/=lib/openzeppelin-contracts/\",\":@enzyme/=../enzyme/contracts/\",\":@openzeppelin/=../enzyme/node_modules/@openzeppelin/\",\":ds-test/=lib/forge-std/lib/ds-test/src/\",\":forge-std/=lib/forge-std/src/\",\":openzeppelin-contracts/=lib/openzeppelin-contracts/\"]},\"sources\":{\"../enzyme/contracts/release/extensions/integration-manager/IIntegrationManager.sol\":{\"keccak256\":\"0x29aff2a05a50430f732dd67cd3dfbfcf3b2fd86697f61b1ef91bebc8ff3e00ef\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://8b1f03cd376a3743dfaeff7cfbb1114341099d18ab32165365c76eba8e9dbc23\",\"dweb:/ipfs/QmZEwZEUcFwWEKkYXmjcijChwfAkFHkgMMRnv4QY8abhdk\"]},\"../enzyme/contracts/release/extensions/integration-manager/integrations/IIntegrationAdapter.sol\":{\"keccak256\":\"0x14b11777e21aceca340931832874342546731493bb169dbb4de736b16e9a7cc1\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://d86c25f7deaddc311bfcd4da5ce08c275f548e164cb732137be91466acc75336\",\"dweb:/ipfs/QmYE2XeBKMoqUrfNZAX66mi34sth4ehoZnVzGhZFLBxbwS\"]},\"../enzyme/contracts/release/extensions/integration-manager/integrations/utils/AdapterBase.sol\":{\"keccak256\":\"0x067e49bf0d3c1655ab41a413c65ccf61d4e593308132e1ffc484a0fadfbbaf26\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://387f425017e18e89cc1893521101fa99df595314847d0b3d9a1162369f714fcf\",\"dweb:/ipfs/Qmco3jCvuWAyfCpBYpGzHrQjiFJG63w1RJKcakoTEbxRQm\"]},\"../enzyme/contracts/release/extensions/integration-manager/integrations/utils/IntegrationSelectors.sol\":{\"keccak256\":\"0xfd34c7ca8231c6935e25dede32ca2b3121738e624d0fc896f7b895a731edcf88\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://d492c061963d36d07718446db191d4c5a340c0d847f6cd209f027bd99f7cb176\",\"dweb:/ipfs/QmfCvRZt56ftDdrEh6LepHXFJ4fVtcfpQGvEyY8k4zxG1A\"]},\"../enzyme/contracts/release/utils/AssetHelpers.sol\":{\"keccak256\":\"0x01825f9b744f0bdbbcbed59503845b46e31b67ab510d53d4834c22967e12fc5f\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://a6937098b8b5e2238c5d2617d4c7870b61eb3dc6b24e38a6d037353f92a7db4b\",\"dweb:/ipfs/QmXfdWqtc4Dyn4ShhCc6ZZscApMZWtSaonvikwemhczb5E\"]},\"../enzyme/node_modules/@openzeppelin/contracts/math/SafeMath.sol\":{\"keccak256\":\"0xcc78a17dd88fa5a2edc60c8489e2f405c0913b377216a5b26b35656b2d0dab52\",\"license\":\"MIT\",\"urls\":[\"bzz-raw://526dc85e1f9b9b45830e202568d267d93dde7a4fcccf4ad7798dadcd92304d3c\",\"dweb:/ipfs/QmaoXMB972J3cSDLtBq3xBo4jLwqD2uzXTwujtSPqkYVhR\"]},\"../enzyme/node_modules/@openzeppelin/contracts/token/ERC20/ERC20.sol\":{\"keccak256\":\"0xca0c2396dbeb3503b51abf4248ebf77a1461edad513c01529df51850a012bee3\",\"license\":\"MIT\",\"urls\":[\"bzz-raw://991b44ff44e0496e8554a90f4c0512c28faed45104d40430019f3c67ea67740e\",\"dweb:/ipfs/Qmc3nRapVbcctELoZS5qe17zLkFB3bETBfwzCTMF1CSuGE\"]},\"../enzyme/node_modules/@openzeppelin/contracts/token/ERC20/IERC20.sol\":{\"keccak256\":\"0x5f02220344881ce43204ae4a6281145a67bc52c2bb1290a791857df3d19d78f5\",\"license\":\"MIT\",\"urls\":[\"bzz-raw://24427744bd3e6cb73c17010119af12a318289c0253a4d9acb8576c9fb3797b08\",\"dweb:/ipfs/QmTLDqpKRBuxGxRAmjgXt9AkXyACW3MtKzi7PYjm5iMfGC\"]},\"../enzyme/node_modules/@openzeppelin/contracts/token/ERC20/SafeERC20.sol\":{\"keccak256\":\"0xf12dfbe97e6276980b83d2830bb0eb75e0cf4f3e626c2471137f82158ae6a0fc\",\"license\":\"MIT\",\"urls\":[\"bzz-raw://b3a849c2d95e85463909e5b5c920b13e7a11216ca14127085e16d22b9379d52a\",\"dweb:/ipfs/QmUg3CZDbCCcQdroEpexBy5ZFd5vD1UWijWQq9qHZjtJNQ\"]},\"../enzyme/node_modules/@openzeppelin/contracts/utils/Address.sol\":{\"keccak256\":\"0x28911e614500ae7c607a432a709d35da25f3bc5ddc8bd12b278b66358070c0ea\",\"license\":\"MIT\",\"urls\":[\"bzz-raw://256c8c8af5eb072bc473226ab2b2187149b8fc04f5f4a4820db22527f5ce8e3c\",\"dweb:/ipfs/QmRvi5BhnL7Rxf85KrJhwM6RRhukm4tzoctRdgQEheNyiN\"]},\"../enzyme/node_modules/@openzeppelin/contracts/utils/Context.sol\":{\"keccak256\":\"0x8d3cb350f04ff49cfb10aef08d87f19dcbaecc8027b0bed12f3275cd12f38cf0\",\"license\":\"MIT\",\"urls\":[\"bzz-raw://ded47ec7c96750f9bd04bbbc84f659992d4ba901cb7b532a52cd468272cf378f\",\"dweb:/ipfs/QmfBrGtQP7rZEqEg6Wz6jh2N2Kukpj1z5v3CGWmAqrzm96\"]}},\"version\":1}",
+  "metadata": {
+    "compiler": {
+      "version": "0.6.12+commit.27d51765"
+    },
+    "language": "Solidity",
+    "output": {
+      "abi": [
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "_integrationManager",
+              "type": "address"
+            }
+          ],
+          "stateMutability": "nonpayable",
+          "type": "constructor"
+        },
+        {
+          "inputs": [],
+          "stateMutability": "view",
+          "type": "function",
+          "name": "CLAIM_REWARDS_SELECTOR",
+          "outputs": [
+            {
+              "internalType": "bytes4",
+              "name": "",
+              "type": "bytes4"
+            }
+          ]
+        },
+        {
+          "inputs": [],
+          "stateMutability": "view",
+          "type": "function",
+          "name": "LEND_AND_STAKE_SELECTOR",
+          "outputs": [
+            {
+              "internalType": "bytes4",
+              "name": "",
+              "type": "bytes4"
+            }
+          ]
+        },
+        {
+          "inputs": [],
+          "stateMutability": "view",
+          "type": "function",
+          "name": "LEND_SELECTOR",
+          "outputs": [
+            {
+              "internalType": "bytes4",
+              "name": "",
+              "type": "bytes4"
+            }
+          ]
+        },
+        {
+          "inputs": [],
+          "stateMutability": "view",
+          "type": "function",
+          "name": "REDEEM_SELECTOR",
+          "outputs": [
+            {
+              "internalType": "bytes4",
+              "name": "",
+              "type": "bytes4"
+            }
+          ]
+        },
+        {
+          "inputs": [],
+          "stateMutability": "view",
+          "type": "function",
+          "name": "STAKE_SELECTOR",
+          "outputs": [
+            {
+              "internalType": "bytes4",
+              "name": "",
+              "type": "bytes4"
+            }
+          ]
+        },
+        {
+          "inputs": [],
+          "stateMutability": "view",
+          "type": "function",
+          "name": "TAKE_MULTIPLE_ORDERS_SELECTOR",
+          "outputs": [
+            {
+              "internalType": "bytes4",
+              "name": "",
+              "type": "bytes4"
+            }
+          ]
+        },
+        {
+          "inputs": [],
+          "stateMutability": "view",
+          "type": "function",
+          "name": "TAKE_ORDER_SELECTOR",
+          "outputs": [
+            {
+              "internalType": "bytes4",
+              "name": "",
+              "type": "bytes4"
+            }
+          ]
+        },
+        {
+          "inputs": [],
+          "stateMutability": "view",
+          "type": "function",
+          "name": "UNSTAKE_AND_REDEEM_SELECTOR",
+          "outputs": [
+            {
+              "internalType": "bytes4",
+              "name": "",
+              "type": "bytes4"
+            }
+          ]
+        },
+        {
+          "inputs": [],
+          "stateMutability": "view",
+          "type": "function",
+          "name": "UNSTAKE_SELECTOR",
+          "outputs": [
+            {
+              "internalType": "bytes4",
+              "name": "",
+              "type": "bytes4"
+            }
+          ]
+        },
+        {
+          "inputs": [],
+          "stateMutability": "view",
+          "type": "function",
+          "name": "getIntegrationManager",
+          "outputs": [
+            {
+              "internalType": "address",
+              "name": "integrationManager_",
+              "type": "address"
+            }
+          ]
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "_vaultProxy",
+              "type": "address"
+            },
+            {
+              "internalType": "bytes4",
+              "name": "_selector",
+              "type": "bytes4"
+            },
+            {
+              "internalType": "bytes",
+              "name": "_encodedCallArgs",
+              "type": "bytes"
+            }
+          ],
+          "stateMutability": "view",
+          "type": "function",
+          "name": "parseAssetsForAction",
+          "outputs": [
+            {
+              "internalType": "enum IIntegrationManager.SpendAssetsHandleType",
+              "name": "spendAssetsHandleType_",
+              "type": "uint8"
+            },
+            {
+              "internalType": "address[]",
+              "name": "spendAssets_",
+              "type": "address[]"
+            },
+            {
+              "internalType": "uint256[]",
+              "name": "spendAssetAmounts_",
+              "type": "uint256[]"
+            },
+            {
+              "internalType": "address[]",
+              "name": "incomingAssets_",
+              "type": "address[]"
+            },
+            {
+              "internalType": "uint256[]",
+              "name": "minIncomingAssetAmounts_",
+              "type": "uint256[]"
+            }
+          ]
+        }
+      ],
+      "devdoc": {
+        "kind": "dev",
+        "methods": {
+          "getIntegrationManager()": {
+            "returns": {
+              "integrationManager_": "The `INTEGRATION_MANAGER` variable value"
+            }
+          }
+        },
+        "version": 1
+      },
+      "userdoc": {
+        "kind": "user",
+        "methods": {
+          "getIntegrationManager()": {
+            "notice": "Gets the `INTEGRATION_MANAGER` variable"
+          }
+        },
+        "version": 1
+      }
+    },
+    "settings": {
+      "remappings": [
+        ":# @openzeppelin/=lib/openzeppelin-contracts/",
+        ":@enzyme/=../enzyme/contracts/",
+        ":@openzeppelin/=../enzyme/node_modules/@openzeppelin/",
+        ":ds-test/=lib/forge-std/lib/ds-test/src/",
+        ":forge-std/=lib/forge-std/src/",
+        ":openzeppelin-contracts/=lib/openzeppelin-contracts/"
+      ],
+      "optimizer": {
+        "enabled": true,
+        "runs": 200
+      },
+      "metadata": {
+        "bytecodeHash": "ipfs"
+      },
+      "compilationTarget": {
+        "../enzyme/contracts/release/extensions/integration-manager/integrations/utils/AdapterBase.sol": "AdapterBase"
+      },
+      "libraries": {}
+    },
+    "sources": {
+      "../enzyme/contracts/release/extensions/integration-manager/IIntegrationManager.sol": {
+        "keccak256": "0x29aff2a05a50430f732dd67cd3dfbfcf3b2fd86697f61b1ef91bebc8ff3e00ef",
+        "urls": [
+          "bzz-raw://8b1f03cd376a3743dfaeff7cfbb1114341099d18ab32165365c76eba8e9dbc23",
+          "dweb:/ipfs/QmZEwZEUcFwWEKkYXmjcijChwfAkFHkgMMRnv4QY8abhdk"
+        ],
+        "license": "GPL-3.0"
+      },
+      "../enzyme/contracts/release/extensions/integration-manager/integrations/IIntegrationAdapter.sol": {
+        "keccak256": "0x14b11777e21aceca340931832874342546731493bb169dbb4de736b16e9a7cc1",
+        "urls": [
+          "bzz-raw://d86c25f7deaddc311bfcd4da5ce08c275f548e164cb732137be91466acc75336",
+          "dweb:/ipfs/QmYE2XeBKMoqUrfNZAX66mi34sth4ehoZnVzGhZFLBxbwS"
+        ],
+        "license": "GPL-3.0"
+      },
+      "../enzyme/contracts/release/extensions/integration-manager/integrations/utils/AdapterBase.sol": {
+        "keccak256": "0x067e49bf0d3c1655ab41a413c65ccf61d4e593308132e1ffc484a0fadfbbaf26",
+        "urls": [
+          "bzz-raw://387f425017e18e89cc1893521101fa99df595314847d0b3d9a1162369f714fcf",
+          "dweb:/ipfs/Qmco3jCvuWAyfCpBYpGzHrQjiFJG63w1RJKcakoTEbxRQm"
+        ],
+        "license": "GPL-3.0"
+      },
+      "../enzyme/contracts/release/extensions/integration-manager/integrations/utils/IntegrationSelectors.sol": {
+        "keccak256": "0xfd34c7ca8231c6935e25dede32ca2b3121738e624d0fc896f7b895a731edcf88",
+        "urls": [
+          "bzz-raw://d492c061963d36d07718446db191d4c5a340c0d847f6cd209f027bd99f7cb176",
+          "dweb:/ipfs/QmfCvRZt56ftDdrEh6LepHXFJ4fVtcfpQGvEyY8k4zxG1A"
+        ],
+        "license": "GPL-3.0"
+      },
+      "../enzyme/contracts/release/utils/AssetHelpers.sol": {
+        "keccak256": "0x01825f9b744f0bdbbcbed59503845b46e31b67ab510d53d4834c22967e12fc5f",
+        "urls": [
+          "bzz-raw://a6937098b8b5e2238c5d2617d4c7870b61eb3dc6b24e38a6d037353f92a7db4b",
+          "dweb:/ipfs/QmXfdWqtc4Dyn4ShhCc6ZZscApMZWtSaonvikwemhczb5E"
+        ],
+        "license": "GPL-3.0"
+      },
+      "../enzyme/node_modules/@openzeppelin/contracts/math/SafeMath.sol": {
+        "keccak256": "0xcc78a17dd88fa5a2edc60c8489e2f405c0913b377216a5b26b35656b2d0dab52",
+        "urls": [
+          "bzz-raw://526dc85e1f9b9b45830e202568d267d93dde7a4fcccf4ad7798dadcd92304d3c",
+          "dweb:/ipfs/QmaoXMB972J3cSDLtBq3xBo4jLwqD2uzXTwujtSPqkYVhR"
+        ],
+        "license": "MIT"
+      },
+      "../enzyme/node_modules/@openzeppelin/contracts/token/ERC20/ERC20.sol": {
+        "keccak256": "0xca0c2396dbeb3503b51abf4248ebf77a1461edad513c01529df51850a012bee3",
+        "urls": [
+          "bzz-raw://991b44ff44e0496e8554a90f4c0512c28faed45104d40430019f3c67ea67740e",
+          "dweb:/ipfs/Qmc3nRapVbcctELoZS5qe17zLkFB3bETBfwzCTMF1CSuGE"
+        ],
+        "license": "MIT"
+      },
+      "../enzyme/node_modules/@openzeppelin/contracts/token/ERC20/IERC20.sol": {
+        "keccak256": "0x5f02220344881ce43204ae4a6281145a67bc52c2bb1290a791857df3d19d78f5",
+        "urls": [
+          "bzz-raw://24427744bd3e6cb73c17010119af12a318289c0253a4d9acb8576c9fb3797b08",
+          "dweb:/ipfs/QmTLDqpKRBuxGxRAmjgXt9AkXyACW3MtKzi7PYjm5iMfGC"
+        ],
+        "license": "MIT"
+      },
+      "../enzyme/node_modules/@openzeppelin/contracts/token/ERC20/SafeERC20.sol": {
+        "keccak256": "0xf12dfbe97e6276980b83d2830bb0eb75e0cf4f3e626c2471137f82158ae6a0fc",
+        "urls": [
+          "bzz-raw://b3a849c2d95e85463909e5b5c920b13e7a11216ca14127085e16d22b9379d52a",
+          "dweb:/ipfs/QmUg3CZDbCCcQdroEpexBy5ZFd5vD1UWijWQq9qHZjtJNQ"
+        ],
+        "license": "MIT"
+      },
+      "../enzyme/node_modules/@openzeppelin/contracts/utils/Address.sol": {
+        "keccak256": "0x28911e614500ae7c607a432a709d35da25f3bc5ddc8bd12b278b66358070c0ea",
+        "urls": [
+          "bzz-raw://256c8c8af5eb072bc473226ab2b2187149b8fc04f5f4a4820db22527f5ce8e3c",
+          "dweb:/ipfs/QmRvi5BhnL7Rxf85KrJhwM6RRhukm4tzoctRdgQEheNyiN"
+        ],
+        "license": "MIT"
+      },
+      "../enzyme/node_modules/@openzeppelin/contracts/utils/Context.sol": {
+        "keccak256": "0x8d3cb350f04ff49cfb10aef08d87f19dcbaecc8027b0bed12f3275cd12f38cf0",
+        "urls": [
+          "bzz-raw://ded47ec7c96750f9bd04bbbc84f659992d4ba901cb7b532a52cd468272cf378f",
+          "dweb:/ipfs/QmfBrGtQP7rZEqEg6Wz6jh2N2Kukpj1z5v3CGWmAqrzm96"
+        ],
+        "license": "MIT"
+      }
+    },
+    "version": 1
+  },
+  "ast": {
+    "absolutePath": "../enzyme/contracts/release/extensions/integration-manager/integrations/utils/AdapterBase.sol",
+    "id": 128,
+    "exportedSymbols": {
+      "AdapterBase": [
+        127
+      ]
+    },
+    "nodeType": "SourceUnit",
+    "src": "255:2513:2",
+    "nodes": [
+      {
+        "id": 1,
+        "nodeType": "PragmaDirective",
+        "src": "255:23:2",
+        "nodes": [],
+        "literals": [
+          "solidity",
+          "0.6",
+          ".12"
+        ]
+      },
+      {
+        "id": 2,
+        "nodeType": "ImportDirective",
+        "src": "280:55:2",
+        "nodes": [],
+        "absolutePath": "../enzyme/node_modules/@openzeppelin/contracts/token/ERC20/ERC20.sol",
+        "file": "@openzeppelin/contracts/token/ERC20/ERC20.sol",
+        "scope": 128,
+        "sourceUnit": 986,
+        "symbolAliases": [],
+        "unitAlias": ""
+      },
+      {
+        "id": 3,
+        "nodeType": "ImportDirective",
+        "src": "336:59:2",
+        "nodes": [],
+        "absolutePath": "../enzyme/node_modules/@openzeppelin/contracts/token/ERC20/SafeERC20.sol",
+        "file": "@openzeppelin/contracts/token/ERC20/SafeERC20.sol",
+        "scope": 128,
+        "sourceUnit": 1199,
+        "symbolAliases": [],
+        "unitAlias": ""
+      },
+      {
+        "id": 4,
+        "nodeType": "ImportDirective",
+        "src": "396:44:2",
+        "nodes": [],
+        "absolutePath": "../enzyme/contracts/release/utils/AssetHelpers.sol",
+        "file": "../../../../utils/AssetHelpers.sol",
+        "scope": 128,
+        "sourceUnit": 3258,
+        "symbolAliases": [],
+        "unitAlias": ""
+      },
+      {
+        "id": 5,
+        "nodeType": "ImportDirective",
+        "src": "441:36:2",
+        "nodes": [],
+        "absolutePath": "../enzyme/contracts/release/extensions/integration-manager/integrations/IIntegrationAdapter.sol",
+        "file": "../IIntegrationAdapter.sol",
+        "scope": 128,
+        "sourceUnit": 2832,
+        "symbolAliases": [],
+        "unitAlias": ""
+      },
+      {
+        "id": 6,
+        "nodeType": "ImportDirective",
+        "src": "478:36:2",
+        "nodes": [],
+        "absolutePath": "../enzyme/contracts/release/extensions/integration-manager/integrations/utils/IntegrationSelectors.sol",
+        "file": "./IntegrationSelectors.sol",
+        "scope": 128,
+        "sourceUnit": 2908,
+        "symbolAliases": [],
+        "unitAlias": ""
+      },
+      {
+        "id": 127,
+        "nodeType": "ContractDefinition",
+        "src": "654:2113:2",
+        "nodes": [
+          {
+            "id": 16,
+            "nodeType": "UsingForDirective",
+            "src": "749:26:2",
+            "nodes": [],
+            "libraryName": {
+              "contractScope": null,
+              "id": 14,
+              "name": "SafeERC20",
+              "nodeType": "UserDefinedTypeName",
+              "referencedDeclaration": 1198,
+              "src": "755:9:2",
+              "typeDescriptions": {
+                "typeIdentifier": "t_contract$_SafeERC20_$1198",
+                "typeString": "library SafeERC20"
+              }
+            },
+            "typeName": {
+              "contractScope": null,
+              "id": 15,
+              "name": "ERC20",
+              "nodeType": "UserDefinedTypeName",
+              "referencedDeclaration": 985,
+              "src": "769:5:2",
+              "typeDescriptions": {
+                "typeIdentifier": "t_contract$_ERC20_$985",
+                "typeString": "contract ERC20"
+              }
+            }
+          },
+          {
+            "id": 18,
+            "nodeType": "VariableDeclaration",
+            "src": "781:46:2",
+            "nodes": [],
+            "constant": false,
+            "mutability": "immutable",
+            "name": "INTEGRATION_MANAGER",
+            "overrides": null,
+            "scope": 127,
+            "stateVariable": true,
+            "storageLocation": "default",
+            "typeDescriptions": {
+              "typeIdentifier": "t_address",
+              "typeString": "address"
+            },
+            "typeName": {
+              "id": 17,
+              "name": "address",
+              "nodeType": "ElementaryTypeName",
+              "src": "781:7:2",
+              "stateMutability": "nonpayable",
+              "typeDescriptions": {
+                "typeIdentifier": "t_address",
+                "typeString": "address"
+              }
+            },
+            "value": null,
+            "visibility": "internal"
+          },
+          {
+            "id": 41,
+            "nodeType": "ModifierDefinition",
+            "src": "987:278:2",
+            "nodes": [],
+            "body": {
+              "id": 40,
+              "nodeType": "Block",
+              "src": "1104:161:2",
+              "nodes": [],
+              "statements": [
+                {
+                  "id": 25,
+                  "nodeType": "PlaceholderStatement",
+                  "src": "1114:1:2"
+                },
+                {
+                  "assignments": [
+                    null,
+                    null,
+                    30
+                  ],
+                  "declarations": [
+                    null,
+                    null,
+                    {
+                      "constant": false,
+                      "id": 30,
+                      "mutability": "mutable",
+                      "name": "incomingAssets",
+                      "nodeType": "VariableDeclaration",
+                      "overrides": null,
+                      "scope": 40,
+                      "src": "1131:31:2",
+                      "stateVariable": false,
+                      "storageLocation": "memory",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_array$_t_address_$dyn_memory_ptr",
+                        "typeString": "address[]"
+                      },
+                      "typeName": {
+                        "baseType": {
+                          "id": 28,
+                          "name": "address",
+                          "nodeType": "ElementaryTypeName",
+                          "src": "1131:7:2",
+                          "typeDescriptions": {
+                            "typeIdentifier": "t_address",
+                            "typeString": "address"
+                          }
+                        },
+                        "id": 29,
+                        "length": null,
+                        "nodeType": "ArrayTypeName",
+                        "src": "1131:9:2",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_array$_t_address_$dyn_storage_ptr",
+                          "typeString": "address[]"
+                        }
+                      },
+                      "value": null,
+                      "visibility": "internal"
+                    }
+                  ],
+                  "id": 34,
+                  "initialValue": {
+                    "argumentTypes": null,
+                    "arguments": [
+                      {
+                        "argumentTypes": null,
+                        "id": 32,
+                        "name": "_assetData",
+                        "nodeType": "Identifier",
+                        "overloadedDeclarations": [],
+                        "referencedDeclaration": 23,
+                        "src": "1184:10:2",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_bytes_memory_ptr",
+                          "typeString": "bytes memory"
+                        }
+                      }
+                    ],
+                    "expression": {
+                      "argumentTypes": [
+                        {
+                          "typeIdentifier": "t_bytes_memory_ptr",
+                          "typeString": "bytes memory"
+                        }
+                      ],
+                      "id": 31,
+                      "name": "__decodeAssetData",
+                      "nodeType": "Identifier",
+                      "overloadedDeclarations": [],
+                      "referencedDeclaration": 117,
+                      "src": "1166:17:2",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_function_internal_pure$_t_bytes_memory_ptr_$returns$_t_array$_t_address_$dyn_memory_ptr_$_t_array$_t_uint256_$dyn_memory_ptr_$_t_array$_t_address_$dyn_memory_ptr_$",
+                        "typeString": "function (bytes memory) pure returns (address[] memory,uint256[] memory,address[] memory)"
+                      }
+                    },
+                    "id": 33,
+                    "isConstant": false,
+                    "isLValue": false,
+                    "isPure": false,
+                    "kind": "functionCall",
+                    "lValueRequested": false,
+                    "names": [],
+                    "nodeType": "FunctionCall",
+                    "src": "1166:29:2",
+                    "tryCall": false,
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_tuple$_t_array$_t_address_$dyn_memory_ptr_$_t_array$_t_uint256_$dyn_memory_ptr_$_t_array$_t_address_$dyn_memory_ptr_$",
+                      "typeString": "tuple(address[] memory,uint256[] memory,address[] memory)"
+                    }
+                  },
+                  "nodeType": "VariableDeclarationStatement",
+                  "src": "1126:69:2"
+                },
+                {
+                  "expression": {
+                    "argumentTypes": null,
+                    "arguments": [
+                      {
+                        "argumentTypes": null,
+                        "id": 36,
+                        "name": "_vaultProxy",
+                        "nodeType": "Identifier",
+                        "overloadedDeclarations": [],
+                        "referencedDeclaration": 21,
+                        "src": "1230:11:2",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_address",
+                          "typeString": "address"
+                        }
+                      },
+                      {
+                        "argumentTypes": null,
+                        "id": 37,
+                        "name": "incomingAssets",
+                        "nodeType": "Identifier",
+                        "overloadedDeclarations": [],
+                        "referencedDeclaration": 30,
+                        "src": "1243:14:2",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_array$_t_address_$dyn_memory_ptr",
+                          "typeString": "address[] memory"
+                        }
+                      }
+                    ],
+                    "expression": {
+                      "argumentTypes": [
+                        {
+                          "typeIdentifier": "t_address",
+                          "typeString": "address"
+                        },
+                        {
+                          "typeIdentifier": "t_array$_t_address_$dyn_memory_ptr",
+                          "typeString": "address[] memory"
+                        }
+                      ],
+                      "id": 35,
+                      "name": "__pushFullAssetBalances",
+                      "nodeType": "Identifier",
+                      "overloadedDeclarations": [],
+                      "referencedDeclaration": 3256,
+                      "src": "1206:23:2",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_function_internal_nonpayable$_t_address_$_t_array$_t_address_$dyn_memory_ptr_$returns$_t_array$_t_uint256_$dyn_memory_ptr_$",
+                        "typeString": "function (address,address[] memory) returns (uint256[] memory)"
+                      }
+                    },
+                    "id": 38,
+                    "isConstant": false,
+                    "isLValue": false,
+                    "isPure": false,
+                    "kind": "functionCall",
+                    "lValueRequested": false,
+                    "names": [],
+                    "nodeType": "FunctionCall",
+                    "src": "1206:52:2",
+                    "tryCall": false,
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_array$_t_uint256_$dyn_memory_ptr",
+                      "typeString": "uint256[] memory"
+                    }
+                  },
+                  "id": 39,
+                  "nodeType": "ExpressionStatement",
+                  "src": "1206:52:2"
+                }
+              ]
+            },
+            "documentation": {
+              "id": 19,
+              "nodeType": "StructuredDocumentation",
+              "src": "834:148:2",
+              "text": "@dev Provides a standard implementation for transferring incoming assets\n from an adapter to a VaultProxy at the end of an adapter action"
+            },
+            "name": "postActionIncomingAssetsTransferHandler",
+            "overrides": null,
+            "parameters": {
+              "id": 24,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 21,
+                  "mutability": "mutable",
+                  "name": "_vaultProxy",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 41,
+                  "src": "1045:19:2",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 20,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "1045:7:2",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 23,
+                  "mutability": "mutable",
+                  "name": "_assetData",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 41,
+                  "src": "1074:23:2",
+                  "stateVariable": false,
+                  "storageLocation": "memory",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_bytes_memory_ptr",
+                    "typeString": "bytes"
+                  },
+                  "typeName": {
+                    "id": 22,
+                    "name": "bytes",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "1074:5:2",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_bytes_storage_ptr",
+                      "typeString": "bytes"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "1035:68:2"
+            },
+            "virtual": false,
+            "visibility": "internal"
+          },
+          {
+            "id": 64,
+            "nodeType": "ModifierDefinition",
+            "src": "1429:247:2",
+            "nodes": [],
+            "body": {
+              "id": 63,
+              "nodeType": "Block",
+              "src": "1521:155:2",
+              "nodes": [],
+              "statements": [
+                {
+                  "id": 48,
+                  "nodeType": "PlaceholderStatement",
+                  "src": "1531:1:2"
+                },
+                {
+                  "assignments": [
+                    53,
+                    null,
+                    null
+                  ],
+                  "declarations": [
+                    {
+                      "constant": false,
+                      "id": 53,
+                      "mutability": "mutable",
+                      "name": "spendAssets",
+                      "nodeType": "VariableDeclaration",
+                      "overrides": null,
+                      "scope": 63,
+                      "src": "1544:28:2",
+                      "stateVariable": false,
+                      "storageLocation": "memory",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_array$_t_address_$dyn_memory_ptr",
+                        "typeString": "address[]"
+                      },
+                      "typeName": {
+                        "baseType": {
+                          "id": 51,
+                          "name": "address",
+                          "nodeType": "ElementaryTypeName",
+                          "src": "1544:7:2",
+                          "typeDescriptions": {
+                            "typeIdentifier": "t_address",
+                            "typeString": "address"
+                          }
+                        },
+                        "id": 52,
+                        "length": null,
+                        "nodeType": "ArrayTypeName",
+                        "src": "1544:9:2",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_array$_t_address_$dyn_storage_ptr",
+                          "typeString": "address[]"
+                        }
+                      },
+                      "value": null,
+                      "visibility": "internal"
+                    },
+                    null,
+                    null
+                  ],
+                  "id": 57,
+                  "initialValue": {
+                    "argumentTypes": null,
+                    "arguments": [
+                      {
+                        "argumentTypes": null,
+                        "id": 55,
+                        "name": "_assetData",
+                        "nodeType": "Identifier",
+                        "overloadedDeclarations": [],
+                        "referencedDeclaration": 46,
+                        "src": "1598:10:2",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_bytes_memory_ptr",
+                          "typeString": "bytes memory"
+                        }
+                      }
+                    ],
+                    "expression": {
+                      "argumentTypes": [
+                        {
+                          "typeIdentifier": "t_bytes_memory_ptr",
+                          "typeString": "bytes memory"
+                        }
+                      ],
+                      "id": 54,
+                      "name": "__decodeAssetData",
+                      "nodeType": "Identifier",
+                      "overloadedDeclarations": [],
+                      "referencedDeclaration": 117,
+                      "src": "1580:17:2",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_function_internal_pure$_t_bytes_memory_ptr_$returns$_t_array$_t_address_$dyn_memory_ptr_$_t_array$_t_uint256_$dyn_memory_ptr_$_t_array$_t_address_$dyn_memory_ptr_$",
+                        "typeString": "function (bytes memory) pure returns (address[] memory,uint256[] memory,address[] memory)"
+                      }
+                    },
+                    "id": 56,
+                    "isConstant": false,
+                    "isLValue": false,
+                    "isPure": false,
+                    "kind": "functionCall",
+                    "lValueRequested": false,
+                    "names": [],
+                    "nodeType": "FunctionCall",
+                    "src": "1580:29:2",
+                    "tryCall": false,
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_tuple$_t_array$_t_address_$dyn_memory_ptr_$_t_array$_t_uint256_$dyn_memory_ptr_$_t_array$_t_address_$dyn_memory_ptr_$",
+                      "typeString": "tuple(address[] memory,uint256[] memory,address[] memory)"
+                    }
+                  },
+                  "nodeType": "VariableDeclarationStatement",
+                  "src": "1543:66:2"
+                },
+                {
+                  "expression": {
+                    "argumentTypes": null,
+                    "arguments": [
+                      {
+                        "argumentTypes": null,
+                        "id": 59,
+                        "name": "_vaultProxy",
+                        "nodeType": "Identifier",
+                        "overloadedDeclarations": [],
+                        "referencedDeclaration": 44,
+                        "src": "1644:11:2",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_address",
+                          "typeString": "address"
+                        }
+                      },
+                      {
+                        "argumentTypes": null,
+                        "id": 60,
+                        "name": "spendAssets",
+                        "nodeType": "Identifier",
+                        "overloadedDeclarations": [],
+                        "referencedDeclaration": 53,
+                        "src": "1657:11:2",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_array$_t_address_$dyn_memory_ptr",
+                          "typeString": "address[] memory"
+                        }
+                      }
+                    ],
+                    "expression": {
+                      "argumentTypes": [
+                        {
+                          "typeIdentifier": "t_address",
+                          "typeString": "address"
+                        },
+                        {
+                          "typeIdentifier": "t_array$_t_address_$dyn_memory_ptr",
+                          "typeString": "address[] memory"
+                        }
+                      ],
+                      "id": 58,
+                      "name": "__pushFullAssetBalances",
+                      "nodeType": "Identifier",
+                      "overloadedDeclarations": [],
+                      "referencedDeclaration": 3256,
+                      "src": "1620:23:2",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_function_internal_nonpayable$_t_address_$_t_array$_t_address_$dyn_memory_ptr_$returns$_t_array$_t_uint256_$dyn_memory_ptr_$",
+                        "typeString": "function (address,address[] memory) returns (uint256[] memory)"
+                      }
+                    },
+                    "id": 61,
+                    "isConstant": false,
+                    "isLValue": false,
+                    "isPure": false,
+                    "kind": "functionCall",
+                    "lValueRequested": false,
+                    "names": [],
+                    "nodeType": "FunctionCall",
+                    "src": "1620:49:2",
+                    "tryCall": false,
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_array$_t_uint256_$dyn_memory_ptr",
+                      "typeString": "uint256[] memory"
+                    }
+                  },
+                  "id": 62,
+                  "nodeType": "ExpressionStatement",
+                  "src": "1620:49:2"
+                }
+              ]
+            },
+            "documentation": {
+              "id": 42,
+              "nodeType": "StructuredDocumentation",
+              "src": "1271:153:2",
+              "text": "@dev Provides a standard implementation for transferring unspent spend assets\n from an adapter to a VaultProxy at the end of an adapter action"
+            },
+            "name": "postActionSpendAssetsTransferHandler",
+            "overrides": null,
+            "parameters": {
+              "id": 47,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 44,
+                  "mutability": "mutable",
+                  "name": "_vaultProxy",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 64,
+                  "src": "1475:19:2",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 43,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "1475:7:2",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 46,
+                  "mutability": "mutable",
+                  "name": "_assetData",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 64,
+                  "src": "1496:23:2",
+                  "stateVariable": false,
+                  "storageLocation": "memory",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_bytes_memory_ptr",
+                    "typeString": "bytes"
+                  },
+                  "typeName": {
+                    "id": 45,
+                    "name": "bytes",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "1496:5:2",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_bytes_storage_ptr",
+                      "typeString": "bytes"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "1474:46:2"
+            },
+            "virtual": false,
+            "visibility": "internal"
+          },
+          {
+            "id": 76,
+            "nodeType": "ModifierDefinition",
+            "src": "1682:192:2",
+            "nodes": [],
+            "body": {
+              "id": 75,
+              "nodeType": "Block",
+              "src": "1716:158:2",
+              "nodes": [],
+              "statements": [
+                {
+                  "expression": {
+                    "argumentTypes": null,
+                    "arguments": [
+                      {
+                        "argumentTypes": null,
+                        "commonType": {
+                          "typeIdentifier": "t_address",
+                          "typeString": "address"
+                        },
+                        "id": 70,
+                        "isConstant": false,
+                        "isLValue": false,
+                        "isPure": false,
+                        "lValueRequested": false,
+                        "leftExpression": {
+                          "argumentTypes": null,
+                          "expression": {
+                            "argumentTypes": null,
+                            "id": 67,
+                            "name": "msg",
+                            "nodeType": "Identifier",
+                            "overloadedDeclarations": [],
+                            "referencedDeclaration": -15,
+                            "src": "1747:3:2",
+                            "typeDescriptions": {
+                              "typeIdentifier": "t_magic_message",
+                              "typeString": "msg"
+                            }
+                          },
+                          "id": 68,
+                          "isConstant": false,
+                          "isLValue": false,
+                          "isPure": false,
+                          "lValueRequested": false,
+                          "memberName": "sender",
+                          "nodeType": "MemberAccess",
+                          "referencedDeclaration": null,
+                          "src": "1747:10:2",
+                          "typeDescriptions": {
+                            "typeIdentifier": "t_address_payable",
+                            "typeString": "address payable"
+                          }
+                        },
+                        "nodeType": "BinaryOperation",
+                        "operator": "==",
+                        "rightExpression": {
+                          "argumentTypes": null,
+                          "id": 69,
+                          "name": "INTEGRATION_MANAGER",
+                          "nodeType": "Identifier",
+                          "overloadedDeclarations": [],
+                          "referencedDeclaration": 18,
+                          "src": "1761:19:2",
+                          "typeDescriptions": {
+                            "typeIdentifier": "t_address",
+                            "typeString": "address"
+                          }
+                        },
+                        "src": "1747:33:2",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_bool",
+                          "typeString": "bool"
+                        }
+                      },
+                      {
+                        "argumentTypes": null,
+                        "hexValue": "4f6e6c792074686520496e746567726174696f6e4d616e616765722063616e2063616c6c20746869732066756e6374696f6e",
+                        "id": 71,
+                        "isConstant": false,
+                        "isLValue": false,
+                        "isPure": true,
+                        "kind": "string",
+                        "lValueRequested": false,
+                        "nodeType": "Literal",
+                        "src": "1794:52:2",
+                        "subdenomination": null,
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_stringliteral_690844e19e459c380dbf75f37ef2a0e95b4cfd9e0ecf5b94c3e5fc441bcfd76b",
+                          "typeString": "literal_string \"Only the IntegrationManager can call this function\""
+                        },
+                        "value": "Only the IntegrationManager can call this function"
+                      }
+                    ],
+                    "expression": {
+                      "argumentTypes": [
+                        {
+                          "typeIdentifier": "t_bool",
+                          "typeString": "bool"
+                        },
+                        {
+                          "typeIdentifier": "t_stringliteral_690844e19e459c380dbf75f37ef2a0e95b4cfd9e0ecf5b94c3e5fc441bcfd76b",
+                          "typeString": "literal_string \"Only the IntegrationManager can call this function\""
+                        }
+                      ],
+                      "id": 66,
+                      "name": "require",
+                      "nodeType": "Identifier",
+                      "overloadedDeclarations": [
+                        -18,
+                        -18
+                      ],
+                      "referencedDeclaration": -18,
+                      "src": "1726:7:2",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_function_require_pure$_t_bool_$_t_string_memory_ptr_$returns$__$",
+                        "typeString": "function (bool,string memory) pure"
+                      }
+                    },
+                    "id": 72,
+                    "isConstant": false,
+                    "isLValue": false,
+                    "isPure": false,
+                    "kind": "functionCall",
+                    "lValueRequested": false,
+                    "names": [],
+                    "nodeType": "FunctionCall",
+                    "src": "1726:130:2",
+                    "tryCall": false,
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_tuple$__$",
+                      "typeString": "tuple()"
+                    }
+                  },
+                  "id": 73,
+                  "nodeType": "ExpressionStatement",
+                  "src": "1726:130:2"
+                },
+                {
+                  "id": 74,
+                  "nodeType": "PlaceholderStatement",
+                  "src": "1866:1:2"
+                }
+              ]
+            },
+            "documentation": null,
+            "name": "onlyIntegrationManager",
+            "overrides": null,
+            "parameters": {
+              "id": 65,
+              "nodeType": "ParameterList",
+              "parameters": [],
+              "src": "1713:2:2"
+            },
+            "virtual": false,
+            "visibility": "internal"
+          },
+          {
+            "id": 86,
+            "nodeType": "FunctionDefinition",
+            "src": "1880:106:2",
+            "nodes": [],
+            "body": {
+              "id": 85,
+              "nodeType": "Block",
+              "src": "1928:58:2",
+              "nodes": [],
+              "statements": [
+                {
+                  "expression": {
+                    "argumentTypes": null,
+                    "id": 83,
+                    "isConstant": false,
+                    "isLValue": false,
+                    "isPure": false,
+                    "lValueRequested": false,
+                    "leftHandSide": {
+                      "argumentTypes": null,
+                      "id": 81,
+                      "name": "INTEGRATION_MANAGER",
+                      "nodeType": "Identifier",
+                      "overloadedDeclarations": [],
+                      "referencedDeclaration": 18,
+                      "src": "1938:19:2",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_address",
+                        "typeString": "address"
+                      }
+                    },
+                    "nodeType": "Assignment",
+                    "operator": "=",
+                    "rightHandSide": {
+                      "argumentTypes": null,
+                      "id": 82,
+                      "name": "_integrationManager",
+                      "nodeType": "Identifier",
+                      "overloadedDeclarations": [],
+                      "referencedDeclaration": 78,
+                      "src": "1960:19:2",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_address",
+                        "typeString": "address"
+                      }
+                    },
+                    "src": "1938:41:2",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "id": 84,
+                  "nodeType": "ExpressionStatement",
+                  "src": "1938:41:2"
+                }
+              ]
+            },
+            "documentation": null,
+            "implemented": true,
+            "kind": "constructor",
+            "modifiers": [],
+            "name": "",
+            "overrides": null,
+            "parameters": {
+              "id": 79,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 78,
+                  "mutability": "mutable",
+                  "name": "_integrationManager",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 86,
+                  "src": "1892:27:2",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 77,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "1892:7:2",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "1891:29:2"
+            },
+            "returnParameters": {
+              "id": 80,
+              "nodeType": "ParameterList",
+              "parameters": [],
+              "src": "1928:0:2"
+            },
+            "scope": 127,
+            "stateMutability": "nonpayable",
+            "virtual": false,
+            "visibility": "public"
+          },
+          {
+            "id": 117,
+            "nodeType": "FunctionDefinition",
+            "src": "2093:332:2",
+            "nodes": [],
+            "body": {
+              "id": 116,
+              "nodeType": "Block",
+              "src": "2344:81:2",
+              "nodes": [],
+              "statements": [
+                {
+                  "expression": {
+                    "argumentTypes": null,
+                    "arguments": [
+                      {
+                        "argumentTypes": null,
+                        "id": 103,
+                        "name": "_assetData",
+                        "nodeType": "Identifier",
+                        "overloadedDeclarations": [],
+                        "referencedDeclaration": 89,
+                        "src": "2372:10:2",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_bytes_memory_ptr",
+                          "typeString": "bytes memory"
+                        }
+                      },
+                      {
+                        "argumentTypes": null,
+                        "components": [
+                          {
+                            "argumentTypes": null,
+                            "baseExpression": {
+                              "argumentTypes": null,
+                              "id": 105,
+                              "isConstant": false,
+                              "isLValue": false,
+                              "isPure": true,
+                              "lValueRequested": false,
+                              "nodeType": "ElementaryTypeNameExpression",
+                              "src": "2385:7:2",
+                              "typeDescriptions": {
+                                "typeIdentifier": "t_type$_t_address_$",
+                                "typeString": "type(address)"
+                              },
+                              "typeName": {
+                                "id": 104,
+                                "name": "address",
+                                "nodeType": "ElementaryTypeName",
+                                "src": "2385:7:2",
+                                "typeDescriptions": {
+                                  "typeIdentifier": null,
+                                  "typeString": null
+                                }
+                              }
+                            },
+                            "id": 106,
+                            "indexExpression": null,
+                            "isConstant": false,
+                            "isLValue": false,
+                            "isPure": true,
+                            "lValueRequested": false,
+                            "nodeType": "IndexAccess",
+                            "src": "2385:9:2",
+                            "typeDescriptions": {
+                              "typeIdentifier": "t_type$_t_array$_t_address_$dyn_memory_ptr_$",
+                              "typeString": "type(address[] memory)"
+                            }
+                          },
+                          {
+                            "argumentTypes": null,
+                            "baseExpression": {
+                              "argumentTypes": null,
+                              "id": 108,
+                              "isConstant": false,
+                              "isLValue": false,
+                              "isPure": true,
+                              "lValueRequested": false,
+                              "nodeType": "ElementaryTypeNameExpression",
+                              "src": "2396:7:2",
+                              "typeDescriptions": {
+                                "typeIdentifier": "t_type$_t_uint256_$",
+                                "typeString": "type(uint256)"
+                              },
+                              "typeName": {
+                                "id": 107,
+                                "name": "uint256",
+                                "nodeType": "ElementaryTypeName",
+                                "src": "2396:7:2",
+                                "typeDescriptions": {
+                                  "typeIdentifier": null,
+                                  "typeString": null
+                                }
+                              }
+                            },
+                            "id": 109,
+                            "indexExpression": null,
+                            "isConstant": false,
+                            "isLValue": false,
+                            "isPure": true,
+                            "lValueRequested": false,
+                            "nodeType": "IndexAccess",
+                            "src": "2396:9:2",
+                            "typeDescriptions": {
+                              "typeIdentifier": "t_type$_t_array$_t_uint256_$dyn_memory_ptr_$",
+                              "typeString": "type(uint256[] memory)"
+                            }
+                          },
+                          {
+                            "argumentTypes": null,
+                            "baseExpression": {
+                              "argumentTypes": null,
+                              "id": 111,
+                              "isConstant": false,
+                              "isLValue": false,
+                              "isPure": true,
+                              "lValueRequested": false,
+                              "nodeType": "ElementaryTypeNameExpression",
+                              "src": "2407:7:2",
+                              "typeDescriptions": {
+                                "typeIdentifier": "t_type$_t_address_$",
+                                "typeString": "type(address)"
+                              },
+                              "typeName": {
+                                "id": 110,
+                                "name": "address",
+                                "nodeType": "ElementaryTypeName",
+                                "src": "2407:7:2",
+                                "typeDescriptions": {
+                                  "typeIdentifier": null,
+                                  "typeString": null
+                                }
+                              }
+                            },
+                            "id": 112,
+                            "indexExpression": null,
+                            "isConstant": false,
+                            "isLValue": false,
+                            "isPure": true,
+                            "lValueRequested": false,
+                            "nodeType": "IndexAccess",
+                            "src": "2407:9:2",
+                            "typeDescriptions": {
+                              "typeIdentifier": "t_type$_t_array$_t_address_$dyn_memory_ptr_$",
+                              "typeString": "type(address[] memory)"
+                            }
+                          }
+                        ],
+                        "id": 113,
+                        "isConstant": false,
+                        "isInlineArray": false,
+                        "isLValue": false,
+                        "isPure": true,
+                        "lValueRequested": false,
+                        "nodeType": "TupleExpression",
+                        "src": "2384:33:2",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_tuple$_t_type$_t_array$_t_address_$dyn_memory_ptr_$_$_t_type$_t_array$_t_uint256_$dyn_memory_ptr_$_$_t_type$_t_array$_t_address_$dyn_memory_ptr_$_$",
+                          "typeString": "tuple(type(address[] memory),type(uint256[] memory),type(address[] memory))"
+                        }
+                      }
+                    ],
+                    "expression": {
+                      "argumentTypes": [
+                        {
+                          "typeIdentifier": "t_bytes_memory_ptr",
+                          "typeString": "bytes memory"
+                        },
+                        {
+                          "typeIdentifier": "t_tuple$_t_type$_t_array$_t_address_$dyn_memory_ptr_$_$_t_type$_t_array$_t_uint256_$dyn_memory_ptr_$_$_t_type$_t_array$_t_address_$dyn_memory_ptr_$_$",
+                          "typeString": "tuple(type(address[] memory),type(uint256[] memory),type(address[] memory))"
+                        }
+                      ],
+                      "expression": {
+                        "argumentTypes": null,
+                        "id": 101,
+                        "name": "abi",
+                        "nodeType": "Identifier",
+                        "overloadedDeclarations": [],
+                        "referencedDeclaration": -1,
+                        "src": "2361:3:2",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_magic_abi",
+                          "typeString": "abi"
+                        }
+                      },
+                      "id": 102,
+                      "isConstant": false,
+                      "isLValue": false,
+                      "isPure": true,
+                      "lValueRequested": false,
+                      "memberName": "decode",
+                      "nodeType": "MemberAccess",
+                      "referencedDeclaration": null,
+                      "src": "2361:10:2",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_function_abidecode_pure$__$returns$__$",
+                        "typeString": "function () pure"
+                      }
+                    },
+                    "id": 114,
+                    "isConstant": false,
+                    "isLValue": false,
+                    "isPure": false,
+                    "kind": "functionCall",
+                    "lValueRequested": false,
+                    "names": [],
+                    "nodeType": "FunctionCall",
+                    "src": "2361:57:2",
+                    "tryCall": false,
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_tuple$_t_array$_t_address_$dyn_memory_ptr_$_t_array$_t_uint256_$dyn_memory_ptr_$_t_array$_t_address_$dyn_memory_ptr_$",
+                      "typeString": "tuple(address[] memory,uint256[] memory,address[] memory)"
+                    }
+                  },
+                  "functionReturnParameters": 100,
+                  "id": 115,
+                  "nodeType": "Return",
+                  "src": "2354:64:2"
+                }
+              ]
+            },
+            "documentation": {
+              "id": 87,
+              "nodeType": "StructuredDocumentation",
+              "src": "2019:69:2",
+              "text": "@dev Helper to decode the _assetData param passed to adapter call"
+            },
+            "implemented": true,
+            "kind": "function",
+            "modifiers": [],
+            "name": "__decodeAssetData",
+            "overrides": null,
+            "parameters": {
+              "id": 90,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 89,
+                  "mutability": "mutable",
+                  "name": "_assetData",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 117,
+                  "src": "2120:23:2",
+                  "stateVariable": false,
+                  "storageLocation": "memory",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_bytes_memory_ptr",
+                    "typeString": "bytes"
+                  },
+                  "typeName": {
+                    "id": 88,
+                    "name": "bytes",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "2120:5:2",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_bytes_storage_ptr",
+                      "typeString": "bytes"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "2119:25:2"
+            },
+            "returnParameters": {
+              "id": 100,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 93,
+                  "mutability": "mutable",
+                  "name": "spendAssets_",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 117,
+                  "src": "2205:29:2",
+                  "stateVariable": false,
+                  "storageLocation": "memory",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_array$_t_address_$dyn_memory_ptr",
+                    "typeString": "address[]"
+                  },
+                  "typeName": {
+                    "baseType": {
+                      "id": 91,
+                      "name": "address",
+                      "nodeType": "ElementaryTypeName",
+                      "src": "2205:7:2",
+                      "stateMutability": "nonpayable",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_address",
+                        "typeString": "address"
+                      }
+                    },
+                    "id": 92,
+                    "length": null,
+                    "nodeType": "ArrayTypeName",
+                    "src": "2205:9:2",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_array$_t_address_$dyn_storage_ptr",
+                      "typeString": "address[]"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 96,
+                  "mutability": "mutable",
+                  "name": "spendAssetAmounts_",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 117,
+                  "src": "2248:35:2",
+                  "stateVariable": false,
+                  "storageLocation": "memory",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_array$_t_uint256_$dyn_memory_ptr",
+                    "typeString": "uint256[]"
+                  },
+                  "typeName": {
+                    "baseType": {
+                      "id": 94,
+                      "name": "uint256",
+                      "nodeType": "ElementaryTypeName",
+                      "src": "2248:7:2",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_uint256",
+                        "typeString": "uint256"
+                      }
+                    },
+                    "id": 95,
+                    "length": null,
+                    "nodeType": "ArrayTypeName",
+                    "src": "2248:9:2",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_array$_t_uint256_$dyn_storage_ptr",
+                      "typeString": "uint256[]"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 99,
+                  "mutability": "mutable",
+                  "name": "incomingAssets_",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 117,
+                  "src": "2297:32:2",
+                  "stateVariable": false,
+                  "storageLocation": "memory",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_array$_t_address_$dyn_memory_ptr",
+                    "typeString": "address[]"
+                  },
+                  "typeName": {
+                    "baseType": {
+                      "id": 97,
+                      "name": "address",
+                      "nodeType": "ElementaryTypeName",
+                      "src": "2297:7:2",
+                      "stateMutability": "nonpayable",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_address",
+                        "typeString": "address"
+                      }
+                    },
+                    "id": 98,
+                    "length": null,
+                    "nodeType": "ArrayTypeName",
+                    "src": "2297:9:2",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_array$_t_address_$dyn_storage_ptr",
+                      "typeString": "address[]"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "2191:148:2"
+            },
+            "scope": 127,
+            "stateMutability": "pure",
+            "virtual": false,
+            "visibility": "internal"
+          },
+          {
+            "id": 126,
+            "nodeType": "FunctionDefinition",
+            "src": "2637:128:2",
+            "nodes": [],
+            "body": {
+              "id": 125,
+              "nodeType": "Block",
+              "src": "2722:43:2",
+              "nodes": [],
+              "statements": [
+                {
+                  "expression": {
+                    "argumentTypes": null,
+                    "id": 123,
+                    "name": "INTEGRATION_MANAGER",
+                    "nodeType": "Identifier",
+                    "overloadedDeclarations": [],
+                    "referencedDeclaration": 18,
+                    "src": "2739:19:2",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "functionReturnParameters": 122,
+                  "id": 124,
+                  "nodeType": "Return",
+                  "src": "2732:26:2"
+                }
+              ]
+            },
+            "documentation": {
+              "id": 118,
+              "nodeType": "StructuredDocumentation",
+              "src": "2504:128:2",
+              "text": "@notice Gets the `INTEGRATION_MANAGER` variable\n @return integrationManager_ The `INTEGRATION_MANAGER` variable value"
+            },
+            "functionSelector": "e7c45690",
+            "implemented": true,
+            "kind": "function",
+            "modifiers": [],
+            "name": "getIntegrationManager",
+            "overrides": null,
+            "parameters": {
+              "id": 119,
+              "nodeType": "ParameterList",
+              "parameters": [],
+              "src": "2667:2:2"
+            },
+            "returnParameters": {
+              "id": 122,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 121,
+                  "mutability": "mutable",
+                  "name": "integrationManager_",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 126,
+                  "src": "2693:27:2",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 120,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "2693:7:2",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "2692:29:2"
+            },
+            "scope": 127,
+            "stateMutability": "view",
+            "virtual": false,
+            "visibility": "external"
+          }
+        ],
+        "abstract": true,
+        "baseContracts": [
+          {
+            "arguments": null,
+            "baseName": {
+              "contractScope": null,
+              "id": 8,
+              "name": "IIntegrationAdapter",
+              "nodeType": "UserDefinedTypeName",
+              "referencedDeclaration": 2831,
+              "src": "687:19:2",
+              "typeDescriptions": {
+                "typeIdentifier": "t_contract$_IIntegrationAdapter_$2831",
+                "typeString": "contract IIntegrationAdapter"
+              }
+            },
+            "id": 9,
+            "nodeType": "InheritanceSpecifier",
+            "src": "687:19:2"
+          },
+          {
+            "arguments": null,
+            "baseName": {
+              "contractScope": null,
+              "id": 10,
+              "name": "IntegrationSelectors",
+              "nodeType": "UserDefinedTypeName",
+              "referencedDeclaration": 2907,
+              "src": "708:20:2",
+              "typeDescriptions": {
+                "typeIdentifier": "t_contract$_IntegrationSelectors_$2907",
+                "typeString": "contract IntegrationSelectors"
+              }
+            },
+            "id": 11,
+            "nodeType": "InheritanceSpecifier",
+            "src": "708:20:2"
+          },
+          {
+            "arguments": null,
+            "baseName": {
+              "contractScope": null,
+              "id": 12,
+              "name": "AssetHelpers",
+              "nodeType": "UserDefinedTypeName",
+              "referencedDeclaration": 3257,
+              "src": "730:12:2",
+              "typeDescriptions": {
+                "typeIdentifier": "t_contract$_AssetHelpers_$3257",
+                "typeString": "contract AssetHelpers"
+              }
+            },
+            "id": 13,
+            "nodeType": "InheritanceSpecifier",
+            "src": "730:12:2"
+          }
+        ],
+        "contractDependencies": [
+          2831,
+          2907,
+          3257
+        ],
+        "contractKind": "contract",
+        "documentation": {
+          "id": 7,
+          "nodeType": "StructuredDocumentation",
+          "src": "516:138:2",
+          "text": "@title AdapterBase Contract\n @author Enzyme Council <security@enzyme.finance>\n @notice A base contract for integration adapters"
+        },
+        "fullyImplemented": false,
+        "linearizedBaseContracts": [
+          127,
+          3257,
+          2907,
+          2831
+        ],
+        "name": "AdapterBase",
+        "scope": 128
+      }
+    ],
+    "license": "GPL-3.0"
+  },
+  "id": 2
+}

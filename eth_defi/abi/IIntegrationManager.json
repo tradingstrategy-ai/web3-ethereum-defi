@@ -1,0 +1,143 @@
+{
+  "abi": [],
+  "bytecode": {
+    "object": "0x",
+    "sourceMap": "",
+    "linkReferences": {}
+  },
+  "deployedBytecode": {
+    "object": "0x",
+    "sourceMap": "",
+    "linkReferences": {}
+  },
+  "methodIdentifiers": {},
+  "rawMetadata": "{\"compiler\":{\"version\":\"0.6.12+commit.27d51765\"},\"language\":\"Solidity\",\"output\":{\"abi\":[],\"devdoc\":{\"author\":\"Enzyme Council <security@enzyme.finance>\",\"kind\":\"dev\",\"methods\":{},\"title\":\"IIntegrationManager interface\",\"version\":1},\"userdoc\":{\"kind\":\"user\",\"methods\":{},\"notice\":\"Interface for the IntegrationManager\",\"version\":1}},\"settings\":{\"compilationTarget\":{\"/Users/moo/code/ts/trade-executor/deps/web3-ethereum-defi/contracts/enzyme/contracts/release/extensions/integration-manager/IIntegrationManager.sol\":\"IIntegrationManager\"},\"evmVersion\":\"istanbul\",\"libraries\":{},\"metadata\":{\"bytecodeHash\":\"ipfs\"},\"optimizer\":{\"enabled\":true,\"runs\":200},\"remappings\":[\":# @openzeppelin/=lib/openzeppelin-contracts/\",\":@enzyme/=../enzyme/contracts/\",\":@openzeppelin/=../enzyme/node_modules/@openzeppelin/\",\":ds-test/=lib/forge-std/lib/ds-test/src/\",\":forge-std/=lib/forge-std/src/\",\":openzeppelin-contracts/=lib/openzeppelin-contracts/\"]},\"sources\":{\"/Users/moo/code/ts/trade-executor/deps/web3-ethereum-defi/contracts/enzyme/contracts/release/extensions/integration-manager/IIntegrationManager.sol\":{\"keccak256\":\"0x29aff2a05a50430f732dd67cd3dfbfcf3b2fd86697f61b1ef91bebc8ff3e00ef\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://8b1f03cd376a3743dfaeff7cfbb1114341099d18ab32165365c76eba8e9dbc23\",\"dweb:/ipfs/QmZEwZEUcFwWEKkYXmjcijChwfAkFHkgMMRnv4QY8abhdk\"]}},\"version\":1}",
+  "metadata": {
+    "compiler": {
+      "version": "0.6.12+commit.27d51765"
+    },
+    "language": "Solidity",
+    "output": {
+      "abi": [],
+      "devdoc": {
+        "kind": "dev",
+        "methods": {},
+        "version": 1
+      },
+      "userdoc": {
+        "kind": "user",
+        "methods": {},
+        "version": 1
+      }
+    },
+    "settings": {
+      "remappings": [
+        ":# @openzeppelin/=lib/openzeppelin-contracts/",
+        ":@enzyme/=../enzyme/contracts/",
+        ":@openzeppelin/=../enzyme/node_modules/@openzeppelin/",
+        ":ds-test/=lib/forge-std/lib/ds-test/src/",
+        ":forge-std/=lib/forge-std/src/",
+        ":openzeppelin-contracts/=lib/openzeppelin-contracts/"
+      ],
+      "optimizer": {
+        "enabled": true,
+        "runs": 200
+      },
+      "metadata": {
+        "bytecodeHash": "ipfs"
+      },
+      "compilationTarget": {
+        "/Users/moo/code/ts/trade-executor/deps/web3-ethereum-defi/contracts/enzyme/contracts/release/extensions/integration-manager/IIntegrationManager.sol": "IIntegrationManager"
+      },
+      "libraries": {}
+    },
+    "sources": {
+      "/Users/moo/code/ts/trade-executor/deps/web3-ethereum-defi/contracts/enzyme/contracts/release/extensions/integration-manager/IIntegrationManager.sol": {
+        "keccak256": "0x29aff2a05a50430f732dd67cd3dfbfcf3b2fd86697f61b1ef91bebc8ff3e00ef",
+        "urls": [
+          "bzz-raw://8b1f03cd376a3743dfaeff7cfbb1114341099d18ab32165365c76eba8e9dbc23",
+          "dweb:/ipfs/QmZEwZEUcFwWEKkYXmjcijChwfAkFHkgMMRnv4QY8abhdk"
+        ],
+        "license": "GPL-3.0"
+      }
+    },
+    "version": 1
+  },
+  "ast": {
+    "absolutePath": "/Users/moo/code/ts/trade-executor/deps/web3-ethereum-defi/contracts/enzyme/contracts/release/extensions/integration-manager/IIntegrationManager.sol",
+    "id": 1207,
+    "exportedSymbols": {
+      "IIntegrationManager": [
+        1206
+      ]
+    },
+    "nodeType": "SourceUnit",
+    "src": "255:289:11",
+    "nodes": [
+      {
+        "id": 1200,
+        "nodeType": "PragmaDirective",
+        "src": "255:23:11",
+        "nodes": [],
+        "literals": [
+          "solidity",
+          "0.6",
+          ".12"
+        ]
+      },
+      {
+        "id": 1206,
+        "nodeType": "ContractDefinition",
+        "src": "423:120:11",
+        "nodes": [
+          {
+            "id": 1205,
+            "nodeType": "EnumDefinition",
+            "src": "459:82:11",
+            "nodes": [],
+            "canonicalName": "IIntegrationManager.SpendAssetsHandleType",
+            "members": [
+              {
+                "id": 1202,
+                "name": "None",
+                "nodeType": "EnumValue",
+                "src": "496:4:11"
+              },
+              {
+                "id": 1203,
+                "name": "Approve",
+                "nodeType": "EnumValue",
+                "src": "510:7:11"
+              },
+              {
+                "id": 1204,
+                "name": "Transfer",
+                "nodeType": "EnumValue",
+                "src": "527:8:11"
+              }
+            ],
+            "name": "SpendAssetsHandleType"
+          }
+        ],
+        "abstract": false,
+        "baseContracts": [],
+        "contractDependencies": [],
+        "contractKind": "interface",
+        "documentation": {
+          "id": 1201,
+          "nodeType": "StructuredDocumentation",
+          "src": "280:143:11",
+          "text": "@title IIntegrationManager interface\n @author Enzyme Council <security@enzyme.finance>\n @notice Interface for the IntegrationManager"
+        },
+        "fullyImplemented": true,
+        "linearizedBaseContracts": [
+          1206
+        ],
+        "name": "IIntegrationManager",
+        "scope": 1207
+      }
+    ],
+    "license": "GPL-3.0"
+  },
+  "id": 11
+}

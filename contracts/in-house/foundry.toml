@@ -1,2 +1,6 @@
+[profile.default]
+allow_paths = ["*", "/"]
+
 [profile.ci.fuzz]
 runs = 10_000
+
