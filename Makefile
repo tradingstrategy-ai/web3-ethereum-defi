@@ -1,9 +1,13 @@
 # Compile all of Sushiswap and in-house contract files
-sushi-and-inhouse:
+sushi:
 	# Get our mock up contracts to the compiler bundle
-	@cp contracts/inhouse/* contracts/sushiswap/contracts
 	@(cd contracts/sushiswap && yarn install && yarn build) > /dev/null
-	@find contracts/sushiswap/artifacts/contracts -iname "*.json" -not -iname "*.dbg.json" -exec cp {} eth_defi/abi \;
+	@find contracts/sushiswap/artifacts/contracts -iname "*.json" -not -iname "*.dbg.json" -exec cp {} eth_defi/abi/sushi \;
+
+# Compile our custom integration contracts
+inhouse:
+    pass
+
 
 # Compile v3 core and periphery
 uniswapv3:
