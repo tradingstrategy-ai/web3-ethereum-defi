@@ -42,22 +42,3 @@ jobs:
       #  uses: reviewdog/action-flake8@v3
       #  with:
       #    github_token: ${{ secrets.GITHUB_TOKEN }}
-  test-compile-abi:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-      - name: Initialize submodules
-        run: git submodule update --init --recursive
-      - name: Set up NodeJS 14
-        uses: actions/setup-node@v3
-        with:
-          node-version: '14'
-          cache: 'yarn'
-          cache-dependency-path: |
-            contracts/sushiswap/yarn.lock
-            contracts/uniswap-v3-core/yarn.lock
-            contracts/uniswap-v3-periphery/yarn.lock
-      - name: Cook sushi
-        run: make sushi-and-inhouse
-      - name: Copy uniswap v3
-        run: make copy-uniswapv3-abi
