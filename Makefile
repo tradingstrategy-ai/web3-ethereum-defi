@@ -5,8 +5,10 @@ sushi:
 	@find contracts/sushiswap/artifacts/contracts -iname "*.json" -not -iname "*.dbg.json" -exec cp {} eth_defi/abi/sushi \;
 
 # Compile our custom integration contracts
-inhouse:
-    pass
+in-house:
+	# Get our mock up contracts to the compiler bundle
+	@(cd contracts/in-house && forge build)
+	@find contracts/in-house/out -iname "*.json" -not -iname "*.dbg.json" -exec cp {} eth_defi/abi \;
 
 
 # Compile v3 core and periphery
@@ -52,7 +54,7 @@ clean:
 # Compile all contracts we are using
 #
 # Move ABI files to within a Python package for PyPi distribution
-compile-projects-and-prepare-abi: sushi-and-inhouse copy-uniswapv3-abi aavev3 dhedge
+compile-projects-and-prepare-abi: sushi in-house copy-uniswapv3-abi aavev3 dhedge
 
 all: clean-docs compile-projects-and-prepare-abi build-docs
 
