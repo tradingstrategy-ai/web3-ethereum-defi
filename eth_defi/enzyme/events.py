@@ -78,7 +78,6 @@ class EnzymeBalanceEvent:
 
         match event_name:
             case "SharesBought":
-                exchange_
                 return Deposit(vault, event_data)
             case "SharesRedeemed":
                 return Redemption(vault, event_data)
