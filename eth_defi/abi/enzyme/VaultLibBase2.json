@@ -657,7 +657,7 @@
     "transfer(address,uint256)": "a9059cbb",
     "transferFrom(address,address,uint256)": "23b872dd"
   },
-  "rawMetadata": "{\"compiler\":{\"version\":\"0.6.12+commit.27d51765\"},\"language\":\"Solidity\",\"output\":{\"abi\":[{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"address\",\"name\":\"prevAccessor\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"address\",\"name\":\"nextAccessor\",\"type\":\"address\"}],\"name\":\"AccessorSet\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"owner\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"spender\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"value\",\"type\":\"uint256\"}],\"name\":\"Approval\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"address\",\"name\":\"manager\",\"type\":\"address\"}],\"name\":\"AssetManagerAdded\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"address\",\"name\":\"manager\",\"type\":\"address\"}],\"name\":\"AssetManagerRemoved\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"asset\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"target\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\"}],\"name\":\"AssetWithdrawn\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"sender\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\"}],\"name\":\"EthReceived\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"externalPosition\",\"type\":\"address\"}],\"name\":\"ExternalPositionAdded\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"externalPosition\",\"type\":\"address\"}],\"name\":\"ExternalPositionRemoved\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[],\"name\":\"FreelyTransferableSharesSet\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"address\",\"name\":\"prevMigrator\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"address\",\"name\":\"nextMigrator\",\"type\":\"address\"}],\"name\":\"MigratorSet\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"string\",\"name\":\"name\",\"type\":\"string\"}],\"name\":\"NameSet\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"nominatedOwner\",\"type\":\"address\"}],\"name\":\"NominatedOwnerRemoved\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"nominatedOwner\",\"type\":\"address\"}],\"name\":\"NominatedOwnerSet\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"address\",\"name\":\"prevOwner\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"address\",\"name\":\"nextOwner\",\"type\":\"address\"}],\"name\":\"OwnerSet\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"prevOwner\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"nextOwner\",\"type\":\"address\"}],\"name\":\"OwnershipTransferred\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"sharesAmount\",\"type\":\"uint256\"}],\"name\":\"ProtocolFeePaidInShares\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"sharesAmount\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"mlnValue\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"mlnBurned\",\"type\":\"uint256\"}],\"name\":\"ProtocolFeeSharesBoughtBack\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"string\",\"name\":\"symbol\",\"type\":\"string\"}],\"name\":\"SymbolSet\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"address\",\"name\":\"asset\",\"type\":\"address\"}],\"name\":\"TrackedAssetAdded\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"address\",\"name\":\"asset\",\"type\":\"address\"}],\"name\":\"TrackedAssetRemoved\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"from\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"to\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"value\",\"type\":\"uint256\"}],\"name\":\"Transfer\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"address\",\"name\":\"prevVaultLib\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"address\",\"name\":\"nextVaultLib\",\"type\":\"address\"}],\"name\":\"VaultLibSet\",\"type\":\"event\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_owner\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"_spender\",\"type\":\"address\"}],\"name\":\"allowance\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_spender\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"_amount\",\"type\":\"uint256\"}],\"name\":\"approve\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_account\",\"type\":\"address\"}],\"name\":\"balanceOf\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_who\",\"type\":\"address\"}],\"name\":\"canMigrate\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"canMigrate_\",\"type\":\"bool\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"decimals\",\"outputs\":[{\"internalType\":\"uint8\",\"name\":\"\",\"type\":\"uint8\"}],\"stateMutability\":\"pure\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getVaultLib\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"vaultLib_\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_owner\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"_accessor\",\"type\":\"address\"},{\"internalType\":\"string\",\"name\":\"_fundName\",\"type\":\"string\"}],\"name\":\"init\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"name\",\"outputs\":[{\"internalType\":\"string\",\"name\":\"\",\"type\":\"string\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"proxiableUUID\",\"outputs\":[{\"internalType\":\"bytes32\",\"name\":\"uuid_\",\"type\":\"bytes32\"}],\"stateMutability\":\"pure\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_nextAccessor\",\"type\":\"address\"}],\"name\":\"setAccessor\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_nextVaultLib\",\"type\":\"address\"}],\"name\":\"setVaultLib\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"symbol\",\"outputs\":[{\"internalType\":\"string\",\"name\":\"\",\"type\":\"string\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"totalSupply\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_recipient\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"_amount\",\"type\":\"uint256\"}],\"name\":\"transfer\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_sender\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"_recipient\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"_amount\",\"type\":\"uint256\"}],\"name\":\"transferFrom\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"stateMutability\":\"nonpayable\",\"type\":\"function\"}],\"devdoc\":{\"author\":\"Enzyme Council <security@enzyme.finance>\",\"details\":\"All subsequent implementations should inherit the previous implementation, e.g., `VaultLibBase2 is VaultLibBase1` DO NOT EDIT CONTRACT.\",\"kind\":\"dev\",\"methods\":{\"allowance(address,address)\":{\"details\":\"Standard implementation of ERC20's allowance(). Can be overridden.\"},\"approve(address,uint256)\":{\"details\":\"Standard implementation of ERC20's approve(). Can be overridden.\"},\"balanceOf(address)\":{\"details\":\"Standard implementation of ERC20's balanceOf(). Can be overridden.\"},\"canMigrate(address)\":{\"params\":{\"_who\":\"The account to check\"},\"returns\":{\"canMigrate_\":\"True if the account is allowed to migrate the VaultProxy\"}},\"decimals()\":{\"details\":\"Standard implementation of ERC20's decimals(). Can not be overridden.\"},\"getVaultLib()\":{\"returns\":{\"vaultLib_\":\"The address of the VaultLib target\"}},\"init(address,address,string)\":{\"details\":\"Serves as a per-proxy pseudo-constructor\",\"params\":{\"_accessor\":\"The address to set as the permissioned accessor of the VaultLib\",\"_fundName\":\"The name of the fund\",\"_owner\":\"The address to set as the fund owner\"}},\"name()\":{\"details\":\"Standard implementation of ERC20's name(). Can be overridden.\"},\"proxiableUUID()\":{\"details\":\"The UUID is `bytes32(keccak256('mln.proxiable.vaultlib'))`\",\"returns\":{\"uuid_\":\"The bytes32 hash representing the UUID\"}},\"setAccessor(address)\":{\"params\":{\"_nextAccessor\":\"The address to set as the permissioned accessor of the VaultLib\"}},\"setVaultLib(address)\":{\"details\":\"This function is absolutely critical. __updateCodeAddress() validates that the target is a valid Proxiable contract instance. Does not block _nextVaultLib from being the same as the current VaultLib\",\"params\":{\"_nextVaultLib\":\"The address to set as the VaultLib\"}},\"symbol()\":{\"details\":\"Standard implementation of ERC20's symbol(). Can be overridden.\"},\"totalSupply()\":{\"details\":\"Standard implementation of ERC20's totalSupply(). Can be overridden.\"},\"transfer(address,uint256)\":{\"details\":\"Standard implementation of ERC20's transfer(). Can be overridden.\"},\"transferFrom(address,address,uint256)\":{\"details\":\"Standard implementation of ERC20's transferFrom(). Can be overridden.\"}},\"title\":\"VaultLibBase2 Contract\",\"version\":1},\"userdoc\":{\"kind\":\"user\",\"methods\":{\"canMigrate(address)\":{\"notice\":\"Checks whether an account is allowed to migrate the VaultProxy\"},\"getVaultLib()\":{\"notice\":\"Gets the VaultLib target for the VaultProxy\"},\"init(address,address,string)\":{\"notice\":\"Initializes the VaultProxy with core configuration\"},\"proxiableUUID()\":{\"notice\":\"Returns a unique bytes32 hash for VaultLib instances\"},\"setAccessor(address)\":{\"notice\":\"Sets the permissioned accessor of the VaultLib\"},\"setVaultLib(address)\":{\"notice\":\"Sets the VaultLib target for the VaultProxy\"}},\"notice\":\"The first implementation of VaultLibBase1, with additional events and storage\",\"version\":1}},\"settings\":{\"compilationTarget\":{\"contracts/persistent/vault/VaultLibBase2.sol\":\"VaultLibBase2\"},\"evmVersion\":\"istanbul\",\"libraries\":{},\"metadata\":{\"bytecodeHash\":\"none\"},\"optimizer\":{\"details\":{\"constantOptimizer\":true,\"cse\":true,\"deduplicate\":true,\"jumpdestRemover\":true,\"orderLiterals\":true,\"peephole\":true,\"yul\":false},\"runs\":200},\"remappings\":[\":@enzyme/=contracts/\",\":@openzeppelin-solc-0.7/=node_modules/@openzeppelin-solc-0.7/\",\":@openzeppelin/=node_modules/@openzeppelin/\",\":@uniswap/=node_modules/@uniswap/\",\":base64-sol/=node_modules/base64-sol/\",\":ds-test/=lib/forge-std/lib/ds-test/src/\",\":forge-std/=lib/forge-std/src/\",\":hardhat-deploy/=node_modules/hardhat-deploy/\",\":hardhat/=node_modules/hardhat/\"]},\"sources\":{\"contracts/persistent/vault/VaultLibBase1.sol\":{\"keccak256\":\"0xa4dac1e4cdb311a2ab187135355357d8790c505ef36dd912c057fe53743d30b5\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://b66efe821016ab927c949263023260515e90f5d480dc8d94eefbfeec7bf7490b\",\"dweb:/ipfs/QmNY3xKnhL9EptAbxGvXHGAXfV9pj3dDPwsZnKrPs54ZHw\"]},\"contracts/persistent/vault/VaultLibBase2.sol\":{\"keccak256\":\"0xf7d31f2a9a47770ed3f444be2c4fe9262ddb55fef7f25e546b1f03c9afec4c09\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://9353ddce7c9b8b3c13fed23fe8edec99ca610d791b0c5b204b3d01f1f08d07d2\",\"dweb:/ipfs/QmeVsEh3joCjv49BRXeHASevnZZ5xdZXpkctHT8BPf37N2\"]},\"contracts/persistent/vault/VaultLibBaseCore.sol\":{\"keccak256\":\"0xc518a9735a8145f064817fa21c1cc57eba7d3396a06320b7abde187b87613074\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://06f8b29550ba2583ac566b5f92bf206a8c47c492030db1580f5bd64cbd5db3dd\",\"dweb:/ipfs/QmVd4yVBazyDd6CdgTCgrBg9t9ekoJFT2VskTFLGY2Amdz\"]},\"contracts/persistent/vault/interfaces/IMigratableVault.sol\":{\"keccak256\":\"0x30cfc9be81edf29261724242246811179ac9503d062ded60a2ae220c8df86f1c\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://2db64a34fe22310f2ac1977ea251ba83fb0d6398a964ef9a85b73f06d2a7db82\",\"dweb:/ipfs/QmPLXPV3giQujRLNQeQAvhNYexjzu6dRgdQC5oPij2gMwM\"]},\"contracts/persistent/vault/utils/ProxiableVaultLib.sol\":{\"keccak256\":\"0x47123e1fd95e335b312d378e651a627a674f32df372bcfe36c1128ab91122f76\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://960c57e2e345091d025cc0e1b1070b7fbabe13fe5fc00a55def7f8d5feb55e44\",\"dweb:/ipfs/QmZT8omiird2WfA9bnffnWpXuQERTCUJqh4wpN5wz1BCD4\"]},\"contracts/persistent/vault/utils/SharesTokenBase.sol\":{\"keccak256\":\"0x9b2a431aea5f0b908cc8c169c89ed420b52fb5f63cca40e97a9223209c0b1113\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://991ac66f7f44313d113916b76b9843d0b9e705329851b0858061a8a051fbe8e8\",\"dweb:/ipfs/QmPpE2mNajVqWcNg2gCVwoRCfpM2CPAyAF9Vvk57j2ihc4\"]},\"contracts/persistent/vault/utils/VaultLibSafeMath.sol\":{\"keccak256\":\"0xc056fcbf5f498fea6a12ae7f470bb4246297355c3117b1bd01d0edf207da947d\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://432bde139ff1834c0f762231f5bc73ad268ea8048b099b5315c187e289d87b02\",\"dweb:/ipfs/QmRBW8EcrigYQHacihj4JFgh5y8apv8xwZJMvfHEdtSVsG\"]}},\"version\":1}",
+  "rawMetadata": "{\"compiler\":{\"version\":\"0.6.12+commit.27d51765\"},\"language\":\"Solidity\",\"output\":{\"abi\":[{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"address\",\"name\":\"prevAccessor\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"address\",\"name\":\"nextAccessor\",\"type\":\"address\"}],\"name\":\"AccessorSet\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"owner\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"spender\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"value\",\"type\":\"uint256\"}],\"name\":\"Approval\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"address\",\"name\":\"manager\",\"type\":\"address\"}],\"name\":\"AssetManagerAdded\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"address\",\"name\":\"manager\",\"type\":\"address\"}],\"name\":\"AssetManagerRemoved\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"asset\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"target\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\"}],\"name\":\"AssetWithdrawn\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"sender\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\"}],\"name\":\"EthReceived\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"externalPosition\",\"type\":\"address\"}],\"name\":\"ExternalPositionAdded\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"externalPosition\",\"type\":\"address\"}],\"name\":\"ExternalPositionRemoved\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[],\"name\":\"FreelyTransferableSharesSet\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"address\",\"name\":\"prevMigrator\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"address\",\"name\":\"nextMigrator\",\"type\":\"address\"}],\"name\":\"MigratorSet\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"string\",\"name\":\"name\",\"type\":\"string\"}],\"name\":\"NameSet\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"nominatedOwner\",\"type\":\"address\"}],\"name\":\"NominatedOwnerRemoved\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"nominatedOwner\",\"type\":\"address\"}],\"name\":\"NominatedOwnerSet\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"address\",\"name\":\"prevOwner\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"address\",\"name\":\"nextOwner\",\"type\":\"address\"}],\"name\":\"OwnerSet\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"prevOwner\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"nextOwner\",\"type\":\"address\"}],\"name\":\"OwnershipTransferred\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"sharesAmount\",\"type\":\"uint256\"}],\"name\":\"ProtocolFeePaidInShares\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"sharesAmount\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"mlnValue\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"mlnBurned\",\"type\":\"uint256\"}],\"name\":\"ProtocolFeeSharesBoughtBack\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"string\",\"name\":\"symbol\",\"type\":\"string\"}],\"name\":\"SymbolSet\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"address\",\"name\":\"asset\",\"type\":\"address\"}],\"name\":\"TrackedAssetAdded\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"address\",\"name\":\"asset\",\"type\":\"address\"}],\"name\":\"TrackedAssetRemoved\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"from\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"to\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"value\",\"type\":\"uint256\"}],\"name\":\"Transfer\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"address\",\"name\":\"prevVaultLib\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"address\",\"name\":\"nextVaultLib\",\"type\":\"address\"}],\"name\":\"VaultLibSet\",\"type\":\"event\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_owner\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"_spender\",\"type\":\"address\"}],\"name\":\"allowance\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_spender\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"_amount\",\"type\":\"uint256\"}],\"name\":\"approve\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_account\",\"type\":\"address\"}],\"name\":\"balanceOf\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_who\",\"type\":\"address\"}],\"name\":\"canMigrate\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"canMigrate_\",\"type\":\"bool\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"decimals\",\"outputs\":[{\"internalType\":\"uint8\",\"name\":\"\",\"type\":\"uint8\"}],\"stateMutability\":\"pure\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getVaultLib\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"vaultLib_\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_owner\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"_accessor\",\"type\":\"address\"},{\"internalType\":\"string\",\"name\":\"_fundName\",\"type\":\"string\"}],\"name\":\"init\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"name\",\"outputs\":[{\"internalType\":\"string\",\"name\":\"\",\"type\":\"string\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"proxiableUUID\",\"outputs\":[{\"internalType\":\"bytes32\",\"name\":\"uuid_\",\"type\":\"bytes32\"}],\"stateMutability\":\"pure\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_nextAccessor\",\"type\":\"address\"}],\"name\":\"setAccessor\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_nextVaultLib\",\"type\":\"address\"}],\"name\":\"setVaultLib\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"symbol\",\"outputs\":[{\"internalType\":\"string\",\"name\":\"\",\"type\":\"string\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"totalSupply\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_recipient\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"_amount\",\"type\":\"uint256\"}],\"name\":\"transfer\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_sender\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"_recipient\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"_amount\",\"type\":\"uint256\"}],\"name\":\"transferFrom\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"stateMutability\":\"nonpayable\",\"type\":\"function\"}],\"devdoc\":{\"author\":\"Enzyme Council <security@enzyme.finance>\",\"details\":\"All subsequent implementations should inherit the previous implementation, e.g., `VaultLibBase2 is VaultLibBase1` DO NOT EDIT CONTRACT.\",\"kind\":\"dev\",\"methods\":{\"allowance(address,address)\":{\"details\":\"Standard implementation of ERC20's allowance(). Can be overridden.\"},\"approve(address,uint256)\":{\"details\":\"Standard implementation of ERC20's approve(). Can be overridden.\"},\"balanceOf(address)\":{\"details\":\"Standard implementation of ERC20's balanceOf(). Can be overridden.\"},\"canMigrate(address)\":{\"params\":{\"_who\":\"The account to check\"},\"returns\":{\"canMigrate_\":\"True if the account is allowed to migrate the VaultProxy\"}},\"decimals()\":{\"details\":\"Standard implementation of ERC20's decimals(). Can not be overridden.\"},\"getVaultLib()\":{\"returns\":{\"vaultLib_\":\"The address of the VaultLib target\"}},\"init(address,address,string)\":{\"details\":\"Serves as a per-proxy pseudo-constructor\",\"params\":{\"_accessor\":\"The address to set as the permissioned accessor of the VaultLib\",\"_fundName\":\"The name of the fund\",\"_owner\":\"The address to set as the fund owner\"}},\"name()\":{\"details\":\"Standard implementation of ERC20's name(). Can be overridden.\"},\"proxiableUUID()\":{\"details\":\"The UUID is `bytes32(keccak256('mln.proxiable.vaultlib'))`\",\"returns\":{\"uuid_\":\"The bytes32 hash representing the UUID\"}},\"setAccessor(address)\":{\"params\":{\"_nextAccessor\":\"The address to set as the permissioned accessor of the VaultLib\"}},\"setVaultLib(address)\":{\"details\":\"This function is absolutely critical. __updateCodeAddress() validates that the target is a valid Proxiable contract instance. Does not block _nextVaultLib from being the same as the current VaultLib\",\"params\":{\"_nextVaultLib\":\"The address to set as the VaultLib\"}},\"symbol()\":{\"details\":\"Standard implementation of ERC20's symbol(). Can be overridden.\"},\"totalSupply()\":{\"details\":\"Standard implementation of ERC20's totalSupply(). Can be overridden.\"},\"transfer(address,uint256)\":{\"details\":\"Standard implementation of ERC20's transfer(). Can be overridden.\"},\"transferFrom(address,address,uint256)\":{\"details\":\"Standard implementation of ERC20's transferFrom(). Can be overridden.\"}},\"title\":\"VaultLibBase2 Contract\",\"version\":1},\"userdoc\":{\"kind\":\"user\",\"methods\":{\"canMigrate(address)\":{\"notice\":\"Checks whether an account is allowed to migrate the VaultProxy\"},\"getVaultLib()\":{\"notice\":\"Gets the VaultLib target for the VaultProxy\"},\"init(address,address,string)\":{\"notice\":\"Initializes the VaultProxy with core configuration\"},\"proxiableUUID()\":{\"notice\":\"Returns a unique bytes32 hash for VaultLib instances\"},\"setAccessor(address)\":{\"notice\":\"Sets the permissioned accessor of the VaultLib\"},\"setVaultLib(address)\":{\"notice\":\"Sets the VaultLib target for the VaultProxy\"}},\"notice\":\"The first implementation of VaultLibBase1, with additional events and storage\",\"version\":1}},\"settings\":{\"compilationTarget\":{\"contracts/persistent/vault/VaultLibBase2.sol\":\"VaultLibBase2\"},\"evmVersion\":\"istanbul\",\"libraries\":{},\"metadata\":{\"bytecodeHash\":\"none\"},\"optimizer\":{\"details\":{\"constantOptimizer\":true,\"cse\":true,\"deduplicate\":true,\"jumpdestRemover\":true,\"orderLiterals\":true,\"peephole\":true,\"yul\":false},\"runs\":200},\"remappings\":[\":@enzyme/=contracts/\",\":@openzeppelin-solc-0.7/=node_modules/@openzeppelin-solc-0.7/\",\":@openzeppelin/=node_modules/@openzeppelin/\",\":@uniswap/=node_modules/@uniswap/\",\":base64-sol/=node_modules/base64-sol/\",\":ds-test/=lib/forge-std/lib/ds-test/src/\",\":forge-std/=lib/forge-std/src/\",\":hardhat-deploy/=node_modules/hardhat-deploy/\",\":hardhat/=node_modules/hardhat/\"]},\"sources\":{\"contracts/persistent/vault/VaultLibBase1.sol\":{\"keccak256\":\"0xa4dac1e4cdb311a2ab187135355357d8790c505ef36dd912c057fe53743d30b5\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://b66efe821016ab927c949263023260515e90f5d480dc8d94eefbfeec7bf7490b\",\"dweb:/ipfs/QmNY3xKnhL9EptAbxGvXHGAXfV9pj3dDPwsZnKrPs54ZHw\"]},\"contracts/persistent/vault/VaultLibBase2.sol\":{\"keccak256\":\"0xf7d31f2a9a47770ed3f444be2c4fe9262ddb55fef7f25e546b1f03c9afec4c09\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://9353ddce7c9b8b3c13fed23fe8edec99ca610d791b0c5b204b3d01f1f08d07d2\",\"dweb:/ipfs/QmeVsEh3joCjv49BRXeHASevnZZ5xdZXpkctHT8BPf37N2\"]},\"contracts/persistent/vault/VaultLibBaseCore.sol\":{\"keccak256\":\"0xc518a9735a8145f064817fa21c1cc57eba7d3396a06320b7abde187b87613074\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://06f8b29550ba2583ac566b5f92bf206a8c47c492030db1580f5bd64cbd5db3dd\",\"dweb:/ipfs/QmVd4yVBazyDd6CdgTCgrBg9t9ekoJFT2VskTFLGY2Amdz\"]},\"contracts/persistent/vault/interfaces/IMigratableVault.sol\":{\"keccak256\":\"0x8e1355a7efa8ec2172f5c9b532071def392b86ab1e5534d2fc73417a6e9f7238\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://acaff907d8327cbd3060a3ac09f230c7bd78253d0f3f8186f8a5e7a9932b19f6\",\"dweb:/ipfs/QmPGbecKjcFMCg8rVW4M55JENKNH2KqdqATy5bgvnkMGqs\"]},\"contracts/persistent/vault/utils/ProxiableVaultLib.sol\":{\"keccak256\":\"0x47123e1fd95e335b312d378e651a627a674f32df372bcfe36c1128ab91122f76\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://960c57e2e345091d025cc0e1b1070b7fbabe13fe5fc00a55def7f8d5feb55e44\",\"dweb:/ipfs/QmZT8omiird2WfA9bnffnWpXuQERTCUJqh4wpN5wz1BCD4\"]},\"contracts/persistent/vault/utils/SharesTokenBase.sol\":{\"keccak256\":\"0x9b2a431aea5f0b908cc8c169c89ed420b52fb5f63cca40e97a9223209c0b1113\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://991ac66f7f44313d113916b76b9843d0b9e705329851b0858061a8a051fbe8e8\",\"dweb:/ipfs/QmPpE2mNajVqWcNg2gCVwoRCfpM2CPAyAF9Vvk57j2ihc4\"]},\"contracts/persistent/vault/utils/VaultLibSafeMath.sol\":{\"keccak256\":\"0xc056fcbf5f498fea6a12ae7f470bb4246297355c3117b1bd01d0edf207da947d\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://432bde139ff1834c0f762231f5bc73ad268ea8048b099b5315c187e289d87b02\",\"dweb:/ipfs/QmRBW8EcrigYQHacihj4JFgh5y8apv8xwZJMvfHEdtSVsG\"]}},\"version\":1}",
   "metadata": {
     "compiler": {
       "version": "0.6.12+commit.27d51765"
@@ -1446,10 +1446,10 @@
         "license": "GPL-3.0"
       },
       "contracts/persistent/vault/interfaces/IMigratableVault.sol": {
-        "keccak256": "0x30cfc9be81edf29261724242246811179ac9503d062ded60a2ae220c8df86f1c",
+        "keccak256": "0x8e1355a7efa8ec2172f5c9b532071def392b86ab1e5534d2fc73417a6e9f7238",
         "urls": [
-          "bzz-raw://2db64a34fe22310f2ac1977ea251ba83fb0d6398a964ef9a85b73f06d2a7db82",
-          "dweb:/ipfs/QmPLXPV3giQujRLNQeQAvhNYexjzu6dRgdQC5oPij2gMwM"
+          "bzz-raw://acaff907d8327cbd3060a3ac09f230c7bd78253d0f3f8186f8a5e7a9932b19f6",
+          "dweb:/ipfs/QmPGbecKjcFMCg8rVW4M55JENKNH2KqdqATy5bgvnkMGqs"
         ],
         "license": "GPL-3.0"
       },
@@ -1482,19 +1482,19 @@
   },
   "ast": {
     "absolutePath": "contracts/persistent/vault/VaultLibBase2.sol",
-    "id": 1173,
+    "id": 11433,
     "exportedSymbols": {
       "VaultLibBase2": [
-        1172
+        11432
       ]
     },
     "nodeType": "SourceUnit",
-    "src": "255:1759:6",
+    "src": "255:1759:67",
     "nodes": [
       {
-        "id": 1094,
+        "id": 11354,
         "nodeType": "PragmaDirective",
-        "src": "255:23:6",
+        "src": "255:23:67",
         "nodes": [],
         "literals": [
           "solidity",
@@ -1503,44 +1503,44 @@
         ]
       },
       {
-        "id": 1095,
+        "id": 11355,
         "nodeType": "ImportDirective",
-        "src": "280:29:6",
+        "src": "280:29:67",
         "nodes": [],
         "absolutePath": "contracts/persistent/vault/VaultLibBase1.sol",
         "file": "./VaultLibBase1.sol",
-        "scope": 1173,
-        "sourceUnit": 1093,
+        "scope": 11433,
+        "sourceUnit": 11353,
         "symbolAliases": [],
         "unitAlias": ""
       },
       {
-        "id": 1172,
+        "id": 11432,
         "nodeType": "ContractDefinition",
-        "src": "641:1372:6",
+        "src": "641:1372:67",
         "nodes": [
           {
-            "id": 1102,
+            "id": 11362,
             "nodeType": "EventDefinition",
-            "src": "696:41:6",
+            "src": "696:41:67",
             "nodes": [],
             "anonymous": false,
             "documentation": null,
             "name": "AssetManagerAdded",
             "parameters": {
-              "id": 1101,
+              "id": 11361,
               "nodeType": "ParameterList",
               "parameters": [
                 {
                   "constant": false,
-                  "id": 1100,
+                  "id": 11360,
                   "indexed": false,
                   "mutability": "mutable",
                   "name": "manager",
                   "nodeType": "VariableDeclaration",
                   "overrides": null,
-                  "scope": 1102,
-                  "src": "720:15:6",
+                  "scope": 11362,
+                  "src": "720:15:67",
                   "stateVariable": false,
                   "storageLocation": "default",
                   "typeDescriptions": {
@@ -1548,10 +1548,10 @@
                     "typeString": "address"
                   },
                   "typeName": {
-                    "id": 1099,
+                    "id": 11359,
                     "name": "address",
                     "nodeType": "ElementaryTypeName",
-                    "src": "720:7:6",
+                    "src": "720:7:67",
                     "stateMutability": "nonpayable",
                     "typeDescriptions": {
                       "typeIdentifier": "t_address",
@@ -1562,31 +1562,31 @@
                   "visibility": "internal"
                 }
               ],
-              "src": "719:17:6"
+              "src": "719:17:67"
             }
           },
           {
-            "id": 1106,
+            "id": 11366,
             "nodeType": "EventDefinition",
-            "src": "743:43:6",
+            "src": "743:43:67",
             "nodes": [],
             "anonymous": false,
             "documentation": null,
             "name": "AssetManagerRemoved",
             "parameters": {
-              "id": 1105,
+              "id": 11365,
               "nodeType": "ParameterList",
               "parameters": [
                 {
                   "constant": false,
-                  "id": 1104,
+                  "id": 11364,
                   "indexed": false,
                   "mutability": "mutable",
                   "name": "manager",
                   "nodeType": "VariableDeclaration",
                   "overrides": null,
-                  "scope": 1106,
-                  "src": "769:15:6",
+                  "scope": 11366,
+                  "src": "769:15:67",
                   "stateVariable": false,
                   "storageLocation": "default",
                   "typeDescriptions": {
@@ -1594,10 +1594,10 @@
                     "typeString": "address"
                   },
                   "typeName": {
-                    "id": 1103,
+                    "id": 11363,
                     "name": "address",
                     "nodeType": "ElementaryTypeName",
-                    "src": "769:7:6",
+                    "src": "769:7:67",
                     "stateMutability": "nonpayable",
                     "typeDescriptions": {
                       "typeIdentifier": "t_address",
@@ -1608,31 +1608,31 @@
                   "visibility": "internal"
                 }
               ],
-              "src": "768:17:6"
+              "src": "768:17:67"
             }
           },
           {
-            "id": 1112,
+            "id": 11372,
             "nodeType": "EventDefinition",
-            "src": "792:58:6",
+            "src": "792:58:67",
             "nodes": [],
             "anonymous": false,
             "documentation": null,
             "name": "EthReceived",
             "parameters": {
-              "id": 1111,
+              "id": 11371,
               "nodeType": "ParameterList",
               "parameters": [
                 {
                   "constant": false,
-                  "id": 1108,
+                  "id": 11368,
                   "indexed": true,
                   "mutability": "mutable",
                   "name": "sender",
                   "nodeType": "VariableDeclaration",
                   "overrides": null,
-                  "scope": 1112,
-                  "src": "810:22:6",
+                  "scope": 11372,
+                  "src": "810:22:67",
                   "stateVariable": false,
                   "storageLocation": "default",
                   "typeDescriptions": {
@@ -1640,10 +1640,10 @@
                     "typeString": "address"
                   },
                   "typeName": {
-                    "id": 1107,
+                    "id": 11367,
                     "name": "address",
                     "nodeType": "ElementaryTypeName",
-                    "src": "810:7:6",
+                    "src": "810:7:67",
                     "stateMutability": "nonpayable",
                     "typeDescriptions": {
                       "typeIdentifier": "t_address",
@@ -1655,14 +1655,14 @@
                 },
                 {
                   "constant": false,
-                  "id": 1110,
+                  "id": 11370,
                   "indexed": false,
                   "mutability": "mutable",
                   "name": "amount",
                   "nodeType": "VariableDeclaration",
                   "overrides": null,
-                  "scope": 1112,
-                  "src": "834:14:6",
+                  "scope": 11372,
+                  "src": "834:14:67",
                   "stateVariable": false,
                   "storageLocation": "default",
                   "typeDescriptions": {
@@ -1670,10 +1670,10 @@
                     "typeString": "uint256"
                   },
                   "typeName": {
-                    "id": 1109,
+                    "id": 11369,
                     "name": "uint256",
                     "nodeType": "ElementaryTypeName",
-                    "src": "834:7:6",
+                    "src": "834:7:67",
                     "typeDescriptions": {
                       "typeIdentifier": "t_uint256",
                       "typeString": "uint256"
@@ -1683,31 +1683,31 @@
                   "visibility": "internal"
                 }
               ],
-              "src": "809:40:6"
+              "src": "809:40:67"
             }
           },
           {
-            "id": 1116,
+            "id": 11376,
             "nodeType": "EventDefinition",
-            "src": "856:62:6",
+            "src": "856:62:67",
             "nodes": [],
             "anonymous": false,
             "documentation": null,
             "name": "ExternalPositionAdded",
             "parameters": {
-              "id": 1115,
+              "id": 11375,
               "nodeType": "ParameterList",
               "parameters": [
                 {
                   "constant": false,
-                  "id": 1114,
+                  "id": 11374,
                   "indexed": true,
                   "mutability": "mutable",
                   "name": "externalPosition",
                   "nodeType": "VariableDeclaration",
                   "overrides": null,
-                  "scope": 1116,
-                  "src": "884:32:6",
+                  "scope": 11376,
+                  "src": "884:32:67",
                   "stateVariable": false,
                   "storageLocation": "default",
                   "typeDescriptions": {
@@ -1715,10 +1715,10 @@
                     "typeString": "address"
                   },
                   "typeName": {
-                    "id": 1113,
+                    "id": 11373,
                     "name": "address",
                     "nodeType": "ElementaryTypeName",
-                    "src": "884:7:6",
+                    "src": "884:7:67",
                     "stateMutability": "nonpayable",
                     "typeDescriptions": {
                       "typeIdentifier": "t_address",
@@ -1729,31 +1729,31 @@
                   "visibility": "internal"
                 }
               ],
-              "src": "883:34:6"
+              "src": "883:34:67"
             }
           },
           {
-            "id": 1120,
+            "id": 11380,
             "nodeType": "EventDefinition",
-            "src": "924:64:6",
+            "src": "924:64:67",
             "nodes": [],
             "anonymous": false,
             "documentation": null,
             "name": "ExternalPositionRemoved",
             "parameters": {
-              "id": 1119,
+              "id": 11379,
               "nodeType": "ParameterList",
               "parameters": [
                 {
                   "constant": false,
-                  "id": 1118,
+                  "id": 11378,
                   "indexed": true,
                   "mutability": "mutable",
                   "name": "externalPosition",
                   "nodeType": "VariableDeclaration",
                   "overrides": null,
-                  "scope": 1120,
-                  "src": "954:32:6",
+                  "scope": 11380,
+                  "src": "954:32:67",
                   "stateVariable": false,
                   "storageLocation": "default",
                   "typeDescriptions": {
@@ -1761,10 +1761,10 @@
                     "typeString": "address"
                   },
                   "typeName": {
-                    "id": 1117,
+                    "id": 11377,
                     "name": "address",
                     "nodeType": "ElementaryTypeName",
-                    "src": "954:7:6",
+                    "src": "954:7:67",
                     "stateMutability": "nonpayable",
                     "typeDescriptions": {
                       "typeIdentifier": "t_address",
@@ -1775,46 +1775,46 @@
                   "visibility": "internal"
                 }
               ],
-              "src": "953:34:6"
+              "src": "953:34:67"
             }
           },
           {
-            "id": 1122,
+            "id": 11382,
             "nodeType": "EventDefinition",
-            "src": "994:36:6",
+            "src": "994:36:67",
             "nodes": [],
             "anonymous": false,
             "documentation": null,
             "name": "FreelyTransferableSharesSet",
             "parameters": {
-              "id": 1121,
+              "id": 11381,
               "nodeType": "ParameterList",
               "parameters": [],
-              "src": "1027:2:6"
+              "src": "1027:2:67"
             }
           },
           {
-            "id": 1126,
+            "id": 11386,
             "nodeType": "EventDefinition",
-            "src": "1036:27:6",
+            "src": "1036:27:67",
             "nodes": [],
             "anonymous": false,
             "documentation": null,
             "name": "NameSet",
             "parameters": {
-              "id": 1125,
+              "id": 11385,
               "nodeType": "ParameterList",
               "parameters": [
                 {
                   "constant": false,
-                  "id": 1124,
+                  "id": 11384,
                   "indexed": false,
                   "mutability": "mutable",
                   "name": "name",
                   "nodeType": "VariableDeclaration",
                   "overrides": null,
-                  "scope": 1126,
-                  "src": "1050:11:6",
+                  "scope": 11386,
+                  "src": "1050:11:67",
                   "stateVariable": false,
                   "storageLocation": "default",
                   "typeDescriptions": {
@@ -1822,10 +1822,10 @@
                     "typeString": "string"
                   },
                   "typeName": {
-                    "id": 1123,
+                    "id": 11383,
                     "name": "string",
                     "nodeType": "ElementaryTypeName",
-                    "src": "1050:6:6",
+                    "src": "1050:6:67",
                     "typeDescriptions": {
                       "typeIdentifier": "t_string_storage_ptr",
                       "typeString": "string"
@@ -1835,31 +1835,31 @@
                   "visibility": "internal"
                 }
               ],
-              "src": "1049:13:6"
+              "src": "1049:13:67"
             }
           },
           {
-            "id": 1130,
+            "id": 11390,
             "nodeType": "EventDefinition",
-            "src": "1069:60:6",
+            "src": "1069:60:67",
             "nodes": [],
             "anonymous": false,
             "documentation": null,
             "name": "NominatedOwnerRemoved",
             "parameters": {
-              "id": 1129,
+              "id": 11389,
               "nodeType": "ParameterList",
               "parameters": [
                 {
                   "constant": false,
-                  "id": 1128,
+                  "id": 11388,
                   "indexed": true,
                   "mutability": "mutable",
                   "name": "nominatedOwner",
                   "nodeType": "VariableDeclaration",
                   "overrides": null,
-                  "scope": 1130,
-                  "src": "1097:30:6",
+                  "scope": 11390,
+                  "src": "1097:30:67",
                   "stateVariable": false,
                   "storageLocation": "default",
                   "typeDescriptions": {
@@ -1867,10 +1867,10 @@
                     "typeString": "address"
                   },
                   "typeName": {
-                    "id": 1127,
+                    "id": 11387,
                     "name": "address",
                     "nodeType": "ElementaryTypeName",
-                    "src": "1097:7:6",
+                    "src": "1097:7:67",
                     "stateMutability": "nonpayable",
                     "typeDescriptions": {
                       "typeIdentifier": "t_address",
@@ -1881,31 +1881,31 @@
                   "visibility": "internal"
                 }
               ],
-              "src": "1096:32:6"
+              "src": "1096:32:67"
             }
           },
           {
-            "id": 1134,
+            "id": 11394,
             "nodeType": "EventDefinition",
-            "src": "1135:56:6",
+            "src": "1135:56:67",
             "nodes": [],
             "anonymous": false,
             "documentation": null,
             "name": "NominatedOwnerSet",
             "parameters": {
-              "id": 1133,
+              "id": 11393,
               "nodeType": "ParameterList",
               "parameters": [
                 {
                   "constant": false,
-                  "id": 1132,
+                  "id": 11392,
                   "indexed": true,
                   "mutability": "mutable",
                   "name": "nominatedOwner",
                   "nodeType": "VariableDeclaration",
                   "overrides": null,
-                  "scope": 1134,
-                  "src": "1159:30:6",
+                  "scope": 11394,
+                  "src": "1159:30:67",
                   "stateVariable": false,
                   "storageLocation": "default",
                   "typeDescriptions": {
@@ -1913,10 +1913,10 @@
                     "typeString": "address"
                   },
                   "typeName": {
-                    "id": 1131,
+                    "id": 11391,
                     "name": "address",
                     "nodeType": "ElementaryTypeName",
-                    "src": "1159:7:6",
+                    "src": "1159:7:67",
                     "stateMutability": "nonpayable",
                     "typeDescriptions": {
                       "typeIdentifier": "t_address",
@@ -1927,31 +1927,31 @@
                   "visibility": "internal"
                 }
               ],
-              "src": "1158:32:6"
+              "src": "1158:32:67"
             }
           },
           {
-            "id": 1138,
+            "id": 11398,
             "nodeType": "EventDefinition",
-            "src": "1197:52:6",
+            "src": "1197:52:67",
             "nodes": [],
             "anonymous": false,
             "documentation": null,
             "name": "ProtocolFeePaidInShares",
             "parameters": {
-              "id": 1137,
+              "id": 11397,
               "nodeType": "ParameterList",
               "parameters": [
                 {
                   "constant": false,
-                  "id": 1136,
+                  "id": 11396,
                   "indexed": false,
                   "mutability": "mutable",
                   "name": "sharesAmount",
                   "nodeType": "VariableDeclaration",
                   "overrides": null,
-                  "scope": 1138,
-                  "src": "1227:20:6",
+                  "scope": 11398,
+                  "src": "1227:20:67",
                   "stateVariable": false,
                   "storageLocation": "default",
                   "typeDescriptions": {
@@ -1959,10 +1959,10 @@
                     "typeString": "uint256"
                   },
                   "typeName": {
-                    "id": 1135,
+                    "id": 11395,
                     "name": "uint256",
                     "nodeType": "ElementaryTypeName",
-                    "src": "1227:7:6",
+                    "src": "1227:7:67",
                     "typeDescriptions": {
                       "typeIdentifier": "t_uint256",
                       "typeString": "uint256"
@@ -1972,31 +1972,31 @@
                   "visibility": "internal"
                 }
               ],
-              "src": "1226:22:6"
+              "src": "1226:22:67"
             }
           },
           {
-            "id": 1146,
+            "id": 11406,
             "nodeType": "EventDefinition",
-            "src": "1255:93:6",
+            "src": "1255:93:67",
             "nodes": [],
             "anonymous": false,
             "documentation": null,
             "name": "ProtocolFeeSharesBoughtBack",
             "parameters": {
-              "id": 1145,
+              "id": 11405,
               "nodeType": "ParameterList",
               "parameters": [
                 {
                   "constant": false,
-                  "id": 1140,
+                  "id": 11400,
                   "indexed": false,
                   "mutability": "mutable",
                   "name": "sharesAmount",
                   "nodeType": "VariableDeclaration",
                   "overrides": null,
-                  "scope": 1146,
-                  "src": "1289:20:6",
+                  "scope": 11406,
+                  "src": "1289:20:67",
                   "stateVariable": false,
                   "storageLocation": "default",
                   "typeDescriptions": {
@@ -2004,10 +2004,10 @@
                     "typeString": "uint256"
                   },
                   "typeName": {
-                    "id": 1139,
+                    "id": 11399,
                     "name": "uint256",
                     "nodeType": "ElementaryTypeName",
-                    "src": "1289:7:6",
+                    "src": "1289:7:67",
                     "typeDescriptions": {
                       "typeIdentifier": "t_uint256",
                       "typeString": "uint256"
@@ -2018,14 +2018,14 @@
                 },
                 {
                   "constant": false,
-                  "id": 1142,
+                  "id": 11402,
                   "indexed": false,
                   "mutability": "mutable",
                   "name": "mlnValue",
                   "nodeType": "VariableDeclaration",
                   "overrides": null,
-                  "scope": 1146,
-                  "src": "1311:16:6",
+                  "scope": 11406,
+                  "src": "1311:16:67",
                   "stateVariable": false,
                   "storageLocation": "default",
                   "typeDescriptions": {
@@ -2033,10 +2033,10 @@
                     "typeString": "uint256"
                   },
                   "typeName": {
-                    "id": 1141,
+                    "id": 11401,
                     "name": "uint256",
                     "nodeType": "ElementaryTypeName",
-                    "src": "1311:7:6",
+                    "src": "1311:7:67",
                     "typeDescriptions": {
                       "typeIdentifier": "t_uint256",
                       "typeString": "uint256"
@@ -2047,14 +2047,14 @@
                 },
                 {
                   "constant": false,
-                  "id": 1144,
+                  "id": 11404,
                   "indexed": false,
                   "mutability": "mutable",
                   "name": "mlnBurned",
                   "nodeType": "VariableDeclaration",
                   "overrides": null,
-                  "scope": 1146,
-                  "src": "1329:17:6",
+                  "scope": 11406,
+                  "src": "1329:17:67",
                   "stateVariable": false,
                   "storageLocation": "default",
                   "typeDescriptions": {
@@ -2062,10 +2062,10 @@
                     "typeString": "uint256"
                   },
                   "typeName": {
-                    "id": 1143,
+                    "id": 11403,
                     "name": "uint256",
                     "nodeType": "ElementaryTypeName",
-                    "src": "1329:7:6",
+                    "src": "1329:7:67",
                     "typeDescriptions": {
                       "typeIdentifier": "t_uint256",
                       "typeString": "uint256"
@@ -2075,31 +2075,31 @@
                   "visibility": "internal"
                 }
               ],
-              "src": "1288:59:6"
+              "src": "1288:59:67"
             }
           },
           {
-            "id": 1152,
+            "id": 11412,
             "nodeType": "EventDefinition",
-            "src": "1354:81:6",
+            "src": "1354:81:67",
             "nodes": [],
             "anonymous": false,
             "documentation": null,
             "name": "OwnershipTransferred",
             "parameters": {
-              "id": 1151,
+              "id": 11411,
               "nodeType": "ParameterList",
               "parameters": [
                 {
                   "constant": false,
-                  "id": 1148,
+                  "id": 11408,
                   "indexed": true,
                   "mutability": "mutable",
                   "name": "prevOwner",
                   "nodeType": "VariableDeclaration",
                   "overrides": null,
-                  "scope": 1152,
-                  "src": "1381:25:6",
+                  "scope": 11412,
+                  "src": "1381:25:67",
                   "stateVariable": false,
                   "storageLocation": "default",
                   "typeDescriptions": {
@@ -2107,10 +2107,10 @@
                     "typeString": "address"
                   },
                   "typeName": {
-                    "id": 1147,
+                    "id": 11407,
                     "name": "address",
                     "nodeType": "ElementaryTypeName",
-                    "src": "1381:7:6",
+                    "src": "1381:7:67",
                     "stateMutability": "nonpayable",
                     "typeDescriptions": {
                       "typeIdentifier": "t_address",
@@ -2122,14 +2122,14 @@
                 },
                 {
                   "constant": false,
-                  "id": 1150,
+                  "id": 11410,
                   "indexed": true,
                   "mutability": "mutable",
                   "name": "nextOwner",
                   "nodeType": "VariableDeclaration",
                   "overrides": null,
-                  "scope": 1152,
-                  "src": "1408:25:6",
+                  "scope": 11412,
+                  "src": "1408:25:67",
                   "stateVariable": false,
                   "storageLocation": "default",
                   "typeDescriptions": {
@@ -2137,10 +2137,10 @@
                     "typeString": "address"
                   },
                   "typeName": {
-                    "id": 1149,
+                    "id": 11409,
                     "name": "address",
                     "nodeType": "ElementaryTypeName",
-                    "src": "1408:7:6",
+                    "src": "1408:7:67",
                     "stateMutability": "nonpayable",
                     "typeDescriptions": {
                       "typeIdentifier": "t_address",
@@ -2151,31 +2151,31 @@
                   "visibility": "internal"
                 }
               ],
-              "src": "1380:54:6"
+              "src": "1380:54:67"
             }
           },
           {
-            "id": 1156,
+            "id": 11416,
             "nodeType": "EventDefinition",
-            "src": "1441:31:6",
+            "src": "1441:31:67",
             "nodes": [],
             "anonymous": false,
             "documentation": null,
             "name": "SymbolSet",
             "parameters": {
-              "id": 1155,
+              "id": 11415,
               "nodeType": "ParameterList",
               "parameters": [
                 {
                   "constant": false,
-                  "id": 1154,
+                  "id": 11414,
                   "indexed": false,
                   "mutability": "mutable",
                   "name": "symbol",
                   "nodeType": "VariableDeclaration",
                   "overrides": null,
-                  "scope": 1156,
-                  "src": "1457:13:6",
+                  "scope": 11416,
+                  "src": "1457:13:67",
                   "stateVariable": false,
                   "storageLocation": "default",
                   "typeDescriptions": {
@@ -2183,10 +2183,10 @@
                     "typeString": "string"
                   },
                   "typeName": {
-                    "id": 1153,
+                    "id": 11413,
                     "name": "string",
                     "nodeType": "ElementaryTypeName",
-                    "src": "1457:6:6",
+                    "src": "1457:6:67",
                     "typeDescriptions": {
                       "typeIdentifier": "t_string_storage_ptr",
                       "typeString": "string"
@@ -2196,19 +2196,19 @@
                   "visibility": "internal"
                 }
               ],
-              "src": "1456:15:6"
+              "src": "1456:15:67"
             }
           },
           {
-            "id": 1158,
+            "id": 11418,
             "nodeType": "VariableDeclaration",
-            "src": "1758:38:6",
+            "src": "1758:38:67",
             "nodes": [],
             "constant": false,
             "mutability": "mutable",
             "name": "freelyTransferableShares",
             "overrides": null,
-            "scope": 1172,
+            "scope": 11432,
             "stateVariable": true,
             "storageLocation": "default",
             "typeDescriptions": {
@@ -2216,10 +2216,10 @@
               "typeString": "bool"
             },
             "typeName": {
-              "id": 1157,
+              "id": 11417,
               "name": "bool",
               "nodeType": "ElementaryTypeName",
-              "src": "1758:4:6",
+              "src": "1758:4:67",
               "typeDescriptions": {
                 "typeIdentifier": "t_bool",
                 "typeString": "bool"
@@ -2229,15 +2229,15 @@
             "visibility": "internal"
           },
           {
-            "id": 1160,
+            "id": 11420,
             "nodeType": "VariableDeclaration",
-            "src": "1802:31:6",
+            "src": "1802:31:67",
             "nodes": [],
             "constant": false,
             "mutability": "mutable",
             "name": "nominatedOwner",
             "overrides": null,
-            "scope": 1172,
+            "scope": 11432,
             "stateVariable": true,
             "storageLocation": "default",
             "typeDescriptions": {
@@ -2245,10 +2245,10 @@
               "typeString": "address"
             },
             "typeName": {
-              "id": 1159,
+              "id": 11419,
               "name": "address",
               "nodeType": "ElementaryTypeName",
-              "src": "1802:7:6",
+              "src": "1802:7:67",
               "stateMutability": "nonpayable",
               "typeDescriptions": {
                 "typeIdentifier": "t_address",
@@ -2259,15 +2259,15 @@
             "visibility": "internal"
           },
           {
-            "id": 1163,
+            "id": 11423,
             "nodeType": "VariableDeclaration",
-            "src": "1839:42:6",
+            "src": "1839:42:67",
             "nodes": [],
             "constant": false,
             "mutability": "mutable",
             "name": "activeExternalPositions",
             "overrides": null,
-            "scope": 1172,
+            "scope": 11432,
             "stateVariable": true,
             "storageLocation": "default",
             "typeDescriptions": {
@@ -2276,20 +2276,20 @@
             },
             "typeName": {
               "baseType": {
-                "id": 1161,
+                "id": 11421,
                 "name": "address",
                 "nodeType": "ElementaryTypeName",
-                "src": "1839:7:6",
+                "src": "1839:7:67",
                 "stateMutability": "nonpayable",
                 "typeDescriptions": {
                   "typeIdentifier": "t_address",
                   "typeString": "address"
                 }
               },
-              "id": 1162,
+              "id": 11422,
               "length": null,
               "nodeType": "ArrayTypeName",
-              "src": "1839:9:6",
+              "src": "1839:9:67",
               "typeDescriptions": {
                 "typeIdentifier": "t_array$_t_address_$dyn_storage_ptr",
                 "typeString": "address[]"
@@ -2299,15 +2299,15 @@
             "visibility": "internal"
           },
           {
-            "id": 1167,
+            "id": 11427,
             "nodeType": "VariableDeclaration",
-            "src": "1887:57:6",
+            "src": "1887:57:67",
             "nodes": [],
             "constant": false,
             "mutability": "mutable",
             "name": "accountToIsAssetManager",
             "overrides": null,
-            "scope": 1172,
+            "scope": 11432,
             "stateVariable": true,
             "storageLocation": "default",
             "typeDescriptions": {
@@ -2315,28 +2315,28 @@
               "typeString": "mapping(address => bool)"
             },
             "typeName": {
-              "id": 1166,
+              "id": 11426,
               "keyType": {
-                "id": 1164,
+                "id": 11424,
                 "name": "address",
                 "nodeType": "ElementaryTypeName",
-                "src": "1895:7:6",
+                "src": "1895:7:67",
                 "typeDescriptions": {
                   "typeIdentifier": "t_address",
                   "typeString": "address"
                 }
               },
               "nodeType": "Mapping",
-              "src": "1887:24:6",
+              "src": "1887:24:67",
               "typeDescriptions": {
                 "typeIdentifier": "t_mapping$_t_address_$_t_bool_$",
                 "typeString": "mapping(address => bool)"
               },
               "valueType": {
-                "id": 1165,
+                "id": 11425,
                 "name": "bool",
                 "nodeType": "ElementaryTypeName",
-                "src": "1906:4:6",
+                "src": "1906:4:67",
                 "typeDescriptions": {
                   "typeIdentifier": "t_bool",
                   "typeString": "bool"
@@ -2347,15 +2347,15 @@
             "visibility": "internal"
           },
           {
-            "id": 1171,
+            "id": 11431,
             "nodeType": "VariableDeclaration",
-            "src": "1950:60:6",
+            "src": "1950:60:67",
             "nodes": [],
             "constant": false,
             "mutability": "mutable",
             "name": "externalPositionToIsActive",
             "overrides": null,
-            "scope": 1172,
+            "scope": 11432,
             "stateVariable": true,
             "storageLocation": "default",
             "typeDescriptions": {
@@ -2363,28 +2363,28 @@
               "typeString": "mapping(address => bool)"
             },
             "typeName": {
-              "id": 1170,
+              "id": 11430,
               "keyType": {
-                "id": 1168,
+                "id": 11428,
                 "name": "address",
                 "nodeType": "ElementaryTypeName",
-                "src": "1958:7:6",
+                "src": "1958:7:67",
                 "typeDescriptions": {
                   "typeIdentifier": "t_address",
                   "typeString": "address"
                 }
               },
               "nodeType": "Mapping",
-              "src": "1950:24:6",
+              "src": "1950:24:67",
               "typeDescriptions": {
                 "typeIdentifier": "t_mapping$_t_address_$_t_bool_$",
                 "typeString": "mapping(address => bool)"
               },
               "valueType": {
-                "id": 1169,
+                "id": 11429,
                 "name": "bool",
                 "nodeType": "ElementaryTypeName",
-                "src": "1969:4:6",
+                "src": "1969:4:67",
                 "typeDescriptions": {
                   "typeIdentifier": "t_bool",
                   "typeString": "bool"
@@ -2401,49 +2401,49 @@
             "arguments": null,
             "baseName": {
               "contractScope": null,
-              "id": 1097,
+              "id": 11357,
               "name": "VaultLibBase1",
               "nodeType": "UserDefinedTypeName",
-              "referencedDeclaration": 1092,
-              "src": "676:13:6",
+              "referencedDeclaration": 11352,
+              "src": "676:13:67",
               "typeDescriptions": {
-                "typeIdentifier": "t_contract$_VaultLibBase1_$1092",
+                "typeIdentifier": "t_contract$_VaultLibBase1_$11352",
                 "typeString": "contract VaultLibBase1"
               }
             },
-            "id": 1098,
+            "id": 11358,
             "nodeType": "InheritanceSpecifier",
-            "src": "676:13:6"
+            "src": "676:13:67"
           }
         ],
         "contractDependencies": [
-          1092,
-          1410,
-          1460,
-          1519,
-          1900
+          11352,
+          11670,
+          11770,
+          11829,
+          12210
         ],
         "contractKind": "contract",
         "documentation": {
-          "id": 1096,
+          "id": 11356,
           "nodeType": "StructuredDocumentation",
-          "src": "311:330:6",
+          "src": "311:330:67",
           "text": "@title VaultLibBase2 Contract\n @author Enzyme Council <security@enzyme.finance>\n @notice The first implementation of VaultLibBase1, with additional events and storage\n @dev All subsequent implementations should inherit the previous implementation,\n e.g., `VaultLibBase2 is VaultLibBase1`\n DO NOT EDIT CONTRACT."
         },
         "fullyImplemented": true,
         "linearizedBaseContracts": [
-          1172,
-          1092,
-          1410,
-          1900,
-          1519,
-          1460
+          11432,
+          11352,
+          11670,
+          12210,
+          11829,
+          11770
         ],
         "name": "VaultLibBase2",
-        "scope": 1173
+        "scope": 11433
       }
     ],
     "license": "GPL-3.0"
   },
-  "id": 6
+  "id": 67
 }

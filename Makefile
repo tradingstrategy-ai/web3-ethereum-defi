@@ -2,6 +2,7 @@
 sushi:
 	# Get our mock up contracts to the compiler bundle
 	@(cd contracts/sushiswap && yarn install && yarn build) > /dev/null
+	@mkdir -p eth_defi/abi/sushi
 	@find contracts/sushiswap/artifacts/contracts -iname "*.json" -not -iname "*.dbg.json" -exec cp {} eth_defi/abi/sushi \;
 
 # Compile our custom integration contracts
@@ -18,6 +19,7 @@ uniswapv3:
 
 # Extract ABI and copied over to our abi/uniswap_v3/ folder
 copy-uniswapv3-abi: uniswapv3
+	@mkdir -p eth_defi/abi/uniswap_v3
 	@find contracts/uniswap-v3-core/artifacts/contracts -iname "*.json" -not -iname "*.dbg.json" -exec cp {} eth_defi/abi/uniswap_v3 \;
 	@find contracts/uniswap-v3-periphery/artifacts/contracts -iname "*.json" -not -iname "*.dbg.json" -exec cp {} eth_defi/abi/uniswap_v3 \;
 
@@ -44,7 +46,8 @@ enzyme:
 # npm install also compiles the contracts here
 dhedge:
 	@(cd contracts/dhedge && npm install)
-	@find contracts/dhedge/abi -iname "*.json" -exec cp {} eth_defi/abi/dhegde \;
+	@mkdir -p eth_defi/abi/dhedge
+	@find contracts/dhedge/abi -iname "*.json" -exec cp {} eth_defi/abi/dhedge \;
 
 clean:
 	@rm -rf contracts/sushiswap/artifacts/*
@@ -54,7 +57,7 @@ clean:
 # Compile all contracts we are using
 #
 # Move ABI files to within a Python package for PyPi distribution
-compile-projects-and-prepare-abi: sushi in-house copy-uniswapv3-abi aavev3 dhedge
+compile-projects-and-prepare-abi: sushi in-house copy-uniswapv3-abi aavev3 enzyme dhedge
 
 all: clean-docs compile-projects-and-prepare-abi build-docs
 

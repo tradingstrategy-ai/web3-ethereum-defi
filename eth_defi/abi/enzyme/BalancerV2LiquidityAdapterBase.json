@@ -2523,10 +2523,10 @@
                               "name": "ERC20",
                               "nodeType": "Identifier",
                               "overloadedDeclarations": [],
-                              "referencedDeclaration": 83381,
+                              "referencedDeclaration": 104903,
                               "src": "3677:5:201",
                               "typeDescriptions": {
-                                "typeIdentifier": "t_type$_t_contract$_ERC20_$83381_$",
+                                "typeIdentifier": "t_type$_t_contract$_ERC20_$104903_$",
                                 "typeString": "type(contract ERC20)"
                               }
                             },
@@ -2541,7 +2541,7 @@
                             "src": "3677:41:201",
                             "tryCall": false,
                             "typeDescriptions": {
-                              "typeIdentifier": "t_contract$_ERC20_$83381",
+                              "typeIdentifier": "t_contract$_ERC20_$104903",
                               "typeString": "contract ERC20"
                             }
                           },
@@ -2552,7 +2552,7 @@
                           "lValueRequested": false,
                           "memberName": "balanceOf",
                           "nodeType": "MemberAccess",
-                          "referencedDeclaration": 82981,
+                          "referencedDeclaration": 104503,
                           "src": "3677:51:201",
                           "typeDescriptions": {
                             "typeIdentifier": "t_function_external_view$_t_address_$returns$_t_uint256_$",
@@ -5814,10 +5814,10 @@
                                                   "name": "ERC20",
                                                   "nodeType": "Identifier",
                                                   "overloadedDeclarations": [],
-                                                  "referencedDeclaration": 83381,
+                                                  "referencedDeclaration": 104903,
                                                   "src": "8612:5:201",
                                                   "typeDescriptions": {
-                                                    "typeIdentifier": "t_type$_t_contract$_ERC20_$83381_$",
+                                                    "typeIdentifier": "t_type$_t_contract$_ERC20_$104903_$",
                                                     "typeString": "type(contract ERC20)"
                                                   }
                                                 },
@@ -5832,7 +5832,7 @@
                                                 "src": "8612:16:201",
                                                 "tryCall": false,
                                                 "typeDescriptions": {
-                                                  "typeIdentifier": "t_contract$_ERC20_$83381",
+                                                  "typeIdentifier": "t_contract$_ERC20_$104903",
                                                   "typeString": "contract ERC20"
                                                 }
                                               },
@@ -5843,7 +5843,7 @@
                                               "lValueRequested": false,
                                               "memberName": "balanceOf",
                                               "nodeType": "MemberAccess",
-                                              "referencedDeclaration": 82981,
+                                              "referencedDeclaration": 104503,
                                               "src": "8612:26:201",
                                               "typeDescriptions": {
                                                 "typeIdentifier": "t_function_external_view$_t_address_$returns$_t_uint256_$",
@@ -6322,10 +6322,10 @@
                                             "name": "ERC20",
                                             "nodeType": "Identifier",
                                             "overloadedDeclarations": [],
-                                            "referencedDeclaration": 83381,
+                                            "referencedDeclaration": 104903,
                                             "src": "7834:5:201",
                                             "typeDescriptions": {
-                                              "typeIdentifier": "t_type$_t_contract$_ERC20_$83381_$",
+                                              "typeIdentifier": "t_type$_t_contract$_ERC20_$104903_$",
                                               "typeString": "type(contract ERC20)"
                                             }
                                           },
@@ -6340,7 +6340,7 @@
                                           "src": "7834:16:201",
                                           "tryCall": false,
                                           "typeDescriptions": {
-                                            "typeIdentifier": "t_contract$_ERC20_$83381",
+                                            "typeIdentifier": "t_contract$_ERC20_$104903",
                                             "typeString": "contract ERC20"
                                           }
                                         },
@@ -6351,7 +6351,7 @@
                                         "lValueRequested": false,
                                         "memberName": "balanceOf",
                                         "nodeType": "MemberAccess",
-                                        "referencedDeclaration": 82981,
+                                        "referencedDeclaration": 104503,
                                         "src": "7834:26:201",
                                         "typeDescriptions": {
                                           "typeIdentifier": "t_function_external_view$_t_address_$returns$_t_uint256_$",
@@ -8032,10 +8032,10 @@
                           "name": "ERC20",
                           "nodeType": "Identifier",
                           "overloadedDeclarations": [],
-                          "referencedDeclaration": 83381,
+                          "referencedDeclaration": 104903,
                           "src": "10663:5:201",
                           "typeDescriptions": {
-                            "typeIdentifier": "t_type$_t_contract$_ERC20_$83381_$",
+                            "typeIdentifier": "t_type$_t_contract$_ERC20_$104903_$",
                             "typeString": "type(contract ERC20)"
                           }
                         },
@@ -8050,7 +8050,7 @@
                         "src": "10663:10:201",
                         "tryCall": false,
                         "typeDescriptions": {
-                          "typeIdentifier": "t_contract$_ERC20_$83381",
+                          "typeIdentifier": "t_contract$_ERC20_$104903",
                           "typeString": "contract ERC20"
                         }
                       },
@@ -8061,7 +8061,7 @@
                       "lValueRequested": false,
                       "memberName": "balanceOf",
                       "nodeType": "MemberAccess",
-                      "referencedDeclaration": 82981,
+                      "referencedDeclaration": 104503,
                       "src": "10663:20:201",
                       "typeDescriptions": {
                         "typeIdentifier": "t_function_external_view$_t_address_$returns$_t_uint256_$",
@@ -9970,10 +9970,10 @@
                                               "name": "ERC20",
                                               "nodeType": "Identifier",
                                               "overloadedDeclarations": [],
-                                              "referencedDeclaration": 83381,
+                                              "referencedDeclaration": 104903,
                                               "src": "12800:5:201",
                                               "typeDescriptions": {
-                                                "typeIdentifier": "t_type$_t_contract$_ERC20_$83381_$",
+                                                "typeIdentifier": "t_type$_t_contract$_ERC20_$104903_$",
                                                 "typeString": "type(contract ERC20)"
                                               }
                                             },
@@ -9988,7 +9988,7 @@
                                             "src": "12800:25:201",
                                             "tryCall": false,
                                             "typeDescriptions": {
-                                              "typeIdentifier": "t_contract$_ERC20_$83381",
+                                              "typeIdentifier": "t_contract$_ERC20_$104903",
                                               "typeString": "contract ERC20"
                                             }
                                           },
@@ -9999,7 +9999,7 @@
                                           "lValueRequested": false,
                                           "memberName": "balanceOf",
                                           "nodeType": "MemberAccess",
-                                          "referencedDeclaration": 82981,
+                                          "referencedDeclaration": 104503,
                                           "src": "12800:35:201",
                                           "typeDescriptions": {
                                             "typeIdentifier": "t_function_external_view$_t_address_$returns$_t_uint256_$",
@@ -10714,10 +10714,10 @@
                                                   "name": "ERC20",
                                                   "nodeType": "Identifier",
                                                   "overloadedDeclarations": [],
-                                                  "referencedDeclaration": 83381,
+                                                  "referencedDeclaration": 104903,
                                                   "src": "13287:5:201",
                                                   "typeDescriptions": {
-                                                    "typeIdentifier": "t_type$_t_contract$_ERC20_$83381_$",
+                                                    "typeIdentifier": "t_type$_t_contract$_ERC20_$104903_$",
                                                     "typeString": "type(contract ERC20)"
                                                   }
                                                 },
@@ -10732,7 +10732,7 @@
                                                 "src": "13287:25:201",
                                                 "tryCall": false,
                                                 "typeDescriptions": {
-                                                  "typeIdentifier": "t_contract$_ERC20_$83381",
+                                                  "typeIdentifier": "t_contract$_ERC20_$104903",
                                                   "typeString": "contract ERC20"
                                                 }
                                               },
@@ -10743,7 +10743,7 @@
                                               "lValueRequested": false,
                                               "memberName": "balanceOf",
                                               "nodeType": "MemberAccess",
-                                              "referencedDeclaration": 82981,
+                                              "referencedDeclaration": 104503,
                                               "src": "13287:35:201",
                                               "typeDescriptions": {
                                                 "typeIdentifier": "t_function_external_view$_t_address_$returns$_t_uint256_$",

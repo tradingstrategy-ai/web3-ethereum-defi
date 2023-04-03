@@ -179,31 +179,31 @@
   },
   "ast": {
     "absolutePath": "contracts/release/utils/beacon-proxy/IBeaconProxyFactory.sol",
-    "id": 7757,
+    "id": 79712,
     "exportedSymbols": {
       "IBeaconProxyFactory": [
-        7756
+        79711
       ]
     },
     "nodeType": "SourceUnit",
-    "src": "255:341:35",
+    "src": "255:341:367",
     "nodes": [
       {
-        "id": 7739,
+        "id": 79694,
         "nodeType": "ImportDirective",
-        "src": "255:23:35",
+        "src": "255:23:367",
         "nodes": [],
         "absolutePath": "contracts/release/utils/beacon-proxy/IBeacon.sol",
         "file": "./IBeacon.sol",
-        "scope": 7757,
-        "sourceUnit": 7738,
+        "scope": 79712,
+        "sourceUnit": 79693,
         "symbolAliases": [],
         "unitAlias": ""
       },
       {
-        "id": 7740,
+        "id": 79695,
         "nodeType": "PragmaDirective",
-        "src": "280:23:35",
+        "src": "280:23:367",
         "nodes": [],
         "literals": [
           "solidity",
@@ -212,14 +212,14 @@
         ]
       },
       {
-        "id": 7756,
+        "id": 79711,
         "nodeType": "ContractDefinition",
-        "src": "399:196:35",
+        "src": "399:196:367",
         "nodes": [
           {
-            "id": 7750,
+            "id": 79705,
             "nodeType": "FunctionDefinition",
-            "src": "446:84:35",
+            "src": "446:84:367",
             "nodes": [],
             "documentation": null,
             "functionSelector": "0c0872f5",
@@ -229,18 +229,18 @@
             "name": "deployProxy",
             "overrides": null,
             "parameters": {
-              "id": 7746,
+              "id": 79701,
               "nodeType": "ParameterList",
               "parameters": [
                 {
                   "constant": false,
-                  "id": 7745,
+                  "id": 79700,
                   "mutability": "mutable",
                   "name": "_constructData",
                   "nodeType": "VariableDeclaration",
                   "overrides": null,
-                  "scope": 7750,
-                  "src": "467:27:35",
+                  "scope": 79705,
+                  "src": "467:27:367",
                   "stateVariable": false,
                   "storageLocation": "memory",
                   "typeDescriptions": {
@@ -248,10 +248,10 @@
                     "typeString": "bytes"
                   },
                   "typeName": {
-                    "id": 7744,
+                    "id": 79699,
                     "name": "bytes",
                     "nodeType": "ElementaryTypeName",
-                    "src": "467:5:35",
+                    "src": "467:5:367",
                     "typeDescriptions": {
                       "typeIdentifier": "t_bytes_storage_ptr",
                       "typeString": "bytes"
@@ -261,21 +261,21 @@
                   "visibility": "internal"
                 }
               ],
-              "src": "466:29:35"
+              "src": "466:29:367"
             },
             "returnParameters": {
-              "id": 7749,
+              "id": 79704,
               "nodeType": "ParameterList",
               "parameters": [
                 {
                   "constant": false,
-                  "id": 7748,
+                  "id": 79703,
                   "mutability": "mutable",
                   "name": "proxy_",
                   "nodeType": "VariableDeclaration",
                   "overrides": null,
-                  "scope": 7750,
-                  "src": "514:14:35",
+                  "scope": 79705,
+                  "src": "514:14:367",
                   "stateVariable": false,
                   "storageLocation": "default",
                   "typeDescriptions": {
@@ -283,10 +283,10 @@
                     "typeString": "address"
                   },
                   "typeName": {
-                    "id": 7747,
+                    "id": 79702,
                     "name": "address",
                     "nodeType": "ElementaryTypeName",
-                    "src": "514:7:35",
+                    "src": "514:7:367",
                     "stateMutability": "nonpayable",
                     "typeDescriptions": {
                       "typeIdentifier": "t_address",
@@ -297,17 +297,17 @@
                   "visibility": "internal"
                 }
               ],
-              "src": "513:16:35"
+              "src": "513:16:367"
             },
-            "scope": 7756,
+            "scope": 79711,
             "stateMutability": "nonpayable",
             "virtual": false,
             "visibility": "external"
           },
           {
-            "id": 7755,
+            "id": 79710,
             "nodeType": "FunctionDefinition",
-            "src": "536:57:35",
+            "src": "536:57:367",
             "nodes": [],
             "documentation": null,
             "functionSelector": "d0ac1a8d",
@@ -317,18 +317,18 @@
             "name": "setCanonicalLib",
             "overrides": null,
             "parameters": {
-              "id": 7753,
+              "id": 79708,
               "nodeType": "ParameterList",
               "parameters": [
                 {
                   "constant": false,
-                  "id": 7752,
+                  "id": 79707,
                   "mutability": "mutable",
                   "name": "_canonicalLib",
                   "nodeType": "VariableDeclaration",
                   "overrides": null,
-                  "scope": 7755,
-                  "src": "561:21:35",
+                  "scope": 79710,
+                  "src": "561:21:367",
                   "stateVariable": false,
                   "storageLocation": "default",
                   "typeDescriptions": {
@@ -336,10 +336,10 @@
                     "typeString": "address"
                   },
                   "typeName": {
-                    "id": 7751,
+                    "id": 79706,
                     "name": "address",
                     "nodeType": "ElementaryTypeName",
-                    "src": "561:7:35",
+                    "src": "561:7:367",
                     "stateMutability": "nonpayable",
                     "typeDescriptions": {
                       "typeIdentifier": "t_address",
@@ -350,15 +350,15 @@
                   "visibility": "internal"
                 }
               ],
-              "src": "560:23:35"
+              "src": "560:23:367"
             },
             "returnParameters": {
-              "id": 7754,
+              "id": 79709,
               "nodeType": "ParameterList",
               "parameters": [],
-              "src": "592:0:35"
+              "src": "592:0:367"
             },
-            "scope": 7756,
+            "scope": 79711,
             "stateMutability": "nonpayable",
             "virtual": false,
             "visibility": "external"
@@ -370,41 +370,41 @@
             "arguments": null,
             "baseName": {
               "contractScope": null,
-              "id": 7742,
+              "id": 79697,
               "name": "IBeacon",
               "nodeType": "UserDefinedTypeName",
-              "referencedDeclaration": 7737,
-              "src": "432:7:35",
+              "referencedDeclaration": 79692,
+              "src": "432:7:367",
               "typeDescriptions": {
-                "typeIdentifier": "t_contract$_IBeacon_$7737",
+                "typeIdentifier": "t_contract$_IBeacon_$79692",
                 "typeString": "contract IBeacon"
               }
             },
-            "id": 7743,
+            "id": 79698,
             "nodeType": "InheritanceSpecifier",
-            "src": "432:7:35"
+            "src": "432:7:367"
           }
         ],
         "contractDependencies": [
-          7737
+          79692
         ],
         "contractKind": "interface",
         "documentation": {
-          "id": 7741,
+          "id": 79696,
           "nodeType": "StructuredDocumentation",
-          "src": "305:94:35",
+          "src": "305:94:367",
           "text": "@title IBeaconProxyFactory interface\n @author Enzyme Council <security@enzyme.finance>"
         },
         "fullyImplemented": false,
         "linearizedBaseContracts": [
-          7756,
-          7737
+          79711,
+          79692
         ],
         "name": "IBeaconProxyFactory",
-        "scope": 7757
+        "scope": 79712
       }
     ],
     "license": "GPL-3.0"
   },
-  "id": 35
+  "id": 367
 }

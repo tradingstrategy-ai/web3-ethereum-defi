@@ -11,7 +11,7 @@
     "linkReferences": {}
   },
   "methodIdentifiers": {},
-  "rawMetadata": "{\"compiler\":{\"version\":\"0.6.12+commit.27d51765\"},\"language\":\"Solidity\",\"output\":{\"abi\":[],\"devdoc\":{\"author\":\"Enzyme Council <security@enzyme.finance>\",\"kind\":\"dev\",\"methods\":{},\"title\":\"PermissionedVaultActionMixin Contract\",\"version\":1},\"userdoc\":{\"kind\":\"user\",\"methods\":{},\"notice\":\"A mixin contract for extensions that can make permissioned vault calls\",\"version\":1}},\"settings\":{\"compilationTarget\":{\"contracts/release/extensions/utils/PermissionedVaultActionMixin.sol\":\"PermissionedVaultActionMixin\"},\"evmVersion\":\"istanbul\",\"libraries\":{},\"metadata\":{\"bytecodeHash\":\"none\"},\"optimizer\":{\"details\":{\"constantOptimizer\":true,\"cse\":true,\"deduplicate\":true,\"jumpdestRemover\":true,\"orderLiterals\":true,\"peephole\":true,\"yul\":false},\"runs\":200},\"remappings\":[\":@enzyme/=contracts/\",\":@openzeppelin-solc-0.7/=node_modules/@openzeppelin-solc-0.7/\",\":@openzeppelin/=node_modules/@openzeppelin/\",\":@uniswap/=node_modules/@uniswap/\",\":base64-sol/=node_modules/base64-sol/\",\":ds-test/=lib/forge-std/lib/ds-test/src/\",\":forge-std/=lib/forge-std/src/\",\":hardhat-deploy/=node_modules/hardhat-deploy/\",\":hardhat/=node_modules/hardhat/\"]},\"sources\":{\"contracts/persistent/vault/interfaces/IExternalPositionVault.sol\":{\"keccak256\":\"0x4290edaa41b6db843967aee744c6a1424dce099584d303662b1431a88ad7f016\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://eaf25a516152e6948045bfc42c28f4daee83f026af93fd360ea9414118469ae5\",\"dweb:/ipfs/QmeZjpFUVqKQUWYdbDMdtxWxjk1XhiR2NgeP4jMM46tdkA\"]},\"contracts/persistent/vault/interfaces/IFreelyTransferableSharesVault.sol\":{\"keccak256\":\"0x505a51393d081a027d04263f8a02286ce668f7e285bf2096a314a1632bd42805\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://c8af752e1669e41450ea2397f97e89e9cc54a2b2ac9b2c9ba912988d24109b0e\",\"dweb:/ipfs/QmZsurAHm7yMvdJQrg99t8d2b24P6JEiKoo8tpXeDurgpH\"]},\"contracts/persistent/vault/interfaces/IMigratableVault.sol\":{\"keccak256\":\"0x30cfc9be81edf29261724242246811179ac9503d062ded60a2ae220c8df86f1c\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://2db64a34fe22310f2ac1977ea251ba83fb0d6398a964ef9a85b73f06d2a7db82\",\"dweb:/ipfs/QmPLXPV3giQujRLNQeQAvhNYexjzu6dRgdQC5oPij2gMwM\"]},\"contracts/persistent/vault/interfaces/IVaultCore.sol\":{\"keccak256\":\"0x646cfaf06e2ffa1ab36f25e972b5ca18deba1ed80493cfd787608c8bd07b5f46\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://76ff14bb89bf277b1bbfac32fcdeb2057245a87cf8f494819d2b52257a0ae6c5\",\"dweb:/ipfs/QmSNj436Y4WiKw4Y2PqrcJVWqF95NJNGtncXQXUvAu5iVg\"]},\"contracts/release/core/fund/comptroller/IComptroller.sol\":{\"keccak256\":\"0x51d4a60ba37b5f9198ef1328e08ff45efe0dee76bc067d71ed98f3a221c3636f\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://8176790c239ae899162a503e6aaffef7576ca89c20864798a22b53096a662b97\",\"dweb:/ipfs/QmYMHifgJExxU97nEGdvFGPtH6kCf1jxSax1o4dUcNPN3L\"]},\"contracts/release/core/fund/vault/IVault.sol\":{\"keccak256\":\"0xeb0b8a4ee1beb7edd02c802ac0901107e34d241b7d9c27b59f26ee736c6d72cd\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://f10632fd76d06baa94f92a5f1e8cce658dd78e0163213890727ce53c814e1599\",\"dweb:/ipfs/QmaruXmEsUjn8EuEiv8tC1QbA1kK2Vo5LW2w2k5g9eGfDG\"]},\"contracts/release/extensions/utils/PermissionedVaultActionMixin.sol\":{\"keccak256\":\"0x77ddb9299d9c5f1538c20ae1543c20ef73db11ad7d9a9b817d26969ab233bb57\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://77812616256a092e0fd77469dcd2a2e098a1cf52686eeb6703a169efa64c27df\",\"dweb:/ipfs/QmbRPZznXSX3aA2VVJNpRqFXdJZebVDcDuY8EnF75Z7GpB\"]}},\"version\":1}",
+  "rawMetadata": "{\"compiler\":{\"version\":\"0.6.12+commit.27d51765\"},\"language\":\"Solidity\",\"output\":{\"abi\":[],\"devdoc\":{\"author\":\"Enzyme Council <security@enzyme.finance>\",\"kind\":\"dev\",\"methods\":{},\"title\":\"PermissionedVaultActionMixin Contract\",\"version\":1},\"userdoc\":{\"kind\":\"user\",\"methods\":{},\"notice\":\"A mixin contract for extensions that can make permissioned vault calls\",\"version\":1}},\"settings\":{\"compilationTarget\":{\"contracts/release/extensions/utils/PermissionedVaultActionMixin.sol\":\"PermissionedVaultActionMixin\"},\"evmVersion\":\"istanbul\",\"libraries\":{},\"metadata\":{\"bytecodeHash\":\"none\"},\"optimizer\":{\"details\":{\"constantOptimizer\":true,\"cse\":true,\"deduplicate\":true,\"jumpdestRemover\":true,\"orderLiterals\":true,\"peephole\":true,\"yul\":false},\"runs\":200},\"remappings\":[\":@enzyme/=contracts/\",\":@openzeppelin-solc-0.7/=node_modules/@openzeppelin-solc-0.7/\",\":@openzeppelin/=node_modules/@openzeppelin/\",\":@uniswap/=node_modules/@uniswap/\",\":base64-sol/=node_modules/base64-sol/\",\":ds-test/=lib/forge-std/lib/ds-test/src/\",\":forge-std/=lib/forge-std/src/\",\":hardhat-deploy/=node_modules/hardhat-deploy/\",\":hardhat/=node_modules/hardhat/\"]},\"sources\":{\"contracts/persistent/vault/interfaces/IExternalPositionVault.sol\":{\"keccak256\":\"0x3c047551a9bab8cb84299c4cf17d0435f1d4d0791ecc1d03e0d55cb3450baad6\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://133d31469ac5d984f52ebcd919b16af72fae2eb1ed673c3db95a5d69ec8b152d\",\"dweb:/ipfs/Qma1QVesFPKmPUX4bET6eArccuC77euzPAogjp9hmvPZU8\"]},\"contracts/persistent/vault/interfaces/IFreelyTransferableSharesVault.sol\":{\"keccak256\":\"0xe31f063493e6e3a4434eaa5629c0a706b8fa0569aff3f4ef9d62e27a1928cfa0\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://12b99c370c2bb6a1e1cf8d1a8d7e90538142ebc35d03e94d8449645d9046a0fb\",\"dweb:/ipfs/QmbNwAR6455sbjoxYXaBeHpqUYpwWfWaWyMkpaJaXeBbiU\"]},\"contracts/persistent/vault/interfaces/IMigratableVault.sol\":{\"keccak256\":\"0x8e1355a7efa8ec2172f5c9b532071def392b86ab1e5534d2fc73417a6e9f7238\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://acaff907d8327cbd3060a3ac09f230c7bd78253d0f3f8186f8a5e7a9932b19f6\",\"dweb:/ipfs/QmPGbecKjcFMCg8rVW4M55JENKNH2KqdqATy5bgvnkMGqs\"]},\"contracts/persistent/vault/interfaces/IVaultCore.sol\":{\"keccak256\":\"0x5108a008d8b13bfe8aef70713f30c35f76efa210afd9c0ac8c35dea6e9cf7f80\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://a43246a32c866e21d64d1e77e8b178eee45a8183630cd62f2981489ced7ae3cd\",\"dweb:/ipfs/QmdLSfXvUNjsFwu6Dqq7XHhJzmMzAFmDagKPt87rgzoQhr\"]},\"contracts/release/core/fund/comptroller/IComptroller.sol\":{\"keccak256\":\"0x51d4a60ba37b5f9198ef1328e08ff45efe0dee76bc067d71ed98f3a221c3636f\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://8176790c239ae899162a503e6aaffef7576ca89c20864798a22b53096a662b97\",\"dweb:/ipfs/QmYMHifgJExxU97nEGdvFGPtH6kCf1jxSax1o4dUcNPN3L\"]},\"contracts/release/core/fund/vault/IVault.sol\":{\"keccak256\":\"0xeb0b8a4ee1beb7edd02c802ac0901107e34d241b7d9c27b59f26ee736c6d72cd\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://f10632fd76d06baa94f92a5f1e8cce658dd78e0163213890727ce53c814e1599\",\"dweb:/ipfs/QmaruXmEsUjn8EuEiv8tC1QbA1kK2Vo5LW2w2k5g9eGfDG\"]},\"contracts/release/extensions/utils/PermissionedVaultActionMixin.sol\":{\"keccak256\":\"0x77ddb9299d9c5f1538c20ae1543c20ef73db11ad7d9a9b817d26969ab233bb57\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://77812616256a092e0fd77469dcd2a2e098a1cf52686eeb6703a169efa64c27df\",\"dweb:/ipfs/QmbRPZznXSX3aA2VVJNpRqFXdJZebVDcDuY8EnF75Z7GpB\"]}},\"version\":1}",
   "metadata": {
     "compiler": {
       "version": "0.6.12+commit.27d51765"
@@ -64,34 +64,34 @@
     },
     "sources": {
       "contracts/persistent/vault/interfaces/IExternalPositionVault.sol": {
-        "keccak256": "0x4290edaa41b6db843967aee744c6a1424dce099584d303662b1431a88ad7f016",
+        "keccak256": "0x3c047551a9bab8cb84299c4cf17d0435f1d4d0791ecc1d03e0d55cb3450baad6",
         "urls": [
-          "bzz-raw://eaf25a516152e6948045bfc42c28f4daee83f026af93fd360ea9414118469ae5",
-          "dweb:/ipfs/QmeZjpFUVqKQUWYdbDMdtxWxjk1XhiR2NgeP4jMM46tdkA"
+          "bzz-raw://133d31469ac5d984f52ebcd919b16af72fae2eb1ed673c3db95a5d69ec8b152d",
+          "dweb:/ipfs/Qma1QVesFPKmPUX4bET6eArccuC77euzPAogjp9hmvPZU8"
         ],
         "license": "GPL-3.0"
       },
       "contracts/persistent/vault/interfaces/IFreelyTransferableSharesVault.sol": {
-        "keccak256": "0x505a51393d081a027d04263f8a02286ce668f7e285bf2096a314a1632bd42805",
+        "keccak256": "0xe31f063493e6e3a4434eaa5629c0a706b8fa0569aff3f4ef9d62e27a1928cfa0",
         "urls": [
-          "bzz-raw://c8af752e1669e41450ea2397f97e89e9cc54a2b2ac9b2c9ba912988d24109b0e",
-          "dweb:/ipfs/QmZsurAHm7yMvdJQrg99t8d2b24P6JEiKoo8tpXeDurgpH"
+          "bzz-raw://12b99c370c2bb6a1e1cf8d1a8d7e90538142ebc35d03e94d8449645d9046a0fb",
+          "dweb:/ipfs/QmbNwAR6455sbjoxYXaBeHpqUYpwWfWaWyMkpaJaXeBbiU"
         ],
         "license": "GPL-3.0"
       },
       "contracts/persistent/vault/interfaces/IMigratableVault.sol": {
-        "keccak256": "0x30cfc9be81edf29261724242246811179ac9503d062ded60a2ae220c8df86f1c",
+        "keccak256": "0x8e1355a7efa8ec2172f5c9b532071def392b86ab1e5534d2fc73417a6e9f7238",
         "urls": [
-          "bzz-raw://2db64a34fe22310f2ac1977ea251ba83fb0d6398a964ef9a85b73f06d2a7db82",
-          "dweb:/ipfs/QmPLXPV3giQujRLNQeQAvhNYexjzu6dRgdQC5oPij2gMwM"
+          "bzz-raw://acaff907d8327cbd3060a3ac09f230c7bd78253d0f3f8186f8a5e7a9932b19f6",
+          "dweb:/ipfs/QmPGbecKjcFMCg8rVW4M55JENKNH2KqdqATy5bgvnkMGqs"
         ],
         "license": "GPL-3.0"
       },
       "contracts/persistent/vault/interfaces/IVaultCore.sol": {
-        "keccak256": "0x646cfaf06e2ffa1ab36f25e972b5ca18deba1ed80493cfd787608c8bd07b5f46",
+        "keccak256": "0x5108a008d8b13bfe8aef70713f30c35f76efa210afd9c0ac8c35dea6e9cf7f80",
         "urls": [
-          "bzz-raw://76ff14bb89bf277b1bbfac32fcdeb2057245a87cf8f494819d2b52257a0ae6c5",
-          "dweb:/ipfs/QmSNj436Y4WiKw4Y2PqrcJVWqF95NJNGtncXQXUvAu5iVg"
+          "bzz-raw://a43246a32c866e21d64d1e77e8b178eee45a8183630cd62f2981489ced7ae3cd",
+          "dweb:/ipfs/QmdLSfXvUNjsFwu6Dqq7XHhJzmMzAFmDagKPt87rgzoQhr"
         ],
         "license": "GPL-3.0"
       },
@@ -124,19 +124,19 @@
   },
   "ast": {
     "absolutePath": "contracts/release/extensions/utils/PermissionedVaultActionMixin.sol",
-    "id": 11610,
+    "id": 61321,
     "exportedSymbols": {
       "PermissionedVaultActionMixin": [
-        11609
+        61320
       ]
     },
     "nodeType": "SourceUnit",
-    "src": "255:5527:46",
+    "src": "255:5527:227",
     "nodes": [
       {
-        "id": 11364,
+        "id": 61075,
         "nodeType": "PragmaDirective",
-        "src": "255:23:46",
+        "src": "255:23:227",
         "nodes": [],
         "literals": [
           "solidity",
@@ -145,43 +145,43 @@
         ]
       },
       {
-        "id": 11365,
+        "id": 61076,
         "nodeType": "ImportDirective",
-        "src": "280:54:46",
+        "src": "280:54:227",
         "nodes": [],
         "absolutePath": "contracts/release/core/fund/comptroller/IComptroller.sol",
         "file": "../../core/fund/comptroller/IComptroller.sol",
-        "scope": 11610,
-        "sourceUnit": 5076,
+        "scope": 61321,
+        "sourceUnit": 17112,
         "symbolAliases": [],
         "unitAlias": ""
       },
       {
-        "id": 11366,
+        "id": 61077,
         "nodeType": "ImportDirective",
-        "src": "335:42:46",
+        "src": "335:42:227",
         "nodes": [],
         "absolutePath": "contracts/release/core/fund/vault/IVault.sol",
         "file": "../../core/fund/vault/IVault.sol",
-        "scope": 11610,
-        "sourceUnit": 5219,
+        "scope": 61321,
+        "sourceUnit": 17255,
         "symbolAliases": [],
         "unitAlias": ""
       },
       {
-        "id": 11609,
+        "id": 61320,
         "nodeType": "ContractDefinition",
-        "src": "564:5217:46",
+        "src": "564:5217:227",
         "nodes": [
           {
-            "id": 11389,
+            "id": 61100,
             "nodeType": "FunctionDefinition",
-            "src": "821:271:46",
+            "src": "821:271:227",
             "nodes": [],
             "body": {
-              "id": 11388,
+              "id": 61099,
               "nodeType": "Block",
-              "src": "915:177:46",
+              "src": "915:177:227",
               "nodes": [],
               "statements": [
                 {
@@ -194,32 +194,32 @@
                           "argumentTypes": null,
                           "expression": {
                             "argumentTypes": null,
-                            "id": 11379,
+                            "id": 61090,
                             "name": "IVault",
                             "nodeType": "Identifier",
                             "overloadedDeclarations": [],
-                            "referencedDeclaration": 5218,
-                            "src": "994:6:46",
+                            "referencedDeclaration": 17254,
+                            "src": "994:6:227",
                             "typeDescriptions": {
-                              "typeIdentifier": "t_type$_t_contract$_IVault_$5218_$",
+                              "typeIdentifier": "t_type$_t_contract$_IVault_$17254_$",
                               "typeString": "type(contract IVault)"
                             }
                           },
-                          "id": 11380,
+                          "id": 61091,
                           "isConstant": false,
                           "isLValue": false,
                           "isPure": false,
                           "lValueRequested": false,
                           "memberName": "VaultAction",
                           "nodeType": "MemberAccess",
-                          "referencedDeclaration": 5102,
-                          "src": "994:18:46",
+                          "referencedDeclaration": 17138,
+                          "src": "994:18:227",
                           "typeDescriptions": {
-                            "typeIdentifier": "t_type$_t_enum$_VaultAction_$5102_$",
+                            "typeIdentifier": "t_type$_t_enum$_VaultAction_$17138_$",
                             "typeString": "type(enum IVault.VaultAction)"
                           }
                         },
-                        "id": 11381,
+                        "id": 61092,
                         "isConstant": false,
                         "isLValue": false,
                         "isPure": true,
@@ -227,9 +227,9 @@
                         "memberName": "AddExternalPosition",
                         "nodeType": "MemberAccess",
                         "referencedDeclaration": null,
-                        "src": "994:38:46",
+                        "src": "994:38:227",
                         "typeDescriptions": {
-                          "typeIdentifier": "t_enum$_VaultAction_$5102",
+                          "typeIdentifier": "t_enum$_VaultAction_$17138",
                           "typeString": "enum IVault.VaultAction"
                         }
                       },
@@ -238,12 +238,12 @@
                         "arguments": [
                           {
                             "argumentTypes": null,
-                            "id": 11384,
+                            "id": 61095,
                             "name": "_externalPosition",
                             "nodeType": "Identifier",
                             "overloadedDeclarations": [],
-                            "referencedDeclaration": 11372,
-                            "src": "1057:17:46",
+                            "referencedDeclaration": 61083,
+                            "src": "1057:17:227",
                             "typeDescriptions": {
                               "typeIdentifier": "t_address",
                               "typeString": "address"
@@ -259,18 +259,18 @@
                           ],
                           "expression": {
                             "argumentTypes": null,
-                            "id": 11382,
+                            "id": 61093,
                             "name": "abi",
                             "nodeType": "Identifier",
                             "overloadedDeclarations": [],
                             "referencedDeclaration": -1,
-                            "src": "1046:3:46",
+                            "src": "1046:3:227",
                             "typeDescriptions": {
                               "typeIdentifier": "t_magic_abi",
                               "typeString": "abi"
                             }
                           },
-                          "id": 11383,
+                          "id": 61094,
                           "isConstant": false,
                           "isLValue": false,
                           "isPure": true,
@@ -278,13 +278,13 @@
                           "memberName": "encode",
                           "nodeType": "MemberAccess",
                           "referencedDeclaration": null,
-                          "src": "1046:10:46",
+                          "src": "1046:10:227",
                           "typeDescriptions": {
                             "typeIdentifier": "t_function_abiencode_pure$__$returns$_t_bytes_memory_ptr_$",
                             "typeString": "function () pure returns (bytes memory)"
                           }
                         },
-                        "id": 11385,
+                        "id": 61096,
                         "isConstant": false,
                         "isLValue": false,
                         "isPure": false,
@@ -292,7 +292,7 @@
                         "lValueRequested": false,
                         "names": [],
                         "nodeType": "FunctionCall",
-                        "src": "1046:29:46",
+                        "src": "1046:29:227",
                         "tryCall": false,
                         "typeDescriptions": {
                           "typeIdentifier": "t_bytes_memory_ptr",
@@ -303,7 +303,7 @@
                     "expression": {
                       "argumentTypes": [
                         {
-                          "typeIdentifier": "t_enum$_VaultAction_$5102",
+                          "typeIdentifier": "t_enum$_VaultAction_$17138",
                           "typeString": "enum IVault.VaultAction"
                         },
                         {
@@ -316,12 +316,12 @@
                         "arguments": [
                           {
                             "argumentTypes": null,
-                            "id": 11376,
+                            "id": 61087,
                             "name": "_comptrollerProxy",
                             "nodeType": "Identifier",
                             "overloadedDeclarations": [],
-                            "referencedDeclaration": 11370,
-                            "src": "938:17:46",
+                            "referencedDeclaration": 61081,
+                            "src": "938:17:227",
                             "typeDescriptions": {
                               "typeIdentifier": "t_address",
                               "typeString": "address"
@@ -335,18 +335,18 @@
                               "typeString": "address"
                             }
                           ],
-                          "id": 11375,
+                          "id": 61086,
                           "name": "IComptroller",
                           "nodeType": "Identifier",
                           "overloadedDeclarations": [],
-                          "referencedDeclaration": 5075,
-                          "src": "925:12:46",
+                          "referencedDeclaration": 17111,
+                          "src": "925:12:227",
                           "typeDescriptions": {
-                            "typeIdentifier": "t_type$_t_contract$_IComptroller_$5075_$",
+                            "typeIdentifier": "t_type$_t_contract$_IComptroller_$17111_$",
                             "typeString": "type(contract IComptroller)"
                           }
                         },
-                        "id": 11377,
+                        "id": 61088,
                         "isConstant": false,
                         "isLValue": false,
                         "isPure": false,
@@ -354,28 +354,28 @@
                         "lValueRequested": false,
                         "names": [],
                         "nodeType": "FunctionCall",
-                        "src": "925:31:46",
+                        "src": "925:31:227",
                         "tryCall": false,
                         "typeDescriptions": {
-                          "typeIdentifier": "t_contract$_IComptroller_$5075",
+                          "typeIdentifier": "t_contract$_IComptroller_$17111",
                           "typeString": "contract IComptroller"
                         }
                       },
-                      "id": 11378,
+                      "id": 61089,
                       "isConstant": false,
                       "isLValue": false,
                       "isPure": false,
                       "lValueRequested": false,
                       "memberName": "permissionedVaultAction",
                       "nodeType": "MemberAccess",
-                      "referencedDeclaration": 5050,
-                      "src": "925:55:46",
+                      "referencedDeclaration": 17086,
+                      "src": "925:55:227",
                       "typeDescriptions": {
-                        "typeIdentifier": "t_function_external_nonpayable$_t_enum$_VaultAction_$5102_$_t_bytes_memory_ptr_$returns$__$",
+                        "typeIdentifier": "t_function_external_nonpayable$_t_enum$_VaultAction_$17138_$_t_bytes_memory_ptr_$returns$__$",
                         "typeString": "function (enum IVault.VaultAction,bytes memory) external"
                       }
                     },
-                    "id": 11386,
+                    "id": 61097,
                     "isConstant": false,
                     "isLValue": false,
                     "isPure": false,
@@ -383,23 +383,23 @@
                     "lValueRequested": false,
                     "names": [],
                     "nodeType": "FunctionCall",
-                    "src": "925:160:46",
+                    "src": "925:160:227",
                     "tryCall": false,
                     "typeDescriptions": {
                       "typeIdentifier": "t_tuple$__$",
                       "typeString": "tuple()"
                     }
                   },
-                  "id": 11387,
+                  "id": 61098,
                   "nodeType": "ExpressionStatement",
-                  "src": "925:160:46"
+                  "src": "925:160:227"
                 }
               ]
             },
             "documentation": {
-              "id": 11368,
+              "id": 61079,
               "nodeType": "StructuredDocumentation",
-              "src": "617:199:46",
+              "src": "617:199:227",
               "text": "@notice Adds an external position to active external positions\n @param _comptrollerProxy The ComptrollerProxy of the fund\n @param _externalPosition The external position to be added"
             },
             "implemented": true,
@@ -408,18 +408,18 @@
             "name": "__addExternalPosition",
             "overrides": null,
             "parameters": {
-              "id": 11373,
+              "id": 61084,
               "nodeType": "ParameterList",
               "parameters": [
                 {
                   "constant": false,
-                  "id": 11370,
+                  "id": 61081,
                   "mutability": "mutable",
                   "name": "_comptrollerProxy",
                   "nodeType": "VariableDeclaration",
                   "overrides": null,
-                  "scope": 11389,
-                  "src": "852:25:46",
+                  "scope": 61100,
+                  "src": "852:25:227",
                   "stateVariable": false,
                   "storageLocation": "default",
                   "typeDescriptions": {
@@ -427,10 +427,10 @@
                     "typeString": "address"
                   },
                   "typeName": {
-                    "id": 11369,
+                    "id": 61080,
                     "name": "address",
                     "nodeType": "ElementaryTypeName",
-                    "src": "852:7:46",
+                    "src": "852:7:227",
                     "stateMutability": "nonpayable",
                     "typeDescriptions": {
                       "typeIdentifier": "t_address",
@@ -442,13 +442,13 @@
                 },
                 {
                   "constant": false,
-                  "id": 11372,
+                  "id": 61083,
                   "mutability": "mutable",
                   "name": "_externalPosition",
                   "nodeType": "VariableDeclaration",
                   "overrides": null,
-                  "scope": 11389,
-                  "src": "879:25:46",
+                  "scope": 61100,
+                  "src": "879:25:227",
                   "stateVariable": false,
                   "storageLocation": "default",
                   "typeDescriptions": {
@@ -456,10 +456,10 @@
                     "typeString": "address"
                   },
                   "typeName": {
-                    "id": 11371,
+                    "id": 61082,
                     "name": "address",
                     "nodeType": "ElementaryTypeName",
-                    "src": "879:7:46",
+                    "src": "879:7:227",
                     "stateMutability": "nonpayable",
                     "typeDescriptions": {
                       "typeIdentifier": "t_address",
@@ -470,28 +470,28 @@
                   "visibility": "internal"
                 }
               ],
-              "src": "851:54:46"
+              "src": "851:54:227"
             },
             "returnParameters": {
-              "id": 11374,
+              "id": 61085,
               "nodeType": "ParameterList",
               "parameters": [],
-              "src": "915:0:46"
+              "src": "915:0:227"
             },
-            "scope": 11609,
+            "scope": 61320,
             "stateMutability": "nonpayable",
             "virtual": false,
             "visibility": "internal"
           },
           {
-            "id": 11411,
+            "id": 61122,
             "nodeType": "FunctionDefinition",
-            "src": "1240:241:46",
+            "src": "1240:241:227",
             "nodes": [],
             "body": {
-              "id": 11410,
+              "id": 61121,
               "nodeType": "Block",
-              "src": "1319:162:46",
+              "src": "1319:162:227",
               "nodes": [],
               "statements": [
                 {
@@ -504,32 +504,32 @@
                           "argumentTypes": null,
                           "expression": {
                             "argumentTypes": null,
-                            "id": 11401,
+                            "id": 61112,
                             "name": "IVault",
                             "nodeType": "Identifier",
                             "overloadedDeclarations": [],
-                            "referencedDeclaration": 5218,
-                            "src": "1398:6:46",
+                            "referencedDeclaration": 17254,
+                            "src": "1398:6:227",
                             "typeDescriptions": {
-                              "typeIdentifier": "t_type$_t_contract$_IVault_$5218_$",
+                              "typeIdentifier": "t_type$_t_contract$_IVault_$17254_$",
                               "typeString": "type(contract IVault)"
                             }
                           },
-                          "id": 11402,
+                          "id": 61113,
                           "isConstant": false,
                           "isLValue": false,
                           "isPure": false,
                           "lValueRequested": false,
                           "memberName": "VaultAction",
                           "nodeType": "MemberAccess",
-                          "referencedDeclaration": 5102,
-                          "src": "1398:18:46",
+                          "referencedDeclaration": 17138,
+                          "src": "1398:18:227",
                           "typeDescriptions": {
-                            "typeIdentifier": "t_type$_t_enum$_VaultAction_$5102_$",
+                            "typeIdentifier": "t_type$_t_enum$_VaultAction_$17138_$",
                             "typeString": "type(enum IVault.VaultAction)"
                           }
                         },
-                        "id": 11403,
+                        "id": 61114,
                         "isConstant": false,
                         "isLValue": false,
                         "isPure": true,
@@ -537,9 +537,9 @@
                         "memberName": "AddTrackedAsset",
                         "nodeType": "MemberAccess",
                         "referencedDeclaration": null,
-                        "src": "1398:34:46",
+                        "src": "1398:34:227",
                         "typeDescriptions": {
-                          "typeIdentifier": "t_enum$_VaultAction_$5102",
+                          "typeIdentifier": "t_enum$_VaultAction_$17138",
                           "typeString": "enum IVault.VaultAction"
                         }
                       },
@@ -548,12 +548,12 @@
                         "arguments": [
                           {
                             "argumentTypes": null,
-                            "id": 11406,
+                            "id": 61117,
                             "name": "_asset",
                             "nodeType": "Identifier",
                             "overloadedDeclarations": [],
-                            "referencedDeclaration": 11394,
-                            "src": "1457:6:46",
+                            "referencedDeclaration": 61105,
+                            "src": "1457:6:227",
                             "typeDescriptions": {
                               "typeIdentifier": "t_address",
                               "typeString": "address"
@@ -569,18 +569,18 @@
                           ],
                           "expression": {
                             "argumentTypes": null,
-                            "id": 11404,
+                            "id": 61115,
                             "name": "abi",
                             "nodeType": "Identifier",
                             "overloadedDeclarations": [],
                             "referencedDeclaration": -1,
-                            "src": "1446:3:46",
+                            "src": "1446:3:227",
                             "typeDescriptions": {
                               "typeIdentifier": "t_magic_abi",
                               "typeString": "abi"
                             }
                           },
-                          "id": 11405,
+                          "id": 61116,
                           "isConstant": false,
                           "isLValue": false,
                           "isPure": true,
@@ -588,13 +588,13 @@
                           "memberName": "encode",
                           "nodeType": "MemberAccess",
                           "referencedDeclaration": null,
-                          "src": "1446:10:46",
+                          "src": "1446:10:227",
                           "typeDescriptions": {
                             "typeIdentifier": "t_function_abiencode_pure$__$returns$_t_bytes_memory_ptr_$",
                             "typeString": "function () pure returns (bytes memory)"
                           }
                         },
-                        "id": 11407,
+                        "id": 61118,
                         "isConstant": false,
                         "isLValue": false,
                         "isPure": false,
@@ -602,7 +602,7 @@
                         "lValueRequested": false,
                         "names": [],
                         "nodeType": "FunctionCall",
-                        "src": "1446:18:46",
+                        "src": "1446:18:227",
                         "tryCall": false,
                         "typeDescriptions": {
                           "typeIdentifier": "t_bytes_memory_ptr",
@@ -613,7 +613,7 @@
                     "expression": {
                       "argumentTypes": [
                         {
-                          "typeIdentifier": "t_enum$_VaultAction_$5102",
+                          "typeIdentifier": "t_enum$_VaultAction_$17138",
                           "typeString": "enum IVault.VaultAction"
                         },
                         {
@@ -626,12 +626,12 @@
                         "arguments": [
                           {
                             "argumentTypes": null,
-                            "id": 11398,
+                            "id": 61109,
                             "name": "_comptrollerProxy",
                             "nodeType": "Identifier",
                             "overloadedDeclarations": [],
-                            "referencedDeclaration": 11392,
-                            "src": "1342:17:46",
+                            "referencedDeclaration": 61103,
+                            "src": "1342:17:227",
                             "typeDescriptions": {
                               "typeIdentifier": "t_address",
                               "typeString": "address"
@@ -645,18 +645,18 @@
                               "typeString": "address"
                             }
                           ],
-                          "id": 11397,
+                          "id": 61108,
                           "name": "IComptroller",
                           "nodeType": "Identifier",
                           "overloadedDeclarations": [],
-                          "referencedDeclaration": 5075,
-                          "src": "1329:12:46",
+                          "referencedDeclaration": 17111,
+                          "src": "1329:12:227",
                           "typeDescriptions": {
-                            "typeIdentifier": "t_type$_t_contract$_IComptroller_$5075_$",
+                            "typeIdentifier": "t_type$_t_contract$_IComptroller_$17111_$",
                             "typeString": "type(contract IComptroller)"
                           }
                         },
-                        "id": 11399,
+                        "id": 61110,
                         "isConstant": false,
                         "isLValue": false,
                         "isPure": false,
@@ -664,28 +664,28 @@
                         "lValueRequested": false,
                         "names": [],
                         "nodeType": "FunctionCall",
-                        "src": "1329:31:46",
+                        "src": "1329:31:227",
                         "tryCall": false,
                         "typeDescriptions": {
-                          "typeIdentifier": "t_contract$_IComptroller_$5075",
+                          "typeIdentifier": "t_contract$_IComptroller_$17111",
                           "typeString": "contract IComptroller"
                         }
                       },
-                      "id": 11400,
+                      "id": 61111,
                       "isConstant": false,
                       "isLValue": false,
                       "isPure": false,
                       "lValueRequested": false,
                       "memberName": "permissionedVaultAction",
                       "nodeType": "MemberAccess",
-                      "referencedDeclaration": 5050,
-                      "src": "1329:55:46",
+                      "referencedDeclaration": 17086,
+                      "src": "1329:55:227",
                       "typeDescriptions": {
-                        "typeIdentifier": "t_function_external_nonpayable$_t_enum$_VaultAction_$5102_$_t_bytes_memory_ptr_$returns$__$",
+                        "typeIdentifier": "t_function_external_nonpayable$_t_enum$_VaultAction_$17138_$_t_bytes_memory_ptr_$returns$__$",
                         "typeString": "function (enum IVault.VaultAction,bytes memory) external"
                       }
                     },
-                    "id": 11408,
+                    "id": 61119,
                     "isConstant": false,
                     "isLValue": false,
                     "isPure": false,
@@ -693,23 +693,23 @@
                     "lValueRequested": false,
                     "names": [],
                     "nodeType": "FunctionCall",
-                    "src": "1329:145:46",
+                    "src": "1329:145:227",
                     "tryCall": false,
                     "typeDescriptions": {
                       "typeIdentifier": "t_tuple$__$",
                       "typeString": "tuple()"
                     }
                   },
-                  "id": 11409,
+                  "id": 61120,
                   "nodeType": "ExpressionStatement",
-                  "src": "1329:145:46"
+                  "src": "1329:145:227"
                 }
               ]
             },
             "documentation": {
-              "id": 11390,
+              "id": 61101,
               "nodeType": "StructuredDocumentation",
-              "src": "1098:137:46",
+              "src": "1098:137:227",
               "text": "@notice Adds a tracked asset\n @param _comptrollerProxy The ComptrollerProxy of the fund\n @param _asset The asset to add"
             },
             "implemented": true,
@@ -718,18 +718,18 @@
             "name": "__addTrackedAsset",
             "overrides": null,
             "parameters": {
-              "id": 11395,
+              "id": 61106,
               "nodeType": "ParameterList",
               "parameters": [
                 {
                   "constant": false,
-                  "id": 11392,
+                  "id": 61103,
                   "mutability": "mutable",
                   "name": "_comptrollerProxy",
                   "nodeType": "VariableDeclaration",
                   "overrides": null,
-                  "scope": 11411,
-                  "src": "1267:25:46",
+                  "scope": 61122,
+                  "src": "1267:25:227",
                   "stateVariable": false,
                   "storageLocation": "default",
                   "typeDescriptions": {
@@ -737,10 +737,10 @@
                     "typeString": "address"
                   },
                   "typeName": {
-                    "id": 11391,
+                    "id": 61102,
                     "name": "address",
                     "nodeType": "ElementaryTypeName",
-                    "src": "1267:7:46",
+                    "src": "1267:7:227",
                     "stateMutability": "nonpayable",
                     "typeDescriptions": {
                       "typeIdentifier": "t_address",
@@ -752,13 +752,13 @@
                 },
                 {
                   "constant": false,
-                  "id": 11394,
+                  "id": 61105,
                   "mutability": "mutable",
                   "name": "_asset",
                   "nodeType": "VariableDeclaration",
                   "overrides": null,
-                  "scope": 11411,
-                  "src": "1294:14:46",
+                  "scope": 61122,
+                  "src": "1294:14:227",
                   "stateVariable": false,
                   "storageLocation": "default",
                   "typeDescriptions": {
@@ -766,10 +766,10 @@
                     "typeString": "address"
                   },
                   "typeName": {
-                    "id": 11393,
+                    "id": 61104,
                     "name": "address",
                     "nodeType": "ElementaryTypeName",
-                    "src": "1294:7:46",
+                    "src": "1294:7:227",
                     "stateMutability": "nonpayable",
                     "typeDescriptions": {
                       "typeIdentifier": "t_address",
@@ -780,28 +780,28 @@
                   "visibility": "internal"
                 }
               ],
-              "src": "1266:43:46"
+              "src": "1266:43:227"
             },
             "returnParameters": {
-              "id": 11396,
+              "id": 61107,
               "nodeType": "ParameterList",
               "parameters": [],
-              "src": "1319:0:46"
+              "src": "1319:0:227"
             },
-            "scope": 11609,
+            "scope": 61320,
             "stateMutability": "nonpayable",
             "virtual": false,
             "visibility": "internal"
           },
           {
-            "id": 11439,
+            "id": 61150,
             "nodeType": "FunctionDefinition",
-            "src": "1791:339:46",
+            "src": "1791:339:227",
             "nodes": [],
             "body": {
-              "id": 11438,
+              "id": 61149,
               "nodeType": "Block",
-              "src": "1946:184:46",
+              "src": "1946:184:227",
               "nodes": [],
               "statements": [
                 {
@@ -814,32 +814,32 @@
                           "argumentTypes": null,
                           "expression": {
                             "argumentTypes": null,
-                            "id": 11427,
+                            "id": 61138,
                             "name": "IVault",
                             "nodeType": "Identifier",
                             "overloadedDeclarations": [],
-                            "referencedDeclaration": 5218,
-                            "src": "2025:6:46",
+                            "referencedDeclaration": 17254,
+                            "src": "2025:6:227",
                             "typeDescriptions": {
-                              "typeIdentifier": "t_type$_t_contract$_IVault_$5218_$",
+                              "typeIdentifier": "t_type$_t_contract$_IVault_$17254_$",
                               "typeString": "type(contract IVault)"
                             }
                           },
-                          "id": 11428,
+                          "id": 61139,
                           "isConstant": false,
                           "isLValue": false,
                           "isPure": false,
                           "lValueRequested": false,
                           "memberName": "VaultAction",
                           "nodeType": "MemberAccess",
-                          "referencedDeclaration": 5102,
-                          "src": "2025:18:46",
+                          "referencedDeclaration": 17138,
+                          "src": "2025:18:227",
                           "typeDescriptions": {
-                            "typeIdentifier": "t_type$_t_enum$_VaultAction_$5102_$",
+                            "typeIdentifier": "t_type$_t_enum$_VaultAction_$17138_$",
                             "typeString": "type(enum IVault.VaultAction)"
                           }
                         },
-                        "id": 11429,
+                        "id": 61140,
                         "isConstant": false,
                         "isLValue": false,
                         "isPure": true,
@@ -847,9 +847,9 @@
                         "memberName": "ApproveAssetSpender",
                         "nodeType": "MemberAccess",
                         "referencedDeclaration": null,
-                        "src": "2025:38:46",
+                        "src": "2025:38:227",
                         "typeDescriptions": {
-                          "typeIdentifier": "t_enum$_VaultAction_$5102",
+                          "typeIdentifier": "t_enum$_VaultAction_$17138",
                           "typeString": "enum IVault.VaultAction"
                         }
                       },
@@ -858,12 +858,12 @@
                         "arguments": [
                           {
                             "argumentTypes": null,
-                            "id": 11432,
+                            "id": 61143,
                             "name": "_asset",
                             "nodeType": "Identifier",
                             "overloadedDeclarations": [],
-                            "referencedDeclaration": 11416,
-                            "src": "2088:6:46",
+                            "referencedDeclaration": 61127,
+                            "src": "2088:6:227",
                             "typeDescriptions": {
                               "typeIdentifier": "t_address",
                               "typeString": "address"
@@ -871,12 +871,12 @@
                           },
                           {
                             "argumentTypes": null,
-                            "id": 11433,
+                            "id": 61144,
                             "name": "_target",
                             "nodeType": "Identifier",
                             "overloadedDeclarations": [],
-                            "referencedDeclaration": 11418,
-                            "src": "2096:7:46",
+                            "referencedDeclaration": 61129,
+                            "src": "2096:7:227",
                             "typeDescriptions": {
                               "typeIdentifier": "t_address",
                               "typeString": "address"
@@ -884,12 +884,12 @@
                           },
                           {
                             "argumentTypes": null,
-                            "id": 11434,
+                            "id": 61145,
                             "name": "_amount",
                             "nodeType": "Identifier",
                             "overloadedDeclarations": [],
-                            "referencedDeclaration": 11420,
-                            "src": "2105:7:46",
+                            "referencedDeclaration": 61131,
+                            "src": "2105:7:227",
                             "typeDescriptions": {
                               "typeIdentifier": "t_uint256",
                               "typeString": "uint256"
@@ -913,18 +913,18 @@
                           ],
                           "expression": {
                             "argumentTypes": null,
-                            "id": 11430,
+                            "id": 61141,
                             "name": "abi",
                             "nodeType": "Identifier",
                             "overloadedDeclarations": [],
                             "referencedDeclaration": -1,
-                            "src": "2077:3:46",
+                            "src": "2077:3:227",
                             "typeDescriptions": {
                               "typeIdentifier": "t_magic_abi",
                               "typeString": "abi"
                             }
                           },
-                          "id": 11431,
+                          "id": 61142,
                           "isConstant": false,
                           "isLValue": false,
                           "isPure": true,
@@ -932,13 +932,13 @@
                           "memberName": "encode",
                           "nodeType": "MemberAccess",
                           "referencedDeclaration": null,
-                          "src": "2077:10:46",
+                          "src": "2077:10:227",
                           "typeDescriptions": {
                             "typeIdentifier": "t_function_abiencode_pure$__$returns$_t_bytes_memory_ptr_$",
                             "typeString": "function () pure returns (bytes memory)"
                           }
                         },
-                        "id": 11435,
+                        "id": 61146,
                         "isConstant": false,
                         "isLValue": false,
                         "isPure": false,
@@ -946,7 +946,7 @@
                         "lValueRequested": false,
                         "names": [],
                         "nodeType": "FunctionCall",
-                        "src": "2077:36:46",
+                        "src": "2077:36:227",
                         "tryCall": false,
                         "typeDescriptions": {
                           "typeIdentifier": "t_bytes_memory_ptr",
@@ -957,7 +957,7 @@
                     "expression": {
                       "argumentTypes": [
                         {
-                          "typeIdentifier": "t_enum$_VaultAction_$5102",
+                          "typeIdentifier": "t_enum$_VaultAction_$17138",
                           "typeString": "enum IVault.VaultAction"
                         },
                         {
@@ -970,12 +970,12 @@
                         "arguments": [
                           {
                             "argumentTypes": null,
-                            "id": 11424,
+                            "id": 61135,
                             "name": "_comptrollerProxy",
                             "nodeType": "Identifier",
                             "overloadedDeclarations": [],
-                            "referencedDeclaration": 11414,
-                            "src": "1969:17:46",
+                            "referencedDeclaration": 61125,
+                            "src": "1969:17:227",
                             "typeDescriptions": {
                               "typeIdentifier": "t_address",
                               "typeString": "address"
@@ -989,18 +989,18 @@
                               "typeString": "address"
                             }
                           ],
-                          "id": 11423,
+                          "id": 61134,
                           "name": "IComptroller",
                           "nodeType": "Identifier",
                           "overloadedDeclarations": [],
-                          "referencedDeclaration": 5075,
-                          "src": "1956:12:46",
+                          "referencedDeclaration": 17111,
+                          "src": "1956:12:227",
                           "typeDescriptions": {
-                            "typeIdentifier": "t_type$_t_contract$_IComptroller_$5075_$",
+                            "typeIdentifier": "t_type$_t_contract$_IComptroller_$17111_$",
                             "typeString": "type(contract IComptroller)"
                           }
                         },
-                        "id": 11425,
+                        "id": 61136,
                         "isConstant": false,
                         "isLValue": false,
                         "isPure": false,
@@ -1008,28 +1008,28 @@
                         "lValueRequested": false,
                         "names": [],
                         "nodeType": "FunctionCall",
-                        "src": "1956:31:46",
+                        "src": "1956:31:227",
                         "tryCall": false,
                         "typeDescriptions": {
-                          "typeIdentifier": "t_contract$_IComptroller_$5075",
+                          "typeIdentifier": "t_contract$_IComptroller_$17111",
                           "typeString": "contract IComptroller"
                         }
                       },
-                      "id": 11426,
+                      "id": 61137,
                       "isConstant": false,
                       "isLValue": false,
                       "isPure": false,
                       "lValueRequested": false,
                       "memberName": "permissionedVaultAction",
                       "nodeType": "MemberAccess",
-                      "referencedDeclaration": 5050,
-                      "src": "1956:55:46",
+                      "referencedDeclaration": 17086,
+                      "src": "1956:55:227",
                       "typeDescriptions": {
-                        "typeIdentifier": "t_function_external_nonpayable$_t_enum$_VaultAction_$5102_$_t_bytes_memory_ptr_$returns$__$",
+                        "typeIdentifier": "t_function_external_nonpayable$_t_enum$_VaultAction_$17138_$_t_bytes_memory_ptr_$returns$__$",
                         "typeString": "function (enum IVault.VaultAction,bytes memory) external"
                       }
                     },
-                    "id": 11436,
+                    "id": 61147,
                     "isConstant": false,
                     "isLValue": false,
                     "isPure": false,
@@ -1037,23 +1037,23 @@
                     "lValueRequested": false,
                     "names": [],
                     "nodeType": "FunctionCall",
-                    "src": "1956:167:46",
+                    "src": "1956:167:227",
                     "tryCall": false,
                     "typeDescriptions": {
                       "typeIdentifier": "t_tuple$__$",
                       "typeString": "tuple()"
                     }
                   },
-                  "id": 11437,
+                  "id": 61148,
                   "nodeType": "ExpressionStatement",
-                  "src": "1956:167:46"
+                  "src": "1956:167:227"
                 }
               ]
             },
             "documentation": {
-              "id": 11412,
+              "id": 61123,
               "nodeType": "StructuredDocumentation",
-              "src": "1487:299:46",
+              "src": "1487:299:227",
               "text": "@notice Grants an allowance to a spender to use a fund's asset\n @param _comptrollerProxy The ComptrollerProxy of the fund\n @param _asset The asset for which to grant an allowance\n @param _target The spender of the allowance\n @param _amount The amount of the allowance"
             },
             "implemented": true,
@@ -1062,18 +1062,18 @@
             "name": "__approveAssetSpender",
             "overrides": null,
             "parameters": {
-              "id": 11421,
+              "id": 61132,
               "nodeType": "ParameterList",
               "parameters": [
                 {
                   "constant": false,
-                  "id": 11414,
+                  "id": 61125,
                   "mutability": "mutable",
                   "name": "_comptrollerProxy",
                   "nodeType": "VariableDeclaration",
                   "overrides": null,
-                  "scope": 11439,
-                  "src": "1831:25:46",
+                  "scope": 61150,
+                  "src": "1831:25:227",
                   "stateVariable": false,
                   "storageLocation": "default",
                   "typeDescriptions": {
@@ -1081,10 +1081,10 @@
                     "typeString": "address"
                   },
                   "typeName": {
-                    "id": 11413,
+                    "id": 61124,
                     "name": "address",
                     "nodeType": "ElementaryTypeName",
-                    "src": "1831:7:46",
+                    "src": "1831:7:227",
                     "stateMutability": "nonpayable",
                     "typeDescriptions": {
                       "typeIdentifier": "t_address",
@@ -1096,13 +1096,13 @@
                 },
                 {
                   "constant": false,
-                  "id": 11416,
+                  "id": 61127,
                   "mutability": "mutable",
                   "name": "_asset",
                   "nodeType": "VariableDeclaration",
                   "overrides": null,
-                  "scope": 11439,
-                  "src": "1866:14:46",
+                  "scope": 61150,
+                  "src": "1866:14:227",
                   "stateVariable": false,
                   "storageLocation": "default",
                   "typeDescriptions": {
@@ -1110,10 +1110,10 @@
                     "typeString": "address"
                   },
                   "typeName": {
-                    "id": 11415,
+                    "id": 61126,
                     "name": "address",
                     "nodeType": "ElementaryTypeName",
-                    "src": "1866:7:46",
+                    "src": "1866:7:227",
                     "stateMutability": "nonpayable",
                     "typeDescriptions": {
                       "typeIdentifier": "t_address",
@@ -1125,13 +1125,13 @@
                 },
                 {
                   "constant": false,
-                  "id": 11418,
+                  "id": 61129,
                   "mutability": "mutable",
                   "name": "_target",
                   "nodeType": "VariableDeclaration",
                   "overrides": null,
-                  "scope": 11439,
-                  "src": "1890:15:46",
+                  "scope": 61150,
+                  "src": "1890:15:227",
                   "stateVariable": false,
                   "storageLocation": "default",
                   "typeDescriptions": {
@@ -1139,10 +1139,10 @@
                     "typeString": "address"
                   },
                   "typeName": {
-                    "id": 11417,
+                    "id": 61128,
                     "name": "address",
                     "nodeType": "ElementaryTypeName",
-                    "src": "1890:7:46",
+                    "src": "1890:7:227",
                     "stateMutability": "nonpayable",
                     "typeDescriptions": {
                       "typeIdentifier": "t_address",
@@ -1154,13 +1154,13 @@
                 },
                 {
                   "constant": false,
-                  "id": 11420,
+                  "id": 61131,
                   "mutability": "mutable",
                   "name": "_amount",
                   "nodeType": "VariableDeclaration",
                   "overrides": null,
-                  "scope": 11439,
-                  "src": "1915:15:46",
+                  "scope": 61150,
+                  "src": "1915:15:227",
                   "stateVariable": false,
                   "storageLocation": "default",
                   "typeDescriptions": {
@@ -1168,10 +1168,10 @@
                     "typeString": "uint256"
                   },
                   "typeName": {
-                    "id": 11419,
+                    "id": 61130,
                     "name": "uint256",
                     "nodeType": "ElementaryTypeName",
-                    "src": "1915:7:46",
+                    "src": "1915:7:227",
                     "typeDescriptions": {
                       "typeIdentifier": "t_uint256",
                       "typeString": "uint256"
@@ -1181,28 +1181,28 @@
                   "visibility": "internal"
                 }
               ],
-              "src": "1821:115:46"
+              "src": "1821:115:227"
             },
             "returnParameters": {
-              "id": 11422,
+              "id": 61133,
               "nodeType": "ParameterList",
               "parameters": [],
-              "src": "1946:0:46"
+              "src": "1946:0:227"
             },
-            "scope": 11609,
+            "scope": 61320,
             "stateMutability": "nonpayable",
             "virtual": false,
             "visibility": "internal"
           },
           {
-            "id": 11464,
+            "id": 61175,
             "nodeType": "FunctionDefinition",
-            "src": "2373:289:46",
+            "src": "2373:289:227",
             "nodes": [],
             "body": {
-              "id": 11463,
+              "id": 61174,
               "nodeType": "Block",
-              "src": "2495:167:46",
+              "src": "2495:167:227",
               "nodes": [],
               "statements": [
                 {
@@ -1215,32 +1215,32 @@
                           "argumentTypes": null,
                           "expression": {
                             "argumentTypes": null,
-                            "id": 11453,
+                            "id": 61164,
                             "name": "IVault",
                             "nodeType": "Identifier",
                             "overloadedDeclarations": [],
-                            "referencedDeclaration": 5218,
-                            "src": "2574:6:46",
+                            "referencedDeclaration": 17254,
+                            "src": "2574:6:227",
                             "typeDescriptions": {
-                              "typeIdentifier": "t_type$_t_contract$_IVault_$5218_$",
+                              "typeIdentifier": "t_type$_t_contract$_IVault_$17254_$",
                               "typeString": "type(contract IVault)"
                             }
                           },
-                          "id": 11454,
+                          "id": 61165,
                           "isConstant": false,
                           "isLValue": false,
                           "isPure": false,
                           "lValueRequested": false,
                           "memberName": "VaultAction",
                           "nodeType": "MemberAccess",
-                          "referencedDeclaration": 5102,
-                          "src": "2574:18:46",
+                          "referencedDeclaration": 17138,
+                          "src": "2574:18:227",
                           "typeDescriptions": {
-                            "typeIdentifier": "t_type$_t_enum$_VaultAction_$5102_$",
+                            "typeIdentifier": "t_type$_t_enum$_VaultAction_$17138_$",
                             "typeString": "type(enum IVault.VaultAction)"
                           }
                         },
-                        "id": 11455,
+                        "id": 61166,
                         "isConstant": false,
                         "isLValue": false,
                         "isPure": true,
@@ -1248,9 +1248,9 @@
                         "memberName": "BurnShares",
                         "nodeType": "MemberAccess",
                         "referencedDeclaration": null,
-                        "src": "2574:29:46",
+                        "src": "2574:29:227",
                         "typeDescriptions": {
-                          "typeIdentifier": "t_enum$_VaultAction_$5102",
+                          "typeIdentifier": "t_enum$_VaultAction_$17138",
                           "typeString": "enum IVault.VaultAction"
                         }
                       },
@@ -1259,12 +1259,12 @@
                         "arguments": [
                           {
                             "argumentTypes": null,
-                            "id": 11458,
+                            "id": 61169,
                             "name": "_target",
                             "nodeType": "Identifier",
                             "overloadedDeclarations": [],
-                            "referencedDeclaration": 11444,
-                            "src": "2628:7:46",
+                            "referencedDeclaration": 61155,
+                            "src": "2628:7:227",
                             "typeDescriptions": {
                               "typeIdentifier": "t_address",
                               "typeString": "address"
@@ -1272,12 +1272,12 @@
                           },
                           {
                             "argumentTypes": null,
-                            "id": 11459,
+                            "id": 61170,
                             "name": "_amount",
                             "nodeType": "Identifier",
                             "overloadedDeclarations": [],
-                            "referencedDeclaration": 11446,
-                            "src": "2637:7:46",
+                            "referencedDeclaration": 61157,
+                            "src": "2637:7:227",
                             "typeDescriptions": {
                               "typeIdentifier": "t_uint256",
                               "typeString": "uint256"
@@ -1297,18 +1297,18 @@
                           ],
                           "expression": {
                             "argumentTypes": null,
-                            "id": 11456,
+                            "id": 61167,
                             "name": "abi",
                             "nodeType": "Identifier",
                             "overloadedDeclarations": [],
                             "referencedDeclaration": -1,
-                            "src": "2617:3:46",
+                            "src": "2617:3:227",
                             "typeDescriptions": {
                               "typeIdentifier": "t_magic_abi",
                               "typeString": "abi"
                             }
                           },
-                          "id": 11457,
+                          "id": 61168,
                           "isConstant": false,
                           "isLValue": false,
                           "isPure": true,
@@ -1316,13 +1316,13 @@
                           "memberName": "encode",
                           "nodeType": "MemberAccess",
                           "referencedDeclaration": null,
-                          "src": "2617:10:46",
+                          "src": "2617:10:227",
                           "typeDescriptions": {
                             "typeIdentifier": "t_function_abiencode_pure$__$returns$_t_bytes_memory_ptr_$",
                             "typeString": "function () pure returns (bytes memory)"
                           }
                         },
-                        "id": 11460,
+                        "id": 61171,
                         "isConstant": false,
                         "isLValue": false,
                         "isPure": false,
@@ -1330,7 +1330,7 @@
                         "lValueRequested": false,
                         "names": [],
                         "nodeType": "FunctionCall",
-                        "src": "2617:28:46",
+                        "src": "2617:28:227",
                         "tryCall": false,
                         "typeDescriptions": {
                           "typeIdentifier": "t_bytes_memory_ptr",
@@ -1341,7 +1341,7 @@
                     "expression": {
                       "argumentTypes": [
                         {
-                          "typeIdentifier": "t_enum$_VaultAction_$5102",
+                          "typeIdentifier": "t_enum$_VaultAction_$17138",
                           "typeString": "enum IVault.VaultAction"
                         },
                         {
@@ -1354,12 +1354,12 @@
                         "arguments": [
                           {
                             "argumentTypes": null,
-                            "id": 11450,
+                            "id": 61161,
                             "name": "_comptrollerProxy",
                             "nodeType": "Identifier",
                             "overloadedDeclarations": [],
-                            "referencedDeclaration": 11442,
-                            "src": "2518:17:46",
+                            "referencedDeclaration": 61153,
+                            "src": "2518:17:227",
                             "typeDescriptions": {
                               "typeIdentifier": "t_address",
                               "typeString": "address"
@@ -1373,18 +1373,18 @@
                               "typeString": "address"
                             }
                           ],
-                          "id": 11449,
+                          "id": 61160,
                           "name": "IComptroller",
                           "nodeType": "Identifier",
                           "overloadedDeclarations": [],
-                          "referencedDeclaration": 5075,
-                          "src": "2505:12:46",
+                          "referencedDeclaration": 17111,
+                          "src": "2505:12:227",
                           "typeDescriptions": {
-                            "typeIdentifier": "t_type$_t_contract$_IComptroller_$5075_$",
+                            "typeIdentifier": "t_type$_t_contract$_IComptroller_$17111_$",
                             "typeString": "type(contract IComptroller)"
                           }
                         },
-                        "id": 11451,
+                        "id": 61162,
                         "isConstant": false,
                         "isLValue": false,
                         "isPure": false,
@@ -1392,28 +1392,28 @@
                         "lValueRequested": false,
                         "names": [],
                         "nodeType": "FunctionCall",
-                        "src": "2505:31:46",
+                        "src": "2505:31:227",
                         "tryCall": false,
                         "typeDescriptions": {
-                          "typeIdentifier": "t_contract$_IComptroller_$5075",
+                          "typeIdentifier": "t_contract$_IComptroller_$17111",
                           "typeString": "contract IComptroller"
                         }
                       },
-                      "id": 11452,
+                      "id": 61163,
                       "isConstant": false,
                       "isLValue": false,
                       "isPure": false,
                       "lValueRequested": false,
                       "memberName": "permissionedVaultAction",
                       "nodeType": "MemberAccess",
-                      "referencedDeclaration": 5050,
-                      "src": "2505:55:46",
+                      "referencedDeclaration": 17086,
+                      "src": "2505:55:227",
                       "typeDescriptions": {
-                        "typeIdentifier": "t_function_external_nonpayable$_t_enum$_VaultAction_$5102_$_t_bytes_memory_ptr_$returns$__$",
+                        "typeIdentifier": "t_function_external_nonpayable$_t_enum$_VaultAction_$17138_$_t_bytes_memory_ptr_$returns$__$",
                         "typeString": "function (enum IVault.VaultAction,bytes memory) external"
                       }
                     },
-                    "id": 11461,
+                    "id": 61172,
                     "isConstant": false,
                     "isLValue": false,
                     "isPure": false,
@@ -1421,23 +1421,23 @@
                     "lValueRequested": false,
                     "names": [],
                     "nodeType": "FunctionCall",
-                    "src": "2505:150:46",
+                    "src": "2505:150:227",
                     "tryCall": false,
                     "typeDescriptions": {
                       "typeIdentifier": "t_tuple$__$",
                       "typeString": "tuple()"
                     }
                   },
-                  "id": 11462,
+                  "id": 61173,
                   "nodeType": "ExpressionStatement",
-                  "src": "2505:150:46"
+                  "src": "2505:150:227"
                 }
               ]
             },
             "documentation": {
-              "id": 11440,
+              "id": 61151,
               "nodeType": "StructuredDocumentation",
-              "src": "2136:232:46",
+              "src": "2136:232:227",
               "text": "@notice Burns fund shares for a particular account\n @param _comptrollerProxy The ComptrollerProxy of the fund\n @param _target The account for which to burn shares\n @param _amount The amount of shares to burn"
             },
             "implemented": true,
@@ -1446,18 +1446,18 @@
             "name": "__burnShares",
             "overrides": null,
             "parameters": {
-              "id": 11447,
+              "id": 61158,
               "nodeType": "ParameterList",
               "parameters": [
                 {
                   "constant": false,
-                  "id": 11442,
+                  "id": 61153,
                   "mutability": "mutable",
                   "name": "_comptrollerProxy",
                   "nodeType": "VariableDeclaration",
                   "overrides": null,
-                  "scope": 11464,
-                  "src": "2404:25:46",
+                  "scope": 61175,
+                  "src": "2404:25:227",
                   "stateVariable": false,
                   "storageLocation": "default",
                   "typeDescriptions": {
@@ -1465,10 +1465,10 @@
                     "typeString": "address"
                   },
                   "typeName": {
-                    "id": 11441,
+                    "id": 61152,
                     "name": "address",
                     "nodeType": "ElementaryTypeName",
-                    "src": "2404:7:46",
+                    "src": "2404:7:227",
                     "stateMutability": "nonpayable",
                     "typeDescriptions": {
                       "typeIdentifier": "t_address",
@@ -1480,13 +1480,13 @@
                 },
                 {
                   "constant": false,
-                  "id": 11444,
+                  "id": 61155,
                   "mutability": "mutable",
                   "name": "_target",
                   "nodeType": "VariableDeclaration",
                   "overrides": null,
-                  "scope": 11464,
-                  "src": "2439:15:46",
+                  "scope": 61175,
+                  "src": "2439:15:227",
                   "stateVariable": false,
                   "storageLocation": "default",
                   "typeDescriptions": {
@@ -1494,10 +1494,10 @@
                     "typeString": "address"
                   },
                   "typeName": {
-                    "id": 11443,
+                    "id": 61154,
                     "name": "address",
                     "nodeType": "ElementaryTypeName",
-                    "src": "2439:7:46",
+                    "src": "2439:7:227",
                     "stateMutability": "nonpayable",
                     "typeDescriptions": {
                       "typeIdentifier": "t_address",
@@ -1509,13 +1509,13 @@
                 },
                 {
                   "constant": false,
-                  "id": 11446,
+                  "id": 61157,
                   "mutability": "mutable",
                   "name": "_amount",
                   "nodeType": "VariableDeclaration",
                   "overrides": null,
-                  "scope": 11464,
-                  "src": "2464:15:46",
+                  "scope": 61175,
+                  "src": "2464:15:227",
                   "stateVariable": false,
                   "storageLocation": "default",
                   "typeDescriptions": {
@@ -1523,10 +1523,10 @@
                     "typeString": "uint256"
                   },
                   "typeName": {
-                    "id": 11445,
+                    "id": 61156,
                     "name": "uint256",
                     "nodeType": "ElementaryTypeName",
-                    "src": "2464:7:46",
+                    "src": "2464:7:227",
                     "typeDescriptions": {
                       "typeIdentifier": "t_uint256",
                       "typeString": "uint256"
@@ -1536,28 +1536,28 @@
                   "visibility": "internal"
                 }
               ],
-              "src": "2394:91:46"
+              "src": "2394:91:227"
             },
             "returnParameters": {
-              "id": 11448,
+              "id": 61159,
               "nodeType": "ParameterList",
               "parameters": [],
-              "src": "2495:0:46"
+              "src": "2495:0:227"
             },
-            "scope": 11609,
+            "scope": 61320,
             "stateMutability": "nonpayable",
             "virtual": false,
             "visibility": "internal"
           },
           {
-            "id": 11483,
+            "id": 61194,
             "nodeType": "FunctionDefinition",
-            "src": "2835:246:46",
+            "src": "2835:246:227",
             "nodes": [],
             "body": {
-              "id": 11482,
+              "id": 61193,
               "nodeType": "Block",
-              "src": "2925:156:46",
+              "src": "2925:156:227",
               "nodes": [],
               "statements": [
                 {
@@ -1570,32 +1570,32 @@
                           "argumentTypes": null,
                           "expression": {
                             "argumentTypes": null,
-                            "id": 11476,
+                            "id": 61187,
                             "name": "IVault",
                             "nodeType": "Identifier",
                             "overloadedDeclarations": [],
-                            "referencedDeclaration": 5218,
-                            "src": "3004:6:46",
+                            "referencedDeclaration": 17254,
+                            "src": "3004:6:227",
                             "typeDescriptions": {
-                              "typeIdentifier": "t_type$_t_contract$_IVault_$5218_$",
+                              "typeIdentifier": "t_type$_t_contract$_IVault_$17254_$",
                               "typeString": "type(contract IVault)"
                             }
                           },
-                          "id": 11477,
+                          "id": 61188,
                           "isConstant": false,
                           "isLValue": false,
                           "isPure": false,
                           "lValueRequested": false,
                           "memberName": "VaultAction",
                           "nodeType": "MemberAccess",
-                          "referencedDeclaration": 5102,
-                          "src": "3004:18:46",
+                          "referencedDeclaration": 17138,
+                          "src": "3004:18:227",
                           "typeDescriptions": {
-                            "typeIdentifier": "t_type$_t_enum$_VaultAction_$5102_$",
+                            "typeIdentifier": "t_type$_t_enum$_VaultAction_$17138_$",
                             "typeString": "type(enum IVault.VaultAction)"
                           }
                         },
-                        "id": 11478,
+                        "id": 61189,
                         "isConstant": false,
                         "isLValue": false,
                         "isPure": true,
@@ -1603,20 +1603,20 @@
                         "memberName": "CallOnExternalPosition",
                         "nodeType": "MemberAccess",
                         "referencedDeclaration": null,
-                        "src": "3004:41:46",
+                        "src": "3004:41:227",
                         "typeDescriptions": {
-                          "typeIdentifier": "t_enum$_VaultAction_$5102",
+                          "typeIdentifier": "t_enum$_VaultAction_$17138",
                           "typeString": "enum IVault.VaultAction"
                         }
                       },
                       {
                         "argumentTypes": null,
-                        "id": 11479,
+                        "id": 61190,
                         "name": "_data",
                         "nodeType": "Identifier",
                         "overloadedDeclarations": [],
-                        "referencedDeclaration": 11469,
-                        "src": "3059:5:46",
+                        "referencedDeclaration": 61180,
+                        "src": "3059:5:227",
                         "typeDescriptions": {
                           "typeIdentifier": "t_bytes_memory_ptr",
                           "typeString": "bytes memory"
@@ -1626,7 +1626,7 @@
                     "expression": {
                       "argumentTypes": [
                         {
-                          "typeIdentifier": "t_enum$_VaultAction_$5102",
+                          "typeIdentifier": "t_enum$_VaultAction_$17138",
                           "typeString": "enum IVault.VaultAction"
                         },
                         {
@@ -1639,12 +1639,12 @@
                         "arguments": [
                           {
                             "argumentTypes": null,
-                            "id": 11473,
+                            "id": 61184,
                             "name": "_comptrollerProxy",
                             "nodeType": "Identifier",
                             "overloadedDeclarations": [],
-                            "referencedDeclaration": 11467,
-                            "src": "2948:17:46",
+                            "referencedDeclaration": 61178,
+                            "src": "2948:17:227",
                             "typeDescriptions": {
                               "typeIdentifier": "t_address",
                               "typeString": "address"
@@ -1658,18 +1658,18 @@
                               "typeString": "address"
                             }
                           ],
-                          "id": 11472,
+                          "id": 61183,
                           "name": "IComptroller",
                           "nodeType": "Identifier",
                           "overloadedDeclarations": [],
-                          "referencedDeclaration": 5075,
-                          "src": "2935:12:46",
+                          "referencedDeclaration": 17111,
+                          "src": "2935:12:227",
                           "typeDescriptions": {
-                            "typeIdentifier": "t_type$_t_contract$_IComptroller_$5075_$",
+                            "typeIdentifier": "t_type$_t_contract$_IComptroller_$17111_$",
                             "typeString": "type(contract IComptroller)"
                           }
                         },
-                        "id": 11474,
+                        "id": 61185,
                         "isConstant": false,
                         "isLValue": false,
                         "isPure": false,
@@ -1677,28 +1677,28 @@
                         "lValueRequested": false,
                         "names": [],
                         "nodeType": "FunctionCall",
-                        "src": "2935:31:46",
+                        "src": "2935:31:227",
                         "tryCall": false,
                         "typeDescriptions": {
-                          "typeIdentifier": "t_contract$_IComptroller_$5075",
+                          "typeIdentifier": "t_contract$_IComptroller_$17111",
                           "typeString": "contract IComptroller"
                         }
                       },
-                      "id": 11475,
+                      "id": 61186,
                       "isConstant": false,
                       "isLValue": false,
                       "isPure": false,
                       "lValueRequested": false,
                       "memberName": "permissionedVaultAction",
                       "nodeType": "MemberAccess",
-                      "referencedDeclaration": 5050,
-                      "src": "2935:55:46",
+                      "referencedDeclaration": 17086,
+                      "src": "2935:55:227",
                       "typeDescriptions": {
-                        "typeIdentifier": "t_function_external_nonpayable$_t_enum$_VaultAction_$5102_$_t_bytes_memory_ptr_$returns$__$",
+                        "typeIdentifier": "t_function_external_nonpayable$_t_enum$_VaultAction_$17138_$_t_bytes_memory_ptr_$returns$__$",
                         "typeString": "function (enum IVault.VaultAction,bytes memory) external"
                       }
                     },
-                    "id": 11480,
+                    "id": 61191,
                     "isConstant": false,
                     "isLValue": false,
                     "isPure": false,
@@ -1706,23 +1706,23 @@
                     "lValueRequested": false,
                     "names": [],
                     "nodeType": "FunctionCall",
-                    "src": "2935:139:46",
+                    "src": "2935:139:227",
                     "tryCall": false,
                     "typeDescriptions": {
                       "typeIdentifier": "t_tuple$__$",
                       "typeString": "tuple()"
                     }
                   },
-                  "id": 11481,
+                  "id": 61192,
                   "nodeType": "ExpressionStatement",
-                  "src": "2935:139:46"
+                  "src": "2935:139:227"
                 }
               ]
             },
             "documentation": {
-              "id": 11465,
+              "id": 61176,
               "nodeType": "StructuredDocumentation",
-              "src": "2668:162:46",
+              "src": "2668:162:227",
               "text": "@notice Executes a callOnExternalPosition\n @param _comptrollerProxy The ComptrollerProxy of the fund\n @param _data The encoded data for the call"
             },
             "implemented": true,
@@ -1731,18 +1731,18 @@
             "name": "__callOnExternalPosition",
             "overrides": null,
             "parameters": {
-              "id": 11470,
+              "id": 61181,
               "nodeType": "ParameterList",
               "parameters": [
                 {
                   "constant": false,
-                  "id": 11467,
+                  "id": 61178,
                   "mutability": "mutable",
                   "name": "_comptrollerProxy",
                   "nodeType": "VariableDeclaration",
                   "overrides": null,
-                  "scope": 11483,
-                  "src": "2869:25:46",
+                  "scope": 61194,
+                  "src": "2869:25:227",
                   "stateVariable": false,
                   "storageLocation": "default",
                   "typeDescriptions": {
@@ -1750,10 +1750,10 @@
                     "typeString": "address"
                   },
                   "typeName": {
-                    "id": 11466,
+                    "id": 61177,
                     "name": "address",
                     "nodeType": "ElementaryTypeName",
-                    "src": "2869:7:46",
+                    "src": "2869:7:227",
                     "stateMutability": "nonpayable",
                     "typeDescriptions": {
                       "typeIdentifier": "t_address",
@@ -1765,13 +1765,13 @@
                 },
                 {
                   "constant": false,
-                  "id": 11469,
+                  "id": 61180,
                   "mutability": "mutable",
                   "name": "_data",
                   "nodeType": "VariableDeclaration",
                   "overrides": null,
-                  "scope": 11483,
-                  "src": "2896:18:46",
+                  "scope": 61194,
+                  "src": "2896:18:227",
                   "stateVariable": false,
                   "storageLocation": "memory",
                   "typeDescriptions": {
@@ -1779,10 +1779,10 @@
                     "typeString": "bytes"
                   },
                   "typeName": {
-                    "id": 11468,
+                    "id": 61179,
                     "name": "bytes",
                     "nodeType": "ElementaryTypeName",
-                    "src": "2896:5:46",
+                    "src": "2896:5:227",
                     "typeDescriptions": {
                       "typeIdentifier": "t_bytes_storage_ptr",
                       "typeString": "bytes"
@@ -1792,28 +1792,28 @@
                   "visibility": "internal"
                 }
               ],
-              "src": "2868:47:46"
+              "src": "2868:47:227"
             },
             "returnParameters": {
-              "id": 11471,
+              "id": 61182,
               "nodeType": "ParameterList",
               "parameters": [],
-              "src": "2925:0:46"
+              "src": "2925:0:227"
             },
-            "scope": 11609,
+            "scope": 61320,
             "stateMutability": "nonpayable",
             "virtual": false,
             "visibility": "internal"
           },
           {
-            "id": 11508,
+            "id": 61219,
             "nodeType": "FunctionDefinition",
-            "src": "3322:289:46",
+            "src": "3322:289:227",
             "nodes": [],
             "body": {
-              "id": 11507,
+              "id": 61218,
               "nodeType": "Block",
-              "src": "3444:167:46",
+              "src": "3444:167:227",
               "nodes": [],
               "statements": [
                 {
@@ -1826,32 +1826,32 @@
                           "argumentTypes": null,
                           "expression": {
                             "argumentTypes": null,
-                            "id": 11497,
+                            "id": 61208,
                             "name": "IVault",
                             "nodeType": "Identifier",
                             "overloadedDeclarations": [],
-                            "referencedDeclaration": 5218,
-                            "src": "3523:6:46",
+                            "referencedDeclaration": 17254,
+                            "src": "3523:6:227",
                             "typeDescriptions": {
-                              "typeIdentifier": "t_type$_t_contract$_IVault_$5218_$",
+                              "typeIdentifier": "t_type$_t_contract$_IVault_$17254_$",
                               "typeString": "type(contract IVault)"
                             }
                           },
-                          "id": 11498,
+                          "id": 61209,
                           "isConstant": false,
                           "isLValue": false,
                           "isPure": false,
                           "lValueRequested": false,
                           "memberName": "VaultAction",
                           "nodeType": "MemberAccess",
-                          "referencedDeclaration": 5102,
-                          "src": "3523:18:46",
+                          "referencedDeclaration": 17138,
+                          "src": "3523:18:227",
                           "typeDescriptions": {
-                            "typeIdentifier": "t_type$_t_enum$_VaultAction_$5102_$",
+                            "typeIdentifier": "t_type$_t_enum$_VaultAction_$17138_$",
                             "typeString": "type(enum IVault.VaultAction)"
                           }
                         },
-                        "id": 11499,
+                        "id": 61210,
                         "isConstant": false,
                         "isLValue": false,
                         "isPure": true,
@@ -1859,9 +1859,9 @@
                         "memberName": "MintShares",
                         "nodeType": "MemberAccess",
                         "referencedDeclaration": null,
-                        "src": "3523:29:46",
+                        "src": "3523:29:227",
                         "typeDescriptions": {
-                          "typeIdentifier": "t_enum$_VaultAction_$5102",
+                          "typeIdentifier": "t_enum$_VaultAction_$17138",
                           "typeString": "enum IVault.VaultAction"
                         }
                       },
@@ -1870,12 +1870,12 @@
                         "arguments": [
                           {
                             "argumentTypes": null,
-                            "id": 11502,
+                            "id": 61213,
                             "name": "_target",
                             "nodeType": "Identifier",
                             "overloadedDeclarations": [],
-                            "referencedDeclaration": 11488,
-                            "src": "3577:7:46",
+                            "referencedDeclaration": 61199,
+                            "src": "3577:7:227",
                             "typeDescriptions": {
                               "typeIdentifier": "t_address",
                               "typeString": "address"
@@ -1883,12 +1883,12 @@
                           },
                           {
                             "argumentTypes": null,
-                            "id": 11503,
+                            "id": 61214,
                             "name": "_amount",
                             "nodeType": "Identifier",
                             "overloadedDeclarations": [],
-                            "referencedDeclaration": 11490,
-                            "src": "3586:7:46",
+                            "referencedDeclaration": 61201,
+                            "src": "3586:7:227",
                             "typeDescriptions": {
                               "typeIdentifier": "t_uint256",
                               "typeString": "uint256"
@@ -1908,18 +1908,18 @@
                           ],
                           "expression": {
                             "argumentTypes": null,
-                            "id": 11500,
+                            "id": 61211,
                             "name": "abi",
                             "nodeType": "Identifier",
                             "overloadedDeclarations": [],
                             "referencedDeclaration": -1,
-                            "src": "3566:3:46",
+                            "src": "3566:3:227",
                             "typeDescriptions": {
                               "typeIdentifier": "t_magic_abi",
                               "typeString": "abi"
                             }
                           },
-                          "id": 11501,
+                          "id": 61212,
                           "isConstant": false,
                           "isLValue": false,
                           "isPure": true,
@@ -1927,13 +1927,13 @@
                           "memberName": "encode",
                           "nodeType": "MemberAccess",
                           "referencedDeclaration": null,
-                          "src": "3566:10:46",
+                          "src": "3566:10:227",
                           "typeDescriptions": {
                             "typeIdentifier": "t_function_abiencode_pure$__$returns$_t_bytes_memory_ptr_$",
                             "typeString": "function () pure returns (bytes memory)"
                           }
                         },
-                        "id": 11504,
+                        "id": 61215,
                         "isConstant": false,
                         "isLValue": false,
                         "isPure": false,
@@ -1941,7 +1941,7 @@
                         "lValueRequested": false,
                         "names": [],
                         "nodeType": "FunctionCall",
-                        "src": "3566:28:46",
+                        "src": "3566:28:227",
                         "tryCall": false,
                         "typeDescriptions": {
                           "typeIdentifier": "t_bytes_memory_ptr",
@@ -1952,7 +1952,7 @@
                     "expression": {
                       "argumentTypes": [
                         {
-                          "typeIdentifier": "t_enum$_VaultAction_$5102",
+                          "typeIdentifier": "t_enum$_VaultAction_$17138",
                           "typeString": "enum IVault.VaultAction"
                         },
                         {
@@ -1965,12 +1965,12 @@
                         "arguments": [
                           {
                             "argumentTypes": null,
-                            "id": 11494,
+                            "id": 61205,
                             "name": "_comptrollerProxy",
                             "nodeType": "Identifier",
                             "overloadedDeclarations": [],
-                            "referencedDeclaration": 11486,
-                            "src": "3467:17:46",
+                            "referencedDeclaration": 61197,
+                            "src": "3467:17:227",
                             "typeDescriptions": {
                               "typeIdentifier": "t_address",
                               "typeString": "address"
@@ -1984,18 +1984,18 @@
                               "typeString": "address"
                             }
                           ],
-                          "id": 11493,
+                          "id": 61204,
                           "name": "IComptroller",
                           "nodeType": "Identifier",
                           "overloadedDeclarations": [],
-                          "referencedDeclaration": 5075,
-                          "src": "3454:12:46",
+                          "referencedDeclaration": 17111,
+                          "src": "3454:12:227",
                           "typeDescriptions": {
-                            "typeIdentifier": "t_type$_t_contract$_IComptroller_$5075_$",
+                            "typeIdentifier": "t_type$_t_contract$_IComptroller_$17111_$",
                             "typeString": "type(contract IComptroller)"
                           }
                         },
-                        "id": 11495,
+                        "id": 61206,
                         "isConstant": false,
                         "isLValue": false,
                         "isPure": false,
@@ -2003,28 +2003,28 @@
                         "lValueRequested": false,
                         "names": [],
                         "nodeType": "FunctionCall",
-                        "src": "3454:31:46",
+                        "src": "3454:31:227",
                         "tryCall": false,
                         "typeDescriptions": {
-                          "typeIdentifier": "t_contract$_IComptroller_$5075",
+                          "typeIdentifier": "t_contract$_IComptroller_$17111",
                           "typeString": "contract IComptroller"
                         }
                       },
-                      "id": 11496,
+                      "id": 61207,
                       "isConstant": false,
                       "isLValue": false,
                       "isPure": false,
                       "lValueRequested": false,
                       "memberName": "permissionedVaultAction",
                       "nodeType": "MemberAccess",
-                      "referencedDeclaration": 5050,
-                      "src": "3454:55:46",
+                      "referencedDeclaration": 17086,
+                      "src": "3454:55:227",
                       "typeDescriptions": {
-                        "typeIdentifier": "t_function_external_nonpayable$_t_enum$_VaultAction_$5102_$_t_bytes_memory_ptr_$returns$__$",
+                        "typeIdentifier": "t_function_external_nonpayable$_t_enum$_VaultAction_$17138_$_t_bytes_memory_ptr_$returns$__$",
                         "typeString": "function (enum IVault.VaultAction,bytes memory) external"
                       }
                     },
-                    "id": 11505,
+                    "id": 61216,
                     "isConstant": false,
                     "isLValue": false,
                     "isPure": false,
@@ -2032,23 +2032,23 @@
                     "lValueRequested": false,
                     "names": [],
                     "nodeType": "FunctionCall",
-                    "src": "3454:150:46",
+                    "src": "3454:150:227",
                     "tryCall": false,
                     "typeDescriptions": {
                       "typeIdentifier": "t_tuple$__$",
                       "typeString": "tuple()"
                     }
                   },
-                  "id": 11506,
+                  "id": 61217,
                   "nodeType": "ExpressionStatement",
-                  "src": "3454:150:46"
+                  "src": "3454:150:227"
                 }
               ]
             },
             "documentation": {
-              "id": 11484,
+              "id": 61195,
               "nodeType": "StructuredDocumentation",
-              "src": "3087:230:46",
+              "src": "3087:230:227",
               "text": "@notice Mints fund shares to a particular account\n @param _comptrollerProxy The ComptrollerProxy of the fund\n @param _target The account to which to mint shares\n @param _amount The amount of shares to mint"
             },
             "implemented": true,
@@ -2057,18 +2057,18 @@
             "name": "__mintShares",
             "overrides": null,
             "parameters": {
-              "id": 11491,
+              "id": 61202,
               "nodeType": "ParameterList",
               "parameters": [
                 {
                   "constant": false,
-                  "id": 11486,
+                  "id": 61197,
                   "mutability": "mutable",
                   "name": "_comptrollerProxy",
                   "nodeType": "VariableDeclaration",
                   "overrides": null,
-                  "scope": 11508,
-                  "src": "3353:25:46",
+                  "scope": 61219,
+                  "src": "3353:25:227",
                   "stateVariable": false,
                   "storageLocation": "default",
                   "typeDescriptions": {
@@ -2076,10 +2076,10 @@
                     "typeString": "address"
                   },
                   "typeName": {
-                    "id": 11485,
+                    "id": 61196,
                     "name": "address",
                     "nodeType": "ElementaryTypeName",
-                    "src": "3353:7:46",
+                    "src": "3353:7:227",
                     "stateMutability": "nonpayable",
                     "typeDescriptions": {
                       "typeIdentifier": "t_address",
@@ -2091,13 +2091,13 @@
                 },
                 {
                   "constant": false,
-                  "id": 11488,
+                  "id": 61199,
                   "mutability": "mutable",
                   "name": "_target",
                   "nodeType": "VariableDeclaration",
                   "overrides": null,
-                  "scope": 11508,
-                  "src": "3388:15:46",
+                  "scope": 61219,
+                  "src": "3388:15:227",
                   "stateVariable": false,
                   "storageLocation": "default",
                   "typeDescriptions": {
@@ -2105,10 +2105,10 @@
                     "typeString": "address"
                   },
                   "typeName": {
-                    "id": 11487,
+                    "id": 61198,
                     "name": "address",
                     "nodeType": "ElementaryTypeName",
-                    "src": "3388:7:46",
+                    "src": "3388:7:227",
                     "stateMutability": "nonpayable",
                     "typeDescriptions": {
                       "typeIdentifier": "t_address",
@@ -2120,13 +2120,13 @@
                 },
                 {
                   "constant": false,
-                  "id": 11490,
+                  "id": 61201,
                   "mutability": "mutable",
                   "name": "_amount",
                   "nodeType": "VariableDeclaration",
                   "overrides": null,
-                  "scope": 11508,
-                  "src": "3413:15:46",
+                  "scope": 61219,
+                  "src": "3413:15:227",
                   "stateVariable": false,
                   "storageLocation": "default",
                   "typeDescriptions": {
@@ -2134,10 +2134,10 @@
                     "typeString": "uint256"
                   },
                   "typeName": {
-                    "id": 11489,
+                    "id": 61200,
                     "name": "uint256",
                     "nodeType": "ElementaryTypeName",
-                    "src": "3413:7:46",
+                    "src": "3413:7:227",
                     "typeDescriptions": {
                       "typeIdentifier": "t_uint256",
                       "typeString": "uint256"
@@ -2147,28 +2147,28 @@
                   "visibility": "internal"
                 }
               ],
-              "src": "3343:91:46"
+              "src": "3343:91:227"
             },
             "returnParameters": {
-              "id": 11492,
+              "id": 61203,
               "nodeType": "ParameterList",
               "parameters": [],
-              "src": "3444:0:46"
+              "src": "3444:0:227"
             },
-            "scope": 11609,
+            "scope": 61320,
             "stateMutability": "nonpayable",
             "virtual": false,
             "visibility": "internal"
           },
           {
-            "id": 11530,
+            "id": 61241,
             "nodeType": "FunctionDefinition",
-            "src": "3812:289:46",
+            "src": "3812:289:227",
             "nodes": [],
             "body": {
-              "id": 11529,
+              "id": 61240,
               "nodeType": "Block",
-              "src": "3921:180:46",
+              "src": "3921:180:227",
               "nodes": [],
               "statements": [
                 {
@@ -2181,32 +2181,32 @@
                           "argumentTypes": null,
                           "expression": {
                             "argumentTypes": null,
-                            "id": 11520,
+                            "id": 61231,
                             "name": "IVault",
                             "nodeType": "Identifier",
                             "overloadedDeclarations": [],
-                            "referencedDeclaration": 5218,
-                            "src": "4000:6:46",
+                            "referencedDeclaration": 17254,
+                            "src": "4000:6:227",
                             "typeDescriptions": {
-                              "typeIdentifier": "t_type$_t_contract$_IVault_$5218_$",
+                              "typeIdentifier": "t_type$_t_contract$_IVault_$17254_$",
                               "typeString": "type(contract IVault)"
                             }
                           },
-                          "id": 11521,
+                          "id": 61232,
                           "isConstant": false,
                           "isLValue": false,
                           "isPure": false,
                           "lValueRequested": false,
                           "memberName": "VaultAction",
                           "nodeType": "MemberAccess",
-                          "referencedDeclaration": 5102,
-                          "src": "4000:18:46",
+                          "referencedDeclaration": 17138,
+                          "src": "4000:18:227",
                           "typeDescriptions": {
-                            "typeIdentifier": "t_type$_t_enum$_VaultAction_$5102_$",
+                            "typeIdentifier": "t_type$_t_enum$_VaultAction_$17138_$",
                             "typeString": "type(enum IVault.VaultAction)"
                           }
                         },
-                        "id": 11522,
+                        "id": 61233,
                         "isConstant": false,
                         "isLValue": false,
                         "isPure": true,
@@ -2214,9 +2214,9 @@
                         "memberName": "RemoveExternalPosition",
                         "nodeType": "MemberAccess",
                         "referencedDeclaration": null,
-                        "src": "4000:41:46",
+                        "src": "4000:41:227",
                         "typeDescriptions": {
-                          "typeIdentifier": "t_enum$_VaultAction_$5102",
+                          "typeIdentifier": "t_enum$_VaultAction_$17138",
                           "typeString": "enum IVault.VaultAction"
                         }
                       },
@@ -2225,12 +2225,12 @@
                         "arguments": [
                           {
                             "argumentTypes": null,
-                            "id": 11525,
+                            "id": 61236,
                             "name": "_externalPosition",
                             "nodeType": "Identifier",
                             "overloadedDeclarations": [],
-                            "referencedDeclaration": 11513,
-                            "src": "4066:17:46",
+                            "referencedDeclaration": 61224,
+                            "src": "4066:17:227",
                             "typeDescriptions": {
                               "typeIdentifier": "t_address",
                               "typeString": "address"
@@ -2246,18 +2246,18 @@
                           ],
                           "expression": {
                             "argumentTypes": null,
-                            "id": 11523,
+                            "id": 61234,
                             "name": "abi",
                             "nodeType": "Identifier",
                             "overloadedDeclarations": [],
                             "referencedDeclaration": -1,
-                            "src": "4055:3:46",
+                            "src": "4055:3:227",
                             "typeDescriptions": {
                               "typeIdentifier": "t_magic_abi",
                               "typeString": "abi"
                             }
                           },
-                          "id": 11524,
+                          "id": 61235,
                           "isConstant": false,
                           "isLValue": false,
                           "isPure": true,
@@ -2265,13 +2265,13 @@
                           "memberName": "encode",
                           "nodeType": "MemberAccess",
                           "referencedDeclaration": null,
-                          "src": "4055:10:46",
+                          "src": "4055:10:227",
                           "typeDescriptions": {
                             "typeIdentifier": "t_function_abiencode_pure$__$returns$_t_bytes_memory_ptr_$",
                             "typeString": "function () pure returns (bytes memory)"
                           }
                         },
-                        "id": 11526,
+                        "id": 61237,
                         "isConstant": false,
                         "isLValue": false,
                         "isPure": false,
@@ -2279,7 +2279,7 @@
                         "lValueRequested": false,
                         "names": [],
                         "nodeType": "FunctionCall",
-                        "src": "4055:29:46",
+                        "src": "4055:29:227",
                         "tryCall": false,
                         "typeDescriptions": {
                           "typeIdentifier": "t_bytes_memory_ptr",
@@ -2290,7 +2290,7 @@
                     "expression": {
                       "argumentTypes": [
                         {
-                          "typeIdentifier": "t_enum$_VaultAction_$5102",
+                          "typeIdentifier": "t_enum$_VaultAction_$17138",
                           "typeString": "enum IVault.VaultAction"
                         },
                         {
@@ -2303,12 +2303,12 @@
                         "arguments": [
                           {
                             "argumentTypes": null,
-                            "id": 11517,
+                            "id": 61228,
                             "name": "_comptrollerProxy",
                             "nodeType": "Identifier",
                             "overloadedDeclarations": [],
-                            "referencedDeclaration": 11511,
-                            "src": "3944:17:46",
+                            "referencedDeclaration": 61222,
+                            "src": "3944:17:227",
                             "typeDescriptions": {
                               "typeIdentifier": "t_address",
                               "typeString": "address"
@@ -2322,18 +2322,18 @@
                               "typeString": "address"
                             }
                           ],
-                          "id": 11516,
+                          "id": 61227,
                           "name": "IComptroller",
                           "nodeType": "Identifier",
                           "overloadedDeclarations": [],
-                          "referencedDeclaration": 5075,
-                          "src": "3931:12:46",
+                          "referencedDeclaration": 17111,
+                          "src": "3931:12:227",
                           "typeDescriptions": {
-                            "typeIdentifier": "t_type$_t_contract$_IComptroller_$5075_$",
+                            "typeIdentifier": "t_type$_t_contract$_IComptroller_$17111_$",
                             "typeString": "type(contract IComptroller)"
                           }
                         },
-                        "id": 11518,
+                        "id": 61229,
                         "isConstant": false,
                         "isLValue": false,
                         "isPure": false,
@@ -2341,28 +2341,28 @@
                         "lValueRequested": false,
                         "names": [],
                         "nodeType": "FunctionCall",
-                        "src": "3931:31:46",
+                        "src": "3931:31:227",
                         "tryCall": false,
                         "typeDescriptions": {
-                          "typeIdentifier": "t_contract$_IComptroller_$5075",
+                          "typeIdentifier": "t_contract$_IComptroller_$17111",
                           "typeString": "contract IComptroller"
                         }
                       },
-                      "id": 11519,
+                      "id": 61230,
                       "isConstant": false,
                       "isLValue": false,
                       "isPure": false,
                       "lValueRequested": false,
                       "memberName": "permissionedVaultAction",
                       "nodeType": "MemberAccess",
-                      "referencedDeclaration": 5050,
-                      "src": "3931:55:46",
+                      "referencedDeclaration": 17086,
+                      "src": "3931:55:227",
                       "typeDescriptions": {
-                        "typeIdentifier": "t_function_external_nonpayable$_t_enum$_VaultAction_$5102_$_t_bytes_memory_ptr_$returns$__$",
+                        "typeIdentifier": "t_function_external_nonpayable$_t_enum$_VaultAction_$17138_$_t_bytes_memory_ptr_$returns$__$",
                         "typeString": "function (enum IVault.VaultAction,bytes memory) external"
                       }
                     },
-                    "id": 11527,
+                    "id": 61238,
                     "isConstant": false,
                     "isLValue": false,
                     "isPure": false,
@@ -2370,23 +2370,23 @@
                     "lValueRequested": false,
                     "names": [],
                     "nodeType": "FunctionCall",
-                    "src": "3931:163:46",
+                    "src": "3931:163:227",
                     "tryCall": false,
                     "typeDescriptions": {
                       "typeIdentifier": "t_tuple$__$",
                       "typeString": "tuple()"
                     }
                   },
-                  "id": 11528,
+                  "id": 61239,
                   "nodeType": "ExpressionStatement",
-                  "src": "3931:163:46"
+                  "src": "3931:163:227"
                 }
               ]
             },
             "documentation": {
-              "id": 11509,
+              "id": 61220,
               "nodeType": "StructuredDocumentation",
-              "src": "3617:190:46",
+              "src": "3617:190:227",
               "text": "@notice Removes an external position from the vaultProxy\n @param _comptrollerProxy The ComptrollerProxy of the fund\n @param _externalPosition The ExternalPosition to remove"
             },
             "implemented": true,
@@ -2395,18 +2395,18 @@
             "name": "__removeExternalPosition",
             "overrides": null,
             "parameters": {
-              "id": 11514,
+              "id": 61225,
               "nodeType": "ParameterList",
               "parameters": [
                 {
                   "constant": false,
-                  "id": 11511,
+                  "id": 61222,
                   "mutability": "mutable",
                   "name": "_comptrollerProxy",
                   "nodeType": "VariableDeclaration",
                   "overrides": null,
-                  "scope": 11530,
-                  "src": "3846:25:46",
+                  "scope": 61241,
+                  "src": "3846:25:227",
                   "stateVariable": false,
                   "storageLocation": "default",
                   "typeDescriptions": {
@@ -2414,10 +2414,10 @@
                     "typeString": "address"
                   },
                   "typeName": {
-                    "id": 11510,
+                    "id": 61221,
                     "name": "address",
                     "nodeType": "ElementaryTypeName",
-                    "src": "3846:7:46",
+                    "src": "3846:7:227",
                     "stateMutability": "nonpayable",
                     "typeDescriptions": {
                       "typeIdentifier": "t_address",
@@ -2429,13 +2429,13 @@
                 },
                 {
                   "constant": false,
-                  "id": 11513,
+                  "id": 61224,
                   "mutability": "mutable",
                   "name": "_externalPosition",
                   "nodeType": "VariableDeclaration",
                   "overrides": null,
-                  "scope": 11530,
-                  "src": "3873:25:46",
+                  "scope": 61241,
+                  "src": "3873:25:227",
                   "stateVariable": false,
                   "storageLocation": "default",
                   "typeDescriptions": {
@@ -2443,10 +2443,10 @@
                     "typeString": "address"
                   },
                   "typeName": {
-                    "id": 11512,
+                    "id": 61223,
                     "name": "address",
                     "nodeType": "ElementaryTypeName",
-                    "src": "3873:7:46",
+                    "src": "3873:7:227",
                     "stateMutability": "nonpayable",
                     "typeDescriptions": {
                       "typeIdentifier": "t_address",
@@ -2457,28 +2457,28 @@
                   "visibility": "internal"
                 }
               ],
-              "src": "3845:54:46"
+              "src": "3845:54:227"
             },
             "returnParameters": {
-              "id": 11515,
+              "id": 61226,
               "nodeType": "ParameterList",
               "parameters": [],
-              "src": "3921:0:46"
+              "src": "3921:0:227"
             },
-            "scope": 11609,
+            "scope": 61320,
             "stateMutability": "nonpayable",
             "virtual": false,
             "visibility": "internal"
           },
           {
-            "id": 11552,
+            "id": 61263,
             "nodeType": "FunctionDefinition",
-            "src": "4255:247:46",
+            "src": "4255:247:227",
             "nodes": [],
             "body": {
-              "id": 11551,
+              "id": 61262,
               "nodeType": "Block",
-              "src": "4337:165:46",
+              "src": "4337:165:227",
               "nodes": [],
               "statements": [
                 {
@@ -2491,32 +2491,32 @@
                           "argumentTypes": null,
                           "expression": {
                             "argumentTypes": null,
-                            "id": 11542,
+                            "id": 61253,
                             "name": "IVault",
                             "nodeType": "Identifier",
                             "overloadedDeclarations": [],
-                            "referencedDeclaration": 5218,
-                            "src": "4416:6:46",
+                            "referencedDeclaration": 17254,
+                            "src": "4416:6:227",
                             "typeDescriptions": {
-                              "typeIdentifier": "t_type$_t_contract$_IVault_$5218_$",
+                              "typeIdentifier": "t_type$_t_contract$_IVault_$17254_$",
                               "typeString": "type(contract IVault)"
                             }
                           },
-                          "id": 11543,
+                          "id": 61254,
                           "isConstant": false,
                           "isLValue": false,
                           "isPure": false,
                           "lValueRequested": false,
                           "memberName": "VaultAction",
                           "nodeType": "MemberAccess",
-                          "referencedDeclaration": 5102,
-                          "src": "4416:18:46",
+                          "referencedDeclaration": 17138,
+                          "src": "4416:18:227",
                           "typeDescriptions": {
-                            "typeIdentifier": "t_type$_t_enum$_VaultAction_$5102_$",
+                            "typeIdentifier": "t_type$_t_enum$_VaultAction_$17138_$",
                             "typeString": "type(enum IVault.VaultAction)"
                           }
                         },
-                        "id": 11544,
+                        "id": 61255,
                         "isConstant": false,
                         "isLValue": false,
                         "isPure": true,
@@ -2524,9 +2524,9 @@
                         "memberName": "RemoveTrackedAsset",
                         "nodeType": "MemberAccess",
                         "referencedDeclaration": null,
-                        "src": "4416:37:46",
+                        "src": "4416:37:227",
                         "typeDescriptions": {
-                          "typeIdentifier": "t_enum$_VaultAction_$5102",
+                          "typeIdentifier": "t_enum$_VaultAction_$17138",
                           "typeString": "enum IVault.VaultAction"
                         }
                       },
@@ -2535,12 +2535,12 @@
                         "arguments": [
                           {
                             "argumentTypes": null,
-                            "id": 11547,
+                            "id": 61258,
                             "name": "_asset",
                             "nodeType": "Identifier",
                             "overloadedDeclarations": [],
-                            "referencedDeclaration": 11535,
-                            "src": "4478:6:46",
+                            "referencedDeclaration": 61246,
+                            "src": "4478:6:227",
                             "typeDescriptions": {
                               "typeIdentifier": "t_address",
                               "typeString": "address"
@@ -2556,18 +2556,18 @@
                           ],
                           "expression": {
                             "argumentTypes": null,
-                            "id": 11545,
+                            "id": 61256,
                             "name": "abi",
                             "nodeType": "Identifier",
                             "overloadedDeclarations": [],
                             "referencedDeclaration": -1,
-                            "src": "4467:3:46",
+                            "src": "4467:3:227",
                             "typeDescriptions": {
                               "typeIdentifier": "t_magic_abi",
                               "typeString": "abi"
                             }
                           },
-                          "id": 11546,
+                          "id": 61257,
                           "isConstant": false,
                           "isLValue": false,
                           "isPure": true,
@@ -2575,13 +2575,13 @@
                           "memberName": "encode",
                           "nodeType": "MemberAccess",
                           "referencedDeclaration": null,
-                          "src": "4467:10:46",
+                          "src": "4467:10:227",
                           "typeDescriptions": {
                             "typeIdentifier": "t_function_abiencode_pure$__$returns$_t_bytes_memory_ptr_$",
                             "typeString": "function () pure returns (bytes memory)"
                           }
                         },
-                        "id": 11548,
+                        "id": 61259,
                         "isConstant": false,
                         "isLValue": false,
                         "isPure": false,
@@ -2589,7 +2589,7 @@
                         "lValueRequested": false,
                         "names": [],
                         "nodeType": "FunctionCall",
-                        "src": "4467:18:46",
+                        "src": "4467:18:227",
                         "tryCall": false,
                         "typeDescriptions": {
                           "typeIdentifier": "t_bytes_memory_ptr",
@@ -2600,7 +2600,7 @@
                     "expression": {
                       "argumentTypes": [
                         {
-                          "typeIdentifier": "t_enum$_VaultAction_$5102",
+                          "typeIdentifier": "t_enum$_VaultAction_$17138",
                           "typeString": "enum IVault.VaultAction"
                         },
                         {
@@ -2613,12 +2613,12 @@
                         "arguments": [
                           {
                             "argumentTypes": null,
-                            "id": 11539,
+                            "id": 61250,
                             "name": "_comptrollerProxy",
                             "nodeType": "Identifier",
                             "overloadedDeclarations": [],
-                            "referencedDeclaration": 11533,
-                            "src": "4360:17:46",
+                            "referencedDeclaration": 61244,
+                            "src": "4360:17:227",
                             "typeDescriptions": {
                               "typeIdentifier": "t_address",
                               "typeString": "address"
@@ -2632,18 +2632,18 @@
                               "typeString": "address"
                             }
                           ],
-                          "id": 11538,
+                          "id": 61249,
                           "name": "IComptroller",
                           "nodeType": "Identifier",
                           "overloadedDeclarations": [],
-                          "referencedDeclaration": 5075,
-                          "src": "4347:12:46",
+                          "referencedDeclaration": 17111,
+                          "src": "4347:12:227",
                           "typeDescriptions": {
-                            "typeIdentifier": "t_type$_t_contract$_IComptroller_$5075_$",
+                            "typeIdentifier": "t_type$_t_contract$_IComptroller_$17111_$",
                             "typeString": "type(contract IComptroller)"
                           }
                         },
-                        "id": 11540,
+                        "id": 61251,
                         "isConstant": false,
                         "isLValue": false,
                         "isPure": false,
@@ -2651,28 +2651,28 @@
                         "lValueRequested": false,
                         "names": [],
                         "nodeType": "FunctionCall",
-                        "src": "4347:31:46",
+                        "src": "4347:31:227",
                         "tryCall": false,
                         "typeDescriptions": {
-                          "typeIdentifier": "t_contract$_IComptroller_$5075",
+                          "typeIdentifier": "t_contract$_IComptroller_$17111",
                           "typeString": "contract IComptroller"
                         }
                       },
-                      "id": 11541,
+                      "id": 61252,
                       "isConstant": false,
                       "isLValue": false,
                       "isPure": false,
                       "lValueRequested": false,
                       "memberName": "permissionedVaultAction",
                       "nodeType": "MemberAccess",
-                      "referencedDeclaration": 5050,
-                      "src": "4347:55:46",
+                      "referencedDeclaration": 17086,
+                      "src": "4347:55:227",
                       "typeDescriptions": {
-                        "typeIdentifier": "t_function_external_nonpayable$_t_enum$_VaultAction_$5102_$_t_bytes_memory_ptr_$returns$__$",
+                        "typeIdentifier": "t_function_external_nonpayable$_t_enum$_VaultAction_$17138_$_t_bytes_memory_ptr_$returns$__$",
                         "typeString": "function (enum IVault.VaultAction,bytes memory) external"
                       }
                     },
-                    "id": 11549,
+                    "id": 61260,
                     "isConstant": false,
                     "isLValue": false,
                     "isPure": false,
@@ -2680,23 +2680,23 @@
                     "lValueRequested": false,
                     "names": [],
                     "nodeType": "FunctionCall",
-                    "src": "4347:148:46",
+                    "src": "4347:148:227",
                     "tryCall": false,
                     "typeDescriptions": {
                       "typeIdentifier": "t_tuple$__$",
                       "typeString": "tuple()"
                     }
                   },
-                  "id": 11550,
+                  "id": 61261,
                   "nodeType": "ExpressionStatement",
-                  "src": "4347:148:46"
+                  "src": "4347:148:227"
                 }
               ]
             },
             "documentation": {
-              "id": 11531,
+              "id": 61242,
               "nodeType": "StructuredDocumentation",
-              "src": "4107:143:46",
+              "src": "4107:143:227",
               "text": "@notice Removes a tracked asset\n @param _comptrollerProxy The ComptrollerProxy of the fund\n @param _asset The asset to remove"
             },
             "implemented": true,
@@ -2705,18 +2705,18 @@
             "name": "__removeTrackedAsset",
             "overrides": null,
             "parameters": {
-              "id": 11536,
+              "id": 61247,
               "nodeType": "ParameterList",
               "parameters": [
                 {
                   "constant": false,
-                  "id": 11533,
+                  "id": 61244,
                   "mutability": "mutable",
                   "name": "_comptrollerProxy",
                   "nodeType": "VariableDeclaration",
                   "overrides": null,
-                  "scope": 11552,
-                  "src": "4285:25:46",
+                  "scope": 61263,
+                  "src": "4285:25:227",
                   "stateVariable": false,
                   "storageLocation": "default",
                   "typeDescriptions": {
@@ -2724,10 +2724,10 @@
                     "typeString": "address"
                   },
                   "typeName": {
-                    "id": 11532,
+                    "id": 61243,
                     "name": "address",
                     "nodeType": "ElementaryTypeName",
-                    "src": "4285:7:46",
+                    "src": "4285:7:227",
                     "stateMutability": "nonpayable",
                     "typeDescriptions": {
                       "typeIdentifier": "t_address",
@@ -2739,13 +2739,13 @@
                 },
                 {
                   "constant": false,
-                  "id": 11535,
+                  "id": 61246,
                   "mutability": "mutable",
                   "name": "_asset",
                   "nodeType": "VariableDeclaration",
                   "overrides": null,
-                  "scope": 11552,
-                  "src": "4312:14:46",
+                  "scope": 61263,
+                  "src": "4312:14:227",
                   "stateVariable": false,
                   "storageLocation": "default",
                   "typeDescriptions": {
@@ -2753,10 +2753,10 @@
                     "typeString": "address"
                   },
                   "typeName": {
-                    "id": 11534,
+                    "id": 61245,
                     "name": "address",
                     "nodeType": "ElementaryTypeName",
-                    "src": "4312:7:46",
+                    "src": "4312:7:227",
                     "stateMutability": "nonpayable",
                     "typeDescriptions": {
                       "typeIdentifier": "t_address",
@@ -2767,28 +2767,28 @@
                   "visibility": "internal"
                 }
               ],
-              "src": "4284:43:46"
+              "src": "4284:43:227"
             },
             "returnParameters": {
-              "id": 11537,
+              "id": 61248,
               "nodeType": "ParameterList",
               "parameters": [],
-              "src": "4337:0:46"
+              "src": "4337:0:227"
             },
-            "scope": 11609,
+            "scope": 61320,
             "stateMutability": "nonpayable",
             "virtual": false,
             "visibility": "internal"
           },
           {
-            "id": 11580,
+            "id": 61291,
             "nodeType": "FunctionDefinition",
-            "src": "4818:319:46",
+            "src": "4818:319:227",
             "nodes": [],
             "body": {
-              "id": 11579,
+              "id": 61290,
               "nodeType": "Block",
-              "src": "4963:174:46",
+              "src": "4963:174:227",
               "nodes": [],
               "statements": [
                 {
@@ -2801,32 +2801,32 @@
                           "argumentTypes": null,
                           "expression": {
                             "argumentTypes": null,
-                            "id": 11568,
+                            "id": 61279,
                             "name": "IVault",
                             "nodeType": "Identifier",
                             "overloadedDeclarations": [],
-                            "referencedDeclaration": 5218,
-                            "src": "5042:6:46",
+                            "referencedDeclaration": 17254,
+                            "src": "5042:6:227",
                             "typeDescriptions": {
-                              "typeIdentifier": "t_type$_t_contract$_IVault_$5218_$",
+                              "typeIdentifier": "t_type$_t_contract$_IVault_$17254_$",
                               "typeString": "type(contract IVault)"
                             }
                           },
-                          "id": 11569,
+                          "id": 61280,
                           "isConstant": false,
                           "isLValue": false,
                           "isPure": false,
                           "lValueRequested": false,
                           "memberName": "VaultAction",
                           "nodeType": "MemberAccess",
-                          "referencedDeclaration": 5102,
-                          "src": "5042:18:46",
+                          "referencedDeclaration": 17138,
+                          "src": "5042:18:227",
                           "typeDescriptions": {
-                            "typeIdentifier": "t_type$_t_enum$_VaultAction_$5102_$",
+                            "typeIdentifier": "t_type$_t_enum$_VaultAction_$17138_$",
                             "typeString": "type(enum IVault.VaultAction)"
                           }
                         },
-                        "id": 11570,
+                        "id": 61281,
                         "isConstant": false,
                         "isLValue": false,
                         "isPure": true,
@@ -2834,9 +2834,9 @@
                         "memberName": "TransferShares",
                         "nodeType": "MemberAccess",
                         "referencedDeclaration": null,
-                        "src": "5042:33:46",
+                        "src": "5042:33:227",
                         "typeDescriptions": {
-                          "typeIdentifier": "t_enum$_VaultAction_$5102",
+                          "typeIdentifier": "t_enum$_VaultAction_$17138",
                           "typeString": "enum IVault.VaultAction"
                         }
                       },
@@ -2845,12 +2845,12 @@
                         "arguments": [
                           {
                             "argumentTypes": null,
-                            "id": 11573,
+                            "id": 61284,
                             "name": "_from",
                             "nodeType": "Identifier",
                             "overloadedDeclarations": [],
-                            "referencedDeclaration": 11557,
-                            "src": "5100:5:46",
+                            "referencedDeclaration": 61268,
+                            "src": "5100:5:227",
                             "typeDescriptions": {
                               "typeIdentifier": "t_address",
                               "typeString": "address"
@@ -2858,12 +2858,12 @@
                           },
                           {
                             "argumentTypes": null,
-                            "id": 11574,
+                            "id": 61285,
                             "name": "_to",
                             "nodeType": "Identifier",
                             "overloadedDeclarations": [],
-                            "referencedDeclaration": 11559,
-                            "src": "5107:3:46",
+                            "referencedDeclaration": 61270,
+                            "src": "5107:3:227",
                             "typeDescriptions": {
                               "typeIdentifier": "t_address",
                               "typeString": "address"
@@ -2871,12 +2871,12 @@
                           },
                           {
                             "argumentTypes": null,
-                            "id": 11575,
+                            "id": 61286,
                             "name": "_amount",
                             "nodeType": "Identifier",
                             "overloadedDeclarations": [],
-                            "referencedDeclaration": 11561,
-                            "src": "5112:7:46",
+                            "referencedDeclaration": 61272,
+                            "src": "5112:7:227",
                             "typeDescriptions": {
                               "typeIdentifier": "t_uint256",
                               "typeString": "uint256"
@@ -2900,18 +2900,18 @@
                           ],
                           "expression": {
                             "argumentTypes": null,
-                            "id": 11571,
+                            "id": 61282,
                             "name": "abi",
                             "nodeType": "Identifier",
                             "overloadedDeclarations": [],
                             "referencedDeclaration": -1,
-                            "src": "5089:3:46",
+                            "src": "5089:3:227",
                             "typeDescriptions": {
                               "typeIdentifier": "t_magic_abi",
                               "typeString": "abi"
                             }
                           },
-                          "id": 11572,
+                          "id": 61283,
                           "isConstant": false,
                           "isLValue": false,
                           "isPure": true,
@@ -2919,13 +2919,13 @@
                           "memberName": "encode",
                           "nodeType": "MemberAccess",
                           "referencedDeclaration": null,
-                          "src": "5089:10:46",
+                          "src": "5089:10:227",
                           "typeDescriptions": {
                             "typeIdentifier": "t_function_abiencode_pure$__$returns$_t_bytes_memory_ptr_$",
                             "typeString": "function () pure returns (bytes memory)"
                           }
                         },
-                        "id": 11576,
+                        "id": 61287,
                         "isConstant": false,
                         "isLValue": false,
                         "isPure": false,
@@ -2933,7 +2933,7 @@
                         "lValueRequested": false,
                         "names": [],
                         "nodeType": "FunctionCall",
-                        "src": "5089:31:46",
+                        "src": "5089:31:227",
                         "tryCall": false,
                         "typeDescriptions": {
                           "typeIdentifier": "t_bytes_memory_ptr",
@@ -2944,7 +2944,7 @@
                     "expression": {
                       "argumentTypes": [
                         {
-                          "typeIdentifier": "t_enum$_VaultAction_$5102",
+                          "typeIdentifier": "t_enum$_VaultAction_$17138",
                           "typeString": "enum IVault.VaultAction"
                         },
                         {
@@ -2957,12 +2957,12 @@
                         "arguments": [
                           {
                             "argumentTypes": null,
-                            "id": 11565,
+                            "id": 61276,
                             "name": "_comptrollerProxy",
                             "nodeType": "Identifier",
                             "overloadedDeclarations": [],
-                            "referencedDeclaration": 11555,
-                            "src": "4986:17:46",
+                            "referencedDeclaration": 61266,
+                            "src": "4986:17:227",
                             "typeDescriptions": {
                               "typeIdentifier": "t_address",
                               "typeString": "address"
@@ -2976,18 +2976,18 @@
                               "typeString": "address"
                             }
                           ],
-                          "id": 11564,
+                          "id": 61275,
                           "name": "IComptroller",
                           "nodeType": "Identifier",
                           "overloadedDeclarations": [],
-                          "referencedDeclaration": 5075,
-                          "src": "4973:12:46",
+                          "referencedDeclaration": 17111,
+                          "src": "4973:12:227",
                           "typeDescriptions": {
-                            "typeIdentifier": "t_type$_t_contract$_IComptroller_$5075_$",
+                            "typeIdentifier": "t_type$_t_contract$_IComptroller_$17111_$",
                             "typeString": "type(contract IComptroller)"
                           }
                         },
-                        "id": 11566,
+                        "id": 61277,
                         "isConstant": false,
                         "isLValue": false,
                         "isPure": false,
@@ -2995,28 +2995,28 @@
                         "lValueRequested": false,
                         "names": [],
                         "nodeType": "FunctionCall",
-                        "src": "4973:31:46",
+                        "src": "4973:31:227",
                         "tryCall": false,
                         "typeDescriptions": {
-                          "typeIdentifier": "t_contract$_IComptroller_$5075",
+                          "typeIdentifier": "t_contract$_IComptroller_$17111",
                           "typeString": "contract IComptroller"
                         }
                       },
-                      "id": 11567,
+                      "id": 61278,
                       "isConstant": false,
                       "isLValue": false,
                       "isPure": false,
                       "lValueRequested": false,
                       "memberName": "permissionedVaultAction",
                       "nodeType": "MemberAccess",
-                      "referencedDeclaration": 5050,
-                      "src": "4973:55:46",
+                      "referencedDeclaration": 17086,
+                      "src": "4973:55:227",
                       "typeDescriptions": {
-                        "typeIdentifier": "t_function_external_nonpayable$_t_enum$_VaultAction_$5102_$_t_bytes_memory_ptr_$returns$__$",
+                        "typeIdentifier": "t_function_external_nonpayable$_t_enum$_VaultAction_$17138_$_t_bytes_memory_ptr_$returns$__$",
                         "typeString": "function (enum IVault.VaultAction,bytes memory) external"
                       }
                     },
-                    "id": 11577,
+                    "id": 61288,
                     "isConstant": false,
                     "isLValue": false,
                     "isPure": false,
@@ -3024,23 +3024,23 @@
                     "lValueRequested": false,
                     "names": [],
                     "nodeType": "FunctionCall",
-                    "src": "4973:157:46",
+                    "src": "4973:157:227",
                     "tryCall": false,
                     "typeDescriptions": {
                       "typeIdentifier": "t_tuple$__$",
                       "typeString": "tuple()"
                     }
                   },
-                  "id": 11578,
+                  "id": 61289,
                   "nodeType": "ExpressionStatement",
-                  "src": "4973:157:46"
+                  "src": "4973:157:227"
                 }
               ]
             },
             "documentation": {
-              "id": 11553,
+              "id": 61264,
               "nodeType": "StructuredDocumentation",
-              "src": "4508:305:46",
+              "src": "4508:305:227",
               "text": "@notice Transfers fund shares from one account to another\n @param _comptrollerProxy The ComptrollerProxy of the fund\n @param _from The account from which to transfer shares\n @param _to The account to which to transfer shares\n @param _amount The amount of shares to transfer"
             },
             "implemented": true,
@@ -3049,18 +3049,18 @@
             "name": "__transferShares",
             "overrides": null,
             "parameters": {
-              "id": 11562,
+              "id": 61273,
               "nodeType": "ParameterList",
               "parameters": [
                 {
                   "constant": false,
-                  "id": 11555,
+                  "id": 61266,
                   "mutability": "mutable",
                   "name": "_comptrollerProxy",
                   "nodeType": "VariableDeclaration",
                   "overrides": null,
-                  "scope": 11580,
-                  "src": "4853:25:46",
+                  "scope": 61291,
+                  "src": "4853:25:227",
                   "stateVariable": false,
                   "storageLocation": "default",
                   "typeDescriptions": {
@@ -3068,10 +3068,10 @@
                     "typeString": "address"
                   },
                   "typeName": {
-                    "id": 11554,
+                    "id": 61265,
                     "name": "address",
                     "nodeType": "ElementaryTypeName",
-                    "src": "4853:7:46",
+                    "src": "4853:7:227",
                     "stateMutability": "nonpayable",
                     "typeDescriptions": {
                       "typeIdentifier": "t_address",
@@ -3083,13 +3083,13 @@
                 },
                 {
                   "constant": false,
-                  "id": 11557,
+                  "id": 61268,
                   "mutability": "mutable",
                   "name": "_from",
                   "nodeType": "VariableDeclaration",
                   "overrides": null,
-                  "scope": 11580,
-                  "src": "4888:13:46",
+                  "scope": 61291,
+                  "src": "4888:13:227",
                   "stateVariable": false,
                   "storageLocation": "default",
                   "typeDescriptions": {
@@ -3097,10 +3097,10 @@
                     "typeString": "address"
                   },
                   "typeName": {
-                    "id": 11556,
+                    "id": 61267,
                     "name": "address",
                     "nodeType": "ElementaryTypeName",
-                    "src": "4888:7:46",
+                    "src": "4888:7:227",
                     "stateMutability": "nonpayable",
                     "typeDescriptions": {
                       "typeIdentifier": "t_address",
@@ -3112,13 +3112,13 @@
                 },
                 {
                   "constant": false,
-                  "id": 11559,
+                  "id": 61270,
                   "mutability": "mutable",
                   "name": "_to",
                   "nodeType": "VariableDeclaration",
                   "overrides": null,
-                  "scope": 11580,
-                  "src": "4911:11:46",
+                  "scope": 61291,
+                  "src": "4911:11:227",
                   "stateVariable": false,
                   "storageLocation": "default",
                   "typeDescriptions": {
@@ -3126,10 +3126,10 @@
                     "typeString": "address"
                   },
                   "typeName": {
-                    "id": 11558,
+                    "id": 61269,
                     "name": "address",
                     "nodeType": "ElementaryTypeName",
-                    "src": "4911:7:46",
+                    "src": "4911:7:227",
                     "stateMutability": "nonpayable",
                     "typeDescriptions": {
                       "typeIdentifier": "t_address",
@@ -3141,13 +3141,13 @@
                 },
                 {
                   "constant": false,
-                  "id": 11561,
+                  "id": 61272,
                   "mutability": "mutable",
                   "name": "_amount",
                   "nodeType": "VariableDeclaration",
                   "overrides": null,
-                  "scope": 11580,
-                  "src": "4932:15:46",
+                  "scope": 61291,
+                  "src": "4932:15:227",
                   "stateVariable": false,
                   "storageLocation": "default",
                   "typeDescriptions": {
@@ -3155,10 +3155,10 @@
                     "typeString": "uint256"
                   },
                   "typeName": {
-                    "id": 11560,
+                    "id": 61271,
                     "name": "uint256",
                     "nodeType": "ElementaryTypeName",
-                    "src": "4932:7:46",
+                    "src": "4932:7:227",
                     "typeDescriptions": {
                       "typeIdentifier": "t_uint256",
                       "typeString": "uint256"
@@ -3168,28 +3168,28 @@
                   "visibility": "internal"
                 }
               ],
-              "src": "4843:110:46"
+              "src": "4843:110:227"
             },
             "returnParameters": {
-              "id": 11563,
+              "id": 61274,
               "nodeType": "ParameterList",
               "parameters": [],
-              "src": "4963:0:46"
+              "src": "4963:0:227"
             },
-            "scope": 11609,
+            "scope": 61320,
             "stateMutability": "nonpayable",
             "virtual": false,
             "visibility": "internal"
           },
           {
-            "id": 11608,
+            "id": 61319,
             "nodeType": "FunctionDefinition",
-            "src": "5448:331:46",
+            "src": "5448:331:227",
             "nodes": [],
             "body": {
-              "id": 11607,
+              "id": 61318,
               "nodeType": "Block",
-              "src": "5599:180:46",
+              "src": "5599:180:227",
               "nodes": [],
               "statements": [
                 {
@@ -3202,32 +3202,32 @@
                           "argumentTypes": null,
                           "expression": {
                             "argumentTypes": null,
-                            "id": 11596,
+                            "id": 61307,
                             "name": "IVault",
                             "nodeType": "Identifier",
                             "overloadedDeclarations": [],
-                            "referencedDeclaration": 5218,
-                            "src": "5678:6:46",
+                            "referencedDeclaration": 17254,
+                            "src": "5678:6:227",
                             "typeDescriptions": {
-                              "typeIdentifier": "t_type$_t_contract$_IVault_$5218_$",
+                              "typeIdentifier": "t_type$_t_contract$_IVault_$17254_$",
                               "typeString": "type(contract IVault)"
                             }
                           },
-                          "id": 11597,
+                          "id": 61308,
                           "isConstant": false,
                           "isLValue": false,
                           "isPure": false,
                           "lValueRequested": false,
                           "memberName": "VaultAction",
                           "nodeType": "MemberAccess",
-                          "referencedDeclaration": 5102,
-                          "src": "5678:18:46",
+                          "referencedDeclaration": 17138,
+                          "src": "5678:18:227",
                           "typeDescriptions": {
-                            "typeIdentifier": "t_type$_t_enum$_VaultAction_$5102_$",
+                            "typeIdentifier": "t_type$_t_enum$_VaultAction_$17138_$",
                             "typeString": "type(enum IVault.VaultAction)"
                           }
                         },
-                        "id": 11598,
+                        "id": 61309,
                         "isConstant": false,
                         "isLValue": false,
                         "isPure": true,
@@ -3235,9 +3235,9 @@
                         "memberName": "WithdrawAssetTo",
                         "nodeType": "MemberAccess",
                         "referencedDeclaration": null,
-                        "src": "5678:34:46",
+                        "src": "5678:34:227",
                         "typeDescriptions": {
-                          "typeIdentifier": "t_enum$_VaultAction_$5102",
+                          "typeIdentifier": "t_enum$_VaultAction_$17138",
                           "typeString": "enum IVault.VaultAction"
                         }
                       },
@@ -3246,12 +3246,12 @@
                         "arguments": [
                           {
                             "argumentTypes": null,
-                            "id": 11601,
+                            "id": 61312,
                             "name": "_asset",
                             "nodeType": "Identifier",
                             "overloadedDeclarations": [],
-                            "referencedDeclaration": 11585,
-                            "src": "5737:6:46",
+                            "referencedDeclaration": 61296,
+                            "src": "5737:6:227",
                             "typeDescriptions": {
                               "typeIdentifier": "t_address",
                               "typeString": "address"
@@ -3259,12 +3259,12 @@
                           },
                           {
                             "argumentTypes": null,
-                            "id": 11602,
+                            "id": 61313,
                             "name": "_target",
                             "nodeType": "Identifier",
                             "overloadedDeclarations": [],
-                            "referencedDeclaration": 11587,
-                            "src": "5745:7:46",
+                            "referencedDeclaration": 61298,
+                            "src": "5745:7:227",
                             "typeDescriptions": {
                               "typeIdentifier": "t_address",
                               "typeString": "address"
@@ -3272,12 +3272,12 @@
                           },
                           {
                             "argumentTypes": null,
-                            "id": 11603,
+                            "id": 61314,
                             "name": "_amount",
                             "nodeType": "Identifier",
                             "overloadedDeclarations": [],
-                            "referencedDeclaration": 11589,
-                            "src": "5754:7:46",
+                            "referencedDeclaration": 61300,
+                            "src": "5754:7:227",
                             "typeDescriptions": {
                               "typeIdentifier": "t_uint256",
                               "typeString": "uint256"
@@ -3301,18 +3301,18 @@
                           ],
                           "expression": {
                             "argumentTypes": null,
-                            "id": 11599,
+                            "id": 61310,
                             "name": "abi",
                             "nodeType": "Identifier",
                             "overloadedDeclarations": [],
                             "referencedDeclaration": -1,
-                            "src": "5726:3:46",
+                            "src": "5726:3:227",
                             "typeDescriptions": {
                               "typeIdentifier": "t_magic_abi",
                               "typeString": "abi"
                             }
                           },
-                          "id": 11600,
+                          "id": 61311,
                           "isConstant": false,
                           "isLValue": false,
                           "isPure": true,
@@ -3320,13 +3320,13 @@
                           "memberName": "encode",
                           "nodeType": "MemberAccess",
                           "referencedDeclaration": null,
-                          "src": "5726:10:46",
+                          "src": "5726:10:227",
                           "typeDescriptions": {
                             "typeIdentifier": "t_function_abiencode_pure$__$returns$_t_bytes_memory_ptr_$",
                             "typeString": "function () pure returns (bytes memory)"
                           }
                         },
-                        "id": 11604,
+                        "id": 61315,
                         "isConstant": false,
                         "isLValue": false,
                         "isPure": false,
@@ -3334,7 +3334,7 @@
                         "lValueRequested": false,
                         "names": [],
                         "nodeType": "FunctionCall",
-                        "src": "5726:36:46",
+                        "src": "5726:36:227",
                         "tryCall": false,
                         "typeDescriptions": {
                           "typeIdentifier": "t_bytes_memory_ptr",
@@ -3345,7 +3345,7 @@
                     "expression": {
                       "argumentTypes": [
                         {
-                          "typeIdentifier": "t_enum$_VaultAction_$5102",
+                          "typeIdentifier": "t_enum$_VaultAction_$17138",
                           "typeString": "enum IVault.VaultAction"
                         },
                         {
@@ -3358,12 +3358,12 @@
                         "arguments": [
                           {
                             "argumentTypes": null,
-                            "id": 11593,
+                            "id": 61304,
                             "name": "_comptrollerProxy",
                             "nodeType": "Identifier",
                             "overloadedDeclarations": [],
-                            "referencedDeclaration": 11583,
-                            "src": "5622:17:46",
+                            "referencedDeclaration": 61294,
+                            "src": "5622:17:227",
                             "typeDescriptions": {
                               "typeIdentifier": "t_address",
                               "typeString": "address"
@@ -3377,18 +3377,18 @@
                               "typeString": "address"
                             }
                           ],
-                          "id": 11592,
+                          "id": 61303,
                           "name": "IComptroller",
                           "nodeType": "Identifier",
                           "overloadedDeclarations": [],
-                          "referencedDeclaration": 5075,
-                          "src": "5609:12:46",
+                          "referencedDeclaration": 17111,
+                          "src": "5609:12:227",
                           "typeDescriptions": {
-                            "typeIdentifier": "t_type$_t_contract$_IComptroller_$5075_$",
+                            "typeIdentifier": "t_type$_t_contract$_IComptroller_$17111_$",
                             "typeString": "type(contract IComptroller)"
                           }
                         },
-                        "id": 11594,
+                        "id": 61305,
                         "isConstant": false,
                         "isLValue": false,
                         "isPure": false,
@@ -3396,28 +3396,28 @@
                         "lValueRequested": false,
                         "names": [],
                         "nodeType": "FunctionCall",
-                        "src": "5609:31:46",
+                        "src": "5609:31:227",
                         "tryCall": false,
                         "typeDescriptions": {
-                          "typeIdentifier": "t_contract$_IComptroller_$5075",
+                          "typeIdentifier": "t_contract$_IComptroller_$17111",
                           "typeString": "contract IComptroller"
                         }
                       },
-                      "id": 11595,
+                      "id": 61306,
                       "isConstant": false,
                       "isLValue": false,
                       "isPure": false,
                       "lValueRequested": false,
                       "memberName": "permissionedVaultAction",
                       "nodeType": "MemberAccess",
-                      "referencedDeclaration": 5050,
-                      "src": "5609:55:46",
+                      "referencedDeclaration": 17086,
+                      "src": "5609:55:227",
                       "typeDescriptions": {
-                        "typeIdentifier": "t_function_external_nonpayable$_t_enum$_VaultAction_$5102_$_t_bytes_memory_ptr_$returns$__$",
+                        "typeIdentifier": "t_function_external_nonpayable$_t_enum$_VaultAction_$17138_$_t_bytes_memory_ptr_$returns$__$",
                         "typeString": "function (enum IVault.VaultAction,bytes memory) external"
                       }
                     },
-                    "id": 11605,
+                    "id": 61316,
                     "isConstant": false,
                     "isLValue": false,
                     "isPure": false,
@@ -3425,23 +3425,23 @@
                     "lValueRequested": false,
                     "names": [],
                     "nodeType": "FunctionCall",
-                    "src": "5609:163:46",
+                    "src": "5609:163:227",
                     "tryCall": false,
                     "typeDescriptions": {
                       "typeIdentifier": "t_tuple$__$",
                       "typeString": "tuple()"
                     }
                   },
-                  "id": 11606,
+                  "id": 61317,
                   "nodeType": "ExpressionStatement",
-                  "src": "5609:163:46"
+                  "src": "5609:163:227"
                 }
               ]
             },
             "documentation": {
-              "id": 11581,
+              "id": 61292,
               "nodeType": "StructuredDocumentation",
-              "src": "5143:300:46",
+              "src": "5143:300:227",
               "text": "@notice Withdraws an asset from the VaultProxy to a given account\n @param _comptrollerProxy The ComptrollerProxy of the fund\n @param _asset The asset to withdraw\n @param _target The account to which to withdraw the asset\n @param _amount The amount of asset to withdraw"
             },
             "implemented": true,
@@ -3450,18 +3450,18 @@
             "name": "__withdrawAssetTo",
             "overrides": null,
             "parameters": {
-              "id": 11590,
+              "id": 61301,
               "nodeType": "ParameterList",
               "parameters": [
                 {
                   "constant": false,
-                  "id": 11583,
+                  "id": 61294,
                   "mutability": "mutable",
                   "name": "_comptrollerProxy",
                   "nodeType": "VariableDeclaration",
                   "overrides": null,
-                  "scope": 11608,
-                  "src": "5484:25:46",
+                  "scope": 61319,
+                  "src": "5484:25:227",
                   "stateVariable": false,
                   "storageLocation": "default",
                   "typeDescriptions": {
@@ -3469,10 +3469,10 @@
                     "typeString": "address"
                   },
                   "typeName": {
-                    "id": 11582,
+                    "id": 61293,
                     "name": "address",
                     "nodeType": "ElementaryTypeName",
-                    "src": "5484:7:46",
+                    "src": "5484:7:227",
                     "stateMutability": "nonpayable",
                     "typeDescriptions": {
                       "typeIdentifier": "t_address",
@@ -3484,13 +3484,13 @@
                 },
                 {
                   "constant": false,
-                  "id": 11585,
+                  "id": 61296,
                   "mutability": "mutable",
                   "name": "_asset",
                   "nodeType": "VariableDeclaration",
                   "overrides": null,
-                  "scope": 11608,
-                  "src": "5519:14:46",
+                  "scope": 61319,
+                  "src": "5519:14:227",
                   "stateVariable": false,
                   "storageLocation": "default",
                   "typeDescriptions": {
@@ -3498,10 +3498,10 @@
                     "typeString": "address"
                   },
                   "typeName": {
-                    "id": 11584,
+                    "id": 61295,
                     "name": "address",
                     "nodeType": "ElementaryTypeName",
-                    "src": "5519:7:46",
+                    "src": "5519:7:227",
                     "stateMutability": "nonpayable",
                     "typeDescriptions": {
                       "typeIdentifier": "t_address",
@@ -3513,13 +3513,13 @@
                 },
                 {
                   "constant": false,
-                  "id": 11587,
+                  "id": 61298,
                   "mutability": "mutable",
                   "name": "_target",
                   "nodeType": "VariableDeclaration",
                   "overrides": null,
-                  "scope": 11608,
-                  "src": "5543:15:46",
+                  "scope": 61319,
+                  "src": "5543:15:227",
                   "stateVariable": false,
                   "storageLocation": "default",
                   "typeDescriptions": {
@@ -3527,10 +3527,10 @@
                     "typeString": "address"
                   },
                   "typeName": {
-                    "id": 11586,
+                    "id": 61297,
                     "name": "address",
                     "nodeType": "ElementaryTypeName",
-                    "src": "5543:7:46",
+                    "src": "5543:7:227",
                     "stateMutability": "nonpayable",
                     "typeDescriptions": {
                       "typeIdentifier": "t_address",
@@ -3542,13 +3542,13 @@
                 },
                 {
                   "constant": false,
-                  "id": 11589,
+                  "id": 61300,
                   "mutability": "mutable",
                   "name": "_amount",
                   "nodeType": "VariableDeclaration",
                   "overrides": null,
-                  "scope": 11608,
-                  "src": "5568:15:46",
+                  "scope": 61319,
+                  "src": "5568:15:227",
                   "stateVariable": false,
                   "storageLocation": "default",
                   "typeDescriptions": {
@@ -3556,10 +3556,10 @@
                     "typeString": "uint256"
                   },
                   "typeName": {
-                    "id": 11588,
+                    "id": 61299,
                     "name": "uint256",
                     "nodeType": "ElementaryTypeName",
-                    "src": "5568:7:46",
+                    "src": "5568:7:227",
                     "typeDescriptions": {
                       "typeIdentifier": "t_uint256",
                       "typeString": "uint256"
@@ -3569,15 +3569,15 @@
                   "visibility": "internal"
                 }
               ],
-              "src": "5474:115:46"
+              "src": "5474:115:227"
             },
             "returnParameters": {
-              "id": 11591,
+              "id": 61302,
               "nodeType": "ParameterList",
               "parameters": [],
-              "src": "5599:0:46"
+              "src": "5599:0:227"
             },
-            "scope": 11609,
+            "scope": 61320,
             "stateMutability": "nonpayable",
             "virtual": false,
             "visibility": "internal"
@@ -3588,20 +3588,20 @@
         "contractDependencies": [],
         "contractKind": "contract",
         "documentation": {
-          "id": 11367,
+          "id": 61078,
           "nodeType": "StructuredDocumentation",
-          "src": "379:185:46",
+          "src": "379:185:227",
           "text": "@title PermissionedVaultActionMixin Contract\n @author Enzyme Council <security@enzyme.finance>\n @notice A mixin contract for extensions that can make permissioned vault calls"
         },
         "fullyImplemented": true,
         "linearizedBaseContracts": [
-          11609
+          61320
         ],
         "name": "PermissionedVaultActionMixin",
-        "scope": 11610
+        "scope": 61321
       }
     ],
     "license": "GPL-3.0"
   },
-  "id": 46
+  "id": 227
 }

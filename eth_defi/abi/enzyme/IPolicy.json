@@ -325,19 +325,19 @@
   },
   "ast": {
     "absolutePath": "contracts/release/extensions/policy-manager/IPolicy.sol",
-    "id": 5237,
+    "id": 55817,
     "exportedSymbols": {
       "IPolicy": [
-        5236
+        55816
       ]
     },
     "nodeType": "SourceUnit",
-    "src": "255:899:15",
+    "src": "255:899:204",
     "nodes": [
       {
-        "id": 5187,
+        "id": 55767,
         "nodeType": "PragmaDirective",
-        "src": "255:23:15",
+        "src": "255:23:204",
         "nodes": [],
         "literals": [
           "solidity",
@@ -346,26 +346,26 @@
         ]
       },
       {
-        "id": 5188,
+        "id": 55768,
         "nodeType": "ImportDirective",
-        "src": "280:30:15",
+        "src": "280:30:204",
         "nodes": [],
         "absolutePath": "contracts/release/extensions/policy-manager/IPolicyManager.sol",
         "file": "./IPolicyManager.sol",
-        "scope": 5237,
-        "sourceUnit": 5262,
+        "scope": 55817,
+        "sourceUnit": 55842,
         "symbolAliases": [],
         "unitAlias": ""
       },
       {
-        "id": 5236,
+        "id": 55816,
         "nodeType": "ContractDefinition",
-        "src": "393:760:15",
+        "src": "393:760:204",
         "nodes": [
           {
-            "id": 5194,
+            "id": 55774,
             "nodeType": "FunctionDefinition",
-            "src": "417:61:15",
+            "src": "417:61:204",
             "nodes": [],
             "documentation": null,
             "functionSelector": "ceb9a0ad",
@@ -375,18 +375,18 @@
             "name": "activateForFund",
             "overrides": null,
             "parameters": {
-              "id": 5192,
+              "id": 55772,
               "nodeType": "ParameterList",
               "parameters": [
                 {
                   "constant": false,
-                  "id": 5191,
+                  "id": 55771,
                   "mutability": "mutable",
                   "name": "_comptrollerProxy",
                   "nodeType": "VariableDeclaration",
                   "overrides": null,
-                  "scope": 5194,
-                  "src": "442:25:15",
+                  "scope": 55774,
+                  "src": "442:25:204",
                   "stateVariable": false,
                   "storageLocation": "default",
                   "typeDescriptions": {
@@ -394,10 +394,10 @@
                     "typeString": "address"
                   },
                   "typeName": {
-                    "id": 5190,
+                    "id": 55770,
                     "name": "address",
                     "nodeType": "ElementaryTypeName",
-                    "src": "442:7:15",
+                    "src": "442:7:204",
                     "stateMutability": "nonpayable",
                     "typeDescriptions": {
                       "typeIdentifier": "t_address",
@@ -408,23 +408,23 @@
                   "visibility": "internal"
                 }
               ],
-              "src": "441:27:15"
+              "src": "441:27:204"
             },
             "returnParameters": {
-              "id": 5193,
+              "id": 55773,
               "nodeType": "ParameterList",
               "parameters": [],
-              "src": "477:0:15"
+              "src": "477:0:204"
             },
-            "scope": 5236,
+            "scope": 55816,
             "stateMutability": "nonpayable",
             "virtual": false,
             "visibility": "external"
           },
           {
-            "id": 5201,
+            "id": 55781,
             "nodeType": "FunctionDefinition",
-            "src": "484:94:15",
+            "src": "484:94:204",
             "nodes": [],
             "documentation": null,
             "functionSelector": "0f5f6b4f",
@@ -434,18 +434,18 @@
             "name": "addFundSettings",
             "overrides": null,
             "parameters": {
-              "id": 5199,
+              "id": 55779,
               "nodeType": "ParameterList",
               "parameters": [
                 {
                   "constant": false,
-                  "id": 5196,
+                  "id": 55776,
                   "mutability": "mutable",
                   "name": "_comptrollerProxy",
                   "nodeType": "VariableDeclaration",
                   "overrides": null,
-                  "scope": 5201,
-                  "src": "509:25:15",
+                  "scope": 55781,
+                  "src": "509:25:204",
                   "stateVariable": false,
                   "storageLocation": "default",
                   "typeDescriptions": {
@@ -453,10 +453,10 @@
                     "typeString": "address"
                   },
                   "typeName": {
-                    "id": 5195,
+                    "id": 55775,
                     "name": "address",
                     "nodeType": "ElementaryTypeName",
-                    "src": "509:7:15",
+                    "src": "509:7:204",
                     "stateMutability": "nonpayable",
                     "typeDescriptions": {
                       "typeIdentifier": "t_address",
@@ -468,13 +468,13 @@
                 },
                 {
                   "constant": false,
-                  "id": 5198,
+                  "id": 55778,
                   "mutability": "mutable",
                   "name": "_encodedSettings",
                   "nodeType": "VariableDeclaration",
                   "overrides": null,
-                  "scope": 5201,
-                  "src": "536:31:15",
+                  "scope": 55781,
+                  "src": "536:31:204",
                   "stateVariable": false,
                   "storageLocation": "calldata",
                   "typeDescriptions": {
@@ -482,10 +482,10 @@
                     "typeString": "bytes"
                   },
                   "typeName": {
-                    "id": 5197,
+                    "id": 55777,
                     "name": "bytes",
                     "nodeType": "ElementaryTypeName",
-                    "src": "536:5:15",
+                    "src": "536:5:204",
                     "typeDescriptions": {
                       "typeIdentifier": "t_bytes_storage_ptr",
                       "typeString": "bytes"
@@ -495,23 +495,23 @@
                   "visibility": "internal"
                 }
               ],
-              "src": "508:60:15"
+              "src": "508:60:204"
             },
             "returnParameters": {
-              "id": 5200,
+              "id": 55780,
               "nodeType": "ParameterList",
               "parameters": [],
-              "src": "577:0:15"
+              "src": "577:0:204"
             },
-            "scope": 5236,
+            "scope": 55816,
             "stateMutability": "nonpayable",
             "virtual": false,
             "visibility": "external"
           },
           {
-            "id": 5206,
+            "id": 55786,
             "nodeType": "FunctionDefinition",
-            "src": "584:63:15",
+            "src": "584:63:204",
             "nodes": [],
             "documentation": null,
             "functionSelector": "1ef92578",
@@ -521,24 +521,24 @@
             "name": "canDisable",
             "overrides": null,
             "parameters": {
-              "id": 5202,
+              "id": 55782,
               "nodeType": "ParameterList",
               "parameters": [],
-              "src": "603:2:15"
+              "src": "603:2:204"
             },
             "returnParameters": {
-              "id": 5205,
+              "id": 55785,
               "nodeType": "ParameterList",
               "parameters": [
                 {
                   "constant": false,
-                  "id": 5204,
+                  "id": 55784,
                   "mutability": "mutable",
                   "name": "canDisable_",
                   "nodeType": "VariableDeclaration",
                   "overrides": null,
-                  "scope": 5206,
-                  "src": "629:16:15",
+                  "scope": 55786,
+                  "src": "629:16:204",
                   "stateVariable": false,
                   "storageLocation": "default",
                   "typeDescriptions": {
@@ -546,10 +546,10 @@
                     "typeString": "bool"
                   },
                   "typeName": {
-                    "id": 5203,
+                    "id": 55783,
                     "name": "bool",
                     "nodeType": "ElementaryTypeName",
-                    "src": "629:4:15",
+                    "src": "629:4:204",
                     "typeDescriptions": {
                       "typeIdentifier": "t_bool",
                       "typeString": "bool"
@@ -559,17 +559,17 @@
                   "visibility": "internal"
                 }
               ],
-              "src": "628:18:15"
+              "src": "628:18:204"
             },
-            "scope": 5236,
+            "scope": 55816,
             "stateMutability": "pure",
             "virtual": false,
             "visibility": "external"
           },
           {
-            "id": 5211,
+            "id": 55791,
             "nodeType": "FunctionDefinition",
-            "src": "653:72:15",
+            "src": "653:72:204",
             "nodes": [],
             "documentation": null,
             "functionSelector": "7998a1c4",
@@ -579,24 +579,24 @@
             "name": "identifier",
             "overrides": null,
             "parameters": {
-              "id": 5207,
+              "id": 55787,
               "nodeType": "ParameterList",
               "parameters": [],
-              "src": "672:2:15"
+              "src": "672:2:204"
             },
             "returnParameters": {
-              "id": 5210,
+              "id": 55790,
               "nodeType": "ParameterList",
               "parameters": [
                 {
                   "constant": false,
-                  "id": 5209,
+                  "id": 55789,
                   "mutability": "mutable",
                   "name": "identifier_",
                   "nodeType": "VariableDeclaration",
                   "overrides": null,
-                  "scope": 5211,
-                  "src": "698:25:15",
+                  "scope": 55791,
+                  "src": "698:25:204",
                   "stateVariable": false,
                   "storageLocation": "memory",
                   "typeDescriptions": {
@@ -604,10 +604,10 @@
                     "typeString": "string"
                   },
                   "typeName": {
-                    "id": 5208,
+                    "id": 55788,
                     "name": "string",
                     "nodeType": "ElementaryTypeName",
-                    "src": "698:6:15",
+                    "src": "698:6:204",
                     "typeDescriptions": {
                       "typeIdentifier": "t_string_storage_ptr",
                       "typeString": "string"
@@ -617,17 +617,17 @@
                   "visibility": "internal"
                 }
               ],
-              "src": "697:27:15"
+              "src": "697:27:204"
             },
-            "scope": 5236,
+            "scope": 55816,
             "stateMutability": "pure",
             "virtual": false,
             "visibility": "external"
           },
           {
-            "id": 5217,
+            "id": 55797,
             "nodeType": "FunctionDefinition",
-            "src": "731:129:15",
+            "src": "731:129:204",
             "nodes": [],
             "documentation": null,
             "functionSelector": "cbf54bb2",
@@ -637,49 +637,49 @@
             "name": "implementedHooks",
             "overrides": null,
             "parameters": {
-              "id": 5212,
+              "id": 55792,
               "nodeType": "ParameterList",
               "parameters": [],
-              "src": "756:2:15"
+              "src": "756:2:204"
             },
             "returnParameters": {
-              "id": 5216,
+              "id": 55796,
               "nodeType": "ParameterList",
               "parameters": [
                 {
                   "constant": false,
-                  "id": 5215,
+                  "id": 55795,
                   "mutability": "mutable",
                   "name": "implementedHooks_",
                   "nodeType": "VariableDeclaration",
                   "overrides": null,
-                  "scope": 5217,
-                  "src": "806:52:15",
+                  "scope": 55797,
+                  "src": "806:52:204",
                   "stateVariable": false,
                   "storageLocation": "memory",
                   "typeDescriptions": {
-                    "typeIdentifier": "t_array$_t_enum$_PolicyHook_$5251_$dyn_memory_ptr",
+                    "typeIdentifier": "t_array$_t_enum$_PolicyHook_$55831_$dyn_memory_ptr",
                     "typeString": "enum IPolicyManager.PolicyHook[]"
                   },
                   "typeName": {
                     "baseType": {
                       "contractScope": null,
-                      "id": 5213,
+                      "id": 55793,
                       "name": "IPolicyManager.PolicyHook",
                       "nodeType": "UserDefinedTypeName",
-                      "referencedDeclaration": 5251,
-                      "src": "806:25:15",
+                      "referencedDeclaration": 55831,
+                      "src": "806:25:204",
                       "typeDescriptions": {
-                        "typeIdentifier": "t_enum$_PolicyHook_$5251",
+                        "typeIdentifier": "t_enum$_PolicyHook_$55831",
                         "typeString": "enum IPolicyManager.PolicyHook"
                       }
                     },
-                    "id": 5214,
+                    "id": 55794,
                     "length": null,
                     "nodeType": "ArrayTypeName",
-                    "src": "806:27:15",
+                    "src": "806:27:204",
                     "typeDescriptions": {
-                      "typeIdentifier": "t_array$_t_enum$_PolicyHook_$5251_$dyn_storage_ptr",
+                      "typeIdentifier": "t_array$_t_enum$_PolicyHook_$55831_$dyn_storage_ptr",
                       "typeString": "enum IPolicyManager.PolicyHook[]"
                     }
                   },
@@ -687,17 +687,17 @@
                   "visibility": "internal"
                 }
               ],
-              "src": "805:54:15"
+              "src": "805:54:204"
             },
-            "scope": 5236,
+            "scope": 55816,
             "stateMutability": "pure",
             "virtual": false,
             "visibility": "external"
           },
           {
-            "id": 5224,
+            "id": 55804,
             "nodeType": "FunctionDefinition",
-            "src": "866:105:15",
+            "src": "866:105:204",
             "nodes": [],
             "documentation": null,
             "functionSelector": "0d4d7510",
@@ -707,18 +707,18 @@
             "name": "updateFundSettings",
             "overrides": null,
             "parameters": {
-              "id": 5222,
+              "id": 55802,
               "nodeType": "ParameterList",
               "parameters": [
                 {
                   "constant": false,
-                  "id": 5219,
+                  "id": 55799,
                   "mutability": "mutable",
                   "name": "_comptrollerProxy",
                   "nodeType": "VariableDeclaration",
                   "overrides": null,
-                  "scope": 5224,
-                  "src": "894:25:15",
+                  "scope": 55804,
+                  "src": "894:25:204",
                   "stateVariable": false,
                   "storageLocation": "default",
                   "typeDescriptions": {
@@ -726,10 +726,10 @@
                     "typeString": "address"
                   },
                   "typeName": {
-                    "id": 5218,
+                    "id": 55798,
                     "name": "address",
                     "nodeType": "ElementaryTypeName",
-                    "src": "894:7:15",
+                    "src": "894:7:204",
                     "stateMutability": "nonpayable",
                     "typeDescriptions": {
                       "typeIdentifier": "t_address",
@@ -741,13 +741,13 @@
                 },
                 {
                   "constant": false,
-                  "id": 5221,
+                  "id": 55801,
                   "mutability": "mutable",
                   "name": "_encodedSettings",
                   "nodeType": "VariableDeclaration",
                   "overrides": null,
-                  "scope": 5224,
-                  "src": "921:31:15",
+                  "scope": 55804,
+                  "src": "921:31:204",
                   "stateVariable": false,
                   "storageLocation": "calldata",
                   "typeDescriptions": {
@@ -755,10 +755,10 @@
                     "typeString": "bytes"
                   },
                   "typeName": {
-                    "id": 5220,
+                    "id": 55800,
                     "name": "bytes",
                     "nodeType": "ElementaryTypeName",
-                    "src": "921:5:15",
+                    "src": "921:5:204",
                     "typeDescriptions": {
                       "typeIdentifier": "t_bytes_storage_ptr",
                       "typeString": "bytes"
@@ -768,23 +768,23 @@
                   "visibility": "internal"
                 }
               ],
-              "src": "893:60:15"
+              "src": "893:60:204"
             },
             "returnParameters": {
-              "id": 5223,
+              "id": 55803,
               "nodeType": "ParameterList",
               "parameters": [],
-              "src": "970:0:15"
+              "src": "970:0:204"
             },
-            "scope": 5236,
+            "scope": 55816,
             "stateMutability": "nonpayable",
             "virtual": false,
             "visibility": "external"
           },
           {
-            "id": 5235,
+            "id": 55815,
             "nodeType": "FunctionDefinition",
-            "src": "977:174:15",
+            "src": "977:174:204",
             "nodes": [],
             "documentation": null,
             "functionSelector": "579be718",
@@ -794,18 +794,18 @@
             "name": "validateRule",
             "overrides": null,
             "parameters": {
-              "id": 5231,
+              "id": 55811,
               "nodeType": "ParameterList",
               "parameters": [
                 {
                   "constant": false,
-                  "id": 5226,
+                  "id": 55806,
                   "mutability": "mutable",
                   "name": "_comptrollerProxy",
                   "nodeType": "VariableDeclaration",
                   "overrides": null,
-                  "scope": 5235,
-                  "src": "1008:25:15",
+                  "scope": 55815,
+                  "src": "1008:25:204",
                   "stateVariable": false,
                   "storageLocation": "default",
                   "typeDescriptions": {
@@ -813,10 +813,10 @@
                     "typeString": "address"
                   },
                   "typeName": {
-                    "id": 5225,
+                    "id": 55805,
                     "name": "address",
                     "nodeType": "ElementaryTypeName",
-                    "src": "1008:7:15",
+                    "src": "1008:7:204",
                     "stateMutability": "nonpayable",
                     "typeDescriptions": {
                       "typeIdentifier": "t_address",
@@ -828,28 +828,28 @@
                 },
                 {
                   "constant": false,
-                  "id": 5228,
+                  "id": 55808,
                   "mutability": "mutable",
                   "name": "_hook",
                   "nodeType": "VariableDeclaration",
                   "overrides": null,
-                  "scope": 5235,
-                  "src": "1043:31:15",
+                  "scope": 55815,
+                  "src": "1043:31:204",
                   "stateVariable": false,
                   "storageLocation": "default",
                   "typeDescriptions": {
-                    "typeIdentifier": "t_enum$_PolicyHook_$5251",
+                    "typeIdentifier": "t_enum$_PolicyHook_$55831",
                     "typeString": "enum IPolicyManager.PolicyHook"
                   },
                   "typeName": {
                     "contractScope": null,
-                    "id": 5227,
+                    "id": 55807,
                     "name": "IPolicyManager.PolicyHook",
                     "nodeType": "UserDefinedTypeName",
-                    "referencedDeclaration": 5251,
-                    "src": "1043:25:15",
+                    "referencedDeclaration": 55831,
+                    "src": "1043:25:204",
                     "typeDescriptions": {
-                      "typeIdentifier": "t_enum$_PolicyHook_$5251",
+                      "typeIdentifier": "t_enum$_PolicyHook_$55831",
                       "typeString": "enum IPolicyManager.PolicyHook"
                     }
                   },
@@ -858,13 +858,13 @@
                 },
                 {
                   "constant": false,
-                  "id": 5230,
+                  "id": 55810,
                   "mutability": "mutable",
                   "name": "_encodedArgs",
                   "nodeType": "VariableDeclaration",
                   "overrides": null,
-                  "scope": 5235,
-                  "src": "1084:27:15",
+                  "scope": 55815,
+                  "src": "1084:27:204",
                   "stateVariable": false,
                   "storageLocation": "calldata",
                   "typeDescriptions": {
@@ -872,10 +872,10 @@
                     "typeString": "bytes"
                   },
                   "typeName": {
-                    "id": 5229,
+                    "id": 55809,
                     "name": "bytes",
                     "nodeType": "ElementaryTypeName",
-                    "src": "1084:5:15",
+                    "src": "1084:5:204",
                     "typeDescriptions": {
                       "typeIdentifier": "t_bytes_storage_ptr",
                       "typeString": "bytes"
@@ -885,21 +885,21 @@
                   "visibility": "internal"
                 }
               ],
-              "src": "998:119:15"
+              "src": "998:119:204"
             },
             "returnParameters": {
-              "id": 5234,
+              "id": 55814,
               "nodeType": "ParameterList",
               "parameters": [
                 {
                   "constant": false,
-                  "id": 5233,
+                  "id": 55813,
                   "mutability": "mutable",
                   "name": "isValid_",
                   "nodeType": "VariableDeclaration",
                   "overrides": null,
-                  "scope": 5235,
-                  "src": "1136:13:15",
+                  "scope": 55815,
+                  "src": "1136:13:204",
                   "stateVariable": false,
                   "storageLocation": "default",
                   "typeDescriptions": {
@@ -907,10 +907,10 @@
                     "typeString": "bool"
                   },
                   "typeName": {
-                    "id": 5232,
+                    "id": 55812,
                     "name": "bool",
                     "nodeType": "ElementaryTypeName",
-                    "src": "1136:4:15",
+                    "src": "1136:4:204",
                     "typeDescriptions": {
                       "typeIdentifier": "t_bool",
                       "typeString": "bool"
@@ -920,9 +920,9 @@
                   "visibility": "internal"
                 }
               ],
-              "src": "1135:15:15"
+              "src": "1135:15:204"
             },
-            "scope": 5236,
+            "scope": 55816,
             "stateMutability": "nonpayable",
             "virtual": false,
             "visibility": "external"
@@ -933,20 +933,20 @@
         "contractDependencies": [],
         "contractKind": "interface",
         "documentation": {
-          "id": 5189,
+          "id": 55769,
           "nodeType": "StructuredDocumentation",
-          "src": "312:81:15",
+          "src": "312:81:204",
           "text": "@title Policy Interface\n @author Enzyme Council <security@enzyme.finance>"
         },
         "fullyImplemented": false,
         "linearizedBaseContracts": [
-          5236
+          55816
         ],
         "name": "IPolicy",
-        "scope": 5237
+        "scope": 55817
       }
     ],
     "license": "GPL-3.0"
   },
-  "id": 15
+  "id": 204
 }

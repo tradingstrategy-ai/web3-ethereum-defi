@@ -144,19 +144,19 @@
   },
   "ast": {
     "absolutePath": "node_modules/@uniswap/v3-periphery/contracts/interfaces/IPeripheryImmutableState.sol",
-    "id": 8095,
+    "id": 8021,
     "exportedSymbols": {
       "IPeripheryImmutableState": [
-        8094
+        8020
       ]
     },
     "nodeType": "SourceUnit",
-    "src": "45:374:49",
+    "src": "45:374:45",
     "nodes": [
       {
-        "id": 8080,
+        "id": 8006,
         "nodeType": "PragmaDirective",
-        "src": "45:24:49",
+        "src": "45:24:45",
         "nodes": [],
         "literals": [
           "solidity",
@@ -166,19 +166,19 @@
         ]
       },
       {
-        "id": 8094,
+        "id": 8020,
         "nodeType": "ContractDefinition",
-        "src": "162:256:49",
+        "src": "162:256:45",
         "nodes": [
           {
-            "id": 8087,
+            "id": 8013,
             "nodeType": "FunctionDefinition",
-            "src": "265:51:49",
+            "src": "265:51:45",
             "nodes": [],
             "documentation": {
-              "id": 8082,
+              "id": 8008,
               "nodeType": "StructuredDocumentation",
-              "src": "203:57:49",
+              "src": "203:57:45",
               "text": "@return Returns the address of the Uniswap V3 factory"
             },
             "functionSelector": "c45a0155",
@@ -187,23 +187,23 @@
             "modifiers": [],
             "name": "factory",
             "parameters": {
-              "id": 8083,
+              "id": 8009,
               "nodeType": "ParameterList",
               "parameters": [],
-              "src": "281:2:49"
+              "src": "281:2:45"
             },
             "returnParameters": {
-              "id": 8086,
+              "id": 8012,
               "nodeType": "ParameterList",
               "parameters": [
                 {
                   "constant": false,
-                  "id": 8085,
+                  "id": 8011,
                   "mutability": "mutable",
                   "name": "",
                   "nodeType": "VariableDeclaration",
-                  "scope": 8087,
-                  "src": "307:7:49",
+                  "scope": 8013,
+                  "src": "307:7:45",
                   "stateVariable": false,
                   "storageLocation": "default",
                   "typeDescriptions": {
@@ -211,10 +211,10 @@
                     "typeString": "address"
                   },
                   "typeName": {
-                    "id": 8084,
+                    "id": 8010,
                     "name": "address",
                     "nodeType": "ElementaryTypeName",
-                    "src": "307:7:49",
+                    "src": "307:7:45",
                     "stateMutability": "nonpayable",
                     "typeDescriptions": {
                       "typeIdentifier": "t_address",
@@ -224,22 +224,22 @@
                   "visibility": "internal"
                 }
               ],
-              "src": "306:9:49"
+              "src": "306:9:45"
             },
-            "scope": 8094,
+            "scope": 8020,
             "stateMutability": "view",
             "virtual": false,
             "visibility": "external"
           },
           {
-            "id": 8093,
+            "id": 8019,
             "nodeType": "FunctionDefinition",
-            "src": "367:49:49",
+            "src": "367:49:45",
             "nodes": [],
             "documentation": {
-              "id": 8088,
+              "id": 8014,
               "nodeType": "StructuredDocumentation",
-              "src": "322:40:49",
+              "src": "322:40:45",
               "text": "@return Returns the address of WETH9"
             },
             "functionSelector": "4aa4a4fc",
@@ -248,23 +248,23 @@
             "modifiers": [],
             "name": "WETH9",
             "parameters": {
-              "id": 8089,
+              "id": 8015,
               "nodeType": "ParameterList",
               "parameters": [],
-              "src": "381:2:49"
+              "src": "381:2:45"
             },
             "returnParameters": {
-              "id": 8092,
+              "id": 8018,
               "nodeType": "ParameterList",
               "parameters": [
                 {
                   "constant": false,
-                  "id": 8091,
+                  "id": 8017,
                   "mutability": "mutable",
                   "name": "",
                   "nodeType": "VariableDeclaration",
-                  "scope": 8093,
-                  "src": "407:7:49",
+                  "scope": 8019,
+                  "src": "407:7:45",
                   "stateVariable": false,
                   "storageLocation": "default",
                   "typeDescriptions": {
@@ -272,10 +272,10 @@
                     "typeString": "address"
                   },
                   "typeName": {
-                    "id": 8090,
+                    "id": 8016,
                     "name": "address",
                     "nodeType": "ElementaryTypeName",
-                    "src": "407:7:49",
+                    "src": "407:7:45",
                     "stateMutability": "nonpayable",
                     "typeDescriptions": {
                       "typeIdentifier": "t_address",
@@ -285,9 +285,9 @@
                   "visibility": "internal"
                 }
               ],
-              "src": "406:9:49"
+              "src": "406:9:45"
             },
-            "scope": 8094,
+            "scope": 8020,
             "stateMutability": "view",
             "virtual": false,
             "visibility": "external"
@@ -298,20 +298,20 @@
         "contractDependencies": [],
         "contractKind": "interface",
         "documentation": {
-          "id": 8081,
+          "id": 8007,
           "nodeType": "StructuredDocumentation",
-          "src": "71:91:49",
+          "src": "71:91:45",
           "text": "@title Immutable state\n @notice Functions that return immutable state of the router"
         },
         "fullyImplemented": false,
         "linearizedBaseContracts": [
-          8094
+          8020
         ],
         "name": "IPeripheryImmutableState",
-        "scope": 8095
+        "scope": 8021
       }
     ],
     "license": "GPL-2.0-or-later"
   },
-  "id": 49
+  "id": 45
 }

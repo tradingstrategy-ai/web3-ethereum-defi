@@ -1931,10 +1931,10 @@
                                   "name": "ERC20",
                                   "nodeType": "Identifier",
                                   "overloadedDeclarations": [],
-                                  "referencedDeclaration": 83381,
+                                  "referencedDeclaration": 104903,
                                   "src": "2731:5:186",
                                   "typeDescriptions": {
-                                    "typeIdentifier": "t_type$_t_contract$_ERC20_$83381_$",
+                                    "typeIdentifier": "t_type$_t_contract$_ERC20_$104903_$",
                                     "typeString": "type(contract ERC20)"
                                   }
                                 },
@@ -1949,7 +1949,7 @@
                                 "src": "2731:32:186",
                                 "tryCall": false,
                                 "typeDescriptions": {
-                                  "typeIdentifier": "t_contract$_ERC20_$83381",
+                                  "typeIdentifier": "t_contract$_ERC20_$104903",
                                   "typeString": "contract ERC20"
                                 }
                               },
@@ -1960,10 +1960,10 @@
                               "lValueRequested": false,
                               "memberName": "safeTransfer",
                               "nodeType": "MemberAccess",
-                              "referencedDeclaration": 83552,
+                              "referencedDeclaration": 105074,
                               "src": "2731:45:186",
                               "typeDescriptions": {
-                                "typeIdentifier": "t_function_internal_nonpayable$_t_contract$_IERC20_$83518_$_t_address_$_t_uint256_$returns$__$bound_to$_t_contract$_IERC20_$83518_$",
+                                "typeIdentifier": "t_function_internal_nonpayable$_t_contract$_IERC20_$105040_$_t_address_$_t_uint256_$returns$__$bound_to$_t_contract$_IERC20_$105040_$",
                                 "typeString": "function (contract IERC20,address,uint256)"
                               }
                             },

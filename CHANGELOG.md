@@ -1,6 +1,7 @@
 # Current
 
-- TODO
+- Reorganise ABI compilation process, source dependencies and `eth_defi.abi` folder layout
+- Add `eth_defi.enzyme.vault_controlled_vallet`
 
 # 0.16.1 
 

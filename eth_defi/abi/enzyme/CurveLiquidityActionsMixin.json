@@ -238,7 +238,7 @@
         "absolutePath": "node_modules/@openzeppelin/contracts/utils/Strings.sol",
         "file": "@openzeppelin/contracts/utils/Strings.sol",
         "scope": 51309,
-        "sourceUnit": 84491,
+        "sourceUnit": 106013,
         "symbolAliases": [],
         "unitAlias": ""
       },
@@ -281,10 +281,10 @@
               "id": 50888,
               "name": "Strings",
               "nodeType": "UserDefinedTypeName",
-              "referencedDeclaration": 84490,
+              "referencedDeclaration": 106012,
               "src": "788:7:189",
               "typeDescriptions": {
-                "typeIdentifier": "t_contract$_Strings_$84490",
+                "typeIdentifier": "t_contract$_Strings_$106012",
                 "typeString": "library Strings"
               }
             },
@@ -998,10 +998,10 @@
                                         "name": "ERC20",
                                         "nodeType": "Identifier",
                                         "overloadedDeclarations": [],
-                                        "referencedDeclaration": 83381,
+                                        "referencedDeclaration": 104903,
                                         "src": "2380:5:189",
                                         "typeDescriptions": {
-                                          "typeIdentifier": "t_type$_t_contract$_ERC20_$83381_$",
+                                          "typeIdentifier": "t_type$_t_contract$_ERC20_$104903_$",
                                           "typeString": "type(contract ERC20)"
                                         }
                                       },
@@ -1016,7 +1016,7 @@
                                       "src": "2380:44:189",
                                       "tryCall": false,
                                       "typeDescriptions": {
-                                        "typeIdentifier": "t_contract$_ERC20_$83381",
+                                        "typeIdentifier": "t_contract$_ERC20_$104903",
                                         "typeString": "contract ERC20"
                                       }
                                     },
@@ -1027,7 +1027,7 @@
                                     "lValueRequested": false,
                                     "memberName": "balanceOf",
                                     "nodeType": "MemberAccess",
-                                    "referencedDeclaration": 82981,
+                                    "referencedDeclaration": 104503,
                                     "src": "2380:54:189",
                                     "typeDescriptions": {
                                       "typeIdentifier": "t_function_external_view$_t_address_$returns$_t_uint256_$",
@@ -4041,7 +4041,7 @@
                                   "lValueRequested": false,
                                   "memberName": "toString",
                                   "nodeType": "MemberAccess",
-                                  "referencedDeclaration": 84489,
+                                  "referencedDeclaration": 106011,
                                   "src": "6885:23:189",
                                   "typeDescriptions": {
                                     "typeIdentifier": "t_function_internal_pure$_t_uint256_$returns$_t_string_memory_ptr_$bound_to$_t_uint256_$",
@@ -5634,7 +5634,7 @@
                                   "lValueRequested": false,
                                   "memberName": "toString",
                                   "nodeType": "MemberAccess",
-                                  "referencedDeclaration": 84489,
+                                  "referencedDeclaration": 106011,
                                   "src": "8927:23:189",
                                   "typeDescriptions": {
                                     "typeIdentifier": "t_function_internal_pure$_t_uint256_$returns$_t_string_memory_ptr_$bound_to$_t_uint256_$",

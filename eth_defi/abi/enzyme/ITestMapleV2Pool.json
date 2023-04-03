@@ -1545,7 +1545,7 @@
         ],
         "contractDependencies": [
           80573,
-          83518
+          105040
         ],
         "contractKind": "interface",
         "documentation": {
@@ -1558,7 +1558,7 @@
         "linearizedBaseContracts": [
           80846,
           80573,
-          83518
+          105040
         ],
         "name": "ITestMapleV2Pool",
         "scope": 80847

@@ -106,19 +106,19 @@
   },
   "ast": {
     "absolutePath": "contracts/release/interfaces/ISynthetixProxyERC20.sol",
-    "id": 15651,
+    "id": 73350,
     "exportedSymbols": {
       "ISynthetixProxyERC20": [
-        15650
+        73349
       ]
     },
     "nodeType": "SourceUnit",
-    "src": "255:210:70",
+    "src": "255:210:335",
     "nodes": [
       {
-        "id": 15643,
+        "id": 73342,
         "nodeType": "PragmaDirective",
-        "src": "255:23:70",
+        "src": "255:23:335",
         "nodes": [],
         "literals": [
           "solidity",
@@ -127,14 +127,14 @@
         ]
       },
       {
-        "id": 15650,
+        "id": 73349,
         "nodeType": "ContractDefinition",
-        "src": "375:89:70",
+        "src": "375:89:335",
         "nodes": [
           {
-            "id": 15649,
+            "id": 73348,
             "nodeType": "FunctionDefinition",
-            "src": "412:50:70",
+            "src": "412:50:335",
             "nodes": [],
             "documentation": null,
             "functionSelector": "d4b83992",
@@ -144,24 +144,24 @@
             "name": "target",
             "overrides": null,
             "parameters": {
-              "id": 15645,
+              "id": 73344,
               "nodeType": "ParameterList",
               "parameters": [],
-              "src": "427:2:70"
+              "src": "427:2:335"
             },
             "returnParameters": {
-              "id": 15648,
+              "id": 73347,
               "nodeType": "ParameterList",
               "parameters": [
                 {
                   "constant": false,
-                  "id": 15647,
+                  "id": 73346,
                   "mutability": "mutable",
                   "name": "",
                   "nodeType": "VariableDeclaration",
                   "overrides": null,
-                  "scope": 15649,
-                  "src": "453:7:70",
+                  "scope": 73348,
+                  "src": "453:7:335",
                   "stateVariable": false,
                   "storageLocation": "default",
                   "typeDescriptions": {
@@ -169,10 +169,10 @@
                     "typeString": "address"
                   },
                   "typeName": {
-                    "id": 15646,
+                    "id": 73345,
                     "name": "address",
                     "nodeType": "ElementaryTypeName",
-                    "src": "453:7:70",
+                    "src": "453:7:335",
                     "stateMutability": "nonpayable",
                     "typeDescriptions": {
                       "typeIdentifier": "t_address",
@@ -183,9 +183,9 @@
                   "visibility": "internal"
                 }
               ],
-              "src": "452:9:70"
+              "src": "452:9:335"
             },
-            "scope": 15650,
+            "scope": 73349,
             "stateMutability": "view",
             "virtual": false,
             "visibility": "external"
@@ -196,20 +196,20 @@
         "contractDependencies": [],
         "contractKind": "interface",
         "documentation": {
-          "id": 15644,
+          "id": 73343,
           "nodeType": "StructuredDocumentation",
-          "src": "280:95:70",
+          "src": "280:95:335",
           "text": "@title ISynthetixProxyERC20 Interface\n @author Enzyme Council <security@enzyme.finance>"
         },
         "fullyImplemented": false,
         "linearizedBaseContracts": [
-          15650
+          73349
         ],
         "name": "ISynthetixProxyERC20",
-        "scope": 15651
+        "scope": 73350
       }
     ],
     "license": "GPL-3.0"
   },
-  "id": 70
+  "id": 335
 }

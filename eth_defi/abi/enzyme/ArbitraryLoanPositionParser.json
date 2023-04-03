@@ -335,7 +335,7 @@
         "absolutePath": "node_modules/@openzeppelin/contracts/token/ERC20/ERC20.sol",
         "file": "@openzeppelin/contracts/token/ERC20/ERC20.sol",
         "scope": 22266,
-        "sourceUnit": 83382,
+        "sourceUnit": 104904,
         "symbolAliases": [],
         "unitAlias": ""
       },
@@ -1248,10 +1248,10 @@
                                         "name": "ERC20",
                                         "nodeType": "Identifier",
                                         "overloadedDeclarations": [],
-                                        "referencedDeclaration": 83381,
+                                        "referencedDeclaration": 104903,
                                         "src": "3686:5:94",
                                         "typeDescriptions": {
-                                          "typeIdentifier": "t_type$_t_contract$_ERC20_$83381_$",
+                                          "typeIdentifier": "t_type$_t_contract$_ERC20_$104903_$",
                                           "typeString": "type(contract ERC20)"
                                         }
                                       },
@@ -1266,7 +1266,7 @@
                                       "src": "3686:16:94",
                                       "tryCall": false,
                                       "typeDescriptions": {
-                                        "typeIdentifier": "t_contract$_ERC20_$83381",
+                                        "typeIdentifier": "t_contract$_ERC20_$104903",
                                         "typeString": "contract ERC20"
                                       }
                                     },
@@ -1277,7 +1277,7 @@
                                     "lValueRequested": false,
                                     "memberName": "balanceOf",
                                     "nodeType": "MemberAccess",
-                                    "referencedDeclaration": 82981,
+                                    "referencedDeclaration": 104503,
                                     "src": "3686:26:94",
                                     "typeDescriptions": {
                                       "typeIdentifier": "t_function_external_view$_t_address_$returns$_t_uint256_$",
@@ -1717,10 +1717,10 @@
                                       "name": "ERC20",
                                       "nodeType": "Identifier",
                                       "overloadedDeclarations": [],
-                                      "referencedDeclaration": 83381,
+                                      "referencedDeclaration": 104903,
                                       "src": "3235:5:94",
                                       "typeDescriptions": {
-                                        "typeIdentifier": "t_type$_t_contract$_ERC20_$83381_$",
+                                        "typeIdentifier": "t_type$_t_contract$_ERC20_$104903_$",
                                         "typeString": "type(contract ERC20)"
                                       }
                                     },
@@ -1735,7 +1735,7 @@
                                     "src": "3235:16:94",
                                     "tryCall": false,
                                     "typeDescriptions": {
-                                      "typeIdentifier": "t_contract$_ERC20_$83381",
+                                      "typeIdentifier": "t_contract$_ERC20_$104903",
                                       "typeString": "contract ERC20"
                                     }
                                   },
@@ -1746,7 +1746,7 @@
                                   "lValueRequested": false,
                                   "memberName": "balanceOf",
                                   "nodeType": "MemberAccess",
-                                  "referencedDeclaration": 82981,
+                                  "referencedDeclaration": 104503,
                                   "src": "3235:26:94",
                                   "typeDescriptions": {
                                     "typeIdentifier": "t_function_external_view$_t_address_$returns$_t_uint256_$",

@@ -1665,7 +1665,7 @@
         ],
         "contractDependencies": [
           71840,
-          83518
+          105040
         ],
         "contractKind": "interface",
         "documentation": {
@@ -1678,7 +1678,7 @@
         "linearizedBaseContracts": [
           72281,
           71840,
-          83518
+          105040
         ],
         "name": "IMapleV2Pool",
         "scope": 72282

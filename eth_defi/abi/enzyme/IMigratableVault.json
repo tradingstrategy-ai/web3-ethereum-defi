@@ -1,0 +1,588 @@
+{
+  "abi": [
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "_who",
+          "type": "address"
+        }
+      ],
+      "name": "canMigrate",
+      "outputs": [
+        {
+          "internalType": "bool",
+          "name": "canMigrate_",
+          "type": "bool"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "_owner",
+          "type": "address"
+        },
+        {
+          "internalType": "address",
+          "name": "_accessor",
+          "type": "address"
+        },
+        {
+          "internalType": "string",
+          "name": "_fundName",
+          "type": "string"
+        }
+      ],
+      "name": "init",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "_nextAccessor",
+          "type": "address"
+        }
+      ],
+      "name": "setAccessor",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "_nextVaultLib",
+          "type": "address"
+        }
+      ],
+      "name": "setVaultLib",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    }
+  ],
+  "bytecode": {
+    "object": "0x",
+    "sourceMap": "",
+    "linkReferences": {}
+  },
+  "deployedBytecode": {
+    "object": "0x",
+    "sourceMap": "",
+    "linkReferences": {}
+  },
+  "methodIdentifiers": {
+    "canMigrate(address)": "7de07cea",
+    "init(address,address,string)": "5c9a6d37",
+    "setAccessor(address)": "ab9253ac",
+    "setVaultLib(address)": "4140d607"
+  },
+  "rawMetadata": "{\"compiler\":{\"version\":\"0.6.12+commit.27d51765\"},\"language\":\"Solidity\",\"output\":{\"abi\":[{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_who\",\"type\":\"address\"}],\"name\":\"canMigrate\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"canMigrate_\",\"type\":\"bool\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_owner\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"_accessor\",\"type\":\"address\"},{\"internalType\":\"string\",\"name\":\"_fundName\",\"type\":\"string\"}],\"name\":\"init\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_nextAccessor\",\"type\":\"address\"}],\"name\":\"setAccessor\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_nextVaultLib\",\"type\":\"address\"}],\"name\":\"setVaultLib\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"}],\"devdoc\":{\"author\":\"Enzyme Council <security@enzyme.finance>\",\"details\":\"DO NOT EDIT CONTRACT\",\"kind\":\"dev\",\"methods\":{},\"title\":\"IMigratableVault Interface\",\"version\":1},\"userdoc\":{\"kind\":\"user\",\"methods\":{},\"version\":1}},\"settings\":{\"compilationTarget\":{\"contracts/persistent/vault/interfaces/IMigratableVault.sol\":\"IMigratableVault\"},\"evmVersion\":\"istanbul\",\"libraries\":{},\"metadata\":{\"bytecodeHash\":\"none\"},\"optimizer\":{\"details\":{\"constantOptimizer\":true,\"cse\":true,\"deduplicate\":true,\"jumpdestRemover\":true,\"orderLiterals\":true,\"peephole\":true,\"yul\":false},\"runs\":200},\"remappings\":[\":@enzyme/=contracts/\",\":@openzeppelin-solc-0.7/=node_modules/@openzeppelin-solc-0.7/\",\":@openzeppelin/=node_modules/@openzeppelin/\",\":@uniswap/=node_modules/@uniswap/\",\":base64-sol/=node_modules/base64-sol/\",\":ds-test/=lib/forge-std/lib/ds-test/src/\",\":forge-std/=lib/forge-std/src/\",\":hardhat-deploy/=node_modules/hardhat-deploy/\",\":hardhat/=node_modules/hardhat/\"]},\"sources\":{\"contracts/persistent/vault/interfaces/IMigratableVault.sol\":{\"keccak256\":\"0x8e1355a7efa8ec2172f5c9b532071def392b86ab1e5534d2fc73417a6e9f7238\",\"license\":\"GPL-3.0\",\"urls\":[\"bzz-raw://acaff907d8327cbd3060a3ac09f230c7bd78253d0f3f8186f8a5e7a9932b19f6\",\"dweb:/ipfs/QmPGbecKjcFMCg8rVW4M55JENKNH2KqdqATy5bgvnkMGqs\"]}},\"version\":1}",
+  "metadata": {
+    "compiler": {
+      "version": "0.6.12+commit.27d51765"
+    },
+    "language": "Solidity",
+    "output": {
+      "abi": [
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "_who",
+              "type": "address"
+            }
+          ],
+          "stateMutability": "view",
+          "type": "function",
+          "name": "canMigrate",
+          "outputs": [
+            {
+              "internalType": "bool",
+              "name": "canMigrate_",
+              "type": "bool"
+            }
+          ]
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "_owner",
+              "type": "address"
+            },
+            {
+              "internalType": "address",
+              "name": "_accessor",
+              "type": "address"
+            },
+            {
+              "internalType": "string",
+              "name": "_fundName",
+              "type": "string"
+            }
+          ],
+          "stateMutability": "nonpayable",
+          "type": "function",
+          "name": "init"
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "_nextAccessor",
+              "type": "address"
+            }
+          ],
+          "stateMutability": "nonpayable",
+          "type": "function",
+          "name": "setAccessor"
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "_nextVaultLib",
+              "type": "address"
+            }
+          ],
+          "stateMutability": "nonpayable",
+          "type": "function",
+          "name": "setVaultLib"
+        }
+      ],
+      "devdoc": {
+        "kind": "dev",
+        "methods": {},
+        "version": 1
+      },
+      "userdoc": {
+        "kind": "user",
+        "methods": {},
+        "version": 1
+      }
+    },
+    "settings": {
+      "remappings": [
+        ":@enzyme/=contracts/",
+        ":@openzeppelin-solc-0.7/=node_modules/@openzeppelin-solc-0.7/",
+        ":@openzeppelin/=node_modules/@openzeppelin/",
+        ":@uniswap/=node_modules/@uniswap/",
+        ":base64-sol/=node_modules/base64-sol/",
+        ":ds-test/=lib/forge-std/lib/ds-test/src/",
+        ":forge-std/=lib/forge-std/src/",
+        ":hardhat-deploy/=node_modules/hardhat-deploy/",
+        ":hardhat/=node_modules/hardhat/"
+      ],
+      "optimizer": {
+        "runs": 200,
+        "details": {
+          "peephole": true,
+          "jumpdestRemover": true,
+          "orderLiterals": true,
+          "deduplicate": true,
+          "cse": true,
+          "constantOptimizer": true,
+          "yul": false
+        }
+      },
+      "metadata": {
+        "bytecodeHash": "none"
+      },
+      "compilationTarget": {
+        "contracts/persistent/vault/interfaces/IMigratableVault.sol": "IMigratableVault"
+      },
+      "libraries": {}
+    },
+    "sources": {
+      "contracts/persistent/vault/interfaces/IMigratableVault.sol": {
+        "keccak256": "0x8e1355a7efa8ec2172f5c9b532071def392b86ab1e5534d2fc73417a6e9f7238",
+        "urls": [
+          "bzz-raw://acaff907d8327cbd3060a3ac09f230c7bd78253d0f3f8186f8a5e7a9932b19f6",
+          "dweb:/ipfs/QmPGbecKjcFMCg8rVW4M55JENKNH2KqdqATy5bgvnkMGqs"
+        ],
+        "license": "GPL-3.0"
+      }
+    },
+    "version": 1
+  },
+  "ast": {
+    "absolutePath": "contracts/persistent/vault/interfaces/IMigratableVault.sol",
+    "id": 11771,
+    "exportedSymbols": {
+      "IMigratableVault": [
+        11770
+      ]
+    },
+    "nodeType": "SourceUnit",
+    "src": "255:496:72",
+    "nodes": [
+      {
+        "id": 11742,
+        "nodeType": "PragmaDirective",
+        "src": "255:23:72",
+        "nodes": [],
+        "literals": [
+          "solidity",
+          "0.6",
+          ".12"
+        ]
+      },
+      {
+        "id": 11770,
+        "nodeType": "ContractDefinition",
+        "src": "401:349:72",
+        "nodes": [
+          {
+            "id": 11750,
+            "nodeType": "FunctionDefinition",
+            "src": "434:75:72",
+            "nodes": [],
+            "documentation": null,
+            "functionSelector": "7de07cea",
+            "implemented": false,
+            "kind": "function",
+            "modifiers": [],
+            "name": "canMigrate",
+            "overrides": null,
+            "parameters": {
+              "id": 11746,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 11745,
+                  "mutability": "mutable",
+                  "name": "_who",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 11750,
+                  "src": "454:12:72",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 11744,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "454:7:72",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "453:14:72"
+            },
+            "returnParameters": {
+              "id": 11749,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 11748,
+                  "mutability": "mutable",
+                  "name": "canMigrate_",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 11750,
+                  "src": "491:16:72",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_bool",
+                    "typeString": "bool"
+                  },
+                  "typeName": {
+                    "id": 11747,
+                    "name": "bool",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "491:4:72",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_bool",
+                      "typeString": "bool"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "490:18:72"
+            },
+            "scope": 11770,
+            "stateMutability": "view",
+            "virtual": false,
+            "visibility": "external"
+          },
+          {
+            "id": 11759,
+            "nodeType": "FunctionDefinition",
+            "src": "515:115:72",
+            "nodes": [],
+            "documentation": null,
+            "functionSelector": "5c9a6d37",
+            "implemented": false,
+            "kind": "function",
+            "modifiers": [],
+            "name": "init",
+            "overrides": null,
+            "parameters": {
+              "id": 11757,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 11752,
+                  "mutability": "mutable",
+                  "name": "_owner",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 11759,
+                  "src": "538:14:72",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 11751,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "538:7:72",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 11754,
+                  "mutability": "mutable",
+                  "name": "_accessor",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 11759,
+                  "src": "562:17:72",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 11753,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "562:7:72",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 11756,
+                  "mutability": "mutable",
+                  "name": "_fundName",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 11759,
+                  "src": "589:25:72",
+                  "stateVariable": false,
+                  "storageLocation": "calldata",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_string_calldata_ptr",
+                    "typeString": "string"
+                  },
+                  "typeName": {
+                    "id": 11755,
+                    "name": "string",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "589:6:72",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_string_storage_ptr",
+                      "typeString": "string"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "528:92:72"
+            },
+            "returnParameters": {
+              "id": 11758,
+              "nodeType": "ParameterList",
+              "parameters": [],
+              "src": "629:0:72"
+            },
+            "scope": 11770,
+            "stateMutability": "nonpayable",
+            "virtual": false,
+            "visibility": "external"
+          },
+          {
+            "id": 11764,
+            "nodeType": "FunctionDefinition",
+            "src": "636:53:72",
+            "nodes": [],
+            "documentation": null,
+            "functionSelector": "ab9253ac",
+            "implemented": false,
+            "kind": "function",
+            "modifiers": [],
+            "name": "setAccessor",
+            "overrides": null,
+            "parameters": {
+              "id": 11762,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 11761,
+                  "mutability": "mutable",
+                  "name": "_nextAccessor",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 11764,
+                  "src": "657:21:72",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 11760,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "657:7:72",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "656:23:72"
+            },
+            "returnParameters": {
+              "id": 11763,
+              "nodeType": "ParameterList",
+              "parameters": [],
+              "src": "688:0:72"
+            },
+            "scope": 11770,
+            "stateMutability": "nonpayable",
+            "virtual": false,
+            "visibility": "external"
+          },
+          {
+            "id": 11769,
+            "nodeType": "FunctionDefinition",
+            "src": "695:53:72",
+            "nodes": [],
+            "documentation": null,
+            "functionSelector": "4140d607",
+            "implemented": false,
+            "kind": "function",
+            "modifiers": [],
+            "name": "setVaultLib",
+            "overrides": null,
+            "parameters": {
+              "id": 11767,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 11766,
+                  "mutability": "mutable",
+                  "name": "_nextVaultLib",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 11769,
+                  "src": "716:21:72",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 11765,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "716:7:72",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "715:23:72"
+            },
+            "returnParameters": {
+              "id": 11768,
+              "nodeType": "ParameterList",
+              "parameters": [],
+              "src": "747:0:72"
+            },
+            "scope": 11770,
+            "stateMutability": "nonpayable",
+            "virtual": false,
+            "visibility": "external"
+          }
+        ],
+        "abstract": false,
+        "baseContracts": [],
+        "contractDependencies": [],
+        "contractKind": "interface",
+        "documentation": {
+          "id": 11743,
+          "nodeType": "StructuredDocumentation",
+          "src": "280:121:72",
+          "text": "@title IMigratableVault Interface\n @author Enzyme Council <security@enzyme.finance>\n @dev DO NOT EDIT CONTRACT"
+        },
+        "fullyImplemented": false,
+        "linearizedBaseContracts": [
+          11770
+        ],
+        "name": "IMigratableVault",
+        "scope": 11771
+      }
+    ],
+    "license": "GPL-3.0"
+  },
+  "id": 72
+}

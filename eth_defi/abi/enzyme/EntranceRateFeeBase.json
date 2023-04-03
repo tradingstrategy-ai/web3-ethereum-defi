@@ -873,7 +873,7 @@
         "absolutePath": "node_modules/@openzeppelin/contracts/math/SafeMath.sol",
         "file": "@openzeppelin/contracts/math/SafeMath.sol",
         "scope": 40131,
-        "sourceUnit": 82519,
+        "sourceUnit": 104041,
         "symbolAliases": [],
         "unitAlias": ""
       },
@@ -904,10 +904,10 @@
               "id": 39901,
               "name": "SafeMath",
               "nodeType": "UserDefinedTypeName",
-              "referencedDeclaration": 82518,
+              "referencedDeclaration": 104040,
               "src": "606:8:152",
               "typeDescriptions": {
-                "typeIdentifier": "t_contract$_SafeMath_$82518",
+                "typeIdentifier": "t_contract$_SafeMath_$104040",
                 "typeString": "library SafeMath"
               }
             },
@@ -2627,7 +2627,7 @@
                             "lValueRequested": false,
                             "memberName": "mul",
                             "nodeType": "MemberAccess",
-                            "referencedDeclaration": 82401,
+                            "referencedDeclaration": 103923,
                             "src": "3032:16:152",
                             "typeDescriptions": {
                               "typeIdentifier": "t_function_internal_pure$_t_uint256_$_t_uint256_$returns$_t_uint256_$bound_to$_t_uint256_$",
@@ -2656,7 +2656,7 @@
                         "lValueRequested": false,
                         "memberName": "div",
                         "nodeType": "MemberAccess",
-                        "referencedDeclaration": 82423,
+                        "referencedDeclaration": 103945,
                         "src": "3032:26:152",
                         "typeDescriptions": {
                           "typeIdentifier": "t_function_internal_pure$_t_uint256_$_t_uint256_$returns$_t_uint256_$bound_to$_t_uint256_$",
