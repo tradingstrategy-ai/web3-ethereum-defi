@@ -1,13 +1,13 @@
 [tool.poetry]
 name = "web3-ethereum-defi"
-version = "0.16"
+version = "0.16.1"
 description = "High level Python APIs for Ethereum-compatible smart contracts, blockchains and protocols like Uniswap, Aave, Enzyme"
 authors = ["Mikko Ohtamaa <mikko@tradingstrategy.ai>"]
 license = "MIT"
 homepage = "https://tradingstrategy.ai"
 repository = "https://github.com/tradingstrategy-ai/web3-ethereum-defi"
 readme = "README.md"
-keywords = ["ethereum", "cryptocurrency", "uniswap", "erc-20", "pancakeswap", "bnb chain", "polygon", "web3", "blockchain", "binance smart chain", "avalanche", "arbitrum"]
+keywords = ["ethereum", "cryptocurrency", "uniswap", "erc-20", "pancakeswap", "bnb smart chain", "polygon", "web3", "blockchain", "avalanche", "arbitrum", "chainlink"]
 packages = [
     { include = "eth_defi" },
 ]
