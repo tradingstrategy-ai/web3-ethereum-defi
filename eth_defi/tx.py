@@ -83,7 +83,7 @@ class AssetDelta:
     """
 
     #: The ERC-20 token for this delta.
-    asset: HexAddress
+    asset: HexAddress | str
 
     #: Changed amount.
     #:

@@ -1,10 +1,10 @@
-# Current
+# 0.17
 
-- Reorganise ABI compilation process, source dependencies and `eth_defi.abi` folder layout\
+- Reorganise ABI compilation process, source dependencies and `eth_defi.abi` folder layout
 - In-house contracts are now compiled using [Foundry](https://book.getfoundry.sh/)
 - Add `VaultSpecificGenericAdapter.sol` for Enzyme
 - Add `eth_defi.enzyme.vault_controlled_vallet`
-
+- Add `eth_defi.tx.AssetDelta`
 
 # 0.16.1 
 
