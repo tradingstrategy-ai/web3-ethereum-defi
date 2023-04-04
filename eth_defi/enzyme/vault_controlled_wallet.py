@@ -13,28 +13,7 @@ from hexbytes import HexBytes
 from web3.contract import Contract
 from web3.contract.contract import ContractFunction
 
-
-@dataclass(slots=True, frozen=True)
-class AssetDelta:
-    """Spend/incoming asset information."""
-
-    #: The ERC-20 token for this change
-    asset: HexAddress
-
-    #: Change
-    #:
-    #: Negative for tokens that are going to be used for purchases in this tx, positive for incoming
-    raw_amount: int
-
-    def __post_init__(self):
-        assert type(self.raw_amount) == int
-        assert type(self.asset) in (HexAddress, str)
-
-    def is_incoming(self) -> bool:
-        return self.raw_amount > 0
-
-    def is_spending(self) -> bool:
-        return self.raw_amount < 0
+from eth_defi.tx import AssetDelta
 
 
 @dataclass(slots=True, frozen=True)

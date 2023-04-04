@@ -418,7 +418,7 @@ def fetch_deployment(
 
     # https://github.com/Uniswap/v3-periphery/blob/6cce88e63e176af1ddb6cc56e029110289622317/contracts/SwapRouter.sol#L40
     weth_address = router.functions.WETH9().call()
-    weth = get_deployed_contract(web3, "WETH9Mock.json", weth_address)
+    weth = get_deployed_contract(web3, "sushi/WETH9Mock.json", weth_address)
 
     return UniswapV3Deployment(
         web3=web3,

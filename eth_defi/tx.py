@@ -1,9 +1,11 @@
-"""Transaction parsing utilities."""
+"""Transaction parsing and building utilities."""
 
+from dataclasses import dataclass
 from typing import Union
 
 from eth_account._utils.legacy_transactions import Transaction
 from eth_account._utils.typed_transactions import TypedTransaction
+from eth_typing import HexAddress
 from hexbytes import HexBytes
 
 
@@ -64,3 +66,40 @@ def decode_signed_transaction(raw_bytes: Union[bytes, str, HexBytes]) -> dict:
             return Transaction.from_bytes(raw_bytes).as_dict()
         except Exception as e:
             raise DecodeFailure(f"Could not decode transaction: {raw_bytes.hex()}") from e
+
+
+@dataclass(slots=True, frozen=True)
+class AssetDelta:
+    """Spend/incoming asset information.
+
+    Some transaction builders, like Enzyme vaults, need to have the incoming/outgoing
+    asset information associated with the transaction. This is because
+    internally Enzyme needs to move assets to the adapter contract from the vault
+    contract to perform the transaction.
+
+    We use this data structure to describe what assets the transaction touches.
+
+    See :py:mod:`eth_defi.enzyme.vault_transaction_builder` for more information.
+    """
+
+    #: The ERC-20 token for this delta.
+    asset: HexAddress
+
+    #: Changed amount.
+    #:
+    #: Negative for tokens that are going to be used for purchases in this tx, positive for incoming.
+    #:
+    #: Much include any slippage tolerance for trades.
+    raw_amount: int
+
+    def __post_init__(self):
+        assert type(self.raw_amount) == int
+        assert type(self.asset) in (HexAddress, str)
+
+    def is_incoming(self) -> bool:
+        """This delta describes incoming assets."""
+        return self.raw_amount > 0
+
+    def is_spending(self) -> bool:
+        """This delta describes assets that we spend in the transaction."""
+        return self.raw_amount < 0
