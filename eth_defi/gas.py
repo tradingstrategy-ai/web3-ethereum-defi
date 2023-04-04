@@ -49,6 +49,13 @@ class GasPriceSuggestion:
     def __repr__(self):
         return f"<Gas pricing method:{self.method.name} base:{self.base_fee} priority:{self.max_priority_fee_per_gas} max:{self.max_fee_per_gas} legacy:{self.legacy_gas_price}>"
 
+    def get_tx_gas_params(self) -> dict:
+        """Get gas params as they are applied to ContractFunction.build_transaction()"""
+        if self.base_fee is not None:
+            return {"maxPriorityFeePerGas": self.max_priority_fee_per_gas, "maxFeePerGas": self.max_fee_per_gas}
+        else:
+            return {"gasPrice": self.legacy_gas_price}
+
 
 def estimate_gas_fees(web3: Web3) -> GasPriceSuggestion:
     """Get a good gas price for a transaction.

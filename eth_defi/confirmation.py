@@ -86,7 +86,7 @@ def wait_transactions_to_complete(
                 receipt = None
 
             if receipt:
-                tx_confirmations = web3.eth.block_number - receipt.blockNumber
+                tx_confirmations = web3.eth.block_number - receipt['blockNumber']
                 if tx_confirmations >= confirmation_block_count:
                     logger.debug("Confirmed tx %s with %d confirmations", tx_hash.hex(), tx_confirmations)
                     confirmation_received.add(tx_hash)

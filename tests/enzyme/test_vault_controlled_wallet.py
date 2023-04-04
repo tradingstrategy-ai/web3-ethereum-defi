@@ -100,9 +100,8 @@ def test_repr(
 
     approve_tx = EnzymeVaultTransaction(
         usdc,
-        usdc.functions.approve,
+        usdc.functions.approve(uniswap_v2.router.address, 500 * 10**6),
         gas_limit=500_000,
-        args=[uniswap_v2.router.address, 500 * 10**6],
     )
 
     # Check EnzymeVaultTransaction.__repr__
@@ -114,7 +113,6 @@ def test_repr(
         uniswap_v2.router,
         uniswap_v2.router.functions.swapExactTokensForTokens,
         gas_limit=5750_000,
-        args=[],
         asset_deltas=[
             AssetDelta(weth.address, expected_incoming_amount),
             AssetDelta(usdc.address, -expected_outgoing_amount),
@@ -161,12 +159,12 @@ def test_vault_controlled_wallet_make_buy(
     # First approve tokens from the vault
     approve_tx = EnzymeVaultTransaction(
         usdc,
-        usdc.functions.approve,
+        usdc.functions.approve(uniswap_v2.router.address, swap_amount),
         gas_limit=500_000,
-        args=[uniswap_v2.router.address, swap_amount],
     )
 
-    signed = vault_wallet.sign_transaction_with_new_nonce(approve_tx)
+    signed, bound_func = vault_wallet.sign_transaction_with_new_nonce(approve_tx)
+    assert len(bound_func.args) > 0
     tx_hash = web3.eth.send_raw_transaction(signed.raw_transaction)
     assert_transaction_success_with_explanation(web3, tx_hash)
 
@@ -188,16 +186,16 @@ def test_vault_controlled_wallet_make_buy(
     # Then we swap them
     buy_tx = EnzymeVaultTransaction(
         uniswap_v2.router,
-        uniswap_v2.router.functions.swapExactTokensForTokens,
+        uniswap_v2.router.functions.swapExactTokensForTokens(token_in_swap_amount, 1, path, vault.generic_adapter.address, FOREVER_DEADLINE),
         gas_limit=1_750_000,
-        args=[token_in_swap_amount, 1, path, vault.generic_adapter.address, FOREVER_DEADLINE],
         asset_deltas=[
             AssetDelta(weth.address, int(token_out_amount * slippage_tolenrance)),
             AssetDelta(usdc.address, -token_in_amount),
         ],
     )
 
-    signed = vault_wallet.sign_transaction_with_new_nonce(buy_tx)
+    signed, bound_func = vault_wallet.sign_transaction_with_new_nonce(buy_tx)
+    assert len(bound_func.args) > 0
     tx_hash = web3.eth.send_raw_transaction(signed.raw_transaction)
     assert_transaction_success_with_explanation(web3, tx_hash)
 

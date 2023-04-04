@@ -14,13 +14,12 @@ packages = [
 
 [tool.poetry.dependencies]
 python = ">=3.10,<3.11"
-web3 = {version = "v6.0.0-beta.11", extras = ["tester"]}
 Sphinx = {version = "^4.5.0", optional = true}
 sphinx-rtd-theme = {version = "^1.0.0", optional = true}
 sphinx-sitemap = {version = "^2.2.0", optional = true}
 sphinx-autodoc-typehints = {version = "^1.16.0", optional = true}
 psutil = "^5.9.0"
-ujson = "^5.2.0"
+ujson = "5.7.0"
 futureproof = "^0.3.1"
 tqdm = {version = "^4.64.0", optional = true}
 pandas = {version = "^1.4.2", optional = true}
@@ -34,6 +33,7 @@ pyarrow = {version = "^10.0.1", optional = true}
 setuptools = {version = "^65.6.3"}
 eth-bloom = "^2.0.0"
 evm-trace = "^0.1.0a17"
+web3 = {version = "6.0.0", extras = ["tester"]}
 
 [tool.poetry.dev-dependencies]
 pytest = "^6.2.5"

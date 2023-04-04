@@ -91,6 +91,7 @@ class HotWallet:
 
         :param: Ethereum transaction data as a dict. This is modified in-place to include nonce.
         """
+        assert type(tx) == dict
         assert "nonce" not in tx
         tx["nonce"] = self.allocate_nonce()
         _signed = self.account.sign_transaction(tx)

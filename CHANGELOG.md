@@ -1,5 +1,9 @@
 # Current
 
+- Fix: Various fixes to transaction handling
+- Dependency version updates
+- Modify API `VaultControllerWallet.sign_transaction_with_new_nonce` API
+- Use bound `ContractFunction` in `EnzymeVaultTransaction`
 - Report the revert reason why Uniswap v2 pair deployment fails
 
 # 0.17

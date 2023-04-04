@@ -1,7 +1,7 @@
 """Vault owner wallet implementation.
 """
 from dataclasses import dataclass, field
-from typing import List, Collection, Any
+from typing import List, Collection, Any, Optional, Tuple
 
 from eth_defi.abi import encode_function_call
 from eth_defi.enzyme.generic_adapter import execute_calls_for_generic_adapter
@@ -38,16 +38,12 @@ class EnzymeVaultTransaction:
     contract: Contract
 
     #: Which smart contract we are calling
+    #:
+    #: `ContractFunction` must be bound to its args, have function.args and/or function.kwargs set.
     function: ContractFunction
 
     #: How much gas the hot wallet can spend on this tx
     gas_limit: int
-
-    #: Unencoded args to the Solidity function
-    args: Collection[Any] = field(default_factory=list)
-
-    #: Unencoded named args to the Solidity function
-    kwargs: Collection[Any] = field(default_factory=list)
 
     #: If this transaction results to changes in the vault balance it must be listed here.
     #:
@@ -63,8 +59,13 @@ class EnzymeVaultTransaction:
     def __repr__(self):
         incoming = ", ".join(self.incoming_assets)
         spending = ", ".join(self.spend_assets)
-        args = ", ".join([str(a) for a in self.args])
-        return f"Transaction with {self.contract.name}.{self.function.fn_name}({args}), incoming:[{incoming}], spending:[{spending}], gas:{self.gas_limit:,}"
+        arg_str = ", ".join([str(a) for a in self.args])
+        return f"Transaction with {self.contract.name}.{self.function.fn_name}({arg_str}), incoming:[{incoming}], spending:[{spending}], gas:{self.gas_limit:,}"
+
+    @property
+    def args(self) -> List[Any]:
+        """Unnamed arguments for this Solidity function."""
+        return self.function.args or []
 
     @property
     def incoming_assets(self) -> List[HexAddress]:
@@ -85,6 +86,16 @@ class EnzymeVaultTransaction:
     def encode_payload(self) -> HexBytes:
         """Get the data payload in Solidity's ABI encodePacked format"""
         return encode_function_call(self.function, self.args)
+
+    def as_json_friendly_dict(self) -> dict:
+        """Return human-readable, JSON'able, output for this transaction."""
+        return {
+            "contract": self.contract.address,
+            "function": self.function.fn_name,
+            "gas_limit": self.gas_limit,
+            "args": [str(a) for a in self.args],
+            "asset_deltas": [a.as_json_friendly_dict() for a in self.asset_deltas],
+        }
 
 
 class VaultControlledWallet:
@@ -116,10 +127,20 @@ class VaultControlledWallet:
         assert generic_adapter is not None, "GenericAdapter not configured for Enzyme deployment"
         return generic_adapter
 
-    def sign_transaction_with_new_nonce(self, tx: EnzymeVaultTransaction) -> SignedTransactionWithNonce:
+    def sign_transaction_with_new_nonce(
+            self,
+            tx: EnzymeVaultTransaction,
+            gas_params: Optional[dict] = None,
+        ) -> Tuple[SignedTransactionWithNonce, ContractFunction]:
         """Signs a transaction and allocates a nonce for it.
 
-        :param: Ethereum transaction data as a dict. This is modified in-place to include nonce.
+        :param:
+            Ethereum transaction data as a dict. This is modified in-place to include nonce.
+
+        :return:
+            Signed transaction and encoding information.
+
+            Tuple(Signed transaction ready for broadcasst, bound IntegrationManager.callOnExtension() function
         """
 
         assert isinstance(tx, EnzymeVaultTransaction), f"Got {tx}"
@@ -138,10 +159,16 @@ class VaultControlledWallet:
             spend_assets=tx.spend_assets,
         )
 
+        tx_params = {
+            "from": self.hot_wallet.address,
+            "gas": tx.gas_limit,
+        }
+
+        if gas_params:
+            tx_params.update(gas_params)
+
         tx = bound_call.build_transaction(
-            {
-                "from": self.hot_wallet.address,
-                "gas": tx.gas_limit,
-            }
+            tx_params
         )
-        return self.hot_wallet.sign_transaction_with_new_nonce(tx)
+
+        return self.hot_wallet.sign_transaction_with_new_nonce(tx), bound_call

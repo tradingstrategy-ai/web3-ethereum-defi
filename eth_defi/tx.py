@@ -104,3 +104,10 @@ class AssetDelta:
     def is_spending(self) -> bool:
         """This delta describes assets that we spend in the transaction."""
         return self.raw_amount < 0
+
+    def as_json_friendly_dict(self):
+        """Get the asset delta representation as JSON'nable dict.
+
+        We need to convert large Python ints to strings.
+        """
+        return {"asset": str(self.asset), "raw_amount": str(self.raw_amount)}
