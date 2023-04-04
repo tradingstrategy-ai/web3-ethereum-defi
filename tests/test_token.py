@@ -5,7 +5,7 @@ import pytest
 from eth_tester.exceptions import TransactionFailed
 from web3 import Web3, EthereumTesterProvider
 
-from eth_defi.deploy import deploy_contract
+from eth_defi.deploy import deploy_contract, get_registered_contract
 from eth_defi.token import create_token, fetch_erc20_details, TokenDetailError
 
 
@@ -63,6 +63,9 @@ def test_deploy_token(web3: Web3, deployer: str):
     assert token.functions.symbol().call() == "HENTAI"
     assert token.functions.totalSupply().call() == 100_000 * 10**18
     assert token.functions.decimals().call() == 6
+
+    registered_contract = get_registered_contract(web3, token.address)
+    assert registered_contract.name == "ERC20MockDecimals"
 
 
 def test_tranfer_tokens_between_users(web3: Web3, deployer: str, user_1, user_2):

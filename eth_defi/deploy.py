@@ -14,8 +14,8 @@ from eth_defi.abi import get_contract
 
 #: Manage internal registry of deployed contracts
 #:
-#:
-ContractRegistry: TypeAlias = Dict[HexAddress, Contract]
+#: Lower case address -> Contract mapping.
+ContractRegistry: TypeAlias = Dict[str, Contract]
 
 
 def deploy_contract(
@@ -104,7 +104,38 @@ def get_or_create_contract_registry(web3: Web3) -> ContractRegistry:
 
 
 def register_contract(web3, address: HexAddress, instance: Contract):
-    """Register a contract for tracing."""
+    """Register a contract for tracing.
 
+    See :py:func:`deploy_contract`.
+    """
+    assert type(address) == str, f"address is {type(address)}, expected str"
     registry = get_or_create_contract_registry(web3)
-    registry[address] = instance
+    registry[address.lower()] = instance
+
+
+def get_registered_contract(web3, address: str) -> Contract:
+    """Get a contract that was deployed with the registry.
+
+    - Resolve a symbolic contract information based on the contract address and our contract registry
+
+    - See :py:func:`eth_defi.deploy.deploy_contract` how to deploy a registered contract
+
+    Example:
+
+    .. code-block::
+
+         from eth_defi.deploy import get_registered_contract
+
+         contract = get_registered_contract(web3, "0x1613beb3b2c4f22ee086b2b38c1476a3ce7f78e8")
+         assert contract.name == "VaultSpecificGenericAdapter"
+
+    :param address:
+        Contract address as a hex string
+
+    :return:
+        The known Contract instance at the registry or `None` if the contract was not registered/deployed through registry mechanism.
+    """
+    assert type(address) == str
+    registry = get_or_create_contract_registry(web3)
+    return registry.get(address.lower())
+

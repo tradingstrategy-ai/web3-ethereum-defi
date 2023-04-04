@@ -92,7 +92,7 @@ class EnzymeVaultTransaction:
         return {
             "contract": self.contract.address,
             "function": self.function.fn_name,
-            "gas_limit": self.gas_limit,
+            "gas": self.gas_limit,
             "args": [str(a) for a in self.args],
             "asset_deltas": [a.as_json_friendly_dict() for a in self.asset_deltas],
         }

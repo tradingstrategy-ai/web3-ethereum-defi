@@ -369,7 +369,7 @@ class SymbolicTreeRepresentation:
             # Ignore checksumming if user does not have eth-hash backend installed.
             address = cast(ChecksumAddress, address_hex_str)
 
-        contract = self.contract_registry.get(address)
+        contract = self.contract_registry.get(address.lower())
 
         function_selector = self.call.calldata[:4]
 

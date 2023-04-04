@@ -92,6 +92,7 @@ def get_deployed_contract(
     web3: Web3,
     fname: str,
     address: Union[HexAddress, str],
+    register_for_tracing=True,
 ) -> Contract:
     """Get a Contract proxy objec for a contract deployed at a specific address.
 
@@ -106,12 +107,24 @@ def get_deployed_contract(
     :param address:
         Ethereum address of the deployed contract
 
+    :param register_for_tracing:
+        Add the contract to the deployment registry if not already there.
+
     :return:
         `web3.contract.Contract` proxy
     """
     assert address
     Contract = get_contract(web3, fname)
-    return Contract(address)
+    contract = Contract(address)
+
+    if register_for_tracing:
+        # TODO: Currently hack around circular imports, move functoins
+        from eth_defi.deploy import get_registered_contract, register_contract
+        registered_contract = get_registered_contract(web3, address)
+        if registered_contract is None:
+            register_contract(web3, address, contract)
+
+    return contract
 
 
 def get_transaction_data_field(tx: AttributeDict) -> str:

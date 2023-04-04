@@ -14,6 +14,7 @@ from eth_defi.deploy import deploy_contract
 from eth_defi.enzyme.deployment import EnzymeDeployment, RateAsset
 from eth_defi.enzyme.vault import Vault
 from eth_defi.enzyme.vault_controlled_wallet import VaultControlledWallet, EnzymeVaultTransaction
+from eth_defi.revert_reason import fetch_transaction_revert_reason
 from eth_defi.tx import AssetDelta
 from eth_defi.hotwallet import HotWallet
 from eth_defi.trace import assert_transaction_success_with_explanation
@@ -135,7 +136,9 @@ def test_vault_controlled_wallet_make_buy(
 ):
     """Buy tokens using vault controlled wallet interface."""
 
-    comptroller_contract, vault_contract = deployment.create_new_vault(hot_wallet.address, usdc, fund_name="Toholampi Juhannusjami", fund_symbol="JUUH")
+    comptroller_contract, vault_contract = deployment.create_new_vault(user_1, usdc, fund_name="Toholampi Juhannusjami", fund_symbol="JUUH")
+    tx_hash = vault_contract.functions.addAssetManagers([hot_wallet.address]).transact({"from": user_1})
+    assert_transaction_success_with_explanation(web3, tx_hash)
 
     generic_adapter = deploy_contract(
         web3,
@@ -152,7 +155,7 @@ def test_vault_controlled_wallet_make_buy(
 
     # Buy in to the vault
     usdc.functions.transfer(user_1, swap_amount).transact({"from": deployer})
-    usdc.functions.approve(vault.comptroller.address, 500 * 10**6).transact({"from": user_1})
+    usdc.functions.approve(vault.comptroller.address, swap_amount).transact({"from": user_1})
     vault.comptroller.functions.buyShares(swap_amount, 1).transact({"from": user_1})
     assert usdc.functions.balanceOf(vault.address).call() == swap_amount
 
@@ -201,3 +204,50 @@ def test_vault_controlled_wallet_make_buy(
 
     assert weth.functions.balanceOf(vault.address).call() > 0
     assert usdc.functions.balanceOf(vault.address).call() == 0
+
+
+def test_vault_controlled_wallet_make_unauthorised(
+    web3: Web3,
+    deployment: EnzymeDeployment,
+    uniswap_v2: UniswapV2Deployment,
+    hot_wallet: HotWallet,
+    deployer: HexAddress,
+    usdc: Contract,
+    weth: Contract,
+    user_1: HexAddress,
+    weth_usdc_pair: Contract,
+):
+    """If a hot wallet is not whitelisted as asset manager, the tx fails."""
+
+    comptroller_contract, vault_contract = deployment.create_new_vault(user_1, usdc, fund_name="Toholampi Juhannusjami", fund_symbol="JUUH")
+
+    generic_adapter = deploy_contract(
+        web3,
+        f"VaultSpecificGenericAdapter.json",
+        deployer,
+        deployment.contracts.integration_manager.address,
+        vault_contract.address,
+    )
+
+    vault = Vault(vault_contract, comptroller_contract, deployment, generic_adapter)
+    vault_wallet = VaultControlledWallet(vault, hot_wallet)
+
+    swap_amount = 500 * 10**6
+
+    # Buy in to the vault
+    usdc.functions.transfer(user_1, swap_amount).transact({"from": deployer})
+    usdc.functions.approve(vault.comptroller.address, swap_amount).transact({"from": user_1})
+    vault.comptroller.functions.buyShares(swap_amount, 1).transact({"from": user_1})
+    assert usdc.functions.balanceOf(vault.address).call() == swap_amount
+
+    # First approve tokens from the vault
+    approve_tx = EnzymeVaultTransaction(
+        usdc,
+        usdc.functions.approve(uniswap_v2.router.address, swap_amount),
+        gas_limit=500_000,
+    )
+
+    signed, bound_func = vault_wallet.sign_transaction_with_new_nonce(approve_tx)
+    tx_hash = web3.eth.send_raw_transaction(signed.raw_transaction)
+    reason = fetch_transaction_revert_reason(web3, tx_hash)
+    assert reason == "execution reverted: receiveCallFromComptroller: Unauthorized"
