@@ -95,6 +95,7 @@ class AssetDelta:
     def __post_init__(self):
         assert type(self.raw_amount) == int
         assert type(self.asset) in (HexAddress, str)
+        assert self.raw_amount, "Raw amount should be specified"
 
     def is_incoming(self) -> bool:
         """This delta describes incoming assets."""

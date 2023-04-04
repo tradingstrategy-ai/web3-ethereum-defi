@@ -23,11 +23,13 @@ from web3.contract import Contract
 
 from eth_defi.abi import get_contract, get_deployed_contract
 from eth_defi.deploy import deploy_contract
-
+from eth_defi.revert_reason import fetch_transaction_revert_reason
 
 #: A constant to tell the trade won't expire
 from eth_defi.uniswap_v2.utils import pair_for, sort_tokens
 from web3.exceptions import ContractLogicError
+
+from eth_defi.utils import ZERO_ADDRESS_STR
 
 FOREVER_DEADLINE = 2**63
 
@@ -196,9 +198,18 @@ def deploy_trading_pair(
     assert int(token_a.address, 16) < int(token_b.address, 16), "Uniswap v2 pairs must be always expressed in the ascending sorted order of their addresses"
 
     factory = deployment.factory
+
+    pair = factory.functions.getPair(token_a.address, token_b.address).call()
+    assert pair == ZERO_ADDRESS_STR, "Already deployed"
+
     # https://github.com/sushiswap/sushiswap/blob/4fdfeb7dafe852e738c56f11a6cae855e2fc0046/contracts/uniswapv2/UniswapV2Factory.sol#L30
-    tx_hash = factory.functions.createPair(token_a.address, token_b.address).transact({"from": deployer})
+    gas_limit = 2_500_000
+    tx_hash = factory.functions.createPair(token_a.address, token_b.address).transact({"from": deployer, "gas": gas_limit})
     tx_receipt = web3.eth.wait_for_transaction_receipt(tx_hash)
+
+    if tx_receipt["status"] == 0:
+        reason = fetch_transaction_revert_reason(web3, tx_hash)
+        raise AssertionError(f"createPair({token_a.address}, {token_b.address}) transaction failed: {reason}, details: {tx_receipt}")
 
     # https://ethereum.stackexchange.com/a/59288/620
     # (AttributeDict({'args': AttributeDict({'token0': '0x2946259E0334f33A064106302415aD3391BeD384', 'token1': '0xB9816fC57977D5A786E654c7CF76767be63b966e', 'pair': '0x1278b4F4c25eE23DEEd803F16620009cBFbe7B13', '': 1}), 'event': 'PairCreated', 'logIndex': 0, 'transactionIndex': 0, 'transactionHash': HexBytes('0x5eea43a588a2f5865c4bc381e395f0db9db56dd1727d2433694df1faeacae33c'), 'address': '0xF2E246BB76DF876Cef8b38ae84130F4F55De395b', 'blockHash': HexBytes('0x13377d7e8a1b96165dbb777a5c98d313ba6a795d988007377fbc3c1df28c2a5b'), 'blockNumber': 6}),)

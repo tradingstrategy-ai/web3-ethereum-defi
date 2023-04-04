@@ -1,3 +1,7 @@
+# Current
+
+- Report the revert reason why Uniswap v2 pair deployment fails
+
 # 0.17
 
 - Reorganise ABI compilation process, source dependencies and `eth_defi.abi` folder layout
