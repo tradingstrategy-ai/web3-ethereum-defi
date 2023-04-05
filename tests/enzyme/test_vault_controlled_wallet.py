@@ -2,6 +2,7 @@
 
 """
 import secrets
+from _decimal import Decimal
 
 import pytest
 from eth_account import Account
@@ -15,9 +16,11 @@ from eth_defi.enzyme.deployment import EnzymeDeployment, RateAsset
 from eth_defi.enzyme.vault import Vault
 from eth_defi.enzyme.vault_controlled_wallet import VaultControlledWallet, EnzymeVaultTransaction
 from eth_defi.revert_reason import fetch_transaction_revert_reason
+from eth_defi.trade import TradeSuccess
 from eth_defi.tx import AssetDelta
 from eth_defi.hotwallet import HotWallet
 from eth_defi.trace import assert_transaction_success_with_explanation
+from eth_defi.uniswap_v2.analysis import analyse_trade_by_hash
 from eth_defi.uniswap_v2.deployment import UniswapV2Deployment, FOREVER_DEADLINE
 
 
@@ -204,6 +207,13 @@ def test_vault_controlled_wallet_make_buy(
 
     assert weth.functions.balanceOf(vault.address).call() > 0
     assert usdc.functions.balanceOf(vault.address).call() == 0
+
+    analysis = analyse_trade_by_hash(web3, uniswap_v2, tx_hash.hex())
+    assert isinstance(analysis, TradeSuccess)
+    assert analysis.price == pytest.approx(Decimal(1 / 1608.814443329989974965040492))
+    assert analysis.amount_in_decimals == 6
+    assert analysis.amount_out_decimals == 18
+    assert analysis.amount_out == pytest.approx(310787861255819868)
 
 
 def test_vault_controlled_wallet_make_unauthorised(

@@ -2,10 +2,11 @@
 
 - Dependency version updates
 - Fix: Various fixes to transaction handling
+- Fix: Report the revert reason why Uniswap v2 pair deployment fails
+- Fix: `eth_defi.uniswap_v2.analysis.analyse_trade_by_receipt` supports complex compounded transactions
 - Add: `eth_defi.deploy.get_registered_contract` for unit test contract diagnosis
 - API change: `VaultControllerWallet.sign_transaction_with_new_nonce` has new API
 - API change:Use bound `ContractFunction` in `EnzymeVaultTransaction`
-- Fix: Report the revert reason why Uniswap v2 pair deployment fails
 
 # 0.17
 

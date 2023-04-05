@@ -122,7 +122,7 @@ def get_registered_contract(web3, address: str) -> Contract:
 
     Example:
 
-    .. code-block::
+    .. code-block:: python
 
          from eth_defi.deploy import get_registered_contract
 

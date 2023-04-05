@@ -6,7 +6,7 @@ from eth_defi.revert_reason import fetch_transaction_revert_reason
 from web3 import Web3
 from web3.logs import DISCARD
 
-from eth_defi.abi import get_transaction_data_field
+from eth_defi.abi import  get_deployed_contract
 from eth_defi.token import fetch_erc20_details
 from eth_defi.uniswap_v2.deployment import UniswapV2Deployment
 from eth_defi.trade import TradeFail, TradeSuccess
@@ -59,6 +59,10 @@ def analyse_trade_by_receipt(web3: Web3, uniswap: UniswapV2Deployment, tx: dict,
     See also :py:func:`analyse_trade_by_hash`.
     This function is more ideal for the cases where you know your transaction is already confirmed
     and you do not need to poll the chain for a receipt.
+
+    .. warning::
+
+        Assumes one trade per TX - cannot decode TXs with multiple trades in them.
 
     Example:
 
@@ -113,14 +117,13 @@ def analyse_trade_by_receipt(web3: Web3, uniswap: UniswapV2Deployment, tx: dict,
 
     # Decode inputs going to the Uniswap swap
     # https://stackoverflow.com/a/70737448/315168
-    function, input_args = router.decode_function_input(get_transaction_data_field(tx))
-    path = input_args["path"]
+    # function, input_args = router.decode_function_input(get_transaction_data_field(tx))
+    # path = input_args["path"]
+    # assert function.fn_name == "swapExactTokensForTokens", f"Unsupported Uniswap v2 trade function {function}"
+    # assert len(path), f"Seeing a bad path Uniswap routing {path}"
 
-    assert function.fn_name == "swapExactTokensForTokens", f"Unsupported Uniswap v2 trade function {function}"
-    assert len(path), f"Seeing a bad path Uniswap routing {path}"
-
-    amount_in = input_args["amountIn"]
-    amount_out_min = input_args["amountOutMin"]
+    # amount_in = input_args["amountIn"]
+    # amount_out_min = input_args["amountOutMin"]
 
     # Decode the last output.
     # Assume Swap events go in the same chain as path
@@ -130,18 +133,55 @@ def analyse_trade_by_receipt(web3: Web3, uniswap: UniswapV2Deployment, tx: dict,
     # Sync, etc. We are only interested in Swap events.
     events = swap.process_receipt(tx_receipt, errors=DISCARD)
 
+    assert len(events) > 0, f"No swap events detected:{tx_receipt}"
+
+    # Reconstruct path
+    path = []
+    for evt in events:
+        amount0_in = evt["args"]["amount0In"]
+        amount1_in = evt["args"]["amount1In"]
+        assert amount0_in == 0 or amount1_in == 0, "Unsupported analysis for multiple inputs"
+        pair = get_deployed_contract(web3, "sushi/UniswapV2Pair.json", events[0]["address"])
+        if amount0_in:
+            token_address = pair.functions.token0().call()
+            amount_in = amount0_in
+        else:
+            token_address = pair.functions.token1().call()
+            amount_in = amount1_in
+        path.append(token_address)
+
+    amount0_in = events[0]["args"]["amount0In"]
+    amount1_in = events[0]["args"]["amount1In"]
+    assert amount0_in == 0 or amount1_in == 0, "Unsupported analysis for multiple inputs"
+
+    first_pair = get_deployed_contract(web3, "sushi/UniswapV2Pair.json", events[0]["address"])
+    if amount0_in:
+        in_token_address = first_pair.functions.token0().call()
+        amount_in = amount0_in
+    else:
+        in_token_address = first_pair.functions.token1().call()
+        amount_in = amount1_in
+
+    in_token_details = fetch_erc20_details(web3, in_token_address)
+
     # (AttributeDict({'args': AttributeDict({'sender': '0xDe09E74d4888Bc4e65F589e8c13Bce9F71DdF4c7', 'to': '0x2B5AD5c4795c026514f8317c7a215E218DcCD6cF', 'amount0In': 0, 'amount1In': 500000000000000000000, 'amount0Out': 284881561276680858, 'amount1Out': 0}), 'event': 'Swap', 'logIndex': 4, 'transactionIndex': 0, 'transactionHash': HexBytes('0x58312ff98147ca16c3a81019c8bca390cd78963175e4c0a30643d45d274df947'), 'address': '0x68931307eDCB44c3389C507dAb8D5D64D242e58f', 'blockHash': HexBytes('0x1222012923c7024b1d49e1a3e58552b89e230f8317ac1b031f070c4845d55db1'), 'blockNumber': 12}),)
     amount0_out = events[-1]["args"]["amount0Out"]
     amount1_out = events[-1]["args"]["amount1Out"]
 
     # Depending on the path, the out token can pop up as amount0Out or amount1Out
     # For complex swaps (unspported) we can have both
-    assert amount0_out == 0 or amount1_out == 0, "Unsupported swap type"
+    assert amount0_out == 0 or amount1_out == 0, "Unsupported swap type: only one output token supported"
 
-    amount_out = amount0_out if amount0_out > 0 else amount1_out
+    last_pair = get_deployed_contract(web3, "sushi/UniswapV2Pair.json", events[-1]["address"])
+    if amount0_out:
+        out_token_address = last_pair.functions.token0().call()
+        amount_out = amount0_out
+    else:
+        out_token_address = last_pair.functions.token1().call()
+        amount_out = amount1_out
 
-    in_token_details = fetch_erc20_details(web3, path[0])
-    out_token_details = fetch_erc20_details(web3, path[-1])
+    out_token_details = fetch_erc20_details(web3, out_token_address)
+    path.append(out_token_address)
 
     amount_out_cleaned = Decimal(amount_out) / Decimal(10**out_token_details.decimals)
     amount_in_cleaned = Decimal(amount_in) / Decimal(10**in_token_details.decimals)
@@ -151,13 +191,13 @@ def analyse_trade_by_receipt(web3: Web3, uniswap: UniswapV2Deployment, tx: dict,
     return TradeSuccess(
         gas_used,
         effective_gas_price,
-        path,
-        amount_in,
-        amount_out_min,
-        amount_out,
-        price,
-        in_token_details.decimals,
-        out_token_details.decimals,
+        path=path,
+        amount_in=amount_in,
+        amount_out_min=None,
+        amount_out=amount_out,
+        price=price,
+        amount_in_decimals=in_token_details.decimals,
+        amount_out_decimals=out_token_details.decimals,
     )
 
 

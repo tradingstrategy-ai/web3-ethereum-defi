@@ -22,17 +22,22 @@ class TradeResult:
 
 @dataclass
 class TradeSuccess(TradeResult):
-    """Describe the result of a successful Uniswap swap."""
+    """Describe the result of a successful Uniswap swap.
+
+    See :py:func:`eth_defi.uniswap_v2.analysis.analyse_trade_by_receipt`
+    """
 
     #: Routing path that was used for this trade
-    path: List[HexAddress]
+    path: Optional[List[HexAddress]]
 
     amount_in: int
-    amount_out_min: int
+    amount_out_min: Optional[int]
     amount_out: int
 
     #: Overall price paid as in token (first in the path) to out token (last in the path).
+    #:
     #: Price includes any fees paid during the order routing path.
+    #:
     #: Note that you get inverse price, if you route ETH-USD or USD-ETH e.g. are you doing buy or sell.
     price: Decimal
 
