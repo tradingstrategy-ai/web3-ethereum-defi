@@ -2,6 +2,7 @@
 import os
 
 import flaky
+import pytest
 from web3 import Web3, HTTPProvider
 
 from eth_defi.chain import install_chain_middleware
@@ -11,6 +12,7 @@ from eth_defi.event_reader.reorganisation_monitor import JSONRPCReorganisationMo
 JSON_RPC_POLYGON = os.environ.get("JSON_RPC_POLYGON", "https://polygon-rpc.com")
 
 
+@pytest.mark.skipif(os.environ.get("CI"), reason="Too flaky to run on Github because public Polygon endpoint is crap")
 @flaky.flaky
 def test_polygon_block_headers():
     """Polygon block header data is downloaded."""
