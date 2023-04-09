@@ -12,8 +12,7 @@ from eth_defi.event_reader.reorganisation_monitor import JSONRPCReorganisationMo
 JSON_RPC_POLYGON = os.environ.get("JSON_RPC_POLYGON", "https://polygon-rpc.com")
 
 
-@pytest.mark.skipif(os.environ.get("CI"), reason="Too flaky to run on Github because public Polygon endpoint is crap")
-@flaky.flaky
+@pytest.mark.skipif(os.environ.get("CI") is not None, reason="Too flaky to run on Github because public Polygon endpoint is crap")
 def test_polygon_block_headers():
     """Polygon block header data is downloaded."""
     web3 = Web3(HTTPProvider(JSON_RPC_POLYGON))
