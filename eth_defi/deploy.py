@@ -138,4 +138,3 @@ def get_registered_contract(web3, address: str) -> Contract:
     assert type(address) == str
     registry = get_or_create_contract_registry(web3)
     return registry.get(address.lower())
-

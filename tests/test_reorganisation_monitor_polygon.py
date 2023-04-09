@@ -1,7 +1,6 @@
 """Test chain reorganisation monitor and connect to live Polygon network."""
 import os
 
-import flaky
 import pytest
 from web3 import Web3, HTTPProvider
 

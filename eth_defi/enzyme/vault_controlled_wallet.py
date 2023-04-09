@@ -128,10 +128,10 @@ class VaultControlledWallet:
         return generic_adapter
 
     def sign_transaction_with_new_nonce(
-            self,
-            tx: EnzymeVaultTransaction,
-            gas_params: Optional[dict] = None,
-        ) -> Tuple[SignedTransactionWithNonce, ContractFunction]:
+        self,
+        tx: EnzymeVaultTransaction,
+        gas_params: Optional[dict] = None,
+    ) -> Tuple[SignedTransactionWithNonce, ContractFunction]:
         """Signs a transaction and allocates a nonce for it.
 
         :param:
@@ -167,8 +167,6 @@ class VaultControlledWallet:
         if gas_params:
             tx_params.update(gas_params)
 
-        tx = bound_call.build_transaction(
-            tx_params
-        )
+        tx = bound_call.build_transaction(tx_params)
 
         return self.hot_wallet.sign_transaction_with_new_nonce(tx), bound_call

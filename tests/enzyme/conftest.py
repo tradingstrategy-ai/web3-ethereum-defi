@@ -205,5 +205,3 @@ def usdc_usd_mock_chainlink_aggregator(web3, deployer) -> Contract:
     tx_hash = aggregator.functions.setValue(1 * 10**8).transact({"from": deployer})
     assert_transaction_success_with_explanation(web3, tx_hash)
     return aggregator
-
-

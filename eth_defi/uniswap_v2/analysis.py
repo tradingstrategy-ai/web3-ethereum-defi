@@ -6,7 +6,7 @@ from eth_defi.revert_reason import fetch_transaction_revert_reason
 from web3 import Web3
 from web3.logs import DISCARD
 
-from eth_defi.abi import  get_deployed_contract
+from eth_defi.abi import get_deployed_contract
 from eth_defi.token import fetch_erc20_details
 from eth_defi.uniswap_v2.deployment import UniswapV2Deployment
 from eth_defi.trade import TradeFail, TradeSuccess

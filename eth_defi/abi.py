@@ -120,6 +120,7 @@ def get_deployed_contract(
     if register_for_tracing:
         # TODO: Currently hack around circular imports, move functoins
         from eth_defi.deploy import get_registered_contract, register_contract
+
         registered_contract = get_registered_contract(web3, address)
         if registered_contract is None:
             register_contract(web3, address, contract)
