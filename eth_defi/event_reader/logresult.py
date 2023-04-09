@@ -2,6 +2,7 @@
 
 from typing import TypedDict, List, Optional
 
+from hexbytes import HexBytes
 from web3.contract.contract import ContractEvent
 
 
@@ -55,6 +56,9 @@ class LogResult(TypedDict):
 
     #: Topics in this receipt.
     #: `topics[0]` is always the event signature.
+    #:
+    #: TODO: Whether these are strings or HexBytes depends on the EVM backend and Web3 version.
+    #: Resolve this ambigiuty so that results are normalised to one type.
     topics: List[str]
 
     #: Block reorg helper

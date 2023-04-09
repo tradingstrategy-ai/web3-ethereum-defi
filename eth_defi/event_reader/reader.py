@@ -266,9 +266,16 @@ def extract_events(
 
             if isinstance(log, AttributeDict):
                 # The following code is not going to work, because AttributeDict magic
-                raise RuntimeError("AttributeDict middleware detected. Please remove it with web3.middleware_onion.clear() before attempting to read events")
+                raise RuntimeError("web3.py AttributeDict middleware detected. Please remove it with web3.middleware_onion.remove('attrdict') or from web3.provider.middleware list before attempting to read events")
+
+            if isinstance(log["data"], HexBytes):
+                raise RuntimeError("web3.py pythonic middleware detected. Please remove it with web3.middleware_onion.remove('pythonic') before attempting to read events")
 
             log["context"] = context
+
+            if type(event_signature) == HexBytes:
+                # Make sure we use lowercase string notation everywhere
+                event_signature = event_signature.hex()
 
             log["event"] = filter.topics[event_signature]
 
@@ -387,7 +394,7 @@ def read_events(
         web3.middleware_onion.clear()
 
         # Get contracts
-        Factory = get_contract(web3, "UniswapV2Factory.json")
+        Factory = get_contract(web3, "sushi/UniswapV2Factory.json")
 
         events = [
             Factory.events.PairCreated, # https://etherscan.io/txs?ea=0x5c69bee701ef814a2b6a3edd4b1652cb9cc5aa6f&topic0=0x0d3648bd0f6ba80134a33ba9275ac585d9d315f0ad8355cddefde31afa28d0e9

@@ -1,6 +1,8 @@
-# Current
+# 0.18.1
 
-- TODO
+- Fix: Handle `HexBytes` event signatures for Web3 6.0 
+- API change: No longer allow `HexBytes` results to fall through in `LogResult` to make sure 
+  all event readers get the data in the same format
 
 # 0.18
 

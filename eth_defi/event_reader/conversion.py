@@ -1,5 +1,6 @@
 """Raw log event data conversion helpers."""
 from eth_typing import ChecksumAddress
+from hexbytes import HexBytes
 from web3 import Web3
 
 
@@ -14,14 +15,36 @@ def decode_data(data: str) -> list[bytes]:
     return entries
 
 
-def convert_uint256_bytes_to_address(raw: bytes) -> ChecksumAddress:
+def convert_uint256_bytes_to_address(raw: bytes | HexBytes) -> ChecksumAddress:
     """Convert raw uin256 from log data to addresses.
 
     .. note ::
 
         Ethereum address checksum might have a speed penalty for
         high speed operations.
+
+    :param raw:
+        Raw uint256 byte blob
+
+    :return:
+        Checksummed Ethereum address
     """
+    assert type(raw) in (bytes, HexBytes), f"Received: {type(raw)}"
+    assert len(raw) == 32
+    return Web3.to_checksum_address(raw[12:])
+
+
+def convert_uint256_hex_string_to_address(hex: str) -> ChecksumAddress:
+    """Convert raw uin256 from log data to address.
+
+    :param hex:
+        Hex string byte blob
+
+    :return:
+        Checksummed Ethereum address
+    """
+    assert type(hex) == str, f"Received: {type(hex)}"
+    raw = HexBytes(hex)
     assert len(raw) == 32
     return Web3.to_checksum_address(raw[12:])
 
