@@ -365,7 +365,12 @@ def read_events(
 ) -> Iterable[LogResult]:
     """Reads multiple events from the blockchain.
 
-    Optimized to read multiple events fast.
+    Optimized to read multiple events from test blockchains.
+
+    .. note ::
+
+        For a much faster event reader check :py:class:`eth_defi.reader.multithread.MultithreadEventReader`.
+        This implementation is mostly good with EVM test backends or very small block ranges.
 
     - Scans chains block by block
 
@@ -382,42 +387,71 @@ def read_events(
 
     .. code-block:: python
 
-        # HTTP 1.1 keep-alive
-        session = requests.Session()
-
         json_rpc_url = os.environ["JSON_RPC_URL"]
-        web3 = Web3(HTTPProvider(json_rpc_url, session=session))
-
-        # Enable faster ujson reads
-        patch_web3(web3)
+        web3 = Web3(HTTPProvider(json_rpc_url)
 
         web3.middleware_onion.clear()
 
         # Get contracts
         Factory = get_contract(web3, "sushi/UniswapV2Factory.json")
 
-        events = [
-            Factory.events.PairCreated, # https://etherscan.io/txs?ea=0x5c69bee701ef814a2b6a3edd4b1652cb9cc5aa6f&topic0=0x0d3648bd0f6ba80134a33ba9275ac585d9d315f0ad8355cddefde31afa28d0e9
-        ]
+        start_block = 1
+        end_block = web3.eth.block_number
 
-        token_cache = TokenCache()
+        filter = Filter.create_filter(
+            factory_address,
+            [Factory.events.PairCreated],
+        )
 
-        start_block = 10_000_835  # Uni deployed
-        end_block = 10_009_000  # The first pair created before this block
-
-        # Read through the blog ran
-        out = []
-        for log_result in read_events(
+        # Read through all the events, all the chain, using a single threaded slow loop.
+        # Only suitable for test EVM backends.
+        pairs = []
+        log: LogResult
+        for log in read_events(
             web3,
             start_block,
             end_block,
-            events,
-            None,
-            chunk_size=1000,
-            context=token_cache,
+            filter=filter,
             extract_timestamps=None,
         ):
-            out.append(decode_pair_created(log_result))
+            # Signature this
+            #
+            #  event PairCreated(address indexed token0, address indexed token1, address pair, uint);
+            #
+            # topic 0 = keccak(event signature)
+            # topic 1 = token 0
+            # topic 2 = token 1
+            # argument 0 = pair
+            # argument 1 = pair id
+            #
+            # log for EthereumTester backend is
+            #
+            # {'type': 'mined',
+            #  'logIndex': 0,
+            #  'transactionIndex': 0,
+            #  'transactionHash': HexBytes('0x2cf4563f8c275e5b5d7a4e5496bfbaf15cc00d530f15f730ac4a0decbc01d963'),
+            #  'blockHash': HexBytes('0x7c0c6363bc8f4eac452a37e45248a720ff09f330117cdfac67640d31d140dc38'),
+            #  'blockNumber': 6,
+            #  'address': '0xF2E246BB76DF876Cef8b38ae84130F4F55De395b',
+            #  'data': HexBytes('0x00000000000000000000000068931307edcb44c3389c507dab8d5d64d242e58f0000000000000000000000000000000000000000000000000000000000000001'),
+            #  'topics': [HexBytes('0x0d3648bd0f6ba80134a33ba9275ac585d9d315f0ad8355cddefde31afa28d0e9'),
+            #   HexBytes('0x0000000000000000000000002946259e0334f33a064106302415ad3391bed384'),
+            #   HexBytes('0x000000000000000000000000b9816fc57977d5a786e654c7cf76767be63b966e')],
+            #  'context': None,
+            #  'event': web3._utils.datatypes.PairCreated,
+            #  'chunk_id': 1,
+            #  'timestamp': None}
+            #
+            arguments = decode_data(log["data"])
+            topics = log["topics"]
+            token0 = convert_uint256_hex_string_to_address(topics[1])
+            token1 = convert_uint256_hex_string_to_address(topics[2])
+            pair_address = convert_uint256_bytes_to_address(arguments[0])
+            pair_id = convert_int256_bytes_to_int(arguments[1])
+
+            token0_details = fetch_erc20_details(web3, token0)
+            token1_details = fetch_erc20_details(web3, token1)
+
 
     :param web3:
         Web3 instance
