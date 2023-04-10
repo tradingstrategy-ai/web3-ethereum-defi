@@ -10,6 +10,7 @@ from eth_defi.abi import encode_function_args, encode_function_call
 from eth_defi.deploy import deploy_contract, get_or_create_contract_registry
 from eth_defi.enzyme.deployment import EnzymeDeployment, RateAsset
 from eth_defi.enzyme.generic_adapter import execute_calls_for_generic_adapter
+from eth_defi.enzyme.vault import Vault
 from eth_defi.trace import trace_evm_transaction, print_symbolic_trace, assert_transaction_success_with_explanation
 from eth_defi.uniswap_v2.deployment import UniswapV2Deployment
 from eth_defi.uniswap_v3.constants import FOREVER_DEADLINE
@@ -217,3 +218,47 @@ def test_generic_adapter_approve(
     assert_transaction_success_with_explanation(web3, tx_hash)
 
     assert usdc.functions.allowance(generic_adapter.address, uniswap_v2.router.address).call() == approve_amount
+
+
+def test_fetch_vault_with_generic_adapter(
+    web3: Web3,
+    deployer: HexAddress,
+    user_1: HexAddress,
+    user_2: HexAddress,
+    usdc: Contract,
+    weth: Contract,
+    mln: Contract,
+    usdc_usd_mock_chainlink_aggregator: Contract,
+):
+    """Fetch existing Enzyme vault based with a named GenericAdapter contract."""
+
+    deployment = EnzymeDeployment.deploy_core(
+        web3,
+        deployer,
+        mln,
+        weth,
+    )
+
+    # Create a vault for user 1
+    # where we nominate everything in USDC
+    deployment.add_primitive(
+        usdc,
+        usdc_usd_mock_chainlink_aggregator,
+        RateAsset.USD,
+    )
+
+    comptroller_contract, vault_contract = deployment.create_new_vault(
+        user_1,
+        usdc,
+    )
+
+    generic_adapter = deploy_contract(
+        web3,
+        f"VaultSpecificGenericAdapter.json",
+        deployer,
+        deployment.contracts.integration_manager.address,
+        vault_contract.address,
+    )
+
+    vault = Vault.fetch(web3, vault_contract.address, generic_adapter.address)
+    assert vault.generic_adapter.address == generic_adapter.address

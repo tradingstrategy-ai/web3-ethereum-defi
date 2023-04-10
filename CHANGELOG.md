@@ -1,3 +1,7 @@
+# Current
+
+- Add argument `Vault.fetch(generic_adapter_address)`
+
 # 0.18.1
 
 - Fix: Handle `HexBytes` event signatures for Web3 6.0 

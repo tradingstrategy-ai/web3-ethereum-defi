@@ -269,7 +269,11 @@ class Vault:
         return price_feed.calculate_current_onchain_price(token)
 
     @staticmethod
-    def fetch(web3: Web3, vault_address: str | HexAddress) -> "Vault":
+    def fetch(
+            web3: Web3,
+            vault_address: str | HexAddress,
+            generic_adapter_address: str | HexAddress | None,
+    ) -> "Vault":
         """Fetch Enzyme vault and deployment information based only on the vault address."""
 
         contract_name = "VaultLib"
@@ -281,8 +285,14 @@ class Vault:
 
         deployment = EnzymeDeployment.fetch_deployment(web3, {"comptroller_lib": comptroller_address})
 
+        if generic_adapter_address is not None:
+            generic_adapter_contract = get_deployed_contract(web3, f"VaultSpecificGenericAdapter.json", generic_adapter_address)
+        else:
+            generic_adapter_contract = None
+
         return Vault(
             vault_contract,
             comptroller_contract,
             deployment,
+            generic_adapter_contract,
         )
