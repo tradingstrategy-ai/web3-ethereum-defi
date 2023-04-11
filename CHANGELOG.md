@@ -1,4 +1,4 @@
-# Current
+# 0.18.2
 
 - Add argument `Vault.fetch(generic_adapter_address)`
 
