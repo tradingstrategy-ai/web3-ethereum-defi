@@ -6,7 +6,7 @@ from web3 import Web3
 
 from eth_account import Account
 
-from eth_defi.abi import get_deployed_contract
+from eth_defi.abi import get_deployed_contract, get_abi_by_filename, get_contract
 from eth_defi.uniswap_v3.deployment import UniswapV3Deployment
 from eth_defi.uniswap_v3.swap import swap_with_slippage_protection
 from eth_defi.gas import estimate_gas_fees, apply_gas
@@ -42,17 +42,17 @@ quoter_address = "0xb27308f9F90D607463bb33eA1BeBb41C27CE5AB6"
 
 # deployment address contracts
 factory = get_deployed_contract(web3, "uniswap_v3/IUniswapV3Factory.json", factory_address)
-weth = get_deployed_contract(web3, "uniwap_v3/IWETH9.json", weth_address)
 swap_router = get_deployed_contract(web3, "uniswap_v3/ISwapRouter.json", swap_router_address)
 position_manager = get_deployed_contract(web3, "uniswap_v3/INonfungiblePositionManager.json", position_manager_address)
 quoter = get_deployed_contract(web3, "uniswap_v3/IQuoter.json", quoter_address)
-
-# pool_contract = web3.eth.contract(address=pool_contract_address, abi=IUniswapV3Pool)
+weth = get_deployed_contract(web3, "uniswap_v3/IWETH9.json", weth_address)
+pool_contract = get_contract(web3, "uniswap_v3/UniswapV3Pool.json")
 
 
 # token contracts
 # weth is defined above
-usdc = web3.eth.contract(address="0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174", abi=IUniswapV3Pool)
+erc20_abi = get_abi_by_filename("ERC20MockDecimals.json")
+usdc = get_deployed_contract(web3, "ERC20MockDecimals.json", "0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174")
 
 
 # create uniswap v3 deployment
@@ -64,7 +64,7 @@ deployment = UniswapV3Deployment(
     swap_router=swap_router,
     position_manager=position_manager,
     quoter=quoter,
-    # pool_contract=pool_contract,
+    PoolContract=pool_contract,
 )
 
 
