@@ -123,12 +123,3 @@ def deposit_in_aave(
 
     # Return the transaction
     return transaction
-
-
-
-
-
-
-
-
-
