@@ -1,6 +1,6 @@
-# 0.18.3
+# Current
 
-- fix Web3 6.0 compatibiltiy
+- fix Web3 6.0 compatibility
 - Better error message when reorganisation monitor is missing blocks 
 
 # 0.18.2
