@@ -71,7 +71,7 @@ class EnzymePriceFeed:
     #: Solidity event where this price feed was added
     #:
     #:
-    add_event: dict
+    add_event: dict | None = None
 
     #: Solidity event where this price feed was deleted
     #:
@@ -185,6 +185,7 @@ class EnzymePriceFeed:
             aggregator,
             RateAsset(rate_asset),
             unit,
+            add_event=None,
         )
 
     @cached_property

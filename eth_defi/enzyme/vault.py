@@ -272,7 +272,7 @@ class Vault:
     def fetch(
         web3: Web3,
         vault_address: str | HexAddress,
-        generic_adapter_address: str | HexAddress | None,
+        generic_adapter_address: str | HexAddress | None = None,
     ) -> "Vault":
         """Fetch Enzyme vault and deployment information based only on the vault address."""
 
