@@ -43,6 +43,29 @@ class TQDMProgressUpdate(ProgressUpdate):
     You need to have `tqdm-loggable module installed <https://github.com/tradingstrategy-ai/tqdm-loggable>`__.
 
     `See more info <https://github.com/tradingstrategy-ai/tqdm-loggable>`__.
+
+    Example:
+
+    .. code-block:: python
+
+        reader = MultithreadEventReader(
+            provider.endpoint_uri,
+            max_threads=16,
+            notify=TQDMProgressUpdate("Scanning Enzyme Asset List"),
+            max_blocks_once=10_000,
+            reorg_mon=None,
+        )
+
+        logger.info(f"Scanning for Enzyme price feed events {start_block:,} - {end_block:,}")
+
+        feeds = fetch_updated_price_feed(
+            deployment,
+            start_block=start_block,
+            end_block=end_block,
+            read_events=reader,
+        )
+
+        reader.close()
     """
 
     def __init__(self, name: str, colour="green"):
