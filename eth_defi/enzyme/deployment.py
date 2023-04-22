@@ -174,6 +174,25 @@ class EnzymeDeployment:
         tx_hash = value_interpreter.functions.addPrimitives(primitives, aggregators, rate_assets).transact({"from": self.deployer})
         return tx_hash
 
+    def remove_primitive(
+        self,
+        token: Contract,
+    ) -> str:
+        """Remove a primitive asset to a Enzyme protocol.
+
+        This will tell Enzyme how to value this asset.
+
+        - See ChainlinkPriceFeedMixin.sol
+
+        :return:
+            Transaction hash for the addition
+        """
+        assert isinstance(token, Contract), f"Got bad token: {token}"
+        value_interpreter = self.contracts.value_interpreter
+        primitives = [token.address]
+        tx_hash = value_interpreter.functions.removePrimitives(primitives).transact({"from": self.deployer})
+        return tx_hash
+
     def create_new_vault(
         self,
         owner: HexAddress,
