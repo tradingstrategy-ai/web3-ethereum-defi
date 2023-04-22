@@ -1,3 +1,8 @@
+# 0.18.3
+
+- fix Web3 6.0 compatibiltiy
+- Better error message when reorganisation monitor is missing blocks 
+
 # 0.18.2
 
 - Add argument `Vault.fetch(generic_adapter_address)`
