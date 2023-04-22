@@ -127,6 +127,7 @@ class MultithreadEventReader(Web3EventReader):
         max_blocks_once=50_000,
         reorg_mon: Optional[ReorganisationMonitor] = None,
         notify: Optional[ProgressUpdate] = None,
+        auto_close_notify=True,
     ):
         """Creates a multithreaded JSON-RPC reader pool.
 
@@ -162,6 +163,14 @@ class MultithreadEventReader(Web3EventReader):
 
            The policy class for dealing with chain tip changes during the read or between event reads.
 
+           If you do not want block hashes and timestamps for the events, or you do not want to check
+           for potential reorganisations, you can set this to `None`.
+
+        :param auto_close_notify:
+            Close the notifier after the operation is done.
+
+            Assume notifier object has close() method.
+
         """
         self.http_adapter = HTTPAdapter(pool_connections=max_threads, pool_maxsize=max_threads)
         self.web3_factory = TunedWeb3Factory(json_rpc_url, self.http_adapter, thread_local_cache=True, api_counter=api_counter)
@@ -170,6 +179,7 @@ class MultithreadEventReader(Web3EventReader):
         self.reader_context = reader_context
         self.reorg_mon = reorg_mon
         self.notify = notify
+        self.auto_close_notify = auto_close_notify
 
         # Set up the timestamp reading method
 
@@ -177,6 +187,10 @@ class MultithreadEventReader(Web3EventReader):
         """Release the allocated resources."""
         self.executor.join()
         self.http_adapter.close()
+
+        if self.auto_close_notify:
+            if hasattr(self.notify, "close"):
+                self.notify.close()
 
     def __call__(
         self,
@@ -207,6 +221,7 @@ class MultithreadEventReader(Web3EventReader):
             reorg_mon=self.reorg_mon,
             notify=self.notify,
             extract_timestamps=None,
+            chunk_size=self.max_blocks_once,
         )
 
     def get_total_api_call_counts(self) -> Counter:

@@ -12,7 +12,7 @@ from eth_tester.exceptions import TransactionFailed
 from eth_typing import HexAddress
 from web3 import Web3
 from web3.contract import Contract
-from web3.exceptions import BadFunctionCallOutput
+from web3.exceptions import BadFunctionCallOutput, ContractLogicError
 
 from eth_defi.abi import get_deployed_contract
 from eth_defi.deploy import deploy_contract
@@ -21,7 +21,7 @@ from eth_defi.utils import sanitise_string
 #: List of exceptions JSON-RPC provider can through when ERC-20 field look-up fails
 #: TODO: Add exceptios from real HTTPS/WSS providers
 #: `ValueError` is raised by Ganache
-_call_missing_exceptions = (TransactionFailed, BadFunctionCallOutput, ValueError)
+_call_missing_exceptions = (TransactionFailed, BadFunctionCallOutput, ValueError, ContractLogicError)
 
 
 @dataclass
