@@ -1,7 +1,8 @@
 # Current
 
-- fix Web3 6.0 compatibility
-- Better error message when reorganisation monitor is missing blocks 
+- Fix: Web3 6.0 compatibility
+- Fix: Better error message when reorganisation monitor is missing blocks
+- Add: Enzyme price feed removal support
 
 # 0.18.2
 

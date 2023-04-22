@@ -162,6 +162,9 @@ class MultithreadEventReader(Web3EventReader):
 
            The policy class for dealing with chain tip changes during the read or between event reads.
 
+           If you do not want block hashes and timestamps for the events, or you do not want to check
+           for potential reorganisations, you can set this to `None`.
+
         """
         self.http_adapter = HTTPAdapter(pool_connections=max_threads, pool_maxsize=max_threads)
         self.web3_factory = TunedWeb3Factory(json_rpc_url, self.http_adapter, thread_local_cache=True, api_counter=api_counter)
