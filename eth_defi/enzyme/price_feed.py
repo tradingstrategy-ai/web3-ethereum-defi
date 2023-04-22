@@ -190,7 +190,7 @@ class EnzymePriceFeed:
     @cached_property
     def primitive_token(self) -> TokenDetails:
         """Access the non-indexed Solidity event arguments."""
-        return fetch_erc20_details(self.web3, self.primitive)
+        return fetch_erc20_details(self.web3, self.primitive, raise_on_error=False)
 
     @cached_property
     def chainlink_aggregator(self) -> Contract:
