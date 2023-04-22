@@ -1,5 +1,9 @@
 # Current
 
+- TODO
+
+# 0.18.3
+
 - Add: TQDM progress bar support for event reading in the form of `eth_defi.event_reader.progress_update.TQDMProgressUpdate`
 - Add: Enzyme price feed removal support
 - Add: `eth_defi.chain.fetch_block_timestamp` shortcut method
