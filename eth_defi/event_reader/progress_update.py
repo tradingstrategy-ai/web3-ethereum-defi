@@ -97,7 +97,6 @@ class TQDMProgressUpdate(ProgressUpdate):
         last_timestamp: int,
         context,
     ):
-
         if self.progress_bar is None:
             self.progress_bar = self.create_progress_bar(start_block, end_block)
 
@@ -110,9 +109,11 @@ class TQDMProgressUpdate(ProgressUpdate):
 
         self.progress_bar.update(chunk_size)
 
-        self.progress_bar.set_postfix({
-            "Events found": total_events,
-        })
+        self.progress_bar.set_postfix(
+            {
+                "Events found": total_events,
+            }
+        )
 
     def close(self):
         self.progress_bar.close()

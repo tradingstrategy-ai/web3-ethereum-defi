@@ -194,5 +194,3 @@ def test_remove_price_feeds(
     assert feeds[usdc.address].removed_block_number > 1
     assert feeds[weth.address].primitive_token.symbol == "WETH"
     assert feeds[weth.address].removed_block_number is None
-
-

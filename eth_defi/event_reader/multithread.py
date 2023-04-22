@@ -127,7 +127,7 @@ class MultithreadEventReader(Web3EventReader):
         max_blocks_once=50_000,
         reorg_mon: Optional[ReorganisationMonitor] = None,
         notify: Optional[ProgressUpdate] = None,
-        auto_close_notify = True,
+        auto_close_notify=True,
     ):
         """Creates a multithreaded JSON-RPC reader pool.
 
