@@ -82,6 +82,15 @@ class TokenDetails:
         """
         return int(decimal_amount * 10**self.decimals)
 
+    def fetch_balance_of(self, address: HexAddress | str) -> Decimal:
+        """Get an address token balance.
+
+        :return:
+            Converted to decimal using :py:meth:`convert_to_decimal`
+        """
+        raw_amount = self.contract.functions.balanceOf(address).call()
+        return self.convert_to_decimals(raw_amount)
+
 
 class TokenDetailError(Exception):
     """Cannot extract token details for an ERC-20 token for some reason."""
@@ -150,6 +159,9 @@ def fetch_erc20_details(
     :param raise_on_error: If set, raise `TokenDetailError` on any error instead of silently ignoring in and setting details to None.
     :return: Sanitised token info
     """
+
+    # No risk here, because we are not sending a transaction
+    token_address = Web3.to_checksum_address(token_address)
 
     erc_20 = get_deployed_contract(web3, "ERC20MockDecimals.json", token_address)
 
