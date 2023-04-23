@@ -64,3 +64,5 @@ def test_fetch_historic_tvl(
     """Fetch WMATIC-USDC TVL."""
     usdc_tvl = fetch_uniswap_v3_pool_tvl(matic_usdc_pool, usdc, block_identifier=26_000_000)
     assert usdc_tvl == pytest.approx(Decimal('1975846.143616'))  # The exact amount of USDC locked at that block
+
+
