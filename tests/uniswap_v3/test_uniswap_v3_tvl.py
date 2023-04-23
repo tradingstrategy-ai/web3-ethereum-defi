@@ -60,6 +60,7 @@ def test_fetch_current_tvl(
 
 def test_fetch_historic_tvl(
     matic_usdc_pool: PoolDetails,
+    usdc: TokenDetails,
 ):
     """Fetch WMATIC-USDC TVL."""
     usdc_tvl = fetch_uniswap_v3_pool_tvl(matic_usdc_pool, usdc, block_identifier=26_000_000)
