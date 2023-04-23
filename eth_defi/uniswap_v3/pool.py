@@ -3,6 +3,7 @@ from dataclasses import dataclass
 from typing import Union
 
 from eth_typing import HexAddress
+from web3 import Web3
 
 from eth_defi.abi import get_deployed_contract
 from eth_defi.token import TokenDetails, fetch_erc20_details
@@ -10,7 +11,10 @@ from eth_defi.token import TokenDetails, fetch_erc20_details
 
 @dataclass
 class PoolDetails:
-    """Uniswap v3 trading pool info."""
+    """Uniswap v3 trading pool info.
+
+    See :py:func:`fetch_pool_details` on how to construct.
+    """
 
     #: Pool address
     address: HexAddress
@@ -50,6 +54,8 @@ class PoolDetails:
 
 
 def fetch_pool_details(web3, pool_contact_address: Union[str, HexAddress]) -> PoolDetails:
+    """Resolve Uniswap v3 pool information."""
+    pool_contact_address = Web3.to_checksum_address(pool_contact_address)
     pool = get_deployed_contract(web3, "uniswap_v3/UniswapV3Pool.json", pool_contact_address)
     token0_address = pool.functions.token0().call()
     token1_address = pool.functions.token1().call()
