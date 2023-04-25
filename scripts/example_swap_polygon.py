@@ -73,8 +73,8 @@ if allowance < 1:  # Check if the allowance is not enough
 
     signed_tx = hot_wallet.sign_transaction_with_new_nonce(tx)
     tx_hash = web3.eth.send_raw_transaction(signed_tx.rawTransaction)
-    tx_receipt = web3.eth.get_transaction_receipt(tx_hash)
-    assert tx_receipt.status == 1
+    tx_receipt = web3.eth.wait_for_transaction_receipt(tx_hash)
+    assert tx_receipt.status == 1, "approve usdc failed"
     print("approved usdc successfully")
 else:
     print("usdc already approved")
@@ -101,21 +101,24 @@ swap_func = swap_with_slippage_protection(
     base_token=weth,
     quote_token=usdc,
     pool_fees=[500],
-    amount_in=0.1 * 10**6,  # USDC has 6 decimals (0.1 USDC)
+    amount_in=int(0.001 * 10**6),  # USDC has 6 decimals (0.1 USDC)
 )
 tx = swap_func.build_transaction(
     {
         "from": hot_wallet_address,
         "chainId": web3.eth.chain_id,
-        # "gas": 350_000,  # estimate max 350k gas per swap
+        "gas": 350_000,  # estimate max 350k gas per swap
+        # "gasPrice": 400 * 10**9,  # 50 gwei
     }
 )
-# tx = fill_nonce(web3, tx)
+
 gas_fees = estimate_gas_fees(web3)
 
 apply_gas(tx, gas_fees)
+print("Selected gas price: ", tx["gasPrice"])
 
 signed_tx = hot_wallet.sign_transaction_with_new_nonce(tx)
 tx_hash = web3.eth.send_raw_transaction(signed_tx.rawTransaction)
-tx_receipt = web3.eth.get_transaction_receipt(tx_hash)
-assert tx_receipt.status == 1
+tx_receipt = web3.eth.wait_for_transaction_receipt(tx_hash)
+assert tx_receipt.status == 1, "swap failed"
+print(f"swap successful: \n {tx_receipt.transactionHash}")
