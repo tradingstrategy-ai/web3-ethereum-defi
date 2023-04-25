@@ -18,10 +18,10 @@ load_dotenv()
 
 private_key = os.getenv("PRIVATE_KEY")
 hot_wallet_address = os.getenv("ADDRESS")
-
+api_key = os.getenv("API_KEY")
 
 # web3 instance
-web3 = Web3(Web3.HTTPProvider("https://admin:tradingstrategy@mihailo2.tradingstrategy.ai"))
+web3 = Web3(Web3.HTTPProvider(api_key))
 
 
 # create hot wallet
@@ -37,7 +37,7 @@ weth_address = "0x7ceB23fD6bC0adD59E62ac25578270cFf1b9f619"
 swap_router_address = "0xE592427A0AEce92De3Edee1F18E0157C05861564"
 position_manager_address = "0xC36442b4a4522E871399CD717aBDD847Ab11FE88"
 quoter_address = "0xb27308f9F90D607463bb33eA1BeBb41C27CE5AB6"
-# pool_contract_address=""
+# pool_contract is generic and does not need a deployment address
 
 
 # deployment address contracts
@@ -68,7 +68,7 @@ deployment = UniswapV3Deployment(
 )
 
 
-# perform swap
+# perform swap for 1 USDC
 
 swap_func = swap_with_slippage_protection(
     uniswap_v3_deployment=deployment,
@@ -76,7 +76,7 @@ swap_func = swap_with_slippage_protection(
     base_token=weth,
     quote_token=usdc,
     pool_fees=[5],
-    amount_in=2,
+    amount_in=1,
 )
 tx = swap_func.build_transaction(
     {
