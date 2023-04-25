@@ -3,6 +3,7 @@
 import os
 from dotenv import load_dotenv
 from web3 import Web3
+from web3.middleware import geth_poa_middleware
 
 from eth_account import Account
 
@@ -23,6 +24,8 @@ api_key = os.getenv("API_KEY")
 # web3 instance
 web3 = Web3(Web3.HTTPProvider(api_key))
 
+# see https://web3py.readthedocs.io/en/stable/middleware.html#geth-style-proof-of-authority
+web3.middleware_onion.inject(geth_poa_middleware, layer=0)
 
 # create hot wallet
 account = Account.from_key(private_key)
@@ -55,6 +58,27 @@ erc20_abi = get_abi_by_filename("ERC20MockDecimals.json")
 usdc = get_deployed_contract(web3, "ERC20MockDecimals.json", "0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174")
 
 
+allowance = usdc.functions.allowance(hot_wallet_address, swap_router_address).call()
+
+if allowance < 1:  # Check if the allowance is not enough
+    max_amount = web3.to_wei(2**64 - 1, 'ether')  # Approve the max possible value
+
+    tx = usdc.functions.approve(swap_router_address, max_amount).build_transaction({
+        'from': hot_wallet_address,
+        "chainId": web3.eth.chain_id,
+    })
+
+    gas_fees = estimate_gas_fees(web3)
+    apply_gas(tx, gas_fees)
+
+    signed_tx = hot_wallet.sign_transaction_with_new_nonce(tx)
+    tx_hash = web3.eth.send_raw_transaction(signed_tx.rawTransaction)
+    tx_receipt = web3.eth.get_transaction_receipt(tx_hash)
+    assert tx_receipt.status == 1
+    print("approved usdc successfully")
+else:
+    print("usdc already approved")
+
 # create uniswap v3 deployment
 
 deployment = UniswapV3Deployment(
@@ -67,6 +91,7 @@ deployment = UniswapV3Deployment(
     PoolContract=pool_contract,
 )
 
+# need to approve router before swapping
 
 # perform swap for 1 USDC
 
@@ -75,14 +100,14 @@ swap_func = swap_with_slippage_protection(
     recipient_address=hot_wallet_address,
     base_token=weth,
     quote_token=usdc,
-    pool_fees=[5],
-    amount_in=1,
+    pool_fees=[500],
+    amount_in=0.1 * 10**6,  # USDC has 6 decimals (0.1 USDC)
 )
 tx = swap_func.build_transaction(
     {
         "from": hot_wallet_address,
         "chainId": web3.eth.chain_id,
-        "gas": 350_000,  # estimate max 350k gas per swap
+        # "gas": 350_000,  # estimate max 350k gas per swap
     }
 )
 # tx = fill_nonce(web3, tx)
