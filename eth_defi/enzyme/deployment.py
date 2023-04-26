@@ -202,6 +202,7 @@ class EnzymeDeployment:
         shares_action_time_lock: int = 0,
         fee_manager_config_data=b"",
         policy_manager_config_data=b"",
+        deployer=None,
     ) -> Tuple[Contract, Contract]:
         """
         Creates a new fund (vault).
@@ -214,6 +215,11 @@ class EnzymeDeployment:
             Tuple (Comptroller contract, vault contract)
         """
 
+        if not deployer:
+            deployer = self.deployer
+
+        assert deployer, "No deployer account set up"
+
         fund_deployer = self.contracts.fund_deployer
         tx_hash = fund_deployer.functions.createNewFund(
             owner,
@@ -225,7 +231,7 @@ class EnzymeDeployment:
             policy_manager_config_data,
         ).transact(
             {
-                "from": self.deployer,
+                "from": deployer,
             }
         )
         receipt = self.web3.eth.wait_for_transaction_receipt(tx_hash)
