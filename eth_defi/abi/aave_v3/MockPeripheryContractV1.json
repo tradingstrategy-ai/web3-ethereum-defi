@@ -1,0 +1,55 @@
+{
+  "_format": "hh-sol-artifact-1",
+  "contractName": "MockPeripheryContractV1",
+  "sourceName": "contracts/mocks/helpers/MockPeripheryContract.sol",
+  "abi": [
+    {
+      "inputs": [],
+      "name": "getManager",
+      "outputs": [
+        {
+          "internalType": "address",
+          "name": "",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "manager",
+          "type": "address"
+        },
+        {
+          "internalType": "uint256",
+          "name": "value",
+          "type": "uint256"
+        }
+      ],
+      "name": "initialize",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "newManager",
+          "type": "address"
+        }
+      ],
+      "name": "setManager",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    }
+  ],
+  "bytecode": "0x608060405234801561001057600080fd5b506101cd806100206000396000f3fe608060405234801561001057600080fd5b50600436106100415760003560e01c8063cd6dc68714610046578063d0ebdbe7146100a1578063d5009584146100f6575b600080fd5b61009f61005436600461014b565b600080547fffffffffffffffffffffffff00000000000000000000000000000000000000001673ffffffffffffffffffffffffffffffffffffffff9390931692909217909155600155565b005b61009f6100af366004610175565b600080547fffffffffffffffffffffffff00000000000000000000000000000000000000001673ffffffffffffffffffffffffffffffffffffffff92909216919091179055565b6000546040805173ffffffffffffffffffffffffffffffffffffffff9092168252519081900360200190f35b803573ffffffffffffffffffffffffffffffffffffffff8116811461014657600080fd5b919050565b6000806040838503121561015e57600080fd5b61016783610122565b946020939093013593505050565b60006020828403121561018757600080fd5b61019082610122565b939250505056fea2646970667358221220e92f17bd5e661b61f207a4d6c1dec2062a8dacceeec788e0627ba618425de8d464736f6c634300080a0033",
+  "deployedBytecode": "0x608060405234801561001057600080fd5b50600436106100415760003560e01c8063cd6dc68714610046578063d0ebdbe7146100a1578063d5009584146100f6575b600080fd5b61009f61005436600461014b565b600080547fffffffffffffffffffffffff00000000000000000000000000000000000000001673ffffffffffffffffffffffffffffffffffffffff9390931692909217909155600155565b005b61009f6100af366004610175565b600080547fffffffffffffffffffffffff00000000000000000000000000000000000000001673ffffffffffffffffffffffffffffffffffffffff92909216919091179055565b6000546040805173ffffffffffffffffffffffffffffffffffffffff9092168252519081900360200190f35b803573ffffffffffffffffffffffffffffffffffffffff8116811461014657600080fd5b919050565b6000806040838503121561015e57600080fd5b61016783610122565b946020939093013593505050565b60006020828403121561018757600080fd5b61019082610122565b939250505056fea2646970667358221220e92f17bd5e661b61f207a4d6c1dec2062a8dacceeec788e0627ba618425de8d464736f6c634300080a0033",
+  "linkReferences": {},
+  "deployedLinkReferences": {}
+}

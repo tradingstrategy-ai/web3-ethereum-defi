@@ -10,6 +10,6 @@
   "author": "",
   "license": "MIT",
   "dependencies": {
-    "@aave/core-v3": "^1.13.1"
+    "@aave/core-v3": "^1.17.2"
   }
 }
