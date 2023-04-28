@@ -113,12 +113,15 @@ tx = swap_func.build_transaction(
 )
 
 gas_fees = estimate_gas_fees(web3)
-
 apply_gas(tx, gas_fees)
-print("Selected gas price: ", tx["gasPrice"])
+
+print(gas_fees)
+print("Selected gas price: ", tx["maxFeePerGas"])
+print("Max priority fee: ", tx["maxPriorityFeePerGas"]) 
+#tx["maxPriorityFeePerGas"] = 31444751713
 
 signed_tx = hot_wallet.sign_transaction_with_new_nonce(tx)
 tx_hash = web3.eth.send_raw_transaction(signed_tx.rawTransaction)
 tx_receipt = web3.eth.wait_for_transaction_receipt(tx_hash)
 assert tx_receipt.status == 1, "swap failed"
-print(f"swap successful: \n {tx_receipt.transactionHash}")
+print(f"swap successful: \n{Web3.to_hex(tx_receipt.transactionHash)}")
