@@ -3,6 +3,7 @@
 Many chains like Polygon and BNB Chain may need their own Web3 connection tuning.
 In this module, we have helpers.
 """
+import datetime
 from collections import Counter
 from typing import Callable, Optional, Any
 
@@ -14,6 +15,7 @@ from web3 import Web3, HTTPProvider
 from web3.middleware import geth_poa_middleware
 from web3.types import RPCEndpoint, RPCResponse
 
+from eth_defi.event_reader.conversion import convert_jsonrpc_value_to_int
 from eth_defi.middleware import http_retry_request_with_sleep_middleware
 
 #: List of chain ids that need to have proof-of-authority middleweare installed
@@ -119,3 +121,34 @@ def has_graphql_support(provider: HTTPProvider) -> bool:
     except Exception as e:
         # ConnectionError, etc.
         return False
+
+
+def fetch_block_timestamp(web3: Web3, block_number: int) -> datetime.datetime:
+    """Get the block mined at timestamp.
+
+    .. warning::
+
+        Uses `eth_getBlock`. Very slow for large number of blocks.
+        Use alternative methods for managing timestamps for large block ranges.
+
+    Example:
+
+    .. code-block:: python
+
+        # Get when the first block was mined
+        timestamp = fetch_block_timestamp(web3, 1)
+        print(timestamp)
+
+    :param web3:
+        Web3 connection
+
+    :param block_number:
+        Block number of which timestamp we are going to get
+
+    :return:
+        UTC naive datetime of the block timestamp
+    """
+    block = web3.eth.get_block(block_number)
+    timestamp = convert_jsonrpc_value_to_int(block["timestamp"])
+    time = datetime.datetime.utcfromtimestamp(timestamp)
+    return time

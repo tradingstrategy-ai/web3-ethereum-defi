@@ -289,7 +289,7 @@ def extract_events(
             if reorg_mon:
                 # Raises exception if chain tip has changed
                 timestamp = reorg_mon.check_block_reorg(block_number, block_hash)
-                assert timestamp is not None, f"Timestamp missing for block number {block_number}, hash {block_hash}"
+                assert timestamp is not None, f"Timestamp missing for block number {block_number}, hash {block_hash}. reorg known last block is: {reorg_mon.get_last_block_read()}"
                 log["timestamp"] = timestamp
             else:
                 if timestamps is not None:

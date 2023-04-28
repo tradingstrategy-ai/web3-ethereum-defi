@@ -72,7 +72,7 @@ def convert_uint256_string_to_address(bytes32: str) -> ChecksumAddress:
     assert bytes32.startswith("0x")
     raw = bytes.fromhex(bytes32[2:])
     assert len(raw) == 32
-    return Web3.toChecksumAddress(raw[12:])
+    return Web3.to_checksum_address(raw[12:])
 
 
 def convert_uint256_string_to_int(bytes32: str, *, signed: bool = False) -> int:

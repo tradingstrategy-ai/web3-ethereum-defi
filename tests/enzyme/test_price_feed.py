@@ -2,7 +2,7 @@
 
 """
 from functools import partial
-from typing import cast
+from typing import cast, List
 from decimal import Decimal
 
 import pytest
@@ -15,7 +15,7 @@ from web3.exceptions import ContractLogicError
 from eth_defi.deploy import deploy_contract
 from eth_defi.enzyme.deployment import EnzymeDeployment, RateAsset
 from eth_defi.enzyme.events import fetch_vault_balance_events, Deposit, Redemption
-from eth_defi.enzyme.price_feed import fetch_price_feeds, EnzymePriceFeed
+from eth_defi.enzyme.price_feed import fetch_price_feeds, EnzymePriceFeed, fetch_updated_price_feed
 from eth_defi.enzyme.uniswap_v2 import prepare_swap
 from eth_defi.enzyme.vault import Vault
 from eth_defi.event_reader.multithread import MultithreadEventReader
@@ -161,3 +161,36 @@ def test_vault_denomination_token_price(
     comptroller_contract, vault_contract = deployment.create_new_vault(user_1, usdc, fund_name="Cow says Moo", fund_symbol="MOO")
     vault = Vault(vault_contract, comptroller_contract, deployment)
     assert vault.fetch_denomination_token_usd_exchange_rate() == 1
+
+
+def test_remove_price_feeds(
+    web3: Web3,
+    deployment: EnzymeDeployment,
+    usdc: Contract,
+    weth: Contract,
+):
+    """Price feeds can be also deleted."""
+
+    provider = cast(HTTPProvider, web3.provider)
+    json_rpc_url = provider.endpoint_uri
+    reader = MultithreadEventReader(json_rpc_url, max_threads=16)
+
+    tx_hash = deployment.remove_primitive(usdc)
+    assert_transaction_success_with_explanation(web3, tx_hash)
+
+    start_block = 1
+    end_block = web3.eth.block_number
+
+    feeds = fetch_updated_price_feed(
+        deployment,
+        start_block,
+        end_block,
+        reader,
+    )
+    reader.close()
+    assert len(feeds) == 2
+    assert feeds[usdc.address].primitive_token.symbol == "USDC"
+    assert feeds[usdc.address].added_block_number > 1
+    assert feeds[usdc.address].removed_block_number > 1
+    assert feeds[weth.address].primitive_token.symbol == "WETH"
+    assert feeds[weth.address].removed_block_number is None
