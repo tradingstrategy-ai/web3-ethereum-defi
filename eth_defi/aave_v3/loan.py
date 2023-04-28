@@ -115,15 +115,11 @@ def deposit_in_aave(
     # Load Aave v3 contract ABI
     aave_v3_abi = get_abi_by_filename("aave_v3/Pool.json")["abi"]
 
-
     # Get the Aave v3 contract instance
     aave_v3_contract = web3.eth.contract(address=aave_deposit_address, abi=aave_v3_abi)
-
 
     # Approve the Aave v3 contract to supply the specified amount of token
     transaction = aave_v3_contract.functions.supply(token_address, amount, hot_wallet.address, 0)
 
     # Return the transaction
     return transaction
-
-

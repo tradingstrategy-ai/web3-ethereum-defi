@@ -101,7 +101,7 @@ def test_anvil_fork_deposit_aave(web3: Web3, large_usdc_holder: HexAddress, hot_
     usdc = usdc_details.contract
     amount = 1000000
 
-    tx = web3.eth.send_transaction({"from": large_usdc_holder, "to": hot_wallet_account.address, "value": 1 * 10**18})
+    tx = web3.eth.send_transaction({"from": large_usdc_holder, "to": hot_wallet_account.address, "value": 1 * 10 ** 18})
     web3.eth.wait_for_transaction_receipt(tx)
     receipt = web3.eth.get_transaction_receipt(tx)
     assert receipt.status == 1
@@ -136,10 +136,3 @@ def test_anvil_fork_deposit_aave(web3: Web3, large_usdc_holder: HexAddress, hot_
     aUSDC_details = fetch_erc20_details(web3, AAVE_AUSDC_ADDRESS)
     aUSDC = aUSDC_details.contract
     assert aUSDC.functions.balanceOf(hot_wallet_account.address).call() == amount, "Incorrect aUSDC balance"
-
-
-
-
-
-
-
