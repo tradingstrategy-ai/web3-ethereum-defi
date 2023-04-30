@@ -71,7 +71,12 @@ def estimate_gas_fees(web3: Web3) -> GasPriceSuggestion:
         # see https://github.com/ethereum/web3.py/blob/36adb16c68f570c343d01ecc8d0096cbac814172/web3/middleware/gas_price_strategy.py#L57
         base_fee = base_fee
         max_fee_per_gas = web3.eth.max_priority_fee + (2 * base_fee)
-        max_priority_fee_per_gas = web3.eth.max_priority_fee
+        
+        if web3.eth.chain_id == 137:
+            # polygon now has a minimum gas fee of 30 gwei to avoid spam
+            max_priority_fee_per_gas = max(30_000_000_000, web3.eth.max_priority_fee)
+        else:
+            max_priority_fee_per_gas = web3.eth.max_priority_fee
         return GasPriceSuggestion(method=GasPriceMethod.london, base_fee=base_fee, max_priority_fee_per_gas=max_priority_fee_per_gas, max_fee_per_gas=max_fee_per_gas)
     else:
         # Legacy gas strategy
