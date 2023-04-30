@@ -101,14 +101,13 @@ swap_func = swap_with_slippage_protection(
     base_token=weth,
     quote_token=usdc,
     pool_fees=[500],
-    amount_in=int(0.001 * 10**6),  # USDC has 6 decimals (0.1 USDC)
+    amount_in=int(0.0001 * 10**6),  # USDC has 6 decimals (0.0001 USDC)
 )
 tx = swap_func.build_transaction(
     {
         "from": hot_wallet_address,
         "chainId": web3.eth.chain_id,
         "gas": 350_000,  # estimate max 350k gas per swap
-        # "gasPrice": 400 * 10**9,  # 50 gwei
     }
 )
 
@@ -116,12 +115,13 @@ gas_fees = estimate_gas_fees(web3)
 apply_gas(tx, gas_fees)
 
 print(gas_fees)
+print("Nonce: ", hot_wallet.current_nonce)
 print("Selected gas price: ", tx["maxFeePerGas"])
 print("Max priority fee: ", tx["maxPriorityFeePerGas"]) 
-#tx["maxPriorityFeePerGas"] = 31444751713
+# tx["maxPriorityFeePerGas"] = 30_000_000_000
 
 signed_tx = hot_wallet.sign_transaction_with_new_nonce(tx)
 tx_hash = web3.eth.send_raw_transaction(signed_tx.rawTransaction)
 tx_receipt = web3.eth.wait_for_transaction_receipt(tx_hash)
-assert tx_receipt.status == 1, "swap failed"
+assert tx_receipt.status == 1, f"swap failed \n{Web3.to_hex(tx_receipt.transactionHash)}"
 print(f"swap successful: \n{Web3.to_hex(tx_receipt.transactionHash)}")
