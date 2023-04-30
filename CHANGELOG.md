@@ -1,3 +1,17 @@
+# Current
+
+- TODO
+
+# 0.18.3
+
+- Add: TQDM progress bar support for event reading in the form of `eth_defi.event_reader.progress_update.TQDMProgressUpdate`
+- Add: Enzyme price feed removal support
+- Add: `eth_defi.chain.fetch_block_timestamp` shortcut method
+- Fix: Web3 6.0 compatibility
+- Fix: Better error message when reorganisation monitor is missing blocks
+- Fix: `EnzymePriceFeed.primitive_token` resolution fails on some Enzyme tokens on Polygon
+
+
 # 0.18.2
 
 - Add argument `Vault.fetch(generic_adapter_address)`

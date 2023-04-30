@@ -2,9 +2,9 @@
 from decimal import Decimal
 from dataclasses import dataclass
 from functools import cached_property
-from typing import Iterable, Optional
+from typing import Iterable, Optional, Dict
 
-from eth_typing import HexAddress
+from eth_typing import HexAddress, BlockNumber
 from hexbytes import HexBytes
 from web3 import Web3
 from web3.contract import Contract
@@ -27,11 +27,15 @@ class UnsupportedBaseAsset(Exception):
     """
 
 
-@dataclass
+@dataclass()
 class EnzymePriceFeed:
     """High-level Python interface for Enzyme's ValueInterpreter price mechanism.
 
     - Uses `ValueInterpreter` methods to calculate on-chain price for supported assets
+
+    .. note ::
+
+        Enzyme price feeds are dynamic. They can be remvoed by Enzyme's risk commitee any time.
 
     Example:
 
@@ -64,13 +68,45 @@ class EnzymePriceFeed:
     #: For ETH this is 10**18
     unit: int
 
+    #: Solidity event where this price feed was added
+    #:
+    #:
+    add_event: dict | None = None
+
+    #: Solidity event where this price feed was deleted
+    #:
+    #:
+    remove_event: dict | None = None
+
     def __repr__(self):
-        return f"<Price feed {self.primitive_token.symbol} in {self.rate_asset.name}>"
+        return f"<Enzyme price feed, token:{self.primitive_token} chainlink:{self.chainlink_aggregator.address} removed:{self.remove_event is not None}>"
+
+    def __hash__(self):
+        return hash((self.web3.eth.chain_id, self.primitive))
+
+    def __eq__(self, other):
+        return self.web3.eth.chain_id == other.chain_id and self.primitive == other.primitive
 
     @property
     def web3(self) -> Web3:
         """The connection we use to resolve on-chain info"""
         return self.deployment.web3
+
+    @property
+    def added_block_number(self) -> BlockNumber:
+        """Block number when the feed was added"""
+        return self.add_event["blockNumber"]
+
+    @property
+    def removed_block_number(self) -> BlockNumber | None:
+        """Block number when the feed was removed.
+
+        :return:
+            None if the feed still active
+        """
+        if self.remove_event:
+            return self.remove_event["blockNumber"]
+        return None
 
     @staticmethod
     def wrap(deployment: EnzymeDeployment, event: dict) -> "EnzymePriceFeed":
@@ -106,6 +142,7 @@ class EnzymePriceFeed:
             aggregator,
             RateAsset(rate_asset),
             unit,
+            add_event=event,
         )
 
     @staticmethod
@@ -148,12 +185,13 @@ class EnzymePriceFeed:
             aggregator,
             RateAsset(rate_asset),
             unit,
+            add_event=None,
         )
 
     @cached_property
     def primitive_token(self) -> TokenDetails:
         """Access the non-indexed Solidity event arguments."""
-        return fetch_erc20_details(self.web3, self.primitive)
+        return fetch_erc20_details(self.web3, self.primitive, raise_on_error=False)
 
     @cached_property
     def chainlink_aggregator(self) -> Contract:
@@ -228,6 +266,11 @@ def fetch_price_feeds(
     - Slow over long block ranges
 
     - See `ComptrollerLib.sol`
+
+    .. warning ::
+
+        This function does not update status for removed price feeds. Please use
+        :py:func:`fetch_updated_price_feed`.
     """
 
     web3 = deployment.web3
@@ -244,3 +287,58 @@ def fetch_price_feeds(
         filter=filter,
     ):
         yield EnzymePriceFeed.wrap(deployment, solidity_event)
+
+
+def fetch_updated_price_feed(
+    deployment: EnzymeDeployment,
+    start_block: int,
+    end_block: int,
+    read_events: Web3EventReader,
+) -> Dict[HexAddress, EnzymePriceFeed]:
+    """Iterate configured price feeds.
+
+    - Deal dynamic price feed adds and deletes
+
+    - Uses eth_getLogs ABI
+
+    - Read both deposits and withdrawals in one go
+
+    - Serial read
+
+    - Slow over long block ranges
+
+    - See `ComptrollerLib.sol`
+
+    :return:
+        Token address -> primitive data map
+    """
+
+    web3 = deployment.web3
+
+    filter = Filter.create_filter(
+        deployment.contracts.value_interpreter.address,
+        [deployment.contracts.value_interpreter.events.PrimitiveAdded, deployment.contracts.value_interpreter.events.PrimitiveRemoved],
+    )
+
+    price_feeds = {}
+
+    for solidity_event in read_events(
+        web3,
+        start_block,
+        end_block,
+        filter=filter,
+    ):
+        event_name = solidity_event["event"].event_name
+        primitive = convert_uint256_bytes_to_address(HexBytes(solidity_event["topics"][1]))
+        match event_name:
+            case "PrimitiveAdded":
+                feed = EnzymePriceFeed.wrap(deployment, solidity_event)
+                price_feeds[primitive] = feed
+            case "PrimitiveRemoved":
+                try:
+                    feed = price_feeds[primitive]
+                except KeyError as e:
+                    raise RuntimeError(f"Got remove event for non-existing primitive {primitive} - we have {len(price_feeds)} price feeds") from e
+                feed.remove_event = solidity_event
+
+    return price_feeds

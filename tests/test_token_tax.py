@@ -18,7 +18,7 @@ from eth_typing import HexAddress, HexStr
 from web3 import HTTPProvider, Web3
 
 from eth_defi.anvil import fork_network_anvil
-from eth_defi.chain import install_chain_middleware
+from eth_defi.chain import install_chain_middleware, install_retry_middleware
 from eth_defi.token import fetch_erc20_details
 from eth_defi.uniswap_v2.deployment import UniswapV2Deployment, fetch_deployment
 from eth_defi.uniswap_v2.token_tax import (
@@ -67,6 +67,7 @@ def web3(anvil_bnb_chain_fork: str):
     # https://web3py.readthedocs.io/en/stable/examples.html#contract-unit-tests-in-python
     web3 = Web3(HTTPProvider(anvil_bnb_chain_fork))
     install_chain_middleware(web3)
+    install_retry_middleware(web3)
     return web3
 
 

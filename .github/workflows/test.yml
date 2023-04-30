@@ -7,8 +7,17 @@ on:
     branches: [ master ]
 
 jobs:
+
   test-python:
+
     runs-on: ubuntu-latest
+
+    # Only run the action for the latest push
+    # See https://docs.github.com/en/actions/using-jobs/using-concurrency#example-only-cancel-in-progress-jobs-or-runs-for-the-current-workflow
+    concurrency:
+      group: ${{ github.workflow }}-${{ github.ref }}
+      cancel-in-progress: true
+
     steps:
       - uses: actions/checkout@v3
       - name: Install poetry
@@ -36,6 +45,8 @@ jobs:
           poetry run pytest --tb=native
         env:
           BNB_CHAIN_JSON_RPC: ${{ secrets.BNB_CHAIN_JSON_RPC }}
+          JSON_RPC_POLYGON_ARCHIVE: ${{ secrets.JSON_RPC_POLYGON_ARCHIVE }}
+          JSON_RPC_POLYGON: ${{ secrets.JSON_RPC_POLYGON }}
       # Disabled for now
       # https://github.com/reviewdog/action-flake8/issues/40
       # - name: Run flake8
