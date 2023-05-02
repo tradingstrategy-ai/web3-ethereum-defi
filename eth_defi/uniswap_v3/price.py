@@ -94,8 +94,8 @@ def estimate_buy_quantity(
     target_pair_fee: int,
     *,
     slippage: float = 0,
-    intermediate_token_address: HexAddress | None,
-    intermediate_pair_fee: int | None,
+    intermediate_token_address: HexAddress | None = None,
+    intermediate_pair_fee: int | None = None,
 ) -> int:
     """Estimate how many tokens we are going to receive when doing a buy.
 
@@ -147,8 +147,8 @@ def estimate_buy_price(
     target_pair_fee: int,
     *,
     slippage: float = 0,
-    intermediate_token_address: HexAddress | None,
-    intermediate_pair_fee: int | None,
+    intermediate_token_address: HexAddress | None = None,
+    intermediate_pair_fee: int | None = None,
 ) -> int:
     """Estimate how much we are going to need to pay when doing buy.
 
@@ -197,8 +197,8 @@ def estimate_sell_price(
     target_pair_fee: int,
     *,
     slippage: float = 0,
-    intermediate_token_address: HexAddress | None,
-    intermediate_pair_fee: int | None,
+    intermediate_token_address: HexAddress | None = None,
+    intermediate_pair_fee: int | None = None,
 ) -> int:
     """Estimate how much we are going to get paid when doing a sell.
 
@@ -228,7 +228,7 @@ def estimate_sell_price(
         path = [base_token_address, quote_token_address]
         fees = [target_pair_fee]
 
-    return price_helper.get_amount_in(quantity, path, fees, slippage=slippage)
+    return price_helper.get_amount_out(quantity, path, fees, slippage=slippage)
 
 
 def estimate_buy_received_amount_raw(
@@ -239,8 +239,8 @@ def estimate_buy_received_amount_raw(
     target_pair_fee: int,
     *,
     slippage: float = 0,
-    intermediate_token_address: HexAddress | None,
-    intermediate_pair_fee: int | None,
+    intermediate_token_address: HexAddress | None = None,
+    intermediate_pair_fee: int | None = None,
 ) -> int:
     
     fee_helper = UniswapV3PriceHelper(uniswap)
@@ -264,8 +264,8 @@ def estimate_sell_received_amount_raw(
     target_pair_fee: int,
     *,
     slippage: float = 0,
-    intermediate_token_address: HexAddress | None,
-    intermediate_pair_fee: int | None,
+    intermediate_token_address: HexAddress | None = None,
+    intermediate_pair_fee: int | None = None,
 ) -> int:
     """Estimate how much we receive for a certain cash amount.
 
