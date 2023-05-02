@@ -119,16 +119,16 @@ swap_func = swap_with_slippage_protection(
     pool_fees=[500],
     amount_in=int(0.0001 * 10**6),  # USDC has 6 decimals (0.0001 USDC)
 )
+
 tx = swap_func.build_transaction(
     {
         "from": hot_wallet_address,
         "chainId": web3.eth.chain_id,
-        "gas": 350_000,  # estimate max 350k gas per swap
     }
 )
-tx = fill_transaction_defaults(web3, tx)
-#gas_fees = estimate_gas_fees(web3)
-#apply_gas(tx, gas_fees)
+
+gas_fees = estimate_gas_fees(web3)
+apply_gas(tx, gas_fees)
 
 print("")
 print("Nonce: ", hot_wallet.current_nonce)
