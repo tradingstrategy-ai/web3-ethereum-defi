@@ -12,7 +12,7 @@ from eth_defi.uniswap_v3.deployment import UniswapV3Deployment
 from eth_defi.uniswap_v3.swap import swap_with_slippage_protection
 from eth_defi.gas import estimate_gas_fees, apply_gas
 from eth_defi.hotwallet import HotWallet
-
+from web3._utils.transactions import fill_transaction_defaults
 
 # get user input for which blockchain to use
 user_input = input("Which blockchain do you want to use? Type `p` for polygon and `a` for arbitrum: ")
@@ -126,9 +126,9 @@ tx = swap_func.build_transaction(
         "gas": 350_000,  # estimate max 350k gas per swap
     }
 )
-
-gas_fees = estimate_gas_fees(web3)
-apply_gas(tx, gas_fees)
+tx = fill_transaction_defaults(web3, tx)
+#gas_fees = estimate_gas_fees(web3)
+#apply_gas(tx, gas_fees)
 
 print("")
 print("Nonce: ", hot_wallet.current_nonce)
