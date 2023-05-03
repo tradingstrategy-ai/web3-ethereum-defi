@@ -1,6 +1,6 @@
 # Current
 
-- TODO
+- Fix: Use `web3.eth.wait_for_transaction_receipt` in appropriate places
 
 # 0.18.3
 

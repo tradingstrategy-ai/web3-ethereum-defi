@@ -20,7 +20,6 @@ from typing import Optional
 from eth_typing import HexAddress
 from web3 import Web3
 from web3.contract import Contract
-from web3.exceptions import ContractLogicError
 
 from eth_defi.abi import get_abi_by_filename, get_contract, get_deployed_contract
 from eth_defi.deploy import deploy_contract
@@ -30,8 +29,8 @@ from eth_defi.uniswap_v3.constants import (
     UNISWAP_V3_FACTORY_BYTECODE,
     UNISWAP_V3_FACTORY_DEPLOYMENT_DATA,
 )
-from eth_defi.uniswap_v3.utils import encode_sqrt_ratio_x96, get_nearest_usable_tick
 from eth_defi.uniswap_v3.pool import fetch_pool_details
+from eth_defi.uniswap_v3.utils import encode_sqrt_ratio_x96, get_nearest_usable_tick
 
 
 @dataclass(frozen=True)
@@ -262,7 +261,7 @@ def add_liquidity(
             FOREVER_DEADLINE,
         )
     ).transact({"from": deployer})
-    tx_receipt = web3.eth.get_transaction_receipt(tx_hash)
+    tx_receipt = web3.eth.wait_for_transaction_receipt(tx_hash)
 
     return tx_receipt, lower_tick, upper_tick
 
@@ -323,7 +322,7 @@ def increase_liquidity(
             FOREVER_DEADLINE,
         )
     ).transact({"from": position_owner})
-    tx_receipt = web3.eth.get_transaction_receipt(tx_hash)
+    tx_receipt = web3.eth.wait_for_transaction_receipt(tx_hash)
 
     return tx_receipt
 
@@ -363,7 +362,7 @@ def decrease_liquidity(
             FOREVER_DEADLINE,
         )
     ).transact({"from": position_owner})
-    tx_receipt = web3.eth.get_transaction_receipt(tx_hash)
+    tx_receipt = web3.eth.wait_for_transaction_receipt(tx_hash)
 
     return tx_receipt
 

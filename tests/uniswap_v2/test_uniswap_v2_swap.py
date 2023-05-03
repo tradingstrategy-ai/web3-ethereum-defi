@@ -167,7 +167,7 @@ def test_buy_with_slippage_when_you_know_quote_amount(
     # sign and broadcast
     signed_tx = hot_wallet.sign_transaction(tx)
     tx_hash = web3.eth.send_raw_transaction(signed_tx.rawTransaction)
-    tx_receipt = web3.eth.get_transaction_receipt(tx_hash)
+    tx_receipt = web3.eth.wait_for_transaction_receipt(tx_hash)
     assert tx_receipt.status == 1
 
 
@@ -231,7 +231,7 @@ def test_sell_with_slippage_when_you_know_base_amount(
     # sign and broadcast
     signed_tx = hot_wallet.sign_transaction(tx)
     tx_hash = web3.eth.send_raw_transaction(signed_tx.rawTransaction)
-    tx_receipt = web3.eth.get_transaction_receipt(tx_hash)
+    tx_receipt = web3.eth.wait_for_transaction_receipt(tx_hash)
     if tx_receipt.status == 0:
         revert_reason = fetch_transaction_revert_reason(web3, tx_hash)
         raise AssertionError(f"Sell failed: {revert_reason}")
@@ -300,7 +300,7 @@ def test_buy_with_slippage_when_you_know_base_amount(
     # sign and broadcast
     signed_tx = hot_wallet.sign_transaction(tx)
     tx_hash = web3.eth.send_raw_transaction(signed_tx.rawTransaction)
-    tx_receipt = web3.eth.get_transaction_receipt(tx_hash)
+    tx_receipt = web3.eth.wait_for_transaction_receipt(tx_hash)
     assert tx_receipt.status == 1
 
     # confirm we get expected amount of ETH
@@ -397,7 +397,7 @@ def test_swap_revert_with_slippage_protection(
 
     # now the hot wallet finally manages to send the tx, it should fail
     tx1_hash = web3.eth.send_raw_transaction(signed_tx1.rawTransaction)
-    tx1_receipt = web3.eth.get_transaction_receipt(tx1_hash)
+    tx1_receipt = web3.eth.wait_for_transaction_receipt(tx1_hash)
 
     assert tx1_receipt.status == 0  # failure
 
@@ -471,7 +471,7 @@ def test_sell_three_way_with_slippage_protection(
     # sign and broadcast
     signed_tx = hot_wallet.sign_transaction(tx)
     tx_hash = web3.eth.send_raw_transaction(signed_tx.rawTransaction)
-    tx_receipt = web3.eth.get_transaction_receipt(tx_hash)
+    tx_receipt = web3.eth.wait_for_transaction_receipt(tx_hash)
     assert tx_receipt.status == 1
 
     # precision test with slippage = 0
@@ -499,7 +499,7 @@ def test_sell_three_way_with_slippage_protection(
     # sign and broadcast
     signed_tx = hot_wallet.sign_transaction(tx)
     tx_hash = web3.eth.send_raw_transaction(signed_tx.rawTransaction)
-    tx_receipt = web3.eth.get_transaction_receipt(tx_hash)
+    tx_receipt = web3.eth.wait_for_transaction_receipt(tx_hash)
     assert tx_receipt.status == 1
 
 
@@ -609,7 +609,7 @@ def test_swap_three_way_revert(
 
     # now the hot wallet finally manages to send the tx, it should fail
     tx1_hash = web3.eth.send_raw_transaction(signed_tx1.rawTransaction)
-    tx1_receipt = web3.eth.get_transaction_receipt(tx1_hash)
+    tx1_receipt = web3.eth.wait_for_transaction_receipt(tx1_hash)
     assert tx1_receipt.status == 0  # failure
 
     # confirm the revert reason

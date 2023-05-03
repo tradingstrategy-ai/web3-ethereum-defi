@@ -528,7 +528,7 @@ def test_swap_price_from_hot_wallet(
     )
 
     tx_hash = web3.eth.send_raw_transaction(signed.rawTransaction)
-    tx_receipt = web3.eth.get_transaction_receipt(tx_hash)
+    tx_receipt = web3.eth.wait_for_transaction_receipt(tx_hash)
     assert tx_receipt.status == 1  # 1=success and mined
 
     # check if hot wallet get the same ETH amount estimated earlier
