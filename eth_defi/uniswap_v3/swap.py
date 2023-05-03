@@ -16,7 +16,7 @@ def swap_with_slippage_protection(
     recipient_address: HexAddress,
     base_token: Contract,
     quote_token: Contract,
-    pool_fees: list[float],
+    pool_fees: list[int],
     intermediate_token: Contract | None = None,
     max_slippage: float = 0.1,
     amount_in: int | None = None,
@@ -61,7 +61,7 @@ def swap_with_slippage_protection(
     :param base_token: Base token of the trading pair
     :param quote_token: Quote token of the trading pair
     :param intermediate_token: Intermediate token which the swap can go through
-    :param pool_fees: List of all pools' trading fees in the path
+    :param pool_fees: List of all pools' trading fees in the path as raw_fee
     :param amount_in: How much of the quote token we want to pay, this has to be `None` if `amount_out` is specified
     :param amount_out: How much of the base token we want to receive, this has to be `None` if `amount_in` is specified
     :param max_slippage: Max slippage express in bps, default = 0.1 bps (0.001%)
