@@ -17,10 +17,11 @@ from web3.middleware import construct_sign_and_send_raw_middleware
 from eth_defi.abi import get_deployed_contract
 from eth_defi.token import fetch_erc20_details
 from eth_defi.confirmation import wait_transactions_to_complete
+from eth_defi.chain import install_chain_middleware
 
 # What is the token we are transferring.
 # Replace with your own token address.
-ERC_20_TOKEN_ADDRESS = "0x0aC7B3733cBeE5D87A80fbf331f4A0bD01f17386"
+ERC_20_TOKEN_ADDRESS = "0x549b63daf6A23267b813F704aEDdDc61302E6729"
 
 # Connect to JSON-RPC node
 json_rpc_url = os.environ["JSON_RPC_URL"]
@@ -34,6 +35,9 @@ assert private_key.startswith("0x"), "Private key must start with 0x hex prefix"
 account: LocalAccount = Account.from_key(private_key)
 web3.middleware_onion.add(construct_sign_and_send_raw_middleware(account))
 
+# Support Polygon, BNG chain
+install_chain_middleware(web3)
+
 # Show users the current status of token and his address
 erc_20 = get_deployed_contract(web3, "ERC20MockDecimals.json", ERC_20_TOKEN_ADDRESS)
 token_details = fetch_erc20_details(web3, ERC_20_TOKEN_ADDRESS)
@@ -44,7 +48,7 @@ balance = erc_20.functions.balanceOf(account.address).call()
 eth_balance = web3.eth.getBalance(account.address)
 
 print(f"Your balance is: {token_details.convert_to_decimals(balance)} {token_details.symbol}")
-print(f"Your have : {eth_balance/(10**18)} ETH for gas fees")
+print(f"Your have {eth_balance/(10**18)} ETH for gas fees")
 
 # Ask for transfer details
 decimal_amount = input("How many tokens to transfer? ")
@@ -74,3 +78,4 @@ print(f"Broadcasted transaction {tx_hash.hex()}, now waiting 5 minutes for minin
 wait_transactions_to_complete(web3, [tx_hash], max_timeout=datetime.timedelta(minutes=5))
 
 print("All ok!")
+
