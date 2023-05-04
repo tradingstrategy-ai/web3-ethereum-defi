@@ -1,6 +1,7 @@
-# Current
+# 0.18.4
 
 - Fix: Use `web3.eth.wait_for_transaction_receipt` in appropriate places
+- Add: Helper functions to interact with `UniswapV3PriceHelper`
 
 # 0.18.3
 
