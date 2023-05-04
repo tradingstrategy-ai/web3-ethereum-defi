@@ -12,11 +12,12 @@ from eth_account import Account
 from eth_account.signers.local import LocalAccount
 from eth_typing import HexAddress, HexStr
 from web3 import HTTPProvider, Web3
+from web3.exceptions import ContractLogicError
 
 from eth_defi.aave_v3.constants import AAVE_V3_NETWORKS, AaveToken
 from eth_defi.aave_v3.deployment import AaveV3Deployment
-from eth_defi.aave_v3.loan import supply
-from eth_defi.abi import get_deployed_contract
+from eth_defi.aave_v3.loan import supply, withdraw
+from eth_defi.abi import get_contract
 from eth_defi.anvil import fork_network_anvil
 from eth_defi.chain import install_chain_middleware
 from eth_defi.gas import node_default_gas_price_strategy
@@ -79,10 +80,10 @@ def usdc(web3):
 
 @pytest.fixture()
 def aave_v3_polygon_deployment(web3):
-    return AaveV3Deployment(
-        web3=web3,
-        pool=get_deployed_contract(web3, "aave_v3/Pool.json", address=AAVE_V3_NETWORKS["polygon"].pool_address),
-    )
+    Pool = get_contract(web3, "aave_v3/Pool.json", bytecode="")
+    pool = Pool(address=AAVE_V3_NETWORKS["polygon"].pool_address)
+
+    return AaveV3Deployment(web3=web3, pool=pool)
 
 
 @pytest.fixture()
@@ -115,17 +116,96 @@ def test_aave_v3_supply(
     ).transact({"from": large_usdc_holder})
 
     # supply USDC to Aave
-    tx = supply(
+    approve_fn, supply_fn = supply(
         aave_v3_deployment=aave_v3_polygon_deployment,
-        hot_wallet=hot_wallet,
+        wallet_address=hot_wallet.address,
         token=usdc.contract,
         amount=supply_amount,
-    ).build_transaction({"from": hot_wallet.address})
+    )
+
+    tx = approve_fn.build_transaction({"from": hot_wallet.address})
     signed = hot_wallet.sign_transaction_with_new_nonce(tx)
     tx_hash = web3.eth.send_raw_transaction(signed.rawTransaction)
+    assert_transaction_success_with_explanation(web3, tx_hash)
 
+    tx = supply_fn.build_transaction({"from": hot_wallet.address})
+    signed = hot_wallet.sign_transaction_with_new_nonce(tx)
+    tx_hash = web3.eth.send_raw_transaction(signed.rawTransaction)
     assert_transaction_success_with_explanation(web3, tx_hash)
 
     # verify aUSDC token amount in hot wallet
     ausdc_details = fetch_erc20_details(web3, aave_v3_usdc_reserve.deposit_address)
     assert ausdc_details.contract.functions.balanceOf(hot_wallet.address).call() == supply_amount
+
+
+def test_aave_v3_withdraw(
+    web3: Web3,
+    aave_v3_polygon_deployment,
+    usdc,
+    large_usdc_holder: HexAddress,
+    hot_wallet: LocalAccount,
+    aave_v3_usdc_reserve,
+):
+    """Test that the deposit in Aave v3 is correctly registered and the corresponding aToken is received."""
+    supply_amount = 100 * 10**6
+
+    # give hot wallet some native token and USDC
+    web3.eth.send_transaction(
+        {
+            "from": large_usdc_holder,
+            "to": hot_wallet.address,
+            "value": 100 * 10**18,
+        }
+    )
+    usdc.contract.functions.transfer(
+        hot_wallet.address,
+        supply_amount * 2,
+    ).transact({"from": large_usdc_holder})
+
+    # supply USDC to Aave
+    approve_fn, supply_fn = supply(
+        aave_v3_deployment=aave_v3_polygon_deployment,
+        wallet_address=hot_wallet.address,
+        token=usdc.contract,
+        amount=supply_amount,
+    )
+
+    tx = approve_fn.build_transaction({"from": hot_wallet.address})
+    signed = hot_wallet.sign_transaction_with_new_nonce(tx)
+    tx_hash = web3.eth.send_raw_transaction(signed.rawTransaction)
+    assert_transaction_success_with_explanation(web3, tx_hash)
+
+    tx = supply_fn.build_transaction({"from": hot_wallet.address})
+    signed = hot_wallet.sign_transaction_with_new_nonce(tx)
+    tx_hash = web3.eth.send_raw_transaction(signed.rawTransaction)
+    assert_transaction_success_with_explanation(web3, tx_hash)
+
+    # partial withdraw should be fine
+    withdraw_fn = withdraw(
+        aave_v3_deployment=aave_v3_polygon_deployment,
+        wallet_address=hot_wallet.address,
+        token=usdc.contract,
+        amount=int(supply_amount / 2),
+    )
+    tx = withdraw_fn.build_transaction({"from": hot_wallet.address})
+    signed = hot_wallet.sign_transaction_with_new_nonce(tx)
+    tx_hash = web3.eth.send_raw_transaction(signed.rawTransaction)
+    assert_transaction_success_with_explanation(web3, tx_hash)
+
+    withdraw_fn = withdraw(
+        aave_v3_deployment=aave_v3_polygon_deployment,
+        wallet_address=hot_wallet.address,
+        token=usdc.contract,
+        amount=supply_amount,
+    )
+
+    with pytest.raises(ContractLogicError) as e:
+        # TODO: not sure why it fails at this line
+        tx = withdraw_fn.build_transaction({"from": hot_wallet.address})
+        # signed = hot_wallet.sign_transaction_with_new_nonce(tx)
+        # tx_hash = web3.eth.send_raw_transaction(signed.rawTransaction)
+        # assert_transaction_success_with_explanation(web3, tx_hash)
+
+    # error code 32 = not enough available user balance
+    # https://github.com/aave/aave-v3-core/blob/e0bfed13240adeb7f05cb6cbe5e7ce78657f0621/contracts/protocol/libraries/helpers/Errors.sol#L41
+    assert str(e.value) == "execution reverted: 32"
