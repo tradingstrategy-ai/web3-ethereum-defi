@@ -22,3 +22,7 @@
 [submodule "contracts/centre"]
 	path = contracts/centre
 	url = https://github.com/centrehq/centre-tokens.git
+[submodule "contracts/aave-v3-core"]
+	path = contracts/aave-v3-core
+	url = https://github.com/aave/aave-v3-core.git
+
