@@ -33,12 +33,10 @@ jobs:
           poetry install -E data
       - name: Install Ganache
         run: yarn global add ganache
-      - name: Install Foundry
-        run: |
-          curl -L https://foundry.paradigm.xyz | bash
-          # PATH=~/.foundry/bin:$PATH
       - name: Install Anvil
         run: |
+          curl -L https://foundry.paradigm.xyz | bash
+          source ~/.bashrc
           echo $PATH
           foundryup
           anvil --version
