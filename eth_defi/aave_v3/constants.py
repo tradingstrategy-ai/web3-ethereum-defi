@@ -1,4 +1,5 @@
 """Aave v3 constants."""
+import enum
 import json
 import os
 from typing import NamedTuple
@@ -210,3 +211,8 @@ def _autofill_token_addresses():
 
 # Initialization
 _autofill_token_addresses()
+
+
+class AaveV3InterestRateMode(enum.IntEnum):
+    STABLE = 1
+    VARIABLE = 2

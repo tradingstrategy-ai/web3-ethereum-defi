@@ -1,6 +1,8 @@
 """Aave v3 loan"""
 from web3.contract.contract import Contract, ContractFunction
 
+from eth_defi.aave_v3.constants import AaveV3InterestRateMode
+
 
 def supply(
     aave_v3_deployment,
@@ -82,3 +84,27 @@ def withdraw(
     # uint256 amount
     # address to
     return pool.functions.withdraw(token.address, amount, wallet_address)
+
+
+def borrow(
+    aave_v3_deployment,
+    *,
+    token: Contract,
+    amount: int,
+    wallet_address: str,
+    interest_rate_mode: AaveV3InterestRateMode = AaveV3InterestRateMode.VARIABLE,
+) -> tuple[ContractFunction, ContractFunction]:
+    """
+    Borrow from Aave v3
+    """
+    pool = aave_v3_deployment.pool
+
+    # https://github.com/aave/aave-v3-core/blob/e0bfed13240adeb7f05cb6cbe5e7ce78657f0621/contracts/protocol/pool/Pool.sol#L221
+    # address asset,
+    # uint256 amount,
+    # uint256 interestRateMode,
+    # uint16 referralCode,
+    # address onBehalfOf
+    return pool.functions.borrow(token.address, amount, interest_rate_mode, 0, wallet_address)
+
+

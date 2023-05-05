@@ -16,7 +16,7 @@ from web3.exceptions import ContractLogicError
 
 from eth_defi.aave_v3.constants import AAVE_V3_NETWORKS, AaveToken
 from eth_defi.aave_v3.deployment import AaveV3Deployment
-from eth_defi.aave_v3.loan import supply, withdraw
+from eth_defi.aave_v3.loan import borrow, supply, withdraw
 from eth_defi.abi import get_contract
 from eth_defi.anvil import fork_network_anvil
 from eth_defi.chain import install_chain_middleware
@@ -69,8 +69,14 @@ def large_usdc_holder() -> HexAddress:
 
 @pytest.fixture(scope="module")
 def usdc(web3):
-    """Get USDC on Polygon."""
+    """USDC on Polygon."""
     return fetch_erc20_details(web3, "0x2791bca1f2de4661ed88a30c99a7a9449aa84174")
+
+
+@pytest.fixture(scope="module")
+def weth(web3):
+    """WETH on Polygon."""
+    return fetch_erc20_details(web3, "0x7ceB23fD6bC0adD59E62ac25578270cFf1b9f619")
 
 
 @pytest.fixture(scope="module")
@@ -88,8 +94,8 @@ def aave_v3_usdc_reserve() -> AaveToken:
 
 @pytest.fixture
 def usdc_supply_amount() -> int:
-    # 1000 USDC
-    return 1000 * 10**6
+    # 10000 USDC
+    return 10000 * 10**6
 
 
 @pytest.fixture
@@ -196,7 +202,7 @@ def test_aave_v3_withdraw(
     withdraw_factor: float,
     expected_exception: Exception | None,
 ):
-    """Test that the withdraw in Aave v3 is correctly registered and the corresponding aToken is received."""
+    """Test withdraw in Aave v3 with different amount threshold."""
     _test_supply(
         web3,
         aave_v3_polygon_deployment,
@@ -238,70 +244,67 @@ def test_aave_v3_withdraw(
 
         # check balance after withdrawal
         assert usdc.contract.functions.balanceOf(hot_wallet.address).call() == withdraw_amount
-    large_usdc_holder: HexAddress,
+
+
+@pytest.mark.parametrize(
+    "borrow_amount,expected_exception",
+    [
+        # 1 ETH
+        (1 * 10**18, None),
+        # try to borrow 1000 ETH should fail as collateral is only 10k USDC
+        # error code 36 = 'There is not enough collateral to cover a new borrow'
+        # https://github.com/aave/aave-v3-core/blob/e0bfed13240adeb7f05cb6cbe5e7ce78657f0621/contracts/protocol/libraries/helpers/Errors.sol#L45
+        (1000 * 10**18, TransactionAssertionError("execution reverted: 36")),
+    ],
+)
+def test_aave_v3_borrow(
+    web3: Web3,
+    aave_v3_polygon_deployment,
+    usdc,
     hot_wallet: LocalAccount,
     aave_v3_usdc_reserve,
+    usdc_supply_amount: int,
+    weth,
+    borrow_amount: int,
+    expected_exception: Exception | None,
 ):
-    """Test that the deposit in Aave v3 is correctly registered and the corresponding aToken is received."""
-    supply_amount = 100 * 10**6
+    """Test borrow in Aave v3."""
+    _test_supply(
+        web3,
+        aave_v3_polygon_deployment,
+        hot_wallet,
+        usdc,
+        aave_v3_usdc_reserve,
+        usdc_supply_amount,
+    )
 
-    # give hot wallet some native token and USDC
-    web3.eth.send_transaction(
+    # try to borrow ETH
+    borrow_fn = borrow(
+        aave_v3_deployment=aave_v3_polygon_deployment,
+        wallet_address=hot_wallet.address,
+        token=weth.contract,
+        amount=borrow_amount,
+    )
+    tx = borrow_fn.build_transaction(
         {
-            "from": large_usdc_holder,
-            "to": hot_wallet.address,
-            "value": 100 * 10**18,
+            "from": hot_wallet.address,
+            "gas": 350_000,
         }
     )
-    usdc.contract.functions.transfer(
-        hot_wallet.address,
-        supply_amount * 2,
-    ).transact({"from": large_usdc_holder})
-
-    # supply USDC to Aave
-    approve_fn, supply_fn = supply(
-        aave_v3_deployment=aave_v3_polygon_deployment,
-        wallet_address=hot_wallet.address,
-        token=usdc.contract,
-        amount=supply_amount,
-    )
-
-    tx = approve_fn.build_transaction({"from": hot_wallet.address})
     signed = hot_wallet.sign_transaction_with_new_nonce(tx)
     tx_hash = web3.eth.send_raw_transaction(signed.rawTransaction)
-    assert_transaction_success_with_explanation(web3, tx_hash)
 
-    tx = supply_fn.build_transaction({"from": hot_wallet.address})
-    signed = hot_wallet.sign_transaction_with_new_nonce(tx)
-    tx_hash = web3.eth.send_raw_transaction(signed.rawTransaction)
-    assert_transaction_success_with_explanation(web3, tx_hash)
+    if isinstance(expected_exception, Exception):
+        with pytest.raises(type(expected_exception)) as e:
+            assert_transaction_success_with_explanation(web3, tx_hash)
 
-    # partial withdraw should be fine
-    withdraw_fn = withdraw(
-        aave_v3_deployment=aave_v3_polygon_deployment,
-        wallet_address=hot_wallet.address,
-        token=usdc.contract,
-        amount=int(supply_amount / 2),
-    )
-    tx = withdraw_fn.build_transaction({"from": hot_wallet.address})
-    signed = hot_wallet.sign_transaction_with_new_nonce(tx)
-    tx_hash = web3.eth.send_raw_transaction(signed.rawTransaction)
-    assert_transaction_success_with_explanation(web3, tx_hash)
+        assert str(expected_exception) == e.value.revert_reason
 
-    withdraw_fn = withdraw(
-        aave_v3_deployment=aave_v3_polygon_deployment,
-        wallet_address=hot_wallet.address,
-        token=usdc.contract,
-        amount=supply_amount,
-    )
+        # revert reason should be in message as well
+        assert str(expected_exception) in str(e.value)
+    else:
+        # withdraw successfully
+        assert_transaction_success_with_explanation(web3, tx_hash)
 
-    with pytest.raises(ContractLogicError) as e:
-        # TODO: not sure why it fails at this line
-        tx = withdraw_fn.build_transaction({"from": hot_wallet.address})
-        # signed = hot_wallet.sign_transaction_with_new_nonce(tx)
-        # tx_hash = web3.eth.send_raw_transaction(signed.rawTransaction)
-        # assert_transaction_success_with_explanation(web3, tx_hash)
-
-    # error code 32 = not enough available user balance
-    # https://github.com/aave/aave-v3-core/blob/e0bfed13240adeb7f05cb6cbe5e7ce78657f0621/contracts/protocol/libraries/helpers/Errors.sol#L41
-    assert str(e.value) == "execution reverted: 32"
+        # check balance after withdrawal
+        assert weth.contract.functions.balanceOf(hot_wallet.address).call() == borrow_amount
