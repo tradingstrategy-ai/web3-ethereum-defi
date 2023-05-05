@@ -36,7 +36,7 @@ jobs:
       - name: Install Anvil
         run: |
           curl -L https://foundry.paradigm.xyz | bash
-          source ~/.bashrc
+          source /home/runner/.bashrc
           echo $PATH
           foundryup
           anvil --version
