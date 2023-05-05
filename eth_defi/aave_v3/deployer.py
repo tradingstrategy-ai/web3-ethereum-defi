@@ -306,11 +306,18 @@ The deployment report (test addresses are always the same):
 
 """
 import logging
+import os
+import subprocess
 from pathlib import Path
 from shutil import which
 from tempfile import gettempdir
+from typing import Type
 
-from pexpect import run
+from eth_typing import HexAddress
+from web3 import Web3
+from web3.contract import Contract
+
+from eth_defi.abi import get_contract
 
 logger = logging.getLogger(__name__)
 
@@ -326,6 +333,13 @@ DEFAULT_PATH = Path(gettempdir()).joinpath("aave-v3-deployer")
 #: (No patches yet)
 AAVE_DEPLOYER_REPO = "https://github.com/tradingstrategy-ai/aave-v3-deploy.git"
 
+
+#: List of manually parsed addressed from Hardhat deployment
+#:
+#:
+HARDHAT_CONTRACTS = {
+    "PoolAdderssProvider": "0xa85233C63b9Ee964Add6F2cffe00Fd84eb32338f",
+}
 
 class AaveDeployer:
     """Aave v3 deployer wrapper.
@@ -344,7 +358,7 @@ class AaveDeployer:
         """Check if we have a complete Aave deployer installation."""
         return self.path.joinpath("node_modules").joinpath(".bin").joinpath("hardhat").exists()
 
-    def install(self) -> bool:
+    def install(self, echo=False) -> bool:
         """Make sure we have Aave deployer installed.
 
         .. note ::
@@ -358,45 +372,113 @@ class AaveDeployer:
 
         - If already installed do nothing.
 
+        :param echo:
+            Mirror NPM output live  to stdout
+
         :return:
             False is already installed, True if we did perform the installation.
         """
 
         logger.info("Checking Aave deployer installation at %s", self.path)
 
-        assert which("git") is not None, "No git command in path, needed for Aave v3 deployer installation"
-        assert which("npm") is not None, "No npm command in path, needed for Aave v3 deployer installation"
-        assert which("npx") is not None, "No npx command in path, needed for Aave v3 deployer installation"
+        git = which("git")
+        assert git is not None, "No git command in path, needed for Aave v3 deployer installation"
+        npm = which("npm")
+        assert npm is not None, "No npm command in path, needed for Aave v3 deployer installation"
 
         if self.is_installed():
             logger.info("Already installed")
             return False
 
-        logger.info("Cloning %s", AAVE_DEPLOYER_REPO)
-        run(f"git clone f{AAVE_DEPLOYER_REPO} {self.path}")
+        if echo:
+            out = subprocess.STDOUT
+        else:
+            out = subprocess.DEVNULL
 
-        logger.info("NPM install on %s", self.path)
-        run(f"npm install", cwd=self.path)
+        logger.info("Cloning %s", AAVE_DEPLOYER_REPO)
+        result = subprocess.run(
+            [git, 'clone', AAVE_DEPLOYER_REPO, self.path],
+            stdout=out,
+            stderr=out,
+        )
+        assert result.returncode == 0
+
+        assert self.path.exists()
+
+        logger.info("NPM install on %s - may take long time", self.path)
+        # output, exit_code = run(f"npm install", cwd=self.path, logfile=logfile, withexitstatus=True)
+        result = subprocess.run(
+            [npm, 'install'],
+            cwd=self.path,
+            stdout=out,
+            stderr=out,
+        )
+        assert result.returncode == 0
 
         logger.info("Installation complete")
         return True
 
-    def deploy_local(self):
+    def deploy_local(self, echo=False):
         """Deploy Aave v3 at Anvil.
 
-        Displays all infrastructure mentioned in the :py:mod:`eth_defi.aave_v3.deployer` documentation.
+        Deploys all infrastructure mentioned in the :py:mod:`eth_defi.aave_v3.deployer` documentation,
+        in those fixed addresses.
 
         .. note ::
 
             Currently Aave v3 deployer is hardcoded to deploy at localhost:8545
             Anvil cannot run in other ports.
 
+        :param echo:
+            Mirror NPM output live  to stdout
         """
-        run(f"npx hardhat --network hardhat deploy",
+
+        assert self.is_installed(), "Deployer not installed"
+
+        npx = which("npx")
+        assert npx is not None, "No npx command in path, needed for Aave v3 deployment"
+
+        if echo:
+            out = subprocess.STDOUT
+        else:
+            out = subprocess.DEVNULL
+
+        logger.info("Running Aave deployer at %s", self.path)
+
+        env = os.environ.copy()
+        env["MARKET_NAME"] = "Aave"
+
+        result = subprocess.run(
+            [npx, "hardhat", "--network", "hardhat", "deploy"],
             cwd=self.path,
-            env={"MARKET_NAME": "Aave"}
+            env=env,
+            stderr=out,
+            stdout=out,
         )
+        assert result.returncode == 0
 
+    def get_contract(self, web3: Web3, name: str) -> Type[Contract]:
+        """Get Aave deployer ABI file.
 
+        ABI files contain hardcoded library addresses from the deployment
+        and cannot be reused.
+
+        Example:
+
+        .. code-block:: python
+
+        :return:
+            A Contract proxy class
+        """
+        path = self.path.joinpath("artifacts").joinpath("@aave").joinpath(name)
+        assert path.exists(), f"No ABI file: {path.absolute()}"
+        return get_contract(web3, path)
+
+    def get_contract_address(self, contract_name: str) -> HexAddress:
+        """Get a deployed contract address.
+
+        See :py:data:`HARDHAT_CONTRACTS` for the list.
+        """
+        return HexAddress(HARDHAT_CONTRACTS[contract_name])
 
 

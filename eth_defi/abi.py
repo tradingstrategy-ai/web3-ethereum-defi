@@ -56,7 +56,7 @@ def get_abi_by_filename(fname: str) -> dict:
 
 
 @lru_cache(maxsize=_CACHE_SIZE)
-def get_contract(web3: Web3, fname: str, bytecode: Optional[str] = None) -> Type[Contract]:
+def get_contract(web3: Web3, fname: str | Path, bytecode: Optional[str] = None) -> Type[Contract]:
     """Create a Contract proxy class from our bundled contracts.
 
     `See Web3.py documentation on Contract instances <https://web3py.readthedocs.io/en/stable/contracts.html#contract-deployment-example>`_.

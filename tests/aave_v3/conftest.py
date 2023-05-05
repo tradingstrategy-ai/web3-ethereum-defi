@@ -1,4 +1,5 @@
 import shutil
+import sys
 from pathlib import Path
 from tempfile import gettempdir
 
@@ -17,7 +18,10 @@ def aave_deployer_test_path() -> Path:
 
 @pytest.fixture(scope="session")
 def aave_deployer(aave_deployer_test_path) -> AaveDeployer:
-    """Set up Aave v3 deployer using git and npm."""
+    """Set up Aave v3 deployer using git and npm.
+
+    We use session scope, because this fixture is damn slow.
+    """
     deployer = AaveDeployer(aave_deployer_test_path)
     deployer.install()
     return deployer
