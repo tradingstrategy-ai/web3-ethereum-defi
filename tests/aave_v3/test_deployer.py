@@ -13,11 +13,9 @@ from eth_defi.trace import assert_transaction_success_with_explanation
 def anvil(request: FixtureRequest) -> AnvilLaunch:
     """Launch Anvil for the test backend."""
 
-    # London hardfork will enable EIP-1559 style gas fees
     anvil = launch_anvil(
-        hardfork="london",
-        gas_limit=15_000_000,  # Max 5M gas per block, or per transaction in test automining
-        port=8545,
+        gas_limit=15_000_000,
+        port=8545,  # Must be localhost:8545 for Aave deployment
     )
     try:
         yield anvil

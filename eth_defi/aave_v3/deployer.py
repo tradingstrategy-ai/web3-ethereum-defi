@@ -305,6 +305,7 @@ The deployment report (test addresses are always the same):
     └────────────────────────────────┴──────────────────────────────────────────────┘
 
 """
+import json
 import logging
 import os
 import subprocess
@@ -449,7 +450,7 @@ class AaveDeployer:
         env["MARKET_NAME"] = "Aave"
 
         result = subprocess.run(
-            [npx, "hardhat", "--network", "hardhat", "deploy"],
+            [npx, "hardhat", "--network", "hardhat", "deploy", "--export", "hardhat-deployment-export.json"],
             cwd=self.path,
             env=env,
             stderr=out,
@@ -463,6 +464,8 @@ class AaveDeployer:
         ABI files contain hardcoded library addresses from the deployment
         and cannot be reused.
 
+        This function links the contract against other deployed contracts.
+
         Example:
 
         .. code-block:: python
@@ -470,9 +473,14 @@ class AaveDeployer:
         :return:
             A Contract proxy class
         """
+
         path = self.path.joinpath("artifacts").joinpath("@aave").joinpath(name)
         assert path.exists(), f"No ABI file: {path.absolute()}"
-        return get_contract(web3, path)
+
+        with open(self.path.joinpath("hardhat-deployment-export.json"), "rb") as inp:
+            link_data = json.load(inp)
+
+        return get_contract(web3, path, link_data=link_data)
 
     def get_contract_address(self, contract_name: str) -> HexAddress:
         """Get a deployed contract address.

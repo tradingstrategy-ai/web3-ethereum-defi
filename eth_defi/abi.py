@@ -56,25 +56,56 @@ def get_abi_by_filename(fname: str) -> dict:
 
 
 @lru_cache(maxsize=_CACHE_SIZE)
-def get_contract(web3: Web3, fname: str | Path, bytecode: Optional[str] = None) -> Type[Contract]:
-    """Create a Contract proxy class from our bundled contracts.
+def get_contract(
+        web3: Web3,
+        fname: str | Path,
+        bytecode: Optional[str] = None,
+        link_data: Optional[dict] = None,
+) -> Type[Contract]:
+    """Create a Contract proxy class from our bundled contracts or filesystem..
 
     `See Web3.py documentation on Contract instances <https://web3py.readthedocs.io/en/stable/contracts.html#contract-deployment-example>`_.
 
     Any results are cached. Web3 connection is part of the cache key.
+    
+    Example:
+    
 
-    :param web3: Web3 instance
-    :param bytecode: Override bytecode payload for the contract
-    :param fname: `JSON filename from supported contract lists <https://github.com/tradingstrategy-ai/web3-ethereum-defi/tree/master/eth_defi/abi>`_.
-    :return: Contract proxy class
+
+    :param web3: 
+        Web3 instance
+    
+    :param bytecode: 
+        Override bytecode payload for the contract
+    
+    :param fname: 
+        Solidity compiler artifact.
+
+        Use slash prefixed path for absolute lookups.
+    
+        `JSON filename from supported contract lists <https://github.com/tradingstrategy-ai/web3-ethereum-defi/tree/master/eth_defi/abi>`_.
+        
+    :param link_data:
+        Hardhat deployment export data to link bytecode.
+
+        Needed when contracts contain references to libraries.
+
+    :return: 
+        Contract proxy class
     """
 
     contract_interface = get_abi_by_filename(fname)
     abi = contract_interface["abi"]
 
     if bytecode is None:
-        # Pick up bytecode from ABI description
-        bytecode = contract_interface["bytecode"]
+
+        if "deployedBytecode" in contract_interface and use_deployed_bytecode:
+            # Use bytecode with prelinked library addresses
+            bytecode = contract_interface["deployedBytecode"]
+        else:
+            # Pick up bytecode from ABI description
+            bytecode = contract_interface["bytecode"]
+
         if type(bytecode) == dict:
             # Sol 0.8 / Forge?
             # Contains keys object, sourceMap, linkReferences
@@ -83,6 +114,9 @@ def get_contract(web3: Web3, fname: str | Path, bytecode: Optional[str] = None) 
             # Sol 0.6 / legacy
             # Bytecode hex is directly in the key.
             pass
+
+    if link_data:
+        link_libraries(bytecode, link_data)
 
     Contract = web3.eth.contract(abi=abi, bytecode=bytecode)
     return Contract
@@ -283,3 +317,7 @@ def humanise_decoded_arg_data(args: dict) -> dict:
         return v
 
     return {k: _humanize(v) for k, v in args.items()}
+
+
+def link_libraries(bytecode, link_data: dict):
+    pass
