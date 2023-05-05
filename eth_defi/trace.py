@@ -44,6 +44,17 @@ class TransactionAssertionError(AssertionError):
     See :py:func:`assert_transaction_success_with_explanation`.
     """
 
+    def __init__(
+        self,
+        message,
+        revert_reason: str = "",
+        solidity_stack_trace: str = "",
+    ):
+        super().__init__(message)
+
+        self.revert_reason = revert_reason
+        self.solidity_stack_trace = solidity_stack_trace
+
 
 class TraceMethod(enum.Enum):
     """What kind of transaction tracing method we use.
@@ -284,12 +295,17 @@ def assert_transaction_success_with_explanation(
     if receipt["status"] == 0:
         # Explain why the transaction failed
         tx_details = web3.eth.get_transaction(tx_hash)
+
         if web3.eth.chain_id == 31337:
             # Transaction tracing only enabled to anvil
             revert_reason = fetch_transaction_revert_reason(web3, tx_hash)
             trace_data = trace_evm_transaction(web3, tx_hash, TraceMethod.parity)
             trace_output = print_symbolic_trace(get_or_create_contract_registry(web3), trace_data)
-            raise TransactionAssertionError(f"Transaction failed: {tx_details}\n" f"Revert reason: {revert_reason}\n" f"Solidity stack trace:\n" f"{trace_output}\n")
+            raise TransactionAssertionError(
+                f"Transaction failed: {tx_details}\n" f"Revert reason: {revert_reason}\n" f"Solidity stack trace:\n" f"{trace_output}\n",
+                revert_reason=revert_reason,
+                solidity_stack_trace=trace_output,
+            )
         else:
             raise RuntimeError(f"Transaction failed: {tx_details} - tracing disabled")
 
