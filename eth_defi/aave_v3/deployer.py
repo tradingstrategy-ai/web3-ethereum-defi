@@ -313,6 +313,7 @@ import json
 import logging
 import os
 import subprocess
+from functools import lru_cache
 from pathlib import Path
 from shutil import which
 from tempfile import gettempdir
@@ -513,16 +514,13 @@ class AaveDeployer:
         return instance
 
 
-_export_data: dict | None = None
-
-
+@lru_cache(maxsize=1)
 def get_aave_hardhard_export() -> dict:
     """Read the buncled hardhad localhost deployment export.
 
     Needed to deploy any contracts that contain linked libraries.
+
+    See :py:func:`eth_defi.abi.get_linked_contract`.
     """
-    global _export_data
-    if not _export_data:
-        with open(os.path.join(os.path.dirname(__file__), "aave-hardhat-localhost-export.json"), "rb") as inp:
-            _export_data = json.load(inp)
-    return _export_data
+    with open(os.path.join(os.path.dirname(__file__), "aave-hardhat-localhost-export.json"), "rb") as inp:
+        return json.load(inp)

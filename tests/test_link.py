@@ -61,7 +61,7 @@ def test_link_aave(
     export = get_aave_hardhard_export()
 
     # Link bytecode
-    Pool = get_linked_contract(web3, "aave_v3/Pool.json", export=export)
+    Pool = get_linked_contract(web3, "aave_v3/Pool.json", hardhat_export_data=export)
 
     # # Deploy linked contract
     # tx_hash = Pool.constructor(ZERO_ADDRESS_STR).transact({"from": deployer, "gas": 15_000_000})
