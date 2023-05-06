@@ -8,6 +8,7 @@ We also provide some helper functions to deal with ABI encode/decode.
 `See Github for available contracts ABI files <https://github.com/tradingstrategy-ai/web3-ethereum-defi/tree/master/eth_defi/abi>`_.
 """
 import json
+import re
 from functools import lru_cache
 from pathlib import Path
 from typing import Optional, Type, Union, Collection, Any, Sequence, Dict
@@ -23,6 +24,8 @@ from web3.contract.contract import Contract, ContractFunction
 # Cache loaded ABI files in-process memory for speedup
 from web3.datastructures import AttributeDict
 
+from eth_defi.uniswap_v2.utils import ZERO_ADDRESS
+from eth_defi.utils import ZERO_ADDRESS_STR
 
 # How big are our ABI and contract caches
 _CACHE_SIZE = 512
@@ -363,7 +366,7 @@ def humanise_decoded_arg_data(args: dict) -> dict:
 
 
 def link_libraries_hardhat(
-        bytecode: bytes,
+        bytecode: str,
         link_references: dict,
         hardhat_export: dict):
     """Link Solidity libraries based on Hardhat deployment.
@@ -372,6 +375,8 @@ def link_libraries_hardhat(
         Raw bytecode of a Solidity contract.
 
         Get from ABI file.
+
+        Bytecode must be a in string format, because placeholders are not parseable hex.
 
     :param link_references:
         List of binary sequences we need to replaced by a contract filename.
@@ -382,5 +387,43 @@ def link_libraries_hardhat(
         Hardhat's export format.
 
         You get with `hardhat deploy --export`.
+
+    :return:
+        Linked bytecode
     """
 
+    assert type(bytecode) == str, f"Got {type(bytecode)}"
+
+    assert bytecode.startswith("0x")
+
+    hex_blob = bytecode[2:]
+
+    # Remove placeholders and replace them with zeroes,
+    # so that we can convert the bytecode to binary
+    # https://stackoverflow.com/a/16160048/315168
+    zeroes = str(ZERO_ADDRESS_STR)[2:]
+    fixed_hex_blob = re.sub(r"__\$(.*?)\$__", zeroes, hex_blob, flags=re.DOTALL)
+
+    data = bytearray.fromhex(fixed_hex_blob)
+
+    def _get_contract_address(name: str):
+        contracts = hardhat_export["contracts"]
+        contract = contracts.get(name)
+        assert contract, f"Hardhat export does not contain a contract entry for {name}"
+        return contract["address"]
+
+    for ref_file, ref_data in link_references.items():
+        # 'contracts/protocol/libraries/logic/BorrowLogic.sol': {'BorrowLogic': [{'length': 20, 'start': 4405}, {'length': 20, 'start': 5081}, {'length': 20, 'start': 7441}, {'length': 20, 'start': 7604}, {'length': 20, 'start': 10111}, {'length': 20, 'start': 12083}]},
+        for contract_name, ref_array in ref_data.items():
+            address = _get_contract_address(contract_name)
+            byte_address = bytes.fromhex(address[2:])
+            for ref in ref_array:
+                start = ref["start"]
+                length = ref["length"]
+                data[start:start+length] = byte_address
+                print(f"Linking {contract_name} {start} {address}")
+
+    print(data.hex())
+    import ipdb ; ipdb.set_trace()
+
+    return data

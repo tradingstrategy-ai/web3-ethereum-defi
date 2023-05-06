@@ -340,7 +340,7 @@ def launch_anvil(
 
     """
 
-    assert not is_localhost_port_listening(port), f"localhost port {port} occupied.\n" f"You might have a zombie Anvil process around.\nRun to kill: -SIGKILL $(lsof -ti:{port})"
+    assert not is_localhost_port_listening(port), f"localhost port {port} occupied.\n" f"You might have a zombie Anvil process around.\nRun to kill: kill -SIGKILL $(lsof -ti:{port})"
 
     url = f"http://localhost:{port}"
 
