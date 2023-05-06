@@ -1,9 +1,13 @@
 """Manage the official Aave v3 deployer.
 
 Deploy Aave v3 to a local Anvil test backend using the official Aave v3 deployer
-to be used with unit tests.
+to get hardhat export file.
 
-The deployment report (test addresses are always the same):
+.. note ::
+
+    The hardhat export has been bundled and you unlikely need to do run the Aave deployer yourself.
+
+The Aavec3 deployment localhost report belwo. Addesses seem to be deterministc:
 
 .. code-block:: text
 
@@ -490,3 +494,8 @@ class AaveDeployer:
         return HexAddress(HARDHAT_CONTRACTS[contract_name])
 
 
+def get_aave_hardhard_export() -> dict:
+    """Read the buncled hardhad localhost deployment export."""
+    with open(os.path.join(os.path.dirname(__file__), "aave-hardhat-localhost-export.json"), "rb") as inp:
+        data = json.load(inp)
+    return data

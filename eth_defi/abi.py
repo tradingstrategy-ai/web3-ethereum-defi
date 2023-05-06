@@ -51,7 +51,6 @@ def get_abi_by_filename(fname: str) -> dict:
     abi_path = here / "abi" / Path(fname)
     with open(abi_path, "rt", encoding="utf-8") as f:
         abi = json.load(f)
-
     return abi
 
 
@@ -60,17 +59,21 @@ def get_contract(
         web3: Web3,
         fname: str | Path,
         bytecode: Optional[str] = None,
-        link_data: Optional[dict] = None,
 ) -> Type[Contract]:
     """Create a Contract proxy class from our bundled contracts or filesystem..
 
     `See Web3.py documentation on Contract instances <https://web3py.readthedocs.io/en/stable/contracts.html#contract-deployment-example>`_.
 
     Any results are cached. Web3 connection is part of the cache key.
+
+    .. note ::
+
+        This function cannot do linking. See :py:func:`get_linked_contract`
+        if the bytecode contains link markers.
     
     Example:
-    
 
+        pass
 
     :param web3: 
         Web3 instance
@@ -84,13 +87,8 @@ def get_contract(
         Use slash prefixed path for absolute lookups.
     
         `JSON filename from supported contract lists <https://github.com/tradingstrategy-ai/web3-ethereum-defi/tree/master/eth_defi/abi>`_.
-        
-    :param link_data:
-        Hardhat deployment export data to link bytecode.
 
-        Needed when contracts contain references to libraries.
-
-    :return: 
+    :return:
         Contract proxy class
     """
 
@@ -115,8 +113,53 @@ def get_contract(
             # Bytecode hex is directly in the key.
             pass
 
-    if link_data:
-        link_libraries(bytecode, link_data)
+    Contract = web3.eth.contract(abi=abi, bytecode=bytecode)
+    return Contract
+
+
+def get_linked_contract(
+        web3: Web3,
+        fname: str | Path,
+        export: Optional[dict] = None,
+) -> Type[Contract]:
+    """Create a Contract proxy class from our bundled contracts or filesystem and links it Solidity bytecode.
+
+    Example:
+
+        pass
+
+    .. note ::
+
+        If you do not need linking use :py:func:`get_contract` which is faster.
+
+    :param web3:
+        Web3 instance
+
+    :param fname:
+        Solidity compiler artifact.
+
+        Use slash prefixed path for absolute lookups.
+
+        `JSON filename from supported contract lists <https://github.com/tradingstrategy-ai/web3-ethereum-defi/tree/master/eth_defi/abi>`_.
+
+    :param export:
+        Hardhat deployment export data to link bytecode.
+
+        Needed when contracts contain references to libraries.
+
+    :return:
+        Contract proxy class
+    """
+
+    contract_interface = get_abi_by_filename(fname)
+    abi = contract_interface["abi"]
+    bytecode = contract_interface["deployedBytecode"]
+
+    link_references = contract_interface["linkReferences"]
+    bytecode = link_libraries_hardhat(
+        bytecode,
+        link_references,
+        export)
 
     Contract = web3.eth.contract(abi=abi, bytecode=bytecode)
     return Contract
@@ -319,5 +362,25 @@ def humanise_decoded_arg_data(args: dict) -> dict:
     return {k: _humanize(v) for k, v in args.items()}
 
 
-def link_libraries(bytecode, link_data: dict):
-    pass
+def link_libraries_hardhat(
+        bytecode: bytes,
+        link_references: dict,
+        hardhat_export: dict):
+    """Link Solidity libraries based on Hardhat deployment.
+
+    :param bytecode:
+        Raw bytecode of a Solidity contract.
+
+        Get from ABI file.
+
+    :param link_references:
+        List of binary sequences we need to replaced by a contract filename.
+
+        Get from ABI file.
+
+    :param hardhat_export:
+        Hardhat's export format.
+
+        You get with `hardhat deploy --export`.
+    """
+
