@@ -22,6 +22,7 @@ from eth_defi.utils import ZERO_ADDRESS_STR
 #     return web3
 #
 
+
 @pytest.fixture()
 def anvil(request: FixtureRequest) -> AnvilLaunch:
     """Launch Anvil for the test backend."""
@@ -54,8 +55,8 @@ def deployer(web3) -> str:
 
 
 def test_link_aave(
-        web3,
-        deployer,
+    web3,
+    deployer,
 ):
     """Test Hardhat linking by deploying Aave pool contract."""
     export = get_aave_hardhard_export()

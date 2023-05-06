@@ -54,17 +54,17 @@ def test_deploy_aave(
     anvil,
     web3,
 ):
-    """Deploy Aave against local and check it's there."""
+    """Deploy Aave against local Anvil and check it's there."""
     aave_deployer.deploy_local(echo=False)
     assert aave_deployer.is_deployed(web3)
 
 
 def test_deployment_smoke_test(
-        aave_deployer: AaveDeployer,
-        anvil,
-        web3: Web3,
-        deployer,
-        user,
+    aave_deployer: AaveDeployer,
+    anvil,
+    web3: Web3,
+    deployer,
+    user,
 ):
     """Deploy Aave against local and check something happens."""
     aave_deployer.deploy_local()
@@ -75,7 +75,6 @@ def test_deployment_smoke_test(
     usdc = aave_deployer.get_contract_at_address(web3, "core-v3/contracts/mocks/tokens/MintableERC20.sol/MintableERC20.json", "USDC")
 
     # Get some test money
-
     tx_hash = faucet.functions.mint(usdc.address, user, 500 * 10**6).transact()
     assert_transaction_success_with_explanation(web3, tx_hash)
     assert usdc.functions.balanceOf(user).call() > 0

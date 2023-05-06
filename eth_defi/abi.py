@@ -59,9 +59,9 @@ def get_abi_by_filename(fname: str) -> dict:
 
 @lru_cache(maxsize=_CACHE_SIZE)
 def get_contract(
-        web3: Web3,
-        fname: str | Path,
-        bytecode: Optional[str] = None,
+    web3: Web3,
+    fname: str | Path,
+    bytecode: Optional[str] = None,
 ) -> Type[Contract]:
     """Create a Contract proxy class from our bundled contracts or filesystem..
 
@@ -73,22 +73,22 @@ def get_contract(
 
         This function cannot do linking. See :py:func:`get_linked_contract`
         if the bytecode contains link markers.
-    
+
     Example:
 
         pass
 
-    :param web3: 
+    :param web3:
         Web3 instance
-    
-    :param bytecode: 
+
+    :param bytecode:
         Override bytecode payload for the contract
-    
-    :param fname: 
+
+    :param fname:
         Solidity compiler artifact.
 
         Use slash prefixed path for absolute lookups.
-    
+
         `JSON filename from supported contract lists <https://github.com/tradingstrategy-ai/web3-ethereum-defi/tree/master/eth_defi/abi>`_.
 
     :return:
@@ -99,7 +99,6 @@ def get_contract(
     abi = contract_interface["abi"]
 
     if bytecode is None:
-
         bytecode = contract_interface["bytecode"]
 
         if type(bytecode) == dict:
@@ -116,9 +115,9 @@ def get_contract(
 
 
 def get_linked_contract(
-        web3: Web3,
-        fname: str | Path,
-        hardhat_export_data: Optional[dict] = None,
+    web3: Web3,
+    fname: str | Path,
+    hardhat_export_data: Optional[dict] = None,
 ) -> Type[Contract]:
     """Create a Contract proxy class from our bundled contracts or filesystem and links it Solidity bytecode.
 
@@ -161,10 +160,7 @@ def get_linked_contract(
     bytecode = contract_interface["deployedBytecode"]
 
     link_references = contract_interface["linkReferences"]
-    bytecode = link_libraries_hardhat(
-        bytecode,
-        link_references,
-        hardhat_export_data)
+    bytecode = link_libraries_hardhat(bytecode, link_references, hardhat_export_data)
 
     Contract = web3.eth.contract(abi=abi, bytecode=bytecode)
     return Contract
@@ -367,10 +363,7 @@ def humanise_decoded_arg_data(args: dict) -> dict:
     return {k: _humanize(v) for k, v in args.items()}
 
 
-def link_libraries_hardhat(
-        bytecode: str,
-        link_references: dict,
-        hardhat_export: dict):
+def link_libraries_hardhat(bytecode: str, link_references: dict, hardhat_export: dict):
     """Link Solidity libraries based on Hardhat deployment.
 
     .. warning ::
@@ -428,7 +421,7 @@ def link_libraries_hardhat(
             for ref in ref_array:
                 start = ref["start"]
                 length = ref["length"]
-                data[start:start+length] = byte_address
+                data[start : start + length] = byte_address
                 print(f"Linking {contract_name} {start} {address}")
 
     return data

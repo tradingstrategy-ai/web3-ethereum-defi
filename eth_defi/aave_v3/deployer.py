@@ -350,6 +350,7 @@ HARDHAT_CONTRACTS = {
     "USDC": "0x68B1D87F95878fE05B998F19b66F4baba5De1aed",  # TestnetERC20 https://github.com/aave/aave-v3-periphery/blob/1fdd23b38cc5b6c095687b3c635c4d761ff75c4c/contracts/mocks/testnet-helpers/TestnetERC20.sol#L12
 }
 
+
 class AaveDeployer:
     """Aave v3 deployer wrapper.
 
@@ -406,7 +407,7 @@ class AaveDeployer:
 
         logger.info("Cloning %s", AAVE_DEPLOYER_REPO)
         result = subprocess.run(
-            [git, 'clone', AAVE_DEPLOYER_REPO, self.path],
+            [git, "clone", AAVE_DEPLOYER_REPO, self.path],
             stdout=out,
             stderr=out,
         )
@@ -417,7 +418,7 @@ class AaveDeployer:
         logger.info("NPM install on %s - may take long time", self.path)
         # output, exit_code = run(f"npm install", cwd=self.path, logfile=logfile, withexitstatus=True)
         result = subprocess.run(
-            [npm, 'install'],
+            [npm, "install"],
             cwd=self.path,
             stdout=out,
             stderr=out,
@@ -461,19 +462,19 @@ class AaveDeployer:
             [npx, "hardhat", "--network", "localhost", "deploy", "--reset", "--export", "hardhat-deployment-export.json"],
             cwd=self.path,
             env=env,
-            stderr=None,
-            stdout=None,
+            stderr=out,
+            stdout=out,
         )
         assert result.returncode == 0
 
     def is_deployed(self, web3: Web3) -> bool:
         """Check if Aave is deployed on chain"""
-        assert web3.eth.block_number > 1
-        usdc = self.get_contract_at_address(
-            web3,
-            "core-v3/contracts/mocks/tokens/MintableERC20.sol/MintableERC20.json",
-            "USDC")
-        return usdc.functions.symbol().call() == "USDC"
+        assert web3.eth.block_number > 1, "This chain does not contain any data"
+        usdc = self.get_contract_at_address(web3, "core-v3/contracts/mocks/tokens/MintableERC20.sol/MintableERC20.json", "USDC")
+        try:
+            return usdc.functions.symbol().call() == "USDC"
+        except:
+            return False
 
     def get_contract(self, web3: Web3, name: str) -> Type[Contract]:
         """Get Aave deployer ABI file.
@@ -503,11 +504,7 @@ class AaveDeployer:
         assert contract_name in HARDHAT_CONTRACTS, f"Does not know Aave contract {contract_name}"
         return Web3.to_checksum_address(HARDHAT_CONTRACTS[contract_name])
 
-    def get_contract_at_address(
-            self,
-            web3: Web3,
-            contract_fname: str,
-            address_name: str) -> Contract:
+    def get_contract_at_address(self, web3: Web3, contract_fname: str, address_name: str) -> Contract:
         address = self.get_contract_address(address_name)
         ContractProxy = self.get_contract(web3, contract_fname)
         instance = ContractProxy(address)
