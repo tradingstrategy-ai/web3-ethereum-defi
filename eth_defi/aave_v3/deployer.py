@@ -484,9 +484,7 @@ class AaveDeployer:
 
         This function links the contract against other deployed contracts.
 
-        Example:
-
-        .. code-block:: python
+        See :py:meth:`get_contract_at_address`.
 
         :return:
             A Contract proxy class
@@ -500,11 +498,23 @@ class AaveDeployer:
         """Get a deployed contract address.
 
         See :py:data:`HARDHAT_CONTRACTS` for the list.
+
+        See :py:meth:`get_contract_at_address`.
         """
         assert contract_name in HARDHAT_CONTRACTS, f"Does not know Aave contract {contract_name}"
         return Web3.to_checksum_address(HARDHAT_CONTRACTS[contract_name])
 
     def get_contract_at_address(self, web3: Web3, contract_fname: str, address_name: str) -> Contract:
+        """Get a singleton Aave deployed contract.
+
+        Example:
+
+        .. code-block:: python
+
+            pool = aave_deployer.get_contract_at_address(web3, "core-v3/contracts/protocol/pool/Pool.sol/Pool.json", "Pool")
+            assert pool.functions.POOL_REVISION().call() == 1
+
+        """
         address = self.get_contract_address(address_name)
         ContractProxy = self.get_contract(web3, contract_fname)
         instance = ContractProxy(address)
