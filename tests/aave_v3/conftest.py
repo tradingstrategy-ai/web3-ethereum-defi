@@ -1,3 +1,4 @@
+import os
 import shutil
 import sys
 from pathlib import Path
@@ -12,7 +13,8 @@ from eth_defi.aave_v3.deployer import AaveDeployer
 def aave_deployer_test_path() -> Path:
     path = Path(gettempdir()).joinpath("aave-v3-deployer-test")
     # Clear at the start of the tets
-    shutil.rmtree(path, ignore_errors=True)
+    if not os.environ.get("SKIP_AAVE_CLEAN"):
+        shutil.rmtree(path, ignore_errors=True)
     return path
 
 

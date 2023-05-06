@@ -100,12 +100,7 @@ def get_contract(
 
     if bytecode is None:
 
-        if "deployedBytecode" in contract_interface and use_deployed_bytecode:
-            # Use bytecode with prelinked library addresses
-            bytecode = contract_interface["deployedBytecode"]
-        else:
-            # Pick up bytecode from ABI description
-            bytecode = contract_interface["bytecode"]
+        bytecode = contract_interface["bytecode"]
 
         if type(bytecode) == dict:
             # Sol 0.8 / Forge?
@@ -371,6 +366,10 @@ def link_libraries_hardhat(
         hardhat_export: dict):
     """Link Solidity libraries based on Hardhat deployment.
 
+    .. warning ::
+
+        Preliminary implementation
+
     :param bytecode:
         Raw bytecode of a Solidity contract.
 
@@ -422,8 +421,5 @@ def link_libraries_hardhat(
                 length = ref["length"]
                 data[start:start+length] = byte_address
                 print(f"Linking {contract_name} {start} {address}")
-
-    print(data.hex())
-    import ipdb ; ipdb.set_trace()
 
     return data

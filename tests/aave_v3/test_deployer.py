@@ -30,7 +30,7 @@ def web3(anvil: AnvilLaunch) -> Web3:
     """
     web3 = Web3(HTTPProvider(anvil.json_rpc_url))
     web3.middleware_onion.clear()
-    install_chain_middleware(web3)
+    # install_chain_middleware(web3)
     return web3
 
 
@@ -38,6 +38,12 @@ def web3(anvil: AnvilLaunch) -> Web3:
 def deployer(web3) -> str:
     """Deploy account"""
     return web3.eth.accounts[0]
+
+
+@pytest.fixture()
+def user(web3) -> str:
+    """Deploy account"""
+    return web3.eth.accounts[1]
 
 
 def test_install_aave_deployer(aave_deployer: AaveDeployer):
@@ -48,35 +54,34 @@ def test_install_aave_deployer(aave_deployer: AaveDeployer):
 def test_deploy_aave(
     aave_deployer: AaveDeployer,
     anvil,
+    web3,
 ):
     """Deploy Aave against local and check it's there."""
     aave_deployer.deploy_local(echo=True)
+    assert aave_deployer.is_deployed(web3)
 
 
-def test_deploy_aave_pool(
+def test_deployment_smoke_test(
         aave_deployer: AaveDeployer,
         anvil,
         web3: Web3,
         deployer,
+        user,
 ):
-    """Deploy Aave against local and check it's there."""
+    """Deploy Aave against local and check something happens."""
     aave_deployer.deploy_local()
-    Pool = aave_deployer.get_contract(web3, "core-v3/contracts/protocol/pool/Pool.sol/Pool.json")
-    assert Pool is not None
 
-    pool_addresses_provider_address = aave_deployer.get_contract_address("PoolAddressProvider")
+    assert web3.eth.block_number > 20
 
-    tx_hash = Pool.constructor(pool_addresses_provider_address).transact(
-        {
-            "from": deployer,
-            "gas": 10_000_000,
-        }
-    )
+    faucet = aave_deployer.get_contract_at_address(web3, "periphery-v3/contracts/mocks/testnet-helpers/Faucet.sol/Faucet.json", "Faucet")
+    usdc = aave_deployer.get_contract_at_address(web3, "core-v3/contracts/mocks/tokens/MintableERC20.sol/MintableERC20.json", "USDC")
 
-    tx_receipt = assert_transaction_success_with_explanation(web3, tx_hash)
+    # Get some test money
 
-    pool = Pool(
-        address=tx_receipt["contractAddress"],
-    )
-    revision = pool.functions.getRevision().call()
-    assert revision == 1
+    tx_hash = faucet.functions.mint(usdc.address, user, 500 * 10**6).transact()
+    assert_transaction_success_with_explanation(web3, tx_hash)
+    assert usdc.functions.balanceOf(user).call() > 0
+
+    # Get Aave Pool singleton address
+    pool = aave_deployer.get_contract_at_address(web3, "core-v3/contracts/protocol/pool/Pool.sol/Pool.json", "Pool")
+    assert pool.functions.POOL_REVISION().call() == 1

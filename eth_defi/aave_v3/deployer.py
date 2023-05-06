@@ -318,11 +318,11 @@ from shutil import which
 from tempfile import gettempdir
 from typing import Type
 
-from eth_typing import HexAddress
+from eth_typing import HexAddress, ChecksumAddress
 from web3 import Web3
 from web3.contract import Contract
 
-from eth_defi.abi import get_contract
+from eth_defi.abi import get_contract, get_linked_contract
 
 logger = logging.getLogger(__name__)
 
@@ -344,6 +344,9 @@ AAVE_DEPLOYER_REPO = "https://github.com/tradingstrategy-ai/aave-v3-deploy.git"
 #:
 HARDHAT_CONTRACTS = {
     "PoolAdderssProvider": "0xa85233C63b9Ee964Add6F2cffe00Fd84eb32338f",
+    "Pool": "0xf5059a5D33d5853360D16C683c16e67980206f36",
+    "Faucet": "0x0B306BF915C4d645ff596e518fAf3F9669b97016",  # https://github.com/aave/aave-v3-periphery/blob/1fdd23b38cc5b6c095687b3c635c4d761ff75c4c/contracts/mocks/testnet-helpers/Faucet.sol
+    "USDC": "0x68B1D87F95878fE05B998F19b66F4baba5De1aed",  # TestnetERC20 https://github.com/aave/aave-v3-periphery/blob/1fdd23b38cc5b6c095687b3c635c4d761ff75c4c/contracts/mocks/testnet-helpers/TestnetERC20.sol#L12
 }
 
 class AaveDeployer:
@@ -444,7 +447,7 @@ class AaveDeployer:
         assert npx is not None, "No npx command in path, needed for Aave v3 deployment"
 
         if echo:
-            out = subprocess.STDOUT
+            out = None
         else:
             out = subprocess.DEVNULL
 
@@ -454,13 +457,22 @@ class AaveDeployer:
         env["MARKET_NAME"] = "Aave"
 
         result = subprocess.run(
-            [npx, "hardhat", "--network", "hardhat", "deploy", "--export", "hardhat-deployment-export.json"],
+            [npx, "hardhat", "--network", "localhost", "deploy", "--reset", "--export", "hardhat-deployment-export.json"],
             cwd=self.path,
             env=env,
-            stderr=out,
-            stdout=out,
+            stderr=None,
+            stdout=None,
         )
         assert result.returncode == 0
+
+    def is_deployed(self, web3: Web3) -> bool:
+        """Check if Aave is deployed on chain"""
+        assert web3.eth.block_number > 1
+        usdc = self.get_contract_at_address(
+            web3,
+            "core-v3/contracts/mocks/tokens/MintableERC20.sol/MintableERC20.json",
+            "USDC")
+        return usdc.functions.symbol().call() == "USDC"
 
     def get_contract(self, web3: Web3, name: str) -> Type[Contract]:
         """Get Aave deployer ABI file.
@@ -480,22 +492,37 @@ class AaveDeployer:
 
         path = self.path.joinpath("artifacts").joinpath("@aave").joinpath(name)
         assert path.exists(), f"No ABI file: {path.absolute()}"
+        return get_linked_contract(web3, path, get_aave_hardhard_export())
 
-        with open(self.path.joinpath("hardhat-deployment-export.json"), "rb") as inp:
-            link_data = json.load(inp)
-
-        return get_contract(web3, path, link_data=link_data)
-
-    def get_contract_address(self, contract_name: str) -> HexAddress:
+    def get_contract_address(self, contract_name: str) -> ChecksumAddress:
         """Get a deployed contract address.
 
         See :py:data:`HARDHAT_CONTRACTS` for the list.
         """
-        return HexAddress(HARDHAT_CONTRACTS[contract_name])
+        assert contract_name in HARDHAT_CONTRACTS, f"Does not know Aave contract {contract_name}"
+        return Web3.to_checksum_address(HARDHAT_CONTRACTS[contract_name])
+
+    def get_contract_at_address(
+            self,
+            web3: Web3,
+            contract_fname: str,
+            address_name: str) -> Contract:
+        address = self.get_contract_address(address_name)
+        ContractProxy = self.get_contract(web3, contract_fname)
+        instance = ContractProxy(address)
+        return instance
+
+
+_export_data: dict | None = None
 
 
 def get_aave_hardhard_export() -> dict:
-    """Read the buncled hardhad localhost deployment export."""
-    with open(os.path.join(os.path.dirname(__file__), "aave-hardhat-localhost-export.json"), "rb") as inp:
-        data = json.load(inp)
-    return data
+    """Read the buncled hardhad localhost deployment export.
+
+    Needed to deploy any contracts that contain linked libraries.
+    """
+    global _export_data
+    if not _export_data:
+        with open(os.path.join(os.path.dirname(__file__), "aave-hardhat-localhost-export.json"), "rb") as inp:
+            _export_data = json.load(inp)
+    return _export_data
