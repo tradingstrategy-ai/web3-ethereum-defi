@@ -5,7 +5,6 @@ from web3 import Web3, HTTPProvider
 
 from eth_defi.aave_v3.deployer import AaveDeployer
 from eth_defi.anvil import AnvilLaunch, launch_anvil
-from eth_defi.chain import install_chain_middleware
 from eth_defi.trace import assert_transaction_success_with_explanation
 
 
@@ -30,7 +29,6 @@ def web3(anvil: AnvilLaunch) -> Web3:
     """
     web3 = Web3(HTTPProvider(anvil.json_rpc_url))
     web3.middleware_onion.clear()
-    # install_chain_middleware(web3)
     return web3
 
 
@@ -57,7 +55,7 @@ def test_deploy_aave(
     web3,
 ):
     """Deploy Aave against local and check it's there."""
-    aave_deployer.deploy_local(echo=True)
+    aave_deployer.deploy_local(echo=False)
     assert aave_deployer.is_deployed(web3)
 
 
@@ -82,6 +80,6 @@ def test_deployment_smoke_test(
     assert_transaction_success_with_explanation(web3, tx_hash)
     assert usdc.functions.balanceOf(user).call() > 0
 
-    # Get Aave Pool singleton address
+    # Get Aave Pool singleton
     pool = aave_deployer.get_contract_at_address(web3, "core-v3/contracts/protocol/pool/Pool.sol/Pool.json", "Pool")
     assert pool.functions.POOL_REVISION().call() == 1

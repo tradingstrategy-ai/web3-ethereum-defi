@@ -1,6 +1,5 @@
 import os
 import shutil
-import sys
 from pathlib import Path
 from tempfile import gettempdir
 
@@ -11,6 +10,10 @@ from eth_defi.aave_v3.deployer import AaveDeployer
 
 @pytest.fixture(scope="session")
 def aave_deployer_test_path() -> Path:
+    """Create clean Aave deployer checkout.
+
+    Use `SKIP_AAVE_CLEAN` env to skip cleaning to speed up tests.
+    """
     path = Path(gettempdir()).joinpath("aave-v3-deployer-test")
     # Clear at the start of the tets
     if not os.environ.get("SKIP_AAVE_CLEAN"):
@@ -27,4 +30,3 @@ def aave_deployer(aave_deployer_test_path) -> AaveDeployer:
     deployer = AaveDeployer(aave_deployer_test_path)
     deployer.install()
     return deployer
-
