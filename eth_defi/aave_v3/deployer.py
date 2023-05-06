@@ -1,13 +1,14 @@
 """Manage the official Aave v3 deployer.
 
-Deploy Aave v3 to a local Anvil test backend using the official Aave v3 deployer
-to get hardhat export file.
+Deploy Aave v3 to a local Anvil test backend using the official Aave v3 deployer.
+
+`See aave-deployer repo for more details <https://github.com/aave/aave-v3-deploy>`__.
 
 .. note ::
 
     The hardhat export has been bundled and you unlikely need to do run the Aave deployer yourself.
 
-The Aavec3 deployment localhost report belwo. Addesses seem to be deterministc:
+The Aavec deployment localhost report belwo. Addesses seem to be deterministc:
 
 .. code-block:: text
 
@@ -319,11 +320,12 @@ from shutil import which
 from tempfile import gettempdir
 from typing import Type
 
-from eth_typing import HexAddress, ChecksumAddress
+from eth_typing import ChecksumAddress
 from web3 import Web3
 from web3.contract import Contract
 
-from eth_defi.abi import get_contract, get_linked_contract
+from eth_defi.abi import get_linked_contract
+
 
 logger = logging.getLogger(__name__)
 
@@ -416,7 +418,7 @@ class AaveDeployer:
         assert self.path.exists()
 
         logger.info("NPM install on %s - may take long time", self.path)
-        # output, exit_code = run(f"npm install", cwd=self.path, logfile=logfile, withexitstatus=True)
+
         result = subprocess.run(
             [npm, "install"],
             cwd=self.path,

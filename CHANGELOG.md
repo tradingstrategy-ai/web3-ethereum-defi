@@ -1,3 +1,8 @@
+# Current
+
+- Add [Aave v3 deployer support](https://github.com/aave/aave-v3-deploy) 
+- Add Solidity library linking support for Hardhat-based deployments 
+
 # 0.18.4
 
 - Fix: Use `web3.eth.wait_for_transaction_receipt` in appropriate places
