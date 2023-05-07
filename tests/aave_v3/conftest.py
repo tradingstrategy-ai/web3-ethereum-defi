@@ -3,11 +3,15 @@ import shutil
 from pathlib import Path
 from tempfile import gettempdir
 
+import logging
 import pytest
 from web3 import Web3, HTTPProvider
 
 from eth_defi.aave_v3.deployer import AaveDeployer
 from eth_defi.anvil import AnvilLaunch, snapshot, revert, launch_anvil
+
+
+logger = logging.getLogger(__name__)
 
 
 @pytest.fixture(scope="session")
@@ -59,12 +63,13 @@ def aave_deployment_snapshot(
 
 
 @pytest.fixture()
-def aave_deployment(web3, aave_deployment_snapshot, tests__="""Restore blockchain to the state of Aave deployment.
+def aave_deployment(web3, aave_deployment_snapshot) -> AaveDeployer:
+    """Restore blockchain to the state of Aave deployment.
 
-    Resetes blockchain state between tests.
-    """) -> AaveDeployer:
-    tests__
+    Resets blockchain state between tests.
+    """
     revert(web3, 0)
+    logger.info("Reverted to snapshot")
     return aave_deployment_snapshot
 
 
