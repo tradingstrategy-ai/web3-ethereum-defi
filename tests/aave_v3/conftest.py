@@ -21,7 +21,7 @@ def aave_deployer() -> AaveDeployer:
     return deployer
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="session")
 def anvil() -> AnvilLaunch:
     """Launch Anvil for the test backend."""
 
@@ -35,7 +35,7 @@ def anvil() -> AnvilLaunch:
         anvil.close()
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="session")
 def web3(anvil: AnvilLaunch) -> Web3:
     """Set up the Anvil Web3 connection.
     Also perform the Anvil state reset for each test.
@@ -45,13 +45,13 @@ def web3(anvil: AnvilLaunch) -> Web3:
     return web3
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="session")
 def aave_deployment_snapshot(
         web3,
         aave_deployer,
 ) -> AaveDeployer:
     """Deploy Aave once and save Anvil snapshot as a reset point."""
-    aave_deployer.deploy_local(echo=True)
+    aave_deployer.deploy_local(web3, echo=True)
     # Save state after deployment
     snapshot_id = snapshot(web3)
     assert snapshot_id == 0
@@ -59,11 +59,11 @@ def aave_deployment_snapshot(
 
 
 @pytest.fixture()
-def aave_deployment(web3, aave_deployment_snapshot) -> AaveDeployer:
-    """Restore blockchain to the state of Aave deployment.
+def aave_deployment(web3, aave_deployment_snapshot, tests__="""Restore blockchain to the state of Aave deployment.
 
     Resetes blockchain state between tests.
-    """
+    """) -> AaveDeployer:
+    tests__
     revert(web3, 0)
     return aave_deployment_snapshot
 

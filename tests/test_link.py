@@ -23,26 +23,13 @@ from eth_defi.utils import ZERO_ADDRESS_STR
 #
 
 
-@pytest.fixture()
-def anvil(request: FixtureRequest) -> AnvilLaunch:
-    """Launch Anvil for the test backend."""
-
-    anvil = launch_anvil(
-        gas_limit=15_000_000,
-        port=8545,  # Must be localhost:8545 for Aave deployment
-    )
-    try:
-        yield anvil
-    finally:
-        anvil.close()
-
 
 @pytest.fixture()
 def web3(anvil: AnvilLaunch) -> Web3:
     """Set up the Anvil Web3 connection.
     Also perform the Anvil state reset for each test.
     """
-    web3 = Web3(HTTPProvider(anvil.json_rpc_url))
+    web3 = Web3(EthereumTesterProvider())
     web3.middleware_onion.clear()
     install_chain_middleware(web3)
     return web3

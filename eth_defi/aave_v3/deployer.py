@@ -454,7 +454,7 @@ class AaveDeployer:
         logger.info("Installation complete")
         return True
 
-    def deploy_local(self, echo=False):
+    def deploy_local(self, web3: Web3, echo=False):
         """Deploy Aave v3 at Anvil.
 
         Deploys all infrastructure mentioned in the :py:mod:`eth_defi.aave_v3.deployer` documentation,
@@ -470,6 +470,8 @@ class AaveDeployer:
         """
 
         assert self.is_installed(), "Deployer not installed"
+
+        assert not self.is_deployed(web3), "Already deployed on this chain"
 
         npx = which("npx")
         assert npx is not None, "No npx command in path, needed for Aave v3 deployment"
@@ -496,7 +498,7 @@ class AaveDeployer:
 
     def is_deployed(self, web3: Web3) -> bool:
         """Check if Aave is deployed on chain"""
-        assert web3.eth.block_number > 1, "This chain does not contain any data"
+        # assert web3.eth.block_number > 1, "This chain does not contain any data"
         usdc = self.get_contract_at_address(web3, "core-v3/contracts/mocks/tokens/MintableERC20.sol/MintableERC20.json", "USDC")
         try:
             return usdc.functions.symbol().call() == "USDC"

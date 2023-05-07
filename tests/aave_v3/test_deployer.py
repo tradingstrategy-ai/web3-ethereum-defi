@@ -12,19 +12,19 @@ def user(web3) -> str:
     return web3.eth.accounts[1]
 
 
-def test_install_aave_deployer(aave_deployer: AaveDeployer):
+def test_aave_deployer_checkout_out():
     """Check Aave deployer git clone and npm install works"""
-    assert aave_deployer.is_installed()
+    deployer = AaveDeployer()
+    assert deployer.is_checked_out()
 
 
 def test_deploy_aave(
-    aave_deployer: AaveDeployer,
+    aave_deployment: AaveDeployer,
     anvil,
     web3,
 ):
     """Deploy Aave against local Anvil and check it's there."""
-    aave_deployer.deploy_local(echo=False)
-    assert aave_deployer.is_deployed(web3)
+    assert aave_deployment.is_deployed(web3)
 
 
 def test_deployment_smoke_test(
