@@ -332,8 +332,9 @@ logger = logging.getLogger(__name__)
 
 #: What is the default location of our aave deployer script
 #:
-#: /tmp/aave-v3-deployer
-DEFAULT_PATH = Path(gettempdir()).joinpath("aave-v3-deployer")
+#: aave-v3-deploy is not packaged with eth_defi as they exist outside the Python package,
+#: in git repository. However, it is only needed for tests and normal users should not need these files.
+DEFAULT_PATH = Path(os.path.join(os.path.dirname(__file__), "..", "..", "contracts", "aave-v3-deploy"))
 
 
 #: We maintain our forked and patched deployer
@@ -350,6 +351,7 @@ HARDHAT_CONTRACTS = {
     "Pool": "0xf5059a5D33d5853360D16C683c16e67980206f36",
     "Faucet": "0x0B306BF915C4d645ff596e518fAf3F9669b97016",  # https://github.com/aave/aave-v3-periphery/blob/1fdd23b38cc5b6c095687b3c635c4d761ff75c4c/contracts/mocks/testnet-helpers/Faucet.sol
     "USDC": "0x68B1D87F95878fE05B998F19b66F4baba5De1aed",  # TestnetERC20 https://github.com/aave/aave-v3-periphery/blob/1fdd23b38cc5b6c095687b3c635c4d761ff75c4c/contracts/mocks/testnet-helpers/TestnetERC20.sol#L12
+    "WBTC": "0x3Aa5ebB10DC797CAC828524e59A333d0A371443c",   # TestnetERC20 https://github.com/aave/aave-v3-periphery/blob/1fdd23b38cc5b6c095687b3c635c4d761ff75c4c/contracts/mocks/testnet-helpers/TestnetERC20.sol#L12
 }
 
 
@@ -363,49 +365,34 @@ class AaveDeployer:
     """
 
     def __init__(self, path: Path = DEFAULT_PATH):
+        """Create Aave deployer.
+
+        :param path:
+            Path to aave-v3-deploy git checkout.
+
+        """
         assert isinstance(path, Path)
         self.path = path
 
-    def is_installed(self):
+    def is_checked_out(self) -> bool:
+        """Check if we have a Github repo of the deployer."""
+        return self.path.joinpath("package.json").exists()
+
+    def is_installed(self) -> bool:
         """Check if we have a complete Aave deployer installation."""
         return self.path.joinpath("node_modules").joinpath(".bin").joinpath("hardhat").exists()
 
-    def install(self, echo=False) -> bool:
-        """Make sure we have Aave deployer installed.
-
-        .. note ::
-
-            Running this function takes long time on the first attempt,
-            as it downloads 1000+ NPM packages and few versions of Solidity compiler.
-
-        - Aave v3 deployer is a NPM/Javascript package
-
-        - We install it via NPM modules and run programmatically using subprocesses
-
-        - If already installed do nothing.
-
-        :param echo:
-            Mirror NPM output live  to stdout
-
-        :return:
-            False is already installed, True if we did perform the installation.
-        """
-
-        logger.info("Checking Aave deployer installation at %s", self.path)
-
-        git = which("git")
-        assert git is not None, "No git command in path, needed for Aave v3 deployer installation"
-        npm = which("npm")
-        assert npm is not None, "No npm command in path, needed for Aave v3 deployer installation"
-
-        if self.is_installed():
-            logger.info("Already installed")
-            return False
+    def checkout(self, echo=False):
+        """Clone aave-v3-deploy repo."""
 
         if echo:
             out = subprocess.STDOUT
         else:
             out = subprocess.DEVNULL
+
+        logger.info("Checking out Aave deployer installation at %s", self.path)
+        git = which("git")
+        assert git is not None, "No git command in path, needed for Aave v3 deployer installation"
 
         logger.info("Cloning %s", AAVE_DEPLOYER_REPO)
         result = subprocess.run(
@@ -416,6 +403,43 @@ class AaveDeployer:
         assert result.returncode == 0
 
         assert self.path.exists()
+
+    def install(self, echo=False) -> bool:
+        """Make sure we have Aave deployer installed.
+
+        .. note ::
+
+            Running this function takes long time on the first attempt,
+            as it downloads 1000+ NPM packages and few versions of Solidity compiler.
+
+        - Aave v3 deployer is a NPM/Javascript package we need to checkout with `git clone`
+
+        - We install it via NPM modules and run programmatically using subprocesses
+
+        - If already installed do nothing
+
+        :param echo:
+            Mirror NPM output live  to stdout
+
+        :return:
+            False is already installed, True if we did perform the installation.
+        """
+
+        logger.info("Installing Aave deployer installation at %s", self.path)
+
+        npm = which("npm")
+        assert npm is not None, "No npm command in path, needed for Aave v3 deployer installation"
+
+        if self.is_installed():
+            logger.info("aave-v3-deploy NPM installation already complete")
+            return False
+
+        assert self.is_checked_out(), f"{os.path.realpath(self.path)} does not contain aave-v3-deploy checkout"
+
+        if echo:
+            out = subprocess.STDOUT
+        else:
+            out = subprocess.DEVNULL
 
         logger.info("NPM install on %s - may take long time", self.path)
 
@@ -453,7 +477,7 @@ class AaveDeployer:
         if echo:
             out = None
         else:
-            out = subprocess.DEVNULL
+            out = subprocess.PIPE
 
         logger.info("Running Aave deployer at %s", self.path)
 
@@ -467,7 +491,8 @@ class AaveDeployer:
             stderr=out,
             stdout=out,
         )
-        assert result.returncode == 0
+        ret_text = result.stderr
+        assert result.returncode == 0, f"Aave deployment failed:\n{ret_text}"
 
     def is_deployed(self, web3: Web3) -> bool:
         """Check if Aave is deployed on chain"""
@@ -525,8 +550,9 @@ class AaveDeployer:
 
 @lru_cache(maxsize=1)
 def get_aave_hardhard_export() -> dict:
-    """Read the buncled hardhad localhost deployment export.
+    """Read the bunled hardhad localhost deployment export.
 
+    Precompiled hardhat for a localhost deployment.
     Needed to deploy any contracts that contain linked libraries.
 
     See :py:func:`eth_defi.abi.get_linked_contract`.

@@ -422,6 +422,6 @@ def link_libraries_hardhat(bytecode: str, link_references: dict, hardhat_export:
                 start = ref["start"]
                 length = ref["length"]
                 data[start : start + length] = byte_address
-                print(f"Linking {contract_name} {start} {address}")
+                # print(f"Linking {contract_name} {start} {address}")
 
     return data

@@ -452,7 +452,7 @@ def mine(web3: Web3, timestamp: Optional[int] = None) -> None:
 
 def snapshot(web3: Web3) -> int:
     """Call evm_snapshot on Anvil"""
-    return make_anvil_custom_rpc_request(web3, "evm_snapshot", [])
+    return int(make_anvil_custom_rpc_request(web3, "evm_snapshot", []), 16)
 
 
 def revert(web3: Web3, snapshot_id: int) -> None:
