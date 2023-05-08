@@ -19,6 +19,8 @@ jobs:
       cancel-in-progress: true
 
     steps:
+      # TODO: we only need contracts/aave-v3-deploy for tests
+      # but there does not seem to be an option to choose which submodules to checkout
       - uses: actions/checkout@v3
         with:
           submodules: true
