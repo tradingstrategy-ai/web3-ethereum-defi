@@ -48,10 +48,11 @@ def web3(anvil: AnvilLaunch) -> Web3:
 
 _snapshot_id: Optional[int] = None
 
+
 @pytest.fixture(scope="session")
 def aave_deployment_snapshot(
-        web3,
-        aave_deployer,
+    web3,
+    aave_deployer,
 ) -> AaveDeployer:
     """Deploy Aave once and save Anvil snapshot as a reset point."""
     aave_deployer.deploy_local(web3, echo=True)

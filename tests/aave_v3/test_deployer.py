@@ -82,4 +82,3 @@ def test_deployment_smoke_test_2(
     """Check deployer properly resets between tests."""
     usdc = aave_deployment.get_contract_at_address(web3, "core-v3/contracts/mocks/tokens/MintableERC20.sol/MintableERC20.json", "USDC")
     assert usdc.functions.balanceOf(user).call() == 0
-

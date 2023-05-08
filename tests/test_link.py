@@ -23,7 +23,6 @@ from eth_defi.utils import ZERO_ADDRESS_STR
 #
 
 
-
 @pytest.fixture()
 def web3() -> Web3:
     """Set up the Anvil Web3 connection.

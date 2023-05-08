@@ -351,7 +351,7 @@ HARDHAT_CONTRACTS = {
     "Pool": "0xf5059a5D33d5853360D16C683c16e67980206f36",
     "Faucet": "0x0B306BF915C4d645ff596e518fAf3F9669b97016",  # https://github.com/aave/aave-v3-periphery/blob/1fdd23b38cc5b6c095687b3c635c4d761ff75c4c/contracts/mocks/testnet-helpers/Faucet.sol
     "USDC": "0x68B1D87F95878fE05B998F19b66F4baba5De1aed",  # TestnetERC20 https://github.com/aave/aave-v3-periphery/blob/1fdd23b38cc5b6c095687b3c635c4d761ff75c4c/contracts/mocks/testnet-helpers/TestnetERC20.sol#L12
-    "WBTC": "0x3Aa5ebB10DC797CAC828524e59A333d0A371443c",   # TestnetERC20 https://github.com/aave/aave-v3-periphery/blob/1fdd23b38cc5b6c095687b3c635c4d761ff75c4c/contracts/mocks/testnet-helpers/TestnetERC20.sol#L12
+    "WBTC": "0x3Aa5ebB10DC797CAC828524e59A333d0A371443c",  # TestnetERC20 https://github.com/aave/aave-v3-periphery/blob/1fdd23b38cc5b6c095687b3c635c4d761ff75c4c/contracts/mocks/testnet-helpers/TestnetERC20.sol#L12
 }
 
 
