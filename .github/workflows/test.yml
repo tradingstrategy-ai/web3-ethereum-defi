@@ -37,9 +37,6 @@ jobs:
           poetry install -E data
       - name: Install Ganache
         run: yarn global add ganache
-      - name: Install npx
-        run: |
-             npm install -g npx
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
       - name: Run test scripts
