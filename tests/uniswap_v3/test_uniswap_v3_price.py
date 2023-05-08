@@ -11,13 +11,7 @@ from web3._utils.transactions import fill_nonce
 
 from eth_defi.token import create_token
 from eth_defi.uniswap_v3.utils import get_default_tick_range, encode_path
-from eth_defi.uniswap_v3.deployment import (
-    FOREVER_DEADLINE,
-    UniswapV3Deployment,
-    deploy_pool,
-    deploy_uniswap_v3,
-    add_liquidity
-)
+from eth_defi.uniswap_v3.deployment import FOREVER_DEADLINE, UniswapV3Deployment, deploy_pool, deploy_uniswap_v3, add_liquidity
 from eth_defi.uniswap_v3.price import (
     UniswapV3PriceHelper,
     estimate_buy_received_amount,
@@ -119,7 +113,7 @@ def weth(uniswap_v3) -> Contract:
 @pytest.fixture()
 def weth_usdc_uniswap_pool(web3, uniswap_v3, weth, usdc, deployer) -> Contract:
     """Mock WETH-USDC pool."""
-    
+
     min_tick, max_tick = get_default_tick_range(WETH_USDC_FEE_RAW)
 
     pool_contract = deploy_pool(

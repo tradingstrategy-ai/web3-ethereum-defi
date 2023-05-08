@@ -16,3 +16,6 @@
 [submodule "contracts/in-house/lib/openzeppelin-contracts"]
 	path = contracts/in-house/lib/openzeppelin-contracts
 	url = https://github.com/OpenZeppelin/openzeppelin-contracts.git
+[submodule "contracts/aave-v3-deploy"]
+	path = contracts/aave-v3-deploy
+	url = https://github.com/aave/aave-v3-deploy.git

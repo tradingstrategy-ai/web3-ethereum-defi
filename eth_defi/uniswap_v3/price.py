@@ -97,7 +97,6 @@ def estimate_buy_received_amount(
     intermediate_token_address: HexAddress | None = None,
     intermediate_pair_fee: int | None = None,
 ) -> int:
-    
     fee_helper = UniswapV3PriceHelper(uniswap)
 
     if intermediate_token_address:

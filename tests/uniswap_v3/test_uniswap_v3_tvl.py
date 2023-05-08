@@ -30,11 +30,9 @@ def web3():
     return web3
 
 
-
 @pytest.fixture()
 def usdc(web3) -> PoolDetails:
-    """Get USDC on Polygon.
-    """
+    """Get USDC on Polygon."""
     return fetch_erc20_details(web3, "0x2791bca1f2de4661ed88a30c99a7a9449aa84174")
 
 
@@ -64,6 +62,4 @@ def test_fetch_historic_tvl(
 ):
     """Fetch WMATIC-USDC TVL."""
     usdc_tvl = fetch_uniswap_v3_pool_tvl(matic_usdc_pool, usdc, block_identifier=26_000_000)
-    assert usdc_tvl == pytest.approx(Decimal('1975846.143616'))  # The exact amount of USDC locked at that block
-
-
+    assert usdc_tvl == pytest.approx(Decimal("1975846.143616"))  # The exact amount of USDC locked at that block
