@@ -6,7 +6,7 @@ from web3 import Web3, HTTPProvider
 
 from eth_defi.aave_v3.deployer import AaveDeployer
 from eth_defi.anvil import AnvilLaunch, snapshot, revert, launch_anvil
-
+from eth_defi.chain import install_chain_middleware
 
 logger = logging.getLogger(__name__)
 
@@ -43,6 +43,7 @@ def web3(anvil: AnvilLaunch) -> Web3:
     """
     web3 = Web3(HTTPProvider(anvil.json_rpc_url))
     web3.middleware_onion.clear()
+    install_chain_middleware(web3)
     return web3
 
 
