@@ -449,7 +449,7 @@ class AaveDeployer:
             stdout=out,
             stderr=out,
         )
-        assert result.returncode == 0
+        assert result.returncode == 0, f"npm install failed: {result.stderr.decode('utf-8')}"
 
         logger.info("Installation complete")
         return True
