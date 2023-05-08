@@ -437,7 +437,7 @@ class AaveDeployer:
         assert self.is_checked_out(), f"{os.path.realpath(self.path)} does not contain aave-v3-deploy checkout"
 
         if echo:
-            out = subprocess.STDOUT
+            out = None
         else:
             out = subprocess.DEVNULL
 
