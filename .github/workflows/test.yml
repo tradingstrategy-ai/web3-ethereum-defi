@@ -37,12 +37,6 @@ jobs:
           poetry install -E data
       - name: Install Ganache
         run: yarn global add ganache
-      - name: Install Anvil
-        run: |
-          curl -L https://foundry.paradigm.xyz | bash
-          PATH=~/.foundry/bin:$PATH
-          foundryup
-          anvil --version
       - name: Install npx
         run: |
              npm install -g npx
