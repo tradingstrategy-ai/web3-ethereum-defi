@@ -46,9 +46,10 @@ jobs:
       - name: Install npx
         run: |
              npm install -g npx
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
       - name: Run test scripts
         run: |
-          PATH=~/.foundry/bin:$PATH
           poetry run pytest --tb=native
         env:
           BNB_CHAIN_JSON_RPC: ${{ secrets.BNB_CHAIN_JSON_RPC }}
