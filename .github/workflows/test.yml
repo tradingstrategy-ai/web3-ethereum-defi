@@ -43,6 +43,9 @@ jobs:
           PATH=~/.foundry/bin:$PATH
           foundryup
           anvil --version
+      - name: Install npx
+        run: |
+             npm install -g npx
       - name: Run test scripts
         run: |
           PATH=~/.foundry/bin:$PATH

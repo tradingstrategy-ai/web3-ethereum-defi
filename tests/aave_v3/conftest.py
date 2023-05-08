@@ -18,7 +18,7 @@ def aave_deployer() -> AaveDeployer:
     We use session scope, because this fixture is damn slow.
     """
     deployer = AaveDeployer()
-    deployer.install()
+    deployer.install(echo=True)
     return deployer
 
 
