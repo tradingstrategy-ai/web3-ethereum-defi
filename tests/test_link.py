@@ -25,7 +25,7 @@ from eth_defi.utils import ZERO_ADDRESS_STR
 
 
 @pytest.fixture()
-def web3(anvil: AnvilLaunch) -> Web3:
+def web3() -> Web3:
     """Set up the Anvil Web3 connection.
     Also perform the Anvil state reset for each test.
     """
@@ -49,13 +49,5 @@ def test_link_aave(
     export = get_aave_hardhard_export()
 
     # Link bytecode
-    Pool = get_linked_contract(web3, "aave_v3/Pool.json", hardhat_export_data=export)
-
-    # # Deploy linked contract
-    # tx_hash = Pool.constructor(ZERO_ADDRESS_STR).transact({"from": deployer, "gas": 15_000_000})
-    # assert_transaction_success_with_explanation(web3, tx_hash)
-    #
-    # # Check deployed contract works
-    # revision = pool.functions.getRevision().call()
-    # assert revision == 1
-    #
+    # Check that the code runs (we are not checking actual bytecode result yet)
+    get_linked_contract(web3, "aave_v3/Pool.json", hardhat_export_data=export)

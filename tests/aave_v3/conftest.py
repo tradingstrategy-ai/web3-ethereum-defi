@@ -1,9 +1,6 @@
-import os
-import shutil
-from pathlib import Path
-from tempfile import gettempdir
-
 import logging
+from typing import Optional
+
 import pytest
 from web3 import Web3, HTTPProvider
 
@@ -49,6 +46,8 @@ def web3(anvil: AnvilLaunch) -> Web3:
     return web3
 
 
+_snapshot_id: Optional[int] = None
+
 @pytest.fixture(scope="session")
 def aave_deployment_snapshot(
         web3,
@@ -57,8 +56,9 @@ def aave_deployment_snapshot(
     """Deploy Aave once and save Anvil snapshot as a reset point."""
     aave_deployer.deploy_local(web3, echo=True)
     # Save state after deployment
-    snapshot_id = snapshot(web3)
-    assert snapshot_id == 0
+    global _snapshot_id
+    _snapshot_id = snapshot(web3)
+    logger.info("Saved Anvil snapshot %d", _snapshot_id)
     return aave_deployer
 
 
@@ -68,8 +68,15 @@ def aave_deployment(web3, aave_deployment_snapshot) -> AaveDeployer:
 
     Resets blockchain state between tests.
     """
-    revert(web3, 0)
-    logger.info("Reverted to snapshot")
+    global _snapshot_id
+    revert_result = revert(web3, _snapshot_id)
+    assert revert_result, f"Snapshot revert failed %d {_snapshot_id}"
+    logger.info("Reverted to snapshot %d", _snapshot_id)
+
+    # Any revert snapshot destroys the snapshot, so we need to do this again
+    _snapshot_id = snapshot(web3)
+    logger.info("Resaved Anvil snapshot %d", _snapshot_id)
+
     return aave_deployment_snapshot
 
 

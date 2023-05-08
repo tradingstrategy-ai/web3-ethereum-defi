@@ -455,9 +455,16 @@ def snapshot(web3: Web3) -> int:
     return int(make_anvil_custom_rpc_request(web3, "evm_snapshot", []), 16)
 
 
-def revert(web3: Web3, snapshot_id: int) -> None:
-    """Call evm_revert on Anvil"""
-    make_anvil_custom_rpc_request(web3, "evm_revert", [snapshot_id])
+def revert(web3: Web3, snapshot_id: int) -> bool:
+    """Call evm_revert on Anvil
+
+    https://book.getfoundry.sh/reference/anvil/
+
+    :return:
+        True if a snapshot was reverted
+    """
+    ret_val = make_anvil_custom_rpc_request(web3, "evm_revert", [snapshot_id])
+    return ret_val
 
 
 # Backwards compatibility
