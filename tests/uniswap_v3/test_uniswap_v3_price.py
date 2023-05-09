@@ -1,17 +1,26 @@
 """Test Uniswap v3 price calculation."""
 import pytest
+import secrets
+from decimal import Decimal
+from eth_account import Account
+from eth_account.signers.local import LocalAccount
+from hexbytes import HexBytes
 from web3 import EthereumTesterProvider, Web3
 from web3.contract import Contract
+from web3._utils.transactions import fill_nonce
 
 from eth_defi.token import create_token
-from eth_defi.uniswap_v3.deployment import (
-    UniswapV3Deployment,
-    add_liquidity,
-    deploy_pool,
-    deploy_uniswap_v3,
+from eth_defi.uniswap_v3.utils import get_default_tick_range, encode_path
+from eth_defi.uniswap_v3.deployment import FOREVER_DEADLINE, UniswapV3Deployment, deploy_pool, deploy_uniswap_v3, add_liquidity
+from eth_defi.uniswap_v3.price import (
+    UniswapV3PriceHelper,
+    estimate_buy_received_amount,
+    estimate_sell_received_amount,
 )
-from eth_defi.uniswap_v3.price import UniswapV3PriceHelper
-from eth_defi.uniswap_v3.utils import get_default_tick_range
+
+
+WETH_USDC_FEE_RAW = 3000
+WETH_DAI_FEE_RAW = 3000
 
 
 @pytest.fixture
@@ -52,6 +61,23 @@ def user_1(web3) -> str:
 
 
 @pytest.fixture()
+def hot_wallet_private_key() -> HexBytes:
+    """Generate a private key"""
+    return HexBytes(secrets.token_bytes(32))
+
+
+@pytest.fixture()
+def hot_wallet(eth_tester, hot_wallet_private_key) -> LocalAccount:
+    """User account.
+
+    Do some account allocation for tests.
+    '"""
+    # also add to eth_tester so we can use transact() directly
+    eth_tester.add_account(hot_wallet_private_key.hex())
+    return Account.from_key(hot_wallet_private_key)
+
+
+@pytest.fixture()
 def uniswap_v3(web3, deployer) -> UniswapV3Deployment:
     """Uniswap v3 deployment."""
     deployment = deploy_uniswap_v3(web3, deployer)
@@ -82,6 +108,35 @@ def dai(web3, deployer) -> Contract:
 def weth(uniswap_v3) -> Contract:
     """Mock WETH token."""
     return uniswap_v3.weth
+
+
+@pytest.fixture()
+def weth_usdc_uniswap_pool(web3, uniswap_v3, weth, usdc, deployer) -> Contract:
+    """Mock WETH-USDC pool."""
+
+    min_tick, max_tick = get_default_tick_range(WETH_USDC_FEE_RAW)
+
+    pool_contract = deploy_pool(
+        web3,
+        deployer,
+        deployment=uniswap_v3,
+        token0=weth,
+        token1=usdc,
+        fee=WETH_USDC_FEE_RAW,
+    )
+
+    add_liquidity(
+        web3,
+        deployer,
+        deployment=uniswap_v3,
+        pool=pool_contract,
+        amount0=10 * 10**18,  # 10 ETH liquidity
+        amount1=17_000 * 10**18,  # 17000 USDC liquidity
+        lower_tick=min_tick,
+        upper_tick=max_tick,
+    )
+
+    return pool_contract.address
 
 
 def test_price_helper(
@@ -179,3 +234,53 @@ def test_price_helper(
         )
 
         assert amount_in == expected_amount_in
+
+
+def test_estimate_buy_price_for_cash(
+    uniswap_v3: UniswapV3Deployment,
+    weth: Contract,
+    usdc: Contract,
+    weth_usdc_uniswap_pool: str,
+):
+    """Estimate how much asset we receive for a given cash buy."""
+
+    # Estimate the price of buying 1650 USDC worth of ETH
+    eth_received = estimate_buy_received_amount(
+        uniswap_v3,
+        weth.address,
+        usdc.address,
+        1650 * 10**18,
+        WETH_USDC_FEE_RAW,
+    )
+
+    assert eth_received / (10**18) == pytest.approx(0.8822985189098446)
+
+    # Calculate price of ETH as $ for our purchase
+    price = (1650 * 10**18) / eth_received
+    assert price == pytest.approx(Decimal(1870.1153460381145))
+
+
+def test_estimate_sell_received_cash(
+    uniswap_v3: UniswapV3Deployment,
+    weth: Contract,
+    usdc: Contract,
+    weth_usdc_uniswap_pool: str,
+):
+    """Estimate how much asset we receive for a given cash buy."""
+
+    # Sell 50 ETH
+    usdc_received = estimate_sell_received_amount(
+        uniswap_v3,
+        weth.address,
+        usdc.address,
+        50 * 10**18,
+        WETH_USDC_FEE_RAW,
+    )
+
+    usdc_received_decimals = usdc_received / 10**18
+    assert usdc_received_decimals == pytest.approx(14159.565580618213)
+
+    # Calculate price of ETH as $ for our purchase
+    # Pool only starts with 10 eth, and we are selling 50, so we should not expect to get a good price
+    price = usdc_received / (50 * 10**18)
+    assert price == pytest.approx(Decimal(283.19131161236425))

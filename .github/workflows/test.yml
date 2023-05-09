@@ -19,7 +19,11 @@ jobs:
       cancel-in-progress: true
 
     steps:
+      # TODO: we only need contracts/aave-v3-deploy for tests
+      # but there does not seem to be an option to choose which submodules to checkout
       - uses: actions/checkout@v3
+        with:
+          submodules: true
       - name: Install poetry
         run: pipx install poetry
       - name: Set up Python 3.10
@@ -33,15 +37,10 @@ jobs:
           poetry install -E data
       - name: Install Ganache
         run: yarn global add ganache
-      - name: Install Anvil
-        run: |
-          curl -L https://foundry.paradigm.xyz | bash
-          PATH=~/.foundry/bin:$PATH
-          foundryup
-          anvil --version
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
       - name: Run test scripts
         run: |
-          PATH=~/.foundry/bin:$PATH
           poetry run pytest --tb=native
         env:
           BNB_CHAIN_JSON_RPC: ${{ secrets.BNB_CHAIN_JSON_RPC }}

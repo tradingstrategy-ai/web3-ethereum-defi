@@ -30,6 +30,27 @@ def install_chain_middleware(web3: Web3):
     """Install any chain-specific middleware to Web3 instannce.
 
     Mainly this is POA middleware for BNB Chain, Polygon, Avalanche C-chain.
+
+    Example:
+
+    .. code-block:: python
+
+        web3 = Web3(HTTPProvider(json_rpc_url))
+        print(f"Connected to blockchain, chain id is {web3.eth.chain_id}. the latest block is {web3.eth.block_number:,}")
+
+        # Read and setup a local private key
+        private_key = os.environ.get("PRIVATE_KEY")
+        assert private_key is not None, "You must set PRIVATE_KEY environment variable"
+        assert private_key.startswith("0x"), "Private key must start with 0x hex prefix"
+        account: LocalAccount = Account.from_key(private_key)
+        web3.middleware_onion.add(construct_sign_and_send_raw_middleware(account))
+
+        # Support Polygon, BNG chain
+        install_chain_middleware(web3)
+
+        # ... code goes here...
+        tx_hash = erc_20.functions.transfer(to_address, raw_amount).transact({"from": account.address})
+
     """
 
     if web3.eth.chain_id in POA_MIDDLEWARE_NEEDED_CHAIN_IDS:

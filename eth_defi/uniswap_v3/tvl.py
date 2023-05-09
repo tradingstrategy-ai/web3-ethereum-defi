@@ -1,5 +1,5 @@
 """"Analyse Uniswap v3 TVL (total value locked) and market depth."""
-from _decimal import Decimal
+from decimal import Decimal
 
 from eth_typing import BlockIdentifier
 from web3 import Web3
@@ -9,9 +9,10 @@ from eth_defi.uniswap_v3.pool import PoolDetails
 
 
 def fetch_uniswap_v3_pool_tvl(
-        pool: PoolDetails,
-        quote_token: TokenDetails,
-        block_identifier: BlockIdentifier = None) -> Decimal:
+    pool: PoolDetails,
+    quote_token: TokenDetails,
+    block_identifier: BlockIdentifier = None,
+) -> Decimal:
     """Return the total value locked of the quote token.
 
     - This gets the amount of quote token lockedin the pool
