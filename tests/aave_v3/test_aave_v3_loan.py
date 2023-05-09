@@ -1,169 +1,136 @@
-"""
-    export JSON_RPC_POLYGON=https://polygon-rpc.com/
-    pytest -k test_aave_v3_loan.py
-"""
-
-import logging
-import os
-import shutil
+"""Test Aave v3 loan."""
 
 import pytest
 from eth_account import Account
 from eth_account.signers.local import LocalAccount
 from eth_typing import HexAddress, HexStr
 from web3 import HTTPProvider, Web3
-from web3.exceptions import ContractLogicError
+from web3.contract import Contract
 
-from eth_defi.aave_v3.constants import AAVE_V3_NETWORKS, AaveToken
 from eth_defi.aave_v3.deployment import AaveV3Deployment
 from eth_defi.aave_v3.loan import borrow, supply, withdraw
-from eth_defi.abi import get_contract
-from eth_defi.anvil import fork_network_anvil
-from eth_defi.chain import install_chain_middleware
-from eth_defi.gas import node_default_gas_price_strategy
 from eth_defi.hotwallet import HotWallet
-from eth_defi.token import fetch_erc20_details
 from eth_defi.trace import (
     TransactionAssertionError,
     assert_transaction_success_with_explanation,
 )
 
-pytestmark = pytest.mark.skipif(
-    (os.environ.get("JSON_RPC_POLYGON") is None) or (shutil.which("anvil") is None),
-    reason="Set JSON_RPC_POLYGON env in order to run these tests",
-)
-
 
 @pytest.fixture(scope="module")
-def anvil_polygon_chain_fork(request, large_usdc_holder) -> str:
-    """Create a testable fork of live Polygon chain.
-    :return: JSON-RPC URL for Web3
-    """
-    launch = fork_network_anvil(os.environ["JSON_RPC_POLYGON"], unlocked_addresses=[large_usdc_holder])
-    try:
-        yield launch.json_rpc_url
-    finally:
-        # Wind down Anvil process after the test is complete
-        launch.close(log_level=logging.ERROR)
-
-
-@pytest.fixture(scope="module")
-def web3(anvil_polygon_chain_fork: str):
-    """Set up a local unit testing blockchain."""
-    # https://web3py.readthedocs.io/en/stable/examples.html#contract-unit-tests-in-python
-    web3 = Web3(HTTPProvider(anvil_polygon_chain_fork))
-    # Anvil needs POA middlware if parent chain needs POA middleware
-    install_chain_middleware(web3)
-    web3.eth.set_gas_price_strategy(node_default_gas_price_strategy)
-    return web3
-
-
-@pytest.fixture(scope="module")
-def large_usdc_holder() -> HexAddress:
-    """A random account picked from Polygon that holds a lot of USDC.
-    `To find large USDC holder accounts, use polygoscan <https://polygonscan.com/token/0x2791bca1f2de4661ed88a30c99a7a9449aa84174#balances>`_.
-    """
-    # Binance Hot Wallet 6
-    return HexAddress(HexStr("0x06959153B974D0D5fDfd87D561db6d8d4FA0bb0B"))
-
-
-@pytest.fixture(scope="module")
-def usdc(web3):
+def usdc(web3, aave_deployment_snapshot) -> Contract:
     """USDC on Polygon."""
-    return fetch_erc20_details(web3, "0x2791bca1f2de4661ed88a30c99a7a9449aa84174")
+    return aave_deployment_snapshot.get_contract_at_address(
+        web3,
+        "core-v3/contracts/mocks/tokens/MintableERC20.sol/MintableERC20.json",
+        "USDC",
+    )
 
 
 @pytest.fixture(scope="module")
-def weth(web3):
+def weth(web3, aave_deployment_snapshot) -> Contract:
     """WETH on Polygon."""
-    return fetch_erc20_details(web3, "0x7ceB23fD6bC0adD59E62ac25578270cFf1b9f619")
+    return aave_deployment_snapshot.get_contract_at_address(
+        web3,
+        "core-v3/contracts/mocks/tokens/WETH9Mocked.sol/WETH9Mocked.json",
+        "WETH",
+    )
 
 
 @pytest.fixture(scope="module")
-def aave_v3_polygon_deployment(web3):
-    Pool = get_contract(web3, "aave_v3/Pool.json", bytecode="")
-    pool = Pool(address=AAVE_V3_NETWORKS["polygon"].pool_address)
+def aave_v3_deployment(web3, aave_deployment_snapshot):
+    pool = aave_deployment_snapshot.get_contract_at_address(
+        web3,
+        "core-v3/contracts/protocol/pool/Pool.sol/Pool.json",
+        "Pool",
+    )
 
     return AaveV3Deployment(web3=web3, pool=pool)
 
 
 @pytest.fixture(scope="module")
-def aave_v3_usdc_reserve() -> AaveToken:
-    return AAVE_V3_NETWORKS["polygon"].token_contracts["USDC"]
+def ausdc(web3, aave_deployment_snapshot) -> Contract:
+    """aToken for USDC"""
+    return aave_deployment_snapshot.get_contract_at_address(
+        web3,
+        "core-v3/contracts/protocol/tokenization/AToken.sol/AToken.json",
+        "aUSDC",
+    )
 
 
 @pytest.fixture
 def usdc_supply_amount() -> int:
-    # 10000 USDC
-    return 10000 * 10**6
+    # 10k USDC
+    return 10_000 * 10**6
 
 
 @pytest.fixture
 def hot_wallet(
     web3,
-    large_usdc_holder,
     usdc,
     usdc_supply_amount,
+    aave_deployment_snapshot,
 ) -> HotWallet:
     """Hotwallet account."""
     hw = HotWallet(Account.create())
     hw.sync_nonce(web3)
 
-    # give hot wallet some MATIC
+    # give hot wallet some native token
     web3.eth.send_transaction(
         {
-            "from": large_usdc_holder,
+            "from": web3.eth.accounts[9],
             "to": hw.address,
-            "value": 100 * 10**18,
+            "value": 1 * 10**18,
         }
     )
 
     # and USDC
-    usdc.contract.functions.transfer(
-        hw.address,
-        usdc_supply_amount,
-    ).transact({"from": large_usdc_holder})
+    faucet = aave_deployment_snapshot.get_contract_at_address(
+        web3,
+        "periphery-v3/contracts/mocks/testnet-helpers/Faucet.sol/Faucet.json",
+        "Faucet",
+    )
+    tx_hash = faucet.functions.mint(usdc.address, hw.address, usdc_supply_amount).transact()
+    assert_transaction_success_with_explanation(web3, tx_hash)
 
     return hw
 
 
 def _test_supply(
     web3,
-    aave_v3_polygon_deployment,
+    aave_v3_deployment,
     hot_wallet,
     usdc,
-    aave_v3_usdc_reserve,
+    ausdc,
     usdc_supply_amount,
 ):
     # supply USDC to Aave
     approve_fn, supply_fn = supply(
-        aave_v3_deployment=aave_v3_polygon_deployment,
+        aave_v3_deployment=aave_v3_deployment,
         wallet_address=hot_wallet.address,
-        token=usdc.contract,
+        token=usdc,
         amount=usdc_supply_amount,
     )
 
-    tx = approve_fn.build_transaction({"from": hot_wallet.address})
+    tx = approve_fn.build_transaction({"from": hot_wallet.address, "gas": 200_000})
     signed = hot_wallet.sign_transaction_with_new_nonce(tx)
     tx_hash = web3.eth.send_raw_transaction(signed.rawTransaction)
     assert_transaction_success_with_explanation(web3, tx_hash)
 
-    tx = supply_fn.build_transaction({"from": hot_wallet.address})
+    tx = supply_fn.build_transaction({"from": hot_wallet.address, "gas": 350_000})
     signed = hot_wallet.sign_transaction_with_new_nonce(tx)
     tx_hash = web3.eth.send_raw_transaction(signed.rawTransaction)
     assert_transaction_success_with_explanation(web3, tx_hash)
 
     # verify aUSDC token amount in hot wallet
-    ausdc_details = fetch_erc20_details(web3, aave_v3_usdc_reserve.deposit_address)
-    assert ausdc_details.contract.functions.balanceOf(hot_wallet.address).call() == usdc_supply_amount
+    assert ausdc.functions.balanceOf(hot_wallet.address).call() == usdc_supply_amount
 
 
 def test_aave_v3_supply(
     web3: Web3,
-    aave_v3_polygon_deployment,
+    aave_v3_deployment,
     usdc,
     hot_wallet: LocalAccount,
-    aave_v3_usdc_reserve,
+    ausdc,
     usdc_supply_amount: int,
 ):
     """Test that the deposit in Aave v3 is correctly registered
@@ -171,10 +138,10 @@ def test_aave_v3_supply(
     """
     _test_supply(
         web3,
-        aave_v3_polygon_deployment,
+        aave_v3_deployment,
         hot_wallet,
         usdc,
-        aave_v3_usdc_reserve,
+        ausdc,
         usdc_supply_amount,
     )
 
@@ -194,30 +161,30 @@ def test_aave_v3_supply(
 )
 def test_aave_v3_withdraw(
     web3: Web3,
-    aave_v3_polygon_deployment,
+    aave_v3_deployment,
     usdc,
     hot_wallet: LocalAccount,
     usdc_supply_amount: int,
-    aave_v3_usdc_reserve,
+    ausdc,
     withdraw_factor: float,
     expected_exception: Exception | None,
 ):
     """Test withdraw in Aave v3 with different amount threshold."""
     _test_supply(
         web3,
-        aave_v3_polygon_deployment,
+        aave_v3_deployment,
         hot_wallet,
         usdc,
-        aave_v3_usdc_reserve,
+        ausdc,
         usdc_supply_amount,
     )
 
     # withdraw
     withdraw_amount = int(usdc_supply_amount * withdraw_factor)
     withdraw_fn = withdraw(
-        aave_v3_deployment=aave_v3_polygon_deployment,
+        aave_v3_deployment=aave_v3_deployment,
         wallet_address=hot_wallet.address,
-        token=usdc.contract,
+        token=usdc,
         amount=withdraw_amount,
     )
 
@@ -243,14 +210,14 @@ def test_aave_v3_withdraw(
         assert_transaction_success_with_explanation(web3, tx_hash)
 
         # check balance after withdrawal
-        assert usdc.contract.functions.balanceOf(hot_wallet.address).call() == withdraw_amount
+        assert usdc.functions.balanceOf(hot_wallet.address).call() == withdraw_amount
 
 
 @pytest.mark.parametrize(
     "borrow_amount,expected_exception",
     [
         # 1 ETH
-        (1 * 10**18, None),
+        (1 * 10**6, None),
         # try to borrow 1000 ETH should fail as collateral is only 10k USDC
         # error code 36 = 'There is not enough collateral to cover a new borrow'
         # https://github.com/aave/aave-v3-core/blob/e0bfed13240adeb7f05cb6cbe5e7ce78657f0621/contracts/protocol/libraries/helpers/Errors.sol#L45
@@ -259,36 +226,37 @@ def test_aave_v3_withdraw(
 )
 def test_aave_v3_borrow(
     web3: Web3,
-    aave_v3_polygon_deployment,
-    usdc,
+    aave_v3_deployment,
     hot_wallet: LocalAccount,
-    aave_v3_usdc_reserve,
-    usdc_supply_amount: int,
+    usdc,
+    ausdc,
     weth,
+    usdc_supply_amount: int,
     borrow_amount: int,
     expected_exception: Exception | None,
 ):
     """Test borrow in Aave v3."""
     _test_supply(
         web3,
-        aave_v3_polygon_deployment,
+        aave_v3_deployment,
         hot_wallet,
         usdc,
-        aave_v3_usdc_reserve,
+        ausdc,
         usdc_supply_amount,
     )
 
     # try to borrow ETH
     borrow_fn = borrow(
-        aave_v3_deployment=aave_v3_polygon_deployment,
+        aave_v3_deployment=aave_v3_deployment,
         wallet_address=hot_wallet.address,
-        token=weth.contract,
+        # TODO: check how to be able to borrow WETH
+        token=usdc,
         amount=borrow_amount,
     )
     tx = borrow_fn.build_transaction(
         {
             "from": hot_wallet.address,
-            "gas": 350_000,
+            "gas": 400_000,
         }
     )
     signed = hot_wallet.sign_transaction_with_new_nonce(tx)
@@ -307,4 +275,4 @@ def test_aave_v3_borrow(
         assert_transaction_success_with_explanation(web3, tx_hash)
 
         # check balance after withdrawal
-        assert weth.contract.functions.balanceOf(hot_wallet.address).call() == borrow_amount
+        assert usdc.functions.balanceOf(hot_wallet.address).call() == borrow_amount

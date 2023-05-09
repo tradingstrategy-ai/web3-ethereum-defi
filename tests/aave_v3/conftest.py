@@ -2,10 +2,10 @@ import logging
 from typing import Optional
 
 import pytest
-from web3 import Web3, HTTPProvider
+from web3 import HTTPProvider, Web3
 
 from eth_defi.aave_v3.deployer import AaveDeployer
-from eth_defi.anvil import AnvilLaunch, snapshot, revert, launch_anvil
+from eth_defi.anvil import AnvilLaunch, launch_anvil, revert, snapshot
 from eth_defi.chain import install_chain_middleware
 
 logger = logging.getLogger(__name__)
