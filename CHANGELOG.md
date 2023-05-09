@@ -2,6 +2,7 @@
 
 - Add [Aave v3 deployer support](https://github.com/aave/aave-v3-deploy) in`eth_defi.aave_v3.deployer` module
 - Add Solidity library linking support for Hardhat-based deployments in `eth_defi.abi.get_linked_contract`
+- Add: More logging and better error messages to some parts 
 
 # 0.18.4
 

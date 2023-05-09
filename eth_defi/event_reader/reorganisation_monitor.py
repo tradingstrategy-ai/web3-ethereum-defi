@@ -384,6 +384,9 @@ class JSONRPCReorganisationMonitor(ReorganisationMonitor):
         super().__init__(**kwargs)
         self.web3 = web3
 
+    def __repr__(self):
+        return f"<JSONRPCReorganisationMonitor, last_block_read: {self.last_block_read}>"
+
     def get_last_block_live(self):
         return self.web3.eth.block_number
 

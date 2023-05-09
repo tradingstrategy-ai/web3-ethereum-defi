@@ -7,6 +7,7 @@
   trading capital
 
 """
+import logging
 import datetime
 from decimal import Decimal
 from dataclasses import dataclass
@@ -22,6 +23,9 @@ from eth_defi.event_reader.conversion import convert_uint256_bytes_to_address, d
 from eth_defi.event_reader.filter import Filter
 from eth_defi.event_reader.reader import Web3EventReader
 from eth_defi.token import fetch_erc20_details, TokenDetails
+
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass()
@@ -271,6 +275,8 @@ def fetch_vault_balance_events(
         vault.comptroller.address,
         [vault.comptroller.events.SharesBought, vault.comptroller.events.SharesRedeemed],
     )
+
+    logger.info("Reading SharesBought/SharesRedeemed at %d-%d using reader %s", start_block, end_block, read_events)
 
     for solidity_event in read_events(
         web3,
