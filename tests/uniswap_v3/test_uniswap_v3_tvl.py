@@ -9,10 +9,9 @@ import pytest
 from web3 import HTTPProvider, Web3
 
 from eth_defi.chain import install_chain_middleware, install_retry_middleware
-from eth_defi.token import fetch_erc20_details, TokenDetails
+from eth_defi.token import TokenDetails, fetch_erc20_details
 from eth_defi.uniswap_v3.pool import PoolDetails, fetch_pool_details
 from eth_defi.uniswap_v3.tvl import fetch_uniswap_v3_pool_tvl
-
 
 JSON_RPC_POLYGON_ARCHIVE = os.environ.get("JSON_RPC_POLYGON_ARCHIVE")
 
