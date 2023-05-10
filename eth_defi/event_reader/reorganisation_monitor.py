@@ -266,6 +266,7 @@ class ReorganisationMonitor(ABC):
         """
         chain_last_block = self.get_last_block_live()
         check_start_at = max(self.last_block_read - self.check_depth, 1)
+        logger.info(f"figure_reorganisation_and_new_blocks(), range {check_start_at:,} - {chain_last_block:,}")
         for block in self.fetch_block_data(check_start_at, chain_last_block):
             self.check_block_reorg(block.block_number, block.block_hash)
             if block.block_number not in self.block_map:

@@ -253,7 +253,7 @@ class Vault:
         for event in events_iter:
             return event
 
-        raise AssertionError(f"No fund deployment event for {self.vault.address}")
+        raise AssertionError(f"No fund deployment event for {self.vault.address}, start block: {start_block:,}, end block: {last_block:,}")
 
     def fetch_denomination_token_usd_exchange_rate(self) -> Decimal:
         """Get the exchange rate between token/USD.
