@@ -70,7 +70,7 @@ def main():
         if end != latest_block:
             for block_num in range(latest_block+1, end+1):
                 block_data = reorg_mon.get_block_by_number(block_num)
-                print(f"Block is {block_num:,} is {block_data.block_hash}")
+                print(f"Block {block_num:,} is {block_data.block_hash}")
 
             latest_block = end
 
