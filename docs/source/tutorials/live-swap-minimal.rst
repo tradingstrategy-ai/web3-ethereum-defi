@@ -24,17 +24,19 @@ Example output:
 
 .. code-block:: text
 
-    Latest block is 42,548,252
-    Latest block is 42,548,253
-    Swap at block 42,548,254 tx: 0x91716939df48be38beba8148970d20c65242a76b708285fd93e809f6b92b9b9f
-    Latest block is 42,548,254
-    Swap at block 42,548,255 tx: 0x8601aa1472fe5b0f67edb71b63afab584b35c762610a53b048527c8c043d6f80
-    Swap at block 42,548,255 tx: 0x447fe7d38ad5cfddb635aa8e8d7f00dc2c820f59ab0c99d19e73006164ed4272
-    Swap at block 42,548,259 tx: 0xf243a4526e07a91362ca2f893bd031bb1d9fa4e5ec5f5737e7358f21a512089d
-    Swap at block 42,548,259 tx: 0x256bbe281d5760564255135cb6cb69fb42ca90256ba039bbb6491685c28d2ea5
-    Latest block is 42,548,259
-    Swap at block 42,548,260 tx: 0xe092085d06aa6bfa282509a571e69118e6d13d69ec49b21267b815709cf177c6
-    Latest block is 42,548,260
+    Swap at block:42,549,528 tx:0x2011d03b4f3d80992339eb6303b0b7b86ec77f629ce7f2508344e739c4536cc7
+    Swap at block:42,549,528 tx:0x67af6d9d28634747d83f14d48bdc3d56421df7b686055c4519850b97e863291d
+    .
+    Block 42,549,527 is 0x83fd3f8dfd6065fcc3406fed9e81b069a45cf0e823fe4863c89a5e9cef49bdc6
+    Block 42,549,528 is 0xb29ce58ad7267b5c9906eea32aeacf043965a7223a35e0aa3c495dcdf3815eac
+    .
+    .
+    Swap at block:42,549,529 tx:0xa9ba7e61c1bdedf53b657419874d528b4164b9e286c3baf162f20f8d1c428b80
+    .
+    Block 42,549,529 is 0x686ebaa6ac7fa5f32aedbdc05e1352f681072acb46c0c158b779afd8e0fce21f
+    .
+    .
+
 
 .. literalinclude:: ../../../scripts/uniswap-v2-swaps-live-minimal.py
    :language: python
