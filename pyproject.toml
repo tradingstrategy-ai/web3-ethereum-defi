@@ -1,7 +1,7 @@
 [tool.poetry]
 name = "web3-ethereum-defi"
-version = "0.18.4"
-description = "High level Python APIs for Ethereum-compatible smart contracts, blockchains and protocols like Uniswap, Aave, Enzyme"
+version = "0.19"
+description = "Python library for Uniswap, Aave, ChainLink, Enzyme and other protocols on BNB Chain, Polygon, Ethereum and other blockchains"
 authors = ["Mikko Ohtamaa <mikko@tradingstrategy.ai>"]
 license = "MIT"
 homepage = "https://tradingstrategy.ai"
