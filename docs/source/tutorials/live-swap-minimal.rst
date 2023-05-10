@@ -12,7 +12,7 @@ on Uniswap v2 compatible examples.
 
 - It demonstrates the chain reorganisation detection and event reader API.
 
-- See :doc:`the more complete example <./live-swap.rst>`
+- See :doc:`the more complete example <./live-swap>`
 
 To run:
 
