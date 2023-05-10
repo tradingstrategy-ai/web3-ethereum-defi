@@ -51,6 +51,10 @@ class ChainReorganisationDetected(Exception):
         super().__init__(f"Block reorg detected at #{block_number:,}. Original hash: {original_hash}. New hash: {new_hash}")
 
 
+class TooLongRange(Exception):
+    """Reorg scan range is too long."""
+
+
 class ReorganisationResolutionFailure(Exception):
     """Chould not figure out chain reorgs after mutliple attempt.
 
@@ -128,6 +132,12 @@ class ReorganisationMonitor(ABC):
     def get_block_by_number(self, block_number: int) -> BlockHeader:
         """Get block header data for a specific block number from our memory buffer."""
         return self.block_map.get(block_number)
+
+    def skip_to_block(self, block_number: int):
+        """Skip scanning initial chain and directly start from a certain block."""
+        assert type(block_number) == int, f"Got: {block_number}"
+        logger.info(f"{self}: skipping to block {block_number:,}")
+        self.last_block_read = block_number
 
     def load_initial_block_headers(self, block_count: Optional[int] = None, start_block: Optional[int] = None, tqdm: Optional[Type[tqdm]] = None, save_callable: Optional[Callable] = None) -> Tuple[int, int]:
         """Get the initial block buffer filled up.
@@ -254,11 +264,19 @@ class ReorganisationMonitor(ABC):
             del self.block_map[block_to_delete]
         self.last_block_read = latest_good_block
 
-    def figure_reorganisation_and_new_blocks(self):
+    def figure_reorganisation_and_new_blocks(self, max_range: Optional[int]=1_000_000):
         """Compare the local block database against the live data from chain.
 
         Spot the differences in (block number, block header) tuples
         and determine a chain reorg.
+
+        :param max_range:
+            Abort if we need to scan more than this amount of blocks.
+
+            This is because giving too long block range to scan is likely to
+            take forever on non-graphql nodes.
+
+            Set `None` to ignore.
 
         :raise ChainReorganisationDetected:
             When any if the block data in our internal buffer
@@ -266,7 +284,14 @@ class ReorganisationMonitor(ABC):
         """
         chain_last_block = self.get_last_block_live()
         check_start_at = max(self.last_block_read - self.check_depth, 1)
-        logger.info(f"figure_reorganisation_and_new_blocks(), range {check_start_at:,} - {chain_last_block:,}")
+
+        logger.info(f"figure_reorganisation_and_new_blocks(), range {check_start_at:,} - {chain_last_block:,}, last block we have is {self.last_block_read:,}")
+
+        if max_range is not None:
+            range_len = chain_last_block - check_start_at
+            if  range_len > max_range:
+                raise TooLongRange(f"Attempt to scan too long block range. {check_start_at:,} - {chain_last_block:,}. Max range: {max_range:,}.\nFor long scan ranges, please pass a flag to ignore.")
+
         for block in self.fetch_block_data(check_start_at, chain_last_block):
             self.check_block_reorg(block.block_number, block.block_hash)
             if block.block_number not in self.block_map:

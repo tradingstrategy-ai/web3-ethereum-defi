@@ -95,7 +95,7 @@ def decode_path(full_path_encoded: bytes) -> list:
             )
             full_path_decoded.append(fee)
         else:
-            raise IndexError("Bad path")
+            raise IndexError(f"Bad path: {full_path_encoded}")
 
         path_pos += byte_length
         byte_length = 3 if byte_length == 20 else 20

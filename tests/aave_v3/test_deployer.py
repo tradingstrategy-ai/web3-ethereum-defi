@@ -15,7 +15,7 @@ def user(web3) -> str:
 def test_aave_deployer_checkout_out():
     """Check Aave deployer git clone and npm install works"""
     deployer = AaveDeployer()
-    assert deployer.is_checked_out()
+    assert deployer.is_checked_out(), "aave-v3-deploy submodule not found. You might want to run: git submodule update --init --recursive"
 
 
 def test_deploy_aave(
