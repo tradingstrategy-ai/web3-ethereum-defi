@@ -217,8 +217,8 @@ def main():
     install_chain_middleware(web3)
 
     # Get contracts
-    Factory = get_contract(web3, "UniswapV2Factory.json")
-    Pair = get_contract(web3, "UniswapV2Pair.json")
+    Factory = get_contract(web3, "sushi/UniswapV2Factory.json")
+    Pair = get_contract(web3, "sushi/UniswapV2Pair.json")
 
     events = [Factory.events.PairCreated, Pair.events.Swap]  # https://etherscan.io/txs?ea=0x5c69bee701ef814a2b6a3edd4b1652cb9cc5aa6f&topic0=0x0d3648bd0f6ba80134a33ba9275ac585d9d315f0ad8355cddefde31afa28d0e9
 
