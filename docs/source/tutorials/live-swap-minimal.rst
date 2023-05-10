@@ -1,7 +1,7 @@
 Uniswap v2 reading swaps real-time (minimal)
-------------------------------------------------
+--------------------------------------------
 
-This is a minmal example code for showing live swaps happening
+This is a minimal example code for showing live swaps happening
 on Uniswap v2 compatible examples.
 
 - This example runs on a free Polygon JSON-RPC node.
