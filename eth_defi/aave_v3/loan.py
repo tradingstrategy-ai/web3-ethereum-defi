@@ -73,7 +73,7 @@ def withdraw(
     token: Contract,
     amount: int,
     wallet_address: str,
-) -> tuple[ContractFunction, ContractFunction]:
+) -> ContractFunction:
     """
     Withdraw from Aave v3
     """
@@ -93,7 +93,7 @@ def borrow(
     amount: int,
     wallet_address: str,
     interest_rate_mode: AaveV3InterestRateMode = AaveV3InterestRateMode.VARIABLE,
-) -> tuple[ContractFunction, ContractFunction]:
+) -> ContractFunction:
     """
     Borrow from Aave v3
     """
@@ -108,3 +108,29 @@ def borrow(
     return pool.functions.borrow(token.address, amount, interest_rate_mode, 0, wallet_address)
 
 
+def repay(
+    aave_v3_deployment,
+    *,
+    token: Contract,
+    amount: int,
+    wallet_address: str,
+    interest_rate_mode: AaveV3InterestRateMode = AaveV3InterestRateMode.VARIABLE,
+) -> tuple[ContractFunction, ContractFunction]:
+    """
+    Repay to Aave v3
+
+    TODO: check repayWithATokens()
+    """
+    pool = aave_v3_deployment.pool
+
+    # approve repay amount
+    approve_function = token.functions.approve(pool.address, amount)
+
+    # https://github.com/aave/aave-v3-core/blob/e0bfed13240adeb7f05cb6cbe5e7ce78657f0621/contracts/protocol/pool/Pool.sol#L251
+    # address asset,
+    # uint256 amount,
+    # uint256 interestRateMode,
+    # address onBehalfOf
+    repay_function = pool.functions.repay(token.address, amount, interest_rate_mode, wallet_address)
+
+    return approve_function, repay_function

@@ -7,8 +7,9 @@ from eth_typing import HexAddress, HexStr
 from web3 import HTTPProvider, Web3
 from web3.contract import Contract
 
+from eth_defi.aave_v3.constants import MAX_AMOUNT
 from eth_defi.aave_v3.deployment import AaveV3Deployment
-from eth_defi.aave_v3.loan import borrow, supply, withdraw
+from eth_defi.aave_v3.loan import borrow, repay, supply, withdraw
 from eth_defi.hotwallet import HotWallet
 from eth_defi.trace import (
     TransactionAssertionError,
@@ -85,7 +86,7 @@ def hot_wallet(
     web3,
     usdc,
     usdc_supply_amount,
-    aave_deployment_snapshot,
+    faucet,
 ) -> HotWallet:
     """Hotwallet account."""
     hw = HotWallet(Account.create())
@@ -101,11 +102,6 @@ def hot_wallet(
     )
 
     # and USDC
-    faucet = aave_deployment_snapshot.get_contract_at_address(
-        web3,
-        "periphery-v3/contracts/mocks/testnet-helpers/Faucet.sol/Faucet.json",
-        "Faucet",
-    )
     tx_hash = faucet.functions.mint(usdc.address, hw.address, usdc_supply_amount).transact()
     assert_transaction_success_with_explanation(web3, tx_hash)
 
@@ -137,6 +133,9 @@ def _test_supply(
     signed = hot_wallet.sign_transaction_with_new_nonce(tx)
     tx_hash = web3.eth.send_raw_transaction(signed.rawTransaction)
     assert_transaction_success_with_explanation(web3, tx_hash)
+
+    # nothing left in USDC balance
+    assert usdc.functions.balanceOf(hot_wallet.address).call() == 0
 
     # verify aUSDC token amount in hot wallet
     assert ausdc.functions.balanceOf(hot_wallet.address).call() == usdc_supply_amount
@@ -170,6 +169,8 @@ def test_aave_v3_supply(
         (1, None),
         # partial withdraw
         (0.5, None),
+        # withdraw everything
+        (MAX_AMOUNT, None),
         # over withdraw should fail
         # error code 32 = 'User cannot withdraw more than the available balance'
         # https://github.com/aave/aave-v3-core/blob/e0bfed13240adeb7f05cb6cbe5e7ce78657f0621/contracts/protocol/libraries/helpers/Errors.sol#L41
@@ -196,8 +197,11 @@ def test_aave_v3_withdraw(
         usdc_supply_amount,
     )
 
-    # withdraw
-    withdraw_amount = int(usdc_supply_amount * withdraw_factor)
+    if withdraw_factor == MAX_AMOUNT:
+        withdraw_amount = withdraw_factor
+    else:
+        withdraw_amount = int(usdc_supply_amount * withdraw_factor)
+
     withdraw_fn = withdraw(
         aave_v3_deployment=aave_v3_deployment,
         wallet_address=hot_wallet.address,
@@ -227,7 +231,10 @@ def test_aave_v3_withdraw(
         assert_transaction_success_with_explanation(web3, tx_hash)
 
         # check balance after withdrawal
-        assert usdc.functions.balanceOf(hot_wallet.address).call() == withdraw_amount
+        if withdraw_amount == MAX_AMOUNT:
+            assert usdc.functions.balanceOf(hot_wallet.address).call() == usdc_supply_amount
+        else:
+            assert usdc.functions.balanceOf(hot_wallet.address).call() == withdraw_amount
 
 
 def test_aave_v3_reserve_configuration(
@@ -242,7 +249,7 @@ def test_aave_v3_reserve_configuration(
 
     weth_reserve_conf = aave_v3_deployment.get_configuration_data(weth.address)
     assert weth_reserve_conf.decimals == 18
-    assert weth_reserve_conf.liquidation_threshold == 8250  #  82.5%
+    assert weth_reserve_conf.liquidation_threshold == 8250  # 82.5%
     assert weth_reserve_conf.stable_borrow_rate_enabled is False
 
 
@@ -345,8 +352,115 @@ def test_aave_v3_borrow(
         # revert reason should be in message as well
         assert str(expected_exception) in str(e.value)
     else:
-        # withdraw successfully
+        # borrow successfully
         assert_transaction_success_with_explanation(web3, tx_hash)
 
-        # check balance after withdrawal
+        # check balance after borrow
         assert borrow_asset.functions.balanceOf(hot_wallet.address).call() == borrow_amount
+
+
+@pytest.mark.parametrize(
+    "borrow_token_symbol,borrow_amount,repay_amount,topup_amount,expected_exception",
+    [
+        # borrow 8k USDC then repay same amount
+        ("usdc", 8_000 * 10**6, 8_000 * 10**6, 0, None),
+        # partial repay
+        ("usdc", 8_000 * 10**6, 4_000 * 10**6, 0, None),
+        # repay everything: capital + interest
+        ("usdc", 8_000 * 10**6, MAX_AMOUNT, 1_000 * 10**6, None),
+        # repay everything: capital + interest
+        # currently set to fail since hot wallet doesn't have enough to repay interest
+        ("usdc", 8_000 * 10**6, MAX_AMOUNT, 0, TransactionAssertionError("execution reverted: ERC20: transfer amount exceeds balance")),
+    ],
+)
+def test_aave_v3_repay(
+    web3: Web3,
+    aave_v3_deployment,
+    hot_wallet: LocalAccount,
+    usdc,
+    ausdc,
+    weth,
+    faucet,
+    usdc_supply_amount: int,
+    borrow_token_symbol: str,
+    borrow_amount: int,
+    repay_amount: int,
+    topup_amount: int,
+    expected_exception: Exception | None,
+):
+    """Test repay in Aave v3."""
+    _test_supply(
+        web3,
+        aave_v3_deployment,
+        hot_wallet,
+        usdc,
+        ausdc,
+        usdc_supply_amount,
+    )
+
+    borrow_asset = {
+        "usdc": usdc,
+        "weth": weth,
+    }[borrow_token_symbol]
+
+    # borrow
+    borrow_fn = borrow(
+        aave_v3_deployment=aave_v3_deployment,
+        wallet_address=hot_wallet.address,
+        token=borrow_asset,
+        amount=borrow_amount,
+    )
+    tx = borrow_fn.build_transaction(
+        {
+            "from": hot_wallet.address,
+            "gas": 350_000,
+        }
+    )
+    signed = hot_wallet.sign_transaction_with_new_nonce(tx)
+    tx_hash = web3.eth.send_raw_transaction(signed.rawTransaction)
+    assert_transaction_success_with_explanation(web3, tx_hash)
+    assert borrow_asset.functions.balanceOf(hot_wallet.address).call() == borrow_amount
+
+    # top up the balance a bit to cover interests
+    if topup_amount > 0:
+        tx_hash = faucet.functions.mint(usdc.address, hot_wallet.address, topup_amount).transact()
+        assert_transaction_success_with_explanation(web3, tx_hash)
+
+    # try to repay
+    approve_fn, repay_fn = repay(
+        aave_v3_deployment=aave_v3_deployment,
+        wallet_address=hot_wallet.address,
+        token=borrow_asset,
+        amount=repay_amount,
+    )
+
+    # approve first
+    tx = approve_fn.build_transaction({"from": hot_wallet.address, "gas": 200_000})
+    signed = hot_wallet.sign_transaction_with_new_nonce(tx)
+    tx_hash = web3.eth.send_raw_transaction(signed.rawTransaction)
+    assert_transaction_success_with_explanation(web3, tx_hash)
+
+    # then repay
+    tx = repay_fn.build_transaction(
+        {
+            "from": hot_wallet.address,
+            "gas": 350_000,
+        }
+    )
+    signed = hot_wallet.sign_transaction_with_new_nonce(tx)
+    tx_hash = web3.eth.send_raw_transaction(signed.rawTransaction)
+
+    if isinstance(expected_exception, Exception):
+        with pytest.raises(type(expected_exception)) as e:
+            assert_transaction_success_with_explanation(web3, tx_hash)
+
+        assert str(expected_exception) == e.value.revert_reason
+
+        # revert reason should be in message as well
+        assert str(expected_exception) in str(e.value)
+    else:
+        # repay successfully
+        assert_transaction_success_with_explanation(web3, tx_hash)
+
+        # TODO: check amount of remaining debt
+        # assert borrow_asset.functions.balanceOf(hot_wallet.address).call() == borrow_amount

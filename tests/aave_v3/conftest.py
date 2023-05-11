@@ -51,10 +51,7 @@ _snapshot_id: Optional[int] = None
 
 
 @pytest.fixture(scope="session")
-def aave_deployment_snapshot(
-    web3,
-    aave_deployer,
-) -> AaveDeployer:
+def aave_deployment_snapshot(web3, aave_deployer) -> AaveDeployer:
     """Deploy Aave once and save Anvil snapshot as a reset point."""
     aave_deployer.deploy_local(web3, echo=True)
     # Save state after deployment
@@ -87,3 +84,12 @@ def deployer(web3) -> str:
     """Deploy account"""
     # Uses Hardhat/Foundry first derived account
     return web3.eth.accounts[0]
+
+
+@pytest.fixture()
+def faucet(web3, aave_deployment_snapshot):
+    return aave_deployment_snapshot.get_contract_at_address(
+        web3,
+        "periphery-v3/contracts/mocks/testnet-helpers/Faucet.sol/Faucet.json",
+        "Faucet",
+    )

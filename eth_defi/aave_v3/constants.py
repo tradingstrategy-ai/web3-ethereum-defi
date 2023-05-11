@@ -216,3 +216,10 @@ _autofill_token_addresses()
 class AaveV3InterestRateMode(enum.IntEnum):
     STABLE = 1
     VARIABLE = 2
+
+
+# Max amount user can withdraw or repay
+# This is type(uint256).max in solidity
+# https://github.com/aave/aave-v3-core/blob/e0bfed13240adeb7f05cb6cbe5e7ce78657f0621/contracts/protocol/libraries/logic/SupplyLogic.sol#L123
+# 115792089237316195423570985008687907853269984665640564039457584007913129639935
+MAX_AMOUNT = 2**256 - 1
