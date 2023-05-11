@@ -1,6 +1,7 @@
 # 0.19.1
 
 - Fix: Excessive log output if `__repr__` on GraphQLReorganisationMonitor
+- Fix: Aave deployer tests fail on Github
 
 # 0.19
 
