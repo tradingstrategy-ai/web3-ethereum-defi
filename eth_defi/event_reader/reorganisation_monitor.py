@@ -579,6 +579,9 @@ class GraphQLReorganisationMonitor(ReorganisationMonitor):
         logger.debug("Connecting to GraphQL endpoint %s", graphql_url)
         self.client = self._create_client(graphql_url)
 
+    def __repr__(self):
+        return f"<GraphQLReorganisationMonitor, last_block_read: {self.last_block_read} entries:{len(self.block_map)}>"
+
     def _create_client(self, api_url):
         """Create GQL GraphQL client used in queries.
 

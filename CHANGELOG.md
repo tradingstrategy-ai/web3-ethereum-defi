@@ -1,6 +1,6 @@
 # Current
 
-- TODO
+- Fix: Excessive log output if `__repr__` on GraphQLReorganisationMonitor
 
 # 0.19
 
