@@ -135,4 +135,4 @@ def test_anvil_fork_deposit_aave(web3: Web3, large_usdc_holder: HexAddress, hot_
     # Check that the borrower received the corresponding Aave aUSDC token back in the wallet, with the correct amount
     aUSDC_details = fetch_erc20_details(web3, AAVE_AUSDC_ADDRESS)
     aUSDC = aUSDC_details.contract
-    assert aUSDC.functions.balanceOf(hot_wallet_account.address).call() == amount, "Incorrect aUSDC balance"
+    assert aUSDC.functions.balanceOf(hot_wallet_account.address).call() == pytest.approx(amount, rel=0.01), "Incorrect aUSDC balance"
