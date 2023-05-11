@@ -18,13 +18,19 @@ jobs:
       group: ${{ github.workflow }}-${{ github.ref }}
       cancel-in-progress: true
 
+    strategy:
+      matrix:
+        node-version: [16.x]
+
     steps:
       # TODO: we only need contracts/aave-v3-deploy for tests
       # but there does not seem to be an option to choose which submodules to checkout
       # https://github.com/actions/checkout
       - uses: actions/checkout@v3
         with:
-          submodules: recursive
+          submodules: true
+      - name: Use Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v2
       - name: Install poetry
         run: pipx install poetry
       - name: Set up Python 3.10
