@@ -444,7 +444,7 @@ class AaveDeployer:
         logger.info("NPM install on %s - may take long time", self.path)
 
         result = subprocess.run(
-            [npm, "install"],
+            [npm, "ci"],
             cwd=self.path,
             stdout=out,
             stderr=out,
