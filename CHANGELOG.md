@@ -1,4 +1,4 @@
-# Current
+# 0.19.1
 
 - Fix: Excessive log output if `__repr__` on GraphQLReorganisationMonitor
 
