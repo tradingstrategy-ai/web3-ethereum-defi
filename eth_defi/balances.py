@@ -8,6 +8,7 @@ import requests.exceptions
 from eth_typing import BlockNumber, HexAddress
 from web3 import Web3
 from web3.contract import Contract
+from web3.exceptions import BadFunctionCallOutput
 
 from eth_defi.abi import get_contract, get_deployed_contract
 from eth_defi.event import fetch_all_events
@@ -121,12 +122,18 @@ def fetch_erc20_balances_by_token_list(web3: Web3, owner: HexAddress, tokens: Se
             balances = fetch_erc20_balances_by_token_list(web3, user_1, tokens)
             assert balances[usdc.address] == 500
             assert balances[aave.address] == 200
+
+    :raise BalanceFetchFailed:
+        When you give a non-ERC-20 contract as a token.
     """
 
     balances = {}
     for address in tokens:
         erc_20 = get_deployed_contract(web3, "sushi/IERC20.json", address)
-        balances[address] = erc_20.functions.balanceOf(owner).call()
+        try:
+            balances[address] = erc_20.functions.balanceOf(owner).call()
+        except BadFunctionCallOutput as e:
+            raise BalanceFetchFailed(f"Could not get ERC-20 {address} balance for {owner}") from e
 
     return balances
 
