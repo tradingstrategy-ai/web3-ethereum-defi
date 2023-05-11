@@ -347,13 +347,21 @@ AAVE_DEPLOYER_REPO = "https://github.com/tradingstrategy-ai/aave-v3-deploy.git"
 #:
 HARDHAT_CONTRACTS = {
     # "PoolAdderssProvider": "0xa85233C63b9Ee964Add6F2cffe00Fd84eb32338f",
-    # "Pool": "0xf5059a5D33d5853360D16C683c16e67980206f36",
-    "Pool": "0x763e69d24a03c0c8B256e470D9fE9e0753504D07",
-    "Faucet": "0x0B306BF915C4d645ff596e518fAf3F9669b97016",  # https://github.com/aave/aave-v3-periphery/blob/1fdd23b38cc5b6c095687b3c635c4d761ff75c4c/contracts/mocks/testnet-helpers/Faucet.sol
-    "USDC": "0x68B1D87F95878fE05B998F19b66F4baba5De1aed",  # TestnetERC20 https://github.com/aave/aave-v3-periphery/blob/1fdd23b38cc5b6c095687b3c635c4d761ff75c4c/contracts/mocks/testnet-helpers/TestnetERC20.sol#L12
-    "WBTC": "0x3Aa5ebB10DC797CAC828524e59A333d0A371443c",  # TestnetERC20 https://github.com/aave/aave-v3-periphery/blob/1fdd23b38cc5b6c095687b3c635c4d761ff75c4c/contracts/mocks/testnet-helpers/TestnetERC20.sol#L12
+    # "PoolImplementation": "0xf5059a5D33d5853360D16C683c16e67980206f36",
+    # PoolImplementation can't be used directly, we should interact with PoolProxy
+    # this is the same as mainnet deployment
+    "PoolProxy": "0x763e69d24a03c0c8B256e470D9fE9e0753504D07",
+    "PoolDataProvider": "0x09635F643e140090A9A8Dcd712eD6285858ceBef",
+    # https://github.com/aave/aave-v3-periphery/blob/1fdd23b38cc5b6c095687b3c635c4d761ff75c4c/contracts/mocks/testnet-helpers/Faucet.sol
+    "Faucet": "0x0B306BF915C4d645ff596e518fAf3F9669b97016",
+    # TestnetERC20 https://github.com/aave/aave-v3-periphery/blob/1fdd23b38cc5b6c095687b3c635c4d761ff75c4c/contracts/mocks/testnet-helpers/TestnetERC20.sol#L12
+    "USDC": "0x68B1D87F95878fE05B998F19b66F4baba5De1aed",
+    "WBTC": "0x3Aa5ebB10DC797CAC828524e59A333d0A371443c",
     "WETH": "0xc6e7DF5E7b4f2A278906862b61205850344D4e7d",
     "aUSDC": "0x07AA7A1a1eAE23162130ac661Ef9D37868A6D91C",
+    "AaveOracle": "0x36C02dA8a0983159322a80FFE9F24b1acfF8B570",
+    "WETHAgg": "0x9E545E3C0baAB3E08CdfD552C960A1050f373042",
+    "USDCAgg": "0xc3e53F4d16Ae77Db1c982e75a937B9f60FE63690",
 }
 
 
@@ -501,10 +509,10 @@ class AaveDeployer:
     def is_deployed(self, web3: Web3) -> bool:
         """Check if Aave is deployed on chain"""
         # assert web3.eth.block_number > 1, "This chain does not contain any data"
-        usdc = self.get_contract_at_address(web3, "core-v3/contracts/mocks/tokens/MintableERC20.sol/MintableERC20.json", "USDC")
         try:
+            usdc = self.get_contract_at_address(web3, "core-v3/contracts/mocks/tokens/MintableERC20.sol/MintableERC20.json", "USDC")
             return usdc.functions.symbol().call() == "USDC"
-        except:
+        except Exception:
             return False
 
     def get_contract(self, web3: Web3, name: str) -> Type[Contract]:

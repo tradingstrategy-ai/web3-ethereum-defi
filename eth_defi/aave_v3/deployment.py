@@ -1,14 +1,25 @@
 """Aave v3 deployments."""
-
 from dataclasses import dataclass
+from typing import NamedTuple
 
 from eth_typing import HexAddress
 from web3 import Web3
 from web3.contract import Contract
 
-from eth_defi.abi import get_contract
-from eth_defi.deploy import deploy_contract
-from eth_defi.trace import assert_transaction_success_with_explanation
+
+class AaveV3ReserveConfiguration(NamedTuple):
+    # https://github.com/aave/aave-v3-core/blob/e0bfed13240adeb7f05cb6cbe5e7ce78657f0621/contracts/misc/AaveProtocolDataProvider.sol#L77
+
+    decimals: int
+    ltv: int
+    liquidation_threshold: int
+    liquidation_bonus: int
+    reserve_factor: int
+    usage_as_collateral_enabled: bool
+    borrowing_enabled: bool
+    stable_borrow_rate_enabled: bool
+    is_active: bool
+    is_frozen: bool
 
 
 @dataclass(frozen=True)
@@ -18,61 +29,20 @@ class AaveV3Deployment:
     #: The Web3 instance for which all the contracts here are bound
     web3: Web3
 
-    #: Aave v3 pool contract
+    #: Aave v3 pool contract proxy
     pool: Contract
 
+    #: AaveProtocolDataProvider contract
+    data_provider: Contract
 
-def deploy_aave_v3(
-    web3: Web3,
-    deployer: HexAddress,
-) -> AaveV3Deployment:
-    """Deploy Aave v3
+    #: AaveOracle contract
+    oracle: Contract
 
-    Example:
+    def get_configuration_data(self, token_address: HexAddress):
+        # https://github.com/aave/aave-v3-core/blob/e0bfed13240adeb7f05cb6cbe5e7ce78657f0621/contracts/misc/AaveProtocolDataProvider.sol#L77
+        data = self.data_provider.functions.getReserveConfigurationData(token_address).call()
+        return AaveV3ReserveConfiguration(*data)
 
-    .. code-block:: python
-
-        deployment = deploy_aave_v3(web3, deployer)
-        pool = deployment.pool
-        print(f"Aave v3 pool is {pool.address}")
-
-    :param web3: Web3 instance
-    :param deployer: Deployer account
-    :return: Deployment details
-    """
-
-    # deploy PoolAddressesProvider first as it's required by Pool's constructor
-    pool_addresses_provider = deploy_contract(
-        web3,
-        "aave_v3/PoolAddressesProvider.json",
-        deployer,
-        "Aave Ethereum Market",  # FIXME: not hardcode
-        deployer,
-    )
-
-    # now deploy pool
-    Pool = get_contract(web3, "aave_v3/Pool.json")
-    tx_hash = Pool.constructor(pool_addresses_provider.address).transact(
-        {
-            "from": deployer,
-            "gas": 10_000_000,
-        }
-    )
-
-    tx_receipt = assert_transaction_success_with_explanation(web3, tx_hash)
-
-    pool = Pool(
-        address=tx_receipt["contractAddress"],
-    )
-
-    # pool = deploy_contract(
-    #     web3,
-    #     "aave_v3/Pool.json",
-    #     deployer,
-    #     pool_addresses_provider.address,
-    # )
-
-    return AaveV3Deployment(
-        web3=web3,
-        pool=pool,
-    )
+    def get_price(self, token_address: HexAddress):
+        # https://github.com/aave/aave-v3-core/blob/e0bfed13240adeb7f05cb6cbe5e7ce78657f0621/contracts/misc/AaveOracle.sol#L104
+        return self.oracle.functions.getAssetPrice(token_address).call()

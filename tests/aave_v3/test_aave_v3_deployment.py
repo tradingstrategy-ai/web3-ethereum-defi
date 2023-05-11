@@ -35,8 +35,16 @@ def test_aave_v3_deployment_smoke_test(
 
     assert web3.eth.block_number > 20
 
-    faucet = aave_deployment.get_contract_at_address(web3, "periphery-v3/contracts/mocks/testnet-helpers/Faucet.sol/Faucet.json", "Faucet")
-    usdc = aave_deployment.get_contract_at_address(web3, "core-v3/contracts/mocks/tokens/MintableERC20.sol/MintableERC20.json", "USDC")
+    faucet = aave_deployment.get_contract_at_address(
+        web3,
+        "periphery-v3/contracts/mocks/testnet-helpers/Faucet.sol/Faucet.json",
+        "Faucet",
+    )
+    usdc = aave_deployment.get_contract_at_address(
+        web3,
+        "core-v3/contracts/mocks/tokens/MintableERC20.sol/MintableERC20.json",
+        "USDC",
+    )
 
     # Get some test money
     tx_hash = faucet.functions.mint(usdc.address, user, 500 * 10**6).transact()
@@ -44,7 +52,11 @@ def test_aave_v3_deployment_smoke_test(
     assert usdc.functions.balanceOf(user).call() > 0
 
     # Get Aave Pool singleton
-    pool = aave_deployment.get_contract_at_address(web3, "core-v3/contracts/protocol/pool/Pool.sol/Pool.json", "Pool")
+    pool = aave_deployment.get_contract_at_address(
+        web3,
+        "core-v3/contracts/protocol/pool/Pool.sol/Pool.json",
+        "PoolProxy",
+    )
     assert pool.functions.POOL_REVISION().call() == 1
 
 
@@ -54,5 +66,9 @@ def test_aave_v3_deployment_smoke_test_2(
     user: str,
 ):
     """Check deployer properly resets between tests."""
-    usdc = aave_deployment.get_contract_at_address(web3, "core-v3/contracts/mocks/tokens/MintableERC20.sol/MintableERC20.json", "USDC")
+    usdc = aave_deployment.get_contract_at_address(
+        web3,
+        "core-v3/contracts/mocks/tokens/MintableERC20.sol/MintableERC20.json",
+        "USDC",
+    )
     assert usdc.functions.balanceOf(user).call() == 0

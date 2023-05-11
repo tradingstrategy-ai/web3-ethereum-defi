@@ -41,10 +41,27 @@ def aave_v3_deployment(web3, aave_deployment_snapshot):
     pool = aave_deployment_snapshot.get_contract_at_address(
         web3,
         "core-v3/contracts/protocol/pool/Pool.sol/Pool.json",
-        "Pool",
+        "PoolProxy",
     )
 
-    return AaveV3Deployment(web3=web3, pool=pool)
+    data_provider = aave_deployment_snapshot.get_contract_at_address(
+        web3,
+        "core-v3/contracts/misc/AaveProtocolDataProvider.sol/AaveProtocolDataProvider.json",
+        "PoolDataProvider",
+    )
+
+    oracle = aave_deployment_snapshot.get_contract_at_address(
+        web3,
+        "core-v3/contracts/misc/AaveOracle.sol/AaveOracle.json",
+        "AaveOracle",
+    )
+
+    return AaveV3Deployment(
+        web3=web3,
+        pool=pool,
+        data_provider=data_provider,
+        oracle=oracle,
+    )
 
 
 @pytest.fixture(scope="module")
@@ -213,15 +230,67 @@ def test_aave_v3_withdraw(
         assert usdc.functions.balanceOf(hot_wallet.address).call() == withdraw_amount
 
 
+def test_aave_v3_reserve_configuration(
+    aave_v3_deployment,
+    usdc,
+    weth,
+):
+    usdc_reserve_conf = aave_v3_deployment.get_configuration_data(usdc.address)
+    assert usdc_reserve_conf.decimals == 6
+    assert usdc_reserve_conf.ltv == 8000  # 8000bps = 80%
+    assert usdc_reserve_conf.stable_borrow_rate_enabled is True
+
+    weth_reserve_conf = aave_v3_deployment.get_configuration_data(weth.address)
+    assert weth_reserve_conf.decimals == 18
+    assert weth_reserve_conf.liquidation_threshold == 8250  #  82.5%
+    assert weth_reserve_conf.stable_borrow_rate_enabled is False
+
+
+def test_aave_v3_oracle(
+    web3: Web3,
+    aave_deployment_snapshot,
+    aave_v3_deployment,
+    usdc,
+    weth,
+):
+    """Test borrow in Aave v3."""
+
+    usdc_agg = aave_deployment_snapshot.get_contract_at_address(
+        web3,
+        "core-v3/contracts/mocks/oracle/CLAggregators/MockAggregator.sol/MockAggregator.json",
+        "USDCAgg",
+    )
+    weth_agg = aave_deployment_snapshot.get_contract_at_address(
+        web3,
+        "core-v3/contracts/mocks/oracle/CLAggregators/MockAggregator.sol/MockAggregator.json",
+        "WETHAgg",
+    )
+
+    usdc_price = aave_v3_deployment.get_price(usdc.address)
+    assert usdc_price / 1e8 == 1  # MockAggregator has hardcode decimals = 8
+    assert usdc_price == usdc_agg.functions.latestAnswer().call()
+
+    weth_price = aave_v3_deployment.get_price(weth.address)
+    assert weth_price / 1e8 == 4_000
+    assert weth_price == weth_agg.functions.latestAnswer().call()
+
+
 @pytest.mark.parametrize(
-    "borrow_amount,expected_exception",
+    "borrow_token_symbol,borrow_amount,expected_exception",
     [
-        # 1 ETH
-        (1 * 10**6, None),
-        # try to borrow 1000 ETH should fail as collateral is only 10k USDC
+        # 1 USDC
+        ("usdc", 1 * 10**6, None),
+        # borrow 8000 USDC should work as USDC reserve LTV is 80%
+        ("usdc", 8_000 * 10**6, None),
+        # try to borrow 8001 USDC should fail as collateral is 10k USDC and reserve LTV is 80%
         # error code 36 = 'There is not enough collateral to cover a new borrow'
         # https://github.com/aave/aave-v3-core/blob/e0bfed13240adeb7f05cb6cbe5e7ce78657f0621/contracts/protocol/libraries/helpers/Errors.sol#L45
-        (1000 * 10**18, TransactionAssertionError("execution reverted: 36")),
+        ("usdc", 8_001 * 10**6, TransactionAssertionError("execution reverted: 36")),
+        # TODO: more test case for borrowing ETH
+        # 2 WETH = 4000 USDC
+        # ("weth", 1 * 10**18, None),
+        # 2.1 WETH should fail
+        # ("weth", int(2.1 * 10**18), TransactionAssertionError("execution reverted: 36")),
     ],
 )
 def test_aave_v3_borrow(
@@ -232,6 +301,7 @@ def test_aave_v3_borrow(
     ausdc,
     weth,
     usdc_supply_amount: int,
+    borrow_token_symbol: str,
     borrow_amount: int,
     expected_exception: Exception | None,
 ):
@@ -245,18 +315,22 @@ def test_aave_v3_borrow(
         usdc_supply_amount,
     )
 
+    borrow_asset = {
+        "usdc": usdc,
+        "weth": weth,
+    }[borrow_token_symbol]
+
     # try to borrow ETH
     borrow_fn = borrow(
         aave_v3_deployment=aave_v3_deployment,
         wallet_address=hot_wallet.address,
-        # TODO: check how to be able to borrow WETH
-        token=usdc,
+        token=borrow_asset,
         amount=borrow_amount,
     )
     tx = borrow_fn.build_transaction(
         {
             "from": hot_wallet.address,
-            "gas": 400_000,
+            "gas": 350_000,
         }
     )
     signed = hot_wallet.sign_transaction_with_new_nonce(tx)
@@ -275,4 +349,4 @@ def test_aave_v3_borrow(
         assert_transaction_success_with_explanation(web3, tx_hash)
 
         # check balance after withdrawal
-        assert usdc.functions.balanceOf(hot_wallet.address).call() == borrow_amount
+        assert borrow_asset.functions.balanceOf(hot_wallet.address).call() == borrow_amount

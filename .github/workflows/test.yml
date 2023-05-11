@@ -38,12 +38,6 @@ jobs:
         with:
           python-version: '3.10'
           cache: 'poetry'
-      - uses: actions/setup-node@v3
-        with:
-          node-version: 18
-          cache: npm
-          cache-dependency-path: |
-            contracts/aave-v3-deploy/package-lock.json
       - name: Install dependencies
         run: |
           poetry env use '3.10'
