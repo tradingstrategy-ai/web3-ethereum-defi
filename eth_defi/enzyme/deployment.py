@@ -21,7 +21,7 @@ See Enzyme Subgraphs: ---
 import enum
 import re
 from _decimal import Decimal
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, asdict, fields
 from pprint import pformat
 from typing import Dict, Tuple, Optional
 
@@ -47,6 +47,7 @@ POLYGON_DEPLOYMENT = {
     "usdc": "0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174",
     "weth": "0x7ceB23fD6bC0adD59E62ac25578270cFf1b9f619",
     "wmatic": "0x0d500B1d8E8eF31E21C99d1Db9A6444d3ADf1270",
+    "fund_value_calculator": "0xcdf038Dd3b66506d2e5378aee185b2f0084B7A33",
     "deployed_at": 25_825_795,  # When comptroller lib was deployed
 }
 
@@ -96,6 +97,11 @@ class EnzymeContracts:
     gas_relay_paymaster_lib: Contract = None
     gas_relay_paymaster_factory: Contract = None
 
+    #
+    # Perihelia
+    #
+    fund_value_calculator: Contract = None
+
     def deploy(self, contract_name: str, *args):
         """Deploys a contract and stores its reference.
 
@@ -111,6 +117,21 @@ class EnzymeContracts:
         """Helper access for IVault and IComptroller"""
         contract = get_deployed_contract(self.web3, f"enzyme/{contract_name}.json", address)
         return contract
+
+    def get_all_addresses(self) -> Dict[str, str]:
+        """Return all labeled addresses as a dict.
+
+        :return:
+            Contract name -> address mapping
+        """
+        addresses = {}
+        for k in fields(self):
+            v = getattr(self, k.name)
+            if isinstance(v, Contract):
+                addresses[k.name] = v.address
+            elif v is None:
+                addresses[k.name] = None
+        return addresses
 
 
 @dataclass(slots=True)
@@ -317,6 +338,7 @@ class EnzymeDeployment:
             )
             contracts.deploy("ProtocolFeeTracker", contracts.fund_deployer.address)
             contracts.deploy("VaultLib", contracts.external_position_manager.address, contracts.gas_relay_paymaster_factory.address, contracts.protocol_fee_reserve_proxy.address, contracts.protocol_fee_tracker.address, mln_address, vault_mln_burner, weth_address, vault_position_limit)
+            contracts.deploy("FundValueCalculator", contracts.fee_manager.address, contracts.protocol_fee_tracker.address, contracts.value_interpreter.address)
 
         def _set_fund_deployer_pseudo_vars():
             # Mimic setFundDeployerPseudoVars()
@@ -395,6 +417,16 @@ class EnzymeDeployment:
 
         contracts = EnzymeContracts(web3, None)
         contracts.comptroller_lib = contracts.get_deployed_contract("ComptrollerLib", contract_addresses["comptroller_lib"])
+
+        fund_value_calculator = contract_addresses.get("fund_value_calculator")
+
+        # FundValueCalculator might not be available in tests,
+        # as legacy
+        if fund_value_calculator:
+            contracts.fund_value_calculator = contracts.get_deployed_contract("FundValueCalculator", contract_addresses["fund_value_calculator"])
+        else:
+            contracts.fund_value_calculator = None
+
         contracts.fund_deployer = contracts.get_deployed_contract("FundDeployer", contracts.comptroller_lib.functions.getFundDeployer().call())
         contracts.integration_manager = contracts.get_deployed_contract("IntegrationManager", contracts.comptroller_lib.functions.getIntegrationManager().call())
         contracts.value_interpreter = contracts.get_deployed_contract("ValueInterpreter", contracts.comptroller_lib.functions.getValueInterpreter().call())

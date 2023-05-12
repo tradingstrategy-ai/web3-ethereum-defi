@@ -19,7 +19,6 @@ from eth_defi.event_reader.reorganisation_monitor import JSONRPCReorganisationMo
 
 
 def main():
-
     json_rpc_url = os.environ.get("JSON_RPC_POLYGON", "https://polygon-rpc.com")
     web3 = Web3(HTTPProvider(json_rpc_url))
     web3.middleware_onion.clear()
@@ -28,10 +27,7 @@ def main():
     # Get contracts
     Pair = get_contract(web3, "sushi/UniswapV2Pair.json")
 
-    filter = Filter.create_filter(
-        address=None,  # Listen events from any smart contract
-        event_types=[Pair.events.Swap]
-    )
+    filter = Filter.create_filter(address=None, event_types=[Pair.events.Swap])  # Listen events from any smart contract
 
     reorg_mon = JSONRPCReorganisationMonitor(web3, check_depth=3)
 
@@ -68,7 +64,7 @@ def main():
             print(".")
 
         if end != latest_block:
-            for block_num in range(latest_block+1, end+1):
+            for block_num in range(latest_block + 1, end + 1):
                 block_data = reorg_mon.get_block_by_number(block_num)
                 print(f"Block {block_num:,} is {block_data.block_hash}")
 

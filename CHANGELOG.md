@@ -1,3 +1,7 @@
+# 0.19.2
+
+- Add: Enzyme's FundValueCalculator contract as part of the deployment
+
 # 0.19.1
 
 - Fix: Excessive log output if `__repr__` on GraphQLReorganisationMonitor
