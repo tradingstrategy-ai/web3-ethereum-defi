@@ -53,7 +53,7 @@ def test_fetch_current_tvl(
     """Fetch WMATIC-USDC TVL."""
 
     usdc_tvl = fetch_uniswap_v3_pool_tvl(matic_usdc_pool, usdc)
-    assert usdc_tvl > 100_000,  f"Hoped we have at least $100,00 USDC locked up at 5 BPS pool"
+    assert usdc_tvl > 100_000, f"Hoped we have at least $100,00 USDC locked up at 5 BPS pool"
 
 
 def test_fetch_historic_tvl(
