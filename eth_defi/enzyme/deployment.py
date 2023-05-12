@@ -417,8 +417,16 @@ class EnzymeDeployment:
 
         contracts = EnzymeContracts(web3, None)
         contracts.comptroller_lib = contracts.get_deployed_contract("ComptrollerLib", contract_addresses["comptroller_lib"])
-        contracts.fund_value_calculator = contracts.get_deployed_contract("FundValueCalculator", contract_addresses["fund_value_calculator"])
-        contracts.fund = contracts.get_deployed_contract("ComptrollerLib", contract_addresses["comptroller_lib"])
+
+        fund_value_calculator = contract_addresses.get("fund_value_calculator")
+
+        # FundValueCalculator might not be available in tests,
+        # as legacy
+        if fund_value_calculator:
+            contracts.fund_value_calculator = contracts.get_deployed_contract("FundValueCalculator", contract_addresses["fund_value_calculator"])
+        else:
+            contracts.fund_value_calculator = None
+
         contracts.fund_deployer = contracts.get_deployed_contract("FundDeployer", contracts.comptroller_lib.functions.getFundDeployer().call())
         contracts.integration_manager = contracts.get_deployed_contract("IntegrationManager", contracts.comptroller_lib.functions.getIntegrationManager().call())
         contracts.value_interpreter = contracts.get_deployed_contract("ValueInterpreter", contracts.comptroller_lib.functions.getValueInterpreter().call())
