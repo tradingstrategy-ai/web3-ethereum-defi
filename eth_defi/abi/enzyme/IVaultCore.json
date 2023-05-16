@@ -187,19 +187,19 @@
   },
   "ast": {
     "absolutePath": "contracts/persistent/vault/interfaces/IVaultCore.sol",
-    "id": 11795,
+    "id": 701,
     "exportedSymbols": {
       "IVaultCore": [
-        11794
+        700
       ]
     },
     "nodeType": "SourceUnit",
-    "src": "255:496:73",
+    "src": "255:496:10",
     "nodes": [
       {
-        "id": 11772,
+        "id": 678,
         "nodeType": "PragmaDirective",
-        "src": "255:23:73",
+        "src": "255:23:10",
         "nodes": [],
         "literals": [
           "solidity",
@@ -208,14 +208,14 @@
         ]
       },
       {
-        "id": 11794,
+        "id": 700,
         "nodeType": "ContractDefinition",
-        "src": "451:299:73",
+        "src": "451:299:10",
         "nodes": [
           {
-            "id": 11778,
+            "id": 684,
             "nodeType": "FunctionDefinition",
-            "src": "478:65:73",
+            "src": "478:65:10",
             "nodes": [],
             "documentation": null,
             "functionSelector": "5a53e348",
@@ -225,24 +225,24 @@
             "name": "getAccessor",
             "overrides": null,
             "parameters": {
-              "id": 11774,
+              "id": 680,
               "nodeType": "ParameterList",
               "parameters": [],
-              "src": "498:2:73"
+              "src": "498:2:10"
             },
             "returnParameters": {
-              "id": 11777,
+              "id": 683,
               "nodeType": "ParameterList",
               "parameters": [
                 {
                   "constant": false,
-                  "id": 11776,
+                  "id": 682,
                   "mutability": "mutable",
                   "name": "accessor_",
                   "nodeType": "VariableDeclaration",
                   "overrides": null,
-                  "scope": 11778,
-                  "src": "524:17:73",
+                  "scope": 684,
+                  "src": "524:17:10",
                   "stateVariable": false,
                   "storageLocation": "default",
                   "typeDescriptions": {
@@ -250,10 +250,10 @@
                     "typeString": "address"
                   },
                   "typeName": {
-                    "id": 11775,
+                    "id": 681,
                     "name": "address",
                     "nodeType": "ElementaryTypeName",
-                    "src": "524:7:73",
+                    "src": "524:7:10",
                     "stateMutability": "nonpayable",
                     "typeDescriptions": {
                       "typeIdentifier": "t_address",
@@ -264,17 +264,17 @@
                   "visibility": "internal"
                 }
               ],
-              "src": "523:19:73"
+              "src": "523:19:10"
             },
-            "scope": 11794,
+            "scope": 700,
             "stateMutability": "view",
             "virtual": false,
             "visibility": "external"
           },
           {
-            "id": 11783,
+            "id": 689,
             "nodeType": "FunctionDefinition",
-            "src": "549:63:73",
+            "src": "549:63:10",
             "nodes": [],
             "documentation": null,
             "functionSelector": "0ee2cb10",
@@ -284,24 +284,24 @@
             "name": "getCreator",
             "overrides": null,
             "parameters": {
-              "id": 11779,
+              "id": 685,
               "nodeType": "ParameterList",
               "parameters": [],
-              "src": "568:2:73"
+              "src": "568:2:10"
             },
             "returnParameters": {
-              "id": 11782,
+              "id": 688,
               "nodeType": "ParameterList",
               "parameters": [
                 {
                   "constant": false,
-                  "id": 11781,
+                  "id": 687,
                   "mutability": "mutable",
                   "name": "creator_",
                   "nodeType": "VariableDeclaration",
                   "overrides": null,
-                  "scope": 11783,
-                  "src": "594:16:73",
+                  "scope": 689,
+                  "src": "594:16:10",
                   "stateVariable": false,
                   "storageLocation": "default",
                   "typeDescriptions": {
@@ -309,10 +309,10 @@
                     "typeString": "address"
                   },
                   "typeName": {
-                    "id": 11780,
+                    "id": 686,
                     "name": "address",
                     "nodeType": "ElementaryTypeName",
-                    "src": "594:7:73",
+                    "src": "594:7:10",
                     "stateMutability": "nonpayable",
                     "typeDescriptions": {
                       "typeIdentifier": "t_address",
@@ -323,17 +323,17 @@
                   "visibility": "internal"
                 }
               ],
-              "src": "593:18:73"
+              "src": "593:18:10"
             },
-            "scope": 11794,
+            "scope": 700,
             "stateMutability": "view",
             "virtual": false,
             "visibility": "external"
           },
           {
-            "id": 11788,
+            "id": 694,
             "nodeType": "FunctionDefinition",
-            "src": "618:65:73",
+            "src": "618:65:10",
             "nodes": [],
             "documentation": null,
             "functionSelector": "cd63d578",
@@ -343,24 +343,24 @@
             "name": "getMigrator",
             "overrides": null,
             "parameters": {
-              "id": 11784,
+              "id": 690,
               "nodeType": "ParameterList",
               "parameters": [],
-              "src": "638:2:73"
+              "src": "638:2:10"
             },
             "returnParameters": {
-              "id": 11787,
+              "id": 693,
               "nodeType": "ParameterList",
               "parameters": [
                 {
                   "constant": false,
-                  "id": 11786,
+                  "id": 692,
                   "mutability": "mutable",
                   "name": "migrator_",
                   "nodeType": "VariableDeclaration",
                   "overrides": null,
-                  "scope": 11788,
-                  "src": "664:17:73",
+                  "scope": 694,
+                  "src": "664:17:10",
                   "stateVariable": false,
                   "storageLocation": "default",
                   "typeDescriptions": {
@@ -368,10 +368,10 @@
                     "typeString": "address"
                   },
                   "typeName": {
-                    "id": 11785,
+                    "id": 691,
                     "name": "address",
                     "nodeType": "ElementaryTypeName",
-                    "src": "664:7:73",
+                    "src": "664:7:10",
                     "stateMutability": "nonpayable",
                     "typeDescriptions": {
                       "typeIdentifier": "t_address",
@@ -382,17 +382,17 @@
                   "visibility": "internal"
                 }
               ],
-              "src": "663:19:73"
+              "src": "663:19:10"
             },
-            "scope": 11794,
+            "scope": 700,
             "stateMutability": "view",
             "virtual": false,
             "visibility": "external"
           },
           {
-            "id": 11793,
+            "id": 699,
             "nodeType": "FunctionDefinition",
-            "src": "689:59:73",
+            "src": "689:59:10",
             "nodes": [],
             "documentation": null,
             "functionSelector": "893d20e8",
@@ -402,24 +402,24 @@
             "name": "getOwner",
             "overrides": null,
             "parameters": {
-              "id": 11789,
+              "id": 695,
               "nodeType": "ParameterList",
               "parameters": [],
-              "src": "706:2:73"
+              "src": "706:2:10"
             },
             "returnParameters": {
-              "id": 11792,
+              "id": 698,
               "nodeType": "ParameterList",
               "parameters": [
                 {
                   "constant": false,
-                  "id": 11791,
+                  "id": 697,
                   "mutability": "mutable",
                   "name": "owner_",
                   "nodeType": "VariableDeclaration",
                   "overrides": null,
-                  "scope": 11793,
-                  "src": "732:14:73",
+                  "scope": 699,
+                  "src": "732:14:10",
                   "stateVariable": false,
                   "storageLocation": "default",
                   "typeDescriptions": {
@@ -427,10 +427,10 @@
                     "typeString": "address"
                   },
                   "typeName": {
-                    "id": 11790,
+                    "id": 696,
                     "name": "address",
                     "nodeType": "ElementaryTypeName",
-                    "src": "732:7:73",
+                    "src": "732:7:10",
                     "stateMutability": "nonpayable",
                     "typeDescriptions": {
                       "typeIdentifier": "t_address",
@@ -441,9 +441,9 @@
                   "visibility": "internal"
                 }
               ],
-              "src": "731:16:73"
+              "src": "731:16:10"
             },
-            "scope": 11794,
+            "scope": 700,
             "stateMutability": "view",
             "virtual": false,
             "visibility": "external"
@@ -454,20 +454,20 @@
         "contractDependencies": [],
         "contractKind": "interface",
         "documentation": {
-          "id": 11773,
+          "id": 679,
           "nodeType": "StructuredDocumentation",
-          "src": "280:171:73",
+          "src": "280:171:10",
           "text": "@title IVaultCore interface\n @author Enzyme Council <security@enzyme.finance>\n @notice Interface for getters of core vault storage\n @dev DO NOT EDIT CONTRACT"
         },
         "fullyImplemented": false,
         "linearizedBaseContracts": [
-          11794
+          700
         ],
         "name": "IVaultCore",
-        "scope": 11795
+        "scope": 701
       }
     ],
     "license": "GPL-3.0"
   },
-  "id": 73
+  "id": 10
 }

@@ -125,19 +125,19 @@
   },
   "ast": {
     "absolutePath": "contracts/release/extensions/policy-manager/IPolicyManager.sol",
-    "id": 55842,
+    "id": 7329,
     "exportedSymbols": {
       "IPolicyManager": [
-        55841
+        7328
       ]
     },
     "nodeType": "SourceUnit",
-    "src": "255:833:205",
+    "src": "255:833:24",
     "nodes": [
       {
-        "id": 55818,
+        "id": 7305,
         "nodeType": "PragmaDirective",
-        "src": "255:23:205",
+        "src": "255:23:24",
         "nodes": [],
         "literals": [
           "solidity",
@@ -146,9 +146,9 @@
         ]
       },
       {
-        "id": 55819,
+        "id": 7306,
         "nodeType": "PragmaDirective",
-        "src": "279:33:205",
+        "src": "279:33:24",
         "nodes": [],
         "literals": [
           "experimental",
@@ -156,84 +156,84 @@
         ]
       },
       {
-        "id": 55841,
+        "id": 7328,
         "nodeType": "ContractDefinition",
-        "src": "446:641:205",
+        "src": "446:641:24",
         "nodes": [
           {
-            "id": 55831,
+            "id": 7318,
             "nodeType": "EnumDefinition",
-            "src": "644:333:205",
+            "src": "644:333:24",
             "nodes": [],
             "canonicalName": "IPolicyManager.PolicyHook",
             "members": [
               {
-                "id": 55821,
+                "id": 7308,
                 "name": "PostBuyShares",
                 "nodeType": "EnumValue",
-                "src": "670:13:205"
+                "src": "670:13:24"
               },
               {
-                "id": 55822,
+                "id": 7309,
                 "name": "PostCallOnIntegration",
                 "nodeType": "EnumValue",
-                "src": "693:21:205"
+                "src": "693:21:24"
               },
               {
-                "id": 55823,
+                "id": 7310,
                 "name": "PreTransferShares",
                 "nodeType": "EnumValue",
-                "src": "724:17:205"
+                "src": "724:17:24"
               },
               {
-                "id": 55824,
+                "id": 7311,
                 "name": "RedeemSharesForSpecificAssets",
                 "nodeType": "EnumValue",
-                "src": "751:29:205"
+                "src": "751:29:24"
               },
               {
-                "id": 55825,
+                "id": 7312,
                 "name": "AddTrackedAssets",
                 "nodeType": "EnumValue",
-                "src": "790:16:205"
+                "src": "790:16:24"
               },
               {
-                "id": 55826,
+                "id": 7313,
                 "name": "RemoveTrackedAssets",
                 "nodeType": "EnumValue",
-                "src": "816:19:205"
+                "src": "816:19:24"
               },
               {
-                "id": 55827,
+                "id": 7314,
                 "name": "CreateExternalPosition",
                 "nodeType": "EnumValue",
-                "src": "845:22:205"
+                "src": "845:22:24"
               },
               {
-                "id": 55828,
+                "id": 7315,
                 "name": "PostCallOnExternalPosition",
                 "nodeType": "EnumValue",
-                "src": "877:26:205"
+                "src": "877:26:24"
               },
               {
-                "id": 55829,
+                "id": 7316,
                 "name": "RemoveExternalPosition",
                 "nodeType": "EnumValue",
-                "src": "913:22:205"
+                "src": "913:22:24"
               },
               {
-                "id": 55830,
+                "id": 7317,
                 "name": "ReactivateExternalPosition",
                 "nodeType": "EnumValue",
-                "src": "945:26:205"
+                "src": "945:26:24"
               }
             ],
             "name": "PolicyHook"
           },
           {
-            "id": 55840,
+            "id": 7327,
             "nodeType": "FunctionDefinition",
-            "src": "983:102:205",
+            "src": "983:102:24",
             "nodes": [],
             "documentation": null,
             "functionSelector": "0442bad5",
@@ -243,18 +243,18 @@
             "name": "validatePolicies",
             "overrides": null,
             "parameters": {
-              "id": 55838,
+              "id": 7325,
               "nodeType": "ParameterList",
               "parameters": [
                 {
                   "constant": false,
-                  "id": 55833,
+                  "id": 7320,
                   "mutability": "mutable",
                   "name": "",
                   "nodeType": "VariableDeclaration",
                   "overrides": null,
-                  "scope": 55840,
-                  "src": "1018:7:205",
+                  "scope": 7327,
+                  "src": "1018:7:24",
                   "stateVariable": false,
                   "storageLocation": "default",
                   "typeDescriptions": {
@@ -262,10 +262,10 @@
                     "typeString": "address"
                   },
                   "typeName": {
-                    "id": 55832,
+                    "id": 7319,
                     "name": "address",
                     "nodeType": "ElementaryTypeName",
-                    "src": "1018:7:205",
+                    "src": "1018:7:24",
                     "stateMutability": "nonpayable",
                     "typeDescriptions": {
                       "typeIdentifier": "t_address",
@@ -277,28 +277,28 @@
                 },
                 {
                   "constant": false,
-                  "id": 55835,
+                  "id": 7322,
                   "mutability": "mutable",
                   "name": "",
                   "nodeType": "VariableDeclaration",
                   "overrides": null,
-                  "scope": 55840,
-                  "src": "1035:10:205",
+                  "scope": 7327,
+                  "src": "1035:10:24",
                   "stateVariable": false,
                   "storageLocation": "default",
                   "typeDescriptions": {
-                    "typeIdentifier": "t_enum$_PolicyHook_$55831",
+                    "typeIdentifier": "t_enum$_PolicyHook_$7318",
                     "typeString": "enum IPolicyManager.PolicyHook"
                   },
                   "typeName": {
                     "contractScope": null,
-                    "id": 55834,
+                    "id": 7321,
                     "name": "PolicyHook",
                     "nodeType": "UserDefinedTypeName",
-                    "referencedDeclaration": 55831,
-                    "src": "1035:10:205",
+                    "referencedDeclaration": 7318,
+                    "src": "1035:10:24",
                     "typeDescriptions": {
-                      "typeIdentifier": "t_enum$_PolicyHook_$55831",
+                      "typeIdentifier": "t_enum$_PolicyHook_$7318",
                       "typeString": "enum IPolicyManager.PolicyHook"
                     }
                   },
@@ -307,13 +307,13 @@
                 },
                 {
                   "constant": false,
-                  "id": 55837,
+                  "id": 7324,
                   "mutability": "mutable",
                   "name": "",
                   "nodeType": "VariableDeclaration",
                   "overrides": null,
-                  "scope": 55840,
-                  "src": "1055:14:205",
+                  "scope": 7327,
+                  "src": "1055:14:24",
                   "stateVariable": false,
                   "storageLocation": "calldata",
                   "typeDescriptions": {
@@ -321,10 +321,10 @@
                     "typeString": "bytes"
                   },
                   "typeName": {
-                    "id": 55836,
+                    "id": 7323,
                     "name": "bytes",
                     "nodeType": "ElementaryTypeName",
-                    "src": "1055:5:205",
+                    "src": "1055:5:24",
                     "typeDescriptions": {
                       "typeIdentifier": "t_bytes_storage_ptr",
                       "typeString": "bytes"
@@ -334,15 +334,15 @@
                   "visibility": "internal"
                 }
               ],
-              "src": "1008:67:205"
+              "src": "1008:67:24"
             },
             "returnParameters": {
-              "id": 55839,
+              "id": 7326,
               "nodeType": "ParameterList",
               "parameters": [],
-              "src": "1084:0:205"
+              "src": "1084:0:24"
             },
-            "scope": 55841,
+            "scope": 7328,
             "stateMutability": "nonpayable",
             "virtual": false,
             "visibility": "external"
@@ -353,20 +353,20 @@
         "contractDependencies": [],
         "contractKind": "interface",
         "documentation": {
-          "id": 55820,
+          "id": 7307,
           "nodeType": "StructuredDocumentation",
-          "src": "314:132:205",
+          "src": "314:132:24",
           "text": "@title PolicyManager Interface\n @author Enzyme Council <security@enzyme.finance>\n @notice Interface for the PolicyManager"
         },
         "fullyImplemented": false,
         "linearizedBaseContracts": [
-          55841
+          7328
         ],
         "name": "IPolicyManager",
-        "scope": 55842
+        "scope": 7329
       }
     ],
     "license": "GPL-3.0"
   },
-  "id": 205
+  "id": 24
 }

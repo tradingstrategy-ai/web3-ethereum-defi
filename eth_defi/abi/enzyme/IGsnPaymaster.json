@@ -675,19 +675,19 @@
   },
   "ast": {
     "absolutePath": "contracts/release/interfaces/IGsnPaymaster.sol",
-    "id": 71951,
+    "id": 9893,
     "exportedSymbols": {
       "IGsnPaymaster": [
-        71950
+        9892
       ]
     },
     "nodeType": "SourceUnit",
-    "src": "255:1192:304",
+    "src": "255:1192:39",
     "nodes": [
       {
-        "id": 71886,
+        "id": 9828,
         "nodeType": "PragmaDirective",
-        "src": "255:23:304",
+        "src": "255:23:39",
         "nodes": [],
         "literals": [
           "solidity",
@@ -696,9 +696,9 @@
         ]
       },
       {
-        "id": 71887,
+        "id": 9829,
         "nodeType": "PragmaDirective",
-        "src": "279:33:304",
+        "src": "279:33:39",
         "nodes": [],
         "literals": [
           "experimental",
@@ -706,38 +706,38 @@
         ]
       },
       {
-        "id": 71888,
+        "id": 9830,
         "nodeType": "ImportDirective",
-        "src": "314:25:304",
+        "src": "314:25:39",
         "nodes": [],
         "absolutePath": "contracts/release/interfaces/IGsnTypes.sol",
         "file": "./IGsnTypes.sol",
-        "scope": 71951,
-        "sourceUnit": 72030,
+        "scope": 9893,
+        "sourceUnit": 9921,
         "symbolAliases": [],
         "unitAlias": ""
       },
       {
-        "id": 71950,
+        "id": 9892,
         "nodeType": "ContractDefinition",
-        "src": "429:1017:304",
+        "src": "429:1017:39",
         "nodes": [
           {
-            "id": 71898,
+            "id": 9840,
             "nodeType": "StructDefinition",
-            "src": "459:181:304",
+            "src": "459:181:39",
             "nodes": [],
             "canonicalName": "IGsnPaymaster.GasAndDataLimits",
             "members": [
               {
                 "constant": false,
-                "id": 71891,
+                "id": 9833,
                 "mutability": "mutable",
                 "name": "acceptanceBudget",
                 "nodeType": "VariableDeclaration",
                 "overrides": null,
-                "scope": 71898,
-                "src": "493:24:304",
+                "scope": 9840,
+                "src": "493:24:39",
                 "stateVariable": false,
                 "storageLocation": "default",
                 "typeDescriptions": {
@@ -745,10 +745,10 @@
                   "typeString": "uint256"
                 },
                 "typeName": {
-                  "id": 71890,
+                  "id": 9832,
                   "name": "uint256",
                   "nodeType": "ElementaryTypeName",
-                  "src": "493:7:304",
+                  "src": "493:7:39",
                   "typeDescriptions": {
                     "typeIdentifier": "t_uint256",
                     "typeString": "uint256"
@@ -759,13 +759,13 @@
               },
               {
                 "constant": false,
-                "id": 71893,
+                "id": 9835,
                 "mutability": "mutable",
                 "name": "preRelayedCallGasLimit",
                 "nodeType": "VariableDeclaration",
                 "overrides": null,
-                "scope": 71898,
-                "src": "527:30:304",
+                "scope": 9840,
+                "src": "527:30:39",
                 "stateVariable": false,
                 "storageLocation": "default",
                 "typeDescriptions": {
@@ -773,10 +773,10 @@
                   "typeString": "uint256"
                 },
                 "typeName": {
-                  "id": 71892,
+                  "id": 9834,
                   "name": "uint256",
                   "nodeType": "ElementaryTypeName",
-                  "src": "527:7:304",
+                  "src": "527:7:39",
                   "typeDescriptions": {
                     "typeIdentifier": "t_uint256",
                     "typeString": "uint256"
@@ -787,13 +787,13 @@
               },
               {
                 "constant": false,
-                "id": 71895,
+                "id": 9837,
                 "mutability": "mutable",
                 "name": "postRelayedCallGasLimit",
                 "nodeType": "VariableDeclaration",
                 "overrides": null,
-                "scope": 71898,
-                "src": "567:31:304",
+                "scope": 9840,
+                "src": "567:31:39",
                 "stateVariable": false,
                 "storageLocation": "default",
                 "typeDescriptions": {
@@ -801,10 +801,10 @@
                   "typeString": "uint256"
                 },
                 "typeName": {
-                  "id": 71894,
+                  "id": 9836,
                   "name": "uint256",
                   "nodeType": "ElementaryTypeName",
-                  "src": "567:7:304",
+                  "src": "567:7:39",
                   "typeDescriptions": {
                     "typeIdentifier": "t_uint256",
                     "typeString": "uint256"
@@ -815,13 +815,13 @@
               },
               {
                 "constant": false,
-                "id": 71897,
+                "id": 9839,
                 "mutability": "mutable",
                 "name": "calldataSizeLimit",
                 "nodeType": "VariableDeclaration",
                 "overrides": null,
-                "scope": 71898,
-                "src": "608:25:304",
+                "scope": 9840,
+                "src": "608:25:39",
                 "stateVariable": false,
                 "storageLocation": "default",
                 "typeDescriptions": {
@@ -829,10 +829,10 @@
                   "typeString": "uint256"
                 },
                 "typeName": {
-                  "id": 71896,
+                  "id": 9838,
                   "name": "uint256",
                   "nodeType": "ElementaryTypeName",
-                  "src": "608:7:304",
+                  "src": "608:7:39",
                   "typeDescriptions": {
                     "typeIdentifier": "t_uint256",
                     "typeString": "uint256"
@@ -843,13 +843,13 @@
               }
             ],
             "name": "GasAndDataLimits",
-            "scope": 71950,
+            "scope": 9892,
             "visibility": "public"
           },
           {
-            "id": 71903,
+            "id": 9845,
             "nodeType": "FunctionDefinition",
-            "src": "646:86:304",
+            "src": "646:86:39",
             "nodes": [],
             "documentation": null,
             "functionSelector": "b039a88f",
@@ -859,39 +859,39 @@
             "name": "getGasAndDataLimits",
             "overrides": null,
             "parameters": {
-              "id": 71899,
+              "id": 9841,
               "nodeType": "ParameterList",
               "parameters": [],
-              "src": "674:2:304"
+              "src": "674:2:39"
             },
             "returnParameters": {
-              "id": 71902,
+              "id": 9844,
               "nodeType": "ParameterList",
               "parameters": [
                 {
                   "constant": false,
-                  "id": 71901,
+                  "id": 9843,
                   "mutability": "mutable",
                   "name": "limits",
                   "nodeType": "VariableDeclaration",
                   "overrides": null,
-                  "scope": 71903,
-                  "src": "700:30:304",
+                  "scope": 9845,
+                  "src": "700:30:39",
                   "stateVariable": false,
                   "storageLocation": "memory",
                   "typeDescriptions": {
-                    "typeIdentifier": "t_struct$_GasAndDataLimits_$71898_memory_ptr",
+                    "typeIdentifier": "t_struct$_GasAndDataLimits_$9840_memory_ptr",
                     "typeString": "struct IGsnPaymaster.GasAndDataLimits"
                   },
                   "typeName": {
                     "contractScope": null,
-                    "id": 71900,
+                    "id": 9842,
                     "name": "GasAndDataLimits",
                     "nodeType": "UserDefinedTypeName",
-                    "referencedDeclaration": 71898,
-                    "src": "700:16:304",
+                    "referencedDeclaration": 9840,
+                    "src": "700:16:39",
                     "typeDescriptions": {
-                      "typeIdentifier": "t_struct$_GasAndDataLimits_$71898_storage_ptr",
+                      "typeIdentifier": "t_struct$_GasAndDataLimits_$9840_storage_ptr",
                       "typeString": "struct IGsnPaymaster.GasAndDataLimits"
                     }
                   },
@@ -899,17 +899,17 @@
                   "visibility": "internal"
                 }
               ],
-              "src": "699:32:304"
+              "src": "699:32:39"
             },
-            "scope": 71950,
+            "scope": 9892,
             "stateMutability": "view",
             "virtual": false,
             "visibility": "external"
           },
           {
-            "id": 71908,
+            "id": 9850,
             "nodeType": "FunctionDefinition",
-            "src": "738:54:304",
+            "src": "738:54:39",
             "nodes": [],
             "documentation": null,
             "functionSelector": "74e861d6",
@@ -919,24 +919,24 @@
             "name": "getHubAddr",
             "overrides": null,
             "parameters": {
-              "id": 71904,
+              "id": 9846,
               "nodeType": "ParameterList",
               "parameters": [],
-              "src": "757:2:304"
+              "src": "757:2:39"
             },
             "returnParameters": {
-              "id": 71907,
+              "id": 9849,
               "nodeType": "ParameterList",
               "parameters": [
                 {
                   "constant": false,
-                  "id": 71906,
+                  "id": 9848,
                   "mutability": "mutable",
                   "name": "",
                   "nodeType": "VariableDeclaration",
                   "overrides": null,
-                  "scope": 71908,
-                  "src": "783:7:304",
+                  "scope": 9850,
+                  "src": "783:7:39",
                   "stateVariable": false,
                   "storageLocation": "default",
                   "typeDescriptions": {
@@ -944,10 +944,10 @@
                     "typeString": "address"
                   },
                   "typeName": {
-                    "id": 71905,
+                    "id": 9847,
                     "name": "address",
                     "nodeType": "ElementaryTypeName",
-                    "src": "783:7:304",
+                    "src": "783:7:39",
                     "stateMutability": "nonpayable",
                     "typeDescriptions": {
                       "typeIdentifier": "t_address",
@@ -958,17 +958,17 @@
                   "visibility": "internal"
                 }
               ],
-              "src": "782:9:304"
+              "src": "782:9:39"
             },
-            "scope": 71950,
+            "scope": 9892,
             "stateMutability": "view",
             "virtual": false,
             "visibility": "external"
           },
           {
-            "id": 71913,
+            "id": 9855,
             "nodeType": "FunctionDefinition",
-            "src": "798:62:304",
+            "src": "798:62:39",
             "nodes": [],
             "documentation": null,
             "functionSelector": "2afe31c1",
@@ -978,24 +978,24 @@
             "name": "getRelayHubDeposit",
             "overrides": null,
             "parameters": {
-              "id": 71909,
+              "id": 9851,
               "nodeType": "ParameterList",
               "parameters": [],
-              "src": "825:2:304"
+              "src": "825:2:39"
             },
             "returnParameters": {
-              "id": 71912,
+              "id": 9854,
               "nodeType": "ParameterList",
               "parameters": [
                 {
                   "constant": false,
-                  "id": 71911,
+                  "id": 9853,
                   "mutability": "mutable",
                   "name": "",
                   "nodeType": "VariableDeclaration",
                   "overrides": null,
-                  "scope": 71913,
-                  "src": "851:7:304",
+                  "scope": 9855,
+                  "src": "851:7:39",
                   "stateVariable": false,
                   "storageLocation": "default",
                   "typeDescriptions": {
@@ -1003,10 +1003,10 @@
                     "typeString": "uint256"
                   },
                   "typeName": {
-                    "id": 71910,
+                    "id": 9852,
                     "name": "uint256",
                     "nodeType": "ElementaryTypeName",
-                    "src": "851:7:304",
+                    "src": "851:7:39",
                     "typeDescriptions": {
                       "typeIdentifier": "t_uint256",
                       "typeString": "uint256"
@@ -1016,17 +1016,17 @@
                   "visibility": "internal"
                 }
               ],
-              "src": "850:9:304"
+              "src": "850:9:39"
             },
-            "scope": 71950,
+            "scope": 9892,
             "stateMutability": "view",
             "virtual": false,
             "visibility": "external"
           },
           {
-            "id": 71928,
+            "id": 9870,
             "nodeType": "FunctionDefinition",
-            "src": "866:257:304",
+            "src": "866:257:39",
             "nodes": [],
             "documentation": null,
             "functionSelector": "00be5dd4",
@@ -1036,33 +1036,33 @@
             "name": "preRelayedCall",
             "overrides": null,
             "parameters": {
-              "id": 71922,
+              "id": 9864,
               "nodeType": "ParameterList",
               "parameters": [
                 {
                   "constant": false,
-                  "id": 71915,
+                  "id": 9857,
                   "mutability": "mutable",
                   "name": "relayRequest",
                   "nodeType": "VariableDeclaration",
                   "overrides": null,
-                  "scope": 71928,
-                  "src": "899:44:304",
+                  "scope": 9870,
+                  "src": "899:44:39",
                   "stateVariable": false,
                   "storageLocation": "calldata",
                   "typeDescriptions": {
-                    "typeIdentifier": "t_struct$_RelayRequest_$72028_calldata_ptr",
+                    "typeIdentifier": "t_struct$_RelayRequest_$9919_calldata_ptr",
                     "typeString": "struct IGsnTypes.RelayRequest"
                   },
                   "typeName": {
                     "contractScope": null,
-                    "id": 71914,
+                    "id": 9856,
                     "name": "IGsnTypes.RelayRequest",
                     "nodeType": "UserDefinedTypeName",
-                    "referencedDeclaration": 72028,
-                    "src": "899:22:304",
+                    "referencedDeclaration": 9919,
+                    "src": "899:22:39",
                     "typeDescriptions": {
-                      "typeIdentifier": "t_struct$_RelayRequest_$72028_storage_ptr",
+                      "typeIdentifier": "t_struct$_RelayRequest_$9919_storage_ptr",
                       "typeString": "struct IGsnTypes.RelayRequest"
                     }
                   },
@@ -1071,13 +1071,13 @@
                 },
                 {
                   "constant": false,
-                  "id": 71917,
+                  "id": 9859,
                   "mutability": "mutable",
                   "name": "signature",
                   "nodeType": "VariableDeclaration",
                   "overrides": null,
-                  "scope": 71928,
-                  "src": "953:24:304",
+                  "scope": 9870,
+                  "src": "953:24:39",
                   "stateVariable": false,
                   "storageLocation": "calldata",
                   "typeDescriptions": {
@@ -1085,10 +1085,10 @@
                     "typeString": "bytes"
                   },
                   "typeName": {
-                    "id": 71916,
+                    "id": 9858,
                     "name": "bytes",
                     "nodeType": "ElementaryTypeName",
-                    "src": "953:5:304",
+                    "src": "953:5:39",
                     "typeDescriptions": {
                       "typeIdentifier": "t_bytes_storage_ptr",
                       "typeString": "bytes"
@@ -1099,13 +1099,13 @@
                 },
                 {
                   "constant": false,
-                  "id": 71919,
+                  "id": 9861,
                   "mutability": "mutable",
                   "name": "approvalData",
                   "nodeType": "VariableDeclaration",
                   "overrides": null,
-                  "scope": 71928,
-                  "src": "987:27:304",
+                  "scope": 9870,
+                  "src": "987:27:39",
                   "stateVariable": false,
                   "storageLocation": "calldata",
                   "typeDescriptions": {
@@ -1113,10 +1113,10 @@
                     "typeString": "bytes"
                   },
                   "typeName": {
-                    "id": 71918,
+                    "id": 9860,
                     "name": "bytes",
                     "nodeType": "ElementaryTypeName",
-                    "src": "987:5:304",
+                    "src": "987:5:39",
                     "typeDescriptions": {
                       "typeIdentifier": "t_bytes_storage_ptr",
                       "typeString": "bytes"
@@ -1127,13 +1127,13 @@
                 },
                 {
                   "constant": false,
-                  "id": 71921,
+                  "id": 9863,
                   "mutability": "mutable",
                   "name": "maxPossibleGas",
                   "nodeType": "VariableDeclaration",
                   "overrides": null,
-                  "scope": 71928,
-                  "src": "1024:22:304",
+                  "scope": 9870,
+                  "src": "1024:22:39",
                   "stateVariable": false,
                   "storageLocation": "default",
                   "typeDescriptions": {
@@ -1141,10 +1141,10 @@
                     "typeString": "uint256"
                   },
                   "typeName": {
-                    "id": 71920,
+                    "id": 9862,
                     "name": "uint256",
                     "nodeType": "ElementaryTypeName",
-                    "src": "1024:7:304",
+                    "src": "1024:7:39",
                     "typeDescriptions": {
                       "typeIdentifier": "t_uint256",
                       "typeString": "uint256"
@@ -1154,21 +1154,21 @@
                   "visibility": "internal"
                 }
               ],
-              "src": "889:163:304"
+              "src": "889:163:39"
             },
             "returnParameters": {
-              "id": 71927,
+              "id": 9869,
               "nodeType": "ParameterList",
               "parameters": [
                 {
                   "constant": false,
-                  "id": 71924,
+                  "id": 9866,
                   "mutability": "mutable",
                   "name": "context",
                   "nodeType": "VariableDeclaration",
                   "overrides": null,
-                  "scope": 71928,
-                  "src": "1071:20:304",
+                  "scope": 9870,
+                  "src": "1071:20:39",
                   "stateVariable": false,
                   "storageLocation": "memory",
                   "typeDescriptions": {
@@ -1176,10 +1176,10 @@
                     "typeString": "bytes"
                   },
                   "typeName": {
-                    "id": 71923,
+                    "id": 9865,
                     "name": "bytes",
                     "nodeType": "ElementaryTypeName",
-                    "src": "1071:5:304",
+                    "src": "1071:5:39",
                     "typeDescriptions": {
                       "typeIdentifier": "t_bytes_storage_ptr",
                       "typeString": "bytes"
@@ -1190,13 +1190,13 @@
                 },
                 {
                   "constant": false,
-                  "id": 71926,
+                  "id": 9868,
                   "mutability": "mutable",
                   "name": "rejectOnRecipientRevert",
                   "nodeType": "VariableDeclaration",
                   "overrides": null,
-                  "scope": 71928,
-                  "src": "1093:28:304",
+                  "scope": 9870,
+                  "src": "1093:28:39",
                   "stateVariable": false,
                   "storageLocation": "default",
                   "typeDescriptions": {
@@ -1204,10 +1204,10 @@
                     "typeString": "bool"
                   },
                   "typeName": {
-                    "id": 71925,
+                    "id": 9867,
                     "name": "bool",
                     "nodeType": "ElementaryTypeName",
-                    "src": "1093:4:304",
+                    "src": "1093:4:39",
                     "typeDescriptions": {
                       "typeIdentifier": "t_bool",
                       "typeString": "bool"
@@ -1217,17 +1217,17 @@
                   "visibility": "internal"
                 }
               ],
-              "src": "1070:52:304"
+              "src": "1070:52:39"
             },
-            "scope": 71950,
+            "scope": 9892,
             "stateMutability": "nonpayable",
             "virtual": false,
             "visibility": "external"
           },
           {
-            "id": 71939,
+            "id": 9881,
             "nodeType": "FunctionDefinition",
-            "src": "1129:177:304",
+            "src": "1129:177:39",
             "nodes": [],
             "documentation": null,
             "functionSelector": "76fa01c3",
@@ -1237,18 +1237,18 @@
             "name": "postRelayedCall",
             "overrides": null,
             "parameters": {
-              "id": 71937,
+              "id": 9879,
               "nodeType": "ParameterList",
               "parameters": [
                 {
                   "constant": false,
-                  "id": 71930,
+                  "id": 9872,
                   "mutability": "mutable",
                   "name": "context",
                   "nodeType": "VariableDeclaration",
                   "overrides": null,
-                  "scope": 71939,
-                  "src": "1163:22:304",
+                  "scope": 9881,
+                  "src": "1163:22:39",
                   "stateVariable": false,
                   "storageLocation": "calldata",
                   "typeDescriptions": {
@@ -1256,10 +1256,10 @@
                     "typeString": "bytes"
                   },
                   "typeName": {
-                    "id": 71929,
+                    "id": 9871,
                     "name": "bytes",
                     "nodeType": "ElementaryTypeName",
-                    "src": "1163:5:304",
+                    "src": "1163:5:39",
                     "typeDescriptions": {
                       "typeIdentifier": "t_bytes_storage_ptr",
                       "typeString": "bytes"
@@ -1270,13 +1270,13 @@
                 },
                 {
                   "constant": false,
-                  "id": 71932,
+                  "id": 9874,
                   "mutability": "mutable",
                   "name": "success",
                   "nodeType": "VariableDeclaration",
                   "overrides": null,
-                  "scope": 71939,
-                  "src": "1195:12:304",
+                  "scope": 9881,
+                  "src": "1195:12:39",
                   "stateVariable": false,
                   "storageLocation": "default",
                   "typeDescriptions": {
@@ -1284,10 +1284,10 @@
                     "typeString": "bool"
                   },
                   "typeName": {
-                    "id": 71931,
+                    "id": 9873,
                     "name": "bool",
                     "nodeType": "ElementaryTypeName",
-                    "src": "1195:4:304",
+                    "src": "1195:4:39",
                     "typeDescriptions": {
                       "typeIdentifier": "t_bool",
                       "typeString": "bool"
@@ -1298,13 +1298,13 @@
                 },
                 {
                   "constant": false,
-                  "id": 71934,
+                  "id": 9876,
                   "mutability": "mutable",
                   "name": "gasUseWithoutPost",
                   "nodeType": "VariableDeclaration",
                   "overrides": null,
-                  "scope": 71939,
-                  "src": "1217:25:304",
+                  "scope": 9881,
+                  "src": "1217:25:39",
                   "stateVariable": false,
                   "storageLocation": "default",
                   "typeDescriptions": {
@@ -1312,10 +1312,10 @@
                     "typeString": "uint256"
                   },
                   "typeName": {
-                    "id": 71933,
+                    "id": 9875,
                     "name": "uint256",
                     "nodeType": "ElementaryTypeName",
-                    "src": "1217:7:304",
+                    "src": "1217:7:39",
                     "typeDescriptions": {
                       "typeIdentifier": "t_uint256",
                       "typeString": "uint256"
@@ -1326,28 +1326,28 @@
                 },
                 {
                   "constant": false,
-                  "id": 71936,
+                  "id": 9878,
                   "mutability": "mutable",
                   "name": "relayData",
                   "nodeType": "VariableDeclaration",
                   "overrides": null,
-                  "scope": 71939,
-                  "src": "1252:38:304",
+                  "scope": 9881,
+                  "src": "1252:38:39",
                   "stateVariable": false,
                   "storageLocation": "calldata",
                   "typeDescriptions": {
-                    "typeIdentifier": "t_struct$_RelayData_$72023_calldata_ptr",
+                    "typeIdentifier": "t_struct$_RelayData_$9914_calldata_ptr",
                     "typeString": "struct IGsnTypes.RelayData"
                   },
                   "typeName": {
                     "contractScope": null,
-                    "id": 71935,
+                    "id": 9877,
                     "name": "IGsnTypes.RelayData",
                     "nodeType": "UserDefinedTypeName",
-                    "referencedDeclaration": 72023,
-                    "src": "1252:19:304",
+                    "referencedDeclaration": 9914,
+                    "src": "1252:19:39",
                     "typeDescriptions": {
-                      "typeIdentifier": "t_struct$_RelayData_$72023_storage_ptr",
+                      "typeIdentifier": "t_struct$_RelayData_$9914_storage_ptr",
                       "typeString": "struct IGsnTypes.RelayData"
                     }
                   },
@@ -1355,23 +1355,23 @@
                   "visibility": "internal"
                 }
               ],
-              "src": "1153:143:304"
+              "src": "1153:143:39"
             },
             "returnParameters": {
-              "id": 71938,
+              "id": 9880,
               "nodeType": "ParameterList",
               "parameters": [],
-              "src": "1305:0:304"
+              "src": "1305:0:39"
             },
-            "scope": 71950,
+            "scope": 9892,
             "stateMutability": "nonpayable",
             "virtual": false,
             "visibility": "external"
           },
           {
-            "id": 71944,
+            "id": 9886,
             "nodeType": "FunctionDefinition",
-            "src": "1312:60:304",
+            "src": "1312:60:39",
             "nodes": [],
             "documentation": null,
             "functionSelector": "7da0a877",
@@ -1381,24 +1381,24 @@
             "name": "trustedForwarder",
             "overrides": null,
             "parameters": {
-              "id": 71940,
+              "id": 9882,
               "nodeType": "ParameterList",
               "parameters": [],
-              "src": "1337:2:304"
+              "src": "1337:2:39"
             },
             "returnParameters": {
-              "id": 71943,
+              "id": 9885,
               "nodeType": "ParameterList",
               "parameters": [
                 {
                   "constant": false,
-                  "id": 71942,
+                  "id": 9884,
                   "mutability": "mutable",
                   "name": "",
                   "nodeType": "VariableDeclaration",
                   "overrides": null,
-                  "scope": 71944,
-                  "src": "1363:7:304",
+                  "scope": 9886,
+                  "src": "1363:7:39",
                   "stateVariable": false,
                   "storageLocation": "default",
                   "typeDescriptions": {
@@ -1406,10 +1406,10 @@
                     "typeString": "address"
                   },
                   "typeName": {
-                    "id": 71941,
+                    "id": 9883,
                     "name": "address",
                     "nodeType": "ElementaryTypeName",
-                    "src": "1363:7:304",
+                    "src": "1363:7:39",
                     "stateMutability": "nonpayable",
                     "typeDescriptions": {
                       "typeIdentifier": "t_address",
@@ -1420,17 +1420,17 @@
                   "visibility": "internal"
                 }
               ],
-              "src": "1362:9:304"
+              "src": "1362:9:39"
             },
-            "scope": 71950,
+            "scope": 9892,
             "stateMutability": "view",
             "virtual": false,
             "visibility": "external"
           },
           {
-            "id": 71949,
+            "id": 9891,
             "nodeType": "FunctionDefinition",
-            "src": "1378:66:304",
+            "src": "1378:66:39",
             "nodes": [],
             "documentation": null,
             "functionSelector": "921276ea",
@@ -1440,24 +1440,24 @@
             "name": "versionPaymaster",
             "overrides": null,
             "parameters": {
-              "id": 71945,
+              "id": 9887,
               "nodeType": "ParameterList",
               "parameters": [],
-              "src": "1403:2:304"
+              "src": "1403:2:39"
             },
             "returnParameters": {
-              "id": 71948,
+              "id": 9890,
               "nodeType": "ParameterList",
               "parameters": [
                 {
                   "constant": false,
-                  "id": 71947,
+                  "id": 9889,
                   "mutability": "mutable",
                   "name": "",
                   "nodeType": "VariableDeclaration",
                   "overrides": null,
-                  "scope": 71949,
-                  "src": "1429:13:304",
+                  "scope": 9891,
+                  "src": "1429:13:39",
                   "stateVariable": false,
                   "storageLocation": "memory",
                   "typeDescriptions": {
@@ -1465,10 +1465,10 @@
                     "typeString": "string"
                   },
                   "typeName": {
-                    "id": 71946,
+                    "id": 9888,
                     "name": "string",
                     "nodeType": "ElementaryTypeName",
-                    "src": "1429:6:304",
+                    "src": "1429:6:39",
                     "typeDescriptions": {
                       "typeIdentifier": "t_string_storage_ptr",
                       "typeString": "string"
@@ -1478,9 +1478,9 @@
                   "visibility": "internal"
                 }
               ],
-              "src": "1428:15:304"
+              "src": "1428:15:39"
             },
-            "scope": 71950,
+            "scope": 9892,
             "stateMutability": "view",
             "virtual": false,
             "visibility": "external"
@@ -1491,20 +1491,20 @@
         "contractDependencies": [],
         "contractKind": "interface",
         "documentation": {
-          "id": 71889,
+          "id": 9831,
           "nodeType": "StructuredDocumentation",
-          "src": "341:88:304",
+          "src": "341:88:39",
           "text": "@title IGsnPaymaster interface\n @author Enzyme Council <security@enzyme.finance>"
         },
         "fullyImplemented": false,
         "linearizedBaseContracts": [
-          71950
+          9892
         ],
         "name": "IGsnPaymaster",
-        "scope": 71951
+        "scope": 9893
       }
     ],
     "license": "GPL-3.0"
   },
-  "id": 304
+  "id": 39
 }

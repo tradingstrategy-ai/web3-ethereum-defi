@@ -61,15 +61,26 @@ dhedge:
 	@mkdir -p eth_defi/abi/dhedge
 	@find contracts/dhedge/abi -iname "*.json" -exec cp {} eth_defi/abi/dhedge \;
 
+# Compile Centre (USDC) contracts
+centre:
+	@(cd contracts/centre && yarn install)
+	@(cd contracts/centre && yarn compile)
+	@mkdir -p eth_defi/abi/centre
+	@find contracts/centre/build -iname "*.json" -exec cp {} eth_defi/abi/centre \;
+
+# TODO: Not sure if this step works anymore
 clean:
-	@rm -rf contracts/sushiswap/artifacts/*
+	@rm -rf contracts/*
 	@rm -rf contracts/uniswap-v3-core/artifacts/*
 	@rm -rf contracts/uniswap-v3-periphery/artifacts/*
+
+clean-abi:
+	@rm -rf eth_defi/abi/*
 
 # Compile all contracts we are using
 #
 # Move ABI files to within a Python package for PyPi distribution
-compile-projects-and-prepare-abi: sushi in-house copy-uniswapv3-abi aavev3 enzyme dhedge
+compile-projects-and-prepare-abi: clean-abi sushi in-house copy-uniswapv3-abi aavev3 enzyme dhedge centre
 
 all: clean-docs compile-projects-and-prepare-abi build-docs
 
