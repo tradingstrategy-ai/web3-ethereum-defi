@@ -137,6 +137,7 @@ def fetch_erc20_details(
     token_address: Union[HexAddress, str],
     max_str_length: int = 256,
     raise_on_error=True,
+    contract_name="ERC20MockDecimals.json",
 ) -> TokenDetails:
     """Read token details from on-chain data.
 
@@ -153,17 +154,30 @@ def fetch_erc20_details(
         assert details.name == "Hentai books token"
         assert details.decimals == 6
 
-    :param web3: Web3 instance
-    :param token_address: ERC-20 contract address:
-    :param max_str_length: For input sanitisation
-    :param raise_on_error: If set, raise `TokenDetailError` on any error instead of silently ignoring in and setting details to None.
-    :return: Sanitised token info
+    :param web3:
+        Web3 instance
+
+    :param token_address:
+        ERC-20 contract address:
+
+    :param max_str_length:
+        For input sanitisation
+
+    :param raise_on_error:
+        If set, raise `TokenDetailError` on any error instead of silently ignoring in and setting details to None.
+
+    :param contract_name:
+        Contract ABI file to use.
+
+        The default is `ERC20MockDecimals.json`. For USDC use `centre/FiatToken.json`.
+
+    :return:
+        Sanitised token info
     """
 
     # No risk here, because we are not sending a transaction
     token_address = Web3.to_checksum_address(token_address)
-
-    erc_20 = get_deployed_contract(web3, "ERC20MockDecimals.json", token_address)
+    erc_20 = get_deployed_contract(web3, contract_name, token_address)
 
     try:
         symbol = sanitise_string(erc_20.functions.symbol().call()[0:max_str_length])
