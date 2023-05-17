@@ -45,7 +45,7 @@ jobs:
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
         with:
-          version: nightly-82df0e92486fa2359dd1d149ba1352e7951760a1
+          version: 'nightly-e15e33a07c0920189fc336391f538c3dad53da73'
       - name: Workaround aave-v3-deploy npm ci failing randomly on Github
         run: |
           cd contracts/aave-v3-deploy
