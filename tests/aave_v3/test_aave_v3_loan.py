@@ -4,7 +4,7 @@ import pytest
 from eth_account import Account
 from eth_account.signers.local import LocalAccount
 from eth_typing import HexAddress, HexStr
-from web3 import HTTPProvider, Web3
+from web3 import Web3
 from web3.contract import Contract
 
 from eth_defi.aave_v3.constants import MAX_AMOUNT
@@ -15,6 +15,16 @@ from eth_defi.trace import (
     TransactionAssertionError,
     assert_transaction_success_with_explanation,
 )
+
+
+@pytest.fixture()
+def ausdc(web3, aave_deployment) -> Contract:
+    """aToken for USDC on local testnet."""
+    return aave_deployment.get_contract_at_address(
+        web3,
+        "core-v3/contracts/protocol/tokenization/AToken.sol/AToken.json",
+        "aUSDC",
+    )
 
 
 @pytest.fixture
@@ -253,16 +263,16 @@ def test_aave_v3_oracle(
 
 
 @pytest.mark.parametrize(
-    "borrow_token_symbol,borrow_amount,expected_exception",
+    "borrow_token_symbol,borrow_amount,expected_exception,health_factor",
     [
         # 1 USDC
-        ("usdc", 1 * 10**6, None),
+        ("usdc", 1 * 10**6, None, 8500000000000000000000),
         # borrow 8000 USDC should work as USDC reserve LTV is 80%
-        ("usdc", 8_000 * 10**6, None),
+        ("usdc", 8_000 * 10**6, None, 1062500000000000000),
         # try to borrow 8001 USDC should fail as collateral is 10k USDC and reserve LTV is 80%
         # error code 36 = 'There is not enough collateral to cover a new borrow'
         # https://github.com/aave/aave-v3-core/blob/e0bfed13240adeb7f05cb6cbe5e7ce78657f0621/contracts/protocol/libraries/helpers/Errors.sol#L45
-        ("usdc", 8_001 * 10**6, TransactionAssertionError("execution reverted: 36")),
+        ("usdc", 8_001 * 10**6, TransactionAssertionError("execution reverted: 36"), None),
         # TODO: more test case for borrowing ETH
         # 2 WETH = 4000 USDC
         # ("weth", 1 * 10**18, None),
@@ -281,6 +291,7 @@ def test_aave_v3_borrow(
     borrow_token_symbol: str,
     borrow_amount: int,
     expected_exception: Exception | None,
+    health_factor: int | None,
 ):
     """Test borrow in Aave v3."""
     _test_supply(
@@ -327,6 +338,14 @@ def test_aave_v3_borrow(
 
         # check balance after borrow
         assert borrow_asset.functions.balanceOf(hot_wallet.address).call() == borrow_amount
+
+        # check user current data
+        user_data = aave_v3_deployment.get_user_data(hot_wallet.address)
+
+        # (total_collateral_base=1000000000000, total_debt_base=100000000, available_borrows_base=799900000000, current_liquidation_threshold=8500, ltv=8000, health_factor=8500000000000000000000)
+        assert user_data.total_collateral_base / 1e8 == usdc_supply_amount / 1e6
+        assert user_data.total_debt_base / 1e8 == borrow_amount / 1e6
+        assert user_data.health_factor == health_factor
 
 
 @pytest.mark.parametrize(

@@ -138,13 +138,3 @@ def weth(web3, aave_deployment) -> Contract:
         "core-v3/contracts/mocks/tokens/WETH9Mocked.sol/WETH9Mocked.json",
         "WETH",
     )
-
-
-@pytest.fixture()
-def ausdc(web3, aave_deployment) -> Contract:
-    """aToken for USDC on local testnet."""
-    return aave_deployment.get_contract_at_address(
-        web3,
-        "core-v3/contracts/protocol/tokenization/AToken.sol/AToken.json",
-        "aUSDC",
-    )

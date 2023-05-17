@@ -22,6 +22,28 @@ class AaveV3ReserveConfiguration(NamedTuple):
     is_frozen: bool
 
 
+class AaveV3UserData(NamedTuple):
+    # https://github.com/aave/aave-v3-core/blob/62dfda56bd884db2c291560c03abae9727a7635e/contracts/interfaces/IPool.sol#L483
+
+    #: The total collateral of the user in the base currency used by the price feed
+    total_collateral_base: int
+
+    #: The total debt of the user in the base currency used by the price feed
+    total_debt_base: int
+
+    #: The borrowing power left of the user in the base currency used by the price feed
+    available_borrows_base: int
+
+    #: The liquidation threshold of the user
+    current_liquidation_threshold: int
+
+    #: The loan to value of The user
+    ltv: int
+
+    #: The current health factor of the user
+    health_factor: int
+
+
 @dataclass(frozen=True)
 class AaveV3Deployment:
     """Describe Aave v3 deployment."""
@@ -38,11 +60,16 @@ class AaveV3Deployment:
     #: AaveOracle contract
     oracle: Contract
 
-    def get_configuration_data(self, token_address: HexAddress):
+    def get_configuration_data(self, token_address: HexAddress) -> AaveV3ReserveConfiguration:
         # https://github.com/aave/aave-v3-core/blob/e0bfed13240adeb7f05cb6cbe5e7ce78657f0621/contracts/misc/AaveProtocolDataProvider.sol#L77
         data = self.data_provider.functions.getReserveConfigurationData(token_address).call()
         return AaveV3ReserveConfiguration(*data)
 
-    def get_price(self, token_address: HexAddress):
+    def get_price(self, token_address: HexAddress) -> int:
         # https://github.com/aave/aave-v3-core/blob/e0bfed13240adeb7f05cb6cbe5e7ce78657f0621/contracts/misc/AaveOracle.sol#L104
         return self.oracle.functions.getAssetPrice(token_address).call()
+
+    def get_user_data(self, user_address: HexAddress) -> AaveV3UserData:
+        # https://github.com/aave/aave-v3-core/blob/62dfda56bd884db2c291560c03abae9727a7635e/contracts/interfaces/IPool.sol#L490
+        data = self.pool.functions.getUserAccountData(user_address).call()
+        return AaveV3UserData(*data)
