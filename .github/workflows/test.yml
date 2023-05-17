@@ -46,6 +46,8 @@ jobs:
         run: yarn global add ganache
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
+        with:
+          cache: false
       - name: Workaround aave-v3-deploy npm ci failing randomly on Github
         run: |
           cd contracts/aave-v3-deploy
