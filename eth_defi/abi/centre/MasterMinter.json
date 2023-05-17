@@ -1,0 +1,819 @@
+{
+  "contractName": "MasterMinter",
+  "abi": [
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "_minterManager",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "nonpayable",
+      "type": "constructor"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "_controller",
+          "type": "address"
+        },
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "_worker",
+          "type": "address"
+        }
+      ],
+      "name": "ControllerConfigured",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "_controller",
+          "type": "address"
+        }
+      ],
+      "name": "ControllerRemoved",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "msgSender",
+          "type": "address"
+        },
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "minter",
+          "type": "address"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint256",
+          "name": "decrement",
+          "type": "uint256"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint256",
+          "name": "newAllowance",
+          "type": "uint256"
+        }
+      ],
+      "name": "MinterAllowanceDecremented",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "_msgSender",
+          "type": "address"
+        },
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "_minter",
+          "type": "address"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint256",
+          "name": "_increment",
+          "type": "uint256"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint256",
+          "name": "_newAllowance",
+          "type": "uint256"
+        }
+      ],
+      "name": "MinterAllowanceIncremented",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "_msgSender",
+          "type": "address"
+        },
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "_minter",
+          "type": "address"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint256",
+          "name": "_allowance",
+          "type": "uint256"
+        }
+      ],
+      "name": "MinterConfigured",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "_oldMinterManager",
+          "type": "address"
+        },
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "_newMinterManager",
+          "type": "address"
+        }
+      ],
+      "name": "MinterManagerSet",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "_msgSender",
+          "type": "address"
+        },
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "_minter",
+          "type": "address"
+        }
+      ],
+      "name": "MinterRemoved",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": false,
+          "internalType": "address",
+          "name": "previousOwner",
+          "type": "address"
+        },
+        {
+          "indexed": false,
+          "internalType": "address",
+          "name": "newOwner",
+          "type": "address"
+        }
+      ],
+      "name": "OwnershipTransferred",
+      "type": "event"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "_controller",
+          "type": "address"
+        },
+        {
+          "internalType": "address",
+          "name": "_worker",
+          "type": "address"
+        }
+      ],
+      "name": "configureController",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "_newAllowance",
+          "type": "uint256"
+        }
+      ],
+      "name": "configureMinter",
+      "outputs": [
+        {
+          "internalType": "bool",
+          "name": "",
+          "type": "bool"
+        }
+      ],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "_allowanceDecrement",
+          "type": "uint256"
+        }
+      ],
+      "name": "decrementMinterAllowance",
+      "outputs": [
+        {
+          "internalType": "bool",
+          "name": "",
+          "type": "bool"
+        }
+      ],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "getMinterManager",
+      "outputs": [
+        {
+          "internalType": "contract MinterManagementInterface",
+          "name": "",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "_controller",
+          "type": "address"
+        }
+      ],
+      "name": "getWorker",
+      "outputs": [
+        {
+          "internalType": "address",
+          "name": "",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "_allowanceIncrement",
+          "type": "uint256"
+        }
+      ],
+      "name": "incrementMinterAllowance",
+      "outputs": [
+        {
+          "internalType": "bool",
+          "name": "",
+          "type": "bool"
+        }
+      ],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "owner",
+      "outputs": [
+        {
+          "internalType": "address",
+          "name": "",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "_controller",
+          "type": "address"
+        }
+      ],
+      "name": "removeController",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "removeMinter",
+      "outputs": [
+        {
+          "internalType": "bool",
+          "name": "",
+          "type": "bool"
+        }
+      ],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "_newMinterManager",
+          "type": "address"
+        }
+      ],
+      "name": "setMinterManager",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "newOwner",
+          "type": "address"
+        }
+      ],
+      "name": "transferOwnership",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    }
+  ],
+  "metadata": "{\"compiler\":{\"version\":\"0.6.12+commit.27d51765\"},\"language\":\"Solidity\",\"output\":{\"abi\":[{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_minterManager\",\"type\":\"address\"}],\"stateMutability\":\"nonpayable\",\"type\":\"constructor\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"_controller\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"_worker\",\"type\":\"address\"}],\"name\":\"ControllerConfigured\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"_controller\",\"type\":\"address\"}],\"name\":\"ControllerRemoved\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"msgSender\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"minter\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"decrement\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"newAllowance\",\"type\":\"uint256\"}],\"name\":\"MinterAllowanceDecremented\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"_msgSender\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"_minter\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"_increment\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"_newAllowance\",\"type\":\"uint256\"}],\"name\":\"MinterAllowanceIncremented\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"_msgSender\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"_minter\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"_allowance\",\"type\":\"uint256\"}],\"name\":\"MinterConfigured\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"_oldMinterManager\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"_newMinterManager\",\"type\":\"address\"}],\"name\":\"MinterManagerSet\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"_msgSender\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"_minter\",\"type\":\"address\"}],\"name\":\"MinterRemoved\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"address\",\"name\":\"previousOwner\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"address\",\"name\":\"newOwner\",\"type\":\"address\"}],\"name\":\"OwnershipTransferred\",\"type\":\"event\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_controller\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"_worker\",\"type\":\"address\"}],\"name\":\"configureController\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_newAllowance\",\"type\":\"uint256\"}],\"name\":\"configureMinter\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_allowanceDecrement\",\"type\":\"uint256\"}],\"name\":\"decrementMinterAllowance\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getMinterManager\",\"outputs\":[{\"internalType\":\"contract MinterManagementInterface\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_controller\",\"type\":\"address\"}],\"name\":\"getWorker\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_allowanceIncrement\",\"type\":\"uint256\"}],\"name\":\"incrementMinterAllowance\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"owner\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_controller\",\"type\":\"address\"}],\"name\":\"removeController\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"removeMinter\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_newMinterManager\",\"type\":\"address\"}],\"name\":\"setMinterManager\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"newOwner\",\"type\":\"address\"}],\"name\":\"transferOwnership\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"}],\"devdoc\":{\"details\":\"MasterMinter inherits all its functionality from MintController.\",\"kind\":\"dev\",\"methods\":{\"configureController(address,address)\":{\"params\":{\"_controller\":\"The controller to be configured with a worker.\",\"_worker\":\"The worker to be set for the newly configured controller. _worker must not be a non-zero address. To disable a worker, use removeController instead.\"}},\"configureMinter(uint256)\":{\"params\":{\"_newAllowance\":\"New allowance to be set for minter.\"}},\"incrementMinterAllowance(uint256)\":{\"details\":\"An minter is considered active if minterManager.isMinter(minter) returns true.\"},\"owner()\":{\"details\":\"Tells the address of the owner\",\"returns\":{\"_0\":\"the address of the owner\"}},\"removeController(address)\":{\"params\":{\"_controller\":\"The controller to disable.\"}},\"setMinterManager(address)\":{\"params\":{\"_newMinterManager\":\"The address of the new minterManager contract.\"}},\"transferOwnership(address)\":{\"details\":\"Allows the current owner to transfer control of the contract to a newOwner.\",\"params\":{\"newOwner\":\"The address to transfer ownership to.\"}}},\"title\":\"MasterMinter\",\"version\":1},\"userdoc\":{\"kind\":\"user\",\"methods\":{\"configureController(address,address)\":{\"notice\":\"Configure a controller with the given worker.\"},\"configureMinter(uint256)\":{\"notice\":\"Enables the minter and sets its allowance.\"},\"decrementMinterAllowance(uint256)\":{\"notice\":\"decreases the minter allowance if and only if the minter is currently active. The controller can safely send a signed decrementMinterAllowance() transaction to a minter and not worry about it being used to undo a removeMinter() transaction.\"},\"getMinterManager()\":{\"notice\":\"gets the minterManager\"},\"getWorker(address)\":{\"notice\":\"Gets the worker at address _controller.\"},\"incrementMinterAllowance(uint256)\":{\"notice\":\"Increases the minter's allowance if and only if the minter is an active minter.\"},\"removeController(address)\":{\"notice\":\"disables a controller by setting its worker to address(0).\"},\"removeMinter()\":{\"notice\":\"Removes the controller's own minter.\"},\"setMinterManager(address)\":{\"notice\":\"Sets the minterManager.\"}},\"notice\":\"MasterMinter uses multiple controllers to manage minters for a contract that implements the MinterManagerInterface.\",\"version\":1}},\"settings\":{\"compilationTarget\":{\"/Users/moo/code/ts/trade-executor/deps/web3-ethereum-defi/contracts/centre/contracts/minting/MasterMinter.sol\":\"MasterMinter\"},\"evmVersion\":\"istanbul\",\"libraries\":{},\"metadata\":{\"bytecodeHash\":\"ipfs\"},\"optimizer\":{\"enabled\":true,\"runs\":10000000},\"remappings\":[]},\"sources\":{\"/Users/moo/code/ts/trade-executor/deps/web3-ethereum-defi/contracts/centre/contracts/minting/Controller.sol\":{\"keccak256\":\"0x38fa0716a7a86b4ce20584e85cd2aa8659895f6b95e664b4bbd17a00969e7ae3\",\"urls\":[\"bzz-raw://df50a8a18ef6daae76fcbc7474ac6069c419ac52eae7a0bd87f1f4842e048d69\",\"dweb:/ipfs/QmSupWc6VmomkHpSf1ETBQsnNgA1EyJzuJc6i5gBXe6Y5T\"]},\"/Users/moo/code/ts/trade-executor/deps/web3-ethereum-defi/contracts/centre/contracts/minting/MasterMinter.sol\":{\"keccak256\":\"0x38e916060f3a63f776b652cc8af70b6afd34aacb20b8b2eed0e8e99c98762129\",\"urls\":[\"bzz-raw://09305f9ca1fd5ff58b615bf04e9b17daa81c7ee35d84b7d9a0689e03b4cf411f\",\"dweb:/ipfs/QmTDkcvLazdbvS4gsqUMHkZ1Rm1R1c5Qz6Fjyr7J1gjA8a\"]},\"/Users/moo/code/ts/trade-executor/deps/web3-ethereum-defi/contracts/centre/contracts/minting/MintController.sol\":{\"keccak256\":\"0x6132ec746163aa25fd6983fe43235d00e60a123ac90d33e4d0871f7b63b3f220\",\"urls\":[\"bzz-raw://e693bf05833afcfb74ef51d7373df8e795140fe89aeff8cb555fdd407e09647d\",\"dweb:/ipfs/QmaPAVnL4SsDPJzcYTYrkkx6mvfgv7cWztpge8prABwTgb\"]},\"/Users/moo/code/ts/trade-executor/deps/web3-ethereum-defi/contracts/centre/contracts/minting/MinterManagementInterface.sol\":{\"keccak256\":\"0xba156efc096d231bf93c6ec0c3faa383f9c59886f508797dbf6ec96ca7ab481d\",\"urls\":[\"bzz-raw://49133ef0a7ffd7351ebfcaf7748b0a9ee76c003304d1158e6634e0d2c28772fa\",\"dweb:/ipfs/QmS5p9Ti5SW5bH33KEg6yBKD6U76R7Bs9JXKtwrze8Xwiq\"]},\"/Users/moo/code/ts/trade-executor/deps/web3-ethereum-defi/contracts/centre/contracts/v1/Ownable.sol\":{\"keccak256\":\"0x654e645d6d09616fde908eba4d29abf318fede7e8cc3e31705203fc1d2599217\",\"license\":\"MIT\",\"urls\":[\"bzz-raw://fce1ff1458e817aaa5f87d3ef4207fbbdeb25e548d460f47d9cca4fb80175390\",\"dweb:/ipfs/QmfY7E5xfTyeiuU2nDXEdYfy5LKjGRh69fuKK4HV6YTv9v\"]},\"@openzeppelin/contracts/math/SafeMath.sol\":{\"keccak256\":\"0x9a9cf02622cd7a64261b10534fc3260449da25c98c9e96d1b4ae8110a20e5806\",\"license\":\"MIT\",\"urls\":[\"bzz-raw://2df142592d1dc267d9549049ee3317fa190d2f87eaa565f86ab05ec83f7ab8f5\",\"dweb:/ipfs/QmSkJtcfWo7c42KnL5hho6GFxK6HRNV91XABx1P7xDtfLV\"]}},\"version\":1}",
+  "bytecode": "0x608060405234801561001057600080fd5b506040516115f43803806115f48339818101604052602081101561003357600080fd5b50518061003f33610065565b600280546001600160a01b0319166001600160a01b039290921691909117905550610087565b600080546001600160a01b0319166001600160a01b0392909216919091179055565b61155e806100966000396000f3fe608060405234801561001057600080fd5b50600436106100c95760003560e01c8063c011b1c311610081578063ea7215691161005b578063ea72156914610215578063f2fde38b1461021d578063f6a74ed714610250576100c9565b8063c011b1c31461018a578063c4faf7df146101bd578063cbf2b8bf146101f8576100c9565b80637c6b8ef5116100b25780637c6b8ef5146101345780638da5cb5b146101515780639398608b14610182576100c9565b806333db2ad2146100ce578063542fef91146100ff575b600080fd5b6100eb600480360360208110156100e457600080fd5b5035610283565b604080519115158252519081900360200190f35b6101326004803603602081101561011557600080fd5b503573ffffffffffffffffffffffffffffffffffffffff16610573565b005b6100eb6004803603602081101561014a57600080fd5b5035610687565b61015961098b565b6040805173ffffffffffffffffffffffffffffffffffffffff9092168252519081900360200190f35b6101596109a7565b610159600480360360208110156101a057600080fd5b503573ffffffffffffffffffffffffffffffffffffffff166109c3565b610132600480360360408110156101d357600080fd5b5073ffffffffffffffffffffffffffffffffffffffff813581169160200135166109ee565b6100eb6004803603602081101561020e57600080fd5b5035610bc8565b6100eb610cb5565b6101326004803603602081101561023357600080fd5b503573ffffffffffffffffffffffffffffffffffffffff16610e2b565b6101326004803603602081101561026657600080fd5b503573ffffffffffffffffffffffffffffffffffffffff16610f7e565b3360009081526001602052604081205473ffffffffffffffffffffffffffffffffffffffff166102fe576040517f08c379a00000000000000000000000000000000000000000000000000000000081526004018080602001828103825260358152602001806114586035913960400191505060405180910390fd5b60008211610357576040517f08c379a000000000000000000000000000000000000000000000000000000000815260040180806020018281038252602a81526020018061148d602a913960400191505060405180910390fd5b336000908152600160209081526040918290205460025483517faa271e1a00000000000000000000000000000000000000000000000000000000815273ffffffffffffffffffffffffffffffffffffffff928316600482018190529451929091169263aa271e1a92602480840193829003018186803b1580156103d957600080fd5b505afa1580156103ed573d6000803e3d6000fd5b505050506040513d602081101561040357600080fd5b505161045a576040517f08c379a00000000000000000000000000000000000000000000000000000000081526004018080602001828103825260398152602001806114b76039913960400191505060405180910390fd5b600254604080517f8a6db9c300000000000000000000000000000000000000000000000000000000815273ffffffffffffffffffffffffffffffffffffffff848116600483015291516000939290921691638a6db9c391602480820192602092909190829003018186803b1580156104d157600080fd5b505afa1580156104e5573d6000803e3d6000fd5b505050506040513d60208110156104fb57600080fd5b50519050600061050b8286611161565b6040805187815260208101839052815192935073ffffffffffffffffffffffffffffffffffffffff86169233927f3703d23abba1e61f32acc0682fc062ea5c710672c7d100af5ecd08485e983ad0928290030190a361056a83826111d5565b95945050505050565b60005473ffffffffffffffffffffffffffffffffffffffff1633146105f957604080517f08c379a000000000000000000000000000000000000000000000000000000000815260206004820181905260248201527f4f776e61626c653a2063616c6c6572206973206e6f7420746865206f776e6572604482015290519081900360640190fd5b60025460405173ffffffffffffffffffffffffffffffffffffffff8084169216907f9992ea32e96992be98be5c833cd5b9fd77314819d2146b6f06ab9cfef957af1290600090a3600280547fffffffffffffffffffffffff00000000000000000000000000000000000000001673ffffffffffffffffffffffffffffffffffffffff92909216919091179055565b3360009081526001602052604081205473ffffffffffffffffffffffffffffffffffffffff16610702576040517f08c379a00000000000000000000000000000000000000000000000000000000081526004018080602001828103825260358152602001806114586035913960400191505060405180910390fd5b6000821161075b576040517f08c379a000000000000000000000000000000000000000000000000000000000815260040180806020018281038252602a8152602001806113c2602a913960400191505060405180910390fd5b336000908152600160209081526040918290205460025483517faa271e1a00000000000000000000000000000000000000000000000000000000815273ffffffffffffffffffffffffffffffffffffffff928316600482018190529451929091169263aa271e1a92602480840193829003018186803b1580156107dd57600080fd5b505afa1580156107f1573d6000803e3d6000fd5b505050506040513d602081101561080757600080fd5b505161085e576040517f08c379a00000000000000000000000000000000000000000000000000000000081526004018080602001828103825260398152602001806114f06039913960400191505060405180910390fd5b600254604080517f8a6db9c300000000000000000000000000000000000000000000000000000000815273ffffffffffffffffffffffffffffffffffffffff848116600483015291516000939290921691638a6db9c391602480820192602092909190829003018186803b1580156108d557600080fd5b505afa1580156108e9573d6000803e3d6000fd5b505050506040513d60208110156108ff57600080fd5b5051905060008482116109125781610914565b845b905060006109228383611287565b6040805184815260208101839052815192935073ffffffffffffffffffffffffffffffffffffffff87169233927f3cc75d3bf58b0100659088c03539964108d5d06342e1bd8085ee43ad8ff6f69a928290030190a361098184826111d5565b9695505050505050565b60005473ffffffffffffffffffffffffffffffffffffffff1690565b60025473ffffffffffffffffffffffffffffffffffffffff1690565b73ffffffffffffffffffffffffffffffffffffffff9081166000908152600160205260409020541690565b60005473ffffffffffffffffffffffffffffffffffffffff163314610a7457604080517f08c379a000000000000000000000000000000000000000000000000000000000815260206004820181905260248201527f4f776e61626c653a2063616c6c6572206973206e6f7420746865206f776e6572604482015290519081900360640190fd5b73ffffffffffffffffffffffffffffffffffffffff8216610ae0576040517f08c379a00000000000000000000000000000000000000000000000000000000081526004018080602001828103825260258152602001806113ec6025913960400191505060405180910390fd5b73ffffffffffffffffffffffffffffffffffffffff8116610b4c576040517f08c379a00000000000000000000000000000000000000000000000000000000081526004018080602001828103825260218152602001806114376021913960400191505060405180910390fd5b73ffffffffffffffffffffffffffffffffffffffff82811660008181526001602052604080822080547fffffffffffffffffffffffff0000000000000000000000000000000000000000169486169485179055517fa56687ff5096e83f6e2c673cda0b677f56bbfcdf5fe0555d5830c407ede193cb9190a35050565b3360009081526001602052604081205473ffffffffffffffffffffffffffffffffffffffff16610c43576040517f08c379a00000000000000000000000000000000000000000000000000000000081526004018080602001828103825260358152602001806114586035913960400191505060405180910390fd5b33600081815260016020908152604091829020548251868152925173ffffffffffffffffffffffffffffffffffffffff90911693849390927f5b0b60a4f757b33d9dcb8bd021b6aa371bb2e6f134086797aefcd8c0afab538c92918290030190a3610cae81846111d5565b9392505050565b3360009081526001602052604081205473ffffffffffffffffffffffffffffffffffffffff16610d30576040517f08c379a00000000000000000000000000000000000000000000000000000000081526004018080602001828103825260358152602001806114586035913960400191505060405180910390fd5b3360008181526001602052604080822054905173ffffffffffffffffffffffffffffffffffffffff90911692839290917f4b5ef9a786cf64a7d82ebcf2d5132667edc9faef4ac36260d9a9e52c526b62329190a3600254604080517f3092afd500000000000000000000000000000000000000000000000000000000815273ffffffffffffffffffffffffffffffffffffffff848116600483015291519190921691633092afd59160248083019260209291908290030181600087803b158015610df957600080fd5b505af1158015610e0d573d6000803e3d6000fd5b505050506040513d6020811015610e2357600080fd5b505191505090565b60005473ffffffffffffffffffffffffffffffffffffffff163314610eb157604080517f08c379a000000000000000000000000000000000000000000000000000000000815260206004820181905260248201527f4f776e61626c653a2063616c6c6572206973206e6f7420746865206f776e6572604482015290519081900360640190fd5b73ffffffffffffffffffffffffffffffffffffffff8116610f1d576040517f08c379a00000000000000000000000000000000000000000000000000000000081526004018080602001828103825260268152602001806114116026913960400191505060405180910390fd5b6000546040805173ffffffffffffffffffffffffffffffffffffffff9283168152918316602083015280517f8be0079c531659141344cd1fd0a4f28419497f9722a3daafe3b4186f6b6457e09281900390910190a1610f7b816112c9565b50565b60005473ffffffffffffffffffffffffffffffffffffffff16331461100457604080517f08c379a000000000000000000000000000000000000000000000000000000000815260206004820181905260248201527f4f776e61626c653a2063616c6c6572206973206e6f7420746865206f776e6572604482015290519081900360640190fd5b73ffffffffffffffffffffffffffffffffffffffff8116611070576040517f08c379a00000000000000000000000000000000000000000000000000000000081526004018080602001828103825260258152602001806113ec6025913960400191505060405180910390fd5b73ffffffffffffffffffffffffffffffffffffffff818116600090815260016020526040902054166110ed576040517f08c379a00000000000000000000000000000000000000000000000000000000081526004018080602001828103825260218152602001806114376021913960400191505060405180910390fd5b73ffffffffffffffffffffffffffffffffffffffff811660008181526001602052604080822080547fffffffffffffffffffffffff0000000000000000000000000000000000000000169055517f33d83959be2573f5453b12eb9d43b3499bc57d96bd2f067ba44803c859e811139190a250565b600082820183811015610cae57604080517f08c379a000000000000000000000000000000000000000000000000000000000815260206004820152601b60248201527f536166654d6174683a206164646974696f6e206f766572666c6f770000000000604482015290519081900360640190fd5b600254604080517f4e44d95600000000000000000000000000000000000000000000000000000000815273ffffffffffffffffffffffffffffffffffffffff85811660048301526024820185905291516000939290921691634e44d9569160448082019260209290919082900301818787803b15801561125457600080fd5b505af1158015611268573d6000803e3d6000fd5b505050506040513d602081101561127e57600080fd5b50519392505050565b6000610cae83836040518060400160405280601e81526020017f536166654d6174683a207375627472616374696f6e206f766572666c6f770000815250611310565b600080547fffffffffffffffffffffffff00000000000000000000000000000000000000001673ffffffffffffffffffffffffffffffffffffffff92909216919091179055565b600081848411156113b9576040517f08c379a00000000000000000000000000000000000000000000000000000000081526004018080602001828103825283818151815260200191508051906020019080838360005b8381101561137e578181015183820152602001611366565b50505050905090810190601f1680156113ab5780820380516001836020036101000a031916815260200191505b509250505060405180910390fd5b50505090039056fe416c6c6f77616e63652064656372656d656e74206d7573742062652067726561746572207468616e2030436f6e74726f6c6c6572206d7573742062652061206e6f6e2d7a65726f20616464726573734f776e61626c653a206e6577206f776e657220697320746865207a65726f2061646472657373576f726b6572206d7573742062652061206e6f6e2d7a65726f20616464726573735468652076616c7565206f6620636f6e74726f6c6c6572735b6d73672e73656e6465725d206d757374206265206e6f6e2d7a65726f416c6c6f77616e636520696e6372656d656e74206d7573742062652067726561746572207468616e203043616e206f6e6c7920696e6372656d656e7420616c6c6f77616e636520666f72206d696e7465727320696e206d696e7465724d616e6167657243616e206f6e6c792064656372656d656e7420616c6c6f77616e636520666f72206d696e7465727320696e206d696e7465724d616e61676572a264697066735822122074ed5ebb6a1aecc540d2cde90f276adf181f18c5bba964531776a3265143fff264736f6c634300060c0033",
+  "deployedBytecode": "0x608060405234801561001057600080fd5b50600436106100c95760003560e01c8063c011b1c311610081578063ea7215691161005b578063ea72156914610215578063f2fde38b1461021d578063f6a74ed714610250576100c9565b8063c011b1c31461018a578063c4faf7df146101bd578063cbf2b8bf146101f8576100c9565b80637c6b8ef5116100b25780637c6b8ef5146101345780638da5cb5b146101515780639398608b14610182576100c9565b806333db2ad2146100ce578063542fef91146100ff575b600080fd5b6100eb600480360360208110156100e457600080fd5b5035610283565b604080519115158252519081900360200190f35b6101326004803603602081101561011557600080fd5b503573ffffffffffffffffffffffffffffffffffffffff16610573565b005b6100eb6004803603602081101561014a57600080fd5b5035610687565b61015961098b565b6040805173ffffffffffffffffffffffffffffffffffffffff9092168252519081900360200190f35b6101596109a7565b610159600480360360208110156101a057600080fd5b503573ffffffffffffffffffffffffffffffffffffffff166109c3565b610132600480360360408110156101d357600080fd5b5073ffffffffffffffffffffffffffffffffffffffff813581169160200135166109ee565b6100eb6004803603602081101561020e57600080fd5b5035610bc8565b6100eb610cb5565b6101326004803603602081101561023357600080fd5b503573ffffffffffffffffffffffffffffffffffffffff16610e2b565b6101326004803603602081101561026657600080fd5b503573ffffffffffffffffffffffffffffffffffffffff16610f7e565b3360009081526001602052604081205473ffffffffffffffffffffffffffffffffffffffff166102fe576040517f08c379a00000000000000000000000000000000000000000000000000000000081526004018080602001828103825260358152602001806114586035913960400191505060405180910390fd5b60008211610357576040517f08c379a000000000000000000000000000000000000000000000000000000000815260040180806020018281038252602a81526020018061148d602a913960400191505060405180910390fd5b336000908152600160209081526040918290205460025483517faa271e1a00000000000000000000000000000000000000000000000000000000815273ffffffffffffffffffffffffffffffffffffffff928316600482018190529451929091169263aa271e1a92602480840193829003018186803b1580156103d957600080fd5b505afa1580156103ed573d6000803e3d6000fd5b505050506040513d602081101561040357600080fd5b505161045a576040517f08c379a00000000000000000000000000000000000000000000000000000000081526004018080602001828103825260398152602001806114b76039913960400191505060405180910390fd5b600254604080517f8a6db9c300000000000000000000000000000000000000000000000000000000815273ffffffffffffffffffffffffffffffffffffffff848116600483015291516000939290921691638a6db9c391602480820192602092909190829003018186803b1580156104d157600080fd5b505afa1580156104e5573d6000803e3d6000fd5b505050506040513d60208110156104fb57600080fd5b50519050600061050b8286611161565b6040805187815260208101839052815192935073ffffffffffffffffffffffffffffffffffffffff86169233927f3703d23abba1e61f32acc0682fc062ea5c710672c7d100af5ecd08485e983ad0928290030190a361056a83826111d5565b95945050505050565b60005473ffffffffffffffffffffffffffffffffffffffff1633146105f957604080517f08c379a000000000000000000000000000000000000000000000000000000000815260206004820181905260248201527f4f776e61626c653a2063616c6c6572206973206e6f7420746865206f776e6572604482015290519081900360640190fd5b60025460405173ffffffffffffffffffffffffffffffffffffffff8084169216907f9992ea32e96992be98be5c833cd5b9fd77314819d2146b6f06ab9cfef957af1290600090a3600280547fffffffffffffffffffffffff00000000000000000000000000000000000000001673ffffffffffffffffffffffffffffffffffffffff92909216919091179055565b3360009081526001602052604081205473ffffffffffffffffffffffffffffffffffffffff16610702576040517f08c379a00000000000000000000000000000000000000000000000000000000081526004018080602001828103825260358152602001806114586035913960400191505060405180910390fd5b6000821161075b576040517f08c379a000000000000000000000000000000000000000000000000000000000815260040180806020018281038252602a8152602001806113c2602a913960400191505060405180910390fd5b336000908152600160209081526040918290205460025483517faa271e1a00000000000000000000000000000000000000000000000000000000815273ffffffffffffffffffffffffffffffffffffffff928316600482018190529451929091169263aa271e1a92602480840193829003018186803b1580156107dd57600080fd5b505afa1580156107f1573d6000803e3d6000fd5b505050506040513d602081101561080757600080fd5b505161085e576040517f08c379a00000000000000000000000000000000000000000000000000000000081526004018080602001828103825260398152602001806114f06039913960400191505060405180910390fd5b600254604080517f8a6db9c300000000000000000000000000000000000000000000000000000000815273ffffffffffffffffffffffffffffffffffffffff848116600483015291516000939290921691638a6db9c391602480820192602092909190829003018186803b1580156108d557600080fd5b505afa1580156108e9573d6000803e3d6000fd5b505050506040513d60208110156108ff57600080fd5b5051905060008482116109125781610914565b845b905060006109228383611287565b6040805184815260208101839052815192935073ffffffffffffffffffffffffffffffffffffffff87169233927f3cc75d3bf58b0100659088c03539964108d5d06342e1bd8085ee43ad8ff6f69a928290030190a361098184826111d5565b9695505050505050565b60005473ffffffffffffffffffffffffffffffffffffffff1690565b60025473ffffffffffffffffffffffffffffffffffffffff1690565b73ffffffffffffffffffffffffffffffffffffffff9081166000908152600160205260409020541690565b60005473ffffffffffffffffffffffffffffffffffffffff163314610a7457604080517f08c379a000000000000000000000000000000000000000000000000000000000815260206004820181905260248201527f4f776e61626c653a2063616c6c6572206973206e6f7420746865206f776e6572604482015290519081900360640190fd5b73ffffffffffffffffffffffffffffffffffffffff8216610ae0576040517f08c379a00000000000000000000000000000000000000000000000000000000081526004018080602001828103825260258152602001806113ec6025913960400191505060405180910390fd5b73ffffffffffffffffffffffffffffffffffffffff8116610b4c576040517f08c379a00000000000000000000000000000000000000000000000000000000081526004018080602001828103825260218152602001806114376021913960400191505060405180910390fd5b73ffffffffffffffffffffffffffffffffffffffff82811660008181526001602052604080822080547fffffffffffffffffffffffff0000000000000000000000000000000000000000169486169485179055517fa56687ff5096e83f6e2c673cda0b677f56bbfcdf5fe0555d5830c407ede193cb9190a35050565b3360009081526001602052604081205473ffffffffffffffffffffffffffffffffffffffff16610c43576040517f08c379a00000000000000000000000000000000000000000000000000000000081526004018080602001828103825260358152602001806114586035913960400191505060405180910390fd5b33600081815260016020908152604091829020548251868152925173ffffffffffffffffffffffffffffffffffffffff90911693849390927f5b0b60a4f757b33d9dcb8bd021b6aa371bb2e6f134086797aefcd8c0afab538c92918290030190a3610cae81846111d5565b9392505050565b3360009081526001602052604081205473ffffffffffffffffffffffffffffffffffffffff16610d30576040517f08c379a00000000000000000000000000000000000000000000000000000000081526004018080602001828103825260358152602001806114586035913960400191505060405180910390fd5b3360008181526001602052604080822054905173ffffffffffffffffffffffffffffffffffffffff90911692839290917f4b5ef9a786cf64a7d82ebcf2d5132667edc9faef4ac36260d9a9e52c526b62329190a3600254604080517f3092afd500000000000000000000000000000000000000000000000000000000815273ffffffffffffffffffffffffffffffffffffffff848116600483015291519190921691633092afd59160248083019260209291908290030181600087803b158015610df957600080fd5b505af1158015610e0d573d6000803e3d6000fd5b505050506040513d6020811015610e2357600080fd5b505191505090565b60005473ffffffffffffffffffffffffffffffffffffffff163314610eb157604080517f08c379a000000000000000000000000000000000000000000000000000000000815260206004820181905260248201527f4f776e61626c653a2063616c6c6572206973206e6f7420746865206f776e6572604482015290519081900360640190fd5b73ffffffffffffffffffffffffffffffffffffffff8116610f1d576040517f08c379a00000000000000000000000000000000000000000000000000000000081526004018080602001828103825260268152602001806114116026913960400191505060405180910390fd5b6000546040805173ffffffffffffffffffffffffffffffffffffffff9283168152918316602083015280517f8be0079c531659141344cd1fd0a4f28419497f9722a3daafe3b4186f6b6457e09281900390910190a1610f7b816112c9565b50565b60005473ffffffffffffffffffffffffffffffffffffffff16331461100457604080517f08c379a000000000000000000000000000000000000000000000000000000000815260206004820181905260248201527f4f776e61626c653a2063616c6c6572206973206e6f7420746865206f776e6572604482015290519081900360640190fd5b73ffffffffffffffffffffffffffffffffffffffff8116611070576040517f08c379a00000000000000000000000000000000000000000000000000000000081526004018080602001828103825260258152602001806113ec6025913960400191505060405180910390fd5b73ffffffffffffffffffffffffffffffffffffffff818116600090815260016020526040902054166110ed576040517f08c379a00000000000000000000000000000000000000000000000000000000081526004018080602001828103825260218152602001806114376021913960400191505060405180910390fd5b73ffffffffffffffffffffffffffffffffffffffff811660008181526001602052604080822080547fffffffffffffffffffffffff0000000000000000000000000000000000000000169055517f33d83959be2573f5453b12eb9d43b3499bc57d96bd2f067ba44803c859e811139190a250565b600082820183811015610cae57604080517f08c379a000000000000000000000000000000000000000000000000000000000815260206004820152601b60248201527f536166654d6174683a206164646974696f6e206f766572666c6f770000000000604482015290519081900360640190fd5b600254604080517f4e44d95600000000000000000000000000000000000000000000000000000000815273ffffffffffffffffffffffffffffffffffffffff85811660048301526024820185905291516000939290921691634e44d9569160448082019260209290919082900301818787803b15801561125457600080fd5b505af1158015611268573d6000803e3d6000fd5b505050506040513d602081101561127e57600080fd5b50519392505050565b6000610cae83836040518060400160405280601e81526020017f536166654d6174683a207375627472616374696f6e206f766572666c6f770000815250611310565b600080547fffffffffffffffffffffffff00000000000000000000000000000000000000001673ffffffffffffffffffffffffffffffffffffffff92909216919091179055565b600081848411156113b9576040517f08c379a00000000000000000000000000000000000000000000000000000000081526004018080602001828103825283818151815260200191508051906020019080838360005b8381101561137e578181015183820152602001611366565b50505050905090810190601f1680156113ab5780820380516001836020036101000a031916815260200191505b509250505060405180910390fd5b50505090039056fe416c6c6f77616e63652064656372656d656e74206d7573742062652067726561746572207468616e2030436f6e74726f6c6c6572206d7573742062652061206e6f6e2d7a65726f20616464726573734f776e61626c653a206e6577206f776e657220697320746865207a65726f2061646472657373576f726b6572206d7573742062652061206e6f6e2d7a65726f20616464726573735468652076616c7565206f6620636f6e74726f6c6c6572735b6d73672e73656e6465725d206d757374206265206e6f6e2d7a65726f416c6c6f77616e636520696e6372656d656e74206d7573742062652067726561746572207468616e203043616e206f6e6c7920696e6372656d656e7420616c6c6f77616e636520666f72206d696e7465727320696e206d696e7465724d616e6167657243616e206f6e6c792064656372656d656e7420616c6c6f77616e636520666f72206d696e7465727320696e206d696e7465724d616e61676572a264697066735822122074ed5ebb6a1aecc540d2cde90f276adf181f18c5bba964531776a3265143fff264736f6c634300060c0033",
+  "immutableReferences": {},
+  "sourceMap": "1412:124:2:-:0;;;1458:76;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;-1:-1:-1;1458:76:2;;2223:20:26;2232:10;2223:8;:20::i;:::-;3058:13:3;:57;;-1:-1:-1;;;;;;3058:57:3;-1:-1:-1;;;;;3058:57:3;;;;;;;;;;-1:-1:-1;1412:124:2;;2493:79:26;2548:6;:17;;-1:-1:-1;;;;;;2548:17:26;-1:-1:-1;;;;;2548:17:26;;;;;;;;;;2493:79::o;1412:124:2:-;;;;;;;",
+  "deployedSourceMap": "1412:124:2:-:0;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;4707:822:3;;;;;;;;;;;;;;;;-1:-1:-1;4707:822:3;;:::i;:::-;;;;;;;;;;;;;;;;;;3493:221;;;;;;;;;;;;;;;;-1:-1:-1;3493:221:3;;;;:::i;:::-;;5828:1012;;;;;;;;;;;;;;;;-1:-1:-1;5828:1012:3;;:::i;2355:79:26:-;;;:::i;:::-;;;;;;;;;;;;;;;;;;;3182:143:3;;;:::i;2173:120:1:-;;;;;;;;;;;;;;;;-1:-1:-1;2173:120:1;;;;:::i;2662:408::-;;;;;;;;;;;;;;;;-1:-1:-1;2662:408:1;;;;;;;;;;;:::i;4182:303:3:-;;;;;;;;;;;;;;;;-1:-1:-1;4182:303:3;;:::i;3821:217::-;;;:::i;2945:269:26:-;;;;;;;;;;;;;;;;-1:-1:-1;2945:269:26;;;;:::i;3219:410:1:-;;;;;;;;;;;;;;;;-1:-1:-1;3219:410:1;;;;:::i;4707:822:3:-;1974:10:1;4825:4:3;1962:23:1;;;:11;:23;;;;;;:37;:23;1941:137;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;4888:1:3::1;4866:19;:23;4845:112;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;4996:10;4967:14;4984:23:::0;;;:11:::1;:23;::::0;;;;;;;;;5038:13:::1;::::0;:30;;;;;4984:23:::1;::::0;;::::1;5038:30;::::0;::::1;::::0;;;;;:13;;;::::1;::::0;:22:::1;::::0;:30;;;;;;;;;;:13;:30;::::1;;::::0;::::1;;;;::::0;::::1;;;;;;;;;;;;::::0;::::1;;;;;;;;;;;;;;;;;;;::::0;::::1;;-1:-1:-1::0;5038:30:3;5017:134:::1;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;5189:13;::::0;:37:::1;::::0;;;;;:13:::1;:37:::0;;::::1;;::::0;::::1;::::0;;;5162:24:::1;::::0;5189:13;;;::::1;::::0;:29:::1;::::0;:37;;;;;::::1;::::0;;;;;;;;;:13;:37;::::1;;::::0;::::1;;;;::::0;::::1;;;;;;;;;;;;::::0;::::1;;;;;;;;;;;;;;;;;;;::::0;::::1;;-1:-1:-1::0;5189:37:3;;-1:-1:-1;5236:20:3::1;5259:41;5189:37:::0;5280:19;5259:20:::1;:41::i;:::-;5316:139;::::0;;;;;::::1;::::0;::::1;::::0;;;;;5236:64;;-1:-1:-1;5316:139:3::1;::::0;::::1;::::0;5356:10:::1;::::0;5316:139:::1;::::0;;;;;;::::1;5473:49;5501:6;5509:12;5473:27;:49::i;:::-;5466:56:::0;4707:822;-1:-1:-1;;;;;4707:822:3:o;3493:221::-;2713:6:26;;;;2699:10;:20;2691:65;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;3603:13:3::1;::::0;3578:59:::1;::::0;::::1;::::0;;::::1;::::0;3603:13:::1;::::0;3578:59:::1;::::0;3603:13:::1;::::0;3578:59:::1;3647:13;:60:::0;;;::::1;;::::0;;;::::1;::::0;;;::::1;::::0;;3493:221::o;5828:1012::-;1974:10:1;5946:4:3;1962:23:1;;;:11;:23;;;;;;:37;:23;1941:137;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;6009:1:3::1;5987:19;:23;5966:112;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;6117:10;6088:14;6105:23:::0;;;:11:::1;:23;::::0;;;;;;;;;6159:13:::1;::::0;:30;;;;;6105:23:::1;::::0;;::::1;6159:30;::::0;::::1;::::0;;;;;:13;;;::::1;::::0;:22:::1;::::0;:30;;;;;;;;;;:13;:30;::::1;;::::0;::::1;;;;::::0;::::1;;;;;;;;;;;;::::0;::::1;;;;;;;;;;;;;;;;;;;::::0;::::1;;-1:-1:-1::0;6159:30:3;6138:134:::1;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;6310:13;::::0;:37:::1;::::0;;;;;:13:::1;:37:::0;;::::1;;::::0;::::1;::::0;;;6283:24:::1;::::0;6310:13;;;::::1;::::0;:29:::1;::::0;:37;;;;;::::1;::::0;;;;;;;;;:13;:37;::::1;;::::0;::::1;;;;::::0;::::1;;;;;;;;;;;;::::0;::::1;;;;;;;;;;;;;;;;;;;::::0;::::1;;-1:-1:-1::0;6310:37:3;;-1:-1:-1;6357:32:3::1;6406:38:::0;;::::1;:111;;6501:16;6406:111;;;6463:19;6406:111;6357:170:::0;-1:-1:-1;6537:20:3::1;6560:46;:16:::0;6357:170;6560:20:::1;:46::i;:::-;6622:144;::::0;;;;;::::1;::::0;::::1;::::0;;;;;6537:69;;-1:-1:-1;6622:144:3::1;::::0;::::1;::::0;6662:10:::1;::::0;6622:144:::1;::::0;;;;;;::::1;6784:49;6812:6;6820:12;6784:27;:49::i;:::-;6777:56:::0;5828:1012;-1:-1:-1;;;;;;5828:1012:3:o;2355:79:26:-;2395:7;2421:6;;;2355:79;:::o;3182:143:3:-;3305:13;;;;3182:143;:::o;2173:120:1:-;2262:24;;;;2236:7;2262:24;;;:11;:24;;;;;;;;2173:120::o;2662:408::-;2713:6:26;;;;2699:10;:20;2691:65;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;2797:25:1::1;::::0;::::1;2776:109;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;2903:21;::::0;::::1;2895:67;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;2972:24;::::0;;::::1;;::::0;;;:11:::1;:24;::::0;;;;;:34;;;::::1;::::0;;::::1;::::0;;::::1;::::0;;3021:42;::::1;::::0;2972:24;3021:42:::1;2662:408:::0;;:::o;4182:303:3:-;1974:10:1;4285:4:3;1962:23:1;;;:11;:23;;;;;;:37;:23;1941:137;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;4334:10:3::1;4305:14;4322:23:::0;;;:11:::1;:23;::::0;;;;;;;;;4360:51;;;;;;;4322:23:::1;::::0;;::::1;::::0;;;4334:10;;4360:51:::1;::::0;;;;;;;::::1;4428:50;4456:6;4464:13;4428:27;:50::i;:::-;4421:57:::0;4182:303;-1:-1:-1;;;4182:303:3:o;3821:217::-;1974:10:1;3876:4:3;1962:23:1;;;:11;:23;;;;;;:37;:23;1941:137;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;3921:10:3::1;3892:14;3909:23:::0;;;:11:::1;:23;::::0;;;;;;3947:33;;3909:23:::1;::::0;;::::1;::::0;;;3921:10;;3947:33:::1;::::0;3892:14;3947:33:::1;3997:13;::::0;:34:::1;::::0;;;;;:13:::1;:34:::0;;::::1;;::::0;::::1;::::0;;;:13;;;::::1;::::0;:26:::1;::::0;:34;;;;;::::1;::::0;;;;;;;;:13:::1;::::0;:34;::::1;;::::0;::::1;;;;::::0;::::1;;;;;;;;;;;;::::0;::::1;;;;;;;;;;;;;;;;;;;::::0;::::1;;-1:-1:-1::0;3997:34:3;;-1:-1:-1;;3821:217:3;:::o;2945:269:26:-;2713:6;;;;2699:10;:20;2691:65;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;3040:22:::1;::::0;::::1;3019:107;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;3162:6;::::0;3141:38:::1;::::0;;3162:6:::1;::::0;;::::1;3141:38:::0;;;;::::1;;::::0;::::1;::::0;;;::::1;::::0;;;;;;;;::::1;3189:18;3198:8;3189;:18::i;:::-;2945:269:::0;:::o;3219:410:1:-;2713:6:26;;;;2699:10;:20;2691:65;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;3314:25:1::1;::::0;::::1;3293:109;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;3433:38;:24:::0;;::::1;3469:1;3433:24:::0;;;:11:::1;:24;::::0;;;;;::::1;3412:118;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;3540:24;::::0;::::1;3575:1;3540:24:::0;;;:11:::1;:24;::::0;;;;;:37;;;::::1;::::0;;3592:30;::::1;::::0;3575:1;3592:30:::1;3219:410:::0;:::o;874:176:39:-;932:7;963:5;;;986:6;;;;978:46;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;7108:198:3;7246:13;;:53;;;;;;:13;:53;;;;;;;;;;;;;;;7219:4;;7246:13;;;;;:29;;:53;;;;;;;;;;;;;;;7219:4;7246:13;:53;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;-1:-1:-1;7246:53:3;;7108:198;-1:-1:-1;;;7108:198:3:o;1321:134:39:-;1379:7;1405:43;1409:1;1412;1405:43;;;;;;;;;;;;;;;;;:3;:43::i;2493:79:26:-;2548:6;:17;;;;;;;;;;;;;;;2493:79::o;1746:187:39:-;1832:7;1867:12;1859:6;;;;1851:29;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;-1:-1:-1;;;1902:5:39;;;1746:187::o",
+  "source": "/**\n * Copyright CENTRE SECZ 2018 - 2021\n *\n * Permission is hereby granted, free of charge, to any person obtaining a copy\n * of this software and associated documentation files (the \"Software\"), to deal\n * in the Software without restriction, including without limitation the rights\n * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell\n * copies of the Software, and to permit persons to whom the Software is\n * furnished to do so, subject to the following conditions:\n *\n * The above copyright notice and this permission notice shall be included in all\n * copies or substantial portions of the Software.\n *\n * THE SOFTWARE IS PROVIDED \"AS IS\", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR\n * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,\n * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE\n * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER\n * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,\n * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN\n * THE SOFTWARE.\n */\n\npragma solidity 0.6.12;\n\nimport \"./MintController.sol\";\n\n/**\n * @title MasterMinter\n * @notice MasterMinter uses multiple controllers to manage minters for a\n * contract that implements the MinterManagerInterface.\n * @dev MasterMinter inherits all its functionality from MintController.\n */\ncontract MasterMinter is MintController {\n    constructor(address _minterManager) public MintController(_minterManager) {}\n}\n",
+  "sourcePath": "/Users/moo/code/ts/trade-executor/deps/web3-ethereum-defi/contracts/centre/contracts/minting/MasterMinter.sol",
+  "ast": {
+    "absolutePath": "/Users/moo/code/ts/trade-executor/deps/web3-ethereum-defi/contracts/centre/contracts/minting/MasterMinter.sol",
+    "exportedSymbols": {
+      "MasterMinter": [
+        212
+      ]
+    },
+    "id": 213,
+    "license": null,
+    "nodeType": "SourceUnit",
+    "nodes": [
+      {
+        "id": 198,
+        "literals": [
+          "solidity",
+          "0.6",
+          ".12"
+        ],
+        "nodeType": "PragmaDirective",
+        "src": "1121:23:2"
+      },
+      {
+        "absolutePath": "/Users/moo/code/ts/trade-executor/deps/web3-ethereum-defi/contracts/centre/contracts/minting/MintController.sol",
+        "file": "./MintController.sol",
+        "id": 199,
+        "nodeType": "ImportDirective",
+        "scope": 213,
+        "sourceUnit": 518,
+        "src": "1146:30:2",
+        "symbolAliases": [],
+        "unitAlias": ""
+      },
+      {
+        "abstract": false,
+        "baseContracts": [
+          {
+            "arguments": null,
+            "baseName": {
+              "contractScope": null,
+              "id": 201,
+              "name": "MintController",
+              "nodeType": "UserDefinedTypeName",
+              "referencedDeclaration": 517,
+              "src": "1437:14:2",
+              "typeDescriptions": {
+                "typeIdentifier": "t_contract$_MintController_$517",
+                "typeString": "contract MintController"
+              }
+            },
+            "id": 202,
+            "nodeType": "InheritanceSpecifier",
+            "src": "1437:14:2"
+          }
+        ],
+        "contractDependencies": [
+          196,
+          517,
+          2733
+        ],
+        "contractKind": "contract",
+        "documentation": {
+          "id": 200,
+          "nodeType": "StructuredDocumentation",
+          "src": "1178:233:2",
+          "text": " @title MasterMinter\n @notice MasterMinter uses multiple controllers to manage minters for a\n contract that implements the MinterManagerInterface.\n @dev MasterMinter inherits all its functionality from MintController."
+        },
+        "fullyImplemented": true,
+        "id": 212,
+        "linearizedBaseContracts": [
+          212,
+          517,
+          196,
+          2733
+        ],
+        "name": "MasterMinter",
+        "nodeType": "ContractDefinition",
+        "nodes": [
+          {
+            "body": {
+              "id": 210,
+              "nodeType": "Block",
+              "src": "1532:2:2",
+              "statements": []
+            },
+            "documentation": null,
+            "id": 211,
+            "implemented": true,
+            "kind": "constructor",
+            "modifiers": [
+              {
+                "arguments": [
+                  {
+                    "argumentTypes": null,
+                    "id": 207,
+                    "name": "_minterManager",
+                    "nodeType": "Identifier",
+                    "overloadedDeclarations": [],
+                    "referencedDeclaration": 204,
+                    "src": "1516:14:2",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  }
+                ],
+                "id": 208,
+                "modifierName": {
+                  "argumentTypes": null,
+                  "id": 206,
+                  "name": "MintController",
+                  "nodeType": "Identifier",
+                  "overloadedDeclarations": [],
+                  "referencedDeclaration": 517,
+                  "src": "1501:14:2",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_type$_t_contract$_MintController_$517_$",
+                    "typeString": "type(contract MintController)"
+                  }
+                },
+                "nodeType": "ModifierInvocation",
+                "src": "1501:30:2"
+              }
+            ],
+            "name": "",
+            "nodeType": "FunctionDefinition",
+            "overrides": null,
+            "parameters": {
+              "id": 205,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 204,
+                  "mutability": "mutable",
+                  "name": "_minterManager",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 211,
+                  "src": "1470:22:2",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 203,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "1470:7:2",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "1469:24:2"
+            },
+            "returnParameters": {
+              "id": 209,
+              "nodeType": "ParameterList",
+              "parameters": [],
+              "src": "1532:0:2"
+            },
+            "scope": 212,
+            "src": "1458:76:2",
+            "stateMutability": "nonpayable",
+            "virtual": false,
+            "visibility": "public"
+          }
+        ],
+        "scope": 213,
+        "src": "1412:124:2"
+      }
+    ],
+    "src": "1121:416:2"
+  },
+  "legacyAST": {
+    "absolutePath": "/Users/moo/code/ts/trade-executor/deps/web3-ethereum-defi/contracts/centre/contracts/minting/MasterMinter.sol",
+    "exportedSymbols": {
+      "MasterMinter": [
+        212
+      ]
+    },
+    "id": 213,
+    "license": null,
+    "nodeType": "SourceUnit",
+    "nodes": [
+      {
+        "id": 198,
+        "literals": [
+          "solidity",
+          "0.6",
+          ".12"
+        ],
+        "nodeType": "PragmaDirective",
+        "src": "1121:23:2"
+      },
+      {
+        "absolutePath": "/Users/moo/code/ts/trade-executor/deps/web3-ethereum-defi/contracts/centre/contracts/minting/MintController.sol",
+        "file": "./MintController.sol",
+        "id": 199,
+        "nodeType": "ImportDirective",
+        "scope": 213,
+        "sourceUnit": 518,
+        "src": "1146:30:2",
+        "symbolAliases": [],
+        "unitAlias": ""
+      },
+      {
+        "abstract": false,
+        "baseContracts": [
+          {
+            "arguments": null,
+            "baseName": {
+              "contractScope": null,
+              "id": 201,
+              "name": "MintController",
+              "nodeType": "UserDefinedTypeName",
+              "referencedDeclaration": 517,
+              "src": "1437:14:2",
+              "typeDescriptions": {
+                "typeIdentifier": "t_contract$_MintController_$517",
+                "typeString": "contract MintController"
+              }
+            },
+            "id": 202,
+            "nodeType": "InheritanceSpecifier",
+            "src": "1437:14:2"
+          }
+        ],
+        "contractDependencies": [
+          196,
+          517,
+          2733
+        ],
+        "contractKind": "contract",
+        "documentation": {
+          "id": 200,
+          "nodeType": "StructuredDocumentation",
+          "src": "1178:233:2",
+          "text": " @title MasterMinter\n @notice MasterMinter uses multiple controllers to manage minters for a\n contract that implements the MinterManagerInterface.\n @dev MasterMinter inherits all its functionality from MintController."
+        },
+        "fullyImplemented": true,
+        "id": 212,
+        "linearizedBaseContracts": [
+          212,
+          517,
+          196,
+          2733
+        ],
+        "name": "MasterMinter",
+        "nodeType": "ContractDefinition",
+        "nodes": [
+          {
+            "body": {
+              "id": 210,
+              "nodeType": "Block",
+              "src": "1532:2:2",
+              "statements": []
+            },
+            "documentation": null,
+            "id": 211,
+            "implemented": true,
+            "kind": "constructor",
+            "modifiers": [
+              {
+                "arguments": [
+                  {
+                    "argumentTypes": null,
+                    "id": 207,
+                    "name": "_minterManager",
+                    "nodeType": "Identifier",
+                    "overloadedDeclarations": [],
+                    "referencedDeclaration": 204,
+                    "src": "1516:14:2",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  }
+                ],
+                "id": 208,
+                "modifierName": {
+                  "argumentTypes": null,
+                  "id": 206,
+                  "name": "MintController",
+                  "nodeType": "Identifier",
+                  "overloadedDeclarations": [],
+                  "referencedDeclaration": 517,
+                  "src": "1501:14:2",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_type$_t_contract$_MintController_$517_$",
+                    "typeString": "type(contract MintController)"
+                  }
+                },
+                "nodeType": "ModifierInvocation",
+                "src": "1501:30:2"
+              }
+            ],
+            "name": "",
+            "nodeType": "FunctionDefinition",
+            "overrides": null,
+            "parameters": {
+              "id": 205,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 204,
+                  "mutability": "mutable",
+                  "name": "_minterManager",
+                  "nodeType": "VariableDeclaration",
+                  "overrides": null,
+                  "scope": 211,
+                  "src": "1470:22:2",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 203,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "1470:7:2",
+                    "stateMutability": "nonpayable",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "1469:24:2"
+            },
+            "returnParameters": {
+              "id": 209,
+              "nodeType": "ParameterList",
+              "parameters": [],
+              "src": "1532:0:2"
+            },
+            "scope": 212,
+            "src": "1458:76:2",
+            "stateMutability": "nonpayable",
+            "virtual": false,
+            "visibility": "public"
+          }
+        ],
+        "scope": 213,
+        "src": "1412:124:2"
+      }
+    ],
+    "src": "1121:416:2"
+  },
+  "compiler": {
+    "name": "solc",
+    "version": "0.6.12+commit.27d51765.Emscripten.clang"
+  },
+  "networks": {},
+  "schemaVersion": "3.2.2",
+  "updatedAt": "2023-05-17T19:03:52.698Z",
+  "devdoc": {
+    "details": "MasterMinter inherits all its functionality from MintController.",
+    "kind": "dev",
+    "methods": {
+      "configureController(address,address)": {
+        "params": {
+          "_controller": "The controller to be configured with a worker.",
+          "_worker": "The worker to be set for the newly configured controller. _worker must not be a non-zero address. To disable a worker, use removeController instead."
+        }
+      },
+      "configureMinter(uint256)": {
+        "params": {
+          "_newAllowance": "New allowance to be set for minter."
+        }
+      },
+      "incrementMinterAllowance(uint256)": {
+        "details": "An minter is considered active if minterManager.isMinter(minter) returns true."
+      },
+      "owner()": {
+        "details": "Tells the address of the owner",
+        "returns": {
+          "_0": "the address of the owner"
+        }
+      },
+      "removeController(address)": {
+        "params": {
+          "_controller": "The controller to disable."
+        }
+      },
+      "setMinterManager(address)": {
+        "params": {
+          "_newMinterManager": "The address of the new minterManager contract."
+        }
+      },
+      "transferOwnership(address)": {
+        "details": "Allows the current owner to transfer control of the contract to a newOwner.",
+        "params": {
+          "newOwner": "The address to transfer ownership to."
+        }
+      }
+    },
+    "title": "MasterMinter",
+    "version": 1
+  },
+  "userdoc": {
+    "kind": "user",
+    "methods": {
+      "configureController(address,address)": {
+        "notice": "Configure a controller with the given worker."
+      },
+      "configureMinter(uint256)": {
+        "notice": "Enables the minter and sets its allowance."
+      },
+      "decrementMinterAllowance(uint256)": {
+        "notice": "decreases the minter allowance if and only if the minter is currently active. The controller can safely send a signed decrementMinterAllowance() transaction to a minter and not worry about it being used to undo a removeMinter() transaction."
+      },
+      "getMinterManager()": {
+        "notice": "gets the minterManager"
+      },
+      "getWorker(address)": {
+        "notice": "Gets the worker at address _controller."
+      },
+      "incrementMinterAllowance(uint256)": {
+        "notice": "Increases the minter's allowance if and only if the minter is an active minter."
+      },
+      "removeController(address)": {
+        "notice": "disables a controller by setting its worker to address(0)."
+      },
+      "removeMinter()": {
+        "notice": "Removes the controller's own minter."
+      },
+      "setMinterManager(address)": {
+        "notice": "Sets the minterManager."
+      }
+    },
+    "notice": "MasterMinter uses multiple controllers to manage minters for a contract that implements the MinterManagerInterface.",
+    "version": 1
+  }
+}

@@ -9,19 +9,19 @@
     }
   ],
   "bytecode": {
-    "object": "0x6080604052348015600f57600080fd5b5060a88061001e6000396000f3fe6080604052348015600f57600080fd5b506004361060285760003560e01c8063a169ce0914602d575b600080fd5b60336035565b005b6040805162461bcd60e51b815260206004820152600d60248201526c426967206261646120626f6f6d60981b604482015290519081900360640190fdfea2646970667358221220fd66b1ea42612075c7b0ae7268c29232bcc6d941cc6539fa53d2d993b89aa24264736f6c634300060c0033",
-    "sourceMap": "82:96:3:-:0;;;;;;;;;;;;;;;;;;;",
+    "object": "0x6080604052348015600f57600080fd5b5060a88061001e6000396000f3fe6080604052348015600f57600080fd5b506004361060285760003560e01c8063a169ce0914602d575b600080fd5b60336035565b005b6040805162461bcd60e51b815260206004820152600d60248201526c426967206261646120626f6f6d60981b604482015290519081900360640190fdfea2646970667358221220afe886984f713381a2986661ca4e6eb51d8e198d49c8d40963919376308da59964736f6c634300060c0033",
+    "sourceMap": "82:96:80:-:0;;;;;;;;;;;;;;;;;;;",
     "linkReferences": {}
   },
   "deployedBytecode": {
-    "object": "0x6080604052348015600f57600080fd5b506004361060285760003560e01c8063a169ce0914602d575b600080fd5b60336035565b005b6040805162461bcd60e51b815260206004820152600d60248201526c426967206261646120626f6f6d60981b604482015290519081900360640190fdfea2646970667358221220fd66b1ea42612075c7b0ae7268c29232bcc6d941cc6539fa53d2d993b89aa24264736f6c634300060c0033",
-    "sourceMap": "82:96:3:-:0;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;110:65;;;:::i;:::-;;;145:23;;;-1:-1:-1;;;145:23:3;;;;;;;;;;;;-1:-1:-1;;;145:23:3;;;;;;;;;;;;;",
+    "object": "0x6080604052348015600f57600080fd5b506004361060285760003560e01c8063a169ce0914602d575b600080fd5b60336035565b005b6040805162461bcd60e51b815260206004820152600d60248201526c426967206261646120626f6f6d60981b604482015290519081900360640190fdfea2646970667358221220afe886984f713381a2986661ca4e6eb51d8e198d49c8d40963919376308da59964736f6c634300060c0033",
+    "sourceMap": "82:96:80:-:0;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;110:65;;;:::i;:::-;;;145:23;;;-1:-1:-1;;;145:23:80;;;;;;;;;;;;-1:-1:-1;;;145:23:80;;;;;;;;;;;;;",
     "linkReferences": {}
   },
   "methodIdentifiers": {
     "boom()": "a169ce09"
   },
-  "rawMetadata": "{\"compiler\":{\"version\":\"0.6.12+commit.27d51765\"},\"language\":\"Solidity\",\"output\":{\"abi\":[{\"inputs\":[],\"name\":\"boom\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"}],\"devdoc\":{\"kind\":\"dev\",\"methods\":{},\"version\":1},\"userdoc\":{\"kind\":\"user\",\"methods\":{},\"version\":1}},\"settings\":{\"compilationTarget\":{\"src/RevertTest2.sol\":\"RevertTest2\"},\"evmVersion\":\"istanbul\",\"libraries\":{},\"metadata\":{\"bytecodeHash\":\"ipfs\"},\"optimizer\":{\"enabled\":true,\"runs\":200},\"remappings\":[\":@openzeppelin/=lib/openzeppelin-contracts/\",\":ds-test/=lib/forge-std/lib/ds-test/src/\",\":forge-std/=lib/forge-std/src/\",\":openzeppelin-contracts/=lib/openzeppelin-contracts/\"]},\"sources\":{\"src/RevertTest2.sol\":{\"keccak256\":\"0x99d502e0f92a0fb126e4aa6ee4090fd5fb29a1045c0f22fb34e43b34fff0e22b\",\"license\":\"MIT\",\"urls\":[\"bzz-raw://84aafd27cbe372a8f5aa04d0ea993b19c58d85ec0a1f46d72a5a8d5231d125f6\",\"dweb:/ipfs/QmYCo34nPaNUpKPTPRJ656ZpsWCgWysX1GytqPtwtzq3qZ\"]}},\"version\":1}",
+  "rawMetadata": "{\"compiler\":{\"version\":\"0.6.12+commit.27d51765\"},\"language\":\"Solidity\",\"output\":{\"abi\":[{\"inputs\":[],\"name\":\"boom\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"}],\"devdoc\":{\"kind\":\"dev\",\"methods\":{},\"version\":1},\"userdoc\":{\"kind\":\"user\",\"methods\":{},\"version\":1}},\"settings\":{\"compilationTarget\":{\"src/RevertTest2.sol\":\"RevertTest2\"},\"evmVersion\":\"istanbul\",\"libraries\":{},\"metadata\":{\"bytecodeHash\":\"ipfs\"},\"optimizer\":{\"enabled\":true,\"runs\":200},\"remappings\":[\":# @openzeppelin/=lib/openzeppelin-contracts/\",\":@enzyme/=../enzyme/contracts/\",\":@openzeppelin/=../enzyme/node_modules/@openzeppelin/\",\":ds-test/=lib/openzeppelin-contracts/lib/forge-std/lib/ds-test/src/\",\":erc4626-tests/=lib/openzeppelin-contracts/lib/erc4626-tests/\",\":forge-std/=lib/openzeppelin-contracts/lib/forge-std/src/\",\":openzeppelin-contracts/=lib/openzeppelin-contracts/\"]},\"sources\":{\"src/RevertTest2.sol\":{\"keccak256\":\"0x99d502e0f92a0fb126e4aa6ee4090fd5fb29a1045c0f22fb34e43b34fff0e22b\",\"license\":\"MIT\",\"urls\":[\"bzz-raw://84aafd27cbe372a8f5aa04d0ea993b19c58d85ec0a1f46d72a5a8d5231d125f6\",\"dweb:/ipfs/QmYCo34nPaNUpKPTPRJ656ZpsWCgWysX1GytqPtwtzq3qZ\"]}},\"version\":1}",
   "metadata": {
     "compiler": {
       "version": "0.6.12+commit.27d51765"
@@ -49,9 +49,12 @@
     },
     "settings": {
       "remappings": [
-        ":@openzeppelin/=lib/openzeppelin-contracts/",
-        ":ds-test/=lib/forge-std/lib/ds-test/src/",
-        ":forge-std/=lib/forge-std/src/",
+        ":# @openzeppelin/=lib/openzeppelin-contracts/",
+        ":@enzyme/=../enzyme/contracts/",
+        ":@openzeppelin/=../enzyme/node_modules/@openzeppelin/",
+        ":ds-test/=lib/openzeppelin-contracts/lib/forge-std/lib/ds-test/src/",
+        ":erc4626-tests/=lib/openzeppelin-contracts/lib/erc4626-tests/",
+        ":forge-std/=lib/openzeppelin-contracts/lib/forge-std/src/",
         ":openzeppelin-contracts/=lib/openzeppelin-contracts/"
       ],
       "optimizer": {
@@ -80,19 +83,19 @@
   },
   "ast": {
     "absolutePath": "src/RevertTest2.sol",
-    "id": 132,
+    "id": 7435,
     "exportedSymbols": {
       "RevertTest2": [
-        131
+        7434
       ]
     },
     "nodeType": "SourceUnit",
-    "src": "33:146:3",
+    "src": "33:146:80",
     "nodes": [
       {
-        "id": 122,
+        "id": 7425,
         "nodeType": "PragmaDirective",
-        "src": "33:23:3",
+        "src": "33:23:80",
         "nodes": [],
         "literals": [
           "solidity",
@@ -101,19 +104,19 @@
         ]
       },
       {
-        "id": 131,
+        "id": 7434,
         "nodeType": "ContractDefinition",
-        "src": "82:96:3",
+        "src": "82:96:80",
         "nodes": [
           {
-            "id": 130,
+            "id": 7433,
             "nodeType": "FunctionDefinition",
-            "src": "110:65:3",
+            "src": "110:65:80",
             "nodes": [],
             "body": {
-              "id": 129,
+              "id": 7432,
               "nodeType": "Block",
-              "src": "135:40:3",
+              "src": "135:40:80",
               "nodes": [],
               "statements": [
                 {
@@ -123,14 +126,14 @@
                       {
                         "argumentTypes": null,
                         "hexValue": "426967206261646120626f6f6d",
-                        "id": 126,
+                        "id": 7429,
                         "isConstant": false,
                         "isLValue": false,
                         "isPure": true,
                         "kind": "string",
                         "lValueRequested": false,
                         "nodeType": "Literal",
-                        "src": "152:15:3",
+                        "src": "152:15:80",
                         "subdenomination": null,
                         "typeDescriptions": {
                           "typeIdentifier": "t_stringliteral_0081cba02cb4e3d0489ab88e239c16ca176ac7f8648ac9844de330989e59af3a",
@@ -146,7 +149,7 @@
                           "typeString": "literal_string \"Big bada boom\""
                         }
                       ],
-                      "id": 125,
+                      "id": 7428,
                       "name": "revert",
                       "nodeType": "Identifier",
                       "overloadedDeclarations": [
@@ -154,13 +157,13 @@
                         -19
                       ],
                       "referencedDeclaration": -19,
-                      "src": "145:6:3",
+                      "src": "145:6:80",
                       "typeDescriptions": {
                         "typeIdentifier": "t_function_revert_pure$_t_string_memory_ptr_$returns$__$",
                         "typeString": "function (string memory) pure"
                       }
                     },
-                    "id": 127,
+                    "id": 7430,
                     "isConstant": false,
                     "isLValue": false,
                     "isPure": false,
@@ -168,16 +171,16 @@
                     "lValueRequested": false,
                     "names": [],
                     "nodeType": "FunctionCall",
-                    "src": "145:23:3",
+                    "src": "145:23:80",
                     "tryCall": false,
                     "typeDescriptions": {
                       "typeIdentifier": "t_tuple$__$",
                       "typeString": "tuple()"
                     }
                   },
-                  "id": 128,
+                  "id": 7431,
                   "nodeType": "ExpressionStatement",
-                  "src": "145:23:3"
+                  "src": "145:23:80"
                 }
               ]
             },
@@ -189,18 +192,18 @@
             "name": "boom",
             "overrides": null,
             "parameters": {
-              "id": 123,
+              "id": 7426,
               "nodeType": "ParameterList",
               "parameters": [],
-              "src": "123:2:3"
+              "src": "123:2:80"
             },
             "returnParameters": {
-              "id": 124,
+              "id": 7427,
               "nodeType": "ParameterList",
               "parameters": [],
-              "src": "135:0:3"
+              "src": "135:0:80"
             },
-            "scope": 131,
+            "scope": 7434,
             "stateMutability": "nonpayable",
             "virtual": false,
             "visibility": "external"
@@ -213,13 +216,13 @@
         "documentation": null,
         "fullyImplemented": true,
         "linearizedBaseContracts": [
-          131
+          7434
         ],
         "name": "RevertTest2",
-        "scope": 132
+        "scope": 7435
       }
     ],
     "license": "MIT"
   },
-  "id": 3
+  "id": 80
 }

@@ -19,3 +19,6 @@
 [submodule "contracts/aave-v3-deploy"]
 	path = contracts/aave-v3-deploy
 	url = https://github.com/tradingstrategy-ai/aave-v3-deploy.git
+[submodule "contracts/centre"]
+	path = contracts/centre
+	url = https://github.com/centrehq/centre-tokens.git

@@ -9,10 +9,17 @@ sushi:
 #
 # forge pollutes the tree with dependencies from Enzyme,
 # so need to pick contracts one by one
-in-house:
+#
+# TODO: Currently depends on Enzyme, because OpenZeppelin went and changed
+# their path structure and we need to be compatible with import paths in Enzyme source tree
+#
+in-house: enzyme
 	# Get our mock up contracts to the compiler bundle
-	(cd contracts/in-house && forge build)
-	find contracts/in-house/out \(  \
+	@(cd contracts/in-house && forge build)
+	# TODO: Fix this mess,
+	# as Forge is bundling all compiled dependencies in the same folder
+	# as our contracts
+	@find contracts/in-house/out \(  \
 	    -name "ChainlinkAggregatorV2V3Interface.json" \
 	    -o -name "ERC20MockDecimals.json" \
 	    -o -name "MalformedERC20.json" \
@@ -21,6 +28,8 @@ in-house:
 	    -o -name "RevertTest.json" \
 	    -o -name "RevertTest2.json" \
 	    -o -name "VaultSpecificGenericAdapter.json" \
+	    -o -name "MockEIP3009Receiver.json" \
+	    -o -name "VaultUSDCPaymentForwarder.json" \
 	    \) \
 	    -exec cp {} eth_defi/abi \;
 
@@ -61,15 +70,26 @@ dhedge:
 	@mkdir -p eth_defi/abi/dhedge
 	@find contracts/dhedge/abi -iname "*.json" -exec cp {} eth_defi/abi/dhedge \;
 
+# Compile Centre (USDC) contracts
+centre:
+	@(cd contracts/centre && yarn install)
+	@(cd contracts/centre && yarn compile)
+	@mkdir -p eth_defi/abi/centre
+	@find contracts/centre/build -iname "*.json" -exec cp {} eth_defi/abi/centre \;
+
+# TODO: Not sure if this step works anymore
 clean:
-	@rm -rf contracts/sushiswap/artifacts/*
+	@rm -rf contracts/*
 	@rm -rf contracts/uniswap-v3-core/artifacts/*
 	@rm -rf contracts/uniswap-v3-periphery/artifacts/*
+
+clean-abi:
+	@rm -rf eth_defi/abi/*
 
 # Compile all contracts we are using
 #
 # Move ABI files to within a Python package for PyPi distribution
-compile-projects-and-prepare-abi: sushi in-house copy-uniswapv3-abi aavev3 enzyme dhedge
+compile-projects-and-prepare-abi: clean-abi sushi in-house copy-uniswapv3-abi aavev3 enzyme dhedge centre
 
 all: clean-docs compile-projects-and-prepare-abi build-docs
 

@@ -18,6 +18,14 @@ from eth_defi.abi import get_contract
 ContractRegistry: TypeAlias = Dict[str, Contract]
 
 
+class ContractDeploymentFailed(Exception):
+    """Did not get successful tx receipt from a deployment."""
+
+    def __init__(self, tx_hash, msg):
+        super().__init__(msg)
+        self.tx_hash = tx_hash
+
+
 def deploy_contract(
     web3: Web3,
     contract: Union[str, Contract],
@@ -53,6 +61,9 @@ def deploy_contract(
 
         See :py:func:`get_contract_registry`
 
+    :raise ContractDeploymentFailed:
+        In the case we could not deploy the contract.
+
     :return:
         Contract proxy instance
 
@@ -70,6 +81,8 @@ def deploy_contract(
     tx_hash = Contract.constructor(*constructor_args).transact({"from": deployer})
 
     tx_receipt = web3.eth.wait_for_transaction_receipt(tx_hash)
+    if tx_receipt["status"] != 1:
+        raise ContractDeploymentFailed(tx_hash, f"Contract {contract_name} deployment failed with args {constructor_args}, tx hash is {tx_hash.hex()}")
 
     instance = Contract(
         address=tx_receipt["contractAddress"],

@@ -1,5 +1,5 @@
-Enzyme protocol
----------------
+Enzyme protocol API
+-------------------
 
 Enzyme protocol is a digital asset management protocol, where a vault owner
 can safely manage assets for investors.
