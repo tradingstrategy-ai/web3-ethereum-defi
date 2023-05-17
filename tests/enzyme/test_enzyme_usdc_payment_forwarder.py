@@ -15,7 +15,7 @@ from eth_defi.middleware import construct_sign_and_send_raw_middleware_anvil
 from eth_defi.token import TokenDetails
 from eth_defi.trace import assert_transaction_success_with_explanation
 from eth_defi.usdc.deployment import deploy_fiat_token
-from eth_defi.usdc.tranfer_with_authorization import make_receive_with_authorization_transfer
+from eth_defi.usdc.transfer_with_authorization import make_receive_with_authorization_transfer
 
 
 @pytest.fixture()
@@ -110,7 +110,6 @@ def test_enzyme_usdc_payment_forwarder(
     tx_hash = bound_func.transact(
         {
             "from": user.address,
-            "gas": 5_000_000,
         }
     )
 

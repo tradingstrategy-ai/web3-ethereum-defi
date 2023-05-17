@@ -112,6 +112,34 @@ def make_receive_with_authorization_transfer(
         This currently supports only `LocalAccount` because of
         `missing features in web3.py <https://github.com/ethereum/web3.py/issues/2180#issuecomment-943590192>`__.
 
+    Example::
+
+    .. code-block:: python
+
+        payment_forwarder = deploy_contract(
+            web3,
+            "VaultUSDCPaymentForwarder.json",
+            deployer,
+            usdc.address,
+            comptroller.address,
+        )
+
+        # Construct bounded ContractFunction instance
+        # that will transact with MockEIP3009Receiver.deposit()
+        # smart contract function.
+        bound_func = make_receive_with_authorization_transfer(
+            token=usdc,
+            from_=user,
+            to=payment_forwarder.address,
+            func=payment_forwarder.functions.buySharesOnBehalf,
+            value=500 * 10**6,  # 500 USD,
+            valid_before=valid_before,
+            extra_args=(1,),  # minSharesQuantity
+        )
+
+    # Sign and broadcast the tx
+    tx_hash = bound_func.transact({"from": user.address})
+
     The `receiveAuthorization()` signature is:
 
     .. code-block:: text

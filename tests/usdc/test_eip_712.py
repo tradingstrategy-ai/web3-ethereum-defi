@@ -11,7 +11,7 @@ from eth_defi.eip_712 import eip712_encode_hash
 from eth_defi.middleware import construct_sign_and_send_raw_middleware_anvil
 from eth_defi.token import TokenDetails
 
-from eth_defi.usdc.tranfer_with_authorization import construct_receive_with_authorization_message
+from eth_defi.usdc.transfer_with_authorization import construct_receive_with_authorization_message
 
 
 @pytest.fixture

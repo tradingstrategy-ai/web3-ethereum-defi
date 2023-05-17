@@ -9,7 +9,7 @@ from eth_defi.deploy import deploy_contract
 from eth_defi.middleware import construct_sign_and_send_raw_middleware_anvil
 from eth_defi.token import TokenDetails
 from eth_defi.trace import assert_transaction_success_with_explanation
-from eth_defi.usdc.tranfer_with_authorization import make_receive_with_authorization_transfer
+from eth_defi.usdc.transfer_with_authorization import make_receive_with_authorization_transfer
 
 
 @pytest.fixture
