@@ -16,6 +16,9 @@ sushi:
 in-house: enzyme
 	# Get our mock up contracts to the compiler bundle
 	@(cd contracts/in-house && forge build)
+	# TODO: Fix this mess,
+	# as Forge is bundling all compiled dependencies in the same folder
+	# as our contracts
 	@find contracts/in-house/out \(  \
 	    -name "ChainlinkAggregatorV2V3Interface.json" \
 	    -o -name "ERC20MockDecimals.json" \
@@ -25,6 +28,7 @@ in-house: enzyme
 	    -o -name "RevertTest.json" \
 	    -o -name "RevertTest2.json" \
 	    -o -name "VaultSpecificGenericAdapter.json" \
+	    -o -name "MockEIP3009Receiver.json" \
 	    \) \
 	    -exec cp {} eth_defi/abi \;
 
