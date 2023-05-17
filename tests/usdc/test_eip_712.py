@@ -1,18 +1,16 @@
-import eip712_structs
+
 import pytest
 from eth_account import Account
 from eth_account._utils.signing import to_bytes32
 from eth_account.signers.local import LocalAccount
 from web3.contract import Contract
-from web3.contract.contract import ContractFunction
-from web3.middleware import construct_sign_and_send_raw_middleware
 
 from eth_defi.deploy import deploy_contract
 from eth_defi.eip_712 import eip712_encode_hash
 from eth_defi.middleware import construct_sign_and_send_raw_middleware_anvil
 from eth_defi.token import TokenDetails
-from eth_defi.trace import assert_transaction_success_with_explanation
-from eth_defi.usdc.tranfer_with_authorization import make_receive_with_authorization_transfer, ReceiveWithAuthorization, \
+
+from eth_defi.usdc.tranfer_with_authorization import  \
     construct_receive_with_authorization_message
 
 

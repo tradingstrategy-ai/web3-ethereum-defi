@@ -1,16 +1,14 @@
-import eip712_structs
 import pytest
 from eth_account import Account
 from eth_account.signers.local import LocalAccount
 from web3.contract import Contract
 from web3.contract.contract import ContractFunction
-from web3.middleware import construct_sign_and_send_raw_middleware
 
 from eth_defi.deploy import deploy_contract
 from eth_defi.middleware import construct_sign_and_send_raw_middleware_anvil
 from eth_defi.token import TokenDetails
 from eth_defi.trace import assert_transaction_success_with_explanation
-from eth_defi.usdc.tranfer_with_authorization import make_receive_with_authorization_transfer, ReceiveWithAuthorization
+from eth_defi.usdc.tranfer_with_authorization import make_receive_with_authorization_transfer
 
 
 @pytest.fixture
@@ -20,7 +18,9 @@ def user(web3, deployer, usdc) -> LocalAccount:
     See limitations in `transfer_with_authorization`.
     """
     account = Account.create()
-    web3.eth.send_transaction({"from": deployer, "to": account.address, "value": 9 * 10**18})  # Feed 9 ETH
+    stash = web3.eth.get_balance(deployer)
+    tx_hash = web3.eth.send_transaction({"from": deployer, "to": account.address, "value": stash // 2})  # Feed 9 ETH
+    assert_transaction_success_with_explanation(web3, tx_hash)
     usdc.contract.functions.transfer(account.address, 500 * 10**6,).transact({"from": deployer})
     web3.middleware_onion.add(construct_sign_and_send_raw_middleware_anvil(account))
     return account
@@ -39,26 +39,6 @@ def receiver(web3, deployer, usdc) -> Contract:
     return contract
 
 
-def test_receive_with_authorization_type_hash():
-    """Check we generate good type hash.
-
-    Spent too much time having validBefore and validAfter in the wrong order.
-    """
-    # domainSeparator = makeDomainSeparator(
-    #   "USD Coin",
-    #   "2",
-    #   1, // hardcoded to 1 because of ganache bug: https://github.com/trufflesuite/ganache/issues/1643
-    #   getFiatToken().address
-    # );
-
-    #     // keccak256("ReceiveWithAuthorization(address from,address to,uint256 value,uint256 validAfter,uint256 validBefore,bytes32 nonce)")
-    #     bytes32
-    #         public constant RECEIVE_WITH_AUTHORIZATION_TYPEHASH = 0xd099cc98ef71107a616c4f0f941f04c322d8e254fe26b3c6668db87aae413de8;
-
-    type_hash = ReceiveWithAuthorization.type_hash()
-    assert type_hash.hex() == "d099cc98ef71107a616c4f0f941f04c322d8e254fe26b3c6668db87aae413de8"
-
-
 def test_receive_with_authorization(
         web3,
         usdc: TokenDetails,
@@ -67,6 +47,8 @@ def test_receive_with_authorization(
         user: LocalAccount,
 ):
     """See the transferWithAuthorization goes through."""
+
+    assert usdc.contract.functions.balanceOf(user.address).call() == 500 * 10**6
 
     block = web3.eth.get_block("latest")
 
@@ -89,8 +71,10 @@ def test_receive_with_authorization(
     # Sign and broadcast the tx
     tx_hash = bound_func.transact({
         "from": user.address,
-        "gas": 15_000_000,
+        "gas": 5_000_000,
     })
 
     # Print out Solidity stack trace if this fails
     assert_transaction_success_with_explanation(web3, tx_hash)
+
+    assert receiver.functions.amountReceived().call() == 500 * 10**6

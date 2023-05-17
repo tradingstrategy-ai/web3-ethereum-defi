@@ -4,7 +4,7 @@
  * https://github.com/ethereum/EIPs/issues/3010
  */
 
-pragma solidity >=0.5.0;
+pragma solidity 0.6.12;
 
 import "./IEIP3009.sol";
 
@@ -13,8 +13,6 @@ import "./IEIP3009.sol";
  *
  */
 contract MockEIP3009Receiver {
-
-
 
     IEIP3009 public _token;
     uint256 public amountReceived;
@@ -34,7 +32,7 @@ contract MockEIP3009Receiver {
         bytes32 r,
         bytes32 s
     )
-        external
+        public
         returns (uint256)
     {
         // TODO: Any validation goes here

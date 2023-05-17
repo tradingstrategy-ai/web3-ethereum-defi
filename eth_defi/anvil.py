@@ -98,7 +98,7 @@ def _launch(cmd: str, **kwargs) -> Tuple[psutil.Popen, List[str]]:
 
 
     # USDC hack
-    cmd_list += ["--code-size-limit", "0x9000"]
+    cmd_list += ["--code-size-limit", "99999"]
 
     final_cmd_str = " ".join(cmd_list)
     logger.info("Launching anvil: %s", final_cmd_str)
