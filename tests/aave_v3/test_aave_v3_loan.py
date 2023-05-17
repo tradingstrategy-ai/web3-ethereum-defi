@@ -17,41 +17,21 @@ from eth_defi.trace import (
 )
 
 
-@pytest.fixture(scope="module")
-def usdc(web3, aave_deployment_snapshot) -> Contract:
-    """USDC on Polygon."""
-    return aave_deployment_snapshot.get_contract_at_address(
-        web3,
-        "core-v3/contracts/mocks/tokens/MintableERC20.sol/MintableERC20.json",
-        "USDC",
-    )
-
-
-@pytest.fixture(scope="module")
-def weth(web3, aave_deployment_snapshot) -> Contract:
-    """WETH on Polygon."""
-    return aave_deployment_snapshot.get_contract_at_address(
-        web3,
-        "core-v3/contracts/mocks/tokens/WETH9Mocked.sol/WETH9Mocked.json",
-        "WETH",
-    )
-
-
-@pytest.fixture(scope="module")
-def aave_v3_deployment(web3, aave_deployment_snapshot):
-    pool = aave_deployment_snapshot.get_contract_at_address(
+@pytest.fixture
+def aave_v3_deployment(web3, aave_deployment):
+    pool = aave_deployment.get_contract_at_address(
         web3,
         "core-v3/contracts/protocol/pool/Pool.sol/Pool.json",
         "PoolProxy",
     )
 
-    data_provider = aave_deployment_snapshot.get_contract_at_address(
+    data_provider = aave_deployment.get_contract_at_address(
         web3,
         "core-v3/contracts/misc/AaveProtocolDataProvider.sol/AaveProtocolDataProvider.json",
         "PoolDataProvider",
     )
 
-    oracle = aave_deployment_snapshot.get_contract_at_address(
+    oracle = aave_deployment.get_contract_at_address(
         web3,
         "core-v3/contracts/misc/AaveOracle.sol/AaveOracle.json",
         "AaveOracle",
@@ -62,16 +42,6 @@ def aave_v3_deployment(web3, aave_deployment_snapshot):
         pool=pool,
         data_provider=data_provider,
         oracle=oracle,
-    )
-
-
-@pytest.fixture(scope="module")
-def ausdc(web3, aave_deployment_snapshot) -> Contract:
-    """aToken for USDC"""
-    return aave_deployment_snapshot.get_contract_at_address(
-        web3,
-        "core-v3/contracts/protocol/tokenization/AToken.sol/AToken.json",
-        "aUSDC",
     )
 
 
@@ -255,19 +225,19 @@ def test_aave_v3_reserve_configuration(
 
 def test_aave_v3_oracle(
     web3: Web3,
-    aave_deployment_snapshot,
+    aave_deployment,
     aave_v3_deployment,
     usdc,
     weth,
 ):
     """Test borrow in Aave v3."""
 
-    usdc_agg = aave_deployment_snapshot.get_contract_at_address(
+    usdc_agg = aave_deployment.get_contract_at_address(
         web3,
         "core-v3/contracts/mocks/oracle/CLAggregators/MockAggregator.sol/MockAggregator.json",
         "USDCAgg",
     )
-    weth_agg = aave_deployment_snapshot.get_contract_at_address(
+    weth_agg = aave_deployment.get_contract_at_address(
         web3,
         "core-v3/contracts/mocks/oracle/CLAggregators/MockAggregator.sol/MockAggregator.json",
         "WETHAgg",

@@ -6,6 +6,7 @@
 - Add `transferWithAuthorization` and `receivedWithAuthorization`
 - Add Enzyme vault USDC payment forwarder allowing single click purchases (no `approve` step)
 - Fix: Don't try to `trace_transaction` unless we know we are on Anvil
+- Add Aave v3 loan support in `eth_defi.aave_v3.loan` module
 
 # 0.19.2
 
