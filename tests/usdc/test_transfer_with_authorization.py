@@ -19,7 +19,7 @@ def user(web3, deployer, usdc) -> LocalAccount:
     """
     account = Account.create()
     stash = web3.eth.get_balance(deployer)
-    tx_hash = web3.eth.send_transaction({"from": deployer, "to": account.address, "value": stash // 2})  # Feed 9 ETH
+    tx_hash = web3.eth.send_transaction({"from": deployer, "to": account.address, "value": stash // 2})
     assert_transaction_success_with_explanation(web3, tx_hash)
     usdc.contract.functions.transfer(account.address, 500 * 10**6,).transact({"from": deployer})
     web3.middleware_onion.add(construct_sign_and_send_raw_middleware_anvil(account))

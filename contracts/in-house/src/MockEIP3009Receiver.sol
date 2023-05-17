@@ -1,5 +1,5 @@
 /**
- * Receive transferWithAuthorization() EIP-3009 transfers
+ * Test receiveWithAuthorization() EIP-3009 transfers
  *
  * https://github.com/ethereum/EIPs/issues/3010
  */

@@ -29,6 +29,7 @@ in-house: enzyme
 	    -o -name "RevertTest2.json" \
 	    -o -name "VaultSpecificGenericAdapter.json" \
 	    -o -name "MockEIP3009Receiver.json" \
+	    -o -name "VaultUSDCPaymentForwarder.json" \
 	    \) \
 	    -exec cp {} eth_defi/abi \;
 

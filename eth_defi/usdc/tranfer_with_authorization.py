@@ -8,6 +8,11 @@
 
 - `EIP-712 helpers by Consensys <https://github.com/ConsenSysMesh/py-eip712-structs>`__
 
+.. note ::
+
+    Currently only `receiveWithAuthorization` implement, easier of two sibling methods.
+    `transferWithAuthorization` is still unimplemented.
+
 """
 import datetime
 import secrets
@@ -75,7 +80,7 @@ def construct_receive_with_authorization_message(
 
         "domain": {
             "name": token.name,
-            "version": "2",
+            "version": "2",  # TODO: Read from USDC contract?
             "chainId": chain_id,
             "verifyingContract": token.address,
         },
@@ -99,10 +104,10 @@ def make_receive_with_authorization_transfer(
     to: HexAddress,
     func: ContractFunction,
     value: int,
-    token_version = "2",  # TODO: Not sure if used
     valid_before: int = 0,
     valid_after: int = 1,
     duration_seconds: int = 0,
+    extra_args = (),
 ) -> ContractFunction:
     """Perform an EIP-3009 transaction.
 
@@ -132,6 +137,15 @@ def make_receive_with_authorization_transfer(
             bytes32 r,
             bytes32 s)
 
+    :param token:
+        USDC token details
+
+    :param from_:
+        The local account that signs the EIP-3009 transfer.
+
+    :param to:
+        To which contract USDC is transferred.
+
     :param func:
         The contract function that is verifying the transfer.
 
@@ -139,6 +153,21 @@ def make_receive_with_authorization_transfer(
         However, the spec does not specify what kind of a signature of a function this is:
         you can transfer `receiveWithAuthorization()` payload in any form, with extra parameters,
         byte packed, etc.
+
+    :param value:
+        How many tokens in raw value
+
+    :param valid_before:
+        Transfer timeout control
+
+    :param valid_after:
+        Transfer timeout control
+
+    :param duration_seconds:
+        Automatically set valid_before based on this
+
+    :param extra_args:
+        Arguments added after the standard receiveWithAuthorization() prologue.
 
     :return:
         Bound contract function for transferWithAuthorization
@@ -173,5 +202,6 @@ def make_receive_with_authorization_transfer(
     # as Python 3.10+ does ordered dicts
     args = list(data["message"].values())  # from, to, value, validAfter, validBefore, nonce
     args += [signed_message.v, to_bytes32(signed_message.r), to_bytes32(signed_message.s)]
+    args += list(extra_args)
 
     return func(*args)
