@@ -1,3 +1,5 @@
+"""Some EIP-712 integration testing based on Centre's code."""
+
 import pytest
 from eth_account import Account
 from eth_account._utils.signing import to_bytes32

@@ -1,6 +1,5 @@
-"""Deploy Enzyme protcol v4.
+"""Enzyme USCC transferWithAuthorization payment forwarder.
 
-Based on https://github.com/enzymefinance/protocol/blob/v4/packages/protocol/tests/release/e2e/FundManagementWalkthrough.test.ts
 """
 import pytest
 from eth_account import Account
@@ -12,7 +11,6 @@ from web3.contract import Contract
 from eth_defi.deploy import deploy_contract
 from eth_defi.enzyme.deployment import EnzymeDeployment, RateAsset
 from eth_defi.enzyme.vault import Vault
-from eth_defi.event_reader.reader import extract_events
 from eth_defi.middleware import construct_sign_and_send_raw_middleware_anvil
 from eth_defi.token import TokenDetails
 from eth_defi.trace import assert_transaction_success_with_explanation

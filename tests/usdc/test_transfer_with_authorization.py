@@ -1,3 +1,4 @@
+"""ERC-20 and approve() must die in flames"""
 import pytest
 from eth_account import Account
 from eth_account.signers.local import LocalAccount
