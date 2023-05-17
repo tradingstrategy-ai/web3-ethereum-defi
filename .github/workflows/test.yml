@@ -29,6 +29,8 @@ jobs:
         uses: actions/setup-node@v3
         with:
           node-version: 16
+          cache: 'npm'
+          cache-dependency-path: contracts/aave-v3-deploy/package-lock.json
       - name: Install poetry
         run: pipx install poetry
       - name: Set up Python 3.10
@@ -46,10 +48,10 @@ jobs:
         uses: foundry-rs/foundry-toolchain@v1
         with:
           version: 'nightly-e15e33a07c0920189fc336391f538c3dad53da73'
-      - name: Workaround aave-v3-deploy npm ci failing randomly on Github
-        run: |
-          cd contracts/aave-v3-deploy
-          npm ci
+      # - name: Workaround aave-v3-deploy npm ci failing randomly on Github
+      #   run: |
+      #     cd contracts/aave-v3-deploy
+      #     npm ci
       - name: Run test scripts
         run: |
           poetry run pytest --tb=native
