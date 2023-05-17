@@ -134,5 +134,3 @@ class HotWallet:
         assert key.startswith("0x")
         account = Account.from_key(key)
         return HotWallet(account)
-
-

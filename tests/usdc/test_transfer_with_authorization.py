@@ -21,7 +21,10 @@ def user(web3, deployer, usdc) -> LocalAccount:
     stash = web3.eth.get_balance(deployer)
     tx_hash = web3.eth.send_transaction({"from": deployer, "to": account.address, "value": stash // 2})
     assert_transaction_success_with_explanation(web3, tx_hash)
-    usdc.contract.functions.transfer(account.address, 500 * 10**6,).transact({"from": deployer})
+    usdc.contract.functions.transfer(
+        account.address,
+        500 * 10**6,
+    ).transact({"from": deployer})
     web3.middleware_onion.add(construct_sign_and_send_raw_middleware_anvil(account))
     return account
 
@@ -30,9 +33,9 @@ def user(web3, deployer, usdc) -> LocalAccount:
 def receiver(web3, deployer, usdc) -> Contract:
     """The contract that handles incoming transferWithAuthorization()"""
     contract = deploy_contract(
-         web3,
-         "MockEIP3009Receiver.json",
-         deployer,
+        web3,
+        "MockEIP3009Receiver.json",
+        deployer,
         # Constructor args
         usdc.address,
     )
@@ -40,11 +43,11 @@ def receiver(web3, deployer, usdc) -> Contract:
 
 
 def test_receive_with_authorization(
-        web3,
-        usdc: TokenDetails,
-        receiver,
-        deployer,
-        user: LocalAccount,
+    web3,
+    usdc: TokenDetails,
+    receiver,
+    deployer,
+    user: LocalAccount,
 ):
     """See the transferWithAuthorization goes through."""
 
@@ -69,10 +72,12 @@ def test_receive_with_authorization(
     )
 
     # Sign and broadcast the tx
-    tx_hash = bound_func.transact({
-        "from": user.address,
-        "gas": 5_000_000,
-    })
+    tx_hash = bound_func.transact(
+        {
+            "from": user.address,
+            "gas": 5_000_000,
+        }
+    )
 
     # Print out Solidity stack trace if this fails
     assert_transaction_success_with_explanation(web3, tx_hash)

@@ -96,8 +96,9 @@ def _launch(cmd: str, **kwargs) -> Tuple[psutil.Popen, List[str]]:
                 InvalidArgumentWarning,
             )
 
-
     # USDC hack
+    # Some contracts are too large to deploy when they are compiled unoptimized
+    # TODO: Move to argument
     cmd_list += ["--code-size-limit", "99999"]
 
     final_cmd_str = " ".join(cmd_list)

@@ -37,48 +37,49 @@ def deploy_fiat_token(
         assert_transaction_success_with_explanation(web3, e.tx_hash)
 
     # v1 init
-    tx_hash = token_contract.functions.initialize(
-        token_name,
-        token_symbol,
-        token_currency,
-        decimals,
-        deployer,
-        deployer,
-        deployer,
-        deployer
-    ).transact({
-        "from": deployer,
-    })
+    tx_hash = token_contract.functions.initialize(token_name, token_symbol, token_currency, decimals, deployer, deployer, deployer, deployer).transact(
+        {
+            "from": deployer,
+        }
+    )
     assert_transaction_success_with_explanation(web3, tx_hash)
 
     tx_hash = token_contract.functions.initializeV2(
         token_name,
-    ).transact({
-        "from": deployer,
-    })
+    ).transact(
+        {
+            "from": deployer,
+        }
+    )
     assert_transaction_success_with_explanation(web3, tx_hash)
 
     tx_hash = token_contract.functions.initializeV2_1(
         deployer,
-    ).transact({
-        "from": deployer,
-    })
+    ).transact(
+        {
+            "from": deployer,
+        }
+    )
     assert_transaction_success_with_explanation(web3, tx_hash)
 
     tx_hash = token_contract.functions.configureMinter(
         deployer,
         mint_amount * 10**decimals,
-    ).transact({
-        "from": deployer,
-    })
+    ).transact(
+        {
+            "from": deployer,
+        }
+    )
     assert_transaction_success_with_explanation(web3, tx_hash)
 
     tx_hash = token_contract.functions.mint(
         deployer,
         mint_amount * 10**decimals,
-    ).transact({
-        "from": deployer,
-    })
+    ).transact(
+        {
+            "from": deployer,
+        }
+    )
     assert_transaction_success_with_explanation(web3, tx_hash)
 
     token = fetch_erc20_details(web3, token_contract.address, contract_name=contract)

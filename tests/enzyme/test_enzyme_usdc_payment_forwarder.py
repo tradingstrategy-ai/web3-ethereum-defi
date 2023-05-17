@@ -39,7 +39,10 @@ def user(web3, deployer, usdc) -> LocalAccount:
     stash = web3.eth.get_balance(deployer)
     tx_hash = web3.eth.send_transaction({"from": deployer, "to": account.address, "value": stash // 2})
     assert_transaction_success_with_explanation(web3, tx_hash)
-    usdc.contract.functions.transfer(account.address, 500 * 10**6,).transact({"from": deployer})
+    usdc.contract.functions.transfer(
+        account.address,
+        500 * 10**6,
+    ).transact({"from": deployer})
     web3.middleware_onion.add(construct_sign_and_send_raw_middleware_anvil(account))
     return account
 
@@ -106,10 +109,12 @@ def test_enzyme_usdc_payment_forwarder(
     )
 
     # Sign and broadcast the tx
-    tx_hash = bound_func.transact({
-        "from": user.address,
-        "gas": 5_000_000,
-    })
+    tx_hash = bound_func.transact(
+        {
+            "from": user.address,
+            "gas": 5_000_000,
+        }
+    )
 
     # Print out Solidity stack trace if this fails
     assert_transaction_success_with_explanation(web3, tx_hash)
@@ -118,4 +123,4 @@ def test_enzyme_usdc_payment_forwarder(
 
     vault = Vault(vault, comptroller, deployment)
     assert vault.get_gross_asset_value() == 500 * 10**6  # Vault has been funded
-    assert vault.vault.functions.balanceOf(user.address).call() == 500 * 10**18 # Got shares
+    assert vault.vault.functions.balanceOf(user.address).call() == 500 * 10**18  # Got shares

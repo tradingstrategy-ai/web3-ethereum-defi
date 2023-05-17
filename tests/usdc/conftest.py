@@ -90,7 +90,3 @@ def usdc(web3, deployer: ChecksumAddress) -> TokenDetails:
     Deploy real USDC code.
     """
     return deploy_fiat_token(web3, deployer)
-
-
-
-

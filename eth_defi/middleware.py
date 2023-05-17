@@ -271,6 +271,7 @@ from eth_utils.toolz import (
     compose,
 )
 
+
 def construct_sign_and_send_raw_middleware_anvil(
     private_key_or_account,
 ) -> Middleware:
@@ -290,12 +291,8 @@ def construct_sign_and_send_raw_middleware_anvil(
 
     accounts = gen_normalized_accounts(private_key_or_account)
 
-    def sign_and_send_raw_middleware(
-        make_request: Callable[[RPCEndpoint, Any], Any], w3: "Web3"
-    ) -> Callable[[RPCEndpoint, Any], RPCResponse]:
-        format_and_fill_tx = compose(
-            format_transaction, fill_transaction_defaults(w3), fill_nonce(w3)
-        )
+    def sign_and_send_raw_middleware(make_request: Callable[[RPCEndpoint, Any], Any], w3: "Web3") -> Callable[[RPCEndpoint, Any], RPCResponse]:
+        format_and_fill_tx = compose(format_transaction, fill_transaction_defaults(w3), fill_nonce(w3))
 
         def middleware(method: RPCEndpoint, params: Any) -> RPCResponse:
             if method != "eth_sendTransaction":

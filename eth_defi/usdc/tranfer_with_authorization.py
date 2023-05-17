@@ -70,14 +70,12 @@ def construct_receive_with_authorization_message(
                 {"name": "nonce", "type": "bytes32"},
             ],
         },
-
         # domainSeparator = makeDomainSeparator(
         #   "USD Coin",
         #   "2",
         #   1, // hardcoded to 1 because of ganache bug: https://github.com/trufflesuite/ganache/issues/1643
         #   getFiatToken().address
         # );
-
         "domain": {
             "name": token.name,
             "version": "2",  # TODO: Read from USDC contract?
@@ -85,17 +83,9 @@ def construct_receive_with_authorization_message(
             "verifyingContract": token.address,
         },
         "primaryType": "ReceiveWithAuthorization",
-        "message": {
-            "from": from_,
-            "to": to,
-            "value": value,
-            "validAfter": valid_after,
-            "validBefore": valid_before,
-            "nonce": secrets.token_bytes(32)  # 256-bit random nonce
-        },
+        "message": {"from": from_, "to": to, "value": value, "validAfter": valid_after, "validBefore": valid_before, "nonce": secrets.token_bytes(32)},  # 256-bit random nonce
     }
     return data
-
 
 
 def make_receive_with_authorization_transfer(
@@ -107,7 +97,7 @@ def make_receive_with_authorization_transfer(
     valid_before: int = 0,
     valid_after: int = 1,
     duration_seconds: int = 0,
-    extra_args = (),
+    extra_args=(),
 ) -> ContractFunction:
     """Perform an EIP-3009 transaction.
 

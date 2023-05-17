@@ -1,6 +1,10 @@
 # Current
 
-- TODO
+- Add USDC (Centre FiatToken)
+- Add EIP-712
+- Add EIP-3009
+- Add `transferWithAuthorization` and `receivedWithAuthorization`
+- Add Enzyme vault USDC payment forwarder allowing single click purchases (no `approve` step)
 
 # 0.19.2
 

@@ -20,6 +20,7 @@ ContractRegistry: TypeAlias = Dict[str, Contract]
 
 class ContractDeploymentFailed(Exception):
     """Did not get successful tx receipt from a deployment."""
+
     def __init__(self, tx_hash, msg):
         super().__init__(msg)
         self.tx_hash = tx_hash

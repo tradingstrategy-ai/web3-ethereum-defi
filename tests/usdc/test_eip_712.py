@@ -1,4 +1,3 @@
-
 import pytest
 from eth_account import Account
 from eth_account._utils.signing import to_bytes32
@@ -10,8 +9,7 @@ from eth_defi.eip_712 import eip712_encode_hash
 from eth_defi.middleware import construct_sign_and_send_raw_middleware_anvil
 from eth_defi.token import TokenDetails
 
-from eth_defi.usdc.tranfer_with_authorization import  \
-    construct_receive_with_authorization_message
+from eth_defi.usdc.tranfer_with_authorization import construct_receive_with_authorization_message
 
 
 @pytest.fixture
@@ -22,7 +20,10 @@ def user(web3, deployer, usdc) -> LocalAccount:
     """
     account = Account.create()
     web3.eth.send_transaction({"from": deployer, "to": account.address, "value": 9 * 10**18})  # Feed 9 ETH
-    usdc.contract.functions.transfer(account.address, 500 * 10**6,).transact({"from": deployer})
+    usdc.contract.functions.transfer(
+        account.address,
+        500 * 10**6,
+    ).transact({"from": deployer})
     web3.middleware_onion.add(construct_sign_and_send_raw_middleware_anvil(account))
     return account
 
@@ -30,9 +31,9 @@ def user(web3, deployer, usdc) -> LocalAccount:
 @pytest.fixture
 def eip_712_test(web3, deployer, usdc) -> Contract:
     contract = deploy_contract(
-         web3,
-         "centre/EIP712Test.json",
-         deployer,
+        web3,
+        "centre/EIP712Test.json",
+        deployer,
     )
     return contract
 
@@ -40,19 +41,19 @@ def eip_712_test(web3, deployer, usdc) -> Contract:
 @pytest.fixture
 def ecrecover_test(web3, deployer) -> Contract:
     contract = deploy_contract(
-         web3,
-         "centre/ECRecoverTest.json",
-         deployer,
+        web3,
+        "centre/ECRecoverTest.json",
+        deployer,
     )
     return contract
 
 
 def test_ec_recover(
-        web3,
-        usdc: TokenDetails,
-        ecrecover_test,
-        deployer,
-        user: LocalAccount,
+    web3,
+    usdc: TokenDetails,
+    ecrecover_test,
+    deployer,
+    user: LocalAccount,
 ):
     """Check we sign message hash correctly.
 

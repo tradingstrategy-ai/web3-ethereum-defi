@@ -37,7 +37,8 @@ from hexbytes import HexBytes
 from web3 import Web3
 
 
-#from ..utils import fast_keccak
+# from ..utils import fast_keccak
+
 
 def fast_keccak(value: bytes) -> bytes:
     return Web3.keccak(value)
@@ -185,9 +186,7 @@ def eip712_encode_hash(typed_data: Dict[str, Any]) -> Hash32:
     return fast_keccak(b"".join(eip712_encode(typed_data)))
 
 
-def eip712_signature(
-    payload: Dict[str, Any], private_key: Union[HexStr, bytes]
-) -> bytes:
+def eip712_signature(payload: Dict[str, Any], private_key: Union[HexStr, bytes]) -> bytes:
     """
     Given a bytes object and a private key, return a signature suitable for
     EIP712 and EIP191 messages.
