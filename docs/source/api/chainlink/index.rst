@@ -1,5 +1,5 @@
-Chainlink
----------
+Chainlink API
+-------------
 
 Chainlink offers price and randomness oracles on multiple chains.
 
