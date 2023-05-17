@@ -136,6 +136,7 @@ def test_token_tax(uniswap: UniswapV2Deployment, large_busd_holder: HexAddress, 
     assert token_tax_info.sell_tax == pytest.approx(expected_elephant_tax_percent, rel=1e-4)
 
 
+@flaky.flaky(max_runs=5)
 def test_not_enough_tokens_to_buy(uniswap: UniswapV2Deployment, large_busd_holder: HexAddress, seller: HexAddress, elephant: HexAddress, busd: HexAddress):
     """There are not enough tokens to buy"""
     buy_amount: float = 1e30

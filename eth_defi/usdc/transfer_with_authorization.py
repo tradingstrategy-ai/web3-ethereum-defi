@@ -1,12 +1,10 @@
-"""EIP-3009 transferWithAuthorization() support for Python.
+"""EIP-3009 transferWithAuthorization() and receiveWithAuthorization() support for Python.
 
-- `The spec <https://github.com/ethereum/EIPs/issues/3010>`__.
+- `EIP-3009 spec <https://github.com/ethereum/EIPs/issues/3010>`__.
 
 - `JavaScript example <https://github.com/ZooWallet/safe-contracts/blob/b2abebd0fdd7f8a846dfc2d59233e41487b659cf/scripts/usdc-biconomy-transferWithAuthorization.js#L87>`__.
 
 - `Canonical examples to construct USDC EIP-712 messages <https://github.com/centrehq/centre-tokens/blob/master/test/v2/GasAbstraction/helpers.ts>`__.
-
-- `EIP-712 helpers by Consensys <https://github.com/ConsenSysMesh/py-eip712-structs>`__
 
 .. note ::
 
@@ -99,13 +97,13 @@ def make_receive_with_authorization_transfer(
     duration_seconds: int = 0,
     extra_args=(),
 ) -> ContractFunction:
-    """Perform an EIP-3009 transaction.
+    """Perform an EIP-3009 receiveWithAuthorization() transaction.
 
-    - Constructs the EIP-3009 payload
+    - Constructs the EIP-3009 / EIP-712 payload
 
     - Signs the message
 
-    - Builds a transaction against `transferWithAuthorization`
+    - Builds a transaction against `receiveWithAuthorization` in USDC
 
     .. note ::
 
@@ -116,6 +114,7 @@ def make_receive_with_authorization_transfer(
 
     .. code-block:: python
 
+        # Deploy some contract that supports
         payment_forwarder = deploy_contract(
             web3,
             "VaultUSDCPaymentForwarder.json",
@@ -137,8 +136,8 @@ def make_receive_with_authorization_transfer(
             extra_args=(1,),  # minSharesQuantity
         )
 
-    # Sign and broadcast the tx
-    tx_hash = bound_func.transact({"from": user.address})
+        # Sign and broadcast the tx
+        tx_hash = bound_func.transact({"from": user.address})
 
     The `receiveAuthorization()` signature is:
 
