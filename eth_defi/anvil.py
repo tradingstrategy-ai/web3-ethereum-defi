@@ -95,6 +95,11 @@ def _launch(cmd: str, **kwargs) -> Tuple[psutil.Popen, List[str]]:
                 f"Ignoring invalid commandline setting for anvil: " f'"{key}" with value "{value}".',
                 InvalidArgumentWarning,
             )
+
+
+    # USDC hack
+    cmd_list += ["--code-size-limit", "0x9000"]
+
     final_cmd_str = " ".join(cmd_list)
     logger.info("Launching anvil: %s", final_cmd_str)
     out = DEVNULL if sys.platform == "win32" else PIPE

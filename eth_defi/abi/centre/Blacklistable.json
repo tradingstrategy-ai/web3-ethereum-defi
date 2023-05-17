@@ -3367,7 +3367,7 @@
   },
   "networks": {},
   "schemaVersion": "3.2.2",
-  "updatedAt": "2023-05-16T19:08:31.910Z",
+  "updatedAt": "2023-05-17T19:03:52.712Z",
   "devdoc": {
     "details": "Allows accounts to be blacklisted by a \"blacklister\" role",
     "kind": "dev",

@@ -1102,19 +1102,19 @@
   },
   "ast": {
     "absolutePath": "contracts/persistent/vault/VaultLibBase1.sol",
-    "id": 309,
+    "id": 11353,
     "exportedSymbols": {
       "VaultLibBase1": [
-        308
+        11352
       ]
     },
     "nodeType": "SourceUnit",
-    "src": "255:724:4",
+    "src": "255:724:66",
     "nodes": [
       {
-        "id": 280,
+        "id": 11324,
         "nodeType": "PragmaDirective",
-        "src": "255:23:4",
+        "src": "255:23:66",
         "nodes": [],
         "literals": [
           "solidity",
@@ -1123,44 +1123,44 @@
         ]
       },
       {
-        "id": 281,
+        "id": 11325,
         "nodeType": "ImportDirective",
-        "src": "280:32:4",
+        "src": "280:32:66",
         "nodes": [],
         "absolutePath": "contracts/persistent/vault/VaultLibBaseCore.sol",
         "file": "./VaultLibBaseCore.sol",
-        "scope": 309,
-        "sourceUnit": 627,
+        "scope": 11353,
+        "sourceUnit": 11671,
         "symbolAliases": [],
         "unitAlias": ""
       },
       {
-        "id": 308,
+        "id": 11352,
         "nodeType": "ContractDefinition",
-        "src": "647:331:4",
+        "src": "647:331:66",
         "nodes": [
           {
-            "id": 292,
+            "id": 11336,
             "nodeType": "EventDefinition",
-            "src": "705:84:4",
+            "src": "705:84:66",
             "nodes": [],
             "anonymous": false,
             "documentation": null,
             "name": "AssetWithdrawn",
             "parameters": {
-              "id": 291,
+              "id": 11335,
               "nodeType": "ParameterList",
               "parameters": [
                 {
                   "constant": false,
-                  "id": 286,
+                  "id": 11330,
                   "indexed": true,
                   "mutability": "mutable",
                   "name": "asset",
                   "nodeType": "VariableDeclaration",
                   "overrides": null,
-                  "scope": 292,
-                  "src": "726:21:4",
+                  "scope": 11336,
+                  "src": "726:21:66",
                   "stateVariable": false,
                   "storageLocation": "default",
                   "typeDescriptions": {
@@ -1168,10 +1168,10 @@
                     "typeString": "address"
                   },
                   "typeName": {
-                    "id": 285,
+                    "id": 11329,
                     "name": "address",
                     "nodeType": "ElementaryTypeName",
-                    "src": "726:7:4",
+                    "src": "726:7:66",
                     "stateMutability": "nonpayable",
                     "typeDescriptions": {
                       "typeIdentifier": "t_address",
@@ -1183,14 +1183,14 @@
                 },
                 {
                   "constant": false,
-                  "id": 288,
+                  "id": 11332,
                   "indexed": true,
                   "mutability": "mutable",
                   "name": "target",
                   "nodeType": "VariableDeclaration",
                   "overrides": null,
-                  "scope": 292,
-                  "src": "749:22:4",
+                  "scope": 11336,
+                  "src": "749:22:66",
                   "stateVariable": false,
                   "storageLocation": "default",
                   "typeDescriptions": {
@@ -1198,10 +1198,10 @@
                     "typeString": "address"
                   },
                   "typeName": {
-                    "id": 287,
+                    "id": 11331,
                     "name": "address",
                     "nodeType": "ElementaryTypeName",
-                    "src": "749:7:4",
+                    "src": "749:7:66",
                     "stateMutability": "nonpayable",
                     "typeDescriptions": {
                       "typeIdentifier": "t_address",
@@ -1213,14 +1213,14 @@
                 },
                 {
                   "constant": false,
-                  "id": 290,
+                  "id": 11334,
                   "indexed": false,
                   "mutability": "mutable",
                   "name": "amount",
                   "nodeType": "VariableDeclaration",
                   "overrides": null,
-                  "scope": 292,
-                  "src": "773:14:4",
+                  "scope": 11336,
+                  "src": "773:14:66",
                   "stateVariable": false,
                   "storageLocation": "default",
                   "typeDescriptions": {
@@ -1228,10 +1228,10 @@
                     "typeString": "uint256"
                   },
                   "typeName": {
-                    "id": 289,
+                    "id": 11333,
                     "name": "uint256",
                     "nodeType": "ElementaryTypeName",
-                    "src": "773:7:4",
+                    "src": "773:7:66",
                     "typeDescriptions": {
                       "typeIdentifier": "t_uint256",
                       "typeString": "uint256"
@@ -1241,31 +1241,31 @@
                   "visibility": "internal"
                 }
               ],
-              "src": "725:63:4"
+              "src": "725:63:66"
             }
           },
           {
-            "id": 296,
+            "id": 11340,
             "nodeType": "EventDefinition",
-            "src": "795:39:4",
+            "src": "795:39:66",
             "nodes": [],
             "anonymous": false,
             "documentation": null,
             "name": "TrackedAssetAdded",
             "parameters": {
-              "id": 295,
+              "id": 11339,
               "nodeType": "ParameterList",
               "parameters": [
                 {
                   "constant": false,
-                  "id": 294,
+                  "id": 11338,
                   "indexed": false,
                   "mutability": "mutable",
                   "name": "asset",
                   "nodeType": "VariableDeclaration",
                   "overrides": null,
-                  "scope": 296,
-                  "src": "819:13:4",
+                  "scope": 11340,
+                  "src": "819:13:66",
                   "stateVariable": false,
                   "storageLocation": "default",
                   "typeDescriptions": {
@@ -1273,10 +1273,10 @@
                     "typeString": "address"
                   },
                   "typeName": {
-                    "id": 293,
+                    "id": 11337,
                     "name": "address",
                     "nodeType": "ElementaryTypeName",
-                    "src": "819:7:4",
+                    "src": "819:7:66",
                     "stateMutability": "nonpayable",
                     "typeDescriptions": {
                       "typeIdentifier": "t_address",
@@ -1287,31 +1287,31 @@
                   "visibility": "internal"
                 }
               ],
-              "src": "818:15:4"
+              "src": "818:15:66"
             }
           },
           {
-            "id": 300,
+            "id": 11344,
             "nodeType": "EventDefinition",
-            "src": "840:41:4",
+            "src": "840:41:66",
             "nodes": [],
             "anonymous": false,
             "documentation": null,
             "name": "TrackedAssetRemoved",
             "parameters": {
-              "id": 299,
+              "id": 11343,
               "nodeType": "ParameterList",
               "parameters": [
                 {
                   "constant": false,
-                  "id": 298,
+                  "id": 11342,
                   "indexed": false,
                   "mutability": "mutable",
                   "name": "asset",
                   "nodeType": "VariableDeclaration",
                   "overrides": null,
-                  "scope": 300,
-                  "src": "866:13:4",
+                  "scope": 11344,
+                  "src": "866:13:66",
                   "stateVariable": false,
                   "storageLocation": "default",
                   "typeDescriptions": {
@@ -1319,10 +1319,10 @@
                     "typeString": "address"
                   },
                   "typeName": {
-                    "id": 297,
+                    "id": 11341,
                     "name": "address",
                     "nodeType": "ElementaryTypeName",
-                    "src": "866:7:4",
+                    "src": "866:7:66",
                     "stateMutability": "nonpayable",
                     "typeDescriptions": {
                       "typeIdentifier": "t_address",
@@ -1333,19 +1333,19 @@
                   "visibility": "internal"
                 }
               ],
-              "src": "865:15:4"
+              "src": "865:15:66"
             }
           },
           {
-            "id": 303,
+            "id": 11347,
             "nodeType": "VariableDeclaration",
-            "src": "887:32:4",
+            "src": "887:32:66",
             "nodes": [],
             "constant": false,
             "mutability": "mutable",
             "name": "trackedAssets",
             "overrides": null,
-            "scope": 308,
+            "scope": 11352,
             "stateVariable": true,
             "storageLocation": "default",
             "typeDescriptions": {
@@ -1354,20 +1354,20 @@
             },
             "typeName": {
               "baseType": {
-                "id": 301,
+                "id": 11345,
                 "name": "address",
                 "nodeType": "ElementaryTypeName",
-                "src": "887:7:4",
+                "src": "887:7:66",
                 "stateMutability": "nonpayable",
                 "typeDescriptions": {
                   "typeIdentifier": "t_address",
                   "typeString": "address"
                 }
               },
-              "id": 302,
+              "id": 11346,
               "length": null,
               "nodeType": "ArrayTypeName",
-              "src": "887:9:4",
+              "src": "887:9:66",
               "typeDescriptions": {
                 "typeIdentifier": "t_array$_t_address_$dyn_storage_ptr",
                 "typeString": "address[]"
@@ -1377,15 +1377,15 @@
             "visibility": "internal"
           },
           {
-            "id": 307,
+            "id": 11351,
             "nodeType": "VariableDeclaration",
-            "src": "925:50:4",
+            "src": "925:50:66",
             "nodes": [],
             "constant": false,
             "mutability": "mutable",
             "name": "assetToIsTracked",
             "overrides": null,
-            "scope": 308,
+            "scope": 11352,
             "stateVariable": true,
             "storageLocation": "default",
             "typeDescriptions": {
@@ -1393,28 +1393,28 @@
               "typeString": "mapping(address => bool)"
             },
             "typeName": {
-              "id": 306,
+              "id": 11350,
               "keyType": {
-                "id": 304,
+                "id": 11348,
                 "name": "address",
                 "nodeType": "ElementaryTypeName",
-                "src": "933:7:4",
+                "src": "933:7:66",
                 "typeDescriptions": {
                   "typeIdentifier": "t_address",
                   "typeString": "address"
                 }
               },
               "nodeType": "Mapping",
-              "src": "925:24:4",
+              "src": "925:24:66",
               "typeDescriptions": {
                 "typeIdentifier": "t_mapping$_t_address_$_t_bool_$",
                 "typeString": "mapping(address => bool)"
               },
               "valueType": {
-                "id": 305,
+                "id": 11349,
                 "name": "bool",
                 "nodeType": "ElementaryTypeName",
-                "src": "944:4:4",
+                "src": "944:4:66",
                 "typeDescriptions": {
                   "typeIdentifier": "t_bool",
                   "typeString": "bool"
@@ -1431,47 +1431,47 @@
             "arguments": null,
             "baseName": {
               "contractScope": null,
-              "id": 283,
+              "id": 11327,
               "name": "VaultLibBaseCore",
               "nodeType": "UserDefinedTypeName",
-              "referencedDeclaration": 626,
-              "src": "682:16:4",
+              "referencedDeclaration": 11670,
+              "src": "682:16:66",
               "typeDescriptions": {
-                "typeIdentifier": "t_contract$_VaultLibBaseCore_$626",
+                "typeIdentifier": "t_contract$_VaultLibBaseCore_$11670",
                 "typeString": "contract VaultLibBaseCore"
               }
             },
-            "id": 284,
+            "id": 11328,
             "nodeType": "InheritanceSpecifier",
-            "src": "682:16:4"
+            "src": "682:16:66"
           }
         ],
         "contractDependencies": [
-          626,
-          676,
-          735,
-          1116
+          11670,
+          11770,
+          11829,
+          12210
         ],
         "contractKind": "contract",
         "documentation": {
-          "id": 282,
+          "id": 11326,
           "nodeType": "StructuredDocumentation",
-          "src": "314:333:4",
+          "src": "314:333:66",
           "text": "@title VaultLibBase1 Contract\n @author Enzyme Council <security@enzyme.finance>\n @notice The first implementation of VaultLibBaseCore, with additional events and storage\n @dev All subsequent implementations should inherit the previous implementation,\n e.g., `VaultLibBase2 is VaultLibBase1`\n DO NOT EDIT CONTRACT."
         },
         "fullyImplemented": true,
         "linearizedBaseContracts": [
-          308,
-          626,
-          1116,
-          735,
-          676
+          11352,
+          11670,
+          12210,
+          11829,
+          11770
         ],
         "name": "VaultLibBase1",
-        "scope": 309
+        "scope": 11353
       }
     ],
     "license": "GPL-3.0"
   },
-  "id": 4
+  "id": 66
 }

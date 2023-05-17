@@ -4924,7 +4924,7 @@
   },
   "networks": {},
   "schemaVersion": "3.2.2",
-  "updatedAt": "2023-05-16T19:08:31.931Z",
+  "updatedAt": "2023-05-17T19:03:52.733Z",
   "devdoc": {
     "details": "Enables V2Upgrader to read some contract state before it renounces the proxy admin role. (Proxy admins cannot call delegated methods.) It is also used to test approve/transferFrom.",
     "kind": "dev",

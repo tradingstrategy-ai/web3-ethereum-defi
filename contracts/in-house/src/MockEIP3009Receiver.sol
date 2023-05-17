@@ -4,40 +4,58 @@
  * https://github.com/ethereum/EIPs/issues/3010
  */
 
-import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+pragma solidity >=0.5.0;
 
+import "./IEIP3009.sol";
 
+/**
+ * Receive tokens on this contract and increase the internal ledger of the deposits.
+ *
+ */
 contract MockEIP3009Receiver {
 
-    bytes4 private constant _RECEIVE_WITH_AUTHORIZATION_SELECTOR = 0xef55bec6;
 
-    IERC20 public _token;
 
+    IEIP3009 public _token;
     uint256 public amountReceived;
 
-    constructor(IERC20 token) public {
+    constructor(IEIP3009 token) public {
         _token = token;
     }
 
-    function deposit(bytes calldata receiveAuthorization)
+    function deposit(
+        address from,
+        address to,
+        uint256 value,
+        uint256 validAfter,
+        uint256 validBefore,
+        bytes32 nonce,
+        uint8 v,
+        bytes32 r,
+        bytes32 s
+    )
         external
         returns (uint256)
     {
-        (address from, address to, uint256 amount) = abi.decode(
-            receiveAuthorization[0:96],
-            (address, address, uint256)
-        );
+        // TODO: Any validation goes here
         require(to == address(this), "Recipient is not this contract");
 
-        (bool success, ) = address(_token).call(
-            abi.encodePacked(
-                _RECEIVE_WITH_AUTHORIZATION_SELECTOR,
-                receiveAuthorization
-            )
+        // Call EIP-3009 token and ask it to transfer the amount of tokens
+        // tok this contract from the sender
+        _token.receiveWithAuthorization(
+            from,
+            to,
+            value,
+            validAfter,
+            validBefore,
+            nonce,
+            v,
+            r,
+            s
         );
-        require(success, "Failed to transfer to the forwarder");
 
-        amountReceived += amount;
+        // Increase the internal ledger of received tokens
+        amountReceived += value;
 
         return amountReceived;
     }

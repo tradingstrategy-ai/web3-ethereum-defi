@@ -3639,7 +3639,7 @@
   },
   "networks": {},
   "schemaVersion": "3.2.2",
-  "updatedAt": "2023-05-16T19:08:31.902Z",
+  "updatedAt": "2023-05-17T19:03:52.705Z",
   "devdoc": {
     "details": "ERC20 Token backed by fiat reserves",
     "kind": "dev",

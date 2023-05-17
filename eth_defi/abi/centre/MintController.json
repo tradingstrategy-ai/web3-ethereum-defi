@@ -8497,7 +8497,7 @@
   },
   "networks": {},
   "schemaVersion": "3.2.2",
-  "updatedAt": "2023-05-16T19:08:31.896Z",
+  "updatedAt": "2023-05-17T19:03:52.698Z",
   "devdoc": {
     "details": "MintController inherits from the Controller contract. It treats the Controller workers as minters.",
     "kind": "dev",

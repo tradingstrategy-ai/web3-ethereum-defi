@@ -199,43 +199,43 @@
   },
   "ast": {
     "absolutePath": "contracts/release/infrastructure/gas-relayer/GasRelayRecipientMixin.sol",
-    "id": 7767,
+    "id": 62142,
     "exportedSymbols": {
       "GasRelayRecipientMixin": [
-        7766
+        62141
       ]
     },
     "nodeType": "SourceUnit",
-    "src": "255:1888:27",
+    "src": "255:1888:230",
     "nodes": [
       {
-        "id": 7697,
+        "id": 62072,
         "nodeType": "ImportDirective",
-        "src": "255:58:27",
+        "src": "255:58:230",
         "nodes": [],
         "absolutePath": "contracts/release/utils/beacon-proxy/IBeaconProxyFactory.sol",
         "file": "../../utils/beacon-proxy/IBeaconProxyFactory.sol",
-        "scope": 7767,
-        "sourceUnit": 11183,
+        "scope": 62142,
+        "sourceUnit": 79712,
         "symbolAliases": [],
         "unitAlias": ""
       },
       {
-        "id": 7698,
+        "id": 62073,
         "nodeType": "ImportDirective",
-        "src": "314:34:27",
+        "src": "314:34:230",
         "nodes": [],
         "absolutePath": "contracts/release/infrastructure/gas-relayer/IGasRelayPaymaster.sol",
         "file": "./IGasRelayPaymaster.sol",
-        "scope": 7767,
-        "sourceUnit": 7781,
+        "scope": 62142,
+        "sourceUnit": 62156,
         "symbolAliases": [],
         "unitAlias": ""
       },
       {
-        "id": 7699,
+        "id": 62074,
         "nodeType": "PragmaDirective",
-        "src": "350:23:27",
+        "src": "350:23:230",
         "nodes": [],
         "literals": [
           "solidity",
@@ -244,20 +244,20 @@
         ]
       },
       {
-        "id": 7766,
+        "id": 62141,
         "nodeType": "ContractDefinition",
-        "src": "646:1496:27",
+        "src": "646:1496:230",
         "nodes": [
           {
-            "id": 7702,
+            "id": 62077,
             "nodeType": "VariableDeclaration",
-            "src": "693:54:27",
+            "src": "693:54:230",
             "nodes": [],
             "constant": false,
             "mutability": "immutable",
             "name": "GAS_RELAY_PAYMASTER_FACTORY",
             "overrides": null,
-            "scope": 7766,
+            "scope": 62141,
             "stateVariable": true,
             "storageLocation": "default",
             "typeDescriptions": {
@@ -265,10 +265,10 @@
               "typeString": "address"
             },
             "typeName": {
-              "id": 7701,
+              "id": 62076,
               "name": "address",
               "nodeType": "ElementaryTypeName",
-              "src": "693:7:27",
+              "src": "693:7:230",
               "stateMutability": "nonpayable",
               "typeDescriptions": {
                 "typeIdentifier": "t_address",
@@ -279,32 +279,32 @@
             "visibility": "internal"
           },
           {
-            "id": 7712,
+            "id": 62087,
             "nodeType": "FunctionDefinition",
-            "src": "754:128:27",
+            "src": "754:128:230",
             "nodes": [],
             "body": {
-              "id": 7711,
+              "id": 62086,
               "nodeType": "Block",
-              "src": "810:72:27",
+              "src": "810:72:230",
               "nodes": [],
               "statements": [
                 {
                   "expression": {
                     "argumentTypes": null,
-                    "id": 7709,
+                    "id": 62084,
                     "isConstant": false,
                     "isLValue": false,
                     "isPure": false,
                     "lValueRequested": false,
                     "leftHandSide": {
                       "argumentTypes": null,
-                      "id": 7707,
+                      "id": 62082,
                       "name": "GAS_RELAY_PAYMASTER_FACTORY",
                       "nodeType": "Identifier",
                       "overloadedDeclarations": [],
-                      "referencedDeclaration": 7702,
-                      "src": "820:27:27",
+                      "referencedDeclaration": 62077,
+                      "src": "820:27:230",
                       "typeDescriptions": {
                         "typeIdentifier": "t_address",
                         "typeString": "address"
@@ -314,26 +314,26 @@
                     "operator": "=",
                     "rightHandSide": {
                       "argumentTypes": null,
-                      "id": 7708,
+                      "id": 62083,
                       "name": "_gasRelayPaymasterFactory",
                       "nodeType": "Identifier",
                       "overloadedDeclarations": [],
-                      "referencedDeclaration": 7704,
-                      "src": "850:25:27",
+                      "referencedDeclaration": 62079,
+                      "src": "850:25:230",
                       "typeDescriptions": {
                         "typeIdentifier": "t_address",
                         "typeString": "address"
                       }
                     },
-                    "src": "820:55:27",
+                    "src": "820:55:230",
                     "typeDescriptions": {
                       "typeIdentifier": "t_address",
                       "typeString": "address"
                     }
                   },
-                  "id": 7710,
+                  "id": 62085,
                   "nodeType": "ExpressionStatement",
-                  "src": "820:55:27"
+                  "src": "820:55:230"
                 }
               ]
             },
@@ -344,18 +344,18 @@
             "name": "",
             "overrides": null,
             "parameters": {
-              "id": 7705,
+              "id": 62080,
               "nodeType": "ParameterList",
               "parameters": [
                 {
                   "constant": false,
-                  "id": 7704,
+                  "id": 62079,
                   "mutability": "mutable",
                   "name": "_gasRelayPaymasterFactory",
                   "nodeType": "VariableDeclaration",
                   "overrides": null,
-                  "scope": 7712,
-                  "src": "766:33:27",
+                  "scope": 62087,
+                  "src": "766:33:230",
                   "stateVariable": false,
                   "storageLocation": "default",
                   "typeDescriptions": {
@@ -363,10 +363,10 @@
                     "typeString": "address"
                   },
                   "typeName": {
-                    "id": 7703,
+                    "id": 62078,
                     "name": "address",
                     "nodeType": "ElementaryTypeName",
-                    "src": "766:7:27",
+                    "src": "766:7:230",
                     "stateMutability": "nonpayable",
                     "typeDescriptions": {
                       "typeIdentifier": "t_address",
@@ -377,28 +377,28 @@
                   "visibility": "internal"
                 }
               ],
-              "src": "765:35:27"
+              "src": "765:35:230"
             },
             "returnParameters": {
-              "id": 7706,
+              "id": 62081,
               "nodeType": "ParameterList",
               "parameters": [],
-              "src": "810:0:27"
+              "src": "810:0:230"
             },
-            "scope": 7766,
+            "scope": 62141,
             "stateMutability": "nonpayable",
             "virtual": false,
             "visibility": "internal"
           },
           {
-            "id": 7738,
+            "id": 62113,
             "nodeType": "FunctionDefinition",
-            "src": "983:367:27",
+            "src": "983:367:230",
             "nodes": [],
             "body": {
-              "id": 7737,
+              "id": 62112,
               "nodeType": "Block",
-              "src": "1063:287:27",
+              "src": "1063:287:230",
               "nodes": [],
               "statements": [
                 {
@@ -408,7 +408,7 @@
                       "typeIdentifier": "t_bool",
                       "typeString": "bool"
                     },
-                    "id": 7728,
+                    "id": 62103,
                     "isConstant": false,
                     "isLValue": false,
                     "isPure": false,
@@ -419,7 +419,7 @@
                         "typeIdentifier": "t_uint256",
                         "typeString": "uint256"
                       },
-                      "id": 7722,
+                      "id": 62097,
                       "isConstant": false,
                       "isLValue": false,
                       "isPure": false,
@@ -430,18 +430,18 @@
                           "argumentTypes": null,
                           "expression": {
                             "argumentTypes": null,
-                            "id": 7718,
+                            "id": 62093,
                             "name": "msg",
                             "nodeType": "Identifier",
                             "overloadedDeclarations": [],
                             "referencedDeclaration": -15,
-                            "src": "1077:3:27",
+                            "src": "1077:3:230",
                             "typeDescriptions": {
                               "typeIdentifier": "t_magic_message",
                               "typeString": "msg"
                             }
                           },
-                          "id": 7719,
+                          "id": 62094,
                           "isConstant": false,
                           "isLValue": false,
                           "isPure": false,
@@ -449,13 +449,13 @@
                           "memberName": "data",
                           "nodeType": "MemberAccess",
                           "referencedDeclaration": null,
-                          "src": "1077:8:27",
+                          "src": "1077:8:230",
                           "typeDescriptions": {
                             "typeIdentifier": "t_bytes_calldata_ptr",
                             "typeString": "bytes calldata"
                           }
                         },
-                        "id": 7720,
+                        "id": 62095,
                         "isConstant": false,
                         "isLValue": false,
                         "isPure": false,
@@ -463,7 +463,7 @@
                         "memberName": "length",
                         "nodeType": "MemberAccess",
                         "referencedDeclaration": null,
-                        "src": "1077:15:27",
+                        "src": "1077:15:230",
                         "typeDescriptions": {
                           "typeIdentifier": "t_uint256",
                           "typeString": "uint256"
@@ -474,14 +474,14 @@
                       "rightExpression": {
                         "argumentTypes": null,
                         "hexValue": "3234",
-                        "id": 7721,
+                        "id": 62096,
                         "isConstant": false,
                         "isLValue": false,
                         "isPure": true,
                         "kind": "number",
                         "lValueRequested": false,
                         "nodeType": "Literal",
-                        "src": "1096:2:27",
+                        "src": "1096:2:230",
                         "subdenomination": null,
                         "typeDescriptions": {
                           "typeIdentifier": "t_rational_24_by_1",
@@ -489,7 +489,7 @@
                         },
                         "value": "24"
                       },
-                      "src": "1077:21:27",
+                      "src": "1077:21:230",
                       "typeDescriptions": {
                         "typeIdentifier": "t_bool",
                         "typeString": "bool"
@@ -503,7 +503,7 @@
                         "typeIdentifier": "t_address",
                         "typeString": "address"
                       },
-                      "id": 7727,
+                      "id": 62102,
                       "isConstant": false,
                       "isLValue": false,
                       "isPure": false,
@@ -512,18 +512,18 @@
                         "argumentTypes": null,
                         "expression": {
                           "argumentTypes": null,
-                          "id": 7723,
+                          "id": 62098,
                           "name": "msg",
                           "nodeType": "Identifier",
                           "overloadedDeclarations": [],
                           "referencedDeclaration": -15,
-                          "src": "1102:3:27",
+                          "src": "1102:3:230",
                           "typeDescriptions": {
                             "typeIdentifier": "t_magic_message",
                             "typeString": "msg"
                           }
                         },
-                        "id": 7724,
+                        "id": 62099,
                         "isConstant": false,
                         "isLValue": false,
                         "isPure": false,
@@ -531,7 +531,7 @@
                         "memberName": "sender",
                         "nodeType": "MemberAccess",
                         "referencedDeclaration": null,
-                        "src": "1102:10:27",
+                        "src": "1102:10:230",
                         "typeDescriptions": {
                           "typeIdentifier": "t_address_payable",
                           "typeString": "address payable"
@@ -544,18 +544,18 @@
                         "arguments": [],
                         "expression": {
                           "argumentTypes": [],
-                          "id": 7725,
+                          "id": 62100,
                           "name": "getGasRelayTrustedForwarder",
                           "nodeType": "Identifier",
                           "overloadedDeclarations": [],
-                          "referencedDeclaration": 7765,
-                          "src": "1116:27:27",
+                          "referencedDeclaration": 62140,
+                          "src": "1116:27:230",
                           "typeDescriptions": {
                             "typeIdentifier": "t_function_internal_view$__$returns$_t_address_$",
                             "typeString": "function () view returns (address)"
                           }
                         },
-                        "id": 7726,
+                        "id": 62101,
                         "isConstant": false,
                         "isLValue": false,
                         "isPure": false,
@@ -563,48 +563,48 @@
                         "lValueRequested": false,
                         "names": [],
                         "nodeType": "FunctionCall",
-                        "src": "1116:29:27",
+                        "src": "1116:29:230",
                         "tryCall": false,
                         "typeDescriptions": {
                           "typeIdentifier": "t_address",
                           "typeString": "address"
                         }
                       },
-                      "src": "1102:43:27",
+                      "src": "1102:43:230",
                       "typeDescriptions": {
                         "typeIdentifier": "t_bool",
                         "typeString": "bool"
                       }
                     },
-                    "src": "1077:68:27",
+                    "src": "1077:68:230",
                     "typeDescriptions": {
                       "typeIdentifier": "t_bool",
                       "typeString": "bool"
                     }
                   },
                   "falseBody": null,
-                  "id": 7733,
+                  "id": 62108,
                   "nodeType": "IfStatement",
-                  "src": "1073:243:27",
+                  "src": "1073:243:230",
                   "trueBody": {
-                    "id": 7732,
+                    "id": 62107,
                     "nodeType": "Block",
-                    "src": "1147:169:27",
+                    "src": "1147:169:230",
                     "statements": [
                       {
                         "AST": {
                           "nodeType": "YulBlock",
-                          "src": "1170:98:27",
+                          "src": "1170:98:230",
                           "statements": [
                             {
                               "nodeType": "YulAssignment",
-                              "src": "1188:66:27",
+                              "src": "1188:66:230",
                               "value": {
                                 "arguments": [
                                   {
                                     "kind": "number",
                                     "nodeType": "YulLiteral",
-                                    "src": "1212:2:27",
+                                    "src": "1212:2:230",
                                     "type": "",
                                     "value": "96"
                                   },
@@ -617,15 +617,15 @@
                                             "functionName": {
                                               "name": "calldatasize",
                                               "nodeType": "YulIdentifier",
-                                              "src": "1233:12:27"
+                                              "src": "1233:12:230"
                                             },
                                             "nodeType": "YulFunctionCall",
-                                            "src": "1233:14:27"
+                                            "src": "1233:14:230"
                                           },
                                           {
                                             "kind": "number",
                                             "nodeType": "YulLiteral",
-                                            "src": "1249:2:27",
+                                            "src": "1249:2:230",
                                             "type": "",
                                             "value": "20"
                                           }
@@ -633,34 +633,34 @@
                                         "functionName": {
                                           "name": "sub",
                                           "nodeType": "YulIdentifier",
-                                          "src": "1229:3:27"
+                                          "src": "1229:3:230"
                                         },
                                         "nodeType": "YulFunctionCall",
-                                        "src": "1229:23:27"
+                                        "src": "1229:23:230"
                                       }
                                     ],
                                     "functionName": {
                                       "name": "calldataload",
                                       "nodeType": "YulIdentifier",
-                                      "src": "1216:12:27"
+                                      "src": "1216:12:230"
                                     },
                                     "nodeType": "YulFunctionCall",
-                                    "src": "1216:37:27"
+                                    "src": "1216:37:230"
                                   }
                                 ],
                                 "functionName": {
                                   "name": "shr",
                                   "nodeType": "YulIdentifier",
-                                  "src": "1208:3:27"
+                                  "src": "1208:3:230"
                                 },
                                 "nodeType": "YulFunctionCall",
-                                "src": "1208:46:27"
+                                "src": "1208:46:230"
                               },
                               "variableNames": [
                                 {
                                   "name": "canonicalSender_",
                                   "nodeType": "YulIdentifier",
-                                  "src": "1188:16:27"
+                                  "src": "1188:16:230"
                                 }
                               ]
                             }
@@ -669,35 +669,35 @@
                         "evmVersion": "istanbul",
                         "externalReferences": [
                           {
-                            "declaration": 7716,
+                            "declaration": 62091,
                             "isOffset": false,
                             "isSlot": false,
-                            "src": "1188:16:27",
+                            "src": "1188:16:230",
                             "valueSize": 1
                           }
                         ],
-                        "id": 7729,
+                        "id": 62104,
                         "nodeType": "InlineAssembly",
-                        "src": "1161:107:27"
+                        "src": "1161:107:230"
                       },
                       {
                         "expression": {
                           "argumentTypes": null,
-                          "id": 7730,
+                          "id": 62105,
                           "name": "canonicalSender_",
                           "nodeType": "Identifier",
                           "overloadedDeclarations": [],
-                          "referencedDeclaration": 7716,
-                          "src": "1289:16:27",
+                          "referencedDeclaration": 62091,
+                          "src": "1289:16:230",
                           "typeDescriptions": {
                             "typeIdentifier": "t_address_payable",
                             "typeString": "address payable"
                           }
                         },
-                        "functionReturnParameters": 7717,
-                        "id": 7731,
+                        "functionReturnParameters": 62092,
+                        "id": 62106,
                         "nodeType": "Return",
-                        "src": "1282:23:27"
+                        "src": "1282:23:230"
                       }
                     ]
                   }
@@ -707,18 +707,18 @@
                     "argumentTypes": null,
                     "expression": {
                       "argumentTypes": null,
-                      "id": 7734,
+                      "id": 62109,
                       "name": "msg",
                       "nodeType": "Identifier",
                       "overloadedDeclarations": [],
                       "referencedDeclaration": -15,
-                      "src": "1333:3:27",
+                      "src": "1333:3:230",
                       "typeDescriptions": {
                         "typeIdentifier": "t_magic_message",
                         "typeString": "msg"
                       }
                     },
-                    "id": 7735,
+                    "id": 62110,
                     "isConstant": false,
                     "isLValue": false,
                     "isPure": false,
@@ -726,23 +726,23 @@
                     "memberName": "sender",
                     "nodeType": "MemberAccess",
                     "referencedDeclaration": null,
-                    "src": "1333:10:27",
+                    "src": "1333:10:230",
                     "typeDescriptions": {
                       "typeIdentifier": "t_address_payable",
                       "typeString": "address payable"
                     }
                   },
-                  "functionReturnParameters": 7717,
-                  "id": 7736,
+                  "functionReturnParameters": 62092,
+                  "id": 62111,
                   "nodeType": "Return",
-                  "src": "1326:17:27"
+                  "src": "1326:17:230"
                 }
               ]
             },
             "documentation": {
-              "id": 7713,
+              "id": 62088,
               "nodeType": "StructuredDocumentation",
-              "src": "888:90:27",
+              "src": "888:90:230",
               "text": "@dev Helper to parse the canonical sender of a tx based on whether it has been relayed"
             },
             "implemented": true,
@@ -751,24 +751,24 @@
             "name": "__msgSender",
             "overrides": null,
             "parameters": {
-              "id": 7714,
+              "id": 62089,
               "nodeType": "ParameterList",
               "parameters": [],
-              "src": "1003:2:27"
+              "src": "1003:2:230"
             },
             "returnParameters": {
-              "id": 7717,
+              "id": 62092,
               "nodeType": "ParameterList",
               "parameters": [
                 {
                   "constant": false,
-                  "id": 7716,
+                  "id": 62091,
                   "mutability": "mutable",
                   "name": "canonicalSender_",
                   "nodeType": "VariableDeclaration",
                   "overrides": null,
-                  "scope": 7738,
-                  "src": "1029:32:27",
+                  "scope": 62113,
+                  "src": "1029:32:230",
                   "stateVariable": false,
                   "storageLocation": "default",
                   "typeDescriptions": {
@@ -776,10 +776,10 @@
                     "typeString": "address payable"
                   },
                   "typeName": {
-                    "id": 7715,
+                    "id": 62090,
                     "name": "address",
                     "nodeType": "ElementaryTypeName",
-                    "src": "1029:15:27",
+                    "src": "1029:15:230",
                     "stateMutability": "payable",
                     "typeDescriptions": {
                       "typeIdentifier": "t_address_payable",
@@ -790,49 +790,49 @@
                   "visibility": "internal"
                 }
               ],
-              "src": "1028:34:27"
+              "src": "1028:34:230"
             },
-            "scope": 7766,
+            "scope": 62141,
             "stateMutability": "view",
             "virtual": false,
             "visibility": "internal"
           },
           {
-            "id": 7747,
+            "id": 62122,
             "nodeType": "FunctionDefinition",
-            "src": "1584:174:27",
+            "src": "1584:174:230",
             "nodes": [],
             "body": {
-              "id": 7746,
+              "id": 62121,
               "nodeType": "Block",
-              "src": "1707:51:27",
+              "src": "1707:51:230",
               "nodes": [],
               "statements": [
                 {
                   "expression": {
                     "argumentTypes": null,
-                    "id": 7744,
+                    "id": 62119,
                     "name": "GAS_RELAY_PAYMASTER_FACTORY",
                     "nodeType": "Identifier",
                     "overloadedDeclarations": [],
-                    "referencedDeclaration": 7702,
-                    "src": "1724:27:27",
+                    "referencedDeclaration": 62077,
+                    "src": "1724:27:230",
                     "typeDescriptions": {
                       "typeIdentifier": "t_address",
                       "typeString": "address"
                     }
                   },
-                  "functionReturnParameters": 7743,
-                  "id": 7745,
+                  "functionReturnParameters": 62118,
+                  "id": 62120,
                   "nodeType": "Return",
-                  "src": "1717:34:27"
+                  "src": "1717:34:230"
                 }
               ]
             },
             "documentation": {
-              "id": 7739,
+              "id": 62114,
               "nodeType": "StructuredDocumentation",
-              "src": "1429:150:27",
+              "src": "1429:150:230",
               "text": "@notice Gets the `GAS_RELAY_PAYMASTER_FACTORY` variable\n @return gasRelayPaymasterFactory_ The `GAS_RELAY_PAYMASTER_FACTORY` variable value"
             },
             "functionSelector": "ac259456",
@@ -842,24 +842,24 @@
             "name": "getGasRelayPaymasterFactory",
             "overrides": null,
             "parameters": {
-              "id": 7740,
+              "id": 62115,
               "nodeType": "ParameterList",
               "parameters": [],
-              "src": "1620:2:27"
+              "src": "1620:2:230"
             },
             "returnParameters": {
-              "id": 7743,
+              "id": 62118,
               "nodeType": "ParameterList",
               "parameters": [
                 {
                   "constant": false,
-                  "id": 7742,
+                  "id": 62117,
                   "mutability": "mutable",
                   "name": "gasRelayPaymasterFactory_",
                   "nodeType": "VariableDeclaration",
                   "overrides": null,
-                  "scope": 7747,
-                  "src": "1668:33:27",
+                  "scope": 62122,
+                  "src": "1668:33:230",
                   "stateVariable": false,
                   "storageLocation": "default",
                   "typeDescriptions": {
@@ -867,10 +867,10 @@
                     "typeString": "address"
                   },
                   "typeName": {
-                    "id": 7741,
+                    "id": 62116,
                     "name": "address",
                     "nodeType": "ElementaryTypeName",
-                    "src": "1668:7:27",
+                    "src": "1668:7:230",
                     "stateMutability": "nonpayable",
                     "typeDescriptions": {
                       "typeIdentifier": "t_address",
@@ -881,22 +881,22 @@
                   "visibility": "internal"
                 }
               ],
-              "src": "1667:35:27"
+              "src": "1667:35:230"
             },
-            "scope": 7766,
+            "scope": 62141,
             "stateMutability": "view",
             "virtual": false,
             "visibility": "public"
           },
           {
-            "id": 7765,
+            "id": 62140,
             "nodeType": "FunctionDefinition",
-            "src": "1880:260:27",
+            "src": "1880:260:230",
             "nodes": [],
             "body": {
-              "id": 7764,
+              "id": 62139,
               "nodeType": "Block",
-              "src": "1967:173:27",
+              "src": "1967:173:230",
               "nodes": [],
               "statements": [
                 {
@@ -921,18 +921,18 @@
                                     "arguments": [],
                                     "expression": {
                                       "argumentTypes": [],
-                                      "id": 7755,
+                                      "id": 62130,
                                       "name": "getGasRelayPaymasterFactory",
                                       "nodeType": "Identifier",
                                       "overloadedDeclarations": [],
-                                      "referencedDeclaration": 7747,
-                                      "src": "2052:27:27",
+                                      "referencedDeclaration": 62122,
+                                      "src": "2052:27:230",
                                       "typeDescriptions": {
                                         "typeIdentifier": "t_function_internal_view$__$returns$_t_address_$",
                                         "typeString": "function () view returns (address)"
                                       }
                                     },
-                                    "id": 7756,
+                                    "id": 62131,
                                     "isConstant": false,
                                     "isLValue": false,
                                     "isPure": false,
@@ -940,7 +940,7 @@
                                     "lValueRequested": false,
                                     "names": [],
                                     "nodeType": "FunctionCall",
-                                    "src": "2052:29:27",
+                                    "src": "2052:29:230",
                                     "tryCall": false,
                                     "typeDescriptions": {
                                       "typeIdentifier": "t_address",
@@ -955,18 +955,18 @@
                                       "typeString": "address"
                                     }
                                   ],
-                                  "id": 7754,
+                                  "id": 62129,
                                   "name": "IBeaconProxyFactory",
                                   "nodeType": "Identifier",
                                   "overloadedDeclarations": [],
-                                  "referencedDeclaration": 11182,
-                                  "src": "2032:19:27",
+                                  "referencedDeclaration": 79711,
+                                  "src": "2032:19:230",
                                   "typeDescriptions": {
-                                    "typeIdentifier": "t_type$_t_contract$_IBeaconProxyFactory_$11182_$",
+                                    "typeIdentifier": "t_type$_t_contract$_IBeaconProxyFactory_$79711_$",
                                     "typeString": "type(contract IBeaconProxyFactory)"
                                   }
                                 },
-                                "id": 7757,
+                                "id": 62132,
                                 "isConstant": false,
                                 "isLValue": false,
                                 "isPure": false,
@@ -974,28 +974,28 @@
                                 "lValueRequested": false,
                                 "names": [],
                                 "nodeType": "FunctionCall",
-                                "src": "2032:50:27",
+                                "src": "2032:50:230",
                                 "tryCall": false,
                                 "typeDescriptions": {
-                                  "typeIdentifier": "t_contract$_IBeaconProxyFactory_$11182",
+                                  "typeIdentifier": "t_contract$_IBeaconProxyFactory_$79711",
                                   "typeString": "contract IBeaconProxyFactory"
                                 }
                               },
-                              "id": 7758,
+                              "id": 62133,
                               "isConstant": false,
                               "isLValue": false,
                               "isPure": false,
                               "lValueRequested": false,
                               "memberName": "getCanonicalLib",
                               "nodeType": "MemberAccess",
-                              "referencedDeclaration": 11162,
-                              "src": "2032:66:27",
+                              "referencedDeclaration": 79691,
+                              "src": "2032:66:230",
                               "typeDescriptions": {
                                 "typeIdentifier": "t_function_external_view$__$returns$_t_address_$",
                                 "typeString": "function () view external returns (address)"
                               }
                             },
-                            "id": 7759,
+                            "id": 62134,
                             "isConstant": false,
                             "isLValue": false,
                             "isPure": false,
@@ -1003,7 +1003,7 @@
                             "lValueRequested": false,
                             "names": [],
                             "nodeType": "FunctionCall",
-                            "src": "2032:68:27",
+                            "src": "2032:68:230",
                             "tryCall": false,
                             "typeDescriptions": {
                               "typeIdentifier": "t_address",
@@ -1018,18 +1018,18 @@
                               "typeString": "address"
                             }
                           ],
-                          "id": 7753,
+                          "id": 62128,
                           "name": "IGasRelayPaymaster",
                           "nodeType": "Identifier",
                           "overloadedDeclarations": [],
-                          "referencedDeclaration": 7780,
-                          "src": "1996:18:27",
+                          "referencedDeclaration": 62155,
+                          "src": "1996:18:230",
                           "typeDescriptions": {
-                            "typeIdentifier": "t_type$_t_contract$_IGasRelayPaymaster_$7780_$",
+                            "typeIdentifier": "t_type$_t_contract$_IGasRelayPaymaster_$62155_$",
                             "typeString": "type(contract IGasRelayPaymaster)"
                           }
                         },
-                        "id": 7760,
+                        "id": 62135,
                         "isConstant": false,
                         "isLValue": false,
                         "isPure": false,
@@ -1037,28 +1037,28 @@
                         "lValueRequested": false,
                         "names": [],
                         "nodeType": "FunctionCall",
-                        "src": "1996:118:27",
+                        "src": "1996:118:230",
                         "tryCall": false,
                         "typeDescriptions": {
-                          "typeIdentifier": "t_contract$_IGasRelayPaymaster_$7780",
+                          "typeIdentifier": "t_contract$_IGasRelayPaymaster_$62155",
                           "typeString": "contract IGasRelayPaymaster"
                         }
                       },
-                      "id": 7761,
+                      "id": 62136,
                       "isConstant": false,
                       "isLValue": false,
                       "isPure": false,
                       "lValueRequested": false,
                       "memberName": "trustedForwarder",
                       "nodeType": "MemberAccess",
-                      "referencedDeclaration": 9886,
-                      "src": "1996:135:27",
+                      "referencedDeclaration": 71944,
+                      "src": "1996:135:230",
                       "typeDescriptions": {
                         "typeIdentifier": "t_function_external_view$__$returns$_t_address_$",
                         "typeString": "function () view external returns (address)"
                       }
                     },
-                    "id": 7762,
+                    "id": 62137,
                     "isConstant": false,
                     "isLValue": false,
                     "isPure": false,
@@ -1066,24 +1066,24 @@
                     "lValueRequested": false,
                     "names": [],
                     "nodeType": "FunctionCall",
-                    "src": "1996:137:27",
+                    "src": "1996:137:230",
                     "tryCall": false,
                     "typeDescriptions": {
                       "typeIdentifier": "t_address",
                       "typeString": "address"
                     }
                   },
-                  "functionReturnParameters": 7752,
-                  "id": 7763,
+                  "functionReturnParameters": 62127,
+                  "id": 62138,
                   "nodeType": "Return",
-                  "src": "1977:156:27"
+                  "src": "1977:156:230"
                 }
               ]
             },
             "documentation": {
-              "id": 7748,
+              "id": 62123,
               "nodeType": "StructuredDocumentation",
-              "src": "1764:111:27",
+              "src": "1764:111:230",
               "text": "@notice Gets the trusted forwarder for GSN relaying\n @return trustedForwarder_ The trusted forwarder"
             },
             "functionSelector": "6ea21143",
@@ -1093,24 +1093,24 @@
             "name": "getGasRelayTrustedForwarder",
             "overrides": null,
             "parameters": {
-              "id": 7749,
+              "id": 62124,
               "nodeType": "ParameterList",
               "parameters": [],
-              "src": "1916:2:27"
+              "src": "1916:2:230"
             },
             "returnParameters": {
-              "id": 7752,
+              "id": 62127,
               "nodeType": "ParameterList",
               "parameters": [
                 {
                   "constant": false,
-                  "id": 7751,
+                  "id": 62126,
                   "mutability": "mutable",
                   "name": "trustedForwarder_",
                   "nodeType": "VariableDeclaration",
                   "overrides": null,
-                  "scope": 7765,
-                  "src": "1940:25:27",
+                  "scope": 62140,
+                  "src": "1940:25:230",
                   "stateVariable": false,
                   "storageLocation": "default",
                   "typeDescriptions": {
@@ -1118,10 +1118,10 @@
                     "typeString": "address"
                   },
                   "typeName": {
-                    "id": 7750,
+                    "id": 62125,
                     "name": "address",
                     "nodeType": "ElementaryTypeName",
-                    "src": "1940:7:27",
+                    "src": "1940:7:230",
                     "stateMutability": "nonpayable",
                     "typeDescriptions": {
                       "typeIdentifier": "t_address",
@@ -1132,9 +1132,9 @@
                   "visibility": "internal"
                 }
               ],
-              "src": "1939:27:27"
+              "src": "1939:27:230"
             },
-            "scope": 7766,
+            "scope": 62141,
             "stateMutability": "view",
             "virtual": false,
             "visibility": "public"
@@ -1145,20 +1145,20 @@
         "contractDependencies": [],
         "contractKind": "contract",
         "documentation": {
-          "id": 7700,
+          "id": 62075,
           "nodeType": "StructuredDocumentation",
-          "src": "375:271:27",
+          "src": "375:271:230",
           "text": "@title GasRelayRecipientMixin Contract\n @author Enzyme Council <security@enzyme.finance>\n @notice A mixin that enables receiving GSN-relayed calls\n @dev IMPORTANT: Do not use storage var in this contract,\n unless it is no longer inherited by the VaultLib"
         },
         "fullyImplemented": true,
         "linearizedBaseContracts": [
-          7766
+          62141
         ],
         "name": "GasRelayRecipientMixin",
-        "scope": 7767
+        "scope": 62142
       }
     ],
     "license": "GPL-3.0"
   },
-  "id": 27
+  "id": 230
 }
