@@ -1,5 +1,5 @@
-USDC
-----
+USDC API
+--------
 
 USDC is one of the most popular stablecoins in DeFi.
 This Python module offers helpers to deal with USDC and
