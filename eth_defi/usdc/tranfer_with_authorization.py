@@ -1,16 +1,24 @@
 """EIP-3009 transferWithAuthorization() support for Python.
 
-`See example in the spec <https://github.com/ethereum/EIPs/issues/3010>`__.
+- `The spec <https://github.com/ethereum/EIPs/issues/3010>`__.
+
+- `JavaScript example <https://github.com/ZooWallet/safe-contracts/blob/b2abebd0fdd7f8a846dfc2d59233e41487b659cf/scripts/usdc-biconomy-transferWithAuthorization.js#L87>`__.
+
 """
 import datetime
 import secrets
 
 from eth_account import Account
+from eth_account.messages import encode_structured_data
+from eth_account.signers.local import LocalAccount
+from web3.contract.contract import ContractFunction
+
 from eth_defi.token import TokenDetails
-from eth_typing import HexAddress
+from eth_typing import HexAddress, ChecksumAddress
 
 
 def construct_transfer_with_authorization_message(
+        verifying_contract_address: HexAddress,
         token_name: str,
         token_version: str,
         token_address: HexAddress,
@@ -56,7 +64,7 @@ def construct_transfer_with_authorization_message(
             "name": token_name,
             "version": token_version,
             "chainId": chain_id,
-            "verifyingContract": token_address,
+            "verifyingContract": verifying_contract_address,
         },
         "primaryType": "TransferWithAuthorization",
         "message": {
@@ -72,18 +80,65 @@ def construct_transfer_with_authorization_message(
 
 
 def transfer_with_authorization(
-    account: Account,
     token: TokenDetails,
+    from_: HexAddress,
     to: HexAddress,
+    func: ContractFunction,
     amount: int,
-):
-    """Build an EIP-3009 transaction."""
+    token_version="2",  # TODO: Not sure if used
+    duration_seconds=3600,
+) -> ContractFunction:
+    """Perform an EIP-3009 transaction.
+
+    - Constructs the EIP-3009 payload
+
+    - Signs the message
+
+    - Builds a transaction against `transferWithAuthorization`
+
+    :return:
+        Bound contract function for transferWithAuthorization
+
+    """
+
+    assert isinstance(token, TokenDetails)
+    assert isinstance(func, ContractFunction)
+    assert from_.startswith("0x")
+    assert to.startswith("0x")
+    assert duration_seconds > 0
+    assert amount > 0
+
     web3 = token.contract.w3
     chain_id = web3.eth.chain_id
+    verifying_contract_address = func.address
 
     data = construct_transfer_with_authorization_message(
-
+        verifying_contract_address=verifying_contract_address,
+        token_name=token.name,
+        token_version=token_version,
+        token_address=token.address,
+        chain_id=chain_id,
+        recipient_address=to,
+        amount=amount,
+        user_address=from_,
+        valid_before=0,
+        duration_seconds=duration_seconds,
     )
 
     # https://ethereum.stackexchange.com/a/114217/620
-    account.sign_message()
+    encoded_data = encode_structured_data(data)
+
+    # https://web3py.readthedocs.io/en/stable/web3.eth.html#web3.eth.Eth.sign
+    signed_message = web3.eth.sign(from_, encoded_data)
+
+    return func(
+        data["from"],
+        data["to"],
+        data["value"],
+        data["validAfter"],
+        data["validBefore"],
+        data["nonce"],
+        v=signed_message.v,
+        r=signed_message.r,
+        s=signed_message.s,
+    )

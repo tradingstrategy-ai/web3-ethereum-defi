@@ -9,10 +9,14 @@ sushi:
 #
 # forge pollutes the tree with dependencies from Enzyme,
 # so need to pick contracts one by one
-in-house:
+#
+# TODO: Currently depends on Enzyme, because OpenZeppelin went and changed
+# their path structure and we need to be compatible with import paths in Enzyme source tree
+#
+in-house: enzyme
 	# Get our mock up contracts to the compiler bundle
-	(cd contracts/in-house && forge build)
-	find contracts/in-house/out \(  \
+	@(cd contracts/in-house && forge build)
+	@find contracts/in-house/out \(  \
 	    -name "ChainlinkAggregatorV2V3Interface.json" \
 	    -o -name "ERC20MockDecimals.json" \
 	    -o -name "MalformedERC20.json" \
