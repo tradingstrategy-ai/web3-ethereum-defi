@@ -206,12 +206,13 @@ def test_aave_v3_reserve_configuration(
     usdc,
     weth,
 ):
-    usdc_reserve_conf = aave_v3_deployment.get_configuration_data(usdc.address)
+    """Test getting correct reserve configuration in Aave v3."""
+    usdc_reserve_conf = aave_v3_deployment.get_reserve_configuration_data(usdc.address)
     assert usdc_reserve_conf.decimals == 6
     assert usdc_reserve_conf.ltv == 8000  # 8000bps = 80%
     assert usdc_reserve_conf.stable_borrow_rate_enabled is True
 
-    weth_reserve_conf = aave_v3_deployment.get_configuration_data(weth.address)
+    weth_reserve_conf = aave_v3_deployment.get_reserve_configuration_data(weth.address)
     assert weth_reserve_conf.decimals == 18
     assert weth_reserve_conf.liquidation_threshold == 8250  # 82.5%
     assert weth_reserve_conf.stable_borrow_rate_enabled is False
@@ -224,7 +225,7 @@ def test_aave_v3_oracle(
     usdc,
     weth,
 ):
-    """Test borrow in Aave v3."""
+    """Test Aave oracle and latest mock price."""
 
     usdc_agg = aave_deployment.get_contract_at_address(web3, "MockAggregator.json", "USDCAgg")
     weth_agg = aave_deployment.get_contract_at_address(web3, "MockAggregator.json", "WETHAgg")
@@ -250,9 +251,9 @@ def test_aave_v3_oracle(
         # https://github.com/aave/aave-v3-core/blob/e0bfed13240adeb7f05cb6cbe5e7ce78657f0621/contracts/protocol/libraries/helpers/Errors.sol#L45
         ("usdc", 8_001 * 10**6, TransactionAssertionError("execution reverted: 36"), None),
         # TODO: more test case for borrowing ETH
-        # 2 WETH = 4000 USDC
+        # 1 WETH = 4000 USDC
         # ("weth", 1 * 10**18, None),
-        # 2.1 WETH should fail
+        # 2.1 WETH (8400 USDC) should fail
         # ("weth", int(2.1 * 10**18), TransactionAssertionError("execution reverted: 36")),
     ],
 )
@@ -269,7 +270,7 @@ def test_aave_v3_borrow(
     expected_exception: Exception | None,
     health_factor: int | None,
 ):
-    """Test borrow in Aave v3."""
+    """Test borrow in Aave v3 with different amount threshold."""
     _test_supply(
         web3,
         aave_v3_deployment,
@@ -325,17 +326,17 @@ def test_aave_v3_borrow(
 
 
 @pytest.mark.parametrize(
-    "borrow_token_symbol,borrow_amount,repay_amount,topup_amount,expected_exception",
+    "borrow_token_symbol,borrow_amount,repay_amount,topup_amount,expected_exception,remaining_debt",
     [
         # borrow 8k USDC then repay same amount
-        ("usdc", 8_000 * 10**6, 8_000 * 10**6, 0, None),
+        ("usdc", 8_000 * 10**6, 8_000 * 10**6, 0, None, 1800),
         # partial repay
-        ("usdc", 8_000 * 10**6, 4_000 * 10**6, 0, None),
+        ("usdc", 8_000 * 10**6, 4_000 * 10**6, 0, None, 400000001800),
         # repay everything: capital + interest
-        ("usdc", 8_000 * 10**6, MAX_AMOUNT, 1_000 * 10**6, None),
+        ("usdc", 8_000 * 10**6, MAX_AMOUNT, 1_000 * 10**6, None, 0),
         # repay everything: capital + interest
         # currently set to fail since hot wallet doesn't have enough to repay interest
-        ("usdc", 8_000 * 10**6, MAX_AMOUNT, 0, TransactionAssertionError("execution reverted: ERC20: transfer amount exceeds balance")),
+        ("usdc", 8_000 * 10**6, MAX_AMOUNT, 0, TransactionAssertionError("execution reverted: ERC20: transfer amount exceeds balance"), None),
     ],
 )
 def test_aave_v3_repay(
@@ -352,6 +353,7 @@ def test_aave_v3_repay(
     repay_amount: int,
     topup_amount: int,
     expected_exception: Exception | None,
+    remaining_debt: int,
 ):
     """Test repay in Aave v3."""
     _test_supply(
@@ -427,5 +429,7 @@ def test_aave_v3_repay(
         # repay successfully
         assert_transaction_success_with_explanation(web3, tx_hash)
 
-        # TODO: check amount of remaining debt
-        # assert borrow_asset.functions.balanceOf(hot_wallet.address).call() == borrow_amount
+        # check amount of remaining debt
+        # total_collateral_base=1000000001600, total_debt_base=1800, available_borrows_base=799999999480, current_liquidation_threshold=8500, ltv=8000, health_factor=472222222977777777777777778
+        user_data = aave_v3_deployment.get_user_data(hot_wallet.address)
+        assert user_data.total_debt_base == remaining_debt
