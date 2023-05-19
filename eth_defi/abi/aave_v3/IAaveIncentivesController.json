@@ -1,7 +1,7 @@
 {
   "_format": "hh-sol-artifact-1",
   "contractName": "IAaveIncentivesController",
-  "sourceName": "contracts/interfaces/IAaveIncentivesController.sol",
+  "sourceName": "@aave/core-v3/contracts/interfaces/IAaveIncentivesController.sol",
   "abi": [
     {
       "inputs": [

@@ -1,7 +1,7 @@
 {
   "_format": "hh-sol-artifact-1",
   "contractName": "EIP712Base",
-  "sourceName": "contracts/protocol/tokenization/base/EIP712Base.sol",
+  "sourceName": "@aave/core-v3/contracts/protocol/tokenization/base/EIP712Base.sol",
   "abi": [
     {
       "inputs": [],

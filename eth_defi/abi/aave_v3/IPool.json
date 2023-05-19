@@ -1,7 +1,7 @@
 {
   "_format": "hh-sol-artifact-1",
   "contractName": "IPool",
-  "sourceName": "contracts/interfaces/IPool.sol",
+  "sourceName": "@aave/core-v3/contracts/interfaces/IPool.sol",
   "abi": [
     {
       "anonymous": false,

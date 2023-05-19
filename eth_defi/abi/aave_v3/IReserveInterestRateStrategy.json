@@ -1,7 +1,7 @@
 {
   "_format": "hh-sol-artifact-1",
   "contractName": "IReserveInterestRateStrategy",
-  "sourceName": "contracts/interfaces/IReserveInterestRateStrategy.sol",
+  "sourceName": "@aave/core-v3/contracts/interfaces/IReserveInterestRateStrategy.sol",
   "abi": [
     {
       "inputs": [

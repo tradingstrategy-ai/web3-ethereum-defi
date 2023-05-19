@@ -45,9 +45,9 @@ copy-uniswapv3-abi: uniswapv3
 	@find contracts/uniswap-v3-periphery/artifacts/contracts -iname "*.json" -not -iname "*.dbg.json" -exec cp {} eth_defi/abi/uniswap_v3 \;
 
 aavev3:
-	@(cd contracts/aave-v3-core && npm install && npm run compile) > /dev/null
+	@(cd contracts/aave-v3-deploy && npm ci && npm run compile) > /dev/null
 	@mkdir -p eth_defi/abi/aave_v3
-	@find contracts/aave-v3-core/artifacts/contracts -iname "*.json" -not -iname "*.dbg.json" -exec cp {} eth_defi/abi/aave_v3 \;
+	@find contracts/aave-v3-deploy/artifacts/@aave -iname "*.json" -not -iname "*.dbg.json" -exec cp {} eth_defi/abi/aave_v3 \;
 
 # Compile and copy Enzyme contract ABIs from their Github repository
 # Needs pnpm: curl -fsSL https://get.pnpm.io/install.sh | sh -

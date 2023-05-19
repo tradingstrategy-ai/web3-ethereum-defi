@@ -1,7 +1,7 @@
 {
   "_format": "hh-sol-artifact-1",
   "contractName": "DebtTokenBase",
-  "sourceName": "contracts/protocol/tokenization/base/DebtTokenBase.sol",
+  "sourceName": "@aave/core-v3/contracts/protocol/tokenization/base/DebtTokenBase.sol",
   "abi": [
     {
       "anonymous": false,

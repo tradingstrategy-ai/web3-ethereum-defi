@@ -1,7 +1,7 @@
 {
   "_format": "hh-sol-artifact-1",
   "contractName": "IPoolDataProvider",
-  "sourceName": "contracts/interfaces/IPoolDataProvider.sol",
+  "sourceName": "@aave/core-v3/contracts/interfaces/IPoolDataProvider.sol",
   "abi": [
     {
       "inputs": [],

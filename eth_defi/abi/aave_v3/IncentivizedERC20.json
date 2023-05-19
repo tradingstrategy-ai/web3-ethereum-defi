@@ -1,7 +1,7 @@
 {
   "_format": "hh-sol-artifact-1",
   "contractName": "IncentivizedERC20",
-  "sourceName": "contracts/protocol/tokenization/base/IncentivizedERC20.sol",
+  "sourceName": "@aave/core-v3/contracts/protocol/tokenization/base/IncentivizedERC20.sol",
   "abi": [
     {
       "anonymous": false,

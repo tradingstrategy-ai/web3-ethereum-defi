@@ -1,7 +1,7 @@
 {
   "_format": "hh-sol-artifact-1",
   "contractName": "ICreditDelegationToken",
-  "sourceName": "contracts/interfaces/ICreditDelegationToken.sol",
+  "sourceName": "@aave/core-v3/contracts/interfaces/ICreditDelegationToken.sol",
   "abi": [
     {
       "anonymous": false,

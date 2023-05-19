@@ -1,7 +1,7 @@
 {
   "_format": "hh-sol-artifact-1",
   "contractName": "IL2Pool",
-  "sourceName": "contracts/interfaces/IL2Pool.sol",
+  "sourceName": "@aave/core-v3/contracts/interfaces/IL2Pool.sol",
   "abi": [
     {
       "inputs": [
