@@ -20,32 +20,16 @@ from eth_defi.trace import (
 @pytest.fixture()
 def ausdc(web3, aave_deployment) -> Contract:
     """aToken for USDC on local testnet."""
-    return aave_deployment.get_contract_at_address(
-        web3,
-        "core-v3/contracts/protocol/tokenization/AToken.sol/AToken.json",
-        "aUSDC",
-    )
+    return aave_deployment.get_contract_at_address(web3, "AToken.json", "aUSDC")
 
 
 @pytest.fixture
 def aave_v3_deployment(web3, aave_deployment):
-    pool = aave_deployment.get_contract_at_address(
-        web3,
-        "core-v3/contracts/protocol/pool/Pool.sol/Pool.json",
-        "PoolProxy",
-    )
+    pool = aave_deployment.get_contract_at_address(web3, "Pool.json", "PoolProxy")
 
-    data_provider = aave_deployment.get_contract_at_address(
-        web3,
-        "core-v3/contracts/misc/AaveProtocolDataProvider.sol/AaveProtocolDataProvider.json",
-        "PoolDataProvider",
-    )
+    data_provider = aave_deployment.get_contract_at_address(web3, "AaveProtocolDataProvider.json", "PoolDataProvider")
 
-    oracle = aave_deployment.get_contract_at_address(
-        web3,
-        "core-v3/contracts/misc/AaveOracle.sol/AaveOracle.json",
-        "AaveOracle",
-    )
+    oracle = aave_deployment.get_contract_at_address(web3, "AaveOracle.json", "AaveOracle")
 
     return AaveV3Deployment(
         web3=web3,
@@ -242,16 +226,8 @@ def test_aave_v3_oracle(
 ):
     """Test borrow in Aave v3."""
 
-    usdc_agg = aave_deployment.get_contract_at_address(
-        web3,
-        "core-v3/contracts/mocks/oracle/CLAggregators/MockAggregator.sol/MockAggregator.json",
-        "USDCAgg",
-    )
-    weth_agg = aave_deployment.get_contract_at_address(
-        web3,
-        "core-v3/contracts/mocks/oracle/CLAggregators/MockAggregator.sol/MockAggregator.json",
-        "WETHAgg",
-    )
+    usdc_agg = aave_deployment.get_contract_at_address(web3, "MockAggregator.json", "USDCAgg")
+    weth_agg = aave_deployment.get_contract_at_address(web3, "MockAggregator.json", "WETHAgg")
 
     usdc_price = aave_v3_deployment.get_price(usdc.address)
     assert usdc_price / 1e8 == 1  # MockAggregator has hardcode decimals = 8

@@ -13,10 +13,10 @@ def user(web3) -> str:
     return web3.eth.accounts[1]
 
 
-def test_aave_v3_deployer_checked_out():
+def test_aave_v3_deployer_installation(aave_deployer):
     """Check Aave deployer git clone and npm install works"""
-    deployer = AaveDeployer()
-    assert deployer.is_checked_out()
+    assert aave_deployer.is_checked_out()
+    assert aave_deployer.is_installed()
 
 
 def test_deploy_aave_v3(
@@ -44,11 +44,7 @@ def test_aave_v3_deployment_smoke_test(
     assert usdc.functions.balanceOf(user).call() == 500 * 10**6
 
     # Get Aave Pool singleton
-    pool = aave_deployment.get_contract_at_address(
-        web3,
-        "core-v3/contracts/protocol/pool/Pool.sol/Pool.json",
-        "PoolProxy",
-    )
+    pool = aave_deployment.get_contract_at_address(web3, "Pool.json", "PoolProxy")
     assert pool.functions.POOL_REVISION().call() == 1
 
 

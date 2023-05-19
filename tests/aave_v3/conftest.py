@@ -26,7 +26,8 @@ def aave_deployer() -> AaveDeployer:
     We use session scope, because this fixture is damn slow.
     """
     deployer = AaveDeployer()
-    deployer.install(echo=True)
+    if not deployer.is_installed():
+        deployer.install(echo=True)
     return deployer
 
 
@@ -113,28 +114,16 @@ def deployer(web3) -> str:
 @pytest.fixture()
 def faucet(web3, aave_deployment) -> Contract:
     """Faucet on local testnet."""
-    return aave_deployment.get_contract_at_address(
-        web3,
-        "periphery-v3/contracts/mocks/testnet-helpers/Faucet.sol/Faucet.json",
-        "Faucet",
-    )
+    return aave_deployment.get_contract_at_address(web3, "Faucet.json", "Faucet")
 
 
 @pytest.fixture()
 def usdc(web3, aave_deployment) -> Contract:
     """USDC on local testnet."""
-    return aave_deployment.get_contract_at_address(
-        web3,
-        "core-v3/contracts/mocks/tokens/MintableERC20.sol/MintableERC20.json",
-        "USDC",
-    )
+    return aave_deployment.get_contract_at_address(web3, "MintableERC20.json", "USDC")
 
 
 @pytest.fixture()
 def weth(web3, aave_deployment) -> Contract:
     """WETH on local testnet."""
-    return aave_deployment.get_contract_at_address(
-        web3,
-        "core-v3/contracts/mocks/tokens/WETH9Mocked.sol/WETH9Mocked.json",
-        "WETH",
-    )
+    return aave_deployment.get_contract_at_address(web3, "WETH9Mocked.json", "WETH")
