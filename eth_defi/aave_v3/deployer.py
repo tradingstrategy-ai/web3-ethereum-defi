@@ -317,7 +317,6 @@ import subprocess
 from functools import lru_cache
 from pathlib import Path
 from shutil import which
-from tempfile import gettempdir
 from typing import Type
 
 from eth_typing import ChecksumAddress
@@ -326,7 +325,6 @@ from web3.contract import Contract
 
 from eth_defi.abi import get_linked_contract
 
-
 logger = logging.getLogger(__name__)
 
 
@@ -334,7 +332,11 @@ logger = logging.getLogger(__name__)
 #:
 #: aave-v3-deploy is not packaged with eth_defi as they exist outside the Python package,
 #: in git repository. However, it is only needed for tests and normal users should not need these files.
-DEFAULT_PATH = Path(os.path.join(os.path.dirname(__file__), "..", "..", "contracts", "aave-v3-deploy"))
+DEFAULT_REPO_PATH = Path(__file__).resolve().parents[2] / "contracts/aave-v3-deploy"
+
+
+#: Default location of Aave v3 compiled ABI
+DEFAULT_ABI_PATH = Path(__file__).resolve().parents[1] / "abi/aave_v3"
 
 
 #: We maintain our forked and patched deployer
@@ -347,11 +349,22 @@ AAVE_DEPLOYER_REPO = "https://github.com/tradingstrategy-ai/aave-v3-deploy.git"
 #:
 #:
 HARDHAT_CONTRACTS = {
-    "PoolAdderssProvider": "0xa85233C63b9Ee964Add6F2cffe00Fd84eb32338f",
-    "Pool": "0xf5059a5D33d5853360D16C683c16e67980206f36",
-    "Faucet": "0x0B306BF915C4d645ff596e518fAf3F9669b97016",  # https://github.com/aave/aave-v3-periphery/blob/1fdd23b38cc5b6c095687b3c635c4d761ff75c4c/contracts/mocks/testnet-helpers/Faucet.sol
-    "USDC": "0x68B1D87F95878fE05B998F19b66F4baba5De1aed",  # TestnetERC20 https://github.com/aave/aave-v3-periphery/blob/1fdd23b38cc5b6c095687b3c635c4d761ff75c4c/contracts/mocks/testnet-helpers/TestnetERC20.sol#L12
-    "WBTC": "0x3Aa5ebB10DC797CAC828524e59A333d0A371443c",  # TestnetERC20 https://github.com/aave/aave-v3-periphery/blob/1fdd23b38cc5b6c095687b3c635c4d761ff75c4c/contracts/mocks/testnet-helpers/TestnetERC20.sol#L12
+    # "PoolAdderssProvider": "0xa85233C63b9Ee964Add6F2cffe00Fd84eb32338f",
+    # "PoolImplementation": "0xf5059a5D33d5853360D16C683c16e67980206f36",
+    # PoolImplementation can't be used directly, we should interact with PoolProxy
+    # this is the same as mainnet deployment
+    "PoolProxy": "0x763e69d24a03c0c8B256e470D9fE9e0753504D07",
+    "PoolDataProvider": "0x09635F643e140090A9A8Dcd712eD6285858ceBef",
+    # https://github.com/aave/aave-v3-periphery/blob/1fdd23b38cc5b6c095687b3c635c4d761ff75c4c/contracts/mocks/testnet-helpers/Faucet.sol
+    "Faucet": "0x0B306BF915C4d645ff596e518fAf3F9669b97016",
+    # TestnetERC20 https://github.com/aave/aave-v3-periphery/blob/1fdd23b38cc5b6c095687b3c635c4d761ff75c4c/contracts/mocks/testnet-helpers/TestnetERC20.sol#L12
+    "USDC": "0x68B1D87F95878fE05B998F19b66F4baba5De1aed",
+    "WBTC": "0x3Aa5ebB10DC797CAC828524e59A333d0A371443c",
+    "WETH": "0xc6e7DF5E7b4f2A278906862b61205850344D4e7d",
+    "aUSDC": "0x07AA7A1a1eAE23162130ac661Ef9D37868A6D91C",
+    "AaveOracle": "0x36C02dA8a0983159322a80FFE9F24b1acfF8B570",
+    "WETHAgg": "0x9E545E3C0baAB3E08CdfD552C960A1050f373042",
+    "USDCAgg": "0xc3e53F4d16Ae77Db1c982e75a937B9f60FE63690",
 }
 
 
@@ -364,23 +377,31 @@ class AaveDeployer:
 
     """
 
-    def __init__(self, path: Path = DEFAULT_PATH):
+    def __init__(
+        self,
+        repo_path: Path = DEFAULT_REPO_PATH,
+        abi_path: Path = DEFAULT_ABI_PATH,
+    ):
         """Create Aave deployer.
 
-        :param path:
+        :param repo_path:
             Path to aave-v3-deploy git checkout.
 
+        :param abi_path:
+            Path to Aave v3 compiled ABI.
         """
-        assert isinstance(path, Path)
-        self.path = path
+        assert isinstance(repo_path, Path)
+        assert isinstance(abi_path, Path)
+        self.repo_path = repo_path
+        self.abi_path = abi_path
 
     def is_checked_out(self) -> bool:
         """Check if we have a Github repo of the deployer."""
-        return self.path.joinpath("package.json").exists()
+        return (self.repo_path / "package.json").exists()
 
     def is_installed(self) -> bool:
         """Check if we have a complete Aave deployer installation."""
-        return self.path.joinpath("node_modules").joinpath(".bin").joinpath("hardhat").exists()
+        return (self.repo_path / "node_modules/.bin/hardhat").exists()
 
     def checkout(self, echo=False):
         """Clone aave-v3-deploy repo."""
@@ -390,19 +411,19 @@ class AaveDeployer:
         else:
             out = subprocess.DEVNULL
 
-        logger.info("Checking out Aave deployer installation at %s", self.path)
+        logger.info("Checking out Aave deployer installation at %s", self.repo_path)
         git = which("git")
         assert git is not None, "No git command in path, needed for Aave v3 deployer installation"
 
         logger.info("Cloning %s", AAVE_DEPLOYER_REPO)
         result = subprocess.run(
-            [git, "clone", AAVE_DEPLOYER_REPO, self.path],
+            [git, "clone", AAVE_DEPLOYER_REPO, self.repo_path],
             stdout=out,
             stderr=out,
         )
         assert result.returncode == 0
 
-        assert self.path.exists()
+        assert self.repo_path.exists()
 
     def install(self, echo=False) -> bool:
         """Make sure we have Aave deployer installed.
@@ -425,7 +446,7 @@ class AaveDeployer:
             False is already installed, True if we did perform the installation.
         """
 
-        logger.info("Installing Aave deployer installation at %s", self.path)
+        logger.info("Installing Aave deployer installation at %s", self.repo_path)
 
         npm = which("npm")
         assert npm is not None, "No npm command in path, needed for Aave v3 deployer installation"
@@ -434,18 +455,18 @@ class AaveDeployer:
             logger.info("aave-v3-deploy NPM installation already complete")
             return False
 
-        assert self.is_checked_out(), f"{os.path.realpath(self.path)} does not contain aave-v3-deploy checkout"
+        assert self.is_checked_out(), f"{self.repo_path.absolute()} does not contain aave-v3-deploy checkout"
 
         if echo:
             out = None
         else:
             out = subprocess.DEVNULL
 
-        logger.info("NPM install on %s - may take long time", self.path)
+        logger.info("NPM install on %s - may take long time", self.repo_path)
 
         result = subprocess.run(
             [npm, "ci"],
-            cwd=self.path,
+            cwd=self.repo_path,
             stdout=out,
             stderr=out,
         )
@@ -481,14 +502,14 @@ class AaveDeployer:
         else:
             out = subprocess.PIPE
 
-        logger.info("Running Aave deployer at %s", self.path)
+        logger.info("Running Aave deployer at %s", self.repo_path)
 
         env = os.environ.copy()
         env["MARKET_NAME"] = "Aave"
 
         result = subprocess.run(
             [npx, "hardhat", "--network", "localhost", "deploy", "--reset", "--export", "hardhat-deployment-export.json"],
-            cwd=self.path,
+            cwd=self.repo_path,
             env=env,
             stderr=out,
             stdout=out,
@@ -499,10 +520,11 @@ class AaveDeployer:
     def is_deployed(self, web3: Web3) -> bool:
         """Check if Aave is deployed on chain"""
         # assert web3.eth.block_number > 1, "This chain does not contain any data"
-        usdc = self.get_contract_at_address(web3, "core-v3/contracts/mocks/tokens/MintableERC20.sol/MintableERC20.json", "USDC")
         try:
+            usdc = self.get_contract_at_address(web3, "MintableERC20.json", "USDC")
             return usdc.functions.symbol().call() == "USDC"
-        except:
+        except Exception as e:
+            print(e)
             return False
 
     def get_contract(self, web3: Web3, name: str) -> Type[Contract]:
@@ -518,9 +540,8 @@ class AaveDeployer:
         :return:
             A Contract proxy class
         """
-
-        path = self.path.joinpath("artifacts").joinpath("@aave").joinpath(name)
-        assert path.exists(), f"No ABI file: {path.absolute()}"
+        path = self.abi_path / name
+        assert path.exists(), f"No ABI file at: {path.absolute()}"
         return get_linked_contract(web3, path, get_aave_hardhard_export())
 
     def get_contract_address(self, contract_name: str) -> ChecksumAddress:
@@ -540,7 +561,7 @@ class AaveDeployer:
 
         .. code-block:: python
 
-            pool = aave_deployer.get_contract_at_address(web3, "core-v3/contracts/protocol/pool/Pool.sol/Pool.json", "Pool")
+            pool = aave_deployer.get_contract_at_address(web3, "Pool.json", "Pool")
             assert pool.functions.POOL_REVISION().call() == 1
 
         """
@@ -559,5 +580,5 @@ def get_aave_hardhard_export() -> dict:
 
     See :py:func:`eth_defi.abi.get_linked_contract`.
     """
-    with open(os.path.join(os.path.dirname(__file__), "aave-hardhat-localhost-export.json"), "rb") as inp:
-        return json.load(inp)
+    hardhat_export_path = Path(__file__).resolve().parent / "aave-hardhat-localhost-export.json"
+    return json.loads(hardhat_export_path.read_bytes())

@@ -1,7 +1,7 @@
 {
   "_format": "hh-sol-artifact-1",
   "contractName": "IERC20WithPermit",
-  "sourceName": "contracts/interfaces/IERC20WithPermit.sol",
+  "sourceName": "@aave/core-v3/contracts/interfaces/IERC20WithPermit.sol",
   "abi": [
     {
       "anonymous": false,

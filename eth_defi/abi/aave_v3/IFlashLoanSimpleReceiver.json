@@ -1,7 +1,7 @@
 {
   "_format": "hh-sol-artifact-1",
   "contractName": "IFlashLoanSimpleReceiver",
-  "sourceName": "contracts/flashloan/interfaces/IFlashLoanSimpleReceiver.sol",
+  "sourceName": "@aave/core-v3/contracts/flashloan/interfaces/IFlashLoanSimpleReceiver.sol",
   "abi": [
     {
       "inputs": [],

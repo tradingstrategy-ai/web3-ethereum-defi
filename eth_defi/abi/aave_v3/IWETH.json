@@ -1,7 +1,7 @@
 {
   "_format": "hh-sol-artifact-1",
   "contractName": "IWETH",
-  "sourceName": "contracts/misc/interfaces/IWETH.sol",
+  "sourceName": "@aave/periphery-v3/contracts/misc/interfaces/IWETH.sol",
   "abi": [
     {
       "inputs": [

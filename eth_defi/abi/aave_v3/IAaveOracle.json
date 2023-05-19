@@ -1,7 +1,7 @@
 {
   "_format": "hh-sol-artifact-1",
   "contractName": "IAaveOracle",
-  "sourceName": "contracts/interfaces/IAaveOracle.sol",
+  "sourceName": "@aave/core-v3/contracts/interfaces/IAaveOracle.sol",
   "abi": [
     {
       "anonymous": false,

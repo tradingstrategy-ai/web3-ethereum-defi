@@ -1,7 +1,7 @@
 {
   "_format": "hh-sol-artifact-1",
   "contractName": "Proxy",
-  "sourceName": "contracts/dependencies/openzeppelin/upgradeability/Proxy.sol",
+  "sourceName": "@aave/core-v3/contracts/dependencies/openzeppelin/upgradeability/Proxy.sol",
   "abi": [
     {
       "stateMutability": "payable",

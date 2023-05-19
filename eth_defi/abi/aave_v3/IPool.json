@@ -1,7 +1,7 @@
 {
   "_format": "hh-sol-artifact-1",
   "contractName": "IPool",
-  "sourceName": "contracts/interfaces/IPool.sol",
+  "sourceName": "@aave/core-v3/contracts/interfaces/IPool.sol",
   "abi": [
     {
       "anonymous": false,
@@ -602,7 +602,13 @@
         }
       ],
       "name": "backUnbacked",
-      "outputs": [],
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
       "stateMutability": "nonpayable",
       "type": "function"
     },
@@ -906,6 +912,25 @@
           "internalType": "struct DataTypes.EModeCategory",
           "name": "",
           "type": "tuple"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint16",
+          "name": "id",
+          "type": "uint16"
+        }
+      ],
+      "name": "getReserveAddressById",
+      "outputs": [
+        {
+          "internalType": "address",
+          "name": "",
+          "type": "address"
         }
       ],
       "stateMutability": "view",

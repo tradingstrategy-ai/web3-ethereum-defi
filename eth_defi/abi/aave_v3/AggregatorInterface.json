@@ -1,7 +1,7 @@
 {
   "_format": "hh-sol-artifact-1",
   "contractName": "AggregatorInterface",
-  "sourceName": "contracts/dependencies/chainlink/AggregatorInterface.sol",
+  "sourceName": "@aave/core-v3/contracts/dependencies/chainlink/AggregatorInterface.sol",
   "abi": [
     {
       "anonymous": false,

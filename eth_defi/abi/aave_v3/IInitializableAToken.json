@@ -1,7 +1,7 @@
 {
   "_format": "hh-sol-artifact-1",
   "contractName": "IInitializableAToken",
-  "sourceName": "contracts/interfaces/IInitializableAToken.sol",
+  "sourceName": "@aave/core-v3/contracts/interfaces/IInitializableAToken.sol",
   "abi": [
     {
       "anonymous": false,

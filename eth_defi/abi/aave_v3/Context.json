@@ -1,7 +1,7 @@
 {
   "_format": "hh-sol-artifact-1",
   "contractName": "Context",
-  "sourceName": "contracts/dependencies/openzeppelin/contracts/Context.sol",
+  "sourceName": "@aave/aave-token/contracts/open-zeppelin/Context.sol",
   "abi": [],
   "bytecode": "0x",
   "deployedBytecode": "0x",

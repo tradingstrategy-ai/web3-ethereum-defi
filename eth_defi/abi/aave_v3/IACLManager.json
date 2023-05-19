@@ -1,7 +1,7 @@
 {
   "_format": "hh-sol-artifact-1",
   "contractName": "IACLManager",
-  "sourceName": "contracts/interfaces/IACLManager.sol",
+  "sourceName": "@aave/core-v3/contracts/interfaces/IACLManager.sol",
   "abi": [
     {
       "inputs": [],

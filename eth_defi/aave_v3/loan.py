@@ -1,74 +1,17 @@
-"""Aave v3 deposit."""
-from typing import Callable
+"""Aave v3 loan"""
+from eth_typing import HexAddress
+from web3.contract.contract import Contract, ContractFunction
 
-from web3 import Web3
-
-from eth_defi.abi import get_abi_by_filename
-from eth_defi.hotwallet import HotWallet
+from eth_defi.aave_v3.constants import AaveV3InterestRateMode
 
 
-def approve_token(web3: Web3, token_address: str, spender: str, amount: int) -> Callable:
-    """
-    Approve a specified amount of token to be spent.
-
-    Example:
-
-    .. code-block:: python
-
-        # build transaction to approve ERC-20 to be spent.
-        approve_func = approve_token(
-            web3=web3,
-            token_address=token_address,
-            spender=spender,
-            amount=amount
-        )
-
-        tx = approve_func.build_transaction(
-            {
-                "from": hot_wallet_address,
-                "chainId": web3.eth.chain_id
-            }
-        )
-        tx = fill_nonce(web3, tx)
-
-        # sign and broadcast
-        signed = hot_wallet_account.sign_transaction(tx)
-        tx_hash = web3.eth.send_raw_transaction(signed.rawTransaction)
-        receipt = web3.eth.get_transaction_receipt(tx_hash)
-        assert receipt.status == 1, "USDC transfer reverted"
-
-    :param web3:
-        Web3 Instance
-    :param token_address:
-        The address of the Aave v3 reserve token that you want to deposit.
-    :param spender:
-        The address of the spender to be approved.
-    :param amount:
-        The amount of token to be approved.
-    :return:
-        Callable approve transaction.
-    """
-
-    # Load token contract ABI
-    token_abi = get_abi_by_filename("ERC20MockDecimals.json")["abi"]
-
-    # Get token contract instance
-    token_contract = web3.eth.contract(address=token_address, abi=token_abi)
-
-    # Approve the token contract to spend the specified amount of token
-    transaction = token_contract.functions.approve(spender, amount)
-
-    # Return the transaction
-    return transaction
-
-
-def deposit_in_aave(
-    web3: Web3,
-    hot_wallet: HotWallet,
-    aave_deposit_address: str,
-    token_address: str,
+def supply(
+    aave_v3_deployment,
+    *,
+    token: Contract,
     amount: int,
-) -> Callable:
+    wallet_address: HexAddress,
+) -> tuple[ContractFunction, ContractFunction]:
     """
     Opens a loan position in Aave v3 by depositing any Aave v3 reserve token and receiving aToken back.
 
@@ -76,50 +19,213 @@ def deposit_in_aave(
 
     .. code-block:: python
 
-        # build transaction to deposit a reserve token
-        deposit_func = deposit_in_aave(
-            web3=web3,
-            hot_wallet=hot_wallet_account,
-            aave_deposit_address=AAVE_DEPOSIT_ADDRESS,
-            token_address=USDC_ADDRESS,
-            amount=amount
+        # build transactions to supply USDC to Aave v3
+        approve_fn, supply_fn = supply(
+            aave_v3_deployment=aave_v3_deployment,
+            token=usdc.contract,
+            amount=amount,
+            wallet_address=hot_wallet.address,
         )
 
-        tx = deposit_func.build_transaction(
-            {
-                "from": hot_wallet_address,
-                "chainId": web3.eth.chain_id
-            }
-        )
-        tx = fill_nonce(web3, tx)
-
-        # sign and broadcast
-        signed = hot_wallet_account.sign_transaction(tx)
+        # approve
+        tx = approve_fn.build_transaction({"from": hot_wallet.address})
+        signed = hot_wallet.sign_transaction_with_new_nonce(tx)
         tx_hash = web3.eth.send_raw_transaction(signed.rawTransaction)
-        receipt = web3.eth.get_transaction_receipt(tx_hash)
-        assert receipt.status == 1, "Aave v3 deposit reverted"
+        assert_transaction_success_with_explanation(web3, tx_hash)
 
-    :param web3:
-        Web3 Instance.
-    :param hot_wallet:
-        Instance of :py:class:`eth_defi.hotwallet.Hotwallet`.
-    :param aave_deposit_address:
-        The address of the Aave v3 contract where the deposit will be made.
-    :param token_address:
-        The address of the Aave v3 reserve token that you want to deposit.
+        # supply
+        tx = supply_fn.build_transaction({"from": hot_wallet.address})
+        signed = hot_wallet_account.sign_transaction_with_new_nonce(tx)
+        tx_hash = web3.eth.send_raw_transaction(signed.rawTransaction)
+        assert_transaction_success_with_explanation(web3, tx_hash)
+
+    :param aave_v3_deployment:
+        Instance of :py:class:`eth_defi.aave_v3.deployment.AaveV3Deployment`.
+    :param token:
+        Aave v3 reserve token you want to supply.
     :param amount:
-        The amount of token to deposit.
+        The amount of token to supply.
+    :param wallet_address:
+        Your wallet address.
     :return:
-        Callable deposit transaction.
+        A tuple of 2 contract functions for approve and supply transaction.
     """
-    # Load Aave v3 contract ABI
-    aave_v3_abi = get_abi_by_filename("aave_v3/Pool.json")["abi"]
 
-    # Get the Aave v3 contract instance
-    aave_v3_contract = web3.eth.contract(address=aave_deposit_address, abi=aave_v3_abi)
+    pool = aave_v3_deployment.pool
 
-    # Approve the Aave v3 contract to supply the specified amount of token
-    transaction = aave_v3_contract.functions.supply(token_address, amount, hot_wallet.address, 0)
+    # TODO: maybe validate if Aave v3 actually supports this asset reserve
 
-    # Return the transaction
-    return transaction
+    # approve to supply
+    approve_function = token.functions.approve(pool.address, amount)
+
+    # https://github.com/aave/aave-v3-core/blob/e0bfed13240adeb7f05cb6cbe5e7ce78657f0621/contracts/protocol/pool/Pool.sol#L145
+    # address asset
+    # uint256 amount
+    # address onBehalfOf
+    # uint16 referralCode
+    supply_function = pool.functions.supply(token.address, amount, wallet_address, 0)
+
+    return approve_function, supply_function
+
+
+def withdraw(
+    aave_v3_deployment,
+    *,
+    token: Contract,
+    amount: int,
+    wallet_address: HexAddress,
+) -> ContractFunction:
+    """
+    Withdraw the deposit from Aave v3.
+
+    Example:
+
+    .. code-block:: python
+
+        # build transactions to withdraw all USDC you deposited from Aave v3
+        withdraw_fn = withdraw(
+            aave_v3_deployment=aave_v3_deployment,
+            token=usdc.contract,
+            amount=MAX_AMOUNT,
+            wallet_address=hot_wallet.address,
+        )
+
+        tx = withdraw_fn.build_transaction({"from": hot_wallet.address})
+        signed = hot_wallet_account.sign_transaction_with_new_nonce(tx)
+        tx_hash = web3.eth.send_raw_transaction(signed.rawTransaction)
+        assert_transaction_success_with_explanation(web3, tx_hash)
+
+    :param aave_v3_deployment:
+        Instance of :py:class:`eth_defi.aave_v3.deployment.AaveV3Deployment`.
+    :param token:
+        Aave v3 reserve token you want to withdraw.
+    :param amount:
+        The amount of token to withdraw. Set `MAX_AMOUNT` if you want to withdraw everything.
+    :param wallet_address:
+        Your wallet address.
+    :return:
+        Withdraw contract function.
+    """
+    pool = aave_v3_deployment.pool
+
+    # https://github.com/aave/aave-v3-core/blob/e0bfed13240adeb7f05cb6cbe5e7ce78657f0621/contracts/protocol/pool/Pool.sol#L198
+    # address asset
+    # uint256 amount
+    # address to
+    return pool.functions.withdraw(token.address, amount, wallet_address)
+
+
+def borrow(
+    aave_v3_deployment,
+    *,
+    token: Contract,
+    amount: int,
+    wallet_address: HexAddress,
+    interest_rate_mode: AaveV3InterestRateMode = AaveV3InterestRateMode.VARIABLE,
+) -> ContractFunction:
+    """
+    Borrow asset from Aave v3. Requires you have already supplied asset as
+    collateral in advanced.
+
+    Example:
+
+    .. code-block:: python
+
+        # build transactions to borrow WETH from Aave v3
+        borrow_fn = borrow(
+            aave_v3_deployment=aave_v3_deployment,
+            token=weth.contract,
+            amount=amount,
+            wallet_address=hot_wallet.address,
+        )
+
+        tx = borrow_fn.build_transaction({"from": hot_wallet.address})
+        signed = hot_wallet_account.sign_transaction_with_new_nonce(tx)
+        tx_hash = web3.eth.send_raw_transaction(signed.rawTransaction)
+        assert_transaction_success_with_explanation(web3, tx_hash)
+
+    :param aave_v3_deployment:
+        Instance of :py:class:`eth_defi.aave_v3.deployment.AaveV3Deployment`.
+    :param token:
+        Aave v3 reserve token you want to borrow.
+    :param amount:
+        The amount of token to borrow.
+    :param wallet_address:
+        Your wallet address.
+    :param interest_rate_mode:
+        Stable or variable borrow rate mode, default to variable borrow rate.
+    :return:
+        Borrow contract function.
+    """
+    pool = aave_v3_deployment.pool
+
+    # https://github.com/aave/aave-v3-core/blob/e0bfed13240adeb7f05cb6cbe5e7ce78657f0621/contracts/protocol/pool/Pool.sol#L221
+    # address asset,
+    # uint256 amount,
+    # uint256 interestRateMode,
+    # uint16 referralCode,
+    # address onBehalfOf
+    return pool.functions.borrow(token.address, amount, interest_rate_mode, 0, wallet_address)
+
+
+def repay(
+    aave_v3_deployment,
+    *,
+    token: Contract,
+    amount: int,
+    wallet_address: HexAddress,
+    interest_rate_mode: AaveV3InterestRateMode = AaveV3InterestRateMode.VARIABLE,
+) -> tuple[ContractFunction, ContractFunction]:
+    """
+    Pay back the asset you owned in Aave v3.
+
+    Example:
+
+    .. code-block:: python
+
+        # build transactions to pay back USDC to Aave v3
+        approve_fn, repay_fn = repay(
+            aave_v3_deployment=aave_v3_deployment,
+            token=usdc.contract,
+            amount=amount,
+            wallet_address=hot_wallet.address,
+        )
+
+        # approve
+        tx = approve_fn.build_transaction({"from": hot_wallet.address})
+        signed = hot_wallet.sign_transaction_with_new_nonce(tx)
+        tx_hash = web3.eth.send_raw_transaction(signed.rawTransaction)
+        assert_transaction_success_with_explanation(web3, tx_hash)
+
+        # repay
+        tx = repay_fn.build_transaction({"from": hot_wallet.address})
+        signed = hot_wallet_account.sign_transaction_with_new_nonce(tx)
+        tx_hash = web3.eth.send_raw_transaction(signed.rawTransaction)
+        assert_transaction_success_with_explanation(web3, tx_hash)
+
+    :param aave_v3_deployment:
+        Instance of :py:class:`eth_defi.aave_v3.deployment.AaveV3Deployment`.
+    :param token:
+        Aave v3 reserve token you want to pay back.
+    :param amount:
+        The amount of token to pay back. Set to `MAX_AMOUNT` to fully repay your loan.
+    :param wallet_address:
+        Your wallet address.
+    :param interest_rate_mode:
+        Stable or variable borrow rate mode, default to variable borrow rate.
+    :return:
+        A tuple of 2 contract functions for approve and repay transaction.
+    """
+    pool = aave_v3_deployment.pool
+
+    # approve repay amount
+    approve_function = token.functions.approve(pool.address, amount)
+
+    # https://github.com/aave/aave-v3-core/blob/e0bfed13240adeb7f05cb6cbe5e7ce78657f0621/contracts/protocol/pool/Pool.sol#L251
+    # address asset,
+    # uint256 amount,
+    # uint256 interestRateMode,
+    # address onBehalfOf
+    repay_function = pool.functions.repay(token.address, amount, interest_rate_mode, wallet_address)
+
+    return approve_function, repay_function

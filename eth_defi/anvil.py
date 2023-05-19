@@ -35,7 +35,7 @@ import time
 import warnings
 from dataclasses import dataclass
 from subprocess import DEVNULL, PIPE
-from typing import Dict, List, Optional, Union, Tuple, Any
+from typing import Any, Optional, Union
 
 import psutil
 import requests
@@ -71,7 +71,7 @@ CLI_FLAGS = {
 }
 
 
-def _launch(cmd: str, **kwargs) -> Tuple[psutil.Popen, List[str]]:
+def _launch(cmd: str, **kwargs) -> tuple[psutil.Popen, list[str]]:
     """Launches the RPC client.
 
     Args:
@@ -108,7 +108,7 @@ def _launch(cmd: str, **kwargs) -> Tuple[psutil.Popen, List[str]]:
     return psutil.Popen(cmd_list, stdin=DEVNULL, stdout=out, stderr=out), cmd_list
 
 
-def make_anvil_custom_rpc_request(web3: Web3, method: str, args: Optional[List] = None) -> Any:
+def make_anvil_custom_rpc_request(web3: Web3, method: str, args: Optional[list] = None) -> Any:
     """Make a request to special named EVM JSON-RPC endpoint.
 
     - `See the Anvil custom RPC methods here <https://book.getfoundry.sh/reference/anvil/>`__.
@@ -151,7 +151,7 @@ class AnvilLaunch:
     port: int
 
     #: Used command-line to spin up anvil
-    cmd: List[str]
+    cmd: list[str]
 
     #: Where does Anvil listen to JSON-RPC
     json_rpc_url: str
@@ -159,7 +159,7 @@ class AnvilLaunch:
     #: UNIX process that we opened
     process: psutil.Popen
 
-    def close(self, log_level: Optional[int] = None, block=True, block_timeout=30) -> Tuple[bytes, bytes]:
+    def close(self, log_level: Optional[int] = None, block=True, block_timeout=30) -> tuple[bytes, bytes]:
         """Close the background Anvil process.
 
         :param log_level:
@@ -187,7 +187,7 @@ class AnvilLaunch:
 
 def launch_anvil(
     fork_url: Optional[str] = None,
-    unlocked_addresses: List[Union[HexAddress, str]] = None,
+    unlocked_addresses: list[Union[HexAddress, str]] = None,
     cmd="anvil",
     port: int = 19999,
     block_time=0,
@@ -471,6 +471,16 @@ def revert(web3: Web3, snapshot_id: int) -> bool:
     """
     ret_val = make_anvil_custom_rpc_request(web3, "evm_revert", [snapshot_id])
     return ret_val
+
+
+def dump_state(web3: Web3) -> int:
+    """Call evm_snapshot on Anvil"""
+    return make_anvil_custom_rpc_request(web3, "anvil_dumpState")
+
+
+def load_state(web3: Web3, state: str) -> int:
+    """Call evm_snapshot on Anvil"""
+    return make_anvil_custom_rpc_request(web3, "anvil_loadState", [state])
 
 
 # Backwards compatibility

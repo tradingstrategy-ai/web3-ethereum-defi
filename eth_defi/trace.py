@@ -10,22 +10,25 @@
 """
 import enum
 import logging
-from typing import cast, Optional, Iterator, Any
+from typing import Any, Iterator, Optional, cast
 
 from eth_typing import ChecksumAddress
 from eth_utils import to_checksum_address
-from web3._utils.contracts import prepare_transaction
+from evm_trace import (
+    CallTreeNode,
+    CallType,
+    ParityTraceList,
+    TraceFrame,
+    get_calltree_from_geth_trace,
+    get_calltree_from_parity_trace,
+)
+from hexbytes import HexBytes
+from web3 import Web3
 from web3.contract.contract import ContractFunction
-from web3.types import TxParams
+from web3.types import TxParams, TxReceipt
 
 from eth_defi.abi import decode_function_args, humanise_decoded_arg_data
 from eth_defi.deploy import ContractRegistry, get_or_create_contract_registry
-from hexbytes import HexBytes
-from web3 import Web3
-
-from evm_trace import TraceFrame, CallTreeNode, ParityTraceList, get_calltree_from_parity_trace
-from evm_trace import CallType, get_calltree_from_geth_trace
-
 from eth_defi.revert_reason import fetch_transaction_revert_reason
 
 logger = logging.getLogger(__name__)
@@ -40,6 +43,17 @@ class TransactionAssertionError(AssertionError):
 
     See :py:func:`assert_transaction_success_with_explanation`.
     """
+
+    def __init__(
+        self,
+        message,
+        revert_reason: str = "",
+        solidity_stack_trace: str = "",
+    ):
+        super().__init__(message)
+
+        self.revert_reason = revert_reason
+        self.solidity_stack_trace = solidity_stack_trace
 
 
 class TraceMethod(enum.Enum):
@@ -232,7 +246,7 @@ def print_symbolic_trace(
 def assert_transaction_success_with_explanation(
     web3: Web3,
     tx_hash: HexBytes,
-):
+) -> TxReceipt:
     """Checks if a transaction succeeds and give a verbose explanation why not..
 
     Designed to  be used on Anvil backend based tests.
@@ -272,20 +286,30 @@ def assert_transaction_success_with_explanation(
 
     :raise TransactionAssertionError:
         Outputs a verbose AssertionError on what went wrong.
+
+    :return tx_receipt:
+        Output transaction receipt if no error is raised
     """
 
     receipt = web3.eth.wait_for_transaction_receipt(tx_hash)
     if receipt["status"] == 0:
         # Explain why the transaction failed
         tx_details = web3.eth.get_transaction(tx_hash)
+
         if web3.eth.chain_id == 31337:
             # Transaction tracing only enabled to anvil
             revert_reason = fetch_transaction_revert_reason(web3, tx_hash)
             trace_data = trace_evm_transaction(web3, tx_hash, TraceMethod.parity)
             trace_output = print_symbolic_trace(get_or_create_contract_registry(web3), trace_data)
-            raise TransactionAssertionError(f"Transaction failed: {tx_details}\n" f"Revert reason: {revert_reason}\n" f"Solidity stack trace:\n" f"{trace_output}\n")
+            raise TransactionAssertionError(
+                f"Transaction failed: {tx_details}\n" f"Revert reason: {revert_reason}\n" f"Solidity stack trace:\n" f"{trace_output}\n",
+                revert_reason=revert_reason,
+                solidity_stack_trace=trace_output,
+            )
         else:
             raise RuntimeError(f"Transaction failed: {tx_details} - tracing disabled")
+
+    return receipt
 
 
 def assert_call_success_with_explanation(

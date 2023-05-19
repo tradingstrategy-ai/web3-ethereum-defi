@@ -1,7 +1,7 @@
 {
   "_format": "hh-sol-artifact-1",
   "contractName": "IERC20",
-  "sourceName": "contracts/dependencies/openzeppelin/contracts/IERC20.sol",
+  "sourceName": "@aave/aave-token/contracts/interfaces/IERC20.sol",
   "abi": [
     {
       "anonymous": false,
