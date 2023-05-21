@@ -40,6 +40,31 @@ def aave_v3_deployment(web3, aave_deployment):
 
 
 @pytest.fixture
+def aave_v3_weth_reserve(
+    web3,
+    aave_v3_deployment,
+    weth,
+    faucet,
+    deployer,
+):
+    """Seed WETH reserve with 100 WETH liquidity"""
+    # give deployer some WETH
+    tx_hash = faucet.functions.mint(weth.address, deployer, 100_000 * 10**18).transact()
+    assert_transaction_success_with_explanation(web3, tx_hash)
+
+    # supply to WETH reserve
+    approve_fn, supply_fn = supply(
+        aave_v3_deployment=aave_v3_deployment,
+        wallet_address=deployer,
+        token=weth,
+        amount=100 * 10**18,
+    )
+    approve_fn.transact({"from": deployer})
+    tx_hash = supply_fn.transact({"from": deployer})
+    assert_transaction_success_with_explanation(web3, tx_hash)
+
+
+@pytest.fixture
 def usdc_supply_amount() -> int:
     # 10k USDC
     return 10_000 * 10**6
@@ -252,9 +277,9 @@ def test_aave_v3_oracle(
         ("usdc", 8_001 * 10**6, TransactionAssertionError("execution reverted: 36"), None),
         # TODO: more test case for borrowing ETH
         # 1 WETH = 4000 USDC
-        # ("weth", 1 * 10**18, None),
+        ("weth", 1 * 10**18, None, 2125000000000000000),
         # 2.1 WETH (8400 USDC) should fail
-        # ("weth", int(2.1 * 10**18), TransactionAssertionError("execution reverted: 36")),
+        ("weth", int(2.1 * 10**18), TransactionAssertionError("execution reverted: 36"), None),
     ],
 )
 def test_aave_v3_borrow(
@@ -264,6 +289,7 @@ def test_aave_v3_borrow(
     usdc,
     ausdc,
     weth,
+    aave_v3_weth_reserve,
     usdc_supply_amount: int,
     borrow_token_symbol: str,
     borrow_amount: int,
@@ -321,7 +347,9 @@ def test_aave_v3_borrow(
 
         # (total_collateral_base=1000000000000, total_debt_base=100000000, available_borrows_base=799900000000, current_liquidation_threshold=8500, ltv=8000, health_factor=8500000000000000000000)
         assert user_data.total_collateral_base / 1e8 == usdc_supply_amount / 1e6
-        assert user_data.total_debt_base / 1e8 == borrow_amount / 1e6
+
+        if borrow_token_symbol == "usdc":
+            assert user_data.total_debt_base / 1e8 == borrow_amount / 1e6
         assert user_data.health_factor == health_factor
 
 
@@ -346,6 +374,7 @@ def test_aave_v3_repay(
     usdc,
     ausdc,
     weth,
+    aave_v3_weth_reserve,
     faucet,
     usdc_supply_amount: int,
     borrow_token_symbol: str,
