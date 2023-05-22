@@ -1,39 +1,58 @@
-# <h1 align="center"> Forge Template </h1>
+# Web3-Eth-Defi integration contracts
 
-**Template repository for getting started quickly with Foundry projects**
+This Foundry project contains various contracts for integration and testing other protocols.
+It's unlikely you want to use any of these contracts directly.
+ 
+[See Web3-Ethereum-Defi project for full documentation](https://web3-ethereum-defi.readthedocs.io/).
 
-![Github Actions](https://github.com/foundry-rs/forge-template/workflows/CI/badge.svg)
+## Compile
 
-## Getting Started
-
-Click "Use this template" on [GitHub](https://github.com/foundry-rs/forge-template) to create a new repository with this repo as the initial state.
-
-Or, if your repo already exists, run:
-```sh
-forge init
+```shell
+cd contracts/in-house
 forge build
-forge test
 ```
 
-## Writing your first test
+When Foundry has internal issues
 
-All you need is to `import forge-std/Test.sol` and then inherit it from your test contract. Forge-std's Test contract comes with a pre-instatiated [cheatcodes environment](https://book.getfoundry.sh/cheatcodes/), the `vm`. It also has support for [ds-test](https://book.getfoundry.sh/reference/ds-test.html)-style logs and assertions. Finally, it supports Hardhat's [console.log](https://github.com/brockelmore/forge-std/blob/master/src/console.sol). The logging functionalities require `-vvvv`.
-
-```solidity
-pragma solidity 0.8.10;
-
-import "forge-std/Test.sol";
-
-contract ContractTest is Test {
-    function testExample() public {
-        vm.roll(100);
-        console.log(1);
-        emit log("hi");
-        assertTrue(true);
-    }
-}
+```shell
+RUST_LOG=forge,foundry_evm,backend forge build --force
 ```
 
-## Development
+## Deploying USDC payment forwarder
 
-This project uses [Foundry](https://getfoundry.sh). See the [book](https://book.getfoundry.sh/getting-started/installation.html) for instructions on how to install and use Foundry.
+The repository contains an example contract for USDC payment relay using EIP-3009 approve() free
+and gasless transactions.
+
+- Uses EIP-3009 `receiveWithAuthorization()` (can be easily modified for `transferWithAuthorization()`)
+
+- First deploy your Enzyme vault
+
+- Then deploy the USDC payment relay
+
+```shell
+# Address of deployed vault comptroller
+export VAULT_COMPTROLLER=
+
+# Deployer account
+export PRIVATE_KEY=
+
+# USDC on Polygon
+export USDC_TOKEN=0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174
+
+# Used node
+export JSON_RPC_POLYGON=
+
+# EtherScan API key
+export POLYGONSCAN_API_KEY=
+
+# Wrapped as a shells script, as Bash will check that all variables are set 
+scripts/deploy-usdc-payment-forwarder.sh
+```
+
+For more information see [unit tests](../../tests/enzyme/test_enzyme_usdc_payment_forwarder.py).
+
+[See information regarding forge and the issue of verifying this contract](https://github.com/foundry-rs/foundry/issues/5003).
+
+## More information
+
+- [Deploying with Forge](https://book.getfoundry.sh/forge/deploying)
