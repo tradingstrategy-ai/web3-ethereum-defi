@@ -1,8 +1,8 @@
 """Test Uniswap v3 liquidity pool."""
-import pprint
 
 import pytest
 from web3 import EthereumTesterProvider, Web3
+from web3._utils.events import EventLogErrorFlags
 from web3.contract import Contract
 
 from eth_defi.token import create_token
@@ -10,10 +10,10 @@ from eth_defi.uniswap_v3.constants import DEFAULT_FEES
 from eth_defi.uniswap_v3.deployment import (
     UniswapV3Deployment,
     add_liquidity,
-    increase_liquidity,
     decrease_liquidity,
     deploy_pool,
     deploy_uniswap_v3,
+    increase_liquidity,
 )
 from eth_defi.uniswap_v3.pool import fetch_pool_details
 
@@ -219,7 +219,7 @@ def test_create_pool_with_increase_decrease_liquidity(
 
     # The IncreaseLiquidity event is emitted with both mint and increaseLiquidity
     # https://github.com/Uniswap/v3-periphery/blob/main/contracts/interfaces/INonfungiblePositionManager.sol
-    increase_liquidity_event = uniswap_v3.position_manager.events.IncreaseLiquidity().process_receipt(tx_receipt)
+    increase_liquidity_event = uniswap_v3.position_manager.events.IncreaseLiquidity().process_receipt(tx_receipt, EventLogErrorFlags.Discard)
     token_id = increase_liquidity_event[0].args.tokenId
     liquidity_before_increase = increase_liquidity_event[0].args.liquidity
 
@@ -240,7 +240,7 @@ def test_create_pool_with_increase_decrease_liquidity(
 
     assert tx_receipt.status == 1
 
-    increase_liquidity_event = uniswap_v3.position_manager.events.IncreaseLiquidity().process_receipt(tx_receipt)
+    increase_liquidity_event = uniswap_v3.position_manager.events.IncreaseLiquidity().process_receipt(tx_receipt, EventLogErrorFlags.Discard)
     liquidity_added = increase_liquidity_event[0].args.liquidity
     assert liquidity_added > 0
     pool_l_after_increase, *_ = pool.functions.ticks(lower_tick).call()
@@ -270,7 +270,7 @@ def test_create_pool_with_increase_decrease_liquidity(
     )
     assert tx_receipt.status == 1
 
-    decrease_liquidity_event = uniswap_v3.position_manager.events.DecreaseLiquidity().process_receipt(tx_receipt)
+    decrease_liquidity_event = uniswap_v3.position_manager.events.DecreaseLiquidity().process_receipt(tx_receipt, EventLogErrorFlags.Discard)
     liquidity_reduction_amount = decrease_liquidity_event[0].args.liquidity
     token0_received = decrease_liquidity_event[0].args.amount0
     token1_received = decrease_liquidity_event[0].args.amount1

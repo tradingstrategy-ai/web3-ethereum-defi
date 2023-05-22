@@ -87,6 +87,7 @@ def deploy_uniswap_v3(
     web3: Web3,
     deployer: HexAddress,
     weth: Contract | None = None,
+    give_weth: int | None = 10_000,
 ) -> UniswapV3Deployment:
     """Deploy v3
 
@@ -103,6 +104,9 @@ def deploy_uniswap_v3(
     :param web3: Web3 instance
     :param deployer: Deployer account
     :param weth: WETH contract instance
+    :param give_weth:
+        Automatically give some Wrapped ETH to the deployer.
+        Express as ETH units.
     :return: Deployment details
     """
     # Factory takes feeSetter as an argument
@@ -136,6 +140,9 @@ def deploy_uniswap_v3(
         factory.address,
         weth.address,
     )
+
+    if give_weth:
+        weth.functions.deposit().transact({"from": deployer, "value": give_weth * 10**18})
 
     PoolContract = get_contract(web3, "uniswap_v3/UniswapV3Pool.json")
 

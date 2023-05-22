@@ -6,7 +6,7 @@ Original code written in Decimal.js
 
 https://mikemcl.github.io/decimal.js/#toSD
 """
-from _decimal import Decimal
+from decimal import Decimal
 
 from sigfig import round
 

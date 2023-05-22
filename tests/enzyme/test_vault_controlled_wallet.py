@@ -2,7 +2,7 @@
 
 """
 import secrets
-from _decimal import Decimal
+from decimal import Decimal
 
 import pytest
 from eth_account import Account
@@ -14,14 +14,17 @@ from web3.contract import Contract
 from eth_defi.deploy import deploy_contract
 from eth_defi.enzyme.deployment import EnzymeDeployment, RateAsset
 from eth_defi.enzyme.vault import Vault
-from eth_defi.enzyme.vault_controlled_wallet import VaultControlledWallet, EnzymeVaultTransaction
+from eth_defi.enzyme.vault_controlled_wallet import (
+    EnzymeVaultTransaction,
+    VaultControlledWallet,
+)
+from eth_defi.hotwallet import HotWallet
 from eth_defi.revert_reason import fetch_transaction_revert_reason
+from eth_defi.trace import assert_transaction_success_with_explanation
 from eth_defi.trade import TradeSuccess
 from eth_defi.tx import AssetDelta
-from eth_defi.hotwallet import HotWallet
-from eth_defi.trace import assert_transaction_success_with_explanation
 from eth_defi.uniswap_v2.analysis import analyse_trade_by_hash
-from eth_defi.uniswap_v2.deployment import UniswapV2Deployment, FOREVER_DEADLINE
+from eth_defi.uniswap_v2.deployment import FOREVER_DEADLINE, UniswapV2Deployment
 
 
 @pytest.fixture

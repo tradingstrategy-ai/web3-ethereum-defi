@@ -48,8 +48,7 @@ def aave_v3_deployment(web3, aave_deployment):
 @pytest.fixture()
 def uniswap_v3(web3, deployer, weth) -> UniswapV3Deployment:
     """Uniswap v3 deployment."""
-    deployment = deploy_uniswap_v3(web3, deployer, weth=weth)
-    return deployment
+    return deploy_uniswap_v3(web3, deployer, weth=weth, give_weth=None)
 
 
 @pytest.fixture
@@ -146,6 +145,16 @@ def weth_reserve(
     assert_transaction_success_with_explanation(web3, tx_hash)
 
 
+def print_current_balances(address, usdc, weth):
+    print(
+        f"""
+    Current balance:
+        USDC: {usdc.functions.balanceOf(address).call() / 1e6}
+        WETH: {weth.functions.balanceOf(address).call() / 1e18}
+    """
+    )
+
+
 def test_aave_v3_short(
     web3: Web3,
     aave_v3_deployment,
@@ -161,9 +170,12 @@ def test_aave_v3_short(
 ):
     """Test repay in Aave v3."""
     # starting with 10k
+    print("\nStarting capital")
+    print_current_balances(hot_wallet.address, usdc, weth)
     assert usdc.functions.balanceOf(hot_wallet.address).call() == 10_000 * 10**6
 
     # ----- 1. Open the short position by supply USDC as collateral to Aave v3
+    print("> Step 1: Open the short position by supply USDC as collateral to Aave v3")
     # 10k USDC to use as collateral
     usdc_supply_amount = 10_000 * 10**6
 
@@ -190,8 +202,11 @@ def test_aave_v3_short(
 
     # verify hot wallet has 1k USDC left
     assert usdc.functions.balanceOf(hot_wallet.address).call() == 0
+    print("Supply done!")
+    print_current_balances(hot_wallet.address, usdc, weth)
 
     # ----- 2. Borrow tokens
+    print("> Step 2: Borrow some WETH")
     borrow_amount = 2 * 10**18
     borrow_fn = borrow(
         aave_v3_deployment=aave_v3_deployment,
@@ -211,7 +226,11 @@ def test_aave_v3_short(
 
     assert weth.functions.balanceOf(hot_wallet.address).call() == borrow_amount
 
+    print("Borrow done")
+    print_current_balances(hot_wallet.address, usdc, weth)
+
     # ----- 3. Sell tokens on Uniswap v3
+    print("> Step 3: Sell WETH on Uniswap v3")
     price_helper = UniswapV3PriceHelper(uniswap_v3)
     original_price = price_helper.get_amount_out(
         1 * 10**18,
@@ -219,7 +238,7 @@ def test_aave_v3_short(
         [pool_trading_fee],
         slippage=50,
     )
-    print("Original WETH price:", original_price / 1e6)
+    print("Current ETH price:", original_price / 1e6)
     assert original_price / 1e6 > 3900
 
     uniswap_v3_router = uniswap_v3.swap_router
@@ -246,7 +265,11 @@ def test_aave_v3_short(
     assert usdc.functions.balanceOf(hot_wallet.address).call() / 1e6 == pytest.approx(7960.127505)
     assert weth.functions.balanceOf(hot_wallet.address).call() == 0
 
+    print("Sell WETH done")
+    print_current_balances(hot_wallet.address, usdc, weth)
+
     # ----- 4. Wait for price get lower
+    print("> Step 4: Wait for ETH price plummet")
     # simulate price moves down due to ETH selling pressure
     weth.functions.approve(uniswap_v3_router.address, 100 * 10**18).transact({"from": deployer})
     tx_hash = uniswap_v3_router.functions.exactInput(
@@ -267,11 +290,14 @@ def test_aave_v3_short(
         [pool_trading_fee],
         slippage=50,
     )
-    print("New WETH price:", new_price / 1e6)
+    print("New ETH price:", new_price / 1e6)
     assert new_price < original_price
     assert new_price / 1e6 < 3300
 
+    print_current_balances(hot_wallet.address, usdc, weth)
+
     # ----- 5. Buy back tokens with USDC
+    print("> Step 5: Buy back WETH")
     tx = usdc.functions.approve(uniswap_v3_router.address, 100_000 * 10**6).build_transaction(
         {
             "from": hot_wallet.address,
@@ -298,10 +324,14 @@ def test_aave_v3_short(
     tx_hash = web3.eth.send_raw_transaction(signed.rawTransaction)
     assert_transaction_success_with_explanation(web3, tx_hash)
 
+    print("Buy back WETH done")
+    print_current_balances(hot_wallet.address, usdc, weth)
+
     # print(usdc.functions.balanceOf(hot_wallet.address).call() / 1e6)
     # print(weth.functions.balanceOf(hot_wallet.address).call() / 1e18)
 
     # ----- 6. Repay tokens to Aave
+    print("> Step 6: Repay WETH loan in Aave")
     approve_fn, repay_fn = repay(
         aave_v3_deployment=aave_v3_deployment,
         wallet_address=hot_wallet.address,
@@ -329,7 +359,11 @@ def test_aave_v3_short(
     user_data = aave_v3_deployment.get_user_data(hot_wallet.address)
     assert user_data.total_debt_base == 0
 
+    print("Repay done")
+    print_current_balances(hot_wallet.address, usdc, weth)
+
     # ----- 7. Close position by withdraw all USDC in Aave
+    print("> Step 7: Withdraw collateral in Aave, close position")
     withdraw_fn = withdraw(
         aave_v3_deployment=aave_v3_deployment,
         wallet_address=hot_wallet.address,
@@ -346,7 +380,8 @@ def test_aave_v3_short(
     tx_hash = web3.eth.send_raw_transaction(signed.rawTransaction)
     assert_transaction_success_with_explanation(web3, tx_hash)
 
+    print("Withdraw done")
+
     # ----- 8. PnL
-    print("FINAL balance")
-    print("USDC:", usdc.functions.balanceOf(hot_wallet.address).call() / 1e6)
-    print("WETH:", weth.functions.balanceOf(hot_wallet.address).call() / 1e18)
+    print("> Step 8: Analyze PnL")
+    print_current_balances(hot_wallet.address, usdc, weth)
