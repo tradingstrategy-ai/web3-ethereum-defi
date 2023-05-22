@@ -2,9 +2,7 @@
 import pytest
 from web3 import EthereumTesterProvider, Web3
 
-from eth_defi.uniswap_v3.deployment import (
-    deploy_uniswap_v3,
-)
+from eth_defi.uniswap_v3.deployment import deploy_uniswap_v3
 
 
 @pytest.fixture
@@ -45,7 +43,7 @@ def test_deploy_uniswap_v3(web3: Web3, deployer: str):
 
 def test_weth(web3: Web3, deployer: str):
     """Test wrapping WETH."""
-    deployment = deploy_uniswap_v3(web3, deployer, give_weth=None)
+    deployment = deploy_uniswap_v3(web3, deployer)
     weth = deployment.weth
     weth.functions.deposit().transact({"from": deployer, "value": 5 * 10**18})
     assert weth.functions.balanceOf(deployer).call() == 5 * 10**18

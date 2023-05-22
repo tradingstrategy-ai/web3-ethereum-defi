@@ -79,14 +79,14 @@ def deploy_uniswap_v3_factory(web3: Web3, deployer: HexAddress) -> Contract:
     # https://ethereum.stackexchange.com/a/73872/620
     tx_hash = web3.eth.send_transaction({"from": deployer, "data": UNISWAP_V3_FACTORY_DEPLOYMENT_DATA})
     tx_receipt = web3.eth.wait_for_transaction_receipt(tx_hash)
-    instance = UniswapV3Factory(address=tx_receipt.contractAddress)
+    instance = UniswapV3Factory(address=tx_receipt["contractAddress"])
     return instance
 
 
 def deploy_uniswap_v3(
     web3: Web3,
     deployer: HexAddress,
-    give_weth: Optional[int] = 10_000,
+    weth: Contract | None = None,
 ) -> UniswapV3Deployment:
     """Deploy v3
 
@@ -102,14 +102,14 @@ def deploy_uniswap_v3(
 
     :param web3: Web3 instance
     :param deployer: Deployer account
-    :param give_weth:
-        Automatically give some Wrapped ETH to the deployer.
-        Express as ETH units.
+    :param weth: WETH contract instance
     :return: Deployment details
     """
     # Factory takes feeSetter as an argument
     factory = deploy_uniswap_v3_factory(web3, deployer)
-    weth = deploy_contract(web3, "sushi/WETH9Mock.json", deployer)
+    if weth is None:
+        weth = deploy_contract(web3, "sushi/WETH9Mock.json", deployer)
+
     swap_router = deploy_contract(
         web3,
         "uniswap_v3/SwapRouter.json",
@@ -136,9 +136,6 @@ def deploy_uniswap_v3(
         factory.address,
         weth.address,
     )
-
-    if give_weth:
-        weth.functions.deposit().transact({"from": deployer, "value": give_weth * 10**18})
 
     PoolContract = get_contract(web3, "uniswap_v3/UniswapV3Pool.json")
 
@@ -296,7 +293,6 @@ def increase_liquidity(
     # returns: [nonce, operator, token0, token1, fee, tickLower, tickUpper,
     # liquidity, feeGrowthInside0, feeGrowthInside1, tokensOwed0, tokensOwed1]
     position_details = position_manager.functions.positions(position_id).call()  # get pool contract address
-    print(position_details)
 
     # get the pool address from token0_address, token1_address, and fee
     pool_address = deployment.factory.functions.getPool(position_details[2], position_details[3], position_details[4]).call()
