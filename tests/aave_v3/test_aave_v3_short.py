@@ -231,12 +231,13 @@ def test_aave_v3_short(
 
     # ----- 3. Sell tokens on Uniswap v3
     print("> Step 3: Sell WETH on Uniswap v3")
+    max_slippage_bps = 5
     price_helper = UniswapV3PriceHelper(uniswap_v3)
     original_price = price_helper.get_amount_out(
         1 * 10**18,
         [weth.address, usdc.address],
         [pool_trading_fee],
-        slippage=50,
+        slippage=max_slippage_bps,
     )
     print("Current ETH price:", original_price / 1e6)
     assert original_price / 1e6 > 3900
@@ -254,7 +255,7 @@ def test_aave_v3_short(
         quote_token=weth,
         pool_fees=[pool_trading_fee],
         amount_in=borrow_amount,
-        max_slippage=50,  # 50 bps = 0.5%
+        max_slippage=max_slippage_bps,
     )
     tx = swap_fn.build_transaction({"from": hot_wallet.address, "gas": 350_000})
     signed = hot_wallet.sign_transaction_with_new_nonce(tx)
@@ -288,7 +289,7 @@ def test_aave_v3_short(
         1 * 10**18,
         [weth.address, usdc.address],
         [pool_trading_fee],
-        slippage=50,
+        slippage=max_slippage_bps,
     )
     print("New ETH price:", new_price / 1e6)
     assert new_price < original_price
@@ -317,7 +318,7 @@ def test_aave_v3_short(
         amount_in=6630 * 10**6,
         # TODO: amount_out doesn't work here for some reason
         # amount_out=2 * 10**18,
-        max_slippage=50,  # 50 bps = 0.5%
+        max_slippage=max_slippage_bps,
     )
     tx = swap_fn.build_transaction({"from": hot_wallet.address, "gas": 350_000})
     signed = hot_wallet.sign_transaction_with_new_nonce(tx)
