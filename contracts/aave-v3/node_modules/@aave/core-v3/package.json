@@ -1,0 +1,93 @@
+{
+  "name": "@aave/core-v3",
+  "version": "1.17.2",
+  "description": "Aave Protocol V3 core smart contracts",
+  "files": [
+    "contracts",
+    "artifacts",
+    "types",
+    "dist"
+  ],
+  "main": "dist/helpers/index.js",
+  "engines": {
+    "node": ">=16.0.0"
+  },
+  "scripts": {
+    "size": "npm run compile && npm run hardhat size-contracts",
+    "run-env": "npm i && tail -f /dev/null",
+    "hardhat": "hardhat",
+    "compile": "SKIP_LOAD=true hardhat compile",
+    "compile:clean": "npm run ci:clean && npm run compile",
+    "console:fork": "FORK=main hardhat console",
+    "prettier:check": "npx prettier -c 'tasks/**/*.ts' 'contracts/**/*.sol' 'helpers/**/*.ts'  'test-suites/**/*.ts' 'market-config/**/*.ts'",
+    "prettier:write": "prettier --write 'tasks/**/*.ts' 'contracts/**/*.sol' 'helpers/**/*.ts'  'test-suites/**/*.ts' 'market-config/**/*.ts'",
+    "coverage": ". ./setup-test-env.sh && COVERAGE=true npx hardhat coverage --temp temp-artifacts --testfiles test-suites/emptyrun.coverage.ts && rm -rf coverage.json coverage/ && COVERAGE=true npx hardhat coverage --temp temp-artifacts --testfiles 'test-suites/*.spec.ts'",
+    "test": ". ./setup-test-env.sh && TS_NODE_TRANSPILE_ONLY=1 hardhat test test-suites/*.spec.ts",
+    "test-scenarios": ". ./setup-test-env.sh && npx hardhat test test-suites/__setup.spec.ts test-suites/scenario.spec.ts",
+    "test-l2pool": ". ./setup-test-env.sh && npx hardhat test test-suites/__setup.spec.ts test-suites/pool-l2.spec.ts",
+    "test-subgraph:scenarios": ". ./setup-test-env.sh  && hardhat --network hardhatevm_docker test test-suites/__setup.spec.ts test-suites/subgraph-scenarios.spec.ts",
+    "ci:test": ". ./setup-test-env.sh  && npm run test",
+    "ci:clean": "rm -rf ./artifacts ./cache ./types ./temp-artifacts",
+    "build": "tsc --project lib.tsconfig.json",
+    "prepublish": "npm run compile && npm run build"
+  },
+  "devDependencies": {
+    "@aave/deploy-v3": "1.51.0",
+    "@aave/periphery-v3": "1.21.4",
+    "@ethersproject/bignumber": "^5.6.2",
+    "@nomicfoundation/hardhat-chai-matchers": "1.0.5",
+    "@nomicfoundation/hardhat-toolbox": "^2.0.0",
+    "@tenderly/hardhat-tenderly": "1.1.0-beta.5",
+    "@types/chai": "4.2.11",
+    "@types/lowdb": "1.0.9",
+    "@types/node": "14.0.5",
+    "bluebird": "^3.7.2",
+    "dotenv": "8.2.0",
+    "eth-sig-util": "2.5.3",
+    "ethereumjs-util": "7.0.2",
+    "ethers": "5.7.2",
+    "hardhat": "2.12.2",
+    "hardhat-contract-sizer": "2.0.3",
+    "hardhat-dependency-compiler": "1.1.2",
+    "hardhat-deploy": "0.11.12",
+    "hardhat-gas-reporter": "1.0.8",
+    "husky": "4.2.5",
+    "prettier": "2.4.1",
+    "prettier-plugin-solidity": "1.0.0-alpha.53",
+    "pretty-quick": "3.1.1",
+    "ts-node": "8.10.2",
+    "tslint": "6.1.2",
+    "tslint-config-prettier": "1.18.0",
+    "tslint-plugin-prettier": "2.3.0",
+    "typescript": "^4.5.0"
+  },
+  "husky": {
+    "hooks": {
+      "pre-commit": "pretty-quick --staged --pattern 'contracts/**/*.sol' --pattern 'helpers/**/*.ts'  --pattern 'test-suites**/*.ts' --pattern 'tasks/**/*.ts' --pattern 'markets/**/*.ts'"
+    }
+  },
+  "author": "Aave",
+  "contributors": [
+    "Emilio Frangella <emilio@aave.com>",
+    "Miguel Martinez <miguel@aave.com>",
+    "Steven Valeri <steven@aave.com>",
+    "David Racero <david.k@aave.com>",
+    "Lasse Herskind <lasse@aave.com>",
+    "Mark Hinschberger <mark@aave.com>",
+    "Peter Michael <peter.dev@aave.com>",
+    "Pol Sendra <pol@aave.com>"
+  ],
+  "license": "BUSL-1.1",
+  "keywords": [
+    "aave",
+    "protocol",
+    "protocol-v3",
+    "core-v3",
+    "ethereum",
+    "solidity"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/aave/aave-v3-core"
+  }
+}
