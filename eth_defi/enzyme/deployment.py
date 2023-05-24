@@ -20,21 +20,18 @@ See Enzyme Subgraphs: ---
 """
 import enum
 import re
-from _decimal import Decimal
-from dataclasses import dataclass, field, asdict, fields
+from dataclasses import asdict, dataclass, field, fields
 from pprint import pformat
-from typing import Dict, Tuple, Optional
+from typing import Dict, Optional, Tuple
 
-from web3._utils.events import EventLogErrorFlags
-
-from eth_defi.abi import get_contract, encode_with_signature, get_deployed_contract
-from eth_defi.deploy import deploy_contract
 from eth_typing import HexAddress
 from web3 import Web3
+from web3._utils.events import EventLogErrorFlags
 from web3.contract import Contract
 
+from eth_defi.abi import encode_with_signature, get_contract, get_deployed_contract
+from eth_defi.deploy import deploy_contract
 from eth_defi.revert_reason import fetch_transaction_revert_reason
-
 
 #: Enzyme deployment details for Polygon
 #:
