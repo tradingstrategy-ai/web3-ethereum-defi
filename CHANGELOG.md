@@ -1,4 +1,4 @@
-# Current
+# 0.20
 
 - Add USDC (Centre FiatToken)
 - Add EIP-712
