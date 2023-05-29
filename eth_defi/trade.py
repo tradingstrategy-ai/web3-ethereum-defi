@@ -39,11 +39,30 @@ class TradeSuccess(TradeResult):
     #: Price includes any fees paid during the order routing path.
     #:
     #: Note that you get inverse price, if you route ETH-USD or USD-ETH e.g. are you doing buy or sell.
+    #:
+    #: See also :py:meth:`get_human_price)`
     price: Decimal
 
-    # Token information book keeping
+    #: Token information book keeping
     amount_in_decimals: int
+
+    #: Token information book keeping
     amount_out_decimals: int
+
+    def get_human_price(self, reverse_token_order=False) -> Decimal:
+        """Get the executed price of this trade.
+
+        :param reverse_token_order:
+            Base and quote token order.
+
+            Quote token should be natural quote token  like USD or ETH based token of the trade.
+            If `reverse_token_order` is set quote token is `token0` of the pool,
+            otherwise `token1`.
+        """
+        if reverse_token_order:
+            return self.price / Decimal(1)
+        else:
+            return self.price
 
 
 @dataclass

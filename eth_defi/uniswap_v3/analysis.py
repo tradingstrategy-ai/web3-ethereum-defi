@@ -129,7 +129,7 @@ def analyse_trade_by_receipt(
 
     in_token_details = fetch_erc20_details(web3, path[0])
     out_token_details = fetch_erc20_details(web3, path[-1])
-    price = pool.convert_price_to_human(tick, in_token_details == pool.token1)
+    price = pool.convert_price_to_human(tick)  # Return price of token0/token1
 
     return TradeSuccess(
         gas_used,
