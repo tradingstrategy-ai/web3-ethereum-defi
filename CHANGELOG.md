@@ -1,5 +1,9 @@
 # Current
 
+- TODO
+
+# 0.20.1
+
 - Fix: Token equality: `TokenDetails` does a logical comparison with chain id and address,
   instaed of object comparison. This makes TokenDetails good for ifs and hash maps. This
   adds `TokenDetails.__eq__` and `TokenDetails.__hash__`.
