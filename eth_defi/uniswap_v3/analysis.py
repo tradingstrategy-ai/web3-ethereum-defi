@@ -141,4 +141,6 @@ def analyse_trade_by_receipt(
         price,
         in_token_details.decimals,
         out_token_details.decimals,
+        token0=pool.token0,
+        token1=pool.token1,
     )

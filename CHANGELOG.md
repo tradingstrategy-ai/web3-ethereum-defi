@@ -4,6 +4,7 @@
   instaed of object comparison. This makes TokenDetails good for ifs and hash maps. This
   adds `TokenDetails.__eq__` and `TokenDetails.__hash__`.
 - Fix `TradeSuccess.price` is in Python `Decimal`
+- Add: `TradeSucces.get_human_price(reverse_token_order: bool)`
 
 # 0.20
 

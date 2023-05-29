@@ -4,6 +4,8 @@ from typing import List, Optional
 
 from eth_typing import HexAddress
 
+from eth_defi.token import TokenDetails
+
 
 @dataclass
 class TradeResult:
@@ -28,13 +30,17 @@ class TradeSuccess(TradeResult):
     """
 
     #: Routing path that was used for this trade
-    path: Optional[List[HexAddress]]
+    path: List[HexAddress] | None
 
     amount_in: int
-    amount_out_min: Optional[int]
+    amount_out_min: int | None
     amount_out: int
 
-    #: Overall price paid as in token (first in the path) to out token (last in the path).
+    #: The price of the trade in some order.
+    #:
+    #: - Uniswap v2: Overall price paid as in token (first in the path) to out token (last in the path).
+    #:
+    #: - Uniswap v3: depends on ticks and order of token0 and token1 in the underlying pool smart contract
     #:
     #: Price includes any fees paid during the order routing path.
     #:
@@ -43,11 +49,21 @@ class TradeSuccess(TradeResult):
     #: See also :py:meth:`get_human_price`
     price: Decimal
 
-    #: Token information book keeping
+    #: Token information bookkeeping
     amount_in_decimals: int
 
-    #: Token information book keeping
+    #: Token information bookkeeping
     amount_out_decimals: int
+
+    #: Uniswap v3 pool token 0
+    #:
+    #: Needed to calculate reverse token order.
+    token0: TokenDetails | None
+
+    #: Uniswap v3 pool token 1
+    #:
+    #: Needed to calculate reverse token order.
+    token1: TokenDetails | None
 
     def __post_init__(self):
         if self.price is not None:
