@@ -62,6 +62,11 @@ def analyse_trade_by_receipt(
 
     - Slippage, etc.
 
+    .. warning::
+
+        Do not use `TradeSuccess.price` directly, as this price depends on in which order token0 and token1
+        are in the pool smart contract. Use `TradeSucces.get_human_price()` instead.
+
 
     :param tx_receipt:
         Transaction receipt

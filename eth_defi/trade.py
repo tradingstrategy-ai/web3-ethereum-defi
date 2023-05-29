@@ -74,6 +74,8 @@ class TradeSuccess(TradeResult):
 
         This depends on:
 
+        - If we are on Uniswap v2 or v3
+
         - If we do buy or sell
 
         - If quote token is token0 or token1 in Uniswap v3 pool
@@ -82,6 +84,7 @@ class TradeSuccess(TradeResult):
 
         .. code-block:: python
 
+            # TODO
             pass
 
         :param reverse_token_order:
