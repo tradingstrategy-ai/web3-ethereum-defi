@@ -49,6 +49,10 @@ class TradeSuccess(TradeResult):
     #: Token information book keeping
     amount_out_decimals: int
 
+    def __post_init__(self):
+        if self.price is not None:
+            assert isinstance(self.price, Decimal)
+
     def get_human_price(self, reverse_token_order=False) -> Decimal:
         """Get the executed price of this trade in a human-readable form.
 
