@@ -46,6 +46,18 @@ class TokenDetails:
     #: Number of decimals
     decimals: Optional[int] = None
 
+    def __eq__(self, other):
+        """Token is the same if it's on the same chain and has the same contract address.
+
+        .. note ::
+
+            May cause RPC call, because `chain_id` is an RPC call.
+            This should be cached if the cache middleware is installed.
+
+        """
+        assert isinstance(other, TokenDetails)
+        return (self.contract.address == other.contract.address) and (self.contract.w3.eth.chain_id == other.contract.w3.eth.chain_id)
+
     def __repr__(self):
         return f"<{self.name} ({self.symbol}) at {self.contract.address}, {self.decimals} decimals>"
 

@@ -1,4 +1,4 @@
-from decimal import Decimal
+"""Uniswap v3 slippage and trade success tests."""
 
 import pytest
 from eth_tester import EthereumTester
