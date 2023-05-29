@@ -40,7 +40,7 @@ class TradeSuccess(TradeResult):
     #:
     #: Note that you get inverse price, if you route ETH-USD or USD-ETH e.g. are you doing buy or sell.
     #:
-    #: See also :py:meth:`get_human_price)`
+    #: See also :py:meth:`get_human_price`
     price: Decimal
 
     #: Token information book keeping
@@ -50,7 +50,19 @@ class TradeSuccess(TradeResult):
     amount_out_decimals: int
 
     def get_human_price(self, reverse_token_order=False) -> Decimal:
-        """Get the executed price of this trade.
+        """Get the executed price of this trade in a human-readable form.
+
+        This depends on:
+
+        - If we do buy or sell
+
+        - If quote token is token0 or token1 in Uniswap v3 pool
+
+        Example:
+
+        .. code-block:: python
+
+            pass
 
         :param reverse_token_order:
             Base and quote token order.
@@ -60,7 +72,7 @@ class TradeSuccess(TradeResult):
             otherwise `token1`.
         """
         if reverse_token_order:
-            return self.price / Decimal(1)
+            return Decimal(1) / self.price
         else:
             return self.price
 
