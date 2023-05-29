@@ -62,6 +62,11 @@ def analyse_trade_by_receipt(
 
     - Slippage, etc.
 
+    .. warning::
+
+        Do not use `TradeSuccess.price` directly, as this price depends on in which order token0 and token1
+        are in the pool smart contract. Use `TradeSuccess.get_human_price()` instead.
+
 
     :param tx_receipt:
         Transaction receipt
@@ -129,7 +134,7 @@ def analyse_trade_by_receipt(
 
     in_token_details = fetch_erc20_details(web3, path[0])
     out_token_details = fetch_erc20_details(web3, path[-1])
-    price = pool.convert_price_to_human(tick, in_token_details == pool.token1)
+    price = pool.convert_price_to_human(tick)  # Return price of token0/token1
 
     return TradeSuccess(
         gas_used,
@@ -141,4 +146,6 @@ def analyse_trade_by_receipt(
         price,
         in_token_details.decimals,
         out_token_details.decimals,
+        token0=pool.token0,
+        token1=pool.token1,
     )

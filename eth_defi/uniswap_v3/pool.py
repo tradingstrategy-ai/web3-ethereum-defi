@@ -1,4 +1,5 @@
 """Uniswap v3 pool data."""
+from decimal import Decimal
 from dataclasses import dataclass
 from typing import Union
 
@@ -35,7 +36,7 @@ class PoolDetails:
     def __repr__(self):
         return f"Pool {self.address} is {self.token0.symbol}-{self.token1.symbol}, with the fee {self.fee * 100:.04f}%"
 
-    def convert_price_to_human(self, tick: int, reverse_token_order=False):
+    def convert_price_to_human(self, tick: int, reverse_token_order=False) -> Decimal:
         """Convert the price obtained through
 
         :param tick:
@@ -45,12 +46,12 @@ class PoolDetails:
             For natural base - quote token order. If set,
             assume quote token is token0.
         """
-        raw_price = 1.0001**tick
+        raw_price = Decimal("1.0001") ** tick
 
         if reverse_token_order:
-            return (1 / raw_price) / 10 ** (self.token0.decimals - self.token1.decimals)
+            return (Decimal(1) / raw_price) / Decimal(10 ** (self.token0.decimals - self.token1.decimals))
         else:
-            return raw_price / 10 ** (self.token1.decimals - self.token0.decimals)
+            return raw_price / Decimal(10 ** (self.token1.decimals - self.token0.decimals))
 
 
 def fetch_pool_details(web3, pool_contact_address: Union[str, HexAddress]) -> PoolDetails:
