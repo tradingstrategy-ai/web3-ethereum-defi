@@ -129,3 +129,4 @@ def test_compare_token(web3: Web3, deployer: str):
     token_1_again = fetch_erc20_details(web3, token_1.address)
     assert token_1 == token_1_again
     assert token_2 != token_1
+    assert hash(token_1) == hash(token_1_again)

@@ -6,6 +6,7 @@ Deploy ERC-20 tokens to be used within your test suite.
 """
 from dataclasses import dataclass
 from decimal import Decimal
+from functools import cached_property
 from typing import Optional, Union
 
 from eth_tester.exceptions import TransactionFailed
@@ -47,19 +48,21 @@ class TokenDetails:
     decimals: Optional[int] = None
 
     def __eq__(self, other):
-        """Token is the same if it's on the same chain and has the same contract address.
-
-        .. note ::
-
-            May cause RPC call, because `chain_id` is an RPC call.
-            This should be cached if the cache middleware is installed.
-
-        """
+        """Token is the same if it's on the same chain and has the same contract address."""
         assert isinstance(other, TokenDetails)
-        return (self.contract.address == other.contract.address) and (self.contract.w3.eth.chain_id == other.contract.w3.eth.chain_id)
+        return (self.contract.address == other.contract.address) and (self.chain_id == other.chain_id)
+
+    def __hash__(self):
+        """Token hash."""
+        return hash((self.chain_id, self.contract.address))
 
     def __repr__(self):
-        return f"<{self.name} ({self.symbol}) at {self.contract.address}, {self.decimals} decimals>"
+        return f"<{self.name} ({self.symbol}) at {self.contract.address}, {self.decimals} decimals, on chain {self.chain_id}>"
+
+    @cached_property
+    def chain_id(self) -> int:
+        """The EVM chain id where this token lives."""
+        return self.contract.w3.eth.chain_id
 
     @property
     def address(self) -> HexAddress:
