@@ -1,5 +1,6 @@
-"""Enzyme USCC transferWithAuthorization payment forwarder.
+"""Enzyme USDC EIP-3009 payment forwarder.
 
+- transferWithAuthorization() and receiveWithAuthorization() integration tests for Enzyme protocol
 """
 import pytest
 from eth_account import Account
