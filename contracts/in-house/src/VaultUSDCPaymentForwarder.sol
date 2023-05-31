@@ -17,9 +17,15 @@ interface IEnzymeComptroller {
 }
 
 /**
- * Purchase shares for the user using USDC.receiveWithAuthorization()
+ * Purchase shares for the user using USDC
  *
- * No extra approval step needed.
+ * - Provide EIP-3009 wrapper around Enzyme's buyShares() function
+ *
+ * - Support receiveWithAuthorization() hooks
+ *
+ * - Support transferWithAuthorization() hooks
+ *
+ * - No approve() and extra pop-up needed when depositd to the vault
  *
  */
 contract VaultUSDCPaymentForwarder {
@@ -38,7 +44,51 @@ contract VaultUSDCPaymentForwarder {
         comptroller = _comptroller;
     }
 
-    function buySharesOnBehalf(
+    function buySharesOnBehalfUsingTransferWithAuthorization(
+        address from,
+        address to,
+        uint256 value,
+        uint256 validAfter,
+        uint256 validBefore,
+        bytes32 nonce,
+        uint8 v,
+        bytes32 r,
+        bytes32 s,
+        uint256 minSharesQuantity
+    )
+        public
+        returns (uint256)
+    {
+
+        // Call EIP-3009 token and ask it to transfer the amount of tokens
+        // tok this contract from the sender
+        token.transferWithAuthorization(
+            from,
+            to,
+            value,
+            validAfter,
+            validBefore,
+            nonce,
+            v,
+            r,
+            s
+        );
+
+        token.approve(address(comptroller), value);
+        uint256 sharesReceived = comptroller.buySharesOnBehalf(
+            msg.sender,
+            value,
+            minSharesQuantity
+        );
+
+        // Increase the internal ledger of how much shares purchases
+        // we have proxied
+        amountProxied += value;
+
+        return sharesReceived;
+    }
+
+    function buySharesOnBehalfUsingReceiveWithAuthorization(
         address from,
         address to,
         uint256 value,
