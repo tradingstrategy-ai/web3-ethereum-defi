@@ -1,4 +1,4 @@
-# Current
+# 0.21
 
 - Add EIP-3009 `transferWithAuthorization` support.
   Related refactoring of EIP-3009 module.
