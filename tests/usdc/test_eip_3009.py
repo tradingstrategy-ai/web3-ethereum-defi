@@ -1,4 +1,12 @@
-"""ERC-20 and approve() must die in flames"""
+""" EIP-3009 tests
+
+- Test against MockEIP3009Receiver
+
+- ERC-20 and approve() must die in flames
+
+- For more EIP-3009 tests, see Enzyme test suite
+
+"""
 import pytest
 from eth_account import Account
 from eth_account.signers.local import LocalAccount
@@ -9,7 +17,7 @@ from eth_defi.deploy import deploy_contract
 from eth_defi.middleware import construct_sign_and_send_raw_middleware_anvil
 from eth_defi.token import TokenDetails
 from eth_defi.trace import assert_transaction_success_with_explanation
-from eth_defi.usdc.transfer_with_authorization import make_receive_with_authorization_transfer
+from eth_defi.usdc.eip_3009 import make_eip_3009_transfer, EIP3009AuthorizationType
 
 
 @pytest.fixture
@@ -63,13 +71,14 @@ def test_receive_with_authorization(
     # Construct bounded ContractFunction instance
     # that will transact with MockEIP3009Receiver.deposit()
     # smart contract function.
-    bound_func: ContractFunction = make_receive_with_authorization_transfer(
+    bound_func: ContractFunction = make_eip_3009_transfer(
         token=usdc,
         from_=user,
         to=receiver.address,
         func=receiver.functions.deposit,
         value=500 * 10**6,  # 500 USD,
         valid_before=valid_before,
+        authorization_type=EIP3009AuthorizationType.ReceiveWithAuthorization,
     )
 
     # Sign and broadcast the tx

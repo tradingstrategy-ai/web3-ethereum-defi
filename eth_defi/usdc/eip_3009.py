@@ -1,4 +1,6 @@
-"""EIP-3009 transferWithAuthorization() and receiveWithAuthorization() support for Python.
+"""EIP-3009 transferWithAuthorization() support for Python.
+
+- Support `transferWithAuthorization()` and `receiveWithAuthorization()` ERC-20 single-click token transfers
 
 - `EIP-3009 spec <https://github.com/ethereum/EIPs/issues/3010>`__.
 
@@ -13,7 +15,9 @@
 
 """
 import datetime
+import enum
 import secrets
+import warnings
 
 from eth_account._utils.signing import to_bytes32
 from eth_account.signers.local import LocalAccount
@@ -24,7 +28,28 @@ from eth_defi.token import TokenDetails
 from eth_typing import HexAddress
 
 
-def construct_receive_with_authorization_message(
+class EIP3009AuthorizationType(enum.Enum):
+    """EIP-3009 message types.
+
+    - Note that some contracts e.g. Polygon's bridged USDC
+      only implement `TransferWithAuthorization` support.
+      Always check your target token first for supported methods.
+
+    - Use `ReceiveWithAuthorization` when possible as it is safer due
+      to front running protection
+    """
+
+    #: Used with USDC
+    TransferWithAuthorization = "TransferWithAuthorization"
+
+    #: Used with USDC
+    #:
+    #: Not avaible on Polygon bridged tokens
+    #:
+    ReceiveWithAuthorization = "ReceiveWithAuthorization"
+
+
+def construct_eip_3009_authorization_message(
     chain_id: int,
     token: TokenDetails,
     from_,
@@ -33,14 +58,15 @@ def construct_receive_with_authorization_message(
     valid_before=0,
     valid_after=1,
     duration_seconds=0,
+    authorization_type=EIP3009AuthorizationType.TransferWithAuthorization,
 ) -> dict:
-    """Create EIP-721 message for transferWithAuthorization.
-
-    - Skip the awful approve() step
+    """Create EIP-721 message for EIP-3009 transfers.
 
     - Used to construct the message that then needs to be signed
 
-    - The signature will be verified by `receiveWithAuthorization()`
+    - The signature will be verified by `receiveWithAuthorization()` or `transferWithAuthorization`
+      function in the token contract
+
     """
 
     assert duration_seconds or valid_before, "You need to give either duration_seconds or valid_before"
@@ -59,7 +85,7 @@ def construct_receive_with_authorization_message(
                 {"name": "chainId", "type": "uint256"},
                 {"name": "verifyingContract", "type": "address"},
             ],
-            "ReceiveWithAuthorization": [
+            authorization_type.value: [
                 {"name": "from", "type": "address"},
                 {"name": "to", "type": "address"},
                 {"name": "value", "type": "uint256"},
@@ -80,13 +106,13 @@ def construct_receive_with_authorization_message(
             "chainId": chain_id,
             "verifyingContract": token.address,
         },
-        "primaryType": "ReceiveWithAuthorization",
+        "primaryType": authorization_type.value,
         "message": {"from": from_, "to": to, "value": value, "validAfter": valid_after, "validBefore": valid_before, "nonce": secrets.token_bytes(32)},  # 256-bit random nonce
     }
     return data
 
 
-def make_receive_with_authorization_transfer(
+def make_eip_3009_transfer(
     token: TokenDetails,
     from_: LocalAccount,
     to: HexAddress,
@@ -96,14 +122,19 @@ def make_receive_with_authorization_transfer(
     valid_after: int = 1,
     duration_seconds: int = 0,
     extra_args=(),
+    authorization_type=EIP3009AuthorizationType.TransferWithAuthorization,
 ) -> ContractFunction:
-    """Perform an EIP-3009 receiveWithAuthorization() transaction.
+    """Perform an EIP-3009 transferWithAuthorization() and receiveWithAuthorization() transaction.
 
     - Constructs the EIP-3009 / EIP-712 payload
 
     - Signs the message
 
-    - Builds a transaction against `receiveWithAuthorization` in USDC
+    - Builds a transaction against `receiveWithAuthorization` in USDC using Web3.py API,
+      assuming there is a target smart contract function `func` to be called with this messge
+
+    - The caller can then execute this by building a transaction from the resulting bound
+      function call
 
     .. note ::
 
@@ -186,6 +217,9 @@ def make_receive_with_authorization_transfer(
     :param extra_args:
         Arguments added after the standard receiveWithAuthorization() prologue.
 
+    :param authorization_type:
+        Is this `transferWithAuthorization` or `receiveWithAuthorization` style transaction.
+
     :return:
         Bound contract function for transferWithAuthorization
 
@@ -200,7 +234,7 @@ def make_receive_with_authorization_transfer(
     web3 = token.contract.w3
     chain_id = web3.eth.chain_id
 
-    data = construct_receive_with_authorization_message(
+    data = construct_eip_3009_authorization_message(
         chain_id=chain_id,
         token=token,
         from_=from_.address,
@@ -209,12 +243,17 @@ def make_receive_with_authorization_transfer(
         valid_before=valid_before,
         valid_after=valid_after,
         duration_seconds=duration_seconds,
+        authorization_type=authorization_type,
     )
 
     # The message payload is receiveAuthorization arguments, tightly encoded,
     # without the function selector
     message_hash = eip712_encode_hash(data)
-    signed_message = from_.signHash(message_hash)
+
+    # TODO: There is no public Web3.py method to sign raw hashes
+    with warnings.catch_warnings():
+        signed_message = from_.signHash(message_hash)
+
     # Should come in the order defined for the dict,
     # as Python 3.10+ does ordered dicts
     args = list(data["message"].values())  # from, to, value, validAfter, validBefore, nonce
