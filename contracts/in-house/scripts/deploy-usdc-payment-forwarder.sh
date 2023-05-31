@@ -8,6 +8,5 @@ forge create --rpc-url $JSON_RPC_POLYGON \
     --constructor-args $USDC_TOKEN $VAULT_COMPTROLLER \
     --private-key $PRIVATE_KEY \
     --etherscan-api-key $POLYGONSCAN_API_KEY \
-    --verify \
     src/VaultUSDCPaymentForwarder.sol:VaultUSDCPaymentForwarder
 

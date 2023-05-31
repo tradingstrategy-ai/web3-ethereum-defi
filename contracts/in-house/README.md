@@ -47,6 +47,11 @@ export POLYGONSCAN_API_KEY=
 
 # Wrapped as a shells script, as Bash will check that all variables are set 
 scripts/deploy-usdc-payment-forwarder.sh
+
+export CONTRACT_ADDRESS=...
+
+# Manually verify because Forge automatic non-flattened verify fails
+scripts/manual-verify-usdc-payment-forwarder.sh
 ```
 
 For more information see [unit tests](../../tests/enzyme/test_enzyme_usdc_payment_forwarder.py).
