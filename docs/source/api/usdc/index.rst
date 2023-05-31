@@ -16,4 +16,4 @@ other Centre's fiat tokens.
    :recursive:
 
    eth_defi.usdc.deployment
-   eth_defi.usdc.transfer_with_authorization
+   eth_defi.usdc.eip_3009
