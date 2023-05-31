@@ -8,10 +8,29 @@
 
 - `Canonical examples to construct USDC EIP-712 messages <https://github.com/centrehq/centre-tokens/blob/master/test/v2/GasAbstraction/helpers.ts>`__.
 
-.. note ::
+- See `USDC payment forwarder for Enzyme protocol as an example contract <https://github.com/tradingstrategy-ai/web3-ethereum-defi/blob/master/contracts/in-house/src/VaultUSDCPaymentForwarder.sol>`__
 
-    Currently only `receiveWithAuthorization` implement, easier of two sibling methods.
-    `transferWithAuthorization` is still unimplemented.
+An example how to manually deploy an Enzyme USDC payment forwarder contract on Polygon:
+
+.. code-block:: python
+
+    from eth_defi.token import fetch_erc20_details
+    from eth_defi.enzyme.deployment import POLYGON_DEPLOYMENT
+    from eth_defi.deploy import deploy_contract
+
+    denomination_token = fetch_erc20_details(web3, POLYGON_DEPLOYMENT["usdc"])
+
+    print("USDC is", denomination_token.address)
+    print("Vault's comptroller is", comptroller_address)
+    print("Hot wallet is", hot_wallet.address)
+
+    usdc_payment_forwarder = deploy_contract(
+        web3,
+        f"VaultUSDCPaymentForwarder.json",
+        hot_wallet.address,  # Set up a hot wallet beforehand
+        denomination_token.address,
+        comptroller_address,  # Get from your Enzyme vault deployment
+    )
 
 """
 import datetime
