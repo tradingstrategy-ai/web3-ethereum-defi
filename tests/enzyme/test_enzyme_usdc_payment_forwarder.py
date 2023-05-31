@@ -119,11 +119,7 @@ def test_enzyme_usdc_payment_forwarder_receive_with_authorization(
 
     assert payment_forwarder.functions.amountProxied().call() == 500 * 10**6  # Got shares
 
-    vault = Vault.fetch(
-        web3,
-        vault_address=vault.address,
-        payment_forwarder=payment_forwarder.address
-    )
+    vault = Vault.fetch(web3, vault_address=vault.address, payment_forwarder=payment_forwarder.address)
 
     assert vault.get_gross_asset_value() == 500 * 10**6  # Vault has been funded
     assert vault.vault.functions.balanceOf(user.address).call() == 500 * 10**18  # Got shares
@@ -205,11 +201,7 @@ def test_enzyme_usdc_payment_forwarder_transfer_with_authorization(
 
     assert payment_forwarder.functions.amountProxied().call() == 500 * 10**6  # Got shares
 
-    vault = Vault.fetch(
-        web3,
-        vault_address=vault.address,
-        payment_forwarder=payment_forwarder.address
-    )
+    vault = Vault.fetch(web3, vault_address=vault.address, payment_forwarder=payment_forwarder.address)
 
     assert vault.get_gross_asset_value() == 500 * 10**6  # Vault has been funded
     assert vault.vault.functions.balanceOf(user.address).call() == 500 * 10**18  # Got shares

@@ -261,5 +261,3 @@ def make_eip_3009_transfer(
     args += list(extra_args)
 
     return func(*args)
-
-

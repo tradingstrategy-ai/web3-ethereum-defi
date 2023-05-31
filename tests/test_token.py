@@ -123,7 +123,7 @@ def test_fetch_token_details_broken_load(web3: Web3, deployer: str):
 def test_compare_token(web3: Web3, deployer: str):
     """token __eq__ works by chain id and address"""
     token_1_contract = create_token(web3, deployer, "Hentai books token", "HENTAI", 100_000 * 10**18, 6)
-    token_2_contract = create_token(web3, deployer, "Animu token", "ANIMU", 100_000 * 10 ** 18, 6)
+    token_2_contract = create_token(web3, deployer, "Animu token", "ANIMU", 100_000 * 10**18, 6)
     token_1 = fetch_erc20_details(web3, token_1_contract.address)
     token_2 = fetch_erc20_details(web3, token_2_contract.address)
     token_1_again = fetch_erc20_details(web3, token_1.address)

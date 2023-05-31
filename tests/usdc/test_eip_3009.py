@@ -93,4 +93,3 @@ def test_receive_with_authorization(
     assert_transaction_success_with_explanation(web3, tx_hash)
 
     assert receiver.functions.amountReceived().call() == 500 * 10**6
-
