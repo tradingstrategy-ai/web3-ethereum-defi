@@ -1,11 +1,5 @@
 """EIP-3009 transferWithAuthorization() support for Python.
 
-.. warning::
-
-    Polygon bridged tokens `transferWithAuthorization()` is `not compatible
-    with `EIP-3009 <https://github.com/ethers-io/ethers.js/discussions/2886>`__.
-    Here `is more <https://ethereum.stackexchange.com/q/141968/620>`__.
-
 - Support `transferWithAuthorization()` and `receiveWithAuthorization()` ERC-20 single-click token transfers
 
 - `EIP-3009 spec <https://github.com/ethereum/EIPs/issues/3010>`__.
@@ -18,6 +12,11 @@
 
 - `See how to deploy the payment forwarder contract <https://github.com/tradingstrategy-ai/web3-ethereum-defi/tree/master/contracts/in-house>`__
 
+.. warning::
+
+    Polygon bridged tokens' `transferWithAuthorization()` is not compatible
+    with EIP-3009. This includes *USD Coin (PoS)*, or USDC on Polygon.
+    See :py:func:`make_eip_3009_transfer` for workarounds.
 
 """
 import datetime
@@ -89,6 +88,12 @@ def construct_eip_3009_authorization_message(
           { name: 'verifyingContract', type: 'address' },
           { name: 'salt', type: 'bytes32' }
         ]
+
+    More on Polygon incompatibility
+
+    - `Ethers.js disucssion <https://github.com/ethers-io/ethers.js/discussions/2886>`__
+
+    - `Stackexchange discussion <https://ethereum.stackexchange.com/q/141968/620>`__.
 
     :return:
         JSON message for EIP-712 signing.
