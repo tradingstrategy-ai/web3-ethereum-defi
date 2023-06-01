@@ -1,5 +1,11 @@
 """EIP-3009 transferWithAuthorization() support for Python.
 
+.. warning::
+
+    Polygon bridged tokens `transferWithAuthorization()` is `not compatible
+    with `EIP-3009 <https://github.com/ethers-io/ethers.js/discussions/2886>`__.
+    Here `is more <https://ethereum.stackexchange.com/q/141968/620>`__.
+
 - Support `transferWithAuthorization()` and `receiveWithAuthorization()` ERC-20 single-click token transfers
 
 - `EIP-3009 spec <https://github.com/ethereum/EIPs/issues/3010>`__.
@@ -11,6 +17,7 @@
 - See `USDC payment forwarder for Enzyme protocol as an example contract <https://github.com/tradingstrategy-ai/web3-ethereum-defi/blob/master/contracts/in-house/src/VaultUSDCPaymentForwarder.sol>`__
 
 - `See how to deploy the payment forwarder contract <https://github.com/tradingstrategy-ai/web3-ethereum-defi/tree/master/contracts/in-house>`__
+
 
 """
 import datetime
@@ -59,13 +66,32 @@ def construct_eip_3009_authorization_message(
     duration_seconds=0,
     authorization_type=EIP3009AuthorizationType.TransferWithAuthorization,
 ) -> dict:
-    """Create EIP-721 message for EIP-3009 transfers.
+    """Create EIP-712 message for EIP-3009 transfers.
 
     - Used to construct the message that then needs to be signed
 
     - The signature will be verified by `receiveWithAuthorization()` or `transferWithAuthorization`
       function in the token contract
 
+    .. note ::
+
+      For Polygon USDC `transferWithAuthorization()` you need to use a different message structure,
+      because Polygon bridged tokens are not EIP-3009 compatible. This function cannot
+      work with Polygon bridged tokens.
+
+    Polygon version is:
+
+    .. code-block:: text
+
+        EIP712Domain: [
+          { name: 'name', type: 'string' },
+          { name: 'version', type: 'string' },
+          { name: 'verifyingContract', type: 'address' },
+          { name: 'salt', type: 'bytes32' }
+        ]
+
+    :return:
+        JSON message for EIP-712 signing.
     """
 
     assert duration_seconds or valid_before, "You need to give either duration_seconds or valid_before"
