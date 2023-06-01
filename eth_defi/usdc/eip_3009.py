@@ -12,6 +12,8 @@
 
 - `See how to deploy the payment forwarder contract <https://github.com/tradingstrategy-ai/web3-ethereum-defi/tree/master/contracts/in-house>`__
 
+Internally we use :py:mod:`eth_defi.eip_712` module for managing the messages here.
+
 .. warning::
 
     Polygon bridged tokens' `transferWithAuthorization()` is not compatible
@@ -42,6 +44,8 @@ class EIP3009AuthorizationType(enum.Enum):
 
     - Use `ReceiveWithAuthorization` when possible as it is safer due
       to front running protection
+
+    See :py:func:`make_eip_3009_transfer` for more information.
     """
 
     #: Used with USDC
