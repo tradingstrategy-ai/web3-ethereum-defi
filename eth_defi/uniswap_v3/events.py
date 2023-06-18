@@ -60,7 +60,7 @@ def _decode_base(log: LogResult) -> dict:
     block_time = datetime.datetime.utcfromtimestamp(log["timestamp"])
 
     return {
-        "block_number": int(log["blockNumber"], 16),
+        "block_number": int(str(log["blockNumber"]), 16),
         "timestamp": block_time.isoformat(),
         "tx_hash": log["transactionHash"],
         "log_index": int(log["logIndex"], 16),
