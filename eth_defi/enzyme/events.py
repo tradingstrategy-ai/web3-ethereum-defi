@@ -28,7 +28,7 @@ from eth_defi.token import fetch_erc20_details, TokenDetails
 logger = logging.getLogger(__name__)
 
 
-@dataclass()
+@dataclass(slots=True)
 class EnzymeBalanceEvent:
     """Enzyme deposit/redeem event wrapper.
 
@@ -168,7 +168,7 @@ class Deposit(EnzymeBalanceEvent):
         return convert_uint256_bytes_to_address(HexBytes(self.event_data["topics"][1]))
 
 
-@dataclass
+@dataclass(slots=True)
 class Redemption(EnzymeBalanceEvent):
     """Enzyme deposit event wrapper.
 
@@ -238,8 +238,13 @@ class Redemption(EnzymeBalanceEvent):
         return convert_uint256_bytes_to_address(HexBytes(self.event_data["topics"][1]))
 
 
-@dataclass
+@dataclass(frozen=True, slots=True)
 class LiveBalance:
+    """Current balance of a position in Enzyme vault.
+
+    See :py:func:`fetch_vault_balances` for details.
+    """
+
     #: Enzyme vault instance
     #:
     #:
@@ -315,6 +320,15 @@ def fetch_vault_balances(
     - Gets the total balances of positions held by vault
 
     - Does not get shares of individual investors
+
+    Example:
+
+    .. code-block:: python
+
+        balance_map = {b.token.address: b for b in fetch_vault_balances(vault)}
+        assert len(balance_map) == 2
+        assert balance_map[usdc.address].balance == 1300
+        assert balance_map[weth.address].balance == pytest.approx(Decimal("0.124500872629987902"))
 
     :param vault:
         Enzyme vault we are interested in
