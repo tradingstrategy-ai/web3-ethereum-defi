@@ -28,6 +28,7 @@ from eth_defi.token import fetch_erc20_details, TokenDetails
 logger = logging.getLogger(__name__)
 
 
+@dataclass
 class EnzymeBalanceEvent:
     """Enzyme deposit/redeem event wrapper.
 
