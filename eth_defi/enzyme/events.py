@@ -238,6 +238,25 @@ class Redemption(EnzymeBalanceEvent):
         return convert_uint256_bytes_to_address(HexBytes(self.event_data["topics"][1]))
 
 
+@dataclass
+class LiveBalance:
+
+    #: Enzyme vault instance
+    #:
+    #:
+    vault: Vault
+
+    #: Which token is this event for
+    #:
+    #:
+    token: TokenDetails
+
+    #: Underlying raw token balance, converted to decimal
+    #:
+    balance: Decimal
+
+
+
 def fetch_vault_balance_events(
     vault: Vault,
     start_block: int,
@@ -287,11 +306,36 @@ def fetch_vault_balance_events(
         yield EnzymeBalanceEvent.wrap(vault, solidity_event)
 
 
-def fetch_vault_live_balances(
+def fetch_vault_balances(
     vault: Vault,
     block_identifier="latest",
-) -> Iterable[Deposit]:
+) -> Iterable[LiveBalance]:
     """Get the live balances of the vault tokens at a specific block.
 
     Does EVM state based reading instead of event based reading.
+
+    - Gets the total balances of positions held by vault
+
+    - Does not get shares of individual investors
+
+    :param vault:
+        Enzyme vault we are interested in
+
+    :param block_identifier:
+        Specific block to query
+
+    :return:
+        The balances at the current or specific block
+
     """
+    web3 = vault.web3
+    vault_contract = vault.vault
+    token_addresses = vault_contract.functions.getTrackedAssets().call(block_identifier=block_identifier)
+    for addr in token_addresses:
+        token = fetch_erc20_details(web3, addr)
+        balance = token.fetch_balance_of(vault.address, block_identifier=block_identifier)
+        yield LiveBalance(
+            vault,
+            token,
+            balance
+        )

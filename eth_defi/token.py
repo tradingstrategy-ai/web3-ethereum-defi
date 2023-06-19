@@ -97,13 +97,16 @@ class TokenDetails:
         """
         return int(decimal_amount * 10**self.decimals)
 
-    def fetch_balance_of(self, address: HexAddress | str) -> Decimal:
+    def fetch_balance_of(self, address: HexAddress | str, block_identifier="latest") -> Decimal:
         """Get an address token balance.
+
+        :param block_identifier:
+            A specific block to query if doing archive node historical queries
 
         :return:
             Converted to decimal using :py:meth:`convert_to_decimal`
         """
-        raw_amount = self.contract.functions.balanceOf(address).call()
+        raw_amount = self.contract.functions.balanceOf(address).call(block_identifier=block_identifier)
         return self.convert_to_decimals(raw_amount)
 
 
