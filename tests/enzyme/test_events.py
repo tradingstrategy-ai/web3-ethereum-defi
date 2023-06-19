@@ -15,7 +15,7 @@ from web3.contract import Contract
 
 from eth_defi.deploy import deploy_contract
 from eth_defi.enzyme.deployment import EnzymeDeployment, RateAsset
-from eth_defi.enzyme.events import fetch_vault_balance_events, Deposit, Redemption
+from eth_defi.enzyme.events import fetch_vault_balance_events, Deposit, Redemption, fetch_vault_balances
 from eth_defi.enzyme.uniswap_v2 import prepare_swap
 from eth_defi.enzyme.vault import Vault
 from eth_defi.event_reader.reader import extract_events, Web3EventReader
@@ -286,3 +286,54 @@ def test_read_withdrawal_in_kind(
     # User 2 got its assets
     assert usdc.functions.balanceOf(user_2).call() == 866666666
     assert weth.functions.balanceOf(user_2).call() == 83000581753325268
+
+
+def test_read_vault_balances(
+    web3: Web3,
+    deployer: HexAddress,
+    vault: Vault,
+    user_1: HexAddress,
+    user_2: HexAddress,
+    weth: Contract,
+    usdc: Contract,
+    deployment: EnzymeDeployment,
+    uniswap_v2: UniswapV2Deployment,
+    generic_adapter: Contract,
+    weth_usdc_pair: Contract,
+):
+    """Read vault live balances."""
+
+    # User 1 buys into the vault
+    #
+    # Buy shares for 500 USDC
+    usdc.functions.transfer(user_1, 500 * 10**6).transact({"from": deployer})
+    usdc.functions.approve(vault.comptroller.address, 500 * 10**6).transact({"from": user_1})
+    vault.comptroller.functions.buyShares(500 * 10**6, 1).transact({"from": user_1})
+
+    # User 2 buys into the vault
+    #
+    # Buy shares for 1000 USDC
+    usdc.functions.transfer(user_2, 1000 * 10**6).transact({"from": deployer})
+    usdc.functions.approve(vault.comptroller.address, 1000 * 10**6).transact({"from": user_2})
+    vault.comptroller.functions.buyShares(1000 * 10**6, 1).transact({"from": user_2})
+    assert vault.get_total_supply() == 1500 * 10**18
+
+    # Vault swaps USDC->ETH for both users
+    # Buy ETH worth of 200 USD
+    prepared_tx = prepare_swap(
+        deployment,
+        vault,
+        uniswap_v2,
+        generic_adapter,
+        usdc,
+        weth,
+        200 * 10**6,  # 200 USD
+    )
+
+    tx_hash = prepared_tx.transact({"from": user_1})
+    assert_transaction_success_with_explanation(web3, tx_hash)
+
+    balance_map = {b.token.address: b for b in fetch_vault_balances(vault)}
+    assert len(balance_map) == 2
+    assert balance_map[usdc.address].balance == 1300
+    assert balance_map[weth.address].balance == pytest.approx(Decimal("0.124500872629987902"))

@@ -287,9 +287,7 @@ def make_eip_3009_transfer(
     # TODO: There is no public Web3.py method to sign raw hashes
     # Mute DeprecationWarning
     with warnings.catch_warnings():
-        warnings.filterwarnings(
-            action='ignore',
-            category=DeprecationWarning)
+        warnings.filterwarnings(action="ignore", category=DeprecationWarning)
         signed_message = from_.signHash(message_hash)
 
     # Should come in the order defined for the dict,

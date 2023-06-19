@@ -1,3 +1,7 @@
+# 0.21.1
+
+- Add `fetch_vault_balances()` state reading balance support for Enzyme vaults 
+
 # 0.21
 
 - Add EIP-3009 `transferWithAuthorization` support.
