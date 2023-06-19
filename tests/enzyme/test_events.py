@@ -301,8 +301,7 @@ def test_read_vault_balances(
     generic_adapter: Contract,
     weth_usdc_pair: Contract,
 ):
-    """Read vault live balances.
-    """
+    """Read vault live balances."""
 
     # User 1 buys into the vault
     #
@@ -337,6 +336,4 @@ def test_read_vault_balances(
     balance_map = {b.token.address: b for b in fetch_vault_balances(vault)}
     assert len(balance_map) == 2
     assert balance_map[usdc.address].balance == 1300
-    assert balance_map[weth.address].balance == pytest.approx(Decimal('0.124500872629987902'))
-
-
+    assert balance_map[weth.address].balance == pytest.approx(Decimal("0.124500872629987902"))

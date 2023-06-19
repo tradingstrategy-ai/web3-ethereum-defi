@@ -240,7 +240,6 @@ class Redemption(EnzymeBalanceEvent):
 
 @dataclass
 class LiveBalance:
-
     #: Enzyme vault instance
     #:
     #:
@@ -254,7 +253,6 @@ class LiveBalance:
     #: Underlying raw token balance, converted to decimal
     #:
     balance: Decimal
-
 
 
 def fetch_vault_balance_events(
@@ -334,8 +332,4 @@ def fetch_vault_balances(
     for addr in token_addresses:
         token = fetch_erc20_details(web3, addr)
         balance = token.fetch_balance_of(vault.address, block_identifier=block_identifier)
-        yield LiveBalance(
-            vault,
-            token,
-            balance
-        )
+        yield LiveBalance(vault, token, balance)
