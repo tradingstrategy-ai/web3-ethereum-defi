@@ -334,9 +334,8 @@ def test_read_vault_balances(
     tx_hash = prepared_tx.transact({"from": user_1})
     assert_transaction_success_with_explanation(web3, tx_hash)
 
-    balances = list(fetch_vault_balances(vault))
-    assert len(balances) == 2
-    balance_map = {b.token.address: b for b in balances}
+    balance_map = {b.token.address: b for b in fetch_vault_balances(vault)}
+    assert len(balance_map) == 2
     assert balance_map[usdc.address].balance == 1300
     assert balance_map[weth.address].balance == pytest.approx(Decimal('0.124500872629987902'))
 
