@@ -285,3 +285,13 @@ def fetch_vault_balance_events(
         filter=filter,
     ):
         yield EnzymeBalanceEvent.wrap(vault, solidity_event)
+
+
+def fetch_vault_live_balances(
+    vault: Vault,
+    block_identifier="latest",
+) -> Iterable[Deposit]:
+    """Get the live balances of the vault tokens at a specific block.
+
+    Does EVM state based reading instead of event based reading.
+    """
