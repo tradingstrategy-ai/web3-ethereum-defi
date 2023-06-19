@@ -96,6 +96,9 @@ class Vault:
     #:
     payment_forwarder: Optional[Contract] = None
 
+    def __repr__(self) -> str:
+        return f"<Vault vault={self.vault.address} adapter={self.generic_adapter and self.generic_adapter.address} payment_forwader={self.payment_forwarder and self.payment_forwarder.address}>"
+
     @property
     def web3(self) -> Web3:
         """Web3 connection.
