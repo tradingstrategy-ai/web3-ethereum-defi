@@ -28,7 +28,6 @@ from eth_defi.token import fetch_erc20_details, TokenDetails
 logger = logging.getLogger(__name__)
 
 
-@dataclass(slots=True)
 class EnzymeBalanceEvent:
     """Enzyme deposit/redeem event wrapper.
 
@@ -168,7 +167,6 @@ class Deposit(EnzymeBalanceEvent):
         return convert_uint256_bytes_to_address(HexBytes(self.event_data["topics"][1]))
 
 
-@dataclass(slots=True)
 class Redemption(EnzymeBalanceEvent):
     """Enzyme deposit event wrapper.
 
@@ -258,6 +256,9 @@ class LiveBalance:
     #: Underlying raw token balance, converted to decimal
     #:
     balance: Decimal
+
+    def __repr__(self):
+        return f"<Token {self.token}, balance {self.balance}>"
 
 
 def fetch_vault_balance_events(
