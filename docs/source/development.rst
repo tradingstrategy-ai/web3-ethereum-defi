@@ -209,14 +209,3 @@ Then you can run the command to recompile all the smart contracts:
 .. code-block:: shell
 
     make all
-
-Working around PyPi compression threshold issue
------------------------------------------------
-
-`See the related PyPi issue report <https://github.com/pypi/warehouse/pull/13877/files>`__.
-
-.. code-block:: shell
-
-    WHL=web3_ethereum_defi-0.21.1-py3-none-any.whl
-    mkdir /tmp/extract
-    unzip $WHL -d /tmp/extract
