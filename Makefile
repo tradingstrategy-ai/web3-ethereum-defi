@@ -54,12 +54,19 @@ aavev3:
 #
 # NOTE: Currently needs Enzyme branch that is being ported to Forge.
 #
+# We also remove AST statements (source mappings) from Enzyme ABI files,
+# because they add dozens of megabytes of data. These are not likely
+# needed unless you want to see Solidity level stack traces.
+#
+# See https://github.com/pypi/warehouse/issues/13962
+#
 enzyme:
 	@rm -f eth_defi/abi/enzyme/*.json || false
 	@(cd contracts/enzyme && pnpm install)
 	@(cd contracts/enzyme && forge build)
 	@mkdir -p eth_defi/abi/enzyme
 	@find contracts/enzyme/artifacts -iname "*.json" -exec cp {} eth_defi/abi/enzyme \;
+	@for abi_file in eth_defi/abi/enzyme/*.json ; do cat <<< $(jq 'del(.ast)' $abi_file) > $abi_file ; done
 
 # Compile and copy dHEDGE
 # npm install also compiles the contracts here
