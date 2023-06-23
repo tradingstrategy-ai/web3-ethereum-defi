@@ -323,11 +323,15 @@ def fetch_vault_balances(
 
     - Does not get shares of individual investors
 
+    .. warning::
+
+        Enzyme returns positions with zero balance so you need to filter these out.
+
     Example:
 
     .. code-block:: python
 
-        balance_map = {b.token.address: b for b in fetch_vault_balances(vault)}
+        balance_map = {b.token.address: b for b in fetch_vault_balances(vault) if b.balance > 0}
         assert len(balance_map) == 2
         assert balance_map[usdc.address].balance == 1300
         assert balance_map[weth.address].balance == pytest.approx(Decimal("0.124500872629987902"))
