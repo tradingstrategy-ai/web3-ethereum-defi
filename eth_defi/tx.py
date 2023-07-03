@@ -97,6 +97,26 @@ class AssetDelta:
         assert type(self.asset) in (HexAddress, str)
         assert self.raw_amount, "Raw amount should be specified"
 
+    def __mul__(self, other: float | int) -> "AssetDelta":
+        """Adjust asset delta by multiplier.
+
+        E.g. multiplied by 0.99 returns :py:class:`AssetDelta` with
+        raw amount reduced 1%. Uses integer flooring.
+
+        Example:
+
+        .. code-block:: python
+
+            d = AssetDelta(usdc.address, 1*10**6)
+            d2 = d * 0.99
+            assert d2.raw_amount == int(10**6 * 0.99)
+        """
+        assert isinstance(other, (float, int))
+        return AssetDelta(
+            self.asset,
+            int(self.raw_amount * other)
+        )
+
     def is_incoming(self) -> bool:
         """This delta describes incoming assets."""
         return self.raw_amount > 0

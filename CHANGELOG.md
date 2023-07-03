@@ -1,6 +1,6 @@
-# Current
+# 0.22.2
 
-- TODO
+- Add `AssetDelta.__mul__` method
 
 # 0.21.1
 
