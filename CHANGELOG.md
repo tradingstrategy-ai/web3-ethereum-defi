@@ -1,8 +1,8 @@
-# 0.22.3
+# 0.21.3
 
 - Fix error message `fetch_transaction_revert_reason()` crashing
 - 
-# 0.22.2
+# 0.21.2
 
 - Add `AssetDelta.__mul__` method
 
