@@ -1,7 +1,12 @@
+# 0.21.4
+
+- Added `eth_defi.enzyme.erc_20` helpers
+
 # 0.21.3
 
-- Fix error message `fetch_transaction_revert_reason()` crashing
-- 
+- Fix error message `fetch_transaction_revert_reason()` crashing. 
+  Also made the error message prettier and more helpful.
+
 # 0.21.2
 
 - Add `AssetDelta.__mul__` method
