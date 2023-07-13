@@ -99,5 +99,3 @@ def prepare_swap(enzyme: EnzymeDeployment, vault: Vault, uniswap_v2: UniswapV2De
     )
 
     return bound_call
-
-

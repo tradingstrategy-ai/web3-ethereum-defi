@@ -145,11 +145,5 @@ def fetch_transaction_revert_reason(
     current_block_number = web3.eth.block_number
     # TODO: Convert to logger record
     pretty_result = pprint.pformat(result)
-    logger.error(f"Transaction succeeded, when we tried to fetch its revert reason.\n"
-                 f"Hash: {tx_hash.hex()}, tx block num: {tx['blockNumber']}, current block number: {current_block_number}\n"
-                 f"Transaction result:\n"
-                 f"{pretty_result}\n"
-                 f"- Maybe the chain tip is unstable\n"
-                 f"- Maybe transaction failed due to slippage\n"
-                 f"- Maybe someone is frontrunning you and it does not happen with eth_call replay\n")
+    logger.error(f"Transaction succeeded, when we tried to fetch its revert reason.\n" f"Hash: {tx_hash.hex()}, tx block num: {tx['blockNumber']}, current block number: {current_block_number}\n" f"Transaction result:\n" f"{pretty_result}\n" f"- Maybe the chain tip is unstable\n" f"- Maybe transaction failed due to slippage\n" f"- Maybe someone is frontrunning you and it does not happen with eth_call replay\n")
     return unknown_error_message
