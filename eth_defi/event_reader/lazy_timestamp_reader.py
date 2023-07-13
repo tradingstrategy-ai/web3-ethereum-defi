@@ -95,6 +95,8 @@ def extract_timestamps_json_rpc_lazy(
     - The reader is hash based. It is mainly meant to resolve `eth_getLogs` resulting block hashes to
       corresponding event timestamps.
 
+    - This is a drop-in replacement for the dict returned by eager :py:func:`eth_defi.reader.extract_timestamps_json_rpc`
+
     Example:
 
     .. code-block:: python
