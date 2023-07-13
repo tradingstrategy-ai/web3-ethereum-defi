@@ -1,4 +1,7 @@
-"""Lazily load block timestamps and headers."""
+"""Lazily load block timestamps and headers.
+
+See :py:func:`extract_timestamps_json_rpc_lazy`
+"""
 from hexbytes import HexBytes
 
 from eth_defi.event_reader.conversion import convert_jsonrpc_value_to_int
@@ -41,7 +44,7 @@ class LazyTimestampContainer:
         self.cache_by_block_number = {}
 
     def update_block_hash(self, block_identifier: BlockIdentifier) -> int:
-        # Skip web3 stack of broken and slow result formatters
+        # Skip web3.py stack of slow result formatters
         if type(block_identifier) == int:
             assert block_identifier > 0
             result = self.web3.manager.request_blocking("eth_getBlockByNumber", (block_identifier, False))
@@ -64,6 +67,7 @@ class LazyTimestampContainer:
         return timestamp
 
     def __getitem__(self, block_hash: HexStr | HexBytes | str):
+        """Get a timestamp of a block hash."""
         assert not type(block_hash) == int, f"Use block hashes, block numbers not supported, passed {block_hash}"
 
         assert type(block_hash) == str or isinstance(block_hash, HexBytes), f"Got: {block_hash} {block_hash.__class__}"
@@ -87,6 +91,28 @@ def extract_timestamps_json_rpc_lazy(
 
     - Works on the cases where sparse event data is read over long block range
       Use slow JSON-RPC block headers call to get this information.
+
+    - The reader is hash based. It is mainly meant to resolve `eth_getLogs` resulting block hashes to
+      corresponding event timestamps.
+
+    Example:
+
+    .. code-block:: python
+
+        # Allocate timestamp reader for blocks 1...100
+        timestamps = extract_timestamps_json_rpc_lazy(web3, 1, 100)
+
+        # Get a hash of some block
+        block_hash = web3.eth.get_block(5)["hash"]
+
+        # Read timestamp for block 5
+        unix_time = timestamps[block_hash]
+
+    For more information see
+
+    - :py:func:`eth_defi.reader.extract_timestamps_json_rpc`
+
+    - :py:class:`eth_defi.reorganisation_monitor.ReorganisationMonitor`
 
     :return:
         Wrapper object for block hash based timestamp access.
