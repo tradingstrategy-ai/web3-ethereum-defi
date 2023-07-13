@@ -9,13 +9,7 @@ from eth_defi.enzyme.generic_adapter import execute_calls_for_generic_adapter
 from eth_defi.enzyme.vault import Vault
 
 
-def prepare_transfer(
-        enzyme: EnzymeDeployment,
-        vault: Vault,
-        generic_adapter: Contract,
-        token: Contract,
-        receiver: HexAddress | str,
-        amount: int) -> ContractFunction:
+def prepare_transfer(enzyme: EnzymeDeployment, vault: Vault, generic_adapter: Contract, token: Contract, receiver: HexAddress | str, amount: int) -> ContractFunction:
     """Prepare an ERC-20 transfer out from the Enzyme vault.
 
     - Tells the Enzyme vault to move away som etokes
@@ -53,9 +47,7 @@ def prepare_transfer(
 
     bound_call = execute_calls_for_generic_adapter(
         comptroller=vault.comptroller,
-        external_calls=(
-            (token, encoded_transfer),
-        ),
+        external_calls=((token, encoded_transfer),),
         generic_adapter=generic_adapter,
         incoming_assets=incoming_assets,
         integration_manager=enzyme.contracts.integration_manager,

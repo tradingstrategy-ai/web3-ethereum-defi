@@ -112,10 +112,7 @@ class AssetDelta:
             assert d2.raw_amount == int(10**6 * 0.99)
         """
         assert isinstance(other, (float, int))
-        return AssetDelta(
-            self.asset,
-            int(self.raw_amount * other)
-        )
+        return AssetDelta(self.asset, int(self.raw_amount * other))
 
     def is_incoming(self) -> bool:
         """This delta describes incoming assets."""

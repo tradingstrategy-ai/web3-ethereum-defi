@@ -33,7 +33,7 @@ def web3(anvil: AnvilLaunch) -> Web3:
     provider.middlewares = (
         #    attrdict_middleware,
         # default_transaction_fields_middleware,
-        #ethereum_tester_middleware,
+        # ethereum_tester_middleware,
     )
 
     web3 = Web3(provider)
@@ -43,19 +43,18 @@ def web3(anvil: AnvilLaunch) -> Web3:
     return web3
 
 
-
 def test_lazy_timestamp_reader_block_range(web3: Web3):
     """Read timestamps lazily."""
 
     # Create some blocks
-    for i in range(1, 5+1):
+    for i in range(1, 5 + 1):
         mine(web3)
 
     assert web3.eth.block_number == 5
     timestamps = extract_timestamps_json_rpc_lazy(web3, 1, 5)
     assert isinstance(timestamps, LazyTimestampContainer)
 
-    for i in range(1, 5+1):
+    for i in range(1, 5 + 1):
         block_hash = web3.eth.get_block(i)["hash"]
         assert timestamps[block_hash] > 0
 
@@ -64,7 +63,7 @@ def test_lazy_timestamp_reader_out_of_block_range(web3: Web3):
     """Read timestamps lazily, but peek out of allowed range."""
 
     # Create some blocks
-    for i in range(1, 5+1):
+    for i in range(1, 5 + 1):
         mine(web3)
 
     assert web3.eth.block_number == 5
@@ -74,4 +73,3 @@ def test_lazy_timestamp_reader_out_of_block_range(web3: Web3):
     with pytest.raises(OutOfSpecifiedRangeRead):
         block_hash = web3.eth.get_block(5)["hash"]
         timestamps[block_hash]
-

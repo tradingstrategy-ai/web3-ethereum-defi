@@ -41,7 +41,6 @@ class LazyTimestampContainer:
         self.cache_by_block_number = {}
 
     def update_block_hash(self, block_identifier: BlockIdentifier) -> int:
-
         # Skip web3 stack of broken and slow result formatters
         if type(block_identifier) == int:
             assert block_identifier > 0
@@ -65,7 +64,6 @@ class LazyTimestampContainer:
         return timestamp
 
     def __getitem__(self, block_hash: HexStr | HexBytes | str):
-
         assert not type(block_hash) == int, f"Use block hashes, block numbers not supported, passed {block_hash}"
 
         assert type(block_hash) == str or isinstance(block_hash, HexBytes), f"Got: {block_hash} {block_hash.__class__}"
@@ -85,15 +83,14 @@ def extract_timestamps_json_rpc_lazy(
     end_block: int,
     fetch_boundaries=True,
 ) -> LazyTimestampContainer:
-    """Get block timestamps from block headers.
+    """Create a cache container that instead of reading block timestamps upfront for the given range, only calls JSON-RPC API when requested
 
-    Use slow JSON-RPC block headers call to get this information.
-
-    TODO: This is an old code path. This has been replaced by more robust
-    :py:class:`ReorganisationMonitor` implementation.
+    - Works on the cases where sparse event data is read over long block range
+      Use slow JSON-RPC block headers call to get this information.
 
     :return:
-        block hash -> UNIX timestamp mapping
+        Wrapper object for block hash based timestamp access.
+
     """
     container = LazyTimestampContainer(web3, start_block, end_block)
     if fetch_boundaries:
