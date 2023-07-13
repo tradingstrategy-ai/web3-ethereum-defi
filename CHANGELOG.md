@@ -1,3 +1,9 @@
+# 0.21.5
+
+- Create `extract_timestamps_json_rpc_lazy` that instead of reading block timestamps upfront for the given range,
+  only calls JSON-RPC API when requested. It works on the cases where sparse event data is read over long block range
+  and it is likely only few timestamps need to be fetched in this range.
+
 # 0.21.4
 
 - Added `eth_defi.enzyme.erc_20` helpers
