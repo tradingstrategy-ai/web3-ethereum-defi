@@ -1,3 +1,8 @@
+# 0.21.6
+
+- Add `HotWallet.sign_bound_call_with_new_nonce`
+
+
 # 0.21.5
 
 - Create `extract_timestamps_json_rpc_lazy` that instead of reading block timestamps upfront for the given range,
