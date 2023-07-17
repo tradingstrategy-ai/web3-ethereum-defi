@@ -10,13 +10,18 @@ from dataclasses import dataclass, asdict, field
 from typing import Dict, Iterable, Tuple, Optional, Type, Callable, cast
 import logging
 from urllib.parse import urljoin
+from requests_futures.sessions import FuturesSession
+import requests
+import json
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
 
 import pandas as pd
 from hexbytes import HexBytes
 from tqdm import tqdm
 from web3 import Web3, HTTPProvider
 
-from eth_defi.chain import has_graphql_support
+from eth_defi.chain import has_graphql_support, has_ankr_support
 from eth_defi.event_reader.block_header import BlockHeader, Timestamp
 
 
@@ -511,6 +516,85 @@ class GraphQLReorganisationMonitor(ReorganisationMonitor):
             yield BlockHeader(block_number=number, block_hash=hash, timestamp=timestamp)
 
 
+class AnkrReogranisationMonitor(ReorganisationMonitor):
+    """Watch blockchain for reorgs using eth_getBlockByNumber JSON-RPC API.
+
+    - Use expensive eth_getBlockByNumber call to download
+      block hash and timestamp from Ethereum compatible node
+    """
+
+    def __init__(self, provider: HTTPProvider, max_retries:int = 5, backoff_factor:float = 0.1):
+        """
+        :param ankr_url:
+            Should include blockchain
+        """
+        self.ankr_url = provider.endpoint_uri
+        self.max_retries = max_retries
+        self.backoff_factor = backoff_factor
+
+        self.id = 1
+
+    def get_futures_session(self) -> FuturesSession:
+        session = FuturesSession()
+        status_forcelist = tuple(x for x in requests.status_codes._codes if x != 200)
+        retry = Retry(
+            total = self.max_retries,
+            respect_retry_after_header=True,
+            status_forcelist=status_forcelist,
+            backoff_factor = self.backoff_factor  # TODO move to docstring: will sleep for [0.1s, 0.2s, 0.4s, ...] between retries
+        )
+        adapter = HTTPAdapter(max_retries=retry)
+        session.mount('http://', adapter)
+        session.mount('https://', adapter)
+
+        return session
+
+    def get_last_block_live(self):
+        # TODO - this is not the correct way to get the last block number
+        session = self.get_futures_session()
+        return 19000000
+
+    def get_timestamps_from_block_numbers(self, start_block:int, end_block:int, session: FuturesSession):
+
+        headers = {
+            'accept': 'application/json',
+            'content-type': 'application/json',
+        }
+
+        data = {
+            "jsonrpc": "2.0",
+            "method": "ankr_getBlocks",
+            "params": {
+                "fromBlock": start_block,
+                "toBlock": end_block,
+                "includeTxs": False,
+                "includeLogs": False,
+            },
+            "id": self.id
+        }
+
+        self.id += 1
+
+        future = session.post(self.ankr_url, headers=headers, data=json.dumps(data))
+        result = future.result().json()
+        
+        #status = int(result['status'])
+
+        block = result['result']
+        return block
+
+    def fetch_block_data(self, start_block: int, end_block: int) -> Iterable[BlockHeader]:
+        data = []
+        session = self.get_futures_session()
+
+        # TODO: implement sleepy time if needs be
+        for i in range(start_block, end_block + 1, 20):
+            queryResult = self.get_timestamp_from_block_number(i, min(i+19, end_block), session)
+            data.append(queryResult)
+            
+        return data
+
+
 class MockChainAndReorganisationMonitor(ReorganisationMonitor):
     """A dummy reorganisation monitor for unit testing.
 
@@ -596,6 +680,8 @@ def create_reorganisation_monitor(web3: Web3, check_depth=250) -> Reorganisation
         # 10x faster /graphql implementation,
         # not provided by public nodes
         reorg_mon = GraphQLReorganisationMonitor(graphql_url=urljoin(json_rpc_url, "/graphql"), check_depth=check_depth)
+    elif has_ankr_support(provider):
+        reorg_mon = AnkrReogranisationMonitor(web3, check_depth=check_depth)
     else:
         # Default slow implementation
         logger.warning("The node does not support /graphql interface. " "Downloading block headers and timestamps will be extremely slow." "Check documentation how to configure your node or choose a smaller timeframe for the buffer of trades.")

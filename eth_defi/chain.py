@@ -173,3 +173,31 @@ def fetch_block_timestamp(web3: Web3, block_number: int) -> datetime.datetime:
     timestamp = convert_jsonrpc_value_to_int(block["timestamp"])
     time = datetime.datetime.utcfromtimestamp(timestamp)
     return time
+
+
+def has_ankr_support(provider: HTTPProvider) -> bool:
+    """Check if a node has GoEthereum GraphQL API turned on.
+
+
+    You can check if GraphQL has been turned on for your node with:
+
+    .. code-block:: shell
+
+        curl -X POST \
+            https://mynode.example.com/graphql \
+            -H "Content-Type: application/json" \
+            --data '{ "query": "query { block { number } }" }'
+
+    A valid response looks like::
+
+        {"data":{"block":{"number":16328259}}}
+    """
+
+    assert isinstance(provider, HTTPProvider)
+
+    base_url = provider.endpoint_uri
+
+    if "https://rpc.ankr.com/" not in base_url:
+        return False
+    else:
+        return True
