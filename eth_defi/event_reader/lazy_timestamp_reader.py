@@ -2,12 +2,16 @@
 
 See :py:func:`extract_timestamps_json_rpc_lazy`
 """
+import logging
 from hexbytes import HexBytes
 
 from eth_defi.event_reader.conversion import convert_jsonrpc_value_to_int
 from eth_typing import HexStr
 from web3 import Web3
 from web3.types import BlockIdentifier
+
+
+logger = logging.getLogger(__name__)
 
 
 class OutOfSpecifiedRangeRead(Exception):
@@ -44,13 +48,23 @@ class LazyTimestampContainer:
         self.cache_by_block_number = {}
 
     def update_block_hash(self, block_identifier: BlockIdentifier) -> int:
+        """Internal function to get block timestamp from JSON-RPC and store it in the cache."""
         # Skip web3.py stack of slow result formatters
+
+        # TODO: Later tune down log level when successfully run in the production
+        logger.info("update_block_hash(%s)", block_identifier)
+
         if type(block_identifier) == int:
             assert block_identifier > 0
             result = self.web3.manager.request_blocking("eth_getBlockByNumber", (block_identifier, False))
         else:
             if isinstance(block_identifier, HexBytes):
                 block_identifier = block_identifier.hex()
+
+            # Make sure there is always 0x prefix for hashes
+            if not block_identifier.startswith("0x"):
+                block_identifier = "0x" + block_identifier
+
             result = self.web3.manager.request_blocking("eth_getBlockByHash", (block_identifier, False))
 
         # Note to self: block_number = 0 for the genesis block on Anvil

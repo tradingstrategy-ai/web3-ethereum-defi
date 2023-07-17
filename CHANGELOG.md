@@ -1,3 +1,10 @@
+# 0.21.7
+
+- Add `block_identifier` parameteter to `estimate_buy_received_amount() / estimate_sell_received_amount()`,
+  so we can ask historical prices and also track the price information per block
+- Fix `0x` hash prefix missing in `LazyTimestampContainer` - looks like live RPC nodes  
+  where returning JSON-RPC responses differently formatted
+
 # 0.21.6
 
 - Add `HotWallet.sign_bound_call_with_new_nonce`
