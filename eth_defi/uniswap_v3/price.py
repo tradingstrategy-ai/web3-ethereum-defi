@@ -19,6 +19,7 @@ class UniswapV3PriceHelper:
         fees: list[int],
         *,
         slippage: float = 0,
+        block_identifier: int | None = None,
     ) -> int:
         """Get how much token we are going to receive.
 
@@ -48,11 +49,15 @@ class UniswapV3PriceHelper:
         :param path: List of token addresses how to route the trade
         :param fees: List of trading fees of the pools in the route
         :param slippage: Slippage express in bps
+        :param block_identifier: A specific block to estimate price
         """
         self.validate_args(path, fees, slippage, amount_in)
 
         encoded_path = encode_path(path, fees)
-        amount_out = self.deployment.quoter.functions.quoteExactInput(encoded_path, amount_in).call()
+        amount_out = self.deployment.quoter.functions.quoteExactInput(
+            encoded_path,
+            amount_in,
+        ).call(block_identifier=block_identifier)
 
         return int(amount_out * 10_000 // (10_000 + slippage))
 
@@ -63,6 +68,7 @@ class UniswapV3PriceHelper:
         fees: list[int],
         *,
         slippage: float = 0,
+        block_identifier: int | None = None,
     ) -> int:
         """Get how much token we are going to spend.
 
@@ -70,11 +76,15 @@ class UniswapV3PriceHelper:
         :param path: List of token addresses how to route the trade
         :param fees: List of trading fees of the pools in the route
         :param slippage: Slippage express in bps
+        :param block_identifier: A specific block to estimate price
         """
         self.validate_args(path, fees, slippage, amount_out)
 
         encoded_path = encode_path(path, fees, exact_output=True)
-        amount_in = self.deployment.quoter.functions.quoteExactOutput(encoded_path, amount_out).call()
+        amount_in = self.deployment.quoter.functions.quoteExactOutput(
+            encoded_path,
+            amount_out,
+        ).call(block_identifier=block_identifier)
 
         return int(amount_in * (10_000 + slippage) // 10_000)
 
@@ -96,39 +106,17 @@ def estimate_buy_received_amount(
     slippage: float = 0,
     intermediate_token_address: HexAddress | None = None,
     intermediate_pair_fee: int | None = None,
-) -> int:
-    fee_helper = UniswapV3PriceHelper(uniswap)
-
-    if intermediate_token_address:
-        path = [quote_token_address, intermediate_token_address, base_token_address]
-        fees = [intermediate_pair_fee, target_pair_fee]
-    else:
-        path = [quote_token_address, base_token_address]
-        fees = [target_pair_fee]
-
-    # We will receive equal number of amounts as there are items in the path
-    return fee_helper.get_amount_out(quantity, path, fees, slippage=slippage)
-
-
-def estimate_sell_received_amount(
-    uniswap: UniswapV3Deployment,
-    base_token_address: HexAddress,
-    quote_token_address: HexAddress,
-    quantity: Decimal | int,
-    target_pair_fee: int,
-    *,
-    slippage: float = 0,
-    intermediate_token_address: HexAddress | None = None,
-    intermediate_pair_fee: int | None = None,
-) -> int:
-    """Estimate how much we receive for a certain cash amount.
+    block_identifier: int | None = None,
+    verbose: bool = False,
+) -> int | tuple[int, int]:
+    """Estimate how much we receive for buying with a certain quote token amount.
 
     Example:
 
     .. code-block:: python
 
         # Estimate the price of buying 1650 USDC worth of ETH
-        eth_received = estimate_buy_received_amount_raw(
+        eth_received = estimate_buy_received_amount(
             uniswap_v3,
             weth.address,
             usdc.address,
@@ -148,6 +136,60 @@ def estimate_sell_received_amount(
     :param quote_token_address: Quote token address of the trading pair
     :param target_pair_fee: Trading fee of the target pair in raw format
     :param slippage: Slippage express in bps
+    :param block_identifier: A specific block to estimate price
+    :param verbose: If True, return more debug info
+    :return: Expected base token amount to receive
+    :raise TokenDetailError: If we have an issue with ERC-20 contracts
+    """
+    fee_helper = UniswapV3PriceHelper(uniswap)
+
+    if intermediate_token_address:
+        path = [quote_token_address, intermediate_token_address, base_token_address]
+        fees = [intermediate_pair_fee, target_pair_fee]
+    else:
+        path = [quote_token_address, base_token_address]
+        fees = [target_pair_fee]
+
+    # We will receive equal number of amounts as there are items in the path
+    amount = fee_helper.get_amount_out(
+        quantity,
+        path,
+        fees,
+        slippage=slippage,
+        block_identifier=block_identifier,
+    )
+
+    # return more debug info in verbose mode
+    if verbose:
+        current_block = block_identifier or uniswap.web3.eth.block_number
+        return amount, current_block
+
+    return amount
+
+
+def estimate_sell_received_amount(
+    uniswap: UniswapV3Deployment,
+    base_token_address: HexAddress,
+    quote_token_address: HexAddress,
+    quantity: Decimal | int,
+    target_pair_fee: int,
+    *,
+    slippage: float = 0,
+    intermediate_token_address: HexAddress | None = None,
+    intermediate_pair_fee: int | None = None,
+    block_identifier: int | None = None,
+    verbose: bool = False,
+) -> int | tuple[int, int]:
+    """Estimate how much we receive for selling a certain base token amount.
+
+    :param quantity: How much of the base token we want to buy
+    :param uniswap: Uniswap v3 deployment
+    :param base_token_address: Base token address of the trading pair
+    :param quote_token_address: Quote token address of the trading pair
+    :param target_pair_fee: Trading fee of the target pair in raw format
+    :param slippage: Slippage express in bps
+    :param block_identifier: A specific block to estimate price
+    :param verbose: If True, return more debug info
     :return: Expected quote token amount to receive
     :raise TokenDetailError: If we have an issue with ERC-20 contracts
     """
@@ -160,4 +202,17 @@ def estimate_sell_received_amount(
         path = [base_token_address, quote_token_address]
         fees = [target_pair_fee]
 
-    return price_helper.get_amount_out(quantity, path, fees, slippage=slippage)
+    amount = price_helper.get_amount_out(
+        quantity,
+        path,
+        fees,
+        slippage=slippage,
+        block_identifier=block_identifier,
+    )
+
+    # return more debug info in verbose mode
+    if verbose:
+        current_block = block_identifier or uniswap.web3.eth.block_number
+        return amount, current_block
+
+    return amount
