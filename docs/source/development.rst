@@ -162,7 +162,7 @@ To update dependencies for Read the Docs run:
 - See `including your own package in pip requirements.txt list <https://stackoverflow.com/questions/51010251/what-does-e-in-requirements-txt-do>`__
 
 Pull request quality checklist
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+------------------------------
 
 - ✅ The Python code passes `flake8 formatting conventions <https://flake8.pycqa.org/en/latest/>`_.
   Run `poetry run flake8` and you should get a clean output. Note that Github Action will complain on these
