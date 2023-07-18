@@ -1,3 +1,8 @@
+# Current
+
+- Adds support for extracting block data using Ankr
+- Adds `AnkrReorganizationMonitor`
+
 # 0.21.8
 
 - Add test coverage for `extract_timestamps_json_rpc_lazy`
