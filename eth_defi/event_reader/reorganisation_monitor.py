@@ -527,8 +527,14 @@ class AnkrReogranisationMonitor(ReorganisationMonitor):
 
     def __init__(self, provider: HTTPProvider, ankr_url: str | None = None, blockchain: AnkrSupportedBlockchain | None = None, **kwargs):
         """
+        :param provider:
+            HTTPProvider with ankr_url. Should not specify ankr_url if this is specified.
+
         :param ankr_url:
-            Should include blockchain
+            Should be multichain url. Should not specify provider if this is specified.
+
+        :param blockchain:
+            Blockchain to use. AnkrSupportedBlockchain enum instance.
         """
 
         super().__init__(**kwargs)
@@ -549,13 +555,39 @@ class AnkrReogranisationMonitor(ReorganisationMonitor):
 
         self.max_blocks_at_once = 30
 
-    def get_last_block_live(self):
+    def get_last_block_live(self) -> int:
+        """Get the chain tip (last block) using Ankr.
+
+        :return:
+            Last block number
+        """
         return int(make_block_request_ankr(self.ankr_url, blockchain=self.blockchain)[-1]["number"], 16)
 
     def create_block_header(self, block: dict) -> BlockHeader:
+        """Create a BlockHeader from a block dict.
+
+        :param block:
+            Block dict from Ankr.
+
+        :return:
+            BlockHeader instance
+        """
         return BlockHeader(int(block["number"], 16), block["hash"], int(block["timestamp"], 16))
 
     def fetch_block_data(self, start_block: int, end_block: int) -> Iterable[BlockHeader]:
+        """Fetch block headers from Ankr.
+        
+        Note: can only fetch 30 blocks at a time.
+
+        :param start_block:
+            Block number to start fetching from (inclusive)
+            
+        :param end_block:
+            Block number to end fetching at (inclusive)
+            
+        :return:
+            Iterable of BlockHeader instances
+        """
         blocks = make_block_request_ankr(self.ankr_url, start_block, end_block, self.blockchain)
         block_headers = [self.create_block_header(block) for block in blocks]
         yield from block_headers
