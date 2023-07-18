@@ -1,6 +1,8 @@
 """Querying the buy tax, transfer tax & sell tax of an ERC20 token
 
-Read also unit test suite tests/test_token_tax.py to see the retrieval of token taxes for ELEPHANT token on BSC
+- `See blog post about token tax and honey pots for more information <https://tradingstrategy.ai/blog/transfer-fees-token-taxes-and-honeypots>`__
+
+- Read also unit test suite tests/test_token_tax.py to see the retrieval of token taxes for ELEPHANT token on BSC
 
 """
 import logging
@@ -97,6 +99,8 @@ def estimate_token_taxes(
     gas_price: Optional[int] = None,
 ) -> TokenTaxInfo:
     """Estimates different token taxes for a token by running Ganache simulations for it.
+
+    `See blog post about token tax and honey pots for more information <https://tradingstrategy.ai/blog/transfer-fees-token-taxes-and-honeypots>`__.
 
      :param uniswap:
          Uniswap deployment on a Ganache mainnet fork.
