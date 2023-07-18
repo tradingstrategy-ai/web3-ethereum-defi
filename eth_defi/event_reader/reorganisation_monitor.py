@@ -588,7 +588,8 @@ class AnkrReogranisationMonitor(ReorganisationMonitor):
         :return:
             Iterable of BlockHeader instances
         """
-        blocks = make_block_request_ankr(self.ankr_url, start_block, end_block, self.blockchain)
+        blocks = make_block_request_ankr(self.ankr_url, start_block, end_block, self.blockchain, self.id)
+        self.id += 1
         block_headers = [self.create_block_header(block) for block in blocks]
         yield from block_headers
 

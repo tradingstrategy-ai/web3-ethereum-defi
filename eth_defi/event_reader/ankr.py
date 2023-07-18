@@ -15,7 +15,7 @@ class AnkrSupportedBlockchain(Enum):
     syscoin = "syscoin"
 
 
-def make_block_request_ankr(endpoint_url: str, start_block: int | str = "latest", end_block: int | str = "latest", blockchain: AnkrSupportedBlockchain | None = None) -> list[dict]:
+def make_block_request_ankr(endpoint_url: str, start_block: int | str = "latest", end_block: int | str = "latest", blockchain: AnkrSupportedBlockchain | None = None, request_id: int = 1) -> list[dict]:
     """Fetch blocks from Ankr API
     
     :param endpoint_url: URL of Ankr API endpoint. Should be multichain endpoint.
@@ -50,7 +50,7 @@ def make_block_request_ankr(endpoint_url: str, start_block: int | str = "latest"
             "includeTxs": False,
             "includeLogs": False,
         },
-        "id": 10,
+        "id": request_id,
     }
 
     result = requests.post(endpoint_url, headers=headers, json=data)
