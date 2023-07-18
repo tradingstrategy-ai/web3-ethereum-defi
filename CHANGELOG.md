@@ -1,3 +1,8 @@
+# 0.21.8
+
+- Add test coverage for `extract_timestamps_json_rpc_lazy`
+- Expose API call counter in `LazyTimestampContainer`
+
 # 0.21.7
 
 - Add `block_identifier` parameteter to `estimate_buy_received_amount() / estimate_sell_received_amount()`,
