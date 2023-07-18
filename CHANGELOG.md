@@ -1,7 +1,9 @@
-# Current
+# 0.18.5
 
 - Add [Aave v3 deployer support](https://github.com/aave/aave-v3-deploy) in`eth_defi.aave_v3.deployer` module
 - Add Solidity library linking support for Hardhat-based deployments in `eth_defi.abi.get_linked_contract`
+- Adds support for extracting block data using Ankr
+- Adds `AnkrReorganizationMonitor`
 
 # 0.18.4
 
