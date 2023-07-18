@@ -24,6 +24,7 @@ from web3 import Web3, HTTPProvider
 
 from eth_defi.chain import has_graphql_support, has_ankr_support
 from eth_defi.event_reader.block_header import BlockHeader, Timestamp
+from eth_defi.event_reader.ankr import AnkrSupportedBlockchain, extract_timestamps_ankr_get_block, make_block_request_ankr
 
 
 logger = logging.getLogger(__name__)
@@ -517,16 +518,6 @@ class GraphQLReorganisationMonitor(ReorganisationMonitor):
             yield BlockHeader(block_number=number, block_hash=hash, timestamp=timestamp)
 
 
-class AnkrSupportedBlockchain(Enum):
-    eth = "eth"
-    bsc = "bsc"
-    polygon = "polygon"
-    fantom = "fantom"
-    arbitrum = "arbitrum"
-    avalanche = "avalanche"
-    syscoin = "syscoin"
-
-
 class AnkrReogranisationMonitor(ReorganisationMonitor):
     """Watch blockchain for reorgs using eth_getBlockByNumber JSON-RPC API.
 
@@ -534,7 +525,7 @@ class AnkrReogranisationMonitor(ReorganisationMonitor):
       block hash and timestamp from Ethereum compatible node
     """
 
-    def __init__(self, provider: HTTPProvider, ankr_url: str | None = None, blockchain: str | None = None, max_retries: int | None = 5, backoff_factor: float = 0.1, **kwargs):
+    def __init__(self, provider: HTTPProvider, ankr_url: str | None = None, blockchain: AnkrSupportedBlockchain | None = None, **kwargs):
         """
         :param ankr_url:
             Should include blockchain
@@ -553,79 +544,20 @@ class AnkrReogranisationMonitor(ReorganisationMonitor):
             assert not provider, "Give provider or ankr_url, not both"
             self.ankr_url = ankr_url
 
-        self.max_retries = max_retries
-        self.backoff_factor = backoff_factor
-
         # starting id for jsonrpc requests
         self.id = 1
 
         self.max_blocks_at_once = 30
 
-    def get_futures_session(self) -> FuturesSession:
-        session = FuturesSession()
-        status_forcelist = tuple(x for x in requests.status_codes._codes if x != 200)
-        retry = Retry(total=self.max_retries, respect_retry_after_header=True, status_forcelist=status_forcelist, backoff_factor=self.backoff_factor)  # TODO move to docstring: will sleep for [0.1s, 0.2s, 0.4s, ...] between retries
-        adapter = HTTPAdapter(max_retries=retry)
-        session.mount("http://", adapter)
-        session.mount("https://", adapter)
-
-        return session
-
     def get_last_block_live(self):
-        session = self.get_futures_session()
-        last_block_number_hex = self.make_block_request(session=session)[-1]["number"]
-        return int(last_block_number_hex, 16)
+        return int(make_block_request_ankr(self.ankr_url, blockchain=self.blockchain)[-1]["number"], 16)
 
-    def make_block_request(self, start_block: int | str = "latest", end_block: int | None = None, session: FuturesSession = None):
-        if start_block == "latest":
-            assert end_block is None, "Cannot ask for latest block and specify end block"
-
-        if end_block is not None:
-            assert start_block != "latest", "Cannot ask for latest block and specify end block"
-
-        assert session, "Must provide a session"
-
-        headers = {
-            "accept": "application/json",
-            "content-type": "application/json",
-        }
-
-        data = {
-            "jsonrpc": "2.0",
-            "method": "ankr_getBlocks",
-            "params": {
-                "blockchain": self.blockchain.value,
-                "fromBlock": start_block,
-                "toBlock": end_block,
-                "includeTxs": False,
-                "includeLogs": False,
-            },
-            "id": self.id,
-        }
-
-        self.id += 1
-
-        future = session.post(self.ankr_url, headers=headers, data=json.dumps(data))
-        result = future.result().json()
-
-        # status = int(result['status'])
-
-        r = result["result"]
-
-        blocks = r["blocks"]
-
-        return blocks
+    def create_block_header(self, block: dict) -> BlockHeader:
+        return BlockHeader(int(block["number"], 16), block["hash"], int(block["timestamp"], 16))
 
     def fetch_block_data(self, start_block: int, end_block: int) -> Iterable[BlockHeader]:
-        block_headers = []
-        session = self.get_futures_session()
-
-        # TODO: implement sleepy time if needs be
-        for i in range(start_block, end_block + 1, self.max_blocks_at_once):
-            blocks = self.make_block_request(i, min(i + self.max_blocks_at_once - 1, end_block), session)
-            bh = [BlockHeader(block_number=int(x["number"], 16), block_hash=x["hash"], timestamp=int(x["timestamp"], 16)) for x in blocks]
-            block_headers.extend(bh)
-
+        blocks = make_block_request_ankr(self.ankr_url, start_block, end_block, self.blockchain)
+        block_headers = [self.create_block_header(block) for block in blocks]
         yield from block_headers
 
 
