@@ -8,14 +8,8 @@ import time
 from abc import abstractmethod, ABC
 from dataclasses import dataclass, asdict, field
 from typing import Dict, Iterable, Tuple, Optional, Type, Callable, cast
-from enum import Enum
 import logging
 from urllib.parse import urljoin
-from requests_futures.sessions import FuturesSession
-import requests
-import json
-from requests.adapters import HTTPAdapter
-from urllib3.util.retry import Retry
 
 import pandas as pd
 from hexbytes import HexBytes
@@ -24,7 +18,7 @@ from web3 import Web3, HTTPProvider
 
 from eth_defi.chain import has_graphql_support, has_ankr_support
 from eth_defi.event_reader.block_header import BlockHeader, Timestamp
-from eth_defi.event_reader.ankr import AnkrSupportedBlockchain, extract_timestamps_ankr_get_block, make_block_request_ankr
+from eth_defi.event_reader.ankr import AnkrSupportedBlockchain, make_block_request_ankr
 
 
 logger = logging.getLogger(__name__)
