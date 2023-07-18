@@ -15,17 +15,17 @@ class AnkrSupportedBlockchain(Enum):
     syscoin = "syscoin"
 
 
-def make_block_request_ankr(endpoint_url: str, start_block: int | str = "latest", end_block: int | str = "latest", blockchain: AnkrSupportedBlockchain | None = None, request_id: int = 1) -> list[dict]:
+def make_block_request_ankr(endpoint_url: str = "https://rpc.ankr.com/multichain/79258ce7f7ee046decc3b5292a24eb4bf7c910d7e39b691384c7ce0cfb839a01/", start_block: int | str = "latest", end_block: int | str = "latest", blockchain: AnkrSupportedBlockchain | None = None, request_id: int = 1) -> list[dict]:
     """Fetch blocks from Ankr API
-    
+
     :param endpoint_url: URL of Ankr API endpoint. Should be multichain endpoint.
-    
+
     :param start_block: Block number to start fetching from. Can be an int or "latest".
-    
+
     :param end_block: Block number to end fetching at. Can be an int or "latest".
-    
+
     :param blockchain: Blockchain to fetch blocks from. Must be of type AnkrSupportedBlockchain.
-    
+
     :return: List of blocks in JSON format.
     """
     if start_block == "latest":
@@ -69,13 +69,13 @@ def extract_timestamps_ankr_get_block(
     max_blocks_at_once: int = 30,
 ) -> list[int]:
     """Extract timestamps from Ankr API
-    
+
     :param endpoint_url: URL of Ankr API endpoint. Should be multichain endpoint.
-    
+
     :param start_block: Block number to start fetching from. Can be an int or None.
-    
+
     :param end_block: Block number to end fetching at. Can be an int or None.
-    
+
     :param max_blocks_at_once: Maximum number of blocks to fetch at once. Default is 30.
 
     :return: List of timestamps in int format.

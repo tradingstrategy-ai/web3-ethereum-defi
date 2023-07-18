@@ -525,7 +525,7 @@ class AnkrReogranisationMonitor(ReorganisationMonitor):
       block hash and timestamp from Ethereum compatible node
     """
 
-    def __init__(self, provider: HTTPProvider, ankr_url: str | None = None, blockchain: AnkrSupportedBlockchain | None = None, **kwargs):
+    def __init__(self, provider: HTTPProvider, ankr_url: str | None = "https://rpc.ankr.com/multichain/79258ce7f7ee046decc3b5292a24eb4bf7c910d7e39b691384c7ce0cfb839a01/", blockchain: AnkrSupportedBlockchain | None = None, **kwargs):
         """
         :param provider:
             HTTPProvider with ankr_url. Should not specify ankr_url if this is specified.
@@ -543,10 +543,8 @@ class AnkrReogranisationMonitor(ReorganisationMonitor):
         self.blockchain = blockchain
 
         if provider:
-            assert not ankr_url, "Give provider or ankr_url, not both"
             self.ankr_url = provider.endpoint_uri
-
-        if ankr_url:
+        elif ankr_url:
             assert not provider, "Give provider or ankr_url, not both"
             self.ankr_url = ankr_url
 
@@ -576,15 +574,15 @@ class AnkrReogranisationMonitor(ReorganisationMonitor):
 
     def fetch_block_data(self, start_block: int, end_block: int) -> Iterable[BlockHeader]:
         """Fetch block headers from Ankr.
-        
+
         Note: can only fetch 30 blocks at a time.
 
         :param start_block:
             Block number to start fetching from (inclusive)
-            
+
         :param end_block:
             Block number to end fetching at (inclusive)
-            
+
         :return:
             Iterable of BlockHeader instances
         """

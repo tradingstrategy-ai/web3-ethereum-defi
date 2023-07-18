@@ -15,10 +15,8 @@ pytestmark = pytest.mark.skipif(
 
 
 def test_ankr_last_block():
-    """Get last block num using GoEthereum GraphQL API."""
+    """Get last block num using Ankr API."""
 
-    # A specially set up server to test this
-    # Does provide /graphql
     provider = HTTPProvider(os.environ["JSON_RPC_ANKR_PRIVATE"])
     assert has_ankr_support(provider)
 
@@ -28,10 +26,8 @@ def test_ankr_last_block():
 
 
 def test_ankr_block_headers():
-    """Download block headers using GoEthereum GraphQL API."""
+    """Download block headers using Ankr API."""
 
-    # A specially set up server to test this
-    # Does provide /graphql
     provider = HTTPProvider(os.environ["JSON_RPC_ANKR_PRIVATE"])
     assert has_ankr_support(provider)
 
