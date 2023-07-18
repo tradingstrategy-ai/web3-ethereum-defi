@@ -47,6 +47,9 @@ class LazyTimestampContainer:
         self.cache_by_block_hash = {}
         self.cache_by_block_number = {}
 
+        #: How many API requets we have made
+        self.api_call_counter = 0
+
     def update_block_hash(self, block_identifier: BlockIdentifier) -> int:
         """Internal function to get block timestamp from JSON-RPC and store it in the cache."""
         # Skip web3.py stack of slow result formatters
@@ -56,7 +59,7 @@ class LazyTimestampContainer:
 
         if type(block_identifier) == int:
             assert block_identifier > 0
-            result = self.web3.manager.request_blocking("eth_getBlockByNumber", (block_identifier, False))
+            result = self.web3.manager.request_blocking("eth_getBlockByNumber", (hex(block_identifier), False))
         else:
             if isinstance(block_identifier, HexBytes):
                 block_identifier = block_identifier.hex()
@@ -66,6 +69,8 @@ class LazyTimestampContainer:
                 block_identifier = "0x" + block_identifier
 
             result = self.web3.manager.request_blocking("eth_getBlockByHash", (block_identifier, False))
+
+        self.api_call_counter += 1
 
         # Note to self: block_number = 0 for the genesis block on Anvil
         block_number = convert_jsonrpc_value_to_int(result["number"])
