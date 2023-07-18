@@ -1,7 +1,7 @@
 {
   "_format": "hh-sol-artifact-1",
   "contractName": "IPoolAddressesProviderRegistry",
-  "sourceName": "contracts/interfaces/IPoolAddressesProviderRegistry.sol",
+  "sourceName": "@aave/core-v3/contracts/interfaces/IPoolAddressesProviderRegistry.sol",
   "abi": [
     {
       "anonymous": false,

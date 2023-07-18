@@ -1,7 +1,7 @@
 {
   "_format": "hh-sol-artifact-1",
   "contractName": "VersionedInitializable",
-  "sourceName": "contracts/protocol/libraries/aave-upgradeability/VersionedInitializable.sol",
+  "sourceName": "@aave/periphery-v3/contracts/treasury/libs/VersionedInitializable.sol",
   "abi": [],
   "bytecode": "0x",
   "deployedBytecode": "0x",

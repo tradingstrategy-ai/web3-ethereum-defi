@@ -9,6 +9,7 @@ from eth_account.datastructures import __getitem__
 from eth_account.signers.local import LocalAccount
 from hexbytes import HexBytes
 from web3 import Web3
+from web3.contract.contract import ContractFunction
 
 from eth_defi.tx import decode_signed_transaction
 
@@ -106,6 +107,34 @@ class HotWallet:
             source=tx,
         )
         return signed
+
+    def sign_bound_call_with_new_nonce(self, func: ContractFunction, tx_params: dict | None = None) -> SignedTransactionWithNonce:
+        """Signs a bound Web3 Contract call.
+
+        Example:
+
+        .. code-block:: python
+
+            bound_func = busd_token.functions.transfer(user_2, 50*10**18)  # Transfer 50 BUDF
+            signed_tx = hot_wallet.sign_bound_call_with_new_nonce(bound_func)
+            web3.eth.send_raw_transaction(signed_tx.rawTransaction)
+
+        See also
+
+        - :py:meth:`sign_transaction_with_new_nonce`
+
+        :param func:
+            Web3 contract function that has its arguments bound
+
+        :param tx_params:
+            Transaction parameters like `gas`
+        """
+        assert isinstance(func, ContractFunction)
+        if tx_params is None:
+            tx_params = {}
+        tx_params["from"] = self.address
+        tx = func.build_transaction(tx_params)
+        return self.sign_transaction_with_new_nonce(tx)
 
     def get_native_currency_balance(self, web3: Web3) -> Decimal:
         """Get the balance of the native currency (ETH, BNB, MATIC) of the wallet.

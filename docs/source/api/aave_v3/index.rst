@@ -17,6 +17,8 @@ Aave v3 is deployed on
 
    eth_defi.aave_v3.balances
    eth_defi.aave_v3.constants
+   eth_defi.aave_v3.deployer
+   eth_defi.aave_v3.deployment
    eth_defi.aave_v3.events
    eth_defi.aave_v3.loan
    eth_defi.aave_v3.rates

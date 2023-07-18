@@ -35,6 +35,7 @@ Example tutorials
    uniswap-v3-liquidity-analysis
    uniswap-v3-price-analysis
    event-reader
+   live-swap-minimal
    live-swap
    aave-v3-interest-analysis
 

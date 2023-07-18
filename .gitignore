@@ -24,3 +24,6 @@ uni-v2-last-block-state.txt
 
 # Ignore Aave v3 authentication file
 docs/source/tutorials/aave.json
+
+# hardhat export
+contracts/aave-v3-deploy/hardhat-deployment-export.json

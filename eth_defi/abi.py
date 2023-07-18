@@ -11,14 +11,15 @@ import json
 import re
 from functools import lru_cache
 from pathlib import Path
-from typing import Optional, Type, Union, Collection, Any, Sequence, Dict
+from typing import Optional, Sequence, Type, Union
 
 import eth_abi
 from eth_abi import decode
 from eth_typing import HexAddress
 from hexbytes import HexBytes
 from web3 import Web3
-from web3._utils.contracts import get_function_info, encode_abi
+from web3._utils.abi import get_abi_input_names, get_abi_input_types
+from web3._utils.contracts import encode_abi, get_function_info
 from web3.contract.contract import Contract, ContractFunction
 
 # Cache loaded ABI files in-process memory for speedup
@@ -338,10 +339,12 @@ def decode_function_args(
     """
     assert isinstance(func, ContractFunction)
     fn_abi = func.abi
-    arg_name = [a["name"] for a in fn_abi["inputs"]]
-    arg_description = [a["type"] for a in fn_abi["inputs"]]
-    arg_tuple = decode(arg_description, data)
-    return dict(zip(arg_name, arg_tuple))
+
+    arg_names = get_abi_input_names(fn_abi)
+    arg_types = get_abi_input_types(fn_abi)
+    arg_tuple = decode(arg_types, data)
+
+    return dict(zip(arg_names, arg_tuple))
 
 
 def humanise_decoded_arg_data(args: dict) -> dict:

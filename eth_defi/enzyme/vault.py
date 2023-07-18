@@ -88,6 +88,17 @@ class Vault:
     #:
     generic_adapter: Optional[Contract] = None
 
+    #: Our custom EIP-3009 payment forwarder for the vault
+    #:
+    #: See :py:mod:`~eth_defi.usdc.transfer_with_authorization.
+    #:
+    #: Allows single click buy ins if there is no USDC in the vallet.
+    #:
+    payment_forwarder: Optional[Contract] = None
+
+    def __repr__(self) -> str:
+        return f"<Vault vault={self.vault.address} adapter={self.generic_adapter and self.generic_adapter.address} payment_forwader={self.payment_forwarder and self.payment_forwarder.address}>"
+
     @property
     def web3(self) -> Web3:
         """Web3 connection.
@@ -253,7 +264,7 @@ class Vault:
         for event in events_iter:
             return event
 
-        raise AssertionError(f"No fund deployment event for {self.vault.address}")
+        raise AssertionError(f"No fund deployment event for {self.vault.address}, start block: {start_block:,}, end block: {last_block:,}")
 
     def fetch_denomination_token_usd_exchange_rate(self) -> Decimal:
         """Get the exchange rate between token/USD.
@@ -273,6 +284,7 @@ class Vault:
         web3: Web3,
         vault_address: str | HexAddress,
         generic_adapter_address: str | HexAddress | None = None,
+        payment_forwarder: str | HexAddress | None = None,
     ) -> "Vault":
         """Fetch Enzyme vault and deployment information based only on the vault address."""
 
@@ -290,9 +302,15 @@ class Vault:
         else:
             generic_adapter_contract = None
 
+        if payment_forwarder is not None:
+            payment_forwarder_contract = get_deployed_contract(web3, f"VaultUSDCPaymentForwarder.json", payment_forwarder)
+        else:
+            payment_forwarder_contract = None
+
         return Vault(
             vault_contract,
             comptroller_contract,
             deployment,
             generic_adapter_contract,
+            payment_forwarder_contract,
         )

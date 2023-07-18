@@ -1,7 +1,7 @@
 {
   "_format": "hh-sol-artifact-1",
   "contractName": "IAToken",
-  "sourceName": "contracts/interfaces/IAToken.sol",
+  "sourceName": "@aave/core-v3/contracts/interfaces/IAToken.sol",
   "abi": [
     {
       "anonymous": false,
@@ -398,6 +398,11 @@
           "type": "address"
         },
         {
+          "internalType": "address",
+          "name": "onBehalfOf",
+          "type": "address"
+        },
+        {
           "internalType": "uint256",
           "name": "amount",
           "type": "uint256"
@@ -718,7 +723,7 @@
       "inputs": [
         {
           "internalType": "address",
-          "name": "user",
+          "name": "target",
           "type": "address"
         },
         {

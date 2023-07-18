@@ -26,10 +26,19 @@ logger = logging.getLogger(__name__)
 
 @dataclass(slots=True, frozen=True)
 class ChainReorganisationResolution:
+    """How did we fare getting hashes and timestamps for the latest blocks."""
+
     #: What we know is the chain tip on our node
+    #:
+    #: This is the latest block at the JSON-RPC node.
+    #: We can read data up to this block.
     last_live_block: int
 
     #: What we know is the block for which we do not need to perform rollback
+    #:
+    #: This is the block number that does not need to purged from your internal database.
+    #: All previously read events that have higher block number should be purged.
+    #:
     latest_block_with_good_data: int
 
     #: Did we detect any reorgs in this chycle
@@ -37,6 +46,22 @@ class ChainReorganisationResolution:
 
     def __repr__(self):
         return f"<reorg:{self.reorg_detected} last_live_block: {self.last_live_block:,}, latest_block_with_good_data:{self.latest_block_with_good_data:,}>"
+
+    def get_read_range(self) -> Tuple[int, int]:
+        """Get the range of blocks we should read on this poll cycle.
+
+        - This range may overlap your previous event read range.
+
+        - You should discard any data that's older than the start of the range
+
+        - You should be prepared to read an event again
+
+        :return:
+            (start block, end block) inclusive range
+
+        """
+        assert self.last_live_block >= self.latest_block_with_good_data, f"Last block from the node: {self.last_live_block}, last block we have read: {self.latest_block_with_good_data}"
+        return (self.latest_block_with_good_data + 1, self.last_live_block)
 
 
 class ChainReorganisationDetected(Exception):
@@ -50,6 +75,10 @@ class ChainReorganisationDetected(Exception):
         self.new_hash = new_hash
 
         super().__init__(f"Block reorg detected at #{block_number:,}. Original hash: {original_hash}. New hash: {new_hash}")
+
+
+class TooLongRange(Exception):
+    """Reorg scan range is too long."""
 
 
 class ReorganisationResolutionFailure(Exception):
@@ -92,6 +121,79 @@ class ReorganisationMonitor(ABC):
       because APIs are slow, using :py:meth:`load_pandas`
       and :py:meth:`to_pandas`
 
+    Example:
+
+    .. code-block:: python
+
+        import os
+        import time
+
+        from web3 import HTTPProvider, Web3
+
+        from eth_defi.abi import get_contract
+        from eth_defi.chain import install_chain_middleware
+        from eth_defi.event_reader.filter import Filter
+        from eth_defi.event_reader.reader import read_events, LogResult,
+        from eth_defi.event_reader.reorganisation_monitor import JSONRPCReorganisationMonitor
+
+
+        def main():
+
+            json_rpc_url = os.environ.get("JSON_RPC_POLYGON", "https://polygon-rpc.com")
+            web3 = Web3(HTTPProvider(json_rpc_url))
+            web3.middleware_onion.clear()
+            install_chain_middleware(web3)
+
+            # Get contracts
+            Pair = get_contract(web3, "sushi/UniswapV2Pair.json")
+
+            filter = Filter.create_filter(
+                address=None,  # Listen events from any smart contract
+                event_types=[Pair.events.Swap]
+            )
+
+            reorg_mon = JSONRPCReorganisationMonitor(web3, check_depth=3)
+
+            reorg_mon.load_initial_block_headers(block_count=5)
+
+            processed_events = set()
+
+            latest_block = None
+
+            # Keep reading events as they land
+            while True:
+                chain_reorg_resolution = reorg_mon.update_chain()
+                start, end = chain_reorg_resolution.get_read_range()
+
+                if chain_reorg_resolution.reorg_detected:
+                    print("Chain reorg warning")
+
+                evt: LogResult
+                for evt in read_events(
+                    web3,
+                    start_block=start,
+                    end_block=end,
+                    filter=filter,
+                ):
+                    # How to uniquely identify EVM logs
+                    key = evt["blockHash"] + evt["transactionHash"] + evt["logIndex"]
+
+                    # The reader may cause duplicate events as the chain tip reorganises
+                    if key not in processed_events:
+                        print(f"Swap at block {evt['blockNumber']:,} tx: {evt['transactionHash']}")
+                        processed_events.add(key)
+
+                if end != latest_block:
+                    print(f"Latest block is {end:,}")
+                    latest_block = end
+
+                time.sleep(0.5)
+
+
+        if __name__ == "__main__":
+            main()
+
+
     """
 
     #: Internal buffer of our block data
@@ -129,6 +231,12 @@ class ReorganisationMonitor(ABC):
     def get_block_by_number(self, block_number: int) -> BlockHeader:
         """Get block header data for a specific block number from our memory buffer."""
         return self.block_map.get(block_number)
+
+    def skip_to_block(self, block_number: int):
+        """Skip scanning initial chain and directly start from a certain block."""
+        assert type(block_number) == int, f"Got: {block_number}"
+        logger.info(f"{self}: skipping to block {block_number:,}")
+        self.last_block_read = block_number
 
     def load_initial_block_headers(self, block_count: Optional[int] = None, start_block: Optional[int] = None, tqdm: Optional[Type[tqdm]] = None, save_callable: Optional[Callable] = None) -> Tuple[int, int]:
         """Get the initial block buffer filled up.
@@ -255,11 +363,19 @@ class ReorganisationMonitor(ABC):
             del self.block_map[block_to_delete]
         self.last_block_read = latest_good_block
 
-    def figure_reorganisation_and_new_blocks(self):
+    def figure_reorganisation_and_new_blocks(self, max_range: Optional[int] = 1_000_000):
         """Compare the local block database against the live data from chain.
 
         Spot the differences in (block number, block header) tuples
         and determine a chain reorg.
+
+        :param max_range:
+            Abort if we need to scan more than this amount of blocks.
+
+            This is because giving too long block range to scan is likely to
+            take forever on non-graphql nodes.
+
+            Set `None` to ignore.
 
         :raise ChainReorganisationDetected:
             When any if the block data in our internal buffer
@@ -267,6 +383,14 @@ class ReorganisationMonitor(ABC):
         """
         chain_last_block = self.get_last_block_live()
         check_start_at = max(self.last_block_read - self.check_depth, 1)
+
+        logger.info(f"figure_reorganisation_and_new_blocks(), range {check_start_at:,} - {chain_last_block:,}, last block we have is {self.last_block_read:,}, check depth is %d", self.check_depth)
+
+        if max_range is not None:
+            range_len = chain_last_block - check_start_at
+            if range_len > max_range:
+                raise TooLongRange(f"Attempt to scan too long block range. {check_start_at:,} - {chain_last_block:,}. Max range: {max_range:,}.\nFor long scan ranges, please pass a flag to ignore.")
+
         for block in self.fetch_block_data(check_start_at, chain_last_block):
             self.check_block_reorg(block.block_number, block.block_hash)
             if block.block_number not in self.block_map:
@@ -298,7 +422,9 @@ class ReorganisationMonitor(ABC):
         - Give up after some time if we detect the chain to be in a doom loop
 
         :return:
-            What we think about the chain state
+            What block range the consumer application should read.
+
+            What we think about the chain state.
         """
 
         tries_left = self.max_cycle_tries
@@ -385,6 +511,9 @@ class JSONRPCReorganisationMonitor(ReorganisationMonitor):
         super().__init__(**kwargs)
         self.web3 = web3
 
+    def __repr__(self):
+        return f"<JSONRPCReorganisationMonitor, last_block_read: {self.last_block_read}>"
+
     def get_last_block_live(self):
         return self.web3.eth.block_number
 
@@ -450,6 +579,9 @@ class GraphQLReorganisationMonitor(ReorganisationMonitor):
 
         logger.debug("Connecting to GraphQL endpoint %s", graphql_url)
         self.client = self._create_client(graphql_url)
+
+    def __repr__(self):
+        return f"<GraphQLReorganisationMonitor, last_block_read: {self.last_block_read} entries:{len(self.block_map)}>"
 
     def _create_client(self, api_url):
         """Create GQL GraphQL client used in queries.

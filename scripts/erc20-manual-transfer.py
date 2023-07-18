@@ -78,4 +78,3 @@ print(f"Broadcasted transaction {tx_hash.hex()}, now waiting 5 minutes for minin
 wait_transactions_to_complete(web3, [tx_hash], max_timeout=datetime.timedelta(minutes=5))
 
 print("All ok!")
-

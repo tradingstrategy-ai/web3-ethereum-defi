@@ -1,7 +1,7 @@
 {
   "_format": "hh-sol-artifact-1",
   "contractName": "ScaledBalanceTokenBase",
-  "sourceName": "contracts/protocol/tokenization/base/ScaledBalanceTokenBase.sol",
+  "sourceName": "@aave/core-v3/contracts/protocol/tokenization/base/ScaledBalanceTokenBase.sol",
   "abi": [
     {
       "anonymous": false,

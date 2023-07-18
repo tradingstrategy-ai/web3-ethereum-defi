@@ -1,7 +1,7 @@
 {
   "_format": "hh-sol-artifact-1",
   "contractName": "IStableDebtToken",
-  "sourceName": "contracts/interfaces/IStableDebtToken.sol",
+  "sourceName": "@aave/core-v3/contracts/interfaces/IStableDebtToken.sol",
   "abi": [
     {
       "anonymous": false,

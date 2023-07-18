@@ -26,8 +26,8 @@ POA_MIDDLEWARE_NEEDED_CHAIN_IDS = {
 }
 
 
-def install_chain_middleware(web3: Web3):
-    """Install any chain-specific middleware to Web3 instannce.
+def install_chain_middleware(web3: Web3, poa_middleware=None):
+    """Install any chain-specific middleware to Web3 instance.
 
     Mainly this is POA middleware for BNB Chain, Polygon, Avalanche C-chain.
 
@@ -48,12 +48,20 @@ def install_chain_middleware(web3: Web3):
         # Support Polygon, BNG chain
         install_chain_middleware(web3)
 
-        # ... code goes here...
+        # ... code goes here...z
         tx_hash = erc_20.functions.transfer(to_address, raw_amount).transact({"from": account.address})
+
+    :param poa_middleware:
+        If set, force the installation of proof-of-authority GoEthereum middleware.
+
+        Needed e.g. when using forked Polygon with Anvil.
 
     """
 
-    if web3.eth.chain_id in POA_MIDDLEWARE_NEEDED_CHAIN_IDS:
+    if poa_middleware is None:
+        poa_middleware = web3.eth.chain_id in POA_MIDDLEWARE_NEEDED_CHAIN_IDS
+
+    if poa_middleware:
         web3.middleware_onion.inject(geth_poa_middleware, layer=0)
 
 

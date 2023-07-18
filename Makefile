@@ -9,10 +9,17 @@ sushi:
 #
 # forge pollutes the tree with dependencies from Enzyme,
 # so need to pick contracts one by one
-in-house:
+#
+# TODO: Currently depends on Enzyme, because OpenZeppelin went and changed
+# their path structure and we need to be compatible with import paths in Enzyme source tree
+#
+in-house: enzyme
 	# Get our mock up contracts to the compiler bundle
-	(cd contracts/in-house && forge build)
-	find contracts/in-house/out \(  \
+	@(cd contracts/in-house && forge build)
+	# TODO: Fix this mess,
+	# as Forge is bundling all compiled dependencies in the same folder
+	# as our contracts
+	@find contracts/in-house/out \(  \
 	    -name "ChainlinkAggregatorV2V3Interface.json" \
 	    -o -name "ERC20MockDecimals.json" \
 	    -o -name "MalformedERC20.json" \
@@ -21,6 +28,8 @@ in-house:
 	    -o -name "RevertTest.json" \
 	    -o -name "RevertTest2.json" \
 	    -o -name "VaultSpecificGenericAdapter.json" \
+	    -o -name "MockEIP3009Receiver.json" \
+	    -o -name "VaultUSDCPaymentForwarder.json" \
 	    \) \
 	    -exec cp {} eth_defi/abi \;
 
@@ -35,17 +44,21 @@ copy-uniswapv3-abi: uniswapv3
 	@find contracts/uniswap-v3-core/artifacts/contracts -iname "*.json" -not -iname "*.dbg.json" -exec cp {} eth_defi/abi/uniswap_v3 \;
 	@find contracts/uniswap-v3-periphery/artifacts/contracts -iname "*.json" -not -iname "*.dbg.json" -exec cp {} eth_defi/abi/uniswap_v3 \;
 
-# Copy Aave V3 contract ABIs from their NPM package, remove library placeholders (__$ $__)
 aavev3:
-	@(cd contracts/aave-v3 && npm install)
+	@(cd contracts/aave-v3-deploy && npm ci && npm run compile) > /dev/null
 	@mkdir -p eth_defi/abi/aave_v3
-	@find contracts/aave-v3/node_modules/@aave/core-v3/artifacts -iname "*.json" -not -iname "*.dbg.json" -exec cp {} eth_defi/abi/aave_v3 \;
-	@find eth_defi/abi/aave_v3 -iname "*.json" -exec sed -e 's/\$$__\|__\$$//g' -i {} \;
+	@find contracts/aave-v3-deploy/artifacts/@aave -iname "*.json" -not -iname "*.dbg.json" -exec cp {} eth_defi/abi/aave_v3 \;
 
 # Compile and copy Enzyme contract ABIs from their Github repository
 # Needs pnpm: curl -fsSL https://get.pnpm.io/install.sh | sh -
 #
 # NOTE: Currently needs Enzyme branch that is being ported to Forge.
+#
+# We also remove AST statements (source mappings) from Enzyme ABI files,
+# because they add dozens of megabytes of data. These are not likely
+# needed unless you want to see Solidity level stack traces.
+#
+# See https://github.com/pypi/warehouse/issues/13962
 #
 enzyme:
 	@rm -f eth_defi/abi/enzyme/*.json || false
@@ -53,6 +66,7 @@ enzyme:
 	@(cd contracts/enzyme && forge build)
 	@mkdir -p eth_defi/abi/enzyme
 	@find contracts/enzyme/artifacts -iname "*.json" -exec cp {} eth_defi/abi/enzyme \;
+	@for abi_file in eth_defi/abi/enzyme/*.json ; do cat <<< $(jq 'del(.ast)' $abi_file) > $abi_file ; done
 
 # Compile and copy dHEDGE
 # npm install also compiles the contracts here
@@ -61,15 +75,26 @@ dhedge:
 	@mkdir -p eth_defi/abi/dhedge
 	@find contracts/dhedge/abi -iname "*.json" -exec cp {} eth_defi/abi/dhedge \;
 
+# Compile Centre (USDC) contracts
+centre:
+	@(cd contracts/centre && yarn install)
+	@(cd contracts/centre && yarn compile)
+	@mkdir -p eth_defi/abi/centre
+	@find contracts/centre/build -iname "*.json" -exec cp {} eth_defi/abi/centre \;
+
+# TODO: Not sure if this step works anymore
 clean:
-	@rm -rf contracts/sushiswap/artifacts/*
+	@rm -rf contracts/*
 	@rm -rf contracts/uniswap-v3-core/artifacts/*
 	@rm -rf contracts/uniswap-v3-periphery/artifacts/*
+
+clean-abi:
+	@rm -rf eth_defi/abi/*
 
 # Compile all contracts we are using
 #
 # Move ABI files to within a Python package for PyPi distribution
-compile-projects-and-prepare-abi: sushi in-house copy-uniswapv3-abi aavev3 enzyme dhedge
+compile-projects-and-prepare-abi: clean-abi sushi in-house copy-uniswapv3-abi aavev3 enzyme dhedge centre
 
 all: clean-docs compile-projects-and-prepare-abi build-docs
 

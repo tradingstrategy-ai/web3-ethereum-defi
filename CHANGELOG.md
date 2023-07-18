@@ -1,9 +1,84 @@
-# 0.18.5
+# 0.21.8
+
+- Add test coverage for `extract_timestamps_json_rpc_lazy`
+- Expose API call counter in `LazyTimestampContainer`
+
+# 0.21.7
+
+- Add `block_identifier` parameteter to `estimate_buy_received_amount() / estimate_sell_received_amount()`,
+  so we can ask historical prices and also track the price information per block
+- Fix `0x` hash prefix missing in `LazyTimestampContainer` - looks like live RPC nodes  
+  where returning JSON-RPC responses differently formatted
+
+# 0.21.6
+
+- Add `HotWallet.sign_bound_call_with_new_nonce`
+
+
+# 0.21.5
+
+- Create `extract_timestamps_json_rpc_lazy` that instead of reading block timestamps upfront for the given range,
+  only calls JSON-RPC API when requested. It works on the cases where sparse event data is read over long block range
+  and it is likely only few timestamps need to be fetched in this range.
+
+# 0.21.4
+
+- Added `eth_defi.enzyme.erc_20` helpers
+
+# 0.21.3
+
+- Fix error message `fetch_transaction_revert_reason()` crashing. 
+  Also made the error message prettier and more helpful.
+
+# 0.21.2
+
+- Add `AssetDelta.__mul__` method
+
+# 0.21.1
+
+- Attempt to fix packaging to [workaround the new PyPi ZIP bomb check](https://github.com/pypi/warehouse/issues/13962).
+  Enzyme ABI files no longer include AST data.
+- Add `fetch_vault_balances()` state reading balance support for Enzyme vaults.
+
+# 0.21
+
+- Add EIP-3009 `transferWithAuthorization` support.
+  Related refactoring of EIP-3009 module.
+
+# 0.20.1
+
+- Fix: Token equality: `TokenDetails` does a logical comparison with chain id and address,
+  instaed of object comparison. This makes TokenDetails good for ifs and hash maps. This
+  adds `TokenDetails.__eq__` and `TokenDetails.__hash__`.
+- Fix `TradeSuccess.price` is in Python `Decimal`
+- Add: `TradeSucces.get_human_price(reverse_token_order: bool)`
+
+# 0.20
+
+- Add USDC (Centre FiatToken)
+- Add EIP-712
+- Add EIP-3009
+- Add `transferWithAuthorization` and `receivedWithAuthorization`
+- Add Enzyme vault USDC payment forwarder allowing single click purchases (no `approve` step)
+- Fix: Don't try to `trace_transaction` unless we know we are on Anvil
+- Add Aave v3 loan support in `eth_defi.aave_v3.loan` module
+
+# 0.19.2
+
+- Add: Enzyme's FundValueCalculator contract as part of the deployment
+
+# 0.19.1
+
+- Fix: Excessive log output if `__repr__` on GraphQLReorganisationMonitor
+- Fix: Aave deployer tests fail on Github
+
+# 0.19
 
 - Add [Aave v3 deployer support](https://github.com/aave/aave-v3-deploy) in`eth_defi.aave_v3.deployer` module
 - Add Solidity library linking support for Hardhat-based deployments in `eth_defi.abi.get_linked_contract`
-- Adds support for extracting block data using Ankr
-- Adds `AnkrReorganizationMonitor`
+- Add: More logging and better error messages to some parts 
+- Add: `figure_reorganisation_and_new_blocks(max_range)` to catch situations you somehow feed a too long block range to scan
+- Add: `analyse_trade_by_receipt(input_args)` to analyse the success of Uni v3 trades when trading on Enzyme
 
 # 0.18.4
 

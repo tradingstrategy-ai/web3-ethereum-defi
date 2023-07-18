@@ -1,3 +1,4 @@
+"""Uniswap v3 slippage and trade success tests."""
 from decimal import Decimal
 
 import pytest
@@ -160,7 +161,7 @@ def test_analyse_by_receipt(
     # user_1 has less than 500 USDC left to loses in the LP fees
     analysis = analyse_trade_by_receipt(web3, uniswap_v3, tx, tx_hash, receipt)
     assert isinstance(analysis, TradeSuccess)
-    assert analysis.price == pytest.approx(1699.9102484539058)
+    assert analysis.price == pytest.approx(Decimal(1699.9102484539058))
     assert analysis.get_effective_gas_price_gwei() == 1
     assert analysis.amount_out_decimals == 18
     assert analysis.amount_in_decimals == 6
@@ -187,7 +188,9 @@ def test_analyse_by_receipt(
     analysis = analyse_trade_by_receipt(web3, uniswap_v3, tx, tx_hash, receipt)
 
     assert isinstance(analysis, TradeSuccess)
-    assert analysis.price == pytest.approx(1699.9102484539058)
+    assert analysis.price == pytest.approx(Decimal(1699.9102484539058))
+    assert analysis.get_human_price(reverse_token_order=False) == pytest.approx(Decimal(1699.9102484539058))
+    assert analysis.get_human_price(reverse_token_order=True) == pytest.approx(Decimal(1 / 1699.9102484539058))
     assert analysis.get_effective_gas_price_gwei() == 1
     assert analysis.amount_out_decimals == 6
     assert analysis.amount_in_decimals == 18

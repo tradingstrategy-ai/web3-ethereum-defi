@@ -72,6 +72,7 @@ For code examples please see below.
 To use this package you need to
 
 * Have Python 3.10 or higher
+* macOS, Linux or Windows Subsystem for Linux (WSL) needed, Microsoft Windows is not officially supported
 * [Be proficient in Python programming](https://wiki.python.org/moin/BeginnersGuide)
 * [Understand of Web3.py library](https://web3py.readthedocs.io/en/stable/) 
 * [Understand Pytest basics](https://docs.pytest.org/)

@@ -6,6 +6,7 @@ Deploy ERC-20 tokens to be used within your test suite.
 """
 from dataclasses import dataclass
 from decimal import Decimal
+from functools import cached_property
 from typing import Optional, Union
 
 from eth_tester.exceptions import TransactionFailed
@@ -46,8 +47,22 @@ class TokenDetails:
     #: Number of decimals
     decimals: Optional[int] = None
 
+    def __eq__(self, other):
+        """Token is the same if it's on the same chain and has the same contract address."""
+        assert isinstance(other, TokenDetails)
+        return (self.contract.address == other.contract.address) and (self.chain_id == other.chain_id)
+
+    def __hash__(self):
+        """Token hash."""
+        return hash((self.chain_id, self.contract.address))
+
     def __repr__(self):
-        return f"<{self.name} ({self.symbol}) at {self.contract.address}, {self.decimals} decimals>"
+        return f"<{self.name} ({self.symbol}) at {self.contract.address}, {self.decimals} decimals, on chain {self.chain_id}>"
+
+    @cached_property
+    def chain_id(self) -> int:
+        """The EVM chain id where this token lives."""
+        return self.contract.w3.eth.chain_id
 
     @property
     def address(self) -> HexAddress:
@@ -82,13 +97,16 @@ class TokenDetails:
         """
         return int(decimal_amount * 10**self.decimals)
 
-    def fetch_balance_of(self, address: HexAddress | str) -> Decimal:
+    def fetch_balance_of(self, address: HexAddress | str, block_identifier="latest") -> Decimal:
         """Get an address token balance.
+
+        :param block_identifier:
+            A specific block to query if doing archive node historical queries
 
         :return:
             Converted to decimal using :py:meth:`convert_to_decimal`
         """
-        raw_amount = self.contract.functions.balanceOf(address).call()
+        raw_amount = self.contract.functions.balanceOf(address).call(block_identifier=block_identifier)
         return self.convert_to_decimals(raw_amount)
 
 
@@ -137,6 +155,7 @@ def fetch_erc20_details(
     token_address: Union[HexAddress, str],
     max_str_length: int = 256,
     raise_on_error=True,
+    contract_name="ERC20MockDecimals.json",
 ) -> TokenDetails:
     """Read token details from on-chain data.
 
@@ -153,17 +172,30 @@ def fetch_erc20_details(
         assert details.name == "Hentai books token"
         assert details.decimals == 6
 
-    :param web3: Web3 instance
-    :param token_address: ERC-20 contract address:
-    :param max_str_length: For input sanitisation
-    :param raise_on_error: If set, raise `TokenDetailError` on any error instead of silently ignoring in and setting details to None.
-    :return: Sanitised token info
+    :param web3:
+        Web3 instance
+
+    :param token_address:
+        ERC-20 contract address:
+
+    :param max_str_length:
+        For input sanitisation
+
+    :param raise_on_error:
+        If set, raise `TokenDetailError` on any error instead of silently ignoring in and setting details to None.
+
+    :param contract_name:
+        Contract ABI file to use.
+
+        The default is `ERC20MockDecimals.json`. For USDC use `centre/FiatToken.json`.
+
+    :return:
+        Sanitised token info
     """
 
     # No risk here, because we are not sending a transaction
     token_address = Web3.to_checksum_address(token_address)
-
-    erc_20 = get_deployed_contract(web3, "ERC20MockDecimals.json", token_address)
+    erc_20 = get_deployed_contract(web3, contract_name, token_address)
 
     try:
         symbol = sanitise_string(erc_20.functions.symbol().call()[0:max_str_length])

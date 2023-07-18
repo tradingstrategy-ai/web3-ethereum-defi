@@ -1,7 +1,7 @@
 {
   "_format": "hh-sol-artifact-1",
   "contractName": "IInitializableDebtToken",
-  "sourceName": "contracts/interfaces/IInitializableDebtToken.sol",
+  "sourceName": "@aave/core-v3/contracts/interfaces/IInitializableDebtToken.sol",
   "abi": [
     {
       "anonymous": false,

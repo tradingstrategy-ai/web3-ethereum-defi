@@ -1,23 +1,27 @@
 """Test Uniswap v3 price calculation."""
-import pytest
 import secrets
 from decimal import Decimal
+
+import pytest
 from eth_account import Account
 from eth_account.signers.local import LocalAccount
 from hexbytes import HexBytes
 from web3 import EthereumTesterProvider, Web3
 from web3.contract import Contract
-from web3._utils.transactions import fill_nonce
 
 from eth_defi.token import create_token
-from eth_defi.uniswap_v3.utils import get_default_tick_range, encode_path
-from eth_defi.uniswap_v3.deployment import FOREVER_DEADLINE, UniswapV3Deployment, deploy_pool, deploy_uniswap_v3, add_liquidity
+from eth_defi.uniswap_v3.deployment import (
+    UniswapV3Deployment,
+    add_liquidity,
+    deploy_pool,
+    deploy_uniswap_v3,
+)
 from eth_defi.uniswap_v3.price import (
     UniswapV3PriceHelper,
     estimate_buy_received_amount,
     estimate_sell_received_amount,
 )
-
+from eth_defi.uniswap_v3.utils import get_default_tick_range
 
 WETH_USDC_FEE_RAW = 3000
 WETH_DAI_FEE_RAW = 3000
@@ -259,6 +263,19 @@ def test_estimate_buy_price_for_cash(
     price = (1650 * 10**18) / eth_received
     assert price == pytest.approx(Decimal(1870.1153460381145))
 
+    # test verbose mode
+    eth_received, block_number = estimate_buy_received_amount(
+        uniswap_v3,
+        weth.address,
+        usdc.address,
+        1650 * 10**18,
+        WETH_USDC_FEE_RAW,
+        verbose=True,
+    )
+
+    assert eth_received / (10**18) == pytest.approx(0.8822985189098446)
+    assert block_number > 0
+
 
 def test_estimate_sell_received_cash(
     uniswap_v3: UniswapV3Deployment,
@@ -284,3 +301,15 @@ def test_estimate_sell_received_cash(
     # Pool only starts with 10 eth, and we are selling 50, so we should not expect to get a good price
     price = usdc_received / (50 * 10**18)
     assert price == pytest.approx(Decimal(283.19131161236425))
+
+    # test verbose mode
+    usdc_received, block_number = estimate_sell_received_amount(
+        uniswap_v3,
+        weth.address,
+        usdc.address,
+        50 * 10**18,
+        WETH_USDC_FEE_RAW,
+        verbose=True,
+    )
+    assert usdc_received / 1e18 == pytest.approx(14159.565580618213)
+    assert block_number > 0

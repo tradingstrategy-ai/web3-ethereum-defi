@@ -7,6 +7,7 @@
   trading capital
 
 """
+import logging
 import datetime
 from decimal import Decimal
 from dataclasses import dataclass
@@ -24,7 +25,10 @@ from eth_defi.event_reader.reader import Web3EventReader
 from eth_defi.token import fetch_erc20_details, TokenDetails
 
 
-@dataclass()
+logger = logging.getLogger(__name__)
+
+
+@dataclass
 class EnzymeBalanceEvent:
     """Enzyme deposit/redeem event wrapper.
 
@@ -164,7 +168,6 @@ class Deposit(EnzymeBalanceEvent):
         return convert_uint256_bytes_to_address(HexBytes(self.event_data["topics"][1]))
 
 
-@dataclass
 class Redemption(EnzymeBalanceEvent):
     """Enzyme deposit event wrapper.
 
@@ -234,6 +237,31 @@ class Redemption(EnzymeBalanceEvent):
         return convert_uint256_bytes_to_address(HexBytes(self.event_data["topics"][1]))
 
 
+@dataclass(frozen=True, slots=True)
+class LiveBalance:
+    """Current balance of a position in Enzyme vault.
+
+    See :py:func:`fetch_vault_balances` for details.
+    """
+
+    #: Enzyme vault instance
+    #:
+    #:
+    vault: Vault
+
+    #: Which token is this event for
+    #:
+    #:
+    token: TokenDetails
+
+    #: Underlying raw token balance, converted to decimal
+    #:
+    balance: Decimal
+
+    def __repr__(self):
+        return f"<Token {self.token}, balance {self.balance}>"
+
+
 def fetch_vault_balance_events(
     vault: Vault,
     start_block: int,
@@ -272,6 +300,8 @@ def fetch_vault_balance_events(
         [vault.comptroller.events.SharesBought, vault.comptroller.events.SharesRedeemed],
     )
 
+    logger.info("Reading SharesBought/SharesRedeemed at %d-%d using reader %s", start_block, end_block, read_events)
+
     for solidity_event in read_events(
         web3,
         start_block,
@@ -279,3 +309,47 @@ def fetch_vault_balance_events(
         filter=filter,
     ):
         yield EnzymeBalanceEvent.wrap(vault, solidity_event)
+
+
+def fetch_vault_balances(
+    vault: Vault,
+    block_identifier="latest",
+) -> Iterable[LiveBalance]:
+    """Get the live balances of the vault tokens at a specific block.
+
+    Does EVM state based reading instead of event based reading.
+
+    - Gets the total balances of positions held by vault
+
+    - Does not get shares of individual investors
+
+    .. warning::
+
+        Enzyme returns positions with zero balance so you need to filter these out.
+
+    Example:
+
+    .. code-block:: python
+
+        balance_map = {b.token.address: b for b in fetch_vault_balances(vault) if b.balance > 0}
+        assert len(balance_map) == 2
+        assert balance_map[usdc.address].balance == 1300
+        assert balance_map[weth.address].balance == pytest.approx(Decimal("0.124500872629987902"))
+
+    :param vault:
+        Enzyme vault we are interested in
+
+    :param block_identifier:
+        Specific block to query
+
+    :return:
+        The balances at the current or specific block
+
+    """
+    web3 = vault.web3
+    vault_contract = vault.vault
+    token_addresses = vault_contract.functions.getTrackedAssets().call(block_identifier=block_identifier)
+    for addr in token_addresses:
+        token = fetch_erc20_details(web3, addr)
+        balance = token.fetch_balance_of(vault.address, block_identifier=block_identifier)
+        yield LiveBalance(vault, token, balance)

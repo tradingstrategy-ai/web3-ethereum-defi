@@ -1,7 +1,7 @@
 {
   "_format": "hh-sol-artifact-1",
   "contractName": "IDelegationToken",
-  "sourceName": "contracts/interfaces/IDelegationToken.sol",
+  "sourceName": "@aave/core-v3/contracts/interfaces/IDelegationToken.sol",
   "abi": [
     {
       "inputs": [

@@ -1,7 +1,7 @@
 {
   "_format": "hh-sol-artifact-1",
   "contractName": "IPoolConfigurator",
-  "sourceName": "contracts/interfaces/IPoolConfigurator.sol",
+  "sourceName": "@aave/core-v3/contracts/interfaces/IPoolConfigurator.sol",
   "abi": [
     {
       "anonymous": false,
@@ -366,6 +366,25 @@
         {
           "indexed": false,
           "internalType": "bool",
+          "name": "enabled",
+          "type": "bool"
+        }
+      ],
+      "name": "ReserveFlashLoaning",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "asset",
+          "type": "address"
+        },
+        {
+          "indexed": false,
+          "internalType": "bool",
           "name": "frozen",
           "type": "bool"
         }
@@ -471,6 +490,31 @@
         }
       ],
       "name": "ReserveStableRateBorrowing",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "asset",
+          "type": "address"
+        },
+        {
+          "indexed": false,
+          "internalType": "bool",
+          "name": "oldState",
+          "type": "bool"
+        },
+        {
+          "indexed": false,
+          "internalType": "bool",
+          "name": "newState",
+          "type": "bool"
+        }
+      ],
+      "name": "SiloedBorrowingChanged",
       "type": "event"
     },
     {
@@ -908,6 +952,24 @@
         },
         {
           "internalType": "bool",
+          "name": "enabled",
+          "type": "bool"
+        }
+      ],
+      "name": "setReserveFlashLoaning",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "asset",
+          "type": "address"
+        },
+        {
+          "internalType": "bool",
           "name": "freeze",
           "type": "bool"
         }
@@ -967,6 +1029,24 @@
         }
       ],
       "name": "setReserveStableRateBorrowing",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "asset",
+          "type": "address"
+        },
+        {
+          "internalType": "bool",
+          "name": "siloed",
+          "type": "bool"
+        }
+      ],
+      "name": "setSiloedBorrowing",
       "outputs": [],
       "stateMutability": "nonpayable",
       "type": "function"
