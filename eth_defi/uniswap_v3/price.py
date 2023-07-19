@@ -223,6 +223,7 @@ def estimate_sell_received_amount(
 def get_onchain_price(
     web3: Web3,
     pool_contract_address: str,
+    *,
     block_identifier: int | None = None,
     reverse_token_order: bool = False,
 ):

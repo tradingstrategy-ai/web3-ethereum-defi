@@ -20,6 +20,7 @@ from eth_defi.uniswap_v3.price import (
     UniswapV3PriceHelper,
     estimate_buy_received_amount,
     estimate_sell_received_amount,
+    get_onchain_price,
 )
 from eth_defi.uniswap_v3.utils import get_default_tick_range
 
@@ -313,3 +314,21 @@ def test_estimate_sell_received_cash(
     )
     assert usdc_received / 1e18 == pytest.approx(14159.565580618213)
     assert block_number > 0
+
+
+def test_get_onchain_price(web3, weth_usdc_uniswap_pool: str):
+    """Test get onchain price of a pool."""
+
+    price = get_onchain_price(
+        web3,
+        weth_usdc_uniswap_pool,
+    )
+
+    assert price == pytest.approx(Decimal(1699.9057541866793))
+
+    reverse_price = get_onchain_price(
+        web3,
+        weth_usdc_uniswap_pool,
+        reverse_token_order=True,
+    )
+    assert reverse_price == pytest.approx(Decimal(0.00058826790693372))
