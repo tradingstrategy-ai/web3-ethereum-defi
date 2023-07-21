@@ -23,6 +23,7 @@ The core API is built on the top of Web3.py library.
    eth_defi.anvil
    eth_defi.ganache
    eth_defi.middleware
+   eth_defi.mev_blocker
    eth_defi.tx
    eth_defi.trace
    eth_defi.eip_712
