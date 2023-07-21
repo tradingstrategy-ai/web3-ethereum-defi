@@ -1,6 +1,7 @@
 """Utilities for managing hot wallets."""
 
 import logging
+import secrets
 from decimal import Decimal
 from typing import Optional, NamedTuple
 
@@ -90,6 +91,10 @@ class HotWallet:
     def sign_transaction_with_new_nonce(self, tx: dict) -> SignedTransactionWithNonce:
         """Signs a transaction and allocates a nonce for it.
 
+        Example:
+
+
+
         :param: Ethereum transaction data as a dict. This is modified in-place to include nonce.
         """
         assert type(tx) == dict
@@ -163,3 +168,20 @@ class HotWallet:
         assert key.startswith("0x")
         account = Account.from_key(key)
         return HotWallet(account)
+
+    @staticmethod
+    def create_for_testing(web3: Web3, test_account_n=0, eth_amount=10):
+        """Creates a new hot wallet and seeds it with ETH from one of well-known test accounts.
+
+        Shortcut method for unit testing.
+        """
+        wallet = HotWallet.from_private_key("0x" + secrets.token_hex(32))
+        tx_hash = web3.eth.send_transaction({
+            "from": web3.eth.accounts[test_account_n],
+            "to": wallet.address,
+            "value": eth_amount*10**18,
+        })
+        web3.eth.wait_for_transaction_receipt(tx_hash)
+        wallet.sync_nonce(web3)
+        return wallet
+
