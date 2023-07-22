@@ -55,13 +55,32 @@ class FallbackProvider(JSONBaseProvider):
             List of provider we cycle through.
 
         :param strategy:
+            What is the strategy to deal with errors.
+
+            Currently on cycling supported.
+
         :param retryable_exceptions:
+            List of exceptions we can retry.
+
         :param retryable_status_codes:
+            List of HTTP status codes we can retry.
+
         :param retryable_rpc_error_codes:
+            List of GoEthereum error codes we can retry.
+
         :param sleep:
+            Seconds between retries.
+
         :param backoff:
+            Multiplier to increase sleep.
+
         :param retries:
+            How many retries we attempt before giving up.
+            
         """
+        
+        super().__init__()
+        
         self.providers = providers
 
         for provider in providers:
@@ -83,6 +102,14 @@ class FallbackProvider(JSONBaseProvider):
         # This tracks completed API requests.
         self.api_call_counts = defaultdict(Counter)
         self.retry_count = 0
+
+    @property
+    def endpoint_uri(self):
+        """Return the active node URI endpoint.
+
+        For :py:class:`HTTPProvider` compatibility.
+        """
+        return self.get_provider().endpoint_uri
 
     def switch_provider(self):
         """"""

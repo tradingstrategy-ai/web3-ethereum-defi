@@ -40,12 +40,13 @@ def fallback_provider(provider_1, provider_2) -> FallbackProvider:
     return provider
 
 
-def test_fallback_no_issue(fallback_provider: FallbackProvider):
+def test_fallback_no_issue(anvil: AnvilLaunch, fallback_provider: FallbackProvider):
     """Callback goes through the first provider"""
     web3 = Web3(fallback_provider)
     assert fallback_provider.api_call_counts[0]["eth_blockNumber"] == 0
     assert fallback_provider.api_call_counts[1]["eth_blockNumber"] == 0
     assert fallback_provider.currently_active_provider == 0
+    assert fallback_provider.endpoint_uri == anvil.json_rpc_url
     web3.eth.block_number
     assert fallback_provider.api_call_counts[0]["eth_blockNumber"] == 1
     assert fallback_provider.api_call_counts[1]["eth_blockNumber"] == 0
