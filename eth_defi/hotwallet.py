@@ -1,4 +1,10 @@
-"""Utilities for managing hot wallets."""
+"""Utilities for managing hot wallets.
+
+- Create local wallets from a private key
+
+- Sign transactions in batches
+
+"""
 
 import logging
 import secrets
@@ -59,7 +65,7 @@ class HotWallet:
 
     .. note ::
 
-        Not thread safe. Manages consumed nonce counter locally.
+        Not thread safe. This class manages consumed nonce counter locally.
 
     """
 
@@ -189,10 +195,30 @@ class HotWallet:
         return HotWallet(account)
 
     @staticmethod
-    def create_for_testing(web3: Web3, test_account_n=0, eth_amount=10):
+    def create_for_testing(web3: Web3, test_account_n=0, eth_amount=10) -> "HotWallet":
         """Creates a new hot wallet and seeds it with ETH from one of well-known test accounts.
 
         Shortcut method for unit testing.
+
+        Example:
+
+        .. code-block:: python
+
+            web3 = Web3(test_provider)
+            wallet = HotWallet.create_for_testing(web3)
+
+            signed_tx = wallet.sign_transaction_with_new_nonce(
+                {
+                    "from": wallet.address,
+                    "to": ZERO_ADDRESS,
+                    "value": 1,
+                    "gas": 100_000,
+                    "gasPrice": web3.eth.gas_price,
+                }
+            )
+
+            tx_hash = web3.eth.send_raw_transaction(signed_tx.rawTransaction)
+            assert_transaction_success_with_explanation(web3, tx_hash)
 
         """
         wallet = HotWallet.from_private_key("0x" + secrets.token_hex(32))
