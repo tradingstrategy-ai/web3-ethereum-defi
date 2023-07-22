@@ -1,22 +1,24 @@
-Web3-Ethereum-Defi package documentation
-========================================
+Web3-Ethereum-Defi for Python
+=============================
 
 .. meta::
    :description: Web3 and DeFi API for Python
 
+.. image:: logo-wall-white.png
+
 Welcome to the documentation for Python `web3-ethereum-defi <https://github.com/tradingstrategy-ai/web3-ethereum-defi>`__ package.
 
-The project contains high level Python API for smart contracts,
-DeFi trading, wallet management, automated test suites and backend integrations on EVM based blockchains.
-Supported blockchains include Ethereum, BNB Chain, Polygon, Avalanche C-chain, Arbitrum, others.
+The :py:mod:`eth_defi` Python package contains high level API for smart contracts,
+DeFi trading, wallet management, JSON-RPC providers,
+automated test suites and backend integrations for EVM-based blockchains.
 
-Supported DeFi protocols include Uniswap and its forks (PancakeSwap, Trader Joe, QuickSwap),
-Aave, Enzyme, dHEDGE, Chainlink.
+- Supported `blockchains <https://tradingstrategy.ai/glossary>`__ include, but not limited to,
+  Ethereum, BNB Chain, Polygon, Avalanche C-chain, Arbitrum and other `EVM-compatible blockchains <https://tradingstrategy.ai/glossary/evm-compatible>`__.
 
-The project builts on the top of `Web3.py library <https://web3py.readthedocs.io/en/stable/>`__,
-adding better developer experience through integrations, debug tools and documentation.
-
-See `the project README for more information <https://github.com/tradingstrategy-ai/web3-ethereum-defi>`__.
+- Supported `DeFi <https://tradingstrategy.ai/glossary/decentralised-finance>`__ `protocols <https://tradingstrategy.ai/glossary/protocol>`__ include `Uniswap <https://tradingstrategy.ai/glossary/uniswap>`__
+  with its `clones <https://tradingstrategy.ai/glossary/fork>`__, `Aave <https://tradingstrategy.ai/glossary/aave>`__,
+  `USDC <https://tradingstrategy.ai/glossary/usdc>`__ and Circle `stablecoin tokens <https://tradingstrategy.ai/glossary/stablecoin>`__,
+  `Enzyme <https://tradingstrategy.ai/glossary/enzyme-protocol>`__, Chainlink and many others.
 
 Table of contents
 =================

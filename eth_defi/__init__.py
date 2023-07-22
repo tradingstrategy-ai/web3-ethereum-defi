@@ -1,8 +1,14 @@
+"""eth_defi package root.
+
+See :ref:`api documentation` for more details.
+
+"""
+
 import sys
 
 
-# Minimum required Python version
-_MIN_VERSION = (3, 9)
+#: Minimum required Python version to run this package
+MIN_PYTHON_VERSION = (3, 9)
 
 
 def _check_python_version():
@@ -10,8 +16,8 @@ def _check_python_version():
 
     # Use Python tuple comparison for version numbers
     # https://stackoverflow.com/a/1093331/315168
-    if sys.version_info < _MIN_VERSION:
-        raise RuntimeError(f"web3-ethereum-defi needs Python {_MIN_VERSION[0]}.{_MIN_VERSION[1]} or later")
+    if sys.version_info < MIN_PYTHON_VERSION:
+        raise RuntimeError(f"web3-ethereum-defi needs Python {MIN_PYTHON_VERSION[0]}.{MIN_PYTHON_VERSION[1]} or later")
 
 
 _check_python_version()

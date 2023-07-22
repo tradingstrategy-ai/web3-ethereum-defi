@@ -20,6 +20,7 @@ from web3.contract.contract import ContractFunction
 
 from eth_defi.tx import decode_signed_transaction
 
+
 logger = logging.getLogger(__name__)
 
 

@@ -1,5 +1,7 @@
 .. meta::
-   :description: Uniswap and Aave Python APIs
+   :description: Uniswap, Aave and Defi Python APIs
+
+.. _api documentation:
 
 API documentation
 =================
