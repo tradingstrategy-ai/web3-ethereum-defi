@@ -8,8 +8,6 @@ from collections import defaultdict, Counter
 from typing import List, Any
 import logging
 
-from web3 import HTTPProvider
-from web3.providers import JSONBaseProvider
 from web3.types import RPCEndpoint, RPCResponse
 
 from eth_defi.middleware import is_retryable_http_exception, DEFAULT_RETRYABLE_EXCEPTIONS, DEFAULT_RETRYABLE_HTTP_STATUS_CODES, DEFAULT_RETRYABLE_RPC_ERROR_CODES
@@ -19,6 +17,8 @@ logger = logging.getLogger(__name__)
 
 
 class FallbackStrategy(enum.Enum):
+    """Different supported fallback strategies."""
+
     #: Automatically switch to the next provider on an error
     #:
     cycle_on_error = "cycle_on_error"
@@ -159,5 +159,3 @@ class FallbackProvider(BaseNamedProvider):
                     else:
                         raise  # Out of retries
                 raise  # Not retryable exception
-
-
