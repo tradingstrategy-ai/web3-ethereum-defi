@@ -26,9 +26,10 @@ class FallbackStrategy(enum.Enum):
 
 
 class FallbackProvider(JSONBaseProvider):
-    """Fall back to the next provder in the list if a JSON-RPC request fails.
+    """Fault-tolerance for JSON-RPC requests with multiple providers.
 
-    Contains build-in retry logic in round robin manner.
+    Fall back to the next provider on the list if a JSON-RPC request fails.
+    Contains build-in retry logic in round-robin manner.
 
     See also
 
