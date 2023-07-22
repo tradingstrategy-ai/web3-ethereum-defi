@@ -1,6 +1,6 @@
-"""Fallback JSON-RPC provider mechanics.
+"""JSON-RPC provider fallback and redundancy mechanisms.
 
-If one JSON-RPC endpoint fails, automatically move to the next one.
+- See :py:class:`FallbackProvider`
 """
 import enum
 import time
@@ -36,7 +36,7 @@ class FallbackProvider(BaseNamedProvider):
 
     .. warning::
 
-        :py:class:`FallbackProvider` does not call any middlewares installed on providers themselves.
+        :py:class:`FallbackProvider` does not call any middlewares installed on the providers themselves.
     """
 
     def __init__(

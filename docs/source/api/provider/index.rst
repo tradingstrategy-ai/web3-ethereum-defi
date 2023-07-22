@@ -16,7 +16,7 @@ This submodule offers functionality to connect and enhance robustness of various
    :recursive:
 
    eth_defi.provider.mev_blocker
-   eth_defi.provider.fallback_provider
+   eth_defi.provider.fallback
    eth_defi.provider.anvil
    eth_defi.provider.ganache
    eth_defi.provider.named

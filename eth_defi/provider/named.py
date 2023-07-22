@@ -1,4 +1,12 @@
-"""Helper methods to extract the URL endpoint and name of a provider."""
+"""Helper methods to extract the URL endpoint and name of a provider.
+
+See also
+
+- py:mod:`eth_defi.provider.mev_blocker`
+
+- py:mod:`eth_defi.provider.fallback`
+
+"""
 
 from abc import abstractproperty, ABC, abstractmethod
 from typing import TypeAlias
@@ -28,10 +36,10 @@ NamedProvider: TypeAlias = BaseNamedProvider | HTTPProvider
 def get_provider_name(provider: NamedProvider) -> str:
     """Get loggable name of the JSON-RPC provider.
 
-    Supports :py:class:`HTTPProvider` and others
-    that leave outside our Python package.
-
     Strips out API keys from the URL of a JSON-RPC API provider.
+
+    Supports :py:mod:`eth_defi` customer provider classes
+    as well as :py:mod:`web3` core providers.
 
     :return:
         HTTP provider URL's domain name if available.

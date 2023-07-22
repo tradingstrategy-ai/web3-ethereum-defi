@@ -6,6 +6,8 @@
 - Add `HotWallet.create_for_testing`
 - Add utility function `get_onchain_price()` to ask on-chain price of a 
   Uniswap v3 pool at any given block number
+- Deprecate `eth_defi.anvil`
+- Deprecate `eth_defi.ganache`
 
 # 0.21.8
 
