@@ -1,12 +1,17 @@
 """MEV blocking RPC provider functionality.
 
-Malicious Extractable Value (MEV) is a nuisance on all
-EVM-based blockchains. It can be mitigated by using a special
+`Malicious Extractable Value (MEV) <https://tradingstrategy.ai/glossary/mev>`__
+is a problem for all trading activity on EVM-based blockchains.
+
+It can be mitigated by using a special
 JSON-RPC node that provides a private mempool.
+
 This module provides methods to create special
-:py:class:`web3.Web3` instances that use MEV blocking
-JSON-RPC endpoint for all transactions, but a normal JSON-RPC
-node for reading data from the blockchain.
+:py:class:`web3.Web3` instances that
+
+- Use MEV blocking JSON-RPC endpoint for all transactions
+
+- Normal JSON-RPC node for reading data from the blockchain
 
 """
 from collections import Counter
