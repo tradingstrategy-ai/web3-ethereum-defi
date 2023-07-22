@@ -76,11 +76,11 @@ class FallbackProvider(JSONBaseProvider):
 
         :param retries:
             How many retries we attempt before giving up.
-            
+
         """
-        
+
         super().__init__()
-        
+
         self.providers = providers
 
         for provider in providers:
