@@ -1,7 +1,13 @@
-# 0.21.9
+# 0.22
 
+- Refactor a lot of functionality to a new submodule `eth_defi.provider` 
+- Add MEV blocking support in the form of `eth_defi.mev_blocker.MEVBlockerProvider`
+- Add JSON-RPC fallback switching in the form of `eth_defi.fallback_provider.FallbackProvider`
+- Add `HotWallet.create_for_testing` 
 - Add utility function `get_onchain_price()` to ask on-chain price of a 
   Uniswap v3 pool at any given block number
+- Deprecate `eth_defi.anvil` -> `eth_defi.provider.anvil` 
+- Deprecate `eth_defi.ganache` -> `eth_defi.provider.ganache`
 
 # 0.21.8
 

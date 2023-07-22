@@ -13,7 +13,9 @@ from urllib.parse import urljoin
 import requests
 from web3 import Web3, HTTPProvider
 from web3.middleware import geth_poa_middleware
+from web3.providers import JSONBaseProvider
 from web3.types import RPCEndpoint, RPCResponse
+from web3.datastructures import NamedElementOnion
 
 from eth_defi.event_reader.conversion import convert_jsonrpc_value_to_int
 from eth_defi.middleware import http_retry_request_with_sleep_middleware
@@ -106,7 +108,7 @@ def install_api_call_counter_middleware(web3: Web3) -> Counter:
         assert counter["eth_blockNumber"] == 1
 
     :return:
-        Counter object with columns per RPC endpoint and "toal"
+        Counter object with columns per RPC endpoint and "total"
     """
     api_counter = Counter()
 
@@ -119,6 +121,42 @@ def install_api_call_counter_middleware(web3: Web3) -> Counter:
         return middleware
 
     web3.middleware_onion.inject(factory, layer=0)
+    return api_counter
+
+
+def install_api_call_counter_middleware_on_provider(provider: JSONBaseProvider) -> Counter:
+    """Install API call counter middleware on a specific API provider.
+
+    Allows per-provider API call counting when using complex
+    provider setups.
+
+    See also
+
+    - :py:func:`install_api_call_counter_middleware`
+
+    - :py:class:`eth_defi.fallback_provider.FallbackProvider`
+
+    :return:
+        Counter object with columns per RPC endpoint and "total"
+    """
+
+    assert isinstance(provider, JSONBaseProvider), f"Got {provider.__class__}"
+
+    api_counter = Counter()
+
+    def factory(make_request: Callable[[RPCEndpoint, Any], Any], web3: "Web3"):
+        import ipdb
+
+        ipdb.set_trace()
+
+        def middleware(method: RPCEndpoint, params: Any) -> Optional[RPCResponse]:
+            api_counter[method] += 1
+            api_counter["total"] += 1
+            return make_request(method, params)
+
+        return middleware
+
+    provider.middlewares.add("api_counter_middleware", factory)
     return api_counter
 
 
