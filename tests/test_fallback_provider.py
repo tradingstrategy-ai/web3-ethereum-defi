@@ -1,5 +1,5 @@
 """Test JSON-RPC provider fallback mechanism."""
-from unittest.mock import patch
+from unittest.mock import patch, DEFAULT
 
 import pytest
 import requests
@@ -84,8 +84,31 @@ def test_fallback_double_fault_recovery(fallback_provider: FallbackProvider, pro
 
     web3 = Web3(fallback_provider)
 
-    with patch.object(provider_1, "make_request", side_effect=requests.exceptions.ConnectionError), \
-         patch.object(provider_2, "make_request", side_effect=requests.exceptions.ConnectionError):
+    count = 0
 
-        with pytest.raises(requests.exceptions.ConnectionError):
+    def borg_start(*args, **kwargs):
+        nonlocal count
+        count += 1
+        if count <= 2:
+            raise requests.exceptions.ConnectionError()
+        return DEFAULT
+
+    with patch.object(provider_1, "make_request", side_effect=borg_start), \
+         patch.object(provider_2, "make_request", side_effect=borg_start):
+
+        web3.eth.block_number
+
+    assert fallback_provider.api_call_counts[0]["eth_blockNumber"] == 1
+    assert fallback_provider.api_call_counts[1]["eth_blockNumber"] == 0
+    assert fallback_provider.retry_count == 2
+    assert fallback_provider.currently_active_provider == 0
+
+
+def test_fallback_unhandled_exception(fallback_provider: FallbackProvider, provider_1):
+    """Exception fallback provider cannot handle"""
+
+    web3 = Web3(fallback_provider)
+
+    with patch.object(provider_1, "make_request", side_effect=RuntimeError):
+        with pytest.raises(RuntimeError):
             web3.eth.block_number
