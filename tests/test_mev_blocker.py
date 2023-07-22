@@ -10,7 +10,7 @@ from eth_defi.trace import assert_transaction_success_with_explanation
 from eth_defi.uniswap_v2.utils import ZERO_ADDRESS
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture(scope="module")
 def anvil() -> AnvilLaunch:
     """Launch Anvil for the test backend."""
     anvil = launch_anvil()
