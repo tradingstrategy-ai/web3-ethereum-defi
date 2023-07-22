@@ -28,9 +28,9 @@
      inkscape:deskcolor="#d1d1d1"
      inkscape:document-units="mm"
      showgrid="false"
-     showguides="true"
+     showguides="false"
      inkscape:zoom="0.88914713"
-     inkscape:cx="313.78384"
+     inkscape:cx="316.03319"
      inkscape:cy="393.63564"
      inkscape:window-width="1861"
      inkscape:window-height="980"
@@ -47,6 +47,11 @@
        position="100.57859,257.12565"
        orientation="1,0"
        id="guide4176"
+       inkscape:locked="false" />
+    <sodipodi:guide
+       position="-119.02792,242.54473"
+       orientation="1,0"
+       id="guide5015"
        inkscape:locked="false" />
   </sodipodi:namedview>
   <defs
@@ -238,6 +243,16 @@
      inkscape:label="Layer 1"
      inkscape:groupmode="layer"
      id="layer1">
+    <rect
+       style="font-variation-settings:'wght' 600;fill:#f9f9f9;stroke-width:0.264583"
+       id="rect5069"
+       width="205.9183"
+       height="144.61891"
+       x="2.0829885"
+       y="2.975698"
+       inkscape:export-filename="logo-wall-white.png"
+       inkscape:export-xdpi="200"
+       inkscape:export-ydpi="200" />
     <g
        id="g3165"
        transform="matrix(0.55672544,0,0,0.55672544,33.67239,37.126426)"
