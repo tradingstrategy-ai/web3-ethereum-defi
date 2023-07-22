@@ -1,4 +1,7 @@
-"""Ganache EVM test backend and mainnet forking.
+"""Ganache integration.
+
+Ganache is an EVM test backend and mainnet forking
+written in JavaScript from Truffle project.
 
 This module contains utilities to automatically launch and
 manipulate `ganache-cli` process.

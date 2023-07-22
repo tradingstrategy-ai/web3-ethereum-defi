@@ -1,7 +1,8 @@
 """Anvil integration.
 
 - `Anvil <https://github.com/foundry-rs/foundry/blob/master/anvil/README.md>`__
-  is a blazing-fast local testnet node implementation in Rust.
+  is a blazing-fast local testnet node implementation in Rust from
+  `Foundry projet <>`__
 
 - Anvil can replace :py:class:`eth_tester.main.EthereumTester` as the unit/integration test backend.
 
