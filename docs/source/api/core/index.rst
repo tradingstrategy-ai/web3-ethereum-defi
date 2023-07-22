@@ -20,11 +20,7 @@ The core API is built on the top of Web3.py library.
    eth_defi.confirmation
    eth_defi.revert_reason
    eth_defi.hotwallet
-   eth_defi.anvil
-   eth_defi.ganache
    eth_defi.middleware
-   eth_defi.mev_blocker
-   eth_defi.fallback_provider
    eth_defi.tx
    eth_defi.trace
    eth_defi.eip_712

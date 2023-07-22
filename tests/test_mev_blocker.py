@@ -2,8 +2,8 @@
 import pytest
 from web3 import HTTPProvider, Web3
 
-from eth_defi.anvil import launch_anvil, AnvilLaunch
-from eth_defi.mev_blocker import MEVBlockerProvider
+from eth_defi.provider.anvil import launch_anvil, AnvilLaunch
+from eth_defi.provider.mev_blocker import MEVBlockerProvider
 
 from eth_defi.hotwallet import HotWallet
 from eth_defi.trace import assert_transaction_success_with_explanation

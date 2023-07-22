@@ -13,8 +13,7 @@ from web3.providers import JSONBaseProvider
 from web3.types import RPCEndpoint, RPCResponse
 
 from eth_defi.middleware import is_retryable_http_exception, DEFAULT_RETRYABLE_EXCEPTIONS, DEFAULT_RETRYABLE_HTTP_STATUS_CODES, DEFAULT_RETRYABLE_RPC_ERROR_CODES
-from eth_defi.utils import get_url_domain
-
+from eth_defi.provider.named import BaseNamedProvider, NamedProvider, get_provider_name
 
 logger = logging.getLogger(__name__)
 
@@ -25,7 +24,7 @@ class FallbackStrategy(enum.Enum):
     cycle_on_error = "cycle_on_error"
 
 
-class FallbackProvider(JSONBaseProvider):
+class FallbackProvider(BaseNamedProvider):
     """Fault-tolerance for JSON-RPC requests with multiple providers.
 
     Fall back to the next provider on the list if a JSON-RPC request fails.
@@ -42,7 +41,7 @@ class FallbackProvider(JSONBaseProvider):
 
     def __init__(
         self,
-        providers: List[JSONBaseProvider],
+        providers: List[NamedProvider],
         strategy=FallbackStrategy.cycle_on_error,
         retryable_exceptions=DEFAULT_RETRYABLE_EXCEPTIONS,
         retryable_status_codes=DEFAULT_RETRYABLE_HTTP_STATUS_CODES,
@@ -116,7 +115,7 @@ class FallbackProvider(JSONBaseProvider):
         """"""
         self.currently_active_provider = (self.currently_active_provider + 1) % len(self.providers)
 
-    def get_provider(self) -> JSONBaseProvider:
+    def get_provider(self) -> NamedProvider:
         """Get currently active provider."""
         return self.providers[self.currently_active_provider]
 
@@ -147,9 +146,9 @@ class FallbackProvider(JSONBaseProvider):
                     retryable_status_codes=self.retryable_status_codes,
                     retryable_exceptions=self.retryable_exceptions,
                 ):
-                    old_provider_name = _get_provider_name(provider)
+                    old_provider_name = get_provider_name(provider)
                     self.switch_provider()
-                    new_provider_name = _get_provider_name(self.get_provider())
+                    new_provider_name = get_provider_name(self.get_provider())
 
                     if i < self.retries - 1:
                         logger.warning("Encountered JSON-RPC retryable error %s when calling method %s.\n" "Switching providers %s -> %s\n" "Retrying in %f seconds, retry #%d", e, method, old_provider_name, new_provider_name, current_sleep, i)
@@ -162,14 +161,3 @@ class FallbackProvider(JSONBaseProvider):
                 raise  # Not retryable exception
 
 
-def _get_provider_name(provider: JSONBaseProvider) -> str:
-    """Get loggable name of the JSON-RPC provider.
-
-    :return:
-        HTTP provider URL's domain name if available.
-
-        Assume any API keys are not part of the domain name.
-    """
-    if isinstance(provider, HTTPProvider):
-        return get_url_domain(provider.endpoint_uri)
-    return str(provider)

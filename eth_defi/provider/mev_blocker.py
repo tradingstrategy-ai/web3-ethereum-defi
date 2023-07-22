@@ -15,6 +15,8 @@ from typing import Any
 from web3.providers import JSONBaseProvider
 from web3.types import RPCEndpoint, RPCResponse
 
+from eth_defi.provider.named import BaseNamedProvider
+
 #: List of RPC methods that execution transactions
 #:
 TRANSACT_METHODS = (
@@ -23,7 +25,7 @@ TRANSACT_METHODS = (
 )
 
 
-class MEVBlockerProvider(JSONBaseProvider):
+class MEVBlockerProvider(BaseNamedProvider):
     """Routes methods that execute transaction through a special MEV proof endpoint.
 
     - Depending on whether we are sending a transaction or reading from the blockchain,
@@ -62,3 +64,8 @@ class MEVBlockerProvider(JSONBaseProvider):
         else:
             self.provider_counter["call"] += 1
             return self.call_provider.make_request(method, params)
+
+    @property
+    def endpoint_uri(self) -> str:
+        """Map us to the transact provider by the default"""
+        return self.transact_provider.endpoint_uri

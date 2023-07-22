@@ -1,10 +1,11 @@
-# Current
+# 0.22
 
-- Add utility function `get_onchain_price()` to ask on-chain price of a 
-  Uniswap v3 pool at any given block number
+- Refactor a lot of functionality to a new submodule `eth_defi.provider` 
 - Add MEV blocking support in the form of `eth_defi.mev_blocker.MEVBlockerProvider`
 - Add JSON-RPC fallback switching in the form of `eth_defi.fallback_provider.FallbackProvider`
 - Add `HotWallet.create_for_testing`
+- Add utility function `get_onchain_price()` to ask on-chain price of a 
+  Uniswap v3 pool at any given block number
 
 # 0.21.8
 

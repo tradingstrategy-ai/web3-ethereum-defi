@@ -6,7 +6,7 @@ import requests
 from web3 import HTTPProvider, Web3
 
 from eth_defi.anvil import launch_anvil, AnvilLaunch
-from eth_defi.fallback_provider import FallbackProvider
+from eth_defi.provider.fallback import FallbackProvider
 
 
 @pytest.fixture(scope="module")

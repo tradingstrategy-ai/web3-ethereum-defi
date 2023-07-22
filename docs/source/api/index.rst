@@ -14,6 +14,7 @@ API documentation
    :maxdepth: 1
 
    core/index
+   provier/index
    usdc/index
    uniswap_v2/index
    uniswap_v3/index
