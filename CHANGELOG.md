@@ -1,3 +1,8 @@
+# 0.21.9
+
+- Add utility function `get_onchain_price()` to ask on-chain price of a 
+  Uniswap v3 pool at any given block number
+
 # 0.21.8
 
 - Add test coverage for `extract_timestamps_json_rpc_lazy`
