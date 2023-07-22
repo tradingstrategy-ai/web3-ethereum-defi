@@ -93,9 +93,28 @@ class HotWallet:
 
         Example:
 
+        .. code-block:: python
 
+            web3 = Web3(mev_blocker_provider)
+            wallet = HotWallet.create_for_testing(web3)
 
-        :param: Ethereum transaction data as a dict. This is modified in-place to include nonce.
+            # Send some ETH to zero address from
+            # the hot wallet
+            signed_tx = wallet.sign_transaction_with_new_nonce({
+                "from": wallet.address,
+                "to": ZERO_ADDRESS,
+                "value": 1,
+                "gas": 100_000,
+                "gasPrice": web3.eth.gas_price,
+            })
+            tx_hash = web3.eth.send_raw_transaction(signed_tx.rawTransaction)
+
+        :param tx:
+            Ethereum transaction data as a dict.
+            This is modified in-place to include nonce.
+
+        :return:
+            A transaction payload and nonce with used to generate this transaction.
         """
         assert type(tx) == dict
         assert "nonce" not in tx
@@ -174,6 +193,7 @@ class HotWallet:
         """Creates a new hot wallet and seeds it with ETH from one of well-known test accounts.
 
         Shortcut method for unit testing.
+
         """
         wallet = HotWallet.from_private_key("0x" + secrets.token_hex(32))
         tx_hash = web3.eth.send_transaction({

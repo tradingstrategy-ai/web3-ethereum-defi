@@ -1,0 +1,158 @@
+"""Fallback JSON-RPC provider mechanics.
+
+If one JSON-RPC endpoint fails, automatically move to the next one.
+"""
+import enum
+import time
+from collections import defaultdict, Counter
+from typing import List, Any
+import logging
+
+from web3 import HTTPProvider
+from web3.providers import JSONBaseProvider
+from web3.types import RPCEndpoint, RPCResponse
+
+from eth_defi.middleware import is_retryable_http_exception, DEFAULT_RETRYABLE_EXCEPTIONS, DEFAULT_RETRYABLE_HTTP_STATUS_CODES, DEFAULT_RETRYABLE_RPC_ERROR_CODES
+from eth_defi.utils import get_url_domain
+
+
+logger = logging.getLogger(__name__)
+
+
+class FallbackStrategy(enum.Enum):
+
+    #: Automatically switch to the next provider on an error
+    #:
+    cycle_on_error = "cycle_on_error"
+
+
+
+class FallbackProvider(JSONBaseProvider):
+    """Fall back to the next provder in the list if a JSON-RPC request fails.
+
+    Contains build-in retry logic in round robin manner.
+
+    See also
+
+    - :py:func:`eth_defi.middlware.exception_retry_middleware`
+
+    .. warning::
+
+        :py:class:`FallbackProvider` does not call any middlewares installed on providers themselves.
+    """
+
+    def __init__(
+            self,
+            providers: List[JSONBaseProvider],
+            strategy=FallbackStrategy.cycle_on_error,
+            retryable_exceptions=DEFAULT_RETRYABLE_EXCEPTIONS,
+            retryable_status_codes=DEFAULT_RETRYABLE_HTTP_STATUS_CODES,
+            retryable_rpc_error_codes=  DEFAULT_RETRYABLE_RPC_ERROR_CODES,
+            sleep: float = 5.0,
+            backoff: float = 1.6,
+            retries: int = 6,
+    ):
+        """
+        :param providers:
+            List of provider we cycle through.
+
+        :param strategy:
+        :param retryable_exceptions:
+        :param retryable_status_codes:
+        :param retryable_rpc_error_codes:
+        :param sleep:
+        :param backoff:
+        :param retries:
+        """
+        self.providers = providers
+
+        for provider in providers:
+            assert "http_retry_request" not in provider.middlewares, "http_retry_request middleware cannot be used with FallbackProvider"
+
+        #: Currently active provider
+        self.currently_active_provider = 0
+
+        self.strategy = strategy
+
+        self.retryable_exceptions = retryable_exceptions
+        self.retryable_status_codes = retryable_status_codes
+        self.retryable_rpc_error_codes = retryable_rpc_error_codes
+        self.sleep = sleep
+        self.backoff = backoff
+        self.retries = retries
+
+        #: provider number -> API name -> call count mappings.
+        # This tracks completed API requests.
+        self.api_call_counts = defaultdict(Counter)
+        self.retry_count = 0
+
+    def switch_provider(self):
+        """"""
+        self.currently_active_provider = (self.currently_active_provider + 1) % len(self.providers)
+
+    def get_provider(self) -> JSONBaseProvider:
+        """Get currently active provider."""
+        return self.providers[self.currently_active_provider]
+
+    def make_request(self, method: RPCEndpoint, params: Any) -> RPCResponse:
+        """Make a request.
+
+        - By default use the current active provider
+
+        - If there are errors try cycle through providers and sleep
+          between cycles until one provider works
+        """
+        current_sleep = self.sleep
+        for i in range(self.retries):
+            provider = self.get_provider()
+            try:
+
+                # Call the underlying provider
+                val = provider.make_request(method, params)
+
+                # Track API counts
+                self.api_call_counts[self.currently_active_provider][method] += 1
+
+                return val
+
+            except Exception as e:
+
+                if is_retryable_http_exception(
+                        e,
+                        retryable_rpc_error_codes=self.retryable_rpc_error_codes,
+                        retryable_status_codes=self.retryable_status_codes,
+                        retryable_exceptions=self.retryable_exceptions,
+                ):
+
+                    old_provider_name = _get_provider_name(provider)
+                    self.switch_provider()
+                    new_provider_name = _get_provider_name(self.get_provider())
+
+                    if i < self.retries - 1:
+                        logger.warning(
+                            "Encountered JSON-RPC retryable error %s when calling method %s.\n"
+                            "Switching providers %s -> %s\n"
+                            "Retrying in %f seconds, retry #%d",
+                            e, method,
+                            old_provider_name, new_provider_name,
+                            current_sleep, i)
+                        time.sleep(current_sleep)
+                        current_sleep *= self.backoff
+                        self.retry_count += 1
+                        continue
+                    else:
+                        raise  # Out of retries
+                raise  # Not retryable exception
+
+
+def _get_provider_name(provider: JSONBaseProvider) -> str:
+    """Get loggable name of the JSON-RPC provider.
+
+    :return:
+        HTTP provider URL's domain name if available.
+
+        Assume any API keys are not part of the domain name.
+    """
+    if isinstance(provider, HTTPProvider):
+        return get_url_domain(provider.endpoint_uri)
+    return str(provider)
