@@ -196,12 +196,13 @@ class HotWallet:
 
         """
         wallet = HotWallet.from_private_key("0x" + secrets.token_hex(32))
-        tx_hash = web3.eth.send_transaction({
-            "from": web3.eth.accounts[test_account_n],
-            "to": wallet.address,
-            "value": eth_amount*10**18,
-        })
+        tx_hash = web3.eth.send_transaction(
+            {
+                "from": web3.eth.accounts[test_account_n],
+                "to": wallet.address,
+                "value": eth_amount * 10**18,
+            }
+        )
         web3.eth.wait_for_transaction_receipt(tx_hash)
         wallet.sync_nonce(web3)
         return wallet
-

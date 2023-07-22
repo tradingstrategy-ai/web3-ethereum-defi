@@ -20,11 +20,9 @@ logger = logging.getLogger(__name__)
 
 
 class FallbackStrategy(enum.Enum):
-
     #: Automatically switch to the next provider on an error
     #:
     cycle_on_error = "cycle_on_error"
-
 
 
 class FallbackProvider(JSONBaseProvider):
@@ -42,15 +40,15 @@ class FallbackProvider(JSONBaseProvider):
     """
 
     def __init__(
-            self,
-            providers: List[JSONBaseProvider],
-            strategy=FallbackStrategy.cycle_on_error,
-            retryable_exceptions=DEFAULT_RETRYABLE_EXCEPTIONS,
-            retryable_status_codes=DEFAULT_RETRYABLE_HTTP_STATUS_CODES,
-            retryable_rpc_error_codes=  DEFAULT_RETRYABLE_RPC_ERROR_CODES,
-            sleep: float = 5.0,
-            backoff: float = 1.6,
-            retries: int = 6,
+        self,
+        providers: List[JSONBaseProvider],
+        strategy=FallbackStrategy.cycle_on_error,
+        retryable_exceptions=DEFAULT_RETRYABLE_EXCEPTIONS,
+        retryable_status_codes=DEFAULT_RETRYABLE_HTTP_STATUS_CODES,
+        retryable_rpc_error_codes=DEFAULT_RETRYABLE_RPC_ERROR_CODES,
+        sleep: float = 5.0,
+        backoff: float = 1.6,
+        retries: int = 6,
     ):
         """
         :param providers:
@@ -106,7 +104,6 @@ class FallbackProvider(JSONBaseProvider):
         for i in range(self.retries):
             provider = self.get_provider()
             try:
-
                 # Call the underlying provider
                 val = provider.make_request(method, params)
 
@@ -116,26 +113,18 @@ class FallbackProvider(JSONBaseProvider):
                 return val
 
             except Exception as e:
-
                 if is_retryable_http_exception(
-                        e,
-                        retryable_rpc_error_codes=self.retryable_rpc_error_codes,
-                        retryable_status_codes=self.retryable_status_codes,
-                        retryable_exceptions=self.retryable_exceptions,
+                    e,
+                    retryable_rpc_error_codes=self.retryable_rpc_error_codes,
+                    retryable_status_codes=self.retryable_status_codes,
+                    retryable_exceptions=self.retryable_exceptions,
                 ):
-
                     old_provider_name = _get_provider_name(provider)
                     self.switch_provider()
                     new_provider_name = _get_provider_name(self.get_provider())
 
                     if i < self.retries - 1:
-                        logger.warning(
-                            "Encountered JSON-RPC retryable error %s when calling method %s.\n"
-                            "Switching providers %s -> %s\n"
-                            "Retrying in %f seconds, retry #%d",
-                            e, method,
-                            old_provider_name, new_provider_name,
-                            current_sleep, i)
+                        logger.warning("Encountered JSON-RPC retryable error %s when calling method %s.\n" "Switching providers %s -> %s\n" "Retrying in %f seconds, retry #%d", e, method, old_provider_name, new_provider_name, current_sleep, i)
                         time.sleep(current_sleep)
                         current_sleep *= self.backoff
                         self.retry_count += 1

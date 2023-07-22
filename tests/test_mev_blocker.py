@@ -13,8 +13,7 @@ from eth_defi.uniswap_v2.utils import ZERO_ADDRESS
 @pytest.fixture(scope="session")
 def anvil() -> AnvilLaunch:
     """Launch Anvil for the test backend."""
-    anvil = launch_anvil(
-    )
+    anvil = launch_anvil()
     try:
         yield anvil
     finally:
@@ -57,13 +56,15 @@ def test_mev_blocker_send_transaction_raw(mev_blocker_provider: MEVBlockerProvid
     web3 = Web3(mev_blocker_provider)
     wallet = HotWallet.create_for_testing(web3)
 
-    signed_tx = wallet.sign_transaction_with_new_nonce({
-        "from": wallet.address,
-        "to": ZERO_ADDRESS,
-        "value": 1,
-        "gas": 100_000,
-        "gasPrice": web3.eth.gas_price,
-    })
+    signed_tx = wallet.sign_transaction_with_new_nonce(
+        {
+            "from": wallet.address,
+            "to": ZERO_ADDRESS,
+            "value": 1,
+            "gas": 100_000,
+            "gasPrice": web3.eth.gas_price,
+        }
+    )
 
     # Account for setup API counts from create_for_testing()
     assert mev_blocker_provider.provider_counter["call"] == 10

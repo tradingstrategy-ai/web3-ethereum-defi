@@ -41,7 +41,7 @@ def fallback_provider(provider_1, provider_2) -> FallbackProvider:
 
 
 def test_fallback_no_issue(fallback_provider: FallbackProvider):
-    """Callback goes through the first provider """
+    """Callback goes through the first provider"""
     web3 = Web3(fallback_provider)
     assert fallback_provider.api_call_counts[0]["eth_blockNumber"] == 0
     assert fallback_provider.api_call_counts[1]["eth_blockNumber"] == 0
@@ -70,9 +70,7 @@ def test_fallback_double_fault(fallback_provider: FallbackProvider, provider_1, 
 
     web3 = Web3(fallback_provider)
 
-    with patch.object(provider_1, "make_request", side_effect=requests.exceptions.ConnectionError), \
-         patch.object(provider_2, "make_request", side_effect=requests.exceptions.ConnectionError):
-
+    with patch.object(provider_1, "make_request", side_effect=requests.exceptions.ConnectionError), patch.object(provider_2, "make_request", side_effect=requests.exceptions.ConnectionError):
         with pytest.raises(requests.exceptions.ConnectionError):
             web3.eth.block_number
 
@@ -93,9 +91,7 @@ def test_fallback_double_fault_recovery(fallback_provider: FallbackProvider, pro
             raise requests.exceptions.ConnectionError()
         return DEFAULT
 
-    with patch.object(provider_1, "make_request", side_effect=borg_start), \
-         patch.object(provider_2, "make_request", side_effect=borg_start):
-
+    with patch.object(provider_1, "make_request", side_effect=borg_start), patch.object(provider_2, "make_request", side_effect=borg_start):
         web3.eth.block_number
 
     assert fallback_provider.api_call_counts[0]["eth_blockNumber"] == 1

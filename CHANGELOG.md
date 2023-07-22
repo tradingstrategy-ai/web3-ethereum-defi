@@ -1,5 +1,5 @@
 # Current
-- 
+
 - Add utility function `get_onchain_price()` to ask on-chain price of a 
   Uniswap v3 pool at any given block number
 - Add MEV blocking support in the form of `eth_defi.mev_blocker.MEVBlockerProvider`
