@@ -2,9 +2,9 @@
 
 See also
 
-- py:mod:`eth_defi.provider.mev_blocker`
+- :py:mod:`eth_defi.provider.mev_blocker`
 
-- py:mod:`eth_defi.provider.fallback`
+- :py:mod:`eth_defi.provider.fallback`
 
 """
 
@@ -25,7 +25,11 @@ class BaseNamedProvider(ABC, JSONBaseProvider):
     def endpoint_uri(self) -> str:
         """Return the active node URI endpoint.
 
-        For :py:class:`HTTPProvider` compatibility.
+        .. warning::
+
+            Endpoint URIs often contain API keys.
+            They should be never publicly displayed as is.
+
         """
 
 
