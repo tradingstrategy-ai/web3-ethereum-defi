@@ -119,8 +119,10 @@ for full code examples.
 
 ## PancakeSwap swap example
 
-This example shows how to perform a token swap on PancakeSwap,
-It will also work on any [Uniswap v2 compatible](https://tradingstrategy.ai/glossary/fork) DEX. 
+- This example shows how to read the live trades of PancakeSwap,
+  and other [Uniswap v2 compatible forks](https://tradingstrategy.ai/glossary/fork) on BNB Smart Chain
+
+- [See the instructions and full example source code in Tutorials](https://web3-ethereum-defi.readthedocs.io/tutorials/pancakeswap-live-minimal.html)
 
 ```python
 import os

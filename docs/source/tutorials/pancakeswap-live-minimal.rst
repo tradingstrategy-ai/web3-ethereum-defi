@@ -1,14 +1,15 @@
-Pancakeswap reading swaps real-time
------------------------------------
+Pancakeswap live trades
+-----------------------
 
 This is a minimal example code for showing live swaps happening
-on PancakeSwap and all other `Binance Uniswap v2 compatible DEXes <https://tradingstrategy.ai/glossary/fork>`__.
+on PancakeSwap and all other `Uniswap v2 compatible DEXes <https://tradingstrategy.ai/glossary/fork>`__
+on `Binance Smart Chain <https://tradingstrategy.ai/glossary/bnb-chain>`__.
 
-- Reads the swap stream of PancakeSwap pools
+- The example scripts reads the swap stream of PancakeSwap pools
 
 - Displays human readable price of swaps
 
-- *This event reader is not robust* as it does not deal with minor blockchain reorganisations.
+- **The example event reading method is not robust** as it does not deal with minor blockchain reorganisations.
   See other examples in the Tutorials section how to handle this.
 
 - Uses public BNB Chain JSON-RPC endpoint by default
@@ -23,13 +24,12 @@ Example output:
 
 .. code-block:: text
 
-    Swap block:30,238,558 tx:0x826a7b87f2155f90a2ce41a8c9eebc58532d36e2e707181e6471c0c29573a5ab sell price:0.00099721 Welle/USDT
-    Swap block:30,238,558 tx:0x5cf346e19501bcf8aa428409d016390528e840c29a7758a4ba10f795c60bb18a buy price:12.20856495 RWT/USDT
-    Swap block:30,238,558 tx:0x54e6edccaf39a753b732e2e9c09fa5220b373c1b5116016f0fb5b2796d1a3af5 sell price:240.90248007 WBNB/USDT
-    Swap block:30,238,559 tx:0xc0bb97210da2fda1348f00e9daec9dbdd23c1dac50e6b44296c8fe4810a861fb buy price:0.06722527 TEA/USDT
-    Swap block:30,238,559 tx:0x6df61a50ca1073a9698929873718b98cc2330c33b8225ddc5cd6cb66aac7fd63 buy price:0.07435398 TEA/USDT
-    Swap block:30,238,559 tx:0x0b2f2bd819bcc19bbdabe7fb799e057c46ec6c50328dcbd7928a503046ef7da2 sell price:0.07993185 TEA/USDT
-    Swap block:30,238,559 tx:0x0b2f2bd819bcc19bbdabe7fb799e057c46ec6c50328dcbd7928a503046ef7da2 sell price:0.07805091 TEA/USDT
+    Swap at block:30,239,875 buy price:2.64193807 LEE/USDT in tx 0x0b51a9f0a0f50c493111c29e670a419f400daba03e63b9360c52dcf6a3b16c20
+    Swap at block:30,239,875 sell price:236.64745674 WBNB/USDT in tx 0x13b65557c777ec26a52dd2e025ac22f8382c62262af8838dc7ebd13b2711765d
+    Swap at block:30,239,875 buy price:0.00000039 JGB/USDT in tx 0x13b65557c777ec26a52dd2e025ac22f8382c62262af8838dc7ebd13b2711765d
+    Swap at block:30,239,875 sell price:0.00000043 JGB/USDT in tx 0x8b54bc21666463b533a42264c5b5cf9090d91e9bbdbc9d24b1cc757a128cf67b
+    Swap at block:30,239,876 buy price:70.20751754 L3/USDT in tx 0xe9dc7b06729f563de7bc7c4412586c54a3e8f774aace636320bff06583f77b33
+    Swap at block:30,239,876 buy price:70.20771432 L3/USDT in tx 0xec507565a1d8e330b717f64b63a1d1f75ca5fed14aeca76cc27981da528d515e
 
 .. literalinclude:: ../../../scripts/pancakeswap-live-swaps-minimal.py
    :language: python

@@ -117,7 +117,7 @@ def main():
 
                 price = abs(price)
 
-                print(f"Swap block:{block_number:,} tx:{evt['transactionHash']} {direction} price:{price:,.8f} {base.symbol}/{quote.symbol}")
+                print(f"Swap at block:{block_number:,} {direction} price:{price:,.8f} {base.symbol}/{quote.symbol} in tx {evt['transactionHash']}")
             else:
                 # Swap() event from DEX that is not Uniswap v2 compatible
                 # print(f"Swap block:{block_number:,} tx:{evt['transactionHash']} could not decode")

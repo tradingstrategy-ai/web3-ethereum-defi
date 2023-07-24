@@ -1,6 +1,6 @@
 # 0.22
 
-- Refactor a lot of functionality to a new submodule `eth_defi.provider` 
+- Refactor a lot of functionality to a new submodule [eth_defi.provider](https://web3-ethereum-defi.readthedocs.io/api/provider/index.html) 
 - Add MEV blocking support in the form of `eth_defi.mev_blocker.MEVBlockerProvider`
 - Add JSON-RPC fallback switching in the form of `eth_defi.fallback_provider.FallbackProvider`
 - Add `HotWallet.create_for_testing` 
