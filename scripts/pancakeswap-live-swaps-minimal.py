@@ -66,12 +66,14 @@ def main():
 
     filter = Filter.create_filter(address=None, event_types=[Pair.events.Swap])
 
-    latest_block = web3.eth.block_number
+    next_block = web3.eth.block_number
+
+    print(f"Starting at block {next_block:,}")
 
     # Keep reading events as they land
     while True:
 
-        start = latest_block
+        start = next_block
         end = web3.eth.block_number
 
         evt: LogResult
@@ -127,8 +129,11 @@ def main():
             # No event detected between these blocks
             print(".")
 
-        latest_block = end
-        time.sleep(1)
+        next_block = end + 1
+
+        # Sleep is not an ideal way to loop through blocks
+        # and is here only for an example purpose
+        time.sleep(5)
 
 
 if __name__ == "__main__":

@@ -14,6 +14,9 @@ on `Binance Smart Chain <https://tradingstrategy.ai/glossary/bnb-chain>`__.
 
 - Uses public BNB Chain JSON-RPC endpoint by default
 
+- The public JSON-RPC endpoint is not very performant,
+  so you should get your own JSON-RPC node for production usage
+
 To run:
 
 .. code-block:: shell
