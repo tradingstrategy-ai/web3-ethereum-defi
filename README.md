@@ -268,4 +268,6 @@ poetry add -D "web3-ethereum-defi[data]"
 
 # License 
 
-MIT
+MIT.
+
+[Created by Trading Strategy](https://tradingstrategy.ai).
