@@ -49,6 +49,7 @@ More information
 * `README <https://github.com/tradingstrategy-ai/web3-ethereum-defi>`_
 * `Changelog <https://github.com/tradingstrategy-ai/web3-ethereum-defi/blob/master/CHANGELOG.md>`_
 * `Github <https://github.com/tradingstrategy-ai/web3-ethereum-defi>`_
+* `Watch tutorials on YouTube <https://www.youtube.com/@tradingstrategyprotocol>`_
 * `Discord <https://tradingstrategy.ai/community>`_
 * `Twitter <https://twitter.com/TradingProtocol/>`_
 * `Newsletter <https://tradingstrategy.ai/newsletter>`_
