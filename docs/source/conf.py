@@ -8,7 +8,7 @@
 
 
 project = "Web3 Ethereum Defi"
-copyright = "2022, Market Software Ltd"
+copyright = "2022-2023, Market Software Ltd"
 author = "Mikko Ohtamaa"
 
 

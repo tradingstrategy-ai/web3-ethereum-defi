@@ -6,12 +6,12 @@
 
 # Web3-Ethereum-Defi
 
-This project contains high level Python API for smart contracts, 
-DeFi trading, wallet management, automated test suites and backend integrations on EVM based blockchains.
-Supported blockchains include Ethereum, BNB Chain, Polygon, Avalanche C-chain, Arbitrum, others.
- 
-* [Use Cases](#use-cases)
-* [Features](#features)
+Web-Ethereum-DeFi Python package provides high level modules for smart
+contracts, with prepackaged ABI files for DeFi protocol integration,
+wallet management, JSON-RPC providers and automated test suites. The
+package aims for robustness, high quality of the code and documentation.
+
+* [Use cases](#use-cases)
 * [Prerequisites](#prerequisites)
 * [Install](#install)
 * [Code examples](#code-examples)
@@ -24,23 +24,34 @@ Supported blockchains include Ethereum, BNB Chain, Polygon, Avalanche C-chain, A
 * [Version history](#version-history)
 * [Support](#support)
 * [Social media](#social-media)
-* [Notes](#notes)
 * [History](#history)
 * [License](#license)
 
-![Pepe chooses Web3-Ethereum-DeFi and Python](https://raw.githubusercontent.com/tradingstrategy-ai/web3-ethereum-defi/master/docs/source/_static/pepe.jpg)
+![Supported protocols include Uniswap, Aave, others](./docs/source/logo-wall-white.png)
 
-**Pepe chooses web3-ethereum-defi and Python**.
+-   Supported [blockchains](https://tradingstrategy.ai/glossary) include
+    Ethereum, BNB Chain, Polygon, Avalanche C-chain, Arbitrum and many
+    other [EVM-compatible
+    blockchains](https://tradingstrategy.ai/glossary/evm-compatible).
+-   Supported
+    [DeFi](https://tradingstrategy.ai/glossary/decentralised-finance)
+    [protocols](https://tradingstrategy.ai/glossary/protocol) include
+    [Uniswap](https://tradingstrategy.ai/glossary/uniswap) with its
+    [clones](https://tradingstrategy.ai/glossary/fork),
+    [Aave](https://tradingstrategy.ai/glossary/aave),
+    [USDC](https://tradingstrategy.ai/glossary/usdc), other Circle
+    [stablecoin tokens](https://tradingstrategy.ai/glossary/stablecoin),
+    [Enzyme](https://tradingstrategy.ai/glossary/enzyme-protocol),
+    Chainlink and many others.
 
-# Use Cases
+# Use cases
 
-* Web3 development
-* DeFi trading
-* Market data services
-* On-chain data research
-* Ethereum integration: token payments, hot wallets, monitors and such 
+Use cases for this package include
 
-# Features
+-   Trading and bots
+-   Data research, extraction, transformation and loading
+-   Portfolio management and accounting
+-   System integrations and backends# Features
 
 Features include 
 
@@ -101,155 +112,121 @@ poetry shell
 poetry install -E data -E docs 
 ```
 
+# Example code
 
+See [the tutorials section in the documentation](https://web3-ethereum-defi.readthedocs.io/tutorials/index.html)
+for full code examples.
 
-# Code examples
+## PancakeSwap swap example
 
-For more code examples, see [the tutorials section in the documentation](https://web3-ethereum-defi.readthedocs.io/tutorials/index.html).  
-
-## Deploy and transfer ERC-20 token between wallets
-
-To use the package to deploy a simple ERC-20 token in [pytest](https://docs.pytest.org/) testing:
-
-```python
-import pytest
-from web3 import Web3, EthereumTesterProvider
-
-from eth_defi.token import create_token
-
-
-@pytest.fixture
-def tester_provider():
-  return EthereumTesterProvider()
-
-
-@pytest.fixture
-def eth_tester(tester_provider):
-  return tester_provider.ethereum_tester
-
-
-@pytest.fixture
-def web3(tester_provider):
-  return Web3(tester_provider)
-
-
-@pytest.fixture()
-def deployer(web3) -> str:
-  """Deploy account."""
-  return web3.eth.accounts[0]
-
-
-@pytest.fixture()
-def user_1(web3) -> str:
-  """User account."""
-  return web3.eth.accounts[1]
-
-
-@pytest.fixture()
-def user_2(web3) -> str:
-  """User account."""
-  return web3.eth.accounts[2]
-
-
-def test_deploy_token(web3: Web3, deployer: str):
-  """Deploy mock ERC-20."""
-  token = create_token(web3, deployer, "Hentai books token", "HENTAI", 100_000 * 10 ** 18)
-  assert token.functions.name().call() == "Hentai books token"
-  assert token.functions.symbol().call() == "HENTAI"
-  assert token.functions.totalSupply().call() == 100_000 * 10 ** 18
-  assert token.functions.decimals().call() == 18
-
-
-def test_tranfer_tokens_between_users(web3: Web3, deployer: str, fund_owner, fund_client):
-  """Transfer tokens between users."""
-  token = create_token(web3, deployer, "Telos EVM rocks", "TELOS", 100_000 * 10 ** 18)
-
-  # Move 10 tokens from deployer to user1
-  token.functions.transfer(fund_owner, 10 * 10 ** 18).transact({"from": deployer})
-  assert token.functions.balanceOf(fund_owner).call() == 10 * 10 ** 18
-
-  # Move 10 tokens from deployer to user1
-  token.functions.transfer(fund_client, 6 * 10 ** 18).transact({"from": fund_owner})
-  assert token.functions.balanceOf(fund_owner).call() == 4 * 10 ** 18
-  assert token.functions.balanceOf(fund_client).call() == 6 * 10 ** 18
-```
-
-[See full example](https://github.com/tradingstrategy-ai/web3-ethereum-defi/blob/master/tests/test_token.py).
-
-[For more information how to user Web3.py in testing, see Web3.py documentation](https://web3py.readthedocs.io/en/stable/examples.html#contract-unit-tests-in-python).
-
-## Uniswap v2 trade example
+This example shows how to perform a token swap on PancakeSwap,
+It will also work on any [Uniswap v2 compatible](https://tradingstrategy.ai/glossary/fork) DEX. 
 
 ```python
-import pytest
-from web3 import Web3
-from web3.contract import Contract
+import os
+import time
+from functools import lru_cache
 
-from eth_defi.uniswap_v2.deployment import UniswapV2Deployment, deploy_trading_pair, FOREVER_DEADLINE
+from web3 import HTTPProvider, Web3
+
+from eth_defi.abi import get_contract
+from eth_defi.chain import install_chain_middleware
+from eth_defi.event_reader.filter import Filter
+from eth_defi.event_reader.logresult import decode_log
+from eth_defi.event_reader.reader import read_events, LogResult
+from eth_defi.uniswap_v2.pair import fetch_pair_details, PairDetails
 
 
-def test_swap(web3: Web3, deployer: str, fund_owner, uniswap_v2: UniswapV2Deployment, weth: Contract, usdc: Contract):
-    """User buys WETH on Uniswap v2 using mock USDC."""
+QUOTE_TOKENS = ["BUSD", "USDC", "USDT"]
 
-    # Create the trading pair and add initial liquidity
-    deploy_trading_pair(
-        web3,
-        deployer,
-        uniswap_v2,
-        weth,
-        usdc,
-        10 * 10 ** 18,  # 10 ETH liquidity
-        17_000 * 10 ** 18,  # 17000 USDC liquidity
-    )
 
-    router = uniswap_v2.router
+@lru_cache(maxsize=100)
+def fetch_pair_details_cached(web3: Web3, pair_address: str) -> PairDetails:
+    return fetch_pair_details(web3, pair_address)
 
-    # Give user_1 500 dollars to buy ETH and approve it on the router
-    usdc_amount_to_pay = 500 * 10 ** 18
-    usdc.functions.transfer(fund_owner, usdc_amount_to_pay).transact({"from": deployer})
-    usdc.functions.approve(router.address, usdc_amount_to_pay).transact({"from": fund_owner})
 
-    # Perform a swap USDC->WETH
-    path = [usdc.address, weth.address]  # Path tell how the swap is routed
-    # https://docs.uniswap.org/protocol/V2/reference/smart-contracts/router-02#swapexacttokensfortokens
-    router.functions.swapExactTokensForTokens(
-        usdc_amount_to_pay,
-        0,
-        path,
-        fund_owner,
-        FOREVER_DEADLINE,
-    ).transact({
-        "from": fund_owner
-    })
+def main():
+    json_rpc_url = os.environ.get("JSON_RPC_BINANCE", "https://bsc-dataseed.binance.org/")
+    web3 = Web3(HTTPProvider(json_rpc_url))
+    web3.middleware_onion.clear()
+    install_chain_middleware(web3)
 
-    # Check the user_1 received ~0.284 ethers
-    assert weth.functions.balanceOf(fund_owner).call() / 1e18 == pytest.approx(0.28488156127668085)
-```
+    # Read the prepackaged ABI files and set up event filter
+    # for any Uniswap v2 like pool on BNB Smart Chain (not just PancakeSwap).
+    #
+    # We use ABI files distributed by SushiSwap project.
+    #
+    Pair = get_contract(web3, "sushi/UniswapV2Pair.json")
 
-[See the full example](https://github.com/tradingstrategy-ai/web3-ethereum-defi/blob/master/tests/test_uniswap_v2_pair.py).
+    filter = Filter.create_filter(address=None, event_types=[Pair.events.Swap])
 
-## Uniswap v2 price estimation example
+    latest_block = web3.eth.block_number
 
-```python
-# Create the trading pair and add initial liquidity
-deploy_trading_pair(
-    web3,
-    deployer,
-    uniswap_v2,
-    weth,
-    usdc,
-    1_000 * 10**18,  # 1000 ETH liquidity
-    1_700_000 * 10**18,  # 1.7M USDC liquidity
-)
+    # Keep reading events as they land
+    while True:
 
-# Estimate the price of buying 1 ETH
-usdc_per_eth = estimate_buy_price_decimals(
-    uniswap_v2,
-    weth.address,
-    usdc.address,
-    Decimal(1.0),
-)
-assert usdc_per_eth == pytest.approx(Decimal(1706.82216820632059904))
+        start = latest_block
+        end = web3.eth.block_number
+
+        evt: LogResult
+        for evt in read_events(
+            web3,
+            start_block=start,
+            end_block=end,
+            filter=filter,
+        ):
+
+            decoded = decode_log(evt)
+
+            # Swap() events are generated by UniswapV2Pool contracts
+            pair = fetch_pair_details_cached(web3, decoded["address"])
+            token0 = pair.token0
+            token1 = pair.token1
+            block_number = evt["blockNumber"]
+
+            # Determine the human-readable order of token tickers
+            if token0.symbol in QUOTE_TOKENS:
+                base = token1  # token
+                quote = token0  # stablecoin/BNB
+                base_amount = decoded["args"]["amount1Out"] - decoded["args"]["amount1In"]
+                quote_amount = decoded["args"]["amount0Out"] - decoded["args"]["amount0In"]
+            else:
+                base = token0  # stablecoin/BNB
+                quote = token1  # token
+                base_amount = decoded["args"]["amount0Out"] - decoded["args"]["amount0Out"]
+                quote_amount = decoded["args"]["amount1Out"] - decoded["args"]["amount1Out"]
+
+            # Calculate the price in Python Decimal class
+            if base_amount and quote_amount:
+                human_base_amount = base.convert_to_decimals(base_amount)
+                human_quote_amount = quote.convert_to_decimals(quote_amount)
+                price = human_quote_amount / human_base_amount
+
+                if human_quote_amount > 0:
+                    # We define selling when the stablecoin amount increases
+                    # in the swap
+                    direction = "sell"
+                else:
+                    direction = "buy"
+
+                price = abs(price)
+
+                print(f"Swap block:{block_number:,} tx:{evt['transactionHash']} {direction} price:{price:,.8f} {base.symbol}/{quote.symbol}")
+            else:
+                # Swap() event from DEX that is not Uniswap v2 compatible
+                # print(f"Swap block:{block_number:,} tx:{evt['transactionHash']} could not decode")
+                pass
+
+        else:
+            # No event detected between these blocks
+            print(".")
+
+        latest_block = end
+        time.sleep(1)
+
+
+if __name__ == "__main__":
+    main()
 ```
 
 # How to use the library in your Python project

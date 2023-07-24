@@ -6,8 +6,11 @@
 - Add `HotWallet.create_for_testing` 
 - Add utility function `get_onchain_price()` to ask on-chain price of a 
   Uniswap v3 pool at any given block number
+- Add `eth_defi.event_reader.logresult.decode_log` and better 
+  documentation for `LogResult` class
 - Deprecate `eth_defi.anvil` -> `eth_defi.provider.anvil` 
 - Deprecate `eth_defi.ganache` -> `eth_defi.provider.ganache`
+
 
 # 0.21.8
 

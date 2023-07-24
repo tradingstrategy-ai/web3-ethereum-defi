@@ -36,6 +36,7 @@ Example tutorials
    uniswap-v3-price-analysis
    event-reader
    live-swap-minimal
+   pancakeswap-live-minimal
    live-swap
    aave-v3-interest-analysis
 
