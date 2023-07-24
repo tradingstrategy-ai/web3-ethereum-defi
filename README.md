@@ -266,11 +266,6 @@ poetry add -D "web3-ethereum-defi[data]"
 - [Follow on Telegram](https://t.me/trading_protocol)
 - [Follow on LinkedIn](https://www.linkedin.com/company/trading-strategy/)
 
-# History
-
-[Originally created for Trading Strategy](https://tradingstrategy.ai). 
-[Originally the package was known as eth-hentai](https://raw.githubusercontent.com/tradingstrategy-ai/web3-ethereum-defi/master/docs/source/_static/hentai_teacher_mikisugi_by_ilmaris_d6tjrn8-fullview.jpg).
-
 # License 
 
 MIT
