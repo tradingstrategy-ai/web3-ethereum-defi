@@ -8,7 +8,7 @@ import sys
 
 
 #: Minimum required Python version to run this package
-MIN_PYTHON_VERSION = (3, 9)
+MIN_PYTHON_VERSION = (3, 10)
 
 
 def _check_python_version():
