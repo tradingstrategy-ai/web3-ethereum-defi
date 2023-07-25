@@ -51,7 +51,9 @@ Use cases for this package include
 -   Trading and bots
 -   Data research, extraction, transformation and loading
 -   Portfolio management and accounting
--   System integrations and backends# Features
+-   System integrations and backends
+ 
+# Features
 
 Features include e.g.
 
