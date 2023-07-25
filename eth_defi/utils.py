@@ -5,6 +5,7 @@ import logging
 import socket
 import time
 from typing import Optional, Tuple
+from urllib.parse import urlparse
 
 import psutil
 
@@ -125,3 +126,12 @@ def to_unix_timestamp(dt: datetime.datetime) -> float:
     """
     # https://stackoverflow.com/a/5499906/315168
     return calendar.timegm(dt.utctimetuple())
+
+
+def get_url_domain(url: str) -> str:
+    """Redact URL so that only domain is displayed.
+
+    Some services e.g. infura use path as an API key.
+    """
+    parsed = urlparse(url)
+    return parsed.hostname

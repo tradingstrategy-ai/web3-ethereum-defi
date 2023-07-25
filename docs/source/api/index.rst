@@ -1,5 +1,7 @@
 .. meta::
-   :description: Uniswap and Aave Python APIs
+   :description: Uniswap, Aave and Defi Python APIs
+
+.. _api documentation:
 
 API documentation
 =================
@@ -14,6 +16,7 @@ API documentation
    :maxdepth: 1
 
    core/index
+   provider/index
    usdc/index
    uniswap_v2/index
    uniswap_v3/index

@@ -16,3 +16,17 @@
 .related-pages {
     display: none;
 }
+
+.bottom-of-page .left-details {
+}
+
+.footer-text,
+.footer-icons {
+    text-align: left;
+}
+
+.footer-icons svg {
+    display: inline-block;
+    width: 24px;
+    height: 24px;
+}

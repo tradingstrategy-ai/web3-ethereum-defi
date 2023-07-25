@@ -193,6 +193,9 @@ def get_deployed_contract(
         `web3.contract.Contract` proxy
     """
     assert address
+
+    address = Web3.to_checksum_address(address)
+
     Contract = get_contract(web3, fname)
     contract = Contract(address)
 

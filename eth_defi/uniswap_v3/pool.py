@@ -1,10 +1,11 @@
 """Uniswap v3 pool data."""
-from decimal import Decimal
 from dataclasses import dataclass
+from decimal import Decimal
 from typing import Union
 
 from eth_typing import HexAddress
 from web3 import Web3
+from web3.contract import Contract
 
 from eth_defi.abi import get_deployed_contract
 from eth_defi.token import TokenDetails, fetch_erc20_details
@@ -32,6 +33,9 @@ class PoolDetails:
 
     #: Pool fee as % multiplier, 1 = 100%
     fee: float
+
+    #: Pool contract proxy
+    pool: Contract
 
     def __repr__(self):
         return f"Pool {self.address} is {self.token0.symbol}-{self.token1.symbol}, with the fee {self.fee * 100:.04f}%"
@@ -72,6 +76,7 @@ def fetch_pool_details(web3, pool_contact_address: Union[str, HexAddress]) -> Po
         token1,
         raw_fee,
         raw_fee / 1_000_000,
+        pool,
     )
 
 

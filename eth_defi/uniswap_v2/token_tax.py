@@ -100,49 +100,51 @@ def estimate_token_taxes(
 ) -> TokenTaxInfo:
     """Estimates different token taxes for a token by running Ganache simulations for it.
 
-    `See blog post about token tax and honey pots for more information <https://tradingstrategy.ai/blog/transfer-fees-token-taxes-and-honeypots>`__.
+    - `See blog post about token tax and honey pots for more information <https://tradingstrategy.ai/blog/transfer-fees-token-taxes-and-honeypots>`__.
 
-     :param uniswap:
+    - See unit tests for usage examples
+
+    :param uniswap:
          Uniswap deployment on a Ganache mainnet fork.
          Set up prior calling this function.
          See `ganache.py` and `test_ganache.py` for more details.
 
-     :param base_token:
+    :param base_token:
          The token of which tax properties we are figuring out.
 
-     :param quote_token:
+    :param quote_token:
          Address of the quote token used for the trading pair. E.g. `BUDS`, `WBNB`
          Based on this information we can derive Uniswap trading pair address.
 
-     :param buy_account:
+    :param buy_account:
          The account that does initial buy to measure the buy tax.
          This account must be loaded with gas money (ETH/BNB) and `quote_token`
          for a purchase.
 
-     :param sell_account:
+    :param sell_account:
          The account that receives the token transfer and does the sell to measure the sell tax.
          This account must be loaded with gas money for the sell.
 
-     :param approve:
-         Perform quote token approval before wap test
+    :param approve:
+        Perform quote token approval before wap test
 
     :param base_token_details:
-         Pass base token details. If not given automatically fetch.
+        Pass base token details. If not given automatically fetch.
 
-     :param quote_token_details:
-         Pass quote token details. If not given automatically fetch.
+    :param quote_token_details:
+        Pass quote token details. If not given automatically fetch.
 
-     :param gas_limit:
-         Use this gas limit for all transactions, so that
-         we do not need to call eth_estimateGas on the node.
+    :param gas_limit:
+        Use this gas limit for all transactions, so that
+        we do not need to call eth_estimateGas on the node.
 
-     :param gas_price:
-         Use this gas price for all transactions, so that
-         we do not need to call eth_estimateGas on the node.
+    :param gas_price:
+        Use this gas price for all transactions, so that
+        we do not need to call eth_estimateGas on the node.
 
-     :return:
-         ToxTaxInfo tells us what we figure out about taxes.
-         This can be later recorded to a database.
+    :return:
+        ToxTaxInfo tells us what we figure out about taxes.
+        This can be later recorded to a database.
     """
     web3: Web3 = uniswap.web3
     router = uniswap.router

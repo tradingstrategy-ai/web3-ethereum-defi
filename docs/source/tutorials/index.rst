@@ -1,9 +1,13 @@
 Tutorials
 =========
 
-Examples how to use web3.py and Web-Ethereum-Defi library
+Examples how to use web3.py and Web-Ethereum-Defi library.
 
-* Doing low level blockchain transactions and event reading
+Examples include
+
+* Reading live trades of different DEXes
+
+* Performing ERC-20 token transfers
 
 * Data research with Jupyter Notebooks and Pandas
 
@@ -36,6 +40,7 @@ Example tutorials
    uniswap-v3-price-analysis
    event-reader
    live-swap-minimal
+   pancakeswap-live-minimal
    live-swap
    aave-v3-interest-analysis
 

@@ -3,8 +3,10 @@
 from decimal import Decimal
 
 from eth_typing import HexAddress
+from web3 import Web3
 
 from eth_defi.uniswap_v3.deployment import UniswapV3Deployment
+from eth_defi.uniswap_v3.pool import fetch_pool_details
 from eth_defi.uniswap_v3.utils import encode_path
 
 
@@ -216,3 +218,24 @@ def estimate_sell_received_amount(
         return amount, current_block
 
     return amount
+
+
+def get_onchain_price(
+    web3: Web3,
+    pool_contract_address: str,
+    *,
+    block_identifier: int | None = None,
+    reverse_token_order: bool = False,
+):
+    """Get the current price of a Uniswap pool.
+
+    :param web3: Web3 instance
+    :param pool_contract_address: Contract address of the pool
+    :param block_identifier: A specific block to query price
+    :param reverse_token_order: If set, assume quote token is token0
+    :return: Current price
+    """
+    pool_details = fetch_pool_details(web3, pool_contract_address)
+    _, tick, *_ = pool_details.pool.functions.slot0().call(block_identifier=block_identifier)
+
+    return pool_details.convert_price_to_human(tick, reverse_token_order)
