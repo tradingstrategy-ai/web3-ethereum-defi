@@ -53,17 +53,16 @@ Use cases for this package include
 -   Portfolio management and accounting
 -   System integrations and backends# Features
 
-Features include 
+Features include e.g.
 
-* [Made for 99% developers](https://future.a16z.com/software-development-building-for-99-developers/)
 * [High-quality API documentation](https://web3-ethereum-defi.readthedocs.io/)
 * [Fully type hinted](https://web3-ethereum-defi.readthedocs.io/) for good developer experience
-* [Parallel transaction execution](https://web3-ethereum-defi.readthedocs.io/en/latest/_autosummary/eth_defi.txmonitor.html)
+* [MEV protection](https://web3-ethereum-defi.readthedocs.io/api/provider/_autosummary_provider/eth_defi.provider.mev_blocker.html#module-eth_defi.provider.mev_blocker)
 * [Mainnet forking with Anvil](https://web3-ethereum-defi.readthedocs.io/api/_autosummary/eth_defi.anvil.html#module-eth_defi.anvil)
-* [Solidity stack traces](https://web3-ethereum-defi.readthedocs.io/api/_autosummary/eth_defi.trace.html)
-* [Trading](https://web3-ethereum-defi.readthedocs.io/api/index.html)
-* [Loans](https://web3-ethereum-defi.readthedocs.io/api/index.html)
-* [ERC-20 token issuance and manipulation](https://web3-ethereum-defi.readthedocs.io/en/latest/_autosummary/eth_defi.token.html#module-eth_defi.token)
+* [Revert reasons and stack traces for Solidity errors](https://web3-ethereum-defi.readthedocs.io/api/_autosummary/eth_defi.trace.html)
+* [Swap, slippage and price impact estimation](https://web3-ethereum-defi.readthedocs.io/api/index.html)
+* [ERC-20 token issuance and transfers](https://web3-ethereum-defi.readthedocs.io/en/latest/_autosummary/eth_defi.token.html#module-eth_defi.token)
+* [EIP-712, EIP-3009 support](https://web3-ethereum-defi.readthedocs.io/api/core/_autosummary/eth_defi.eip_712.html#module-eth_defi.eip_712)
 
 Web3-Ethereum-Defi supports 
 
