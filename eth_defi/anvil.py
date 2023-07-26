@@ -1,4 +1,4 @@
-"""Anvil (legacy).
+"""Anvil integration (legacy).
 
 Anvil is a blazing-fast local testnet node implementation in Rust from Foundry project.
 
