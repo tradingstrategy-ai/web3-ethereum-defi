@@ -1,17 +1,27 @@
+.. meta::
+   :description: Python example code for Uniswap swap live monitoring
+
 Uniswap v2 reading real-time swaps and new pairs
 ------------------------------------------------
 
-Live Uniswap v2 swap event monitor with chain reorganisation detection.
+This the Python example code for `Uniswap <https://tradingstrategy.ai/glossary/uniswap>`__
+v2 compatible `DEX <https://tradingstrategy.ai/glossary/decentralised-exchange>`__ swap live monitoring.
 
 This is an example code for showing live swaps happening
-on Uniswap v2 compatible examples. In this example
-we use QuickSwap (Polygon) because Polygon provides
-good free RPC nodes.
+on Uniswap v2 `compatible <https://tradingstrategy.ai/glossary/fork>`__ exchanges.
+In this example we use QuickSwap (Polygon) because Polygon provides
+good free RPC nodes which makes running the example code easy.
 
 - This example runs on free Polygon JSON-RPC nodes,
   you do not need any self-hosted or commercial node service providers.
 
-- This is an modified example of `read-uniswap-v2-pairs-and-swaps.py` to gracefully handle  chain reorganisations, thus the code is suitable for live event reading. It should also support low quality JSON-RPC nodes that may give different replies between API requests.
+- The code supports chain reorganisation detection: minor blockchain reorganisations
+  happen regularly, the latest block is rolled back and replaced
+  by new block with reordered events.
+
+- This is an modified example of `read-uniswap-v2-pairs-and-swaps.py` to gracefully handle
+  chain reorganisations, thus the code is suitable for live event reading.
+  It should also support low quality JSON-RPC nodes that may give different replies between API requests.
 
 - It will print out live trade events for Uniswap v2 compatible exchange.
 
