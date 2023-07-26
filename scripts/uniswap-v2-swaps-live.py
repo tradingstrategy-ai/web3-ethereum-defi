@@ -62,20 +62,6 @@ from eth_defi.event_reader.reorganisation_monitor import ChainReorganisationDete
 from eth_defi.uniswap_v2.pair import PairDetails, fetch_pair_details
 
 
-#: List of output columns to swaps.csv
-SWAP_FIELD_NAMES = [
-    "block_number",
-    "timestamp",
-    "tx_hash",
-    "log_index",
-    "pair_contract_address",
-    "amount0_in",
-    "amount1_in",
-    "amount0_out",
-    "amount1_out",
-]
-
-
 logger = logging.getLogger(__name__)
 
 
