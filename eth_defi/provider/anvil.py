@@ -1,8 +1,10 @@
 """Anvil integration.
 
+This module provides Python integration for Anvil.
+
 - `Anvil <https://github.com/foundry-rs/foundry/blob/master/anvil/README.md>`__
   is a blazing-fast local testnet node implementation in Rust from
-  `Foundry projet <>`__
+  `Foundry project <https://github.com/foundry-rs/foundry>`__
 
 - Anvil can replace :py:class:`eth_tester.main.EthereumTester` as the unit/integration test backend.
 
@@ -13,7 +15,7 @@
 - Anvil is part of `Foundry <https://github.com/foundry-rs/foundry>`__,
   a toolkit for Ethereum application development.
 
-To install Anvil on your UNIX computer:
+To install Anvil on:
 
 .. code-block:: shell
 
@@ -27,7 +29,7 @@ For more information see `Anvil reference <https://book.getfoundry.sh/reference/
 
 See also :py:mod:`eth_defi.trace` for Solidity tracebacks using Anvil.
 
-This code was originally lifted from Brownie project.
+The code was originally lifted from Brownie project.
 """
 
 import logging
