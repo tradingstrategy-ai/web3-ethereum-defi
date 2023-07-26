@@ -3,7 +3,6 @@
 from typing import TypedDict, List, Optional
 
 from eth_utils import hexstr_if_str, to_bytes
-from hexbytes import HexBytes
 from web3._utils.events import get_event_data
 from web3.contract.contract import ContractEvent
 from web3.types import EventData
@@ -85,7 +84,7 @@ class LogResult(TypedDict):
     #: `topics[0]` is always the event signature.
     #:
     #: TODO: Whether these are strings or HexBytes depends on the EVM backend and Web3 version.
-    #: Resolve this ambigiuty so that results are normalised to one type.
+    #: Resolve this so that results are normalised to one type.
     topics: List[str]
 
     #: Block reorg helper
