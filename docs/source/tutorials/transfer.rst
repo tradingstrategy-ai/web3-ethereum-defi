@@ -1,3 +1,6 @@
+.. meta::
+   :description: Python example code for performing ERC-20 transfer()
+
 ERC-20 token transfer with web3.py
 ----------------------------------
 
