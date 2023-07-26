@@ -1,6 +1,8 @@
 Uniswap v2 reading real-time swaps and new pairs
 ------------------------------------------------
 
+Live Uniswap v2 swap event monitor with chain reorganisation detection.
+
 This is an example code for showing live swaps happening
 on Uniswap v2 compatible examples. In this example
 we use QuickSwap (Polygon) because Polygon provides
@@ -25,7 +27,6 @@ good free RPC nodes.
   the startup is a bit slow as the pair details cache
   is warming up.
 
-
 To run for Polygon (and QuickSwap):
 
 .. code-block:: shell
@@ -36,8 +37,8 @@ To run for Polygon (and QuickSwap):
     # Switch between INFO and DEBUG
     export LOG_LEVEL=INFO
     # Your Ethereum node RPC
-    export JSON_RPC_URL="https://polygon-rpc.com"
-    python scripts/read-uniswap-v2-pairs-and-swaps-live.py
+    export JSON_RPC_POLYGON="https://polygon-rpc.com"
+    python scripts/read-uniswap-v2-swaps-live.py
 
 .. literalinclude:: ../../../scripts/uniswap-v2-swaps-live.py
    :language: python

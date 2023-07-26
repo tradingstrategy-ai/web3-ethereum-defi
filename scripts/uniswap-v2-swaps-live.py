@@ -1,10 +1,14 @@
 """Live Uniswap v2 swap event monitor with chain reorganisation detection.
 
+This is an example code for showing live swaps happening
+on Uniswap v2 compatible examples. In this example
+we use QuickSwap (Polygon) because Polygon provides
+good free RPC nodes.
+
 - This example runs on free Polygon JSON-RPC nodes,
   you do not need any self-hosted or commercial node service providers.
 
-- This is an modified example of `read-uniswap-v2-pairs-and-swaps.py` to support
-  chain reorganisations, thus suitable for live event reading.
+- This is an modified example of `read-uniswap-v2-pairs-and-swaps.py` to gracefully handle  chain reorganisations, thus the code is suitable for live event reading. It should also support low quality JSON-RPC nodes that may give different replies between API requests.
 
 - It will print out live trade events for Uniswap v2 compatible exchange.
 
@@ -20,7 +24,6 @@
   the startup is a bit slow as the pair details cache
   is warming up.
 
-
 To run for Polygon (and QuickSwap):
 
 .. code-block:: shell
@@ -31,33 +34,31 @@ To run for Polygon (and QuickSwap):
     # Switch between INFO and DEBUG
     export LOG_LEVEL=INFO
     # Your Ethereum node RPC
-    export JSON_RPC_URL="https://polygon-rpc.com"
-    python scripts/read-uniswap-v2-pairs-and-swaps-live.py
-
+    export JSON_RPC_POLYGON="https://polygon-rpc.com"
+    python scripts/read-uniswap-v2-swaps-live.py
 
 """
 import datetime
 import os
 import time
+from functools import lru_cache
 from pathlib import Path
 import logging
-from typing import Dict
 
 import coloredlogs
 import requests
+from tqdm import tqdm
 
 from web3 import HTTPProvider, Web3
 
 from eth_defi.abi import get_contract
-from eth_defi.chain import install_chain_middleware
+from eth_defi.chain import install_chain_middleware, install_retry_middleware, install_api_call_counter_middleware
 from eth_defi.event_reader.block_time import measure_block_time
 from eth_defi.event_reader.conversion import decode_data, convert_int256_bytes_to_int, convert_jsonrpc_value_to_int
 from eth_defi.event_reader.csv_block_data_store import CSVDatasetBlockDataStore
 from eth_defi.event_reader.fast_json_rpc import patch_web3
-from eth_defi.event_reader.logresult import LogContext
 from eth_defi.event_reader.reader import read_events, LogResult, prepare_filter
 from eth_defi.event_reader.reorganisation_monitor import ChainReorganisationDetected, JSONRPCReorganisationMonitor
-from eth_defi.token import fetch_erc20_details, TokenDetails
 from eth_defi.uniswap_v2.pair import PairDetails, fetch_pair_details
 
 
@@ -78,31 +79,13 @@ SWAP_FIELD_NAMES = [
 logger = logging.getLogger(__name__)
 
 
-class BlockchainStateCache(LogContext):
-    """Manage cache of token and pair data.
-
-    - Read data from the chain state
-
-    - Store process in-memory for the duration of the session
-    """
-
-    def __init__(self, web3: Web3):
-        self.web3 = web3
-        self.token_cache: Dict[str, TokenDetails] = {}
-        self.pair_cache: Dict[str, PairDetails] = {}
-
-    def get_token_details(self, address: str) -> TokenDetails:
-        if address not in self.token_cache:
-            self.token_cache[address] = fetch_erc20_details(self.web3, address, raise_on_error=False)
-        return self.token_cache[address]
-
-    def get_pair_details(self, address: str) -> PairDetails:
-        if address not in self.pair_cache:
-            self.pair_cache[address] = fetch_pair_details(self.web3, address)
-        return self.pair_cache[address]
+@lru_cache(maxsize=256)
+def fetch_pair_details_cached(web3: Web3, pair_address: str) -> PairDetails:
+    """In-process memory cache for getting pair data in decoded format."""
+    return fetch_pair_details(web3, pair_address)
 
 
-def decode_swap(web3: Web3, cache: BlockchainStateCache, log: LogResult) -> dict:
+def decode_swap(web3: Web3, log: LogResult) -> dict:
     """Process swap event.
 
     This function does manually optimised high speed decoding of the event.
@@ -128,12 +111,10 @@ def decode_swap(web3: Web3, cache: BlockchainStateCache, log: LogResult) -> dict
 
     pair_contract_address = log["address"]
 
-    pair_details = cache.get_pair_details(Web3.toChecksumAddress(pair_contract_address))
+    pair_details = fetch_pair_details_cached(web3, pair_contract_address)
 
-    # Chop data blob to byte32 entries
-    data_entries = decode_data(log["data"])
-
-    amount0_in, amount1_in, amount0_out, amount1_out = data_entries
+    # Optimised decode path for Uniswap v2 event data
+    amount0_in, amount1_in, amount0_out, amount1_out = decode_data(log["data"])
 
     data = {
         "block_number": convert_jsonrpc_value_to_int(log["blockNumber"]),
@@ -200,50 +181,65 @@ def setup_logging():
 
 
 def main():
+    """Entry point for the script"""
+
+    # Mute extra logging output
     setup_logging()
 
-    # HTTP 1.1 keep-alive
+    # HTTP 1.1 keep-alive to speed up JSON-RPC protocol
     session = requests.Session()
 
-    json_rpc_url = os.environ["JSON_RPC_URL"]
+    json_rpc_url = os.environ["JSON_RPC_POLYGON"]
     web3 = Web3(HTTPProvider(json_rpc_url, session=session))
 
-    # Enable faster ujson reads
+    # Enable faster JSON decoding with ujson
     patch_web3(web3)
 
     web3.middleware_onion.clear()
 
-    # Support Polygon
+    # Setup Polygon middleware support
     install_chain_middleware(web3)
+
+    # Setup support for retry after JSON-RPC endpoint starts throttling us
+    install_retry_middleware(web3)
+
+    # Count API requests
+    api_request_counter = install_api_call_counter_middleware(web3)
 
     # Get contracts
     Factory = get_contract(web3, "sushi/UniswapV2Factory.json")
     Pair = get_contract(web3, "sushi/UniswapV2Pair.json")
 
-    events = [Factory.events.PairCreated, Pair.events.Swap]  # https://etherscan.io/txs?ea=0x5c69bee701ef814a2b6a3edd4b1652cb9cc5aa6f&topic0=0x0d3648bd0f6ba80134a33ba9275ac585d9d315f0ad8355cddefde31afa28d0e9
+    # Create a filter that will match both PairCreaetd and Swap events
+    # when reading tx receipts
+    filter = prepare_filter([Factory.events.PairCreated, Pair.events.Swap])
 
-    block_store = CSVDatasetBlockDataStore(Path("/tmp/uni-v2-last-block-state.csv"))
+    # Store block headers locally in a CSV file,
+    # so we can speed up startup
+    block_store = CSVDatasetBlockDataStore(Path("uni-v2-last-block-state.csv"))
 
+    # Create a blockchain minor reorganisation detector,
+    # so we can handle cases when the last block is rolled back
     reorg_mon = JSONRPCReorganisationMonitor(web3)
+
     if not block_store.is_virgin():
+        # Start from the existing save point
         block_header_df = block_store.load()
         reorg_mon.load_pandas(block_header_df)
-        logger.info("Loaded %d existing blocks from %s", len(block_header_df), block_store.path)
+        logger.info("Loaded %d existing blocks from %s.\n"
+                    "If the save checkpoint was long time ago, we need to catch up all blocks and it could be slow.", len(block_header_df), block_store.path)
     else:
-        logger.info("Starting with fresh block header store at %s", block_store.path)
+        # Start from the scratch,
+        # use tqdm progess bar for interactive progress
+        initial_block_count = 50
+        logger.info("Starting with fresh block header store at %s, cold start fetching %d blocks", block_store.path, initial_block_count)
+        reorg_mon.load_initial_block_headers(initial_block_count, tqdm=tqdm)
 
     # Block time can be between 3 seconds to 12 seconds depending on
     # the EVM chain
     block_time = measure_block_time(web3)
 
-    token_cache = BlockchainStateCache(web3)
-
     total_reorgs = 0
-
-    filter = prepare_filter(events)
-
-    # Cache pair and token details read from the blockchain state
-    cache = BlockchainStateCache(web3)
 
     stat_delay = 10
     next_stat_print = time.time() + stat_delay
@@ -265,33 +261,37 @@ def main():
                 filter=filter,
                 notify=None,
                 chunk_size=100,
-                context=token_cache,
                 extract_timestamps=None,
                 reorg_mon=reorg_mon,
             ):
                 if log_result["event"].event_name == "PairCreated":
                     logger.info(f"New pair created: {log_result}")
                 elif log_result["event"].event_name == "Swap":
-                    swap = decode_swap(web3, cache, log_result)
+                    swap = decode_swap(web3, log_result)
                     swap_fmt = format_swap(swap)
                     logger.info("%s", swap_fmt)
                 else:
                     raise NotImplementedError()
 
-            # Dump stats to the output
+            # Dump stats to the output regularly
             if time.time() > next_stat_print:
-                logger.info("**STATS** Reorgs detected: %d, block headers buffered: %d, pairs cached: %d", total_reorgs, len(reorg_mon.block_map), len(cache.pair_cache))
+                req_count = api_request_counter["total"]
+                logger.info("**STATS** Reorgs detected: %d, block headers buffered: %d, API requests made: %d",
+                            total_reorgs,
+                            len(reorg_mon.block_map),
+                            req_count)
                 next_stat_print = time.time() + stat_delay
+
+                # Save the current block headers on disk
+                # to speed up the next start
+                df = reorg_mon.to_pandas()
+                block_store.save(df)
 
         except ChainReorganisationDetected as e:
             # Chain reorganisation was detected during reading the events.
             # reorg_mon.update_chain() will detect the fork and purge bad state
             total_reorgs += 1
             logger.warning("Chain reorg event raised: %s, we have now detected %d chain reorganisations.", e, total_reorgs)
-
-        # Save the current block headers on disk
-        df = reorg_mon.to_pandas()
-        block_store.save(df)
 
         time.sleep(block_time)
 
