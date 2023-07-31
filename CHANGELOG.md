@@ -1,3 +1,8 @@
+# 0.22.1
+
+- Add logging to `swap_with_slippage_protection()` on Uniswap v3 
+  to trace slippage issues
+
 # 0.22
 
 - Refactor a lot of functionality to a new submodule [eth_defi.provider](https://web3-ethereum-defi.readthedocs.io/api/provider/index.html) 
