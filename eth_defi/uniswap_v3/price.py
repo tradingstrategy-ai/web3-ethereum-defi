@@ -1,6 +1,15 @@
 """Uniswap v3 price calculations.
 
 See :ref:`slippage and price impact` tutorial.
+
+Helpers to calculate
+
+- `price impact <https://tradingstrategy.ai/glossary/price-impact>`__
+
+- `slippage <https://tradingstrategy.ai/glossary/slippage>`__
+
+- `mid price <https://tradingstrategy.ai/glossary/mid-price>`__
+
 """
 
 from decimal import Decimal
