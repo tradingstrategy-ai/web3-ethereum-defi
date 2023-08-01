@@ -1,3 +1,7 @@
+.. meta::
+   :description: Python and Pandas examples for blockchain data research
+
+
 Tutorials
 =========
 
@@ -43,6 +47,7 @@ Example tutorials
    pancakeswap-live-minimal
    live-swap
    aave-v3-interest-analysis
+   slippage-and-price-impact
 
 `For more examples, browse tests folder on Github <https://github.com/tradingstrategy-ai/web3-ethereum-defi/tree/master/tests>`__.
 You can also search function names in `the repository <https://github.com/tradingstrategy-ai/web3-ethereum-defi/>`__

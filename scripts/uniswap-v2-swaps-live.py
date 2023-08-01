@@ -212,8 +212,7 @@ def main():
         # Start from the existing save point
         block_header_df = block_store.load()
         reorg_mon.load_pandas(block_header_df)
-        logger.info("Loaded %d existing blocks from %s.\n"
-                    "If the save checkpoint was long time ago, we need to catch up all blocks and it could be slow.", len(block_header_df), block_store.path)
+        logger.info("Loaded %d existing blocks from %s.\n" "If the save checkpoint was long time ago, we need to catch up all blocks and it could be slow.", len(block_header_df), block_store.path)
     else:
         # Start from the scratch,
         # use tqdm progess bar for interactive progress
@@ -262,10 +261,7 @@ def main():
             # Dump stats to the output regularly
             if time.time() > next_stat_print:
                 req_count = api_request_counter["total"]
-                logger.info("**STATS** Reorgs detected: %d, block headers buffered: %d, API requests made: %d",
-                            total_reorgs,
-                            len(reorg_mon.block_map),
-                            req_count)
+                logger.info("**STATS** Reorgs detected: %d, block headers buffered: %d, API requests made: %d", total_reorgs, len(reorg_mon.block_map), req_count)
                 next_stat_print = time.time() + stat_delay
 
                 # Save the current block headers on disk

@@ -1,95 +1,6 @@
 """Uniswap v3 price calculations.
 
-- You can estimate the future price w/slippage
-
-- You can check for the past price impact and slippage
-
-Here is an example how to use price calculation to calculate the historical price impact of WMATIC->USDC trade on Polygon using 5 BPS fee tier
-for two different blocks:
-
-.. code-block:: python
-
-    import os
-    from decimal import Decimal
-
-    from web3 import Web3, HTTPProvider
-
-    from eth_defi.token import fetch_erc20_details
-    from eth_defi.uniswap_v3.deployment import fetch_deployment
-    from eth_defi.uniswap_v3.price import get_onchain_price, estimate_sell_received_amount
-
-    params = {"path":"0x0d500b1d8e8ef31e21c99d1db9a6444d3adf12700001f42791bca1f2de4661ed88a30c99a7a9449aa84174","recipient":"0x19f61a2cdebccbf500b24a1330c46b15e5f54cbc","deadline":"9223372036854775808","amountIn":"14975601230579683413","amountOutMinimum":"10799953"}
-
-    amount_in = 14975601230579683413
-    path = params["path"]
-    # https://tradingstrategy.ai/trading-view/polygon/uniswap-v3/matic-usdc-fee-5
-    pool_address = "0xa374094527e1673a86de625aa59517c5de346d32"
-    block_estimated = 45_583_631
-    block_executed = 45_583_635
-
-    wmatic_address = "0x0d500b1d8e8ef31e21c99d1db9a6444d3adf1270"
-    usdc_address = "0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174"
-    wmatic_amount = Decimal("14.975601230579683413")
-    fee_tier = 0.0005  # BPS
-
-    # What is the max slippage value for Uniswap,
-    # as slippage is irrelevant in our
-    # calculations
-    max_slippage = 10000
-
-    json_rpc_url = os.environ["JSON_RPC_POLYGON"]
-    web3 = Web3(HTTPProvider(json_rpc_url))
-
-    wmatic = fetch_erc20_details(web3, wmatic_address)
-    usdc = fetch_erc20_details(web3, usdc_address)
-
-    wmatic_amount_raw = wmatic.convert_to_raw(wmatic_amount)
-
-    mid_price_estimated = get_onchain_price(web3, pool_address, block_identifier=block_estimated)
-    mid_price_executed = get_onchain_price(web3, pool_address, block_identifier=block_executed)
-
-    print(f"Mid price when estimate at block {block_estimated:,}:", mid_price_estimated)
-    print(f"Mid price at the time of execution at block {block_executed:,}:", mid_price_executed)
-    print(f"Price difference {(mid_price_executed - mid_price_estimated) / mid_price_estimated * 100:.2f}%")
-
-    # Uniswap v4 deployment addresses are the same across the chains
-    # https://docs.uniswap.org/contracts/v3/reference/deployments
-    uniswap = fetch_deployment(
-        web3,
-        "0x1F98431c8aD98523631AE4a59f267346ea31F984",
-        "0xE592427A0AEce92De3Edee1F18E0157C05861564",
-        "0xC36442b4a4522E871399CD717aBDD847Ab11FE88",
-        "0xb27308f9F90D607463bb33eA1BeBb41C27CE5AB6",
-    )
-
-    estimated_sell_raw = estimate_sell_received_amount(
-        uniswap,
-        base_token_address=wmatic_address,
-        quote_token_address=usdc_address,
-        quantity=wmatic_amount_raw,
-        target_pair_fee=int(fee_tier * 1_000_000),
-        block_identifier=block_estimated,
-        slippage=max_slippage,
-    )
-    estimated_sell = usdc.convert_to_decimals(estimated_sell_raw)
-
-    print(f"Estimated quantity: {estimated_sell}")
-
-    executed_sell_raw = estimate_sell_received_amount(
-        uniswap,
-        base_token_address=wmatic_address,
-        quote_token_address=usdc_address,
-        quantity=wmatic_amount_raw,
-        target_pair_fee=int(fee_tier * 1_000_000),
-        block_identifier=block_executed,
-        slippage=max_slippage,
-    )
-    executed_sell = usdc.convert_to_decimals(executed_sell_raw)
-
-    print(f"Executed quantity: {executed_sell}")
-
-    print(f"Supposed price impact {(executed_sell - estimated_sell) / estimated_sell * 100:.2f}%")
-
+See :ref:`slippage and price impact` tutorial.
 """
 
 from decimal import Decimal
@@ -103,6 +14,8 @@ from eth_defi.uniswap_v3.utils import encode_path
 
 
 class UniswapV3PriceHelper:
+    """Internal helper class for price calculations."""
+
     def __init__(self, uniswap_v3: UniswapV3Deployment):
         self.deployment = uniswap_v3
 
@@ -231,7 +144,11 @@ def estimate_buy_received_amount(
     :param base_token_address: Base token address of the trading pair
     :param quote_token_address: Quote token address of the trading pair
     :param target_pair_fee: Trading fee of the target pair in raw format
-    :param slippage: Slippage express in bps
+
+    :param slippage:
+        Slippage express in bps.
+        The amount will be estimated for the maximum slippage.
+
     :param block_identifier: A specific block to estimate price
     :param verbose: If True, return more debug info
     :return: Expected base token amount to receive
@@ -285,7 +202,11 @@ def estimate_sell_received_amount(
     :param base_token_address: Base token address of the trading pair
     :param quote_token_address: Quote token address of the trading pair
     :param target_pair_fee: Trading fee of the target pair in raw format
-    :param slippage: Slippage express in bps
+
+    :param slippage:
+        Slippage express in bps.
+        The amount will be estimated for the maximum slippage.
+
     :param block_identifier: A specific block to estimate price
     :param verbose: If True, return more debug info
     :return: Expected quote token amount to receive
@@ -325,11 +246,30 @@ def get_onchain_price(
 ):
     """Get the current price of a Uniswap pool.
 
-    :param web3: Web3 instance
-    :param pool_contract_address: Contract address of the pool
-    :param block_identifier: A specific block to query price
-    :param reverse_token_order: If set, assume quote token is token0
-    :return: Current price
+    Reads Uniswap v3 "slot 0" price.
+
+    TODO: Does this include fees or not?
+
+    - See `mid price <https://tradingstrategy.ai/glossary/mid-price>`__
+
+    :param web3:
+        Web3 instance
+
+    :param pool_contract_address:
+        Contract address of the Uniswap v3 pool
+
+    :param block_identifier:
+        A specific block to query price.
+
+        Block number or block hash.
+
+    :param reverse_token_order:
+        For switching the pair ticker around to make it human readable.
+
+        If set, assume quote token is token0
+
+    :return:
+        Current price
     """
     pool_details = fetch_pool_details(web3, pool_contract_address)
     _, tick, *_ = pool_details.pool.functions.slot0().call(block_identifier=block_identifier)
