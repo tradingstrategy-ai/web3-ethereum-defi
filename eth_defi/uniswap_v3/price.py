@@ -279,7 +279,7 @@ def get_onchain_price(
         If set, assume quote token is token0
 
     :return:
-        Current price
+        Current price in human-readable Decimal format.
     """
     pool_details = fetch_pool_details(web3, pool_contract_address)
     _, tick, *_ = pool_details.pool.functions.slot0().call(block_identifier=block_identifier)
