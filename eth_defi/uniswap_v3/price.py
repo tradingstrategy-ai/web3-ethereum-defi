@@ -257,7 +257,8 @@ def get_onchain_price(
 
     Reads Uniswap v3 "slot 0" price.
 
-    TODO: Does this include fees or not?
+    - This is the `current price <https://blog.uniswap.org/uniswap-v3-math-primer#how-do-i-calculate-the-current-exchange-rate>`__
+      according to Uniswap team explanation, which we assume is the mid-price
 
     - See `mid price <https://tradingstrategy.ai/glossary/mid-price>`__
 
