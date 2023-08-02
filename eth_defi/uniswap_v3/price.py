@@ -295,7 +295,8 @@ def get_onchain_price(
     :param reverse_token_order:
         For switching the pair ticker around to make it human readable.
 
-        If set, assume quote token is token0
+        - If set, assume quote token is token0, and the human price is 1/price
+        - If not set assumes base token is token0
 
     :return:
         Current price in human-readable Decimal format.
