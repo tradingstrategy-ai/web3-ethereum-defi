@@ -11,7 +11,7 @@ The example shows How to read Solidity events, or use eth_getLogs RPC, to maximi
 
 - We use Web3.py `Contract` class and its `Event` subclass
 
-- The example uses a thread pool reader with 16 parallel reqading threads (JSON-RPC API requets)
+- The example uses a thread pool reader with 16 parallel reading threads (JSON-RPC API requets)
 
 - The example uses optimised `ujson` library for decoding JSON
 
