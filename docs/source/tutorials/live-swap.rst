@@ -4,7 +4,7 @@
 Uniswap v2 reading real-time swaps and new pairs
 ------------------------------------------------
 
-This the Python example code for `Uniswap <https://tradingstrategy.ai/glossary/uniswap>`__
+This is the Python example code for `Uniswap <https://tradingstrategy.ai/glossary/uniswap>`__
 v2 compatible `DEX <https://tradingstrategy.ai/glossary/decentralised-exchange>`__ swap live monitoring.
 
 This is an example code for showing live swaps happening
@@ -19,7 +19,7 @@ good free RPC nodes which makes running the example code easy.
   happen regularly, the latest block is rolled back and replaced
   by new block with reordered events.
 
-- This is an modified example of `read-uniswap-v2-pairs-and-swaps.py` to gracefully handle
+- This is a modified example of `read-uniswap-v2-pairs-and-swaps.py` to gracefully handle
   chain reorganisations, thus the code is suitable for live event reading.
   It should also support low quality JSON-RPC nodes that may give different replies between API requests.
 
