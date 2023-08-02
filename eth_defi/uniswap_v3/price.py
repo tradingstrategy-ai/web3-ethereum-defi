@@ -253,7 +253,7 @@ def get_onchain_price(
     block_identifier: int | None = None,
     reverse_token_order: bool = False,
 ):
-    """Get the current price of a Uniswap pool.
+    """Get the current price of a Uniswap v3 pool.
 
     Reads Uniswap v3 "slot 0" price.
 
@@ -261,6 +261,25 @@ def get_onchain_price(
       according to Uniswap team explanation, which we assume is the mid-price
 
     - See `mid price <https://tradingstrategy.ai/glossary/mid-price>`__
+
+    To read the latest ETH-USDC price on Polygon:
+
+    .. code-block:: python
+
+        import os
+        from web3 import Web3, HTTPProvider
+
+        from eth_defi.uniswap_v3.price import get_onchain_price
+
+        json_rpc_url = os.environ["JSON_RPC_POLYGON"]
+        web3 = Web3(HTTPProvider(json_rpc_url))
+
+        # ETH-USDC 5 BPS pool address
+        # https://tradingstrategy.ai/trading-view/polygon/uniswap-v3/eth-usdc-fee-5
+        pool_address = "0x45dda9cb7c25131df268515131f647d726f50608"
+
+        price = get_onchain_price(web3, pool_address, reverse_token_order=True)
+        print(f"ETH price is {price:.2f} USD")
 
     :param web3:
         Web3 instance
