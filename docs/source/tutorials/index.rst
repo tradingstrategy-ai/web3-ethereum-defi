@@ -5,7 +5,7 @@
 Tutorials
 =========
 
-Examples how to use web3.py and Web-Ethereum-Defi library.
+Examples of how to use web3.py and Web-Ethereum-Defi library.
 
 Examples include
 
