@@ -4,7 +4,7 @@
 ERC-20 token transfer with web3.py
 ----------------------------------
 
-This is a tutorial how to transfer ERC-20 token in Python
+This is a tutorial on how to transfer ERC-20 token in Python
 with `web3-ethereum-defi <https://github.com/tradingstrategy-ai/web3-ethereum-defi>`_ package.
 
 You need
@@ -28,7 +28,7 @@ Import your private key to an environment variable in UNIX shell:
 
     export PRIVATE_KEY="0x1111111111111"
 
-Set up your JSON-RPC connecgtion:
+Set up your JSON-RPC connection:
 
 .. code-block:: shell
 
@@ -102,7 +102,7 @@ Then create the following script:
     assert web3.isChecksumAddress(to_address), f"Not a valid address: {to_address}"
 
     # Fat-fingering check
-    print(f"Confirm transfering {decimal_amount} {token_details.symbol} to {to_address}")
+    print(f"Confirm transferring {decimal_amount} {token_details.symbol} to {to_address}")
     confirm = input("Ok [y/n]?")
     if not confirm.lower().startswith("y"):
         print("Aborted")
@@ -137,7 +137,7 @@ Example output
     Your have : 0.2679961495972585 ETH for gas fees
     How many tokens to transfer? 1
     Give destination Ethereum address? 0x6449299d1d268c4008b4fB992afd04AB5fAec4E6
-    Confirm transfering 1 XXX to 0x6449299d1d268c4008b4fB992afd04AB5fAec4E6
+    Confirm transferring 1 XXX to 0x6449299d1d268c4008b4fB992afd04AB5fAec4E6
     Ok [y/n]?y
     Broadcasted transaction 0xfed8c07b1da1d4348d3ea0ec678f30082fc8e944ada4b0f6510b5a7c05ceb910, now waiting 5 minutes for mining
     All ok!
