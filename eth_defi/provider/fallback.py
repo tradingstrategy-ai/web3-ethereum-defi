@@ -103,20 +103,27 @@ class FallbackProvider(BaseNamedProvider):
         self.api_call_counts = defaultdict(Counter)
         self.retry_count = 0
 
+    def __repr__(self):
+        names = [get_provider_name(p) for p in self.providers]
+        return f"<Fallback provider {', '.join(names)}>"
+
     @property
     def endpoint_uri(self):
         """Return the active node URI endpoint.
 
         For :py:class:`HTTPProvider` compatibility.
         """
-        return self.get_provider().endpoint_uri
+        return self.get_active_provider().endpoint_uri
 
     def switch_provider(self):
         """"""
         self.currently_active_provider = (self.currently_active_provider + 1) % len(self.providers)
 
-    def get_provider(self) -> NamedProvider:
-        """Get currently active provider."""
+    def get_active_provider(self) -> NamedProvider:
+        """Get currently active provider.
+
+        If this provider fails, we are automatically recycled to the next one.
+        """
         return self.providers[self.currently_active_provider]
 
     def make_request(self, method: RPCEndpoint, params: Any) -> RPCResponse:
@@ -127,9 +134,10 @@ class FallbackProvider(BaseNamedProvider):
         - If there are errors try cycle through providers and sleep
           between cycles until one provider works
         """
+
         current_sleep = self.sleep
         for i in range(self.retries):
-            provider = self.get_provider()
+            provider = self.get_active_provider()
             try:
                 # Call the underlying provider
                 val = provider.make_request(method, params)
@@ -148,7 +156,7 @@ class FallbackProvider(BaseNamedProvider):
                 ):
                     old_provider_name = get_provider_name(provider)
                     self.switch_provider()
-                    new_provider_name = get_provider_name(self.get_provider())
+                    new_provider_name = get_provider_name(self.get_active_provider())
 
                     if i < self.retries - 1:
                         logger.warning("Encountered JSON-RPC retryable error %s when calling method %s.\n" "Switching providers %s -> %s\n" "Retrying in %f seconds, retry #%d", e, method, old_provider_name, new_provider_name, current_sleep, i)

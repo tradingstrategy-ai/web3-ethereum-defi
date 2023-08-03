@@ -1,5 +1,8 @@
+.. meta::
+   :description: Reading historical Uniswap v2 compatible DEX data
+
 Uniswap v2 historical swaps and pairs event reading
---------------------------------------------------
+---------------------------------------------------
 
 This is an example of how to efficiently read all Uniswap pairs and their swaps in a blockchain,
 using :py:mod:`eth_defi.event_reader` module.
