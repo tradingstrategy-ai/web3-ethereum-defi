@@ -1,3 +1,7 @@
+# 0.22.3
+
+- Fix: `eth_defi.chain.has_graphql_support` to support `MultiProviderWeb3`
+
 # 0.22.2
 
 - Add: `eth_defi.provider.multi_provider.create_multi_provider_web3`: An easy way to configure a Web3 instance with multiple providers

@@ -179,9 +179,11 @@ def has_graphql_support(provider: BaseProvider) -> bool:
         {"data":{"block":{"number":16328259}}}
     """
 
+    # See BaseNamedProvider
     if hasattr(provider, "call_endpoint_uri"):
         base_url = provider.call_endpoint_uri
     elif hasattr(provider, "endpoint_uri"):
+        # HTTPProvider
         base_url = provider.endpoint_uri
     else:
         raise AssertionError(f"Do not know how to extract endpoint URI: {provider}")

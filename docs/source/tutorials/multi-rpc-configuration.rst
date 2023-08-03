@@ -29,11 +29,17 @@ Instead of giving a single RPC endpoint URL, you give a list URLs.
 
 Example:
 
-.. code-block::
+.. code-block:: python
 
     # Uses MEVblocker.io to broadcast transactions
     # and two separate nodes for reading blockchain data
     config = "mev+https://rpc.mevblocker.io https://myethereumnode1.example.com https://fallback.example.com"
     web3 = create_multi_provider_web3(config)
 
+If you want to keep using a single RPC endpoint, you do not need to do any changes:
+
+.. code-block:: python
+
+    # Pasing a single RPC endpoint URL is ok
+    web3 = create_multi_provider_web3("https://polygon-rpc.com")
 
