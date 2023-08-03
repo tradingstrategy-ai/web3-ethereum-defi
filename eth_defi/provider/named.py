@@ -32,6 +32,18 @@ class BaseNamedProvider(ABC, JSONBaseProvider):
 
         """
 
+    @property
+    def call_endpoint_uri(self) -> str:
+        """Return the active node URI where call JSON-RPCs go.
+
+        .. warning::
+
+            Endpoint URIs often contain API keys.
+            They should be never publicly displayed as is.
+
+        """
+        return self.endpoint_uri
+
 
 #: Named providers including web3.py core providers
 NamedProvider: TypeAlias = BaseNamedProvider | HTTPProvider

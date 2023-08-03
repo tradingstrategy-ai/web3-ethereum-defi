@@ -13,12 +13,13 @@ from urllib.parse import urljoin
 import requests
 from web3 import Web3, HTTPProvider
 from web3.middleware import geth_poa_middleware
-from web3.providers import JSONBaseProvider
+from web3.providers import JSONBaseProvider, BaseProvider
 from web3.types import RPCEndpoint, RPCResponse
 from web3.datastructures import NamedElementOnion
 
 from eth_defi.event_reader.conversion import convert_jsonrpc_value_to_int
 from eth_defi.middleware import http_retry_request_with_sleep_middleware
+from eth_defi.provider.named import NamedProvider
 
 #: List of chain ids that need to have proof-of-authority middleweare installed
 POA_MIDDLEWARE_NEEDED_CHAIN_IDS = {
@@ -160,7 +161,7 @@ def install_api_call_counter_middleware_on_provider(provider: JSONBaseProvider) 
     return api_counter
 
 
-def has_graphql_support(provider: HTTPProvider) -> bool:
+def has_graphql_support(provider: BaseProvider) -> bool:
     """Check if a node has GoEthereum GraphQL API turned on.
 
 
@@ -178,9 +179,13 @@ def has_graphql_support(provider: HTTPProvider) -> bool:
         {"data":{"block":{"number":16328259}}}
     """
 
-    assert isinstance(provider, HTTPProvider)
+    if hasattr(provider, "call_endpoint_uri"):
+        base_url = provider.call_endpoint_uri
+    elif hasattr(provider, "endpoint_uri"):
+        base_url = provider.endpoint_uri
+    else:
+        raise AssertionError(f"Do not know how to extract endpoint URI: {provider}")
 
-    base_url = provider.endpoint_uri
     graphql_url = urljoin(base_url, "graphql")
     try:
         resp = requests.get(graphql_url)

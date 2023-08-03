@@ -1,8 +1,10 @@
 """MultiProviderWeb3 configuration tests."""
+import os
 
 import pytest
 from web3 import HTTPProvider, Web3
 
+from eth_defi.chain import has_graphql_support
 from eth_defi.hotwallet import HotWallet
 from eth_defi.provider.anvil import AnvilLaunch, launch_anvil
 from eth_defi.provider.multi_provider import create_multi_provider_web3, MultiProviderConfigurationError
@@ -44,6 +46,32 @@ def test_multi_provider_fallback_only():
     """
     web3 = create_multi_provider_web3(config)
     assert get_provider_name(web3.get_fallback_provider()) == "polygon-rpc.com"
+
+
+def test_multi_provider_no_graphql():
+    """GraphQL check for multi provider config"""
+    config = """ 
+    mev+https://rpc.mevblocker.io
+    https://polygon-rpc.com
+    https://bsc-dataseed2.bnbchain.org
+    """
+
+    # Public Polygon RPC does not support GraphQL
+    web3 = create_multi_provider_web3(config)
+    assert not has_graphql_support(web3.provider)
+
+
+@pytest.mark.skipif(
+    os.environ.get("JSON_RPC_POLYGON_PRIVATE") is None,
+    reason="Set JSON_RPC_POLYGON_PRIVATE environment variable to a privately configured Polygon node with GraphQL turned on",
+)
+def test_multi_provider_no_graphql():
+    """GraphQL check for multi provider config"""
+    config = f"""{os.environ["JSON_RPC_POLYGON_PRIVATE"]}"""
+
+    # Public Polygon RPC does not support GraphQL
+    web3 = create_multi_provider_web3(config)
+    assert has_graphql_support(web3.provider)
 
 
 def test_multi_provider_empty_config():
