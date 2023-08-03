@@ -24,7 +24,7 @@ def anvil() -> AnvilLaunch:
 def mev_blocker_provider(anvil: AnvilLaunch) -> MEVBlockerProvider:
     provider = MEVBlockerProvider(
         call_provider=HTTPProvider(anvil.json_rpc_url),
-        transact_provivder=HTTPProvider(anvil.json_rpc_url),
+        transact_provider=HTTPProvider(anvil.json_rpc_url),
     )
     return provider
 

@@ -42,12 +42,12 @@ class MEVBlockerProvider(BaseNamedProvider):
     def __init__(
         self,
         call_provider: JSONBaseProvider,
-        transact_provivder: JSONBaseProvider,
+        transact_provider: JSONBaseProvider,
         transact_methods=TRANSACT_METHODS,
     ):
         super().__init__()
         self.call_provider = call_provider
-        self.transact_provider = transact_provivder
+        self.transact_provider = transact_provider
         self.transact_methods = transact_methods
 
         #: Keep tabs on how much API traffic we generate through each endpoint
