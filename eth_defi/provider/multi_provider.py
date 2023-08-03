@@ -29,13 +29,24 @@ class MultiProviderWeb3(Web3):
     - There might be several providers for reading on-chain data
     """
 
-    def get_transact_provider(self) -> NamedProvider:
-        """Get active transact provider."""
+    def get_active_transact_provider(self) -> NamedProvider:
+        """Get active transact provider.
+
+        Can be a call provider if not configured.
+        """
         provider = self.provider
         if isinstance(provider, MEVBlockerProvider):
             return provider.transact_provider
 
         return self.get_call_provider().get_active_provider()
+
+    def get_configured_transact_provider(self) -> MEVBlockerProvider | None:
+        """Get configured transact provider."""
+        provider = self.provider
+        if isinstance(provider, MEVBlockerProvider):
+            return provider
+
+        return None
 
     def get_call_provider(self) -> NamedProvider:
         """Get active call provider."""
@@ -65,9 +76,9 @@ class MultiProviderWeb3(Web3):
 
 
 def create_multi_provider_web3(
-        configuration_line: str,
-        fallback_sleep=0.1,
-        fallback_backoff=1.1,
+    configuration_line: str,
+    fallback_sleep=0.1,
+    fallback_backoff=1.1,
 ) -> MultiProviderWeb3:
     """Create a Web3 instance with multi-provider support.
 
@@ -107,7 +118,6 @@ def create_multi_provider_web3(
 
     urls: List[Url] = []
     for parsable in items:
-
         parsable = parsable.strip()
 
         try:
@@ -156,10 +166,11 @@ def create_multi_provider_web3(
     else:
         provider = fallback_provider
 
-    logger.info("Configuring MultiProviderWeb3. Call providers: %s, transact providers %s",
-                [get_provider_name(c) for c in call_providers],
-                get_provider_name(transact_provider) if transact_provider else "-",
-                )
+    logger.info(
+        "Configuring MultiProviderWeb3. Call providers: %s, transact providers %s",
+        [get_provider_name(c) for c in call_providers],
+        get_provider_name(transact_provider) if transact_provider else "-",
+    )
 
     web3 = MultiProviderWeb3(provider)
 
