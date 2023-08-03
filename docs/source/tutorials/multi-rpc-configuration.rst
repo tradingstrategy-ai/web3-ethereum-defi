@@ -1,3 +1,6 @@
+.. meta::
+   :description: How to use MEV blocker and fallback web3 connections
+
 .. _multi rpc:
 
 Configuring multiple RPC endpoints

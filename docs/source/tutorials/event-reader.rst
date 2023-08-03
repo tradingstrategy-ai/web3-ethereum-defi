@@ -1,3 +1,6 @@
+.. meta::
+   :description: Reading historical Uniswap v2 compatible DEX data
+
 Uniswap v2 historial swaps and pairs event reading
 --------------------------------------------------
 
