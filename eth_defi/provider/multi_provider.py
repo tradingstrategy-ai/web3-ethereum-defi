@@ -40,7 +40,7 @@ class MultiProviderWeb3(Web3):
         if isinstance(provider, MEVBlockerProvider):
             return provider.transact_provider
 
-        return self.get_call_provider().get_active_provider()
+        return self.get_active_call_provider()
 
     def get_configured_transact_provider(self) -> MEVBlockerProvider | None:
         """Get configured transact provider."""
@@ -50,7 +50,7 @@ class MultiProviderWeb3(Web3):
 
         return None
 
-    def get_call_provider(self) -> NamedProvider:
+    def get_active_call_provider(self) -> NamedProvider:
         """Get active call provider."""
         provider = self.provider
         if isinstance(provider, MEVBlockerProvider):
