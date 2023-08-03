@@ -188,6 +188,8 @@ def analyse_trade_by_receipt(web3: Web3, uniswap: UniswapV2Deployment, tx: dict,
 
     price = amount_out_cleaned / amount_in_cleaned
 
+    lp_fee_paid = amount_in * uniswap.fee
+
     return TradeSuccess(
         gas_used,
         effective_gas_price,
@@ -200,6 +202,7 @@ def analyse_trade_by_receipt(web3: Web3, uniswap: UniswapV2Deployment, tx: dict,
         amount_out_decimals=out_token_details.decimals,
         token0=None,
         token1=None,
+        lp_fees_paid=lp_fee_paid,
     )
 
 
