@@ -1,3 +1,5 @@
+"""MultiProviderWeb3 configuration tests."""
+
 import pytest
 from web3 import HTTPProvider, Web3
 
@@ -12,7 +14,7 @@ from eth_defi.uniswap_v2.utils import ZERO_ADDRESS
 @pytest.fixture(scope="module")
 def anvil() -> AnvilLaunch:
     """Launch Anvil for the test backend."""
-    anvil = launch_anvil()
+    anvil = launch_anvil(port=20002)
     try:
         yield anvil
     finally:
@@ -20,6 +22,7 @@ def anvil() -> AnvilLaunch:
 
 
 def test_multi_provider_mev_and_fallback():
+    """Configure complex Web3 instance correctly."""
     config = """ 
     mev+https://rpc.mevblocker.io
     https://polygon-rpc.com

@@ -296,6 +296,11 @@ def launch_anvil(
 
     - :py:func:`eth_defi.trace.print_symbolic_trace`
 
+    .. note ::
+
+        Looks like we have some issues Anvil instance lingering around even
+        after `AnvilLaunch.close()` if scoped pytest fixtures are used.
+
     :param cmd:
         Override `anvil` command. If not given we look up from `PATH`.
 
