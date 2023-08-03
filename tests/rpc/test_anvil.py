@@ -92,9 +92,12 @@ def test_anvil_output():
     # process, cmd = _launch("anvil")
 
     mainnet_rpc = os.environ["BNB_CHAIN_JSON_RPC"]
-    launch = fork_network_anvil(mainnet_rpc)
-    stdout, stderr = launch.close()
-    assert b"https://github.com/foundry-rs/foundry" in stdout, f"Did not see the market string in stdout: {stdout}"
+    launch = fork_network_anvil(mainnet_rpc, port=20011)
+    try:
+        stdout, stderr = launch.close()
+        assert b"https://github.com/foundry-rs/foundry" in stdout, f"Did not see the market string in stdout: {stdout}"
+    finally:
+        launch.close()
 
 
 def test_anvil_forked_chain_id(web3: Web3):
