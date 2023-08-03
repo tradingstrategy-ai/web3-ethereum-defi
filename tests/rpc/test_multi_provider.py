@@ -13,7 +13,10 @@ def test_multi_provider_mev_and_fallback():
 
     provider = create_multi_provider_web3(config)
     assert get_provider_name(provider.get_fallback_provider()) == "polygon-rpc.com"
+    assert len(provider.get_fallback_provider().providers) == 2
     assert get_provider_name(provider.get_transact_provider()) == "rpc.mevblocker.io"
+
+    assert provider.eth.block_number > 0
 
 
 def test_multi_provider_fallback_only():
