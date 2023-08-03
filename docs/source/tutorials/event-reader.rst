@@ -1,10 +1,10 @@
 .. meta::
    :description: Reading historical Uniswap v2 compatible DEX data
 
-Uniswap v2 historial swaps and pairs event reading
---------------------------------------------------
+Uniswap v2 historical swaps and pairs event reading
+---------------------------------------------------
 
-This is an example how to efficiently read all Uniswap pairs and their swaps in a blockchain,
+This is an example of how to efficiently read all Uniswap pairs and their swaps in a blockchain,
 using :py:mod:`eth_defi.event_reader` module.
 
 Overview:
@@ -29,7 +29,7 @@ Overview:
 
 .. note ::
 
-    This reader uses a single thread. For speedupds, see the
+    This reader uses a single thread. For speedups, see the
     `concurrent reader version of the script on Github <https://github.com/tradingstrategy-ai/web3-ethereum-defi/blob/master/scripts/uniswap-v2-pairs-and-swaps-concurrent.py>`__.
 
 To run:

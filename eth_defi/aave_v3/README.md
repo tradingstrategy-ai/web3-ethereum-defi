@@ -37,7 +37,7 @@ Aave v3 has its own definition for APR and APY found in https://docs.aave.com/de
 To get APR and APY values, we apply the formulas to liquidityRate, stableBorrowRate and variableBorrowRate. This
 is implemented in rates.py.
 
-## Accured interest calculation
+## Accrued interest calculation
 
 To calculate accrued interest for a deposit made at T1 and withdrawn at T2, we need the current liquidity index at both times:
 
