@@ -27,6 +27,8 @@ class MultiProviderWeb3(Web3):
       for making transactions to prevent frontrunning
 
     - There might be several providers for reading on-chain data
+
+    See :py:func:`create_multi_provider_web3`
     """
 
     def get_active_transact_provider(self) -> NamedProvider:
@@ -98,6 +100,16 @@ def create_multi_provider_web3(
 
     - If any of the protocols have `mev+` prefix like `mev+https` then this
       endpoint is used for the execution.
+
+    Example:
+
+    .. code-block:: python
+
+        config = "mev+https://rpc.mevblocker.io https://polygon-rpc.com https://bsc-dataseed2.bnbchain.org"
+        web3 = create_multi_provider_web3(config)
+        assert get_provider_name(web3.get_fallback_provider()) == "polygon-rpc.com"
+        assert len(web3.get_fallback_provider().providers) == 2
+        assert get_provider_name(web3.get_active_transact_provider()) == "rpc.mevblocker.io"
 
     :param configuration_line:
         Configuration line from an environment variable, config file or similar.
