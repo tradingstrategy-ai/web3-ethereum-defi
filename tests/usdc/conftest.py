@@ -4,7 +4,7 @@ import pytest
 from eth_typing import ChecksumAddress
 from web3 import Web3, HTTPProvider
 
-from eth_defi.anvil import AnvilLaunch, launch_anvil
+from eth_defi.provider.anvil import AnvilLaunch, launch_anvil
 from eth_defi.chain import install_chain_middleware
 from eth_defi.token import TokenDetails
 from eth_defi.usdc.deployment import deploy_fiat_token

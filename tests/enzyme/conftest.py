@@ -18,7 +18,7 @@ from eth_typing import HexAddress
 from web3 import EthereumTesterProvider, Web3, HTTPProvider
 from web3.contract import Contract
 
-from eth_defi.anvil import AnvilLaunch, launch_anvil, make_anvil_custom_rpc_request
+from eth_defi.provider.anvil import AnvilLaunch, launch_anvil, make_anvil_custom_rpc_request
 from eth_defi.chain import install_chain_middleware, install_retry_middleware
 from eth_defi.deploy import deploy_contract
 from eth_defi.hotwallet import HotWallet

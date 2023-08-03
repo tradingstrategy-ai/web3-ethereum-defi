@@ -103,6 +103,10 @@ class FallbackProvider(BaseNamedProvider):
         self.api_call_counts = defaultdict(Counter)
         self.retry_count = 0
 
+    def __repr__(self):
+        names = [get_provider_name(p) for p in self.providers]
+        return f"<Fallback provider {', '.join(names)}>"
+
     @property
     def endpoint_uri(self):
         """Return the active node URI endpoint.
