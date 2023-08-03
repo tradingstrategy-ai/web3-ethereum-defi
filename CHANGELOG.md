@@ -1,3 +1,7 @@
+# 0.22.2
+
+- Add: `eth_defi.provider.multi_provider.create_multi_provider_web3`: An easy way to configure a Web3 instance with multiple providers
+
 # 0.22.1
 
 - Add logging to `swap_with_slippage_protection()` on Uniswap v3 

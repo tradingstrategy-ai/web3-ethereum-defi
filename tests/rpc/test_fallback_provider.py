@@ -12,7 +12,7 @@ from eth_defi.provider.fallback import FallbackProvider
 @pytest.fixture(scope="module")
 def anvil() -> AnvilLaunch:
     """Launch Anvil for the test backend."""
-    anvil = launch_anvil()
+    anvil = launch_anvil(port=20005)
     try:
         yield anvil
     finally:

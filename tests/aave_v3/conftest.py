@@ -6,7 +6,7 @@ from web3 import HTTPProvider, Web3
 from web3.contract import Contract
 
 from eth_defi.aave_v3.deployer import AaveDeployer
-from eth_defi.anvil import (
+from eth_defi.provider.anvil import (
     AnvilLaunch,
     dump_state,
     launch_anvil,

@@ -50,6 +50,6 @@ def get_provider_name(provider: NamedProvider) -> str:
 
         Assume any API keys are not part of the domain name.
     """
-    if isinstance(provider, HTTPProvider):
+    if hasattr(provider, "endpoint_uri"):
         return get_url_domain(provider.endpoint_uri)
     return str(provider)

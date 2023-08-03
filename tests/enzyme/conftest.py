@@ -7,25 +7,20 @@
 """
 
 import logging
-import secrets
 
 import pytest
-from eth_account import Account
-from hexbytes import HexBytes
 from pytest import FixtureRequest
 
 from eth_typing import HexAddress
 from web3 import EthereumTesterProvider, Web3, HTTPProvider
 from web3.contract import Contract
 
-from eth_defi.anvil import AnvilLaunch, launch_anvil, make_anvil_custom_rpc_request
-from eth_defi.chain import install_chain_middleware, install_retry_middleware
+from eth_defi.provider.anvil import AnvilLaunch, launch_anvil
+from eth_defi.chain import install_chain_middleware
 from eth_defi.deploy import deploy_contract
-from eth_defi.hotwallet import HotWallet
 from eth_defi.token import create_token
 from eth_defi.trace import assert_transaction_success_with_explanation
 from eth_defi.uniswap_v2.deployment import deploy_uniswap_v2_like, UniswapV2Deployment, deploy_trading_pair
-from eth_defi.uniswap_v2.utils import sort_tokens
 
 
 @pytest.fixture()

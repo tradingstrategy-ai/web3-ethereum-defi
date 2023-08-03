@@ -18,7 +18,8 @@ from web3 import Web3, HTTPProvider
 
 from eth_defi.chain import has_graphql_support
 from eth_defi.event_reader.block_header import BlockHeader, Timestamp
-
+from eth_defi.provider.fallback import FallbackProvider
+from eth_defi.provider.mev_blocker import MEVBlockerProvider
 
 logger = logging.getLogger(__name__)
 
@@ -718,9 +719,18 @@ def create_reorganisation_monitor(web3: Web3, check_depth=250) -> Reorganisation
         Either :py:class:`GraphQLReorganisationMonitor` or :py:class:`JSONRPCReorganisationMonitor`
     """
 
-    assert isinstance(web3.provider, HTTPProvider), f"Got provider: {web3.provider} - does not know how to perform GraphQL support check"
+    provider = web3.provider
 
-    provider = cast(HTTPProvider, web3.provider)
+    if isinstance(provider, MEVBlockerProvider):
+        provider = provider.call_provider
+
+    if isinstance(provider, FallbackProvider):
+        provider = provider.get_active_provider()
+
+    if isinstance(provider, HTTPProvider):
+        provider = cast(HTTPProvider, web3.provider)
+    else:
+        raise AssertionError(f"Got provider: {provider} - does not know how to perform GraphQL support check")
 
     json_rpc_url = provider.endpoint_uri
 
