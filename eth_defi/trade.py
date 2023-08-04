@@ -18,11 +18,6 @@ class TradeResult:
     #: Set to `0` if not available.
     effective_gas_price: int
 
-    #: How much was the LP fee
-    #:
-    #: Note: this is the raw amount in terms of the amount in token
-    lp_fee_paid: float
-
     def get_effective_gas_price_gwei(self) -> Decimal:
         return Decimal(self.effective_gas_price) / Decimal(10**9)
     
@@ -73,6 +68,11 @@ class TradeSuccess(TradeResult):
     #:
     #: Needed to calculate reverse token order.
     token1: TokenDetails | None
+
+    #: How much was the LP fee
+    #:
+    #: Note: this is the raw amount in terms of the amount in token
+    lp_fee_paid: float | None
 
     def __post_init__(self):
         if self.price is not None:
