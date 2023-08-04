@@ -1,6 +1,6 @@
 """Configuring and managing multiple JSON-RPC provider connections.
 
-See :ref:`multi rpc` for details.
+See :ref:`multi rpc` tutorial for details.
 """
 
 import logging
@@ -26,10 +26,11 @@ class MultiProviderConfigurationError(Exception):
 class MultiProviderWeb3(Web3):
     """A web3 instance that knows about multiple RPC endpoints it is using.
 
-    - This is either using or not using :py:class:`eth_defi.provider.mev_blocker.MEVBlockerProvider`
+    - Can use :py:class:`eth_defi.provider.mev_blocker.MEVBlockerProvider`
       for making transactions to prevent frontrunning
 
-    - There might be several providers for reading on-chain data
+    - There might be several call (read) providers for reading on-chain data
+      with fallbacks using :py:class:`eth_defi.provider.fallback.FallbackProvider`
 
     See
 
@@ -121,7 +122,7 @@ def create_multi_provider_web3(
 
     See
 
-    - - :ref:`multi rpc` for details
+    - :ref:`multi rpc` for details
 
     :param configuration_line:
         Configuration line from an environment variable, config file or similar.

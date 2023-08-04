@@ -39,6 +39,7 @@ SCALED_PER_SECOND_RATE_DIGITS = 27
 
 
 def convert_rate_to_scaled_per_second_rate(rate: Decimal, adjust_inflation: bool) -> int:
+    """Internal helper to deal with Enzyme per second rates."""
     rate_d = rate * 10**18
     effective_rate = rate_d / (1 - rate_d) if adjust_inflation else rate_d
     factor = (1 + effective_rate) ** (1 / ONE_YEAR_IN_SECONDS)

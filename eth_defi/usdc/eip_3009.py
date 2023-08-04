@@ -175,7 +175,7 @@ def make_eip_3009_transfer(
         This currently supports only `LocalAccount` because of
         `missing features in web3.py <https://github.com/ethereum/web3.py/issues/2180#issuecomment-943590192>`__.
 
-    Example::
+    Example:
 
     .. code-block:: python
 
