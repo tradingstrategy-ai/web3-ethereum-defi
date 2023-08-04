@@ -1,3 +1,9 @@
+# 0.22.4
+
+- [JSON-RPC fallback and MEV protection tutorial](https://web3-ethereum-defi.readthedocs.io/tutorials/multi-rpc-configuration.html)
+- Added missing `sigfig` lib dependency
+
+
 # 0.22.3
 
 - Fix: `eth_defi.chain.has_graphql_support` to support `MultiProviderWeb3`
