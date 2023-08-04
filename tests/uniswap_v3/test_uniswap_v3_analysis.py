@@ -165,6 +165,7 @@ def test_analyse_by_receipt(
     assert analysis.get_effective_gas_price_gwei() == 1
     assert analysis.amount_out_decimals == 18
     assert analysis.amount_in_decimals == 6
+    assert analysis.lp_fee_paid == pytest.approx(5000.0)
 
     all_weth_amount = weth.functions.balanceOf(user_1).call()
     weth.functions.approve(router.address, all_weth_amount).transact({"from": user_1})
@@ -194,3 +195,4 @@ def test_analyse_by_receipt(
     assert analysis.get_effective_gas_price_gwei() == 1
     assert analysis.amount_out_decimals == 6
     assert analysis.amount_in_decimals == 18
+    assert analysis.lp_fee_paid == pytest.approx(977445247963.0948)
