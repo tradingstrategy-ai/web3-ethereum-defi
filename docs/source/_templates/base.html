@@ -10,7 +10,7 @@
     {%- if metatags %}{{ metatags }}{% endif -%}
 
     {# Make sure all pages have a description or Bing does not like us #}
-    {% if 'content="description"' not in metatags %}
+    {% if 'name="description"' not in metatags %}
       <meta name="description" content="Web3-Ethereum-DeFi Python API documentation">
     {% endif %}
 
@@ -51,7 +51,10 @@
 
     {#- Site title -#}
     {%- block htmltitle -%}
-      {% if not docstitle %}
+      {# See Sphinx monkey patch #}
+      {% if 'title' in metas %}
+        <title>{{ metas.title }}</title>
+      {% elif not docstitle %}
         <title>{{ title|striptags|e }}</title>
       {% elif pagename == master_doc %}
         <title>{{ docstitle|striptags|e }}</title>

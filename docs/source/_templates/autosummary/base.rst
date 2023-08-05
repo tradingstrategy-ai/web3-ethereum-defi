@@ -1,6 +1,14 @@
+..
+    We use short name as title, because it's part of TOC tree on the left hand nav.
+    Then we fix the HTML title in the templating.
+
 {{ name | escape | underline}}
 
 .. currentmodule:: {{ module }}
+
+.. meta::
+    :description: {{ fullname|extract_object_docstring }}
+    :title: {{ fullname }} Python {{ objtype }}
 
 {% if objtype == "class" %}
 
