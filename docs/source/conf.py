@@ -163,7 +163,8 @@ AutosummaryRenderer.__init__ = fixed_init
 
 
 #
-# Monkey patch meta generation
+# Monkey patch meta generation.
+# See _templates/autosummary.base.rst
 #
 
 from sphinx.addnodes import meta

@@ -51,7 +51,7 @@
 
     {#- Site title -#}
     {%- block htmltitle -%}
-      {# See Sphinx monkey patch #}
+      {# See Sphinx monkey patch in conf.py #}
       {% if 'title' in metas %}
         <title>{{ metas.title }}</title>
       {% elif not docstitle %}
