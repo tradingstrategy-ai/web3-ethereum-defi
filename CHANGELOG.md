@@ -1,3 +1,9 @@
+# 0.22.5
+
+- Add: Uniswap v3 LP fees are now accounted in the trade analysis
+- Fix: Documentation now generates proper title and description HTML 
+  meta tags for automatically generated API documentation
+
 # 0.22.4
 
 - [JSON-RPC fallback and MEV protection tutorial](https://web3-ethereum-defi.readthedocs.io/tutorials/multi-rpc-configuration.html)
