@@ -236,7 +236,7 @@ def test_analyse_trade_failed(eth_tester: EthereumTester, web3: Web3, deployer: 
         eth_tester.enable_auto_mine_transactions()
 
 
-def test_analyse_by_recept(web3: Web3, deployer: str, user_1, uniswap_v2: UniswapV2Deployment, weth: Contract, usdc: Contract):
+def test_analyse_by_receipt(web3: Web3, deployer: str, user_1, uniswap_v2: UniswapV2Deployment, weth: Contract, usdc: Contract):
     """Aanlyse a Uniswap v2 trade by receipt."""
 
     # Create the trading pair and add initial liquidity
@@ -285,9 +285,10 @@ def test_analyse_by_recept(web3: Web3, deployer: str, user_1, uniswap_v2: Uniswa
     receipt = web3.eth.get_transaction_receipt(tx_hash)
 
     # user_1 has less than 500 USDC left to loses in the LP fees
-    analysis = analyse_trade_by_receipt(web3, uniswap_v2, tx, tx_hash, receipt)
+    analysis = analyse_trade_by_receipt(web3, uniswap_v2, tx, tx_hash, receipt, pair_fee=0.003)
     assert isinstance(analysis, TradeSuccess)
     assert analysis.price == pytest.approx(Decimal("1744.899124998896692270848706"))
     assert analysis.get_effective_gas_price_gwei() == 1
     assert analysis.amount_out_decimals == 6
     assert analysis.amount_in_decimals == 18
+    assert analysis.lp_fee_paid == pytest.approx(47480260212780.15)

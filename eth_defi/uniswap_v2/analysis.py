@@ -53,7 +53,7 @@ def analyse_trade_by_hash(web3: Web3, uniswap: UniswapV2Deployment, tx_hash: str
     return analyse_trade_by_receipt(web3, uniswap, tx, tx_hash, tx_receipt)
 
 
-def analyse_trade_by_receipt(web3: Web3, uniswap: UniswapV2Deployment, tx: dict, tx_hash: str, tx_receipt: dict) -> Union[TradeSuccess, TradeFail]:
+def analyse_trade_by_receipt(web3: Web3, uniswap: UniswapV2Deployment, tx: dict, tx_hash: str, tx_receipt: dict, pair_fee: float = None) -> Union[TradeSuccess, TradeFail]:
     """Analyse details of a Uniswap trade based on already received receipt.
 
     See also :py:func:`analyse_trade_by_hash`.
@@ -93,6 +93,8 @@ def analyse_trade_by_receipt(web3: Web3, uniswap: UniswapV2Deployment, tx: dict,
         Transaction hash: needed for the call for the revert reason)
     :param tx_receipt:
         Transaction receipt to analyse
+    :param pair_fee:
+        The lp fee for this pair.
     :return:
         :py:class:`TradeSuccess` or :py:class:`TradeFail` instance
     """
@@ -188,6 +190,8 @@ def analyse_trade_by_receipt(web3: Web3, uniswap: UniswapV2Deployment, tx: dict,
 
     price = amount_out_cleaned / amount_in_cleaned
 
+    lp_fee_paid = float(amount_in * pair_fee / in_token_details.decimals) if pair_fee else None
+
     return TradeSuccess(
         gas_used,
         effective_gas_price,
@@ -200,6 +204,7 @@ def analyse_trade_by_receipt(web3: Web3, uniswap: UniswapV2Deployment, tx: dict,
         amount_out_decimals=out_token_details.decimals,
         token0=None,
         token1=None,
+        lp_fee_paid=lp_fee_paid,
     )
 
 

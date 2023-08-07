@@ -20,6 +20,10 @@ class TradeResult:
 
     def get_effective_gas_price_gwei(self) -> Decimal:
         return Decimal(self.effective_gas_price) / Decimal(10**9)
+    
+    def get_cost_of_gas(self) -> Decimal:
+        """This will return the gas cost of the transaction in blockchain's native currency e.g. in ETH on Ethereum."""
+        return Decimal(self.gas_used) * Decimal(self.effective_gas_price) / Decimal(10**18)
 
 
 @dataclass
@@ -64,6 +68,11 @@ class TradeSuccess(TradeResult):
     #:
     #: Needed to calculate reverse token order.
     token1: TokenDetails | None
+
+    #: How much was the LP fee
+    #:
+    #: Note: this is the raw amount in terms of the amount in token
+    lp_fee_paid: float | None
 
     def __post_init__(self):
         if self.price is not None:

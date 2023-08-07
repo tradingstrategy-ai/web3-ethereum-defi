@@ -136,6 +136,9 @@ def analyse_trade_by_receipt(
     out_token_details = fetch_erc20_details(web3, path[-1])
     price = pool.convert_price_to_human(tick)  # Return price of token0/token1
 
+    amount_in = amount0 if amount0 > 0 else amount1
+    lp_fee_paid = float(amount_in * pool.fee / in_token_details.decimals)
+
     return TradeSuccess(
         gas_used,
         effective_gas_price,
@@ -148,4 +151,5 @@ def analyse_trade_by_receipt(
         out_token_details.decimals,
         token0=pool.token0,
         token1=pool.token1,
+        lp_fee_paid=lp_fee_paid,
     )
