@@ -291,4 +291,4 @@ def test_analyse_by_receipt(web3: Web3, deployer: str, user_1, uniswap_v2: Unisw
     assert analysis.get_effective_gas_price_gwei() == 1
     assert analysis.amount_out_decimals == 6
     assert analysis.amount_in_decimals == 18
-    assert analysis.lp_fee_paid == pytest.approx(47480260212780.15)
+    assert analysis.lp_fee_paid == pytest.approx(0.0008546446838300426)
