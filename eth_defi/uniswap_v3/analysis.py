@@ -137,7 +137,7 @@ def analyse_trade_by_receipt(
     price = pool.convert_price_to_human(tick)  # Return price of token0/token1
 
     amount_in = amount0 if amount0 > 0 else amount1
-    lp_fee_paid = float(amount_in * pool.fee / in_token_details.decimals)
+    lp_fee_paid = float(amount_in * pool.fee / 10 ** in_token_details.decimals)
 
     return TradeSuccess(
         gas_used,
