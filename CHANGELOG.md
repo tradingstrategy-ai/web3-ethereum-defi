@@ -1,3 +1,8 @@
+# 0.22.6
+
+- Fix: Aave v3 event reader dealing with different
+  block number formats from JSON-RPC nodes
+
 # 0.22.5
 
 - Add: Uniswap v3 LP fees are now accounted in the trade analysis

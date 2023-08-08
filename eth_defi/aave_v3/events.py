@@ -23,7 +23,7 @@ from eth_defi.abi import get_contract
 from eth_defi.event_reader.conversion import (
     convert_int256_bytes_to_int,
     convert_uint256_string_to_address,
-    decode_data,
+    decode_data, convert_jsonrpc_value_to_int,
 )
 from eth_defi.event_reader.logresult import LogContext
 from eth_defi.event_reader.reader import LogResult, read_events_concurrent
@@ -88,10 +88,10 @@ def _decode_base(log: LogResult) -> dict:
     block_time = datetime.datetime.utcfromtimestamp(log["timestamp"])
 
     return {
-        "block_number": int(log["blockNumber"], 16),
+        "block_number": convert_jsonrpc_value_to_int(log["blockNumber"]),
         "timestamp": block_time.isoformat(),
         "tx_hash": log["transactionHash"],
-        "log_index": int(log["logIndex"], 16),
+        "log_index": convert_jsonrpc_value_to_int(log["logIndex"]),
     }
 
 
