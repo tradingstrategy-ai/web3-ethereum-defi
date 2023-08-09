@@ -1,4 +1,4 @@
-"""Aave v3 pool statistics.
+"""Reserve, TVL and interest data reading of pools.
 
 - Reads Aave pool metrics on-chain
 

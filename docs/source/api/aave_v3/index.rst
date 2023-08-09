@@ -22,3 +22,4 @@ Aave v3 is deployed on
    eth_defi.aave_v3.events
    eth_defi.aave_v3.loan
    eth_defi.aave_v3.rates
+   eth_defi.aave_v3.reserve
