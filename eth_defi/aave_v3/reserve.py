@@ -4,13 +4,16 @@
 
 - Relies on a lot of undocumented Aave v3 source code to pull out the data
 
-- Based on https://github.com/aave/aave-utilities
+- Based on
 
-- Based on https://github.com/aave/aave-utilities/tree/master/packages/contract-helpers/src/v3-UiPoolDataProvider-contract
+  - https://github.com/aave/aave-utilities
+  - https://github.com/aave/aave-utilities/tree/master/packages/contract-helpers/src/v3-UiPoolDataProvider-contract
+  - https://github.com/aave/aave-v3-periphery/blob/master/contracts/misc/UiPoolDataProviderV3.sol
+  - https://github.com/aave/aave-ui/blob/f34f1cfc4fa6c1128b31eaa70b37b5b2109d1dc5/src/libs/pool-data-provider/hooks/use-v2-protocol-data-with-rpc.tsx#L62
+  - https://github.com/aave/aave-utilities/blob/664e92b5c7710e8060d4dcac5d6c0ebb48bb069f/packages/math-utils/src/formatters/user/index.ts#L95
+  - https://github.com/aave/aave-utilities/blob/664e92b5c7710e8060d4dcac5d6c0ebb48bb069f/packages/math-utils/src/formatters/reserve/index.ts#L310
 
-- Based on https://github.com/aave/aave-v3-periphery/blob/master/contracts/misc/UiPoolDataProviderV3.sol
-
-- Aave contracts https://docs.aave.com/developers/deployed-contracts/v3-mainnet
+- Aave contracts deployment registry https://docs.aave.com/developers/deployed-contracts/v3-mainnet
 
 """
 from dataclasses import dataclass
@@ -24,16 +27,10 @@ from eth_defi.aave_v3.deployer import AaveDeployer
 from eth_defi.event_reader.conversion import convert_jsonrpc_value_to_int
 
 #:
-#: UI pool data provider is not deployed with the default Aave local deployer,
-#: as it depends on ChainLink.
-#:
-#:
-UI_POOL_DATA_PROVIDER = "0x09635F643e140090A9A8Dcd712eD6285858ceBef"
-
-#:
 #: Chain id -> labelled address mapping from Aave documentation
 #:
 _addresses = {
+    # Polygon
     137: {
         "PoolAddressProvider": "0xa97684ead0e402dC232d5A977953DF7ECBaB3CDb",
         "UiPoolDataProviderV3": "0xC69728f11E9E6127733751c8410432913123acf1",
@@ -137,6 +134,14 @@ class JSONSerialisableReserveData(TypedDict):
     """JSON friendly way to store Aave v3 protocol reserve status.
 
     All ints are converted to JavaScript to avoid BigInt issues.
+
+    .. note ::
+
+        This data is not useful until JavaScript based formatters from
+        aave-utilities are applied. As writing of this, these formatters are only
+        available as undocumented JavaScript code in this repository.
+        `See the repository for more information <https://github.com/aave/aave-utilities>`__.
+
     """
 
     #: Which chain this was one
@@ -226,6 +231,8 @@ def fetch_reserve_data(
 
 def fetch_aave_reserves_snapshop(web3: Web3, block_identifier=None) -> JSONSerialisableReserveData:
     """Get a snapshot of all Aave reserves at a certain point of time.
+
+    See :py:class:`JSONSerialisableReserveData` for notes on how to read the output.
 
     Example:
 
