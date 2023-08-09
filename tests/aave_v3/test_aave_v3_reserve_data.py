@@ -1,4 +1,5 @@
 """Tests for reading reserve data."""
+import json
 import os
 
 import pytest
@@ -62,3 +63,7 @@ def test_aave_v3_fetch_reserve_snapshot(
     assert snapshot["timestamp"] > 0
     assert snapshot["block_number"] > 0
     assert snapshot["reserves"]["0x8f3Cf7ad23Cd3CaDbD9735AFf958023239c6A063"]["symbol"] == "DAI"
+
+    serialised = json.dumps(snapshot)
+    unserialised = json.loads(serialised)
+    assert unserialised == snapshot
