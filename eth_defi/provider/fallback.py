@@ -49,6 +49,7 @@ class FallbackProvider(BaseNamedProvider):
         sleep: float = 5.0,
         backoff: float = 1.6,
         retries: int = 6,
+        switchover_noisiness=logging.WARNING,
     ):
         """
         :param providers:
@@ -77,6 +78,9 @@ class FallbackProvider(BaseNamedProvider):
         :param retries:
             How many retries we attempt before giving up.
 
+        :param switchover_noisiness:
+            How loud we are about switchover issues.
+
         """
 
         super().__init__()
@@ -102,6 +106,7 @@ class FallbackProvider(BaseNamedProvider):
         # This tracks completed API requests.
         self.api_call_counts = defaultdict(Counter)
         self.retry_count = 0
+        self.switchover_noisiness = switchover_noisiness
 
     def __repr__(self):
         names = [get_provider_name(p) for p in self.providers]
@@ -116,7 +121,7 @@ class FallbackProvider(BaseNamedProvider):
         return self.get_active_provider().endpoint_uri
 
     def switch_provider(self):
-        """"""
+        """Switch to next available provider."""
         self.currently_active_provider = (self.currently_active_provider + 1) % len(self.providers)
 
     def get_active_provider(self) -> NamedProvider:
@@ -159,7 +164,7 @@ class FallbackProvider(BaseNamedProvider):
                     new_provider_name = get_provider_name(self.get_active_provider())
 
                     if i < self.retries - 1:
-                        logger.warning("Encountered JSON-RPC retryable error %s when calling method %s.\n" "Switching providers %s -> %s\n" "Retrying in %f seconds, retry #%d", e, method, old_provider_name, new_provider_name, current_sleep, i)
+                        logger.log(self.switchover_noisiness, "Encountered JSON-RPC retryable error %s when calling method %s.\n" "Switching providers %s -> %s\n" "Retrying in %f seconds, retry #%d", e, method, old_provider_name, new_provider_name, current_sleep, i)
                         time.sleep(current_sleep)
                         current_sleep *= self.backoff
                         self.retry_count += 1
