@@ -1,6 +1,6 @@
 """Reserve, TVL and interest data reading of pools.
 
-- Reads Aave pool metrics on-chain
+- Reads Aave reserves metrics data on-chain from a certain timestamp/block number
 
 - Relies on a lot of undocumented Aave v3 source code to pull out the data
 
@@ -12,8 +12,6 @@
   - https://github.com/aave/aave-ui/blob/f34f1cfc4fa6c1128b31eaa70b37b5b2109d1dc5/src/libs/pool-data-provider/hooks/use-v2-protocol-data-with-rpc.tsx#L62
   - https://github.com/aave/aave-utilities/blob/664e92b5c7710e8060d4dcac5d6c0ebb48bb069f/packages/math-utils/src/formatters/user/index.ts#L95
   - https://github.com/aave/aave-utilities/blob/664e92b5c7710e8060d4dcac5d6c0ebb48bb069f/packages/math-utils/src/formatters/reserve/index.ts#L310
-
-- Aave contracts deployment registry https://docs.aave.com/developers/deployed-contracts/v3-mainnet
 
 """
 from dataclasses import dataclass
@@ -27,7 +25,11 @@ from eth_defi.aave_v3.deployer import AaveDeployer
 from eth_defi.event_reader.conversion import convert_jsonrpc_value_to_int
 
 #:
+#: Aave contracts we need to know about to read reserves data.
+#:
 #: Chain id -> labelled address mapping from Aave documentation
+#: https://docs.aave.com/developers/deployed-contracts/v3-mainnet
+#:
 #:
 _addresses = {
     # Polygon
@@ -39,14 +41,14 @@ _addresses = {
 
 
 class AaveContractsNotConfigured(Exception):
-    """We lack hardcoded data of Aave contract addresses."""
+    """We lack hardcoded data of Aave contract addresses for a particular chain."""
 
 
 @dataclass
 class HelperContracts:
     """Contracts needed to resolve reserve info on Aave v3."""
 
-    #: Which EVM chian
+    #: Which EVM chain
     chain_id: int
 
     #: See
@@ -63,7 +65,16 @@ StructVal: TypeAlias = str | bool | int
 
 
 class AggreatedReserveData(TypedDict):
-    """Rough mapping of AggreatedReserveData in Aave v3 Solidity source code."""
+    """Rough mapping of AggreatedReserveData in Aave v3 Solidity source code.
+
+    .. note ::
+
+        This data is not useful until JavaScript based formatters from
+        aave-utilities are applied. As writing of this, these formatters are only
+        available as undocumented JavaScript code in this repository.
+        `See the repository for more information <https://github.com/aave/aave-utilities>`__.
+
+    """
 
     underlyingAsset: StructVal
     name: StructVal
@@ -122,8 +133,10 @@ class AggreatedReserveData(TypedDict):
 
 
 class BaseCurrencyInfo(TypedDict):
-    """Rough mapping of BaseCurrencyInfo in Aave v3 Solidity source code."""
+    """Rough mapping of BaseCurrencyInfo in Aave v3 Solidity source code.
 
+    Aave internally gets this data from ChainLink feed.
+    """
     marketReferenceCurrencyUnit: StructVal
     marketReferenceCurrencyPriceInUsd: StructVal
     networkBaseTokenPriceInUsd: StructVal
@@ -160,6 +173,8 @@ class JSONSerialisableReserveData(TypedDict):
     reserves: Dict[str, AggreatedReserveData]
 
     #: Chainlink currency conversion multipliers
+    #: needed by aave-utilities to convert values to USD/useful/human-readable
+    #:
     base_currency_info: BaseCurrencyInfo
 
 
@@ -230,9 +245,10 @@ def fetch_reserve_data(
 
 
 def fetch_aave_reserves_snapshop(web3: Web3, block_identifier=None) -> JSONSerialisableReserveData:
-    """Get a snapshot of all Aave reserves at a certain point of time.
+    """Get a snapshot of all data of Aave reserves at a certain point of time.
 
-    See :py:class:`JSONSerialisableReserveData` for notes on how to read the output.
+    See :py:class:`JSONSerialisableReserveData` for notes on how to transform the output
+    to useful and/or human readable.
 
     Example:
 
