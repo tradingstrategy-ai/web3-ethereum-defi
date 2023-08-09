@@ -1,15 +1,14 @@
 Aave v3 API
 -----------
 
-Aave lending protocol APIs allow one to read lending data, lend and borrow assets using Python.
+This is Python documentation for high-level `Aave lending protocol <https://tradingstrategy.ai/glossary/aave>`_ APIs.
 
-Aave v3 is deployed on
+Functionality includes
 
-- Ethereum mainnet
-
-- Polygon
-
-- Arbitrum
+- Reading current and historical Aave data and metrics
+- Interest rate calculations
+- Opening credit, long and short positions
+- Creating Aave unit test deployments in Python
 
 .. autosummary::
    :toctree: _autosummary_aave_v3
