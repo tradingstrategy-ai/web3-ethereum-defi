@@ -1,3 +1,7 @@
+# 0.22.7
+
+- Fix: Decimal place adjustment when calculating Uniswap v3 fees
+
 # 0.22.6
 
 - Fix: Aave v3 event reader dealing with different
