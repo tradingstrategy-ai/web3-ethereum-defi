@@ -1,3 +1,7 @@
+# Current
+
+- Add: Aave v3 reserve data queries
+
 # 0.22.7
 
 - Fix: Decimal place adjustment when calculating Uniswap v3 fees

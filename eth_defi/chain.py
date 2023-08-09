@@ -12,7 +12,7 @@ from urllib.parse import urljoin
 
 import requests
 from web3 import Web3, HTTPProvider
-from web3.middleware import geth_poa_middleware
+from web3.middleware import geth_poa_middleware, construct_time_based_cache_middleware
 from web3.providers import JSONBaseProvider, BaseProvider
 from web3.types import RPCEndpoint, RPCResponse
 from web3.datastructures import NamedElementOnion
@@ -226,3 +226,12 @@ def fetch_block_timestamp(web3: Web3, block_number: int) -> datetime.datetime:
     timestamp = convert_jsonrpc_value_to_int(block["timestamp"])
     time = datetime.datetime.utcfromtimestamp(timestamp)
     return time
+
+
+def install_retry_middleware(web3: Web3):
+    """Install gracefully HTTP request retry middleware.
+
+    In the case your Internet connection or JSON-RPC node has issues,
+    gracefully do exponential backoff retries.
+    """
+    web3.middleware_onion.inject(http_retry_request_with_sleep_middleware, layer=0)

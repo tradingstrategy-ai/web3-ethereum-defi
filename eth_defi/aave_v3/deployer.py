@@ -355,6 +355,7 @@ HARDHAT_CONTRACTS = {
     # this is the same as mainnet deployment
     "PoolProxy": "0x763e69d24a03c0c8B256e470D9fE9e0753504D07",
     "PoolDataProvider": "0x09635F643e140090A9A8Dcd712eD6285858ceBef",
+    "PoolAddressProvider": "0xa85233C63b9Ee964Add6F2cffe00Fd84eb32338f",
     # https://github.com/aave/aave-v3-periphery/blob/1fdd23b38cc5b6c095687b3c635c4d761ff75c4c/contracts/mocks/testnet-helpers/Faucet.sol
     "Faucet": "0x0B306BF915C4d645ff596e518fAf3F9669b97016",
     # TestnetERC20 https://github.com/aave/aave-v3-periphery/blob/1fdd23b38cc5b6c095687b3c635c4d761ff75c4c/contracts/mocks/testnet-helpers/TestnetERC20.sol#L12
