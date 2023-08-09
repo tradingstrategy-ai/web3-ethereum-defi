@@ -235,5 +235,3 @@ def install_retry_middleware(web3: Web3):
     gracefully do exponential backoff retries.
     """
     web3.middleware_onion.inject(http_retry_request_with_sleep_middleware, layer=0)
-
-

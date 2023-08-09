@@ -190,7 +190,7 @@ def analyse_trade_by_receipt(web3: Web3, uniswap: UniswapV2Deployment, tx: dict,
 
     price = amount_out_cleaned / amount_in_cleaned
 
-    lp_fee_paid = float(amount_in * pair_fee / 10 ** in_token_details.decimals) if pair_fee else None
+    lp_fee_paid = float(amount_in * pair_fee / 10**in_token_details.decimals) if pair_fee else None
 
     return TradeSuccess(
         gas_used,

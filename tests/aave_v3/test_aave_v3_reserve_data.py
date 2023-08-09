@@ -18,7 +18,7 @@ pytestmark = pytest.mark.skipif(not JSON_RPC_POLYGON, reason="This test needs Po
 def web3():
     """Live Polygon web3 instance."""
     web3 = Web3(HTTPProvider(JSON_RPC_POLYGON, session=requests.Session()))
-    # web3.middleware_onion.clear()
+    web3.middleware_onion.clear()
     install_chain_middleware(web3)
     install_retry_middleware(web3)
     return web3

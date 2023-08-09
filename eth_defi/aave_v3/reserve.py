@@ -40,6 +40,7 @@ _addresses = {
     }
 }
 
+
 class AaveContractsNotConfigured(Exception):
     """We lack hardcoded data of Aave contract addresses."""
 
@@ -61,13 +62,12 @@ class HelperContracts:
 
 
 #: Quick and dirty "any" Solidity value hack
-StructVal:TypeAlias = str | bool | int
+StructVal: TypeAlias = str | bool | int
 
 
 class AggreatedReserveData(TypedDict):
-    """Rough mapping of AggreatedReserveData in Aave v3 Solidity source code.
+    """Rough mapping of AggreatedReserveData in Aave v3 Solidity source code."""
 
-    """
     underlyingAsset: StructVal
     name: StructVal
     symbol: StructVal
@@ -125,16 +125,15 @@ class AggreatedReserveData(TypedDict):
 
 
 class BaseCurrencyInfo(TypedDict):
-    """Rough mapping of BaseCurrencyInfo in Aave v3 Solidity source code.
+    """Rough mapping of BaseCurrencyInfo in Aave v3 Solidity source code."""
 
-    """
     marketReferenceCurrencyUnit: StructVal
     marketReferenceCurrencyPriceInUsd: StructVal
     networkBaseTokenPriceInUsd: StructVal
     networkBaseTokenPriceDecimals: StructVal
 
 
-class JSONSerialisableReserveData(TypedDict)    :
+class JSONSerialisableReserveData(TypedDict):
     """JSON friendly way to store Aave v3 protocol reserve status.
 
     All ints are converted to JavaScript to avoid BigInt issues.
@@ -159,7 +158,6 @@ class JSONSerialisableReserveData(TypedDict)    :
     base_currency_info: BaseCurrencyInfo
 
 
-
 def get_helper_contracts(web3: Web3) -> HelperContracts:
     """Get helper contracts need to read Aave reserve data.
 
@@ -172,19 +170,11 @@ def get_helper_contracts(web3: Web3) -> HelperContracts:
         raise AaveContractsNotConfigured(f"Chain {chain_id} does not have Aave v3 addresses configured")
 
     deployer = AaveDeployer()
-    Contract = deployer.get_contract(
-        web3,
-        "UiPoolDataProviderV3.json"
-    )
+    Contract = deployer.get_contract(web3, "UiPoolDataProviderV3.json")
     Contract.decode_tuples = False
-    ui_pool_data_provider = Contract(
-        Web3.to_checksum_address(_addresses[chain_id]["UiPoolDataProviderV3"])
-    )
+    ui_pool_data_provider = Contract(Web3.to_checksum_address(_addresses[chain_id]["UiPoolDataProviderV3"]))
 
-    Contract = deployer.get_contract(
-        web3,
-        "PoolAddressesProvider.json"
-    )
+    Contract = deployer.get_contract(web3, "PoolAddressesProvider.json")
     Contract.decode_tuples = False
     pool_addresses_provider = Contract(Web3.to_checksum_address(_addresses[chain_id]["PoolAddressProvider"]))
     return HelperContracts(
@@ -236,6 +226,13 @@ def fetch_reserve_data(
 
 def fetch_aave_reserves_snapshop(web3: Web3, block_identifier=None) -> JSONSerialisableReserveData:
     """Get a snapshot of all Aave reserves at a certain point of time.
+
+    Example:
+
+    .. code-block:: python
+
+        # Read Polygon Aave v3 reserves data at current block
+        snapshot = fetch_aave_reserves_snapshop(web3)
 
     Example output:
 

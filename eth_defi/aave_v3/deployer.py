@@ -567,7 +567,7 @@ class AaveDeployer:
 
         """
         address = self.get_contract_address(address_name)
-        ContractProxy = self.   get_contract(web3, contract_fname)
+        ContractProxy = self.get_contract(web3, contract_fname)
         instance = ContractProxy(address)
         return instance
 

@@ -23,7 +23,8 @@ from eth_defi.abi import get_contract
 from eth_defi.event_reader.conversion import (
     convert_int256_bytes_to_int,
     convert_uint256_string_to_address,
-    decode_data, convert_jsonrpc_value_to_int,
+    decode_data,
+    convert_jsonrpc_value_to_int,
 )
 from eth_defi.event_reader.logresult import LogContext
 from eth_defi.event_reader.reader import LogResult, read_events_concurrent
