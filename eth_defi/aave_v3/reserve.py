@@ -244,7 +244,7 @@ def fetch_reserve_data(
     return aggregated_reserve_data_decoded, base_currency_info_decoded
 
 
-def fetch_aave_reserves_snapshop(web3: Web3, block_identifier=None) -> JSONSerialisableReserveData:
+def fetch_aave_reserves_snapshot(web3: Web3, block_identifier=None) -> JSONSerialisableReserveData:
     """Get a snapshot of all data of Aave reserves at a certain point of time.
 
     See :py:class:`JSONSerialisableReserveData` for notes on how to transform the output
@@ -255,7 +255,7 @@ def fetch_aave_reserves_snapshop(web3: Web3, block_identifier=None) -> JSONSeria
     .. code-block:: python
 
         # Read Polygon Aave v3 reserves data at current block
-        snapshot = fetch_aave_reserves_snapshop(web3)
+        snapshot = fetch_aave_reserves_snapshot(web3)
 
     Example output:
 
