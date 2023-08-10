@@ -74,6 +74,9 @@ class HotWallet:
         self.account = account
         self.current_nonce: Optional[int] = None
 
+    def __repr__(self):
+        return f"<Hot wallet {self.account.address}>"
+
     @property
     def address(self):
         """Get address of the private key of the wallet."""
