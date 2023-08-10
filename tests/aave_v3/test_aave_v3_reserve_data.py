@@ -7,7 +7,7 @@ import requests
 from web3 import Web3, HTTPProvider
 
 from eth_defi.aave_v3.reserve import HelperContracts, get_helper_contracts, fetch_reserves, fetch_reserve_data
-from eth_defi.aave_v3.reserve import fetch_aave_reserves_snapshop
+from eth_defi.aave_v3.reserve import fetch_aave_reserves_snapshot
 from eth_defi.chain import install_chain_middleware, install_retry_middleware
 
 
@@ -58,7 +58,7 @@ def test_aave_v3_fetch_reserve_snapshot(
 ):
     """Get the reserve data snapshot."""
 
-    snapshot = fetch_aave_reserves_snapshop(web3)
+    snapshot = fetch_aave_reserves_snapshot(web3)
     assert snapshot["chain_id"] == 137
     assert snapshot["timestamp"] > 0
     assert snapshot["block_number"] > 0

@@ -32,11 +32,47 @@ from eth_defi.event_reader.conversion import convert_jsonrpc_value_to_int
 #:
 #:
 _addresses = {
+    # Ethereum
+    1: {
+        "PoolAddressProvider": "0x2f39d218133AFaB8F2B819B1066c7E434Ad94E9e",
+        "UiPoolDataProviderV3": "0x91c0eA31b49B69Ea18607702c5d9aC360bf3dE7d",
+    },
+
     # Polygon
     137: {
         "PoolAddressProvider": "0xa97684ead0e402dC232d5A977953DF7ECBaB3CDb",
         "UiPoolDataProviderV3": "0xC69728f11E9E6127733751c8410432913123acf1",
-    }
+    },
+
+    # Binance Smarrt Chain mainnet (not supported by AAVE v3)
+    # 56: {
+    #     "PoolAddressProvider": "",
+    #     "UiPoolDataProviderV3": "",
+    # },
+
+    # Avalanche C-chain
+    43114: {
+        "PoolAddressProvider": "0xa97684ead0e402dC232d5A977953DF7ECBaB3CDb",
+        "UiPoolDataProviderV3": "0xF71DBe0FAEF1473ffC607d4c555dfF0aEaDb878d",
+    },
+
+    # Arbitrum One
+    42161: {
+        "PoolAddressProvider": "0xa97684ead0e402dC232d5A977953DF7ECBaB3CDb",
+        "UiPoolDataProviderV3": "0x145dE30c929a065582da84Cf96F88460dB9745A7",
+    },
+
+    # Ethereum Classic (not supported by AAVE v3)
+    # 61: {
+    #     "PoolAddressProvider": "",
+    #     "UiPoolDataProviderV3": "",
+    # },
+
+    # Ganache test chain  (not supported by AAVE v3)
+    # 1337: {
+    #     "PoolAddressProvider": "",
+    #     "UiPoolDataProviderV3": "",
+    # },
 }
 
 
@@ -244,7 +280,7 @@ def fetch_reserve_data(
     return aggregated_reserve_data_decoded, base_currency_info_decoded
 
 
-def fetch_aave_reserves_snapshop(web3: Web3, block_identifier=None) -> JSONSerialisableReserveData:
+def fetch_aave_reserves_snapshot(web3: Web3, block_identifier=None) -> JSONSerialisableReserveData:
     """Get a snapshot of all data of Aave reserves at a certain point of time.
 
     See :py:class:`JSONSerialisableReserveData` for notes on how to transform the output
@@ -255,7 +291,7 @@ def fetch_aave_reserves_snapshop(web3: Web3, block_identifier=None) -> JSONSeria
     .. code-block:: python
 
         # Read Polygon Aave v3 reserves data at current block
-        snapshot = fetch_aave_reserves_snapshop(web3)
+        snapshot = fetch_aave_reserves_snapshot(web3)
 
     Example output:
 
