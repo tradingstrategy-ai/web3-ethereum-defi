@@ -3,6 +3,44 @@
 - Adds support for extracting block data using Ankr
 - Adds `AnkrReorganizationMonitor`
 
+# Current
+
+- Add: Aave v3 reserve data queries
+
+# 0.22.7
+
+- Fix: Decimal place adjustment when calculating Uniswap v3 fees
+
+# 0.22.6
+
+- Fix: Aave v3 event reader dealing with different
+  block number formats from JSON-RPC nodes
+
+# 0.22.5
+
+- Add: Uniswap v3 LP fees are now accounted in the trade analysis
+- Fix: Documentation now generates proper title and description HTML 
+  meta tags for automatically generated API documentation
+
+# 0.22.4
+
+- [JSON-RPC fallback and MEV protection tutorial](https://web3-ethereum-defi.readthedocs.io/tutorials/multi-rpc-configuration.html)
+- Added missing `sigfig` lib dependency
+
+
+# 0.22.3
+
+- Fix: `eth_defi.chain.has_graphql_support` to support `MultiProviderWeb3`
+
+# 0.22.2
+
+- Add: `eth_defi.provider.multi_provider.create_multi_provider_web3`: An easy way to configure a Web3 instance with multiple providers
+
+# 0.22.1
+
+- Add logging to `swap_with_slippage_protection()` on Uniswap v3 
+  to trace slippage issues
+
 # 0.22
 
 - Refactor a lot of functionality to a new submodule [eth_defi.provider](https://web3-ethereum-defi.readthedocs.io/api/provider/index.html) 

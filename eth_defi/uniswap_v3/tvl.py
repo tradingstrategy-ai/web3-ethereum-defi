@@ -15,11 +15,28 @@ def fetch_uniswap_v3_pool_tvl(
 ) -> Decimal:
     """Return the total value locked of the quote token.
 
-    - This gets the amount of quote token lockedin the pool
+    - This gets the amount of quote token locked in the pool
 
     .. note ::
 
         This includes unclaimed fees.
+
+    Example how to read the historical pool TVL for WMATIC-USDC pair on Polygon:
+
+    .. code-block:: python
+
+        # https://tradingstrategy.ai/trading-view/polygon/uniswap-v3/matic-usdc-fee-5
+        block_estimated = 45_583_631
+        pool_address = "0xa374094527e1673a86de625aa59517c5de346d32"
+        pool = fetch_pool_details(web3, pool_address)
+
+        tvl_estimated = fetch_uniswap_v3_pool_tvl(
+            pool,
+            quote_token=usdc,
+            block_identifier=block_estimated,
+        )
+
+        print(f"TVL {tvl_estimated:,} USDC at block {block_estimated,}")
 
     :param pool:
         Uniswap v3 pool data fully resolved.
@@ -28,7 +45,6 @@ def fetch_uniswap_v3_pool_tvl(
 
     :param quote_token:
         Which side of the pool to get.
-
 
     :param block_identifier:
         Get the historically locked value.

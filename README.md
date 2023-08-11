@@ -110,7 +110,7 @@ With `poetry` - master Git branch:
 git clone git@github.com:tradingstrategy-ai/web3-ethereum-defi.git
 cd web3-ethereum-defi
 poetry shell
-poetry install -E data -E docs 
+poetry install --all-extras
 ```
 
 # Example code

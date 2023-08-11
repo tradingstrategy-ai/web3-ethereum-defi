@@ -13,7 +13,7 @@ from eth_defi.uniswap_v2.utils import ZERO_ADDRESS
 @pytest.fixture(scope="module")
 def anvil() -> AnvilLaunch:
     """Launch Anvil for the test backend."""
-    anvil = launch_anvil()
+    anvil = launch_anvil(port=20006)
     try:
         yield anvil
     finally:
@@ -24,7 +24,7 @@ def anvil() -> AnvilLaunch:
 def mev_blocker_provider(anvil: AnvilLaunch) -> MEVBlockerProvider:
     provider = MEVBlockerProvider(
         call_provider=HTTPProvider(anvil.json_rpc_url),
-        transact_provivder=HTTPProvider(anvil.json_rpc_url),
+        transact_provider=HTTPProvider(anvil.json_rpc_url),
     )
     return provider
 

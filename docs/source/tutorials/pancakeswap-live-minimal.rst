@@ -1,3 +1,6 @@
+.. meta::
+   :description: Monitor Pancakeswap live trades with Python
+
 Pancakeswap live trades
 -----------------------
 

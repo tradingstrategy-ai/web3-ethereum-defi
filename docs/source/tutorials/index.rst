@@ -1,7 +1,11 @@
+.. meta::
+   :description: Python and Pandas examples for blockchain data research
+
+
 Tutorials
 =========
 
-Examples how to use web3.py and Web-Ethereum-Defi library.
+Examples of how to use web3.py and Web-Ethereum-Defi library.
 
 Examples include
 
@@ -43,6 +47,8 @@ Example tutorials
    pancakeswap-live-minimal
    live-swap
    aave-v3-interest-analysis
+   slippage-and-price-impact
+   multi-rpc-configuration
 
 `For more examples, browse tests folder on Github <https://github.com/tradingstrategy-ai/web3-ethereum-defi/tree/master/tests>`__.
 You can also search function names in `the repository <https://github.com/tradingstrategy-ai/web3-ethereum-defi/>`__

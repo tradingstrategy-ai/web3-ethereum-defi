@@ -6,7 +6,7 @@ Web3-Ethereum-Defi for Python
 
 .. image:: logo-wall-white.png
 
-This is the documentation for `web3-ethereum-defi <https://github.com/tradingstrategy-ai/web3-ethereum-defi>`__ `Python <https://tradingstrategy.ai/glossary/python>`__ package.
+This is the documentation for `Web3-Ethereum-Defi <https://github.com/tradingstrategy-ai/web3-ethereum-defi>`__ `Python <https://tradingstrategy.ai/glossary/python>`__ package.
 
 Web-Ethereum-DeFi Python package provides high level modules for smart contracts,
 with prepackaged ABI files for DeFi protocol integration, wallet management, JSON-RPC providers and

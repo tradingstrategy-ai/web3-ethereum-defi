@@ -1,4 +1,16 @@
-"""Uniswap v3 price calculations."""
+"""Uniswap v3 price calculations.
+
+See :ref:`slippage and price impact` tutorial.
+
+Helpers to calculate
+
+- `price impact <https://tradingstrategy.ai/glossary/price-impact>`__
+
+- `slippage <https://tradingstrategy.ai/glossary/slippage>`__
+
+- `mid price <https://tradingstrategy.ai/glossary/mid-price>`__
+
+"""
 
 from decimal import Decimal
 
@@ -11,6 +23,8 @@ from eth_defi.uniswap_v3.utils import encode_path
 
 
 class UniswapV3PriceHelper:
+    """Internal helper class for price calculations."""
+
     def __init__(self, uniswap_v3: UniswapV3Deployment):
         self.deployment = uniswap_v3
 
@@ -132,12 +146,18 @@ def estimate_buy_received_amount(
         price = (1650*10**18) / eth_received
         assert price == pytest.approx(Decimal(1706.7653460381143))
 
+    See another example in :py:mod:`eth_defi.uniswap_v3.price`.
+
     :param quantity: How much of the base token we want to buy
     :param uniswap: Uniswap v3 deployment
     :param base_token_address: Base token address of the trading pair
     :param quote_token_address: Quote token address of the trading pair
     :param target_pair_fee: Trading fee of the target pair in raw format
-    :param slippage: Slippage express in bps
+
+    :param slippage:
+        Slippage express in bps.
+        The amount will be estimated for the maximum slippage.
+
     :param block_identifier: A specific block to estimate price
     :param verbose: If True, return more debug info
     :return: Expected base token amount to receive
@@ -171,8 +191,8 @@ def estimate_buy_received_amount(
 
 def estimate_sell_received_amount(
     uniswap: UniswapV3Deployment,
-    base_token_address: HexAddress,
-    quote_token_address: HexAddress,
+    base_token_address: HexAddress | str,
+    quote_token_address: HexAddress | str,
     quantity: Decimal | int,
     target_pair_fee: int,
     *,
@@ -184,12 +204,18 @@ def estimate_sell_received_amount(
 ) -> int | tuple[int, int]:
     """Estimate how much we receive for selling a certain base token amount.
 
+    See example in :py:mod:`eth_defi.uniswap_v3.price`.
+
     :param quantity: How much of the base token we want to buy
     :param uniswap: Uniswap v3 deployment
     :param base_token_address: Base token address of the trading pair
     :param quote_token_address: Quote token address of the trading pair
     :param target_pair_fee: Trading fee of the target pair in raw format
-    :param slippage: Slippage express in bps
+
+    :param slippage:
+        Slippage express in bps.
+        The amount will be estimated for the maximum slippage.
+
     :param block_identifier: A specific block to estimate price
     :param verbose: If True, return more debug info
     :return: Expected quote token amount to receive
@@ -227,13 +253,53 @@ def get_onchain_price(
     block_identifier: int | None = None,
     reverse_token_order: bool = False,
 ):
-    """Get the current price of a Uniswap pool.
+    """Get the current price of a Uniswap v3 pool.
 
-    :param web3: Web3 instance
-    :param pool_contract_address: Contract address of the pool
-    :param block_identifier: A specific block to query price
-    :param reverse_token_order: If set, assume quote token is token0
-    :return: Current price
+    Reads Uniswap v3 "slot 0" price.
+
+    - This is the `current price <https://blog.uniswap.org/uniswap-v3-math-primer#how-do-i-calculate-the-current-exchange-rate>`__
+      according to Uniswap team explanation, which we assume is the mid-price
+
+    - See `mid price <https://tradingstrategy.ai/glossary/mid-price>`__
+
+    To read the latest ETH-USDC price on Polygon:
+
+    .. code-block:: python
+
+        import os
+        from web3 import Web3, HTTPProvider
+
+        from eth_defi.uniswap_v3.price import get_onchain_price
+
+        json_rpc_url = os.environ["JSON_RPC_POLYGON"]
+        web3 = Web3(HTTPProvider(json_rpc_url))
+
+        # ETH-USDC 5 BPS pool address
+        # https://tradingstrategy.ai/trading-view/polygon/uniswap-v3/eth-usdc-fee-5
+        pool_address = "0x45dda9cb7c25131df268515131f647d726f50608"
+
+        price = get_onchain_price(web3, pool_address, reverse_token_order=True)
+        print(f"ETH price is {price:.2f} USD")
+
+    :param web3:
+        Web3 instance
+
+    :param pool_contract_address:
+        Contract address of the Uniswap v3 pool
+
+    :param block_identifier:
+        A specific block to query price.
+
+        Block number or block hash.
+
+    :param reverse_token_order:
+        For switching the pair ticker around to make it human readable.
+
+        - If set, assume quote token is token0, and the human price is 1/price
+        - If not set assumes base token is token0
+
+    :return:
+        Current price in human-readable Decimal format.
     """
     pool_details = fetch_pool_details(web3, pool_contract_address)
     _, tick, *_ = pool_details.pool.functions.slot0().call(block_identifier=block_identifier)

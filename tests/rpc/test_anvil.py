@@ -67,7 +67,7 @@ def anvil_bnb_chain_fork(request, large_busd_holder, user_1, user_2) -> str:
     :return: JSON-RPC URL for Web3
     """
     mainnet_rpc = os.environ["BNB_CHAIN_JSON_RPC"]
-    launch = fork_network_anvil(mainnet_rpc, unlocked_addresses=[large_busd_holder])
+    launch = fork_network_anvil(mainnet_rpc, unlocked_addresses=[large_busd_holder], port=20010)
     try:
         yield launch.json_rpc_url
     finally:
@@ -92,9 +92,12 @@ def test_anvil_output():
     # process, cmd = _launch("anvil")
 
     mainnet_rpc = os.environ["BNB_CHAIN_JSON_RPC"]
-    launch = fork_network_anvil(mainnet_rpc)
-    stdout, stderr = launch.close()
-    assert b"https://github.com/foundry-rs/foundry" in stdout, f"Did not see the market string in stdout: {stdout}"
+    launch = fork_network_anvil(mainnet_rpc, port=20011)
+    try:
+        stdout, stderr = launch.close()
+        assert b"https://github.com/foundry-rs/foundry" in stdout, f"Did not see the market string in stdout: {stdout}"
+    finally:
+        launch.close()
 
 
 def test_anvil_forked_chain_id(web3: Web3):

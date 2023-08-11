@@ -2,6 +2,10 @@
 
 Documentation for `{{ fullname }}` Python module.
 
+.. meta::
+    :description: {{ fullname|extract_module_docstring }}
+    :title: {{ fullname }} Python module
+
 .. automodule:: {{ fullname }}
 
    {% block attributes %}

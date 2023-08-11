@@ -1,6 +1,7 @@
 """Uniswap v3 swap helper functions."""
 import warnings
 from typing import Callable
+import logging
 
 from eth_typing import HexAddress
 from web3.contract import Contract
@@ -8,6 +9,9 @@ from web3.contract import Contract
 from eth_defi.uniswap_v3.deployment import FOREVER_DEADLINE, UniswapV3Deployment
 from eth_defi.uniswap_v3.price import UniswapV3PriceHelper
 from eth_defi.uniswap_v3.utils import encode_path
+
+
+logger = logging.getLogger(__name__)
 
 
 def swap_with_slippage_protection(
@@ -102,6 +106,8 @@ def swap_with_slippage_protection(
             slippage=max_slippage,
         )
 
+        logger.info("exactInput() amount in: %s, estimated_min_amount_out: %s", amount_in, estimated_min_amount_out)
+
         return router.functions.exactInput(
             (
                 encoded_path,
@@ -121,6 +127,8 @@ def swap_with_slippage_protection(
             fees=pool_fees,
             slippage=max_slippage,
         )
+
+        logger.info("exactInput() amount out: %s, estimated_max_amount_in: %s", amount_out, estimated_max_amount_in)
 
         return router.functions.exactOutput(
             (

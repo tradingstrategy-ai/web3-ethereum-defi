@@ -53,7 +53,11 @@ def anvil_bnb_chain_fork(request, large_busd_holder) -> str:
     :return: JSON-RPC URL for Web3
     """
     mainnet_rpc = os.environ["BNB_CHAIN_JSON_RPC"]
-    launch = fork_network_anvil(mainnet_rpc, unlocked_addresses=[large_busd_holder])
+    launch = fork_network_anvil(
+        mainnet_rpc,
+        unlocked_addresses=[large_busd_holder],
+        port=20008,
+    )
     try:
         yield launch.json_rpc_url
     finally:

@@ -41,13 +41,13 @@ class MEVBlockerProvider(BaseNamedProvider):
 
     def __init__(
         self,
-        call_provider: JSONBaseProvider,
-        transact_provivder: JSONBaseProvider,
+        call_provider: BaseNamedProvider,
+        transact_provider: BaseNamedProvider,
         transact_methods=TRANSACT_METHODS,
     ):
         super().__init__()
         self.call_provider = call_provider
-        self.transact_provider = transact_provivder
+        self.transact_provider = transact_provider
         self.transact_methods = transact_methods
 
         #: Keep tabs on how much API traffic we generate through each endpoint
@@ -74,3 +74,7 @@ class MEVBlockerProvider(BaseNamedProvider):
     def endpoint_uri(self) -> str:
         """Map us to the transact provider by the default"""
         return self.transact_provider.endpoint_uri
+
+    @property
+    def call_endpoint_uri(self) -> str:
+        return self.call_provider.endpoint_uri
