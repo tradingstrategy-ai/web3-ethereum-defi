@@ -2,9 +2,6 @@
 
 - Adds support for extracting block data using Ankr
 - Adds `AnkrReorganizationMonitor`
-
-# Current
-
 - Add: Aave v3 reserve data queries
 
 # 0.22.7

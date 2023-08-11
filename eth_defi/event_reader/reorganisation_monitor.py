@@ -19,7 +19,8 @@ from web3 import Web3, HTTPProvider
 from eth_defi.chain import has_graphql_support, has_ankr_support
 from eth_defi.event_reader.block_header import BlockHeader, Timestamp
 from eth_defi.provider.fallback import FallbackProvider
-from eth_defi.provider.mev_blocker import MEVBlockerProviderfrom eth_defi.event_reader.ankr import AnkrSupportedBlockchain, make_block_request_ankr
+from eth_defi.provider.mev_blocker import MEVBlockerProvider
+from eth_defi.event_reader.ankr import AnkrSupportedBlockchain, make_block_request_ankr
 
 
 logger = logging.getLogger(__name__)
