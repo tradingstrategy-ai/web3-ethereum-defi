@@ -1,5 +1,9 @@
 {{ fullname | escape | underline}}
 
+.. meta::
+    :description: {{ fullname|extract_object_docstring }}
+    :title: {{ name }} {{ objtype }} in {{ fullname|obj_path }}
+
 .. currentmodule:: {{ module }}
 
 .. autoclass:: {{ objname }}

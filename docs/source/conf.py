@@ -149,6 +149,16 @@ def extract_object_docstring(dotted_path: str) -> str:
     return get_first_line(getattr(obj, "__doc__", ""))
 
 
+
+def partial_name(fullname):
+    parts = fullname.split(".")
+    return parts[-1]
+
+
+def obj_path(fullname):
+    parts = fullname.split(".")
+    return ".".join(parts[0:-1])
+
 # Patch autosummary internals to allow our tuned templates to access
 # necessary Python functions
 def fixed_init(self, app, template_dir=None):
@@ -156,6 +166,9 @@ def fixed_init(self, app, template_dir=None):
     self.env.filters["smart_fullname"] = smart_fullname
     self.env.filters["extract_module_docstring"] = extract_module_docstring
     self.env.filters["extract_object_docstring"] = extract_object_docstring
+    self.env.filters["partial_name"] = partial_name
+    self.env.filters["obj_path"] = obj_path
+
 
 
 AutosummaryRenderer.__old_init__ = AutosummaryRenderer.__init__
