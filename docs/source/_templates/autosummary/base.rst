@@ -8,7 +8,7 @@
 
 .. meta::
     :description: {{ fullname|extract_object_docstring }}
-    :title: {{ name }} {{ objtype }} in {{ module }}
+    :title: {{ name }} {{ objtype }} in {{ fullname|obj_path }}
 
 
 {% if objtype == "class" %}
