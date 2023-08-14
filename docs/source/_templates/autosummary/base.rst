@@ -7,7 +7,7 @@
 .. currentmodule:: {{ module }}
 
 .. meta::
-    :description: {{ fullname|extract_module_docstring }}
+    :description: {{ fullname|extract_object_docstring }}
     :title: {{ name }} {{ objtype }} in {{ module }}
 
 
