@@ -37,37 +37,31 @@ _addresses = {
         "PoolAddressProvider": "0x2f39d218133AFaB8F2B819B1066c7E434Ad94E9e",
         "UiPoolDataProviderV3": "0x91c0eA31b49B69Ea18607702c5d9aC360bf3dE7d",
     },
-
     # Polygon
     137: {
         "PoolAddressProvider": "0xa97684ead0e402dC232d5A977953DF7ECBaB3CDb",
         "UiPoolDataProviderV3": "0xC69728f11E9E6127733751c8410432913123acf1",
     },
-
     # Binance Smarrt Chain mainnet (not supported by AAVE v3)
     # 56: {
     #     "PoolAddressProvider": "",
     #     "UiPoolDataProviderV3": "",
     # },
-
     # Avalanche C-chain
     43114: {
         "PoolAddressProvider": "0xa97684ead0e402dC232d5A977953DF7ECBaB3CDb",
         "UiPoolDataProviderV3": "0xF71DBe0FAEF1473ffC607d4c555dfF0aEaDb878d",
     },
-
     # Arbitrum One
     42161: {
         "PoolAddressProvider": "0xa97684ead0e402dC232d5A977953DF7ECBaB3CDb",
         "UiPoolDataProviderV3": "0x145dE30c929a065582da84Cf96F88460dB9745A7",
     },
-
     # Ethereum Classic (not supported by AAVE v3)
     # 61: {
     #     "PoolAddressProvider": "",
     #     "UiPoolDataProviderV3": "",
     # },
-
     # Ganache test chain  (not supported by AAVE v3)
     # 1337: {
     #     "PoolAddressProvider": "",
@@ -173,6 +167,7 @@ class BaseCurrencyInfo(TypedDict):
 
     Aave internally gets this data from ChainLink feed.
     """
+
     marketReferenceCurrencyUnit: StructVal
     marketReferenceCurrencyPriceInUsd: StructVal
     networkBaseTokenPriceInUsd: StructVal
