@@ -200,7 +200,9 @@ class JSONSerialisableReserveData(TypedDict):
     #: Unix timestamp when this fetch was performed
     timestamp: int
 
-    #: ERC-20 address -> reserve info mapping
+    #: ERC-20 address -> reserve info mapping.
+    #:
+    #: All addresses are lowercased 0x strings
     reserves: Dict[str, AggregatedReserveData]
 
     #: Chainlink currency conversion multipliers
@@ -376,7 +378,7 @@ def fetch_aave_reserves_snapshot(web3: Web3, block_identifier=None) -> JSONSeria
 
     aggregated_reserve_data, base_currency_info = fetch_reserve_data(helpers)
 
-    reserve_map = {a["underlyingAsset"]: _to_json_friendly(a) for a in aggregated_reserve_data}
+    reserve_map = {a["underlyingAsset"].lower(): _to_json_friendly(a) for a in aggregated_reserve_data}
 
     return JSONSerialisableReserveData(
         chain_id=helpers.chain_id,
