@@ -94,7 +94,7 @@ class HelperContracts:
 StructVal: TypeAlias = str | bool | int
 
 
-class AggreatedReserveData(TypedDict):
+class AggregatedReserveData(TypedDict):
     """Rough mapping of AggreatedReserveData in Aave v3 Solidity source code.
 
     .. note ::
@@ -201,7 +201,7 @@ class JSONSerialisableReserveData(TypedDict):
     timestamp: int
 
     #: ERC-20 address -> reserve info mapping
-    reserves: Dict[str, AggreatedReserveData]
+    reserves: Dict[str, AggregatedReserveData]
 
     #: Chainlink currency conversion multipliers
     #: needed by aave-utilities to convert values to USD/useful/human-readable
@@ -252,7 +252,7 @@ def fetch_reserves(contracts: HelperContracts) -> List[str]:
 def fetch_reserve_data(
     contracts: HelperContracts,
     block_identifier=None,
-) -> Tuple[List[AggreatedReserveData], BaseCurrencyInfo]:
+) -> Tuple[List[AggregatedReserveData], BaseCurrencyInfo]:
     """Fetch data for all reserves.
 
     :param contracts:
