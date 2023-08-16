@@ -37,6 +37,8 @@ good free RPC nodes which makes running the example code easy.
   the startup is a bit slow as the pair details cache
   is warming up.
 
+- `For any questions please join to Discord chat <https://tradingstrategy.ai/community>`__.
+
 To run for Polygon (and QuickSwap):
 
 .. code-block:: shell

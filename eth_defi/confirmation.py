@@ -51,9 +51,11 @@ def wait_transactions_to_complete(
 
     :param txs:
         List of transaction hashes
+
     :param confirmation_block_count:
         How many blocks wait for the transaction receipt to settle.
         Set to zero to return as soon as we see the first transaction receipt.
+
     :return:
         Map of transaction hashes -> receipt
     """

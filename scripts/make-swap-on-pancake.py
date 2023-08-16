@@ -1,12 +1,21 @@
-"""Make a swap on PancakeSwap v2 Python example.
+"""Make a swap on PancakeSwap Python example script.
+
+This is an simple example script to swap one token to another securely.
+It works on any `Uniswap v2 compatible DEX <https://tradingstrategy.ai/glossary/uniswap>`__.
+For this particular example, we use PancakeSwap on Binance Smart Chain,
+but you can reconfigure the script for any Uniswap v2 compatible protocol
+on any `EVM-compatible <https://tradingstrategy.ai/glossary/evm-compatible>`__ blockchain.
+
+- :ref:`Read tutorials section for required Python knowledge, version and how to install related packages <tutorials>`
 
 - In order to run this example script, you need to have
   - Private key on BNB Smart Chain with BNB balance,
-    `you can generate a private key on a command line using these instructions <https://ethereum.stackexchange.com/a/125699/620>`__
+    `you can generate a private key on a command line using these instructions <https://ethereum.stackexchange.com/a/125699/620>`__.
+  - `Binance Smart Chain JSON-RPC node <https://docs.bnbchain.org/docs/rpc>`. You can use public ones.
   - BUSD balance (you can swap some BNB on BUSD manually by importing your private key to a wallet)
   - Easy way to get few dollars worth of starting tokens is https://global.transak.com/
-     with debit card - they support buying tokens natively for many blockchains
-  - Easy way to to manually swap is to import your private key to `Rabby desktop wallet <https://rabby.io/>`__
+     with debit card - they support buying tokens natively for many blockchains.
+  - Easy way to to manually swap is to import your private key to `Rabby desktop wallet <https://rabby.io/>`__.
 
 This script will
 
@@ -19,6 +28,16 @@ This script will
 
 - `Uses slippage protection <https://tradingstrategy.ai/glossary/slippage>`__
   for the swap so that you do not get exploited by `MEV bots <https://tradingstrategy.ai/glossary/mev>`__
+
+- Wait for the transaction to complete and display the reason if the trade succeeded or failed
+
+To run:
+
+.. code-block:: shell
+
+    export JSON_RPC_BINANCE="https://bsc-dataseed.bnbchain.org"
+    export PRIVATE_KEY="your private key here"
+    python scripts/make-swap-on-pancake.py
 
 """
 
@@ -33,8 +52,10 @@ from web3 import HTTPProvider, Web3
 from web3.middleware import construct_sign_and_send_raw_middleware
 
 from eth_defi.chain import install_chain_middleware
+from eth_defi.gas import node_default_gas_price_strategy
+from eth_defi.revert_reason import fetch_transaction_revert_reason
 from eth_defi.token import fetch_erc20_details
-from eth_defi.txmonitor import wait_transactions_to_complete
+from eth_defi.confirmation import wait_transactions_to_complete
 from eth_defi.uniswap_v2.deployment import fetch_deployment
 from eth_defi.uniswap_v2.swap import swap_with_slippage_protection
 
@@ -44,14 +65,14 @@ from eth_defi.uniswap_v2.swap import swap_with_slippage_protection
 #
 # For quote terminology see https://tradingstrategy.ai/glossary/quote-token
 #
-QUOTE_TOKEN_ADDRESS="0xe9e7cea3dedca5984780bafc599bd69add087d56"  # BUSD
+QUOTE_TOKEN_ADDRESS = "0xe9e7cea3dedca5984780bafc599bd69add087d56"  # BUSD
 
 # The address of a token we are going to receive
 #
 # Use https://tradingstrategy.ai/search to find your token
 #
 # For base terminology see https://tradingstrategy.ai/glossary/base-token
-BASE_TOKEN_ADDRESS="0x2170ed0880ac9a755fd29b2688956bd959f933f8"  # Binance custodied ETH on BNB Chain
+BASE_TOKEN_ADDRESS = "0x2170ed0880ac9a755fd29b2688956bd959f933f8"  # Binance custodied ETH on BNB Chain
 
 # Connect to JSON-RPC node
 json_rpc_url = os.environ.get("JSON_RPC_BINANCE")
@@ -68,6 +89,11 @@ web3 = Web3(HTTPProvider(json_rpc_url))
 #
 install_chain_middleware(web3)
 
+# Depending on a blockchain, it may or may not use EIP-1559
+# based gas pricing and we may need to adjust gas price strategy
+# for the outgoing transaction
+web3.eth.set_gas_price_strategy(node_default_gas_price_strategy)
+
 print(f"Connected to blockchain, chain id is {web3.eth.chain_id}. the latest block is {web3.eth.block_number:,}")
 
 # PancakeSwap data - all smart contract addresses
@@ -80,7 +106,7 @@ dex = fetch_deployment(
     init_code_hash="0x00fb7f630766e6a796048ea87d01acd3068e8ff67d078148a3fa3f4a84f69bd5",
 )
 
-print(f"Uniwap v2 compatible router set to {dex.router.address")
+print(f"Uniwap v2 compatible router set to {dex.router.address}")
 
 # Read and setup a local private key
 private_key = os.environ.get("PRIVATE_KEY")
@@ -98,13 +124,14 @@ quote = fetch_erc20_details(web3, QUOTE_TOKEN_ADDRESS)
 
 # Native token balance
 # See https://tradingstrategy.ai/glossary/native-token
-gas_balance = web3.eth.getBalance(account.address)
+gas_balance = web3.eth.get_balance(account.address)
 
+print(f"Your address is {my_address}")
 print(f"Your have {base.fetch_balance_of(my_address)} {base.symbol}")
 print(f"Your have {quote.fetch_balance_of(my_address)} {quote.symbol}")
 print(f"Your have {gas_balance / (10 ** 18)} for gas fees")
 
-assert quote.fetch_balance_of(my_address) > 0, f"Cannot perform swap, as you have zero {quote.symbol} to swap"
+assert quote.fetch_balance_of(my_address) > 0, f"Cannot perform swap, as you have zero {quote.symbol} needed to swap"
 
 # Ask for transfer details
 decimal_amount = input(f"How many {quote.symbol} tokens you wish to swap to {base.symbol}? ")
@@ -125,6 +152,24 @@ if not confirm.lower().startswith("y"):
 # Convert a human-readable number to fixed decimal with 18 decimal places
 raw_amount = quote.convert_to_raw(decimal_amount)
 
+# Each DEX trade is two transactions
+# - ERC-20.approve()
+# - swap (various functions)
+# This is due to bad design of ERC-20 tokens,
+# more here https://twitter.com/moo9000/status/1619319039230197760
+
+# Uniswap router must be allowed to spent our quote token
+approve = quote.contract.functions.approve(dex.router.address, raw_amount)
+
+tx_1 = approve.build_transaction(
+    {
+        # approve() may take more than 500,000 gas on Arbitrum One
+        "gas": 850_000,
+        "from": my_address,
+    }
+)
+
+
 # Build a swap transaction with slippage protection
 #
 # Slippage protection is very important, or you
@@ -140,23 +185,45 @@ bound_solidity_func = swap_with_slippage_protection(
     quote_token=quote,
     max_slippage=5,  # Allow 5 BPS slippage before tx reverts
     amount_in=raw_amount,
+    recipient_address=my_address,
 )
 
-tx = bound_solidity_func.build_transaction({
-    "gas": 1_000_000  # Uniswap v2 swap should not take more than 1M gas units
-})
+tx_2 = bound_solidity_func.build_transaction(
+    {
+        # Uniswap v2 swap should not take more than 1M gas units.
+        # We do not use automatic gas estimation, as it is unreliable
+        # and the number here is the maximum value only.
+        # Only way to know this number is by trial and error
+        # and experience.
+        "gas": 1_000_000,
+        "from": my_address,
+    }
+)
 
 # Sign and broadcast the transaction using our private key
-tx_hash = web3.eth.send_transaction(tx)
+tx_hash_1 = web3.eth.send_transaction(tx_1)
+tx_hash_2 = web3.eth.send_transaction(tx_2)
 
-# This will raise an exception if we do not confirm within the timeout
+# This will raise an exception if we do not confirm within the timeout.
+# If the timeout occurs the script abort and you need to
+# manually check the transaction hash in a blockchain explorer
+# whether the transaction completed or not.
 tx_wait_minutes = 2.5
-print(f"Broadcasted transaction {tx_hash.hex()}, now waiting {tx_wait_minutes} minutes for it to be included in a new block")
-wait_transactions_to_complete(
+print(f"Broadcasted transactions {tx_hash_1.hex()}, {tx_hash_2.hex()}, now waiting {tx_wait_minutes} minutes for it to be included in a new block")
+receipts = wait_transactions_to_complete(
     web3,
-    [tx_hash],
-    max_timeout=datetime.timedelta(minutes=tx_wait_minutes)
+    [tx_hash_1, tx_hash_2],
+    max_timeout=datetime.timedelta(minutes=tx_wait_minutes),
+    confirmation_block_count=1,
 )
+
+# Check if any our transactions failed
+# and display the reason
+for completed_tx_hash, receipt in receipts.items():
+    if receipt["status"] == 0:
+        revert_reason = fetch_transaction_revert_reason(web3, completed_tx_hash)
+        raise AssertionError(f"Our transaction {completed_tx_hash.hex()} failed because of: {revert_reason}")
+
 
 print("All ok!")
 print(f"After swap, you have {base.fetch_balance_of(my_address)} {base.symbol}")
