@@ -169,7 +169,6 @@ tx_1 = approve.build_transaction(
     }
 )
 
-
 # Build a swap transaction with slippage protection
 #
 # Slippage protection is very important, or you
@@ -223,7 +222,6 @@ for completed_tx_hash, receipt in receipts.items():
     if receipt["status"] == 0:
         revert_reason = fetch_transaction_revert_reason(web3, completed_tx_hash)
         raise AssertionError(f"Our transaction {completed_tx_hash.hex()} failed because of: {revert_reason}")
-
 
 print("All ok!")
 print(f"After swap, you have {base.fetch_balance_of(my_address)} {base.symbol}")
