@@ -95,6 +95,11 @@ class UniswapV2Deployment:
         pair_address, sorted_1, sorted_2 = self.pair_for(token_a, token_b)
         return self.PairContract(pair_address)
 
+    def get_pair_count(self) -> int:
+        """How many pairs / pools this Uniswap v2 has deployed."""
+        return self.factory.functions.
+
+
 
 def deploy_factory_sushi(web3: Web3, deployer: str) -> Contract:
     """Deploy a Uniswap V2 factory contract.

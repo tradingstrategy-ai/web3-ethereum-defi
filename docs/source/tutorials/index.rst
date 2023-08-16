@@ -36,7 +36,7 @@ Example tutorials
 .. toctree::
    :maxdepth: 1
 
-   transfer
+   transfer-erc-20-in-python
    multithread-reader
    verify-node-integrity
    live-price
