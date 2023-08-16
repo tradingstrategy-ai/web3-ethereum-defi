@@ -1,8 +1,12 @@
 """Make a swap on PancakeSwap v2 Python example.
 
-- You need to have
-   - Private key on BNB Smart Chain with BNB balance
-   - BUSD balance
+- In order to run this example script, you need to have
+  - Private key on BNB Smart Chain with BNB balance,
+    `you can generate a private key on a command line using these instructions <https://ethereum.stackexchange.com/a/125699/620>`__
+  - BUSD balance (you can swap some BNB on BUSD manually by importing your private key to a wallet)
+  - Easy way to get few dollars worth of starting tokens is https://global.transak.com/
+     with debit card - they support buying tokens natively for many blockchains
+  - Easy way to to manually swap is to import your private key to `Rabby desktop wallet <https://rabby.io/>`__
 
 This script will
 
@@ -10,8 +14,11 @@ This script will
 
 - Sets up PancakeSwap instance
 
-- Makes a swap from BUSD to Binance custodied ETH
-  `using slippage protection <https://tradingstrategy.ai/glossary/slippage>`__
+- Makes a swap from BUSD (base token) to Binance custodied ETH (quote token) for
+  any amount of tokens you input
+
+- `Uses slippage protection <https://tradingstrategy.ai/glossary/slippage>`__
+  for the swap so that you do not get exploited by `MEV bots <https://tradingstrategy.ai/glossary/mev>`__
 
 """
 
@@ -25,16 +32,11 @@ from eth_account.signers.local import LocalAccount
 from web3 import HTTPProvider, Web3
 from web3.middleware import construct_sign_and_send_raw_middleware
 
-from eth_defi.abi import get_deployed_contract
+from eth_defi.chain import install_chain_middleware
 from eth_defi.token import fetch_erc20_details
 from eth_defi.txmonitor import wait_transactions_to_complete
-
 from eth_defi.uniswap_v2.deployment import fetch_deployment
 from eth_defi.uniswap_v2.swap import swap_with_slippage_protection
-
-# What is the token we are transferring.
-# Replace with your own token address.
-ERC_20_TOKEN_ADDRESS = "0x0aC7B3733cBeE5D87A80fbf331f4A0bD01f17386"
 
 # The address of a token we are going to swap out
 #
@@ -56,6 +58,16 @@ json_rpc_url = os.environ.get("JSON_RPC_BINANCE")
 assert json_rpc_url, "You need to give JSON_RPC_BINANCE node URL. Check https://docs.bnbchain.org/docs/rpc for options"
 
 web3 = Web3(HTTPProvider(json_rpc_url))
+
+# Proof-of-authority middleware is needed to connect non-Ethereum mainnet chains
+# (BNB Smart Chain, Polygon, etc...)
+#
+# Note that you might need to make a pull request to update
+# POA_MIDDLEWARE_NEEDED_CHAIN_IDS for any new blockchain
+# https://github.com/tradingstrategy-ai/web3-ethereum-defi/blob/ca29529b3b4306623273a40a85c9d155834cf249/eth_defi/chain.py#L25
+#
+install_chain_middleware(web3)
+
 print(f"Connected to blockchain, chain id is {web3.eth.chain_id}. the latest block is {web3.eth.block_number:,}")
 
 # PancakeSwap data - all smart contract addresses
@@ -80,7 +92,7 @@ my_address = account.address
 # Enable eth_sendTransaction using this private key
 web3.middleware_onion.add(construct_sign_and_send_raw_middleware(account))
 
-# Read on-chain token data
+# Read on-chain ERC-20 token data (name, symbol, etc.)
 base = fetch_erc20_details(web3, BASE_TOKEN_ADDRESS)
 quote = fetch_erc20_details(web3, QUOTE_TOKEN_ADDRESS)
 
@@ -88,10 +100,11 @@ quote = fetch_erc20_details(web3, QUOTE_TOKEN_ADDRESS)
 # See https://tradingstrategy.ai/glossary/native-token
 gas_balance = web3.eth.getBalance(account.address)
 
-
 print(f"Your have {base.fetch_balance_of(my_address)} {base.symbol}")
 print(f"Your have {quote.fetch_balance_of(my_address)} {quote.symbol}")
 print(f"Your have {gas_balance / (10 ** 18)} for gas fees")
+
+assert quote.fetch_balance_of(my_address) > 0, f"Cannot perform swap, as you have zero {quote.symbol} to swap"
 
 # Ask for transfer details
 decimal_amount = input(f"How many {quote.symbol} tokens you wish to swap to {base.symbol}? ")
@@ -101,8 +114,6 @@ try:
     decimal_amount = Decimal(decimal_amount)
 except ValueError as e:
     raise AssertionError(f"Not a good decimal amount: {decimal_amount}") from e
-
-assert web3.is_checksum_address(to_address), f"Not a valid address: {to_address}"
 
 # Fat-fingering check
 print(f"Confirm swap amount {decimal_amount} {quote.symbol} to {base.symbol}")
@@ -123,7 +134,7 @@ raw_amount = quote.convert_to_raw(decimal_amount)
 # https://tradingstrategy.ai/glossary/mev
 #
 #
-bound_solidity_tx = swap_with_slippage_protection(
+bound_solidity_func = swap_with_slippage_protection(
     dex,
     base_token=base,
     quote_token=quote,
@@ -131,7 +142,7 @@ bound_solidity_tx = swap_with_slippage_protection(
     amount_in=raw_amount,
 )
 
-tx = bound_solidity_tx.build_transaction({
+tx = bound_solidity_func.build_transaction({
     "gas": 1_000_000  # Uniswap v2 swap should not take more than 1M gas units
 })
 
@@ -139,8 +150,13 @@ tx = bound_solidity_tx.build_transaction({
 tx_hash = web3.eth.send_transaction(tx)
 
 # This will raise an exception if we do not confirm within the timeout
-print(f"Broadcasted transaction {tx_hash.hex()}, now waiting 5 minutes for mining")
-wait_transactions_to_complete(web3, [tx_hash], max_timeout=datetime.timedelta(minutes=5))
+tx_wait_minutes = 2.5
+print(f"Broadcasted transaction {tx_hash.hex()}, now waiting {tx_wait_minutes} minutes for it to be included in a new block")
+wait_transactions_to_complete(
+    web3,
+    [tx_hash],
+    max_timeout=datetime.timedelta(minutes=tx_wait_minutes)
+)
 
 print("All ok!")
 print(f"After swap, you have {base.fetch_balance_of(my_address)} {base.symbol}")
