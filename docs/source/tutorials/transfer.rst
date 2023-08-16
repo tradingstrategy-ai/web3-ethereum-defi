@@ -19,6 +19,8 @@ You need
 
 - Understanding how to operate command line and command line applications
 
+`For any questions please join to Discord chat <https://tradingstrategy.ai/community>`__.
+
 Set up
 ~~~~~~
 
@@ -59,7 +61,7 @@ Then create the following script:
 
     from eth_defi.abi import get_deployed_contract
     from eth_defi.token import fetch_erc20_details
-    from eth_defi.txmonitor import wait_transactions_to_complete
+    from eth_defi.confirmation import wait_transactions_to_complete
 
     # What is the token we are transferring.
     # Replace with your own token address.
@@ -84,7 +86,7 @@ Then create the following script:
     print(f"Token details are {token_details}")
 
     balance = erc_20.functions.balanceOf(account.address).call()
-    eth_balance = web3.eth.getBalance(account.address)
+    eth_balance = web3.eth.get_balance(account.address)
 
     print(f"Your balance is: {token_details.convert_to_decimals(balance)} {token_details.symbol}")
     print(f"Your have {eth_balance/(10**18)} ETH for gas fees")
@@ -99,7 +101,7 @@ Then create the following script:
     except ValueError as e:
         raise AssertionError(f"Not a good decimal amount: {decimal_amount}") from e
 
-    assert web3.isChecksumAddress(to_address), f"Not a valid address: {to_address}"
+    assert web3.is_checksum_address(to_address), f"Not a checksummed Ethereum address: {to_address}"
 
     # Fat-fingering check
     print(f"Confirm transferring {decimal_amount} {token_details.symbol} to {to_address}")

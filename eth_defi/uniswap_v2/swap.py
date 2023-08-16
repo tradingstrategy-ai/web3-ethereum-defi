@@ -4,6 +4,7 @@ from typing import Callable, Optional
 
 from eth_typing import HexAddress
 from web3.contract import Contract
+from web3.contract.contract import ContractFunction
 
 from eth_defi.uniswap_v2.deployment import FOREVER_DEADLINE, UniswapV2Deployment
 from eth_defi.uniswap_v2.fees import estimate_buy_price, estimate_sell_price
@@ -21,7 +22,7 @@ def swap_with_slippage_protection(
     amount_out: Optional[int] = None,
     fee: int = 30,
     deadline: int = FOREVER_DEADLINE,
-) -> Callable:
+) -> ContractFunction:
     """Helper function to prepare a swap from quote token to base token (buy base token with quote token)
     with price estimation and slippage protection baked in.
 
@@ -97,10 +98,12 @@ def swap_with_slippage_protection(
 
     :param amount_in:
         How much of the quote token we want to pay, this has to be `None` if `amount_out` is specified.
+
         Must be in raw quote token units.
 
     :param amount_out:
         How much of the base token we want to receive, this has to be `None` if `amount_in` is specified
+
         Must be in raw base token units.
 
     :param max_slippage:
@@ -113,7 +116,7 @@ def swap_with_slippage_protection(
         Time limit of the swap transaction, by default = forever (no deadline)
 
     :return:
-        Prepared swap function which can be used directly to build transaction
+        Bound ContractFunction that can be used to build a transaction
     """
 
     assert fee > 0, "fee must be non-zero"

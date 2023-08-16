@@ -62,7 +62,7 @@ def test_aave_v3_fetch_reserve_snapshot(
     assert snapshot["chain_id"] == 137
     assert snapshot["timestamp"] > 0
     assert snapshot["block_number"] > 0
-    assert snapshot["reserves"]["0x8f3Cf7ad23Cd3CaDbD9735AFf958023239c6A063"]["symbol"] == "DAI"
+    assert snapshot["reserves"]["0x8f3cf7ad23cd3cadbd9735aff958023239c6a063"]["symbol"] == "DAI"
 
     serialised = json.dumps(snapshot)
     unserialised = json.loads(serialised)

@@ -1,6 +1,8 @@
 .. meta::
    :description: Python and Pandas examples for blockchain data research
+   :title: Web3 tutorials for Python
 
+.. _tutorials:
 
 Tutorials
 =========
@@ -13,22 +15,21 @@ Examples include
 
 * Performing ERC-20 token transfers
 
+* Making swaps on Uniswap, Pancakeswap, others
+
 * Data research with Jupyter Notebooks and Pandas
+
+`For any questions please join to Discord chat <https://tradingstrategy.ai/community>`__.
 
 Prerequisites
 -------------
 
-Make sure you know how to install packages (pip, poetry)
-and use Python virtual environments.
+- You need to know UNIX command line basics, like how to use environment variables.
+  Microsoft Windows is fine, but we do not test or write any instructions for it, so please
+  consult your local Windows expert for any Windows specific questions.
 
-To run the scripts you need to be able to understand
-how Python packaging works and how to install additional modules.
-
-Install the package with data addons:
-
-.. code-block:: shell
-
-    pip install "web3-ethereum-defi[data]"
+- Make sure you know how to install packages (pip, poetry)
+  and use Python virtual environments. `See Github README for details <https://github.com/tradingstrategy-ai/web3-ethereum-defi>`__.
 
 Example tutorials
 -----------------
@@ -37,6 +38,7 @@ Example tutorials
    :maxdepth: 1
 
    transfer
+   make-uniswap-swap-in-python
    multithread-reader
    verify-node-integrity
    live-price
