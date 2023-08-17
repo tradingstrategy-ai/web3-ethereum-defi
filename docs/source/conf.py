@@ -78,6 +78,8 @@ html_context = {
 
 # Don't conflict with RTD supplied sitemap
 sitemap_filename = "sitemap-generated.xml"
+sitemap_url_scheme = "{link}"
+sitemap_locales = [None]
 
 html_baseurl = "https://web3-ethereum-defi.readthedocs.io/"
 

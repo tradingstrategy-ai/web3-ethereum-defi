@@ -20,7 +20,7 @@ package aims for robustness, high quality of the code and documentation.
    * [Uniswap v2 price estimation example](#uniswap-v2-price-estimation-example)
 * [How to use the library in your Python project](#how-to-use-the-library-in-your-python-project)
 * [Documentation](#documentation)
-* [Development and contributing](#development-and-contributing)
+  * [Development and contributing](#development-and-contributing)
 * [Version history](#version-history)
 * [Support](#support)
 * [Social media](#social-media)
