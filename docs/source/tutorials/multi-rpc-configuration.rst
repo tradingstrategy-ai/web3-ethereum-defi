@@ -3,7 +3,7 @@
 
 .. _multi rpc:
 
-Configuring JSON-RPC fallback and MEV protection
+Configuring MEV protection and JSON-RPC fallback
 ================================================
 
 `Web-Ethereum-Defi package <https://github.com/tradingstrategy-ai/web3-ethereum-defi>`__ supports creating :py:class:`eth_defi.provider.multi_provider.MultiProviderWeb3`
