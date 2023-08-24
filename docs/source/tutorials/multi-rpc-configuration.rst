@@ -25,6 +25,10 @@ These instances support multiple JSON-RPC providers, mainly
 - The method is compatible with Ethereum, but also with other `EVM compatible <https://tradingstrategy.ai/glossary/evm-compatible>`__ blockchains
   like Polygon, Binance Smart Chain, Arbitrum, Avalanche C-Chain
 
+- For some of JSON-RPC providers that provide private mempool, MEV blocking and backrunning services,
+  see `MEV Blocker <https://mevblocker.io/>`__ by Cowswap, others. Alternatives include e.g.
+  `Blocknative <https://docs.blocknative.com/blocknative-mev-protection/blocknative-protect-rpc-endpoint>`__.
+
 - For list of JSON-RPC node providers please see `EthereumNodes.com <https://ethereumnodes.com>`__
 
 Configuring
