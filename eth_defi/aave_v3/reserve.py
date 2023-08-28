@@ -15,7 +15,7 @@
 
 """
 from dataclasses import dataclass
-from typing import List, TypeAlias, Tuple, TypedDict, Dict
+from typing import Dict, List, Tuple, TypeAlias, TypedDict
 
 from web3 import Web3
 from web3._utils.abi import named_tree
@@ -237,7 +237,10 @@ def get_helper_contracts(web3: Web3) -> HelperContracts:
     )
 
 
-def fetch_reserves(contracts: HelperContracts) -> List[str]:
+def fetch_reserves(
+    contracts: HelperContracts,
+    block_identifier=None,
+) -> List[str]:
     """Enumerate available reserves.
 
     https://github.com/aave/aave-v3-core/blob/27a6d5c83560694210849d4abf09a09dec8da388/contracts/interfaces/IPool.sol#L603
@@ -247,7 +250,7 @@ def fetch_reserves(contracts: HelperContracts) -> List[str]:
 
         List of ERC-20 addresses.
     """
-    reserve_list = contracts.ui_pool_data_provider.functions.getReservesList(contracts.pool_addresses_provider.address).call()
+    reserve_list = contracts.ui_pool_data_provider.functions.getReservesList(contracts.pool_addresses_provider.address).call(block_identifier=block_identifier)
     return reserve_list
 
 
@@ -376,7 +379,7 @@ def fetch_aave_reserves_snapshot(web3: Web3, block_identifier=None) -> JSONSeria
 
     block = web3.eth.get_block(block_identifier)
 
-    aggregated_reserve_data, base_currency_info = fetch_reserve_data(helpers)
+    aggregated_reserve_data, base_currency_info = fetch_reserve_data(helpers, block_identifier=block_identifier)
 
     reserve_map = {a["underlyingAsset"].lower(): _to_json_friendly(a) for a in aggregated_reserve_data}
 
