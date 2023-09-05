@@ -106,7 +106,13 @@ def swap_with_slippage_protection(
             slippage=max_slippage,
         )
 
-        logger.info("exactInput() amount in: %s, estimated_min_amount_out: %s", amount_in, estimated_min_amount_out)
+        logger.info("exactInput() amount in: %s, estimated_min_amount_out: %s, slippage tolerance: %f, fees: %s, path: %s",
+                    amount_in,
+                    estimated_min_amount_out,
+                    max_slippage,
+                    pool_fees,
+                    path,
+                    )
 
         return router.functions.exactInput(
             (

@@ -1,6 +1,7 @@
 # Current
 
 - Add: Aave v3 reserve data queries
+- Add: More logging to `swap_with_slippage_tolerance` for Uniswap v3
 
 # 0.22.7
 
