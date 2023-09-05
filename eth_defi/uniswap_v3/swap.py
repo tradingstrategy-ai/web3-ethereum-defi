@@ -99,19 +99,26 @@ def swap_with_slippage_protection(
         if amount_out is not None:
             raise ValueError("amount_in is specified, amount_out has to be None")
 
+        web3 = uniswap_v3_deployment.web3
+        block_number = web3.eth.block_number
+
         estimated_min_amount_out: int = price_helper.get_amount_out(
             amount_in=amount_in,
             path=path,
             fees=pool_fees,
             slippage=max_slippage,
+            block_identifier=block_number,
         )
 
-        logger.info("exactInput() amount in: %s, estimated_min_amount_out: %s, slippage tolerance: %f BPS, fees: %s, path: %s",
+        # Because slippage tolerance errors are very annoying to diagnose,
+        # try to capture as much possible diagnostics data to logs
+        logger.info("exactInput() amount in: %s, estimated_min_amount_out: %s, slippage tolerance: %f BPS, fees: %s, path: %s, block: %d",
                     amount_in,
                     estimated_min_amount_out,
                     max_slippage,
                     pool_fees,
                     path,
+                    block_number
                     )
 
         return router.functions.exactInput(
