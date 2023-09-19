@@ -1,7 +1,7 @@
 """Ankr specific Web3.py functionality.
 
 - Ankr has issues with some JSON-RPC access patterns.
-  See also :py:mod:`eth_defi.rpc.broken_provider`.
+  See also :py:mod:`eth_defi.provider.broken_provider`.
 
 """
 from web3 import Web3
