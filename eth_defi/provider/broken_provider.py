@@ -51,7 +51,7 @@ def get_block_tip_latency(web3: Web3) -> int:
 
         # We cannot query the chain head on Ankr
         if not block_number:
-            block_number = web3.eth.block_number - get_block_tip_latency(web3)
+            block_number = max(1, web3.eth.block_number - get_block_tip_latency(web3))
 
         timestamp = fetch_block_timestamp(web3, block_number)
 
