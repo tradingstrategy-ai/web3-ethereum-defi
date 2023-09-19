@@ -8,7 +8,7 @@ Most for dealing with JSON-RPC unreliability issues with retries.
 
 - Logs warnings to Python logging subsystem in the case there is need to retry
 
-- See also :py:mod:`eth_defi.rpc.broken_provider`.
+- See also :py:mod:`eth_defi.provider.broken_provider`.
 """
 
 from web3 import Web3
