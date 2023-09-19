@@ -1,7 +1,12 @@
 # Current
 
+- Add `eth_defi.rpc.broken_provider` for workaround for the quirks and features of different JSON-RPC providers 
+- Ankr workaround for `BlockNotFound` exception. 
+
+# 0.22.8
+
 - Add: Aave v3 reserve data queries
-- Add: More logging to `swap_with_slippage_tolerance` for Uniswap v3
+- Add: More logging to `swap_with_slippage_tolerance` for Uniswap v3 to diagnose failed trades
 
 # 0.22.7
 
@@ -15,7 +20,7 @@
 # 0.22.5
 
 - Add: Uniswap v3 LP fees are now accounted in the trade analysis
-- Fix: Documentation now generates proper title and description HTML 
+- Fix: Documentation now generates proper title and description HTML
   meta tags for automatically generated API documentation
 
 # 0.22.4
@@ -23,33 +28,33 @@
 - [JSON-RPC fallback and MEV protection tutorial](https://web3-ethereum-defi.readthedocs.io/tutorials/multi-rpc-configuration.html)
 - Added missing `sigfig` lib dependency
 
-
 # 0.22.3
 
 - Fix: `eth_defi.chain.has_graphql_support` to support `MultiProviderWeb3`
 
 # 0.22.2
 
-- Add: `eth_defi.provider.multi_provider.create_multi_provider_web3`: An easy way to configure a Web3 instance with multiple providers
+- Add: `eth_defi.provider.multi_provider.create_multi_provider_web3`: An easy way to configure a Web3 instance with
+  multiple providers
 
 # 0.22.1
 
-- Add logging to `swap_with_slippage_protection()` on Uniswap v3 
+- Add logging to `swap_with_slippage_protection()` on Uniswap v3
   to trace slippage issues
 
 # 0.22
 
-- Refactor a lot of functionality to a new submodule [eth_defi.provider](https://web3-ethereum-defi.readthedocs.io/api/provider/index.html) 
+- Refactor a lot of functionality to a new
+  submodule [eth_defi.provider](https://web3-ethereum-defi.readthedocs.io/api/provider/index.html)
 - Add MEV blocking support in the form of `eth_defi.mev_blocker.MEVBlockerProvider`
 - Add JSON-RPC fallback switching in the form of `eth_defi.fallback_provider.FallbackProvider`
-- Add `HotWallet.create_for_testing` 
-- Add utility function `get_onchain_price()` to ask on-chain price of a 
+- Add `HotWallet.create_for_testing`
+- Add utility function `get_onchain_price()` to ask on-chain price of a
   Uniswap v3 pool at any given block number
-- Add `eth_defi.event_reader.logresult.decode_log` and better 
+- Add `eth_defi.event_reader.logresult.decode_log` and better
   documentation for `LogResult` class
-- Deprecate `eth_defi.anvil` -> `eth_defi.provider.anvil` 
+- Deprecate `eth_defi.anvil` -> `eth_defi.provider.anvil`
 - Deprecate `eth_defi.ganache` -> `eth_defi.provider.ganache`
-
 
 # 0.21.8
 
@@ -67,7 +72,6 @@
 
 - Add `HotWallet.sign_bound_call_with_new_nonce`
 
-
 # 0.21.5
 
 - Create `extract_timestamps_json_rpc_lazy` that instead of reading block timestamps upfront for the given range,
@@ -80,7 +84,7 @@
 
 # 0.21.3
 
-- Fix error message `fetch_transaction_revert_reason()` crashing. 
+- Fix error message `fetch_transaction_revert_reason()` crashing.
   Also made the error message prettier and more helpful.
 
 # 0.21.2
@@ -129,8 +133,9 @@
 
 - Add [Aave v3 deployer support](https://github.com/aave/aave-v3-deploy) in`eth_defi.aave_v3.deployer` module
 - Add Solidity library linking support for Hardhat-based deployments in `eth_defi.abi.get_linked_contract`
-- Add: More logging and better error messages to some parts 
-- Add: `figure_reorganisation_and_new_blocks(max_range)` to catch situations you somehow feed a too long block range to scan
+- Add: More logging and better error messages to some parts
+- Add: `figure_reorganisation_and_new_blocks(max_range)` to catch situations you somehow feed a too long block range to
+  scan
 - Add: `analyse_trade_by_receipt(input_args)` to analyse the success of Uni v3 trades when trading on Enzyme
 
 # 0.18.4
@@ -140,13 +145,13 @@
 
 # 0.18.3
 
-- Add: TQDM progress bar support for event reading in the form of `eth_defi.event_reader.progress_update.TQDMProgressUpdate`
+- Add: TQDM progress bar support for event reading in the form
+  of `eth_defi.event_reader.progress_update.TQDMProgressUpdate`
 - Add: Enzyme price feed removal support
 - Add: `eth_defi.chain.fetch_block_timestamp` shortcut method
 - Fix: Web3 6.0 compatibility
 - Fix: Better error message when reorganisation monitor is missing blocks
 - Fix: `EnzymePriceFeed.primitive_token` resolution fails on some Enzyme tokens on Polygon
-
 
 # 0.18.2
 
@@ -154,8 +159,8 @@
 
 # 0.18.1
 
-- Fix: Handle `HexBytes` event signatures for Web3 6.0 
-- API change: No longer allow `HexBytes` results to fall through in `LogResult` to make sure 
+- Fix: Handle `HexBytes` event signatures for Web3 6.0
+- API change: No longer allow `HexBytes` results to fall through in `LogResult` to make sure
   all event readers get the data in the same format
 
 # 0.18
@@ -176,21 +181,22 @@
 - Add `eth_defi.enzyme.vault_controlled_vallet`
 - Add `eth_defi.tx.AssetDelta`
 
-# 0.16.1 
+# 0.16.1
 
 - Add `Vault.fetch_denomination_token_usd_exchange_rate`
 
 # 0.16
 
 - Add initial Chainlink support
-- Add [eth_defi.reader.multithread.MultithreadEventReader for easy to use high-speed Solidity event reading](https://web3-ethereum-defi.readthedocs.io/tutorials/multithread-reader.html)
-- Add Enzyme's price feeds 
+-
+Add [eth_defi.reader.multithread.MultithreadEventReader for easy to use high-speed Solidity event reading](https://web3-ethereum-defi.readthedocs.io/tutorials/multithread-reader.html)
+- Add Enzyme's price feeds
 - Add Enzyme's `Vault.fetch`
 - Add `eth_defi.utils.to_unix_timestamp`
 - Add `eth_defi.reorganisation_monitor.create_reorganisation_monitor`
 - Rename: `eth_defi.enzyme.events.Withdrawal` -> `Redemption`
 - Optimize `get_contract` with improved caching
-- Add preliminary `assert_call_success_with_explanation` - but looks like Anvil support is still missing, 
+- Add preliminary `assert_call_success_with_explanation` - but looks like Anvil support is still missing,
   so currently hacked together
 
 # 0.15.3
@@ -205,22 +211,22 @@
 # 0.15.2
 
 - Add API call count middleware
-- Fix: Clean accidentally released breakpoint code in revert middleware 
-
+- Fix: Clean accidentally released breakpoint code in revert middleware
 
 # 0.15.1
 
-- Added [a script for verifying the integrity of your EVM JSON-RPC node data](https://web3-ethereum-defi.readthedocs.io/tutorials/index.html)
+-
+Added [a script for verifying the integrity of your EVM JSON-RPC node data](https://web3-ethereum-defi.readthedocs.io/tutorials/index.html)
 - Added `TunedWeb3Factory(thread_local_cache)` option for more performant web3 connection when using thread pooling
 
 # 0.15
 
 - Migrate to Web3.py 6.0. Notable Web3.py API changes:
-  - `toChecksumAddress` -> `to_checksum_address`
-  - `processReceipt` -> `process_receipt`
-  - `web3.contract.Contract` -> `web3.contract.contract.Contract`
-  - `solidityKeccak` -> `solidity_keccak`
-  - `decode_function_input` returns dict instead of tuple
+    - `toChecksumAddress` -> `to_checksum_address`
+    - `processReceipt` -> `process_receipt`
+    - `web3.contract.Contract` -> `web3.contract.contract.Contract`
+    - `solidityKeccak` -> `solidity_keccak`
+    - `decode_function_input` returns dict instead of tuple
 - Support Anvil as the unit test backend ove `EthereumTester` - Anvil is much faster
 - `deploy_contract()` tracks deployed contracts and their ABIs so we can print symbolic Solidity stack traces
 - Print Solidity stack traces of failed transactions using `print_symbolic_trace()` and `trace_evm_transaction()`
@@ -238,18 +244,20 @@
 
 - Replace `ganache` with `anvil` as the mainnet fork solution. Anvil is much more stable
   than Ganache what comes to JSON-RPC. Anvil is much faster. You can now call
-  [fork_network_anvil](https://web3-ethereum-defi.readthedocs.io/api/_autosummary/eth_defi.anvil.html#module-eth_defi.anvil) that is a drop-in replacement for old
+  [fork_network_anvil](https://web3-ethereum-defi.readthedocs.io/api/_autosummary/eth_defi.anvil.html#module-eth_defi.anvil)
+  that is a drop-in replacement for old
   Ganache based `fork_network`.
 - Move internal test suite to use Anvil instead of Ganache. This allows us to remove
   `flaky` decorators on tests.
 - Add `analysis.py` for Uniswap V3 and relevant tests
 - Add `mock_partial_deployment` function for V3
-- Abstract `TradeResult`, `TradeSuccess`, and `TradeFailure` out of Uniswap V2 and into eth_defi.trade, since also used in Uniswap V3
+- Abstract `TradeResult`, `TradeSuccess`, and `TradeFailure` out of Uniswap V2 and into eth_defi.trade, since also used
+  in Uniswap V3
 - Add Uniswap V3 `increase_liquidity()` and `decrease_liquidity()` by @pbharrin
 
 # 0.13.11
 
-- Add Uniswap V3 decode_path method 
+- Add Uniswap V3 decode_path method
 
 # 0.13.10
 
@@ -293,7 +301,7 @@
 
 # 0.13.1
 
-- Fix `filter` and `event` assert in `read_events_concurrent()` 
+- Fix `filter` and `event` assert in `read_events_concurrent()`
 
 # 0.13
 
@@ -304,7 +312,7 @@
   swaps happening on QuickSwap (Polygon) in a terminal
 - Add `has_graphql_support()` to detect GraphQL interface on GoEthereum
 - Add `GraphQLReorganisationMonitor` for very fast downloading
-  of block headers and timestamps using GoEthereum /graphql API 
+  of block headers and timestamps using GoEthereum /graphql API
 
 # 0.12
 
@@ -318,7 +326,6 @@
 - Add `fetch_deployment` for Uniswap v3
 - Add `swap_with_slippage_protection` for Uniswap v3
 
-
 # 0.11.3
 
 - Add new PriceOracle types for unit testing
@@ -327,7 +334,7 @@
 
 - Adding Trader Joe compatibility. Unlike other clones, Trader Joe uses `Router.WAVAX` instead `Roueter.WETH`
   for the native token variable.
-- Document BNB Chain "Limits exceeded" error - BNB Chain eth_getLogs have been 
+- Document BNB Chain "Limits exceeded" error - BNB Chain eth_getLogs have been
   disabled on public endpoints
 
 # 0.11.1
@@ -353,12 +360,16 @@
 
 # 0.9
 
-- Feature: [High speed Solidity events / eth_getLogs fetching and decoding](https://github.com/tradingstrategy-ai/web3-ethereum-defi/blob/master/scripts/read-uniswap-v2-pairs-and-swaps-concurrent.py)
-- Feature: [JSON-RPC retry middleware with sleep and backoff](https://web3-ethereum-defi.readthedocs.io/_autosummary/eth_defi.middleware.http_retry_request_with_sleep_middleware.html#eth_defi.middleware.http_retry_request_with_sleep_middleware)
-- Feature: Added [decode_signed_transaction](https://web3-ethereum-defi.readthedocs.io/_autosummary/eth_defi.tx.decode_signed_transaction.html#eth_defi.tx.decode_signed_transaction) with EIP-2718 and EIP-2930 tx support
+-
+Feature: [High speed Solidity events / eth_getLogs fetching and decoding](https://github.com/tradingstrategy-ai/web3-ethereum-defi/blob/master/scripts/read-uniswap-v2-pairs-and-swaps-concurrent.py)
+-
+Feature: [JSON-RPC retry middleware with sleep and backoff](https://web3-ethereum-defi.readthedocs.io/_autosummary/eth_defi.middleware.http_retry_request_with_sleep_middleware.html#eth_defi.middleware.http_retry_request_with_sleep_middleware)
+- Feature:
+  Added [decode_signed_transaction](https://web3-ethereum-defi.readthedocs.io/_autosummary/eth_defi.tx.decode_signed_transaction.html#eth_defi.tx.decode_signed_transaction)
+  with EIP-2718 and EIP-2930 tx support
 - Feature: Added `estimate_buy_received_amount_raw` and `estimate_sell_received_amount_raw`
-- Fix: pairFor could give a wrong address for trading pair 
-- Fix: Cosmetic API improvements and fixes, with more asserts 
+- Fix: pairFor could give a wrong address for trading pair
+- Fix: Cosmetic API improvements and fixes, with more asserts
 - API change: Split `analyse_trade` -> `analyse_trade_by_hash` and `analyse_trade_by_receipt`
 - API change: Rename module `txmonitor` -> `confirmation`
 
@@ -369,7 +380,8 @@
 - Feature: Added support for `fee` and `slippage` to Uniswap v2 price calculations
 - Feature: Added Uniswap v2 pair liquidity fetch
 - Feature: Added support for three-way swap (swap through an intermediate token) and price calculations
-- Feature: Added support for [transfer fee, token tax and honeypot checks](https://tradingstrategy.ai/docs/programming/token-tax.html)
+- Feature: Added support
+  for [transfer fee, token tax and honeypot checks](https://tradingstrategy.ai/docs/programming/token-tax.html)
 - API change: Moved `get_amount_in` and `get_amount_out` to `UniswapV2FeeCalculator` class
 - Fix: Improve exception message when transactions timeout
 - Feature: [Added ERC-20 transfer tutorial](https://web3-ethereum-defi.readthedocs.io/transfer.html)
@@ -388,7 +400,6 @@
 - Fix: Optimize `wait_transactions_to_complete`
 - API change: Created a separate `broadcast_transactions` function
 
-
 # 0.5
 
 - Feature: Added initial Uniswap v3 testing support
@@ -405,15 +416,17 @@
 
 # 0.4
 
-- Feature: [eth_defi.ganache module](https://smart-contracts-for-testing.readthedocs.io/en/latest/_autosummary/eth_defi.ganache.html#module-eth_defi.ganache) to support ganache-cli mainnet forks
+-
+Feature: [eth_defi.ganache module](https://smart-contracts-for-testing.readthedocs.io/en/latest/_autosummary/eth_defi.ganache.html#module-eth_defi.ganache)
+to support ganache-cli mainnet forks
 - Feature: `HotWallet.get_native_currency_balance` to easier management of hot wallet accounts
 - Feature: `HotWallet.from_private_key` to easier management of hot wallet accounts
 
 # 0.3
 
 - Rename module: `eth_defi.portfolio` -> `eth_defi.balances`
-- Fix: Documentation now builds correctly with body text for functions 
-- Fix: ERC-20 balances when there exist debit transactions 
+- Fix: Documentation now builds correctly with body text for functions
+- Fix: ERC-20 balances when there exist debit transactions
 
 # 0.2.0
 

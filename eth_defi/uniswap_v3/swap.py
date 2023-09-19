@@ -60,6 +60,10 @@ def swap_with_slippage_protection(
         tx_receipt = web3.eth.wait_for_transaction_receipt(tx_hash)
         assert tx_receipt.status == 1
 
+    TODO: Take explicit `block_identifier` parameter and also return
+    the estimated amounts. This would allow to estimate
+    historical slippages.
+
     :param uniswap_v3_deployment: an instance of `UniswapV3Deployment`
     :param recipient_address: Recipient's address
     :param base_token: Base token of the trading pair
@@ -99,6 +103,7 @@ def swap_with_slippage_protection(
         if amount_out is not None:
             raise ValueError("amount_in is specified, amount_out has to be None")
 
+        # TODO: We would need to take in block_identifier argument here
         web3 = uniswap_v3_deployment.web3
         block_number = web3.eth.block_number
 
@@ -112,14 +117,7 @@ def swap_with_slippage_protection(
 
         # Because slippage tolerance errors are very annoying to diagnose,
         # try to capture as much possible diagnostics data to logs
-        logger.info("exactInput() amount in: %s, estimated_min_amount_out: %s, slippage tolerance: %f BPS, fees: %s, path: %s, block: %d",
-                    amount_in,
-                    estimated_min_amount_out,
-                    max_slippage,
-                    pool_fees,
-                    path,
-                    block_number
-                    )
+        logger.info("exactInput() amount in: %s, estimated_min_amount_out: %s, slippage tolerance: %f BPS, fees: %s, path: %s, block: %d", amount_in, estimated_min_amount_out, max_slippage, pool_fees, path, block_number)
 
         return router.functions.exactInput(
             (
