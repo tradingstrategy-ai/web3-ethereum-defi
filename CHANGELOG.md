@@ -1,6 +1,6 @@
 # Current
 
-- 
+- Add `eth_defi.rpc.broken_provider` for workaround for the quirks and features of different JSON-RPC providers 
 - Ankr workaround for `BlockNotFound` exception. 
 
 # 0.22.8
