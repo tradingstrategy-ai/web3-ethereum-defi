@@ -1,3 +1,8 @@
+# 0.22.10
+
+- Move Ankr specific functionality to its own `eth_defi.provider.ankr` module 
+  that will see more changes in the future
+
 # 0.22.9
 
 - Add `eth_defi.rpc.broken_provider` for workaround for the quirks and features of different JSON-RPC providers 

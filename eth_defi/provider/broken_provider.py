@@ -1,16 +1,12 @@
 """Fixes for Ankr and other broken JSON-RPC service providers.
 
 - Mainly to deal with unstable blockchain chain tip
+
+- See also :py:mod:`eth_defi.provider.ankr`
+
 """
-
-from eth_defi.provider.named import get_provider_name
+from eth_defi.provider.ankr import is_ankr
 from web3 import Web3
-
-
-def is_ankr(web3: Web3) -> bool:
-    """Are we connected to Ankr as a provider."""
-    name = get_provider_name(web3.provider)
-    return name == "rpc.ankr.com"
 
 
 def get_default_block_tip_latency(web3: Web3) -> int:
