@@ -7,6 +7,8 @@ Most for dealing with JSON-RPC unreliability issues with retries.
 - Modified to support sleep and throttling
 
 - Logs warnings to Python logging subsystem in the case there is need to retry
+
+- See also :py:mod:`eth_defi.rpc.broken_provider`.
 """
 
 from web3 import Web3
@@ -22,7 +24,7 @@ from requests.exceptions import (
 )
 from web3._utils.transactions import get_buffered_gas_estimate
 from eth_utils.toolz import assoc
-from web3.exceptions import ContractLogicError
+from web3.exceptions import ContractLogicError, BlockNotFound
 
 from web3.middleware.exception_retry_request import check_if_retry_on_failure
 from web3.types import RPCEndpoint, RPCResponse, Middleware
@@ -31,11 +33,20 @@ logger = logging.getLogger(__name__)
 
 
 #: List of Web3 exceptions we know we should retry after some timeout
+#:
+#: For ``BlockNotFound`` see also :py:mod:`eth_defi.rpc.broken_provider`.
+#:
 DEFAULT_RETRYABLE_EXCEPTIONS: Tuple[BaseException] = (
     ConnectionError,
     HTTPError,
     Timeout,
     TooManyRedirects,
+    # This happens when you ask web3.eth.block_number from Ankr,
+    # but if you use it as `block_identifier` in the following call
+    # it gives BlockNotFound. This is a problem with Ankr itself,
+    # but we'll add it here just to work around this crappy provider
+    # by default.
+    BlockNotFound,
 )
 
 #: List of HTTP status codes we know we might want to retry after a timeout
