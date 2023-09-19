@@ -117,14 +117,7 @@ def swap_with_slippage_protection(
 
         # Because slippage tolerance errors are very annoying to diagnose,
         # try to capture as much possible diagnostics data to logs
-        logger.info("exactInput() amount in: %s, estimated_min_amount_out: %s, slippage tolerance: %f BPS, fees: %s, path: %s, block: %d",
-                    amount_in,
-                    estimated_min_amount_out,
-                    max_slippage,
-                    pool_fees,
-                    path,
-                    block_number
-                    )
+        logger.info("exactInput() amount in: %s, estimated_min_amount_out: %s, slippage tolerance: %f BPS, fees: %s, path: %s, block: %d", amount_in, estimated_min_amount_out, max_slippage, pool_fees, path, block_number)
 
         return router.functions.exactInput(
             (
