@@ -19,6 +19,7 @@ from web3.datastructures import NamedElementOnion
 
 from eth_defi.event_reader.conversion import convert_jsonrpc_value_to_int
 from eth_defi.middleware import http_retry_request_with_sleep_middleware
+from eth_defi.provider.llamanodes import is_llama_bad_grapql_reply
 from eth_defi.provider.named import NamedProvider
 
 #: List of chain ids that need to have proof-of-authority middleweare installed
@@ -161,6 +162,26 @@ def install_api_call_counter_middleware_on_provider(provider: JSONBaseProvider) 
     return api_counter
 
 
+def get_graphql_url(provider: BaseProvider) -> str:
+    """Resolve potential GraphQL endpoint API for a JSON-RPC provider.
+
+    See :py:func:`has_graphql_support`.
+    """
+
+    # See BaseNamedProvider
+    if hasattr(provider, "call_endpoint_uri"):
+        base_url = provider.call_endpoint_uri
+    elif hasattr(provider, "endpoint_uri"):
+        # HTTPProvider
+        base_url = provider.endpoint_uri
+    else:
+        raise AssertionError(f"Do not know how to extract endpoint URI: {provider}")
+
+    graphql_url = urljoin(base_url, "graphql")
+
+    return graphql_url
+
+
 def has_graphql_support(provider: BaseProvider) -> bool:
     """Check if a node has GoEthereum GraphQL API turned on.
 
@@ -179,19 +200,11 @@ def has_graphql_support(provider: BaseProvider) -> bool:
         {"data":{"block":{"number":16328259}}}
     """
 
-    # See BaseNamedProvider
-    if hasattr(provider, "call_endpoint_uri"):
-        base_url = provider.call_endpoint_uri
-    elif hasattr(provider, "endpoint_uri"):
-        # HTTPProvider
-        base_url = provider.endpoint_uri
-    else:
-        raise AssertionError(f"Do not know how to extract endpoint URI: {provider}")
+    graphql_url = get_graphql_url(provider)
 
-    graphql_url = urljoin(base_url, "graphql")
     try:
         resp = requests.get(graphql_url)
-        return resp.status_code == 400
+        return resp.status_code == 400 and not is_llama_bad_grapql_reply(resp)
     except Exception as e:
         # ConnectionError, etc.
         return False
