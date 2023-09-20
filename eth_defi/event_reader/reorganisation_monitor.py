@@ -16,7 +16,7 @@ from hexbytes import HexBytes
 from tqdm import tqdm
 from web3 import Web3, HTTPProvider
 
-from eth_defi.chain import has_graphql_support
+from eth_defi.chain import has_graphql_support, get_graphql_url
 from eth_defi.event_reader.block_header import BlockHeader, Timestamp
 from eth_defi.provider.fallback import FallbackProvider
 from eth_defi.provider.mev_blocker import MEVBlockerProvider
@@ -737,7 +737,8 @@ def create_reorganisation_monitor(web3: Web3, check_depth=250) -> Reorganisation
     if has_graphql_support(provider):
         # 10x faster /graphql implementation,
         # not provided by public nodes
-        reorg_mon = GraphQLReorganisationMonitor(graphql_url=urljoin(json_rpc_url, "/graphql"), check_depth=check_depth)
+        graphql_url = get_graphql_url(provider)
+        reorg_mon = GraphQLReorganisationMonitor(graphql_url=graphql_url, check_depth=check_depth)
     else:
         # Default slow implementation
         logger.warning("The node does not support /graphql interface. " "Downloading block headers and timestamps will be extremely slow." "Check documentation how to configure your node or choose a smaller timeframe for the buffer of trades.")

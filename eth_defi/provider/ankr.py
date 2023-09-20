@@ -1,8 +1,13 @@
 """Ankr specific Web3.py functionality.
 
 - Ankr has issues with some JSON-RPC access patterns.
-  See also :py:mod:`eth_defi.provider.broken_provider`.
 
+.. warning ::
+
+    We do not recommend using Ankr as it randomly returns empty responses to eth_call RPC method
+    and this is not fixable at the client side.
+
+See also :py:mod:`eth_defi.provider.broken_provider`.
 """
 from web3 import Web3
 
