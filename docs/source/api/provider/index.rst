@@ -21,6 +21,7 @@ This submodule offers functionality to connect and enhance robustness of various
    eth_defi.provider.fallback
    eth_defi.provider.broken_provider
    eth_defi.provider.ankr
+   eth_defi.provider.llamanodes
    eth_defi.provider.anvil
    eth_defi.provider.ganache
    eth_defi.provider.named
