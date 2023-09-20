@@ -19,7 +19,7 @@ from web3.datastructures import NamedElementOnion
 
 from eth_defi.event_reader.conversion import convert_jsonrpc_value_to_int
 from eth_defi.middleware import http_retry_request_with_sleep_middleware
-from eth_defi.provider.llamarpc import is_llama_bad_grapql_reply
+from eth_defi.provider.llamanodes import is_llama_bad_grapql_reply
 from eth_defi.provider.named import NamedProvider
 
 #: List of chain ids that need to have proof-of-authority middleweare installed

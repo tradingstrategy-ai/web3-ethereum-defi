@@ -1,3 +1,7 @@
+# 0.22.11
+
+- Add `eth_defi.provider.llamanodes` and work around issues with LlamaNodes.com
+
 # 0.22.10
 
 - Move Ankr specific functionality to its own `eth_defi.provider.ankr` module 
