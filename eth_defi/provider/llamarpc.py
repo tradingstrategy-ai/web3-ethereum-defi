@@ -18,6 +18,6 @@ def is_llama_bad_grapql_reply(resp: Response):
     """
     try:
         content = resp.json()
-        return content.get("error").get("message") == 'UserKey was not a ULID or UUID'
+        return content.get("error").get("message") == "UserKey was not a ULID or UUID"
     except Exception:
         return False
