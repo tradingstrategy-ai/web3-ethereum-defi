@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "web3-ethereum-defi"
-version = "0.22.11"
+version = "0.22.12"
 description = "Python library for Uniswap, Aave, ChainLink, Enzyme and other protocols on BNB Chain, Polygon, Ethereum and other blockchains"
 authors = ["Mikko Ohtamaa <mikko@tradingstrategy.ai>"]
 license = "MIT"
