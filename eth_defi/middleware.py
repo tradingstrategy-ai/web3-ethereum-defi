@@ -76,7 +76,15 @@ DEFAULT_RETRYABLE_HTTP_STATUS_CODES = (
 #:
 #: See GoEthereum error codes https://github.com/ethereum/go-ethereum/blob/master/rpc/errors.go
 #:
-DEFAULT_RETRYABLE_RPC_ERROR_CODES = (-32603,)
+DEFAULT_RETRYABLE_RPC_ERROR_CODES = (
+    # ValueError: {'message': 'Internal JSON-RPC error.', 'code': -32603}
+    -32603,
+    # ValueError: {'code': -32000, 'message': 'nonce too low'}.
+    # Might happen when we are broadcasting multiple transactions through multiple RPC providers
+    # using eth_sendRawTransaction
+    # One provide has not yet seeing a transaction broadcast through the other provider.
+    -32000,
+)
 
 
 def is_retryable_http_exception(

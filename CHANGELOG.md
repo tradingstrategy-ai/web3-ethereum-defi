@@ -1,3 +1,8 @@
+# 0.22.12
+
+- Retry [nonce too low errors](https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/153),
+  (related to LLamaNodes). 
+
 # 0.22.11
 
 - Add `eth_defi.provider.llamanodes` and work around issues with LlamaNodes.com
