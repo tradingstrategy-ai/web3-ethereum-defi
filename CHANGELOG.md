@@ -1,6 +1,10 @@
 # Current
 
 - Allow passing `request_kwargs` to [create_multi_provider_web3](https://web3-ethereum-defi.readthedocs.io/api/provider/_autosummary_provider/eth_defi.provider.multi_provider.create_multi_provider_web3.html#eth_defi.provider.multi_provider.create_multi_provider_web3)
+- When setting up [TunedWeb3Factory](https://web3-ethereum-defi.readthedocs.io/api/event_reader/_autosummary_enzyne/eth_defi.event_reader.web3factory.TunedWeb3Factory.html?highlight=tunedweb3factory) use `create_multi_provider_web3` to set up the connections
+  instead pooled threads and processed
+- Switch to ujson for JSON-RPC decoding by default with `create_multi_provider_web3`
+- Fix `test_block_reader` tests
 
 # 0.22.12
 

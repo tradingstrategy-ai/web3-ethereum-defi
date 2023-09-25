@@ -10,7 +10,7 @@ from urllib3.util import parse_url, Url
 from web3 import Web3, HTTPProvider
 
 from eth_defi.chain import install_chain_middleware
-from eth_defi.event_reader.fast_json_rpc import patch_provider
+from eth_defi.event_reader.fast_json_rpc import patch_provider, patch_web3
 from eth_defi.provider.fallback import FallbackProvider
 from eth_defi.provider.mev_blocker import MEVBlockerProvider
 from eth_defi.provider.named import NamedProvider, get_provider_name
@@ -91,6 +91,7 @@ def create_multi_provider_web3(
     fallback_sleep=0.1,
     fallback_backoff=1.1,
     request_kwargs: Optional[Any] = None,
+    session: Optional[Any] = None,
 ) -> MultiProviderWeb3:
     """Create a Web3 instance with multi-provider support.
 
@@ -135,12 +136,18 @@ def create_multi_provider_web3(
         Sleep increase multiplier.
 
     :param request_kwargs:
-        Passed to HTTPProvider, arguments for ``request`` library when doing HTTP requests.
+        Passed to HTTPProvider, arguments for :py:mod:`requests` library when doing HTTP requests.
 
         See :py:class:`web3.HTTPProvider` for details.
 
         Example: ``request_kwargs={"timeout": 10.0}``
 
+    :param session:
+        Use specific HTTP 1.1 session with :py:mod:`requests`.
+
+        See :py:class:`web3.HTTPProvider` for details.
+
+        Example: ``request_kwargs={"timeout": 10.0}``
     :return:
         Configured Web3 instance with multiple providers
     """
@@ -178,7 +185,7 @@ def create_multi_provider_web3(
     if len(call_endpoints) < 0:
         raise MultiProviderConfigurationError(f"At least one call endpoint must be specified, configuration was {configuration_line}")
 
-    call_providers = [HTTPProvider(url, request_kwargs=request_kwargs) for url in call_endpoints]
+    call_providers = [HTTPProvider(url, request_kwargs=request_kwargs, session=session) for url in call_endpoints]
 
     # Do uJSON patching
     for p in call_providers:
@@ -188,7 +195,7 @@ def create_multi_provider_web3(
     transact_provider = None
     if len(transact_endpoints) > 0:
         transact_endpoint = transact_endpoints[0]
-        transact_provider = HTTPProvider(transact_endpoint, request_kwargs=request_kwargs)
+        transact_provider = HTTPProvider(transact_endpoint, request_kwargs=request_kwargs, session=session)
 
         _fix_provider(transact_provider)
 
@@ -206,6 +213,8 @@ def create_multi_provider_web3(
     )
 
     web3 = MultiProviderWeb3(provider)
+
+    patch_web3(web3)
 
     web3.middleware_onion.clear()
 

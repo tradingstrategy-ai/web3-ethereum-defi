@@ -22,6 +22,7 @@ from eth_defi.event_reader.conversion import (
     convert_uint256_bytes_to_address,
     convert_uint256_string_to_address,
     decode_data,
+    convert_jsonrpc_value_to_int,
 )
 from eth_defi.event_reader.fast_json_rpc import patch_web3
 from eth_defi.event_reader.logresult import LogContext, LogResult
@@ -30,9 +31,11 @@ from eth_defi.event_reader.web3factory import TunedWeb3Factory
 from eth_defi.event_reader.web3worker import create_thread_pool_executor
 from eth_defi.token import TokenDetails, fetch_erc20_details
 
+JSON_RPC_ETHEREUM = os.environ.get("JSON_RPC_URL") or os.environ.get("JSON_RPC_ETHEREUM")
+
 pytestmark = pytest.mark.skipif(
-    os.environ.get("JSON_RPC_URL") is None,
-    reason="Set JSON_RPC_URL environment variable to Ethereum mainnet node to run this test",
+    JSON_RPC_ETHEREUM is None,
+    reason="Set JSON_RPC_ETHEREUM environment variable to Ethereum mainnet node to run this test",
 )
 
 
@@ -51,7 +54,7 @@ class TokenCache(LogContext):
         return self.cache[address]
 
 
-def decode_pair_created(log: LogResult) -> dict:
+def decode_pair_created(web3: Web3, log: LogResult) -> dict:
     """Process a pair created event.
 
     This function does manually optimised high speed decoding of the event.
@@ -67,7 +70,6 @@ def decode_pair_created(log: LogResult) -> dict:
     # {'address': '0x5c69bee701ef814a2b6a3edd4b1652cb9cc5aa6f', 'blockHash': '0x359d1dc4f14f9a07cba3ae8416958978ce98f78ad7b8d505925dad9722081f04', 'blockNumber': '0x98b723', 'data': '0x000000000000000000000000b4e16d0168e52d35cacd2c6185b44281ec28c9dc0000000000000000000000000000000000000000000000000000000000000001', 'logIndex': '0x22', 'removed': False, 'topics': ['0x0d3648bd0f6ba80134a33ba9275ac585d9d315f0ad8355cddefde31afa28d0e9', '0x000000000000000000000000a0b86991c6218b36c1d19d4a2e9eb0ce3606eb48', '0x000000000000000000000000c02aaa39b223fe8d0a0e5c4f27ead9083c756cc2'], 'transactionHash': '0xd07cbde817318492092cc7a27b3064a69bd893c01cb593d6029683ffd290ab3a', 'transactionIndex': '0x26', 'event': <class 'web3._utils.datatypes.PairCreated'>, 'timestamp': 1588710145}
 
     # Do additional lookup for the token data
-    web3 = log["event"].web3
     token_cache: TokenCache = log["context"]
 
     # Any indexed Solidity event parameter will be in topics data.
@@ -89,9 +91,9 @@ def decode_pair_created(log: LogResult) -> dict:
     token1 = token_cache.get_token_info(web3, token1_address)
 
     data = {
-        "block_number": int(log["blockNumber"], 16),
+        "block_number": convert_jsonrpc_value_to_int(log["blockNumber"]),
         "tx_hash": log["transactionHash"],
-        "log_index": int(log["logIndex"], 16),
+        "log_index": convert_jsonrpc_value_to_int(log["logIndex"]),
         "factory_contract_address": factory_address,
         "pair_contract_address": pair_contract_address,
         "pair_count_index": pair_count,
@@ -109,7 +111,7 @@ def test_read_events():
     # HTTP 1.1 keep-alive
     session = requests.Session()
 
-    json_rpc_url = os.environ["JSON_RPC_URL"]
+    json_rpc_url = JSON_RPC_ETHEREUM
     web3 = Web3(HTTPProvider(json_rpc_url, session=session))
 
     # Enable faster ujson reads
@@ -118,7 +120,7 @@ def test_read_events():
     web3.middleware_onion.clear()
 
     # Get contracts
-    Factory = get_contract(web3, "UniswapV2Factory.json")
+    Factory = get_contract(web3, "sushi/UniswapV2Factory.json")
 
     events = [
         Factory.events.PairCreated,  # https://etherscan.io/txs?ea=0x5c69bee701ef814a2b6a3edd4b1652cb9cc5aa6f&topic0=0x0d3648bd0f6ba80134a33ba9275ac585d9d315f0ad8355cddefde31afa28d0e9
@@ -141,7 +143,7 @@ def test_read_events():
         context=token_cache,
         extract_timestamps=None,
     ):
-        out.append(decode_pair_created(log_result))
+        out.append(decode_pair_created(web3, log_result))
 
     assert len(out) == 2
 
@@ -162,7 +164,7 @@ def test_read_events():
 def test_read_events_concurrent():
     """Read events quickly over JSON-RPC API using a thread pool."""
 
-    json_rpc_url = os.environ["JSON_RPC_URL"]
+    json_rpc_url = JSON_RPC_ETHEREUM
     token_cache = TokenCache()
     threads = 16
     http_adapter = HTTPAdapter(pool_connections=threads, pool_maxsize=threads)
@@ -171,7 +173,7 @@ def test_read_events_concurrent():
     executor = create_thread_pool_executor(web3_factory, token_cache, max_workers=threads)
 
     # Get contracts
-    Factory = get_contract(web3, "UniswapV2Factory.json")
+    Factory = get_contract(web3, "sushi/UniswapV2Factory.json")
 
     events = [
         Factory.events.PairCreated,  # https://etherscan.io/txs?ea=0x5c69bee701ef814a2b6a3edd4b1652cb9cc5aa6f&topic0=0x0d3648bd0f6ba80134a33ba9275ac585d9d315f0ad8355cddefde31afa28d0e9
@@ -192,7 +194,7 @@ def test_read_events_concurrent():
         context=token_cache,
         extract_timestamps=None,
     ):
-        out.append(decode_pair_created(log_result))
+        out.append(decode_pair_created(web3, log_result))
 
     assert len(out) == 2
 
@@ -208,3 +210,42 @@ def test_read_events_concurrent():
     assert e["token1_symbol"] == "USDC"
     assert e["token0_symbol"] == "USDP"
     assert e["tx_hash"] == "0xb0621ca74cee9f540dda6d575f6a7b876133b42684c1259aaeb59c831410ccb2"
+
+
+def test_read_events_concurrent_two_nodes():
+    """TunedWeb3Factory accepts fallover nodes as config."""
+
+    json_rpc_url = JSON_RPC_ETHEREUM
+    token_cache = TokenCache()
+    threads = 16
+    http_adapter = HTTPAdapter(pool_connections=threads, pool_maxsize=threads)
+    config_line = json_rpc_url + " " + json_rpc_url + "?foo=bar"  # Fake
+    web3_factory = TunedWeb3Factory(config_line, http_adapter)
+    web3 = web3_factory(token_cache)
+    executor = create_thread_pool_executor(web3_factory, token_cache, max_workers=threads)
+
+    # Get contracts
+    Factory = get_contract(web3, "sushi/UniswapV2Factory.json")
+
+    events = [
+        Factory.events.PairCreated,  # https://etherscan.io/txs?ea=0x5c69bee701ef814a2b6a3edd4b1652cb9cc5aa6f&topic0=0x0d3648bd0f6ba80134a33ba9275ac585d9d315f0ad8355cddefde31afa28d0e9
+    ]
+
+    start_block = 10_000_835  # Uni deployed
+    end_block = 10_009_000  # The first pair created before this block
+
+    # Read through the blog ran
+    out = []
+    for log_result in read_events_concurrent(
+        executor,
+        start_block,
+        end_block,
+        events,
+        None,
+        chunk_size=100,
+        context=token_cache,
+        extract_timestamps=None,
+    ):
+        out.append(decode_pair_created(web3, log_result))
+
+    assert len(out) == 2
