@@ -12,7 +12,7 @@ from web3 import HTTPProvider, Web3
 
 from eth_defi.chain import install_chain_middleware, install_retry_middleware, install_api_call_counter_middleware
 from eth_defi.event_reader.fast_json_rpc import patch_web3
-
+from eth_defi.provider.multi_provider import create_multi_provider_web3
 
 _web3_thread_local_cache = local()
 
@@ -112,14 +112,7 @@ class TunedWeb3Factory(Web3Factory):
         session = requests.Session()
         session.mount("https://", self.http_adapter)
 
-        web3 = Web3(HTTPProvider(self.json_rpc_url, session=session))
-
-        # Enable faster ujson reads
-        patch_web3(web3)
-
-        web3.middleware_onion.clear()
-        install_chain_middleware(web3)
-        install_retry_middleware(web3)
+        web3 = create_multi_provider_web3(self.json_rpc_url, session=session)
 
         if self.thread_local_cache:
             _web3_thread_local_cache.web3 = web3
