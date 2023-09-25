@@ -1,3 +1,7 @@
+# Current
+
+- Allow passing `request_kwargs` to [create_multi_provider_web3](https://web3-ethereum-defi.readthedocs.io/api/provider/_autosummary_provider/eth_defi.provider.multi_provider.create_multi_provider_web3.html#eth_defi.provider.multi_provider.create_multi_provider_web3)
+
 # 0.22.12
 
 - Retry [nonce too low errors](https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/153),
