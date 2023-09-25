@@ -79,7 +79,6 @@ DEFAULT_RETRYABLE_HTTP_STATUS_CODES = (
 DEFAULT_RETRYABLE_RPC_ERROR_CODES = (
     # ValueError: {'message': 'Internal JSON-RPC error.', 'code': -32603}
     -32603,
-
     # ValueError: {'code': -32000, 'message': 'nonce too low'}.
     # Might happen when we are broadcasting multiple transactions through multiple RPC providers
     # using eth_sendRawTransaction
