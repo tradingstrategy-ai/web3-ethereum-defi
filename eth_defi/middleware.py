@@ -84,6 +84,10 @@ DEFAULT_RETRYABLE_RPC_ERROR_CODES = (
     # using eth_sendRawTransaction
     # One provide has not yet seeing a transaction broadcast through the other provider.
     -32000,
+
+    # Some error we are getting from LlamaNodes eth_getLogs RPC that we do not know what it is all about
+    # {'code': -32043, 'message': 'Requested data is not available'}
+    -32043,
 )
 
 

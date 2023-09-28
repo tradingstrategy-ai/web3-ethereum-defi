@@ -1,4 +1,10 @@
-# Current
+# 0.22.14
+
+- Add `{'code': -32043, 'message': 'Requested data is not available'}` to RPC exceptions where we assume it's
+  an error we can either resume or switch to the next node provider. This error was encoureted with `eth_getLogs`
+  when using LlamaNodes.
+
+# 0.22.13
 
 - Allow passing `request_kwargs` to [create_multi_provider_web3](https://web3-ethereum-defi.readthedocs.io/api/provider/_autosummary_provider/eth_defi.provider.multi_provider.create_multi_provider_web3.html#eth_defi.provider.multi_provider.create_multi_provider_web3)
 - When setting up [TunedWeb3Factory](https://web3-ethereum-defi.readthedocs.io/api/event_reader/_autosummary_enzyne/eth_defi.event_reader.web3factory.TunedWeb3Factory.html?highlight=tunedweb3factory) use `create_multi_provider_web3` to set up the connections
