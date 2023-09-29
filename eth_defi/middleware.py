@@ -77,6 +77,8 @@ DEFAULT_RETRYABLE_HTTP_STATUS_CODES = (
 #: See GoEthereum error codes https://github.com/ethereum/go-ethereum/blob/master/rpc/errors.go
 #:
 DEFAULT_RETRYABLE_RPC_ERROR_CODES = (
+    # The node provider has corrupted database or something GoEthereum
+    # cannot handle gracefully.
     # ValueError: {'message': 'Internal JSON-RPC error.', 'code': -32603}
     -32603,
     # ValueError: {'code': -32000, 'message': 'nonce too low'}.
@@ -84,7 +86,9 @@ DEFAULT_RETRYABLE_RPC_ERROR_CODES = (
     # using eth_sendRawTransaction
     # One provide has not yet seeing a transaction broadcast through the other provider.
     -32000,
-
+    # ValueError: {'code': -32003, 'message': 'nonce too low'}.
+    # Anvil variant for nonce too low, same as above
+    -32003,
     # Some error we are getting from LlamaNodes eth_getLogs RPC that we do not know what it is all about
     # {'code': -32043, 'message': 'Requested data is not available'}
     -32043,

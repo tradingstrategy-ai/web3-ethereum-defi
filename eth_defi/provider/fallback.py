@@ -105,6 +105,10 @@ class FallbackProvider(BaseNamedProvider):
         #: provider number -> API name -> call count mappings.
         # This tracks completed API requests.
         self.api_call_counts = defaultdict(Counter)
+
+        #: provider number-> api method name -> retry counts dict
+        self.api_retry_counts = defaultdict(Counter)
+
         self.retry_count = 0
         self.switchover_noisiness = switchover_noisiness
 
@@ -139,36 +143,49 @@ class FallbackProvider(BaseNamedProvider):
         - If there are errors try cycle through providers and sleep
           between cycles until one provider works
         """
-
         current_sleep = self.sleep
-        for i in range(self.retries):
+        for i in range(self.retries + 1):
             provider = self.get_active_provider()
             try:
                 # Call the underlying provider
-                val = provider.make_request(method, params)
+                resp_data = provider.make_request(method, params)
+
+                # We need to manually raise the exception here,
+                # likely was raised by Web3.py itself in pre-6.0 versions.
+                # If this behavior is some legacy Web3.py behavior and not present anymore,
+                # we should replace this with a custom exception.
+                # Might be also related to EthereumTester only code paths.
+                if "error" in resp_data:
+                    # {'jsonrpc': '2.0', 'id': 23, 'error': {'code': -32003, 'message': 'nonce too low'}}
+                    # This will trigger exception that will be handled by is_retryable_http_exception()
+                    raise ValueError(resp_data["error"])
 
                 # Track API counts
                 self.api_call_counts[self.currently_active_provider][method] += 1
 
-                return val
+                return resp_data
 
             except Exception as e:
+                old_provider_name = get_provider_name(provider)
                 if is_retryable_http_exception(
                     e,
                     retryable_rpc_error_codes=self.retryable_rpc_error_codes,
                     retryable_status_codes=self.retryable_status_codes,
                     retryable_exceptions=self.retryable_exceptions,
                 ):
-                    old_provider_name = get_provider_name(provider)
                     self.switch_provider()
                     new_provider_name = get_provider_name(self.get_active_provider())
 
-                    if i < self.retries - 1:
-                        logger.log(self.switchover_noisiness, "Encountered JSON-RPC retryable error %s when calling method %s.\n" "Switching providers %s -> %s\n" "Retrying in %f seconds, retry #%d", e, method, old_provider_name, new_provider_name, current_sleep, i)
+                    if i < self.retries:
+                        logger.log(self.switchover_noisiness, "Encountered JSON-RPC retryable error %s when calling method %s.\n" "Switching providers %s -> %s\n" "Retrying in %f seconds, retry #%d / %d", e, method, old_provider_name, new_provider_name, current_sleep, i, self.retries)
                         time.sleep(current_sleep)
                         current_sleep *= self.backoff
                         self.retry_count += 1
+                        self.api_retry_counts[self.currently_active_provider][method] += 1
                         continue
                     else:
                         raise  # Out of retries
+                logger.info("Will not retry on %s, method %s, as not a retryable exception %s: %s", old_provider_name, method, e.__class__, e)
                 raise  # Not retryable exception
+
+        raise AssertionError("Should never be reached")

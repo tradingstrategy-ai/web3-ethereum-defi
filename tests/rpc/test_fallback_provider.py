@@ -3,10 +3,14 @@ from unittest.mock import patch, DEFAULT
 
 import pytest
 import requests
+from eth_account import Account
 from web3 import HTTPProvider, Web3
 
 from eth_defi.anvil import launch_anvil, AnvilLaunch
+from eth_defi.gas import node_default_gas_price_strategy
+from eth_defi.hotwallet import HotWallet
 from eth_defi.provider.fallback import FallbackProvider
+from eth_defi.trace import assert_transaction_success_with_explanation
 
 
 @pytest.fixture(scope="module")
@@ -37,6 +41,18 @@ def provider_2(anvil):
 def fallback_provider(provider_1, provider_2) -> FallbackProvider:
     provider = FallbackProvider([provider_1, provider_2], sleep=0.1, backoff=1)
     return provider
+
+
+@pytest.fixture()
+def web3(fallback_provider) -> Web3:
+    """Test account with built-in balance"""
+    return Web3(fallback_provider)
+
+
+@pytest.fixture()
+def deployer(web3) -> str:
+    """Test account with built-in balance"""
+    return web3.eth.accounts[0]
 
 
 def test_fallback_no_issue(anvil: AnvilLaunch, fallback_provider: FallbackProvider):
@@ -74,7 +90,7 @@ def test_fallback_double_fault(fallback_provider: FallbackProvider, provider_1, 
         with pytest.raises(requests.exceptions.ConnectionError):
             web3.eth.block_number
 
-    assert fallback_provider.retry_count == 5
+    assert fallback_provider.retry_count == 6
 
 
 def test_fallback_double_fault_recovery(fallback_provider: FallbackProvider, provider_1, provider_2):
@@ -108,3 +124,47 @@ def test_fallback_unhandled_exception(fallback_provider: FallbackProvider, provi
     with patch.object(provider_1, "make_request", side_effect=RuntimeError):
         with pytest.raises(RuntimeError):
             web3.eth.block_number
+
+
+def test_fallback_nonce_too_low(web3, deployer: str):
+    """Retry nonce too low errors with eth_sendRawTransaction,
+
+    See if we can retry LlamanNodes nonce too low errors when sending multiple transactions.
+    """
+
+    web3.eth.set_gas_price_strategy(node_default_gas_price_strategy)
+
+    user = Account.create()
+    hot_wallet = HotWallet(user)
+
+    tx1_hash = web3.eth.send_transaction({"from": deployer, "to": user.address, "value": 5 * 10**18})
+    assert_transaction_success_with_explanation(web3, tx1_hash)
+
+    hot_wallet.sync_nonce(web3)
+
+    # First send a transaction with a correct nonce
+    tx2 = {"chainId": web3.eth.chain_id, "from": user.address, "to": deployer, "value": 1 * 10**18, "gas": 30_000}
+    HotWallet.fill_in_gas_price(web3, tx2)
+    signed_tx2 = hot_wallet.sign_transaction_with_new_nonce(tx2)
+    assert signed_tx2.nonce == 0
+    tx2_hash = web3.eth.send_raw_transaction(signed_tx2.rawTransaction)
+    assert_transaction_success_with_explanation(web3, tx2_hash)
+
+    fallback_provider = web3.provider
+    assert fallback_provider.api_call_counts[0]["eth_sendRawTransaction"] == 1
+    assert fallback_provider.api_retry_counts[0]["eth_sendRawTransaction"] == 0
+
+    # Then send a transaction with too low nonce.
+    # We are not interested that the transaction goes thru, only
+    # that it is retried.
+    tx3 = {"chainId": web3.eth.chain_id, "from": user.address, "to": deployer, "value": 1 * 10**18, "gas": 30_000}
+    HotWallet.fill_in_gas_price(web3, tx3)
+    hot_wallet.current_nonce = 0  # Spoof nonce
+    signed_tx3 = hot_wallet.sign_transaction_with_new_nonce(tx3)
+    assert signed_tx3.nonce == 0
+
+    with pytest.raises(ValueError):
+        # nonce too low happens during RPC call
+        tx3_hash = web3.eth.send_raw_transaction(signed_tx3.rawTransaction)
+
+    assert fallback_provider.api_retry_counts[0]["eth_sendRawTransaction"] == 3  # 5 attempts, 3 retries, the last retry does not count
