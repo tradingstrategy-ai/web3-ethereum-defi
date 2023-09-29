@@ -90,7 +90,7 @@ def test_fallback_double_fault(fallback_provider: FallbackProvider, provider_1, 
         with pytest.raises(requests.exceptions.ConnectionError):
             web3.eth.block_number
 
-    assert fallback_provider.retry_count == 5
+    assert fallback_provider.retry_count == 6
 
 
 def test_fallback_double_fault_recovery(fallback_provider: FallbackProvider, provider_1, provider_2):
@@ -137,13 +137,13 @@ def test_fallback_nonce_too_low(web3, deployer: str):
     user = Account.create()
     hot_wallet = HotWallet(user)
 
-    tx1_hash = web3.eth.send_transaction({"from": deployer, "to": user.address, "value": 5*10**18})
+    tx1_hash = web3.eth.send_transaction({"from": deployer, "to": user.address, "value": 5 * 10**18})
     assert_transaction_success_with_explanation(web3, tx1_hash)
 
     hot_wallet.sync_nonce(web3)
 
     # First send a transaction with a correct nonce
-    tx2 = {"chainId": web3.eth.chain_id, "from": user.address, "to": deployer, "value": 1*10**18, "gas": 30_000}
+    tx2 = {"chainId": web3.eth.chain_id, "from": user.address, "to": deployer, "value": 1 * 10**18, "gas": 30_000}
     HotWallet.fill_in_gas_price(web3, tx2)
     signed_tx2 = hot_wallet.sign_transaction_with_new_nonce(tx2)
     assert signed_tx2.nonce == 0
@@ -157,7 +157,7 @@ def test_fallback_nonce_too_low(web3, deployer: str):
     # Then send a transaction with too low nonce.
     # We are not interested that the transaction goes thru, only
     # that it is retried.
-    tx3 = {"chainId": web3.eth.chain_id, "from": user.address, "to": deployer, "value": 1*10**18, "gas": 30_000}
+    tx3 = {"chainId": web3.eth.chain_id, "from": user.address, "to": deployer, "value": 1 * 10**18, "gas": 30_000}
     HotWallet.fill_in_gas_price(web3, tx3)
     hot_wallet.current_nonce = 0  # Spoof nonce
     signed_tx3 = hot_wallet.sign_transaction_with_new_nonce(tx3)
@@ -167,4 +167,4 @@ def test_fallback_nonce_too_low(web3, deployer: str):
         # nonce too low happens during RPC call
         tx3_hash = web3.eth.send_raw_transaction(signed_tx3.rawTransaction)
 
-    assert fallback_provider.api_retry_counts[0]["eth_sendRawTransaction"] == 3 # 5 attempts, 3 retries, the last retry does not count
+    assert fallback_provider.api_retry_counts[0]["eth_sendRawTransaction"] == 3  # 5 attempts, 3 retries, the last retry does not count

@@ -102,7 +102,6 @@ class FallbackProvider(BaseNamedProvider):
         self.backoff = backoff
         self.retries = retries
 
-
         #: provider number -> API name -> call count mappings.
         # This tracks completed API requests.
         self.api_call_counts = defaultdict(Counter)
@@ -178,15 +177,7 @@ class FallbackProvider(BaseNamedProvider):
                     new_provider_name = get_provider_name(self.get_active_provider())
 
                     if i < self.retries:
-                        logger.log(self.switchover_noisiness, "Encountered JSON-RPC retryable error %s when calling method %s.\n" "Switching providers %s -> %s\n" "Retrying in %f seconds, retry #%d / %d",
-                                   e,
-                                   method,
-                                   old_provider_name,
-                                   new_provider_name,
-                                   current_sleep,
-                                   i,
-                                   self.retries
-                                   )
+                        logger.log(self.switchover_noisiness, "Encountered JSON-RPC retryable error %s when calling method %s.\n" "Switching providers %s -> %s\n" "Retrying in %f seconds, retry #%d / %d", e, method, old_provider_name, new_provider_name, current_sleep, i, self.retries)
                         time.sleep(current_sleep)
                         current_sleep *= self.backoff
                         self.retry_count += 1
