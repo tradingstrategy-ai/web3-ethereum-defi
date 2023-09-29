@@ -18,6 +18,7 @@ from hexbytes import HexBytes
 from web3 import Web3
 from web3.contract.contract import ContractFunction
 
+from eth_defi.gas import estimate_gas_fees, apply_gas
 from eth_defi.tx import decode_signed_transaction
 
 
@@ -177,6 +178,25 @@ class HotWallet:
         """
         balance = web3.eth.get_balance(self.address)
         return web3.from_wei(balance, "ether")
+
+    @staticmethod
+    def fill_in_gas_price(web3: Web3, tx: dict) -> dict:
+        """Fills in the gas value fields for a transaction.
+
+        - Estimates raw transaction gas usage
+
+        - Uses web3 methods to get the gas value fields for the dict
+
+        - web3 offers different backends for this
+
+        - likely queries the values from the node
+
+        :return:
+            Transaction data (mutated) with gas values filled in.
+        """
+        price_data = estimate_gas_fees(web3)
+        apply_gas(tx, price_data)
+        return tx
 
     @staticmethod
     def from_private_key(key: str) -> "HotWallet":

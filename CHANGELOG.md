@@ -1,3 +1,10 @@
+# Current
+
+- Fix [FallbackProvider](https://web3-ethereum-defi.readthedocs.io/api/provider/_autosummary_provider/eth_defi.provider.fallback.html) to work with [certain problematic error codes](https://twitter.com/moo9000/status/1707672647264346205)
+- Log non-retryable exceptions in fallback middleware, so 
+  there is better diagnostics why fallback fails
+- Add `HotWallet.fill_in_gas_estimations()`
+
 # 0.22.14
 
 - Add `{'code': -32043, 'message': 'Requested data is not available'}` to RPC exceptions where we assume it's
