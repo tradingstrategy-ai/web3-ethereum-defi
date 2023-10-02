@@ -52,9 +52,14 @@ jobs:
       #   run: |
       #     cd contracts/aave-v3-deploy
       #     npm ci
+
+      # Run tests parallel.
+      # By default Github gives us only 2 CPUs, but we want to parallerise
+      # a bit more.
+      # created: 2/2 workers.
       - name: Run test scripts
         run: |
-          poetry run pytest --tb=native -n auto --dist loadscope
+          poetry run pytest --tb=native -n 6 --dist loadscope
         env:
           BNB_CHAIN_JSON_RPC: ${{ secrets.BNB_CHAIN_JSON_RPC }}
           JSON_RPC_POLYGON_ARCHIVE: ${{ secrets.JSON_RPC_POLYGON_ARCHIVE }}
