@@ -185,7 +185,12 @@ def test_eth_call_not_having_block(fallback_provider: FallbackProvider, provider
     json_rpc_url = os.environ["JSON_RPC_POLYGON"]
     provider = HTTPProvider(json_rpc_url)
     # We don't do real fallbacks, but test the internal
-    fallback_provider = FallbackProvider([provider, provider], sleep=0.1, backoff=1)  # Low thresholds for unit test
+    fallback_provider = FallbackProvider(
+        [provider, provider],
+        sleep=0.1,  # Low thresholds for unit test
+        backoff=1,
+        state_missing_switch_over_delay=0.1,
+    )
 
     web3 = Web3(fallback_provider)
 

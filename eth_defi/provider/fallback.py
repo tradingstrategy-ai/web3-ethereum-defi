@@ -53,6 +53,7 @@ class FallbackProvider(BaseNamedProvider):
         sleep: float = 5.0,
         backoff: float = 1.6,
         retries: int = 6,
+        state_missing_switch_over_delay: float = 12.0,
         switchover_noisiness=logging.WARNING,
     ):
         """
@@ -84,6 +85,11 @@ class FallbackProvider(BaseNamedProvider):
 
         :param switchover_noisiness:
             How loud we are about switchover issues.
+
+        :param state_missing_switch_over_delay:
+            If we encounter state missing condition at node, what is the minimum time (seconds) we wait before trying to switch to next node.
+
+            See code comments for details.
 
         """
 
@@ -117,7 +123,7 @@ class FallbackProvider(BaseNamedProvider):
         self.switchover_noisiness = switchover_noisiness
 
         # Wait 12 seconds for block missing errors
-        self.no_data_min_delay = 12.0
+        self.state_missing_switch_over_delay = 12.0
 
     def __repr__(self):
         names = [get_provider_name(p) for p in self.providers]
@@ -186,7 +192,7 @@ class FallbackProvider(BaseNamedProvider):
                             # assume node does not have data yet,
                             # switch to another node, wait some extra time
                             # to ensure it gets blocks
-                            current_sleep = min(self.no_data_min_delay, current_sleep)
+                            current_sleep = max(self.state_missing_switch_over_delay, current_sleep)
                             raise ProbablyNodeHasNoBlock(f"Node did not have data for block {block_identifier}")
 
                 # Track API counts
@@ -206,6 +212,8 @@ class FallbackProvider(BaseNamedProvider):
                     new_provider_name = get_provider_name(self.get_active_provider())
 
                     if i < self.retries:
+                        # Black messes up string new lines here
+                        # See https://github.com/psf/black/issues/1837
                         logger.log(self.switchover_noisiness, "Encountered JSON-RPC retryable error %s when calling method:\n" "%s(%s)\n" "Switching providers %s -> %s\n" "Retrying in %f seconds, retry #%d / %d", e, method, params, old_provider_name, new_provider_name, current_sleep, i, self.retries)
                         time.sleep(current_sleep)
                         current_sleep *= self.backoff
