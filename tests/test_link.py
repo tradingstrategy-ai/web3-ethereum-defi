@@ -1,16 +1,11 @@
 """Solidity linking tests."""
 import pytest
-from _pytest.fixtures import FixtureRequest
-from eth.constants import ZERO_ADDRESS
 
-from web3 import Web3, EthereumTesterProvider, HTTPProvider
+from web3 import Web3, EthereumTesterProvider
 
 from eth_defi.aave_v3.deployer import get_aave_hardhard_export
 from eth_defi.abi import get_contract, get_linked_contract
-from eth_defi.anvil import AnvilLaunch, launch_anvil
 from eth_defi.chain import install_chain_middleware
-from eth_defi.trace import assert_transaction_success_with_explanation
-from eth_defi.utils import ZERO_ADDRESS_STR
 
 #
 # @pytest.fixture()

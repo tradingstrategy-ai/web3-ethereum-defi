@@ -10,7 +10,7 @@ import logging
 
 from web3.types import RPCEndpoint, RPCResponse
 
-from eth_defi.middleware import is_retryable_http_exception, DEFAULT_RETRYABLE_EXCEPTIONS, DEFAULT_RETRYABLE_HTTP_STATUS_CODES, DEFAULT_RETRYABLE_RPC_ERROR_CODES
+from eth_defi.middleware import is_retryable_http_exception, DEFAULT_RETRYABLE_EXCEPTIONS, DEFAULT_RETRYABLE_HTTP_STATUS_CODES, DEFAULT_RETRYABLE_RPC_ERROR_CODES, ProbablyNodeHasNoBlock
 from eth_defi.provider.named import BaseNamedProvider, NamedProvider, get_provider_name
 
 logger = logging.getLogger(__name__)
@@ -29,12 +29,16 @@ class FallbackProvider(BaseNamedProvider):
 
     Fall back to the next provider on the list if a JSON-RPC request fails.
     Contains build-in retry logic in round-robin manner.
+    We will also recover from situations when we suspect the node does not
+    have the block data we are asking yet (but should have shorty).
 
     See also
 
     - :py:func:`eth_defi.middlware.exception_retry_middleware`
 
-    .. warning::
+    - :py:func:`eth_defi.middlware.ProbablyNodeHasNoBlock`
+
+    .. note::
 
         :py:class:`FallbackProvider` does not call any middlewares installed on the providers themselves.
     """
@@ -49,6 +53,7 @@ class FallbackProvider(BaseNamedProvider):
         sleep: float = 5.0,
         backoff: float = 1.6,
         retries: int = 6,
+        state_missing_switch_over_delay: float = 12.0,
         switchover_noisiness=logging.WARNING,
     ):
         """
@@ -81,6 +86,11 @@ class FallbackProvider(BaseNamedProvider):
         :param switchover_noisiness:
             How loud we are about switchover issues.
 
+        :param state_missing_switch_over_delay:
+            If we encounter state missing condition at node, what is the minimum time (seconds) we wait before trying to switch to next node.
+
+            See code comments for details.
+
         """
 
         super().__init__()
@@ -111,6 +121,9 @@ class FallbackProvider(BaseNamedProvider):
 
         self.retry_count = 0
         self.switchover_noisiness = switchover_noisiness
+
+        # Wait 12 seconds for block missing errors
+        self.state_missing_switch_over_delay = 12.0
 
     def __repr__(self):
         names = [get_provider_name(p) for p in self.providers]
@@ -160,6 +173,28 @@ class FallbackProvider(BaseNamedProvider):
                     # This will trigger exception that will be handled by is_retryable_http_exception()
                     raise ValueError(resp_data["error"])
 
+                # A special case of eth_call returning empty result.
+                # This happens if you call a smart contract for a block number
+                # for which the node does not yet have a data or is still processing data.
+                # This happens often on low-quality RPC providers (Ankr)
+                # that route your call between different nodes between subsequent calls and those nodes
+                # see a different state of EVM.
+                # Down the line, not in middleware stack, this would lead to BadFunctionCallOutput
+                # output. We work around this by detecting this conditino in middleware
+                # stack and trigger middleware fallover node switch if the condition is detected.
+                #
+                if method == "eth_call":
+                    args, block_identifier = params
+                    if block_identifier != "latest":
+                        result = resp_data["result"]
+                        if result == "0x":
+                            # eth_call returned empty response,
+                            # assume node does not have data yet,
+                            # switch to another node, wait some extra time
+                            # to ensure it gets blocks
+                            current_sleep = max(self.state_missing_switch_over_delay, current_sleep)
+                            raise ProbablyNodeHasNoBlock(f"Node did not have data for block {block_identifier}")
+
                 # Track API counts
                 self.api_call_counts[self.currently_active_provider][method] += 1
 
@@ -177,7 +212,9 @@ class FallbackProvider(BaseNamedProvider):
                     new_provider_name = get_provider_name(self.get_active_provider())
 
                     if i < self.retries:
-                        logger.log(self.switchover_noisiness, "Encountered JSON-RPC retryable error %s when calling method %s.\n" "Switching providers %s -> %s\n" "Retrying in %f seconds, retry #%d / %d", e, method, old_provider_name, new_provider_name, current_sleep, i, self.retries)
+                        # Black messes up string new lines here
+                        # See https://github.com/psf/black/issues/1837
+                        logger.log(self.switchover_noisiness, "Encountered JSON-RPC retryable error %s when calling method:\n" "%s(%s)\n" "Switching providers %s -> %s\n" "Retrying in %f seconds, retry #%d / %d", e, method, params, old_provider_name, new_provider_name, current_sleep, i, self.retries)
                         time.sleep(current_sleep)
                         current_sleep *= self.backoff
                         self.retry_count += 1

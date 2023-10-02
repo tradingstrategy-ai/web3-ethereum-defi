@@ -27,18 +27,30 @@ _call_missing_exceptions = (TransactionFailed, BadFunctionCallOutput, ValueError
 
 @dataclass
 class TokenDetails:
-    """A helper class to detail with token instructions.
+    """ERC-20 token Python presentation.
 
-    Any field can be None for non-wellformed tokens.
+    - A helper class to work with ERC-20 tokens.
+
+    - Read on-chain data, deal with token value decimal conversions.
+
+    - Any field can be ``None`` for non-well-formed tokens.
+
+    Example how to get USDC details on Polygon:
+
+    .. code-block:: python
+
+        usdc = fetch_erc20_details(web3, "0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174")  # USDC on Polygon
+        formatted = f"Token {usdc.name} ({usdc.symbol}) at {usdc.address} on chain {usdc.chain_id}"
+        assert formatted == "Token USD Coin (PoS) (USDC) at 0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174 on chain 137"
     """
 
     #: The underlying ERC-20 contract proxy class instance
     contract: Contract
 
-    #: Token name e.g. `USD Circle`
+    #: Token name e.g. ``USD Circle``
     name: Optional[str] = None
 
-    #: Token symbol e.g. `USDC`
+    #: Token symbol e.g. ``USDC``
     symbol: Optional[str] = None
 
     #: Token supply as raw units

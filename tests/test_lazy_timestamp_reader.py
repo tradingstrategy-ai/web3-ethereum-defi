@@ -2,7 +2,7 @@
 
 """
 import pytest
-from eth_defi.anvil import launch_anvil, AnvilLaunch, mine
+from eth_defi.provider.anvil import launch_anvil, AnvilLaunch, mine
 from eth_defi.chain import install_chain_middleware
 from web3 import HTTPProvider, Web3
 

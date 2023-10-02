@@ -1,5 +1,17 @@
-# 0.22.15
+# 0.22.16
 
+- Work around ``BadFunctionCallOutput``: Insufficient bytes exception: A special case of eth_call returning an empty result.
+  This happens if you call a smart contract for a block number
+  for which the node does not yet have data or is still processing data.
+  This happens often on low-quality RPC providers (Ankr)
+  that route your call between different nodes between subsequent calls, and those nodes
+  see a different state of EVM.
+  Down the line, not in the middleware stack, this would lead to `BadFunctionCallOutput` output. We work around this by detecting this condition in the middleware stack and triggering the middleware fall-over node switch if the condition is detected.
+- Set `FallbackProvider` to have the default `4` blocks latency for all `latest` calls,
+  in `get_default_block_tip_latency()` so that fail over switches are more robust.
+
+# 0.22.15
+    
 - Fix [FallbackProvider](https://web3-ethereum-defi.readthedocs.io/api/provider/_autosummary_provider/eth_defi.provider.fallback.html) to work with [certain problematic error codes](https://twitter.com/moo9000/status/1707672647264346205)
 - Log non-retryable exceptions in fallback middleware, so 
   there is better diagnostics why fallback fails

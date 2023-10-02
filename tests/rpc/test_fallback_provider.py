@@ -1,16 +1,21 @@
 """Test JSON-RPC provider fallback mechanism."""
+import os
 from unittest.mock import patch, DEFAULT
 
 import pytest
 import requests
 from eth_account import Account
+from eth_defi.provider.broken_provider import get_default_block_tip_latency
 from web3 import HTTPProvider, Web3
 
 from eth_defi.anvil import launch_anvil, AnvilLaunch
 from eth_defi.gas import node_default_gas_price_strategy
 from eth_defi.hotwallet import HotWallet
+from eth_defi.middleware import ProbablyNodeHasNoBlock
 from eth_defi.provider.fallback import FallbackProvider
+from eth_defi.token import fetch_erc20_details
 from eth_defi.trace import assert_transaction_success_with_explanation
+from eth_defi.uniswap_v2.utils import ZERO_ADDRESS
 
 
 @pytest.fixture(scope="module")
@@ -168,3 +173,35 @@ def test_fallback_nonce_too_low(web3, deployer: str):
         tx3_hash = web3.eth.send_raw_transaction(signed_tx3.rawTransaction)
 
     assert fallback_provider.api_retry_counts[0]["eth_sendRawTransaction"] == 3  # 5 attempts, 3 retries, the last retry does not count
+
+
+@pytest.mark.skipif(
+    os.environ.get("JSON_RPC_POLYGON") is None,
+    reason="Set JSON_RPC_POLYGON environment variable to a privately configured Polygon node",
+)
+def test_eth_call_not_having_block(fallback_provider: FallbackProvider, provider_1):
+    """What happens if you ask data from non-existing block."""
+
+    json_rpc_url = os.environ["JSON_RPC_POLYGON"]
+    provider = HTTPProvider(json_rpc_url)
+    # We don't do real fallbacks, but test the internal
+    fallback_provider = FallbackProvider(
+        [provider, provider],
+        sleep=0.1,  # Low thresholds for unit test
+        backoff=1,
+        state_missing_switch_over_delay=0.1,
+    )
+
+    web3 = Web3(fallback_provider)
+
+    # See that we have fallback provider latency configured
+    assert get_default_block_tip_latency(web3) == 4
+
+    usdc = fetch_erc20_details(web3, "0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174")  # USDC on Polygon
+
+    bad_block = 1  # We get empty response if the contract has not been deployed yet
+
+    with pytest.raises(ProbablyNodeHasNoBlock):
+        usdc.contract.functions.balanceOf(ZERO_ADDRESS).call(block_identifier=bad_block)
+
+    assert fallback_provider.api_retry_counts[0]["eth_call"] == 3  # 5 attempts, 3 retries, the last retry does not count

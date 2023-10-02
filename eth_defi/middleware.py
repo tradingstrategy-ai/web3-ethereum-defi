@@ -95,6 +95,17 @@ DEFAULT_RETRYABLE_RPC_ERROR_CODES = (
 )
 
 
+class ProbablyNodeHasNoBlock(Exception):
+    """A special exception raised when we suspect JSON-RPC node does not yet have data for a block we asked.
+
+    - Calling a contract on a block before contract was deployed
+
+    - Calling a contract on a block where the node does not have the block data yet
+
+    See :py:mod:`eth_defi.provider.fallback` for details.
+    """
+
+
 def is_retryable_http_exception(
     exc: Exception,
     retryable_exceptions: Tuple[BaseException] = DEFAULT_RETRYABLE_EXCEPTIONS,
@@ -130,6 +141,9 @@ def is_retryable_http_exception(
                 if code is None or type(code) != int:
                     raise RuntimeError(f"Bad ValueError: {arg} - {exc}")
                 return code in retryable_rpc_error_codes
+
+    if isinstance(exc, ProbablyNodeHasNoBlock):
+        return True
 
     if isinstance(exc, HTTPError):
         return exc.response.status_code in retryable_status_codes
