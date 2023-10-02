@@ -41,7 +41,7 @@ jobs:
       - name: Install dependencies
         run: |
           poetry env use '3.10'
-          poetry install -E data
+          poetry install --all-extras
       - name: Install Ganache
         run: yarn global add ganache
       - name: Install Foundry
