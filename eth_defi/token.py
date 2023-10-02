@@ -27,9 +27,13 @@ _call_missing_exceptions = (TransactionFailed, BadFunctionCallOutput, ValueError
 
 @dataclass
 class TokenDetails:
-    """A helper class to detail with token instructions.
+    """ERC-20 Python presentation.
 
-    Any field can be None for non-wellformed tokens.
+    - A helper class to work with ERC-20 tokens.
+
+    - Read on-chain data, deal with token value decimal conversions.
+
+    - Any field can be ``None`` for non-well-formed tokens.
     """
 
     #: The underlying ERC-20 contract proxy class instance

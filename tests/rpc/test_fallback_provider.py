@@ -1,4 +1,5 @@
 """Test JSON-RPC provider fallback mechanism."""
+import os
 from unittest.mock import patch, DEFAULT
 
 import pytest
@@ -10,6 +11,7 @@ from eth_defi.anvil import launch_anvil, AnvilLaunch
 from eth_defi.gas import node_default_gas_price_strategy
 from eth_defi.hotwallet import HotWallet
 from eth_defi.provider.fallback import FallbackProvider
+from eth_defi.token import fetch_erc20_details
 from eth_defi.trace import assert_transaction_success_with_explanation
 
 
@@ -168,3 +170,20 @@ def test_fallback_nonce_too_low(web3, deployer: str):
         tx3_hash = web3.eth.send_raw_transaction(signed_tx3.rawTransaction)
 
     assert fallback_provider.api_retry_counts[0]["eth_sendRawTransaction"] == 3  # 5 attempts, 3 retries, the last retry does not count
+
+
+
+@pytest.mark.skipif(
+    os.environ.get("JSON_RPC_POLYGON") is None,
+    reason="Set JSON_RPC_POLYGON environment variable to a privately configured Polygon node",
+)
+def test_eth_call_not_having_block(fallback_provider: FallbackProvider, provider_1):
+    """What happens if you ask data from non-existing block"""
+
+    json_rpc_url = os.environ["JSON_RPC_POLYGON"]
+    provider = HTTPProvider(json_rpc_url)
+    # We don't do real fallbacks, but test the internal
+    FallbackProvider([provider, provider], sleep=0.1, backoff=1)
+    web3 = Web3(fallback_provider)
+    usdc = fetch_erc20_details("0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174") # USDC on Polygon
+
