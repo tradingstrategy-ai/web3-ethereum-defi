@@ -183,8 +183,8 @@ def test_eth_call_not_having_block(fallback_provider: FallbackProvider, provider
     json_rpc_url = os.environ["JSON_RPC_POLYGON"]
     provider = HTTPProvider(json_rpc_url)
     # We don't do real fallbacks, but test the internal
-    FallbackProvider([provider, provider], sleep=0.1, backoff=1)  # Low thresholds for unit test
-    web3 = Web3(provider)
+    fallback_provider = FallbackProvider([provider, provider], sleep=0.1, backoff=1)  # Low thresholds for unit test
+    web3 = Web3(fallback_provider)
     usdc = fetch_erc20_details(web3, "0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174")  # USDC on Polygon
 
     bad_block = 1  # We get empty response if the contract has not been deployed yet

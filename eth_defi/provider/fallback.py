@@ -10,7 +10,7 @@ import logging
 
 from web3.types import RPCEndpoint, RPCResponse
 
-from eth_defi.middleware import is_retryable_http_exception, DEFAULT_RETRYABLE_EXCEPTIONS, DEFAULT_RETRYABLE_HTTP_STATUS_CODES, DEFAULT_RETRYABLE_RPC_ERROR_CODES
+from eth_defi.middleware import is_retryable_http_exception, DEFAULT_RETRYABLE_EXCEPTIONS, DEFAULT_RETRYABLE_HTTP_STATUS_CODES, DEFAULT_RETRYABLE_RPC_ERROR_CODES, ProbablyNodeHasNoBlock
 from eth_defi.provider.named import BaseNamedProvider, NamedProvider, get_provider_name
 
 logger = logging.getLogger(__name__)
@@ -112,6 +112,9 @@ class FallbackProvider(BaseNamedProvider):
         self.retry_count = 0
         self.switchover_noisiness = switchover_noisiness
 
+        # Wait 12 seconds for block missing errors
+        self.no_data_min_delay = 12.0
+
     def __repr__(self):
         names = [get_provider_name(p) for p in self.providers]
         return f"<Fallback provider {', '.join(names)}>"
@@ -159,6 +162,28 @@ class FallbackProvider(BaseNamedProvider):
                     # {'jsonrpc': '2.0', 'id': 23, 'error': {'code': -32003, 'message': 'nonce too low'}}
                     # This will trigger exception that will be handled by is_retryable_http_exception()
                     raise ValueError(resp_data["error"])
+
+                # A special case of eth_call returning empty result.
+                # This happens if you call a smart contract for a block number
+                # for which the node does not yet have a data or is still processing data.
+                # This happens often on low-quality RPC providers (Ankr)
+                # that route your call between different nodes between subsequent calls and those nodes
+                # see a different state of EVM.
+                # Down the line, not in middleware stack, this would lead to BadFunctionCallOutput
+                # output. We work around this by detecting this conditino in middleware
+                # stack and trigger middleware fallover node switch if the condition is detected.
+                #
+                if method == "eth_call":
+                    args, block_identifier = params
+                    if block_identifier != "latest":
+                        result = resp_data["result"]
+                        if result == "0x":
+                            # eth_call returned empty response,
+                            # assume node does not have data yet,
+                            # switch to another node, wait some extra time
+                            # to ensure it gets blocks
+                            current_sleep = min(self.no_data_min_delay, current_sleep)
+                            raise ProbablyNodeHasNoBlock(f"Node did not have data for block {block_identifier}")
 
                 # Track API counts
                 self.api_call_counts[self.currently_active_provider][method] += 1
