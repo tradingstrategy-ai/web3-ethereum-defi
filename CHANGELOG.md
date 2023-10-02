@@ -1,5 +1,8 @@
 # 0.22.17
 
+- Make testing and `launch_anvil` distrubuted safe by randomising Anvil localhost port it binds.
+  Test now run in few minutes instead of tens of minutes. Tests must be still run with
+  `pytest --dist loadscope` as individual test modules are not parallel safe.
 - Add ``eth_defi.broken_provider.set_block_tip_latency()`` to control the default delays 
   for which we expect the chain tip to stabilise.
 

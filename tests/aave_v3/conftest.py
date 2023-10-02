@@ -36,7 +36,6 @@ def anvil() -> AnvilLaunch:
     """Launch Anvil for the test backend."""
 
     anvil = launch_anvil(
-        port=8545,  # Must be localhost:8545 for Aave deployment
         gas_limit=25_000_000,
     )
     try:

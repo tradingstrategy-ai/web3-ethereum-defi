@@ -16,7 +16,7 @@ from eth_defi.uniswap_v2.utils import ZERO_ADDRESS
 @pytest.fixture(scope="module")
 def anvil() -> AnvilLaunch:
     """Launch Anvil for the test backend."""
-    anvil = launch_anvil(port=20002)
+    anvil = launch_anvil()
     try:
         yield anvil
     finally:

@@ -583,3 +583,17 @@ def get_aave_hardhard_export() -> dict:
     """
     hardhat_export_path = Path(__file__).resolve().parent / "aave-hardhat-localhost-export.json"
     return json.loads(hardhat_export_path.read_bytes())
+
+
+def install_aave_for_testing():
+    """Entry-point to ensure Aave dev env is installedon Github Actions.
+
+    Because pytest-xdist does not have very good support for preventing
+    race conditions with fixtures, we run this problematic test
+    before test suite.
+
+    It will do npm install for Aave deployer.
+    """
+    deployer = AaveDeployer()
+    deployer.install(echo=True)
+
