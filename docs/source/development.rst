@@ -92,6 +92,12 @@ Check that the tests of unmodified master branch pass:
 
      pytest
 
+For fast parallel test execution run with ``pytest-xdist`` across all of your CPUs:
+
+.. code-block::
+
+    pytest -n auto --dist loadscope
+
 You should get all green.
 
 Some tests will be skipped, because they require full EVM nodes. JSON-RPC needs to be configured through environment variables.
