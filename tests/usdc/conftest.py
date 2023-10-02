@@ -13,7 +13,7 @@ from eth_defi.usdc.deployment import deploy_fiat_token
 @pytest.fixture()
 def anvil() -> AnvilLaunch:
     """Launch Anvil for the test backend."""
-    anvil = launch_anvil(port=20002)
+    anvil = launch_anvil()
     try:
         yield anvil
     finally:
