@@ -8,6 +8,9 @@
 from eth_defi.provider.ankr import is_ankr
 from web3 import Web3
 
+from eth_defi.provider.fallback import FallbackProvider
+from eth_defi.provider.mev_blocker import MEVBlockerProvider
+
 
 def get_default_block_tip_latency(web3: Web3) -> int:
     """Workaround for Ankr and other node providers that do not handle the chain tip properly.
@@ -21,6 +24,12 @@ def get_default_block_tip_latency(web3: Web3) -> int:
     :return:
         Number of blocks we need to subtract from the latest block
     """
+
+    if isinstance(web3.provider, (FallbackProvider, MEVBlockerProvider)):
+        # With fallback provider, assume 4 blocks delay,
+        # so that if there is a fail over switch,
+        # the next provider is likely to hae the block immediately
+        return 4
 
     if is_ankr(web3):
         # Assume Ankr can safely deal with chain tip minus two blocks.

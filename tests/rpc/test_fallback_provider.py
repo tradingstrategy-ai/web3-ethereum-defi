@@ -5,6 +5,7 @@ from unittest.mock import patch, DEFAULT
 import pytest
 import requests
 from eth_account import Account
+from eth_defi.provider.broken_provider import get_default_block_tip_latency
 from web3 import HTTPProvider, Web3
 
 from eth_defi.anvil import launch_anvil, AnvilLaunch
@@ -185,7 +186,12 @@ def test_eth_call_not_having_block(fallback_provider: FallbackProvider, provider
     provider = HTTPProvider(json_rpc_url)
     # We don't do real fallbacks, but test the internal
     fallback_provider = FallbackProvider([provider, provider], sleep=0.1, backoff=1)  # Low thresholds for unit test
+
     web3 = Web3(fallback_provider)
+
+    # See that we have fallback provider latency configured
+    assert get_default_block_tip_latency(web3) == 4
+
     usdc = fetch_erc20_details(web3, "0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174")  # USDC on Polygon
 
     bad_block = 1  # We get empty response if the contract has not been deployed yet

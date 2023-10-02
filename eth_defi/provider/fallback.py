@@ -29,12 +29,16 @@ class FallbackProvider(BaseNamedProvider):
 
     Fall back to the next provider on the list if a JSON-RPC request fails.
     Contains build-in retry logic in round-robin manner.
+    We will also recover from situations when we suspect the node does not
+    have the block data we are asking yet (but should have shorty).
 
     See also
 
     - :py:func:`eth_defi.middlware.exception_retry_middleware`
 
-    .. warning::
+    - :py:func:`eth_defi.middlware.ProbablyNodeHasNoBlock`
+
+    .. note::
 
         :py:class:`FallbackProvider` does not call any middlewares installed on the providers themselves.
     """

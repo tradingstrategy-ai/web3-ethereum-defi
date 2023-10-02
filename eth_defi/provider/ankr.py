@@ -4,8 +4,8 @@
 
 .. warning ::
 
-    We do not recommend using Ankr as it randomly returns empty responses to eth_call RPC method
-    and this is not fixable at the client side.
+    Ankr has different EVM state between calls and is very hard to work with.
+    See :py:class:`eth_defi.provider.fallback.FallbackProvider` for workarounds.
 
 See also :py:mod:`eth_defi.provider.broken_provider`.
 """
