@@ -202,7 +202,11 @@ class FallbackProvider(BaseNamedProvider):
                     new_provider_name = get_provider_name(self.get_active_provider())
 
                     if i < self.retries:
-                        logger.log(self.switchover_noisiness, "Encountered JSON-RPC retryable error %s when calling method %s(%s)\n" "Switching providers %s -> %s\n" "Retrying in %f seconds, retry #%d / %d",
+                        logger.log(self.switchover_noisiness,
+                                   "Encountered JSON-RPC retryable error %s when calling method:\n"
+                                   "%s(%s)\n" 
+                                   "Switching providers %s -> %s\n" 
+                                   "Retrying in %f seconds, retry #%d / %d",
                                    e,
                                    method,
                                    params,

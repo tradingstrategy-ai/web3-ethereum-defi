@@ -10,6 +10,7 @@ from web3 import HTTPProvider, Web3
 from eth_defi.anvil import launch_anvil, AnvilLaunch
 from eth_defi.gas import node_default_gas_price_strategy
 from eth_defi.hotwallet import HotWallet
+from eth_defi.middleware import ProbablyNodeHasNoBlock
 from eth_defi.provider.fallback import FallbackProvider
 from eth_defi.token import fetch_erc20_details
 from eth_defi.trace import assert_transaction_success_with_explanation
@@ -188,4 +189,8 @@ def test_eth_call_not_having_block(fallback_provider: FallbackProvider, provider
     usdc = fetch_erc20_details(web3, "0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174")  # USDC on Polygon
 
     bad_block = 1  # We get empty response if the contract has not been deployed yet
-    usdc.contract.functions.balanceOf(ZERO_ADDRESS).call(block_identifier=bad_block)
+
+    with pytest.raises(ProbablyNodeHasNoBlock):
+        usdc.contract.functions.balanceOf(ZERO_ADDRESS).call(block_identifier=bad_block)
+
+    assert fallback_provider.api_retry_counts[0]["eth_call"] == 3  # 5 attempts, 3 retries, the last retry does not count

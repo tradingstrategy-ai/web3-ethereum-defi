@@ -98,6 +98,10 @@ DEFAULT_RETRYABLE_RPC_ERROR_CODES = (
 class ProbablyNodeHasNoBlock(Exception):
     """A special exception raised when we suspect JSON-RPC node does not yet have data for a block we asked.
 
+    - Calling a contract on a block before contract was deployed
+
+    - Calling a contract on a block where the node does not have the block data yet
+
     See :py:mod:`eth_defi.provider.fallback` for details.
     """
 
