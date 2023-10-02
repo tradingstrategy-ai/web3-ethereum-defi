@@ -48,17 +48,13 @@ jobs:
         uses: foundry-rs/foundry-toolchain@v1
         with:
           version: 'nightly-e15e33a07c0920189fc336391f538c3dad53da73'
-      # - name: Workaround aave-v3-deploy npm ci failing randomly on Github
-      #   run: |
-      #     cd contracts/aave-v3-deploy
-      #     npm ci
 
       # Run tests parallel.
-      # By default Github gives us only 2 CPUs, but we want to parallerise
-      # a bit more.
-      # created: 2/2 workers.
+      # By default Github gives us only 2 CPUs, but we want to parallerise a bit more.
+      # We also work around race condition for setting up Aave NPM packages.
       - name: Run test scripts
         run: |
+          poetry run install-aave-for-testing
           poetry run pytest --tb=native -n 6 --dist loadscope
         env:
           BNB_CHAIN_JSON_RPC: ${{ secrets.BNB_CHAIN_JSON_RPC }}

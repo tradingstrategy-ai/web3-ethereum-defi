@@ -20,7 +20,7 @@ from eth_typing import HexAddress, HexStr
 from web3 import HTTPProvider, Web3
 from web3.middleware import buffered_gas_estimate_middleware
 
-from eth_defi.anvil import fork_network_anvil
+from eth_defi.provider.anvil import fork_network_anvil
 from eth_defi.chain import install_chain_middleware
 from eth_defi.gas import node_default_gas_price_strategy
 from eth_defi.revert_reason import TransactionReverted
@@ -92,7 +92,7 @@ def test_anvil_output():
     # process, cmd = _launch("anvil")
 
     mainnet_rpc = os.environ["BNB_CHAIN_JSON_RPC"]
-    launch = fork_network_anvil(mainnet_rpc, port=20011)
+    launch = fork_network_anvil(mainnet_rpc)
     try:
         stdout, stderr = launch.close()
         assert b"https://github.com/foundry-rs/foundry" in stdout, f"Did not see the market string in stdout: {stdout}"

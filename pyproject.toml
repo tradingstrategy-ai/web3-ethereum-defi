@@ -82,4 +82,5 @@ profile = "black"
 max-line-length = 999
 extend-ignore = "E203"
 
-
+[tool.poetry.scripts]
+install-aave-for-testing = 'eth_defi.aave_v3.deployer:install_aave_for_testing'
