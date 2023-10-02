@@ -17,7 +17,7 @@ import pytest
 from eth_typing import HexAddress, HexStr
 from web3 import HTTPProvider, Web3
 
-from eth_defi.anvil import fork_network_anvil
+from eth_defi.provider.anvil import fork_network_anvil
 from eth_defi.chain import install_chain_middleware, install_retry_middleware
 from eth_defi.token import fetch_erc20_details
 from eth_defi.uniswap_v2.deployment import UniswapV2Deployment, fetch_deployment
@@ -56,7 +56,6 @@ def anvil_bnb_chain_fork(request, large_busd_holder) -> str:
     launch = fork_network_anvil(
         mainnet_rpc,
         unlocked_addresses=[large_busd_holder],
-        port=20008,
     )
     try:
         yield launch.json_rpc_url

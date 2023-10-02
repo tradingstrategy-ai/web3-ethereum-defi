@@ -2,6 +2,7 @@
 import calendar
 import datetime
 import logging
+import random
 import socket
 import time
 from typing import Optional, Tuple
@@ -35,6 +36,41 @@ def is_localhost_port_listening(port: int, host="localhost") -> bool:
     location = (host, port)
     result_of_check = a_socket.connect_ex(location)
     return result_of_check == 0
+
+
+def find_free_port(min_port: int, max_port: int, max_attempt: int) -> int:
+    """Find a free localhost port to bind.
+
+    Does by random.
+
+    .. note ::
+
+        Subject to race condition, but should be rareish.
+
+    :param min_port:
+        Minimum port range
+
+    :param max_port:
+        Maximum port range
+
+    :param max_attempt:
+        Give up and die with an exception if no port found after this many attempts.
+
+    :return:
+        Free port number
+    """
+
+    assert type(min_port) == int
+    assert type(max_port) == int
+    assert type(max_attempt) == int
+
+    for attempt in range(0, max_attempt):
+        random_port = random.randrange(start=min_port, stop=max_port)
+        logger.info("Attempting to allocate port %d to Anvil", random_port)
+        if not is_localhost_port_listening(random_port, "127.0.0.1"):
+            return random_port
+
+    raise RuntimeError(f"Could not open a port with a spec: {min_port} - {max_port}, {max_attempt} attemps")
 
 
 def shutdown_hard(

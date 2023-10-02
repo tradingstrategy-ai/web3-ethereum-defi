@@ -33,6 +33,7 @@ The code was originally lifted from Brownie project.
 """
 
 import logging
+import random
 import sys
 import time
 import warnings
@@ -46,7 +47,7 @@ from eth_typing import HexAddress
 from requests.exceptions import ConnectionError as RequestsConnectionError
 from web3 import HTTPProvider, Web3
 
-from eth_defi.utils import is_localhost_port_listening, shutdown_hard
+from eth_defi.utils import is_localhost_port_listening, shutdown_hard, find_free_port
 
 logger = logging.getLogger(__name__)
 
@@ -192,7 +193,7 @@ def launch_anvil(
     fork_url: Optional[str] = None,
     unlocked_addresses: list[Union[HexAddress, str]] = None,
     cmd="anvil",
-    port: int = 19999,
+    port: int | tuple = (19999, 29999, 25),
     block_time=0,
     launch_wait_seconds=20.0,
     attempts=3,
@@ -313,7 +314,15 @@ def launch_anvil(
         List of addresses of which ownership we take to allow test code to transact as them
 
     :param port:
-        Localhost port we bind for Anvil JSON-RPC
+        Localhost port we bind for Anvil JSON-RPC.
+
+        The tuple format is (min port, max port, opening attempts).
+
+        By default, takes a tuple range and tries to open a a random port in the range,
+        until empty found. This allows to run multiple parallel Anvil's during unit testing
+        with ``pytest -n auto``.
+
+        You can also specify an individual port.
 
     :param launch_wait_seconds:
         How long we wait anvil to start until giving up
@@ -354,10 +363,6 @@ def launch_anvil(
 
     """
 
-    assert not is_localhost_port_listening(port), f"localhost port {port} occupied.\n" f"You might have a zombie Anvil process around.\nRun to kill: kill -SIGKILL $(lsof -ti:{port})"
-
-    url = f"http://localhost:{port}"
-
     attempts_left = attempts
     process = None
     final_cmd = None
@@ -366,6 +371,15 @@ def launch_anvil(
 
     if unlocked_addresses is None:
         unlocked_addresses = []
+
+    # Find a free port
+    if type(port) == tuple:
+        port = find_free_port(*port)
+    else:
+        warnings.warn(f"launch_anvil(port={port}) called - we recommend using the default random port range instead", DeprecationWarning, stacklevel=2)
+        assert not is_localhost_port_listening(port), f"localhost port {port} occupied.\n" f"You might have a zombie Anvil process around.\nRun to kill: kill -SIGKILL $(lsof -ti:{port})"
+
+    url = f"http://localhost:{port}"
 
     # https://book.getfoundry.sh/reference/anvil/
     args = dict(

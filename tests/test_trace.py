@@ -5,7 +5,7 @@ from eth_typing import HexAddress
 from hexbytes import HexBytes
 from web3 import HTTPProvider, Web3
 
-from eth_defi.anvil import AnvilLaunch, make_anvil_custom_rpc_request, launch_anvil
+from eth_defi.provider.anvil import AnvilLaunch, make_anvil_custom_rpc_request, launch_anvil
 from eth_defi.deploy import deploy_contract, get_or_create_contract_registry
 from eth_defi.trace import trace_evm_transaction, print_symbolic_trace, assert_transaction_success_with_explanation, assert_call_success_with_explanation, TransactionAssertionError
 
