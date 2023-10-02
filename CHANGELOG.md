@@ -1,3 +1,8 @@
+# 0.22.17
+
+- Add ``eth_defi.broken_provider.set_block_tip_latency()`` to control the default delays 
+  for which we expect the chain tip to stabilise.
+
 # 0.22.16
 
 - Work around ``BadFunctionCallOutput``: Insufficient bytes exception: A special case of eth_call returning an empty result.

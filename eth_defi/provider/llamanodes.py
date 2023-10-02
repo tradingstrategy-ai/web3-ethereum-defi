@@ -1,4 +1,4 @@
-"""Fixes for quirks and features on LlamaNodes.
+"""LlamaNodes specific Python code.
 
 - `LlamaNodes <https://llamanodes.com/>`__ runs RPC services at ``llamarpc.com``
 

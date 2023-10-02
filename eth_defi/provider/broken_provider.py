@@ -1,8 +1,12 @@
-"""Fixes for Ankr and other broken JSON-RPC service providers.
+"""Fixes and workaronds for various JSON-RPC service providers.
 
 - Mainly to deal with unstable blockchain chain tip
 
-- See also :py:mod:`eth_defi.provider.ankr`
+See also
+
+- :py:mod:`eth_defi.provider.fallback`
+
+- :py:mod:`eth_defi.provider.ankr`
 
 """
 from eth_defi.provider.ankr import is_ankr
@@ -70,3 +74,14 @@ def get_block_tip_latency(web3: Web3) -> int:
         return latency_override
 
     return get_default_block_tip_latency(web3)
+
+
+def set_block_tip_latency(web3: Web3, block_count: int):
+    """Override the default block tip latency settings.
+
+    Useful for unit testing, because unit testing assumes stuff
+    has happened in the latest block you want to read.
+
+    See :py:func:`get_block_tip_latency`.
+    """
+    web3.block_tip_latency = block_count
