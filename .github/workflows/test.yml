@@ -50,7 +50,7 @@ jobs:
           version: 'nightly-e15e33a07c0920189fc336391f538c3dad53da73'
 
       # We also work around race condition for setting up Aave NPM packages.
-      - name: Setup aave for tests
+      - name: Setup Aave v3 for tests
         run: |
           poetry run install-aave-for-testing
 
