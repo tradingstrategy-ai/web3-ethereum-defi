@@ -38,7 +38,7 @@ def is_localhost_port_listening(port: int, host="localhost") -> bool:
     return result_of_check == 0
 
 
-def find_free_port(min_port: int, max_port: int, max_attempt: int) -> int:
+def find_free_port(min_port: int = 20_000, max_port: int = 40_000, max_attempt: int = 20) -> int:
     """Find a free localhost port to bind.
 
     Does by random.
@@ -70,7 +70,7 @@ def find_free_port(min_port: int, max_port: int, max_attempt: int) -> int:
         if not is_localhost_port_listening(random_port, "127.0.0.1"):
             return random_port
 
-    raise RuntimeError(f"Could not open a port with a spec: {min_port} - {max_port}, {max_attempt} attemps")
+    raise RuntimeError(f"Could not open a port with a spec: {min_port} - {max_port}, {max_attempt} attempts")
 
 
 def shutdown_hard(
