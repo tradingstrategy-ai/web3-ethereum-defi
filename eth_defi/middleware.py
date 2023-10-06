@@ -20,7 +20,7 @@ from requests.exceptions import (
     ConnectionError,
     HTTPError,
     Timeout,
-    TooManyRedirects,
+    TooManyRedirects, ChunkedEncodingError,
 )
 from web3._utils.transactions import get_buffered_gas_estimate
 from eth_utils.toolz import assoc
@@ -47,6 +47,14 @@ DEFAULT_RETRYABLE_EXCEPTIONS: Tuple[BaseException] = (
     # but we'll add it here just to work around this crappy provider
     # by default.
     BlockNotFound,
+
+    # Spit out by LlamaNodes.
+    #
+    # Their server give invalid HTTP reply.
+    #
+    # requests.exceptions.ChunkedEncodingError: ("Connection broken: InvalidChunkLength(got length b'', 0 bytes read)", InvalidChunkLength(got length b'', 0 bytes read))
+    #
+    ChunkedEncodingError,
 )
 
 #: List of HTTP status codes we know we might want to retry after a timeout

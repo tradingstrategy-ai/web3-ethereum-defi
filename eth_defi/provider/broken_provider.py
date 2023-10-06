@@ -50,9 +50,15 @@ def get_block_tip_latency(web3: Web3) -> int:
 
     - Defaults to zero
 
-    - We have some built-in rules to work around broken providers like Ankr
+    - If using :py:class:`eth_defi.provider.fallback.FallbackProvider`
+      we use 4 blocks latency as multiple providers are unlikely
+      to agree on a chain tip (blocks have not propagated yet).
+
+    - We have some built-in rules to work out specific providers
 
     - You can override this by setting the latency sa ``web3.block_tip_latency`` attribute
+
+    See the source code of :py:func:`get_default_block_tip_latency` for other rules.
 
     Example:
 
