@@ -1,3 +1,9 @@
+# 0.22.18
+
+- Added `ChunkedEncodingError` to automatically retryable errors. 
+  This error happens on LlamaNodes.com and is likely a quality of a service issue
+  on their behalf.
+
 # 0.22.17
 
 - Make testing and `launch_anvil` distrubuted safe by randomising Anvil localhost port it binds.
