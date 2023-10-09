@@ -1,0 +1,60 @@
+{
+  "_format": "hh-sol-artifact-1",
+  "contractName": "LibModules",
+  "sourceName": "contracts/1delta/proxy/libraries/LibModules.sol",
+  "abi": [
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "previousOwner",
+          "type": "address"
+        },
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "newOwner",
+          "type": "address"
+        }
+      ],
+      "name": "OwnershipTransferred",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "components": [
+            {
+              "internalType": "address",
+              "name": "moduleAddress",
+              "type": "address"
+            },
+            {
+              "internalType": "enum IModuleConfig.ModuleConfigAction",
+              "name": "action",
+              "type": "uint8"
+            },
+            {
+              "internalType": "bytes4[]",
+              "name": "functionSelectors",
+              "type": "bytes4[]"
+            }
+          ],
+          "indexed": false,
+          "internalType": "struct IModuleConfig.ModuleConfig[]",
+          "name": "_moduleChange",
+          "type": "tuple[]"
+        }
+      ],
+      "name": "Upgrade",
+      "type": "event"
+    }
+  ],
+  "bytecode": "0x60808060405234601757603a9081601d823930815050f35b600080fdfe600080fdfea26469706673582212201b32245900a319702cd73aa3e81027ab33da0dbc098805606ae672d582d32f6464736f6c63430008150033",
+  "deployedBytecode": "0x600080fdfea26469706673582212201b32245900a319702cd73aa3e81027ab33da0dbc098805606ae672d582d32f6464736f6c63430008150033",
+  "linkReferences": {},
+  "deployedLinkReferences": {}
+}

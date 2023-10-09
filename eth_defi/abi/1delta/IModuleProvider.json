@@ -1,0 +1,162 @@
+{
+  "_format": "hh-sol-artifact-1",
+  "contractName": "IModuleProvider",
+  "sourceName": "contracts/1delta/proxy/interfaces/IModuleProvider.sol",
+  "abi": [
+    {
+      "inputs": [],
+      "name": "moduleAddresses",
+      "outputs": [
+        {
+          "internalType": "address[]",
+          "name": "",
+          "type": "address[]"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "moduleAddress",
+          "type": "address"
+        }
+      ],
+      "name": "moduleExists",
+      "outputs": [
+        {
+          "internalType": "bool",
+          "name": "",
+          "type": "bool"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "functionAddress",
+          "type": "address"
+        }
+      ],
+      "name": "moduleFunctionSelectors",
+      "outputs": [
+        {
+          "components": [
+            {
+              "internalType": "bytes4[]",
+              "name": "functionSelectors",
+              "type": "bytes4[]"
+            },
+            {
+              "internalType": "uint256",
+              "name": "moduleAddressPosition",
+              "type": "uint256"
+            }
+          ],
+          "internalType": "struct IModuleProvider.ModuleFunctionSelectors",
+          "name": "",
+          "type": "tuple"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bytes4",
+          "name": "selector",
+          "type": "bytes4"
+        }
+      ],
+      "name": "selectorToModule",
+      "outputs": [
+        {
+          "internalType": "address",
+          "name": "",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bytes4",
+          "name": "selector",
+          "type": "bytes4"
+        }
+      ],
+      "name": "selectorToModuleAndPosition",
+      "outputs": [
+        {
+          "components": [
+            {
+              "internalType": "address",
+              "name": "moduleAddress",
+              "type": "address"
+            },
+            {
+              "internalType": "uint96",
+              "name": "functionSelectorPosition",
+              "type": "uint96"
+            }
+          ],
+          "internalType": "struct IModuleProvider.ModuleAddressAndPosition",
+          "name": "",
+          "type": "tuple"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bytes4[]",
+          "name": "selectors",
+          "type": "bytes4[]"
+        }
+      ],
+      "name": "selectorsToModules",
+      "outputs": [
+        {
+          "internalType": "address[]",
+          "name": "moduleAddressList",
+          "type": "address[]"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bytes4",
+          "name": "_interface",
+          "type": "bytes4"
+        }
+      ],
+      "name": "supportedInterfaces",
+      "outputs": [
+        {
+          "internalType": "bool",
+          "name": "",
+          "type": "bool"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    }
+  ],
+  "bytecode": "0x",
+  "deployedBytecode": "0x",
+  "linkReferences": {},
+  "deployedLinkReferences": {}
+}

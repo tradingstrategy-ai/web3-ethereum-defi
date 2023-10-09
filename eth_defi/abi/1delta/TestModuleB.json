@@ -1,0 +1,151 @@
+{
+  "_format": "hh-sol-artifact-1",
+  "contractName": "TestModuleB",
+  "sourceName": "contracts/1delta/test/TestModules/TestModuleB.sol",
+  "abi": [
+    {
+      "inputs": [],
+      "name": "testBFunc1",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "testBFunc10",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "testBFunc11",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "testBFunc12",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "testBFunc13",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "testBFunc14",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "testBFunc15",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "testBFunc16",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "testBFunc17",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "testBFunc18",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "testBFunc19",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "testBFunc2",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "testBFunc20",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "testBFunc3",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "testBFunc4",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "testBFunc5",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "testBFunc6",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "testBFunc7",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "testBFunc8",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "testBFunc9",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    }
+  ],
+  "bytecode": "0x6080806040523461001657610325908161001c8239f35b600080fdfe6080604052600436101561001257600080fd5b60003560e01c8063073344cd146100fd5780630a1498f7146100fd5780631084a821146100fd578063298e0c8a146100fd57806333febcdf146100fd578063372f852f146100fd5780634ddef362146100fd5780636d6063eb146100fd578063744e96b7146100fd5780637710ecbf146100fd5780637886aac3146100fd57806382d634fc146100fd57806386d67bc6146100fd5780638e90bdfe146100fd57806395dd82de146100fd578063a22f1510146100fd578063c8441e1b146100fd578063c85dba95146100fd578063cbf0fb3f146100fd5763ecc31b78146100f857600080fd5b610133565b3461012e5760007ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffc36011261012e57005b600080fd5b3461012e576000807ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffc360112610240576040519061017082610272565b6007825260207f46756e633230420000000000000000000000000000000000000000000000000081840152604051907f41304fac0000000000000000000000000000000000000000000000000000000081830152806024830152835193846044840152835b85811061022c5784610229856102246064827fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe0601f8d8885828601015201168101036044810184520182610293565b6102d4565b80f35b8181018301518482016064015282016101d5565b80fd5b7f4e487b7100000000000000000000000000000000000000000000000000000000600052604160045260246000fd5b6040810190811067ffffffffffffffff82111761028e57604052565b610243565b90601f7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe0910116810190811067ffffffffffffffff82111761028e57604052565b600080916020815191016a636f6e736f6c652e6c6f675afa5056fea26469706673582212208cbb7e841e9bc57f1aef6c1752ab98a806d8fc73680684ee6d3b8d61510408cb64736f6c63430008150033",
+  "deployedBytecode": "0x6080604052600436101561001257600080fd5b60003560e01c8063073344cd146100fd5780630a1498f7146100fd5780631084a821146100fd578063298e0c8a146100fd57806333febcdf146100fd578063372f852f146100fd5780634ddef362146100fd5780636d6063eb146100fd578063744e96b7146100fd5780637710ecbf146100fd5780637886aac3146100fd57806382d634fc146100fd57806386d67bc6146100fd5780638e90bdfe146100fd57806395dd82de146100fd578063a22f1510146100fd578063c8441e1b146100fd578063c85dba95146100fd578063cbf0fb3f146100fd5763ecc31b78146100f857600080fd5b610133565b3461012e5760007ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffc36011261012e57005b600080fd5b3461012e576000807ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffc360112610240576040519061017082610272565b6007825260207f46756e633230420000000000000000000000000000000000000000000000000081840152604051907f41304fac0000000000000000000000000000000000000000000000000000000081830152806024830152835193846044840152835b85811061022c5784610229856102246064827fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe0601f8d8885828601015201168101036044810184520182610293565b6102d4565b80f35b8181018301518482016064015282016101d5565b80fd5b7f4e487b7100000000000000000000000000000000000000000000000000000000600052604160045260246000fd5b6040810190811067ffffffffffffffff82111761028e57604052565b610243565b90601f7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe0910116810190811067ffffffffffffffff82111761028e57604052565b600080916020815191016a636f6e736f6c652e6c6f675afa5056fea26469706673582212208cbb7e841e9bc57f1aef6c1752ab98a806d8fc73680684ee6d3b8d61510408cb64736f6c63430008150033",
+  "linkReferences": {},
+  "deployedLinkReferences": {}
+}

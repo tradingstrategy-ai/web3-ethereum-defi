@@ -1,0 +1,10 @@
+{
+  "_format": "hh-sol-artifact-1",
+  "contractName": "SafeCast",
+  "sourceName": "contracts/1delta/dex-tools/uniswap/libraries/SafeCast.sol",
+  "abi": [],
+  "bytecode": "0x60808060405234601757603a9081601d823930815050f35b600080fdfe600080fdfea2646970667358221220e86e1d5bf644d51d4677306a4c5d8025841997aafb6fb4c75a2361cc418a3ed464736f6c63430008150033",
+  "deployedBytecode": "0x600080fdfea2646970667358221220e86e1d5bf644d51d4677306a4c5d8025841997aafb6fb4c75a2361cc418a3ed464736f6c63430008150033",
+  "linkReferences": {},
+  "deployedLinkReferences": {}
+}

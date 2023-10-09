@@ -1,0 +1,10 @@
+{
+  "_format": "hh-sol-artifact-1",
+  "contractName": "WithStorage",
+  "sourceName": "contracts/1delta/storage/BrokerStorage.sol",
+  "abi": [],
+  "bytecode": "0x60808060405234601357603a908160198239f35b600080fdfe600080fdfea2646970667358221220fd2e0b31a2958e199573fdfd281b7a743c4d05c215d867c535791e1395c30b7c64736f6c63430008150033",
+  "deployedBytecode": "0x600080fdfea2646970667358221220fd2e0b31a2958e199573fdfd281b7a743c4d05c215d867c535791e1395c30b7c64736f6c63430008150033",
+  "linkReferences": {},
+  "deployedLinkReferences": {}
+}

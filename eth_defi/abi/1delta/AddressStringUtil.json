@@ -1,0 +1,10 @@
+{
+  "_format": "hh-sol-artifact-1",
+  "contractName": "AddressStringUtil",
+  "sourceName": "contracts/1delta/dex-tools/uniswap/libraries/AddressStringUtil.sol",
+  "abi": [],
+  "bytecode": "0x60808060405234601757603a9081601d823930815050f35b600080fdfe600080fdfea26469706673582212209acf9924c8f0bdb35135b34a8d77990fc040aa3700cb26a317cbd5b3ac007a9664736f6c63430008150033",
+  "deployedBytecode": "0x600080fdfea26469706673582212209acf9924c8f0bdb35135b34a8d77990fc040aa3700cb26a317cbd5b3ac007a9664736f6c63430008150033",
+  "linkReferences": {},
+  "deployedLinkReferences": {}
+}

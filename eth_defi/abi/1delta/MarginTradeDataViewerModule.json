@@ -1,0 +1,100 @@
+{
+  "_format": "hh-sol-artifact-1",
+  "contractName": "MarginTradeDataViewerModule",
+  "sourceName": "contracts/1delta/modules/aave/MarginTradeDataViewerModule.sol",
+  "abi": [
+    {
+      "inputs": [],
+      "name": "getAAVEPool",
+      "outputs": [
+        {
+          "internalType": "address",
+          "name": "pool",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "_underlying",
+          "type": "address"
+        }
+      ],
+      "name": "getAToken",
+      "outputs": [
+        {
+          "internalType": "address",
+          "name": "",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "_target",
+          "type": "address"
+        }
+      ],
+      "name": "getIsValidTarget",
+      "outputs": [
+        {
+          "internalType": "bool",
+          "name": "",
+          "type": "bool"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "_underlying",
+          "type": "address"
+        }
+      ],
+      "name": "getSToken",
+      "outputs": [
+        {
+          "internalType": "address",
+          "name": "",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "_underlying",
+          "type": "address"
+        }
+      ],
+      "name": "getVToken",
+      "outputs": [
+        {
+          "internalType": "address",
+          "name": "",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    }
+  ],
+  "bytecode": "0x608080604052346100165761032c908161001c8239f35b600080fdfe60806040818152600436101561001457600080fd5b600091823560e01c90816306eba1191461026c575080633cec9999146101e557806371b230c014610174578063732a52ee146100e95763c13ee15f1461005957600080fd5b346100e55760207ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffc3601126100e55760043573ffffffffffffffffffffffffffffffffffffffff81168091036100e157818360ff92602095527f9fc772e484014aadda1a3916bdcbf34dd65a99500e92cb6faae6cb2496083ccc855220541690519015158152f35b8280fd5b5080fd5b50346100e55760207ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffc3601126100e55760043573ffffffffffffffffffffffffffffffffffffffff9081811680910361017057838391602095527f893924bbf3abb5d61e6884fbda9b7e595ceeb9cfb3fbde996d4124865fe8f48f85522054169051908152f35b8380fd5b50346100e557817ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffc3601126100e55760209073ffffffffffffffffffffffffffffffffffffffff7f893924bbf3abb5d61e6884fbda9b7e595ceeb9cfb3fbde996d4124865fe8f49254169051908152f35b50346100e55760207ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffc3601126100e55760043573ffffffffffffffffffffffffffffffffffffffff9081811680910361017057838391602095527f893924bbf3abb5d61e6884fbda9b7e595ceeb9cfb3fbde996d4124865fe8f49185522054169051908152f35b919050346100e15760207ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffc3601126100e1576004359073ffffffffffffffffffffffffffffffffffffffff918281168091036102f2579360209481527f893924bbf3abb5d61e6884fbda9b7e595ceeb9cfb3fbde996d4124865fe8f49085522054168152f35b8480fdfea2646970667358221220fd9bd58bd37c0ff5b0486a5e28d7e549898a758c5f46add15679864a7009145164736f6c63430008150033",
+  "deployedBytecode": "0x60806040818152600436101561001457600080fd5b600091823560e01c90816306eba1191461026c575080633cec9999146101e557806371b230c014610174578063732a52ee146100e95763c13ee15f1461005957600080fd5b346100e55760207ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffc3601126100e55760043573ffffffffffffffffffffffffffffffffffffffff81168091036100e157818360ff92602095527f9fc772e484014aadda1a3916bdcbf34dd65a99500e92cb6faae6cb2496083ccc855220541690519015158152f35b8280fd5b5080fd5b50346100e55760207ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffc3601126100e55760043573ffffffffffffffffffffffffffffffffffffffff9081811680910361017057838391602095527f893924bbf3abb5d61e6884fbda9b7e595ceeb9cfb3fbde996d4124865fe8f48f85522054169051908152f35b8380fd5b50346100e557817ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffc3601126100e55760209073ffffffffffffffffffffffffffffffffffffffff7f893924bbf3abb5d61e6884fbda9b7e595ceeb9cfb3fbde996d4124865fe8f49254169051908152f35b50346100e55760207ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffc3601126100e55760043573ffffffffffffffffffffffffffffffffffffffff9081811680910361017057838391602095527f893924bbf3abb5d61e6884fbda9b7e595ceeb9cfb3fbde996d4124865fe8f49185522054169051908152f35b919050346100e15760207ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffc3601126100e1576004359073ffffffffffffffffffffffffffffffffffffffff918281168091036102f2579360209481527f893924bbf3abb5d61e6884fbda9b7e595ceeb9cfb3fbde996d4124865fe8f49085522054168152f35b8480fdfea2646970667358221220fd9bd58bd37c0ff5b0486a5e28d7e549898a758c5f46add15679864a7009145164736f6c63430008150033",
+  "linkReferences": {},
+  "deployedLinkReferences": {}
+}

@@ -1,0 +1,31 @@
+{
+  "_format": "hh-sol-artifact-1",
+  "contractName": "LibSignature",
+  "sourceName": "contracts/1delta/modules/limit/libraries/LibSignature.sol",
+  "abi": [
+    {
+      "inputs": [],
+      "name": "alwaysInvalid",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "badSignatureData",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "illegal",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "unsupported",
+      "type": "error"
+    }
+  ],
+  "bytecode": "0x60808060405234601757603a9081601d823930815050f35b600080fdfe600080fdfea26469706673582212200baa20068a3aa42e4252d3e305c4b3c39a8fcedaefa2e7e3155c205582b404e564736f6c63430008150033",
+  "deployedBytecode": "0x600080fdfea26469706673582212200baa20068a3aa42e4252d3e305c4b3c39a8fcedaefa2e7e3155c205582b404e564736f6c63430008150033",
+  "linkReferences": {},
+  "deployedLinkReferences": {}
+}

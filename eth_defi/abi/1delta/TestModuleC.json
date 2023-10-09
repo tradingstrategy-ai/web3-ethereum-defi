@@ -1,0 +1,18 @@
+{
+  "_format": "hh-sol-artifact-1",
+  "contractName": "TestModuleC",
+  "sourceName": "contracts/1delta/test/TestModules/TestModuleC.sol",
+  "abi": [
+    {
+      "inputs": [],
+      "name": "testCFunc1",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    }
+  ],
+  "bytecode": "0x608080604052346014576089908161001a8239f35b600080fdfe6004361015600c57600080fd5b6000803560e01c6305b87e6f14602157600080fd5b34605057807ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffc36011260505780f35b80fdfea26469706673582212206a2bacf05bf2b6c9273e2f22d7e6be6579a5523024b493c2df9a97403c2594a164736f6c63430008150033",
+  "deployedBytecode": "0x6004361015600c57600080fd5b6000803560e01c6305b87e6f14602157600080fd5b34605057807ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffc36011260505780f35b80fdfea26469706673582212206a2bacf05bf2b6c9273e2f22d7e6be6579a5523024b493c2df9a97403c2594a164736f6c63430008150033",
+  "linkReferences": {},
+  "deployedLinkReferences": {}
+}

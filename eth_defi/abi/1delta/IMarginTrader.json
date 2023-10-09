@@ -1,0 +1,222 @@
+{
+  "_format": "hh-sol-artifact-1",
+  "contractName": "IMarginTrader",
+  "sourceName": "contracts/1delta/interfaces/IMarginTrader.sol",
+  "abi": [
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "_collateralAsset",
+          "type": "address"
+        },
+        {
+          "internalType": "address",
+          "name": "_borrowAsset",
+          "type": "address"
+        },
+        {
+          "internalType": "address",
+          "name": "_userAsset",
+          "type": "address"
+        },
+        {
+          "internalType": "uint256",
+          "name": "_minCollateralAmount",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "_borrowAmount",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "_protocolId",
+          "type": "uint256"
+        }
+      ],
+      "name": "openMarginPositionExactIn",
+      "outputs": [],
+      "stateMutability": "payable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "_collateralAsset",
+          "type": "address"
+        },
+        {
+          "internalType": "address",
+          "name": "_borrowAsset",
+          "type": "address"
+        },
+        {
+          "internalType": "address",
+          "name": "_userAsset",
+          "type": "address"
+        },
+        {
+          "internalType": "uint256",
+          "name": "_collateralAmount",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "_maxBorrowAmount",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "_protocolId",
+          "type": "uint256"
+        }
+      ],
+      "name": "openMarginPositionExactOut",
+      "outputs": [],
+      "stateMutability": "payable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "_fromAsset",
+          "type": "address"
+        },
+        {
+          "internalType": "address",
+          "name": "_toAsset",
+          "type": "address"
+        },
+        {
+          "internalType": "uint256",
+          "name": "_fromAmount",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "_protocolId",
+          "type": "uint256"
+        }
+      ],
+      "name": "swapBorrowExactIn",
+      "outputs": [],
+      "stateMutability": "payable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "_fromAsset",
+          "type": "address"
+        },
+        {
+          "internalType": "address",
+          "name": "_toAsset",
+          "type": "address"
+        },
+        {
+          "internalType": "uint256",
+          "name": "_toAmount",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "_protocolId",
+          "type": "uint256"
+        }
+      ],
+      "name": "swapBorrowExactOut",
+      "outputs": [],
+      "stateMutability": "payable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "_fromAsset",
+          "type": "address"
+        },
+        {
+          "internalType": "address",
+          "name": "_toAsset",
+          "type": "address"
+        },
+        {
+          "internalType": "uint256",
+          "name": "_fromAmount",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "_protocolId",
+          "type": "uint256"
+        }
+      ],
+      "name": "swapCollateralExactIn",
+      "outputs": [],
+      "stateMutability": "payable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "_fromAsset",
+          "type": "address"
+        },
+        {
+          "internalType": "address",
+          "name": "_toAsset",
+          "type": "address"
+        },
+        {
+          "internalType": "uint256",
+          "name": "_toAmount",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "_protocolId",
+          "type": "uint256"
+        }
+      ],
+      "name": "swapCollateralExactOut",
+      "outputs": [],
+      "stateMutability": "payable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "int256",
+          "name": "amount0Delta",
+          "type": "int256"
+        },
+        {
+          "internalType": "int256",
+          "name": "amount1Delta",
+          "type": "int256"
+        },
+        {
+          "internalType": "bytes",
+          "name": "_data",
+          "type": "bytes"
+        }
+      ],
+      "name": "uniswapV3SwapCallback",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    }
+  ],
+  "bytecode": "0x",
+  "deployedBytecode": "0x",
+  "linkReferences": {},
+  "deployedLinkReferences": {}
+}

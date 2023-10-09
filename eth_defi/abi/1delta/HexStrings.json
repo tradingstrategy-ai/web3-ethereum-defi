@@ -1,0 +1,10 @@
+{
+  "_format": "hh-sol-artifact-1",
+  "contractName": "HexStrings",
+  "sourceName": "contracts/1delta/dex-tools/uniswap/libraries/HexStrings.sol",
+  "abi": [],
+  "bytecode": "0x60808060405234601757603a9081601d823930815050f35b600080fdfe600080fdfea26469706673582212207cc9c1672d7b519eb159d4af2e51e3507d48d9f5ad86f2bb3db5b29bd4a1ae6e64736f6c63430008150033",
+  "deployedBytecode": "0x600080fdfea26469706673582212207cc9c1672d7b519eb159d4af2e51e3507d48d9f5ad86f2bb3db5b29bd4a1ae6e64736f6c63430008150033",
+  "linkReferences": {},
+  "deployedLinkReferences": {}
+}

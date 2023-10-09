@@ -1,0 +1,10 @@
+{
+  "_format": "hh-sol-artifact-1",
+  "contractName": "PoolAddressCalculator",
+  "sourceName": "contracts/1delta/dex-tools/uniswap/libraries/PoolAddressCalculator.sol",
+  "abi": [],
+  "bytecode": "0x60808060405234601757603a9081601d823930815050f35b600080fdfe600080fdfea2646970667358221220e499d8b1f1e8891cb13a0189a01d6f39fabdd26a1f076c853919dd34e8541f2d64736f6c63430008150033",
+  "deployedBytecode": "0x600080fdfea2646970667358221220e499d8b1f1e8891cb13a0189a01d6f39fabdd26a1f076c853919dd34e8541f2d64736f6c63430008150033",
+  "linkReferences": {},
+  "deployedLinkReferences": {}
+}
