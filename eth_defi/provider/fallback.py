@@ -208,7 +208,6 @@ class FallbackProvider(BaseNamedProvider):
         raise AssertionError("Should never be reached")
 
 
-
 def _check_faulty_rpc_response(
     method: str,
     params: list,
@@ -244,7 +243,10 @@ def _check_faulty_rpc_response(
 
     # BlockNotFound exception gets applied only later with the formatters,
     # so we need to trigger fallover here
-    if method in ("eth_getBlockByNumber", "eth_getBlockByHash",):
+    if method in (
+        "eth_getBlockByNumber",
+        "eth_getBlockByHash",
+    ):
         block_identifier, *other_args = params
         result = resp_data["result"]
         if result in ("0x", None):

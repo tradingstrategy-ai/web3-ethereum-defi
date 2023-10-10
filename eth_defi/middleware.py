@@ -20,7 +20,8 @@ from requests.exceptions import (
     ConnectionError,
     HTTPError,
     Timeout,
-    TooManyRedirects, ChunkedEncodingError,
+    TooManyRedirects,
+    ChunkedEncodingError,
 )
 from web3._utils.transactions import get_buffered_gas_estimate
 from eth_utils.toolz import assoc
@@ -47,7 +48,6 @@ DEFAULT_RETRYABLE_EXCEPTIONS: Tuple[BaseException] = (
     # but we'll add it here just to work around this crappy provider
     # by default.
     BlockNotFound,
-
     # Spit out by LlamaNodes.
     #
     # Their server give invalid HTTP reply.
