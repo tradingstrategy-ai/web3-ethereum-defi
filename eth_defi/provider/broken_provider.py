@@ -60,18 +60,6 @@ def get_block_tip_latency(web3: Web3) -> int:
 
     See the source code of :py:func:`get_default_block_tip_latency` for other rules.
 
-    Example:
-
-    .. code-block:: python
-
-        # We cannot query the chain head on Ankr
-        if not block_number:
-            block_number = max(1, web3.eth.block_number - get_block_tip_latency(web3))
-
-        timestamp = fetch_block_timestamp(web3, block_number)
-
-        token = fetch_erc20_details(web3, asset.address)
-        amount = token.fetch_balance_of(address, block_identifier=block_number)
 
     """
     latency_override = getattr(web3, "block_tip_latency", None)
@@ -91,3 +79,38 @@ def set_block_tip_latency(web3: Web3, block_count: int):
     See :py:func:`get_block_tip_latency`.
     """
     web3.block_tip_latency = block_count
+
+
+def get_almost_latest_block_number(web3: Web3) -> int:
+    """Get the latest block number with workarounds for low quality JSON-RPC service providers.
+
+    Use this method instead of ``web3.eth.block_number``.
+
+    Because low quality providers may lose the block of this block number
+    on the subsequent API calls, we add some number of delay
+    or confirmations to the chain tip, specified by :py:funct:`get_block_tip_latency`.
+
+    Providers with known issues
+
+    - LlamaNodes
+
+    - Ankr
+
+    Example:
+
+    .. code-block:: python
+
+        from eth_defi.provider.broken_provider import get_almost_latest_block_number
+
+        # We cannot query the chain head on Ankr or LlamaNodes,
+        # so get the almost head
+        if not block_number:
+            block_number = get_almost_latest_block_number(web3)
+
+        timestamp = fetch_block_timestamp(web3, block_number)
+
+        token = fetch_erc20_details(web3, asset.address)
+        amount = token.fetch_balance_of(address, block_identifier=block_number)
+
+    """
+    return max(1, web3.eth.block_number - get_block_tip_latency(web3))

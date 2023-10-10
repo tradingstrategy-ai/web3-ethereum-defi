@@ -1,3 +1,8 @@
+# Current 
+
+- Add `eth_defi.provider.broken_provider.get_almost_latest_block_number()`
+  for developer ergonomics when working with Ankr and LlamaNodes
+
 # 0.22.19
 
 - Work around `web3.exceptions.BlockNotFound` with LlamaNodes.com
