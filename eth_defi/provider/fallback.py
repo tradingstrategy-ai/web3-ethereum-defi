@@ -242,7 +242,8 @@ def _check_faulty_rpc_response(
                 raise ProbablyNodeHasNoBlock(f"Node lacked state data when doing eth_call for block {block_identifier}")
 
     # BlockNotFound exception gets applied only later with the formatters,
-    # so we need to trigger fallover here
+    # so we need to trigger fallover here.
+    # LlamaNodes.com: web3.exceptions.BlockNotFound: Block with id: '0x2e4d582' not found.
     if method in (
         "eth_getBlockByNumber",
         "eth_getBlockByHash",
