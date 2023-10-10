@@ -1,3 +1,7 @@
+# 0.22.19
+
+- Work around `web3.exceptions.BlockNotFound` with LlamaNodes.com
+
 # 0.22.18
 
 - Added `ChunkedEncodingError` to automatically retryable errors. 
