@@ -173,7 +173,7 @@ class FallbackProvider(BaseNamedProvider):
                     # This will trigger exception that will be handled by is_retryable_http_exception()
                     raise ValueError(resp_data["error"])
 
-                _check_special_results(method, params, resp_data)
+                _check_faulty_rpc_response(method, params, resp_data)
 
                 # Track API counts
                 self.api_call_counts[self.currently_active_provider][method] += 1
@@ -209,7 +209,7 @@ class FallbackProvider(BaseNamedProvider):
 
 
 
-def _check_special_results(
+def _check_faulty_rpc_response(
     method: str,
     params: list,
     resp_data: dict,
