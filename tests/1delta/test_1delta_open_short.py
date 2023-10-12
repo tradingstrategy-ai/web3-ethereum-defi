@@ -12,6 +12,7 @@ from eth_defi.aave_v3.loan import borrow, repay, supply, withdraw
 from eth_defi.hotwallet import HotWallet
 from eth_defi.one_delta.deployment import OneDeltaDeployment, deploy_1delta
 from eth_defi.one_delta.position import open_short_position
+from eth_defi.one_delta.utils import encode_path
 from eth_defi.trace import assert_transaction_success_with_explanation
 from eth_defi.uniswap_v2.deployment import UniswapV2Deployment, deploy_uniswap_v2_like
 from eth_defi.uniswap_v3.constants import FOREVER_DEADLINE
@@ -21,15 +22,7 @@ from eth_defi.uniswap_v3.deployment import (
     deploy_pool,
     deploy_uniswap_v3,
 )
-from eth_defi.uniswap_v3.price import UniswapV3PriceHelper
-from eth_defi.uniswap_v3.swap import swap_with_slippage_protection
-from eth_defi.uniswap_v3.utils import encode_path, get_default_tick_range
-
-
-@pytest.fixture()
-def ausdc(web3, aave_deployment) -> Contract:
-    """aToken for USDC on local testnet."""
-    return aave_deployment.get_contract_at_address(web3, "AToken.json", "aUSDC")
+from eth_defi.uniswap_v3.utils import get_default_tick_range
 
 
 @pytest.fixture
@@ -70,6 +63,18 @@ def one_delta_deployment(web3, deployer, aave_v3_deployment, uniswap_v3, uniswap
         aave_v3_deployment,
         weth,
     )
+
+
+@pytest.fixture()
+def ausdc(web3, aave_deployment) -> Contract:
+    """aToken for USDC on local testnet."""
+    return aave_deployment.get_contract_at_address(web3, "AToken.json", "aUSDC")
+
+
+@pytest.fixture()
+def vweth(web3, aave_deployment) -> Contract:
+    """vToken for WETH on local testnet."""
+    return aave_deployment.get_contract_at_address(web3, "VariableDebtToken.json", "vWETH")
 
 
 @pytest.fixture
@@ -166,14 +171,48 @@ def weth_reserve(
     assert_transaction_success_with_explanation(web3, tx_hash)
 
 
-def print_current_balances(address, usdc, weth):
+@pytest.fixture
+def usdc_reserve(
+    web3,
+    aave_v3_deployment,
+    usdc,
+    faucet,
+    deployer,
+):
+    """Seed WETH reserve with 100 WETH liquidity"""
+    # give deployer some WETH
+    tx_hash = faucet.functions.mint(usdc.address, deployer, 100_000 * 10**6).transact()
+    assert_transaction_success_with_explanation(web3, tx_hash)
+
+    # supply to WETH reserve
+    approve_fn, supply_fn = supply(
+        aave_v3_deployment=aave_v3_deployment,
+        wallet_address=deployer,
+        token=usdc,
+        amount=100_000 * 10**6,
+    )
+    approve_fn.transact({"from": deployer})
+    tx_hash = supply_fn.transact({"from": deployer})
+    assert_transaction_success_with_explanation(web3, tx_hash)
+
+
+def print_current_balances(address, usdc, weth, ausdc, vweth):
     print(
         f"""
     Current balance:
         USDC: {usdc.functions.balanceOf(address).call() / 1e6}
+        aUSDC: {ausdc.functions.balanceOf(address).call() / 1e6}
         WETH: {weth.functions.balanceOf(address).call() / 1e18}
+        vWETH: {vweth.functions.balanceOf(address).call() / 1e18}
     """
     )
+
+
+def _execute_tx(web3, hot_wallet, fn, gas=350_000):
+    tx = fn.build_transaction({"from": hot_wallet.address, "gas": gas})
+    signed = hot_wallet.sign_transaction_with_new_nonce(tx)
+    tx_hash = web3.eth.send_raw_transaction(signed.rawTransaction)
+    assert_transaction_success_with_explanation(web3, tx_hash)
 
 
 def test_1delta_short(
@@ -182,17 +221,36 @@ def test_1delta_short(
     hot_wallet: LocalAccount,
     usdc,
     ausdc,
+    vweth,
     weth,
     weth_reserve,
-    uniswap_v3,
+    usdc_reserve,
     weth_usdc_pool,
     pool_trading_fee,
     deployer,
 ):
     """Test repay in Aave v3."""
+
+    print(
+        f"""Test setup:
+
+Aave pool: {one_delta_deployment.aave_v3.pool.address}
+1delta flash aggregator: {one_delta_deployment.flash_aggregator.address}
+Uniswap v3 WETH/USDC pool: {weth_usdc_pool.address}
+
+Hot wallet: {hot_wallet.address}
+
+USDC: {usdc.address}
+WETH: {weth.address}
+aUSDC: {ausdc.address}
+vWETH: {vweth.address}
+
+    """
+    )
+
     # starting with 10k
     print("\nStarting capital")
-    print_current_balances(hot_wallet.address, usdc, weth)
+    print_current_balances(hot_wallet.address, usdc, weth, ausdc, vweth)
     assert usdc.functions.balanceOf(hot_wallet.address).call() == 10_000 * 10**6
 
     # ----- 1. Open the short position by supply USDC as collateral to Aave v3
@@ -208,15 +266,8 @@ def test_1delta_short(
         amount=usdc_supply_amount,
     )
 
-    tx = approve_fn.build_transaction({"from": hot_wallet.address, "gas": 200_000})
-    signed = hot_wallet.sign_transaction_with_new_nonce(tx)
-    tx_hash = web3.eth.send_raw_transaction(signed.rawTransaction)
-    assert_transaction_success_with_explanation(web3, tx_hash)
-
-    tx = supply_fn.build_transaction({"from": hot_wallet.address, "gas": 350_000})
-    signed = hot_wallet.sign_transaction_with_new_nonce(tx)
-    tx_hash = web3.eth.send_raw_transaction(signed.rawTransaction)
-    assert_transaction_success_with_explanation(web3, tx_hash)
+    _execute_tx(web3, hot_wallet, approve_fn)
+    _execute_tx(web3, hot_wallet, supply_fn)
 
     # verify aUSDC token amount in hot wallet
     assert ausdc.functions.balanceOf(hot_wallet.address).call() == usdc_supply_amount
@@ -224,4 +275,57 @@ def test_1delta_short(
     # verify hot wallet has 1k USDC left
     assert usdc.functions.balanceOf(hot_wallet.address).call() == 0
     print("Supply done!")
-    print_current_balances(hot_wallet.address, usdc, weth)
+    print_current_balances(hot_wallet.address, usdc, weth, ausdc, vweth)
+
+    trader = one_delta_deployment.flash_aggregator
+    manager = one_delta_deployment.manager
+    proxy = one_delta_deployment.proxy
+
+    print("> Step 2: approve everything")
+
+    # approve everything
+    for token in [
+        usdc,
+        weth,
+        # ausdc,
+    ]:
+        approve_fn = token.functions.approve(trader.address, MAX_AMOUNT)
+        _execute_tx(web3, hot_wallet, approve_fn)
+
+    approve_fn = vweth.functions.approveDelegation(proxy.address, MAX_AMOUNT)
+    _execute_tx(web3, hot_wallet, approve_fn)
+
+    approve_fn = usdc.functions.approve(one_delta_deployment.aave_v3.pool.address, MAX_AMOUNT)
+    _execute_tx(web3, hot_wallet, approve_fn)
+
+    manager.functions.addAToken(usdc.address, ausdc.address).transact({"from": deployer})
+    manager.functions.addVToken(weth.address, vweth.address).transact({"from": deployer})
+
+    # this step doesn't quite work
+    manager.functions.approveAAVEPool([usdc.address, weth.address]).transact({"from": deployer})
+
+    print("> Step 3: open position")
+
+    path = encode_path(
+        [
+            weth.address,
+            usdc.address,
+        ],
+        [pool_trading_fee],
+        [6],  # open position
+        [1],  # pid of uniswap v3
+        2,  # variable borrow
+    )
+
+    amount_in = int(0.5 * 10**18)
+    min_amount_out = 0  # TODO: improve later
+
+    swap_fn = trader.functions.flashSwapExactIn(
+        amount_in,
+        min_amount_out,
+        path,
+    )
+    _execute_tx(web3, hot_wallet, swap_fn, 350_000)
+
+    print("Open position done")
+    print_current_balances(hot_wallet.address, usdc, weth, ausdc, vweth)

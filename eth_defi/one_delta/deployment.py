@@ -23,13 +23,14 @@ class OneDeltaDeployment:
     #: FlashAggregator contract proxy
     flash_aggregator: Contract
 
+    # ManagementModule contract proxy
+    manager: Contract
+
+    # DeltaBrokerProxy contract proxy
+    proxy: Contract
+
+    # Aave v3 deployment
     aave_v3: AaveV3Deployment
-
-    # #: MoneyMaker contract proxy
-    # money_maker: Contract
-
-    # #: AaveOracle contract
-    # delta_account: Contract
 
 
 def deploy_1delta(
@@ -46,11 +47,7 @@ def deploy_1delta(
 
     .. code-block:: python
 
-        deployment = deploy_uniswap_v3(web3, deployer)
-        factory = deployment.factory
-        print(f"Uniswap factory is {factory.address}")
-        swap_router = deployment.swap_router
-        print(f"Uniswap swap router is {swap_router.address}")
+        TODO
 
     :param web3: Web3 instance
     :param deployer: Deployer account
@@ -60,7 +57,35 @@ def deploy_1delta(
         Express as ETH units.
     :return: Deployment details
     """
-    # Factory takes feeSetter as an argument
+
+    module_config = deploy_contract(
+        web3,
+        "1delta/ConfigModule.json",
+        deployer,
+    )
+
+    proxy = deploy_contract(
+        web3,
+        "1delta/DeltaBrokerProxy.json",
+        deployer,
+        deployer,
+        module_config.address,
+    )
+
+    manager = deploy_contract(
+        web3,
+        "1delta/ManagementModule.json",
+        deployer,
+        # proxy_address=proxy.address,
+    )
+
+    # module_config.functions.configureModules(
+    #     [{
+    #         moduleAddress: manager.address,
+    #         action: 0,
+    #         functionSelectors: getSelectors(managerModule)
+    #     }]
+    # ).transact({"from": deployer})
 
     flash_aggregator = deploy_contract(
         web3,
@@ -70,10 +95,13 @@ def deploy_1delta(
         uniswap_v3.factory.address,
         aave_v3.pool.address,
         weth.address,
+        # proxy_address=proxy.address,
     )
 
     return OneDeltaDeployment(
         web3=web3,
         aave_v3=aave_v3,
         flash_aggregator=flash_aggregator,
+        manager=manager,
+        proxy=proxy,
     )
