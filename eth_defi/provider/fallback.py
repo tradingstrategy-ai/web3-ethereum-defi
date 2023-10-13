@@ -173,27 +173,7 @@ class FallbackProvider(BaseNamedProvider):
                     # This will trigger exception that will be handled by is_retryable_http_exception()
                     raise ValueError(resp_data["error"])
 
-                # A special case of eth_call returning empty result.
-                # This happens if you call a smart contract for a block number
-                # for which the node does not yet have a data or is still processing data.
-                # This happens often on low-quality RPC providers (Ankr)
-                # that route your call between different nodes between subsequent calls and those nodes
-                # see a different state of EVM.
-                # Down the line, not in middleware stack, this would lead to BadFunctionCallOutput
-                # output. We work around this by detecting this conditino in middleware
-                # stack and trigger middleware fallover node switch if the condition is detected.
-                #
-                if method == "eth_call":
-                    args, block_identifier = params
-                    if block_identifier != "latest":
-                        result = resp_data["result"]
-                        if result == "0x":
-                            # eth_call returned empty response,
-                            # assume node does not have data yet,
-                            # switch to another node, wait some extra time
-                            # to ensure it gets blocks
-                            current_sleep = max(self.state_missing_switch_over_delay, current_sleep)
-                            raise ProbablyNodeHasNoBlock(f"Node did not have data for block {block_identifier}")
+                _check_faulty_rpc_response(method, params, resp_data)
 
                 # Track API counts
                 self.api_call_counts[self.currently_active_provider][method] += 1
@@ -226,3 +206,54 @@ class FallbackProvider(BaseNamedProvider):
                 raise  # Not retryable exception
 
         raise AssertionError("Should never be reached")
+
+
+def _check_faulty_rpc_response(
+    method: str,
+    params: list,
+    resp_data: dict,
+):
+    """Raise an exception on certain bad result conditions.
+
+    We cannot raise this exception during the result format phase,
+    because we are outside the fallover logic.
+    """
+
+    # A special case of eth_call returning empty result.
+    # This happens if you call a smart contract for a block number
+    # for which the node does not yet have a data or is still processing data.
+    # This happens often on low-quality RPC providers (Ankr)
+    # that route your call between different nodes between subsequent calls and those nodes
+    # see a different state of EVM.
+    # Down the line, not in middleware stack, this would lead to BadFunctionCallOutput
+    # output. We work around this by detecting this conditino in middleware
+    # stack and trigger middleware fallover node switch if the condition is detected.
+    #
+    if method == "eth_call":
+        args, block_identifier = params
+        if block_identifier != "latest":
+            result = resp_data["result"]
+            if result == "0x":
+                # eth_call returned empty response,
+                # assume node does not have data yet,
+                # switch to another node, wait some extra time
+                # to ensure it gets blocks
+                # current_sleep = max(self.state_missing_switch_over_delay, current_sleep)
+                raise ProbablyNodeHasNoBlock(f"Node lacked state data when doing eth_call for block {block_identifier}")
+
+    # BlockNotFound exception gets applied only later with the formatters,
+    # so we need to trigger fallover here.
+    # LlamaNodes.com: web3.exceptions.BlockNotFound: Block with id: '0x2e4d582' not found.
+    if method in (
+        "eth_getBlockByNumber",
+        "eth_getBlockByHash",
+    ):
+        block_identifier, *other_args = params
+        result = resp_data["result"]
+        if result in ("0x", None):
+            # eth_call returned empty response,
+            # assume node does not have data yet,
+            # switch to another node, wait some extra time
+            # to ensure it gets blocks
+            # current_sleep = max(self.state_missing_switch_over_delay, current_sleep)
+            raise ProbablyNodeHasNoBlock(f"Node did not have data for block {block_identifier} when calling {method}")

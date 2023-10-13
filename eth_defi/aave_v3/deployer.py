@@ -596,4 +596,3 @@ def install_aave_for_testing():
     """
     deployer = AaveDeployer()
     deployer.install(echo=True)
-
