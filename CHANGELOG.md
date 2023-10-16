@@ -2,6 +2,8 @@
 
 - Add `eth_defi.provider.broken_provider.get_almost_latest_block_number()`
   for developer ergonomics when working with Ankr and LlamaNodes
+- If using `FallbackProvider` switch node providers in `wait_transactions_to_complete`
+  because Ankr and LlamaNodes low service quality issues
 
 # 0.22.19
 

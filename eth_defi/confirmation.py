@@ -7,6 +7,7 @@ from typing import Dict, List, Set, Union
 
 import rlp
 from eth_account.datastructures import SignedTransaction
+from eth_defi.provider.fallback import FallbackProvider
 from hexbytes import HexBytes
 from web3 import Web3
 from web3.exceptions import TransactionNotFound
@@ -31,10 +32,14 @@ def wait_transactions_to_complete(
     confirmation_block_count: int = 0,
     max_timeout=datetime.timedelta(minutes=5),
     poll_delay=datetime.timedelta(seconds=1),
+    node_switch_timeout=datetime.timedelta(minutes=3),
 ) -> Dict[HexBytes, dict]:
     """Watch multiple transactions executed at parallel.
 
     Use simple poll loop to wait all transactions to complete.
+
+    If ``web3`` is configured to use :py:class:`eth_defi.provider.fallback.FallbackProvider`,
+    try to switch between alternative node providers to confirm the transaction.
 
     Example:
 
@@ -56,6 +61,15 @@ def wait_transactions_to_complete(
         How many blocks wait for the transaction receipt to settle.
         Set to zero to return as soon as we see the first transaction receipt.
 
+    :param node_switch_timeout:
+        Switch to alternative fallback node provider
+        every time we reach this limit.
+
+        Sometimes our node is malfunctioning (LlamaNodes, Ankr)
+        and does not report transactions timely. Try with another node.
+
+        See :py:class:`eth_defi.provider.fallback.FallbackProvider` for details.
+
     :return:
         Map of transaction hashes -> receipt
     """
@@ -75,9 +89,20 @@ def wait_transactions_to_complete(
 
     unconfirmed_txs: Set[HexBytes] = {HexBytes(tx) for tx in txs}
 
+    # When we switch to level to verbose to be more
+    # concerned with our debug logging
+    verbose_timeout = max_timeout - datetime.timedelta(minutes=1)
+
+    next_node_switch = started_at + node_switch_timeout
+
     while len(unconfirmed_txs) > 0:
         # Transaction hashes that receive confirmation on this round
         confirmation_received = set()
+
+        if datetime.datetime.utcnow() > started_at + verbose_timeout:
+            tx_log_level = logging.WARNING
+        else:
+            tx_log_level = logging.DEBUG
 
         for tx_hash in unconfirmed_txs:
             try:
@@ -90,11 +115,21 @@ def wait_transactions_to_complete(
             if receipt:
                 tx_confirmations = web3.eth.block_number - receipt["blockNumber"]
                 if tx_confirmations >= confirmation_block_count:
-                    logger.debug("Confirmed tx %s with %d confirmations", tx_hash.hex(), tx_confirmations)
+                    logger.log(
+                        tx_log_level,
+                        "Confirmed tx %s with %d confirmations",
+                        tx_hash.hex(),
+                        tx_confirmations,
+                    )
                     confirmation_received.add(tx_hash)
                     receipts_received[tx_hash] = receipt
                 else:
-                    logger.debug("Still waiting more confirmations. Tx %s with %d confirmations, %d needed", tx_hash.hex(), tx_confirmations, confirmation_block_count)
+                    logger.log(
+                        tx_log_level,
+                        "Still waiting more confirmations. Tx %s with %d confirmations, %d needed",
+                        tx_hash.hex(),
+                        tx_confirmations,
+                        confirmation_block_count)
 
         # Remove confirmed txs from the working set
         unconfirmed_txs -= confirmation_received
@@ -104,10 +139,27 @@ def wait_transactions_to_complete(
 
             if datetime.datetime.utcnow() > started_at + max_timeout:
                 for tx_hash in unconfirmed_txs:
-                    tx_data = web3.eth.get_transaction(tx_hash)
-                    logger.error("Data for transaction %s was %s", tx_hash.hex(), tx_data)
+                    try:
+                        tx_data = web3.eth.get_transaction(tx_hash)
+                        logger.error("Data for transaction %s was %s", tx_hash.hex(), tx_data)
+                    except TransactionNotFound as e:
+                        # Happens on LlamaNodes - we have broadcasted the transaction
+                        # but its nodes do not see it yet
+                        logger.error("Node missing transaction data %s", tx_hash.hex())
+                        logger.exception(e)
+
                 unconfirmed_tx_strs = ", ".join([tx_hash.hex() for tx_hash in unconfirmed_txs])
                 raise ConfirmationTimedOut(f"Transaction confirmation failed. Started: {started_at}, timed out after {max_timeout} ({max_timeout.total_seconds()}s). Poll delay: {poll_delay.total_seconds()}s. Still unconfirmed: {unconfirmed_tx_strs}")
+
+        if datetime.datetime.utcnow() > next_node_switch:
+            provider = web3.provider
+            if isinstance(provider, FallbackProvider):
+                logger.info(
+                    "Timeout %s reached with this node provider. Trying with alternative node provider.",
+                    node_switch_timeout,
+                )
+                provider.switch_provider()
+                next_node_switch = datetime.datetime.utcnow() + node_switch_timeout
 
     return receipts_received
 
