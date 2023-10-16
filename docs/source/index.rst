@@ -1,8 +1,8 @@
-Web3-Ethereum-Defi for Python
+Web3-Ethereum-DeFi for Python
 =============================
 
 .. meta::
-   :description: Web3 and DeFi APIs for Python
+   :description: Python API for Web3 protocols like Uniswap, Chainlink and others
 
 .. image:: logo-wall-white.png
 
