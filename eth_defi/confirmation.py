@@ -3,7 +3,7 @@
 import datetime
 import logging
 import time
-from typing import Dict, List, Set, Union
+from typing import Dict, List, Set, Union, cast
 
 import rlp
 from eth_account.datastructures import SignedTransaction
@@ -99,6 +99,7 @@ def wait_transactions_to_complete(
         # Transaction hashes that receive confirmation on this round
         confirmation_received = set()
 
+        # Bump our verbosiveness levels for the last minutes of wait
         if datetime.datetime.utcnow() > started_at + verbose_timeout:
             tx_log_level = logging.WARNING
         else:
@@ -124,12 +125,7 @@ def wait_transactions_to_complete(
                     confirmation_received.add(tx_hash)
                     receipts_received[tx_hash] = receipt
                 else:
-                    logger.log(
-                        tx_log_level,
-                        "Still waiting more confirmations. Tx %s with %d confirmations, %d needed",
-                        tx_hash.hex(),
-                        tx_confirmations,
-                        confirmation_block_count)
+                    logger.log(tx_log_level, "Still waiting more confirmations. Tx %s with %d confirmations, %d needed", tx_hash.hex(), tx_confirmations, confirmation_block_count)
 
         # Remove confirmed txs from the working set
         unconfirmed_txs -= confirmation_received
@@ -145,15 +141,16 @@ def wait_transactions_to_complete(
                     except TransactionNotFound as e:
                         # Happens on LlamaNodes - we have broadcasted the transaction
                         # but its nodes do not see it yet
-                        logger.error("Node missing transaction data %s", tx_hash.hex())
+                        logger.error("Node missing transaction broadcast %s", tx_hash.hex())
                         logger.exception(e)
 
                 unconfirmed_tx_strs = ", ".join([tx_hash.hex() for tx_hash in unconfirmed_txs])
                 raise ConfirmationTimedOut(f"Transaction confirmation failed. Started: {started_at}, timed out after {max_timeout} ({max_timeout.total_seconds()}s). Poll delay: {poll_delay.total_seconds()}s. Still unconfirmed: {unconfirmed_tx_strs}")
 
-        if datetime.datetime.utcnow() > next_node_switch:
-            provider = web3.provider
-            if isinstance(provider, FallbackProvider):
+        # Check if it time to try a better node provider
+        if isinstance(web3.provider, FallbackProvider):
+            provider = cast(FallbackProvider, web3.provider)
+            if datetime.datetime.utcnow() >= next_node_switch:
                 logger.info(
                     "Timeout %s reached with this node provider. Trying with alternative node provider.",
                     node_switch_timeout,
