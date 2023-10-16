@@ -1,19 +1,22 @@
-"""Transaction broadcasting, block confirmations and completion monitoring."""
+"""Transaction broadcasting, block confirmation and completion monitoring.
+
+- Wait for multiple transactions to be confirmed and read back the results from the blockchain
+"""
 
 import datetime
 import logging
 import time
 from typing import Dict, List, Set, Union, cast
 
-import rlp
 from eth_account.datastructures import SignedTransaction
-from eth_defi.provider.fallback import FallbackProvider
 from hexbytes import HexBytes
 from web3 import Web3
 from web3.exceptions import TransactionNotFound
 
 from eth_defi.hotwallet import SignedTransactionWithNonce
 from eth_defi.tx import decode_signed_transaction
+from eth_defi.provider.fallback import FallbackProvider
+
 
 logger = logging.getLogger(__name__)
 
@@ -39,7 +42,9 @@ def wait_transactions_to_complete(
     Use simple poll loop to wait all transactions to complete.
 
     If ``web3`` is configured to use :py:class:`eth_defi.provider.fallback.FallbackProvider`,
-    try to switch between alternative node providers to confirm the transaction.
+    try to switch between alternative node providers when confirming the transactions,
+    because sometimes low quality nodes (Ankr, LlamaNodes) do not see transactions
+    for several minutes.
 
     Example:
 
