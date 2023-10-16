@@ -77,6 +77,11 @@ def estimate_gas_fees(web3: Web3) -> GasPriceSuggestion:
             max_priority_fee_per_gas = max(30_000_000_000, web3.eth.max_priority_fee)
         else:
             max_priority_fee_per_gas = web3.eth.max_priority_fee
+
+        # https://github.com/ethereum/go-ethereum/blob/2e478aab98c13577c66b4531ba240a601dbc1516/core/error.go#L87
+        if max_priority_fee_per_gas > max_fee_per_gas:
+            max_fee_per_gas = max_priority_fee_per_gas
+
         return GasPriceSuggestion(method=GasPriceMethod.london, base_fee=base_fee, max_priority_fee_per_gas=max_priority_fee_per_gas, max_fee_per_gas=max_fee_per_gas)
     else:
         # Legacy gas strategy

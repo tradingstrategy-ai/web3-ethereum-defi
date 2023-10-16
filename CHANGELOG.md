@@ -1,3 +1,7 @@
+# Current
+
+- First workaround for ``JSON-RPC error: {'code': -32003, 'message': 'max priority fee per gas higher than max fee per gas'}``
+
 # 0.22.21
 
 - Don't pin down `pyarrow` version to make it easier to use different Arrow
