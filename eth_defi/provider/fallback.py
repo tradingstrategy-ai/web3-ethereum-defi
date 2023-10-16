@@ -257,3 +257,5 @@ def _check_faulty_rpc_response(
             # to ensure it gets blocks
             # current_sleep = max(self.state_missing_switch_over_delay, current_sleep)
             raise ProbablyNodeHasNoBlock(f"Node did not have data for block {block_identifier} when calling {method}")
+
+    #
