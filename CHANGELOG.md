@@ -1,4 +1,4 @@
-# Current 
+# 0.22.20 
 
 - Add `eth_defi.provider.broken_provider.get_almost_latest_block_number()`
   for developer ergonomics when working with Ankr and LlamaNodes
