@@ -1,3 +1,8 @@
+# 0.22.21
+
+- Don't pin down `pyarrow` version to make it easier to use different Arrow
+  reading backends
+
 # 0.22.20 
 
 - Add `eth_defi.provider.broken_provider.get_almost_latest_block_number()`
