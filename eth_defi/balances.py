@@ -9,6 +9,7 @@ from eth_typing import BlockNumber, HexAddress
 from web3 import Web3
 from web3.contract import Contract
 from web3.exceptions import BadFunctionCallOutput
+from web3.types import BlockIdentifier
 
 from eth_defi.abi import get_contract, get_deployed_contract
 from eth_defi.event import fetch_all_events
@@ -103,7 +104,12 @@ def fetch_erc20_balances_by_transfer_event(
         raise BalanceFetchFailed(f"Could not read Transfer() events for an address {owner} - fetch_erc20_balances() only works with addresses with small amount of transfers") from e
 
 
-def fetch_erc20_balances_by_token_list(web3: Web3, owner: HexAddress, tokens: Set[HexAddress]) -> Dict[HexAddress, int]:
+def fetch_erc20_balances_by_token_list(
+        web3: Web3,
+        owner: HexAddress,
+        tokens: Set[HexAddress],
+        block_identifier: BlockIdentifier = None,
+) -> Dict[HexAddress, int]:
     """Get all current holdings of an account for a limited set of ERC-20 tokens.
 
     If you know what tokens you are interested in, this method is much more efficient
@@ -123,6 +129,9 @@ def fetch_erc20_balances_by_token_list(web3: Web3, owner: HexAddress, tokens: Se
             assert balances[usdc.address] == 500
             assert balances[aave.address] == 200
 
+    :param block_identifier:
+        Fetch at specific height
+
     :raise BalanceFetchFailed:
         When you give a non-ERC-20 contract as a token.
     """
@@ -131,7 +140,7 @@ def fetch_erc20_balances_by_token_list(web3: Web3, owner: HexAddress, tokens: Se
     for address in tokens:
         erc_20 = get_deployed_contract(web3, "sushi/IERC20.json", address)
         try:
-            balances[address] = erc_20.functions.balanceOf(owner).call()
+            balances[address] = erc_20.functions.balanceOf(owner).call(block_identifier=block_identifier)
         except BadFunctionCallOutput as e:
             raise BalanceFetchFailed(f"Could not get ERC-20 {address} balance for {owner}") from e
 

@@ -46,6 +46,9 @@ class EnzymeBalanceEvent:
     #:
     event_data: dict
 
+    def __repr__(self):
+        return f"{self.__class__.__name__}: {self.event_data}"
+
     @staticmethod
     def wrap(vault: Vault, event_data: dict) -> "EnzymeBalanceEvent":
         """Parse Solidity events to the wrapped format.

@@ -1,3 +1,7 @@
+# Current
+
+- API change: add `fetch_erc20_balances_by_token_list(block_identifier)`
+
 # 0.22.22
 
 - Add: `wait_and_broadcast_multiple_nodes` to work around transaction broadcasts and confirmations failing on LlamaNodes
