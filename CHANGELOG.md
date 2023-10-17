@@ -1,4 +1,4 @@
-# Current
+# 0.22.22
 
 - Add: `wait_and_broadcast_multiple_nodes` to work around transaction broadcasts and confirmations failing on LlamaNodes
 - Fix: First workaround for `JSON-RPC error: {'code': -32003, 'message': 'max priority fee per gas higher than max fee per gas'}` in `eth_defi.gas`
