@@ -27,7 +27,7 @@ class OneDeltaDeployment:
     manager: Contract
 
     # DeltaBrokerProxy contract proxy
-    proxy: Contract
+    broker_proxy: Contract
 
     # Aave v3 deployment
     aave_v3: AaveV3Deployment
@@ -64,7 +64,7 @@ def deploy_1delta(
         deployer,
     )
 
-    proxy = deploy_contract(
+    broker_proxy = deploy_contract(
         web3,
         "1delta/DeltaBrokerProxy.json",
         deployer,
@@ -103,5 +103,52 @@ def deploy_1delta(
         aave_v3=aave_v3,
         flash_aggregator=flash_aggregator,
         manager=manager,
-        proxy=proxy,
+        broker_proxy=broker_proxy,
+    )
+
+
+def fetch_deployment(
+    web3: Web3,
+    aave_v3: AaveV3Deployment,
+    flash_aggregator_address: HexAddress | str,
+    manager_address: HexAddress | str,
+    broker_proxy_address: HexAddress | str,
+) -> AaveV3Deployment:
+    """Construct 1delta deployment based on on-chain data.
+
+    :return:
+        Data class representing 1delta deployment
+    """
+    # flash_aggregator = get_deployed_contract(
+    #     web3,
+    #     "1delta/FlashAggregator.json",
+    #     flash_aggregator_address,
+    #     register_for_tracing=True,
+    # )
+    # manager = get_deployed_contract(web3, "1delta/ManagementModule.json", manager_address)
+    # broker_proxy = get_deployed_contract(web3, "1delta/DeltaBrokerProxy.json", broker_proxy_address)
+
+    flash_aggregator = get_deployed_contract(
+        web3,
+        "1delta/modules/deploy/polygon/FlashAggregator.sol/DeltaFlashAggregator.json",
+        flash_aggregator_address,
+        register_for_tracing=True,
+    )
+    manager = get_deployed_contract(
+        web3,
+        "1delta/modules/aave/ManagementModule.sol/ManagementModule.json",
+        manager_address,
+    )
+    broker_proxy = get_deployed_contract(
+        web3,
+        "1delta/proxy/DeltaBroker.sol/DeltaBrokerProxy.json",
+        broker_proxy_address,
+    )
+
+    return OneDeltaDeployment(
+        web3=web3,
+        aave_v3=aave_v3,
+        flash_aggregator=flash_aggregator,
+        manager=manager,
+        broker_proxy=broker_proxy,
     )

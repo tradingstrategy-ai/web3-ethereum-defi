@@ -4,9 +4,10 @@ from web3.contract.contract import Contract, ContractFunction
 
 from eth_defi.aave_v3.constants import AaveV3InterestRateMode
 from eth_defi.one_delta.deployment import OneDeltaDeployment
+from eth_defi.one_delta.utils import encode_path
 
 
-def open_short_position(
+def supply(
     one_delta_deployment: OneDeltaDeployment,
     *,
     token: Contract,
@@ -19,8 +20,6 @@ def open_short_position(
     Example:
 
     .. code-block:: python
-
-
 
     :param aave_v3_deployment:
         Instance of :py:class:`eth_defi.aave_v3.deployment.AaveV3Deployment`.
@@ -46,6 +45,40 @@ def open_short_position(
     # uint16 referralCode
     supply_function = pool.functions.supply(token.address, amount, wallet_address, 0)
 
-    # deposit_function = one_delta_deployment.flash_aggregator.functions.deposit(token.address, wallet_address)
+    # supply_function = one_delta_deployment.flash_aggregator.functions.deposit(token.address, wallet_address)
 
     return approve_function, supply_function
+
+
+def approve_tokens():
+    pass
+
+
+def open_short_position(
+    one_delta_deployment: OneDeltaDeployment,
+    *,
+    collateral_token: Contract,
+    borrow_token: Contract,
+    pool_fee: int,
+    borrow_amount: int,
+    min_collateral_amount_out: int = 0,
+) -> ContractFunction:
+    path = encode_path(
+        [
+            borrow_token.address,
+            collateral_token.address,
+        ],
+        [pool_fee],
+        [6],  # action: open position
+        [0],  # pid: uniswap v3
+        2,  # flag: variable borrow
+    )
+
+    # amount_in = int(0.5 * 10**18)
+    # min_amount_out = 0  # TODO: improve later
+
+    return one_delta_deployment.flash_aggregator.functions.flashSwapExactIn(
+        borrow_amount,
+        min_collateral_amount_out,
+        path,
+    )
