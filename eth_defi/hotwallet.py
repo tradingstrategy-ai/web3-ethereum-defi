@@ -39,6 +39,7 @@ class SignedTransactionWithNonce(NamedTuple):
     s: int
     v: int
     nonce: int
+    address: str
 
     #: Undecoded transaction data as a dict.
     #:
@@ -140,6 +141,7 @@ class HotWallet:
             s=_signed.s,
             nonce=tx["nonce"],
             source=tx,
+            address=self.address,
         )
         return signed
 

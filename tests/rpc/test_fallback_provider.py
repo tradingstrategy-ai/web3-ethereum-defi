@@ -1,14 +1,17 @@
 """Test JSON-RPC provider fallback mechanism."""
+import datetime
 import os
 from unittest.mock import patch, DEFAULT
 
 import pytest
 import requests
 from eth_account import Account
+
+from eth_defi.confirmation import wait_and_broadcast_multiple_nodes
 from eth_defi.provider.broken_provider import get_default_block_tip_latency
 from web3 import HTTPProvider, Web3
 
-from eth_defi.anvil import launch_anvil, AnvilLaunch
+from eth_defi.provider.anvil import launch_anvil, AnvilLaunch
 from eth_defi.gas import node_default_gas_price_strategy
 from eth_defi.hotwallet import HotWallet
 from eth_defi.middleware import ProbablyNodeHasNoBlock
@@ -177,7 +180,7 @@ def test_fallback_nonce_too_low(web3, deployer: str):
 
 @pytest.mark.skipif(
     os.environ.get("JSON_RPC_POLYGON") is None,
-    reason="Set JSON_RPC_POLYGON environment variable to a privately configured Polygon node",
+    reason="Set JSON_RPC_POLYGON environment variable to a Polygon node",
 )
 def test_eth_call_not_having_block(fallback_provider: FallbackProvider, provider_1):
     """What happens if you ask data from non-existing block."""
@@ -205,3 +208,41 @@ def test_eth_call_not_having_block(fallback_provider: FallbackProvider, provider
         usdc.contract.functions.balanceOf(ZERO_ADDRESS).call(block_identifier=bad_block)
 
     assert fallback_provider.api_retry_counts[0]["eth_call"] == 3  # 5 attempts, 3 retries, the last retry does not count
+
+
+def test_broadcast_and_wait_multiple(web3: Web3, deployer: str):
+    """Broadcast transactions through multiple nodes.
+
+    In this case, we test by just having multiple fallback providers pointing to the same node.
+    """
+
+    web3.eth.set_gas_price_strategy(node_default_gas_price_strategy)
+
+    user = Account.create()
+    hot_wallet = HotWallet(user)
+
+    # Fill in user wallet
+    tx1_hash = web3.eth.send_transaction({"from": deployer, "to": user.address, "value": 5 * 10**18})
+    assert_transaction_success_with_explanation(web3, tx1_hash)
+
+    hot_wallet.sync_nonce(web3)
+
+    # First send a transaction with a correct nonce
+    tx2 = {"chainId": web3.eth.chain_id, "from": user.address, "to": deployer, "value": 1 * 10**18, "gas": 30_000}
+    HotWallet.fill_in_gas_price(web3, tx2)
+    signed_tx2 = hot_wallet.sign_transaction_with_new_nonce(tx2)
+
+    tx3 = {"chainId": web3.eth.chain_id, "from": user.address, "to": deployer, "value": 1 * 10**18, "gas": 30_000}
+    HotWallet.fill_in_gas_price(web3, tx3)
+    signed_tx3 = hot_wallet.sign_transaction_with_new_nonce(tx3)
+
+    # Use low timeouts so this should stress out the logic
+    receipt_map = wait_and_broadcast_multiple_nodes(
+        web3,
+        [signed_tx2, signed_tx3],
+        max_timeout=datetime.timedelta(seconds=10),
+        node_switch_timeout=datetime.timedelta(seconds=1),
+    )
+
+    assert signed_tx2.hash in receipt_map
+    assert signed_tx3.hash in receipt_map
