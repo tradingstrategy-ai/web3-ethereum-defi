@@ -10,6 +10,7 @@ from eth_typing import HexStr
 from web3 import Web3
 from web3.types import BlockIdentifier
 
+from eth_defi.provider.named import get_provider_name
 
 logger = logging.getLogger(__name__)
 
@@ -69,6 +70,9 @@ class LazyTimestampContainer:
                 block_identifier = "0x" + block_identifier
 
             result = self.web3.manager.request_blocking("eth_getBlockByHash", (block_identifier, False))
+
+        name = get_provider_name(self.web3)
+        assert result is not None, f"Node provider is low quality and does not serve blocks: {name}, was asking for block {block_identifier}"
 
         self.api_call_counter += 1
 
