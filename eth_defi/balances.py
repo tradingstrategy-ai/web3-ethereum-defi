@@ -129,6 +129,9 @@ def fetch_erc20_balances_by_token_list(
             assert balances[usdc.address] == 500
             assert balances[aave.address] == 200
 
+    :param tokens:
+        ERC-20 list
+
     :param block_identifier:
         Fetch at specific height
 
