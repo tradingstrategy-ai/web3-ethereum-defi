@@ -13,6 +13,7 @@ from web3.types import BlockIdentifier
 
 from eth_defi.abi import get_contract, get_deployed_contract
 from eth_defi.event import fetch_all_events
+from eth_defi.provider.broken_provider import get_almost_latest_block_number
 
 
 @dataclass
@@ -138,6 +139,9 @@ def fetch_erc20_balances_by_token_list(
     :raise BalanceFetchFailed:
         When you give a non-ERC-20 contract as a token.
     """
+
+    if block_identifier is None:
+        block_identifier = get_almost_latest_block_number(web3)
 
     balances = {}
     for address in tokens:
