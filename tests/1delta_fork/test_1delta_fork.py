@@ -4,8 +4,8 @@ To run tests in this module:
 
 .. code-block:: shell
 
-    export BNB_CHAIN_JSON_RPC="https://bsc-dataseed.binance.org/"
-    pytest -k test_decode_tx
+    export JSON_RPC_POLYGON="https://rpc.ankr.com/polygon"
+    pytest -k test_1delta_fork_open_short
 
 """
 import logging
@@ -20,17 +20,16 @@ from web3 import HTTPProvider, Web3
 
 from eth_defi.aave_v3.constants import MAX_AMOUNT
 from eth_defi.aave_v3.deployment import fetch_deployment as fetch_aave_deployment
+from eth_defi.aave_v3.loan import supply
 from eth_defi.chain import install_chain_middleware
 from eth_defi.gas import node_default_gas_price_strategy
 from eth_defi.hotwallet import HotWallet
 from eth_defi.one_delta.deployment import OneDeltaDeployment
 from eth_defi.one_delta.deployment import fetch_deployment as fetch_1delta_deployment
-from eth_defi.one_delta.position import open_short_position, supply
-from eth_defi.one_delta.utils import encode_path
+from eth_defi.one_delta.position import open_short_position
 from eth_defi.provider.anvil import fork_network_anvil
 from eth_defi.token import fetch_erc20_details
 from eth_defi.trace import assert_transaction_success_with_explanation
-from eth_defi.tx import decode_signed_transaction
 
 # https://docs.pytest.org/en/latest/how-to/skipping.html#skip-all-test-functions-of-a-class-or-module
 pytestmark = pytest.mark.skipif(
@@ -85,7 +84,7 @@ def usdc(web3):
 @pytest.fixture
 def ausdc(web3):
     """Get aPolUSDC on Polygon."""
-    return fetch_erc20_details(web3, "0x625E7708f30cA75bfd92586e17077590C60eb4cD")
+    return fetch_erc20_details(web3, "0x625E7708f30cA75bfd92586e17077590C60eb4cD", contract_name="aave_v3/AToken.json")
 
 
 @pytest.fixture
@@ -97,7 +96,7 @@ def weth(web3):
 @pytest.fixture
 def vweth(web3):
     """Get vPolWETH on Polygon."""
-    return fetch_erc20_details(web3, "0x0c84331e39d6658Cd6e6b9ba04736cC4c4734351")
+    return fetch_erc20_details(web3, "0x0c84331e39d6658Cd6e6b9ba04736cC4c4734351", contract_name="aave_v3/VariableDebtToken.json")
 
 
 @pytest.fixture(scope="module")
@@ -134,26 +133,20 @@ def hot_wallet(web3, user_1, usdc, large_usdc_holder) -> HotWallet:
 def aave_v3_deployment(web3):
     return fetch_aave_deployment(
         web3,
-        "0x794a61358D6845594F94dc1DB02A252b5b4814aD",
-        "0x69FA688f1Dc47d4B5d8029D5a35FB7a548310654",
-        "0xb023e699F5a33916Ea823A16485e259257cA8Bd1",
+        pool_address="0x794a61358D6845594F94dc1DB02A252b5b4814aD",
+        data_provider_address="0x69FA688f1Dc47d4B5d8029D5a35FB7a548310654",
+        oracle_address="0xb023e699F5a33916Ea823A16485e259257cA8Bd1",
     )
 
 
 @pytest.fixture
-def one_delta_deployment(web3, aave_v3_deployment):
+def one_delta_deployment(web3, aave_v3_deployment) -> OneDeltaDeployment:
     return fetch_1delta_deployment(
         web3,
         aave_v3_deployment,
-        "0x168B4C2Cc2df4635D521Aa1F8961DD7218f0f427",
-        "0x892e4a7d578Be979E5329655949fC56781eEFdb0",
-        "0x74E95F3Ec71372756a01eB9317864e3fdde1AC53",
+        flash_aggregator_address="0x168B4C2Cc2df4635D521Aa1F8961DD7218f0f427",
+        broker_proxy_address="0x74E95F3Ec71372756a01eB9317864e3fdde1AC53",
     )
-
-
-# @pytest.fixture()
-# def aave_v3_usdc_reserve() -> AaveToken:
-#     return AAVE_V3_NETWORKS["polygon"].token_contracts["USDC"]
 
 
 def _execute_tx(web3, hot_wallet, fn, gas=350_000):
@@ -168,36 +161,14 @@ def test_1delta_fork_open_short(
     hot_wallet,
     large_usdc_holder,
     one_delta_deployment,
+    aave_v3_deployment,
     usdc,
     ausdc,
     weth,
     vweth,
 ):
-    """Test that the deposit in Aave v3 is correctly registered and the corresponding aToken is received."""
-    usdc_supply_amount = 100 * 10**6
-
-    print("> Step 1: supply USDC as collateral to Aave v3 via 1delta")
-
-    # supply USDC to Aave
-    approve_fn, supply_fn = supply(
-        one_delta_deployment=one_delta_deployment,
-        token=usdc.contract,
-        amount=usdc_supply_amount,
-        wallet_address=hot_wallet.address,
-    )
-
-    _execute_tx(web3, hot_wallet, approve_fn)
-    _execute_tx(web3, hot_wallet, supply_fn)
-
-    print("> Step 2: approve everything")
-
-    # approve everything
-
-    # verify aUSDC token amount in hot wallet
-    assert ausdc.contract.functions.balanceOf(hot_wallet.address).call() == usdc_supply_amount
-
+    print("> Step 1: approve tokens")
     trader = one_delta_deployment.flash_aggregator
-    manager = one_delta_deployment.manager
     proxy = one_delta_deployment.broker_proxy
 
     for token in [
@@ -205,16 +176,45 @@ def test_1delta_fork_open_short(
         weth,
         ausdc,
     ]:
+        print(f"\tApproving unlimited allowance for 1delta trader on {token.name}")
         approve_fn = token.contract.functions.approve(trader.address, MAX_AMOUNT)
         _execute_tx(web3, hot_wallet, approve_fn)
 
-    # approve_fn = vweth.contract.functions.approveDelegation(proxy.address, MAX_AMOUNT)
-    # _execute_tx(web3, hot_wallet, approve_fn)
+        print(f"\tApproving unlimited allowance for 1delta broker proxy on {token.name}")
+        approve_fn = token.contract.functions.approve(proxy.address, MAX_AMOUNT)
+        _execute_tx(web3, hot_wallet, approve_fn)
 
-    approve_fn = usdc.contract.functions.approve(one_delta_deployment.aave_v3.pool.address, MAX_AMOUNT)
-    _execute_tx(web3, hot_wallet, approve_fn)
+        print(f"\tApproving unlimited allowance for Aave pool on {token.name}")
+        approve_fn = token.contract.functions.approve(aave_v3_deployment.pool.address, MAX_AMOUNT)
+        _execute_tx(web3, hot_wallet, approve_fn)
 
-    print("> Step 3: open position")
+    # approve delegate the vToken
+    for token in [
+        vweth,
+    ]:
+        print(f"\tApproving delegation for 1delta broker proxy on {token.name}")
+        approve_fn = token.contract.functions.approveDelegation(proxy.address, MAX_AMOUNT)
+        _execute_tx(web3, hot_wallet, approve_fn)
+
+    print("> Step 2: supply USDC as collateral to Aave v3")
+
+    usdc_supply_amount = 100 * 10**6
+
+    # supply USDC to Aave
+    approve_fn, supply_fn = supply(
+        aave_v3_deployment=aave_v3_deployment,
+        token=usdc.contract,
+        amount=usdc_supply_amount,
+        wallet_address=hot_wallet.address,
+    )
+
+    _execute_tx(web3, hot_wallet, supply_fn)
+
+    # verify aUSDC token amount in hot wallet
+    assert ausdc.contract.functions.balanceOf(hot_wallet.address).call() == usdc_supply_amount
+    print("\tSupply done")
+
+    print("> Step 3: open short position")
 
     weth_borrow_amount = 1 * 10**18
 
@@ -228,4 +228,3 @@ def test_1delta_fork_open_short(
     _execute_tx(web3, hot_wallet, swap_fn)
 
     print("Open position done")
-    # print_current_balances(hot_wallet.address, usdc, weth, ausdc, vweth)

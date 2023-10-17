@@ -23,9 +23,6 @@ class OneDeltaDeployment:
     #: FlashAggregator contract proxy
     flash_aggregator: Contract
 
-    # ManagementModule contract proxy
-    manager: Contract
-
     # DeltaBrokerProxy contract proxy
     broker_proxy: Contract
 
@@ -72,21 +69,6 @@ def deploy_1delta(
         module_config.address,
     )
 
-    manager = deploy_contract(
-        web3,
-        "1delta/ManagementModule.json",
-        deployer,
-        # proxy_address=proxy.address,
-    )
-
-    # module_config.functions.configureModules(
-    #     [{
-    #         moduleAddress: manager.address,
-    #         action: 0,
-    #         functionSelectors: getSelectors(managerModule)
-    #     }]
-    # ).transact({"from": deployer})
-
     flash_aggregator = deploy_contract(
         web3,
         "1delta/FlashAggregator.json",
@@ -95,14 +77,12 @@ def deploy_1delta(
         uniswap_v3.factory.address,
         aave_v3.pool.address,
         weth.address,
-        # proxy_address=proxy.address,
     )
 
     return OneDeltaDeployment(
         web3=web3,
         aave_v3=aave_v3,
         flash_aggregator=flash_aggregator,
-        manager=manager,
         broker_proxy=broker_proxy,
     )
 
@@ -111,7 +91,6 @@ def fetch_deployment(
     web3: Web3,
     aave_v3: AaveV3Deployment,
     flash_aggregator_address: HexAddress | str,
-    manager_address: HexAddress | str,
     broker_proxy_address: HexAddress | str,
 ) -> AaveV3Deployment:
     """Construct 1delta deployment based on on-chain data.
@@ -119,29 +98,15 @@ def fetch_deployment(
     :return:
         Data class representing 1delta deployment
     """
-    # flash_aggregator = get_deployed_contract(
-    #     web3,
-    #     "1delta/FlashAggregator.json",
-    #     flash_aggregator_address,
-    #     register_for_tracing=True,
-    # )
-    # manager = get_deployed_contract(web3, "1delta/ManagementModule.json", manager_address)
-    # broker_proxy = get_deployed_contract(web3, "1delta/DeltaBrokerProxy.json", broker_proxy_address)
-
     flash_aggregator = get_deployed_contract(
         web3,
-        "1delta/modules/deploy/polygon/FlashAggregator.sol/DeltaFlashAggregator.json",
+        "1delta/FlashAggregator.json",
         flash_aggregator_address,
         register_for_tracing=True,
     )
-    manager = get_deployed_contract(
-        web3,
-        "1delta/modules/aave/ManagementModule.sol/ManagementModule.json",
-        manager_address,
-    )
     broker_proxy = get_deployed_contract(
         web3,
-        "1delta/proxy/DeltaBroker.sol/DeltaBrokerProxy.json",
+        "1delta/DeltaBrokerProxy.json",
         broker_proxy_address,
     )
 
@@ -149,6 +114,5 @@ def fetch_deployment(
         web3=web3,
         aave_v3=aave_v3,
         flash_aggregator=flash_aggregator,
-        manager=manager,
         broker_proxy=broker_proxy,
     )

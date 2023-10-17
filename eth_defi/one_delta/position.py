@@ -50,10 +50,6 @@ def supply(
     return approve_function, supply_function
 
 
-def approve_tokens():
-    pass
-
-
 def open_short_position(
     one_delta_deployment: OneDeltaDeployment,
     *,
@@ -73,9 +69,6 @@ def open_short_position(
         [0],  # pid: uniswap v3
         2,  # flag: variable borrow
     )
-
-    # amount_in = int(0.5 * 10**18)
-    # min_amount_out = 0  # TODO: improve later
 
     return one_delta_deployment.flash_aggregator.functions.flashSwapExactIn(
         borrow_amount,
