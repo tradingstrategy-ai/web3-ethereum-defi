@@ -328,7 +328,7 @@ def _broadcast_multiple_nodes(providers: Collection[BaseProvider], signed_tx: Si
         except ValueError as e:
             resp_data: dict = e.args[0]
 
-            logger.info("Broadcasting %s from: %s, nonce: %s on provider: %s, got error: %s\n", signed_tx.hash.hex(), address, nonce, name, resp_data)
+            logger.info("Broadcast JSON-RPC error %s from: %s, nonce: %s on provider: %s, got error: %s\n", signed_tx.hash.hex(), address, nonce, name, resp_data)
             logger.info("Signed tx: %s", signed_tx)
             logger.info("Source: %s", source)
 
