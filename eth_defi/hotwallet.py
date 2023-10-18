@@ -72,10 +72,14 @@ class SignedTransactionWithNonce(NamedTuple):
 
     @property
     def raw_transaction(self) -> HexBytes:
-        """Get the bytes to be broadcasted to the P2P network."""
+        """Get the bytes to be broadcasted to the P2P network.
+
+        Legacy web3.py compatibility.
+        """
         return self.rawTransaction
 
     def __getitem__(self, index):
+        # Legacy web3.py compatibility.
         return __getitem__(self, index)
 
 
