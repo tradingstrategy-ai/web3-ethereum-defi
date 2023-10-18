@@ -67,6 +67,9 @@ class SignedTransactionWithNonce(NamedTuple):
     #:
     source: Optional[dict] = None
 
+    def __repr__(self):
+        return f"<SignedTransactionWithNonce hash:{self.hash.hex()} payload:{self.rawTransaction.hex()}>"
+
     @property
     def raw_transaction(self) -> HexBytes:
         """Get the bytes to be broadcasted to the P2P network."""
