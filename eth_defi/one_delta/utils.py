@@ -41,6 +41,9 @@ def encode_path(
         case TradeOperation.TRIM:
             actions = [7]
             flag = 3
+        case TradeOperation.CLOSE:
+            actions = [5]
+            flag = 3
         case _:
             raise ValueError(f"Unsupported operation: {operation}")
 

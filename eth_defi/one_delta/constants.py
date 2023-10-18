@@ -14,6 +14,7 @@ class TradeOperation(str, Enum):
     TRIM = "trim"
     DEBT = "debt"
     COLLATERAL = "collateral"
+    CLOSE = "close"
 
 
 class TradeType(IntEnum):
