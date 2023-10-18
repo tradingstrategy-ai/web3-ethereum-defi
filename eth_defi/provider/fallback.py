@@ -144,12 +144,7 @@ class FallbackProvider(BaseNamedProvider):
         old_provider_name = get_provider_name(provider)
         self.currently_active_provider = (self.currently_active_provider + 1) % len(self.providers)
         new_provider_name = get_provider_name(self.get_active_provider())
-        logger.log(
-            self.switchover_noisiness,
-            "Switched RPC providers %s -> %s\n",
-            old_provider_name,
-            new_provider_name
-        )
+        logger.log(self.switchover_noisiness, "Switched RPC providers %s -> %s\n", old_provider_name, new_provider_name)
 
     def get_active_provider(self) -> NamedProvider:
         """Get currently active provider.
@@ -191,7 +186,6 @@ class FallbackProvider(BaseNamedProvider):
                 return resp_data
 
             except Exception as e:
-
                 if is_retryable_http_exception(
                     e,
                     retryable_rpc_error_codes=self.retryable_rpc_error_codes,
@@ -203,18 +197,7 @@ class FallbackProvider(BaseNamedProvider):
                     if i < self.retries:
                         # Black messes up string new lines here
                         # See https://github.com/psf/black/issues/1837
-                        logger.log(
-                            self.switchover_noisiness,
-                            "Encountered JSON-RPC retryable error %s when calling method:\n"
-                            "%s(%s)\n "
-                            "Retrying in %f seconds, retry #%d / %d",
-                            e,
-                            method,
-                            params,
-                            current_sleep,
-                            i,
-                            self.retries
-                        )
+                        logger.log(self.switchover_noisiness, "Encountered JSON-RPC retryable error %s when calling method:\n" "%s(%s)\n " "Retrying in %f seconds, retry #%d / %d", e, method, params, current_sleep, i, self.retries)
                         time.sleep(current_sleep)
                         current_sleep *= self.backoff
                         self.retry_count += 1

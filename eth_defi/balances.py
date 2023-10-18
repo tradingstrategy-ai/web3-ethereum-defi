@@ -106,10 +106,10 @@ def fetch_erc20_balances_by_transfer_event(
 
 
 def fetch_erc20_balances_by_token_list(
-        web3: Web3,
-        owner: HexAddress,
-        tokens: Set[HexAddress],
-        block_identifier: BlockIdentifier = None,
+    web3: Web3,
+    owner: HexAddress,
+    tokens: Set[HexAddress],
+    block_identifier: BlockIdentifier = None,
 ) -> Dict[HexAddress, int]:
     """Get all current holdings of an account for a limited set of ERC-20 tokens.
 

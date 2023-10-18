@@ -1,4 +1,8 @@
-# Current
+# 0.22.24
+
+- Internal change: more verbose logging for `wait_and_broadcast_multiple_nodes`
+
+# 0.22.23
 
 - API change: add `fetch_erc20_balances_by_token_list(block_identifier)`
 

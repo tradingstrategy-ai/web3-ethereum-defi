@@ -305,20 +305,21 @@ def broadcast_and_wait_transactions_to_complete(
     return receipts
 
 
-def _broadcast_multiple_nodes(providers: Collection[BaseProvider], signed_tx: SignedTransaction):
+# Support different raw tx formats
+SignedTxType = Union[SignedTransaction, SignedTransactionWithNonce]
+
+
+def _broadcast_multiple_nodes(providers: Collection[BaseProvider], signed_tx: SignedTxType):
     """Attempt to broadcast a transaction through multiple provideres."""
 
     for p in providers:
-
+        # See SignedTransactionWithNonce
         nonce = getattr(signed_tx, "nonce", None)
         address = getattr(signed_tx, "address", None)
+        source = getattr(signed_tx, "source", None)
 
         name = get_provider_name(p)
-        logger.info(
-            "Broadcasting %s through %s",
-            signed_tx.hash,
-            name
-        )
+        logger.info("Broadcasting %s through %s", signed_tx.hash.hex(), name)
 
         # Does not use any middleware
         web3 = Web3(p)
@@ -327,27 +328,23 @@ def _broadcast_multiple_nodes(providers: Collection[BaseProvider], signed_tx: Si
         except ValueError as e:
             resp_data: dict = e.args[0]
 
+            logger.info("Broadcast JSON-RPC error %s from: %s, nonce: %s on provider: %s, got error: %s\n", signed_tx.hash.hex(), address, nonce, name, resp_data)
+            logger.info("Signed tx: %s", signed_tx)
+            logger.info("Source: %s", source)
+
             # When we rebroadcast we are getting nonce too low errors,
             # both for too high and too low nonces
             if resp_data["message"] == "nonce too low":
                 continue
+
         except Exception as e:
-            logger.warning("Provider %s failed with tx %s from address %s, nonce %s",
-                           name,
-                           signed_tx.hash.hex(),
-                           address,
-                           nonce
-                           )
+            logger.warning("Provider %s failed with tx %s from address %s, nonce %s", name, signed_tx.hash.hex(), address, nonce)
             logger.exception(e)
-
-
-# Support different raw tx formats
-TxType = Union[SignedTransaction, SignedTransactionWithNonce]
 
 
 def wait_and_broadcast_multiple_nodes(
     web3: Web3,
-    txs: Collection[TxType],
+    txs: Collection[SignedTxType],
     confirmation_block_count: int = 0,
     max_timeout=datetime.timedelta(minutes=5),
     poll_delay=datetime.timedelta(seconds=1),
@@ -446,7 +443,6 @@ def wait_and_broadcast_multiple_nodes(
             tx_log_level = logging.DEBUG
 
         for tx_hash in unconfirmed_txs:
-
             try:
                 receipt = web3.eth.get_transaction_receipt(tx_hash)
             except TransactionNotFound as e:
