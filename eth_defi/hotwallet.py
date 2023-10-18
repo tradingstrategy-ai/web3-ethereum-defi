@@ -26,24 +26,45 @@ logger = logging.getLogger(__name__)
 
 
 class SignedTransactionWithNonce(NamedTuple):
-    """Helper class to pass around the used nonce when signing txs from the wallet.
+    """A better signed transaction structure.
 
-    - Emulate `SignedTransaction` from web3.py package
+    Helper class to pass around the used nonce when signing txs from the wallet.
+
+    - Compatible with :py:class:`eth_accounts.datastructures.SignedTransaction`. Emulates its behavior
+      and should be backwards compatible.
+
+    - Retains more information about the transaction source,
+      to allow us to diagnose broadcasting failures better
 
     - Add some debugging helpers
     """
 
+    #: See SignedTransaction
     rawTransaction: HexBytes
+
+    #: See SignedTransaction
     hash: HexBytes
+
+    #: See SignedTransaction
     r: int
+
+    #: See SignedTransaction
     s: int
+
+    #: See SignedTransaction
     v: int
+
+    #: What was the source nonce for this transaction
     nonce: int
+
+    #: Whas was the source address for this trasaction
     address: str
 
-    #: Undecoded transaction data as a dict.
+    #: Unencoded transaction data as a dict.
     #:
-    #: If broadcast fails, retain the source so we can debug the cause
+    #: If broadcast fails, retain the source so we can debug the cause,
+    #: like the original gas parameters.
+    #:
     source: Optional[dict] = None
 
     @property
