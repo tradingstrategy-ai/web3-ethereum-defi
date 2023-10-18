@@ -1,11 +1,11 @@
-"""Test transaction decoding.
+"""Test 1delta opening and closing positions using forked Polygon.
 
 To run tests in this module:
 
 .. code-block:: shell
 
     export JSON_RPC_POLYGON="https://rpc.ankr.com/polygon"
-    pytest -k test_1delta_fork_open_short
+    pytest -k test_1delta_open_short
 
 """
 import logging
@@ -144,7 +144,8 @@ def one_delta_deployment(web3, aave_v3_deployment) -> OneDeltaDeployment:
     return fetch_1delta_deployment(
         web3,
         aave_v3_deployment,
-        flash_aggregator_address="0x168B4C2Cc2df4635D521Aa1F8961DD7218f0f427",
+        # flash_aggregator_address="0x168B4C2Cc2df4635D521Aa1F8961DD7218f0f427",
+        flash_aggregator_address="0x74E95F3Ec71372756a01eB9317864e3fdde1AC53",
         broker_proxy_address="0x74E95F3Ec71372756a01eB9317864e3fdde1AC53",
     )
 
@@ -156,7 +157,21 @@ def _execute_tx(web3, hot_wallet, fn, gas=350_000):
     assert_transaction_success_with_explanation(web3, tx_hash)
 
 
-def test_1delta_fork_open_short(
+def _print_current_balances(address, usdc, weth, ausdc, vweth):
+    print(
+        f"""
+    ------------------------
+    Current balance:
+        USDC: {usdc.contract.functions.balanceOf(address).call() / 1e6}
+        aUSDC: {ausdc.contract.functions.balanceOf(address).call() / 1e6}
+        WETH: {weth.contract.functions.balanceOf(address).call() / 1e18}
+        vWETH: {vweth.contract.functions.balanceOf(address).call() / 1e18}
+    ------------------------
+    """
+    )
+
+
+def test_1delta_open_short(
     web3,
     hot_wallet,
     large_usdc_holder,
@@ -180,11 +195,6 @@ def test_1delta_fork_open_short(
         approve_fn = token.contract.functions.approve(trader.address, MAX_AMOUNT)
         _execute_tx(web3, hot_wallet, approve_fn)
 
-        print(f"\tApproving unlimited allowance for 1delta broker proxy on {token.name}")
-        approve_fn = token.contract.functions.approve(proxy.address, MAX_AMOUNT)
-        _execute_tx(web3, hot_wallet, approve_fn)
-
-        print(f"\tApproving unlimited allowance for Aave pool on {token.name}")
         approve_fn = token.contract.functions.approve(aave_v3_deployment.pool.address, MAX_AMOUNT)
         _execute_tx(web3, hot_wallet, approve_fn)
 
@@ -196,9 +206,11 @@ def test_1delta_fork_open_short(
         approve_fn = token.contract.functions.approveDelegation(proxy.address, MAX_AMOUNT)
         _execute_tx(web3, hot_wallet, approve_fn)
 
+    _print_current_balances(hot_wallet.address, usdc, weth, ausdc, vweth)
+
     print("> Step 2: supply USDC as collateral to Aave v3")
 
-    usdc_supply_amount = 100 * 10**6
+    usdc_supply_amount = 10_000 * 10**6
 
     # supply USDC to Aave
     approve_fn, supply_fn = supply(
@@ -214,6 +226,8 @@ def test_1delta_fork_open_short(
     assert ausdc.contract.functions.balanceOf(hot_wallet.address).call() == usdc_supply_amount
     print("\tSupply done")
 
+    _print_current_balances(hot_wallet.address, usdc, weth, ausdc, vweth)
+
     print("> Step 3: open short position")
 
     weth_borrow_amount = 1 * 10**18
@@ -225,6 +239,8 @@ def test_1delta_fork_open_short(
         pool_fee=3000,
         borrow_amount=weth_borrow_amount,
     )
-    _execute_tx(web3, hot_wallet, swap_fn)
+    _execute_tx(web3, hot_wallet, swap_fn, 600_000)
 
-    print("Open position done")
+    print("\tOpen position done")
+
+    _print_current_balances(hot_wallet.address, usdc, weth, ausdc, vweth)
