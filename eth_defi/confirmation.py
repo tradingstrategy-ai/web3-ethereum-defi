@@ -319,7 +319,7 @@ def _broadcast_multiple_nodes(providers: Collection[BaseProvider], signed_tx: Si
         source = getattr(signed_tx, "source", None)
 
         name = get_provider_name(p)
-        logger.info("Broadcasting %s through %s", signed_tx.hash, name)
+        logger.info("Broadcasting %s through %s", signed_tx.hash.hex(), name)
 
         # Does not use any middleware
         web3 = Web3(p)
@@ -328,7 +328,9 @@ def _broadcast_multiple_nodes(providers: Collection[BaseProvider], signed_tx: Si
         except ValueError as e:
             resp_data: dict = e.args[0]
 
-            logger.info("Broadcasting from: %s, nonce: %s on provider: %s, got error: %s\n" "Signed tx: %s\n" "Tx source: %s", address, nonce, name, resp_data, signed_tx, source)
+            logger.info("Broadcasting %s from: %s, nonce: %s on provider: %s, got error: %s\n", signed_tx.hash.hex(), address, nonce, name, resp_data)
+            logger.info("Signed tx: %s", signed_tx)
+            logger.info("Source: %s", source)
 
             # When we rebroadcast we are getting nonce too low errors,
             # both for too high and too low nonces
