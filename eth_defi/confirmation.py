@@ -40,7 +40,7 @@ def wait_transactions_to_complete(
     confirmation_block_count: int = 0,
     max_timeout=datetime.timedelta(minutes=5),
     poll_delay=datetime.timedelta(seconds=1),
-    node_switch_timeout=datetime.timedelta(minutes=3),
+    node_switch_timeout=datetime.timedelta(minutes=1),
 ) -> Dict[HexBytes, dict]:
     """Watch multiple transactions executed at parallel.
 
@@ -478,7 +478,7 @@ def wait_and_broadcast_multiple_nodes(
                     except TransactionNotFound as e:
                         # Happens on LlamaNodes - we have broadcasted the transaction
                         # but its nodes do not see it yet
-                        logger.error("Node missing transaction broadcast %s", tx_hash.hex())
+                        logger.warning("Node missing transaction broadcast %s", tx_hash.hex())
                         logger.exception(e)
 
                 unconfirmed_tx_strs = ", ".join([tx_hash.hex() for tx_hash in unconfirmed_txs])
