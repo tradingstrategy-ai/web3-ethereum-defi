@@ -478,7 +478,8 @@ def wait_and_broadcast_multiple_nodes(
                     except TransactionNotFound as e:
                         # Happens on LlamaNodes - we have broadcasted the transaction
                         # but its nodes do not see it yet
-                        logger.warning("Node missing transaction broadcast %s", tx_hash.hex())
+                        name = get_provider_name(web3.provider)
+                        logger.warning("Node %s missing transaction broadcast %s", name, tx_hash.hex())
                         logger.exception(e)
 
                 unconfirmed_tx_strs = ", ".join([tx_hash.hex() for tx_hash in unconfirmed_txs])

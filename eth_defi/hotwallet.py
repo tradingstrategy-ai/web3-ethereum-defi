@@ -115,6 +115,7 @@ class HotWallet:
     def sync_nonce(self, web3: Web3):
         """Read the current nonce"""
         self.current_nonce = web3.eth.get_transaction_count(self.account.address)
+        logger.info("Synced nonce for %s to %d", self.account.address, self.current_nonce)
 
     def allocate_nonce(self) -> int:
         """Get the next free available nonce to be used with a transaction.

@@ -12,7 +12,7 @@ from abc import abstractproperty, ABC, abstractmethod
 from typing import TypeAlias
 
 from web3 import HTTPProvider
-from web3.providers import JSONBaseProvider
+from web3.providers import JSONBaseProvider, BaseProvider
 
 from eth_defi.utils import get_url_domain
 
@@ -49,7 +49,7 @@ class BaseNamedProvider(ABC, JSONBaseProvider):
 NamedProvider: TypeAlias = BaseNamedProvider | HTTPProvider
 
 
-def get_provider_name(provider: NamedProvider) -> str:
+def get_provider_name(provider: BaseProvider) -> str:
     """Get loggable name of the JSON-RPC provider.
 
     Strips out API keys from the URL of a JSON-RPC API provider.
