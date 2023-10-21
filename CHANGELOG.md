@@ -1,3 +1,8 @@
+# 0.22.25
+
+- Internal change: Increased logging for transaction broadcast issues
+- Internal change: more aggressive change reading nodes in multi-node tx broadcast
+
 # 0.22.24
 
 - Internal change: more verbose logging for `wait_and_broadcast_multiple_nodes`

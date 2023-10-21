@@ -34,6 +34,10 @@ class ConfirmationTimedOut(Exception):
     """We exceeded the transaction confirmation timeout."""
 
 
+class NonceMismatch(Exception):
+    """Chain has a different nonce than we expect."""
+
+
 def wait_transactions_to_complete(
     web3: Web3,
     txs: List[Union[HexBytes, str]],
@@ -349,6 +353,7 @@ def wait_and_broadcast_multiple_nodes(
     max_timeout=datetime.timedelta(minutes=5),
     poll_delay=datetime.timedelta(seconds=1),
     node_switch_timeout=datetime.timedelta(minutes=3),
+    check_nonce_validity=True,
 ) -> Dict[HexBytes, dict]:
     """Try to broadcast transactions through multiple nodes.
 
@@ -363,6 +368,8 @@ def wait_and_broadcast_multiple_nodes(
     :param txs:
         List of transaction to broadcast.
 
+        Most be pre-ordered by ``(address, nonce)``.
+
     :param confirmation_block_count:
         How many blocks wait for the transaction receipt to settle.
         Set to zero to return as soon as we see the first transaction receipt.
@@ -376,12 +383,19 @@ def wait_and_broadcast_multiple_nodes(
 
         See :py:class:`eth_defi.provider.fallback.FallbackProvider` for details.
 
+    :param check_nonce_validity:
+        Check if signed nonces match on-chain data before attempting to broadcat.
+
     :return:
         Map of transaction hashes -> receipt
 
     :raise ConfirmationTimedOut:
         If we cannot get transactions out
 
+    :raise NonceMismatch:
+        Starting nonce does not match what we see on chain.
+
+        When ``check_nonce_validity`` is set.
     """
 
     assert isinstance(poll_delay, datetime.timedelta)
@@ -393,6 +407,9 @@ def wait_and_broadcast_multiple_nodes(
 
     for tx in txs:
         assert getattr(tx, "hash", None), f"Does not look like compatible TxType: {tx.__class__}: {tx}"
+
+    if check_nonce_validity:
+        check_for_min_nonces(web3, txs)
 
     provider = get_fallback_provider(web3)
     providers = provider.providers
@@ -500,3 +517,25 @@ def wait_and_broadcast_multiple_nodes(
                 _broadcast_multiple_nodes(providers, tx)
 
     return receipts_received
+
+
+def check_for_min_nonces(web3: Web3, txs: Collection[SignedTxType]):
+    """Check for nonce re-use issues.
+
+    :raise NonceMismatch:
+        If your transaction broadcast is going to fail because nonce too low.
+    """
+
+    #: address, starting nonce mappings
+    min_nonces = {}
+    for tx in txs:
+        address = tx.address
+        min_nonces[address] = min(tx.nonce, min_nonces.get(address, 9_999_999))
+
+    for address, nonce in min_nonces.items():
+        on_chain_nonce = web3.eth.get_transaction_count(address)
+
+        if on_chain_nonce != nonce:
+            raise NonceMismatch(f"Nonce mismatch for broadcasted transactions. Address {address}, we have signed {nonce}, but on-chain is {on_chain_nonce}")
+
+

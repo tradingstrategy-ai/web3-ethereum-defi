@@ -161,7 +161,10 @@ class HotWallet:
         assert "nonce" not in tx
         tx["nonce"] = self.allocate_nonce()
         _signed = self.account.sign_transaction(tx)
+
+        # Check that we can decode
         decode_signed_transaction(_signed.rawTransaction)
+
         signed = SignedTransactionWithNonce(
             rawTransaction=_signed.rawTransaction,
             hash=_signed.hash,
