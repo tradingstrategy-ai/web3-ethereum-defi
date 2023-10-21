@@ -1,0 +1,1 @@
+Tests covering different JSON-RPC scenarios.

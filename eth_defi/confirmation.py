@@ -11,7 +11,7 @@ import time
 from typing import Dict, List, Set, Union, cast, Collection, TypeAlias
 
 from eth_account.datastructures import SignedTransaction
-from eth_typing import HexStr
+from eth_typing import HexStr, Address
 
 from eth_defi.provider.named import get_provider_name
 from hexbytes import HexBytes
@@ -409,7 +409,7 @@ def wait_and_broadcast_multiple_nodes(
         assert getattr(tx, "hash", None), f"Does not look like compatible TxType: {tx.__class__}: {tx}"
 
     if check_nonce_validity:
-        check_for_min_nonces(web3, txs)
+        check_nonce_mismatch(web3, txs)
 
     provider = get_fallback_provider(web3)
     providers = provider.providers
@@ -519,8 +519,10 @@ def wait_and_broadcast_multiple_nodes(
     return receipts_received
 
 
-def check_for_min_nonces(web3: Web3, txs: Collection[SignedTxType]):
+def check_nonce_mismatch(web3: Web3, txs: Collection[SignedTxType]):
     """Check for nonce re-use issues.
+
+    Compare pre-signed transactions with on-chain addresses' nonce states.
 
     :raise NonceMismatch:
         If your transaction broadcast is going to fail because nonce too low.
@@ -541,6 +543,10 @@ def check_for_min_nonces(web3: Web3, txs: Collection[SignedTxType]):
         on_chain_nonce = web3.eth.get_transaction_count(address)
 
         if on_chain_nonce != nonce:
-            raise NonceMismatch(f"Nonce mismatch for broadcasted transactions. Address {address}, we have signed {nonce}, but on-chain is {on_chain_nonce}")
+            raise NonceMismatch(
+                f"Nonce mismatch for broadcasted transactions.\n" +
+                f"Address {address}, we have signed with nonce {nonce}, but on-chain is {on_chain_nonce}.\n" +
+                f"Potential reasons include incorrectly shared hot wallet or badly synced hot wallet nonce."
+            )
 
 
