@@ -526,6 +526,11 @@ def check_for_min_nonces(web3: Web3, txs: Collection[SignedTxType]):
         If your transaction broadcast is going to fail because nonce too low.
     """
 
+    #
+    # We can broadcast for multiple addresses, each address can contain multipe txs
+    # Check the lowest on-chain nonce for each address
+    #
+
     #: address, starting nonce mappings
     min_nonces = {}
     for tx in txs:
