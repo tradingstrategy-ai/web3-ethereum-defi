@@ -543,10 +543,4 @@ def check_nonce_mismatch(web3: Web3, txs: Collection[SignedTxType]):
         on_chain_nonce = web3.eth.get_transaction_count(address)
 
         if on_chain_nonce != nonce:
-            raise NonceMismatch(
-                f"Nonce mismatch for broadcasted transactions.\n" +
-                f"Address {address}, we have signed with nonce {nonce}, but on-chain is {on_chain_nonce}.\n" +
-                f"Potential reasons include incorrectly shared hot wallet or badly synced hot wallet nonce."
-            )
-
-
+            raise NonceMismatch(f"Nonce mismatch for broadcasted transactions.\n" + f"Address {address}, we have signed with nonce {nonce}, but on-chain is {on_chain_nonce}.\n" + f"Potential reasons include incorrectly shared hot wallet or badly synced hot wallet nonce.")
