@@ -68,7 +68,7 @@ class SignedTransactionWithNonce(NamedTuple):
     source: Optional[dict] = None
 
     def __repr__(self):
-        return f"<SignedTransactionWithNonce hash:{self.hash.hex()} payload:{self.rawTransaction.hex()}>"
+        return f"<SignedTransactionWithNonce hash:{self.hash.hex()} nonce:{self.nonce} payload:{self.rawTransaction.hex()}>"
 
     @property
     def raw_transaction(self) -> HexBytes:
