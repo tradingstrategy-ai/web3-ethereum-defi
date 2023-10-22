@@ -1,3 +1,15 @@
+# 0.22.26
+
+- Add `eth_defi.confirmation.check_nonce_mismatch` to verify our signed transactions
+  have good nonces based on on-chain data
+- Add `wait_and_broadcast_multiple_nodes(check_nonce_validity)` and by default 
+  try to figure nonce issues before attemping to broadcast transactions
+
+# 0.22.25
+
+- Internal change: Increased logging for transaction broadcast issues
+- Internal change: more aggressive change reading nodes in multi-node tx broadcast
+
 # 0.22.24
 
 - Internal change: more verbose logging for `wait_and_broadcast_multiple_nodes`

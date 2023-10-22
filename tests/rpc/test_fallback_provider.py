@@ -7,7 +7,7 @@ import pytest
 import requests
 from eth_account import Account
 
-from eth_defi.confirmation import wait_and_broadcast_multiple_nodes
+from eth_defi.confirmation import wait_and_broadcast_multiple_nodes, NonceMismatch
 from eth_defi.provider.broken_provider import get_default_block_tip_latency
 from web3 import HTTPProvider, Web3
 
@@ -246,3 +246,82 @@ def test_broadcast_and_wait_multiple(web3: Web3, deployer: str):
 
     assert signed_tx2.hash in receipt_map
     assert signed_tx3.hash in receipt_map
+
+
+def test_broadcast_and_wait_multiple_nonce_reuse(web3: Web3, deployer: str):
+    """Detect nonce mismatch conditions.
+
+    - Nonce reuse
+    """
+
+    web3.eth.set_gas_price_strategy(node_default_gas_price_strategy)
+
+    user = Account.create()
+    hot_wallet = HotWallet(user)
+
+    # Fill in user wallet
+    tx1_hash = web3.eth.send_transaction({"from": deployer, "to": user.address, "value": 5 * 10**18})
+    assert_transaction_success_with_explanation(web3, tx1_hash)
+
+    hot_wallet.sync_nonce(web3)
+
+    # First send a transaction with a correct nonce
+    tx2 = {"chainId": web3.eth.chain_id, "from": user.address, "to": deployer, "value": 1 * 10**18, "gas": 30_000}
+    HotWallet.fill_in_gas_price(web3, tx2)
+    signed_tx2 = hot_wallet.sign_transaction_with_new_nonce(tx2)
+
+    # Use low timeouts so this should stress out the logic
+    wait_and_broadcast_multiple_nodes(
+        web3,
+        [signed_tx2],
+        max_timeout=datetime.timedelta(seconds=10),
+        node_switch_timeout=datetime.timedelta(seconds=1),
+        check_nonce_validity=True,
+    )
+
+    tx3 = {"chainId": web3.eth.chain_id, "from": user.address, "to": deployer, "value": 1 * 10**18, "gas": 30_000}
+    HotWallet.fill_in_gas_price(web3, tx3)
+    hot_wallet.current_nonce = 0  # Set to reused nonce
+    signed_tx3 = hot_wallet.sign_transaction_with_new_nonce(tx3)
+
+    with pytest.raises(NonceMismatch):
+        wait_and_broadcast_multiple_nodes(
+            web3,
+            [signed_tx3],
+            max_timeout=datetime.timedelta(seconds=10),
+            node_switch_timeout=datetime.timedelta(seconds=1),
+            check_nonce_validity=True,
+        )
+
+
+def test_broadcast_and_wait_multiple_nonce_too_high(web3: Web3, deployer: str):
+    """Detect nonce mismatch conditions.
+
+    - Nonce too high
+    """
+
+    web3.eth.set_gas_price_strategy(node_default_gas_price_strategy)
+
+    user = Account.create()
+    hot_wallet = HotWallet(user)
+
+    # Fill in user wallet
+    tx1_hash = web3.eth.send_transaction({"from": deployer, "to": user.address, "value": 5 * 10**18})
+    assert_transaction_success_with_explanation(web3, tx1_hash)
+
+    hot_wallet.sync_nonce(web3)
+    hot_wallet.current_nonce = 999
+
+    # First send a transaction with a correct nonce
+    tx2 = {"chainId": web3.eth.chain_id, "from": user.address, "to": deployer, "value": 1 * 10**18, "gas": 30_000}
+    HotWallet.fill_in_gas_price(web3, tx2)
+    signed_tx2 = hot_wallet.sign_transaction_with_new_nonce(tx2)
+
+    with pytest.raises(NonceMismatch):
+        wait_and_broadcast_multiple_nodes(
+            web3,
+            [signed_tx2],
+            max_timeout=datetime.timedelta(seconds=10),
+            node_switch_timeout=datetime.timedelta(seconds=1),
+            check_nonce_validity=True,
+        )
