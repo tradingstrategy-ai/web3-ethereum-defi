@@ -13,17 +13,19 @@ def encode_path(
     exchanges: list[Exchange],
     interest_mode: AaveV3InterestRateMode,
     trade_type: TradeType = TradeType.EXACT_INPUT,
-    exact_output: bool = False,
 ) -> bytes:
     """Encode the routing path and other info for 1delta flash swap.
+
+    Note: we don't yet support all 1delta operations to keep this function simple.
 
     `Read more <https://github.com/1delta-DAO/contracts-delegation/blob/467593f5c457b2eefab8a0bb9cb75b399efcb16a/test/1delta/shared/aggregatorPath.ts#L58>`__.
 
     :param path: List of token addresses how to route the trade
     :param fees: List of trading fees of the pools in the route
-    :param exact_output: Whether the encoded path be used for exactOutput quote or swap
-
-    NOTE: we don't support all 1delta operations to keep this function simple.
+    :param operation: Trade operation, e.g: open, trim, close
+    :param exchanges: List of exchanges to use for each hop
+    :param interest_mode: Aave v3 interest rate mode to use
+    :param trade_type: Trade type, e.g: exact input, exact output
     """
     assert len(fees) == len(path) - 1
     assert len(exchanges) == len(fees)
