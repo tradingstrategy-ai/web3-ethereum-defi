@@ -11,24 +11,33 @@ Most for dealing with JSON-RPC unreliability issues with retries.
 - See also :py:mod:`eth_defi.provider.broken_provider`.
 """
 
-from web3 import Web3
-import time
-from typing import Callable, Any, Collection, Type, Tuple, Optional, TypeAlias, Union, Counter
 import logging
+import time
+from typing import (
+    Any,
+    Callable,
+    Collection,
+    Counter,
+    Optional,
+    Tuple,
+    Type,
+    TypeAlias,
+    Union,
+)
 
+from eth_utils.toolz import assoc
 from requests.exceptions import (
+    ChunkedEncodingError,
     ConnectionError,
     HTTPError,
     Timeout,
     TooManyRedirects,
-    ChunkedEncodingError,
 )
+from web3 import Web3
 from web3._utils.transactions import get_buffered_gas_estimate
-from eth_utils.toolz import assoc
-from web3.exceptions import ContractLogicError, BlockNotFound
-
+from web3.exceptions import BlockNotFound, ContractLogicError
 from web3.middleware.exception_retry_request import check_if_retry_on_failure
-from web3.types import RPCEndpoint, RPCResponse, Middleware
+from web3.types import Middleware, RPCEndpoint, RPCResponse
 
 logger = logging.getLogger(__name__)
 
@@ -100,6 +109,9 @@ DEFAULT_RETRYABLE_RPC_ERROR_CODES = (
     # Some error we are getting from LlamaNodes eth_getLogs RPC that we do not know what it is all about
     # {'code': -32043, 'message': 'Requested data is not available'}
     -32043,
+    # Rate limit exceeded from some provider like LlamaNodes
+    # {'code': -32005, 'message': 'limit exceeded'}
+    -32005,
 )
 
 
@@ -305,20 +317,10 @@ def raise_on_revert_middleware(
 #
 #
 
-from web3._utils.transactions import (
-    fill_nonce,
-    fill_transaction_defaults,
-)
-from web3.middleware.signing import gen_normalized_accounts, format_transaction
-from web3.types import (
-    Middleware,
-    RPCEndpoint,
-    RPCResponse,
-)
-
-from eth_utils.toolz import (
-    compose,
-)
+from eth_utils.toolz import compose
+from web3._utils.transactions import fill_nonce, fill_transaction_defaults
+from web3.middleware.signing import format_transaction, gen_normalized_accounts
+from web3.types import Middleware, RPCEndpoint, RPCResponse
 
 
 def construct_sign_and_send_raw_middleware_anvil(
