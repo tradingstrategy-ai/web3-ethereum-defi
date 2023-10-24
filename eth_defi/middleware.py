@@ -109,7 +109,9 @@ DEFAULT_RETRYABLE_RPC_ERROR_CODES = (
     # Some error we are getting from LlamaNodes eth_getLogs RPC that we do not know what it is all about
     # {'code': -32043, 'message': 'Requested data is not available'}
     -32043,
-    # Rate limit exceeded from some provider like LlamaNodes
+    # eth_getLogs size limit exceeded for a provider
+    # eth_getLogs disabled on some providers
+    # https://github.com/bnb-chain/bsc/issues/1215
     # {'code': -32005, 'message': 'limit exceeded'}
     -32005,
 )
