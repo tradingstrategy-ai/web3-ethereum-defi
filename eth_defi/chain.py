@@ -147,10 +147,6 @@ def install_api_call_counter_middleware_on_provider(provider: JSONBaseProvider) 
     api_counter = Counter()
 
     def factory(make_request: Callable[[RPCEndpoint, Any], Any], web3: "Web3"):
-        import ipdb
-
-        ipdb.set_trace()
-
         def middleware(method: RPCEndpoint, params: Any) -> Optional[RPCResponse]:
             api_counter[method] += 1
             api_counter["total"] += 1

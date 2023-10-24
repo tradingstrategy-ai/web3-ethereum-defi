@@ -1,3 +1,7 @@
+# 0.22.27
+
+- More retryable JSON-RPC errors whitelisted. Now `{'code': -32005, 'message': 'limit exceeded'}`.
+
 # 0.22.26
 
 - Add `eth_defi.confirmation.check_nonce_mismatch` to verify our signed transactions
