@@ -1,18 +1,27 @@
-"""Transaction broadcasting, block confirmations and completion monitoring."""
+"""Transaction broadcasting, block confirmation and completion monitoring.
+
+- Wait for multiple transactions to be confirmed and read back the results from the blockchain
+
+- The safest way to get transactions out is to use :py:func:`wait_and_broadcast_multiple_nodes`
+"""
 
 import datetime
 import logging
 import time
-from typing import Dict, List, Set, Union
+from typing import Dict, List, Set, Union, cast, Collection, TypeAlias
 
-import rlp
 from eth_account.datastructures import SignedTransaction
+from eth_typing import HexStr, Address
+
+from eth_defi.provider.named import get_provider_name
 from hexbytes import HexBytes
 from web3 import Web3
 from web3.exceptions import TransactionNotFound
 
 from eth_defi.hotwallet import SignedTransactionWithNonce
 from eth_defi.tx import decode_signed_transaction
+from eth_defi.provider.fallback import FallbackProvider, get_fallback_provider
+from web3.providers import BaseProvider
 
 logger = logging.getLogger(__name__)
 
@@ -25,16 +34,26 @@ class ConfirmationTimedOut(Exception):
     """We exceeded the transaction confirmation timeout."""
 
 
+class NonceMismatch(Exception):
+    """Chain has a different nonce than we expect."""
+
+
 def wait_transactions_to_complete(
     web3: Web3,
     txs: List[Union[HexBytes, str]],
     confirmation_block_count: int = 0,
     max_timeout=datetime.timedelta(minutes=5),
     poll_delay=datetime.timedelta(seconds=1),
+    node_switch_timeout=datetime.timedelta(minutes=1),
 ) -> Dict[HexBytes, dict]:
     """Watch multiple transactions executed at parallel.
 
     Use simple poll loop to wait all transactions to complete.
+
+    If ``web3`` is configured to use :py:class:`eth_defi.provider.fallback.FallbackProvider`,
+    try to switch between alternative node providers when confirming the transactions,
+    because sometimes low quality nodes (Ankr, LlamaNodes) do not see transactions
+    for several minutes.
 
     Example:
 
@@ -56,6 +75,15 @@ def wait_transactions_to_complete(
         How many blocks wait for the transaction receipt to settle.
         Set to zero to return as soon as we see the first transaction receipt.
 
+    :param node_switch_timeout:
+        Switch to alternative fallback node provider
+        every time we reach this limit.
+
+        Sometimes our node is malfunctioning (LlamaNodes, Ankr)
+        and does not report transactions timely. Try with another node.
+
+        See :py:class:`eth_defi.provider.fallback.FallbackProvider` for details.
+
     :return:
         Map of transaction hashes -> receipt
     """
@@ -75,9 +103,21 @@ def wait_transactions_to_complete(
 
     unconfirmed_txs: Set[HexBytes] = {HexBytes(tx) for tx in txs}
 
+    # When we switch to level to verbose to be more
+    # concerned with our debug logging
+    verbose_timeout = max_timeout - datetime.timedelta(minutes=1)
+
+    next_node_switch = started_at + node_switch_timeout
+
     while len(unconfirmed_txs) > 0:
         # Transaction hashes that receive confirmation on this round
         confirmation_received = set()
+
+        # Bump our verbosiveness levels for the last minutes of wait
+        if datetime.datetime.utcnow() > started_at + verbose_timeout:
+            tx_log_level = logging.WARNING
+        else:
+            tx_log_level = logging.DEBUG
 
         for tx_hash in unconfirmed_txs:
             try:
@@ -90,11 +130,16 @@ def wait_transactions_to_complete(
             if receipt:
                 tx_confirmations = web3.eth.block_number - receipt["blockNumber"]
                 if tx_confirmations >= confirmation_block_count:
-                    logger.debug("Confirmed tx %s with %d confirmations", tx_hash.hex(), tx_confirmations)
+                    logger.log(
+                        tx_log_level,
+                        "Confirmed tx %s with %d confirmations",
+                        tx_hash.hex(),
+                        tx_confirmations,
+                    )
                     confirmation_received.add(tx_hash)
                     receipts_received[tx_hash] = receipt
                 else:
-                    logger.debug("Still waiting more confirmations. Tx %s with %d confirmations, %d needed", tx_hash.hex(), tx_confirmations, confirmation_block_count)
+                    logger.log(tx_log_level, "Still waiting more confirmations. Tx %s with %d confirmations, %d needed", tx_hash.hex(), tx_confirmations, confirmation_block_count)
 
         # Remove confirmed txs from the working set
         unconfirmed_txs -= confirmation_received
@@ -104,10 +149,30 @@ def wait_transactions_to_complete(
 
             if datetime.datetime.utcnow() > started_at + max_timeout:
                 for tx_hash in unconfirmed_txs:
-                    tx_data = web3.eth.get_transaction(tx_hash)
-                    logger.error("Data for transaction %s was %s", tx_hash.hex(), tx_data)
+                    try:
+                        tx_data = web3.eth.get_transaction(tx_hash)
+                        logger.error("Data for transaction %s was %s", tx_hash.hex(), tx_data)
+                    except TransactionNotFound as e:
+                        # Happens on LlamaNodes - we have broadcasted the transaction
+                        # but its nodes do not see it yet
+                        logger.error("Node missing transaction broadcast %s", tx_hash.hex())
+                        logger.exception(e)
+
                 unconfirmed_tx_strs = ", ".join([tx_hash.hex() for tx_hash in unconfirmed_txs])
                 raise ConfirmationTimedOut(f"Transaction confirmation failed. Started: {started_at}, timed out after {max_timeout} ({max_timeout.total_seconds()}s). Poll delay: {poll_delay.total_seconds()}s. Still unconfirmed: {unconfirmed_tx_strs}")
+
+        if datetime.datetime.utcnow() >= next_node_switch:
+            # Check if it time to try a better node provider
+            if isinstance(web3.provider, FallbackProvider):
+                provider = cast(FallbackProvider, web3.provider)
+                logger.warning(
+                    "Timeout %s reached with this node provider. Trying with alternative node provider.",
+                    node_switch_timeout,
+                )
+                provider.switch_provider()
+                next_node_switch = datetime.datetime.utcnow() + node_switch_timeout
+            else:
+                logger.warning("TX confirmation takes long time. No alternative node available: %s", web3.provider)
 
     return receipts_received
 
@@ -242,3 +307,240 @@ def broadcast_and_wait_transactions_to_complete(
                 raise RuntimeError(f"Transaction {tx_hash} failed {receipt}")
 
     return receipts
+
+
+# Support different raw tx formats
+SignedTxType = Union[SignedTransaction, SignedTransactionWithNonce]
+
+
+def _broadcast_multiple_nodes(providers: Collection[BaseProvider], signed_tx: SignedTxType):
+    """Attempt to broadcast a transaction through multiple provideres."""
+
+    for p in providers:
+        # See SignedTransactionWithNonce
+        nonce = getattr(signed_tx, "nonce", None)
+        address = getattr(signed_tx, "address", None)
+        source = getattr(signed_tx, "source", None)
+
+        name = get_provider_name(p)
+        logger.info("Broadcasting %s through %s", signed_tx.hash.hex(), name)
+
+        # Does not use any middleware
+        web3 = Web3(p)
+        try:
+            web3.eth.send_raw_transaction(signed_tx.rawTransaction)
+        except ValueError as e:
+            resp_data: dict = e.args[0]
+
+            logger.info("Broadcast JSON-RPC error %s from: %s, nonce: %s on provider: %s, got error: %s\n", signed_tx.hash.hex(), address, nonce, name, resp_data)
+            logger.info("Signed tx: %s", signed_tx)
+            logger.info("Source: %s", source)
+
+            # When we rebroadcast we are getting nonce too low errors,
+            # both for too high and too low nonces
+            if resp_data["message"] == "nonce too low":
+                continue
+
+        except Exception as e:
+            logger.warning("Provider %s failed with tx %s from address %s, nonce %s", name, signed_tx.hash.hex(), address, nonce)
+            logger.exception(e)
+
+
+def wait_and_broadcast_multiple_nodes(
+    web3: Web3,
+    txs: Collection[SignedTxType],
+    confirmation_block_count: int = 0,
+    max_timeout=datetime.timedelta(minutes=5),
+    poll_delay=datetime.timedelta(seconds=1),
+    node_switch_timeout=datetime.timedelta(minutes=3),
+    check_nonce_validity=True,
+) -> Dict[HexBytes, dict]:
+    """Try to broadcast transactions through multiple nodes.
+
+    - Broadcast transaction through all nodes
+    - Wait to confirm
+    - If ``node_switch_timeout`` is reached, try to confirm using an alternative node
+
+    :param web3:
+        Web3 instance with :py:class:`eth_defi.provider.fallback.FallbackProvider`
+        configured as its RPC provider.
+
+    :param txs:
+        List of transaction to broadcast.
+
+        Most be pre-ordered by ``(address, nonce)``.
+
+    :param confirmation_block_count:
+        How many blocks wait for the transaction receipt to settle.
+        Set to zero to return as soon as we see the first transaction receipt.
+
+    :param node_switch_timeout:
+        Switch to alternative fallback node provider
+        every time we reach this limit.
+
+        Sometimes our node is malfunctioning (LlamaNodes, Ankr)
+        and does not report transactions timely. Try with another node.
+
+        See :py:class:`eth_defi.provider.fallback.FallbackProvider` for details.
+
+    :param check_nonce_validity:
+        Check if signed nonces match on-chain data before attempting to broadcat.
+
+    :return:
+        Map of transaction hashes -> receipt
+
+    :raise ConfirmationTimedOut:
+        If we cannot get transactions out
+
+    :raise NonceMismatch:
+        Starting nonce does not match what we see on chain.
+
+        When ``check_nonce_validity`` is set.
+    """
+
+    assert isinstance(poll_delay, datetime.timedelta)
+    assert isinstance(max_timeout, datetime.timedelta)
+    assert isinstance(confirmation_block_count, int)
+
+    if web3.eth.chain_id == 61:
+        assert confirmation_block_count == 0, "Ethereum Tester chain does not progress itself, so we cannot wait"
+
+    for tx in txs:
+        assert getattr(tx, "hash", None), f"Does not look like compatible TxType: {tx.__class__}: {tx}"
+
+    if check_nonce_validity:
+        check_nonce_mismatch(web3, txs)
+
+    provider = get_fallback_provider(web3)
+    providers = provider.providers
+
+    logger.info(
+        "Broadcasting %d transactions using %s to confirm in %d blocks, timeout is %s",
+        len(txs),
+        ", ".join([get_provider_name(p) for p in providers]),
+        confirmation_block_count,
+        max_timeout,
+    )
+
+    # Double check nonces before letting txs thru
+    used_nonces = set()
+    for tx in txs:
+        nonce = getattr(tx, "nonce", None)
+        if nonce is not None:
+            assert nonce not in used_nonces, f"Nonce used twice: {nonce}"
+            used_nonces.add(nonce)
+
+    started_at = datetime.datetime.utcnow()
+
+    receipts_received = {}
+
+    unconfirmed_txs: Set[HexBytes] = {tx.hash for tx in txs}
+
+    # When we switch to level to verbose to be more
+    # concerned with our debug logging
+    verbose_timeout = max_timeout - datetime.timedelta(minutes=1)
+
+    next_node_switch = started_at + node_switch_timeout
+
+    # Initial broadcast of txs
+    for tx in txs:
+        _broadcast_multiple_nodes(providers, tx)
+
+    while len(unconfirmed_txs) > 0:
+        # Transaction hashes that receive confirmation on this round
+        confirmation_received = set()
+
+        unconfirmed_tx_hashes = ", ".join(tx_hash.hex() for tx_hash in unconfirmed_txs)
+        logger.debug("Starting confirmation cycle, unconfirmed txs are %s", unconfirmed_tx_hashes)
+
+        # Bump our verbosiveness levels for the last minutes of wait
+        if datetime.datetime.utcnow() > started_at + verbose_timeout:
+            tx_log_level = logging.WARNING
+        else:
+            tx_log_level = logging.DEBUG
+
+        for tx_hash in unconfirmed_txs:
+            try:
+                receipt = web3.eth.get_transaction_receipt(tx_hash)
+            except TransactionNotFound as e:
+                # BNB Chain get does this instead of returning None
+                logger.debug("Transaction not found yet: %s", e)
+                receipt = None
+
+            if receipt:
+                tx_confirmations = web3.eth.block_number - receipt["blockNumber"]
+                if tx_confirmations >= confirmation_block_count:
+                    logger.log(
+                        tx_log_level,
+                        "Confirmed tx %s with %d confirmations",
+                        tx_hash.hex(),
+                        tx_confirmations,
+                    )
+                    confirmation_received.add(tx_hash)
+                    receipts_received[tx_hash] = receipt
+                else:
+                    logger.log(tx_log_level, "Still waiting more confirmations. Tx %s with %d confirmations, %d needed", tx_hash.hex(), tx_confirmations, confirmation_block_count)
+
+        # Remove confirmed txs from the working set
+        unconfirmed_txs -= confirmation_received
+
+        if unconfirmed_txs:
+            time.sleep(poll_delay.total_seconds())
+
+            if datetime.datetime.utcnow() > started_at + max_timeout:
+                for tx_hash in unconfirmed_txs:
+                    try:
+                        tx_data = web3.eth.get_transaction(tx_hash)
+                        logger.error("Data for transaction %s was %s", tx_hash.hex(), tx_data)
+                    except TransactionNotFound as e:
+                        # Happens on LlamaNodes - we have broadcasted the transaction
+                        # but its nodes do not see it yet
+                        name = get_provider_name(web3.provider)
+                        logger.warning("Node %s missing transaction broadcast %s", name, tx_hash.hex())
+                        logger.exception(e)
+
+                unconfirmed_tx_strs = ", ".join([tx_hash.hex() for tx_hash in unconfirmed_txs])
+                raise ConfirmationTimedOut(f"Transaction confirmation failed. Started: {started_at}, timed out after {max_timeout} ({max_timeout.total_seconds()}s). Poll delay: {poll_delay.total_seconds()}s. Still unconfirmed: {unconfirmed_tx_strs}")
+
+        if datetime.datetime.utcnow() >= next_node_switch:
+            # Check if it time to try a better node provider
+            logger.warning(
+                "Timeout %s reached with this node provider. Trying confirm tx success with an alternative node provider: %s.",
+                node_switch_timeout,
+                provider,
+            )
+            provider.switch_provider()
+            next_node_switch = datetime.datetime.utcnow() + node_switch_timeout
+
+            # Rebroadcast txs again if we suspect a broadcast failed
+            for tx in txs:
+                _broadcast_multiple_nodes(providers, tx)
+
+    return receipts_received
+
+
+def check_nonce_mismatch(web3: Web3, txs: Collection[SignedTxType]):
+    """Check for nonce re-use issues.
+
+    Compare pre-signed transactions with on-chain addresses' nonce states.
+
+    :raise NonceMismatch:
+        If your transaction broadcast is going to fail because nonce too low.
+    """
+
+    #
+    # We can broadcast for multiple addresses, each address can contain multipe txs
+    # Check the lowest on-chain nonce for each address
+    #
+
+    #: address, starting nonce mappings
+    min_nonces = {}
+    for tx in txs:
+        address = tx.address
+        min_nonces[address] = min(tx.nonce, min_nonces.get(address, 9_999_999))
+
+    for address, nonce in min_nonces.items():
+        on_chain_nonce = web3.eth.get_transaction_count(address)
+
+        if on_chain_nonce != nonce:
+            raise NonceMismatch(f"Nonce mismatch for broadcasted transactions.\n" + f"Address {address}, we have signed with nonce {nonce}, but on-chain is {on_chain_nonce}.\n" + f"Potential reasons include incorrectly shared hot wallet or badly synced hot wallet nonce.")

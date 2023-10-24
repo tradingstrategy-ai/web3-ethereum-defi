@@ -8,6 +8,10 @@ It's unlikely you want to use any of these contracts directly.
 ## Compile
 
 ```shell
+# Need to fetch OpenZeppelin version we depend on
+(cd contracts/enzyme && pnpm install)
+
+# Proceed with our own project
 cd contracts/in-house
 forge build
 ```
@@ -30,7 +34,10 @@ and gasless transactions.
 - Then deploy the USDC payment relay
 
 ```shell
-# Address of deployed vault comptroller
+# Address of deployed vault comptroller contract for the vault contract
+#
+# You can get this from vault.getAccessor() call
+#
 export VAULT_COMPTROLLER=
 
 # Deployer account

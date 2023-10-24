@@ -34,6 +34,9 @@ contract VaultUSDCPaymentForwarder {
     IEIP3009 public token;
 
     // The comptroller of the vault for which we are buying shares
+    //
+    // You can get this from vault by asking getAccessor()
+    //
     IEnzymeComptroller public comptroller;
 
     // Total USDC that has passed through this contract

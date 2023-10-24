@@ -26,31 +26,60 @@ logger = logging.getLogger(__name__)
 
 
 class SignedTransactionWithNonce(NamedTuple):
-    """Helper class to pass around the used nonce when signing txs from the wallet.
+    """A better signed transaction structure.
 
-    - Emulate `SignedTransaction` from web3.py package
+    Helper class to pass around the used nonce when signing txs from the wallet.
+
+    - Compatible with :py:class:`eth_accounts.datastructures.SignedTransaction`. Emulates its behavior
+      and should be backwards compatible.
+
+    - Retains more information about the transaction source,
+      to allow us to diagnose broadcasting failures better
 
     - Add some debugging helpers
     """
 
+    #: See SignedTransaction
     rawTransaction: HexBytes
+
+    #: See SignedTransaction
     hash: HexBytes
+
+    #: See SignedTransaction
     r: int
+
+    #: See SignedTransaction
     s: int
+
+    #: See SignedTransaction
     v: int
+
+    #: What was the source nonce for this transaction
     nonce: int
 
-    #: Undecoded transaction data as a dict.
+    #: Whas was the source address for this trasaction
+    address: str
+
+    #: Unencoded transaction data as a dict.
     #:
-    #: If broadcast fails, retain the source so we can debug the cause
+    #: If broadcast fails, retain the source so we can debug the cause,
+    #: like the original gas parameters.
+    #:
     source: Optional[dict] = None
+
+    def __repr__(self):
+        return f"<SignedTransactionWithNonce hash:{self.hash.hex()} nonce:{self.nonce} payload:{self.rawTransaction.hex()}>"
 
     @property
     def raw_transaction(self) -> HexBytes:
-        """Get the bytes to be broadcasted to the P2P network."""
+        """Get the bytes to be broadcasted to the P2P network.
+
+        Legacy web3.py compatibility.
+        """
         return self.rawTransaction
 
     def __getitem__(self, index):
+        # Legacy web3.py compatibility.
         return __getitem__(self, index)
 
 
@@ -86,6 +115,7 @@ class HotWallet:
     def sync_nonce(self, web3: Web3):
         """Read the current nonce"""
         self.current_nonce = web3.eth.get_transaction_count(self.account.address)
+        logger.info("Synced nonce for %s to %d", self.account.address, self.current_nonce)
 
     def allocate_nonce(self) -> int:
         """Get the next free available nonce to be used with a transaction.
@@ -131,7 +161,10 @@ class HotWallet:
         assert "nonce" not in tx
         tx["nonce"] = self.allocate_nonce()
         _signed = self.account.sign_transaction(tx)
+
+        # Check that we can decode
         decode_signed_transaction(_signed.rawTransaction)
+
         signed = SignedTransactionWithNonce(
             rawTransaction=_signed.rawTransaction,
             hash=_signed.hash,
@@ -140,6 +173,7 @@ class HotWallet:
             s=_signed.s,
             nonce=tx["nonce"],
             source=tx,
+            address=self.address,
         )
         return signed
 

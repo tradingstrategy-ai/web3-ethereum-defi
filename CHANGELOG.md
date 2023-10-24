@@ -1,7 +1,39 @@
-# Current 
+# 0.22.26
+
+- Add `eth_defi.confirmation.check_nonce_mismatch` to verify our signed transactions
+  have good nonces based on on-chain data
+- Add `wait_and_broadcast_multiple_nodes(check_nonce_validity)` and by default 
+  try to figure nonce issues before attemping to broadcast transactions
+
+# 0.22.25
+
+- Internal change: Increased logging for transaction broadcast issues
+- Internal change: more aggressive change reading nodes in multi-node tx broadcast
+
+# 0.22.24
+
+- Internal change: more verbose logging for `wait_and_broadcast_multiple_nodes`
+
+# 0.22.23
+
+- API change: add `fetch_erc20_balances_by_token_list(block_identifier)`
+
+# 0.22.22
+
+- Add: `wait_and_broadcast_multiple_nodes` to work around transaction broadcasts and confirmations failing on LlamaNodes
+- Fix: First workaround for `JSON-RPC error: {'code': -32003, 'message': 'max priority fee per gas higher than max fee per gas'}` in `eth_defi.gas`
+
+# 0.22.21
+
+- Don't pin down `pyarrow` version to make it easier to use different Arrow
+  reading backends
+
+# 0.22.20 
 
 - Add `eth_defi.provider.broken_provider.get_almost_latest_block_number()`
   for developer ergonomics when working with Ankr and LlamaNodes
+- If using `FallbackProvider` switch node providers in `wait_transactions_to_complete`
+  because Ankr and LlamaNodes low service quality issues
 
 # 0.22.19
 
