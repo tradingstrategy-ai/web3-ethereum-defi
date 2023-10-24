@@ -114,6 +114,9 @@ DEFAULT_RETRYABLE_RPC_ERROR_CODES = (
     # https://github.com/bnb-chain/bsc/issues/1215
     # {'code': -32005, 'message': 'limit exceeded'}
     -32005,
+    # Some JSON-RPC provider is buying nodes from allondes.com have have screwed it up
+    # ValueError: {'code': -32701, 'message': 'Please specify address in your request or, to remove restrictions, order a dedicated full node here: https://www.allnodes.com/bnb/host'}
+    -32701,
 )
 
 
