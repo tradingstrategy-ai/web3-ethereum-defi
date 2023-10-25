@@ -65,7 +65,7 @@ CLI_FLAGS = {
     "port": "--port",
     "host": "--host",
     "fork": "--fork-url",
-    "fork_block": "--fork-block-number",
+    "fork_block_number": "--fork-block-number",
     "hardfork": "--hardfork",
     "chain_id": "--chain-id",
     "default_balance": "--balance",
@@ -201,6 +201,7 @@ def launch_anvil(
     gas_limit: Optional[int] = None,
     steps_tracing=False,
     test_request_timeout=3.0,
+    fork_block_number: Optional[int] = None,
 ) -> AnvilLaunch:
     """Creates Anvil unit test backend or mainnet fork.
 
@@ -361,6 +362,11 @@ def launch_anvil(
     :param test_request_timeout:
         Set the timeout fro the JSON-RPC requests that attempt to determine if Anvil was successfully launched.
 
+    :param fork_block_number:
+        For at a specific block height of the parent chain.
+
+        If not given, fork at the latest block.
+        Needs an archive node to work.
     """
 
     attempts_left = attempts
@@ -389,6 +395,9 @@ def launch_anvil(
         gas_limit=gas_limit,
         steps_tracing=steps_tracing,
     )
+
+    if fork_block_number:
+        args["fork_block_number"] = fork_block_number
 
     if block_time not in (0, None):
         assert block_time > 0, f"Got bad block time {block_time}"

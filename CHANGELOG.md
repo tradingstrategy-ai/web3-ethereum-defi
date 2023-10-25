@@ -1,3 +1,7 @@
+# Current
+
+- Add `launch_anvil(fork_block_number)` option
+
 # 0.22.28
 
 - More retryable JSON-RPC errors whitelisted. Now `ValueError: {'code': -32701, 'message': 'Please specify address in your request or, to remove restrictions, order a dedicated full node here: https://www.allnodes.com/bnb/host'}`.
