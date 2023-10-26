@@ -459,6 +459,20 @@ def wait_and_broadcast_multiple_nodes(
         Starting nonce does not match what we see on chain.
 
         When ``check_nonce_validity`` is set.
+
+    :raise Exception:
+        If all nodes fail to broadcast the transaction, then raise an exception.
+
+        It's likely that there is a problem with a transaction.
+
+        The exception is raised after we try multiple nodes multiple times,
+        based on ``node_switch_timeout`` and other arguments.
+
+        A reverted transaction is not an exception, but will be returned
+        in the receipts.
+
+        In the case of multiple exceptions, the last one is raised.
+        The exception is whatever lower stack is giving us.
     """
 
     assert isinstance(poll_delay, datetime.timedelta)
@@ -474,7 +488,7 @@ def wait_and_broadcast_multiple_nodes(
     if check_nonce_validity:
         check_nonce_mismatch(web3, txs)
 
-    provider = get_fallback_provider(web3)
+    provider = get_fallback_provider(web3)  # Will raise if fallback provider is not configured
     providers = provider.providers
 
     logger.info(
@@ -505,9 +519,15 @@ def wait_and_broadcast_multiple_nodes(
 
     next_node_switch = started_at + node_switch_timeout
 
+    last_exception: Exception | None = None
+
     # Initial broadcast of txs
     for tx in txs:
-        _broadcast_multiple_nodes(providers, tx)
+        try:
+            _broadcast_multiple_nodes(providers, tx)
+            last_exception = None
+        except Exception as e:
+            last_exception = e
 
     while len(unconfirmed_txs) > 0:
         # Transaction hashes that receive confirmation on this round
@@ -577,7 +597,14 @@ def wait_and_broadcast_multiple_nodes(
 
             # Rebroadcast txs again if we suspect a broadcast failed
             for tx in txs:
-                _broadcast_multiple_nodes(providers, tx)
+                try:
+                    _broadcast_multiple_nodes(providers, tx)
+                    last_exception = None
+                except Exception as e:
+                    last_exception = e
+
+    if last_exception:
+        raise last_exception
 
     return receipts_received
 
