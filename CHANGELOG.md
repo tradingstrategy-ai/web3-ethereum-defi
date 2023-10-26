@@ -1,3 +1,8 @@
+# 0.22.30
+
+- API change: Handle `wait_and_broadcast_multiple_nodes()` so that it will attempt 
+  to retry multiple providers multiple times before raising the last exception
+
 # 0.22.29
 
 - Add `launch_anvil(fork_block_number)` option to create mainnet works on a specific block number.
