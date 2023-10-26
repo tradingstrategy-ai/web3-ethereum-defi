@@ -22,7 +22,7 @@ def swap_with_slippage_protection(
     quote_token: Contract,
     pool_fees: list[int],
     intermediate_token: Contract | None = None,
-    max_slippage: float = 0.1,
+    max_slippage: float = 15,
     amount_in: int | None = None,
     amount_out: int | None = None,
     deadline: int = FOREVER_DEADLINE,
@@ -72,7 +72,10 @@ def swap_with_slippage_protection(
     :param pool_fees: List of all pools' trading fees in the path as raw_fee
     :param amount_in: How much of the quote token we want to pay, this has to be `None` if `amount_out` is specified
     :param amount_out: How much of the base token we want to receive, this has to be `None` if `amount_in` is specified
-    :param max_slippage: Max slippage express in bps, default = 0.1 bps (0.001%)
+
+    :param max_slippage:
+        Max slippage express in bps, default = 5 bps (0.05%)
+
     :param deadline: Time limit of the swap transaction, by default = forever (no deadline)
     :return: Prepared swap function which can be used directly to build transaction
     """
