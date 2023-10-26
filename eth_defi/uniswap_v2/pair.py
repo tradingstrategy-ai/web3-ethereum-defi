@@ -168,6 +168,8 @@ def fetch_pair_details(
 ) -> PairDetails:
     """Get pair info for PancakeSwap, others.
 
+    See also :py:class:`PairDetails`.
+
     :param web3:
         Web3 instance
 
