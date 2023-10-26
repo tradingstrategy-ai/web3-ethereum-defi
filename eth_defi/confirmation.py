@@ -313,10 +313,7 @@ def broadcast_and_wait_transactions_to_complete(
 SignedTxType = Union[SignedTransaction, SignedTransactionWithNonce]
 
 
-def _broadcast_multiple_nodes(
-        providers: Collection[BaseProvider],
-        signed_tx: SignedTxType
-):
+def _broadcast_multiple_nodes(providers: Collection[BaseProvider], signed_tx: SignedTxType):
     """Attempt to broadcast a transaction through multiple providers.
 
     :param providers:
@@ -344,7 +341,6 @@ def _broadcast_multiple_nodes(
     tx_hash = signed_tx.hash.hex()
 
     for p in providers:
-
         name = get_provider_name(p)
         logger.info("Broadcasting %s through %s", signed_tx.hash.hex(), name)
 
