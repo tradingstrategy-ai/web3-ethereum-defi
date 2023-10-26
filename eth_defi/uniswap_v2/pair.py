@@ -19,7 +19,8 @@ from eth_defi.token import TokenDetails, fetch_erc20_details
 class PairDetails:
     """Uniswap v2 trading pair info.
 
-    An example usage how to get the latest price of a pair on PancakeSwap:
+    An example usage how to get the latest price of a pair on PancakeSwap.
+    The `PairDetails` class will do an automatic conversion of prices to human-readable, decimal format:
 
     .. code-block:: python
 
