@@ -488,7 +488,7 @@ def wait_and_broadcast_multiple_nodes(
     if check_nonce_validity:
         check_nonce_mismatch(web3, txs)
 
-    provider = get_fallback_provider(web3)
+    provider = get_fallback_provider(web3)  # Will raise if fallback provider is not configured
     providers = provider.providers
 
     logger.info(
