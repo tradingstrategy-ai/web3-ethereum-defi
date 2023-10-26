@@ -364,8 +364,8 @@ def _broadcast_multiple_nodes(providers: Collection[BaseProvider], signed_tx: Si
         except Exception as e:
             exceptions[p] = e
 
-    if errors:
-        if len(errors) == len(providers):
+    if exceptions:
+        if len(exceptions) == len(providers):
             logger.error(
                 "All providers failed to broadcast the transaction. Tx: %s, from: %s, nonce: %s.",
                 tx_hash,
