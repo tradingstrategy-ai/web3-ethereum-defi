@@ -1,6 +1,9 @@
 # Current
 
-- Add `launch_anvil(fork_block_number)` option
+- Add `launch_anvil(fork_block_number)` option to create mainnet works on a specific block number.
+  Naturally works only with archive nodes.
+- API change: If all providers fail in `wait_and_broadcast_multiple_nodes()`,
+  raise the exception from the last provider.
 
 # 0.22.28
 

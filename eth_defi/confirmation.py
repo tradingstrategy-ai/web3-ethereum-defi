@@ -314,14 +314,35 @@ SignedTxType = Union[SignedTransaction, SignedTransactionWithNonce]
 
 
 def _broadcast_multiple_nodes(providers: Collection[BaseProvider], signed_tx: SignedTxType):
-    """Attempt to broadcast a transaction through multiple provideres."""
+    """Attempt to broadcast a transaction through multiple providers.
+
+    :param providers:
+        List of Web3 providers
+
+    :param signed_tx:
+        The transaction we are going to broadcast
+
+    :raise Exception:
+        If all providers fail, raise the last exception.
+
+        If some providers success in broadcast, consider the operation successful.
+    """
+
+    assert len(providers) > 0, "No providers provided"
+
+    # provider instances that succeeded in broadcast
+    success = set()
+
+    # provider instance -> exception mapping
+    exceptions = {}
+
+    # See SignedTransactionWithNonce
+    nonce = getattr(signed_tx, "nonce", None)
+    address = getattr(signed_tx, "address", None)
+    source = getattr(signed_tx, "source", None)
+    tx_hash = signed_tx.hash.hex()
 
     for p in providers:
-        # See SignedTransactionWithNonce
-        nonce = getattr(signed_tx, "nonce", None)
-        address = getattr(signed_tx, "address", None)
-        source = getattr(signed_tx, "source", None)
-
         name = get_provider_name(p)
         logger.info("Broadcasting %s through %s", signed_tx.hash.hex(), name)
 
@@ -329,6 +350,7 @@ def _broadcast_multiple_nodes(providers: Collection[BaseProvider], signed_tx: Si
         web3 = Web3(p)
         try:
             web3.eth.send_raw_transaction(signed_tx.rawTransaction)
+            success.add(p)
         except ValueError as e:
             resp_data: dict = e.args[0]
 
@@ -342,8 +364,46 @@ def _broadcast_multiple_nodes(providers: Collection[BaseProvider], signed_tx: Si
                 continue
 
         except Exception as e:
-            logger.warning("Provider %s failed with tx %s from address %s, nonce %s", name, signed_tx.hash.hex(), address, nonce)
-            logger.exception(e)
+            exceptions[p] = e
+
+    if exceptions:
+        if len(exceptions) == len(providers):
+            logger.error(
+                "All providers failed to broadcast the transaction. Tx: %s, from: %s, nonce: %s.",
+                tx_hash,
+                address,
+                nonce,
+            )
+            for provider, exception in exceptions.items():
+                name = get_provider_name(p)
+                logger.error("%s failed with: %s", name, e)
+                logger.exception(e)
+
+            # Raise the last exception
+            raise exception
+        else:
+            logger.warning(
+                "Some providers failed to broadcast the transaction. Success %d / %d providers. Tx: %s, from: %s, nonce: %s.",
+                len(success),
+                len(providers),
+                tx_hash,
+                address,
+                nonce,
+            )
+            for p in success:
+                name = get_provider_name(p)
+                logger.warning("Provider succesfully broadcasted: %s", name)
+
+            for p, exception in exceptions.items():
+                name = get_provider_name(p)
+                logger.warning("Provider failed %s: exception: %s. See log for the details", name, exception)
+                logger.info(exception, exc_info=True)
+
+            # It's enough that at least one provider success,
+            # so no exception here
+
+    # All providers succeeded
+    logger.info("All providers succeeded to broadcast the tx: %s", tx_hash)
 
 
 def wait_and_broadcast_multiple_nodes(
