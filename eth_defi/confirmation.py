@@ -328,6 +328,8 @@ def _broadcast_multiple_nodes(providers: Collection[BaseProvider], signed_tx: Si
         If some providers success in broadcast, consider the operation successful.
     """
 
+    assert len(providers) > 0, "No providers provided"
+
     # provider instances that succeeded in broadcast
     success = set()
 
@@ -378,7 +380,7 @@ def _broadcast_multiple_nodes(providers: Collection[BaseProvider], signed_tx: Si
                 logger.exception(e)
 
             # Raise the last exception
-            raise e
+            raise exception
         else:
             logger.warning(
                 "Some providers failed to broadcast the transaction. Success %d / %d providers. Tx: %s, from: %s, nonce: %s.",
