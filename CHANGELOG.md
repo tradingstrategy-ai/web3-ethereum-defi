@@ -1,4 +1,4 @@
-# Current
+# 0.22.29
 
 - Add `launch_anvil(fork_block_number)` option to create mainnet works on a specific block number.
   Naturally works only with archive nodes.

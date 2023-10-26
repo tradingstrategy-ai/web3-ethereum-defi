@@ -316,6 +316,9 @@ SignedTxType = Union[SignedTransaction, SignedTransactionWithNonce]
 def _broadcast_multiple_nodes(providers: Collection[BaseProvider], signed_tx: SignedTxType):
     """Attempt to broadcast a transaction through multiple providers.
 
+    We attemt to broadcast transaction through all providers,
+    one by one in serial manner.
+
     :param providers:
         List of Web3 providers
 
