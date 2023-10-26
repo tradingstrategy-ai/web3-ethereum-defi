@@ -1,7 +1,6 @@
 # Current
 
-- Fix: `swap_with_slippage_protection()` interpreted `max_slippage` as percent,
-  even though the doc string says BPS
+- Fix: `swap_with_slippage_protection(max_slippage)` is BPS 
 - API change: `swap_with_slippage_protection(max_slippage=15)` - change the default Uniswap v3
   trade slippage tolerance from (unrealistic) 0.1 BPS to 15 BPS.
 

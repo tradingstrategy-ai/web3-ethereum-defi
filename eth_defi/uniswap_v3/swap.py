@@ -74,7 +74,9 @@ def swap_with_slippage_protection(
     :param amount_out: How much of the base token we want to receive, this has to be `None` if `amount_in` is specified
 
     :param max_slippage:
-        Max slippage express in bps, default = 5 bps (0.05%)
+        Max slippage express in BPS.
+
+        The default is 15 BPS (0.15%)
 
     :param deadline: Time limit of the swap transaction, by default = forever (no deadline)
     :return: Prepared swap function which can be used directly to build transaction
@@ -120,7 +122,15 @@ def swap_with_slippage_protection(
 
         # Because slippage tolerance errors are very annoying to diagnose,
         # try to capture as much possible diagnostics data to logs
-        logger.info("exactInput() amount in: %s, estimated_min_amount_out: %s, slippage tolerance: %f BPS, fees: %s, path: %s, block: %d", amount_in, estimated_min_amount_out, max_slippage, pool_fees, path, block_number)
+        logger.info(
+            "exactInput() amount in: %s, estimated_min_amount_out: %s, slippage tolerance: %f BPS, fees: %s, path: %s, block: %d",
+            amount_in,
+            estimated_min_amount_out,
+            max_slippage,
+            pool_fees,
+            path,
+            block_number,
+        )
 
         return router.functions.exactInput(
             (
