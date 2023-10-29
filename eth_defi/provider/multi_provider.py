@@ -11,6 +11,7 @@ from web3 import Web3, HTTPProvider
 
 from eth_defi.chain import install_chain_middleware
 from eth_defi.event_reader.fast_json_rpc import patch_provider, patch_web3
+from eth_defi.middleware import static_call_cache_middleware
 from eth_defi.provider.fallback import FallbackProvider
 from eth_defi.provider.mev_blocker import MEVBlockerProvider
 from eth_defi.provider.named import NamedProvider, get_provider_name
@@ -217,6 +218,8 @@ def create_multi_provider_web3(
     patch_web3(web3)
 
     web3.middleware_onion.clear()
+
+    web3.middleware_onion.inject(static_call_cache_middleware, layer=0)
 
     # Note that this triggers the first RPC call here
     install_chain_middleware(web3)

@@ -1,5 +1,8 @@
 # Current
 
+- API chance: `fetch_erc20_details(cache)` has now an internal cache, implemented
+  with Python's cachetools package.
+- Add: `static_call_cache_middleware` to reduce the amount of `eth_chainId` calls
 - Fix: `swap_with_slippage_protection(max_slippage)` is BPS 
 - API change: `swap_with_slippage_protection(max_slippage=15)` - change the default Uniswap v3
   trade slippage tolerance from (unrealistic) 0.1 BPS to 15 BPS.
