@@ -1,4 +1,4 @@
-# Current
+# 0.23
 
 - Various improvements when working with low quality JSON-RPC nodes
 - Uniswap v3 price tutorial is now runnable with low quality nodes
