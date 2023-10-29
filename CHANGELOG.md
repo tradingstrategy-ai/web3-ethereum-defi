@@ -4,8 +4,9 @@
 - Uniswap v3 price tutorial is now runnable with low quality nodes
 - API chance: `fetch_erc20_details(cache)` has now an internal cache, implemented
   with Python's cachetools package.
-- Add: `static_call_cache_middleware` to reduce the amount of `eth_chainId` calls
+- Add: `static_call_cache_middleware` to reduce the amount of `eth_chainId` API calls
 - Add: `TrackedLazyTimestampReader` to help working with slow nodes
+- Add: `MultiProviderWeb3.get_api_call_counts` to see JSON-RPC API call stats across all providers
 - Fix: `swap_with_slippage_protection(max_slippage)` is BPS 
 - API change: `swap_with_slippage_protection(max_slippage=15)` - change the default Uniswap v3
   trade slippage tolerance from (unrealistic) 0.1 BPS to 15 BPS.

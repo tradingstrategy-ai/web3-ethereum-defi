@@ -96,6 +96,8 @@ def web3(anvil_bnb_chain_fork: str, user_1):
     return web3
 
 
+# lueError: {'code': -32603, 'message': 'Failed to get account for 0xe9e7cea3dedca5984780bafc599bd69add087d56: 0xe9e7cea3dedca5984780bafc599bd69add087d56'}
+@pytest.mark.skip(reason="BNB Chain is currently broken on QuickNode")
 def test_revert_reason(web3: Web3, large_busd_holder: HexAddress, user_1, user_2):
     """Revert reason can be extracted from the transaction.
 
