@@ -11,7 +11,7 @@ import pandas as pd
 
 def convert_to_ohlcv_candles(
     df: pd.DataFrame,
-    time_bucket: pd.Timedelta = pd.Timedelta("1D"),
+    time_frame: pd.Timedelta = pd.Timedelta("1D"),
     price_column: str = "price",
     value_column: str = "value",
     timestamp_index_column: Optional[str] = "timestamp",
@@ -29,7 +29,7 @@ def convert_to_ohlcv_candles(
     :param df:
         Input data frame.
 
-    :param time_bucket:
+    :param time_frame:
         What's the duration of a single candle.
 
     :param price_column:
@@ -60,6 +60,9 @@ def convert_to_ohlcv_candles(
         df[timestamp_index_column] = pd.to_datetime(df[timestamp_index_column])
         df = df.set_index(timestamp_index_column, drop=False)
 
-    candles = df[price_column].resample(time_bucket).ohlc(_method="ohlc")
-    candles["volume"] = df[value_column].resample(time_bucket).sum()
+    assert price_column in df.columns, f"No price column {price_column}"
+    assert value_column in df.columns, f"No value column {value_column}"
+
+    candles = df[price_column].resample(time_frame).ohlc()
+    candles["volume"] = df[value_column].resample(time_frame).sum()
     return candles

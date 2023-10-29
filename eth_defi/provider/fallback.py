@@ -5,7 +5,7 @@
 import enum
 import time
 from collections import defaultdict, Counter
-from typing import List, Any, cast
+from typing import List, Any, cast, Dict
 import logging
 
 from web3 import Web3
@@ -156,6 +156,14 @@ class FallbackProvider(BaseNamedProvider):
         If this provider fails, we are automatically recycled to the next one.
         """
         return self.providers[self.currently_active_provider]
+
+    def get_total_api_call_counts(self) -> Dict[str, int]:
+        """Get API call coubst across all providers"""
+        total = Counter()
+        for provider, count_dict in self.api_call_counts.items():
+            for method, count in count_dict.items():
+                total[method] += count
+        return total
 
     def make_request(self, method: RPCEndpoint, params: Any) -> RPCResponse:
         """Make a request.

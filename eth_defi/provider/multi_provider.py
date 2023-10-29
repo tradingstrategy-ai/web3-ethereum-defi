@@ -95,7 +95,7 @@ class MultiProviderWeb3(Web3):
         :return:
             RPC endpoint name, call count dict
         """
-        return self.get_fallback_provider().api_call_counts
+        return self.get_fallback_provider().get_total_api_call_counts()
 
 
 def create_multi_provider_web3(
