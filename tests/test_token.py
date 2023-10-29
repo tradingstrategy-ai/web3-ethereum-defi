@@ -150,10 +150,9 @@ def test_cache_reset_erc_20_details(web3: Web3, deployer: str):
     """Token cache can be reset."""
 
     token = create_token(web3, deployer, "Hentai books token", "HENTAI", 100_000 * 10**18, 6)
-    details = fetch_erc20_details(web3, token.address)
-    details2 = fetch_erc20_details(web3, token.address)
-    assert details is details2
-
+    fetch_erc20_details(web3, token.address)
+    assert len(DEFAULT_TOKEN_CACHE) == 1
     reset_default_token_cache()
-    details3 = fetch_erc20_details(web3, token.address)
-    assert details3 is not details
+    assert len(DEFAULT_TOKEN_CACHE) == 0
+    fetch_erc20_details(web3, token.address)
+    assert len(DEFAULT_TOKEN_CACHE) == 1

@@ -227,6 +227,8 @@ def fetch_erc20_details(
     :param cache:
         Use this cache for cache token detail calls.
 
+        The main purpose is to easily reduce JSON-RPC API call count.
+
         By default, we use LRU cache of 1024 entries.
 
         Set to ``None`` to disable the cache.
