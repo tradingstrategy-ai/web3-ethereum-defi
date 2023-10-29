@@ -9,6 +9,7 @@ from decimal import Decimal
 from functools import cached_property
 from typing import Optional, Union
 
+import cachetools
 from eth_tester.exceptions import TransactionFailed
 from eth_typing import HexAddress
 from web3 import Web3
@@ -121,9 +122,27 @@ class TokenDetails:
         raw_amount = self.contract.functions.balanceOf(address).call(block_identifier=block_identifier)
         return self.convert_to_decimals(raw_amount)
 
+    @staticmethod
+    def generate_cache_key(chain_id: int, address: str) -> int:
+        """Generate a cache key for this token.
+
+        - Cached by (chain, address)
+
+        - Validate the inputs before generating the key
+        """
+        assert type(chain_id) == int
+        assert type(address) == str
+        assert address.startswith("0x")
+        return hash((chain_id, address.lower()))
 
 class TokenDetailError(Exception):
     """Cannot extract token details for an ERC-20 token for some reason."""
+
+
+#: By default we cache 1024 token details using LRU.
+#:
+#:
+DEFAULT_TOKEN_CACHE = cachetools.LRUCache(1024)
 
 
 def create_token(
@@ -168,6 +187,8 @@ def fetch_erc20_details(
     max_str_length: int = 256,
     raise_on_error=True,
     contract_name="ERC20MockDecimals.json",
+    cache=DEFAULT_TOKEN_CACHE,
+    chain_id: int = None,
 ) -> TokenDetails:
     """Read token details from on-chain data.
 
@@ -199,11 +220,36 @@ def fetch_erc20_details(
     :param contract_name:
         Contract ABI file to use.
 
-        The default is `ERC20MockDecimals.json`. For USDC use `centre/FiatToken.json`.
+        The default is ``ERC20MockDecimals.json``. For USDC use ``centre/FiatToken.json``.
+
+    :param cache:
+        Use this cache for cache token detail calls.
+
+        By default, we use LRU cache of 1024 entries.
+
+        Set to ``None`` to disable the cache.
+
+        Instance of :py:class:`cachetools.Cache'.
+        See `cachetools documentation for details <https://cachetools.readthedocs.io/en/latest/#cachetools.LRUCache>`__.
+
+    :param chain_id:
+        Chain id hint for the cache.
+
+        If not given do ``eth_chainId`` RPC call to figure out.
 
     :return:
         Sanitised token info
     """
+
+    if not chain_id:
+        chain_id = web3.eth.chain_id
+
+    key = TokenDetails.generate_cache_key(chain_id, token_address)
+
+    if cache:
+        cached = cache.get(key)
+        if cached is not None:
+            return cached
 
     # No risk here, because we are not sending a transaction
     token_address = Web3.to_checksum_address(token_address)
@@ -249,4 +295,7 @@ def fetch_erc20_details(
             raise TokenDetailError(f"Token {token_address} missing totalSupply") from e
         supply = None
 
-    return TokenDetails(erc_20, name, symbol, supply, decimals)
+    token_details = TokenDetails(erc_20, name, symbol, supply, decimals)
+    if cache:
+        cache[key] = token_details
+    return token_details

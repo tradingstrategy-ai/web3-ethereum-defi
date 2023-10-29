@@ -42,6 +42,7 @@ pytest-xdist = {version = "^3.3.1", optional = true}
 # https://github.com/apache/arrow/pull/35412
 # Last checked 2023-07, still broken
 urllib3 = "<2"
+cachetools = "^5.3.2"
 
 [tool.poetry.dev-dependencies]
 pytest = "^6.2.5"

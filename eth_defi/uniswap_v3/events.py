@@ -15,9 +15,13 @@ Currently we are tracking these events:
 import logging
 import csv
 import datetime
+import warnings
 from pathlib import Path
 
-from requests.adapters import HTTPAdapter
+from eth_defi.event_reader.filter import Filter
+from eth_defi.event_reader.multithread import MultithreadEventReader
+from eth_defi.provider.multi_provider import create_multi_provider_web3
+
 from tqdm.auto import tqdm
 from web3 import Web3
 
@@ -30,10 +34,8 @@ from eth_defi.event_reader.conversion import (
     convert_int256_bytes_to_int,
 )
 from eth_defi.event_reader.logresult import LogContext
-from eth_defi.event_reader.reader import LogResult, read_events_concurrent
+from eth_defi.event_reader.reader import LogResult
 from eth_defi.event_reader.state import ScanState
-from eth_defi.event_reader.web3factory import TunedWeb3Factory
-from eth_defi.event_reader.web3worker import create_thread_pool_executor
 from eth_defi.token import TokenDetails, fetch_erc20_details
 from eth_defi.uniswap_v3.constants import UNISWAP_V3_FACTORY_CREATED_AT_BLOCK
 
@@ -49,6 +51,7 @@ class TokenCache(LogContext):
 
     def __init__(self):
         self.cache = {}
+        warnings.warn("Deprecated. eth_defi.token.fetch_erc_20_details has now its internal cache", DeprecationWarning, stacklevel=2)
 
     def get_token_info(self, web3: Web3, address: str) -> TokenDetails:
         if address not in self.cache:
@@ -82,7 +85,6 @@ def decode_pool_created(log: LogResult) -> dict:
     """
     # Do additional lookup for the token data
     web3 = log["event"].web3
-    token_cache: TokenCache = log["context"]
     result = _decode_base(log)
 
     # Any indexed Solidity event parameter will be in topics data.
@@ -92,8 +94,8 @@ def decode_pool_created(log: LogResult) -> dict:
     token1_address = convert_uint256_string_to_address(token1)
 
     # Now enhanche data with token information
-    token0 = token_cache.get_token_info(web3, token0_address)
-    token1 = token_cache.get_token_info(web3, token1_address)
+    token0 = fetch_erc20_details(web3, token0_address)
+    token1 = fetch_erc20_details(web3, token1_address)
 
     # Any non-indexed Solidity event parameter will be in the data section.
     # Chop data blob to byte32 entries
@@ -333,13 +335,13 @@ def fetch_events_to_csv(
         and see how your node performs.
     :param log_info: Which function to use to output info messages about the progress
     """
-    token_cache = TokenCache()
-    http_adapter = HTTPAdapter(pool_connections=max_workers, pool_maxsize=max_workers)
-    web3_factory = TunedWeb3Factory(json_rpc_url, http_adapter)
-    web3 = web3_factory(token_cache)
-    executor = create_thread_pool_executor(web3_factory, token_cache, max_workers=max_workers)
+    web3 = create_multi_provider_web3(json_rpc_url)
+
     event_mapping = get_event_mapping(web3)
     contract_events = [event_data["contract_event"] for event_data in event_mapping.values()]
+
+    # Create a filter for any Uniswap v3 pool contract, all our events we are interested in
+    filter = Filter.create_filter(contract_events)
 
     # Start scanning
     restored, restored_start_block = state.restore_state(start_block)
@@ -358,7 +360,10 @@ def fetch_events_to_csv(
     buffers = {}
 
     for event_name, mapping in event_mapping.items():
+
+        # Each event type gets its own CSV
         file_path = f"{output_folder}/uniswap-v3-{event_name.lower()}.csv"
+
         exists_already = Path(file_path).exists()
         file_handler = open(file_path, "a", encoding="utf-8")
         csv_writer = csv.DictWriter(file_handler, fieldnames=mapping["field_names"])
@@ -372,6 +377,7 @@ def fetch_events_to_csv(
             "total": 0,
             "file_handler": file_handler,
             "csv_writer": csv_writer,
+            "file_path": file_path,
         }
 
     log_info(f"Scanning block range {restored_start_block:,} - {end_block:,}")
@@ -414,15 +420,19 @@ def fetch_events_to_csv(
             # Sync the state of updated events
             state.save_state(current_block)
 
-        # Read specified events in block range
-        for log_result in read_events_concurrent(
-            executor,
+        # Create a multi-threaded Solidity event reader
+        # that has a callback to our progress bar notifier
+        reader = MultithreadEventReader(
+            json_rpc_url,
+            notify=update_progress,
+        )
+
+        # Stream events from the multi-threaded reader
+        for log_result in reader(
+            web3,
             restored_start_block,
             end_block,
-            events=contract_events,
-            notify=update_progress,
-            chunk_size=100,
-            context=token_cache,
+            filter=filter,
         ):
             try:
                 # write to correct buffer
@@ -437,4 +447,4 @@ def fetch_events_to_csv(
     # close files and print stats
     for event_name, buffer in buffers.items():
         buffer["file_handler"].close()
-        log_info(f"Wrote {buffer['total']} {event_name} events")
+        log_info(f"Wrote {buffer['total']} {event_name} events to {buffer['file_path']}")
