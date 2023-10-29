@@ -368,3 +368,29 @@ def construct_sign_and_send_raw_middleware_anvil(
         return middleware
 
     return sign_and_send_raw_middleware
+
+
+def static_call_cache_middleware(
+    make_request: Callable[[RPCEndpoint, Any], Any],
+    web3: "Web3",
+) -> Callable[[RPCEndpoint, Any], Any]:
+    """Cache JSON-RPC call values that never chance.
+    """
+
+    static_call_list = ("eth_chainId",)
+
+    def middleware(method: RPCEndpoint, params: Any) -> RPCResponse:
+
+        cache = getattr(web3, "static_call_cache", {})
+        if method in static_call_list:
+            cached = cache.get(method)
+            if cached:
+                return cached
+
+        resp = make_request(method, params)
+        cache["method"] = resp
+        web3.static_call_cache = cache
+        return resp
+
+    return middleware
+
