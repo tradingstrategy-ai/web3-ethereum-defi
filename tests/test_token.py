@@ -24,6 +24,10 @@ def eth_tester(tester_provider):
 @pytest.fixture
 def web3(tester_provider):
     """Set up a local unit testing blockchain."""
+
+    # This test does not work with token cache
+    reset_default_token_cache()
+
     # https://web3py.readthedocs.io/en/stable/examples.html#contract-unit-tests-in-python
     return Web3(tester_provider)
 
@@ -136,7 +140,7 @@ def test_cache_erc_20_details(web3: Web3, deployer: str):
     """Token details are cached."""
 
     token = create_token(web3, deployer, "Hentai books token", "HENTAI", 100_000 * 10**18, 6)
-    details = fetch_erc20_details(web3, token.address)
+    fetch_erc20_details(web3, token.address)
 
     cache_key = TokenDetails.generate_cache_key(web3.eth.chain_id, token.address)
     assert cache_key in DEFAULT_TOKEN_CACHE
