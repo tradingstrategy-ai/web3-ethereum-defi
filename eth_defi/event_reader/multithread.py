@@ -1,5 +1,5 @@
 """Multithreaded and parallel Solidity event reading helpers."""
-from typing import Any, Optional, List, Iterable, Counter
+from typing import Any, Optional, List, Iterable, Counter, Callable
 
 from requests.adapters import HTTPAdapter
 from web3.contract.contract import ContractEvent
@@ -116,6 +116,37 @@ class MultithreadEventReader(Web3EventReader):
         reader.close()
         assert len(feeds) == 2
 
+    Because Ethereum does not have native JSON-RPC API to get block timestamps and headers
+    easily, there are many work arounds how to get timestamps for events.
+    Here is an example how to fetch timestamps "lazily" only for blocks
+    where you have events:
+
+    .. code-block:: python
+
+        from eth_defi.event_reader.lazy_timestamp_reader import extract_timestamps_json_rpc_lazy
+
+        provider = cast(HTTPProvider, web3.provider)
+        json_rpc_url = provider.endpoint_uri
+        reader = MultithreadEventReader(json_rpc_url, max_threads=16)
+
+        start_block = 1
+        end_block = web3.eth.block_number
+
+        reader = MultithreadEventReader(
+            json_rpc_url,
+        )
+
+        for log_result in reader(
+            web3,
+            restored_start_block,
+            end_block,
+            filter=filter,
+            extract_timestamps=extract_timestamps_json_rpc_lazy,
+        ):
+            pass
+
+    See :py:func:`eth_defi.event_reader.lazy_timestamp_reader.extract_timestamps_json_rpc_lazy`
+    and :py:func:`eth_defi.uniswap_v3.events.fetch_events_to_csv` for more details.
     """
 
     def __init__(
@@ -199,6 +230,7 @@ class MultithreadEventReader(Web3EventReader):
         end_block: int,
         events: Optional[List[ContractEvent]] = None,
         filter: Optional[Filter] = None,
+        extract_timestamps: Optional[Callable] = None,
     ) -> Iterable[LogResult]:
         """Wrap the underlying low-level function.
 
@@ -207,6 +239,29 @@ class MultithreadEventReader(Web3EventReader):
         .. note ::
 
             Currently timestamp reading not supported
+
+        :param web3:
+            Currently unused
+
+        :param start_block:
+            First block to call in eth_getLogs. Inclusive.
+
+        :param end_block:
+            End block to call in eth_getLogs. Inclusive.
+
+        :param events:
+            Event signatures we are interested in.
+
+            Legacy. Use ``filter`` instead.
+
+        :param filter:
+            Event filter we are using.
+
+        :param extract_timestamps:
+            Use this method to get timestamps for our events.
+
+            Overrides :py:attr:`reorg_mon` given in the constructor (if any given).
+            See usage examples in :py:class:`MultithreadEventReader`.
 
         :return:
             Iterator for the events in the order they were written in the chain
@@ -220,7 +275,7 @@ class MultithreadEventReader(Web3EventReader):
             filter=filter,
             reorg_mon=self.reorg_mon,
             notify=self.notify,
-            extract_timestamps=None,
+            extract_timestamps=extract_timestamps,
             chunk_size=self.max_blocks_once,
         )
 
