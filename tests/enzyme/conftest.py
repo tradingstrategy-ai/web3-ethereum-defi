@@ -24,6 +24,9 @@ from eth_defi.trace import assert_transaction_success_with_explanation
 from eth_defi.uniswap_v2.deployment import deploy_uniswap_v2_like, UniswapV2Deployment, deploy_trading_pair
 
 
+logger = logging.getLogger(__name__)
+
+
 @pytest.fixture()
 def anvil(request: FixtureRequest) -> AnvilLaunch:
     """Launch Anvil for the test backend.
@@ -50,15 +53,13 @@ def anvil(request: FixtureRequest) -> AnvilLaunch:
             log_level = log_cli_level
 
     # London hardfork will enable EIP-1559 style gas fees
-    anvil = launch_anvil(
-        hardfork="london",
-        gas_limit=15_000_000,  # Max 5M gas per block, or per transaction in test automining
-    )
+    anvil = launch_anvil()
     try:
         # Make the initial snapshot ("zero state") to which we revert between tests
         # web3 = Web3(HTTPProvider(anvil.json_rpc_url))
         # snapshot_id = make_anvil_custom_rpc_request(web3, "evm_snapshot")
         # assert snapshot_id == "0x0"
+        logger.info("Anvil launched at %s", anvil.json_rpc_url)
         yield anvil
     finally:
         anvil.close(log_level=log_level)
