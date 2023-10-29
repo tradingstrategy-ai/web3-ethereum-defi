@@ -9,7 +9,7 @@ from hexbytes import HexBytes
 from web3 import EthereumTesterProvider, Web3
 from web3.contract import Contract
 
-from eth_defi.token import create_token
+from eth_defi.token import create_token, reset_default_token_cache
 from eth_defi.uniswap_v3.deployment import (
     UniswapV3Deployment,
     add_liquidity,
@@ -43,6 +43,10 @@ def eth_tester(tester_provider):
 @pytest.fixture
 def web3(tester_provider):
     """Set up a local unit testing blockchain."""
+
+    # This test does not work with token cache
+    reset_default_token_cache()
+
     # https://web3py.readthedocs.io/en/stable/examples.html#contract-unit-tests-in-python
     return Web3(tester_provider)
 
