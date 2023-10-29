@@ -120,6 +120,11 @@ DEFAULT_RETRYABLE_RPC_ERROR_CODES = (
 )
 
 
+#: Ethereum JSON-RPC calls where the value never changes
+#:
+STATIC_CALL_LIST = ("eth_chainId",)
+
+
 class ProbablyNodeHasNoBlock(Exception):
     """A special exception raised when we suspect JSON-RPC node does not yet have data for a block we asked.
 
@@ -375,14 +380,14 @@ def static_call_cache_middleware(
     web3: "Web3",
 ) -> Callable[[RPCEndpoint, Any], Any]:
     """Cache JSON-RPC call values that never chance.
+
+    The cache is web3 instance itself, to allow sharing the cache
+    between different JSON-RPC providers.
     """
-
-    static_call_list = ("eth_chainId",)
-
     def middleware(method: RPCEndpoint, params: Any) -> RPCResponse:
 
         cache = getattr(web3, "static_call_cache", {})
-        if method in static_call_list:
+        if method in STATIC_CALL_LIST:
             cached = cache.get(method)
             if cached:
                 return cached
