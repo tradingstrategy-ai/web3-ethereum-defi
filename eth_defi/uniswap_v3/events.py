@@ -21,7 +21,7 @@ from pathlib import Path
 from eth_defi.event_reader.filter import Filter
 from eth_defi.event_reader.lazy_timestamp_reader import extract_timestamps_json_rpc_lazy
 from eth_defi.event_reader.multithread import MultithreadEventReader
-from eth_defi.provider.multi_provider import create_multi_provider_web3
+from eth_defi.provider.multi_provider import create_multi_provider_web3, MultiProviderWeb3
 
 from tqdm.auto import tqdm
 from web3 import Web3
@@ -303,7 +303,7 @@ def fetch_events_to_csv(
     log_info=print,
     max_blocks_once=2000,
     max_threads=10,
-) -> Web3:
+) -> MultiProviderWeb3:
     """Fetch all tracked Uniswap v3 events to CSV files for notebook analysis.
 
     Creates couple of CSV files with the event data:

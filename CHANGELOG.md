@@ -6,6 +6,8 @@
 - Fix: `swap_with_slippage_protection(max_slippage)` is BPS 
 - API change: `swap_with_slippage_protection(max_slippage=15)` - change the default Uniswap v3
   trade slippage tolerance from (unrealistic) 0.1 BPS to 15 BPS.
+- Fix: The madness of JSON-RPC providers abuse the error code `-32000`.
+  We check for *error message* now instead of error code.
 
 # 0.22.30
 

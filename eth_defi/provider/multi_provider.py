@@ -4,7 +4,7 @@ See :ref:`multi rpc` tutorial for details.
 """
 
 import logging
-from typing import List, Optional, Any
+from typing import List, Optional, Any, Dict
 
 from urllib3.util import parse_url, Url
 from web3 import Web3, HTTPProvider
@@ -85,6 +85,14 @@ class MultiProviderWeb3(Web3):
     def switch_to_next_call_provider(self):
         """Recycles to the next call provider (if available)."""
         self.get_fallback_provider().switch_provider()
+
+    def get_api_call_counts(self) -> Dict[str, int]:
+        """How many times different APIs where called.
+
+        :return:
+            RPC endpoint name, call count dict
+        """
+        return self.get_fallback_provider().api_call_counts
 
 
 def create_multi_provider_web3(
