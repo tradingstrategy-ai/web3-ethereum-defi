@@ -19,7 +19,7 @@ import warnings
 from pathlib import Path
 
 from eth_defi.event_reader.filter import Filter
-from eth_defi.event_reader.lazy_timestamp_reader import extract_timestamps_json_rpc_lazy
+from eth_defi.event_reader.lazy_timestamp_reader import extract_timestamps_json_rpc_lazy, TrackedLazyTimestampReader
 from eth_defi.event_reader.multithread import MultithreadEventReader
 from eth_defi.provider.multi_provider import create_multi_provider_web3, MultiProviderWeb3
 
@@ -393,7 +393,9 @@ def fetch_events_to_csv(
             "file_path": file_path,
         }
 
-    log_info(f"Scanning block range {restored_start_block:,} - {end_block:,}")
+    log_info(f"Saving Uniswap v3 data for block range {restored_start_block:,} - {end_block:,}")
+
+    timestamp_reader = TrackedLazyTimestampReader()
 
     # Wrap everything in a TQDM progress bar, notebook friendly version
     with tqdm(total=end_block - restored_start_block) as progress_bar:
@@ -410,13 +412,15 @@ def fetch_events_to_csv(
             # Update progress bar
             nonlocal buffers
 
+            header_count = timestamp_reader.get_count()
+
             if last_timestamp:
                 # Display progress with the date information
                 d = datetime.datetime.utcfromtimestamp(last_timestamp)
                 formatted_time = d.strftime("%Y-%m-%d")
-                progress_bar.set_description(f"Block: {current_block:,}, events: {total_events:,}, time:{formatted_time}")
+                progress_bar.set_description(f"Block: {current_block:,}, events: {total_events:,}, time:{formatted_time}, block headers: {header_count:,}")
             else:
-                progress_bar.set_description(f"Block: {current_block:,}, events: {total_events:,}")
+                progress_bar.set_description(f"Block: {current_block:,}, events: {total_events:,}, block headers: {header_count:,}")
 
             progress_bar.update(chunk_size)
 
@@ -441,7 +445,7 @@ def fetch_events_to_csv(
             json_rpc_url,
             notify=update_progress,
             max_blocks_once=max_blocks_once,
-            max_threads=10,
+            max_threads=max_threads,
         )
 
         # Stream events from the multi-threaded reader
@@ -450,7 +454,7 @@ def fetch_events_to_csv(
             restored_start_block,
             end_block,
             filter=filter,
-            extract_timestamps=extract_timestamps_json_rpc_lazy,
+            extract_timestamps=timestamp_reader.extract_timestamps_json_rpc_lazy,
         ):
             try:
                 event_name = log_result["event"].event_name  # Which event this is: Swap, Burn,...

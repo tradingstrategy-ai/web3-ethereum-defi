@@ -6,7 +6,7 @@ from web3.contract.contract import ContractEvent
 
 from eth_defi.event_reader.filter import Filter
 from eth_defi.event_reader.logresult import LogResult
-from eth_defi.event_reader.reader import Web3EventReader, read_events_concurrent, ReaderConnection, ProgressUpdate
+from eth_defi.event_reader.reader import Web3EventReader, read_events_concurrent, ReaderConnection, ProgressUpdate, read_events
 from eth_defi.event_reader.reorganisation_monitor import ReorganisationMonitor
 from eth_defi.event_reader.web3factory import TunedWeb3Factory
 from eth_defi.event_reader.web3worker import create_thread_pool_executor
@@ -150,15 +150,15 @@ class MultithreadEventReader(Web3EventReader):
     """
 
     def __init__(
-        self,
-        json_rpc_url: str,
-        max_threads=10,
-        reader_context: Any = None,
-        api_counter=True,
-        max_blocks_once=50_000,
-        reorg_mon: Optional[ReorganisationMonitor] = None,
-        notify: Optional[ProgressUpdate] = None,
-        auto_close_notify=True,
+            self,
+            json_rpc_url: str,
+            max_threads=10,
+            reader_context: Any = None,
+            api_counter=True,
+            max_blocks_once=50_000,
+            reorg_mon: Optional[ReorganisationMonitor] = None,
+            notify: Optional[ProgressUpdate] = None,
+            auto_close_notify=True,
     ):
         """Creates a multithreaded JSON-RPC reader pool.
 
@@ -214,6 +214,9 @@ class MultithreadEventReader(Web3EventReader):
 
         # Set up the timestamp reading method
 
+    def get_max_threads(self) -> int:
+        return self.executor.max_workers
+
     def close(self):
         """Release the allocated resources."""
         self.executor.join()
@@ -224,13 +227,13 @@ class MultithreadEventReader(Web3EventReader):
                 self.notify.close()
 
     def __call__(
-        self,
-        web3: ReaderConnection,
-        start_block: int,
-        end_block: int,
-        events: Optional[List[ContractEvent]] = None,
-        filter: Optional[Filter] = None,
-        extract_timestamps: Optional[Callable] = None,
+            self,
+            web3: ReaderConnection,
+            start_block: int,
+            end_block: int,
+            events: Optional[List[ContractEvent]] = None,
+            filter: Optional[Filter] = None,
+            extract_timestamps: Optional[Callable] = None,
     ) -> Iterable[LogResult]:
         """Wrap the underlying low-level function.
 
@@ -267,17 +270,35 @@ class MultithreadEventReader(Web3EventReader):
             Iterator for the events in the order they were written in the chain
 
         """
-        yield from read_events_concurrent(
-            self.executor,
-            start_block,
-            end_block,
-            events=events,
-            filter=filter,
-            reorg_mon=self.reorg_mon,
-            notify=self.notify,
-            extract_timestamps=extract_timestamps,
-            chunk_size=self.max_blocks_once,
-        )
+
+        if self.get_max_threads() == 1:
+            # Single thread debug mode
+            web3 = self.web3_factory()
+            yield from read_events(
+                web3,
+                start_block,
+                end_block,
+                events=events,
+                filter=filter,
+                reorg_mon=self.reorg_mon,
+                notify=self.notify,
+                extract_timestamps=extract_timestamps,
+                chunk_size=self.max_blocks_once,
+            )
+
+        else:
+            # Multi thread production mode
+            yield from read_events_concurrent(
+                self.executor,
+                start_block,
+                end_block,
+                events=events,
+                filter=filter,
+                reorg_mon=self.reorg_mon,
+                notify=self.notify,
+                extract_timestamps=extract_timestamps,
+                chunk_size=self.max_blocks_once,
+            )
 
     def get_total_api_call_counts(self) -> Counter:
         """Sum API call counts across all threads.

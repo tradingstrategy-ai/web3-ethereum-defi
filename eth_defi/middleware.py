@@ -420,7 +420,7 @@ def static_call_cache_middleware(
                 return cached
 
         resp = make_request(method, params)
-        cache["method"] = resp
+        cache[method] = resp
         web3.static_call_cache = cache
         return resp
 

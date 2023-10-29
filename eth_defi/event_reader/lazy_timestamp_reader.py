@@ -3,6 +3,8 @@
 See :py:func:`extract_timestamps_json_rpc_lazy`
 """
 import logging
+from typing import Callable
+
 from hexbytes import HexBytes
 
 from eth_defi.event_reader.conversion import convert_jsonrpc_value_to_int
@@ -26,9 +28,17 @@ class LazyTimestampContainer:
     cached it yet.
 
     See :py:func:`extract_timestamps_json_rpc_lazy`.
+
+    TODO: This is not using middleware and fails to retry any failed JSON-RPC requests.
     """
 
-    def __init__(self, web3: Web3, start_block: int, end_block: int):
+    def __init__(
+        self,
+        web3: Web3,
+        start_block: int,
+        end_block: int,
+        callback: Callable = None,
+    ):
         """
 
         :param web3:
@@ -50,6 +60,8 @@ class LazyTimestampContainer:
 
         #: How many API requets we have made
         self.api_call_counter = 0
+
+        self.callback = callback
 
     def update_block_hash(self, block_identifier: BlockIdentifier) -> int:
         """Internal function to get block timestamp from JSON-RPC and store it in the cache."""
@@ -87,6 +99,10 @@ class LazyTimestampContainer:
         timestamp = convert_jsonrpc_value_to_int(result["timestamp"])
         self.cache_by_block_hash[hash] = timestamp
         self.cache_by_block_number[block_number] = timestamp
+
+        if self.callback:
+            self.callback(hash, block_number, timestamp)
+
         return timestamp
 
     def __getitem__(self, block_hash: HexStr | HexBytes | str):
@@ -148,3 +164,32 @@ def extract_timestamps_json_rpc_lazy(
         container.update_block_hash(start_block)
         container.update_block_hash(end_block)
     return container
+
+
+class TrackedLazyTimestampReader:
+    """Track block header fetching across multiple chunks.
+
+    Monitor expensive eth_getBlock JSON-RPC process via :py:method:`get_count`.
+    """
+
+    def __init__(self):
+        self.count = 0
+
+    def extract_timestamps_json_rpc_lazy(
+        self,
+        web3: Web3,
+        start_block: int,
+        end_block: int,
+        fetch_boundaries=True,
+    ):
+        container = LazyTimestampContainer(web3, start_block, end_block, callback=self.on_block_data)
+        if fetch_boundaries:
+            container.update_block_hash(start_block)
+            container.update_block_hash(end_block)
+        return container
+
+    def on_block_data(self, block_hash, block_number, timestamp):
+        self.count += 1
+
+    def get_count(self) -> int:
+        return self.count

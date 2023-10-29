@@ -512,13 +512,12 @@ def read_events(
     last_timestamp = None
 
     for block_num in range(start_block, end_block + 1, chunk_size):
-        # Ping our master
-        if notify is not None:
-            notify(block_num, start_block, end_block, chunk_size, total_events, last_timestamp, context)
 
         last_of_chunk = min(end_block, block_num + chunk_size - 1)
 
         logger.debug("Extracting eth_getLogs from %d - %d", block_num, last_of_chunk)
+
+        batch_events = 0
 
         # Stream the events
         for event in extract_events(
@@ -532,7 +531,14 @@ def read_events(
         ):
             last_timestamp = event.get("timestamp")
             total_events += 1
+            batch_events += 1
             yield event
+
+        # Ping our master,
+        # only when we have an event hit not to cause unnecessary block header fetches
+        # TODO: Add argument notify always
+        if notify is not None and batch_events:
+            notify(block_num, start_block, end_block, chunk_size, total_events, last_timestamp, context)
 
 
 def read_events_concurrent(
@@ -703,10 +709,6 @@ def read_events_concurrent(
                 if isinstance(task.result, Exception):
                     raise AssertionError("Should not never happen")
 
-                # Ping our master
-                if notify is not None:
-                    notify(block_num, start_block, end_block, chunk_size, total_events, last_timestamp, context)
-
                 assert task.result is not None, f"Result missing for the task: {task}"
 
                 log_results: List[LogResult] = task.result
@@ -722,6 +724,7 @@ def read_events_concurrent(
 
                 # Pass through the logs and do timestamp resolution for them
                 #
+                batch_events = 0
                 for log in log_results:
                     # Check that this event is not from an alternative chain tip
                     if reorg_mon:
@@ -736,6 +739,12 @@ def read_events_concurrent(
 
                     yield log
                     total_events += 1
+                    batch_events += 1
+
+                # Only notify our progress bar if we have an enenet hit
+                # to avoid unnecessary timestamp reads
+                if notify is not None and batch_events:
+                    notify(block_num, start_block, end_block, chunk_size, total_events, last_timestamp, context)
 
             else:
                 # This task is not yet completed,
