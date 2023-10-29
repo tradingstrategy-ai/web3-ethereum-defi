@@ -1,5 +1,7 @@
 # Current
 
+- Various improvements when working with low quality JSON-RPC nodes
+- Uniswap v3 price tutorial is now runnable with low quality nodes
 - API chance: `fetch_erc20_details(cache)` has now an internal cache, implemented
   with Python's cachetools package.
 - Add: `static_call_cache_middleware` to reduce the amount of `eth_chainId` calls
