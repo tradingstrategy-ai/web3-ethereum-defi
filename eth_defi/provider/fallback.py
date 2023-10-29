@@ -138,6 +138,10 @@ class FallbackProvider(BaseNamedProvider):
         """
         return self.get_active_provider().endpoint_uri
 
+    def has_multiple_providers(self) -> bool:
+        """Have we configured multiple providers"""
+        return len(self.providers) >= 2
+
     def switch_provider(self):
         """Switch to next available provider."""
         provider = self.get_active_provider()
@@ -192,12 +196,13 @@ class FallbackProvider(BaseNamedProvider):
                     retryable_status_codes=self.retryable_status_codes,
                     retryable_exceptions=self.retryable_exceptions,
                 ):
-                    self.switch_provider()
+                    if self.has_multiple_providers():
+                        self.switch_provider()
 
                     if i < self.retries:
                         # Black messes up string new lines here
                         # See https://github.com/psf/black/issues/1837
-                        logger.log(self.switchover_noisiness, "Encountered JSON-RPC retryable error %s when calling method:\n" "%s(%s)\n " "Retrying in %f seconds, retry #%d / %d", e, method, params, current_sleep, i, self.retries)
+                        logger.log(self.switchover_noisiness, "Encountered JSON-RPC retryable error %s\n When calling method: %s%s\n " "Retrying in %f seconds, retry #%d / %d", e, method, params, current_sleep, i + 1, self.retries)
                         time.sleep(current_sleep)
                         current_sleep *= self.backoff
                         self.retry_count += 1

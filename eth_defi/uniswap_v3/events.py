@@ -361,7 +361,9 @@ def fetch_events_to_csv(
     original_block_range = end_block - start_block
 
     if restored:
-        log_info(f"Restored previous scan state, data until block {restored_start_block:,}, we are skipping {restored_start_block - start_block:,} blocks out of {original_block_range:,} total")
+        log_info(
+            f"Restored previous scan state, data until block {restored_start_block:,}, we are skipping {restored_start_block - start_block:,} blocks out of {original_block_range:,} total"
+        )
     else:
         log_info(
             f"No previous scan done, starting fresh from block {start_block:,}, total {original_block_range:,} blocks",
@@ -380,7 +382,9 @@ def fetch_events_to_csv(
         exists_already = Path(file_path).exists()
         file_handler = open(file_path, "a", encoding="utf-8")
         csv_writer = csv.DictWriter(file_handler, fieldnames=mapping["field_names"])
-        if not exists_already:
+        if not restored:
+            headers = ", ".join(mapping['field_names'])
+            log_info(f"Creating a new CSV file: {file_path}, with headers: {headers}")
             csv_writer.writeheader()
 
         # For each event, we have its own

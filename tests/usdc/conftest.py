@@ -6,6 +6,7 @@ from web3 import Web3, HTTPProvider
 
 from eth_defi.provider.anvil import AnvilLaunch, launch_anvil
 from eth_defi.chain import install_chain_middleware
+from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.token import TokenDetails
 from eth_defi.usdc.deployment import deploy_fiat_token
 
@@ -26,9 +27,7 @@ def web3(anvil: AnvilLaunch) -> Web3:
 
     Also perform the Anvil state reset for each test.
     """
-    web3 = Web3(HTTPProvider(anvil.json_rpc_url, request_kwargs={"timeout": 2}))
-    web3.middleware_onion.clear()
-    install_chain_middleware(web3)
+    web3 = create_multi_provider_web3(anvil.json_rpc_url)
     return web3
 
 

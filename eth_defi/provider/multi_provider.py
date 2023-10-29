@@ -97,8 +97,8 @@ class MultiProviderWeb3(Web3):
 
 def create_multi_provider_web3(
     configuration_line: str,
-    fallback_sleep=0.1,
-    fallback_backoff=1.1,
+    fallback_sleep=5.0,
+    fallback_backoff=1.25,
     request_kwargs: Optional[Any] = None,
     session: Optional[Any] = None,
 ) -> MultiProviderWeb3:
