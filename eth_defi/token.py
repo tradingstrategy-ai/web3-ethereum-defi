@@ -246,17 +246,20 @@ def fetch_erc20_details(
     if not chain_id:
         chain_id = web3.eth.chain_id
 
+    erc_20 = get_deployed_contract(web3, contract_name, token_address)
+
     key = TokenDetails.generate_cache_key(chain_id, token_address)
 
     if cache is not None:
         cached = cache.get(key)
         if cached is not None:
-            return cached
-
-    # No risk here, because we are not sending a transaction
-    token_address = Web3.to_checksum_address(token_address)
-    erc_20 = get_deployed_contract(web3, contract_name, token_address)
-
+            return TokenDetails(
+                erc_20,
+                cached["name"],
+                cached["symbol"],
+                cached["supply"],
+                cached["decimals"],
+            )
     try:
         symbol = sanitise_string(erc_20.functions.symbol().call()[0:max_str_length])
     except _call_missing_exceptions as e:
@@ -299,7 +302,12 @@ def fetch_erc20_details(
 
     token_details = TokenDetails(erc_20, name, symbol, supply, decimals)
     if cache is not None:
-        cache[key] = token_details
+        cache[key] = {
+            "name": name,
+            "symbol": symbol,
+            "supply": supply,
+            "decimals": decimals,
+        }
     return token_details
 
 
