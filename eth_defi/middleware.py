@@ -98,11 +98,14 @@ DEFAULT_RETRYABLE_RPC_ERROR_CODES = (
     # cannot handle gracefully.
     # ValueError: {'message': 'Internal JSON-RPC error.', 'code': -32603}
     -32603,
+
     # ValueError: {'code': -32000, 'message': 'nonce too low'}.
     # Might happen when we are broadcasting multiple transactions through multiple RPC providers
     # using eth_sendRawTransaction
     # One provide has not yet seeing a transaction broadcast through the other provider.
-    -32000,
+    # CRAP! -32000 is also Execution reverted on Alchemy.
+    # -32000,
+
     # ValueError: {'code': -32003, 'message': 'nonce too low'}.
     # Anvil variant for nonce too low, same as above
     -32003,
@@ -118,6 +121,20 @@ DEFAULT_RETRYABLE_RPC_ERROR_CODES = (
     # ValueError: {'code': -32701, 'message': 'Please specify address in your request or, to remove restrictions, order a dedicated full node here: https://www.allnodes.com/bnb/host'}
     -32701,
 )
+
+
+#: Because Ethreum JSON-RPC API is horribly broken,
+#: we also need to check for error messages besides error codes.
+#:
+#: See :py:data:`DEFAULT_RETRYABLE_RPC_ERROR_CODES`.
+#:
+DEFAULT_RETRYABLE_RPC_ERROR_MESSAGES = {
+    "nonce too low"
+}
+
+#: Ethereum JSON-RPC calls where the value never changes
+#:
+STATIC_CALL_LIST = ("eth_chainId",)
 
 
 class ProbablyNodeHasNoBlock(Exception):
@@ -136,6 +153,7 @@ def is_retryable_http_exception(
     retryable_exceptions: Tuple[BaseException] = DEFAULT_RETRYABLE_EXCEPTIONS,
     retryable_status_codes: Collection[int] = DEFAULT_RETRYABLE_HTTP_STATUS_CODES,
     retryable_rpc_error_codes: Collection[int] = DEFAULT_RETRYABLE_RPC_ERROR_CODES,
+    retryable_rpc_error_messages: Collection[str] = DEFAULT_RETRYABLE_RPC_ERROR_MESSAGES,
 ):
     """Helper to check retryable errors from JSON-RPC calls.
 
@@ -154,6 +172,10 @@ def is_retryable_http_exception(
 
     :param retryable_status_codes:
         HTTP status codes we can retry. E.g. 429 Too Many requests.
+
+    :param retryable_rpc_error_messages:
+        See :py:data:`DEFAULT_RETRYABLE_RPC_ERROR_MESSAGES`.
+
     """
 
     if isinstance(exc, ValueError):
@@ -162,10 +184,20 @@ def is_retryable_http_exception(
         if len(exc.args) > 0:
             arg = exc.args[0]
             if type(arg) == dict:
+
                 code = arg.get("code")
+                message = arg.get("message", "")
+
                 if code is None or type(code) != int:
                     raise RuntimeError(f"Bad ValueError: {arg} - {exc}")
-                return code in retryable_rpc_error_codes
+
+                if code in retryable_rpc_error_codes:
+                    return True
+
+                if message in retryable_rpc_error_messages:
+                    return True
+
+                return False
 
     if isinstance(exc, ProbablyNodeHasNoBlock):
         return True
@@ -368,3 +400,29 @@ def construct_sign_and_send_raw_middleware_anvil(
         return middleware
 
     return sign_and_send_raw_middleware
+
+
+def static_call_cache_middleware(
+    make_request: Callable[[RPCEndpoint, Any], Any],
+    web3: "Web3",
+) -> Callable[[RPCEndpoint, Any], Any]:
+    """Cache JSON-RPC call values that never chance.
+
+    The cache is web3 instance itself, to allow sharing the cache
+    between different JSON-RPC providers.
+    """
+    def middleware(method: RPCEndpoint, params: Any) -> RPCResponse:
+
+        cache = getattr(web3, "static_call_cache", {})
+        if method in STATIC_CALL_LIST:
+            cached = cache.get(method)
+            if cached:
+                return cached
+
+        resp = make_request(method, params)
+        cache[method] = resp
+        web3.static_call_cache = cache
+        return resp
+
+    return middleware
+

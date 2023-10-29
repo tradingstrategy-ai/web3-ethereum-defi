@@ -4,13 +4,17 @@ See :ref:`multi rpc` tutorial for details.
 """
 
 import logging
-from typing import List, Optional, Any
+from typing import List, Optional, Any, Dict
 
-from urllib3.util import parse_url, Url
+import requests
+from requests import Session
+from requests.adapters import HTTPAdapter
+from urllib3.util import parse_url, Url, Retry
 from web3 import Web3, HTTPProvider
 
 from eth_defi.chain import install_chain_middleware
 from eth_defi.event_reader.fast_json_rpc import patch_provider, patch_web3
+from eth_defi.middleware import static_call_cache_middleware
 from eth_defi.provider.fallback import FallbackProvider
 from eth_defi.provider.mev_blocker import MEVBlockerProvider
 from eth_defi.provider.named import NamedProvider, get_provider_name
@@ -85,11 +89,19 @@ class MultiProviderWeb3(Web3):
         """Recycles to the next call provider (if available)."""
         self.get_fallback_provider().switch_provider()
 
+    def get_api_call_counts(self) -> Dict[str, int]:
+        """How many times different APIs where called.
+
+        :return:
+            RPC endpoint name, call count dict
+        """
+        return self.get_fallback_provider().get_total_api_call_counts()
+
 
 def create_multi_provider_web3(
     configuration_line: str,
-    fallback_sleep=0.1,
-    fallback_backoff=1.1,
+    fallback_sleep=5.0,
+    fallback_backoff=1.25,
     request_kwargs: Optional[Any] = None,
     session: Optional[Any] = None,
 ) -> MultiProviderWeb3:
@@ -145,9 +157,8 @@ def create_multi_provider_web3(
     :param session:
         Use specific HTTP 1.1 session with :py:mod:`requests`.
 
-        See :py:class:`web3.HTTPProvider` for details.
+        If not given create a default session manager with retry logic.
 
-        Example: ``request_kwargs={"timeout": 10.0}``
     :return:
         Configured Web3 instance with multiple providers
     """
@@ -185,6 +196,15 @@ def create_multi_provider_web3(
     if len(call_endpoints) < 0:
         raise MultiProviderConfigurationError(f"At least one call endpoint must be specified, configuration was {configuration_line}")
 
+    if session is None:
+        # https://stackoverflow.com/a/47475019/315168
+        # TODO: Make these parameters configurable
+        session = requests.Session()
+        retry = Retry(connect=3, backoff_factor=0.5)
+        adapter = HTTPAdapter(max_retries=retry)
+        session.mount('http://', adapter)
+        session.mount('https://', adapter)
+
     call_providers = [HTTPProvider(url, request_kwargs=request_kwargs, session=session) for url in call_endpoints]
 
     # Do uJSON patching
@@ -217,6 +237,8 @@ def create_multi_provider_web3(
     patch_web3(web3)
 
     web3.middleware_onion.clear()
+
+    web3.middleware_onion.inject(static_call_cache_middleware, layer=0)
 
     # Note that this triggers the first RPC call here
     install_chain_middleware(web3)

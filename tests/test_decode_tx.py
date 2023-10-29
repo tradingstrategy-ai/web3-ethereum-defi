@@ -23,6 +23,7 @@ from eth_defi.provider.anvil import fork_network_anvil
 from eth_defi.chain import install_chain_middleware
 from eth_defi.gas import node_default_gas_price_strategy
 from eth_defi.hotwallet import HotWallet
+from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.token import fetch_erc20_details
 from eth_defi.tx import decode_signed_transaction
 
@@ -71,9 +72,7 @@ def anvil_bnb_chain_fork(request, large_busd_holder) -> str:
 def web3(anvil_bnb_chain_fork: str):
     """Set up a local unit testing blockchain."""
     # https://web3py.readthedocs.io/en/stable/examples.html#contract-unit-tests-in-python
-    web3 = Web3(HTTPProvider(anvil_bnb_chain_fork))
-    install_chain_middleware(web3)
-    web3.eth.set_gas_price_strategy(node_default_gas_price_strategy)
+    web3 = create_multi_provider_web3(anvil_bnb_chain_fork)
     return web3
 
 

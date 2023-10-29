@@ -99,13 +99,18 @@ def test_unsupported_base_asset(web3: Web3, deployment: EnzymeDeployment, weth: 
     # and print a Solidity stack trace of errors if any
     value_interpreter = deployment.contracts.value_interpreter
     raw_amount = 10**18
-    with pytest.raises(ContractLogicError) as e:
+    with pytest.raises((ContractLogicError, ValueError)) as e:
         result = value_interpreter.functions.calcCanonicalAssetValue(
             ZERO_ADDRESS,
             raw_amount,
             usdc.address,
         ).call()
-    assert e.value.args[0] == "execution reverted: __calcAssetValue: Unsupported _baseAsset"
+
+    if isinstance(e, ContractLogicError):
+        assert e.value.args[0] == "execution reverted: __calcAssetValue: Unsupported _baseAsset"
+    else:
+        # ETHEREUM JSON RPC LOVELY
+        assert e.value.args[0]["message"] == "execution reverted: __calcAssetValue: Unsupported _baseAsset"
 
 
 def test_manipulate_price(

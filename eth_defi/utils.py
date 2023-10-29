@@ -170,4 +170,7 @@ def get_url_domain(url: str) -> str:
     Some services e.g. infura use path as an API key.
     """
     parsed = urlparse(url)
-    return parsed.hostname
+    if parsed.port in (80, 443, None):
+        return parsed.hostname
+    else:
+        return f"{parsed.hostname}:{parsed.port}"

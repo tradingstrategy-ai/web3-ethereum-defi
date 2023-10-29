@@ -15,9 +15,14 @@ Currently we are tracking these events:
 import logging
 import csv
 import datetime
+import warnings
 from pathlib import Path
 
-from requests.adapters import HTTPAdapter
+from eth_defi.event_reader.filter import Filter
+from eth_defi.event_reader.lazy_timestamp_reader import extract_timestamps_json_rpc_lazy, TrackedLazyTimestampReader
+from eth_defi.event_reader.multithread import MultithreadEventReader
+from eth_defi.provider.multi_provider import create_multi_provider_web3, MultiProviderWeb3
+
 from tqdm.auto import tqdm
 from web3 import Web3
 
@@ -27,13 +32,11 @@ from eth_defi.event_reader.conversion import (
     convert_uint256_string_to_address,
     convert_uint256_string_to_int,
     decode_data,
-    convert_int256_bytes_to_int,
+    convert_int256_bytes_to_int, convert_jsonrpc_value_to_int,
 )
 from eth_defi.event_reader.logresult import LogContext
-from eth_defi.event_reader.reader import LogResult, read_events_concurrent
+from eth_defi.event_reader.reader import LogResult
 from eth_defi.event_reader.state import ScanState
-from eth_defi.event_reader.web3factory import TunedWeb3Factory
-from eth_defi.event_reader.web3worker import create_thread_pool_executor
 from eth_defi.token import TokenDetails, fetch_erc20_details
 from eth_defi.uniswap_v3.constants import UNISWAP_V3_FACTORY_CREATED_AT_BLOCK
 
@@ -49,6 +52,7 @@ class TokenCache(LogContext):
 
     def __init__(self):
         self.cache = {}
+        warnings.warn("Deprecated. eth_defi.token.fetch_erc_20_details has now its internal cache", DeprecationWarning, stacklevel=2)
 
     def get_token_info(self, web3: Web3, address: str) -> TokenDetails:
         if address not in self.cache:
@@ -60,14 +64,14 @@ def _decode_base(log: LogResult) -> dict:
     block_time = datetime.datetime.utcfromtimestamp(log["timestamp"])
 
     return {
-        "block_number": int(log["blockNumber"], 16),
-        "timestamp": block_time.isoformat(),
+        "block_number":  convert_jsonrpc_value_to_int(log["blockNumber"]),
+        "timestamp": datetime.datetime.utcfromtimestamp(log["timestamp"]),
         "tx_hash": log["transactionHash"],
-        "log_index": int(log["logIndex"], 16),
+        "log_index": convert_jsonrpc_value_to_int(log["logIndex"]),
     }
 
 
-def decode_pool_created(log: LogResult) -> dict:
+def decode_pool_created(web3: Web3, log: LogResult) -> dict:
     """Process a pool created event. The event signature is:
 
     .. code-block::
@@ -81,8 +85,6 @@ def decode_pool_created(log: LogResult) -> dict:
         );
     """
     # Do additional lookup for the token data
-    web3 = log["event"].web3
-    token_cache: TokenCache = log["context"]
     result = _decode_base(log)
 
     # Any indexed Solidity event parameter will be in topics data.
@@ -91,9 +93,10 @@ def decode_pool_created(log: LogResult) -> dict:
     token0_address = convert_uint256_string_to_address(token0)
     token1_address = convert_uint256_string_to_address(token1)
 
-    # Now enhanche data with token information
-    token0 = token_cache.get_token_info(web3, token0_address)
-    token1 = token_cache.get_token_info(web3, token1_address)
+    # Now enhanche data with the ERC-20 token information.
+    # Don't care about broken tokens.
+    token0 = fetch_erc20_details(web3, token0_address, raise_on_error=False)
+    token1 = fetch_erc20_details(web3, token1_address, raise_on_error=False)
 
     # Any non-indexed Solidity event parameter will be in the data section.
     # Chop data blob to byte32 entries
@@ -113,7 +116,7 @@ def decode_pool_created(log: LogResult) -> dict:
     return result
 
 
-def decode_swap(log: LogResult) -> dict:
+def decode_swap(web3: Web3, log: LogResult) -> dict:
     """Process swap event. The event signature is:
 
     .. code-block::
@@ -144,7 +147,7 @@ def decode_swap(log: LogResult) -> dict:
     return result
 
 
-def decode_mint(log: LogResult) -> dict:
+def decode_mint(web3: Web3, log: LogResult) -> dict:
     """Process mint event. The event signature is:
 
     .. code-block::
@@ -177,7 +180,7 @@ def decode_mint(log: LogResult) -> dict:
     return result
 
 
-def decode_burn(log: LogResult) -> dict:
+def decode_burn(web3: Web3, log: LogResult) -> dict:
     """Process burn event. The event signature is:
 
     .. code-block::
@@ -298,7 +301,9 @@ def fetch_events_to_csv(
     output_folder: str = "/tmp",
     max_workers: int = 16,
     log_info=print,
-):
+    max_blocks_once=2000,
+    max_threads=10,
+) -> MultiProviderWeb3:
     """Fetch all tracked Uniswap v3 events to CSV files for notebook analysis.
 
     Creates couple of CSV files with the event data:
@@ -331,22 +336,34 @@ def fetch_events_to_csv(
         You can increase your EVM node output a bit by making a lot of parallel requests,
         until you exhaust your nodes IO capacity. Experiement with different values
         and see how your node performs.
+
+    :param max_blocks_once:
+        How many blocks your JSON-RPC provider allows for eth_getLogs call
+
     :param log_info: Which function to use to output info messages about the progress
+
+    :return:
+        Our web3 instance we constructed for reading events
     """
-    token_cache = TokenCache()
-    http_adapter = HTTPAdapter(pool_connections=max_workers, pool_maxsize=max_workers)
-    web3_factory = TunedWeb3Factory(json_rpc_url, http_adapter)
-    web3 = web3_factory(token_cache)
-    executor = create_thread_pool_executor(web3_factory, token_cache, max_workers=max_workers)
+    web3 = create_multi_provider_web3(json_rpc_url)
+
     event_mapping = get_event_mapping(web3)
     contract_events = [event_data["contract_event"] for event_data in event_mapping.values()]
+
+    # Create a filter for any Uniswap v3 pool contract, all our events we are interested in
+    filter = Filter.create_filter(
+        address=None,
+        event_types=contract_events
+    )
 
     # Start scanning
     restored, restored_start_block = state.restore_state(start_block)
     original_block_range = end_block - start_block
 
     if restored:
-        log_info(f"Restored previous scan state, data until block {restored_start_block:,}, we are skipping {restored_start_block - start_block:,} blocks out of {original_block_range:,} total")
+        log_info(
+            f"Restored previous scan state, data until block {restored_start_block:,}, we are skipping {restored_start_block - start_block:,} blocks out of {original_block_range:,} total"
+        )
     else:
         log_info(
             f"No previous scan done, starting fresh from block {start_block:,}, total {original_block_range:,} blocks",
@@ -358,11 +375,16 @@ def fetch_events_to_csv(
     buffers = {}
 
     for event_name, mapping in event_mapping.items():
+
+        # Each event type gets its own CSV
         file_path = f"{output_folder}/uniswap-v3-{event_name.lower()}.csv"
+
         exists_already = Path(file_path).exists()
         file_handler = open(file_path, "a", encoding="utf-8")
         csv_writer = csv.DictWriter(file_handler, fieldnames=mapping["field_names"])
-        if not exists_already:
+        if not restored:
+            headers = ", ".join(mapping['field_names'])
+            log_info(f"Creating a new CSV file: {file_path}, with headers: {headers}")
             csv_writer.writeheader()
 
         # For each event, we have its own
@@ -372,12 +394,16 @@ def fetch_events_to_csv(
             "total": 0,
             "file_handler": file_handler,
             "csv_writer": csv_writer,
+            "file_path": file_path,
         }
 
-    log_info(f"Scanning block range {restored_start_block:,} - {end_block:,}")
+    log_info(f"Saving Uniswap v3 data for block range {restored_start_block:,} - {end_block:,}")
+
+    timestamp_reader = TrackedLazyTimestampReader()
+
+    # Wrap everything in a TQDM progress bar, notebook friendly version
     with tqdm(total=end_block - restored_start_block) as progress_bar:
-        #  1. update the progress bar
-        #  2. save any events in the buffer in to a file in one go
+
         def update_progress(
             current_block,
             start_block,
@@ -385,17 +411,20 @@ def fetch_events_to_csv(
             chunk_size: int,
             total_events: int,
             last_timestamp: int,
-            context: TokenCache,
+            context: LogContext,
         ):
+            # Update progress bar
             nonlocal buffers
+
+            header_count = timestamp_reader.get_count()
 
             if last_timestamp:
                 # Display progress with the date information
                 d = datetime.datetime.utcfromtimestamp(last_timestamp)
                 formatted_time = d.strftime("%Y-%m-%d")
-                progress_bar.set_description(f"Block: {current_block:,}, events: {total_events:,}, time:{formatted_time}")
+                progress_bar.set_description(f"Block: {current_block:,}, events: {total_events:,}, time:{formatted_time}, block headers: {header_count:,}")
             else:
-                progress_bar.set_description(f"Block: {current_block:,}, events: {total_events:,}")
+                progress_bar.set_description(f"Block: {current_block:,}, events: {total_events:,}, block headers: {header_count:,}")
 
             progress_bar.update(chunk_size)
 
@@ -414,27 +443,35 @@ def fetch_events_to_csv(
             # Sync the state of updated events
             state.save_state(current_block)
 
-        # Read specified events in block range
-        for log_result in read_events_concurrent(
-            executor,
+        # Create a multi-threaded Solidity event reader
+        # that has a callback to our progress bar notifier
+        reader = MultithreadEventReader(
+            json_rpc_url,
+            notify=update_progress,
+            max_blocks_once=max_blocks_once,
+            max_threads=max_threads,
+        )
+
+        # Stream events from the multi-threaded reader
+        for log_result in reader(
+            web3,
             restored_start_block,
             end_block,
-            events=contract_events,
-            notify=update_progress,
-            chunk_size=100,
-            context=token_cache,
+            filter=filter,
+            extract_timestamps=timestamp_reader.extract_timestamps_json_rpc_lazy,
         ):
             try:
-                # write to correct buffer
-                event_name = log_result["event"].event_name
-                buffer = buffers[event_name]["buffer"]
-                decode_function = event_mapping[event_name]["decode_function"]
+                event_name = log_result["event"].event_name  # Which event this is: Swap, Burn,...
+                buffer = buffers[event_name]["buffer"]  # Choose CSV buffer for this event
+                decode_function = event_mapping[event_name]["decode_function"]  # Each event needs its own decoder
 
-                buffer.append(decode_function(log_result))
+                buffer.append(decode_function(web3, log_result))
             except Exception as e:
                 raise RuntimeError(f"Could not decode {log_result}") from e
 
     # close files and print stats
     for event_name, buffer in buffers.items():
         buffer["file_handler"].close()
-        log_info(f"Wrote {buffer['total']} {event_name} events")
+        log_info(f"Wrote {buffer['total']} {event_name} events to {buffer['file_path']}")
+
+    return web3

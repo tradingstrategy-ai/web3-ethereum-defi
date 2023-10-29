@@ -6,7 +6,7 @@ from eth_tester.exceptions import TransactionFailed
 from web3 import Web3, EthereumTesterProvider
 
 from eth_defi.deploy import deploy_contract, get_registered_contract
-from eth_defi.token import create_token, fetch_erc20_details, TokenDetailError
+from eth_defi.token import create_token, fetch_erc20_details, TokenDetailError, TokenDetails, DEFAULT_TOKEN_CACHE, reset_default_token_cache
 
 
 @pytest.fixture
@@ -24,6 +24,10 @@ def eth_tester(tester_provider):
 @pytest.fixture
 def web3(tester_provider):
     """Set up a local unit testing blockchain."""
+
+    # This test does not work with token cache
+    reset_default_token_cache()
+
     # https://web3py.readthedocs.io/en/stable/examples.html#contract-unit-tests-in-python
     return Web3(tester_provider)
 
@@ -117,7 +121,7 @@ def test_fetch_token_details_broken_load(web3: Web3, deployer: str):
     """Get an error if trying to read malformed token."""
     malformed_token = deploy_contract(web3, "MalformedERC20.json", deployer)
     with pytest.raises(TokenDetailError):
-        fetch_erc20_details(web3, malformed_token.address)
+        fetch_erc20_details(web3, malformed_token.address, cache=None)
 
 
 def test_compare_token(web3: Web3, deployer: str):
@@ -130,3 +134,25 @@ def test_compare_token(web3: Web3, deployer: str):
     assert token_1 == token_1_again
     assert token_2 != token_1
     assert hash(token_1) == hash(token_1_again)
+
+
+def test_cache_erc_20_details(web3: Web3, deployer: str):
+    """Token details are cached."""
+
+    token = create_token(web3, deployer, "Hentai books token", "HENTAI", 100_000 * 10**18, 6)
+    fetch_erc20_details(web3, token.address)
+
+    cache_key = TokenDetails.generate_cache_key(web3.eth.chain_id, token.address)
+    assert cache_key in DEFAULT_TOKEN_CACHE
+
+
+def test_cache_reset_erc_20_details(web3: Web3, deployer: str):
+    """Token cache can be reset."""
+
+    token = create_token(web3, deployer, "Hentai books token", "HENTAI", 100_000 * 10**18, 6)
+    fetch_erc20_details(web3, token.address)
+    assert len(DEFAULT_TOKEN_CACHE) == 1
+    reset_default_token_cache()
+    assert len(DEFAULT_TOKEN_CACHE) == 0
+    fetch_erc20_details(web3, token.address)
+    assert len(DEFAULT_TOKEN_CACHE) == 1
