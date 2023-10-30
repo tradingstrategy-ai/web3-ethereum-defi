@@ -42,15 +42,35 @@ def open_short_position(
     collateral_token: Contract,
     borrow_token: Contract,
     pool_fee: int,
+    collateral_amount: int,
     borrow_amount: int,
+    wallet_address: str,
     min_collateral_amount_out: int = 0,
     exchange: Exchange = Exchange.UNISWAP_V3,
     interest_mode: AaveV3InterestRateMode = AaveV3InterestRateMode.VARIABLE,
+    do_supply: bool = True,
 ) -> ContractFunction:
     """
 
     NOTE: only single hop swap is supported at the moment
     """
+
+    call_transfer = one_delta_deployment.flash_aggregator.encodeABI(
+        fn_name="transferERC20In",
+        args=[
+            collateral_token.address,
+            collateral_amount,
+        ],
+    )
+
+    call_deposit = one_delta_deployment.flash_aggregator.encodeABI(
+        fn_name="deposit",
+        args=[
+            collateral_token.address,
+            wallet_address,
+        ],
+    )
+
     path = encode_path(
         path=[
             borrow_token.address,
@@ -62,11 +82,20 @@ def open_short_position(
         interest_mode=interest_mode,
     )
 
-    return one_delta_deployment.flash_aggregator.functions.flashSwapExactIn(
-        borrow_amount,
-        min_collateral_amount_out,
-        path,
+    call_swap = one_delta_deployment.flash_aggregator.encodeABI(
+        fn_name="flashSwapExactIn",
+        args=[
+            borrow_amount,
+            min_collateral_amount_out,
+            path,
+        ],
     )
+
+    calls = [call_transfer, call_deposit, call_swap]
+    if do_supply is False:
+        calls = [call_swap]
+
+    return one_delta_deployment.broker_proxy.functions.multicall(calls)
 
 
 def close_short_position(
@@ -74,9 +103,12 @@ def close_short_position(
     *,
     collateral_token: Contract,
     borrow_token: Contract,
+    atoken: Contract,
     pool_fee: int,
+    wallet_address: str,
     exchange: Exchange = Exchange.UNISWAP_V3,
     interest_mode: AaveV3InterestRateMode = AaveV3InterestRateMode.VARIABLE,
+    do_withdraw: bool = True,
 ) -> ContractFunction:
     """
 
@@ -93,7 +125,31 @@ def close_short_position(
         interest_mode=interest_mode,
     )
 
-    return one_delta_deployment.flash_aggregator.functions.flashSwapAllOut(
-        MAX_AMOUNT,
-        path,
+    call_swap = one_delta_deployment.flash_aggregator.encodeABI(
+        fn_name="flashSwapAllOut",
+        args=[
+            MAX_AMOUNT,
+            path,
+        ],
     )
+
+    call_transfer = one_delta_deployment.flash_aggregator.encodeABI(
+        fn_name="transferERC20AllIn",
+        args=[
+            atoken.address,
+        ],
+    )
+
+    call_withdraw = one_delta_deployment.flash_aggregator.encodeABI(
+        fn_name="withdraw",
+        args=[
+            collateral_token.address,
+            wallet_address,
+        ],
+    )
+
+    calls = [call_swap, call_transfer, call_withdraw]
+    if do_withdraw is False:
+        calls = [call_swap]
+
+    return one_delta_deployment.broker_proxy.functions.multicall(calls)

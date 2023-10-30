@@ -20,7 +20,7 @@ from web3 import HTTPProvider, Web3
 
 from eth_defi.aave_v3.constants import MAX_AMOUNT
 from eth_defi.aave_v3.deployment import fetch_deployment as fetch_aave_deployment
-from eth_defi.aave_v3.loan import supply
+from eth_defi.aave_v3.loan import supply, withdraw
 from eth_defi.chain import install_chain_middleware
 from eth_defi.gas import node_default_gas_price_strategy
 from eth_defi.hotwallet import HotWallet
@@ -216,6 +216,54 @@ def test_1delta_only_open_short_position(
 
     _print_current_balances(hot_wallet.address, usdc, weth, ausdc, vweth)
 
+    print("> Step 2: open short position")
+
+    usdc_supply_amount = 10_000 * 10**6
+    weth_borrow_amount = 1 * 10**18
+
+    swap_fn = open_short_position(
+        one_delta_deployment=one_delta_deployment,
+        collateral_token=usdc.contract,
+        borrow_token=weth.contract,
+        pool_fee=3000,
+        collateral_amount=usdc_supply_amount,
+        borrow_amount=weth_borrow_amount,
+        wallet_address=hot_wallet.address,
+    )
+    _execute_tx(web3, hot_wallet, swap_fn, 1_000_000)
+
+    assert usdc.contract.functions.balanceOf(hot_wallet.address).call() == pytest.approx(90_000 * 10**6)
+    assert ausdc.contract.functions.balanceOf(hot_wallet.address).call() > 11_000 * 10**6
+    assert vweth.contract.functions.balanceOf(hot_wallet.address).call() == pytest.approx(weth_borrow_amount)
+
+    print("\tOpen position done")
+
+    _print_current_balances(hot_wallet.address, usdc, weth, ausdc, vweth)
+
+
+def test_1delta_open_short_position_supply_separately(
+    web3,
+    hot_wallet,
+    large_usdc_holder,
+    one_delta_deployment,
+    aave_v3_deployment,
+    usdc,
+    ausdc,
+    weth,
+    vweth,
+):
+    print("> Step 1: approve tokens")
+    for fn in approve(
+        one_delta_deployment=one_delta_deployment,
+        collateral_token=usdc.contract,
+        borrow_token=weth.contract,
+        atoken=ausdc.contract,
+        vtoken=vweth.contract,
+    ):
+        _execute_tx(web3, hot_wallet, fn)
+
+    _print_current_balances(hot_wallet.address, usdc, weth, ausdc, vweth)
+
     print("> Step 2: supply USDC as collateral to Aave v3")
 
     usdc_supply_amount = 10_000 * 10**6
@@ -231,7 +279,7 @@ def test_1delta_only_open_short_position(
     _execute_tx(web3, hot_wallet, supply_fn)
 
     # verify aUSDC token amount in hot wallet
-    assert ausdc.contract.functions.balanceOf(hot_wallet.address).call() == usdc_supply_amount
+    assert ausdc.contract.functions.balanceOf(hot_wallet.address).call() == pytest.approx(usdc_supply_amount)
     print("\tSupply done")
 
     _print_current_balances(hot_wallet.address, usdc, weth, ausdc, vweth)
@@ -245,9 +293,15 @@ def test_1delta_only_open_short_position(
         collateral_token=usdc.contract,
         borrow_token=weth.contract,
         pool_fee=3000,
+        collateral_amount=usdc_supply_amount,
         borrow_amount=weth_borrow_amount,
+        wallet_address=hot_wallet.address,
+        do_supply=False,
     )
     _execute_tx(web3, hot_wallet, swap_fn, 800_000)
+
+    assert usdc.contract.functions.balanceOf(hot_wallet.address).call() == pytest.approx(90_000 * 10**6)
+    assert ausdc.contract.functions.balanceOf(hot_wallet.address).call() > 11_000 * 10**6
     assert vweth.contract.functions.balanceOf(hot_wallet.address).call() == weth_borrow_amount
 
     print("\tOpen position done")
@@ -256,6 +310,80 @@ def test_1delta_only_open_short_position(
 
 
 def test_1delta_open_and_close_short_position(
+    web3,
+    hot_wallet,
+    large_usdc_holder,
+    one_delta_deployment,
+    aave_v3_deployment,
+    usdc,
+    ausdc,
+    weth,
+    vweth,
+):
+    print("> Step 1: approve tokens")
+    for fn in approve(
+        one_delta_deployment=one_delta_deployment,
+        collateral_token=usdc.contract,
+        borrow_token=weth.contract,
+        atoken=ausdc.contract,
+        vtoken=vweth.contract,
+    ):
+        _execute_tx(web3, hot_wallet, fn)
+
+    _print_current_balances(hot_wallet.address, usdc, weth, ausdc, vweth)
+
+    print("> Step 2: open short position")
+
+    usdc_supply_amount = 10_000 * 10**6
+    weth_borrow_amount = 1 * 10**18
+
+    swap_fn = open_short_position(
+        one_delta_deployment=one_delta_deployment,
+        collateral_token=usdc.contract,
+        borrow_token=weth.contract,
+        pool_fee=3000,
+        collateral_amount=usdc_supply_amount,
+        borrow_amount=weth_borrow_amount,
+        wallet_address=hot_wallet.address,
+    )
+    _execute_tx(web3, hot_wallet, swap_fn, 1_000_000)
+
+    assert vweth.contract.functions.balanceOf(hot_wallet.address).call() == pytest.approx(weth_borrow_amount)
+    # let's hope eth doesn't dip below 100$ anytime soon
+    assert ausdc.contract.functions.balanceOf(hot_wallet.address).call() > usdc_supply_amount + 100 * 10**6
+
+    print("\tOpen position done")
+
+    _print_current_balances(hot_wallet.address, usdc, weth, ausdc, vweth)
+
+    print("> Step 4: close short position")
+
+    weth_borrow_amount = 1 * 10**18
+
+    swap_fn = close_short_position(
+        one_delta_deployment=one_delta_deployment,
+        collateral_token=usdc.contract,
+        borrow_token=weth.contract,
+        atoken=ausdc.contract,
+        pool_fee=3000,
+        wallet_address=hot_wallet.address,
+    )
+    _execute_tx(web3, hot_wallet, swap_fn, 1_000_000)
+
+    assert vweth.contract.functions.balanceOf(hot_wallet.address).call() == 0
+    assert ausdc.contract.functions.balanceOf(hot_wallet.address).call() == 0
+
+    # the short position is closed without few seconds so there is almost 0 interest accrued
+    # and it costs 2 swaps to open and close the position (0.3% for each swap), so we end
+    # up with slightly less USDC than we started with
+    assert 90_000 * 10**6 < usdc.contract.functions.balanceOf(hot_wallet.address).call() < 100_000 * 10**6
+
+    print("\tClose position done")
+
+    _print_current_balances(hot_wallet.address, usdc, weth, ausdc, vweth)
+
+
+def test_1delta_open_and_close_short_position_separately(
     web3,
     hot_wallet,
     large_usdc_holder,
@@ -307,7 +435,10 @@ def test_1delta_open_and_close_short_position(
         collateral_token=usdc.contract,
         borrow_token=weth.contract,
         pool_fee=3000,
+        collateral_amount=usdc_supply_amount,
         borrow_amount=weth_borrow_amount,
+        wallet_address=hot_wallet.address,
+        do_supply=False,
     )
     _execute_tx(web3, hot_wallet, swap_fn, 600_000)
 
@@ -327,7 +458,10 @@ def test_1delta_open_and_close_short_position(
         one_delta_deployment=one_delta_deployment,
         collateral_token=usdc.contract,
         borrow_token=weth.contract,
+        atoken=ausdc.contract,
         pool_fee=3000,
+        wallet_address=hot_wallet.address,
+        do_withdraw=False,
     )
     _execute_tx(web3, hot_wallet, swap_fn, 600_000)
 
@@ -339,6 +473,25 @@ def test_1delta_open_and_close_short_position(
     assert ausdc.contract.functions.balanceOf(hot_wallet.address).call() < usdc_supply_amount
 
     print("\tClose position done")
+
+    _print_current_balances(hot_wallet.address, usdc, weth, ausdc, vweth)
+
+    print("> Step 4: Withdraw")
+
+    withdraw_fn = withdraw(
+        aave_v3_deployment=aave_v3_deployment,
+        token=usdc.contract,
+        amount=MAX_AMOUNT,
+        wallet_address=hot_wallet.address,
+    )
+
+    _execute_tx(web3, hot_wallet, withdraw_fn)
+
+    # all aUSDC is withdrawn back to hot wallet as USDC
+    assert ausdc.contract.functions.balanceOf(hot_wallet.address).call() == 0
+    assert 90_000 * 10**6 < usdc.contract.functions.balanceOf(hot_wallet.address).call() < 100_000 * 10**6
+
+    print("\tWithdraw done")
 
     _print_current_balances(hot_wallet.address, usdc, weth, ausdc, vweth)
 
@@ -377,43 +530,26 @@ def test_1delta_open_and_close_short_positions_of_2_assets(
 
     _print_current_balances(hot_wallet.address, usdc, weth, ausdc, vweth, wmatic, vwmatic)
 
-    print("> Step 2: supply USDC as collateral to Aave v3")
+    print("> Step 2.1: open short WETH position")
 
     usdc_supply_amount = 10_000 * 10**6
-
-    # supply USDC to Aave
-    approve_fn, supply_fn = supply(
-        aave_v3_deployment=aave_v3_deployment,
-        token=usdc.contract,
-        amount=usdc_supply_amount,
-        wallet_address=hot_wallet.address,
-    )
-
-    _execute_tx(web3, hot_wallet, supply_fn)
-
-    # verify aUSDC token amount in hot wallet
-    assert ausdc.contract.functions.balanceOf(hot_wallet.address).call() == usdc_supply_amount
-    print("\tSupply done")
-
-    _print_current_balances(hot_wallet.address, usdc, weth, ausdc, vweth, wmatic, vwmatic)
-
-    print("> Step 3.1: open short WETH position")
-
     weth_borrow_amount = 1 * 10**18
     swap_fn = open_short_position(
         one_delta_deployment=one_delta_deployment,
         collateral_token=usdc.contract,
         borrow_token=weth.contract,
         pool_fee=3000,
+        collateral_amount=usdc_supply_amount,
         borrow_amount=weth_borrow_amount,
+        wallet_address=hot_wallet.address,
     )
-    _execute_tx(web3, hot_wallet, swap_fn, 800_000)
+    _execute_tx(web3, hot_wallet, swap_fn, 1_000_000)
 
     assert vweth.contract.functions.balanceOf(hot_wallet.address).call() == pytest.approx(weth_borrow_amount)
     # let's hope eth doesn't dip below 100$ anytime soon
     assert ausdc.contract.functions.balanceOf(hot_wallet.address).call() > usdc_supply_amount + 100 * 10**6
 
-    print("> Step 3.2: open short WMATIC position")
+    print("> Step 2.2: open short WMATIC position")
 
     wmatic_borrow_amount = 1000 * 10**18
     swap_fn = open_short_position(
@@ -421,9 +557,11 @@ def test_1delta_open_and_close_short_positions_of_2_assets(
         collateral_token=usdc.contract,
         borrow_token=wmatic.contract,
         pool_fee=3000,
+        collateral_amount=usdc_supply_amount,
         borrow_amount=wmatic_borrow_amount,
+        wallet_address=hot_wallet.address,
     )
-    _execute_tx(web3, hot_wallet, swap_fn, 800_000)
+    _execute_tx(web3, hot_wallet, swap_fn, 1_000_000)
 
     assert vwmatic.contract.functions.balanceOf(hot_wallet.address).call() == pytest.approx(wmatic_borrow_amount)
     # let's hope eth doesn't dip below 100$ anytime soon
@@ -433,36 +571,41 @@ def test_1delta_open_and_close_short_positions_of_2_assets(
 
     _print_current_balances(hot_wallet.address, usdc, weth, ausdc, vweth, wmatic, vwmatic)
 
-    print("> Step 4.1: close short WETH position")
+    print("> Step 3.1: close short WETH position")
 
     swap_fn = close_short_position(
         one_delta_deployment=one_delta_deployment,
         collateral_token=usdc.contract,
         borrow_token=weth.contract,
+        atoken=ausdc.contract,
         pool_fee=3000,
+        wallet_address=hot_wallet.address,
+        do_withdraw=False,
     )
-    _execute_tx(web3, hot_wallet, swap_fn, 800_000)
+    _execute_tx(web3, hot_wallet, swap_fn, 1_000_000)
 
     assert vweth.contract.functions.balanceOf(hot_wallet.address).call() == 0
 
-    _print_current_balances(hot_wallet.address, usdc, weth, ausdc, vweth, wmatic, vwmatic)
-
-    print("> Step 4.1: close short WMATIC position")
+    print("> Step 3.2: close short WMATIC position")
 
     swap_fn = close_short_position(
         one_delta_deployment=one_delta_deployment,
         collateral_token=usdc.contract,
         borrow_token=wmatic.contract,
+        atoken=ausdc.contract,
         pool_fee=3000,
+        wallet_address=hot_wallet.address,
+        do_withdraw=False,
     )
-    _execute_tx(web3, hot_wallet, swap_fn, 800_000)
+    _execute_tx(web3, hot_wallet, swap_fn, 1_000_000)
 
     assert vwmatic.contract.functions.balanceOf(hot_wallet.address).call() == 0
-    _print_current_balances(hot_wallet.address, usdc, weth, ausdc, vweth, wmatic, vwmatic)
 
     # the short position is closed without few seconds so there is almost 0 interest accrued
     # and it costs 2 swaps to open and close the position (0.3% for each swap), so we end
     # up with slightly less USDC than we started with
-    assert ausdc.contract.functions.balanceOf(hot_wallet.address).call() < usdc_supply_amount
+    assert ausdc.contract.functions.balanceOf(hot_wallet.address).call() < usdc_supply_amount * 2
 
     print("\tClose position done")
+
+    _print_current_balances(hot_wallet.address, usdc, weth, ausdc, vweth, wmatic, vwmatic)
