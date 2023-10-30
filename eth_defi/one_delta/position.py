@@ -15,13 +15,21 @@ def approve(
     atoken: Contract,
     vtoken: Contract,
 ) -> list[ContractFunction]:
+    """Approve all the tokens needed for the position, this function is only
+    suitable for testing since it approves unlimited amount of tokens.
+
+    :param one_delta_deployment: 1delta deployment
+    :param collateral_token: collateral token contract proxy
+    :param borrow_token: borrow token contract proxy
+    :param atoken: aToken contract proxy
+    :param vtoken: vToken contract proxy
+    """
     trader = one_delta_deployment.flash_aggregator
     proxy = one_delta_deployment.broker_proxy
     aave_v3_pool = one_delta_deployment.aave_v3.pool
 
     approval_functions = []
 
-    # TODO: double check if we need to approve everything here
     for token in [
         collateral_token,
         borrow_token,
@@ -50,9 +58,21 @@ def open_short_position(
     interest_mode: AaveV3InterestRateMode = AaveV3InterestRateMode.VARIABLE,
     do_supply: bool = True,
 ) -> ContractFunction:
-    """
+    """Supply collateral to Aave and open a short position using flash swap.
 
-    NOTE: only single hop swap is supported at the moment
+    NOTE: only single-hop swap is supported at the moment
+
+    :param one_delta_deployment: 1delta deployment
+    :param collateral_token: collateral token contract proxy
+    :param borrow_token: borrow token contract proxy
+    :param pool_fee: raw fee of the pool which is used for the swap
+    :param collateral_amount: amount of collateral to be supplied
+    :param borrow_amount: amount of borrow token to be borrowed
+    :param wallet_address: wallet address of the user
+    :param min_collateral_amount_out: minimum amount of collateral to be received
+    :param exchange: exchange to be used for the swap
+    :param interest_mode: interest mode, variable or stable
+    :param do_supply: default to True, if False, only flash swap will be executed
     """
 
     call_transfer = one_delta_deployment.flash_aggregator.encodeABI(
@@ -110,9 +130,23 @@ def close_short_position(
     interest_mode: AaveV3InterestRateMode = AaveV3InterestRateMode.VARIABLE,
     do_withdraw: bool = True,
 ) -> ContractFunction:
-    """
+    """Close a short position using flash swap then withdraw collateral from Aave.
 
-    NOTE: only single hop swap is supported at the moment
+    NOTE:
+    - only single-hop swap is supported at the moment
+    - withdrawal doesn't work if there are more than 1 opened positions from this wallet
+
+    :param one_delta_deployment: 1delta deployment
+    :param collateral_token: collateral token contract proxy
+    :param borrow_token: borrow token contract proxy
+    :param atoken: aToken contract proxy
+    :param pool_fee: raw fee of the pool which is used for the swap
+    :param collateral_amount: amount of collateral to be supplied
+    :param borrow_amount: amount of borrow token to be borrowed
+    :param wallet_address: wallet address of the user
+    :param exchange: exchange to be used for the swap
+    :param interest_mode: interest mode, variable or stable
+    :param do_withdraw: default to True, if False, only flash swap will be executed
     """
     path = encode_path(
         path=[
