@@ -7,15 +7,11 @@ import flaky
 import pytest
 from eth_account import Account
 from eth_account.signers.local import LocalAccount
-from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_typing import HexAddress, HexStr
-from web3 import HTTPProvider, Web3
 
 from eth_defi.aave_v3.constants import MAX_AMOUNT
 from eth_defi.aave_v3.deployment import fetch_deployment as fetch_aave_deployment
 from eth_defi.aave_v3.loan import supply, withdraw
-from eth_defi.chain import install_chain_middleware
-from eth_defi.gas import node_default_gas_price_strategy
 from eth_defi.hotwallet import HotWallet
 from eth_defi.one_delta.deployment import OneDeltaDeployment
 from eth_defi.one_delta.deployment import fetch_deployment as fetch_1delta_deployment
@@ -24,7 +20,8 @@ from eth_defi.one_delta.position import (
     close_short_position,
     open_short_position,
 )
-from eth_defi.provider.anvil import fork_network_anvil
+from eth_defi.provider.anvil import fork_network_anvil, mine
+from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.token import fetch_erc20_details
 from eth_defi.trace import assert_transaction_success_with_explanation
 
@@ -226,12 +223,23 @@ def test_1delta_only_open_short_position(
     _execute_tx(web3, hot_wallet, swap_fn, 1_000_000)
 
     assert usdc.contract.functions.balanceOf(hot_wallet.address).call() == pytest.approx(90_000 * 10**6)
-    assert ausdc.contract.functions.balanceOf(hot_wallet.address).call() > 11_000 * 10**6
-    assert vweth.contract.functions.balanceOf(hot_wallet.address).call() == pytest.approx(weth_borrow_amount)
+
+    current_ausdc_balance = ausdc.contract.functions.balanceOf(hot_wallet.address).call()
+    current_vweth_balance = vweth.contract.functions.balanceOf(hot_wallet.address).call()
+    assert current_ausdc_balance > 11_000 * 10**6
+    assert current_vweth_balance == pytest.approx(weth_borrow_amount)
 
     logger.info("\tOpen position done")
 
     _print_current_balances(hot_wallet.address, usdc, weth, ausdc, vweth)
+
+    # mine some blocks
+    for i in range(1, 50):
+        mine(web3)
+
+    # check aToken and vToken balances should grow
+    assert ausdc.contract.functions.balanceOf(hot_wallet.address).call() > current_ausdc_balance
+    assert vweth.contract.functions.balanceOf(hot_wallet.address).call() > current_vweth_balance
 
 
 def test_1delta_open_short_position_supply_separately(
