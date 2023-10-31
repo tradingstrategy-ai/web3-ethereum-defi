@@ -14,15 +14,22 @@ def approve(
     borrow_token: Contract,
     atoken: Contract,
     vtoken: Contract,
+    collateral_amount: int = MAX_AMOUNT,
+    borrow_amount: int = MAX_AMOUNT,
+    atoken_amount: int = MAX_AMOUNT,
+    vtoken_amount: int = MAX_AMOUNT,
 ) -> list[ContractFunction]:
-    """Approve all the tokens needed for the position, this function is only
-    suitable for testing since it approves unlimited amount of tokens.
+    """Approve all the tokens needed for the position.
 
     :param one_delta_deployment: 1delta deployment
     :param collateral_token: collateral token contract proxy
     :param borrow_token: borrow token contract proxy
     :param atoken: aToken contract proxy
     :param vtoken: vToken contract proxy
+    :param collateral_amount: amount of collateral to be approved
+    :param borrow_amount: amount of borrow token to be approved
+    :param atoken_amount: amount of aToken to be approved
+    :param vtoken_amount: amount of vToken to be approved
     """
     trader = one_delta_deployment.flash_aggregator
     proxy = one_delta_deployment.broker_proxy
@@ -30,16 +37,16 @@ def approve(
 
     approval_functions = []
 
-    for token in [
-        collateral_token,
-        borrow_token,
-        atoken,
-    ]:
-        approval_functions.append(token.functions.approve(trader.address, MAX_AMOUNT))
-        approval_functions.append(token.functions.approve(aave_v3_pool.address, MAX_AMOUNT))
+    for token, amount in {
+        collateral_token: collateral_amount,
+        borrow_token: borrow_amount,
+        atoken: atoken_amount,
+    }.items():
+        approval_functions.append(token.functions.approve(trader.address, amount))
+        approval_functions.append(token.functions.approve(aave_v3_pool.address, amount))
 
     # approve delegate the vToken
-    approval_functions.append(vtoken.functions.approveDelegation(proxy.address, MAX_AMOUNT))
+    approval_functions.append(vtoken.functions.approveDelegation(proxy.address, vtoken_amount))
 
     return approval_functions
 
