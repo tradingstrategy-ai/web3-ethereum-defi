@@ -26,6 +26,7 @@ API documentation
    event_reader/index
    price_oracle/index
    data_research/index
+   one_delta/index
 
 Indices and tables
 ------------------
