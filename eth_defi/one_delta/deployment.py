@@ -1,4 +1,5 @@
-"""Aave v3 deployments."""
+"""1delta deployments."""
+
 from dataclasses import dataclass
 
 from eth_typing import HexAddress
@@ -6,7 +7,7 @@ from web3 import Web3
 from web3.contract import Contract
 
 from eth_defi.aave_v3.deployment import AaveV3Deployment
-from eth_defi.abi import get_abi_by_filename, get_contract, get_deployed_contract
+from eth_defi.abi import get_deployed_contract
 
 
 @dataclass(frozen=True)
@@ -41,7 +42,6 @@ def fetch_deployment(
         web3,
         "1delta/FlashAggregator.json",
         flash_aggregator_address,
-        # register_for_tracing=True,
     )
     broker_proxy = get_deployed_contract(
         web3,

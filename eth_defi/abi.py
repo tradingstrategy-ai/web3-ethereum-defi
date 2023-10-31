@@ -63,7 +63,6 @@ def get_contract(
     web3: Web3,
     fname: str | Path,
     bytecode: Optional[str] = None,
-    clean_bytecode_links: bool = False,
 ) -> Type[Contract]:
     """Create a Contract proxy class from our bundled contracts or filesystem..
 
@@ -111,10 +110,6 @@ def get_contract(
             # Sol 0.6 / legacy
             # Bytecode hex is directly in the key.
             pass
-
-        if clean_bytecode_links:
-            # bytecode = re.sub(r"__\$(.*?)\$__", ZERO_ADDRESS_STR[2:], bytecode, flags=re.DOTALL)
-            bytecode = re.sub(r"__\$(.*?)\$__", "", bytecode)
 
     Contract = web3.eth.contract(abi=abi, bytecode=bytecode)
     return Contract
@@ -177,7 +172,6 @@ def get_deployed_contract(
     fname: str,
     address: Union[HexAddress, str],
     register_for_tracing: bool = True,
-    clean_bytecode_links: bool = False,
 ) -> Contract:
     """Get a Contract proxy objec for a contract deployed at a specific address.
 
@@ -202,7 +196,7 @@ def get_deployed_contract(
 
     address = Web3.to_checksum_address(address)
 
-    Contract = get_contract(web3, fname, clean_bytecode_links=clean_bytecode_links)
+    Contract = get_contract(web3, fname)
     contract = Contract(address)
 
     if register_for_tracing:

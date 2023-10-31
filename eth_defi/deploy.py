@@ -31,7 +31,6 @@ def deploy_contract(
     deployer: str,
     *constructor_args,
     register_for_tracing=True,
-    proxy_address: HexAddress = None,
 ) -> Contract:
     """Deploys a new contract from ABI file.
 
@@ -84,10 +83,7 @@ def deploy_contract(
     if tx_receipt["status"] != 1:
         raise ContractDeploymentFailed(tx_hash, f"Contract {contract_name} deployment failed with args {constructor_args}, tx hash is {tx_hash.hex()}")
 
-    if proxy_address:
-        instance = Contract(address=proxy_address)
-    else:
-        instance = Contract(address=tx_receipt["contractAddress"])
+    instance = Contract(address=tx_receipt["contractAddress"])
 
     if register_for_tracing:
         instance.name = contract_name

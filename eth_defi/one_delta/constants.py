@@ -1,3 +1,5 @@
+"""1delta constants."""
+
 from enum import Enum, IntEnum
 
 

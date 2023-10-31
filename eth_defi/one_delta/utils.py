@@ -1,3 +1,5 @@
+"""1delta helper functions."""
+
 from eth_typing import HexAddress
 
 from eth_defi.aave_v3.constants import AaveV3InterestRateMode
@@ -26,6 +28,7 @@ def encode_path(
     :param exchanges: List of exchanges to use for each hop
     :param interest_mode: Aave v3 interest rate mode to use
     :param trade_type: Trade type, e.g: exact input, exact output
+    :return: Encoded bytes to be used with 1delta flash aggregator
     """
     assert len(fees) == len(path) - 1
     assert len(exchanges) == len(fees)

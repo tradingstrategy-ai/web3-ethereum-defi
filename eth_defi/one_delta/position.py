@@ -1,4 +1,5 @@
 """1delta integration position handlers"""
+
 from web3.contract.contract import Contract, ContractFunction
 
 from eth_defi.aave_v3.constants import MAX_AMOUNT, AaveV3InterestRateMode
@@ -30,6 +31,7 @@ def approve(
     :param borrow_amount: amount of borrow token to be approved
     :param atoken_amount: amount of aToken to be approved
     :param vtoken_amount: amount of vToken to be approved
+    :return: list of approval functions
     """
     trader = one_delta_deployment.flash_aggregator
     proxy = one_delta_deployment.broker_proxy
@@ -80,6 +82,7 @@ def open_short_position(
     :param exchange: exchange to be used for the swap
     :param interest_mode: interest mode, variable or stable
     :param do_supply: default to True, if False, only flash swap will be executed
+    :return: multicall contract function to supply collateral and open the short position
     """
 
     call_transfer = one_delta_deployment.flash_aggregator.encodeABI(
@@ -141,7 +144,8 @@ def close_short_position(
 
     NOTE:
     - only single-hop swap is supported at the moment
-    - withdrawal doesn't work if there are more than 1 opened positions from this wallet
+    - withdrawal doesn't work correctly if there are more than 1 opened positions
+        from this wallet, so `do_withdraw` should be set to False in that case
 
     :param one_delta_deployment: 1delta deployment
     :param collateral_token: collateral token contract proxy
@@ -154,6 +158,7 @@ def close_short_position(
     :param exchange: exchange to be used for the swap
     :param interest_mode: interest mode, variable or stable
     :param do_withdraw: default to True, if False, only flash swap will be executed
+    :return: multicall contract function to close the short position then withdraw collateral
     """
     path = encode_path(
         path=[
