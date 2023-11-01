@@ -40,6 +40,9 @@ def fetch_deployment(
 ) -> OneDeltaDeployment:
     """Construct 1delta deployment based on on-chain data.
 
+    - We need associated Aave instance to be able to construct transactions
+      to open and close positions
+
     Polygon forked mainnet example:
 
     .. code-block:: python
