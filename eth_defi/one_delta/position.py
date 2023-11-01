@@ -1,4 +1,7 @@
-"""1delta integration position handlers"""
+"""1delta integration position handlers.
+
+- Open and close short positions using 1delta protocol
+"""
 
 from web3.contract.contract import Contract, ContractFunction
 

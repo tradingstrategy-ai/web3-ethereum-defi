@@ -7,6 +7,14 @@ Functionality includes
 
 - Opening and closing short positions, utilizing Aave v3 lending pool.
 
+Getting started
+
+- See :py:func:`eth_defi.one_delta.deployment.fetch_deployment` to get started
+
+- See :py:func:`eth_defi.one_delta.position.open_short_position` how to open your first leveraged trading position
+
+- See unit tests for more examples
+
 .. autosummary::
    :toctree: _autosummary_1delta
    :recursive:
