@@ -15,6 +15,8 @@ class OneDeltaDeployment:
     """Describe 1delta deployment.
 
     This contains all smart contracts needed to interact with 1delta procotol.
+
+    See :py:func:`fetch_deployment`.
     """
 
     #: The Web3 instance for which all the contracts here are bound
@@ -35,7 +37,7 @@ def fetch_deployment(
     aave_v3: AaveV3Deployment,
     flash_aggregator_address: HexAddress | str,
     broker_proxy_address: HexAddress | str,
-) -> AaveV3Deployment:
+) -> OneDeltaDeployment:
     """Construct 1delta deployment based on on-chain data.
 
     Polygon forked mainnet example:
