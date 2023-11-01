@@ -1,0 +1,10 @@
+{
+  "_format": "hh-sol-artifact-1",
+  "contractName": "SafeERC20",
+  "sourceName": "contracts/1delta/proxy/utils/SafeERC20.sol",
+  "abi": [],
+  "bytecode": "0x60808060405234601757603a9081601d823930815050f35b600080fdfe600080fdfea264697066735822122054de760977252090e6f6722bda4ad82db008b238f8b5e75d10b67845c9f17afc64736f6c63430008150033",
+  "deployedBytecode": "0x600080fdfea264697066735822122054de760977252090e6f6722bda4ad82db008b238f8b5e75d10b67845c9f17afc64736f6c63430008150033",
+  "linkReferences": {},
+  "deployedLinkReferences": {}
+}

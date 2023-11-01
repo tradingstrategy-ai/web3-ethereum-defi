@@ -1,0 +1,10 @@
+{
+  "_format": "hh-sol-artifact-1",
+  "contractName": "TransferHelper",
+  "sourceName": "contracts/1delta/dex-tools/uniswap/libraries/TransferHelper.sol",
+  "abi": [],
+  "bytecode": "0x60808060405234601757603a9081601d823930815050f35b600080fdfe600080fdfea2646970667358221220f4283bc9e83d06dbbd75f5e2884f8824c7e99b02d2285f4032dfd2da70100b1264736f6c63430008150033",
+  "deployedBytecode": "0x600080fdfea2646970667358221220f4283bc9e83d06dbbd75f5e2884f8824c7e99b02d2285f4032dfd2da70100b1264736f6c63430008150033",
+  "linkReferences": {},
+  "deployedLinkReferences": {}
+}

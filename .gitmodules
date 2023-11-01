@@ -22,3 +22,6 @@
 [submodule "contracts/centre"]
 	path = contracts/centre
 	url = https://github.com/centrehq/centre-tokens.git
+[submodule "contracts/1delta"]
+	path = contracts/1delta
+	url = https://github.com/1delta-DAO/contracts-delegation.git

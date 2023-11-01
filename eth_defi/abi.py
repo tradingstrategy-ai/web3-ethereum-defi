@@ -171,7 +171,7 @@ def get_deployed_contract(
     web3: Web3,
     fname: str,
     address: Union[HexAddress, str],
-    register_for_tracing=True,
+    register_for_tracing: bool = True,
 ) -> Contract:
     """Get a Contract proxy objec for a contract deployed at a specific address.
 

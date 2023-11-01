@@ -1,0 +1,10 @@
+{
+  "_format": "hh-sol-artifact-1",
+  "contractName": "Path",
+  "sourceName": "contracts/1delta/libraries/Path.sol",
+  "abi": [],
+  "bytecode": "0x60808060405234601757603a9081601d823930815050f35b600080fdfe600080fdfea264697066735822122092d46538dae841cc37b3b2287c4c1a527dcde5dce10f7086dc1f633d89a9b0a964736f6c63430008150033",
+  "deployedBytecode": "0x600080fdfea264697066735822122092d46538dae841cc37b3b2287c4c1a527dcde5dce10f7086dc1f633d89a9b0a964736f6c63430008150033",
+  "linkReferences": {},
+  "deployedLinkReferences": {}
+}

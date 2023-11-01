@@ -1,0 +1,16 @@
+{
+  "_format": "hh-sol-artifact-1",
+  "contractName": "LibNativeOrder",
+  "sourceName": "contracts/1delta/modules/limit/libraries/LibNativeOrder.sol",
+  "abi": [
+    {
+      "inputs": [],
+      "name": "refundFailed",
+      "type": "error"
+    }
+  ],
+  "bytecode": "0x60808060405234601757603a9081601d823930815050f35b600080fdfe600080fdfea26469706673582212206d0e12073f69fcf08bbe25c9d9e0692d7f09016e90f194cc7abbf69e1379385f64736f6c63430008150033",
+  "deployedBytecode": "0x600080fdfea26469706673582212206d0e12073f69fcf08bbe25c9d9e0692d7f09016e90f194cc7abbf69e1379385f64736f6c63430008150033",
+  "linkReferences": {},
+  "deployedLinkReferences": {}
+}

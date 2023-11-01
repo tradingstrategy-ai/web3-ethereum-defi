@@ -3,14 +3,13 @@
 `See Github for available contracts <https://github.com/tradingstrategy-ai/web3-ethereum-defi/tree/master/eth_defi/abi>`_.
 """
 
-from typing import Union, TypeAlias, Dict
+from typing import Dict, TypeAlias, Union
 
 from eth_typing import HexAddress
 from web3 import Web3
 from web3.contract import Contract
 
 from eth_defi.abi import get_contract
-
 
 #: Manage internal registry of deployed contracts
 #:
@@ -84,9 +83,7 @@ def deploy_contract(
     if tx_receipt["status"] != 1:
         raise ContractDeploymentFailed(tx_hash, f"Contract {contract_name} deployment failed with args {constructor_args}, tx hash is {tx_hash.hex()}")
 
-    instance = Contract(
-        address=tx_receipt["contractAddress"],
-    )
+    instance = Contract(address=tx_receipt["contractAddress"])
 
     if register_for_tracing:
         instance.name = contract_name

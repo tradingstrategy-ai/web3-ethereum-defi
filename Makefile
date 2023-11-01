@@ -82,6 +82,13 @@ centre:
 	@mkdir -p eth_defi/abi/centre
 	@find contracts/centre/build -iname "*.json" -exec cp {} eth_defi/abi/centre \;
 
+# Compile and copy 1delta contracts
+1delta:
+	@cp .1delta.env.example contracts/1delta/.env
+	@(cd contracts/1delta && yarn install)
+	@mkdir -p eth_defi/abi/1delta
+	@find contracts/1delta/artifacts/contracts/1delta -iname "*.json" -not -iname "*.dbg.json" -exec cp {} eth_defi/abi/1delta \;
+
 # TODO: Not sure if this step works anymore
 clean:
 	@rm -rf contracts/*
@@ -94,7 +101,7 @@ clean-abi:
 # Compile all contracts we are using
 #
 # Move ABI files to within a Python package for PyPi distribution
-compile-projects-and-prepare-abi: clean-abi sushi in-house copy-uniswapv3-abi aavev3 enzyme dhedge centre
+compile-projects-and-prepare-abi: clean-abi sushi in-house copy-uniswapv3-abi aavev3 enzyme dhedge centre 1delta
 
 all: clean-docs compile-projects-and-prepare-abi build-docs
 

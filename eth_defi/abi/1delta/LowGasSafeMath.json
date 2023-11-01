@@ -1,0 +1,10 @@
+{
+  "_format": "hh-sol-artifact-1",
+  "contractName": "LowGasSafeMath",
+  "sourceName": "contracts/1delta/dex-tools/uniswap/core/LowGasSafeMath.sol",
+  "abi": [],
+  "bytecode": "0x60808060405234601757603a9081601d823930815050f35b600080fdfe600080fdfea26469706673582212208a49a96d149f68d732e9f5fd039ae6d5d6566d9f47c5973069ae17be54a6d80b64736f6c63430008150033",
+  "deployedBytecode": "0x600080fdfea26469706673582212208a49a96d149f68d732e9f5fd039ae6d5d6566d9f47c5973069ae17be54a6d80b64736f6c63430008150033",
+  "linkReferences": {},
+  "deployedLinkReferences": {}
+}

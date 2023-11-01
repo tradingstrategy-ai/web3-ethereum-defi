@@ -1,0 +1,24 @@
+{
+  "_format": "hh-sol-artifact-1",
+  "contractName": "CometMarginTraderInit",
+  "sourceName": "contracts/1delta/initializers/CometMarginTraderInit.sol",
+  "abi": [
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "_comet",
+          "type": "address"
+        }
+      ],
+      "name": "initCometMarginTrader",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    }
+  ],
+  "bytecode": "0x60808060405234610016576101be908161001c8239f35b600080fdfe600436101561000d57600080fd5b6000803560e01c63f1270dcf1461002357600080fd5b346101855760207ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffc3601126101855760043573ffffffffffffffffffffffffffffffffffffffff81168103610181576100e1908280527fd408c83a623a3e514bed18a618f57d4f4b5063c9517109ee96b7036b9fe40fac602052604083209073ffffffffffffffffffffffffffffffffffffffff167fffffffffffffffffffffffff0000000000000000000000000000000000000000825416179055565b7f61d1713be5232408b5b4a4eb9167729a7f6f26a324a820a406ab862b03af3c6480547fffffffffffffffffffffffff000000000000000000000000000000000000000016331790553381527f61d1713be5232408b5b4a4eb9167729a7f6f26a324a820a406ab862b03af3c656020526040812060017fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff0082541617905580f35b5080fd5b80fdfea2646970667358221220e6b223a5b35a660111caecf92fe3dade1f6bc3884cceedfcb9e1d1805233d41264736f6c63430008150033",
+  "deployedBytecode": "0x600436101561000d57600080fd5b6000803560e01c63f1270dcf1461002357600080fd5b346101855760207ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffc3601126101855760043573ffffffffffffffffffffffffffffffffffffffff81168103610181576100e1908280527fd408c83a623a3e514bed18a618f57d4f4b5063c9517109ee96b7036b9fe40fac602052604083209073ffffffffffffffffffffffffffffffffffffffff167fffffffffffffffffffffffff0000000000000000000000000000000000000000825416179055565b7f61d1713be5232408b5b4a4eb9167729a7f6f26a324a820a406ab862b03af3c6480547fffffffffffffffffffffffff000000000000000000000000000000000000000016331790553381527f61d1713be5232408b5b4a4eb9167729a7f6f26a324a820a406ab862b03af3c656020526040812060017fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff0082541617905580f35b5080fd5b80fdfea2646970667358221220e6b223a5b35a660111caecf92fe3dade1f6bc3884cceedfcb9e1d1805233d41264736f6c63430008150033",
+  "linkReferences": {},
+  "deployedLinkReferences": {}
+}

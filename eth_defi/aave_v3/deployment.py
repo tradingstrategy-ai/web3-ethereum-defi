@@ -6,6 +6,9 @@ from eth_typing import HexAddress
 from web3 import Web3
 from web3.contract import Contract
 
+from eth_defi.aave_v3.deployer import get_aave_hardhard_export
+from eth_defi.abi import get_deployed_contract, get_linked_contract
+
 
 class AaveV3ReserveConfiguration(NamedTuple):
     # https://github.com/aave/aave-v3-core/blob/e0bfed13240adeb7f05cb6cbe5e7ce78657f0621/contracts/misc/AaveProtocolDataProvider.sol#L77
@@ -95,3 +98,27 @@ class AaveV3Deployment:
         # https://github.com/aave/aave-v3-core/blob/62dfda56bd884db2c291560c03abae9727a7635e/contracts/interfaces/IPool.sol#L490
         data = self.pool.functions.getUserAccountData(user_address).call()
         return AaveV3UserData(*data)
+
+
+def fetch_deployment(
+    web3: Web3,
+    pool_address: HexAddress | str,
+    data_provider_address: HexAddress | str,
+    oracle_address: HexAddress | str,
+) -> AaveV3Deployment:
+    """Construct Aave v3 deployment based on on-chain data.
+
+    :return:
+        Data class representing Aave v3 exchange deployment
+    """
+    pool_contract = get_linked_contract(web3, "aave_v3/Pool.json", get_aave_hardhard_export())
+    pool = pool_contract(address=pool_address)
+    data_provider = get_deployed_contract(web3, "aave_v3/AaveProtocolDataProvider.json", data_provider_address)
+    oracle = get_deployed_contract(web3, "aave_v3/AaveOracle.json", oracle_address)
+
+    return AaveV3Deployment(
+        web3=web3,
+        pool=pool,
+        data_provider=data_provider,
+        oracle=oracle,
+    )
