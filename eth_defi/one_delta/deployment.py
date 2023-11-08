@@ -28,13 +28,9 @@ class OneDeltaDeployment:
     # DeltaBrokerProxy contract proxy
     broker_proxy: Contract
 
-    # Aave v3 deployment
-    aave_v3: AaveV3Deployment
-
 
 def fetch_deployment(
     web3: Web3,
-    aave_v3: AaveV3Deployment,
     flash_aggregator_address: HexAddress | str,
     broker_proxy_address: HexAddress | str,
 ) -> OneDeltaDeployment:
@@ -83,7 +79,6 @@ def fetch_deployment(
 
     return OneDeltaDeployment(
         web3=web3,
-        aave_v3=aave_v3,
         flash_aggregator=flash_aggregator,
         broker_proxy=broker_proxy,
     )

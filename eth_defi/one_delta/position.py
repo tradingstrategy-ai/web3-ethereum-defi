@@ -6,6 +6,7 @@
 from web3.contract.contract import Contract, ContractFunction
 
 from eth_defi.aave_v3.constants import MAX_AMOUNT, AaveV3InterestRateMode
+from eth_defi.aave_v3.deployment import AaveV3Deployment
 from eth_defi.one_delta.constants import Exchange, TradeOperation
 from eth_defi.one_delta.deployment import OneDeltaDeployment
 from eth_defi.one_delta.utils import encode_path
@@ -18,6 +19,7 @@ def approve(
     borrow_token: Contract,
     atoken: Contract,
     vtoken: Contract,
+    aave_v3_deployment: AaveV3Deployment,
     collateral_amount: int = MAX_AMOUNT,
     borrow_amount: int = MAX_AMOUNT,
     atoken_amount: int = MAX_AMOUNT,
@@ -34,11 +36,12 @@ def approve(
     :param borrow_amount: amount of borrow token to be approved
     :param atoken_amount: amount of aToken to be approved
     :param vtoken_amount: amount of vToken to be approved
+    :param aave_v3_deployment: Aave V3 deployment
     :return: list of approval functions
     """
     trader = one_delta_deployment.flash_aggregator
     proxy = one_delta_deployment.broker_proxy
-    aave_v3_pool = one_delta_deployment.aave_v3.pool
+    aave_v3_pool = aave_v3_deployment.pool
 
     approval_functions = []
 

@@ -53,7 +53,11 @@ def anvil_polygon_chain_fork(request, large_usdc_holder) -> str:
     :return: JSON-RPC URL for Web3
     """
     mainnet_rpc = os.environ["JSON_RPC_POLYGON"]
-    launch = fork_network_anvil(mainnet_rpc, unlocked_addresses=[large_usdc_holder])
+    launch = fork_network_anvil(
+        mainnet_rpc, 
+        unlocked_addresses=[large_usdc_holder], 
+        fork_block_number=49_000_000,
+    )
     try:
         yield launch.json_rpc_url
     finally:
@@ -145,11 +149,9 @@ def aave_v3_deployment(web3):
 
 
 @pytest.fixture
-def one_delta_deployment(web3, aave_v3_deployment) -> OneDeltaDeployment:
+def one_delta_deployment(web3) -> OneDeltaDeployment:
     return fetch_1delta_deployment(
         web3,
-        aave_v3_deployment,
-        # flash_aggregator_address="0x168B4C2Cc2df4635D521Aa1F8961DD7218f0f427",
         flash_aggregator_address="0x74E95F3Ec71372756a01eB9317864e3fdde1AC53",
         broker_proxy_address="0x74E95F3Ec71372756a01eB9317864e3fdde1AC53",
     )
@@ -201,6 +203,7 @@ def test_1delta_only_open_short_position(
         borrow_token=weth.contract,
         atoken=ausdc.contract,
         vtoken=vweth.contract,
+        aave_v3_deployment=aave_v3_deployment,
     ):
         _execute_tx(web3, hot_wallet, fn)
 
@@ -261,6 +264,7 @@ def test_1delta_open_short_position_supply_separately(
         borrow_token=weth.contract,
         atoken=ausdc.contract,
         vtoken=vweth.contract,
+        aave_v3_deployment=aave_v3_deployment,
     ):
         _execute_tx(web3, hot_wallet, fn)
 
@@ -333,6 +337,7 @@ def test_1delta_open_and_close_short_position(
         borrow_token=weth.contract,
         atoken=ausdc.contract,
         vtoken=vweth.contract,
+        aave_v3_deployment=aave_v3_deployment,
     ):
         _execute_tx(web3, hot_wallet, fn)
 
@@ -413,6 +418,7 @@ def test_1delta_open_and_close_short_position_separately(
         borrow_token=weth.contract,
         atoken=ausdc.contract,
         vtoken=vweth.contract,
+        aave_v3_deployment=aave_v3_deployment,
     ):
         _execute_tx(web3, hot_wallet, fn)
 
@@ -530,6 +536,7 @@ def test_1delta_open_and_close_short_positions_of_2_assets(
         borrow_token=weth.contract,
         atoken=ausdc.contract,
         vtoken=vweth.contract,
+        aave_v3_deployment=aave_v3_deployment,
     ):
         _execute_tx(web3, hot_wallet, fn)
 
@@ -539,6 +546,7 @@ def test_1delta_open_and_close_short_positions_of_2_assets(
         borrow_token=wmatic.contract,
         atoken=ausdc.contract,
         vtoken=vwmatic.contract,
+        aave_v3_deployment=aave_v3_deployment,
     ):
         _execute_tx(web3, hot_wallet, fn)
 
