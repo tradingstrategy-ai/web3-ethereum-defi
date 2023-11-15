@@ -51,7 +51,6 @@ def web3(tester_provider):
     yield Web3(tester_provider)
 
 
-
 @pytest.fixture()
 def deployer(web3) -> str:
     """Deploy account.

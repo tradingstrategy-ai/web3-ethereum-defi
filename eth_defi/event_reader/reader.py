@@ -512,7 +512,6 @@ def read_events(
     last_timestamp = None
 
     for block_num in range(start_block, end_block + 1, chunk_size):
-
         last_of_chunk = min(end_block, block_num + chunk_size - 1)
 
         logger.debug("Extracting eth_getLogs from %d - %d", block_num, last_of_chunk)

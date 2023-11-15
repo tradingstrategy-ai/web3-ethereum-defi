@@ -150,15 +150,15 @@ class MultithreadEventReader(Web3EventReader):
     """
 
     def __init__(
-            self,
-            json_rpc_url: str,
-            max_threads=10,
-            reader_context: Any = None,
-            api_counter=True,
-            max_blocks_once=50_000,
-            reorg_mon: Optional[ReorganisationMonitor] = None,
-            notify: Optional[ProgressUpdate] = None,
-            auto_close_notify=True,
+        self,
+        json_rpc_url: str,
+        max_threads=10,
+        reader_context: Any = None,
+        api_counter=True,
+        max_blocks_once=50_000,
+        reorg_mon: Optional[ReorganisationMonitor] = None,
+        notify: Optional[ProgressUpdate] = None,
+        auto_close_notify=True,
     ):
         """Creates a multithreaded JSON-RPC reader pool.
 
@@ -227,13 +227,13 @@ class MultithreadEventReader(Web3EventReader):
                 self.notify.close()
 
     def __call__(
-            self,
-            web3: ReaderConnection,
-            start_block: int,
-            end_block: int,
-            events: Optional[List[ContractEvent]] = None,
-            filter: Optional[Filter] = None,
-            extract_timestamps: Optional[Callable] = None,
+        self,
+        web3: ReaderConnection,
+        start_block: int,
+        end_block: int,
+        events: Optional[List[ContractEvent]] = None,
+        filter: Optional[Filter] = None,
+        extract_timestamps: Optional[Callable] = None,
     ) -> Iterable[LogResult]:
         """Wrap the underlying low-level function.
 

@@ -292,6 +292,7 @@ class FallbackProvider(BaseNamedProvider):
 
         return result
 
+
 def _check_faulty_rpc_response(
     method: str,
     params: list,
