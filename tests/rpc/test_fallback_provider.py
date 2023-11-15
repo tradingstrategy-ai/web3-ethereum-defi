@@ -345,8 +345,9 @@ def test_get_fallback_provider_diagnosics(web3, fallback_provider: FallbackProvi
     assert fallback1["last_call"] is not None
     assert fallback1["call_count"] == 10
     assert fallback1["retry_count"] == 0
-    assert fallback1["last_block"] == 1
+    assert fallback1["last_block_number"] == 1
+    assert fallback1["last_block_error"] is None
 
     fallback2 = diagnostics[1]
     assert fallback2["last_call"] is None
-    assert fallback1["last_block"] == 1
+    assert fallback1["last_block_number"] == 1

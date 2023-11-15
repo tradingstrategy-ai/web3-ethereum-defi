@@ -38,10 +38,13 @@ class DiagnosticsInfo(TypedDict):
     url: str
 
     #: Is this currently selected provider
-
     active: bool
-    #: Can be an error message
-    last_block: str | int
+
+    #: Is this provider up-to-date with the chain
+    last_block_number: int | None
+
+    #: If getting the last block number failed
+    last_block_error: str | None
 
     #: API call count
     call_count: int
@@ -277,9 +280,11 @@ class FallbackProvider(BaseNamedProvider):
         for idx, provider in enumerate(self.providers):
             try:
                 resp = provider.make_request("eth_blockNumber", [])
-                last_block = convert_jsonrpc_value_to_int(resp["result"])
+                last_block_number = convert_jsonrpc_value_to_int(resp["result"])
+                last_block_error = None
             except Exception as e:
-                last_block = str(e)
+                last_block_number = None
+                last_block_error = str(e)
 
             total_api_call_count = sum(self.api_call_counts[idx].values())
             total_api_retry_count = sum(self.api_retry_counts[idx].values())
@@ -289,7 +294,8 @@ class FallbackProvider(BaseNamedProvider):
                     "index": idx,
                     "name": get_provider_name(provider),
                     "active": active == provider,
-                    "last_block": last_block,
+                    "last_block_number": last_block_number,
+                    "last_block_error": last_block_error,
                     "url": provider.endpoint_uri,
                     "call_count": total_api_call_count,
                     "retry_count": total_api_retry_count,
