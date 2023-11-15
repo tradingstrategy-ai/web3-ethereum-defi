@@ -2,19 +2,46 @@
 
 - See :py:class:`FallbackProvider`
 """
+import datetime
 import enum
 import time
 from collections import defaultdict, Counter
-from typing import List, Any, cast, Dict
+from typing import List, Any, cast, Dict, TypedDict
 import logging
 
 from web3 import Web3
 from web3.types import RPCEndpoint, RPCResponse
 
+from eth_defi.event_reader.conversion import convert_jsonrpc_value_to_int
 from eth_defi.middleware import is_retryable_http_exception, DEFAULT_RETRYABLE_EXCEPTIONS, DEFAULT_RETRYABLE_HTTP_STATUS_CODES, DEFAULT_RETRYABLE_RPC_ERROR_CODES, ProbablyNodeHasNoBlock
 from eth_defi.provider.named import BaseNamedProvider, NamedProvider, get_provider_name
 
 logger = logging.getLogger(__name__)
+
+
+class DiagnosticsInfo(TypedDict):
+    """Fallback provider diangnostics info.
+
+    Per JSON-RPC provider stats in a human-readable format to give helpful diagnostics
+    information in troubleshooting.
+    """
+
+    index: int
+
+    name: str
+    #: Is this currently selected provider
+    active: bool
+    #: Can be an error message
+    last_block: str | int
+    url: str
+    #: API call count
+    call_count: int
+
+    #: API retry count
+    retry_count: int
+
+    #: When did we call this provider last time
+    last_call: datetime.datetime | None
 
 
 class FallbackStrategy(enum.Enum):
@@ -120,6 +147,9 @@ class FallbackProvider(BaseNamedProvider):
         #: provider number-> api method name -> retry counts dict
         self.api_retry_counts = defaultdict(Counter)
 
+        #: provider number -> UTC datetime mapping
+        self.api_last_call = defaultdict(lambda: None)
+
         self.retry_count = 0
         self.switchover_noisiness = switchover_noisiness
 
@@ -194,6 +224,7 @@ class FallbackProvider(BaseNamedProvider):
 
                 # Track API counts
                 self.api_call_counts[self.currently_active_provider][method] += 1
+                self.api_last_call[self.currently_active_provider] = datetime.datetime.utcnow()
 
                 return resp_data
 
@@ -223,6 +254,43 @@ class FallbackProvider(BaseNamedProvider):
 
         raise AssertionError("Should never be reached")
 
+    def get_diagnostics_info(self) -> List[DiagnosticsInfo]:
+        """Get the diagnostic info of all providers.
+
+        :return:
+            List of dicts of debug info.
+
+            Contain fields like name, url (with API key) and last block info.
+        """
+
+        result = []
+
+        active = self.get_active_provider()
+
+        for idx, provider in enumerate(self.providers):
+            try:
+                resp = provider.make_request("eth_blockNumber", [])
+                last_block = convert_jsonrpc_value_to_int(resp["result"])
+            except Exception as e:
+                last_block = str(e)
+
+            total_api_call_count = sum(self.api_call_counts[idx].values())
+            total_api_retry_count = sum(self.api_retry_counts[idx].values())
+
+            result.append(
+                {
+                    "index": idx,
+                    "name": get_provider_name(provider),
+                    "active": active == provider,
+                    "last_block": last_block,
+                    "url": provider.endpoint_uri,
+                    "call_count": total_api_call_count,
+                    "retry_count": total_api_retry_count,
+                    "last_call": self.api_last_call[idx],
+                }
+            )
+
+        return result
 
 def _check_faulty_rpc_response(
     method: str,
