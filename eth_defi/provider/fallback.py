@@ -24,16 +24,25 @@ class DiagnosticsInfo(TypedDict):
 
     Per JSON-RPC provider stats in a human-readable format to give helpful diagnostics
     information in troubleshooting.
+
+    Designed to be human-readable.
+
+    See py:meth:`FallbackProvider.get_diagnostics_info`.
     """
 
     index: int
 
     name: str
+
+    #: JSON-RPC provider URL, including the API key
+    url: str
+
     #: Is this currently selected provider
+
     active: bool
     #: Can be an error message
     last_block: str | int
-    url: str
+
     #: API call count
     call_count: int
 
@@ -258,9 +267,7 @@ class FallbackProvider(BaseNamedProvider):
         """Get the diagnostic info of all providers.
 
         :return:
-            List of dicts of debug info.
-
-            Contain fields like name, url (with API key) and last block info.
+            List of dicts of debug info per provider.
         """
 
         result = []
