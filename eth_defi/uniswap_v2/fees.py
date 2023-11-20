@@ -1,4 +1,7 @@
-"""Uniswap v2 price impact and fee calculations.
+"""Uniswap v2 token price, fee and price impact calculations.
+
+- To get a price in Uniswap v2 pool in human-readable format see
+  :py:func:`estimate_sell_price` and :py:func:`estimate_buy_price`.
 
 `Mostly lifted from Uniswap-v2-py MIT licensed by Asynctomatic <https://github.com/nosofa/uniswap-v2-py>`_.
 """
@@ -284,9 +287,9 @@ def estimate_sell_price(
         )
 
         # Estimate the price of selling 1 ETH
-        usdc_per_eth = estimate_price(
+        usdc_per_eth = estimate_sell_price(
             uniswap_v2,
-            weth,user_1
+            weth,
             usdc,
             1 * 10**18,  # 1 ETH
         )
