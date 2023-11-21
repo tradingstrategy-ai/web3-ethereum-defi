@@ -4,6 +4,50 @@
 
 - `Based on Gnosis utilities <https://raw.githubusercontent.com/safe-global/safe-eth-py/master/gnosis/eth/eip712/__init__.py>`__.
 
+- Used in :py:mod:`eth_defi.usdc` module for crafting EIP-3009 messages
+
+Example:
+
+.. code-block:: python
+
+    data = {
+        "types": {
+            "EIP712Domain": [
+                {"name": "name", "type": "string"},
+                {"name": "version", "type": "string"},
+                {"name": "chainId", "type": "uint256"},
+                {"name": "verifyingContract", "type": "address"},
+            ],
+            authorization_type.value: [
+                {"name": "from", "type": "address"},
+                {"name": "to", "type": "address"},
+                {"name": "value", "type": "uint256"},
+                {"name": "validAfter", "type": "uint256"},
+                {"name": "validBefore", "type": "uint256"},
+                {"name": "nonce", "type": "bytes32"},
+            ],
+        },
+        # domainSeparator = makeDomainSeparator(
+        #   "USD Coin",
+        #   "2",
+        #   1, // hardcoded to 1 because of ganache bug: https://github.com/trufflesuite/ganache/issues/1643
+        #   getFiatToken().address
+        # );
+        "domain": {
+            "name": token.name,
+            "version": "2",  # TODO: Read from USDC contract?
+            "chainId": chain_id,
+            "verifyingContract": token.address,
+        },
+        "primaryType": authorization_type.value,
+        "message": {"from": from_, "to": to, "value": value, "validAfter": valid_after, "validBefore": valid_before, "nonce": secrets.token_bytes(32)},  # 256-bit random nonce
+    }
+
+    message_hash = eip712_encode_hash(data)
+    signed_message = local_account.signHash(message_hash)
+
+Past copyright:
+
 .. code-block:: text
 
     Copyright (C) 2022 Judd Vinet <jvinet@zeroflux.org>
