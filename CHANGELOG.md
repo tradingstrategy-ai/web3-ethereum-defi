@@ -1,3 +1,7 @@
+# 0.23.1
+
+- Feature: Add 1delta integration position handlers
+
 # 0.23
 
 - Various improvements when working with low quality JSON-RPC nodes

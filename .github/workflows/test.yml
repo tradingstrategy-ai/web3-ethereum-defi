@@ -47,7 +47,8 @@ jobs:
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
         with:
-          version: 'nightly-94ae8974c1ac479f8d6c8ba5832b852afccfd0c5'
+          # pick a nightly release from: https://github.com/foundry-rs/foundry/releases
+          version: 'nightly-60ec00296f00754bc21ed68fd05ab6b54b50e024'
 
       # We also work around race condition for setting up Aave NPM packages.
       - name: Setup Aave v3 for tests
