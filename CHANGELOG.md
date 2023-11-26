@@ -1,3 +1,7 @@
+# 0.24.1
+
+- Unpin some dependencies to make package installation easier
+
 # 0.24
 
 - Debian Bullseye and pyenv was picking up old web3-ethereum-defi version
