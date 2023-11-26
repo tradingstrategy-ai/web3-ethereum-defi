@@ -22,13 +22,13 @@ source ~/.profile
 source ~/.profile
 
 echo "setting .bashrc..."
-echo "eval \"\$(pyenv virtualenv-init -)\"" >> ~/.bashrc
+echo "eval \"\$(/root/.pyenv/bin/pyenv virtualenv-init -)\"" >> ~/.bashrc
 
 echo "installing latest python..."
 pyenv install 3.12
 
 echo "setting symlink..."
-ln -s /usr/bin/python3 /usr/local/bin/python
+ln -f -s /usr/bin/python3 /usr/local/bin/python
 
 echo "setting global python version..."
 pyenv global 3.12
@@ -43,4 +43,4 @@ echo "Pip is $(which pip)"
 echo "Python is $(which python)"
 pip --version
 pip install safe-pysha3
-pip install web3-ethereum-defi
+pip install -e web3-ethereum-defi

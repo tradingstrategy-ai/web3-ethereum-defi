@@ -40,6 +40,7 @@ Or to active Python environment:
 
 ```shell
 /root/.pyenv/bin/pyenv global 3.12
+
 ```
 
 ## pysha3 error
