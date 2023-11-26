@@ -5300,4 +5300,4 @@ test = ["pytest-xdist"]
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.10,<=3.12"
-content-hash = "c527c7d57aa3acd0866b0ef0b011106ce7f20bd79905bf912d3ca3cc916d2db8"
+content-hash = "3ba8d815a6dfded1517392ed8f101ef946b6d4e85f33e6d397dcdad1b6cbd497"
