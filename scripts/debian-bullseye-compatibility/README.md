@@ -24,8 +24,10 @@ docker run -v `pwd`:`pwd` -w `pwd` --entrypoint `pwd`/check-install.sh pysha3-te
 
 ## Manual inspection of running Debian Bullseye
 
+Map source tree as we so we can do direct install from local source for trials.
+
 ```shell
-docker run -it -v `pwd`:`pwd` -w `pwd` --entrypoint /bin/bash pysha3-test
+docker run -it -v `pwd`:`pwd` -v $(realpath $PWD/../..):`pwd`/web3-ethereum-defi -w `pwd` --entrypoint /bin/bash pysha3-test
 ```
 
 Then run the script:
@@ -37,7 +39,7 @@ Then run the script:
 Or to active Python environment:
 
 ```shell
-/root/.pyenv/bin/pyenv global 3.11.6
+/root/.pyenv/bin/pyenv global 3.12
 ```
 
 ## pysha3 error
