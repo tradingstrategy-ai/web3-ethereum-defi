@@ -46,7 +46,7 @@ urllib3 = "<2"
 
 
 [tool.poetry.dev-dependencies]
-pytest = "^6.2.5"
+pytest = "^7.4.3"
 pytest-mock = "^3.7.0"
 sphinx-rtd-theme = "^1.0.0"
 sphinx-sitemap = "^2.2.0"
