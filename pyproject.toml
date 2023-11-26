@@ -17,12 +17,13 @@ packages = [
 # https://stackoverflow.com/a/74394591/315168
 # https://pypi.org/project/links-demo/
 [tool.poetry.urls]
-twitter = "https://twitter.com/tradingprotocol"
-youtube = "https://www.youtube.com/@tradingstrategyprotocol"
-discord = "https://discord.gg/5M88m9nM8H"
-changelog = "https://github.com/tradingstrategy-ai/web3-ethereum-defi/blob/master/CHANGELOG.md"
-sponsor = "https://tradingstrategy.ai"
-documentation = "https://web3-ethereum-defi.readthedocs.io/"
+Changelog = "https://github.com/tradingstrategy-ai/web3-ethereum-defi/blob/master/CHANGELOG.md"
+Documentation = "https://web3-ethereum-defi.readthedocs.io/"
+Twitter = "https://twitter.com/tradingprotocol"
+Youtube = "https://www.youtube.com/@tradingstrategyprotocol"
+Discord = "https://discord.gg/5M88m9nM8H"
+Sponsor = "https://tradingstrategy.ai"
+
 
 [tool.poetry.dependencies]
 python = ">=3.10,<=3.12"
