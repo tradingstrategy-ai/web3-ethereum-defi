@@ -388,7 +388,13 @@ class SymbolicTreeRepresentation:
 
     @property
     def title(self) -> str:
-        call_type = self.call.call_type.value
+        try:
+            call_type = self.call.call_type.value
+        except AttributeError:
+            # Python 3.12+
+            # AST module changes?
+            call_type = str(self.call.call_type)
+
         address_hex_str = self.call.address.hex() if self.call.address else None
 
         try:
