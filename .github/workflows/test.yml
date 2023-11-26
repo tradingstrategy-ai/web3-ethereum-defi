@@ -33,14 +33,14 @@ jobs:
           cache-dependency-path: contracts/aave-v3-deploy/package-lock.json
       - name: Install poetry
         run: pipx install poetry
-      - name: Set up Python 3.10
+      - name: Set up Python 3.12
         uses: actions/setup-python@v3
         with:
-          python-version: '3.10'
+          python-version: '3.12'
           cache: 'poetry'
       - name: Install dependencies
         run: |
-          poetry env use '3.10'
+          poetry env use '3.12'
           poetry install --all-extras
       - name: Install Ganache
         run: yarn global add ganache

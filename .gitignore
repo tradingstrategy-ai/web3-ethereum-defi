@@ -27,3 +27,6 @@ docs/source/tutorials/aave.json
 
 # hardhat export
 contracts/aave-v3-deploy/hardhat-deployment-export.json
+
+# pyenv local
+.python-version
