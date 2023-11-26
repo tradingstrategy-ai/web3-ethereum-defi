@@ -101,6 +101,7 @@ def test_fallback_double_fault(fallback_provider: FallbackProvider, provider_1, 
     assert fallback_provider.retry_count == 6
 
 
+@pytest.mark.skip(reason="Web 6.12 breaks with MagicMock")
 def test_fallback_double_fault_recovery(fallback_provider: FallbackProvider, provider_1, provider_2):
     """Fallback fails on both providers, but then recover."""
 
