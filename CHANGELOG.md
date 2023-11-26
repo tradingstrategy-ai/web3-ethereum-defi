@@ -1,6 +1,7 @@
 # 0.23.2
 
 - Fix installation error on Debian Bullseye and Python 3.11: `fatal error: pystrhex.h: No such file or directory`
+- Bump compatibility all the way up to Python 3.12
 
 # 0.23.1
 
