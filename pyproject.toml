@@ -5,7 +5,7 @@ description = "Python library for Uniswap, Aave, ChainLink, Enzyme and other pro
 authors = ["Mikko Ohtamaa <mikko@tradingstrategy.ai>"]
 license = "MIT"
 
-homepage = "https://tradingstrategy.ai"
+homepage = "https://web3-ethereum-defi.readthedocs.io/"
 repository = "https://github.com/tradingstrategy-ai/web3-ethereum-defi"
 readme = "README.md"
 keywords = ["ethereum", "cryptocurrency", "uniswap", "erc-20", "pancakeswap", "bnb smart chain", "polygon", "web3", "blockchain", "avalanche", "arbitrum", "chainlink"]
@@ -15,11 +15,14 @@ packages = [
 
 # See PyPi for supported links https://github.com/pypi/warehouse/blob/main/warehouse/templates/packaging/detail.html
 # https://stackoverflow.com/a/74394591/315168
+# https://pypi.org/project/links-demo/
 [tool.poetry.urls]
 twitter = "https://twitter.com/tradingprotocol"
 youtube = "https://www.youtube.com/@tradingstrategyprotocol"
 discord = "https://discord.gg/5M88m9nM8H"
 changelog = "https://github.com/tradingstrategy-ai/web3-ethereum-defi/blob/master/CHANGELOG.md"
+sponsor = "https://tradingstrategy.ai"
+documentation = "https://web3-ethereum-defi.readthedocs.io/"
 
 [tool.poetry.dependencies]
 python = ">=3.10,<=3.12"
