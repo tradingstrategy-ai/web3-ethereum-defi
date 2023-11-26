@@ -322,6 +322,9 @@ files = [
     {file = "Babel-2.13.1.tar.gz", hash = "sha256:33e0952d7dd6374af8dbf6768cc4ddf3ccfefc244f9986d4074704f2fbd18900"},
 ]
 
+[package.dependencies]
+setuptools = {version = "*", markers = "python_version >= \"3.12\""}
+
 [package.extras]
 dev = ["freezegun (>=1.0,<2.0)", "pytest (>=6.0)", "pytest-cov"]
 
@@ -5298,5 +5301,5 @@ test = ["pytest-xdist"]
 
 [metadata]
 lock-version = "2.0"
-python-versions = ">=3.10,<=3.11"
-content-hash = "a859ca6a9e1e10808e2f72a82df6896582a9707d5bcd9e9e58b2e311acb31f4e"
+python-versions = ">=3.10,<=3.12"
+content-hash = "245f17aee0a1bcc8c86c8a4b70272e7e4e49c5cbd26682afdcd8670eafd5a759"
