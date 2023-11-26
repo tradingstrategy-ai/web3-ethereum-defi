@@ -1,3 +1,16 @@
+# 0.24
+
+- Debian Bullseye and pyenv was picking up old web3-ethereum-defi version
+- Create a Docker script to check installation on Debian Bullseye
+- This did not then use the correct version of [safe-pysha3](https://github.com/5afe/pysha3), but picked up the old pysha3 package
+- Make `pyproject.toml` to say we are compatible all they way to Python 3.12
+- [pkgutil compatibility fixes](https://stackoverflow.com/questions/77364550/attributeerror-module-pkgutil-has-no-attribute-impimporter-did-you-mean).
+- [Upgrade to Pandas 2.x](https://github.com/pandas-dev/pandas/issues/53665), needed for Python 3.12 compatibility
+- Upgrade to the latest Web3.py 6.x version
+- Python 3.12 changes `ast` module and this has breaking changes with `eth_trace` library. Workaround them.
+- Disable `test_fallback_double_fault` because new Web3.py does not like `MagicMock` results
+- Bump to `zope.dottedname` 6.0 needed [for Python 3.11 compatibility](https://pypi.org/project/zope.dottedname/)
+
 # 0.23.2
 
 - Fix installation error on Debian Bullseye and Python 3.11: `fatal error: pystrhex.h: No such file or directory`
