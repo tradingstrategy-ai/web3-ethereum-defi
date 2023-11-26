@@ -44,3 +44,6 @@ echo "Python is $(which python)"
 pip --version
 pip install safe-pysha3
 pip install -e web3-ethereum-defi
+
+# Set up poetry
+curl -sSL https://install.python-poetry.org | python3 -

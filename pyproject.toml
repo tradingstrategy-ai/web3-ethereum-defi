@@ -22,7 +22,7 @@ psutil = "^5.9.0"
 ujson = "5.8.0"
 cachetools = "^5.3.2"
 futureproof = "^0.3.1"
-setuptools = {version = "^65.6.3"}
+setuptools = {version = "^69.0.2"}
 eth-bloom = "^2.0.0"
 evm-trace = "^0.1.0a17"
 web3 = {version = "6.11.3", extras = ["tester"]}
