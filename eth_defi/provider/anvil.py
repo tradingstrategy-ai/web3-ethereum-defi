@@ -526,6 +526,11 @@ def is_anvil(web3: Web3) -> bool:
 
     - Anvil test backend
 
+    See also :py:func:`launch_anvil`
+
+    :param web3:
+        Web3 connection instance to check
+
     :return:
         True if we think we are connected to Anvil
     """
