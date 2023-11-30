@@ -161,10 +161,10 @@ def test_analyse_by_receipt(
     # user_1 has less than 500 USDC left to loses in the LP fees
     analysis = analyse_trade_by_receipt(web3, uniswap_v3, tx, tx_hash, receipt)
     assert isinstance(analysis, TradeSuccess)
-    assert analysis.price == pytest.approx(Decimal(1699.9102484539058))
-    assert analysis.get_effective_gas_price_gwei() == 1
     assert analysis.amount_out_decimals == 18
     assert analysis.amount_in_decimals == 6
+    assert analysis.price == pytest.approx(Decimal(1699.9102484539058))
+    assert analysis.get_effective_gas_price_gwei() == 1
     assert analysis.lp_fee_paid == pytest.approx(0.03)
 
     all_weth_amount = weth.functions.balanceOf(user_1).call()
