@@ -1,3 +1,12 @@
+# Current
+
+- Add `is_anvil` method
+- Add `fetch_erc20_balances_by_token_list(decimalise=True)` to 
+  get multiple token balances with decimal conversaion 
+  as a batch operation
+- Fix: `set_block_tip_latency()` defauts to 0 when
+  connected to `create_multi_provider_web3` to simplify testing
+
 # 0.24.1
 
 - Unpin some dependencies to make package installation easier
