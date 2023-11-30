@@ -37,7 +37,7 @@ def test_multi_provider_mev_and_fallback():
     assert web3.eth.block_number > 0
 
     mev_blocker = web3.get_configured_transact_provider()
-    assert mev_blocker.provider_counter == {"call": 2, "transact": 0}
+    assert mev_blocker.provider_counter == {"call": 3, "transact": 0}
 
 
 def test_multi_provider_fallback_only():
@@ -121,4 +121,4 @@ def test_multi_provider_transact(anvil):
     assert_transaction_success_with_explanation(anvil_web3, tx_hash)
 
     mev_blocker = web3.get_configured_transact_provider()
-    assert mev_blocker.provider_counter == {"call": 2, "transact": 1}
+    assert mev_blocker.provider_counter == {"call": 3, "transact": 1}
