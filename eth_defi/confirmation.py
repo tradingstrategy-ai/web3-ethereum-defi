@@ -228,7 +228,7 @@ def broadcast_transactions(
             # Anvil/Ethereum tester immediately fail on the broadcast
             # ValueError: {'code': -32003, 'message': 'Insufficient funds for gas * price + value'}
             decoded_tx = decode_signed_transaction(tx.rawTransaction)
-            raise BroadcastFailure(f"Could not broadcast transaction: {tx.hash}. Transaction data: {decoded_tx}. JSON-RPC error: {e}") from e
+            raise BroadcastFailure(f"Could not broadcast transaction: {tx.hash.hex()}. Transaction data: {decoded_tx}. JSON-RPC error: {e}") from e
 
         assert hash
 
