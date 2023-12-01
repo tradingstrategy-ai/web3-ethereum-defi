@@ -1,3 +1,8 @@
+# 0.24.3
+
+- Change 1delta `close_short_position()` API to be able to
+  be able to specify the amount of collateral to withdraw
+
 # 0.24.2
 
 - Add `is_anvil(web3)` method
