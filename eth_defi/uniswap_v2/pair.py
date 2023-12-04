@@ -83,7 +83,7 @@ class PairDetails:
 
     def __eq__(self, other):
         """Implemented for set()"""
-        assert isinstance(other, Uniswap)
+        assert isinstance(other, PairDetails)
         return self.address == other.address
 
     def __hash__(self) -> int:
@@ -103,7 +103,7 @@ class PairDetails:
         """Get pair contract address, all lowercase."""
         return self.contract.address.lower()
 
-    def get_base_token(self):
+    def get_base_token(self) -> TokenDetails:
         """Get human-ordered base token."""
         assert self.reverse_token_order is not None, "Reverse token order flag must be check before this operation is possible"
         if self.reverse_token_order:
@@ -111,7 +111,7 @@ class PairDetails:
         else:
             return self.token0
 
-    def get_quote_token(self):
+    def get_quote_token(self) -> TokenDetails:
         """Get human-ordered quote token."""
         assert self.reverse_token_order is not None, "Reverse token order flag must be check before this operation is possible"
         if self.reverse_token_order:

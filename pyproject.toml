@@ -24,7 +24,7 @@ Youtube = "https://www.youtube.com/@tradingstrategyprotocol"
 Discord = "https://discord.gg/5M88m9nM8H"
 Sponsor = "https://tradingstrategy.ai"
 
-
+py
 [tool.poetry.dependencies]
 python = ">=3.10,<=3.12"
 Sphinx = {version = "^4.5.0", optional = true}
