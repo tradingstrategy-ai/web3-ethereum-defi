@@ -1,3 +1,11 @@
+# Current
+
+- Mark `evm_mine` JSON-RPC method not retryable
+- Fix `anvil.mine()` without parameters do not attempt to guess next block timestamp, as this 
+  was wrong under a load, probably due to Anvil's internal race conditions
+- Add `is_retryable_http_exception(method, params)` to allow decide the retry of a JSON-RPC request based
+  on its inputs, not just the output exception
+
 # 0.24.3
 
 - Change 1delta `close_short_position()` API to be able to

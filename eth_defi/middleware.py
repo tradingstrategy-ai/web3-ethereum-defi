@@ -154,6 +154,8 @@ def is_retryable_http_exception(
     retryable_status_codes: Collection[int] = DEFAULT_RETRYABLE_HTTP_STATUS_CODES,
     retryable_rpc_error_codes: Collection[int] = DEFAULT_RETRYABLE_RPC_ERROR_CODES,
     retryable_rpc_error_messages: Collection[str] = DEFAULT_RETRYABLE_RPC_ERROR_MESSAGES,
+    method: str | None = None,
+    params: list | None = None,
 ):
     """Helper to check retryable errors from JSON-RPC calls.
 
@@ -176,7 +178,18 @@ def is_retryable_http_exception(
     :param retryable_rpc_error_messages:
         See :py:data:`DEFAULT_RETRYABLE_RPC_ERROR_MESSAGES`.
 
+    :param method:
+        JSON-RPC method name we called.
+
+    :param params:
+        Method args.
+
     """
+
+    # Cannot retry mining the block with the same timestamp
+    if method == "evm_mine":
+        if len(params) >= 1:
+            return False
 
     if isinstance(exc, ValueError):
         # raise ValueError(response["error"])

@@ -481,11 +481,11 @@ def mine(web3: Web3, timestamp: Optional[int] = None) -> None:
     """Call evm_setNextBlockTimestamp on Anvil"""
 
     if timestamp is None:
-        block = web3.eth.get_block(web3.eth.block_number)
-        timestamp = block["timestamp"] + 1
-
-    make_anvil_custom_rpc_request(web3, "evm_mine", [timestamp])
-
+        make_anvil_custom_rpc_request(web3, "evm_mine")
+        #block = web3.eth.get_block(web3.eth.block_number)
+        #timestamp = block["timestamp"] + 1
+    else:
+        make_anvil_custom_rpc_request(web3, "evm_mine", [timestamp])
 
 def snapshot(web3: Web3) -> int:
     """Call evm_snapshot on Anvil"""
