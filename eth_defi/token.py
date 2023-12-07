@@ -1,4 +1,4 @@
-"""ERC-20 token information, deployment and manipulation.
+"""ERC-20 token deployment and manipulation.
 
 Deploy ERC-20 tokens to be used within your test suite.
 
@@ -155,11 +155,11 @@ def create_token(
     supply: int,
     decimals: int = 18,
 ) -> Contract:
-    """Deploys a new test token.
+    """Deploys a new ERC-20 token on local dev, testnet or mainnet.
 
-    Uses `ERC20Mock <https://github.com/sushiswap/sushiswap/blob/canary/contracts/mocks/ERC20Mock.sol>`_ contract for the deployment.
+    - Uses `ERC20Mock <https://github.com/sushiswap/sushiswap/blob/canary/contracts/mocks/ERC20Mock.sol>`_ contract for the deployment.
 
-    `See Web3.py documentation on Contract instances <https://web3py.readthedocs.io/en/stable/contracts.html#contract-deployment-example>`_.
+    - Waits until the transaction has completed
 
     Example:
 
@@ -170,15 +170,29 @@ def create_token(
         print(f"Deployed token contract address is {token.address}")
         print(f"Deployer account {deployer} has {token.functions.balanceOf(user_1).call() / 10**18} tokens")
 
-    TODO: Add support for tokens with non-18 decimals like USDC.
+    Find more examples in :ref:`tutorials` and unit testing source code.
 
-    :param web3: Web3 instance
-    :param deployer: Deployer account as 0x address
+    :param web3:
+        Web3 instance
+
+    :param deployer:
+        Deployer account as 0x address.
+
+        Make sure this account has enough ETH or native token to cover the gas cost.
+
     :param name: Token name
+
     :param symbol: Token symbol
-    :param supply: Token supply as raw units
+
+    :param supply: Token starting supply as raw units.
+
+        E.g. ``500 * 10**18`` to have 500 tokens minted to the deployer
+        at the start.
+
     :param decimals: How many decimals ERC-20 token values have
-    :return: Instance to a deployed Web3 contract.
+
+    :return:
+        Instance to a deployed Web3 contract.
     """
     return deploy_contract(web3, "ERC20MockDecimals.json", deployer, name, symbol, supply, decimals)
 
