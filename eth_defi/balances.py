@@ -1,8 +1,9 @@
 """Token holding and portfolio for addresses."""
+import logging
 from collections import Counter
 from dataclasses import dataclass
 from decimal import Decimal
-from typing import Dict, Optional, Set
+from typing import Dict, Optional, Set, Literal
 
 import requests.exceptions
 from eth_typing import BlockNumber, HexAddress
@@ -14,6 +15,10 @@ from web3.types import BlockIdentifier
 from eth_defi.abi import get_contract, get_deployed_contract
 from eth_defi.event import fetch_all_events
 from eth_defi.provider.broken_provider import get_almost_latest_block_number
+from eth_defi.token import fetch_erc20_details
+
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -108,9 +113,10 @@ def fetch_erc20_balances_by_transfer_event(
 def fetch_erc20_balances_by_token_list(
     web3: Web3,
     owner: HexAddress,
-    tokens: Set[HexAddress],
+    tokens: Set[HexAddress | str],
     block_identifier: BlockIdentifier = None,
-) -> Dict[HexAddress, int]:
+    decimalise=False,
+) -> Dict[HexAddress | str, int | Decimal]:
     """Get all current holdings of an account for a limited set of ERC-20 tokens.
 
     If you know what tokens you are interested in, this method is much more efficient
@@ -136,18 +142,30 @@ def fetch_erc20_balances_by_token_list(
     :param block_identifier:
         Fetch at specific height
 
+    :param decimalise:
+        If ``True``, convert output amounts to humanised format in Python :py:class:`Decimal`.
+
+         Use cached :py:class:`TokenDetails` data.
+
     :raise BalanceFetchFailed:
         When you give a non-ERC-20 contract as a token.
     """
 
     if block_identifier is None:
         block_identifier = get_almost_latest_block_number(web3)
+        last_block = web3.eth.block_number
+        logger.info(f"Reading token balances for {len(tokens)} tokens at block {block_identifier}, last block is {last_block}")
 
     balances = {}
     for address in tokens:
         erc_20 = get_deployed_contract(web3, "sushi/IERC20.json", address)
         try:
-            balances[address] = erc_20.functions.balanceOf(owner).call(block_identifier=block_identifier)
+            raw_amount = erc_20.functions.balanceOf(owner).call(block_identifier=block_identifier)
+            if decimalise:
+                token = fetch_erc20_details(web3, address)
+                balances[address] = token.convert_to_decimals(raw_amount)
+            else:
+                balances[address] = raw_amount
         except BadFunctionCallOutput as e:
             raise BalanceFetchFailed(f"Could not get ERC-20 {address} balance for {owner}") from e
 
@@ -156,7 +174,7 @@ def fetch_erc20_balances_by_token_list(
 
 def convert_balances_to_decimal(
     web3,
-    raw_balances: Dict[HexAddress, int],
+    raw_balances: Dict[HexAddress | str, int],
     require_decimals=True,
 ) -> Dict[HexAddress, DecimalisedHolding]:
     """Convert mapping of ERC-20 holdings to decimals.

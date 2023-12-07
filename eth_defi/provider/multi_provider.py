@@ -15,6 +15,8 @@ from web3 import Web3, HTTPProvider
 from eth_defi.chain import install_chain_middleware
 from eth_defi.event_reader.fast_json_rpc import patch_provider, patch_web3
 from eth_defi.middleware import static_call_cache_middleware
+from eth_defi.provider.anvil import is_anvil
+from eth_defi.provider.broken_provider import set_block_tip_latency
 from eth_defi.provider.fallback import FallbackProvider
 from eth_defi.provider.mev_blocker import MEVBlockerProvider
 from eth_defi.provider.named import NamedProvider, get_provider_name
@@ -242,6 +244,11 @@ def create_multi_provider_web3(
 
     # Note that this triggers the first RPC call here
     install_chain_middleware(web3)
+
+    if is_anvil(web3):
+        # When running against local testing,
+        # we need to disable block tip latency hacks
+        set_block_tip_latency(web3, 0)
 
     return web3
 

@@ -514,5 +514,29 @@ def load_state(web3: Web3, state: str) -> int:
     return make_anvil_custom_rpc_request(web3, "anvil_loadState", [state])
 
 
+def is_anvil(web3: Web3) -> bool:
+    """Are we connected to Anvil node.
+
+    You need to change some behavior depending if you are
+    connected to a real node or Anvil simulation.
+
+    This can be either
+
+    - Mainnet work (chain id copied from the forked blockchain)
+
+    - Anvil test backend
+
+    See also :py:func:`launch_anvil`
+
+    :param web3:
+        Web3 connection instance to check
+
+    :return:
+        True if we think we are connected to Anvil
+    """
+    # 'anvil/v0.2.0'
+    return "anvil/" in web3.client_version
+
+
 # Backwards compatibility
 fork_network_anvil = launch_anvil

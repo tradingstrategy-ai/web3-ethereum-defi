@@ -20,7 +20,7 @@ from eth_typing import HexAddress, HexStr
 from web3 import HTTPProvider, Web3
 from web3.middleware import buffered_gas_estimate_middleware
 
-from eth_defi.provider.anvil import fork_network_anvil
+from eth_defi.provider.anvil import fork_network_anvil, is_anvil
 from eth_defi.chain import install_chain_middleware
 from eth_defi.gas import node_default_gas_price_strategy
 from eth_defi.revert_reason import TransactionReverted
@@ -103,6 +103,7 @@ def test_anvil_output():
 def test_anvil_forked_chain_id(web3: Web3):
     """Anvil pipes through the forked chain id."""
     assert web3.eth.chain_id == 56
+    assert is_anvil(web3)
 
 
 # Flaky because uses live node

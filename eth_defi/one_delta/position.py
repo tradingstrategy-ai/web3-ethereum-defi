@@ -144,14 +144,15 @@ def close_short_position(
     wallet_address: str,
     exchange: Exchange = Exchange.UNISWAP_V3,
     interest_mode: AaveV3InterestRateMode = AaveV3InterestRateMode.VARIABLE,
-    do_withdraw: bool = True,
+    withdraw_collateral_amount: int = MAX_AMOUNT,
 ) -> ContractFunction:
     """Close a short position using flash swap then withdraw collateral from Aave.
 
     NOTE:
     - only single-hop swap is supported at the moment
-    - withdrawal doesn't work correctly if there are more than 1 opened positions
-        from this wallet, so `do_withdraw` should be set to False in that case
+    - `withdraw_collateral_amount` should be used wisely in case
+    there are multiple positions opened with same collateral,
+    it will affect the collateral amount to be left on Aave to back other positions hence affecting the liquidation threshold as well.
 
     :param one_delta_deployment: 1delta deployment
     :param collateral_token: collateral token contract proxy
@@ -163,7 +164,7 @@ def close_short_position(
     :param wallet_address: wallet address of the user
     :param exchange: exchange to be used for the swap
     :param interest_mode: interest mode, variable or stable
-    :param do_withdraw: default to True, if False, only flash swap will be executed
+    :param withdraw_collateral_amount: the amount of collateral to be withdrawn, if 0 then only flash swap will be executed
     :return: multicall contract function to close the short position then withdraw collateral
     """
     path = encode_path(
@@ -185,23 +186,27 @@ def close_short_position(
         ],
     )
 
-    call_transfer = one_delta_deployment.flash_aggregator.encodeABI(
-        fn_name="transferERC20AllIn",
-        args=[
-            atoken.address,
-        ],
-    )
-
-    call_withdraw = one_delta_deployment.flash_aggregator.encodeABI(
-        fn_name="withdraw",
-        args=[
-            collateral_token.address,
-            wallet_address,
-        ],
-    )
-
-    calls = [call_swap, call_transfer, call_withdraw]
-    if do_withdraw is False:
+    if withdraw_collateral_amount == 0:
         calls = [call_swap]
+    else:
+        if withdraw_collateral_amount == MAX_AMOUNT:
+            call_transfer = one_delta_deployment.flash_aggregator.encodeABI(
+                fn_name="transferERC20AllIn",
+                args=[atoken.address],
+            )
+        else:
+            call_transfer = one_delta_deployment.flash_aggregator.encodeABI(
+                fn_name="transferERC20In",
+                args=[atoken.address, withdraw_collateral_amount],
+            )
+
+        call_withdraw = one_delta_deployment.flash_aggregator.encodeABI(
+            fn_name="withdraw",
+            args=[
+                collateral_token.address,
+                wallet_address,
+            ],
+        )
+        calls = [call_swap, call_transfer, call_withdraw]
 
     return one_delta_deployment.broker_proxy.functions.multicall(calls)

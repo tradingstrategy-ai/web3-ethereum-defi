@@ -7,7 +7,7 @@ from eth_typing import HexAddress
 from web3 import EthereumTesterProvider, Web3
 from web3.contract import Contract
 
-from eth_defi.token import create_token
+from eth_defi.token import create_token, reset_default_token_cache
 from eth_defi.trade import TradeFail, TradeSuccess
 from eth_defi.uniswap_v3.analysis import analyse_trade_by_receipt
 from eth_defi.uniswap_v3.constants import FOREVER_DEADLINE, MAX_TICK, MIN_TICK
@@ -134,6 +134,9 @@ def test_analyse_by_receipt(
 ):
     """Analyse a Uniswap v3 trade by receipt."""
 
+    # See if we can fix the Github CI random fails with this
+    reset_default_token_cache()
+
     router = uniswap_v3.swap_router
 
     # Give user_1 some cash to buy ETH and approve it on the router
@@ -161,10 +164,10 @@ def test_analyse_by_receipt(
     # user_1 has less than 500 USDC left to loses in the LP fees
     analysis = analyse_trade_by_receipt(web3, uniswap_v3, tx, tx_hash, receipt)
     assert isinstance(analysis, TradeSuccess)
-    assert analysis.price == pytest.approx(Decimal(1699.9102484539058))
-    assert analysis.get_effective_gas_price_gwei() == 1
     assert analysis.amount_out_decimals == 18
     assert analysis.amount_in_decimals == 6
+    assert analysis.price == pytest.approx(Decimal(1699.9102484539058))
+    assert analysis.get_effective_gas_price_gwei() == 1
     assert analysis.lp_fee_paid == pytest.approx(0.03)
 
     all_weth_amount = weth.functions.balanceOf(user_1).call()

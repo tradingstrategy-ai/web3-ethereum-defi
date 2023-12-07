@@ -1,3 +1,19 @@
+# 0.24.3
+
+- Change 1delta `close_short_position()` API to be able to
+  be able to specify the amount of collateral to withdraw
+
+# 0.24.2
+
+- Add `is_anvil(web3)` method
+- Add `fetch_erc20_balances_by_token_list(decimalise=True)` to 
+  get multiple token balances with decimal conversaion 
+  as a batch operation
+- Fix: `set_block_tip_latency()` defauts to 0 when
+  connected to `create_multi_provider_web3` to simplify testing
+- Remove LlamaNodes from Github CI configuration as was causing too much maintenance
+  work and random failures
+
 # 0.24.1
 
 - Unpin some dependencies to make package installation easier
