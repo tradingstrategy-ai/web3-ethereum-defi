@@ -13,15 +13,20 @@ from typing import Dict, List, Set, Union, cast, Collection, TypeAlias
 from eth_account.datastructures import SignedTransaction
 from eth_typing import HexStr, Address
 
+from eth_defi.provider.anvil import mine
 from eth_defi.provider.named import get_provider_name
 from hexbytes import HexBytes
 from web3 import Web3
 from web3.exceptions import TransactionNotFound
 
 from eth_defi.hotwallet import SignedTransactionWithNonce
+from eth_defi.timestamp import get_latest_block_timestamp
 from eth_defi.tx import decode_signed_transaction
 from eth_defi.provider.fallback import FallbackProvider, get_fallback_provider
 from web3.providers import BaseProvider
+
+from eth_defi.utils import to_unix_timestamp
+
 
 logger = logging.getLogger(__name__)
 
@@ -417,6 +422,7 @@ def wait_and_broadcast_multiple_nodes(
     poll_delay=datetime.timedelta(seconds=1),
     node_switch_timeout=datetime.timedelta(minutes=3),
     check_nonce_validity=True,
+    mine_blocks=False,
 ) -> Dict[HexBytes, dict]:
     """Try to broadcast transactions through multiple nodes.
 
@@ -448,6 +454,11 @@ def wait_and_broadcast_multiple_nodes(
 
     :param check_nonce_validity:
         Check if signed nonces match on-chain data before attempting to broadcat.
+
+    :param mine_blocks:
+        For forked mainnet RPCs (Anvil) make sure the blockchain is making blocks.
+
+        Only use with Anvil.
 
     :return:
         Map of transaction hashes -> receipt
@@ -568,6 +579,22 @@ def wait_and_broadcast_multiple_nodes(
         unconfirmed_txs -= confirmation_received
 
         if unconfirmed_txs:
+
+            # TODO: Clean this up after the root cause with Anvil is figured out
+            if mine_blocks:
+                timestamp = get_latest_block_timestamp(web3)
+                # Timestamp we read back is too old
+                # ValueError: {'code': -32602, 'message': "Timestamp error: 1697933604 is lower than or equal to previous block's timestamp"}
+                anvil_ts_correction = datetime.timedelta(seconds=1)
+                advanced_timestamp = timestamp + poll_delay + anvil_ts_correction
+                raw_ts = int(to_unix_timestamp(advanced_timestamp))
+                try:
+                    mine(web3)
+                except ValueError as e:
+                    logger.error(f"Could not mine a block, propose timestamp {advanced_timestamp}, incoming timestamp was {timestamp}")
+                    raise e
+
+            logger.info("We have still unconfirmed txs, sleeping %s", poll_delay.total_seconds())
             time.sleep(poll_delay.total_seconds())
 
             if datetime.datetime.utcnow() > started_at + max_timeout:
@@ -583,7 +610,9 @@ def wait_and_broadcast_multiple_nodes(
                         logger.exception(e)
 
                 unconfirmed_tx_strs = ", ".join([tx_hash.hex() for tx_hash in unconfirmed_txs])
-                raise ConfirmationTimedOut(f"Transaction confirmation failed. Started: {started_at}, timed out after {max_timeout} ({max_timeout.total_seconds()}s). Poll delay: {poll_delay.total_seconds()}s. Still unconfirmed: {unconfirmed_tx_strs}")
+                raise ConfirmationTimedOut(
+                    f"Transaction confirmation failed. Started: {started_at}, timed out after {max_timeout} ({max_timeout.total_seconds()}s). Poll delay: {poll_delay.total_seconds()}s. Still unconfirmed: {unconfirmed_tx_strs}"
+                )
 
         if datetime.datetime.utcnow() >= next_node_switch:
             # Check if it time to try a better node provider

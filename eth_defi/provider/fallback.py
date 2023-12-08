@@ -203,6 +203,8 @@ class FallbackProvider(BaseNamedProvider):
                     retryable_rpc_error_codes=self.retryable_rpc_error_codes,
                     retryable_status_codes=self.retryable_status_codes,
                     retryable_exceptions=self.retryable_exceptions,
+                    method=method,
+                    params=params
                 ):
                     if self.has_multiple_providers():
                         self.switch_provider()

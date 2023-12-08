@@ -24,4 +24,5 @@ The core API is built on the top of Web3.py library.
    eth_defi.tx
    eth_defi.trace
    eth_defi.eip_712
+   eth_defi.timestamp
    eth_defi.utils
