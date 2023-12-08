@@ -20,12 +20,13 @@ from web3 import Web3
 from web3.exceptions import TransactionNotFound
 
 from eth_defi.hotwallet import SignedTransactionWithNonce
+from eth_defi.timestamp import get_latest_block_timestamp
 from eth_defi.tx import decode_signed_transaction
 from eth_defi.provider.fallback import FallbackProvider, get_fallback_provider
 from web3.providers import BaseProvider
 
 from eth_defi.utils import to_unix_timestamp
-from tradeexecutor.utils.blockchain import get_latest_block_timestamp
+
 
 logger = logging.getLogger(__name__)
 
@@ -579,11 +580,12 @@ def wait_and_broadcast_multiple_nodes(
 
         if unconfirmed_txs:
 
+            # TODO: Clean this up after the root cause with Anvil is figured out
             if mine_blocks:
                 timestamp = get_latest_block_timestamp(web3)
                 # Timestamp we read back is too old
                 # ValueError: {'code': -32602, 'message': "Timestamp error: 1697933604 is lower than or equal to previous block's timestamp"}
-                anvil_ts_correction = datetime.timedelta(seconds=3)
+                anvil_ts_correction = datetime.timedelta(seconds=1)
                 advanced_timestamp = timestamp + poll_delay + anvil_ts_correction
                 raw_ts = int(to_unix_timestamp(advanced_timestamp))
                 try:

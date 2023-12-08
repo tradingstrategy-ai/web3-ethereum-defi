@@ -1,10 +1,13 @@
-# Current
+# 0.24.4
 
+- Figure out how to tackle Anvil unreliability issues
 - Mark `evm_mine` JSON-RPC method not retryable
 - Fix `anvil.mine()` without parameters do not attempt to guess next block timestamp, as this 
   was wrong under a load, probably due to Anvil's internal race conditions
 - Add `is_retryable_http_exception(method, params)` to allow decide the retry of a JSON-RPC request based
   on its inputs, not just the output exception
+- Add `eth_defi.timestamp.get_latest_block_timestamp()`
+- Add `eth_defi.timestamp.get_block_timestamp()`
 
 # 0.24.3
 
