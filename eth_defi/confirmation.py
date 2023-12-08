@@ -592,6 +592,7 @@ def wait_and_broadcast_multiple_nodes(
                     logger.error(f"Could not mine a block, propose timestamp {advanced_timestamp}, incoming timestamp was {timestamp}")
                     raise e
 
+            logger.info("We have still unconfirmed txs, sleeping %s", poll_delay.total_seconds())
             time.sleep(poll_delay.total_seconds())
 
             if datetime.datetime.utcnow() > started_at + max_timeout:
