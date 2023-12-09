@@ -525,8 +525,9 @@ def wait_and_broadcast_multiple_nodes(
     unconfirmed_txs: Set[HexBytes] = {tx.hash for tx in txs}
 
     # When we switch to level to verbose to be more
-    # concerned with our debug logging
-    verbose_timeout = max_timeout - datetime.timedelta(minutes=1)
+    # concerned with our debug logging,
+    # but have threshold at least 1 min to avoid test spam
+    verbose_timeout = max(max_timeout - datetime.timedelta(minutes=1), datetime.timedelta(minutes=1))
 
     next_node_switch = started_at + node_switch_timeout
 
