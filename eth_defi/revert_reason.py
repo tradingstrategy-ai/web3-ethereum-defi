@@ -100,6 +100,13 @@ def fetch_transaction_revert_reason(
     # fetch a reverted transaction:
     tx = web3.eth.get_transaction(tx_hash)
 
+    # Normalise type
+    if not isinstance(tx_hash, HexBytes):
+        if type(tx_hash) == str:
+            tx_hash = HexBytes(tx_hash)
+        else:
+            raise AssertionError(f"Unknown type: {tx_hash.__class__} {tx_hash}")
+
     # build a new transaction to replay:
     replay_tx = {
         "to": tx["to"],

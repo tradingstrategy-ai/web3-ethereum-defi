@@ -1,3 +1,7 @@
+# Current
+
+- Fix type normalisation of `tx_hash` in `fetch_transaction_revert_reason`
+
 # 0.24.4
 
 - Figure out how to tackle Anvil unreliability issues
