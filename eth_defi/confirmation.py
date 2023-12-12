@@ -384,16 +384,23 @@ def _broadcast_multiple_nodes(providers: Collection[BaseProvider], signed_tx: Si
             logger.info("Source: %s", source)
 
             # When we rebroadcast we are getting nonce too low errors,
-            # both for too high and too low nonces
+            # both for too high and too low nonces.
+            # We also get nonce too low errors,
+            # when broadcasting through multiple nodes and those nodes sync nonce faster than we broadcast
             if resp_data["message"] == "nonce too low":
-                logger.warning("Nonce too low: %s %s", signed_tx, resp_data)
-                raise BadChainId() from e
+                if address:
+                    current_nonce = web3.eth.get_transaction_count(address)
+                else:
+                    current_nonce = None
+
+                logger.info("Nonce too low. Current:%s proposed:%s address:%s: tx:%s resp:%s", current_nonce, nonce, address, signed_tx, resp_data)
+                #raise NonceTooLow(f"Current on-chain nonce {current_nonce}, proposed {nonce}") from e
 
             if "invalid chain" in resp_data["message"]:
                 # Invalid chain id / chain id missing.
                 # Cannot retry.
                 logger.warning("Invalid chain: %s %s", signed_tx, resp_data)
-                raise NonceTooLow() from e
+                raise BadChainId() from e
 
             if "insufficient funds for gas" in resp_data["message"]:
                 logger.warning("Out of balance error. Tx: %s, resp: %s", signed_tx, resp_data)
