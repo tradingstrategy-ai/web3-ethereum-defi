@@ -40,11 +40,23 @@ class ConfirmationTimedOut(Exception):
     """We exceeded the transaction confirmation timeout."""
 
 
+class NonRetryableBroadcastException(Exception):
+    """Don't try to rebroadcast these."""
+
+
 class NonceMismatch(Exception):
     """Chain has a different nonce than we expect."""
 
 
-class OutOfGasFunds(Exception):
+class OutOfGasFunds(NonRetryableBroadcastException):
+    """Out of gas funds for an executor."""
+
+
+class NonceTooLow(NonRetryableBroadcastException):
+    """Out of gas funds for an executor."""
+
+
+class BadChainId(NonRetryableBroadcastException):
     """Out of gas funds for an executor."""
 
 
@@ -374,18 +386,26 @@ def _broadcast_multiple_nodes(providers: Collection[BaseProvider], signed_tx: Si
             # When we rebroadcast we are getting nonce too low errors,
             # both for too high and too low nonces
             if resp_data["message"] == "nonce too low":
-                continue
+                logger.warning("Nonce too low", signed_tx, resp_data)
+                raise BadChainId() from e
+
+            if "invalid chain" in resp_data["message"]:
+                # Invalid chain id / chain id missing.
+                # Cannot retry.
+                logger.warning("Invalid chain", signed_tx, resp_data)
+                raise NonceTooLow() from e
 
             if "insufficient funds for gas" in resp_data["message"]:
+                logger.warning("Out of balance error. Tx: %s, resp: %s", signed_tx, resp_data)
                 # Always raise when we are out of funds,
                 # because any retry is not help
-                if source:
-                    our_balance = web3.eth.get_balance(source)
+                if address:
+                    our_balance = web3.eth.get_balance(address)
                     our_balance = Decimal(our_balance) / Decimal(10**18)
                 else:
                     our_balance = None
                 raise OutOfGasFunds(
-                    f"Failed to broadcast {tx_hash}, out of gas, account {source} balance is {our_balance}.\n"
+                    f"Failed to broadcast {tx_hash}, out of gas, account {address} balance is {our_balance}.\n"
                     f"TX details: {signed_tx}"
                 ) from e
 
@@ -502,6 +522,10 @@ def wait_and_broadcast_multiple_nodes(
 
         In the case of multiple exceptions, the last one is raised.
         The exception is whatever lower stack is giving us.
+
+    :raise OutOfGasFunds:
+        The hot wallet account does not have enough native token to cover the tx fees.
+
     """
 
     assert isinstance(poll_delay, datetime.timedelta)
@@ -556,6 +580,9 @@ def wait_and_broadcast_multiple_nodes(
         try:
             _broadcast_multiple_nodes(providers, tx)
             last_exception = None
+        except NonRetryableBroadcastException:
+            # Don't try to handle
+            raise
         except Exception as e:
             last_exception = e
 

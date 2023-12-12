@@ -5,6 +5,7 @@ from unittest.mock import patch, DEFAULT
 
 import pytest
 import requests
+from eth.exceptions import OutOfGas
 from eth_account import Account
 
 from eth_defi.confirmation import wait_and_broadcast_multiple_nodes, NonceMismatch
@@ -326,3 +327,4 @@ def test_broadcast_and_wait_multiple_nonce_too_high(web3: Web3, deployer: str):
             node_switch_timeout=datetime.timedelta(seconds=1),
             check_nonce_validity=True,
         )
+
