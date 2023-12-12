@@ -1,3 +1,7 @@
+# 0.24.6
+
+- Fix: invalid None check for sign_bound_call_with_new_nonce"
+
 # 0.24.5
 
 - Fix: `HotWallet.sign_bound_call_with_new_nonce` tries to avoid calling broken Web3 gas estimation
