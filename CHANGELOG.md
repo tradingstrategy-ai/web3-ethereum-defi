@@ -2,6 +2,7 @@
 
 - Fix: Raise `OutOfGasFunds` in `_broadcast_multiple_nodes` and
   avoid transaction broadcast retry if we do not have gas money
+- Fix: Don't swallow nonce errors and chain id errors in `broadcast_multiple_nodes`
 - Fix type normalisation of `tx_hash` in `fetch_transaction_revert_reason`
 
 # 0.24.4
