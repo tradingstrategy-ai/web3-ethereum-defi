@@ -215,6 +215,8 @@ class HotWallet:
         """
         assert isinstance(func, ContractFunction)
 
+        original_tx_params = tx_params
+
         if tx_params is None:
             tx_params = {}
 
@@ -223,7 +225,7 @@ class HotWallet:
         if "chainId" not in tx_params:
             tx_params["chainId"] = func.w3.eth.chain_id
 
-        if tx_params is None:
+        if original_tx_params is None:
             # Use the default gas filler
             tx = func.build_transaction(tx_params)
         else:
