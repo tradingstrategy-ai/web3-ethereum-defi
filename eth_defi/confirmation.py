@@ -386,13 +386,13 @@ def _broadcast_multiple_nodes(providers: Collection[BaseProvider], signed_tx: Si
             # When we rebroadcast we are getting nonce too low errors,
             # both for too high and too low nonces
             if resp_data["message"] == "nonce too low":
-                logger.warning("Nonce too low", signed_tx, resp_data)
+                logger.warning("Nonce too low: %s %s", signed_tx, resp_data)
                 raise BadChainId() from e
 
             if "invalid chain" in resp_data["message"]:
                 # Invalid chain id / chain id missing.
                 # Cannot retry.
-                logger.warning("Invalid chain", signed_tx, resp_data)
+                logger.warning("Invalid chain: %s %s", signed_tx, resp_data)
                 raise NonceTooLow() from e
 
             if "insufficient funds for gas" in resp_data["message"]:
