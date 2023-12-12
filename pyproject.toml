@@ -25,7 +25,7 @@ Discord = "https://discord.gg/5M88m9nM8H"
 Sponsor = "https://tradingstrategy.ai"
 
 [tool.poetry.dependencies]
-python = ">=3.10,<=3.12"
+python = ">=3.10,<3.13"
 Sphinx = {version = "^4.5.0", optional = true}
 sphinx-rtd-theme = {version = "^1.0.0", optional = true}
 sphinx-sitemap = {version = "^2.2.0", optional = true}

@@ -1,6 +1,7 @@
 # 0.24.6
 
 - Fix: invalid None check for sign_bound_call_with_new_nonce"
+- Fix: Python pinning to 3.12.x
 
 # 0.24.5
 
