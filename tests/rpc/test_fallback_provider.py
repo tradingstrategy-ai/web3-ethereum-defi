@@ -327,4 +327,3 @@ def test_broadcast_and_wait_multiple_nonce_too_high(web3: Web3, deployer: str):
             node_switch_timeout=datetime.timedelta(seconds=1),
             check_nonce_validity=True,
         )
-

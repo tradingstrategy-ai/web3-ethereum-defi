@@ -404,10 +404,7 @@ def _broadcast_multiple_nodes(providers: Collection[BaseProvider], signed_tx: Si
                     our_balance = Decimal(our_balance) / Decimal(10**18)
                 else:
                     our_balance = None
-                raise OutOfGasFunds(
-                    f"Failed to broadcast {tx_hash}, out of gas, account {address} balance is {our_balance}.\n"
-                    f"TX details: {signed_tx}"
-                ) from e
+                raise OutOfGasFunds(f"Failed to broadcast {tx_hash}, out of gas, account {address} balance is {our_balance}.\n" f"TX details: {signed_tx}") from e
 
         except Exception as e:
             exceptions[p] = e
@@ -625,7 +622,6 @@ def wait_and_broadcast_multiple_nodes(
         unconfirmed_txs -= confirmation_received
 
         if unconfirmed_txs:
-
             # TODO: Clean this up after the root cause with Anvil is figured out
             if mine_blocks:
                 timestamp = get_latest_block_timestamp(web3)
@@ -656,9 +652,7 @@ def wait_and_broadcast_multiple_nodes(
                         logger.exception(e)
 
                 unconfirmed_tx_strs = ", ".join([tx_hash.hex() for tx_hash in unconfirmed_txs])
-                raise ConfirmationTimedOut(
-                    f"Transaction confirmation failed. Started: {started_at}, timed out after {max_timeout} ({max_timeout.total_seconds()}s). Poll delay: {poll_delay.total_seconds()}s. Still unconfirmed: {unconfirmed_tx_strs}"
-                )
+                raise ConfirmationTimedOut(f"Transaction confirmation failed. Started: {started_at}, timed out after {max_timeout} ({max_timeout.total_seconds()}s). Poll delay: {poll_delay.total_seconds()}s. Still unconfirmed: {unconfirmed_tx_strs}")
 
         if datetime.datetime.utcnow() >= next_node_switch:
             # Check if it time to try a better node provider

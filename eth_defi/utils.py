@@ -174,4 +174,3 @@ def get_url_domain(url: str) -> str:
         return parsed.hostname
     else:
         return f"{parsed.hostname}:{parsed.port}"
-

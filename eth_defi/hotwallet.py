@@ -180,9 +180,9 @@ class HotWallet:
         return signed
 
     def sign_bound_call_with_new_nonce(
-            self,
-            func: ContractFunction,
-            tx_params: dict | None = None,
+        self,
+        func: ContractFunction,
+        tx_params: dict | None = None,
     ) -> SignedTransactionWithNonce:
         """Signs a bound Web3 Contract call.
 
