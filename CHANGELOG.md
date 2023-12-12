@@ -1,4 +1,4 @@
-# Current
+# 0.24.5
 
 - Fix: `HotWallet.sign_bound_call_with_new_nonce` tries to avoid calling broken Web3 gas estimation
   machine if the gas parameters are already given as the arguments
