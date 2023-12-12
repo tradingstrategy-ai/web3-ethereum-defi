@@ -8,6 +8,7 @@
 import datetime
 import logging
 import time
+from _decimal import Decimal
 from typing import Dict, List, Set, Union, cast, Collection, TypeAlias
 
 from eth_account.datastructures import SignedTransaction
@@ -41,6 +42,10 @@ class ConfirmationTimedOut(Exception):
 
 class NonceMismatch(Exception):
     """Chain has a different nonce than we expect."""
+
+
+class OutOfGasFunds(Exception):
+    """Out of gas funds for an executor."""
 
 
 def wait_transactions_to_complete(
@@ -370,6 +375,19 @@ def _broadcast_multiple_nodes(providers: Collection[BaseProvider], signed_tx: Si
             # both for too high and too low nonces
             if resp_data["message"] == "nonce too low":
                 continue
+
+            if "insufficient funds for gas" in resp_data["message"]:
+                # Always raise when we are out of funds,
+                # because any retry is not help
+                if source:
+                    our_balance = web3.eth.get_balance(source)
+                    our_balance = Decimal(our_balance) / Decimal(10**18)
+                else:
+                    our_balance = None
+                raise OutOfGasFunds(
+                    f"Failed to broadcast {tx_hash}, out of gas, account {source} balance is {our_balance}.\n"
+                    f"TX details: {signed_tx}"
+                ) from e
 
         except Exception as e:
             exceptions[p] = e

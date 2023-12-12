@@ -1,5 +1,7 @@
 # Current
 
+- Fix: Raise `OutOfGasFunds` in `_broadcast_multiple_nodes` and
+  avoid transaction broadcast retry if we do not have gas money
 - Fix type normalisation of `tx_hash` in `fetch_transaction_revert_reason`
 
 # 0.24.4
