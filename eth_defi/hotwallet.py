@@ -16,7 +16,9 @@ from eth_account.datastructures import __getitem__
 from eth_account.signers.local import LocalAccount
 from hexbytes import HexBytes
 from web3 import Web3
+from web3._utils.contracts import prepare_transaction
 from web3.contract.contract import ContractFunction
+from web3.contract.utils import build_transaction_for_function
 
 from eth_defi.gas import estimate_gas_fees, apply_gas
 from eth_defi.tx import decode_signed_transaction
@@ -177,7 +179,11 @@ class HotWallet:
         )
         return signed
 
-    def sign_bound_call_with_new_nonce(self, func: ContractFunction, tx_params: dict | None = None) -> SignedTransactionWithNonce:
+    def sign_bound_call_with_new_nonce(
+        self,
+        func: ContractFunction,
+        tx_params: dict | None = None,
+    ) -> SignedTransactionWithNonce:
         """Signs a bound Web3 Contract call.
 
         Example:
@@ -187,6 +193,15 @@ class HotWallet:
             bound_func = busd_token.functions.transfer(user_2, 50*10**18)  # Transfer 50 BUDF
             signed_tx = hot_wallet.sign_bound_call_with_new_nonce(bound_func)
             web3.eth.send_raw_transaction(signed_tx.rawTransaction)
+
+        With manual gas estimation:
+
+        .. code-block:: python
+
+            approve_call = usdc.contract.functions.approve(quickswap.router.address, raw_amount)
+            gas_estimation = estimate_gas_fees(web3)
+            tx_gas_parameters = apply_gas({"gas": 100_000}, gas_estimation)  # approve should not take more than 100k gas
+            signed_tx = hot_wallet.sign_bound_call_with_new_nonce(approve_call, tx_gas_parameters)
 
         See also
 
@@ -199,10 +214,31 @@ class HotWallet:
             Transaction parameters like `gas`
         """
         assert isinstance(func, ContractFunction)
+
         if tx_params is None:
             tx_params = {}
+
         tx_params["from"] = self.address
-        tx = func.build_transaction(tx_params)
+
+        if "chainId" not in tx_params:
+            tx_params["chainId"] = func.w3.eth.chain_id
+
+        if tx_params is None:
+            # Use the default gas filler
+            tx = func.build_transaction(tx_params)
+        else:
+            # Use given gas parameters
+            tx = prepare_transaction(
+                func.address,
+                func.w3,
+                fn_identifier=func.function_identifier,
+                contract_abi=func.contract_abi,
+                fn_abi=func.abi,
+                transaction=tx_params,
+                fn_args=func.args,
+                fn_kwargs=func.kwargs,
+            )
+
         return self.sign_transaction_with_new_nonce(tx)
 
     def get_native_currency_balance(self, web3: Web3) -> Decimal:

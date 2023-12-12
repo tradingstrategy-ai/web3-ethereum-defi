@@ -32,7 +32,8 @@ from eth_defi.event_reader.conversion import (
     convert_uint256_string_to_address,
     convert_uint256_string_to_int,
     decode_data,
-    convert_int256_bytes_to_int, convert_jsonrpc_value_to_int,
+    convert_int256_bytes_to_int,
+    convert_jsonrpc_value_to_int,
 )
 from eth_defi.event_reader.logresult import LogContext
 from eth_defi.event_reader.reader import LogResult
@@ -64,7 +65,7 @@ def _decode_base(log: LogResult) -> dict:
     block_time = datetime.datetime.utcfromtimestamp(log["timestamp"])
 
     return {
-        "block_number":  convert_jsonrpc_value_to_int(log["blockNumber"]),
+        "block_number": convert_jsonrpc_value_to_int(log["blockNumber"]),
         "timestamp": datetime.datetime.utcfromtimestamp(log["timestamp"]),
         "tx_hash": log["transactionHash"],
         "log_index": convert_jsonrpc_value_to_int(log["logIndex"]),
@@ -351,19 +352,14 @@ def fetch_events_to_csv(
     contract_events = [event_data["contract_event"] for event_data in event_mapping.values()]
 
     # Create a filter for any Uniswap v3 pool contract, all our events we are interested in
-    filter = Filter.create_filter(
-        address=None,
-        event_types=contract_events
-    )
+    filter = Filter.create_filter(address=None, event_types=contract_events)
 
     # Start scanning
     restored, restored_start_block = state.restore_state(start_block)
     original_block_range = end_block - start_block
 
     if restored:
-        log_info(
-            f"Restored previous scan state, data until block {restored_start_block:,}, we are skipping {restored_start_block - start_block:,} blocks out of {original_block_range:,} total"
-        )
+        log_info(f"Restored previous scan state, data until block {restored_start_block:,}, we are skipping {restored_start_block - start_block:,} blocks out of {original_block_range:,} total")
     else:
         log_info(
             f"No previous scan done, starting fresh from block {start_block:,}, total {original_block_range:,} blocks",
@@ -375,7 +371,6 @@ def fetch_events_to_csv(
     buffers = {}
 
     for event_name, mapping in event_mapping.items():
-
         # Each event type gets its own CSV
         file_path = f"{output_folder}/uniswap-v3-{event_name.lower()}.csv"
 
@@ -383,7 +378,7 @@ def fetch_events_to_csv(
         file_handler = open(file_path, "a", encoding="utf-8")
         csv_writer = csv.DictWriter(file_handler, fieldnames=mapping["field_names"])
         if not restored:
-            headers = ", ".join(mapping['field_names'])
+            headers = ", ".join(mapping["field_names"])
             log_info(f"Creating a new CSV file: {file_path}, with headers: {headers}")
             csv_writer.writeheader()
 

@@ -88,7 +88,7 @@ def estimate_gas_fees(web3: Web3) -> GasPriceSuggestion:
         return GasPriceSuggestion(method=GasPriceMethod.legacy, legacy_gas_price=web3.eth.generate_gas_price())
 
 
-def apply_gas(tx: dict, suggestion: GasPriceSuggestion):
+def apply_gas(tx: dict, suggestion: GasPriceSuggestion) -> dict:
     """Apply gas fees to a raw transaction dict.
 
     Example:
@@ -117,12 +117,17 @@ def apply_gas(tx: dict, suggestion: GasPriceSuggestion):
         tx_hash = web3.eth.send_raw_transaction(signed.rawTransaction)
         receipt = web3.eth.get_transaction_receipt(tx_hash)
 
+    :return:
+        Mutated dict
+
     """
     if suggestion.method == GasPriceMethod.london:
         tx["maxFeePerGas"] = suggestion.max_fee_per_gas
         tx["maxPriorityFeePerGas"] = suggestion.max_priority_fee_per_gas
     else:
         tx["gasPrice"] = suggestion.legacy_gas_price
+
+    return tx
 
 
 def node_default_gas_price_strategy(web3: Web3, transaction_params: dict) -> int:

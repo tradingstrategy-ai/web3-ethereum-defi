@@ -5,6 +5,7 @@ from unittest.mock import patch, DEFAULT
 
 import pytest
 import requests
+from eth.exceptions import OutOfGas
 from eth_account import Account
 
 from eth_defi.confirmation import wait_and_broadcast_multiple_nodes, NonceMismatch

@@ -98,14 +98,12 @@ DEFAULT_RETRYABLE_RPC_ERROR_CODES = (
     # cannot handle gracefully.
     # ValueError: {'message': 'Internal JSON-RPC error.', 'code': -32603}
     -32603,
-
     # ValueError: {'code': -32000, 'message': 'nonce too low'}.
     # Might happen when we are broadcasting multiple transactions through multiple RPC providers
     # using eth_sendRawTransaction
     # One provide has not yet seeing a transaction broadcast through the other provider.
     # CRAP! -32000 is also Execution reverted on Alchemy.
     # -32000,
-
     # ValueError: {'code': -32003, 'message': 'nonce too low'}.
     # Anvil variant for nonce too low, same as above
     -32003,
@@ -128,9 +126,7 @@ DEFAULT_RETRYABLE_RPC_ERROR_CODES = (
 #:
 #: See :py:data:`DEFAULT_RETRYABLE_RPC_ERROR_CODES`.
 #:
-DEFAULT_RETRYABLE_RPC_ERROR_MESSAGES = {
-    "nonce too low"
-}
+DEFAULT_RETRYABLE_RPC_ERROR_MESSAGES = {"nonce too low"}
 
 #: Ethereum JSON-RPC calls where the value never changes
 #:
@@ -197,7 +193,6 @@ def is_retryable_http_exception(
         if len(exc.args) > 0:
             arg = exc.args[0]
             if type(arg) == dict:
-
                 code = arg.get("code")
                 message = arg.get("message", "")
 
@@ -424,8 +419,8 @@ def static_call_cache_middleware(
     The cache is web3 instance itself, to allow sharing the cache
     between different JSON-RPC providers.
     """
-    def middleware(method: RPCEndpoint, params: Any) -> RPCResponse:
 
+    def middleware(method: RPCEndpoint, params: Any) -> RPCResponse:
         cache = getattr(web3, "static_call_cache", {})
         if method in STATIC_CALL_LIST:
             cached = cache.get(method)
@@ -438,4 +433,3 @@ def static_call_cache_middleware(
         return resp
 
     return middleware
-
