@@ -43,9 +43,9 @@ def encode_path(
         case TradeOperation.OPEN:
             actions = [6]
             flag = interest_mode
-        case TradeOperation.TRIM:
-            actions = [7]
-            flag = 3
+        # case TradeOperation.TRIM:
+        #     actions = [7]
+        #     flag = 3
         case TradeOperation.CLOSE:
             actions = [5]
             flag = 3
