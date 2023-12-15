@@ -69,6 +69,14 @@ class SignedTransactionWithNonce(NamedTuple):
     #:
     source: Optional[dict] = None
 
+    def __eq__(self, other):
+        assert isinstance(other, SignedTransactionWithNonce)
+        return self.hash == other.hash
+
+    def __hash__(self) -> int:
+        # Python hash must be int
+        return hash(self.hash)
+
     def __repr__(self):
         return f"<SignedTransactionWithNonce hash:{self.hash.hex()} nonce:{self.nonce} payload:{self.rawTransaction.hex()}>"
 
