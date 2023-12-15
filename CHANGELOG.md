@@ -1,3 +1,7 @@
+# Current
+
+- Improve logging in `wait_and_broadcast_multiple_nodes` for post-mortem analysis
+
 # 0.24.6
 
 - Fix: invalid None check for sign_bound_call_with_new_nonce"

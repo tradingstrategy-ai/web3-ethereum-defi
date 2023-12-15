@@ -381,7 +381,7 @@ def _broadcast_multiple_nodes(providers: Collection[BaseProvider], signed_tx: Si
 
             logger.info("Broadcast JSON-RPC error %s from: %s, nonce: %s on provider: %s, got error: %s\n", signed_tx.hash.hex(), address, nonce, name, resp_data)
             logger.info("Signed tx: %s", signed_tx)
-            logger.info("Source: %s", source)
+            logger.info("Source transaction data: %s", source)
 
             # When we rebroadcast we are getting nonce too low errors,
             # both for too high and too low nonces.
@@ -638,6 +638,7 @@ def wait_and_broadcast_multiple_nodes(
                 advanced_timestamp = timestamp + poll_delay + anvil_ts_correction
                 raw_ts = int(to_unix_timestamp(advanced_timestamp))
                 try:
+                    logger.info("Anvil mine hack running, uncofirmed txs is %s", unconfirmed_txs)
                     mine(web3)
                 except ValueError as e:
                     logger.error(f"Could not mine a block, propose timestamp {advanced_timestamp}, incoming timestamp was {timestamp}")
