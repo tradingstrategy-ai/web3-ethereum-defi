@@ -399,7 +399,7 @@ def test_1delta_increase_short_position(
     _print_current_balances(logger, hot_wallet.address, usdc, weth, ausdc, vweth)
 
 
-def test_1delta_reduce_short_position(
+def test_1delta_reduce_short_position_exact_out(
     web3,
     hot_wallet,
     one_delta_deployment,
@@ -409,7 +409,7 @@ def test_1delta_reduce_short_position(
     weth,
     vweth,
 ):
-    """Test open then reduce short position size."""
+    """Test open then reduce short position size using exact output (specifying how much borrowed token to reduce)"""
     _open_short_position_multicall(
         web3=web3,
         hot_wallet=hot_wallet,
@@ -434,6 +434,7 @@ def test_1delta_reduce_short_position(
         atoken=ausdc.contract,
         pool_fee=3000,
         reduce_borrow_amount=reduce_weth_borrow_amount,
+        max_collateral_amount_in=MAX_AMOUNT,
         wallet_address=hot_wallet.address,
         withdraw_collateral_amount=withdraw_collateral_amount,
     )
@@ -442,6 +443,54 @@ def test_1delta_reduce_short_position(
     assert usdc.contract.functions.balanceOf(hot_wallet.address).call() == pytest.approx(91_000 * 10**6)
     assert ausdc.contract.functions.balanceOf(hot_wallet.address).call() == pytest.approx(9808032993)
     assert vweth.contract.functions.balanceOf(hot_wallet.address).call() == pytest.approx(reduce_weth_borrow_amount)
+
+    logger.info("\tReducing position done")
+    _print_current_balances(logger, hot_wallet.address, usdc, weth, ausdc, vweth)
+
+
+def test_1delta_reduce_short_position_exact_in(
+    web3,
+    hot_wallet,
+    one_delta_deployment,
+    aave_v3_deployment,
+    usdc,
+    ausdc,
+    weth,
+    vweth,
+):
+    """Test open then reduce short position size using exact input (specifying how much collateral to reduce)"""
+    _open_short_position_multicall(
+        web3=web3,
+        hot_wallet=hot_wallet,
+        one_delta_deployment=one_delta_deployment,
+        aave_v3_deployment=aave_v3_deployment,
+        usdc=usdc,
+        ausdc=ausdc,
+        weth=weth,
+        vweth=vweth,
+    )
+
+    logger.info("> Step 3: reduce short position size")
+
+    # reduce position to half then withdraw corresponding collateral
+    # reduce_weth_borrow_amount = int(0.5 * 10**18)
+    reduce_collateral_amount = 1_000 * 10**6
+
+    fn = reduce_short_position(
+        one_delta_deployment=one_delta_deployment,
+        collateral_token=usdc.contract,
+        borrow_token=weth.contract,
+        atoken=ausdc.contract,
+        pool_fee=3000,
+        reduce_collateral_amount=reduce_collateral_amount,
+        min_borrow_amount_out=0,
+        wallet_address=hot_wallet.address,
+    )
+    _execute_tx(web3, hot_wallet, fn, 1_000_000)
+
+    assert usdc.contract.functions.balanceOf(hot_wallet.address).call() == pytest.approx(91_000 * 10**6)
+    assert ausdc.contract.functions.balanceOf(hot_wallet.address).call() == pytest.approx(9625597255)
+    assert vweth.contract.functions.balanceOf(hot_wallet.address).call() == pytest.approx(388449638218292351)
 
     logger.info("\tReducing position done")
     _print_current_balances(logger, hot_wallet.address, usdc, weth, ausdc, vweth)
