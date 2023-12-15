@@ -7,7 +7,7 @@ from web3.contract.contract import Contract, ContractFunction
 
 from eth_defi.aave_v3.constants import MAX_AMOUNT, AaveV3InterestRateMode
 from eth_defi.aave_v3.deployment import AaveV3Deployment
-from eth_defi.one_delta.constants import Exchange, TradeOperation
+from eth_defi.one_delta.constants import Exchange, TradeOperation, TradeType
 from eth_defi.one_delta.deployment import OneDeltaDeployment
 from eth_defi.one_delta.utils import encode_path
 
@@ -74,6 +74,7 @@ def open_short_position(
     do_supply: bool = True,
 ) -> ContractFunction:
     """Supply collateral to Aave and open a short position using flash swap.
+    This function can also be used to increase existing short position of the same pair.
 
     NOTE: only single-hop swap is supported at the moment
 
@@ -199,6 +200,115 @@ def close_short_position(
                 fn_name="transferERC20In",
                 args=[atoken.address, withdraw_collateral_amount],
             )
+
+        call_withdraw = one_delta_deployment.flash_aggregator.encodeABI(
+            fn_name="withdraw",
+            args=[
+                collateral_token.address,
+                wallet_address,
+            ],
+        )
+        calls = [call_swap, call_transfer, call_withdraw]
+
+    return one_delta_deployment.broker_proxy.functions.multicall(calls)
+
+
+def reduce_short_position(
+    one_delta_deployment: OneDeltaDeployment,
+    *,
+    collateral_token: Contract,
+    borrow_token: Contract,
+    atoken: Contract,
+    pool_fee: int,
+    wallet_address: str,
+    reduce_borrow_amount: int | None = None,
+    reduce_collateral_amount: int | None = None,
+    min_borrow_amount_out: int | None = None,
+    max_collateral_amount_in: int | None = None,
+    withdraw_collateral_amount: int | None = None,
+    exchange: Exchange = Exchange.UNISWAP_V3,
+    interest_mode: AaveV3InterestRateMode = AaveV3InterestRateMode.VARIABLE,
+) -> ContractFunction:
+    """Reduce a short position size.
+
+    NOTE: only single-hop swap is supported at the moment
+
+    :param one_delta_deployment: 1delta deployment
+    :param collateral_token: collateral token contract proxy
+    :param borrow_token: borrow token contract proxy
+    :param pool_fee: raw fee of the pool which is used for the swap
+    :param wallet_address: wallet address of the user
+    :param reduce_borrow_amount: amount of borrow token to be reduced
+    :param reduce_collateral_amount: amount of collateral to be reduced
+    :param min_borrow_amount_out: minimum amount of borrow token to be received
+    :param min_collateral_amount_out: minimum amount of collateral to be received
+    :param withdraw_collateral_amount: the amount of collateral to be withdrawn, if 0 then only flash swap will be executed
+    :param exchange: exchange to be used for the swap
+    :param interest_mode: interest mode, variable or stable
+    :return: multicall contract function to reduce short position then withdraw collateral
+    """
+
+    if reduce_borrow_amount:
+        assert reduce_collateral_amount is None, "Only one of reduce_borrow_amount or reduce_collateral_amount should be set"
+        assert max_collateral_amount_in is not None, "max_collateral_amount_in should be set when reduce_borrow_amount is set"
+        assert withdraw_collateral_amount is not None, "withdraw_collateral_amount should be set when reduce_borrow_amount is set"
+
+        path = encode_path(
+            path=[
+                collateral_token.address,
+                borrow_token.address,
+            ],
+            fees=[pool_fee],
+            exchanges=[exchange],
+            operation=TradeOperation.TRIM,
+            interest_mode=interest_mode,
+            trade_type=TradeType.EXACT_OUTPUT,
+        )
+
+        call_swap = one_delta_deployment.flash_aggregator.encodeABI(
+            fn_name="flashSwapExactOut",
+            args=[
+                reduce_borrow_amount,
+                max_collateral_amount_in,
+                path,
+            ],
+        )
+
+    elif reduce_collateral_amount:
+        assert reduce_borrow_amount is None, "Only one of reduce_borrow_amount or reduce_collateral_amount should be set"
+        assert min_borrow_amount_out is not None, "min_borrow_amount_out should be set when reduce_collateral_amount is set"
+
+        path = encode_path(
+            path=[
+                collateral_token.address,
+                borrow_token.address,
+            ],
+            fees=[pool_fee],
+            exchanges=[exchange],
+            operation=TradeOperation.TRIM,
+            interest_mode=interest_mode,
+            trade_type=TradeType.EXACT_INPUT,
+        )
+
+        call_swap = one_delta_deployment.flash_aggregator.encodeABI(
+            fn_name="flashSwapExactIn",
+            args=[
+                reduce_collateral_amount,
+                min_borrow_amount_out,
+                path,
+            ],
+        )
+
+        if withdraw_collateral_amount is None:
+            withdraw_collateral_amount = reduce_collateral_amount
+
+    if withdraw_collateral_amount == 0:
+        calls = [call_swap]
+    else:
+        call_transfer = one_delta_deployment.flash_aggregator.encodeABI(
+            fn_name="transferERC20In",
+            args=[atoken.address, withdraw_collateral_amount],
+        )
 
         call_withdraw = one_delta_deployment.flash_aggregator.encodeABI(
             fn_name="withdraw",
