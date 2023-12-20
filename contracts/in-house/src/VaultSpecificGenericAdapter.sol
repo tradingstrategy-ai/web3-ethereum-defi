@@ -1,10 +1,3 @@
-// SPDX-License-Identifier: GPL-3.0
-
-pragma solidity 0.6.12;
-pragma experimental ABIEncoderV2;
-
-import "@enzyme/release/extensions/integration-manager/integrations/utils/AdapterBase.sol";
-import "@enzyme/release/core/fund/vault/VaultLib.sol";
 
 /**
  * A vault contract specific adapter/
