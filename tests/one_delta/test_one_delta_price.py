@@ -12,7 +12,11 @@ from web3 import EthereumTesterProvider, Web3
 from web3.contract import Contract
 
 from eth_defi.one_delta.deployment import OneDeltaDeployment
-from eth_defi.one_delta.price import OneDeltaPriceHelper
+from eth_defi.one_delta.price import (
+    OneDeltaPriceHelper,
+    estimate_buy_received_amount,
+    estimate_sell_received_amount,
+)
 from eth_defi.provider.anvil import fork_network_anvil, mine
 from eth_defi.token import create_token, reset_default_token_cache
 from eth_defi.uniswap_v3.utils import get_default_tick_range
@@ -100,3 +104,78 @@ def test_price_helper(
         )
 
         assert amount_in == expected_amount_in
+
+
+def test_estimate_buy_price_for_cash(
+    one_delta_deployment: OneDeltaDeployment,
+    weth: Contract,
+    usdc: Contract,
+):
+    """Estimate how much asset we receive for a given cash buy."""
+
+    usdc_amount_to_spend = 3000 * 10**6
+
+    # Estimate how much ETH we will receive for 3000 USDC
+    eth_received = estimate_buy_received_amount(
+        one_delta_deployment,
+        weth.address,
+        usdc.address,
+        usdc_amount_to_spend,
+        3000,
+    )
+
+    assert eth_received / 10**18 == pytest.approx(1.3327059176760288)
+
+    # Calculate price of ETH as $ for our purchase
+    price = usdc_amount_to_spend * 10 ** (18 - 6) / eth_received
+    assert price == pytest.approx(2251.0592623700486)
+
+    # test verbose mode
+    eth_received, block_number = estimate_buy_received_amount(
+        one_delta_deployment,
+        weth.address,
+        usdc.address,
+        usdc_amount_to_spend,
+        3000,
+        verbose=True,
+    )
+
+    assert eth_received / 10**18 == pytest.approx(1.3327059176760288)
+    assert block_number == 51_000_000
+
+
+def test_estimate_sell_received_cash(
+    one_delta_deployment: OneDeltaDeployment,
+    weth: Contract,
+    usdc: Contract,
+):
+    """Estimate how much asset we receive for a given cash buy."""
+
+    eth_amount_to_sell = 50 * 10**18
+
+    # How much do we receive for selling 50 ETH
+    usdc_received = estimate_sell_received_amount(
+        one_delta_deployment,
+        weth.address,
+        usdc.address,
+        eth_amount_to_sell,
+        3000,
+    )
+
+    assert usdc_received / 10**6 == pytest.approx(107392.782653)
+
+    # Calculate price of ETH as $ for our purchase
+    price = usdc_received * 10 ** (18 - 6) / eth_amount_to_sell
+    assert price == pytest.approx(2147.85565306)
+
+    # test verbose mode
+    usdc_received, block_number = estimate_sell_received_amount(
+        one_delta_deployment,
+        weth.address,
+        usdc.address,
+        eth_amount_to_sell,
+        3000,
+        verbose=True,
+    )
+    assert usdc_received / 1e6 == pytest.approx(107392.782653)
+    assert block_number == 51_000_000

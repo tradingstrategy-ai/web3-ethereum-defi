@@ -163,7 +163,7 @@ def estimate_buy_received_amount(
     :return: Expected base token amount to receive
     :raise TokenDetailError: If we have an issue with ERC-20 contracts
     """
-    fee_helper = UniswapV3PriceHelper(uniswap)
+    price_helper = UniswapV3PriceHelper(uniswap)
 
     if intermediate_token_address:
         path = [quote_token_address, intermediate_token_address, base_token_address]
@@ -172,8 +172,7 @@ def estimate_buy_received_amount(
         path = [quote_token_address, base_token_address]
         fees = [target_pair_fee]
 
-    # We will receive equal number of amounts as there are items in the path
-    amount = fee_helper.get_amount_out(
+    amount = price_helper.get_amount_out(
         quantity,
         path,
         fees,
