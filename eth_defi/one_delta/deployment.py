@@ -28,11 +28,15 @@ class OneDeltaDeployment:
     # DeltaBrokerProxy contract proxy
     broker_proxy: Contract
 
+    #: OneDeltaQuoter contract proxy
+    quoter: Contract
+
 
 def fetch_deployment(
     web3: Web3,
     flash_aggregator_address: HexAddress | str,
     broker_proxy_address: HexAddress | str,
+    quoter_address: HexAddress | str,
 ) -> OneDeltaDeployment:
     """Construct 1delta deployment based on on-chain data.
 
@@ -76,9 +80,15 @@ def fetch_deployment(
         "1delta/DeltaBrokerProxy.json",
         broker_proxy_address,
     )
+    quoter = get_deployed_contract(
+        web3,
+        "1delta/OneDeltaQuoter.json",
+        quoter_address,
+    )
 
     return OneDeltaDeployment(
         web3=web3,
         flash_aggregator=flash_aggregator,
         broker_proxy=broker_proxy,
+        quoter=quoter,
     )
