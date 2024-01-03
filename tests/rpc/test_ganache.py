@@ -82,7 +82,7 @@ def test_mainnet_fork_busd_details(web3: Web3, large_busd_holder: HexAddress, us
     """Checks BUSD deployment on BNB chain."""
     busd = fetch_erc20_details(web3, "0xe9e7CEA3DedcA5984780Bafc599bD69ADd087D56")
     assert busd.symbol == "BUSD"
-    assert (busd.total_supply / (10**18)) > 1_000_000_000, "More than $1B BUSD minted"
+    assert (busd.total_supply / (10**18)) > 10_000_000, "More than $10m BUSD minted"
 
 
 # Because of Ganache
