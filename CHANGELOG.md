@@ -2,6 +2,7 @@
 
 - Improve logging in `wait_and_broadcast_multiple_nodes` for post-mortem analysis
 - `hash(SignedTransactionWithNonce)` now is `SignedTransactionWithNonce.hash`, Ethereum transaction hash 
+- Add 1delta price estimation helper `OneDeltaPriceHelper`
 
 # 0.24.6
 
