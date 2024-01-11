@@ -22,5 +22,6 @@ Getting started
    eth_defi.one_delta.constants
    eth_defi.one_delta.deployment
    eth_defi.one_delta.position
+   eth_defi.one_delta.price
    eth_defi.one_delta.utils
 

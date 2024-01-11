@@ -71,3 +71,34 @@ def encode_path(
     encoded += int.to_bytes(flag, 1, "big")
 
     return encoded
+
+
+def encode_quoter_path(
+    *,
+    path: list[HexAddress],
+    fees: list,
+    exchanges: list[Exchange],
+) -> bytes:
+    """Encode the routing path and other info for 1delta quoter.
+
+    `Read more <https://github.com/1delta-DAO/contracts-delegation/blob/5afc05ba78dfd0b0d9fa072d87b0eb34ddda9dbb/test/1delta/shared/aggregatorPath.ts#L141>`__.
+
+    :param path: List of token addresses how to route the trade
+    :param fees: List of trading fees of the pools in the route
+    :param exchanges: List of exchanges to use for each hop
+    :return: Encoded bytes to be used with 1delta quoter
+    """
+    assert len(fees) == len(path) - 1
+    assert len(exchanges) == len(fees)
+    for fee in fees:
+        assert fee in DEFAULT_FEES
+
+    encoded = b""
+    for index, token in enumerate(path):
+        encoded += bytes.fromhex(token[2:])
+        if token != path[-1]:
+            encoded += int.to_bytes(fees[index], 3, "big")
+            if len(exchanges) > index:
+                encoded += int.to_bytes(exchanges[index], 1, "big")
+
+    return encoded

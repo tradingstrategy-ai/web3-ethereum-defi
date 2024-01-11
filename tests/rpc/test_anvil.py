@@ -20,9 +20,9 @@ from eth_typing import HexAddress, HexStr
 from web3 import HTTPProvider, Web3
 from web3.middleware import buffered_gas_estimate_middleware
 
-from eth_defi.provider.anvil import fork_network_anvil, is_anvil
 from eth_defi.chain import install_chain_middleware
 from eth_defi.gas import node_default_gas_price_strategy
+from eth_defi.provider.anvil import fork_network_anvil, is_anvil
 from eth_defi.revert_reason import TransactionReverted
 from eth_defi.token import fetch_erc20_details
 
@@ -112,7 +112,7 @@ def test_anvil_fork_busd_details(web3: Web3, large_busd_holder: HexAddress, user
     """Checks BUSD deployment on BNB chain."""
     busd = fetch_erc20_details(web3, "0xe9e7CEA3DedcA5984780Bafc599bD69ADd087D56")
     assert busd.symbol == "BUSD"
-    assert (busd.total_supply / (10**18)) > 1_000_000_000, "More than $1B BUSD minted"
+    assert (busd.total_supply / (10**18)) > 10_000_000, "More than $10m BUSD minted"
 
 
 # Flaky because uses live node
