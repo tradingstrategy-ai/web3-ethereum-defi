@@ -13,6 +13,7 @@ import "./GuardV0.sol";
 /**
  * Simple vault allowing delegating of a trading activites to a hot wallet.@author
  *
+ * - Self-contained
  * - Guard is used to check asset manager can only perform approved operations.
  * - No shares, single owner
  * - No accounting
