@@ -1,3 +1,18 @@
+"""Trade outcome analysis.
+
+- Data structures for analysis Uniswap trade outcomes
+
+- Can be used with both Uniswap v2 and Uniswap v3 style DEXes
+
+- Determine and calculate factors like realised price, slippage, paid trading fee
+
+For usage see
+
+- :py:mod:`eth_defi.uniswap_v2.analysis`
+
+- :py:mod:`eth_defi.uniswap_v3.analysis`
+"""
+
 from decimal import Decimal
 from dataclasses import dataclass
 from typing import List, Optional
