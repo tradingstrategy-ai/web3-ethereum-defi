@@ -5,6 +5,8 @@
 
 pragma solidity ^0.8.0;
 
+import "@openzeppelin/access/Ownable.sol";
+
 interface IGuard {
     function validateCall(address target, bytes callData) public;
 }
