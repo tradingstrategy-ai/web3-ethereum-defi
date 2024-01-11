@@ -3,7 +3,7 @@
  *
  */
 
-pragma solidity 0.6.12;
+pragma solidity ^0.8.0;
 
 interface IGuard {
     function validateCall(address target, bytes callData) public;
@@ -34,7 +34,7 @@ contract GuardV0 is IGuard, Ownable {
     mapping(address token => bool allowed) public allowedAssets;
 
     // Allowed trade executors
-    mapping(address address => bool allowed) public allowedSenders;
+    mapping(address sender => bool allowed) public allowedSenders;
 
     // Allowed ERC20.approve()
     mapping(address target => bool allowed) public uniswapV2Routers;
@@ -58,7 +58,7 @@ contract GuardV0 is IGuard, Ownable {
         return owner();
     }
 
-    function approveCallSite(address target, bytes4 selector, notes string) onlyOwner {
+    function approveCallSite(address target, bytes4 selector, string notes) onlyOwner {
         allowedCallSites[target][selector] = true;
         emit CallSiteApproved(target, selector, notes);
     }
@@ -83,21 +83,21 @@ contract GuardV0 is IGuard, Ownable {
         emit CallSiteApproved(target, selector, notes);
     }
     // Basic check if any target contract is whitelisted
-    function canCall(address target, bytes4 selector) public view bool {
+    function canCall(address target, bytes4 selector) public view returns (bool) {
         return allowedCallSites[target][selector];
     }
 
-    function isAllowedSender(address sender) public view bool {
+    function isAllowedSender(address sender) public view returns (bool) {
         return allowedSenders[sender] == true;
     }
 
-    function isAllowedAsset(address token) public view bool {
+    function isAllowedAsset(address token) public view returns (bool) {
         return allowedAssets[sender] == true;
     }
 
     // Validate Uniswap v2 trade
-    function validate_swapTokensForExactTokens(bytes callData) public view bool {
-        (uint amountOut, uint amountInMax, address[] calldata path, address to, uint deadline) = abi.decode(callData, uint, uint, address[] calldata, address, uint));
+    function validate_swapTokensForExactTokens(bytes callData) public {
+        (uint amountOut, uint amountInMax, address[] path, address to, uint deadline) = abi.decode(callData, uint, uint, address[], address, uint);
         address tokenIn = path[0];
         address tokenOut = path[-1];
         require(isAllowedToken(tokenIn), "Token in not allowed");
