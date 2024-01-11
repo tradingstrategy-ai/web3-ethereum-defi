@@ -33,6 +33,18 @@ in-house: enzyme
 	    \) \
 	    -exec cp {} eth_defi/abi \;
 
+guard:
+	# Get our mock up contracts to the compiler bundle
+	@mkdir -p eth_defi/abi/guard
+	@(cd contracts/guard && forge build)
+	@find contracts/guard/out \
+		\(  \
+		-name "GuardV0.json" \
+		-o \
+		-name "SimpleVaultV0.json" \
+		\) \
+		-exec cp {} eth_defi/abi/guard \;
+
 # Compile v3 core and periphery
 uniswapv3:
 	@(cd contracts/uniswap-v3-core && yarn install && yarn compile) > /dev/null
@@ -101,7 +113,7 @@ clean-abi:
 # Compile all contracts we are using
 #
 # Move ABI files to within a Python package for PyPi distribution
-compile-projects-and-prepare-abi: clean-abi sushi in-house copy-uniswapv3-abi aavev3 enzyme dhedge centre 1delta
+compile-projects-and-prepare-abi: clean-abi sushi in-house guard copy-uniswapv3-abi aavev3 enzyme dhedge centre 1delta
 
 all: clean-docs compile-projects-and-prepare-abi build-docs
 
