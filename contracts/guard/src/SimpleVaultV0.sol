@@ -34,6 +34,10 @@ contract SimpleVaultV0 is Ownable {
         guard.allowReceiver(address(this), "Vault can receive tokens from a trade");
     }
 
+    function resetGuard(GuardV0 _guard) onlyOwner external {
+        guard = _guard;
+    }
+
     function getWithdrawAddress() public view returns (address) {
         return owner();
     }

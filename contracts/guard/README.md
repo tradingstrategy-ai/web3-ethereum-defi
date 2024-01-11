@@ -7,6 +7,9 @@ This is a simple implementation of a guard smart contract and a vault smart cont
   - Owner (who can withdraw assets)
   - Asset manager (who can decide on trades)
 
+This code is prototype code for Trading Strategy Protocol Minimal Viable Product version
+and not indented for wider distribution.
+
 ## Guard activities
 
 Guard will check for activities asset manager perform, all of them which need to be whitelisted by the owner: 
