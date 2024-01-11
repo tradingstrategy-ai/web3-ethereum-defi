@@ -6,6 +6,8 @@ allow_paths = ["*", "/"]
 # For VaultUSDCPaymentForwarder.sol
 solc_version = "0.6.12"
 
+# auto_detect_solc = true
+
 [profile.ci.fuzz]
 runs = 10_000
 
