@@ -26,3 +26,6 @@
 [submodule "contracts/1delta"]
 	path = contracts/1delta
 	url = https://github.com/1delta-DAO/contracts-delegation.git
+[submodule "contracts/guard/lib/forge-std"]
+	path = contracts/guard/lib/forge-std
+	url = https://github.com/foundry-rs/forge-std
