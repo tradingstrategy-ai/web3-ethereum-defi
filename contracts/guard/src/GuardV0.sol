@@ -19,6 +19,14 @@ interface IUniswapV2Router02 {
         address to,
         uint deadline
     ) external returns (uint[] memory amounts);
+
+    function swapExactTokensForTokens(
+      uint amountIn,
+      uint amountOutMin,
+      address[] calldata path,
+      address to,
+      uint deadline
+    ) external returns (uint[] memory amounts);
 }
 
 /**
@@ -156,9 +164,9 @@ contract GuardV0 is IGuard, Ownable {
         return allowedSenders[sender] == true;
     }
 
-    // Assume any tokens are send back to the vaule
-    function isAllowedReceiver(address sender) public view returns (bool) {
-        return isAllowedSender(sender);
+    // Assume any tokens are send back to the vault
+    function isAllowedReceiver(address receiver) public view returns (bool) {
+        return allowedReceivers[receiver] == true;
     }
 
     function isAllowedWithdrawDestination(address receiver) public view returns (bool) {
@@ -204,19 +212,19 @@ contract GuardV0 is IGuard, Ownable {
             return;
         }
 
-        require(!isAllowedSender(sender), "Sender not allowed");
+        require(isAllowedSender(sender), "Sender not allowed");
 
         // Assume sender is trade-executor hot wallet
 
         bytes4 selector = bytes4(callDataWithSelector[:4]);
         bytes calldata callData = callDataWithSelector[4:];
-        require(!isAllowedCallSite(target, selector), "Call site not allowed");
+        require(isAllowedCallSite(target, selector), "Call site not allowed");
 
-        if(selector == getSelector("swapTokensForExactTokens(uint,uint,address[],address,uint)")) {
+        if(selector == getSelector("swapExactTokensForTokens(uint256,uint256,address[],address,uint256)")) {
             validate_swapTokensForExactTokens(callData);
-        } else if(selector == getSelector("transfer(address,uint)")) {
+        } else if(selector == getSelector("transfer(address,uint256)")) {
             validate_transfer(callData);
-        } else if(selector == getSelector("approve(address,uint)")) {
+        } else if(selector == getSelector("approve(address,uint256)")) {
             validate_approve(callData);
         } else {
             revert("Unknown function selector");
@@ -226,6 +234,7 @@ contract GuardV0 is IGuard, Ownable {
     function whitelistToken(address token, string calldata notes) external {
         allowCallSite(token, getSelector("transfer(address,uint256)"), notes);
         allowCallSite(token, getSelector("approve(address,uint256)"), notes);
+        allowAsset(token, notes);
     }
 
     function whitelistUniswapV2Router(address router, string calldata notes) external {

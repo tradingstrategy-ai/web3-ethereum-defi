@@ -6,6 +6,7 @@
 pragma solidity ^0.8.0;
 
 import "@openzeppelin/access/Ownable.sol";
+import "@openzeppelin/token/ERC20/IERC20.sol";
 
 import "./GuardV0.sol";
 
@@ -77,8 +78,16 @@ contract SimpleVaultV0 is Ownable {
         // Check that the asset manager can perform this function
         guard.validateCall(msg.sender, target, callData);
 
+        // https://ethereum.stackexchange.com/a/69134/620
         (bool success, bytes memory returnData) = target.call(callData);
-        require(success, string(returnData));
+
+        if(!success) {
+            assembly{
+                let revertStringLength := mload(returnData)
+                let revertStringPtr := add(returnData, 0x20)
+                revert(revertStringPtr, revertStringLength)
+            }
+        }
     }
 
 }
