@@ -329,5 +329,25 @@ def test_guard_pair_not_approved(
         target, call_data = encode_simple_vault_transaction(trade_call)
         vault.functions.performCall(target, call_data).transact({"from": asset_manager})
 
+def test_owner_withdraw(
+    uniswap_v2: UniswapV2Deployment,
+    weth_usdc_pair: PairDetails,
+    owner: str,
+    asset_manager: str,
+    deployer: str,
+    weth: Contract,
+    usdc: Contract,
+    vault: Contract,
+    guard: Contract,
+):
+    """Owner can withdraw."""
+    usdc_amount = 10_000 * 10**6
+    usdc.functions.transfer(vault.address, usdc_amount).transact({"from": deployer})
 
+    transfer_call = usdc.functions.transfer(
+        owner,
+        usdc_amount,
+    )
 
+    target, call_data = encode_simple_vault_transaction(transfer_call)
+    vault.functions.performCall(target, call_data).transact({"from": asset_manager})
