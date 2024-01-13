@@ -32,6 +32,12 @@ contract GuardV0 is IGuard, Ownable {
     // Allowed ERC20.approve()
     mapping(address target => mapping(bytes4 selector => bool allowed)) public allowedCallSites;
 
+    // How many call sites we have enabled all-time counter.
+    //
+    // Used for diagnostics/debugging.
+    //
+    uint public callSiteCount;
+
     // Allowed ERC-20 tokens we may receive or send in a trade
     mapping(address token => bool allowed) public allowedAssets;
 
@@ -82,6 +88,7 @@ contract GuardV0 is IGuard, Ownable {
 
     function allowCallSite(address target, bytes4 selector, string calldata notes) public onlyOwner {
         allowedCallSites[target][selector] = true;
+        callSiteCount++;
         emit CallSiteApproved(target, selector, notes);
     }
 
@@ -141,7 +148,7 @@ contract GuardV0 is IGuard, Ownable {
     }
 
     // Basic check if any target contract is whitelisted
-    function isGoodCallTarget(address target, bytes4 selector) public view returns (bool) {
+    function isAllowedCallSite(address target, bytes4 selector) public view returns (bool) {
         return allowedCallSites[target][selector];
     }
 
@@ -203,7 +210,7 @@ contract GuardV0 is IGuard, Ownable {
 
         bytes4 selector = bytes4(callDataWithSelector[:4]);
         bytes calldata callData = callDataWithSelector[4:];
-        require(!isGoodCallTarget(target, selector), "Call site not allowed");
+        require(!isAllowedCallSite(target, selector), "Call site not allowed");
 
         if(selector == getSelector("swapTokensForExactTokens(uint,uint,address[],address,uint)")) {
             validate_swapTokensForExactTokens(callData);
@@ -217,12 +224,12 @@ contract GuardV0 is IGuard, Ownable {
     }
 
     function whitelistToken(address token, string calldata notes) external {
-        allowCallSite(token, getSelector("transfer(address,uint)"), notes);
-        allowCallSite(token, getSelector("approve(address,uint)"), notes);
+        allowCallSite(token, getSelector("transfer(address,uint256)"), notes);
+        allowCallSite(token, getSelector("approve(address,uint256)"), notes);
     }
 
     function whitelistUniswapV2Router(address router, string calldata notes) external {
-        allowCallSite(router, getSelector("swapTokensForExactTokens(uint,uint,address[],address,uint)"), notes);
+        allowCallSite(router, getSelector("swapExactTokensForTokens(uint256,uint256,address[],address,uint256)"), notes);
         allowApprovalDestination(router, notes);
     }
 }

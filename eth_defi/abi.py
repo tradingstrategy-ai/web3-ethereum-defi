@@ -16,6 +16,8 @@ from typing import Optional, Sequence, Type, Union
 import eth_abi
 from eth_abi import decode
 from eth_typing import HexAddress
+from eth_utils import encode_hex, function_abi_to_4byte_selector
+from eth_utils.abi import _abi_to_signature, function_signature_to_4byte_selector
 from hexbytes import HexBytes
 from web3 import Web3
 from web3._utils.abi import get_abi_input_names, get_abi_input_types
@@ -25,7 +27,6 @@ from web3.contract.contract import Contract, ContractFunction
 # Cache loaded ABI files in-process memory for speedup
 from web3.datastructures import AttributeDict
 
-from eth_defi.uniswap_v2.utils import ZERO_ADDRESS
 from eth_defi.utils import ZERO_ADDRESS_STR
 
 # How big are our ABI and contract caches
@@ -431,3 +432,35 @@ def link_libraries_hardhat(bytecode: str, link_references: dict, hardhat_export:
                 # print(f"Linking {contract_name} {start} {address}")
 
     return data
+
+
+def get_function_selector(func: ContractFunction) -> bytes:
+    """Get Solidity function selector.
+
+    Does not support multiple Solidity functions with the same name, but
+    different arguments. On multiple functions
+    use one first declared in ABI.
+
+    Example:
+
+    .. code-block:: python
+
+        selector = get_function_selector(uniswap_v2.router.functions.swapExactTokensForTokens)
+        assert selector.hex() == 38ed1739
+
+    :param func:
+        Unbound or bound contract function proxy
+
+    :return:
+        Solidity function selector.
+
+        First 32-bit (4 bytes) keccak hash.
+    """
+
+    contract_abi = func.contract_abi
+    # https://stackoverflow.com/a/8534381/315168
+    fn_abi = next((a for a in contract_abi if a.get("name") == func.fn_name), None)
+    assert fn_abi, f"Could not find function {func.fn_name} in Contract ABI"
+    function_signature = _abi_to_signature(fn_abi)
+    fn_selector = function_signature_to_4byte_selector(function_signature)  # type: ignore
+    return fn_selector
