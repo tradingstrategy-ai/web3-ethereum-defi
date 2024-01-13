@@ -61,6 +61,17 @@ def usdc(web3, deployer) -> Contract:
 
 
 @pytest.fixture()
+def shitcoin(web3, deployer) -> Contract:
+    """Mock USDC token.
+
+    Note that this token has 18 decimals instead of 6 of real USDC.
+    """
+    token = create_token(web3, deployer, "Shitcoin", "SCAM", 1_000_000_000 * 10**18)
+    return token
+
+
+
+@pytest.fixture()
 def uniswap_v2(web3: Web3, usdc: Contract, deployer: str) -> UniswapV2Deployment:
     """Deploy mock Uniswap v2."""
     return deploy_uniswap_v2_like(web3, deployer)
@@ -127,6 +138,26 @@ def weth_usdc_pair(web3, uniswap_v2, weth, usdc, deployer) -> PairDetails:
         usdc,
         10 * 10**18,  # 10 ETH liquidity
         17_000 * 10**6,  # 17000 USDC liquidity
+    )
+    return fetch_pair_details(web3, pair_address)
+
+
+@pytest.fixture()
+def shitcoin_usdc_pair(
+        web3,
+        uniswap_v2,
+        shitcoin: Contract,
+        usdc: Contract,
+        deployer: str,
+) -> PairDetails:
+    pair_address = deploy_trading_pair(
+        web3,
+        deployer,
+        uniswap_v2,
+        shitcoin,
+        usdc,
+        5 * 10**18,
+        10 * 10**6,
     )
     return fetch_pair_details(web3, pair_address)
 
@@ -226,6 +257,77 @@ def test_guard_token_in_not_approved(
         target, call_data = encode_simple_vault_transaction(trade_call)
         vault.functions.performCall(target, call_data).transact({"from": asset_manager})
 
+
+def test_guard_token_in_not_approved(
+    uniswap_v2: UniswapV2Deployment,
+    weth_usdc_pair: PairDetails,
+    owner: str,
+    asset_manager: str,
+    deployer: str,
+    weth: Contract,
+    usdc: Contract,
+    vault: Contract,
+    guard: Contract,
+):
+    """USDC not approved for the swap."""
+    usdc_amount = 10_000 * 10**6
+    usdc.functions.transfer(vault.address, usdc_amount).transact({"from": deployer})
+
+    path = [usdc.address, weth.address]
+
+    trade_call = uniswap_v2.router.functions.swapExactTokensForTokens(
+        usdc_amount,
+        0,
+        path,
+        vault.address,
+        FOREVER_DEADLINE,
+    )
+
+    with pytest.raises(TransactionFailed, match="execution reverted: TransferHelper: TRANSFER_FROM_FAILED"):
+        target, call_data = encode_simple_vault_transaction(trade_call)
+        vault.functions.performCall(target, call_data).transact({"from": asset_manager})
+
+
+def test_guard_pair_not_approved(
+    uniswap_v2: UniswapV2Deployment,
+    shitcoin_usdc_pair: PairDetails,
+    owner: str,
+    asset_manager: str,
+    deployer: str,
+    usdc: Contract,
+    shitcoin: Contract,
+    vault: Contract,
+    guard: Contract,
+):
+    """Don't allow trading in scam token.
+
+    - Prevent exit scam through non-liquid token
+    """
+
+    usdc_amount = 10_000 * 10**6
+    usdc.functions.transfer(vault.address, usdc_amount).transact({"from": deployer})
+
+    path = [usdc.address, shitcoin.address]
+
+    approve_call = usdc.functions.approve(
+        uniswap_v2.router.address,
+        usdc_amount,
+    )
+
+    target, call_data = encode_simple_vault_transaction(approve_call)
+    vault.functions.performCall(target, call_data).transact({"from": asset_manager})
+
+    trade_call = uniswap_v2.router.functions.swapExactTokensForTokens(
+        usdc_amount,
+        0,
+        path,
+        vault.address,
+        FOREVER_DEADLINE,
+    )
+
+    with pytest.raises(TransactionFailed, match="execution reverted: Token out not allowed"):
+        target, call_data = encode_simple_vault_transaction(trade_call)
+        vault.functions.performCall(target, call_data).transact({"from": asset_manager})
 
 
 
