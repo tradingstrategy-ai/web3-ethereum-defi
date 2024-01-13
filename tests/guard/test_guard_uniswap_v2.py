@@ -51,6 +51,11 @@ def asset_manager(web3) -> str:
 
 
 @pytest.fixture()
+def third_party(web3) -> str:
+    return web3.eth.accounts[3]
+
+
+@pytest.fixture()
 def usdc(web3, deployer) -> Contract:
     """Mock USDC token.
 
@@ -395,3 +400,42 @@ def test_guard_unauthorized_approve(
     with pytest.raises(TransactionFailed, match="execution reverted: Approve address does not match"):
         target, call_data = encode_simple_vault_transaction(transfer_call)
         vault.functions.performCall(target, call_data).transact({"from": asset_manager})
+
+
+def test_guard_third_party_trade(
+    uniswap_v2: UniswapV2Deployment,
+    weth_usdc_pair: PairDetails,
+    owner: str,
+    asset_manager: str,
+    third_party: str,
+    deployer: str,
+    weth: Contract,
+    usdc: Contract,
+    vault: Contract,
+    guard: Contract,
+):
+    """Third party cannot initiate a trade."""
+    usdc_amount = 10_000 * 10**6
+    usdc.functions.transfer(vault.address, usdc_amount).transact({"from": deployer})
+
+    path = [usdc.address, weth.address]
+
+    approve_call = usdc.functions.approve(
+        uniswap_v2.router.address,
+        usdc_amount,
+    )
+
+    target, call_data = encode_simple_vault_transaction(approve_call)
+    vault.functions.performCall(target, call_data).transact({"from": asset_manager})
+
+    trade_call = uniswap_v2.router.functions.swapExactTokensForTokens(
+        usdc_amount,
+        0,
+        path,
+        vault.address,
+        FOREVER_DEADLINE,
+    )
+
+    with pytest.raises(TransactionFailed, match="execution reverted: Sender not allowed"):
+        target, call_data = encode_simple_vault_transaction(trade_call)
+        vault.functions.performCall(target, call_data).transact({"from": third_party})
