@@ -26,23 +26,45 @@ contract SimpleVaultV0 is Ownable {
 
     GuardV0 public guard;
 
-    constructor() Ownable() {
+    constructor(address _assetManager) Ownable() {
         guard = new GuardV0();
-        // The owner of the guard is the vault creator, not the vault itself
-        guard.transferOwnership(msg.sender);
-        guard.allowWithdrawDestination(msg.sender, "Initial owner can withdraw");
+
+        // Set the initial asset manager
+        assetManager = _assetManager;
+        guard.allowSender(_assetManager, "Initial asset manager set");
+
+    }
+
+    /**
+     * Initialise vault and guard for a withdrawal destination.
+     */
+    function initialiseOwnership(address _owner) onlyOwner external {
+        // Initialise the guard where the deployer
+        // is the owner and can always withdraw
+        guard.allowWithdrawDestination(_owner, "Initial owner can withdraw");
         guard.allowReceiver(address(this), "Vault can receive tokens from a trade");
+        guard.transferOwnership(_owner);  // The owner of the guard is the vault creator, not the vault itself
+        transferOwnership(_owner);
     }
 
     function resetGuard(GuardV0 _guard) onlyOwner external {
         guard = _guard;
     }
 
+    /**
+     * Allow single withdrawal destination.
+     *
+     * Preferably multisig/DAO treasury address.
+     */
     function getWithdrawAddress() public view returns (address) {
         return owner();
     }
 
-    function updateAssetManager(address _assetManager, string calldata notes) external onlyOwner {
+    /**
+     * Change the asset manager.
+     *
+     */
+    function updateAssetManager(address _assetManager, string calldata notes) public onlyOwner {
         if(assetManager != address(0)) {
             guard.removeSender(assetManager, notes);
         }
