@@ -329,9 +329,7 @@ def test_guard_pair_not_approved(
         target, call_data = encode_simple_vault_transaction(trade_call)
         vault.functions.performCall(target, call_data).transact({"from": asset_manager})
 
-def test_owner_withdraw(
-    uniswap_v2: UniswapV2Deployment,
-    weth_usdc_pair: PairDetails,
+def test_owner_can_withdraw(
     owner: str,
     asset_manager: str,
     deployer: str,
@@ -351,3 +349,49 @@ def test_owner_withdraw(
 
     target, call_data = encode_simple_vault_transaction(transfer_call)
     vault.functions.performCall(target, call_data).transact({"from": asset_manager})
+
+
+def test_guard_unauthorized_withdraw(
+    owner: str,
+    asset_manager: str,
+    deployer: str,
+    weth: Contract,
+    usdc: Contract,
+    vault: Contract,
+    guard: Contract,
+):
+    """Others cannot withdraw."""
+    usdc_amount = 10_000 * 10**6
+    usdc.functions.transfer(vault.address, usdc_amount).transact({"from": deployer})
+
+    transfer_call = usdc.functions.transfer(
+        asset_manager,
+        usdc_amount,
+    )
+
+    with pytest.raises(TransactionFailed, match="execution reverted: Receiver address does not match"):
+        target, call_data = encode_simple_vault_transaction(transfer_call)
+        vault.functions.performCall(target, call_data).transact({"from": asset_manager})
+
+
+def test_guard_unauthorized_approve(
+    owner: str,
+    asset_manager: str,
+    deployer: str,
+    weth: Contract,
+    usdc: Contract,
+    vault: Contract,
+    guard: Contract,
+):
+    """Cannot approve unauthorized destination."""
+    usdc_amount = 10_000 * 10**6
+    usdc.functions.transfer(vault.address, usdc_amount).transact({"from": deployer})
+
+    transfer_call = usdc.functions.approve(
+        asset_manager,
+        usdc_amount,
+    )
+
+    with pytest.raises(TransactionFailed, match="execution reverted: Approve address does not match"):
+        target, call_data = encode_simple_vault_transaction(transfer_call)
+        vault.functions.performCall(target, call_data).transact({"from": asset_manager})
