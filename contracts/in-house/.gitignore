@@ -1,2 +1,6 @@
 cache/
 out/
+
+
+# Visual studio Code
+.vscode

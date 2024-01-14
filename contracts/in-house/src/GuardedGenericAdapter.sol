@@ -5,9 +5,18 @@
 pragma solidity ^0.6.12;
 pragma experimental ABIEncoderV2;
 
-import "@enzyme/release/extensions/integration-manager/integrations/utils/AdapterBase.sol";
-import "@enzyme/release/core/fund/vault/IVault.sol";
 
+import "@enzyme/release/extensions/integration-manager/integrations/utils/AdapterBase.sol";
+import "@enzyme/release/core/fund/vault/VaultLib.sol";
+//import "@enzyme/release/core/fund/vault/VaultLib.sol";
+//import "@enzyme/release/core/fund/vault/IVault.sol";
+//import "@enzyme/release/extensions/integration-manager/integrations/utils/AdapterBase.sol";
+//import "@enzyme/release/extensions/integration-manager/integrations/utils/AdapterBase.sol";
+//import "@enzyme/contracts/release/extensions/integration-manager/integrations/utils/AdapterBase.sol";
+
+//interface IVault {
+    // Circular imports in Enzyme
+//}
 
 interface IGuard {
     function validateCall(address sender, address target, bytes memory callDataWithSelector) external;
@@ -26,6 +35,12 @@ interface IGuard {
  */
 contract GuardedGenericAdapter is AdapterBase {
 
+    // The vault this adapter is associated with.
+    //
+    // Enzyme allows adapters to serve multiple vaults,
+    // but we limit to a specific vault to reduce the security
+    // footprint.
+    //
     IVault public vault;
 
     // Guard implementation associated with this vault
@@ -65,7 +80,7 @@ contract GuardedGenericAdapter is AdapterBase {
         postActionIncomingAssetsTransferHandler(_vaultProxy, _actionData)
         postActionSpendAssetsTransferHandler(_vaultProxy, _actionData)
     {
-        require(_vaultProxy == vault, "Only calls from the whitelisted vault are allowed");
+        require(_vaultProxy == address(vault), "Only calls from the whitelisted vault are allowed");
 
         (, , , , bytes memory externalCallsData) = __decodeCallArgs(_actionData);
 

@@ -13,7 +13,7 @@ import "./IEIP3009.sol";
  */
 interface ITermsOfService {
     function canAddressProceed(address sender) external returns (bool accepted);
-    function signTermsOfServiceBehalf(address signer, bytes32 hash, bytes calldata signature, bytes calldata metadata) external;
+    function signTermsOfServiceBehalf(address signer, bytes32 hash, bytes32 signature, bytes calldata metadata) external;
 }
 
 
@@ -75,18 +75,20 @@ contract TermedVaultUSDCPaymentForwarder {
         bytes32 s,
         uint256 minSharesQuantity,
         bytes32 termsOfServiceHash,
-        bytes32 termsOfServiceSignature,
-        bytes termsOfServiceMetadata
+        bytes32 termsOfServiceSignature
     )
-        public
+        external
         returns (uint256)
     {
 
         // Check terms of service is up-to-date for this user
         // (Or what frontend thought when it created the transaction)
-        if(termsOfService == bytes32(0)) {
+        if(termsOfServiceHash == bytes32(0)) {
             // Forward signature payload to the terms of service manager
-            termsOfService.signTermsOfServiceBehalf(from, termsOfServiceHash, termsOfServiceSignature, termsOfServiceMetadata);
+            // TODO: If we pass any metadata here we get
+            // Error: Compiler error (/Users/distiller/project/libsolidity/codegen/LValue.cpp:54):Stack too deep, try removing local variables.,
+            // and thus metadata passing is removed
+            termsOfService.signTermsOfServiceBehalf(from, termsOfServiceHash, termsOfServiceSignature, "");
         }
 
         require(termsOfService.canAddressProceed(from), "Terms of service need to be signed/does not match");
