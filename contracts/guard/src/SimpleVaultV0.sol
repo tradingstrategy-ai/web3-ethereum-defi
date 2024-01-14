@@ -12,12 +12,13 @@ import "./GuardV0.sol";
 
 
 /**
- * Simple vault allowing delegating of a trading activites to a hot wallet.@author
+ * Simple vault allowing delegating of a trading activites to a hot wallet.
  *
  * - Self-contained
  * - Guard is used to check asset manager can only perform approved operations.
  * - No shares, single owner
  * - No accounting
+ * - No slippage protection (unlike Enzyme)
  */
 contract SimpleVaultV0 is Ownable {
 
@@ -62,7 +63,18 @@ contract SimpleVaultV0 is Ownable {
     }
 
     /**
+     * Asset manager can no longer trade on this vault.
+     *
+     * Emergency pause set by the governance. Disable with updateAssetManager().
+     */
+    function isDisabled() public view returns (bool) {
+        return assetManager != address(0);
+    }
+
+    /**
      * Change the asset manager.
+     *
+     * Set to zero address to disable asset manager.
      *
      */
     function updateAssetManager(address _assetManager, string calldata notes) public onlyOwner {
@@ -70,7 +82,9 @@ contract SimpleVaultV0 is Ownable {
             guard.removeSender(assetManager, notes);
         }
         assetManager = _assetManager;
-        guard.allowSender(_assetManager, notes);
+        if(assetManager != address(0)) {
+            guard.allowSender(_assetManager, notes);
+        }
     }
 
     function performCall(address target, bytes calldata callData) external {
