@@ -32,3 +32,6 @@
 [submodule "contracts/guard/lib/openzeppelin-contracts"]
 	path = contracts/guard/lib/openzeppelin-contracts
 	url = https://github.com/OpenZeppelin/openzeppelin-contracts
+[submodule "contracts/terms-of-service"]
+	path = contracts/terms-of-service
+	url = https://github.com/tradingstrategy-ai/terms-of-service.git

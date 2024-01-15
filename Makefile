@@ -33,8 +33,8 @@ in-house: enzyme
 	    \) \
 	    -exec cp {} eth_defi/abi \;
 
+# Guard and simple vault contracts
 guard:
-	# Get our mock up contracts to the compiler bundle
 	@mkdir -p eth_defi/abi/guard
 	@(cd contracts/guard && forge build)
 	@find contracts/guard/out \
@@ -44,6 +44,16 @@ guard:
 		-name "SimpleVaultV0.json" \
 		\) \
 		-exec cp {} eth_defi/abi/guard \;
+
+# Terms of service acceptance manager contract
+terms-of-service:
+	@mkdir -p eth_defi/abi/terms-of-service
+	@(cd contracts/terms-of-service && forge build)
+	@find contracts/terms-of-service/out \
+		\(  \
+		-name "TermsOfService.json" \
+		\) \
+		-exec cp {} eth_defi/abi/terms-of-service \;
 
 # Compile v3 core and periphery
 uniswapv3:

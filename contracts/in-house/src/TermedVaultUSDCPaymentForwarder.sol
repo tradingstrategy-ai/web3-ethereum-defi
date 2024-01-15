@@ -63,6 +63,9 @@ contract TermedVaultUSDCPaymentForwarder {
         termsOfService = _termsOfService;
     }
 
+    /**
+     *
+     */
     function buySharesOnBehalfUsingTransferWithAuthorization(
         address from,
         address to,

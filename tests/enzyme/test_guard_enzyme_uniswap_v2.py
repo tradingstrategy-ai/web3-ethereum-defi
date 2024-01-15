@@ -1,0 +1,266 @@
+"""Enzyme integration tests for guard,
+
+- Check Uniswap v2 access rights
+
+- Check some negative cases for unauthroised transactions
+"""
+import random
+
+"""Enzyme USDC EIP-3009 payment forwarder.
+
+- transferWithAuthorization() and receiveWithAuthorization() integration tests for Enzyme protocol
+"""
+import flaky
+import pytest
+from eth_account import Account
+from eth_account.signers.local import LocalAccount
+from eth_typing import HexAddress, ChecksumAddress
+from web3 import Web3
+from web3.contract import Contract
+
+from eth_defi.deploy import deploy_contract
+from eth_defi.enzyme.deployment import EnzymeDeployment, RateAsset
+from eth_defi.enzyme.vault import Vault
+from eth_defi.middleware import construct_sign_and_send_raw_middleware_anvil
+from eth_defi.token import TokenDetails
+from eth_defi.trace import assert_transaction_success_with_explanation
+from eth_defi.usdc.deployment import deploy_fiat_token
+from eth_defi.usdc.eip_3009 import make_eip_3009_transfer, EIP3009AuthorizationType
+
+
+@pytest.fixture()
+def usdc(web3, deployer: ChecksumAddress) -> TokenDetails:
+    """Centre fiat token.
+
+    Deploy real USDC code.
+    """
+    return deploy_fiat_token(web3, deployer)
+
+
+@pytest.fixture
+def vault_owner(web3, deployer, usdc) -> Account:
+    return web3.eth.accounts[1]
+
+
+@pytest.fixture
+def asset_manager(web3, deployer, usdc) -> Account:
+    """Create a LocalAccount user.
+
+    See limitations in `transfer_with_authorization`.
+    """
+    return web3.eth.accounts[2]
+
+
+@pytest.fixture
+def vault_investor(web3, deployer, usdc) -> LocalAccount:
+    """Create a LocalAccount user.
+
+    See limitations in `transfer_with_authorization`.
+    """
+    account = Account.create()
+    stash = web3.eth.get_balance(deployer)
+    tx_hash = web3.eth.send_transaction({"from": deployer, "to": account.address, "value": stash // 2})
+    assert_transaction_success_with_explanation(web3, tx_hash)
+    usdc.contract.functions.transfer(
+        account.address,
+        500 * 10**6,
+    ).transact({"from": deployer})
+    web3.middleware_onion.add(construct_sign_and_send_raw_middleware_anvil(account))
+    return account
+
+
+
+@pytest.fixture()
+def terms_of_service(web3: Web3, deployer: str) -> Contract:
+    """Deploy Terms of Service test version."""
+
+    tos = deploy_contract(
+        web3,
+        "terms-of-service/TermsOfService.json",
+        deployer,
+    )
+
+    new_version = 1
+
+    # Generate the message user needs to sign in their wallet
+    signing_content = generate_acceptance_message(
+        1,
+        datetime.datetime.utcnow(),
+        "http://example.com/terms-of-service",
+        random.randbytes(32),
+    )
+    new_hash = get_signing_hash(signing_content)
+
+    tos.updateTermsOfService(new_version, new_hash, sender=deployer)
+
+
+@pytest.fixture()
+def vault(
+    web3: Web3,
+    deployer: HexAddress,
+    user: LocalAccount,
+    weth: Contract,
+    mln: Contract,
+    usdc: TokenDetails,
+    usdc_usd_mock_chainlink_aggregator: Contract,
+):
+    """Deploy an Enzyme vault.
+
+    - Guard
+
+    - Payment forwarder with terms of service signing
+    """
+
+    deployment = EnzymeDeployment.deploy_core(
+        web3,
+        deployer,
+        mln,
+        weth,
+    )
+
+    # Create a vault for user 1
+    # where we nominate everything in USDC
+    deployment.add_primitive(
+        usdc.contract,
+        usdc_usd_mock_chainlink_aggregator,
+        RateAsset.USD,
+    )
+
+    comptroller, vault = deployment.create_new_vault(
+        deployer,
+        usdc.contract,
+    )
+
+    assert comptroller.functions.getDenominationAsset().call() == usdc.address
+    assert vault.functions.getTrackedAssets().call() == [usdc.address]
+
+    payment_forwarder = deploy_contract(
+        web3,
+        "VaultUSDCPaymentForwarder.json",
+        deployer,
+        usdc.address,
+        comptroller.address,
+    )
+
+    block = web3.eth.get_block("latest")
+
+    # The transfer will expire in one hour
+    # in the test EVM timeline
+    valid_before = block["timestamp"] + 3600
+
+    # Construct bounded ContractFunction instance
+    # that will transact with MockEIP3009Receiver.deposit()
+    # smart contract function.
+    bound_func = make_eip_3009_transfer(
+        token=usdc,
+        from_=user,
+        to=payment_forwarder.address,
+        func=payment_forwarder.functions.buySharesOnBehalfUsingReceiveWithAuthorization,
+        value=500 * 10**6,  # 500 USD,
+        valid_before=valid_before,
+        extra_args=(1,),  # minSharesQuantity
+        authorization_type=EIP3009AuthorizationType.ReceiveWithAuthorization,
+    )
+
+    # Sign and broadcast the tx
+    tx_hash = bound_func.transact(
+        {
+            "from": user.address,
+        }
+    )
+
+    # Print out Solidity stack trace if this fails
+    assert_transaction_success_with_explanation(web3, tx_hash)
+
+    assert payment_forwarder.functions.amountProxied().call() == 500 * 10**6  # Got shares
+
+    vault = Vault.fetch(web3, vault_address=vault.address, payment_forwarder=payment_forwarder.address)
+
+    assert vault.get_gross_asset_value() == 500 * 10**6  # Vault has been funded
+    assert vault.vault.functions.balanceOf(user.address).call() == 500 * 10**18  # Got shares
+    assert vault.payment_forwarder.address == payment_forwarder.address
+    assert vault.payment_forwarder.functions.amountProxied().call() == 500 * 10**6
+
+
+# No idea why flaky
+@flaky.flaky
+def test_enzyme_usdc_payment_forwarder_transfer_with_authorization(
+    web3: Web3,
+    deployer: HexAddress,
+    user: LocalAccount,
+    weth: Contract,
+    mln: Contract,
+    usdc: TokenDetails,
+    usdc_usd_mock_chainlink_aggregator: Contract,
+):
+    """Buy shares using USDC payment forwader."""
+
+    deployment = EnzymeDeployment.deploy_core(
+        web3,
+        deployer,
+        mln,
+        weth,
+    )
+
+    # Create a vault for user 1
+    # where we nominate everything in USDC
+    deployment.add_primitive(
+        usdc.contract,
+        usdc_usd_mock_chainlink_aggregator,
+        RateAsset.USD,
+    )
+
+    comptroller, vault = deployment.create_new_vault(
+        deployer,
+        usdc.contract,
+    )
+
+    assert comptroller.functions.getDenominationAsset().call() == usdc.address
+    assert vault.functions.getTrackedAssets().call() == [usdc.address]
+
+    payment_forwarder = deploy_contract(
+        web3,
+        "VaultUSDCPaymentForwarder.json",
+        deployer,
+        usdc.address,
+        comptroller.address,
+    )
+
+    block = web3.eth.get_block("latest")
+
+    # The transfer will expire in one hour
+    # in the test EVM timeline
+    valid_before = block["timestamp"] + 3600
+
+    # Construct bounded ContractFunction instance
+    # that will transact with MockEIP3009Receiver.deposit()
+    # smart contract function.
+    bound_func = make_eip_3009_transfer(
+        token=usdc,
+        from_=user,
+        to=payment_forwarder.address,
+        func=payment_forwarder.functions.buySharesOnBehalfUsingTransferWithAuthorization,
+        value=500 * 10**6,  # 500 USD,
+        valid_before=valid_before,
+        extra_args=(1,),  # minSharesQuantity
+        authorization_type=EIP3009AuthorizationType.TransferWithAuthorization,
+    )
+
+    # Sign and broadcast the tx
+    tx_hash = bound_func.transact(
+        {
+            "from": user.address,
+        }
+    )
+
+    # Print out Solidity stack trace if this fails
+    assert_transaction_success_with_explanation(web3, tx_hash)
+
+    assert payment_forwarder.functions.amountProxied().call() == 500 * 10**6  # Got shares
+
+    vault = Vault.fetch(web3, vault_address=vault.address, payment_forwarder=payment_forwarder.address)
+
+    assert vault.get_gross_asset_value() == 500 * 10**6  # Vault has been funded
+    assert vault.vault.functions.balanceOf(user.address).call() == 500 * 10**18  # Got shares
+    assert vault.payment_forwarder.address == payment_forwarder.address
+    assert vault.payment_forwarder.functions.amountProxied().call() == 500 * 10**6
