@@ -154,14 +154,14 @@ contract GuardV0 is IGuard, Ownable {
         emit ApprovalDestinationRemoved(destination, notes);
     }
 
-    function allowAsset(address sender, string calldata notes) public onlyOwner {
-        allowedAssets[sender] = true;
-        emit AssetApproved(sender, notes);
+    function allowAsset(address asset, string calldata notes) public onlyOwner {
+        allowedAssets[asset] = true;
+        emit AssetApproved(asset, notes);
     }
 
-    function removeAsset(address sender, string calldata notes) public onlyOwner {
-        delete allowedAssets[sender];
-        emit AssetRemoved(sender, notes);
+    function removeAsset(address asset, string calldata notes) public onlyOwner {
+        delete allowedAssets[asset];
+        emit AssetRemoved(asset, notes);
     }
 
     // Basic check if any target contract is whitelisted

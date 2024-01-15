@@ -105,7 +105,15 @@ contract GuardedGenericAdapter is AdapterBase {
         guard.validateCall(address(vault), contractAddress, callData);
 
         (bool success, bytes memory returnData) = contractAddress.call(callData);
-        require(success, string(returnData));
+
+        if(!success) {
+            assembly{
+                let revertStringLength := mload(returnData)
+                let revertStringPtr := add(returnData, 0x20)
+                revert(revertStringPtr, revertStringLength)
+            }
+        }
+        // require(success, string(returnData));
     }
 
     /// @notice Parses the expected assets in a particular action

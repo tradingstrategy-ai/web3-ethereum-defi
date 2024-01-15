@@ -29,7 +29,7 @@ from eth_defi.enzyme.deployment import EnzymeDeployment, RateAsset
 from eth_defi.enzyme.vault import Vault
 from eth_defi.middleware import construct_sign_and_send_raw_middleware_anvil
 from eth_defi.token import TokenDetails
-from eth_defi.trace import assert_transaction_success_with_explanation
+from eth_defi.trace import assert_transaction_success_with_explanation, TransactionAssertionError
 from eth_defi.usdc.deployment import deploy_fiat_token
 from eth_defi.usdc.eip_3009 import make_eip_3009_transfer, EIP3009AuthorizationType
 
@@ -103,7 +103,16 @@ def terms_of_service(
 
 
 @pytest.fixture()
-def enzyme(web3, deployer, mln, weth, usdc, usdc_usd_mock_chainlink_aggregator) -> EnzymeDeployment:
+def enzyme(
+    web3,
+    deployer,
+    mln,
+    weth,
+    usdc,
+    usdc_usd_mock_chainlink_aggregator,
+    mln_usd_mock_chainlink_aggregator
+) -> EnzymeDeployment:
+
     deployment = EnzymeDeployment.deploy_core(
         web3,
         deployer,
@@ -117,6 +126,11 @@ def enzyme(web3, deployer, mln, weth, usdc, usdc_usd_mock_chainlink_aggregator) 
         RateAsset.USD,
     )
 
+    deployment.add_primitive(
+        mln,
+        mln_usd_mock_chainlink_aggregator,
+        RateAsset.USD,
+    )
     return deployment
 
 
@@ -316,7 +330,7 @@ def test_enzyme_guarded_trade_uniswap_v2(
     uniswap_v2_whitelisted: UniswapV2Deployment,
     weth_usdc_pair: Contract,
 ):
-    """Buy shares using USDC payment forwader."""
+    """Make a swap that goes through the call guard."""
 
     # Sign terms of service
     acceptance_hash, signature = sign_terms_of_service(vault_investor, acceptance_message)
@@ -368,3 +382,87 @@ def test_enzyme_guarded_trade_uniswap_v2(
 
     tx_hash = prepared_tx.transact({"from": asset_manager})
     assert_transaction_success_with_explanation(web3, tx_hash)
+
+    # Bought ETH landed in the vault
+    assert weth_token.contract.functions.balanceOf(vault.address).call() == pytest.approx(0.12450087262998791 * 10**18)
+
+
+def test_enzyme_guarded_trade_uniswap_v2_wrong_token(
+    web3: Web3,
+    deployer: HexAddress,
+    asset_manager: HexAddress,
+    enzyme: EnzymeDeployment,
+    vault: Vault,
+    vault_investor: LocalAccount,
+    weth_token: TokenDetails,
+    mln_token: TokenDetails,
+    usdc_token: TokenDetails,
+    usdc_usd_mock_chainlink_aggregator: Contract,
+    payment_forwarder: Contract,
+    acceptance_message: str,
+    terms_of_service: Contract,
+    uniswap_v2_whitelisted: UniswapV2Deployment,
+    weth_usdc_pair: Contract,
+    mln_usdc_pair: Contract,
+):
+    """Try to swap unallowed token.
+
+    - Remote ETH token whitelistting
+
+    - WETJ token is whitelisted on Enzyme protocol level,
+      but not Guard smart contract
+    """
+
+    guard = vault.guard_contract
+
+    tx_hash = guard.functions.removeAsset(weth_token.address, "").transact({"from": deployer})
+    assert_transaction_success_with_explanation(web3, tx_hash)
+
+    acceptance_hash, signature = sign_terms_of_service(vault_investor, acceptance_message)
+
+    block = web3.eth.get_block("latest")
+    valid_before = block["timestamp"] + 3600
+
+    bound_func = make_eip_3009_transfer(
+        token=usdc_token,
+        from_=vault_investor,
+        to=payment_forwarder.address,
+        func=payment_forwarder.functions.buySharesOnBehalfUsingTransferWithAuthorizationAndTermsOfService,
+        value=500 * 10**6,  # 500 USD,
+        valid_before=valid_before,
+        extra_args=(1, acceptance_hash, signature),
+        authorization_type=EIP3009AuthorizationType.TransferWithAuthorization,
+    )
+
+    # Sign and broadcast the tx
+    tx_hash = bound_func.transact(
+        {
+            "from": vault_investor.address,
+        }
+    )
+
+    # Print out Solidity stack trace if this fails
+    assert_transaction_success_with_explanation(web3, tx_hash)
+
+    assert payment_forwarder.functions.amountProxied().call() == 500 * 10**6  # Got shares
+
+    assert vault.get_gross_asset_value() == 500 * 10**6  # Vault has been funded
+
+    # Vault swaps USDC->ETH for both users
+    # Buy ETH worth of 200 USD
+    prepared_tx = prepare_swap(
+        enzyme,
+        vault,
+        uniswap_v2_whitelisted,
+        vault.generic_adapter,
+        usdc_token.contract,
+        weth_token.contract,
+        200 * 10**6,  # 200 USD
+    )
+
+    with pytest.raises(TransactionAssertionError) as exc_info:
+        tx_hash = prepared_tx.transact({"from": asset_manager, "gas": 1_000_000})
+        assert_transaction_success_with_explanation(web3, tx_hash)
+
+    revert_reason = exc_info.value.revert_reason
+    assert "Token out not allowed" in revert_reason

@@ -142,6 +142,18 @@ def weth_token(web3, weth) -> TokenDetails:
 
 
 @pytest.fixture()
+def mln(web3, deployer) -> Contract:
+    """Mock MLN token."""
+    token = create_token(web3, deployer, "Melon", "MLN", 5_000_000 * 10**18)
+    return token
+
+
+@pytest.fixture()
+def mln_token(web3, mln) -> TokenDetails:
+    return fetch_erc20_details(web3, mln.address)
+
+
+@pytest.fixture()
 def weth_usdc_pair(web3, deployer, uniswap_v2, usdc, weth) -> Contract:
     """Create Uniswap v2 pool for WETH-USDC.
 
@@ -164,10 +176,19 @@ def weth_usdc_pair(web3, deployer, uniswap_v2, usdc, weth) -> Contract:
 
 
 @pytest.fixture()
-def mln(web3, deployer) -> Contract:
-    """Mock MLN token."""
-    token = create_token(web3, deployer, "Melon", "MLN", 5_000_000 * 10**18)
-    return token
+def mln_usdc_pair(web3, deployer, uniswap_v2, usdc, mln) -> Contract:
+    """mln-usd for 200k USD at $200 per token"""
+    deposit = 200_000  # USD
+    pair = deploy_trading_pair(
+        web3,
+        deployer,
+        uniswap_v2,
+        usdc,
+        mln,
+        deposit * 10**6,
+        (deposit // 200) * 10**18,
+    )
+    return pair
 
 
 @pytest.fixture()
@@ -198,5 +219,21 @@ def usdc_usd_mock_chainlink_aggregator(web3, deployer) -> Contract:
         deployer,
     )
     tx_hash = aggregator.functions.setValue(1 * 10**8).transact({"from": deployer})
+    assert_transaction_success_with_explanation(web3, tx_hash)
+    return aggregator
+
+
+@pytest.fixture()
+def mln_usd_mock_chainlink_aggregator(web3, deployer) -> Contract:
+    """Fake ETH/USDC Chainlink price feed.
+
+    Start with 1 ETH = 1600 USD.
+    """
+    aggregator = deploy_contract(
+        web3,
+        "MockChainlinkAggregator.json",
+        deployer,
+    )
+    tx_hash = aggregator.functions.setValue(200 * 10**8).transact({"from": deployer})
     assert_transaction_success_with_explanation(web3, tx_hash)
     return aggregator
