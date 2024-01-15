@@ -1,11 +1,12 @@
 # Current
 
 - Add [Terms of Service acceptance manager integration](https://github.com/tradingstrategy-ai/terms-of-service)
-- Add GuardV0 and SimpleVaultV0 implementations
-- Added guard support for Enzyme generic adapters
+- Add GuardV0 and SimpleVaultV0 implementations for creating safe automated asset managers
+- Added GuardV0 support for Enzyme vaults and generic adapters
 - Improve logging in `wait_and_broadcast_multiple_nodes` for post-mortem analysis
 - `hash(SignedTransactionWithNonce)` now is `SignedTransactionWithNonce.hash`, Ethereum transaction hash
 - Add 1delta price estimation helper `OneDeltaPriceHelper`
+- Improve various utility functions
 
 # 0.24.6
 
