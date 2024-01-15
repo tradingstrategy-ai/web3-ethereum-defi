@@ -10,7 +10,9 @@ jobs:
 
   test-python:
 
-    runs-on: ubuntu-latest
+    # Reserved multicore instance for running tests
+    runs-on:
+      group: Beefy runners
 
     # Only run the action for the latest push
     # See https://docs.github.com/en/actions/using-jobs/using-concurrency#example-only-cancel-in-progress-jobs-or-runs-for-the-current-workflow
@@ -56,10 +58,9 @@ jobs:
           poetry run install-aave-for-testing
 
       # Run tests parallel.
-      # By default Github gives us only 2 CPUs, but we want to parallerise a bit more.
       - name: Run test scripts
         run: |
-          poetry run pytest --tb=native -n 6 --dist loadscope
+          poetry run pytest --tb=native -n auto --dist loadscope
         env:
           BNB_CHAIN_JSON_RPC: ${{ secrets.BNB_CHAIN_JSON_RPC }}
           JSON_RPC_POLYGON_ARCHIVE: ${{ secrets.JSON_RPC_POLYGON_ARCHIVE }}
