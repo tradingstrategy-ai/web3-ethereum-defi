@@ -318,7 +318,8 @@ class Vault:
             try:
                 payment_forwarder_contract = get_deployed_contract(web3, f"TermedVaultUSDCPaymentForwarder.json", payment_forwarder)
                 payment_forwarder_contract.functions.isTermsOfServiceEnabled().call()
-            except KeyError:  # TODO: Check exception here
+            except ValueError:  # TODO: Check exception here
+                # EVMTester will give ValueError if the function does not exist
                 # Legacy
                 payment_forwarder_contract = get_deployed_contract(web3, f"VaultUSDCPaymentForwarder.json", payment_forwarder)
         else:
