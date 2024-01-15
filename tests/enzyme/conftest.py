@@ -19,7 +19,7 @@ from eth_defi.provider.anvil import AnvilLaunch, launch_anvil
 from eth_defi.chain import install_chain_middleware
 from eth_defi.deploy import deploy_contract
 from eth_defi.provider.multi_provider import create_multi_provider_web3
-from eth_defi.token import create_token
+from eth_defi.token import create_token, TokenDetails, fetch_erc20_details
 from eth_defi.trace import assert_transaction_success_with_explanation
 from eth_defi.uniswap_v2.deployment import deploy_uniswap_v2_like, UniswapV2Deployment, deploy_trading_pair
 
@@ -134,6 +134,16 @@ def usdc(web3, deployer) -> Contract:
     """
     token = create_token(web3, deployer, "USD Coin", "USDC", 100_000_000 * 10**6, decimals=6)
     return token
+
+
+@pytest.fixture()
+def usdc_token(web3, usdc) -> TokenDetails:
+    return fetch_erc20_details(web3, usdc.address)
+
+
+@pytest.fixture()
+def weth_token(web3, weth) -> TokenDetails:
+    return fetch_erc20_details(web3, weth.address)
 
 
 @pytest.fixture()

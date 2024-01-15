@@ -188,6 +188,9 @@ def deploy_trading_pair(
     :return: Pair contract address
     """
 
+    assert isinstance(token_a, Contract)
+    assert isinstance(token_b, Contract)
+
     assert token_a.address != token_b.address
 
     if int(token_a.address, 16) > int(token_b.address, 16):
