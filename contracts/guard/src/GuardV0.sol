@@ -94,6 +94,15 @@ contract GuardV0 is IGuard, Ownable {
         return owner();
     }
 
+    /**
+     * Track version during internal development.
+     *
+     * We bump up when new whitelistings added.
+     */
+    function getInternalVersion() public pure returns (uint8) {
+        return 1;
+    }
+
     function allowCallSite(address target, bytes4 selector, string calldata notes) public onlyOwner {
         allowedCallSites[target][selector] = true;
         callSiteCount++;

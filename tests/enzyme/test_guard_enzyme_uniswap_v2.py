@@ -8,6 +8,7 @@ import datetime
 import random
 
 from eth_defi.abi import get_deployed_contract
+from eth_defi.uniswap_v2.deployment import UniswapV2Deployment
 from terms_of_service.acceptance_message import get_signing_hash, generate_acceptance_message, sign_terms_of_service
 
 """Enzyme USDC EIP-3009 payment forwarder.
@@ -113,6 +114,7 @@ def terms_of_service(
 def vault(
     web3: Web3,
     deployer: HexAddress,
+    asset_manager: HexAddress,
     weth: Contract,
     mln: Contract,
     usdc: TokenDetails,
@@ -122,9 +124,10 @@ def vault(
 ) -> Vault:
     """Deploy an Enzyme vault.
 
-    - Guard
-
-    - Payment forwarder with terms of service signing
+    - GuardV0
+    - GuardedGenericAdapter
+    - TermsOfService
+    - TermedVaultUSDCPaymentForwarder
     """
 
     deployment = EnzymeDeployment.deploy_core(
@@ -148,6 +151,8 @@ def vault(
     assert comptroller.functions.getDenominationAsset().call() == usdc.address
     assert vault.functions.getTrackedAssets().call() == [usdc.address]
 
+    vault.functions.addAssetManagers([asset_manager]).transact({"from": deployer})
+
     payment_forwarder = deploy_contract(
         web3,
         "TermedVaultUSDCPaymentForwarder.json",
@@ -157,13 +162,62 @@ def vault(
         terms_of_service.address,
     )
 
-    vault = Vault.fetch(web3, vault_address=vault.address, payment_forwarder=payment_forwarder.address)
+    guard = deploy_contract(
+        web3,
+        f"Guard/GuardV0.json",
+        deployer,
+    )
+    assert guard.functions.getInternalVersion().call() == 1
+
+    generic_adapter = deploy_contract(
+        web3,
+        f"GuardedGenericAdapter.json",
+        deployer,
+        deployment.contracts.integration_manager.address,
+        vault.address,
+        guard.address,
+    )
+
+    # Because Enzyme does not pass the asset manager address to through integration manager,
+    # we set the vault address itself as asset manager for the guard
+    tx_hash = guard.functions.allowSender(vault.address, "").transact({"from": deployer})
+    assert_transaction_success_with_explanation(web3, tx_hash)
+
+    assert generic_adapter.functions.getIntegrationManager().call() == deployment.contracts.integration_manager.address
+    assert comptroller.functions.getDenominationAsset().call() == usdc.address
+    assert vault.functions.getTrackedAssets().call() == [usdc.address]
+    assert vault.functions.canManageAssets(asset_manager).call()
+    assert guard.functions.isAllowedSender(vault.address).call()  # vault = asset manager for the guard
+
+    vault = Vault.fetch(
+        web3,
+        vault_address=vault.address,
+        payment_forwarder=payment_forwarder.address,
+        generic_adapter_address=generic_adapter.address,
+    )
+    assert vault.guard_contract.address == guard.address
     return vault
 
 
 @pytest.fixture()
 def payment_forwarder(vault: Vault) -> Contract:
     return vault.payment_forwarder
+
+
+@pytest.fixture()
+def uniswap_v2_whitelisted(
+    vault: Vault,
+    uniswap_v2: UniswapV2Deployment,
+    weth: Contract,
+    usdc: Contract,
+    deployer: str,
+) -> UniswapV2Deployment:
+    """Whitelist uniswap deployment and WETH-USDC pair on the guard."""
+    guard = vault.guard_contract
+    guard.functions.whitelistUniswapV2Router(uniswap_v2.router.address, "").transact({"from": deployer})
+    guard.functions.whitelistToken(usdc.address, "").transact({"from": deployer})
+    guard.functions.whitelistToken(weth.address, "").transact({"from": deployer})
+    return uniswap_v2
 
 
 def test_enzyme_usdc_payment_forwarder_transfer_with_authorization_and_terms(
@@ -178,6 +232,7 @@ def test_enzyme_usdc_payment_forwarder_transfer_with_authorization_and_terms(
     payment_forwarder: Contract,
     acceptance_message: str,
     terms_of_service: Contract,
+    uniswap_v2_whitelisted: UniswapV2Deployment,
 ):
     """Buy shares using USDC payment forwader."""
 
@@ -243,3 +298,5 @@ def test_enzyme_usdc_payment_forwarder_transfer_with_authorization_and_terms(
     # Terms of service successfully signed
     # (would fail earlier, but we check here just for an example)
     assert terms_of_service.functions.canAddressProceed(vault_investor.address).call()
+
+
