@@ -10,7 +10,16 @@ from eth_defi.enzyme.vault import Vault
 from eth_defi.uniswap_v2.deployment import UniswapV2Deployment, FOREVER_DEADLINE
 
 
-def prepare_swap(enzyme: EnzymeDeployment, vault: Vault, uniswap_v2: UniswapV2Deployment, generic_adapter: Contract, token_in: Contract, token_out: Contract, swap_amount: int) -> ContractFunction:
+# fmt: off
+def prepare_swap(
+    enzyme: EnzymeDeployment,
+    vault: Vault,
+    uniswap_v2: UniswapV2Deployment,
+    generic_adapter: Contract,
+    token_in: Contract,
+    token_out: Contract,
+    swap_amount: int
+) -> ContractFunction:
     """Prepare a Uniswap v2 swap transaction for Enzyme vault.
 
     - Tells the Enzyme vault to swap some tokens
@@ -70,6 +79,8 @@ def prepare_swap(enzyme: EnzymeDeployment, vault: Vault, uniswap_v2: UniswapV2De
         Transaction object that can be signed and executed
     """
 
+    assert isinstance(generic_adapter, Contract), f"generic_adapter is needed for swap integration"
+
     # Prepare the swap parameters
     token_in_swap_amount = swap_amount
     spend_asset_amounts = [token_in_swap_amount]
@@ -82,7 +93,11 @@ def prepare_swap(enzyme: EnzymeDeployment, vault: Vault, uniswap_v2: UniswapV2De
     # The vault performs a swap on Uniswap v2
     encoded_approve = encode_function_call(token_in.functions.approve, [uniswap_v2.router.address, token_in_swap_amount])
 
-    encoded_swapExactTokensForTokens = encode_function_call(uniswap_v2.router.functions.swapExactTokensForTokens, [token_in_swap_amount, 1, path, generic_adapter.address, FOREVER_DEADLINE])
+    # fmt: off
+    encoded_swapExactTokensForTokens = encode_function_call(
+        uniswap_v2.router.functions.swapExactTokensForTokens,
+        [token_in_swap_amount, 1, path, generic_adapter.address, FOREVER_DEADLINE]
+    )
 
     bound_call = execute_calls_for_generic_adapter(
         comptroller=vault.comptroller,

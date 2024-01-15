@@ -19,7 +19,7 @@ import "@enzyme/release/core/fund/vault/VaultLib.sol";
 //}
 
 interface IGuard {
-    function validateCall(address sender, address target, bytes memory callDataWithSelector) external;
+    function validateCall(address sender, address target, bytes calldata callDataWithSelector) external;
 }
 
 /**
@@ -89,17 +89,23 @@ contract GuardedGenericAdapter is AdapterBase {
         );
 
         for (uint256 i; i < contracts.length; i++) {
-            address contractAddress = contracts[i];
-            bytes memory callData = callsData[i];
-
-            // TODO: Looks like currently Enzyme does not pass the asset manager
-            // address that initiated the call, so we just use generic adapter address
-            // as the asset manager
-            guard.validateCall(address(this), contractAddress, callData);
-
-            (bool success, bytes memory returnData) = contractAddress.call(callData);
-            require(success, string(returnData));
+            callGuarded(contracts[i], callsData[i]);
         }
+    }
+
+    /**
+     * Checks if the asset manager is allowed to do this action with the guard smart contract.
+     *
+     * Then perform the action. If the action reverts, unwind the execution.
+     */
+    function callGuarded(address contractAddress, bytes memory callData) internal {
+        // TODO: Looks like currently Enzyme does not pass the asset manager
+        // address that initiated the call, so we just use generic adapter address
+        // as the asset manager
+        guard.validateCall(address(vault), contractAddress, callData);
+
+        (bool success, bytes memory returnData) = contractAddress.call(callData);
+        require(success, string(returnData));
     }
 
     /// @notice Parses the expected assets in a particular action

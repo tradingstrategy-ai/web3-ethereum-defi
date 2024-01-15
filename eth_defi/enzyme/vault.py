@@ -315,7 +315,6 @@ class Vault:
             generic_adapter_contract = None
 
         if payment_forwarder is not None:
-
             try:
                 payment_forwarder_contract = get_deployed_contract(web3, f"TermedVaultUSDCPaymentForwarder.json", payment_forwarder)
                 payment_forwarder_contract.functions.isTermsOfServiceEnabled().call()
@@ -331,7 +330,7 @@ class Vault:
             try:
                 guard_address = generic_adapter_contract.functions.guard().call()
                 guard_contract = get_deployed_contract(web3, f"guard/GuardV0.json", guard_address)
-            except :
+            except:
                 pass
 
         return Vault(

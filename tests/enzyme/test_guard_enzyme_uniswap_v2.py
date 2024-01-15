@@ -103,14 +103,7 @@ def terms_of_service(
 
 
 @pytest.fixture()
-def enzyme(
-    web3,
-    deployer,
-    mln,
-    weth,
-    usdc,
-    usdc_usd_mock_chainlink_aggregator
-) -> EnzymeDeployment:
+def enzyme(web3, deployer, mln, weth, usdc, usdc_usd_mock_chainlink_aggregator) -> EnzymeDeployment:
     deployment = EnzymeDeployment.deploy_core(
         web3,
         deployer,
@@ -183,6 +176,11 @@ def vault(
         vault.address,
         guard.address,
     )
+
+    # When swap is performed, the tokens will land on the integration contract
+    # and this contract must be listed as the receiver.
+    # Enzyme will then internally move tokens to its vault from here.
+    guard.functions.allowReceiver(generic_adapter.address, "").transact({"from": deployer})
 
     # Because Enzyme does not pass the asset manager address to through integration manager,
     # we set the vault address itself as asset manager for the guard
@@ -304,6 +302,7 @@ def test_enzyme_usdc_payment_forwarder_transfer_with_authorization_and_terms(
 def test_enzyme_guarded_trade_uniswap_v2(
     web3: Web3,
     deployer: HexAddress,
+    asset_manager: HexAddress,
     enzyme: EnzymeDeployment,
     vault: Vault,
     vault_investor: LocalAccount,
@@ -353,8 +352,6 @@ def test_enzyme_guarded_trade_uniswap_v2(
 
     assert payment_forwarder.functions.amountProxied().call() == 500 * 10**6  # Got shares
 
-    vault = Vault.fetch(web3, vault_address=vault.address, payment_forwarder=payment_forwarder.address)
-
     assert vault.get_gross_asset_value() == 500 * 10**6  # Vault has been funded
 
     # Vault swaps USDC->ETH for both users
@@ -371,6 +368,3 @@ def test_enzyme_guarded_trade_uniswap_v2(
 
     tx_hash = prepared_tx.transact({"from": asset_manager})
     assert_transaction_success_with_explanation(web3, tx_hash)
-
-
-

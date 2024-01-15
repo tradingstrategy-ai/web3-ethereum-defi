@@ -31,4 +31,3 @@ def encode_simple_vault_transaction(func: ContractFunction) -> Tuple[ChecksumAdd
     )
     encoded = encode_abi(w3, fn_abi, fn_arguments, fn_selector)
     return func.address, encoded
-

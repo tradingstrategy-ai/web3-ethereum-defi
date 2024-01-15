@@ -75,7 +75,6 @@ def shitcoin(web3, deployer) -> Contract:
     return token
 
 
-
 @pytest.fixture()
 def uniswap_v2(web3: Web3, usdc: Contract, deployer: str) -> UniswapV2Deployment:
     """Deploy mock Uniswap v2."""
@@ -149,11 +148,11 @@ def weth_usdc_pair(web3, uniswap_v2, weth, usdc, deployer) -> PairDetails:
 
 @pytest.fixture()
 def shitcoin_usdc_pair(
-        web3,
-        uniswap_v2,
-        shitcoin: Contract,
-        usdc: Contract,
-        deployer: str,
+    web3,
+    uniswap_v2,
+    shitcoin: Contract,
+    usdc: Contract,
+    deployer: str,
 ) -> PairDetails:
     pair_address = deploy_trading_pair(
         web3,
@@ -333,6 +332,7 @@ def test_guard_pair_not_approved(
     with pytest.raises(TransactionFailed, match="execution reverted: Token out not allowed"):
         target, call_data = encode_simple_vault_transaction(trade_call)
         vault.functions.performCall(target, call_data).transact({"from": asset_manager})
+
 
 def test_owner_can_withdraw(
     owner: str,
