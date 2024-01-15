@@ -8,6 +8,7 @@ import datetime
 import random
 
 from eth_defi.abi import get_deployed_contract
+from eth_defi.enzyme.erc20 import prepare_transfer, prepare_approve
 from eth_defi.enzyme.uniswap_v2 import prepare_swap
 from eth_defi.uniswap_v2.deployment import UniswapV2Deployment
 from terms_of_service.acceptance_message import get_signing_hash, generate_acceptance_message, sign_terms_of_service
@@ -387,77 +388,35 @@ def test_enzyme_guarded_trade_uniswap_v2(
     assert weth_token.contract.functions.balanceOf(vault.address).call() == pytest.approx(0.12450087262998791 * 10**18)
 
 
-def test_enzyme_guarded_trade_uniswap_v2_wrong_token(
+def test_enzyme_guarded_unauthorised_approve(
     web3: Web3,
     deployer: HexAddress,
     asset_manager: HexAddress,
     enzyme: EnzymeDeployment,
     vault: Vault,
-    vault_investor: LocalAccount,
-    weth_token: TokenDetails,
-    mln_token: TokenDetails,
     usdc_token: TokenDetails,
     usdc_usd_mock_chainlink_aggregator: Contract,
-    payment_forwarder: Contract,
-    acceptance_message: str,
-    terms_of_service: Contract,
     uniswap_v2_whitelisted: UniswapV2Deployment,
-    weth_usdc_pair: Contract,
-    mln_usdc_pair: Contract,
 ):
-    """Try to swap unallowed token.
+    """Asset manager tries to initiate the transfer using GenericAdapter.
 
-    - Remote ETH token whitelistting
+    - This is blocked by guard
 
-    - WETJ token is whitelisted on Enzyme protocol level,
-      but not Guard smart contract
+    - transfer() call site is blocked by default, but we need to test for approve()
+
     """
-
-    guard = vault.guard_contract
-
-    tx_hash = guard.functions.removeAsset(weth_token.address, "").transact({"from": deployer})
+    usdc_token.contract.functions.approve(vault.comptroller.address, 500 * 10**6).transact({"from": deployer})
+    tx_hash = vault.comptroller.functions.buyShares(500 * 10**6, 1).transact({"from": deployer})
     assert_transaction_success_with_explanation(web3, tx_hash)
 
-    acceptance_hash, signature = sign_terms_of_service(vault_investor, acceptance_message)
-
-    block = web3.eth.get_block("latest")
-    valid_before = block["timestamp"] + 3600
-
-    bound_func = make_eip_3009_transfer(
-        token=usdc_token,
-        from_=vault_investor,
-        to=payment_forwarder.address,
-        func=payment_forwarder.functions.buySharesOnBehalfUsingTransferWithAuthorizationAndTermsOfService,
-        value=500 * 10**6,  # 500 USD,
-        valid_before=valid_before,
-        extra_args=(1, acceptance_hash, signature),
-        authorization_type=EIP3009AuthorizationType.TransferWithAuthorization,
-    )
-
-    # Sign and broadcast the tx
-    tx_hash = bound_func.transact(
-        {
-            "from": vault_investor.address,
-        }
-    )
-
-    # Print out Solidity stack trace if this fails
-    assert_transaction_success_with_explanation(web3, tx_hash)
-
-    assert payment_forwarder.functions.amountProxied().call() == 500 * 10**6  # Got shares
-
-    assert vault.get_gross_asset_value() == 500 * 10**6  # Vault has been funded
-
-    # Vault swaps USDC->ETH for both users
-    # Buy ETH worth of 200 USD
-    prepared_tx = prepare_swap(
+    # fmt: off
+    prepared_tx = prepare_approve(
         enzyme,
         vault,
-        uniswap_v2_whitelisted,
         vault.generic_adapter,
         usdc_token.contract,
-        weth_token.contract,
-        200 * 10**6,  # 200 USD
+        asset_manager,
+        500 * 10**6,
     )
 
     with pytest.raises(TransactionAssertionError) as exc_info:
@@ -465,4 +424,4 @@ def test_enzyme_guarded_trade_uniswap_v2_wrong_token(
         assert_transaction_success_with_explanation(web3, tx_hash)
 
     revert_reason = exc_info.value.revert_reason
-    assert "Token out not allowed" in revert_reason
+    assert "Approve address does not match" in revert_reason
