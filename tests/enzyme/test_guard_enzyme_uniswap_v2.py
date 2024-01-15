@@ -178,7 +178,7 @@ def vault(
 
     guard = deploy_contract(
         web3,
-        f"Guard/GuardV0.json",
+        f"guard/GuardV0.json",
         deployer,
     )
     assert guard.functions.getInternalVersion().call() == 1
