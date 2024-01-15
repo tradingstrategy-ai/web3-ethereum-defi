@@ -188,6 +188,9 @@ def deploy_trading_pair(
     :return: Pair contract address
     """
 
+    assert isinstance(token_a, Contract)
+    assert isinstance(token_b, Contract)
+
     assert token_a.address != token_b.address
 
     if int(token_a.address, 16) > int(token_b.address, 16):
@@ -220,8 +223,8 @@ def deploy_trading_pair(
     if liquidity_a > 0:
         router = deployment.router
 
-        assert token_a.functions.balanceOf(deployer).call() > liquidity_a, f"Cannot deploy, not enough tokens for {token_a}"
-        assert token_b.functions.balanceOf(deployer).call() > liquidity_b, f"Cannot deploy, not enough tokens for {token_b}"
+        assert token_a.functions.balanceOf(deployer).call() > liquidity_a, f"Cannot deploy, not enough tokens for token A: {token_a.functions.symbol().call()}"
+        assert token_b.functions.balanceOf(deployer).call() > liquidity_b, f"Cannot deploy, not enough tokens for token B: {token_b.functions.symbol().call()}"
 
         # Make sure there is allowance for ERC20.transferFrom()
         token_a.functions.approve(router.address, liquidity_a).transact({"from": deployer})

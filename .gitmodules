@@ -10,6 +10,7 @@
 [submodule "contracts/enzyme"]
 	path = contracts/enzyme
 	url = https://github.com/enzymefinance/protocol.git
+    ignore = dirty
 [submodule "contracts/dhedge"]
 	path = contracts/dhedge
 	url = https://github.com/dhedge/V2-Public.git
@@ -25,3 +26,12 @@
 [submodule "contracts/1delta"]
 	path = contracts/1delta
 	url = https://github.com/1delta-DAO/contracts-delegation.git
+[submodule "contracts/guard/lib/forge-std"]
+	path = contracts/guard/lib/forge-std
+	url = https://github.com/foundry-rs/forge-std
+[submodule "contracts/guard/lib/openzeppelin-contracts"]
+	path = contracts/guard/lib/openzeppelin-contracts
+	url = https://github.com/OpenZeppelin/openzeppelin-contracts
+[submodule "contracts/terms-of-service"]
+	path = contracts/terms-of-service
+	url = https://github.com/tradingstrategy-ai/terms-of-service.git

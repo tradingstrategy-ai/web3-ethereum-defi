@@ -60,7 +60,8 @@ class EnzymeVaultTransaction:
         incoming = ", ".join(self.incoming_assets)
         spending = ", ".join(self.spend_assets)
         arg_str = ", ".join([str(a) for a in self.args])
-        return f"Transaction with {self.contract.name}.{self.function.fn_name}({arg_str}), incoming:[{incoming}], spending:[{spending}], gas:{self.gas_limit:,}"
+        name = getattr(self.contract, "name", "<unnamed contract>")
+        return f"Transaction with {name}.{self.function.fn_name}({arg_str}), incoming:[{incoming}], spending:[{spending}], gas:{self.gas_limit:,}"
 
     @property
     def args(self) -> List[Any]:

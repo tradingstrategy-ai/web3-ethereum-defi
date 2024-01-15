@@ -394,7 +394,7 @@ def _broadcast_multiple_nodes(providers: Collection[BaseProvider], signed_tx: Si
                     current_nonce = None
 
                 logger.info("Nonce too low. Current:%s proposed:%s address:%s: tx:%s resp:%s", current_nonce, nonce, address, signed_tx, resp_data)
-                #raise NonceTooLow(f"Current on-chain nonce {current_nonce}, proposed {nonce}") from e
+                # raise NonceTooLow(f"Current on-chain nonce {current_nonce}, proposed {nonce}") from e
 
             if "invalid chain" in resp_data["message"]:
                 # Invalid chain id / chain id missing.

@@ -30,8 +30,32 @@ in-house: enzyme
 	    -o -name "VaultSpecificGenericAdapter.json" \
 	    -o -name "MockEIP3009Receiver.json" \
 	    -o -name "VaultUSDCPaymentForwarder.json" \
+	    -o -name "TermedVaultUSDCPaymentForwarder.json" \
+	    -o -name "GuardedGenericAdapter.json" \
 	    \) \
 	    -exec cp {} eth_defi/abi \;
+
+# Guard and simple vault contracts
+guard:
+	@mkdir -p eth_defi/abi/guard
+	@(cd contracts/guard && forge build)
+	@find contracts/guard/out \
+		\(  \
+		-name "GuardV0.json" \
+		-o \
+		-name "SimpleVaultV0.json" \
+		\) \
+		-exec cp {} eth_defi/abi/guard \;
+
+# Terms of service acceptance manager contract
+terms-of-service:
+	@mkdir -p eth_defi/abi/terms-of-service
+	@(cd contracts/terms-of-service && forge build)
+	@find contracts/terms-of-service/out \
+		\(  \
+		-name "TermsOfService.json" \
+		\) \
+		-exec cp {} eth_defi/abi/terms-of-service \;
 
 # Compile v3 core and periphery
 uniswapv3:
@@ -66,7 +90,8 @@ enzyme:
 	@(cd contracts/enzyme && forge build)
 	@mkdir -p eth_defi/abi/enzyme
 	@find contracts/enzyme/artifacts -iname "*.json" -exec cp {} eth_defi/abi/enzyme \;
-	@for abi_file in eth_defi/abi/enzyme/*.json ; do cat <<< $(jq 'del(.ast)' $abi_file) > $abi_file ; done
+	@scripts/clean-enzyme-abi.sh
+
 
 # Compile and copy dHEDGE
 # npm install also compiles the contracts here
@@ -101,7 +126,7 @@ clean-abi:
 # Compile all contracts we are using
 #
 # Move ABI files to within a Python package for PyPi distribution
-compile-projects-and-prepare-abi: clean-abi sushi in-house copy-uniswapv3-abi aavev3 enzyme dhedge centre 1delta
+compile-projects-and-prepare-abi: clean-abi sushi in-house guard copy-uniswapv3-abi aavev3 enzyme dhedge centre 1delta
 
 all: clean-docs compile-projects-and-prepare-abi build-docs
 

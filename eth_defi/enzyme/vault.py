@@ -96,6 +96,13 @@ class Vault:
     #:
     payment_forwarder: Optional[Contract] = None
 
+    #: Generic adapter guard contract
+    #:
+    #: - Generic adapter must be GuardedGenericAdapter
+    #: - Resolved from GuardedGenericAdapter.guard() accessor
+    #:
+    guard_contract: Optional[Contract] = None
+
     def __repr__(self) -> str:
         return f"<Vault vault={self.vault.address} adapter={self.generic_adapter and self.generic_adapter.address} payment_forwader={self.payment_forwarder and self.payment_forwarder.address}>"
 
@@ -298,14 +305,33 @@ class Vault:
         deployment = EnzymeDeployment.fetch_deployment(web3, {"comptroller_lib": comptroller_address})
 
         if generic_adapter_address is not None:
-            generic_adapter_contract = get_deployed_contract(web3, f"VaultSpecificGenericAdapter.json", generic_adapter_address)
+            try:
+                generic_adapter_contract = get_deployed_contract(web3, f"GuardedGenericAdapter.json", generic_adapter_address)
+                generic_adapter_contract.functions.guard().call()  # Version check, will cause exception
+            except ValueError:
+                # EthereumTester raises ValueError, but are the other exceptions?
+                generic_adapter_contract = get_deployed_contract(web3, f"VaultSpecificGenericAdapter.json", generic_adapter_address)
         else:
             generic_adapter_contract = None
 
         if payment_forwarder is not None:
-            payment_forwarder_contract = get_deployed_contract(web3, f"VaultUSDCPaymentForwarder.json", payment_forwarder)
+            try:
+                payment_forwarder_contract = get_deployed_contract(web3, f"TermedVaultUSDCPaymentForwarder.json", payment_forwarder)
+                payment_forwarder_contract.functions.isTermsOfServiceEnabled().call()
+            except ValueError:  # TODO: Check exception here
+                # EVMTester will give ValueError if the function does not exist
+                # Legacy
+                payment_forwarder_contract = get_deployed_contract(web3, f"VaultUSDCPaymentForwarder.json", payment_forwarder)
         else:
             payment_forwarder_contract = None
+
+        guard_contract = None
+        if generic_adapter_contract is not None:
+            try:
+                guard_address = generic_adapter_contract.functions.guard().call()
+                guard_contract = get_deployed_contract(web3, f"guard/GuardV0.json", guard_address)
+            except:
+                pass
 
         return Vault(
             vault_contract,
@@ -313,4 +339,5 @@ class Vault:
             deployment,
             generic_adapter_contract,
             payment_forwarder_contract,
+            guard_contract,
         )
