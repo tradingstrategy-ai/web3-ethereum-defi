@@ -303,7 +303,12 @@ class Vault:
             generic_adapter_contract = None
 
         if payment_forwarder is not None:
-            payment_forwarder_contract = get_deployed_contract(web3, f"VaultUSDCPaymentForwarder.json", payment_forwarder)
+
+            try:
+                payment_forwarder_contract = get_deployed_contract(web3, f"TermedVaultUSDCPaymentForwarder.json", payment_forwarder)
+                payment_forwarder_contract.functions.isTermsOfServiceEnabled().call()
+            except KeyError:
+                payment_forwarder_contract = get_deployed_contract(web3, f"VaultUSDCPaymentForwarder.json", payment_forwarder)
         else:
             payment_forwarder_contract = None
 

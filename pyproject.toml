@@ -86,6 +86,12 @@ build-backend = "poetry.core.masonry.api"
 [tool.pytest.ini_options]
 addopts = "--capture=no"
 
+# Do not let pytest to crawl into contracts/ subprojects
+# that contain tests and are independent from us
+# https://stackoverflow.com/a/58306308/315168
+norecursedirs="contracts/*"
+
+
 # We hate arbitrary line lengths
 [tool.black]
 line-length = 999

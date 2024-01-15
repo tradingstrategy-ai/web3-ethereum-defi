@@ -96,7 +96,7 @@ contract VaultSpecificGenericAdapter is AdapterBase {
 
         (
             incomingAssets_,
-            minIncomingAs qsetAmounts_,
+            minIncomingAssetAmounts_,
             spendAssets_,
             spendAssetAmounts_,
 

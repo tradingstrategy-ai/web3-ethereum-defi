@@ -30,6 +30,8 @@ in-house: enzyme
 	    -o -name "VaultSpecificGenericAdapter.json" \
 	    -o -name "MockEIP3009Receiver.json" \
 	    -o -name "VaultUSDCPaymentForwarder.json" \
+	    -o -name "TermedVaultUSDCPaymentForwarder.json" \
+	    -o -name "GuardedGenericAdapter.json" \
 	    \) \
 	    -exec cp {} eth_defi/abi \;
 
@@ -88,7 +90,8 @@ enzyme:
 	@(cd contracts/enzyme && forge build)
 	@mkdir -p eth_defi/abi/enzyme
 	@find contracts/enzyme/artifacts -iname "*.json" -exec cp {} eth_defi/abi/enzyme \;
-	@for abi_file in eth_defi/abi/enzyme/*.json ; do cat <<< $(jq 'del(.ast)' $abi_file) > $abi_file ; done
+	@scripts/clean-enzyme-abi.sh
+
 
 # Compile and copy dHEDGE
 # npm install also compiles the contracts here
