@@ -59,6 +59,48 @@ def approve(
     return approval_functions
 
 
+def _build_supply_multicall(
+    one_delta_deployment,
+    *,
+    token: Contract,
+    amount: int,
+    wallet_address: str,
+) -> list[str]:
+    call_transfer = one_delta_deployment.flash_aggregator.encodeABI(
+        fn_name="transferERC20In",
+        args=[
+            token.address,
+            amount,
+        ],
+    )
+
+    call_deposit = one_delta_deployment.flash_aggregator.encodeABI(
+        fn_name="deposit",
+        args=[
+            token.address,
+            wallet_address,
+        ],
+    )
+
+    return [call_transfer, call_deposit]
+
+
+def supply(
+    one_delta_deployment: OneDeltaDeployment,
+    *,
+    token: Contract,
+    amount: int,
+    wallet_address: str,
+) -> ContractFunction:
+    calls = _build_supply_multicall(
+        one_delta_deployment=one_delta_deployment,
+        token=token,
+        amount=amount,
+        wallet_address=wallet_address,
+    )
+    return one_delta_deployment.broker_proxy.functions.multicall(calls)
+
+
 def open_short_position(
     one_delta_deployment: OneDeltaDeployment,
     *,
@@ -92,22 +134,6 @@ def open_short_position(
     :return: multicall contract function to supply collateral and open the short position
     """
 
-    call_transfer = one_delta_deployment.flash_aggregator.encodeABI(
-        fn_name="transferERC20In",
-        args=[
-            collateral_token.address,
-            collateral_amount,
-        ],
-    )
-
-    call_deposit = one_delta_deployment.flash_aggregator.encodeABI(
-        fn_name="deposit",
-        args=[
-            collateral_token.address,
-            wallet_address,
-        ],
-    )
-
     path = encode_path(
         path=[
             borrow_token.address,
@@ -128,8 +154,14 @@ def open_short_position(
         ],
     )
 
-    calls = [call_transfer, call_deposit, call_swap]
-    if do_supply is False:
+    if do_supply is True:
+        calls = _build_supply_multicall(
+            one_delta_deployment=one_delta_deployment,
+            token=collateral_token,
+            amount=collateral_amount,
+            wallet_address=wallet_address,
+        ) + [call_swap]
+    else:
         calls = [call_swap]
 
     return one_delta_deployment.broker_proxy.functions.multicall(calls)
