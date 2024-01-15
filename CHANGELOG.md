@@ -1,5 +1,6 @@
 # Current
 
+- Bump web3.py to 6.12.x
 - Add [Terms of Service acceptance manager integration](https://github.com/tradingstrategy-ai/terms-of-service)
 - Add GuardV0 and SimpleVaultV0 implementations for creating safe automated asset managers
 - Added GuardV0 support for Enzyme vaults and generic adapters
@@ -7,6 +8,7 @@
 - `hash(SignedTransactionWithNonce)` now is `SignedTransactionWithNonce.hash`, Ethereum transaction hash
 - Add 1delta price estimation helper `OneDeltaPriceHelper`
 - Improve various utility functions
+- Fix issues cleaning AST information from Enzyme contracts on certain UNIX shells
 
 # 0.24.6
 
