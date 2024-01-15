@@ -17,7 +17,7 @@ from eth_defi.trace import assert_transaction_success_with_explanation
 
 def deploy_fiat_token(
     web3: Web3,
-    deployer: ChecksumAddress,
+    deployer: ChecksumAddress | str,
     mint_amount=1_000_000,
     contract="centre/FiatTokenV2_1.json",
     token_name="USD Coin",

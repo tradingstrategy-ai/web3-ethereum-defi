@@ -135,10 +135,8 @@ def vault(
     enzyme: EnzymeDeployment,
     weth: Contract,
     mln: Contract,
-    usdc: TokenDetails,
-    usdc_usd_mock_chainlink_aggregator: Contract,
+    usdc: Contract,
     terms_of_service: Contract,
-    acceptance_message: str,
 ) -> Vault:
     """Deploy an Enzyme vault.
 
@@ -158,6 +156,7 @@ def vault(
     assert comptroller.functions.getDenominationAsset().call() == usdc.address
     assert vault.functions.getTrackedAssets().call() == [usdc.address]
 
+    # asset manager role is the trade executor
     vault.functions.addAssetManagers([asset_manager]).transact({"from": deployer})
 
     payment_forwarder = deploy_contract(
@@ -234,14 +233,15 @@ def test_enzyme_usdc_payment_forwarder_transfer_with_authorization_and_terms(
     vault_investor: LocalAccount,
     weth: Contract,
     mln: Contract,
-    usdc: TokenDetails,
+    usdc_token: TokenDetails,
     usdc_usd_mock_chainlink_aggregator: Contract,
     payment_forwarder: Contract,
     acceptance_message: str,
     terms_of_service: Contract,
-    uniswap_v2_whitelisted: UniswapV2Deployment,
 ):
     """Buy shares using USDC payment forwader."""
+
+    assert usdc_token.symbol == "USDC"
 
     assert payment_forwarder.functions.isTermsOfServiceEnabled().call()
 
@@ -270,7 +270,7 @@ def test_enzyme_usdc_payment_forwarder_transfer_with_authorization_and_terms(
     # that will transact with MockEIP3009Receiver.deposit()
     # smart contract function.
     bound_func = make_eip_3009_transfer(
-        token=usdc,
+        token=usdc_token,
         from_=vault_investor,
         to=payment_forwarder.address,
         func=payment_forwarder.functions.buySharesOnBehalfUsingTransferWithAuthorizationAndTermsOfService,
@@ -293,17 +293,11 @@ def test_enzyme_usdc_payment_forwarder_transfer_with_authorization_and_terms(
     # Print out Solidity stack trace if this fails
     assert_transaction_success_with_explanation(web3, tx_hash)
 
-    assert payment_forwarder.functions.amountProxied().call() == 500 * 10**6  # Got shares
-
-    vault = Vault.fetch(web3, vault_address=vault.address, payment_forwarder=payment_forwarder.address)
-
+    assert payment_forwarder.functions.amountProxied().call() == 500 * 10**6  # Got sharesarder.address)
     assert vault.get_gross_asset_value() == 500 * 10**6  # Vault has been funded
     assert vault.vault.functions.balanceOf(vault_investor.address).call() == 500 * 10**18  # Got shares
     assert vault.payment_forwarder.address == payment_forwarder.address
     assert vault.payment_forwarder.functions.amountProxied().call() == 500 * 10**6
-
-    # Terms of service successfully signed
-    # (would fail earlier, but we check here just for an example)
     assert terms_of_service.functions.canAddressProceed(vault_investor.address).call()
 
 

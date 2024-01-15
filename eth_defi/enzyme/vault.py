@@ -308,7 +308,8 @@ class Vault:
             try:
                 generic_adapter_contract = get_deployed_contract(web3, f"GuardedGenericAdapter.json", generic_adapter_address)
                 generic_adapter_contract.functions.guard().call()  # Version check, will cause exception
-            except KeyError: # Fix exception
+            except ValueError:
+                # EthereumTester raises ValueError, but are the other exceptions?
                 generic_adapter_contract = get_deployed_contract(web3, f"VaultSpecificGenericAdapter.json", generic_adapter_address)
         else:
             generic_adapter_contract = None
