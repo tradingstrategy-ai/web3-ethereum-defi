@@ -9,6 +9,10 @@ from eth_defi.aave_v3.constants import MAX_AMOUNT, AaveV3InterestRateMode
 from eth_defi.aave_v3.deployment import AaveV3Deployment
 from eth_defi.one_delta.constants import Exchange, TradeOperation, TradeType
 from eth_defi.one_delta.deployment import OneDeltaDeployment
+from eth_defi.one_delta.lending import (
+    _build_supply_multicall,
+    _build_withdraw_multicall,
+)
 from eth_defi.one_delta.utils import encode_path
 
 
@@ -92,22 +96,6 @@ def open_short_position(
     :return: multicall contract function to supply collateral and open the short position
     """
 
-    call_transfer = one_delta_deployment.flash_aggregator.encodeABI(
-        fn_name="transferERC20In",
-        args=[
-            collateral_token.address,
-            collateral_amount,
-        ],
-    )
-
-    call_deposit = one_delta_deployment.flash_aggregator.encodeABI(
-        fn_name="deposit",
-        args=[
-            collateral_token.address,
-            wallet_address,
-        ],
-    )
-
     path = encode_path(
         path=[
             borrow_token.address,
@@ -128,8 +116,14 @@ def open_short_position(
         ],
     )
 
-    calls = [call_transfer, call_deposit, call_swap]
-    if do_supply is False:
+    if do_supply is True:
+        calls = _build_supply_multicall(
+            one_delta_deployment=one_delta_deployment,
+            token=collateral_token,
+            amount=collateral_amount,
+            wallet_address=wallet_address,
+        ) + [call_swap]
+    else:
         calls = [call_swap]
 
     return one_delta_deployment.broker_proxy.functions.multicall(calls)
@@ -190,25 +184,13 @@ def close_short_position(
     if withdraw_collateral_amount == 0:
         calls = [call_swap]
     else:
-        if withdraw_collateral_amount == MAX_AMOUNT:
-            call_transfer = one_delta_deployment.flash_aggregator.encodeABI(
-                fn_name="transferERC20AllIn",
-                args=[atoken.address],
-            )
-        else:
-            call_transfer = one_delta_deployment.flash_aggregator.encodeABI(
-                fn_name="transferERC20In",
-                args=[atoken.address, withdraw_collateral_amount],
-            )
-
-        call_withdraw = one_delta_deployment.flash_aggregator.encodeABI(
-            fn_name="withdraw",
-            args=[
-                collateral_token.address,
-                wallet_address,
-            ],
+        calls = [call_swap] + _build_withdraw_multicall(
+            one_delta_deployment=one_delta_deployment,
+            token=collateral_token,
+            atoken=atoken,
+            amount=withdraw_collateral_amount,
+            wallet_address=wallet_address,
         )
-        calls = [call_swap, call_transfer, call_withdraw]
 
     return one_delta_deployment.broker_proxy.functions.multicall(calls)
 
