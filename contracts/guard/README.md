@@ -33,14 +33,14 @@ It can be used with any asset management protocol e.g.
 Examples of protected activities that asset manager must be whitelisted to do:
 
 - Every smart contract call must be whitelisted: `validateCall`
-- Sending and receiving whitelisted tokens: 
-- approve() to whitelisted addresses `validate_approve`
+- Sending and receiving whitelisted tokens 
+- approve() to whitelisted addresses: `validate_approve`
 - transfer() to whitelisted addresses: `validate_transfer`
 - Check inside Uniswap v2 trades (path contains only whitelisted tokens): `validate_swapTokensForExactTokens`
-- .... other checks here
+- .... TODO other checks here
 
 `GuardV0` does not offer any slippage protection, and this is assumed to be encoded
-within the trades (swapTokensForExactTokens arguments).
+within the trades e.g. in swapTokensForExactTokens arguments.
 
 ### Supported guard integrations
 
