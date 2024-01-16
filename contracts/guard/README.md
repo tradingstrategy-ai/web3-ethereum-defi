@@ -69,6 +69,8 @@ and comes with [a stock suite of integrations](https://docs.enzyme.finance/manag
 A stock Enzyme integration consists of 
 - A HTML UI layer (proprietary)
 - An adapter smart contract
+- Unlike `SimpleVaultV0`, Enzyme vaults are share-based and support multiple investors
+  who can deposit and redeem any time
 
 The downside of adapters is that they have Enzyme-specific call signatures
 and would need separate integration for everything.
@@ -83,6 +85,7 @@ On the top of `GuardV0`, Enzyme integration manager gives additional restriction
 - Enzyme vaults can only manage tokens which are whitelisted by Enzyme Council 
 - Vault owner cannot withdraw any tokens (no transfer) - vault protects investor assets
 - External slippage protection with asset deltas encoded to adapter calls
+
 
 Enzyme trade execution model is different than with `SimpleVaultV0`,
 as besides the vault Enzyme has comptroller and integration manager smart contracts:
