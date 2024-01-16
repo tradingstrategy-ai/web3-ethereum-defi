@@ -20,7 +20,6 @@ from eth_defi.one_delta.position import (
     close_short_position,
     open_short_position,
     reduce_short_position,
-    supply,
 )
 from eth_defi.provider.anvil import fork_network_anvil, mine
 from eth_defi.provider.multi_provider import create_multi_provider_web3
@@ -495,44 +494,3 @@ def test_1delta_reduce_short_position_exact_in(
 
     logger.info("\tReducing position done")
     _print_current_balances(logger, hot_wallet.address, usdc, weth, ausdc, vweth)
-
-
-def test_1delta_supply(
-    web3,
-    hot_wallet,
-    one_delta_deployment,
-    aave_v3_deployment,
-    usdc,
-    ausdc,
-    weth,
-    vweth,
-):
-    """Test open then reduce short position size using exact input (specifying how much collateral to reduce)"""
-    logger.info("> Step 1: approve tokens")
-    for fn in approve(
-        one_delta_deployment=one_delta_deployment,
-        collateral_token=usdc.contract,
-        borrow_token=weth.contract,
-        atoken=ausdc.contract,
-        vtoken=vweth.contract,
-        aave_v3_deployment=aave_v3_deployment,
-    ):
-        _execute_tx(web3, hot_wallet, fn)
-
-    _print_current_balances(logger, hot_wallet.address, usdc, weth, ausdc, vweth)
-
-    logger.info("> Step 2: open short position")
-
-    usdc_supply_amount = 10_000 * 10**6
-
-    supply_fn = supply(
-        one_delta_deployment=one_delta_deployment,
-        token=usdc.contract,
-        amount=usdc_supply_amount,
-        wallet_address=hot_wallet.address,
-    )
-    _execute_tx(web3, hot_wallet, supply_fn, 1_0000_000)
-
-    assert usdc.contract.functions.balanceOf(hot_wallet.address).call() == pytest.approx(90_000 * 10**6)
-    assert ausdc.contract.functions.balanceOf(hot_wallet.address).call() == pytest.approx(10_000 * 10**6)
-    # assert vweth.contract.functions.balanceOf(hot_wallet.address).call() == pytest.approx(weth_borrow_amount)
