@@ -62,6 +62,11 @@ of the asset manager is compromised: asset manager can only perform legit trades
 - Each router needs to be separately whitelisted
 - See `test_guard_simple_vault_uniswap_v2` for examples
 
+Simple vault is simple: there is no special logic for deposits or redemptions needed,
+as it is assumed the single owner always redeemds the full amount, and can 
+perform any arbitrary smart contract call on behalf of the vault. The simple
+vault owner trusts himself/herself.
+
 ## Enzyme
 
 Enzyme allows associated adapters to their vaults,

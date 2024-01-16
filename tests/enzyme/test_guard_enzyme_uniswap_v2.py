@@ -425,3 +425,36 @@ def test_enzyme_guarded_unauthorised_approve(
 
     revert_reason = exc_info.value.revert_reason
     assert "Approve address does not match" in revert_reason
+
+
+def test_enzyme_enable_transfer(
+    web3: Web3,
+    deployer: HexAddress,
+    asset_manager: HexAddress,
+    enzyme: EnzymeDeployment,
+    vault: Vault,
+    usdc_token: TokenDetails,
+    usdc_usd_mock_chainlink_aggregator: Contract,
+    uniswap_v2_whitelisted: UniswapV2Deployment,
+):
+    """Enable transfer for an asset manager."""
+    usdc_token.contract.functions.approve(vault.comptroller.address, 500 * 10**6).transact({"from": deployer})
+    tx_hash = vault.comptroller.functions.buyShares(500 * 10**6, 1).transact({"from": deployer})
+    assert_transaction_success_with_explanation(web3, tx_hash)
+
+    # fmt: off
+    prepared_tx = prepare_approve(
+        enzyme,
+        vault,
+        vault.generic_adapter,
+        usdc_token.contract,
+        asset_manager,
+        500 * 10**6,
+    )
+
+    with pytest.raises(TransactionAssertionError) as exc_info:
+        tx_hash = prepared_tx.transact({"from": asset_manager, "gas": 1_000_000})
+        assert_transaction_success_with_explanation(web3, tx_hash)
+
+    revert_reason = exc_info.value.revert_reason
+    assert "Approve address does not match" in revert_reason
