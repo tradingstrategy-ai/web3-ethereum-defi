@@ -102,6 +102,10 @@ def main():
         ):
             # event NewFundCreated(address indexed creator, address vaultProxy, address comptrollerProxy);
             # https://polygonscan.com/tx/0x08a4721b171233690251d95de91a688c7d2f18c2e82bedc0f86857b182e95a8c#eventlog
+            
+            # Old style NewFundCreated event https://etherscan.io/tx/0x4a11fc3ed672b5d759a8ef8c89e05dccacfb3a8ef344756a1851b6dfa34a2148#eventlog
+            # that is not detected
+            
             creator = convert_uint256_string_to_address(log["topics"][1])
             args = decode_data(log["data"])
             vault_address = convert_uint256_bytes_to_address(args[0])
