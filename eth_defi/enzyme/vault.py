@@ -211,7 +211,7 @@ class Vault:
         See `ComptrollerLib.sol`.
 
         :return:
-            TODO - no idea
+            The gross assets in the denominated token.
         """
         return self.comptroller.functions.calcGav().call()
 

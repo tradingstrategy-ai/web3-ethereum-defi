@@ -3,7 +3,7 @@
 
 This is Python documentation for high-level `1delta protocol <https://1delta.io/>`_ APIs.
 
-Functionality includes
+Functionality includes:
 
 - Opening and closing short positions, utilizing Aave v3 lending pool.
 - Supply and withdraw collateral to/from Aave v3 lending pool.

@@ -104,16 +104,7 @@ def terms_of_service(
 
 
 @pytest.fixture()
-def enzyme(
-    web3,
-    deployer,
-    mln,
-    weth,
-    usdc,
-    usdc_usd_mock_chainlink_aggregator,
-    mln_usd_mock_chainlink_aggregator
-) -> EnzymeDeployment:
-
+def enzyme(web3, deployer, mln, weth, usdc, usdc_usd_mock_chainlink_aggregator, mln_usd_mock_chainlink_aggregator) -> EnzymeDeployment:
     deployment = EnzymeDeployment.deploy_core(
         web3,
         deployer,

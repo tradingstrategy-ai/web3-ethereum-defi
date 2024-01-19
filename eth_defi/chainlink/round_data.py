@@ -4,6 +4,7 @@ import datetime
 from decimal import Decimal
 from dataclasses import dataclass
 from functools import cached_property
+from typing import Tuple
 
 from eth_typing import HexAddress
 from web3 import Web3

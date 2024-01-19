@@ -40,6 +40,10 @@ class BadTimestampValueReturned(Exception):
     """Timestamp does not look good."""
 
 
+class ReadingLogsFailed(Exception):
+    """eth_getLogs call failed."""
+
+
 #: How to pass a connection to the event readers
 #:
 #: - Single-threaded readers take Web3 instance as is, because this is the simplest
@@ -248,7 +252,11 @@ def extract_events(
     # logging.debug("Extracting logs %s", filter_params)
     # logging.info("Log range %d - %d", start_block, end_block)
 
-    logs = web3.manager.request_blocking("eth_getLogs", (filter_params,))
+    try:
+        logs = web3.manager.request_blocking("eth_getLogs", (filter_params,))
+    except Exception as e:
+        block_count = end_block - start_block
+        raise ReadingLogsFailed(f"eth_getLogs failed for {start_block:,} - {end_block:,} (total {block_count:,} with filter {filter}") from e
 
     if logs:
         if extract_timestamps is not None:

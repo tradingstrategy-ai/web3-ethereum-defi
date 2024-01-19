@@ -39,6 +39,8 @@ Example tutorials
 
    transfer
    make-uniswap-swap-in-python
+   native-token-price
+   chainlink-price-feed
    multithread-reader
    verify-node-integrity
    live-price
