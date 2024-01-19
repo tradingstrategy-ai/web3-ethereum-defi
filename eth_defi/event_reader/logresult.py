@@ -58,6 +58,12 @@ class LogResult(TypedDict):
     context: LogContext
 
     #: Contract event matches for this raw log
+    #:
+    #: To use web3.py helpers to decode this log.
+    #:
+    #: This event instance is just a class reference and does
+    #: not contain any bound data.
+    #:
     event: ContractEvent
 
     #: Smart contract address
@@ -85,6 +91,9 @@ class LogResult(TypedDict):
     #:
     #: TODO: Whether these are strings or HexBytes depends on the EVM backend and Web3 version.
     #: Resolve this so that results are normalised to one type.
+    #:
+    #: See :py:mod:`eth_defi.reader.conversion` how to get Python values out of this.
+    #:
     topics: List[str]
 
     #: Block reorg helper
@@ -93,6 +102,8 @@ class LogResult(TypedDict):
     #: Data related to the event
     #:
     #: As raw hex dump from the JSON-RPC.
+    #:
+    #: See :py:func:`eth_defi.reader.conversion.decode_data` to split to args.
     #:
     data: str
 

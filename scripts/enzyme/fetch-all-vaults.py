@@ -16,7 +16,7 @@ import os
 import coloredlogs
 
 from eth_defi.abi import get_deployed_contract
-from eth_defi.enzyme.deployment import POLYGON_DEPLOYMENT, EnzymeDeployment
+from eth_defi.enzyme.deployment import POLYGON_DEPLOYMENT, ETHEREUM_DEPLOYMENT, EnzymeDeployment
 from eth_defi.enzyme.vault import Vault
 from eth_defi.event_reader.conversion import convert_uint256_bytes_to_address, convert_uint256_string_to_address, decode_data
 from eth_defi.event_reader.filter import Filter
@@ -52,7 +52,7 @@ def main():
     assert json_rpc_url, f"You need to give JSON_RPC_URL environment variable pointing ot your full node"
 
     # Ankr max 1000 blocks once https://www.ankr.com/docs/rpc-service/service-plans/
-    eth_getLogs_limit = os.environ.get("MAX_BLOCKS_ONCE", 1000)
+    eth_getLogs_limit = os.environ.get("MAX_BLOCKS_ONCE", 10_000)
 
     web3 = create_multi_provider_web3(json_rpc_url)
 
@@ -68,7 +68,8 @@ def main():
             deployment = EnzymeDeployment.fetch_deployment(web3, POLYGON_DEPLOYMENT)
             start_block = POLYGON_DEPLOYMENT["deployed_at"]
         case 1:
-            raise AssertionError(f"Chain {web3.eth.chain_id} not supported")
+            deployment = EnzymeDeployment.fetch_deployment(web3, ETHEREUM_DEPLOYMENT)
+            start_block = ETHEREUM_DEPLOYMENT["deployed_at"]
         case _:
             raise AssertionError(f"Chain {web3.eth.chain_id} not supported")
 
@@ -99,8 +100,6 @@ def main():
                 end_block,
                 filter=filter,
         ):
-            # event = log["event"]
-
             # event NewFundCreated(address indexed creator, address vaultProxy, address comptrollerProxy);
             # https://polygonscan.com/tx/0x08a4721b171233690251d95de91a688c7d2f18c2e82bedc0f86857b182e95a8c#eventlog
             creator = convert_uint256_string_to_address(log["topics"][1])
@@ -111,9 +110,13 @@ def main():
             denomination_asset = vault.get_denomination_asset()
             denomination_token = fetch_erc20_details(web3, denomination_asset)
 
+            
+            exchange_rate = vault.fetch_denomination_token_usd_exchange_rate()
+
             try:
+                # Calculate TVL in USD
                 tvl = vault.get_gross_asset_value()
-                tvl = denomination_token.convert_to_decimals(tvl)
+                tvl = denomination_token.convert_to_decimals(tvl) * exchange_rate
             except Exception as e:
                 logger.warning(f"Could not read TVL for {vault_address}, tx {log['transactionHash']}", exc_info=e)
                 tvl = 0
@@ -148,7 +151,7 @@ def main():
 
 
     reader.close()
-    logger.info(f"Scanned {rows_written} vaults, total TVL is {total_tvl}")
+    logger.info(f"Scanned {rows_written} vaults, total TVL is {total_tvl:,}")
 
 
 if __name__ == "__main__":

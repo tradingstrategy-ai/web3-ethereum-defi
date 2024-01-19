@@ -48,6 +48,20 @@ POLYGON_DEPLOYMENT = {
     "deployed_at": 25_825_795,  # When comptroller lib was deployed
 }
 
+#: Enzyme deployment details for Ehereum
+#:
+#: See :py:meth:`EnzymeDeployment.fetch_deployment`
+#:
+#: See https://docs.enzyme.finance/developers/contracts/polygon
+#:
+ETHEREUM_DEPLOYMENT = {
+    "comptroller_lib": "0x03F7f3B8Da875881206655D8099B9DACf721f1EF",
+    "usdc": "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
+    "weth": "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",
+    "fund_value_calculator": "0x490e64E0690b4aa481Fb02255aED3d052Bad7BF1",
+    "deployed_at": 14_132_890,  # When comptroller lib was deployed
+}
+
 
 class RateAsset(enum.Enum):
     """See IChainlinkPriceFeedMixin.sol"""
