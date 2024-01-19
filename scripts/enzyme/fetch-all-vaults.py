@@ -134,7 +134,7 @@ def main():
                 "tvl": tvl,
                 "denomination_asset": denomination_token.symbol,
                 "creator": creator,
-                "policies": " ,".join(policies),                
+                "policies": " ".join(policies),                
             })
 
             logger.info(f"Added {name} ({symbol}) at {log['blockNumber']:,}, TVL is {tvl:,} {denomination_token.symbol}")
@@ -148,7 +148,7 @@ def main():
 
 
     reader.close()
-    logger.info(f"Scanned {rows_written} vaults, total TVL is {tvl}")
+    logger.info(f"Scanned {rows_written} vaults, total TVL is {total_tvl}")
 
 
 if __name__ == "__main__":
