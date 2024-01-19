@@ -22,7 +22,11 @@ Sample output:
 
    The chain native token price of is 2465.16569563 ETH / USD
 
-`For any questions please join to Discord chat <https://tradingstrategy.ai/community>`__.
+Further reading
+
+- `For any questions please join to Discord chat <https://tradingstrategy.ai/community>`__.
+
+- See :py:mod:`eth_defi.chainlink` API documentation
 
 .. literalinclude:: ../../../scripts/native-token-price.py
    :language: python
