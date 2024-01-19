@@ -3,7 +3,7 @@ Aave v3 API
 
 This is Python documentation for high-level `Aave lending protocol <https://tradingstrategy.ai/glossary/aave>`_ APIs.
 
-Functionality includes
+Functionality includes:
 
 - Reading current and historical Aave data and metrics
 - Interest rate calculations
