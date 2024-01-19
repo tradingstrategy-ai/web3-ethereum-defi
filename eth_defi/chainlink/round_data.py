@@ -4,6 +4,7 @@ import datetime
 from decimal import Decimal
 from dataclasses import dataclass
 from functools import cached_property
+from typing import Tuple
 
 from eth_typing import HexAddress
 from web3 import Web3
@@ -84,3 +85,4 @@ def fetch_chainlink_round_data(web3: Web3, aggregator_address: HexAddress) -> Ch
     )
     data = aggregator.functions.latestRoundData().call()
     return ChainLinkLatestRoundData(aggregator, *data)
+

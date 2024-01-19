@@ -108,6 +108,8 @@ def main():
             vault = Vault.fetch(web3, vault_address)
 
             denomination_asset = vault.get_denomination_asset()
+
+            # On Ethereum, Enzyme supports natice token which we need to handle specially
             denomination_token = fetch_erc20_details(web3, denomination_asset)
 
             
