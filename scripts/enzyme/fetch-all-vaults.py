@@ -1,12 +1,15 @@
 """"Fetch all Enzyme vaults, TVL, policies and such from on-chain data.
 
-Example:
+Example how to run:
 
 .. code-block:: shell
 
     export JSON_RPC_URL=...
     # Read blocks 25,000,000 - 26,000,000 around when Enzyme was deployment on Polygon
     python scripts/enzyme/fetch-all-vaults.py
+
+- This script does not find some old Enzyme vaults (which are migrated?),
+  because `NewFundCreated` event seems to be a recent addon
 
 """
 import csv
@@ -17,6 +20,7 @@ import coloredlogs
 
 from eth_defi.abi import get_deployed_contract
 from eth_defi.enzyme.deployment import POLYGON_DEPLOYMENT, ETHEREUM_DEPLOYMENT, EnzymeDeployment
+from eth_defi.enzyme.price_feed import UnsupportedBaseAsset
 from eth_defi.enzyme.vault import Vault
 from eth_defi.event_reader.conversion import convert_uint256_bytes_to_address, convert_uint256_string_to_address, decode_data
 from eth_defi.event_reader.filter import Filter
@@ -24,6 +28,7 @@ from eth_defi.event_reader.multithread import MultithreadEventReader
 from eth_defi.event_reader.progress_update import PrintProgressUpdate
 from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.token import fetch_erc20_details
+from eth_defi.chainlink.token_price import get_native_token_price_with_chainlink, get_token_price_with_chainlink 
 
 logger = logging.getLogger(__name__)
 
@@ -52,7 +57,7 @@ def main():
     assert json_rpc_url, f"You need to give JSON_RPC_URL environment variable pointing ot your full node"
 
     # Ankr max 1000 blocks once https://www.ankr.com/docs/rpc-service/service-plans/
-    eth_getLogs_limit = os.environ.get("MAX_BLOCKS_ONCE", 10_000)
+    eth_getLogs_limit = os.environ.get("MAX_BLOCKS_ONCE", 2500)
 
     web3 = create_multi_provider_web3(json_rpc_url)
 
@@ -79,7 +84,7 @@ def main():
     # Print progress to the console how many blocks there are left to read.
     reader = MultithreadEventReader(
         json_rpc_url,
-        max_threads=16,
+        max_threads=8,
         notify=PrintProgressUpdate(),
         max_blocks_once=eth_getLogs_limit
     )
@@ -108,12 +113,31 @@ def main():
             vault = Vault.fetch(web3, vault_address)
 
             denomination_asset = vault.get_denomination_asset()
-
-            # On Ethereum, Enzyme supports natice token which we need to handle specially
             denomination_token = fetch_erc20_details(web3, denomination_asset)
 
-            
-            exchange_rate = vault.fetch_denomination_token_usd_exchange_rate()
+            # Because of dead Chainlink feeds, we need a lot of special conditions to convert TVL to USD
+            if denomination_token.address.lower() == "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2".lower():
+                # Enzyme treats wrapped Ethereum specially on mainnet
+                _, round_data = get_native_token_price_with_chainlink(web3)
+                exchange_rate = round_data.price
+            elif denomination_token.address.lower() == "0x03ab458634910AaD20eF5f1C8ee96F1D6ac54919".lower():
+                # RAI
+                # Just skip it
+                continue
+            elif denomination_token.address.lower() == "0x056Fd409E1d7A124BD7017459dFEa2F387b6d5Cd".lower():
+                # Gemini dollar GUSD, assume 1:1 par
+                exchange_rate = 1.0
+            elif denomination_token.address.lower() == "0xB8c77482e45F1F44dE1745F52C74426C631bDD52".lower():
+                # BNB on Ethereum
+                _, _, round_data = get_token_price_with_chainlink(web3, "0x14e613AC84a31f709eadbdF89C6CC390fDc9540A")
+                exchange_rate = round_data.price
+            else:
+                try:
+                    exchange_rate = vault.fetch_denomination_token_usd_exchange_rate()
+                except UnsupportedBaseAsset as e:
+                    # If we did not handle special assets above, then bork out here
+                    # with a helpful message
+                    raise NotImplementedError(f"Cannot get conversion rate for {denomination_token}") from e
 
             try:
                 # Calculate TVL in USD
@@ -142,7 +166,7 @@ def main():
                 "policies": " ".join(policies),                
             })
 
-            logger.info(f"Added {name} ({symbol}) at {log['blockNumber']:,}, TVL is {tvl:,} {denomination_token.symbol}")
+            logger.info(f"Added {name} ({symbol}) at {log['blockNumber']:,}, TVL is {tvl:,} USD in {denomination_token.symbol}")
 
             rows_written += 1
             # TODO: Do vaults mix stablecoins and native assets as TVL             
