@@ -57,6 +57,7 @@ def main():
     web3 = create_multi_provider_web3(json_rpc_url)
 
     rows_written = 0
+    total_tvl = 0
 
     assert web3.eth.chain_id in (1, 137), "Only Ethereum mainnet and Polygon supported"
     end_block = web3.eth.block_number
@@ -89,6 +90,8 @@ def main():
 
     with open(f"enzyme-vaults-chain-{web3.eth.chain_id}.csv", "wt") as f:
         csv_writer = csv.DictWriter(f, fieldnames=["vault", "name", "symbol", "block_created", "tx_hash", "tvl", "denomination_asset", "policies", "creator"])
+
+        csv_writer.writeheader()
 
         for log in reader(
                 web3,
@@ -130,19 +133,22 @@ def main():
                 "tx_hash": log["transactionHash"],
                 "tvl": tvl,
                 "denomination_asset": denomination_token.symbol,
-                "policies": " ,".join(policies),
                 "creator": creator,
+                "policies": " ,".join(policies),                
             })
 
             logger.info(f"Added {name} ({symbol}) at {log['blockNumber']:,}, TVL is {tvl:,} {denomination_token.symbol}")
 
             rows_written += 1
+            # TODO: Do vaults mix stablecoins and native assets as TVL             
+            total_tvl += tvl
 
             if rows_written % 10 == 0:
                 logger.info("%d CSV rows written", rows_written)
 
 
     reader.close()
+    logger.info(f"Scanned {rows_written} vaults, total TVL is {tvl}")
 
 
 if __name__ == "__main__":
