@@ -106,6 +106,8 @@ def main():
             vault = Vault.fetch(web3, vault_address)
 
             denomination_asset = vault.get_denomination_asset()
+
+            # On Ethereum, Enzyme supports natice token which we need to handle specially
             denomination_token = fetch_erc20_details(web3, denomination_asset)
 
             try:
@@ -130,7 +132,7 @@ def main():
                 "tx_hash": log["transactionHash"],
                 "tvl": tvl,
                 "denomination_asset": denomination_token.symbol,
-                "policies": " ,".join(policies),
+                "policies": " ".join(policies),
                 "creator": creator,
             })
 
