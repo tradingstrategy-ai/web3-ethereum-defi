@@ -50,7 +50,7 @@ jobs:
         uses: foundry-rs/foundry-toolchain@v1
         with:
           # pick a nightly release from: https://github.com/foundry-rs/foundry/releases
-          version: 'nightly-60ec00296f00754bc21ed68fd05ab6b54b50e024'
+          version: 'nightly-2335dea2e0d938d769a2b87947e79e02484a8c5a'
 
       # We also work around race condition for setting up Aave NPM packages.
       - name: Setup Aave v3 for tests
