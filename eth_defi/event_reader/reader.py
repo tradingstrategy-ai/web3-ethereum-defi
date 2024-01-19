@@ -39,6 +39,7 @@ class TimestampNotFound(Exception):
 class BadTimestampValueReturned(Exception):
     """Timestamp does not look good."""
 
+
 class ReadingLogsFailed(Exception):
     """eth_getLogs call failed."""
 

@@ -16,5 +16,3 @@ token_name, last_round = get_native_token_price_with_chainlink(web3)
 
 price = last_round.price
 print(f"The chain native token price of is {price} {token_name} / USD")
-
-

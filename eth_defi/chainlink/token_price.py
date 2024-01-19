@@ -62,7 +62,7 @@ def get_native_token_price_with_chainlink(
 
 def get_token_price_with_chainlink(
     web3: Web3,
-    aggregator_address: HexAddress, 
+    aggregator_address: HexAddress,
 ) -> Tuple[str, str, ChainLinkLatestRoundData]:
     """Get the latest price of any token on a chain based on its Chainlink feed.
 
@@ -84,7 +84,7 @@ def get_token_price_with_chainlink(
         base_token_symbol, quote_token_symbol, last_round = get_token_price_with_chainlink(web3, "0x14e613AC84a31f709eadbdF89C6CC390fDc9540A")
 
         price = last_round.price
-        print(f"The chain native token price of is {price} {base_token_symbol} / {quote_token_symbol}")        
+        print(f"The chain native token price of is {price} {base_token_symbol} / {quote_token_symbol}")
 
     This will output:
 

@@ -16,5 +16,3 @@ base_token_symbol, quote_token_symbol, round_data = get_token_price_with_chainli
 
 price = round_data.price
 print(f"The token price of is {price} {base_token_symbol} / {quote_token_symbol}")
-
-

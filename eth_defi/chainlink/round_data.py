@@ -85,4 +85,3 @@ def fetch_chainlink_round_data(web3: Web3, aggregator_address: HexAddress) -> Ch
     )
     data = aggregator.functions.latestRoundData().call()
     return ChainLinkLatestRoundData(aggregator, *data)
-

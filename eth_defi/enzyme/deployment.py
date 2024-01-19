@@ -59,7 +59,7 @@ ETHEREUM_DEPLOYMENT = {
     "usdc": "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
     "weth": "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",
     "fund_value_calculator": "0x490e64E0690b4aa481Fb02255aED3d052Bad7BF1",
-    #"deployed_at": 14_132_890,  # When v4 comptroller lib was deployed
+    # "deployed_at": 14_132_890,  # When v4 comptroller lib was deployed
     # First ComptrollerLib https://etherscan.io/tx/0xc3273d286633e56fb5f7534f16713fae347f84dc65a43bf9906f0fd2c5306b10
     "deployed_at": 11_632_494,  # First tx from Enzyme deployer https://etherscan.io/tx/0x4f8bc20a0f5bb74fff41829fd24303c9a48350dc3c43274bca756b189766c3fa
 }
@@ -67,6 +67,7 @@ ETHEREUM_DEPLOYMENT = {
 
 class RateAsset(enum.Enum):
     """See IChainlinkPriceFeedMixin.sol"""
+
     ETH = 0
     USD = 1
 

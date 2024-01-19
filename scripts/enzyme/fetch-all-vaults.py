@@ -28,7 +28,7 @@ from eth_defi.event_reader.multithread import MultithreadEventReader
 from eth_defi.event_reader.progress_update import PrintProgressUpdate
 from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.token import fetch_erc20_details
-from eth_defi.chainlink.token_price import get_native_token_price_with_chainlink, get_token_price_with_chainlink 
+from eth_defi.chainlink.token_price import get_native_token_price_with_chainlink, get_token_price_with_chainlink
 
 logger = logging.getLogger(__name__)
 
@@ -82,12 +82,7 @@ def main():
 
     # Set up multithreaded Polygon event reader.
     # Print progress to the console how many blocks there are left to read.
-    reader = MultithreadEventReader(
-        json_rpc_url,
-        max_threads=8,
-        notify=PrintProgressUpdate(),
-        max_blocks_once=eth_getLogs_limit
-    )
+    reader = MultithreadEventReader(json_rpc_url, max_threads=8, notify=PrintProgressUpdate(), max_blocks_once=eth_getLogs_limit)
 
     filter = Filter.create_filter(
         address=None,
@@ -100,10 +95,10 @@ def main():
         csv_writer.writeheader()
 
         for log in reader(
-                web3,
-                start_block,
-                end_block,
-                filter=filter,
+            web3,
+            start_block,
+            end_block,
+            filter=filter,
         ):
             # event NewFundCreated(address indexed creator, address vaultProxy, address comptrollerProxy);
             # https://polygonscan.com/tx/0x08a4721b171233690251d95de91a688c7d2f18c2e82bedc0f86857b182e95a8c#eventlog
@@ -154,27 +149,28 @@ def main():
             name = vault.get_name()
             symbol = vault.get_symbol()
 
-            csv_writer.writerow({
-                "vault": vault.address,
-                "name": name,
-                "symbol": symbol,
-                "block_created": log["blockNumber"],
-                "tx_hash": log["transactionHash"],
-                "tvl": tvl,
-                "denomination_asset": denomination_token.symbol,
-                "creator": creator,
-                "policies": " ".join(policies),                
-            })
+            csv_writer.writerow(
+                {
+                    "vault": vault.address,
+                    "name": name,
+                    "symbol": symbol,
+                    "block_created": log["blockNumber"],
+                    "tx_hash": log["transactionHash"],
+                    "tvl": tvl,
+                    "denomination_asset": denomination_token.symbol,
+                    "creator": creator,
+                    "policies": " ".join(policies),
+                }
+            )
 
             logger.info(f"Added {name} ({symbol}) at {log['blockNumber']:,}, TVL is {tvl:,} USD in {denomination_token.symbol}")
 
             rows_written += 1
-            # TODO: Do vaults mix stablecoins and native assets as TVL             
+            # TODO: Do vaults mix stablecoins and native assets as TVL
             total_tvl += tvl
 
             if rows_written % 10 == 0:
                 logger.info("%d CSV rows written", rows_written)
-
 
     reader.close()
     logger.info(f"Scanned {rows_written} vaults, total TVL is {total_tvl:,}")
