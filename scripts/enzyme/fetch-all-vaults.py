@@ -30,6 +30,7 @@ from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.token import TokenDetails, fetch_erc20_details
 from eth_defi.chainlink.token_price import get_native_token_price_with_chainlink, get_token_price_with_chainlink
 
+
 logger = logging.getLogger(__name__)
 
 
@@ -150,7 +151,7 @@ def main():
         case _:
             raise AssertionError(f"Chain {web3.eth.chain_id} not supported")
 
-    print(f"Chain {web3.eth.chain_id}, fetched Enzyme deployment with ComptrollerLib as {deployment.contracts.comptroller_lib.address}")
+    logger.info(f"Chain {web3.eth.chain_id}, fetched Enzyme deployment with ComptrollerLib as {deployment.contracts.comptroller_lib.address}")
 
     # Set up multithreaded Polygon event reader.
     # Print progress to the console how many blocks there are left to read.
@@ -169,8 +170,11 @@ def main():
         except Exception as e:
             raise RuntimeError(f"Cannot get identifier for policy {policy_address}") from e
         return policy.functions.identifier().call()
+    
+    fname = f"enzyme-vaults-chain-{web3.eth.chain_id}.csv"
+    logger.info(f"Writing {fname}")
 
-    with open(f"enzyme-vaults-chain-{web3.eth.chain_id}.csv", "wt") as f:
+    with open(fname, "wt") as f:
         csv_writer = csv.DictWriter(f, fieldnames=["vault", "name", "symbol", "block_created", "tx_hash", "tvl", "denomination_asset", "policies", "creator"])
 
         csv_writer.writeheader()
