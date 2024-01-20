@@ -5,7 +5,6 @@ Example how to run:
 .. code-block:: shell
 
     export JSON_RPC_URL=...
-    # Read blocks 25,000,000 - 26,000,000 around when Enzyme was deployment on Polygon
     python scripts/enzyme/fetch-all-vaults.py
 
 - This script does not find some old Enzyme vaults (which are migrated?),
@@ -13,6 +12,7 @@ Example how to run:
 
 """
 import csv
+from functools import lru_cache
 import logging
 import os
 
@@ -27,7 +27,7 @@ from eth_defi.event_reader.filter import Filter
 from eth_defi.event_reader.multithread import MultithreadEventReader
 from eth_defi.event_reader.progress_update import PrintProgressUpdate
 from eth_defi.provider.multi_provider import create_multi_provider_web3
-from eth_defi.token import fetch_erc20_details
+from eth_defi.token import TokenDetails, fetch_erc20_details
 from eth_defi.chainlink.token_price import get_native_token_price_with_chainlink, get_token_price_with_chainlink
 
 logger = logging.getLogger(__name__)
@@ -46,6 +46,78 @@ def setup_logging():
     logging.getLogger("web3.providers.HTTPProvider").setLevel(logging.WARNING)
     logging.getLogger("web3.RequestManager").setLevel(logging.WARNING)
     logging.getLogger("urllib3.connectionpool").setLevel(logging.WARNING)
+
+
+def get_exchange_rate(vault: Vault, denomination_token: TokenDetails) -> float | None:
+    """Get USD exchange rate of Enzyme vault denomination asset.
+
+    Handle all special cases.
+
+    See Chainlink feeds: https://docs.chain.link/data-feeds/price-feeds/addresses
+
+    :param vault:
+        Enzyme vault
+
+    :param denomination_token:
+        Prefetched vault denomination token details
+    
+    :return:
+        Quote token/USD rate.
+
+        None if we cannot handle this token.
+
+    :raise NotImplementedError:
+        If we have encountered an issue we have not seen before
+    """
+
+    web3 = vault.web3
+
+    # Because of dead Chainlink feeds, we need a lot of special conditions to convert TVL to USD
+    if denomination_token.address.lower() == "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2".lower():
+        # Enzyme treats wrapped Ethereum specially on mainnet
+        _, round_data = get_native_token_price_with_chainlink(web3)
+        exchange_rate = round_data.price
+    elif denomination_token.address.lower() == "0x7ceB23fD6bC0adD59E62ac25578270cFf1b9f619".lower():
+        # Wrapped ETH on Polygon
+        # Use Polygon ETH/USD feed
+        _, _, round_data = get_token_price_with_chainlink(web3, "0xF9680D99D6C9589e2a93a78A04A279e509205945")
+        exchange_rate = round_data.price          
+    elif denomination_token.address.lower() == "0x82a6c4AF830caa6c97bb504425f6A66165C2c26e".lower():
+        # BNB on Polygon
+        _, _, round_data = get_token_price_with_chainlink(web3, "0xF9680D99D6C9589e2a93a78A04A279e509205945")
+        exchange_rate = round_data.price          
+    elif denomination_token.address.lower() == "0x3BA4c387f786bFEE076A58914F5Bd38d668B42c3".lower():
+        # BNB (Pos) on Polygon
+        _, _, round_data = get_token_price_with_chainlink(web3, "0xF9680D99D6C9589e2a93a78A04A279e509205945")
+        exchange_rate = round_data.price           
+    elif denomination_token.address.lower() == "0x831753DD7087CaC61aB5644b308642cc1c33Dc13".lower():
+        # Quickswap Polygon
+        # Uninteresting, ignore
+        return 0
+    elif denomination_token.address.lower() == "0xD85d1e945766Fea5Eda9103F918Bd915FbCa63E6".lower():
+        # Celsius on Polygon
+        # Alex Mashinsky deserves zero
+        return 0
+    elif denomination_token.address.lower() == "0x03ab458634910AaD20eF5f1C8ee96F1D6ac54919".lower():
+        # RAI
+        # Just skip it
+        return None
+    elif denomination_token.address.lower() == "0x056Fd409E1d7A124BD7017459dFEa2F387b6d5Cd".lower():
+        # Gemini dollar GUSD, assume 1:1 par
+        exchange_rate = 1.0
+    elif denomination_token.address.lower() == "0xB8c77482e45F1F44dE1745F52C74426C631bDD52".lower():
+        # BNB on Ethereum
+        _, _, round_data = get_token_price_with_chainlink(web3, "0x14e613AC84a31f709eadbdF89C6CC390fDc9540A")
+        exchange_rate = round_data.price
+    else:
+        try:
+            exchange_rate = vault.fetch_denomination_token_usd_exchange_rate()
+        except UnsupportedBaseAsset as e:
+            # If we did not handle special assets above, then bork out here
+            # with a helpful message
+            raise NotImplementedError(f"Cannot get conversion rate for {denomination_token}") from e
+        
+    return exchange_rate
 
 
 def main():
@@ -89,6 +161,15 @@ def main():
         event_types=[deployment.contracts.fund_deployer.events.NewFundCreated],
     )
 
+    # Avoid extra RPC calls by caching policy identifiers
+    @lru_cache(maxsize=100) 
+    def get_policy_name(policy_address):        
+        try:
+            policy = get_deployed_contract(web3, "enzyme/IPolicy.json", policy_address)
+        except Exception as e:
+            raise RuntimeError(f"Cannot get identifier for policy {policy_address}") from e
+        return policy.functions.identifier().call()
+
     with open(f"enzyme-vaults-chain-{web3.eth.chain_id}.csv", "wt") as f:
         csv_writer = csv.DictWriter(f, fieldnames=["vault", "name", "symbol", "block_created", "tx_hash", "tvl", "denomination_asset", "policies", "creator"])
 
@@ -114,29 +195,10 @@ def main():
             denomination_asset = vault.get_denomination_asset()
             denomination_token = fetch_erc20_details(web3, denomination_asset)
 
-            # Because of dead Chainlink feeds, we need a lot of special conditions to convert TVL to USD
-            if denomination_token.address.lower() == "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2".lower():
-                # Enzyme treats wrapped Ethereum specially on mainnet
-                _, round_data = get_native_token_price_with_chainlink(web3)
-                exchange_rate = round_data.price
-            elif denomination_token.address.lower() == "0x03ab458634910AaD20eF5f1C8ee96F1D6ac54919".lower():
-                # RAI
-                # Just skip it
+            exchange_rate = get_exchange_rate(vault, denomination_token)
+            if exchange_rate is None:
+                # Unsupported denomination token
                 continue
-            elif denomination_token.address.lower() == "0x056Fd409E1d7A124BD7017459dFEa2F387b6d5Cd".lower():
-                # Gemini dollar GUSD, assume 1:1 par
-                exchange_rate = 1.0
-            elif denomination_token.address.lower() == "0xB8c77482e45F1F44dE1745F52C74426C631bDD52".lower():
-                # BNB on Ethereum
-                _, _, round_data = get_token_price_with_chainlink(web3, "0x14e613AC84a31f709eadbdF89C6CC390fDc9540A")
-                exchange_rate = round_data.price
-            else:
-                try:
-                    exchange_rate = vault.fetch_denomination_token_usd_exchange_rate()
-                except UnsupportedBaseAsset as e:
-                    # If we did not handle special assets above, then bork out here
-                    # with a helpful message
-                    raise NotImplementedError(f"Cannot get conversion rate for {denomination_token}") from e
 
             try:
                 # Calculate TVL in USD
@@ -149,6 +211,8 @@ def main():
             policy_manager_address = vault.comptroller.functions.getPolicyManager().call()
             policy_manager = get_deployed_contract(web3, "enzyme/PolicyManager.json", policy_manager_address)
             policies = policy_manager.functions.getEnabledPoliciesForFund(vault.comptroller.address).call()
+
+            policy_names = [get_policy_name(p) for p in policies]
 
             name = vault.get_name()
             symbol = vault.get_symbol()
@@ -163,7 +227,7 @@ def main():
                     "tvl": tvl,
                     "denomination_asset": denomination_token.symbol,
                     "creator": creator,
-                    "policies": " ".join(policies),
+                    "policies": " ".join(policy_names),
                 }
             )
 
