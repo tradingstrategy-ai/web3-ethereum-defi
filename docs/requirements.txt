@@ -180,7 +180,6 @@ sphinxcontrib-serializinghtml==1.1.10 ; python_version >= "3.10" and python_vers
 stack-data==0.6.3 ; python_version >= "3.10" and python_version < "3.13"
 tenacity==8.2.3 ; python_version >= "3.10" and python_version < "3.13"
 terminado==0.18.0 ; python_version >= "3.10" and python_version < "3.13"
-terms-of-service @ file:///Users/moo/code/ts/trade-executor/deps/web3-ethereum-defi/contracts/terms-of-service ; python_version >= "3.10" and python_version < "3.13"
 tinycss2==1.2.1 ; python_version >= "3.10" and python_version < "3.13"
 tomli==2.0.1 ; python_version >= "3.10" and python_version < "3.11"
 toolz==0.12.0 ; python_version >= "3.10" and python_version < "3.13" and (implementation_name == "pypy" or implementation_name == "cpython")
