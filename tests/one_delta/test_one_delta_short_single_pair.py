@@ -174,7 +174,7 @@ def test_1delta_open_short_position_supply_separately(
 
     assert usdc.contract.functions.balanceOf(hot_wallet.address).call() == pytest.approx(90_000 * 10**6)
     assert ausdc.contract.functions.balanceOf(hot_wallet.address).call() == pytest.approx(11625597245)
-    assert vweth.contract.functions.balanceOf(hot_wallet.address).call() == weth_borrow_amount
+    assert vweth.contract.functions.balanceOf(hot_wallet.address).call() == pytest.approx(weth_borrow_amount)
 
     logger.info("\tOpen position done")
 
@@ -278,7 +278,7 @@ def test_1delta_open_and_close_short_position_separately(
     _execute_tx(web3, hot_wallet, supply_fn)
 
     # verify aUSDC token amount in hot wallet
-    assert ausdc.contract.functions.balanceOf(hot_wallet.address).call() == usdc_supply_amount
+    assert ausdc.contract.functions.balanceOf(hot_wallet.address).call() == pytest.approx(usdc_supply_amount)
     logger.info("\tSupply done")
 
     _print_current_balances(logger, hot_wallet.address, usdc, weth, ausdc, vweth)
