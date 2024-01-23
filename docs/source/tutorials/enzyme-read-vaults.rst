@@ -3,8 +3,8 @@
 
 .. _enzyme-read-vaults:
 
-Read all Enzyme vaults on a blockchain
-======================================
+Enzyme reading all vaults on a blockchain
+=========================================
 
 Here is an example how to read all Enzyme vaults on a particular blockchain
 and export the information to a CSV file.

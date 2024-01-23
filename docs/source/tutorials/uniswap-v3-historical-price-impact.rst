@@ -3,8 +3,8 @@
 
 .. _slippage and price impact:
 
-Slippage and price impact
--------------------------
+Uniswap v3 historical price estimation
+--------------------------------------
 
 Below is an example Python script that analyses the historical Uniswap v3 trade.
 It does some calculations around `slippage <https://tradingstrategy.ai/glossary/slippage>`__ and `price impact <https://tradingstrategy.ai/glossary/price-impact>`__

@@ -3,8 +3,8 @@
 
 .. _chainlink-native-token:
 
-Read blockchain native token price using Chainlink
-==================================================
+Chainlink reading blockchain native token price
+===============================================
 
 Here is an example how to read the blockchain native asset price in USD.
 

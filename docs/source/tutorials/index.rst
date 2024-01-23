@@ -37,6 +37,7 @@ Example tutorials
 .. toctree::
    :maxdepth: 1
 
+   multi-rpc-configuration
    transfer
    make-uniswap-swap-in-python
    chainlink-price-feed
@@ -46,13 +47,12 @@ Example tutorials
    live-price
    uniswap-v3-liquidity-analysis
    uniswap-v3-price-analysis
+   uniswap-v3-historical-price-impact
    event-reader
    live-swap-minimal
    pancakeswap-live-minimal
    live-swap
    aave-v3-interest-analysis
-   slippage-and-price-impact
-   multi-rpc-configuration
    enzyme-read-vaults
 
 `For more examples, browse tests folder on Github <https://github.com/tradingstrategy-ai/web3-ethereum-defi/tree/master/tests>`__.

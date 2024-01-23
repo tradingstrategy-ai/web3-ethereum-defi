@@ -3,8 +3,8 @@
 
 .. _chainlink-native-token:
 
-Read Chainlink price feed
-=========================
+Chainlink price feed reading
+============================
 
 Here is an example how to read any Chainlink price feed.
 
