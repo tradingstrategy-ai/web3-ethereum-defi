@@ -26,7 +26,7 @@ def web3():
 
 @pytest.fixture(scope="module")
 def quickswap(web3) -> UniswapV2Deployment:
-    """Fetch live quickswap v3 deployment.
+    """Fetch live quickswap deployment.
 
     See https://docs.quickswap.exchange/concepts/protocol-overview/03-smart-contracts for more information
     """
