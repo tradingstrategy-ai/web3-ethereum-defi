@@ -35,6 +35,3 @@
 [submodule "contracts/terms-of-service"]
 	path = contracts/terms-of-service
 	url = https://github.com/tradingstrategy-ai/terms-of-service.git
-[submodule "contracts/guard/lib/v3-periphery"]
-	path = contracts/guard/lib/v3-periphery
-	url = https://github.com/uniswap/v3-periphery

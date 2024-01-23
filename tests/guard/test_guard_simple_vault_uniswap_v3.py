@@ -15,14 +15,15 @@ from eth_defi.abi import get_contract, get_deployed_contract, get_function_selec
 from eth_defi.deploy import deploy_contract
 from eth_defi.simple_vault.transact import encode_simple_vault_transaction
 from eth_defi.token import create_token
+from eth_defi.uniswap_v3.constants import FOREVER_DEADLINE
 from eth_defi.uniswap_v3.deployment import (
     UniswapV3Deployment,
     add_liquidity,
     deploy_pool,
     deploy_uniswap_v3,
 )
-from eth_defi.uniswap_v3.pool import PoolDetails, fetch_pool_details
-from eth_defi.uniswap_v3.utils import get_default_tick_range
+from eth_defi.uniswap_v3.pool import PoolDetails
+from eth_defi.uniswap_v3.utils import encode_path, get_default_tick_range
 
 POOL_FEE_RAW = 3000
 
@@ -65,10 +66,7 @@ def third_party(web3) -> str:
 
 @pytest.fixture()
 def usdc(web3, deployer) -> Contract:
-    """Mock USDC token.
-
-    Note that this token has 18 decimals instead of 6 of real USDC.
-    """
+    """Mock USDC token."""
     token = create_token(web3, deployer, "USD Coin", "USDC", 100_000_000 * 10**6)
     return token
 
@@ -92,12 +90,12 @@ def weth(uniswap_v3) -> Contract:
 
 
 @pytest.fixture()
-def weth_usdc_uniswap_pool(web3, uniswap_v3, weth, usdc, deployer) -> Contract:
+def weth_usdc_pool(web3, uniswap_v3, weth, usdc, deployer) -> Contract:
     """Mock WETH-USDC pool."""
 
     min_tick, max_tick = get_default_tick_range(POOL_FEE_RAW)
 
-    pool_contract = deploy_pool(
+    pool = deploy_pool(
         web3,
         deployer,
         deployment=uniswap_v3,
@@ -110,20 +108,21 @@ def weth_usdc_uniswap_pool(web3, uniswap_v3, weth, usdc, deployer) -> Contract:
         web3,
         deployer,
         deployment=uniswap_v3,
-        pool=pool_contract,
+        pool=pool,
         amount0=10 * 10**18,  # 10 ETH liquidity
-        amount1=17_000 * 10**18,  # 17000 USDC liquidity
+        amount1=20_000 * 10**6,  # 20000 USDC liquidity
         lower_tick=min_tick,
         upper_tick=max_tick,
     )
 
-    return pool_contract.address
+    return pool
 
 
 @pytest.fixture()
 def vault(
     web3: Web3,
     usdc: Contract,
+    weth: Contract,
     deployer: str,
     owner: str,
     asset_manager: str,
@@ -144,19 +143,24 @@ def vault(
     tx_hash = guard.functions.whitelistUniswapV3Router(router_address, "Allow Uniswap v3 router").transact({"from": owner})
     receipt = web3.eth.get_transaction_receipt(tx_hash)
 
-    assert len(receipt["logs"]) == 2
+    assert len(receipt["logs"]) == 3
 
     # Check Uniswap router call sites was enabled in the receipt
     call_site_events = guard.events.CallSiteApproved().process_receipt(receipt, errors=EventLogErrorFlags.Ignore)
-    router_selector = get_function_selector(uniswap_v3.swap_router.functions.exactInput)
+    exact_input_selector = get_function_selector(uniswap_v3.swap_router.functions.exactInput)
+    exact_output_selector = get_function_selector(uniswap_v3.swap_router.functions.exactOutput)
     assert call_site_events[0]["args"]["notes"] == "Allow Uniswap v3 router"
-    assert call_site_events[0]["args"]["selector"].hex() == router_selector.hex()
+    assert call_site_events[0]["args"]["selector"].hex() == exact_input_selector.hex()
     assert call_site_events[0]["args"]["target"] == router_address
+    assert call_site_events[1]["args"]["target"] == router_address
+    assert call_site_events[1]["args"]["selector"].hex() == exact_output_selector.hex()
 
-    assert guard.functions.isAllowedCallSite(router_address, get_function_selector(uniswap_v3.swap_router.functions.exactInput)).call()
+    assert guard.functions.isAllowedCallSite(router_address, exact_input_selector).call()
+    assert guard.functions.isAllowedCallSite(router_address, exact_output_selector).call()
+
     guard.functions.whitelistToken(usdc.address, "Allow USDC").transact({"from": owner})
     guard.functions.whitelistToken(weth.address, "Allow WETH").transact({"from": owner})
-    assert guard.functions.callSiteCount().call() == 5
+    assert guard.functions.callSiteCount().call() == 6
 
     return vault
 
@@ -190,10 +194,12 @@ def test_vault_initialised(
     assert guard.functions.isAllowedReceiver(vault.address).call() is True
 
     # We have accessed needed for a swap
-    # assert guard.functions.callSiteCount().call() == 5
-    # assert guard.functions.isAllowedApprovalDestination(uniswap_v2.router.address)
-    # assert guard.functions.isAllowedCallSite(uniswap_v2.router.address, get_function_selector(uniswap_v2.router.functions.swapExactTokensForTokens)).call()
-    # assert guard.functions.isAllowedCallSite(usdc.address, get_function_selector(usdc.functions.approve)).call()
-    # assert guard.functions.isAllowedCallSite(usdc.address, get_function_selector(usdc.functions.transfer)).call()
-    # assert guard.functions.isAllowedAsset(usdc.address).call()
-    # assert guard.functions.isAllowedAsset(weth.address).call()
+    assert guard.functions.callSiteCount().call() == 6
+    router = uniswap_v3.swap_router
+    assert guard.functions.isAllowedApprovalDestination(router.address)
+    assert guard.functions.isAllowedCallSite(router.address, get_function_selector(router.functions.exactInput)).call()
+    assert guard.functions.isAllowedCallSite(router.address, get_function_selector(router.functions.exactOutput)).call()
+    assert guard.functions.isAllowedCallSite(usdc.address, get_function_selector(usdc.functions.approve)).call()
+    assert guard.functions.isAllowedCallSite(usdc.address, get_function_selector(usdc.functions.transfer)).call()
+    assert guard.functions.isAllowedAsset(usdc.address).call()
+    assert guard.functions.isAllowedAsset(weth.address).call()

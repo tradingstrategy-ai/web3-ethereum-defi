@@ -6,7 +6,7 @@
 pragma solidity ^0.8.0;
 
 import "@openzeppelin/access/Ownable.sol";
-import "@uniswap-v3-periphery/libraries/Path.sol";
+import "./lib/Path.sol";
 
 interface IGuard {
     function validateCall(address sender, address target, bytes memory callDataWithSelector) external;
@@ -287,8 +287,8 @@ contract GuardV0 is IGuard, Ownable {
     }
 
     function whitelistUniswapV3Router(address router, string calldata notes) external {
-        allowCallSite(router, getSelector("exactInput(ExactInputParams)"), notes);
-        allowCallSite(router, getSelector("exactOutput(ExactOutputParams)"), notes);
+        allowCallSite(router, getSelector("exactInput((bytes,address,uint256,uint256,uint256))"), notes);
+        allowCallSite(router, getSelector("exactOutput((bytes,address,uint256,uint256,uint256))"), notes);
         allowApprovalDestination(router, notes);
     }
 }
