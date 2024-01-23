@@ -61,10 +61,11 @@ nbsphinx = {version = "^0.8.9", optional = true}
 sphinx-rtd-theme = {version = "^1.0.0", optional = true}
 zope-dottedname = {version = "^6.0", optional = true}
 furo = {version = "^2022.6.4.1", optional = true}
-
-# Version pindowns
-# https://github.com/sphinx-doc/sphinxcontrib-applehelp/blob/master/CHANGES
-sphinxcontrib-applehelp = {version = "1.0.4", optional = true}
+sphinxcontrib-applehelp = {version = "1.0.4", optional = true} # Version pindowns https://github.com/sphinx-doc/sphinxcontrib-applehelp/blob/master/CHANGES
+sphinxcontrib-devhelp = {version = "1.0.2", optional = true} # Version pindowns https://github.com/sphinx-doc/sphinxcontrib-devhelp/blob/master/CHANGES
+sphinxcontrib-htmlhelp = {version = "2.0.1", optional = true} # Version pindowns https://github.com/sphinx-doc/sphinxcontrib-htmlhelp/blob/master/CHANGES
+sphinxcontrib-serializinghtml = {version = "1.1.5", optional = true} # Version pindowns https://github.com/sphinx-doc/sphinxcontrib-serializinghtml/blob/master/CHANGES
+sphinxcontrib-qthelp = {version = "1.0.3", optional = true} # Version pindowns https://github.com/sphinx-doc/sphinxcontrib-qthelp/blob/master/CHANGES
 
 [tool.poetry.dev-dependencies]
 pytest = "^7.4.3"

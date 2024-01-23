@@ -39,8 +39,8 @@ Example tutorials
 
    transfer
    make-uniswap-swap-in-python
-   native-token-price
    chainlink-price-feed
+   chainlink-native-token
    multithread-reader
    verify-node-integrity
    live-price
@@ -53,6 +53,7 @@ Example tutorials
    aave-v3-interest-analysis
    slippage-and-price-impact
    multi-rpc-configuration
+   enzyme-read-vaults
 
 `For more examples, browse tests folder on Github <https://github.com/tradingstrategy-ai/web3-ethereum-defi/tree/master/tests>`__.
 You can also search function names in `the repository <https://github.com/tradingstrategy-ai/web3-ethereum-defi/>`__

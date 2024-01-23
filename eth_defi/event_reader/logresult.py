@@ -32,7 +32,7 @@ class LogResult(TypedDict):
 
     Example data (PancakeSwap swap):
 
-    .. code-block:: python
+    .. code-block:: text
 
         {
             'address': '0xc91cd2b9c9aafe494cf3ccc8bee7795deb17231a',
