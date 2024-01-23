@@ -1,4 +1,7 @@
 # .readthedocs.yml
+#
+# https://docs.readthedocs.io/en/stable/config-file/v2.html
+#
 # https://github.com/readthedocs/readthedocs.org/issues/4912#issuecomment-664002569
 
 version: 2
@@ -17,3 +20,7 @@ build:
 python:
   install:
   - requirements: docs/requirements.txt
+
+submodules:
+  include: all
+  recursive: true
