@@ -1,5 +1,5 @@
-EVM JSON-RPC node integrity verifier
-------------------------------------
+JSON-RPC node integrity verifier for EVM blockchains
+----------------------------------------------------
 
 This is an example script how to verify the integrity of your JSON-RPC full node.
 

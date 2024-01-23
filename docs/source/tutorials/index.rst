@@ -43,7 +43,6 @@ Example tutorials
    chainlink-price-feed
    chainlink-native-token
    multithread-reader
-   verify-node-integrity
    live-price
    uniswap-v3-liquidity-analysis
    uniswap-v3-price-analysis
@@ -54,6 +53,7 @@ Example tutorials
    live-swap
    aave-v3-interest-analysis
    enzyme-read-vaults
+   verify-node-integrity
 
 `For more examples, browse tests folder on Github <https://github.com/tradingstrategy-ai/web3-ethereum-defi/tree/master/tests>`__.
 You can also search function names in `the repository <https://github.com/tradingstrategy-ai/web3-ethereum-defi/>`__
