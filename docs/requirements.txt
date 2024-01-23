@@ -205,3 +205,4 @@ widgetsnbextension==4.0.9 ; python_version >= "3.10" and python_version < "3.13"
 yarl==1.9.4 ; python_version >= "3.10" and python_version < "3.13"
 zope-dottedname==6.0 ; python_version >= "3.10" and python_version < "3.13"
 -e .
+
