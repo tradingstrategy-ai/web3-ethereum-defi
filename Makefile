@@ -135,7 +135,7 @@ all: clean-docs compile-projects-and-prepare-abi build-docs
 # terms_of_service is in-place dev dependency, only used for tests and must be removed for RTD
 rtd-dep-export:
 	@poetry export --without-hashes --with dev --extras docs --extras data -f requirements.txt --output /tmp/requirements.txt
-	grep -v 'terms-of-service' < /tmp/requirements.txt > docs/requirements.txt
+	@grep -v 'terms-of-service' < /tmp/requirements.txt > docs/requirements.txt
 	@echo "-e ." >> docs/requirements.txt
 
 # Build docs locally

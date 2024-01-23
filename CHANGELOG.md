@@ -12,7 +12,8 @@
 - Improve various utility functions
 - Fix issues cleaning AST information from Enzyme contracts on certain UNIX shells
 - Fix log message in the fallback provider that if we have only a single 
-  provider don't call error handling "switching" 
+  provider don't call error handling "switching"
+- Fix Sphinx dependencies to be dev dependencies
 
 # 0.24.6
 
