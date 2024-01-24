@@ -244,3 +244,112 @@ def test_guard_can_trade_exact_input_uniswap_v3(
     vault.functions.performCall(target, call_data).transact({"from": asset_manager})
 
     assert weth.functions.balanceOf(vault.address).call() == 3326659993034849236
+
+
+def test_owner_can_withdraw(
+    owner: str,
+    asset_manager: str,
+    deployer: str,
+    weth: Contract,
+    usdc: Contract,
+    vault: Contract,
+    guard: Contract,
+):
+    """Owner can withdraw."""
+    usdc_amount = 10_000 * 10**6
+    usdc.functions.transfer(vault.address, usdc_amount).transact({"from": deployer})
+
+    transfer_call = usdc.functions.transfer(
+        owner,
+        usdc_amount,
+    )
+
+    target, call_data = encode_simple_vault_transaction(transfer_call)
+    vault.functions.performCall(target, call_data).transact({"from": asset_manager})
+
+
+def test_guard_unauthorized_withdraw(
+    owner: str,
+    asset_manager: str,
+    deployer: str,
+    weth: Contract,
+    usdc: Contract,
+    vault: Contract,
+    guard: Contract,
+):
+    """Others cannot withdraw."""
+    usdc_amount = 10_000 * 10**6
+    usdc.functions.transfer(vault.address, usdc_amount).transact({"from": deployer})
+
+    transfer_call = usdc.functions.transfer(
+        asset_manager,
+        usdc_amount,
+    )
+
+    with pytest.raises(TransactionFailed, match="execution reverted: Receiver address does not match"):
+        target, call_data = encode_simple_vault_transaction(transfer_call)
+        vault.functions.performCall(target, call_data).transact({"from": asset_manager})
+
+
+def test_guard_unauthorized_approve(
+    owner: str,
+    asset_manager: str,
+    deployer: str,
+    weth: Contract,
+    usdc: Contract,
+    vault: Contract,
+    guard: Contract,
+):
+    """Cannot approve unauthorized destination."""
+    usdc_amount = 10_000 * 10**6
+    usdc.functions.transfer(vault.address, usdc_amount).transact({"from": deployer})
+
+    transfer_call = usdc.functions.approve(
+        asset_manager,
+        usdc_amount,
+    )
+
+    with pytest.raises(TransactionFailed, match="execution reverted: Approve address does not match"):
+        target, call_data = encode_simple_vault_transaction(transfer_call)
+        vault.functions.performCall(target, call_data).transact({"from": asset_manager})
+
+
+def test_guard_third_party_trade(
+    uniswap_v3: UniswapV3Deployment,
+    weth_usdc_pool: PoolDetails,
+    owner: str,
+    asset_manager: str,
+    third_party: str,
+    deployer: str,
+    weth: Contract,
+    usdc: Contract,
+    vault: Contract,
+    guard: Contract,
+):
+    """Third party cannot initiate a trade."""
+    usdc_amount = 10_000 * 10**6
+    usdc.functions.transfer(vault.address, usdc_amount).transact({"from": deployer})
+
+    approve_call = usdc.functions.approve(
+        uniswap_v3.swap_router.address,
+        usdc_amount,
+    )
+
+    target, call_data = encode_simple_vault_transaction(approve_call)
+    vault.functions.performCall(target, call_data).transact({"from": asset_manager})
+
+    encoded_path = encode_path([usdc.address, weth.address], [POOL_FEE_RAW])
+
+    trade_call = uniswap_v3.swap_router.functions.exactInput(
+        (
+            encoded_path,
+            vault.address,
+            FOREVER_DEADLINE,
+            usdc_amount,
+            0,
+        )
+    )
+
+    with pytest.raises(TransactionFailed, match="execution reverted: Sender not allowed"):
+        target, call_data = encode_simple_vault_transaction(trade_call)
+        vault.functions.performCall(target, call_data).transact({"from": third_party})
