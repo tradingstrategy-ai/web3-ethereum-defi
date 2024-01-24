@@ -17,6 +17,7 @@ and reading the deposit and redemption information.
    eth_defi.enzyme.events
    eth_defi.enzyme.price_feed
    eth_defi.enzyme.generic_adapter
+   eth_defi.enzyme.generic_adapter_vault
    eth_defi.enzyme.utils
    eth_defi.enzyme.erc20
    eth_defi.enzyme.uniswap_v2

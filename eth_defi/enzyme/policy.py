@@ -19,19 +19,12 @@ from eth_defi.abi import get_deployed_contract
 from eth_defi.enzyme.deployment import EnzymeDeployment, VaultPolicyConfiguration
 from eth_defi.enzyme.vault import Vault
 
-#
-# export enum AddressListUpdateType {
-#   None = '0',
-#   AddOnly = '1',
-#   RemoveOnly = '2',
-#   AddAndRemove = '3',
-# }
-#
-
 
 class AddressListUpdateType(enum.Enum):
-    """What kind of delta operation we do on an address."""
+    """What kind of delta operation we do on an address.
 
+    Taken from Enzyme's JS core.
+    """
     None_ = 0
     AddOnly = 1
     RemoveOnly = 2
