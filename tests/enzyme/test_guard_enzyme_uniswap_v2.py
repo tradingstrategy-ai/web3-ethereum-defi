@@ -105,7 +105,17 @@ def terms_of_service(
 
 
 @pytest.fixture()
-def enzyme(web3, deployer, mln, weth, usdc, usdc_usd_mock_chainlink_aggregator, mln_usd_mock_chainlink_aggregator) -> EnzymeDeployment:
+def enzyme(
+    web3,
+    deployer,
+    mln,
+    weth,
+    usdc,
+    usdc_usd_mock_chainlink_aggregator,
+    mln_usd_mock_chainlink_aggregator,
+    weth_usd_mock_chainlink_aggregator
+) -> EnzymeDeployment:
+    """Deploy Enzyme protocol with few Chainlink feeds mocked with a static price."""
     deployment = EnzymeDeployment.deploy_core(
         web3,
         deployer,
@@ -124,6 +134,10 @@ def enzyme(web3, deployer, mln, weth, usdc, usdc_usd_mock_chainlink_aggregator, 
         mln_usd_mock_chainlink_aggregator,
         RateAsset.USD,
     )
+
+    tx_hash = deployment.contracts.value_interpreter.functions.setEthUsdAggregator(weth_usd_mock_chainlink_aggregator.address).transact({"from": deployer})
+    assert_transaction_success_with_explanation(web3, tx_hash)
+
     return deployment
 
 
@@ -269,6 +283,9 @@ def test_enzyme_guarded_trade_uniswap_v2(
 ):
     """Make a swap that goes through the call guard."""
 
+    assert vault.is_supported_asset(usdc_token.address)
+    assert vault.is_supported_asset(weth_token.address)
+
     # Sign terms of service
     acceptance_hash, signature = sign_terms_of_service(vault_investor, acceptance_message)
 
@@ -317,7 +334,7 @@ def test_enzyme_guarded_trade_uniswap_v2(
         200 * 10**6,  # 200 USD
     )
 
-    tx_hash = prepared_tx.transact({"from": asset_manager})
+    tx_hash = prepared_tx.transact({"from": asset_manager, "gas": 1_000_000})
     assert_transaction_success_with_explanation(web3, tx_hash)
 
     # Bought ETH landed in the vault
