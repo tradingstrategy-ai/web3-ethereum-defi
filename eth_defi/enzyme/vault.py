@@ -235,6 +235,17 @@ class Vault:
         """
         return self.vault.functions.balanceOf(user).call()
 
+    def is_supported_asset(self, address: HexAddress) -> bool:
+        """Does the vault support a particular asset.
+
+        If the asset is not supported, policy manager
+
+        At the moment, assets are whitelisted on Enzyme protocol level.
+        """
+        assert address.startswith("0x")
+        value_interpreter = self.deployment.contracts.value_interpreter
+        return value_interpreter.functions.isSupportedAsset(address).call()
+
     def fetch_deployment_event(self, reader: Web3EventReader, start_block=1) -> dict:
         """Get when the vault was deployed.
 

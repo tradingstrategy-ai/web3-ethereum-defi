@@ -9,6 +9,7 @@ import random
 
 from eth_defi.abi import get_deployed_contract
 from eth_defi.enzyme.erc20 import prepare_transfer, prepare_approve
+from eth_defi.enzyme.generic_adapter_vault import deploy_generic_adapter_vault
 from eth_defi.enzyme.uniswap_v2 import prepare_swap
 from eth_defi.uniswap_v2.deployment import UniswapV2Deployment
 from terms_of_service.acceptance_message import get_signing_hash, generate_acceptance_message, sign_terms_of_service
@@ -103,7 +104,8 @@ def terms_of_service(
 
 
 @pytest.fixture()
-def enzyme(web3, deployer, mln, weth, usdc, usdc_usd_mock_chainlink_aggregator, mln_usd_mock_chainlink_aggregator) -> EnzymeDeployment:
+def enzyme(web3, deployer, mln, weth, usdc, usdc_usd_mock_chainlink_aggregator, mln_usd_mock_chainlink_aggregator, weth_usd_mock_chainlink_aggregator) -> EnzymeDeployment:
+    """Deploy Enzyme protocol with few Chainlink feeds mocked with a static price."""
     deployment = EnzymeDeployment.deploy_core(
         web3,
         deployer,
@@ -122,6 +124,12 @@ def enzyme(web3, deployer, mln, weth, usdc, usdc_usd_mock_chainlink_aggregator, 
         mln_usd_mock_chainlink_aggregator,
         RateAsset.USD,
     )
+
+    # We neeed to set a mock price for ETH/USD otherwise swap test won't pass,
+    # as the cumulative slippage tolerancy policy needs to know ETH price
+    tx_hash = deployment.contracts.value_interpreter.functions.setEthUsdAggregator(weth_usd_mock_chainlink_aggregator.address).transact({"from": deployer})
+    assert_transaction_success_with_explanation(web3, tx_hash)
+
     return deployment
 
 
@@ -143,69 +151,7 @@ def vault(
     - TermsOfService
     - TermedVaultUSDCPaymentForwarder
     """
-
-    deployment = enzyme
-
-    comptroller, vault = deployment.create_new_vault(
-        deployer,
-        usdc,
-    )
-
-    assert comptroller.functions.getDenominationAsset().call() == usdc.address
-    assert vault.functions.getTrackedAssets().call() == [usdc.address]
-
-    # asset manager role is the trade executor
-    vault.functions.addAssetManagers([asset_manager]).transact({"from": deployer})
-
-    payment_forwarder = deploy_contract(
-        web3,
-        "TermedVaultUSDCPaymentForwarder.json",
-        deployer,
-        usdc.address,
-        comptroller.address,
-        terms_of_service.address,
-    )
-
-    guard = deploy_contract(
-        web3,
-        f"guard/GuardV0.json",
-        deployer,
-    )
-    assert guard.functions.getInternalVersion().call() == 1
-
-    generic_adapter = deploy_contract(
-        web3,
-        f"GuardedGenericAdapter.json",
-        deployer,
-        deployment.contracts.integration_manager.address,
-        vault.address,
-        guard.address,
-    )
-
-    # When swap is performed, the tokens will land on the integration contract
-    # and this contract must be listed as the receiver.
-    # Enzyme will then internally move tokens to its vault from here.
-    guard.functions.allowReceiver(generic_adapter.address, "").transact({"from": deployer})
-
-    # Because Enzyme does not pass the asset manager address to through integration manager,
-    # we set the vault address itself as asset manager for the guard
-    tx_hash = guard.functions.allowSender(vault.address, "").transact({"from": deployer})
-    assert_transaction_success_with_explanation(web3, tx_hash)
-
-    assert generic_adapter.functions.getIntegrationManager().call() == deployment.contracts.integration_manager.address
-    assert comptroller.functions.getDenominationAsset().call() == usdc.address
-    assert vault.functions.getTrackedAssets().call() == [usdc.address]
-    assert vault.functions.canManageAssets(asset_manager).call()
-    assert guard.functions.isAllowedSender(vault.address).call()  # vault = asset manager for the guard
-
-    vault = Vault.fetch(
-        web3,
-        vault_address=vault.address,
-        payment_forwarder=payment_forwarder.address,
-        generic_adapter_address=generic_adapter.address,
-    )
-    assert vault.guard_contract.address == guard.address
-    return vault
+    return deploy_generic_adapter_vault(enzyme, deployer, asset_manager, deployer, usdc, terms_of_service)
 
 
 @pytest.fixture()
@@ -323,6 +269,9 @@ def test_enzyme_guarded_trade_uniswap_v2(
 ):
     """Make a swap that goes through the call guard."""
 
+    assert vault.is_supported_asset(usdc_token.address)
+    assert vault.is_supported_asset(weth_token.address)
+
     # Sign terms of service
     acceptance_hash, signature = sign_terms_of_service(vault_investor, acceptance_message)
 
@@ -371,7 +320,7 @@ def test_enzyme_guarded_trade_uniswap_v2(
         200 * 10**6,  # 200 USD
     )
 
-    tx_hash = prepared_tx.transact({"from": asset_manager})
+    tx_hash = prepared_tx.transact({"from": asset_manager, "gas": 1_000_000})
     assert_transaction_success_with_explanation(web3, tx_hash)
 
     # Bought ETH landed in the vault

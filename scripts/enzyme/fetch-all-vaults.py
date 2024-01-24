@@ -61,7 +61,7 @@ def get_exchange_rate(vault: Vault, denomination_token: TokenDetails) -> float |
 
     :param denomination_token:
         Prefetched vault denomination token details
-    
+
     :return:
         Quote token/USD rate.
 
@@ -82,15 +82,15 @@ def get_exchange_rate(vault: Vault, denomination_token: TokenDetails) -> float |
         # Wrapped ETH on Polygon
         # Use Polygon ETH/USD feed
         _, _, round_data = get_token_price_with_chainlink(web3, "0xF9680D99D6C9589e2a93a78A04A279e509205945")
-        exchange_rate = round_data.price          
+        exchange_rate = round_data.price
     elif denomination_token.address.lower() == "0x82a6c4AF830caa6c97bb504425f6A66165C2c26e".lower():
         # BNB on Polygon
         _, _, round_data = get_token_price_with_chainlink(web3, "0xF9680D99D6C9589e2a93a78A04A279e509205945")
-        exchange_rate = round_data.price          
+        exchange_rate = round_data.price
     elif denomination_token.address.lower() == "0x3BA4c387f786bFEE076A58914F5Bd38d668B42c3".lower():
         # BNB (Pos) on Polygon
         _, _, round_data = get_token_price_with_chainlink(web3, "0xF9680D99D6C9589e2a93a78A04A279e509205945")
-        exchange_rate = round_data.price           
+        exchange_rate = round_data.price
     elif denomination_token.address.lower() == "0x831753DD7087CaC61aB5644b308642cc1c33Dc13".lower():
         # Quickswap Polygon
         # Uninteresting, ignore
@@ -117,7 +117,7 @@ def get_exchange_rate(vault: Vault, denomination_token: TokenDetails) -> float |
             # If we did not handle special assets above, then bork out here
             # with a helpful message
             raise NotImplementedError(f"Cannot get conversion rate for {denomination_token}") from e
-        
+
     return exchange_rate
 
 
@@ -163,14 +163,14 @@ def main():
     )
 
     # Avoid extra RPC calls by caching policy identifiers
-    @lru_cache(maxsize=100) 
-    def get_policy_name(policy_address):        
+    @lru_cache(maxsize=100)
+    def get_policy_name(policy_address):
         try:
             policy = get_deployed_contract(web3, "enzyme/IPolicy.json", policy_address)
         except Exception as e:
             raise RuntimeError(f"Cannot get identifier for policy {policy_address}") from e
         return policy.functions.identifier().call()
-    
+
     fname = f"enzyme-vaults-chain-{web3.eth.chain_id}.csv"
     logger.info(f"Writing {fname}")
 
@@ -187,10 +187,10 @@ def main():
         ):
             # event NewFundCreated(address indexed creator, address vaultProxy, address comptrollerProxy);
             # https://polygonscan.com/tx/0x08a4721b171233690251d95de91a688c7d2f18c2e82bedc0f86857b182e95a8c#eventlog
-            
+
             # Old style NewFundCreated event https://etherscan.io/tx/0x4a11fc3ed672b5d759a8ef8c89e05dccacfb3a8ef344756a1851b6dfa34a2148#eventlog
             # that is not detected
-            
+
             creator = convert_uint256_string_to_address(log["topics"][1])
             args = decode_data(log["data"])
             vault_address = convert_uint256_bytes_to_address(args[0])

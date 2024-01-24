@@ -20,18 +20,19 @@ See Enzyme Subgraphs: ---
 """
 import enum
 import re
-from dataclasses import asdict, dataclass, field, fields
-from pprint import pformat
+from dataclasses import dataclass, fields
 from typing import Dict, Optional, Tuple
 
+from eth_abi import encode
 from eth_typing import HexAddress
 from web3 import Web3
 from web3._utils.events import EventLogErrorFlags
 from web3.contract import Contract
 
-from eth_defi.abi import encode_with_signature, get_contract, get_deployed_contract
+from eth_defi.abi import encode_with_signature, get_deployed_contract
 from eth_defi.deploy import deploy_contract
-from eth_defi.revert_reason import fetch_transaction_revert_reason
+from eth_defi.enzyme.utils import ONE_DAY_IN_SECONDS
+from eth_defi.trace import assert_transaction_success_with_explanation
 
 #: Enzyme deployment details for Polygon
 #:
@@ -115,6 +116,15 @@ class EnzymeContracts:
     #
     fund_value_calculator: Contract = None
 
+    #
+    # Policies
+    #
+    cumulative_slippage_tolerance_policy: Contract = None
+    allowed_adapters_policy: Contract = None
+    only_remove_dust_external_position_policy: Contract = None
+    only_untrack_dust_or_priceless_assets_policy: Contract = None
+    allowed_external_position_types_policy: Contract = None
+
     def deploy(self, contract_name: str, *args):
         """Deploys a contract and stores its reference.
 
@@ -145,6 +155,37 @@ class EnzymeContracts:
             elif v is None:
                 addresses[k.name] = None
         return addresses
+
+
+@dataclass(slots=True)
+class VaultPolicyConfiguration:
+    """Enzyme policy configuration.
+
+    Passed to the fund deployer when the vault is created.
+
+    """
+
+    #: Dict of enabled policies and their configs
+    #:
+    #: Policy contract address -> policy config bytes
+    #:
+    policies: Dict[HexAddress, bytes]
+
+    def __post_init__(self):
+        for p in self.policies.keys():
+            assert p.startswith("0x")
+
+        for c in self.policies.values():
+            assert type(c) == bytes
+
+    def encode(self) -> bytes:
+        """Serialise for the fund deployer.
+
+        See https://github.com/enzymefinance/protocol/blob/v4/tests/utils/core/PolicyUtils.sol
+        """
+        policy_address = list(self.policies.keys())
+        configs = list(self.policies.values())
+        return encode(["address[]", "bytes[]"], [policy_address, configs])
 
 
 @dataclass(slots=True)
@@ -237,6 +278,7 @@ class EnzymeDeployment:
         fee_manager_config_data=b"",
         policy_manager_config_data=b"",
         deployer=None,
+        policy_configuration: VaultPolicyConfiguration | None = None,
     ) -> Tuple[Contract, Contract]:
         """
         Creates a new fund (vault).
@@ -254,6 +296,10 @@ class EnzymeDeployment:
 
         assert deployer, "No deployer account set up"
 
+        if policy_configuration is not None:
+            assert not policy_manager_config_data
+            policy_manager_config_data = policy_configuration.encode()
+
         fund_deployer = self.contracts.fund_deployer
         tx_hash = fund_deployer.functions.createNewFund(
             owner,
@@ -268,10 +314,12 @@ class EnzymeDeployment:
                 "from": deployer,
             }
         )
-        receipt = self.web3.eth.wait_for_transaction_receipt(tx_hash)
-        if receipt["status"] != 1:
-            reason = fetch_transaction_revert_reason(self.web3, tx_hash)
-            raise EnzymeDeploymentError(f"createNewFund() failed: {reason}")
+
+        # Use stack trace supported explanation
+        web3 = fund_deployer.w3
+        assert_transaction_success_with_explanation(web3, tx_hash)
+
+        receipt = web3.eth.get_transaction_receipt(tx_hash)
 
         events = list(self.contracts.fund_deployer.events.NewFundCreated().process_receipt(receipt, EventLogErrorFlags.Discard))
         assert len(events) == 1
@@ -353,6 +401,87 @@ class EnzymeDeployment:
             contracts.deploy("VaultLib", contracts.external_position_manager.address, contracts.gas_relay_paymaster_factory.address, contracts.protocol_fee_reserve_proxy.address, contracts.protocol_fee_tracker.address, mln_address, vault_mln_burner, weth_address, vault_position_limit)
             contracts.deploy("FundValueCalculator", contracts.fee_manager.address, contracts.protocol_fee_tracker.address, contracts.value_interpreter.address)
 
+        def _deploy_policies():
+            # Deploy the minimum policy contracts we need to run the tests
+
+            # constructor(
+            #     address _policyManager,
+            #     address _addressListRegistry,
+            #     address _valueInterpreter,
+            #     address _wethToken,
+            #     uint256 _bypassableAdaptersListId,
+            #     uint256 _tolerancePeriodDuration,
+            #     uint256 _pricelessAssetBypassTimelock,
+            #     uint256 _pricelessAssetBypassTimeLimit
+            # )
+            contracts.deploy(
+                "CumulativeSlippageTolerancePolicy",
+                contracts.policy_manager.address,
+                contracts.address_list_registry.address,
+                contracts.value_interpreter.address,
+                weth_address,
+                0,  # See CumulativeSlippageTolerancePolicy.test.ts
+                ONE_DAY_IN_SECONDS * 7,  # See CumulativeSlippageTolerancePolicy.test.ts
+                ONE_DAY_IN_SECONDS * 7,  # See CumulativeSlippageTolerancePolicy.test.ts
+                ONE_DAY_IN_SECONDS * 2,  # See CumulativeSlippageTolerancePolicy.test.ts
+            )
+
+            # constructor(address _policyManager, address _addressListRegistry)
+            #     public
+            #     AddressListRegistryPolicyBase(_policyManager, _addressListRegistry)
+            # {}
+
+            contracts.deploy(
+                "AllowedAdaptersPolicy",
+                contracts.policy_manager.address,
+                contracts.address_list_registry.address,
+            )
+
+            # constructor(
+            #     address _policyManager,
+            #     address _fundDeployer,
+            #     address _valueInterpreter,
+            #     address _wethToken,
+            #     uint256 _pricelessAssetBypassTimelock,
+            #     uint256 _pricelessAssetBypassTimeLimit
+            # )
+
+            contracts.deploy(
+                "OnlyRemoveDustExternalPositionPolicy",
+                contracts.policy_manager.address,
+                contracts.fund_deployer.address,
+                contracts.value_interpreter.address,
+                weth_address,
+                ONE_DAY_IN_SECONDS * 7,  # See OnlyRemoveDustExternalPositionPolicy.test.ts
+                ONE_DAY_IN_SECONDS * 2,  # See OnlyRemoveDustExternalPositionPolicy.test.ts
+            )
+
+            # constructor(
+            #     address _policyManager,
+            #     address _fundDeployer,
+            #     address _valueInterpreter,
+            #     address _wethToken,
+            #     uint256 _pricelessAssetBypassTimelock,
+            #     uint256 _pricelessAssetBypassTimeLimit
+            # )
+
+            contracts.deploy(
+                "OnlyUntrackDustOrPricelessAssetsPolicy",
+                contracts.policy_manager.address,
+                contracts.fund_deployer.address,
+                contracts.value_interpreter.address,
+                weth_address,
+                ONE_DAY_IN_SECONDS * 7,  # See OnlyRemoveDustExternalPositionPolicy.test.ts
+                ONE_DAY_IN_SECONDS * 2,  # See OnlyRemoveDustExternalPositionPolicy.test.ts
+            )
+
+            # constructor(address _policyManager) public PolicyBase(_policyManager) {}
+
+            contracts.deploy(
+                "AllowedExternalPositionTypesPolicy",
+                contracts.policy_manager.address,
+            )
+
         def _set_fund_deployer_pseudo_vars():
             # Mimic setFundDeployerPseudoVars()
             contracts.fund_deployer.functions.setComptrollerLib(contracts.comptroller_lib.address).transact({"from": deployer})
@@ -371,6 +500,7 @@ class EnzymeDeployment:
 
         _deploy_persistent()
         _deploy_release_contracts()
+        _deploy_policies()
         _set_fund_deployer_pseudo_vars()
         _set_external_position_factory_position_deployers()
         _set_release_live()
