@@ -245,7 +245,7 @@ contract GuardV0 is IGuard, Ownable {
         require(isAllowedCallSite(target, selector), "Call site not allowed");
 
         if(selector == getSelector("swapExactTokensForTokens(uint256,uint256,address[],address,uint256)")) {
-            validate_swapTokensForExactTokens(callData);
+            validate_swapExactTokensForTokens(callData);
         } else if(selector == getSelector("exactInput((bytes,address,uint256,uint256,uint256))")) {
             validate_exactInput(callData);
         } else if(selector == getSelector("transfer(address,uint256)")) {
@@ -258,7 +258,7 @@ contract GuardV0 is IGuard, Ownable {
     }
 
     // Validate Uniswap v2 trade
-    function validate_swapTokensForExactTokens(bytes memory callData) public view {
+    function validate_swapExactTokensForTokens(bytes memory callData) public view {
         (, , address[] memory path, address to, ) = abi.decode(callData, (uint, uint, address[], address, uint));
         address tokenIn = path[0];
         address tokenOut = path[path.length - 1];
