@@ -4,7 +4,9 @@ To make your Enzyme vaults safe against rug pulls at least the following policie
 - Cumulative slippage tolerance (can bleed only 10% a week)
 - Vault adapter policy (prevent asset manager to call an arbitrary smart contract with vault assets)
 
-By default, Enzyme vault does not have any adapters set.
+By default, Enzyme vault does not have any adapters set when you create vaults programmatically.
+Enzyme frontend has some vault policies by default, but Enzyme frontend is not open source.
+
 """
 from typing import Iterable
 
@@ -57,26 +59,26 @@ def create_safe_default_policy_configuration_for_generic_adapter(
     assert contracts.allowed_adapters_policy is not None
     assert contracts.only_remove_dust_external_position_policy is not None
     assert contracts.only_untrack_dust_or_priceless_assets_policy is not None
-    assert contracts.allowed_external_position_types is not None
+    assert contracts.allowed_external_position_types_policy is not None
 
     assert contracts.cumulative_slippage_tolerance_policy.functions.identifier().call() == "CUMULATIVE_SLIPPAGE_TOLERANCE"
-    assert contracts.allowed_adapters_policy.functions.identifier().call() == "ALLOWED_ADAPTERS_POLICY"
-    assert contracts.only_remove_dust_external_position_policy.functions.identifier().call() == "ONLY_REMOVE_DUST_EXTERNAL_POSITION_POLICY"
-    assert contracts.only_untrack_dust_or_priceless_assets_policy.functions.identifier().call() == "ONLY_UNTRACK_DUST_OR_PRICELESS_ASSETS_POLICY"
-    assert contracts.allowed_external_position_types.functions.identifier().call() == "ALLOWED_EXTERNAL_POLICY_TYPES"
+    assert contracts.allowed_adapters_policy.functions.identifier().call() == "ALLOWED_ADAPTERS", f"Got {contracts.allowed_adapters_policy.functions.identifier().call()}"
+    assert contracts.only_remove_dust_external_position_policy.functions.identifier().call() == "ONLY_REMOVE_DUST_EXTERNAL_POSITION"
+    assert contracts.only_untrack_dust_or_priceless_assets_policy.functions.identifier().call() == "ONLY_UNTRACK_DUST_OR_PRICELESS_ASSETS"
+    assert contracts.allowed_external_position_types_policy.functions.identifier().call() == "ALLOWED_EXTERNAL_POSITION_TYPES", f"Got {contracts.allowed_external_position_types_policy.functions.identifier().call()}"
 
     # Construct vault deployment payload
     ONE_HUNDRED_PERCENT = 10**18  # See CumulativeSlippageTolerancePolicy
 
     policies = {
         # See CumulativeSlippageTolerancePolicy.addFundSettings
-        contracts.cumulative_slippage_tolerance_policy.address: encode(["uint64"], [int(cumulative_slippage_tolerance * ONE_HUNDRED_PERCENT)]),
+        contracts.cumulative_slippage_tolerance_policy.address: encode(["uint64"], [cumulative_slippage_tolerance * ONE_HUNDRED_PERCENT // 100]),
         # See AddressListRegistryPerUserPolicyBase.addFundSettings
         contracts.allowed_adapters_policy.address: encode(["address", "bytes"] , [generic_adapter.address, b""]),
         # See AddressListRegistryPerUserPolicyBase.addFundSettings
         contracts.only_remove_dust_external_position_policy.address: b"",
         contracts.only_untrack_dust_or_priceless_assets_policy.address: b"",
-        contracts.allowed_external_position_types.address: b"",
+        contracts.allowed_external_position_types_policy.address: b"",
     }
 
     return VaultPolicyConfiguration(policies)

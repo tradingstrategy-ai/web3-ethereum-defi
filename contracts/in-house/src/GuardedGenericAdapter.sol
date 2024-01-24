@@ -41,6 +41,8 @@ contract GuardedGenericAdapter is AdapterBase {
     // but we limit to a specific vault to reduce the security
     // footprint.
     //
+    // Left to 0x0 until initialised due to deployment order.
+    //
     IVault public vault;
 
     // Guard implementation associated with this vault
@@ -53,16 +55,26 @@ contract GuardedGenericAdapter is AdapterBase {
 
     constructor(
         address _integrationManager,
-        IVault _vault,
         IGuard _guard
     ) public AdapterBase(_integrationManager) {
-        //vault = _whitelistedVault;
-        // Check the vault is proper vault contract
-        // Only if the crappy Solidity development tooling had interfaces people use
-        vault = _vault;
-        // Sanity check for smart contract integration - mainly checks vault providers getCreator() as an interface check
-        require(vault.getCreator() != 0x0000000000000000000000000000000000000000, "Encountered funny vault");
         guard = _guard;
+    }
+
+    // Initialise the vault
+    //
+    // Each adapter is bind to a specific vault for an extra security.
+    // However, due to the deployment order with Enzyme policies,
+    // we need to first deploy guard, then vault, then set the vault pointer.
+    //
+    // Because this is called only once and damage cannot be done
+    // except maybe screwing up the deployment, we do not track ownership here.
+    //
+    function bindVault(IVault _vault) external {
+        require(address(vault) == address(0x0), "Can be initialised only once");
+        require(address(_vault) != address(0x0), "Null address encountered");
+        // Sanity check for smart contract integration - mainly checks vault providers getCreator() as an interface check
+        require(vault.getCreator() != address(0x0), "Encountered funny vault");
+        vault = _vault;
     }
 
     // EXTERNAL FUNCTIONS

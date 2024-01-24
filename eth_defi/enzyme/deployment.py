@@ -20,9 +20,8 @@ See Enzyme Subgraphs: ---
 """
 import enum
 import re
-from dataclasses import asdict, dataclass, field, fields
-from pprint import pformat
-from typing import Dict, Optional, Tuple, List
+from dataclasses import dataclass, fields
+from typing import Dict, Optional, Tuple
 
 from eth_abi import encode
 from eth_typing import HexAddress
@@ -30,10 +29,10 @@ from web3 import Web3
 from web3._utils.events import EventLogErrorFlags
 from web3.contract import Contract
 
-from eth_defi.abi import encode_with_signature, get_contract, get_deployed_contract
+from eth_defi.abi import encode_with_signature, get_deployed_contract
 from eth_defi.deploy import deploy_contract
 from eth_defi.enzyme.utils import ONE_DAY_IN_SECONDS
-from eth_defi.revert_reason import fetch_transaction_revert_reason
+from eth_defi.trace import assert_transaction_success_with_explanation
 
 #: Enzyme deployment details for Polygon
 #:
@@ -124,7 +123,7 @@ class EnzymeContracts:
     allowed_adapters_policy: Contract = None
     only_remove_dust_external_position_policy: Contract = None
     only_untrack_dust_or_priceless_assets_policy: Contract = None
-    allowed_external_position_types: Contract = None
+    allowed_external_position_types_policy: Contract = None
 
     def deploy(self, contract_name: str, *args):
         """Deploys a contract and stores its reference.
@@ -179,16 +178,14 @@ class VaultPolicyConfiguration:
         for c in self.policies.values():
             assert type(c) == bytes
 
-        assert len(self.policies) == len(self.configs)
-
     def encode(self) -> bytes:
         """Serialise for the fund deployer.
 
         See https://github.com/enzymefinance/protocol/blob/v4/tests/utils/core/PolicyUtils.sol
         """
-        policy_address = [k for k in self.policies.keys()]
-        all_configs = b"".join(self.configs.values())
-        return encode(['address[]', 'bytes'], [policy_address, all_configs])
+        policy_address = list(self.policies.keys())
+        configs = list(self.policies.values())
+        return encode(['address[]', 'bytes[]'], [policy_address, configs])
 
 
 @dataclass(slots=True)
@@ -281,7 +278,7 @@ class EnzymeDeployment:
         fee_manager_config_data=b"",
         policy_manager_config_data=b"",
         deployer=None,
-        policy_configuration: VaultPolicyConfigruation | None = None,
+        policy_configuration: VaultPolicyConfiguration | None = None,
     ) -> Tuple[Contract, Contract]:
         """
         Creates a new fund (vault).
@@ -317,10 +314,12 @@ class EnzymeDeployment:
                 "from": deployer,
             }
         )
-        receipt = self.web3.eth.wait_for_transaction_receipt(tx_hash)
-        if receipt["status"] != 1:
-            reason = fetch_transaction_revert_reason(self.web3, tx_hash)
-            raise EnzymeDeploymentError(f"createNewFund() failed: {reason}")
+
+        # Use stack trace supported explanation
+        web3 = fund_deployer.w3
+        assert_transaction_success_with_explanation(web3, tx_hash)
+
+        receipt = web3.eth.get_transaction_receipt(tx_hash)
 
         events = list(self.contracts.fund_deployer.events.NewFundCreated().process_receipt(receipt, EventLogErrorFlags.Discard))
         assert len(events) == 1
@@ -479,7 +478,7 @@ class EnzymeDeployment:
             # constructor(address _policyManager) public PolicyBase(_policyManager) {}
 
             contracts.deploy(
-                "AllowedExternalPolicyTypes",
+                "AllowedExternalPositionTypesPolicy",
                 contracts.policy_manager.address,
             )
 

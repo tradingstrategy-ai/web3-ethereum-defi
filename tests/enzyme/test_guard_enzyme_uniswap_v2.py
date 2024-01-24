@@ -9,6 +9,7 @@ import random
 
 from eth_defi.abi import get_deployed_contract
 from eth_defi.enzyme.erc20 import prepare_transfer, prepare_approve
+from eth_defi.enzyme.generic_adapter_vault import deploy_generic_adapter_vault
 from eth_defi.enzyme.uniswap_v2 import prepare_swap
 from eth_defi.uniswap_v2.deployment import UniswapV2Deployment
 from terms_of_service.acceptance_message import get_signing_hash, generate_acceptance_message, sign_terms_of_service
@@ -144,70 +145,14 @@ def vault(
     - TermsOfService
     - TermedVaultUSDCPaymentForwarder
     """
-
-    deployment = enzyme
-
-    comptroller, vault = deployment.create_new_vault(
+    return deploy_generic_adapter_vault(
+        enzyme,
+        deployer,
+        asset_manager,
         deployer,
         usdc,
+        terms_of_service
     )
-
-    assert comptroller.functions.getDenominationAsset().call() == usdc.address
-    assert vault.functions.getTrackedAssets().call() == [usdc.address]
-
-    # asset manager role is the trade executor
-    vault.functions.addAssetManagers([asset_manager]).transact({"from": deployer})
-
-    payment_forwarder = deploy_contract(
-        web3,
-        "TermedVaultUSDCPaymentForwarder.json",
-        deployer,
-        usdc.address,
-        comptroller.address,
-        terms_of_service.address,
-    )
-
-    guard = deploy_contract(
-        web3,
-        f"guard/GuardV0.json",
-        deployer,
-    )
-    assert guard.functions.getInternalVersion().call() == 1
-
-    generic_adapter = deploy_contract(
-        web3,
-        f"GuardedGenericAdapter.json",
-        deployer,
-        deployment.contracts.integration_manager.address,
-        vault.address,
-        guard.address,
-    )
-
-    # When swap is performed, the tokens will land on the integration contract
-    # and this contract must be listed as the receiver.
-    # Enzyme will then internally move tokens to its vault from here.
-    guard.functions.allowReceiver(generic_adapter.address, "").transact({"from": deployer})
-
-    # Because Enzyme does not pass the asset manager address to through integration manager,
-    # we set the vault address itself as asset manager for the guard
-    tx_hash = guard.functions.allowSender(vault.address, "").transact({"from": deployer})
-    assert_transaction_success_with_explanation(web3, tx_hash)
-
-    assert generic_adapter.functions.getIntegrationManager().call() == deployment.contracts.integration_manager.address
-    assert comptroller.functions.getDenominationAsset().call() == usdc.address
-    assert vault.functions.getTrackedAssets().call() == [usdc.address]
-    assert vault.functions.canManageAssets(asset_manager).call()
-    assert guard.functions.isAllowedSender(vault.address).call()  # vault = asset manager for the guard
-
-    vault = Vault.fetch(
-        web3,
-        vault_address=vault.address,
-        payment_forwarder=payment_forwarder.address,
-        generic_adapter_address=generic_adapter.address,
-    )
-    assert vault.guard_contract.address == guard.address
-    return vault
-
 
 @pytest.fixture()
 def payment_forwarder(vault: Vault) -> Contract:
