@@ -17,11 +17,11 @@ from terms_of_service.acceptance_message import get_signing_hash, generate_accep
 
 - transferWithAuthorization() and receiveWithAuthorization() integration tests for Enzyme protocol
 """
-import flaky
+
 import pytest
 from eth_account import Account
 from eth_account.signers.local import LocalAccount
-from eth_typing import HexAddress, ChecksumAddress
+from eth_typing import HexAddress
 from web3 import Web3
 from web3.contract import Contract
 
@@ -31,7 +31,6 @@ from eth_defi.enzyme.vault import Vault
 from eth_defi.middleware import construct_sign_and_send_raw_middleware_anvil
 from eth_defi.token import TokenDetails
 from eth_defi.trace import assert_transaction_success_with_explanation, TransactionAssertionError
-from eth_defi.usdc.deployment import deploy_fiat_token
 from eth_defi.usdc.eip_3009 import make_eip_3009_transfer, EIP3009AuthorizationType
 
 
