@@ -22,8 +22,9 @@ import enum
 import re
 from dataclasses import asdict, dataclass, field, fields
 from pprint import pformat
-from typing import Dict, Optional, Tuple
+from typing import Dict, Optional, Tuple, List
 
+from eth_abi import encode
 from eth_typing import HexAddress
 from web3 import Web3
 from web3._utils.events import EventLogErrorFlags
@@ -123,6 +124,7 @@ class EnzymeContracts:
     allowed_adapters_policy: Contract = None
     only_remove_dust_external_position_policy: Contract = None
     only_untrack_dust_or_priceless_assets_policy: Contract = None
+    allowed_external_position_types: Contract = None
 
     def deploy(self, contract_name: str, *args):
         """Deploys a contract and stores its reference.
@@ -154,6 +156,39 @@ class EnzymeContracts:
             elif v is None:
                 addresses[k.name] = None
         return addresses
+
+
+@dataclass(slots=True)
+class VaultPolicyConfiguration:
+    """Enzyme policy configuration.
+
+    Passed to the fund deployer when the vault is created.
+
+    """
+
+    #: Dict of enabled policies and their configs
+    #:
+    #: Policy contract address -> policy config bytes
+    #:
+    policies: Dict[HexAddress, bytes]
+
+    def __post_init__(self):
+        for p in self.policies.keys():
+            assert p.startswith("0x")
+
+        for c in self.policies.values():
+            assert type(c) == bytes
+
+        assert len(self.policies) == len(self.configs)
+
+    def encode(self) -> bytes:
+        """Serialise for the fund deployer.
+
+        See https://github.com/enzymefinance/protocol/blob/v4/tests/utils/core/PolicyUtils.sol
+        """
+        policy_address = [k for k in self.policies.keys()]
+        all_configs = b"".join(self.configs.values())
+        return encode(['address[]', 'bytes'], [policy_address, all_configs])
 
 
 @dataclass(slots=True)
@@ -246,6 +281,7 @@ class EnzymeDeployment:
         fee_manager_config_data=b"",
         policy_manager_config_data=b"",
         deployer=None,
+        policy_configuration: VaultPolicyConfigruation | None = None,
     ) -> Tuple[Contract, Contract]:
         """
         Creates a new fund (vault).
@@ -262,6 +298,10 @@ class EnzymeDeployment:
             deployer = self.deployer
 
         assert deployer, "No deployer account set up"
+
+        if policy_configuration is not None:
+            assert not policy_manager_config_data
+            policy_manager_config_data = policy_configuration.encode()
 
         fund_deployer = self.contracts.fund_deployer
         tx_hash = fund_deployer.functions.createNewFund(
@@ -434,6 +474,13 @@ class EnzymeDeployment:
                 weth_address,
                 ONE_DAY_IN_SECONDS * 7,  # See OnlyRemoveDustExternalPositionPolicy.test.ts
                 ONE_DAY_IN_SECONDS * 2,  # See OnlyRemoveDustExternalPositionPolicy.test.ts
+            )
+
+            # constructor(address _policyManager) public PolicyBase(_policyManager) {}
+
+            contracts.deploy(
+                "AllowedExternalPolicyTypes",
+                contracts.policy_manager.address,
             )
 
         def _set_fund_deployer_pseudo_vars():

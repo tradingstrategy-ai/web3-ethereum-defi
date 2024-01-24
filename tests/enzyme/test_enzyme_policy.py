@@ -68,4 +68,17 @@ def test_fetch_policies_empty(
     assert len(policies) == 0
 
 
+def test_fetch_default_safe_policies(
+    web3: Web3,
+    deployment: EnzymeDeployment,
+    user_1,
+    usdc,
+):
+    """Deploy a vault with the default safe policies."""
+
+    comptroller_contract, vault_contract = deployment.create_new_vault(user_1, usdc, fund_name="Cow says Moo", fund_symbol="MOO")
+    vault = Vault(vault_contract, comptroller_contract, deployment)
+
+    policies = list(get_vault_policies(vault))
+    assert len(policies) == 0
 
