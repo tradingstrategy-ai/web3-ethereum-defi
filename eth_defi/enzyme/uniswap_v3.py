@@ -8,6 +8,7 @@ from eth_defi.enzyme.deployment import EnzymeDeployment
 from eth_defi.enzyme.generic_adapter import execute_calls_for_generic_adapter
 from eth_defi.enzyme.vault import Vault
 from eth_defi.uniswap_v3.deployment import FOREVER_DEADLINE, UniswapV3Deployment
+from eth_defi.uniswap_v3.price import UniswapV3PriceHelper
 from eth_defi.uniswap_v3.utils import encode_path
 
 
@@ -16,10 +17,11 @@ def prepare_swap(
     vault: Vault,
     uniswap_v3: UniswapV3Deployment,
     generic_adapter: Contract,
+    *,
     token_in: Contract,
     token_out: Contract,
-    fees: list[int],
-    swap_amount: int,
+    pool_fees: list[int],
+    token_in_amount: int,
 ) -> ContractFunction:
     """Prepare a Uniswap v3 swap transaction for Enzyme vault.
 
@@ -44,9 +46,10 @@ def prepare_swap(
             vault,
             uniswap_v3,
             generic_adapter,
-            usdc,
-            weth,
-            200 * 10**6,  # 200 USD
+            token_in=usdc_token.contract,
+            token_out=weth_token.contract,
+            pool_fees=[3000],
+            token_in_amount=200 * 10**6,  # 200 USD
         )
 
         tx_hash = prepared_tx.transact({"from": user_1})
@@ -61,8 +64,8 @@ def prepare_swap(
     :param vault:
         Vault that needs to perform the swap
 
-    :param uniswap_v2:
-        Uniswap v2 deployment
+    :param uniswap_v3:
+        Uniswap v3 deployment
 
     :param generic_adapter:
         GenericAdapter contract we use for swaps
@@ -73,7 +76,10 @@ def prepare_swap(
     :param token_out:
         ERC-20 token we buy
 
-    :param swap_amount:
+    :param pool_fees:
+        Pool fees of the pools in the route
+
+    :param token_in_amount:
         Token in amount, raw
 
     :return:
@@ -83,23 +89,27 @@ def prepare_swap(
     assert isinstance(generic_adapter, Contract), f"generic_adapter is needed for swap integration"
 
     router = uniswap_v3.swap_router
+    price_helper = UniswapV3PriceHelper(uniswap_v3)
 
     # Prepare the swap parameters
-    token_in_swap_amount = swap_amount
-    spend_asset_amounts = [token_in_swap_amount]
+    spend_asset_amounts = [token_in_amount]
     spend_assets = [token_in]
     path = [token_in.address, token_out.address]
-    encoded_path = encode_path(path, fees)
+    encoded_path = encode_path(path, pool_fees)
     incoming_assets = [token_out]
 
-    # expected_outgoing_amount, expected_incoming_amount = router.functions.getAmountsOut(token_in_swap_amount, path).call()
-    # min_incoming_assets_amounts = [expected_incoming_amount]
-    min_incoming_assets_amounts = [1]
+    # estimate output amount
+    estimated_min_amount_out: int = price_helper.get_amount_out(
+        amount_in=token_in_amount,
+        path=path,
+        fees=pool_fees,
+    )
+    min_incoming_assets_amounts = [estimated_min_amount_out]
 
     # The vault performs a swap on Uniswap v3
     encoded_approve = encode_function_call(
         token_in.functions.approve,
-        [router.address, token_in_swap_amount],
+        [router.address, token_in_amount],
     )
 
     encoded_swap = encode_function_call(
@@ -109,7 +119,7 @@ def prepare_swap(
                 encoded_path,
                 generic_adapter.address,
                 FOREVER_DEADLINE,
-                token_in_swap_amount,
+                token_in_amount,
                 1,
             )
         ],

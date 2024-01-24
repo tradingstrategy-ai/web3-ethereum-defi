@@ -326,10 +326,10 @@ def test_enzyme_guarded_trade_uniswap_v3(
         vault,
         uniswap_v3,
         vault.generic_adapter,
-        usdc_token.contract,
-        weth_token.contract,
-        [3000],
-        200 * 10**6,  # 200 USD
+        token_in=usdc_token.contract,
+        token_out=weth_token.contract,
+        pool_fees=[3000],
+        token_in_amount=200 * 10**6,  # 200 USD
     )
 
     tx_hash = prepared_tx.transact({"from": asset_manager})
