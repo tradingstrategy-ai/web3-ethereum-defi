@@ -81,4 +81,3 @@ def test_fetch_default_safe_policies(
 
     policies = list(get_vault_policies(vault))
     assert len(policies) == 0
-

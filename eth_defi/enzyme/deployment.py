@@ -185,7 +185,7 @@ class VaultPolicyConfiguration:
         """
         policy_address = list(self.policies.keys())
         configs = list(self.policies.values())
-        return encode(['address[]', 'bytes[]'], [policy_address, configs])
+        return encode(["address[]", "bytes[]"], [policy_address, configs])
 
 
 @dataclass(slots=True)
@@ -421,8 +421,8 @@ class EnzymeDeployment:
                 contracts.value_interpreter.address,
                 weth_address,
                 0,  # See CumulativeSlippageTolerancePolicy.test.ts
-                ONE_DAY_IN_SECONDS * 7,   # See CumulativeSlippageTolerancePolicy.test.ts
-                ONE_DAY_IN_SECONDS * 7,   # See CumulativeSlippageTolerancePolicy.test.ts
+                ONE_DAY_IN_SECONDS * 7,  # See CumulativeSlippageTolerancePolicy.test.ts
+                ONE_DAY_IN_SECONDS * 7,  # See CumulativeSlippageTolerancePolicy.test.ts
                 ONE_DAY_IN_SECONDS * 2,  # See CumulativeSlippageTolerancePolicy.test.ts
             )
 

@@ -22,7 +22,7 @@ import flaky
 import pytest
 from eth_account import Account
 from eth_account.signers.local import LocalAccount
-from eth_typing import HexAddress, ChecksumAddress
+from eth_typing import HexAddress
 from web3 import Web3
 from web3.contract import Contract
 
@@ -32,7 +32,6 @@ from eth_defi.enzyme.vault import Vault
 from eth_defi.middleware import construct_sign_and_send_raw_middleware_anvil
 from eth_defi.token import TokenDetails
 from eth_defi.trace import assert_transaction_success_with_explanation, TransactionAssertionError
-from eth_defi.usdc.deployment import deploy_fiat_token
 from eth_defi.usdc.eip_3009 import make_eip_3009_transfer, EIP3009AuthorizationType
 
 
@@ -105,16 +104,7 @@ def terms_of_service(
 
 
 @pytest.fixture()
-def enzyme(
-    web3,
-    deployer,
-    mln,
-    weth,
-    usdc,
-    usdc_usd_mock_chainlink_aggregator,
-    mln_usd_mock_chainlink_aggregator,
-    weth_usd_mock_chainlink_aggregator
-) -> EnzymeDeployment:
+def enzyme(web3, deployer, mln, weth, usdc, usdc_usd_mock_chainlink_aggregator, mln_usd_mock_chainlink_aggregator, weth_usd_mock_chainlink_aggregator) -> EnzymeDeployment:
     """Deploy Enzyme protocol with few Chainlink feeds mocked with a static price."""
     deployment = EnzymeDeployment.deploy_core(
         web3,
@@ -135,6 +125,8 @@ def enzyme(
         RateAsset.USD,
     )
 
+    # We neeed to set a mock price for ETH/USD otherwise swap test won't pass,
+    # as the cumulative slippage tolerancy policy needs to know ETH price
     tx_hash = deployment.contracts.value_interpreter.functions.setEthUsdAggregator(weth_usd_mock_chainlink_aggregator.address).transact({"from": deployer})
     assert_transaction_success_with_explanation(web3, tx_hash)
 
@@ -159,14 +151,8 @@ def vault(
     - TermsOfService
     - TermedVaultUSDCPaymentForwarder
     """
-    return deploy_generic_adapter_vault(
-        enzyme,
-        deployer,
-        asset_manager,
-        deployer,
-        usdc,
-        terms_of_service
-    )
+    return deploy_generic_adapter_vault(enzyme, deployer, asset_manager, deployer, usdc, terms_of_service)
+
 
 @pytest.fixture()
 def payment_forwarder(vault: Vault) -> Contract:

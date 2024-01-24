@@ -28,10 +28,10 @@ from eth_defi.enzyme.vault import Vault
 # }
 #
 
-class AddressListUpdateType(enum.Enum):
-    """What kind of delta operation we do on an address.
 
-    """
+class AddressListUpdateType(enum.Enum):
+    """What kind of delta operation we do on an address."""
+
     None_ = 0
     AddOnly = 1
     RemoveOnly = 2
@@ -151,5 +151,5 @@ def encode_single_address_list_policy_args(
 
     existing_list_ids = []
     initial_items = [address]
-    new_list_args = [encode(['uint256', 'address[]'], [update_type.value, initial_items])]
-    return encode(['uint256[]', 'bytes[]'], [existing_list_ids, new_list_args])
+    new_list_args = [encode(["uint256", "address[]"], [update_type.value, initial_items])]
+    return encode(["uint256[]", "bytes[]"], [existing_list_ids, new_list_args])

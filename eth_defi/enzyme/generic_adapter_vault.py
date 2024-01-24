@@ -29,7 +29,7 @@ def deploy_generic_adapter_vault(
     - Set up default policies
 
     - Assign a generic adapter
-    
+
     - Assign a USDC payment forwarder with terms of service sign up
 
     - Assign asset manager role and transfer ownership
