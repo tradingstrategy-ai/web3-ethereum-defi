@@ -9,7 +9,7 @@ from eth_defi.enzyme.deployment import EnzymeDeployment
 from eth_defi.enzyme.policy import create_safe_default_policy_configuration_for_generic_adapter
 from eth_defi.enzyme.vault import Vault
 from eth_defi.trace import assert_transaction_success_with_explanation
-
+from eth_defi.uniswap_v2.utils import ZERO_ADDRESS
 
 logger = logging.getLogger(__name__)
 
@@ -117,6 +117,7 @@ def deploy_generic_adapter_vault(
     assert_transaction_success_with_explanation(web3, tx_hash)
 
     # Give generic adapter back reference to the vault
+    assert vault.functions.getCreator().call() != ZERO_ADDRESS, f"Bad vault creator {vault.functions.getCreator().call()}"
     tx_hash = generic_adapter.functions.bindVault(vault.address).transact({"from": deployer})
     assert_transaction_success_with_explanation(web3, tx_hash)
 

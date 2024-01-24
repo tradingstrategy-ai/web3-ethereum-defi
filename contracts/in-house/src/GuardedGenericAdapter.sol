@@ -5,19 +5,14 @@
 pragma solidity ^0.6.12;
 pragma experimental ABIEncoderV2;
 
-
 import "@enzyme/release/extensions/integration-manager/integrations/utils/AdapterBase.sol";
-import "@enzyme/release/core/fund/vault/VaultLib.sol";
-//import "@enzyme/release/core/fund/vault/VaultLib.sol";
-//import "@enzyme/release/core/fund/vault/IVault.sol";
-//import "@enzyme/release/extensions/integration-manager/integrations/utils/AdapterBase.sol";
-//import "@enzyme/release/extensions/integration-manager/integrations/utils/AdapterBase.sol";
-//import "@enzyme/contracts/release/extensions/integration-manager/integrations/utils/AdapterBase.sol";
 
-//interface IVault {
-    // Circular imports in Enzyme
-//}
+// Circular imports within Enzyme
+interface IVaultMock {
+    function getCreator() external view returns (address creator_);
+}
 
+// Mock GuardV0 from guard package
 interface IGuard {
     function validateCall(address sender, address target, bytes calldata callDataWithSelector) external;
 }
@@ -43,7 +38,7 @@ contract GuardedGenericAdapter is AdapterBase {
     //
     // Left to 0x0 until initialised due to deployment order.
     //
-    IVault public vault;
+    IVaultMock public vault;
 
     // Guard implementation associated with this vault
     IGuard public guard;
@@ -69,11 +64,11 @@ contract GuardedGenericAdapter is AdapterBase {
     // Because this is called only once and damage cannot be done
     // except maybe screwing up the deployment, we do not track ownership here.
     //
-    function bindVault(IVault _vault) external {
+    function bindVault(IVaultMock _vault) external {
         require(address(vault) == address(0x0), "Can be initialised only once");
         require(address(_vault) != address(0x0), "Null address encountered");
         // Sanity check for smart contract integration - mainly checks vault providers getCreator() as an interface check
-        require(vault.getCreator() != address(0x0), "Encountered funny vault");
+        require(_vault.getCreator() != address(0x0), "Encountered funny vault");
         vault = _vault;
     }
 
