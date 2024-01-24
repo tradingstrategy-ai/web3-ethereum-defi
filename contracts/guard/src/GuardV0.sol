@@ -5,31 +5,12 @@
 
 pragma solidity ^0.8.0;
 
-import "forge-std/console.sol";
 import "@openzeppelin/access/Ownable.sol";
 import "./lib/Path.sol";
 
 interface IGuard {
     function validateCall(address sender, address target, bytes memory callDataWithSelector) external;
 }
-
-// interface IUniswapV2Router02 {
-//     function swapTokensForExactTokens(
-//         uint amountOut,
-//         uint amountInMax,
-//         address[] calldata path,
-//         address to,
-//         uint deadline
-//     ) external returns (uint[] memory amounts);
-
-//     function swapExactTokensForTokens(
-//         uint amountIn,
-//         uint amountOutMin,
-//         address[] calldata path,
-//         address to,
-//         uint deadline
-//     ) external returns (uint[] memory amounts);
-// }
 
 /**
  * Prototype guard implementation.
@@ -275,8 +256,6 @@ contract GuardV0 is IGuard, Ownable {
     // validate Uniswap v3 trade
     function validate_exactInput(bytes memory callData) public view {
         (ExactInputParams memory params) = abi.decode(callData, (ExactInputParams));
-
-        // TODO: validate all tokens in path
         (address tokenOut, address tokenIn, ) = params.path.decodeFirstPool();
 
         require(isAllowedReceiver(params.recipient), "Receiver address does not match");
