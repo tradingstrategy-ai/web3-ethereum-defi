@@ -5,6 +5,7 @@
 
 pragma solidity ^0.8.0;
 
+import "forge-std/console.sol";
 import "@openzeppelin/access/Ownable.sol";
 import "./lib/Path.sol";
 
@@ -12,23 +13,23 @@ interface IGuard {
     function validateCall(address sender, address target, bytes memory callDataWithSelector) external;
 }
 
-interface IUniswapV2Router02 {
-    function swapTokensForExactTokens(
-        uint amountOut,
-        uint amountInMax,
-        address[] calldata path,
-        address to,
-        uint deadline
-    ) external returns (uint[] memory amounts);
+// interface IUniswapV2Router02 {
+//     function swapTokensForExactTokens(
+//         uint amountOut,
+//         uint amountInMax,
+//         address[] calldata path,
+//         address to,
+//         uint deadline
+//     ) external returns (uint[] memory amounts);
 
-    function swapExactTokensForTokens(
-        uint amountIn,
-        uint amountOutMin,
-        address[] calldata path,
-        address to,
-        uint deadline
-    ) external returns (uint[] memory amounts);
-}
+//     function swapExactTokensForTokens(
+//         uint amountIn,
+//         uint amountOutMin,
+//         address[] calldata path,
+//         address to,
+//         uint deadline
+//     ) external returns (uint[] memory amounts);
+// }
 
 /**
  * Prototype guard implementation.
@@ -245,6 +246,8 @@ contract GuardV0 is IGuard, Ownable {
 
         if(selector == getSelector("swapExactTokensForTokens(uint256,uint256,address[],address,uint256)")) {
             validate_swapTokensForExactTokens(callData);
+        } else if(selector == getSelector("exactInput((bytes,address,uint256,uint256,uint256))")) {
+            validate_exactInput(callData);
         } else if(selector == getSelector("transfer(address,uint256)")) {
             validate_transfer(callData);
         } else if(selector == getSelector("approve(address,uint256)")) {
@@ -270,17 +273,21 @@ contract GuardV0 is IGuard, Ownable {
     }
 
     // validate Uniswap v3 trade
-    function validate_exactInput(ExactInputParams calldata params) public view {
-        // TODO: assume single pool for now
+    function validate_exactInput(bytes memory callData) public view {
+        (ExactInputParams memory params) = abi.decode(callData, (ExactInputParams));
+
+        // TODO: validate all tokens in path
         (address tokenOut, address tokenIn, ) = params.path.decodeFirstPool();
+
         require(isAllowedReceiver(params.recipient), "Receiver address does not match");
         require(isAllowedAsset(tokenIn), "Token in not allowed");
         require(isAllowedAsset(tokenOut), "Token out not allowed");
     }
 
-    function validate_exactOutput(ExactOutputParams memory params) public view {
-        // TODO: assume single pool for now
+    function validate_exactOutput(bytes memory callData) public view {
+        (ExactOutputParams memory params) = abi.decode(callData, (ExactOutputParams));
         (address tokenOut, address tokenIn, ) = params.path.decodeFirstPool();
+
         require(isAllowedReceiver(params.recipient), "Receiver address does not match");
         require(isAllowedAsset(tokenIn), "Token in not allowed");
         require(isAllowedAsset(tokenOut), "Token out not allowed");

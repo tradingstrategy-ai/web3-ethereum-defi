@@ -203,3 +203,44 @@ def test_vault_initialised(
     assert guard.functions.isAllowedCallSite(usdc.address, get_function_selector(usdc.functions.transfer)).call()
     assert guard.functions.isAllowedAsset(usdc.address).call()
     assert guard.functions.isAllowedAsset(weth.address).call()
+
+
+def test_guard_can_trade_exact_input_uniswap_v3(
+    uniswap_v3: UniswapV3Deployment,
+    weth_usdc_pool: PoolDetails,
+    owner: str,
+    asset_manager: str,
+    deployer: str,
+    weth: Contract,
+    usdc: Contract,
+    vault: Contract,
+    guard: Contract,
+):
+    """Asset manager can perform exact input swap."""
+    usdc_amount = 10_000 * 10**6
+    usdc.functions.transfer(vault.address, usdc_amount).transact({"from": deployer})
+
+    approve_call = usdc.functions.approve(
+        uniswap_v3.swap_router.address,
+        usdc_amount,
+    )
+
+    target, call_data = encode_simple_vault_transaction(approve_call)
+    vault.functions.performCall(target, call_data).transact({"from": asset_manager})
+
+    encoded_path = encode_path([usdc.address, weth.address], [POOL_FEE_RAW])
+
+    trade_call = uniswap_v3.swap_router.functions.exactInput(
+        (
+            encoded_path,
+            vault.address,
+            FOREVER_DEADLINE,
+            usdc_amount,
+            0,
+        )
+    )
+
+    target, call_data = encode_simple_vault_transaction(trade_call)
+    vault.functions.performCall(target, call_data).transact({"from": asset_manager})
+
+    assert weth.functions.balanceOf(vault.address).call() == 3326659993034849236
