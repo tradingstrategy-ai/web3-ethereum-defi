@@ -18,4 +18,7 @@ and reading the deposit and redemption information.
    eth_defi.enzyme.price_feed
    eth_defi.enzyme.generic_adapter
    eth_defi.enzyme.utils
+   eth_defi.enzyme.erc20
    eth_defi.enzyme.uniswap_v2
+   eth_defi.enzyme.policy
+   eth_defi.enzyme.vault_controlled_wallet

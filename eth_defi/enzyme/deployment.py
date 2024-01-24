@@ -31,6 +31,7 @@ from web3.contract import Contract
 
 from eth_defi.abi import encode_with_signature, get_contract, get_deployed_contract
 from eth_defi.deploy import deploy_contract
+from eth_defi.enzyme.utils import ONE_DAY_IN_SECONDS
 from eth_defi.revert_reason import fetch_transaction_revert_reason
 
 #: Enzyme deployment details for Polygon
@@ -114,6 +115,14 @@ class EnzymeContracts:
     # Perihelia
     #
     fund_value_calculator: Contract = None
+
+    #
+    # Policies
+    #
+    cumulative_slippage_tolerance_policy: Contract = None
+    allowed_adapters_policy: Contract = None
+    only_remove_dust_external_position_policy: Contract = None
+    only_untrack_dust_or_priceless_assets_policy: Contract = None
 
     def deploy(self, contract_name: str, *args):
         """Deploys a contract and stores its reference.
@@ -353,6 +362,80 @@ class EnzymeDeployment:
             contracts.deploy("VaultLib", contracts.external_position_manager.address, contracts.gas_relay_paymaster_factory.address, contracts.protocol_fee_reserve_proxy.address, contracts.protocol_fee_tracker.address, mln_address, vault_mln_burner, weth_address, vault_position_limit)
             contracts.deploy("FundValueCalculator", contracts.fee_manager.address, contracts.protocol_fee_tracker.address, contracts.value_interpreter.address)
 
+        def _deploy_policies():
+            # Deploy the minimum policy contracts we need to run the tests
+
+            # constructor(
+            #     address _policyManager,
+            #     address _addressListRegistry,
+            #     address _valueInterpreter,
+            #     address _wethToken,
+            #     uint256 _bypassableAdaptersListId,
+            #     uint256 _tolerancePeriodDuration,
+            #     uint256 _pricelessAssetBypassTimelock,
+            #     uint256 _pricelessAssetBypassTimeLimit
+            # )
+            contracts.deploy(
+                "CumulativeSlippageTolerancePolicy",
+                contracts.policy_manager.address,
+                contracts.address_list_registry.address,
+                contracts.value_interpreter.address,
+                weth_address,
+                0,  # See CumulativeSlippageTolerancePolicy.test.ts
+                ONE_DAY_IN_SECONDS * 7,   # See CumulativeSlippageTolerancePolicy.test.ts
+                ONE_DAY_IN_SECONDS * 7,   # See CumulativeSlippageTolerancePolicy.test.ts
+                ONE_DAY_IN_SECONDS * 2,  # See CumulativeSlippageTolerancePolicy.test.ts
+            )
+
+            # constructor(address _policyManager, address _addressListRegistry)
+            #     public
+            #     AddressListRegistryPolicyBase(_policyManager, _addressListRegistry)
+            # {}
+
+            contracts.deploy(
+                "AllowedAdaptersPolicy",
+                contracts.policy_manager.address,
+                contracts.address_list_registry.address,
+            )
+
+            # constructor(
+            #     address _policyManager,
+            #     address _fundDeployer,
+            #     address _valueInterpreter,
+            #     address _wethToken,
+            #     uint256 _pricelessAssetBypassTimelock,
+            #     uint256 _pricelessAssetBypassTimeLimit
+            # )
+
+            contracts.deploy(
+                "OnlyRemoveDustExternalPositionPolicy",
+                contracts.policy_manager.address,
+                contracts.fund_deployer.address,
+                contracts.value_interpreter.address,
+                weth_address,
+                ONE_DAY_IN_SECONDS * 7,  # See OnlyRemoveDustExternalPositionPolicy.test.ts
+                ONE_DAY_IN_SECONDS * 2,  # See OnlyRemoveDustExternalPositionPolicy.test.ts
+            )
+
+            # constructor(
+            #     address _policyManager,
+            #     address _fundDeployer,
+            #     address _valueInterpreter,
+            #     address _wethToken,
+            #     uint256 _pricelessAssetBypassTimelock,
+            #     uint256 _pricelessAssetBypassTimeLimit
+            # )
+
+            contracts.deploy(
+                "OnlyUntrackDustOrPricelessAssetsPolicy",
+                contracts.policy_manager.address,
+                contracts.fund_deployer.address,
+                contracts.value_interpreter.address,
+                weth_address,
+                ONE_DAY_IN_SECONDS * 7,  # See OnlyRemoveDustExternalPositionPolicy.test.ts
+                ONE_DAY_IN_SECONDS * 2,  # See OnlyRemoveDustExternalPositionPolicy.test.ts
+            )
+
         def _set_fund_deployer_pseudo_vars():
             # Mimic setFundDeployerPseudoVars()
             contracts.fund_deployer.functions.setComptrollerLib(contracts.comptroller_lib.address).transact({"from": deployer})
@@ -371,6 +454,7 @@ class EnzymeDeployment:
 
         _deploy_persistent()
         _deploy_release_contracts()
+        _deploy_policies()
         _set_fund_deployer_pseudo_vars()
         _set_external_position_factory_position_deployers()
         _set_release_live()
