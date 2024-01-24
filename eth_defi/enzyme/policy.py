@@ -8,14 +8,34 @@ By default, Enzyme vault does not have any adapters set when you create vaults p
 Enzyme frontend has some vault policies by default, but Enzyme frontend is not open source.
 
 """
+import enum
 from typing import Iterable
 
 from eth_abi import encode
+from eth_typing import HexAddress
 from web3.contract import Contract
 
 from eth_defi.abi import get_deployed_contract
 from eth_defi.enzyme.deployment import EnzymeDeployment, VaultPolicyConfiguration
 from eth_defi.enzyme.vault import Vault
+
+#
+# export enum AddressListUpdateType {
+#   None = '0',
+#   AddOnly = '1',
+#   RemoveOnly = '2',
+#   AddAndRemove = '3',
+# }
+#
+
+class AddressListUpdateType(enum.Enum):
+    """What kind of delta operation we do on an address.
+
+    """
+    None_ = 0
+    AddOnly = 1
+    RemoveOnly = 2
+    AddAndRemove = 3
 
 
 def get_vault_policies(vault: Vault) -> Iterable[Contract]:
@@ -70,11 +90,22 @@ def create_safe_default_policy_configuration_for_generic_adapter(
     # Construct vault deployment payload
     ONE_HUNDRED_PERCENT = 10**18  # See CumulativeSlippageTolerancePolicy
 
+    # From AllowedSharesTransferRecipientsPolicy.test.ts
+    #
+    # addressListRegistryPolicyArgs({
+    #     newListsArgs: [
+    #       {
+    #         initialItems: [],
+    #         updateType: AddressListUpdateType.None,
+    #       },
+    #     ],
+    #   }),
+
     policies = {
         # See CumulativeSlippageTolerancePolicy.addFundSettings
         contracts.cumulative_slippage_tolerance_policy.address: encode(["uint64"], [cumulative_slippage_tolerance * ONE_HUNDRED_PERCENT // 100]),
         # See AddressListRegistryPerUserPolicyBase.addFundSettings
-        contracts.allowed_adapters_policy.address: encode(["address", "bytes"] , [generic_adapter.address, b""]),
+        contracts.allowed_adapters_policy.address: encode_single_address_list_policy_args(generic_adapter.address),
         # See AddressListRegistryPerUserPolicyBase.addFundSettings
         contracts.only_remove_dust_external_position_policy.address: b"",
         contracts.only_untrack_dust_or_priceless_assets_policy.address: b"",
@@ -82,3 +113,43 @@ def create_safe_default_policy_configuration_for_generic_adapter(
     }
 
     return VaultPolicyConfiguration(policies)
+
+
+def encode_single_address_list_policy_args(
+    address: HexAddress,
+    update_type=AddressListUpdateType.None_,
+) -> bytes:
+    """How to pass an address list to a fund deployer.
+
+    Needed for AllowedAdaptersPolicy and.
+
+    .. note ::
+
+        Half-baked implementation just to get the deployment going
+    """
+
+    # export function addressListRegistryPolicyArgs({
+    #   existingListIds = [],
+    #   newListsArgs = [],
+    # }: {
+    #   existingListIds?: BigNumberish[];
+    #   newListsArgs?: {
+    #     updateType: AddressListUpdateType;
+    #     initialItems: AddressLike[];
+    #   }[];
+    # }) {
+    #   return encodeArgs(
+    #     ['uint256[]', 'bytes[]'],
+    #     [
+    #       existingListIds,
+    #       newListsArgs.map(({ updateType, initialItems }) =>
+    #         encodeArgs(['uint256', 'address[]'], [updateType, initialItems]),
+    #       ),
+    #     ],
+    #   );
+    # }
+
+    existing_list_ids = []
+    initial_items = [address]
+    new_list_args = [encode(['uint256', 'address[]'], [update_type.value, initial_items])]
+    return encode(['uint256[]', 'bytes[]'], [existing_list_ids, new_list_args])
