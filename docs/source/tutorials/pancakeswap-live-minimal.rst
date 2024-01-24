@@ -1,8 +1,8 @@
 .. meta::
    :description: Monitor Pancakeswap live trades with Python
 
-Pancakeswap live trades
------------------------
+PancakeSwap follow live trades programmatically
+-----------------------------------------------
 
 This is a minimal example code for showing live swaps happening
 on PancakeSwap and all other `Uniswap v2 compatible DEXes <https://tradingstrategy.ai/glossary/fork>`__
