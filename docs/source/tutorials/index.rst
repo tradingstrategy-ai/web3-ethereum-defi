@@ -19,20 +19,24 @@ Examples include
 
 * Data research with Jupyter Notebooks and Pandas
 
+* Integrating DeFi protocols for backend and data research pipeline
+
 `For any questions please join to Discord chat <https://tradingstrategy.ai/community>`__.
 
 Prerequisites
 -------------
 
-- You need to know UNIX command line basics, like how to use environment variables.
+- **Command line**: You need to know UNIX command line basics, like how to use environment variables.
   Microsoft Windows is fine, but we do not test or write any instructions for it, so please
   consult your local Windows expert for any Windows specific questions.
 
-- Make sure you know how to install packages (pip, poetry)
+- **Python package management**: Make sure you know how to install packages (pip, poetry)
   and use Python virtual environments. `See Github README for details <https://github.com/tradingstrategy-ai/web3-ethereum-defi>`__.
 
-Example tutorials
------------------
+- **Jupyter notebook**: For data science examples you need to know the basics of Jupyter notebooks
+
+Tutorials and examples
+----------------------
 
 .. toctree::
    :maxdepth: 1
