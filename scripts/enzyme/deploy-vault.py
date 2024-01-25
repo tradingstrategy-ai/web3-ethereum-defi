@@ -1,10 +1,12 @@
 """Deploy a new Enzyme vault with a generic adapter.
 
-- Deploys a tailored Enzyme vault - a different what you would be able eto deploy through Enzyme user interface
+- Deploys a tailored Enzyme vault with custom policies and adapters.
+  This is a different what you would be able eto deploy through Enzyme user interface.
 
-- The adapter is configured to use the generic adapter for trading from eth_defi package
+- The adapter is configured to use the generic adapter for trading from eth_defi package,
 
-- The deposit and terms of service contracts are present
+- The custom deposit and terms of service contracts are bound to the vault.
+
 """
 
 import sys

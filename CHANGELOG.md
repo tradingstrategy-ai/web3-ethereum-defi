@@ -9,6 +9,7 @@
 - Add 1delta price estimation helper `OneDeltaPriceHelper`
 - Add `fetch-all-vaults.py` export all Enzyme vaults from the chain to a CSV file
 - Add `deploy_generic_adapter_vault` for correctly configured policy and safe vault deployment
+- Add Enzyme vault deployment tutorial
 - Improve logging in `wait_and_broadcast_multiple_nodes` for post-mortem analysis
 - `hash(SignedTransactionWithNonce)` now is `SignedTransactionWithNonce.hash`, Ethereum transaction hash
 - Improve various utility functions

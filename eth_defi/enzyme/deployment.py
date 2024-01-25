@@ -616,4 +616,3 @@ class EnzymeDeployment:
             usdc=usdc,
         )
 
-]
