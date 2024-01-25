@@ -4,15 +4,19 @@
 
 - Verify smart contracts on Etherscan
 """
+import contextlib
 import io
 import logging
+import os
 
 from pathlib import Path
 from shutil import which
 from subprocess import DEVNULL, PIPE
+from typing import Collection
 
 import psutil
 from eth_typing import ChecksumAddress, HexAddress, HexStr
+from hexbytes import HexBytes
 from web3 import Web3
 from web3.contract import Contract
 
@@ -53,15 +57,19 @@ def _exec_cmd(
     proc = psutil.Popen(cmd_line, stdin=DEVNULL, stdout=out, stderr=out)
     result = proc.wait(timeout)
 
-    if result != 0:
-        raise ForgeFailed(f"forge return code {result} when running: {censored_command}")
+    output = proc.stdout.read().decode("utf-8") + proc.stderr.read().decode("utf-8")
 
-    for line in io.TextIOWrapper(proc.stdout, encoding="utf-8"):
+    if result != 0:
+        raise ForgeFailed(f"forge return code {result} when running: {censored_command}\nOutput is:\n{output}")
+
+    logger.debug("forge result:\n%s", output)
+
+    for line in output.split("\n"):
         # Deployed to: 0x604Da6680Cb97A87403600B9AafBE60eeda97CA4
         if line.startswith("Deployed to: "):
             return line.split(":")[1].strip()
 
-    raise ForgeFailed(f"Could not parse forge output: %s", proc.stdout.encode("utf-8"))
+    raise ForgeFailed(f"Could not parse forge output:\n{output}")
 
 
 def deploy_contract_with_forge(
@@ -69,7 +77,7 @@ def deploy_contract_with_forge(
     project_folder: Path,
     contract_file: Path,
     contract_name: str,
-    private_key: str,
+    private_key: HexBytes,
     constructor_args: list[str],
     etherscan_api_key: str | None = None,
     register_for_tracing=True,
@@ -88,16 +96,18 @@ def deploy_contract_with_forge(
         token = deploy_contract(web3, deployer, "ERC20Mock.json", name, symbol, supply)
         print(f"Deployed ERC-20 token at {token.address}")
 
+    Assumes standard Foundry project layout with foundry.toml, src and out.
+
     :param web3:
         Web3 instance
 
     :param project_folder:
-        Foundry
+        Foundry project with ``foundry.toml` in the root.
 
     :param contract_file:
         Contract path relative to the project folder.
 
-        E.g. `src/TermsOfService.sol`.
+        E.g. `ermsOfService.sol`.
 
     :param contract_name:
         The smart contract name within the file.
@@ -123,52 +133,60 @@ def deploy_contract_with_forge(
     assert isinstance(project_folder, Path)
     assert isinstance(contract_file, Path)
     assert type(contract_name) == str
-    assert private_key.startswith("0x")
+    assert isinstance(private_key, HexBytes), f"Got private key: {type(private_key)}"
 
     json_rpc_url = web3.provider.endpoint_uri
 
     forge = which("forge")
     assert forge is not None, "No forge command in path, needed for the contract deployment"
 
+    src_contract_file = Path("src") / contract_file
+
     cmd_line = [
         forge,
-        "create"
+        "create",
         "--rpc-url", json_rpc_url,
     ]
 
     if etherscan_api_key:
         cmd_line += [
-            "--etherscan-api-key", etherscan_api_key
+            "--etherscan-api-key", etherscan_api_key,
             "--verify"
         ]
 
     cmd_line += [
-        f"{contract_file}:{contract_name}"
+        f"{src_contract_file}:{contract_name}"
     ]
+
+    # TODO: Add contstructor args
 
     censored_command = " ".join(cmd_line)
 
     logger.info(
         "Deploying a contract with forge. Working directory %s, forge command: %s",
+        project_folder,
         censored_command,
     )
 
     # Inject private key after logging
     cmd_line = [
         forge,
-        "create"
-        "--private-key", private_key,
+        "create",
+        "--private-key", private_key.hex(),
     ] + cmd_line[2:]
 
-    with project_folder:  # https://stackoverflow.com/a/14019583/315168
+    with contextlib.chdir(project_folder):
         assert (project_folder / "foundry.toml").exists(), f"foundry.toml missing: {project_folder}"
-        assert contract_file.suffix == ".sol", f"Not Solidity source file: {contract_file}"
-        assert contract_file.exists()
 
+        assert src_contract_file.suffix == ".sol", f"Not Solidity source file: {contract_file}"
+        assert src_contract_file.exists(), f"Contract does not exist: {src_contract_file}, current working directory is {os.getcwd()}"
+
+        # Run forge
         contract_address = _exec_cmd(cmd_line, timeout=timeout, censored_command=censored_command)
-        contract_abi = project_folder / "out" / contract_file / f"{contract_name}.abi"
 
-        assert contract_abi.exists(), f"Forge did not produce ABI file: {contract_abi}"
+        # Check we produced an ABI file, or was created earlier
+        contract_abi = project_folder / "out" / contract_file / f"{contract_name}.json"
+        assert contract_abi.exists(), f"Forge did not produce ABI file: {contract_abi.absolute()}"
 
     # Mad Web3.py API
     contract_address = ChecksumAddress(HexAddress(HexStr(contract_address)))

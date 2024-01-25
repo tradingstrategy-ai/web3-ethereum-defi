@@ -48,8 +48,8 @@ def deployer(web3) -> LocalAccount:
 @pytest.fixture()
 def guard_project_folder() -> Path:
     """Location of terms of service folder."""
-    p = Path(os.path.dirname(__file__)) / ".." / ".." / "contracts" / "guard")
-    assert p.exist(), f"Does not exist: {p}"
+    p = (Path(os.path.dirname(__file__)) / ".." / ".." / "contracts" / "guard").absolute()
+    assert p.exists(), f"Does not exist: {p}"
     return p
 
 
@@ -63,9 +63,10 @@ def test_deploy_contract_with_forge(
     contract = deploy_contract_with_forge(
         web3,
         guard_project_folder,
-        Path("TermsOfService.sol"),
-        "TermsOfService",
+        Path("GuardV0.sol"),
+        "GuardV0",
         deployer._private_key,
+        constructor_args=[],
     )
 
     assert contract.functions.getInternalVersion().call() > 0
