@@ -1,7 +1,9 @@
 """Safe deployment of Enzyme vaults with generic adapter. """
 import logging
+from pathlib import Path
 from typing import Collection
 
+from eth_account.signers.local import LocalAccount
 from eth_typing import HexAddress
 from web3.contract import Contract
 
@@ -9,6 +11,7 @@ from eth_defi.deploy import deploy_contract
 from eth_defi.enzyme.deployment import EnzymeDeployment
 from eth_defi.enzyme.policy import create_safe_default_policy_configuration_for_generic_adapter
 from eth_defi.enzyme.vault import Vault
+from eth_defi.foundry.forge import deploy_contract_with_forge
 from eth_defi.token import TokenDetails, fetch_erc20_details
 from eth_defi.trace import assert_transaction_success_with_explanation
 from eth_defi.uniswap_v2.utils import ZERO_ADDRESS
@@ -16,9 +19,12 @@ from eth_defi.uniswap_v2.utils import ZERO_ADDRESS
 logger = logging.getLogger(__name__)
 
 
+CONTRACTS_ROOT = Path(os.path.dirname(__file__)) / ".." / ".." / "contracts"
+
+
 def deploy_vault_with_generic_adapter(
     deployment: EnzymeDeployment,
-    deployer: HexAddress | str,
+    deployer: LocalAccount,
     asset_manager: HexAddress | str,
     owner: HexAddress | str,
     usdc: Contract,
@@ -30,6 +36,10 @@ def deploy_vault_with_generic_adapter(
     """Deploy an Enzyme vault and make it secure.
 
     Deploys an Enzyme vault in a specific way we want to have it deployed.
+
+    - Because we want multiple deployed smart contracts to be verified on Etherscan,
+      this deployed uses a Forge-based toolchain and thus the script
+      can be only run from the git checkout where submodules are included.
 
     - Set up default policies
 
@@ -82,8 +92,11 @@ def deploy_vault_with_generic_adapter(
         Freshly deployed vault
     """
 
+    assert isinstance(deployer, LocalAccount)
     assert asset_manager.startswith("0x")
     assert owner.startswith("0x")
+
+    assert CONTRACTS_ROOT.exists(), f"Cannot find contracts folder {CONTRACTS_ROOT.resolve()} - are you runnign from git checkout?"
 
     whitelisted_assets = whitelisted_assets or []
     for asset in whitelisted_assets:
@@ -98,7 +111,7 @@ def deploy_vault_with_generic_adapter(
 
     web3 = deployment.web3
 
-    guard = deploy_contract(
+    guard = deploy_contract_with_forge(
         web3,
         f"guard/GuardV0.json",
         deployer,
@@ -132,13 +145,11 @@ def deploy_vault_with_generic_adapter(
     # asset manager role is the trade executor
     vault.functions.addAssetManagers([asset_manager]).transact({"from": deployer})
 
-    payment_forwarder = deploy_contract(
+    payment_forwarder = deploy_contract_with_forge(
         web3,
         "TermedVaultUSDCPaymentForwarder.json",
         deployer,
-        usdc.address,
-        comptroller.address,
-        terms_of_service.address,
+        [usdc.address, comptroller.address, terms_of_service.address],
     )
 
     # When swap is performed, the tokens will land on the integration contract

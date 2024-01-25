@@ -7,6 +7,10 @@
   for trading from eth_defi package,
   allowing pass through any trades satisfying the `GuardV0 rules <https://github.com/tradingstrategy-ai/web3-ethereum-defi/tree/master/contracts/guard>`__.
 
+- Because we want multiple deployed smart contracts to be verified on Etherscan,
+  this deployed uses a Forge-based toolchain and thus the script
+  can be only run from the git checkout where submodules are included.
+
 - The custom deposit and terms of service contracts are bound to the vault.
 
 - Reads input from environment variables, so this can be used with scripting.
