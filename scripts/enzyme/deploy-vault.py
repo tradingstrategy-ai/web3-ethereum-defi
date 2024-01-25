@@ -76,7 +76,11 @@ def main():
         logger.info("Ownership will be transferred to %s", owner_address)
     else:
         logger.info("WARNING! Ownership will be retained at the deployer %d", deployer.address)
-    logger.info("Asset manager is %s", asset_manager_address)
+
+    if asset_manager_address != deployer.address:
+        logger.info("Asset manager is %s", asset_manager_address)
+    else:
+        logger.info("WARNING! No separate asset manager role set")
 
     confirm = input("Ok [y/n]?")
     if not confirm.lower().startswith("y"):
