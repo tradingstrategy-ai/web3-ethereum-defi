@@ -6,27 +6,10 @@
 pragma solidity ^0.8.0;
 
 import "@openzeppelin/access/Ownable.sol";
+import "./lib/Path.sol";
 
 interface IGuard {
     function validateCall(address sender, address target, bytes memory callDataWithSelector) external;
-}
-
-interface IUniswapV2Router02 {
-    function swapTokensForExactTokens(
-        uint amountOut,
-        uint amountInMax,
-        address[] calldata path,
-        address to,
-        uint deadline
-    ) external returns (uint[] memory amounts);
-
-    function swapExactTokensForTokens(
-      uint amountIn,
-      uint amountOutMin,
-      address[] calldata path,
-      address to,
-      uint deadline
-    ) external returns (uint[] memory amounts);
 }
 
 /**
@@ -36,6 +19,23 @@ interface IUniswapV2Router02 {
  *
  */
 contract GuardV0 is IGuard, Ownable {
+    using Path for bytes;
+
+    struct ExactInputParams {
+        bytes path;
+        address recipient;
+        uint256 deadline;
+        uint256 amountIn;
+        uint256 amountOutMinimum;
+    }
+
+    struct ExactOutputParams {
+        bytes path;
+        address recipient;
+        uint256 deadline;
+        uint256 amountOut;
+        uint256 amountInMaximum;
+    }
 
     // Allowed ERC20.approve()
     mapping(address target => mapping(bytes4 selector => bool allowed)) public allowedCallSites;
@@ -190,16 +190,6 @@ contract GuardV0 is IGuard, Ownable {
         return allowedAssets[token] == true;
     }
 
-    // Validate Uniswap v2 trade
-    function validate_swapTokensForExactTokens(bytes memory callData) public view {
-        (, , address[] memory path, address to, ) = abi.decode(callData, (uint, uint, address[], address, uint));
-        address tokenIn = path[0];
-        address tokenOut = path[path.length - 1];
-        require(isAllowedReceiver(to), "Receiver address does not match");
-        require(isAllowedAsset(tokenIn), "Token in not allowed");
-        require(isAllowedAsset(tokenOut), "Token out not allowed");
-    }
-
     function validate_transfer(bytes memory callData) public view {
         (address to, ) = abi.decode(callData, (address, uint));
         require(isAllowedWithdrawDestination(to), "Receiver address does not match");
@@ -208,6 +198,12 @@ contract GuardV0 is IGuard, Ownable {
     function validate_approve(bytes memory callData) public view {
         (address to, ) = abi.decode(callData, (address, uint));
         require(isAllowedApprovalDestination(to), "Approve address does not match");
+    }
+
+    function whitelistToken(address token, string calldata notes) external {
+        allowCallSite(token, getSelector("transfer(address,uint256)"), notes);
+        allowCallSite(token, getSelector("approve(address,uint256)"), notes);
+        allowAsset(token, notes);
     }
 
     function validateCall(
@@ -230,7 +226,9 @@ contract GuardV0 is IGuard, Ownable {
         require(isAllowedCallSite(target, selector), "Call site not allowed");
 
         if(selector == getSelector("swapExactTokensForTokens(uint256,uint256,address[],address,uint256)")) {
-            validate_swapTokensForExactTokens(callData);
+            validate_swapExactTokensForTokens(callData);
+        } else if(selector == getSelector("exactInput((bytes,address,uint256,uint256,uint256))")) {
+            validate_exactInput(callData);
         } else if(selector == getSelector("transfer(address,uint256)")) {
             validate_transfer(callData);
         } else if(selector == getSelector("approve(address,uint256)")) {
@@ -240,14 +238,43 @@ contract GuardV0 is IGuard, Ownable {
         }
     }
 
-    function whitelistToken(address token, string calldata notes) external {
-        allowCallSite(token, getSelector("transfer(address,uint256)"), notes);
-        allowCallSite(token, getSelector("approve(address,uint256)"), notes);
-        allowAsset(token, notes);
+    // Validate Uniswap v2 trade
+    function validate_swapExactTokensForTokens(bytes memory callData) public view {
+        (, , address[] memory path, address to, ) = abi.decode(callData, (uint, uint, address[], address, uint));
+        address tokenIn = path[0];
+        address tokenOut = path[path.length - 1];
+        require(isAllowedReceiver(to), "Receiver address does not match");
+        require(isAllowedAsset(tokenIn), "Token in not allowed");
+        require(isAllowedAsset(tokenOut), "Token out not allowed");
     }
 
     function whitelistUniswapV2Router(address router, string calldata notes) external {
         allowCallSite(router, getSelector("swapExactTokensForTokens(uint256,uint256,address[],address,uint256)"), notes);
+        allowApprovalDestination(router, notes);
+    }
+
+    // validate Uniswap v3 trade
+    function validate_exactInput(bytes memory callData) public view {
+        (ExactInputParams memory params) = abi.decode(callData, (ExactInputParams));
+        (address tokenOut, address tokenIn, ) = params.path.decodeFirstPool();
+
+        require(isAllowedReceiver(params.recipient), "Receiver address does not match");
+        require(isAllowedAsset(tokenIn), "Token in not allowed");
+        require(isAllowedAsset(tokenOut), "Token out not allowed");
+    }
+
+    function validate_exactOutput(bytes memory callData) public view {
+        (ExactOutputParams memory params) = abi.decode(callData, (ExactOutputParams));
+        (address tokenOut, address tokenIn, ) = params.path.decodeFirstPool();
+
+        require(isAllowedReceiver(params.recipient), "Receiver address does not match");
+        require(isAllowedAsset(tokenIn), "Token in not allowed");
+        require(isAllowedAsset(tokenOut), "Token out not allowed");
+    }
+
+    function whitelistUniswapV3Router(address router, string calldata notes) external {
+        allowCallSite(router, getSelector("exactInput((bytes,address,uint256,uint256,uint256))"), notes);
+        allowCallSite(router, getSelector("exactOutput((bytes,address,uint256,uint256,uint256))"), notes);
         allowApprovalDestination(router, notes);
     }
 }

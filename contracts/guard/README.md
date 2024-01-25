@@ -113,7 +113,7 @@ as besides the vault Enzyme has comptroller and integration manager smart contra
 Compiling
 
 ```shell
-foundry build
+forge build
 ```
 ## Tests
 

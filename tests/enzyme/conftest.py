@@ -9,19 +9,22 @@
 import logging
 
 import pytest
-from pytest import FixtureRequest
-
 from eth_typing import HexAddress
-from web3 import EthereumTesterProvider, Web3, HTTPProvider
+from pytest import FixtureRequest
+from web3 import EthereumTesterProvider, HTTPProvider, Web3
 from web3.contract import Contract
 
-from eth_defi.provider.anvil import AnvilLaunch, launch_anvil
 from eth_defi.chain import install_chain_middleware
 from eth_defi.deploy import deploy_contract
+from eth_defi.provider.anvil import AnvilLaunch, launch_anvil
 from eth_defi.provider.multi_provider import create_multi_provider_web3
-from eth_defi.token import create_token, TokenDetails, fetch_erc20_details
+from eth_defi.token import TokenDetails, create_token, fetch_erc20_details
 from eth_defi.trace import assert_transaction_success_with_explanation
-from eth_defi.uniswap_v2.deployment import deploy_uniswap_v2_like, UniswapV2Deployment, deploy_trading_pair
+from eth_defi.uniswap_v2.deployment import (
+    UniswapV2Deployment,
+    deploy_trading_pair,
+    deploy_uniswap_v2_like,
+)
 from eth_defi.usdc.deployment import deploy_fiat_token
 
 logger = logging.getLogger(__name__)
