@@ -2,6 +2,7 @@
 import calendar
 import datetime
 import logging
+import os
 import random
 import socket
 import time
@@ -174,3 +175,29 @@ def get_url_domain(url: str) -> str:
         return parsed.hostname
     else:
         return f"{parsed.hostname}:{parsed.port}"
+
+
+def setup_console_logging():
+    """Set up coloured log output.
+
+    - Helper function to have nicer logging output in tutorial scripts.
+    - Tune down some noisy dependency library logging
+    """
+
+    try:
+        import coloredlogs
+    except ImportError as e:
+        raise RuntimeError("coloredlogs package missing - please install with pip first before running") from e
+
+    level = os.environ.get("LOG_LEVEL", "info").upper()
+
+    fmt = "%(asctime)s %(name)-44s %(message)s"
+    date_fmt = "%H:%M:%S"
+    coloredlogs.install(level=level, fmt=fmt, date_fmt=date_fmt)
+
+    logging.basicConfig(level=level, handlers=[logging.StreamHandler()])
+
+    # Mute noise
+    logging.getLogger("web3.providers.HTTPProvider").setLevel(logging.WARNING)
+    logging.getLogger("web3.RequestManager").setLevel(logging.WARNING)
+    logging.getLogger("urllib3.connectionpool").setLevel(logging.WARNING)

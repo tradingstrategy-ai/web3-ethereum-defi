@@ -214,6 +214,11 @@ class EnzymeDeployment:
     #: WETH ERC-20
     weth: Contract
 
+    #: USDC contract for the chain, or None
+    #:
+    #: Optional
+    usdc: Contract | None = None
+
     def __repr__(self):
         return f"Enzyme deployment on {self.web3.eth.chain_id}, comptroller is {self.contracts.comptroller_lib.address}"
 
@@ -577,10 +582,14 @@ class EnzymeDeployment:
         mln = get_deployed_contract(web3, "ERC20MockDecimals.json", contracts.comptroller_lib.functions.getMlnToken().call())
         weth = get_deployed_contract(web3, "ERC20MockDecimals.json", contracts.comptroller_lib.functions.getWethToken().call())
 
+        if "usdc" in contract_addresses:
+            usdc = get_deployed_contract(web3, "ERC20MockDecimals.json", contract_addresses["udsc"])
+
         return EnzymeDeployment(
             web3,
             None,
             contracts,
             mln,
             weth,
+            usdc=usdc,
         )

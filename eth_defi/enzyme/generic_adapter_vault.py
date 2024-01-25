@@ -121,6 +121,9 @@ def deploy_generic_adapter_vault(
     tx_hash = generic_adapter.functions.bindVault(vault.address).transact({"from": deployer})
     assert_transaction_success_with_explanation(web3, tx_hash)
 
+    receipt = web3.eth.get_transaction_receipt(tx_hash)
+    deployed_at_block = receipt["blockNumber"]
+
     assert generic_adapter.functions.getIntegrationManager().call() == deployment.contracts.integration_manager.address
     assert comptroller.functions.getDenominationAsset().call() == usdc.address
     assert vault.functions.getTrackedAssets().call() == [usdc.address]
@@ -137,6 +140,7 @@ def deploy_generic_adapter_vault(
         vault_address=vault.address,
         payment_forwarder=payment_forwarder.address,
         generic_adapter_address=generic_adapter.address,
+        deployed_at_block=deployed_at_block,
     )
     assert vault.guard_contract.address == guard.address
 

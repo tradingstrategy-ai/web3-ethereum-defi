@@ -103,8 +103,28 @@ class Vault:
     #:
     guard_contract: Optional[Contract] = None
 
+    #: What was the block number when this vault was deployed
+    #:
+    deployed_at_block: int | None = None
+
     def __repr__(self) -> str:
         return f"<Vault vault={self.vault.address} adapter={self.generic_adapter and self.generic_adapter.address} payment_forwader={self.payment_forwarder and self.payment_forwarder.address}>"
+
+    def get_deployment_info(self) -> dict:
+        """Get vault contract addresses to be saved as a deployment info.
+
+        Useful for shell scripting.
+
+        :return:
+            Bunch of env mappings
+        """
+        return {
+            "VAULT_ADDRESS": self.vault.address,
+            "VAULT_ADAPTER_ADDRESS": self.generic_adapter.address,
+            "VAULT_PAYMENT_FORWARDER_ADDRESS": self.payment_forwarder.address,
+            "VAULT_GUARD_ADDRESS": self.guard_contract.address,
+            "VAULT_DEPLOYMENT_BLOCK_NUMBER": self.deployed_at_block,
+        }
 
     @property
     def web3(self) -> Web3:
@@ -303,6 +323,7 @@ class Vault:
         vault_address: str | HexAddress,
         generic_adapter_address: str | HexAddress | None = None,
         payment_forwarder: str | HexAddress | None = None,
+        deployed_at_block: int | None = None,
     ) -> "Vault":
         """Fetch Enzyme vault and deployment information based only on the vault address."""
 
@@ -351,4 +372,5 @@ class Vault:
             generic_adapter_contract,
             payment_forwarder_contract,
             guard_contract,
+            deployed_at_block=deployed_at_block,
         )

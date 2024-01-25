@@ -29,24 +29,9 @@ from eth_defi.event_reader.progress_update import PrintProgressUpdate
 from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.token import TokenDetails, fetch_erc20_details
 from eth_defi.chainlink.token_price import get_native_token_price_with_chainlink, get_token_price_with_chainlink
-
+from eth_defi.utils import setup_console_logging
 
 logger = logging.getLogger(__name__)
-
-
-def setup_logging():
-    level = os.environ.get("LOG_LEVEL", "info").upper()
-
-    fmt = "%(asctime)s %(name)-44s %(message)s"
-    date_fmt = "%H:%M:%S"
-    coloredlogs.install(level=level, fmt=fmt, date_fmt=date_fmt)
-
-    logging.basicConfig(level=level, handlers=[logging.StreamHandler()])
-
-    # Mute noise
-    logging.getLogger("web3.providers.HTTPProvider").setLevel(logging.WARNING)
-    logging.getLogger("web3.RequestManager").setLevel(logging.WARNING)
-    logging.getLogger("urllib3.connectionpool").setLevel(logging.WARNING)
 
 
 def get_exchange_rate(vault: Vault, denomination_token: TokenDetails) -> float | None:
@@ -123,7 +108,7 @@ def get_exchange_rate(vault: Vault, denomination_token: TokenDetails) -> float |
 
 def main():
     # Set up stdout logger
-    setup_logging()
+    setup_console_logging()
 
     # Set up Web3 connection
     json_rpc_url = os.environ.get("JSON_RPC_URL")
