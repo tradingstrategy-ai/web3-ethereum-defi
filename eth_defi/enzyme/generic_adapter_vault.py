@@ -14,13 +14,15 @@ from eth_defi.uniswap_v2.utils import ZERO_ADDRESS
 logger = logging.getLogger(__name__)
 
 
-def deploy_generic_adapter_vault(
+def deploy_vault_with_generic_adapter(
     deployment: EnzymeDeployment,
-    deployer: HexAddress,
-    asset_manager: HexAddress,
-    owner: HexAddress,
+    deployer: HexAddress | str,
+    asset_manager: HexAddress | str,
+    owner: HexAddress | str,
     usdc: Contract,
     terms_of_service: Contract,
+    fund_name="Example Fund",
+    fund_symbol="EXAMPLE",
 ) -> Vault:
     """Deploy an Enzyme vault and make it secure.
 
@@ -133,7 +135,12 @@ def deploy_generic_adapter_vault(
     # We cannot directly transfer the ownership to a multisig,
     # but we can set nominated ownership pending
     if owner != deployer:
-        vault.functions.setNominatedOwner(owner).transact({"from": deployer})
+        tx_hash = vault.functions.setNominatedOwner(owner).transact({"from": deployer})
+        assert_transaction_success_with_explanation(web3, tx_hash)
+        logger.info("New owner nominated to be %s", owner)
+
+
+    import ipdb ; ipdb.set_trace()
 
     vault = Vault.fetch(
         web3,
@@ -141,11 +148,12 @@ def deploy_generic_adapter_vault(
         payment_forwarder=payment_forwarder.address,
         generic_adapter_address=generic_adapter.address,
         deployed_at_block=deployed_at_block,
+        asset_manager=asset_manager,
     )
     assert vault.guard_contract.address == guard.address
 
     logger.info(
-        "Deployed. Vault is %s, owner is %s, asset manager is %s",
+        "Deployed. Vault is %s, initial owner is %s, asset manager is %s",
         vault.vault.address,
         vault.get_owner(),
         asset_manager,

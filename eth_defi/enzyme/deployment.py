@@ -548,7 +548,11 @@ class EnzymeDeployment:
         return comptroller, vault
 
     @staticmethod
-    def fetch_deployment(web3: Web3, contract_addresses: dict) -> "EnzymeDeployment":
+    def fetch_deployment(
+        web3: Web3,
+        contract_addresses: dict,
+        deployer: HexAddress | str | None = None,
+    ) -> "EnzymeDeployment":
         """Fetch enzyme deployment and some of its contract.
 
         Read existing Enzyme deployment from on-chain.
@@ -569,6 +573,9 @@ class EnzymeDeployment:
 
         :param contract_addresses:
             Dictionary of contract addresses required to resolve Enzyme deployment
+
+        :param deployer:
+            Associate a deployer account with this Enzyme deployment to deploy new vaults.
 
         :return:
             Enzyme deployment details
@@ -608,7 +615,7 @@ class EnzymeDeployment:
 
         return EnzymeDeployment(
             web3,
-            None,
+            deployer,
             contracts,
             mln,
             weth,

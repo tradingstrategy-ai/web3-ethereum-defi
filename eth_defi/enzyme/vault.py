@@ -20,7 +20,7 @@ from eth_defi.token import TokenDetails, fetch_erc20_details
 from eth_defi.uniswap_v2.utils import ZERO_ADDRESS
 
 
-@dataclass
+@dataclass(slots=True)
 class Vault:
     """Enzyme vault wrapper.
 
@@ -138,7 +138,7 @@ class Vault:
             "VAULT_GUARD_ADDRESS": self.guard_contract.address if self.guard_contract else "",
             "VAULT_DEPLOYMENT_BLOCK_NUMBER": self.deployed_at_block or "",
             "VAULT_ASSET_MANAGER_ADDRESS": self.asset_manager or "",
-            "VAULT_NOMINATED_OWNER_ADDRESS": self.nominated_ower or "",
+            "VAULT_NOMINATED_OWNER_ADDRESS": self.nominated_owner or "",
         }
 
     @property
@@ -189,7 +189,7 @@ class Vault:
 
         See `IVaultCore.sol`.
         """
-        return self.vault.functions.getOwner()
+        return self.vault.functions.getOwner().call()
 
     def get_name(self) -> str:
         """Get the name of the share token.

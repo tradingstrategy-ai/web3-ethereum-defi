@@ -21,7 +21,7 @@ from web3.contract import Contract
 
 from eth_defi.deploy import deploy_contract
 from eth_defi.enzyme.deployment import EnzymeDeployment, RateAsset
-from eth_defi.enzyme.generic_adapter_vault import deploy_generic_adapter_vault
+from eth_defi.enzyme.generic_adapter_vault import deploy_vault_with_generic_adapter
 from eth_defi.enzyme.uniswap_v3 import prepare_swap
 from eth_defi.enzyme.vault import Vault
 from eth_defi.middleware import construct_sign_and_send_raw_middleware_anvil
@@ -168,7 +168,7 @@ def vault(
     - TermsOfService
     - TermedVaultUSDCPaymentForwarder
     """
-    return deploy_generic_adapter_vault(enzyme, deployer, asset_manager, deployer, usdc, terms_of_service)
+    return deploy_vault_with_generic_adapter(enzyme, deployer, asset_manager, deployer, usdc, terms_of_service)
 
 
 @pytest.fixture()
