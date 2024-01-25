@@ -25,6 +25,7 @@ class AddressListUpdateType(enum.Enum):
 
     Taken from Enzyme's JS core.
     """
+
     None_ = 0
     AddOnly = 1
     RemoveOnly = 2

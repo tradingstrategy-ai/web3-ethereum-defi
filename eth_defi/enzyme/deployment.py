@@ -47,7 +47,6 @@ POLYGON_DEPLOYMENT = {
     "wmatic": "0x0d500B1d8E8eF31E21C99d1Db9A6444d3ADf1270",
     "fund_value_calculator": "0xcdf038Dd3b66506d2e5378aee185b2f0084B7A33",
     "deployed_at": 25_825_795,  # When comptroller lib was deployed
-
     "cumulative_slippage_tolerance_policy": "0x1332367C181F1157F751b160187DcAa219706bF2",
     "allowed_adapters_policy": "0x4218783aE10BD1841E6664cF048ac295D8d27a4a",
     "only_remove_dust_external_position_policy": "0xC0f49507c125a000e02ab58C22bE9764e2ABAB99",
@@ -615,4 +614,3 @@ class EnzymeDeployment:
             weth,
             usdc=usdc,
         )
-
