@@ -182,6 +182,7 @@ def uniswap_v3(
     vault: Vault,
     weth: Contract,
     usdc: Contract,
+    mln: Contract,
     deployer: str,
 ) -> UniswapV3Deployment:
     """Deploy Uniswap v3."""
@@ -192,6 +193,7 @@ def uniswap_v3(
     guard.functions.whitelistUniswapV3Router(uniswap.swap_router.address, "").transact({"from": deployer})
     guard.functions.whitelistToken(usdc.address, "").transact({"from": deployer})
     guard.functions.whitelistToken(weth.address, "").transact({"from": deployer})
+    guard.functions.whitelistToken(mln.address, "").transact({"from": deployer})
 
     return uniswap
 
@@ -206,8 +208,8 @@ def weth_usdc_pool(web3, uniswap_v3, weth, usdc, deployer) -> Contract:
         web3,
         deployer,
         deployment=uniswap_v3,
-        token0=weth,
-        token1=usdc,
+        token0=usdc,
+        token1=weth,
         fee=POOL_FEE_RAW,
     )
 
@@ -216,7 +218,7 @@ def weth_usdc_pool(web3, uniswap_v3, weth, usdc, deployer) -> Contract:
         deployer,
         deployment=uniswap_v3,
         pool=pool,
-        amount0=16_000 * 10**6,  # 20000 USDC liquidity
+        amount0=16_000 * 10**6,  # 16k USDC liquidity
         amount1=10 * 10**18,  # 10 ETH liquidity
         lower_tick=min_tick,
         upper_tick=max_tick,
@@ -225,7 +227,36 @@ def weth_usdc_pool(web3, uniswap_v3, weth, usdc, deployer) -> Contract:
     return pool
 
 
-def test_enzyme_guarded_trade_uniswap_v3(
+@pytest.fixture()
+def weth_mln_pool(web3, uniswap_v3, weth, mln, deployer) -> Contract:
+    """Mock WETH-MLN pool."""
+
+    min_tick, max_tick = get_default_tick_range(POOL_FEE_RAW)
+
+    pool = deploy_pool(
+        web3,
+        deployer,
+        deployment=uniswap_v3,
+        token0=mln,
+        token1=weth,
+        fee=POOL_FEE_RAW,
+    )
+
+    add_liquidity(
+        web3,
+        deployer,
+        deployment=uniswap_v3,
+        pool=pool,
+        amount0=80 * 10**18,  # 10 ETH liquidity
+        amount1=10 * 10**18,  # 80 MLN liquidity
+        lower_tick=min_tick,
+        upper_tick=max_tick,
+    )
+
+    return pool
+
+
+def test_enzyme_guarded_trade_singlehop_uniswap_v3(
     web3: Web3,
     deployer: HexAddress,
     asset_manager: HexAddress,
@@ -288,7 +319,7 @@ def test_enzyme_guarded_trade_uniswap_v3(
         vault.generic_adapter,
         token_in=usdc_token.contract,
         token_out=weth_token.contract,
-        pool_fees=[3000],
+        pool_fees=[POOL_FEE_RAW],
         token_in_amount=200 * 10**6,  # 200 USD
     )
 
@@ -297,3 +328,80 @@ def test_enzyme_guarded_trade_uniswap_v3(
 
     # Bought ETH landed in the vault
     assert weth_token.contract.functions.balanceOf(vault.address).call() == pytest.approx(0.123090978678222650 * 10**18)
+
+
+def test_enzyme_guarded_trade_multihops_uniswap_v3(
+    web3: Web3,
+    deployer: HexAddress,
+    asset_manager: HexAddress,
+    enzyme: EnzymeDeployment,
+    vault: Vault,
+    vault_investor: LocalAccount,
+    weth_token: TokenDetails,
+    mln_token: TokenDetails,
+    usdc_token: TokenDetails,
+    usdc_usd_mock_chainlink_aggregator: Contract,
+    payment_forwarder: Contract,
+    acceptance_message: str,
+    terms_of_service: Contract,
+    uniswap_v3: UniswapV3Deployment,
+    weth_usdc_pool: PoolDetails,
+    weth_mln_pool: PoolDetails,
+):
+    """Make a swap that goes through the call guard."""
+
+    assert vault.is_supported_asset(usdc_token.address)
+    assert vault.is_supported_asset(weth_token.address)
+    assert vault.is_supported_asset(mln_token.address)
+
+    # Sign terms of service
+    acceptance_hash, signature = sign_terms_of_service(vault_investor, acceptance_message)
+
+    # The transfer will expire in one hour
+    # in the test EVM timeline
+    block = web3.eth.get_block("latest")
+    valid_before = block["timestamp"] + 3600
+
+    # Construct bounded ContractFunction instance
+    # that will transact with MockEIP3009Receiver.deposit()
+    # smart contract function.
+    bound_func = make_eip_3009_transfer(
+        token=usdc_token,
+        from_=vault_investor,
+        to=payment_forwarder.address,
+        func=payment_forwarder.functions.buySharesOnBehalfUsingTransferWithAuthorizationAndTermsOfService,
+        value=500 * 10**6,  # 500 USD,
+        valid_before=valid_before,
+        extra_args=(1, acceptance_hash, signature),
+        authorization_type=EIP3009AuthorizationType.TransferWithAuthorization,
+    )
+
+    # Sign and broadcast the tx
+    tx_hash = bound_func.transact({"from": vault_investor.address})
+
+    # Print out Solidity stack trace if this fails
+    assert_transaction_success_with_explanation(web3, tx_hash)
+
+    assert payment_forwarder.functions.amountProxied().call() == 500 * 10**6  # Got shares
+
+    assert vault.get_gross_asset_value() == 500 * 10**6  # Vault has been funded
+
+    # Vault swaps USDC->ETH->MLN for both users
+    # Buy MLN worth of 200 USD
+    prepared_tx = prepare_swap(
+        enzyme,
+        vault,
+        uniswap_v3,
+        vault.generic_adapter,
+        token_in=usdc_token.contract,
+        token_out=mln_token.contract,
+        token_intermediate=weth_token.contract,
+        pool_fees=[POOL_FEE_RAW, POOL_FEE_RAW],
+        token_in_amount=200 * 10**6,  # 200 USD
+    )
+
+    tx_hash = prepared_tx.transact({"from": asset_manager, "gas": 1_000_000})
+    assert_transaction_success_with_explanation(web3, tx_hash)
+
+    # Bought MLN landed in the vault
+    assert mln_token.contract.functions.balanceOf(vault.address).call() == pytest.approx(0.969871220879840482 * 10**18)

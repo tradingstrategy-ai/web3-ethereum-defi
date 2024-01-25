@@ -22,6 +22,7 @@ def prepare_swap(
     token_out: Contract,
     pool_fees: list[int],
     token_in_amount: int,
+    token_intermediate: Contract | None = None,
 ) -> ContractFunction:
     """Prepare a Uniswap v3 swap transaction for Enzyme vault.
 
@@ -94,7 +95,11 @@ def prepare_swap(
     # Prepare the swap parameters
     spend_asset_amounts = [token_in_amount]
     spend_assets = [token_in]
+
     path = [token_in.address, token_out.address]
+    if token_intermediate:
+        path = [token_in.address, token_intermediate.address, token_out.address]
+    assert len(path) == len(pool_fees) + 1
     encoded_path = encode_path(path, pool_fees)
     incoming_assets = [token_out]
 

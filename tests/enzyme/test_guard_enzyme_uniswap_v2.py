@@ -7,32 +7,33 @@
 import datetime
 import random
 
-from eth_defi.abi import get_deployed_contract
-from eth_defi.enzyme.erc20 import prepare_transfer, prepare_approve
-from eth_defi.enzyme.generic_adapter_vault import deploy_generic_adapter_vault
-from eth_defi.enzyme.uniswap_v2 import prepare_swap
-from eth_defi.uniswap_v2.deployment import UniswapV2Deployment
-from terms_of_service.acceptance_message import get_signing_hash, generate_acceptance_message, sign_terms_of_service
-
-"""Enzyme USDC EIP-3009 payment forwarder.
-
-- transferWithAuthorization() and receiveWithAuthorization() integration tests for Enzyme protocol
-"""
-
 import pytest
 from eth_account import Account
 from eth_account.signers.local import LocalAccount
 from eth_typing import HexAddress
+from terms_of_service.acceptance_message import (
+    generate_acceptance_message,
+    get_signing_hash,
+    sign_terms_of_service,
+)
 from web3 import Web3
 from web3.contract import Contract
 
+from eth_defi.abi import get_deployed_contract
 from eth_defi.deploy import deploy_contract
 from eth_defi.enzyme.deployment import EnzymeDeployment, RateAsset
+from eth_defi.enzyme.erc20 import prepare_approve, prepare_transfer
+from eth_defi.enzyme.generic_adapter_vault import deploy_generic_adapter_vault
+from eth_defi.enzyme.uniswap_v2 import prepare_swap
 from eth_defi.enzyme.vault import Vault
 from eth_defi.middleware import construct_sign_and_send_raw_middleware_anvil
 from eth_defi.token import TokenDetails
-from eth_defi.trace import assert_transaction_success_with_explanation, TransactionAssertionError
-from eth_defi.usdc.eip_3009 import make_eip_3009_transfer, EIP3009AuthorizationType
+from eth_defi.trace import (
+    TransactionAssertionError,
+    assert_transaction_success_with_explanation,
+)
+from eth_defi.uniswap_v2.deployment import UniswapV2Deployment, deploy_trading_pair
+from eth_defi.usdc.eip_3009 import EIP3009AuthorizationType, make_eip_3009_transfer
 
 
 @pytest.fixture
@@ -104,7 +105,16 @@ def terms_of_service(
 
 
 @pytest.fixture()
-def enzyme(web3, deployer, mln, weth, usdc, usdc_usd_mock_chainlink_aggregator, mln_usd_mock_chainlink_aggregator, weth_usd_mock_chainlink_aggregator) -> EnzymeDeployment:
+def enzyme(
+    web3,
+    deployer,
+    mln,
+    weth,
+    usdc,
+    usdc_usd_mock_chainlink_aggregator,
+    mln_usd_mock_chainlink_aggregator,
+    weth_usd_mock_chainlink_aggregator,
+) -> EnzymeDeployment:
     """Deploy Enzyme protocol with few Chainlink feeds mocked with a static price."""
     deployment = EnzymeDeployment.deploy_core(
         web3,
@@ -125,7 +135,7 @@ def enzyme(web3, deployer, mln, weth, usdc, usdc_usd_mock_chainlink_aggregator, 
         RateAsset.USD,
     )
 
-    # We neeed to set a mock price for ETH/USD otherwise swap test won't pass,
+    # We need to set a mock price for ETH/USD otherwise swap test won't pass,
     # as the cumulative slippage tolerancy policy needs to know ETH price
     tx_hash = deployment.contracts.value_interpreter.functions.setEthUsdAggregator(weth_usd_mock_chainlink_aggregator.address).transact({"from": deployer})
     assert_transaction_success_with_explanation(web3, tx_hash)
@@ -165,6 +175,7 @@ def uniswap_v2_whitelisted(
     uniswap_v2: UniswapV2Deployment,
     weth: Contract,
     usdc: Contract,
+    mln: Contract,
     deployer: str,
 ) -> UniswapV2Deployment:
     """Whitelist uniswap deployment and WETH-USDC pair on the guard."""
@@ -172,7 +183,24 @@ def uniswap_v2_whitelisted(
     guard.functions.whitelistUniswapV2Router(uniswap_v2.router.address, "").transact({"from": deployer})
     guard.functions.whitelistToken(usdc.address, "").transact({"from": deployer})
     guard.functions.whitelistToken(weth.address, "").transact({"from": deployer})
+    guard.functions.whitelistToken(mln.address, "").transact({"from": deployer})
     return uniswap_v2
+
+
+@pytest.fixture()
+def mln_weth_pair(web3, deployer, uniswap_v2, weth, mln) -> Contract:
+    """mln-weth for 100 ETH at 200$ per token"""
+    deposit = 100  # ETH
+    pair = deploy_trading_pair(
+        web3,
+        deployer,
+        uniswap_v2,
+        weth,
+        mln,
+        deposit * 10**18,
+        int((deposit / (200 / 1600)) * 10**18),
+    )
+    return pair
 
 
 def test_enzyme_usdc_payment_forwarder_transfer_with_authorization_and_terms(
@@ -250,7 +278,7 @@ def test_enzyme_usdc_payment_forwarder_transfer_with_authorization_and_terms(
     assert terms_of_service.functions.canAddressProceed(vault_investor.address).call()
 
 
-def test_enzyme_guarded_trade_uniswap_v2(
+def test_enzyme_guarded_trade_singlehop_uniswap_v2(
     web3: Web3,
     deployer: HexAddress,
     asset_manager: HexAddress,
@@ -267,7 +295,7 @@ def test_enzyme_guarded_trade_uniswap_v2(
     uniswap_v2_whitelisted: UniswapV2Deployment,
     weth_usdc_pair: Contract,
 ):
-    """Make a swap that goes through the call guard."""
+    """Make a single-hop swap that goes through the call guard."""
 
     assert vault.is_supported_asset(usdc_token.address)
     assert vault.is_supported_asset(weth_token.address)
@@ -325,6 +353,86 @@ def test_enzyme_guarded_trade_uniswap_v2(
 
     # Bought ETH landed in the vault
     assert weth_token.contract.functions.balanceOf(vault.address).call() == pytest.approx(0.12450087262998791 * 10**18)
+
+
+def test_enzyme_guarded_trade_multihops_uniswap_v2(
+    web3: Web3,
+    deployer: HexAddress,
+    asset_manager: HexAddress,
+    enzyme: EnzymeDeployment,
+    vault: Vault,
+    vault_investor: LocalAccount,
+    weth_token: TokenDetails,
+    mln_token: TokenDetails,
+    usdc_token: TokenDetails,
+    usdc_usd_mock_chainlink_aggregator: Contract,
+    payment_forwarder: Contract,
+    acceptance_message: str,
+    terms_of_service: Contract,
+    uniswap_v2_whitelisted: UniswapV2Deployment,
+    weth_usdc_pair: Contract,
+    mln_weth_pair: Contract,
+):
+    """Make a multi-hop swap that goes through the call guard."""
+
+    assert vault.is_supported_asset(usdc_token.address)
+    assert vault.is_supported_asset(weth_token.address)
+    assert vault.is_supported_asset(mln_token.address)
+
+    # Sign terms of service
+    acceptance_hash, signature = sign_terms_of_service(vault_investor, acceptance_message)
+
+    # The transfer will expire in one hour
+    # in the test EVM timeline
+    block = web3.eth.get_block("latest")
+    valid_before = block["timestamp"] + 3600
+
+    # Construct bounded ContractFunction instance
+    # that will transact with MockEIP3009Receiver.deposit()
+    # smart contract function.
+    bound_func = make_eip_3009_transfer(
+        token=usdc_token,
+        from_=vault_investor,
+        to=payment_forwarder.address,
+        func=payment_forwarder.functions.buySharesOnBehalfUsingTransferWithAuthorizationAndTermsOfService,
+        value=500 * 10**6,  # 500 USD,
+        valid_before=valid_before,
+        extra_args=(1, acceptance_hash, signature),
+        authorization_type=EIP3009AuthorizationType.TransferWithAuthorization,
+    )
+
+    # Sign and broadcast the tx
+    tx_hash = bound_func.transact(
+        {
+            "from": vault_investor.address,
+        }
+    )
+
+    # Print out Solidity stack trace if this fails
+    assert_transaction_success_with_explanation(web3, tx_hash)
+
+    assert payment_forwarder.functions.amountProxied().call() == 500 * 10**6  # Got shares
+
+    assert vault.get_gross_asset_value() == 500 * 10**6  # Vault has been funded
+
+    # Vault swaps USDC->ETH->MLN for both users
+    # Buy MLN worth of 200 USD
+    prepared_tx = prepare_swap(
+        enzyme,
+        vault,
+        uniswap_v2_whitelisted,
+        vault.generic_adapter,
+        token_in=usdc_token.contract,
+        token_out=mln_token.contract,
+        token_intermediate=weth_token.contract,
+        swap_amount=200 * 10**6,  # 200 USD
+    )
+
+    tx_hash = prepared_tx.transact({"from": asset_manager, "gas": 1_000_000})
+    assert_transaction_success_with_explanation(web3, tx_hash)
+
+    # Bought MLN landed in the vault
+    assert mln_token.contract.functions.balanceOf(vault.address).call() == pytest.approx(0.991787879885383035 * 10**18)
 
 
 def test_enzyme_guarded_unauthorised_approve(
