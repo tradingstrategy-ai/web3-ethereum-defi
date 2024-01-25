@@ -1,5 +1,6 @@
 """Safe deployment of Enzyme vaults with generic adapter. """
 import logging
+from typing import Collection
 
 from eth_typing import HexAddress
 from web3.contract import Contract
@@ -8,6 +9,7 @@ from eth_defi.deploy import deploy_contract
 from eth_defi.enzyme.deployment import EnzymeDeployment
 from eth_defi.enzyme.policy import create_safe_default_policy_configuration_for_generic_adapter
 from eth_defi.enzyme.vault import Vault
+from eth_defi.token import TokenDetails, fetch_erc20_details
 from eth_defi.trace import assert_transaction_success_with_explanation
 from eth_defi.uniswap_v2.utils import ZERO_ADDRESS
 
@@ -23,6 +25,7 @@ def deploy_vault_with_generic_adapter(
     terms_of_service: Contract,
     fund_name="Example Fund",
     fund_symbol="EXAMPLE",
+    whitelisted_assets: Collection[TokenDetails] | None = None,
 ) -> Vault:
     """Deploy an Enzyme vault and make it secure.
 
@@ -36,6 +39,15 @@ def deploy_vault_with_generic_adapter(
 
     - Assign asset manager role and transfer ownership
 
+    - Whitelist USDC and the other given assets
+
+    - Whitelist Uniswap v2 and v3 spot routers
+
+    .. note ::
+
+        The GuardV0 ownership is **not** transferred to the owner at the end of the deployment.
+        You need to do it manually after configuring the guard.
+
     :param deployment:
         Enzyme deployment we use.
 
@@ -44,6 +56,8 @@ def deploy_vault_with_generic_adapter(
 
     :param asset_manager:
         Give trading access to this hot wallet address.
+
+        Set to the deployer address to ignore.
 
     :param terms_of_service:
         Terms of service contract we use.
@@ -54,9 +68,26 @@ def deploy_vault_with_generic_adapter(
         Immediately transfer vault ownership from a deployer to a multisig owner.
         Multisig needs to confirm this by calling `claimOwnership`.
 
+        Set to the deployer address to ignore.
+
+    :param whitelisted_assets:
+        Whitelist these assets on Uniswap v2 and v3 spot market.
+
+        USDC is always whitelisted.
+
+    :param usdc:
+        USDC token used as the vault denomination currency.
+
     :return:
         Freshly deployed vault
     """
+
+    assert asset_manager.startswith("0x")
+    assert owner.startswith("0x")
+
+    whitelisted_assets = whitelisted_assets or []
+    for asset in whitelisted_assets:
+        assert isinstance(asset, TokenDetails)
 
     logger.info(
         "Deploying Enzyme vault. Enzyme fund deployer is %s, Terms of service is %s, USDC is %s",
@@ -91,6 +122,8 @@ def deploy_vault_with_generic_adapter(
         deployer,
         usdc,
         policy_configuration=policy_configuration,
+        fund_name=fund_name,
+        fund_symbol=fund_symbol,
     )
 
     assert comptroller.functions.getDenominationAsset().call() == usdc.address
@@ -132,15 +165,19 @@ def deploy_vault_with_generic_adapter(
     assert vault.functions.canManageAssets(asset_manager).call()
     assert guard.functions.isAllowedSender(vault.address).call()  # vault = asset manager for the guard
 
+    usdc_token = fetch_erc20_details(web3, usdc.address)
+    all_assets = [usdc_token] + whitelisted_assets
+    for asset in all_assets:
+        logger.info("Whitelisting %s", asset)
+        tx_hash = guard.functions.whitelistToken(asset.address, f"Whitelisting {asset.symbol}").transact({"from": deployer})
+        assert_transaction_success_with_explanation(web3, tx_hash)
+
     # We cannot directly transfer the ownership to a multisig,
     # but we can set nominated ownership pending
     if owner != deployer:
         tx_hash = vault.functions.setNominatedOwner(owner).transact({"from": deployer})
         assert_transaction_success_with_explanation(web3, tx_hash)
-        logger.info("New owner nominated to be %s", owner)
-
-
-    import ipdb ; ipdb.set_trace()
+        logger.info("New vault owner nominated to be %s", owner)
 
     vault = Vault.fetch(
         web3,

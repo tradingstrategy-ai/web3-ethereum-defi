@@ -1,23 +1,48 @@
 """Deploy a new Enzyme vault with a generic adapter.
 
-- Deploys a tailored Enzyme vault with custom policies and adapters.
+- This example deploys an Enzyme vault with custom policies and adapters.
   This is a different what you would be able eto deploy through Enzyme user interface.
 
-- The adapter is configured to use the generic adapter for trading from eth_defi package.
+- The adapter is configured to use the `GuardedGenericAdapter <https://github.com/tradingstrategy-ai/web3-ethereum-defi/blob/master/contracts/in-house/src/GuardedGenericAdapter.sol>`__
+  for trading from eth_defi package,
+  allowing pass through any trades satisfying the `GuardV0 rules <https://github.com/tradingstrategy-ai/web3-ethereum-defi/tree/master/contracts/guard>`__.
 
 - The custom deposit and terms of service contracts are bound to the vault.
 
 - Reads input from environment variables, so this can be used with scripting.
 
-Example:
+- The script can launch Anvil to simulate the deployment
+
+The following Enzyme policies and activated to enable trading only via the generic adapter:
+
+- cumulative_slippage_tolerance_policy (10% week)
+
+- allowed_adapters_policy (only generic adapter)
+
+- only_remove_dust_external_position_policy
+
+- only_untrack_dust_or_priceless_assets_policy
+
+- allowed_external_position_types_policy
+
+Guard configuration:
+
+- Guard ownership is *not* transferred from the deployer
+  to the owner at the end of the script, as you likely need to configure
+
+
+Example how to run this script to deploy a vault on Polygon:
 
 .. code-block:: shell
 
+    export SIMULATE=true
     export FUND_NAME="TradingStrategy.ai ETH Breakpoint I"
     export FUND_SYMBOL=TS1
     export TERMS_OF_SERVICE=0xDCD7C644a6AA72eb2f86781175b18ADc30Aa4f4d
     export ASSET_MANAGER_ADDRESS=0xe747721f8C79A98d7A8dcE0dbd9f26B99E188137
     export OWNER_ADDRESS=0x238B0435F69355e623d99363d58F7ba49C408491
+    # Whitelisted tokens for Polygon: WETH, WMATIC
+    export WHITELISTED_TOKENS=0x7ceb23fd6bc0add59e62ac25578270cff1b9f619 0x0d500B1d8E8eF31E21C99d1Db9A6444d3ADf1270
     export PRIVATE_KEY=
     export JSON_RPC_URL=
 
@@ -36,7 +61,9 @@ from web3.middleware import construct_sign_and_send_raw_middleware
 from eth_defi.abi import get_deployed_contract
 from eth_defi.enzyme.deployment import POLYGON_DEPLOYMENT, ETHEREUM_DEPLOYMENT, EnzymeDeployment
 from eth_defi.enzyme.generic_adapter_vault import deploy_vault_with_generic_adapter
+from eth_defi.provider.anvil import launch_anvil
 from eth_defi.provider.multi_provider import create_multi_provider_web3
+from eth_defi.token import fetch_erc20_details
 from eth_defi.utils import setup_console_logging
 
 
@@ -60,10 +87,26 @@ def main():
     owner_address = os.environ["OWNER_ADDRESS"]
     fund_name = os.environ["FUND_NAME"]
     fund_symbol = os.environ["FUND_SYMBOL"]
+    simulate = True if os.environ.get("SIMULATE", "").strip() else False
 
-    web3 = create_multi_provider_web3(json_rpc_url)
+    if simulate:
+        logger.info("Simulating deployment")
+        anvil = launch_anvil(json_rpc_url)
+        web3 = create_multi_provider_web3(anvil.json_rpc_url)
+    else:
+        logger.info("Producton deployment")
+        web3 = create_multi_provider_web3(json_rpc_url)
+        anvil = None
+
     deployer = Account.from_key(private_key)
     web3.middleware_onion.add(construct_sign_and_send_raw_middleware(deployer))
+
+    # Build the list of whitelisted assets GuardV0 allows us to trade
+    whitelisted_assets = []
+    for token_address in os.environ.get("WHITELISTED_TOKENS", "").split():
+        token_address = token_address.strip()
+        if token_address:
+            whitelisted_assets.append(fetch_erc20_details(web3, token_address))
 
     # Read Enzyme deployment from chain
     match web3.eth.chain_id:
@@ -86,14 +129,18 @@ def main():
 
     balance = web3.eth.get_balance(deployer.address) / 10**18
 
-    logger.info("Ready to deploy")
-    logger.info("----------------")
+    if simulate:
+        logger.info("Simulation deployment")
+    else:
+        logger.info("Ready to deploy")
+    logger.info("-" * 80)
     logger.info("Deployer hot wallet is %s", deployer.address)
     logger.info("Deployer balance is %f", balance)
     logger.info("Enzyme FundDeployer is %s", enzyme.contracts.fund_deployer.address)
     logger.info("USDC is %s", enzyme.usdc.address)
     logger.info("Terms of service contract is %s", terms_of_service.address)
     logger.info("Fund is %s (%s)", fund_name, fund_symbol)
+    logger.info("Whitelisted assets are USDC and %s", ", ".join([a.symbol for a in whitelisted_assets]))
     if owner_address != deployer.address:
         logger.info("Ownership will be transferred to %s", owner_address)
     else:
@@ -104,10 +151,13 @@ def main():
     else:
         logger.warning("No separate asset manager role set")
 
-    confirm = input("Ok [y/n]? ")
-    if not confirm.lower().startswith("y"):
-        print("Aborted")
-        sys.exit(1)
+    logger.info("-" * 80)
+
+    if not simulate:
+        confirm = input("Ok [y/n]? ")
+        if not confirm.lower().startswith("y"):
+            print("Aborted")
+            sys.exit(1)
 
     logger.info("Starting deployment")
 
@@ -120,10 +170,16 @@ def main():
         terms_of_service,
         fund_name=fund_name,
         fund_symbol=fund_symbol,
+        whitelisted_assets=whitelisted_assets,
     )
 
+    if anvil:
+        anvil.close()
+
+    logger.warning("GuardV0 owner is still set to the deployer %s", deployer.address)
     logger.info("Vault deployed")
     logger.info("Vault info is:\n%s", pformat(vault.get_deployment_info()))
+
 
 
 if __name__ == "__main__":
