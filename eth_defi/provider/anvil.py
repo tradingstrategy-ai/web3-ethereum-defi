@@ -108,7 +108,6 @@ def _launch(cmd: str, **kwargs) -> tuple[psutil.Popen, list[str]]:
     final_cmd_str = " ".join(cmd_list)
     logger.info("Launching anvil: %s", final_cmd_str)
     out = DEVNULL if sys.platform == "win32" else PIPE
-
     return psutil.Popen(cmd_list, stdin=DEVNULL, stdout=out, stderr=out), cmd_list
 
 
