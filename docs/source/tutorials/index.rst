@@ -41,11 +41,10 @@ Tutorials and examples
 .. toctree::
    :maxdepth: 1
 
-   multi-rpc-configuration
    transfer
+   make-uniswap-swap-in-python
    chainlink-price-feed
    chainlink-native-token
-   make-uniswap-swap-in-python
    live-price
    uniswap-v3-liquidity-analysis
    uniswap-v3-price-analysis
@@ -58,6 +57,7 @@ Tutorials and examples
    enzyme-read-vaults
    verify-node-integrity
    multithread-reader
+   multi-rpc-configuration
 
 `For more examples, browse tests folder on Github <https://github.com/tradingstrategy-ai/web3-ethereum-defi/tree/master/tests>`__.
 You can also search function names in `the repository <https://github.com/tradingstrategy-ai/web3-ethereum-defi/>`__
