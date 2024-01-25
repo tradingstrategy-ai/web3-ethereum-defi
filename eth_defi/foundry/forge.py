@@ -158,7 +158,12 @@ def deploy_contract_with_forge(
         f"{src_contract_file}:{contract_name}"
     ]
 
-    # TODO: Add contstructor args
+    if constructor_args:
+        cmd_line += [
+            "--constructor-args"
+        ]
+        for arg in constructor_args:
+            cmd_line.append(arg)
 
     censored_command = " ".join(cmd_line)
 

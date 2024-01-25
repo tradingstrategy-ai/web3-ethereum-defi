@@ -11,6 +11,7 @@ from eth_defi.chain import install_chain_middleware
 from eth_defi.foundry.forge import deploy_contract_with_forge
 from eth_defi.provider.anvil import AnvilLaunch, launch_anvil
 from eth_defi.trace import assert_transaction_success_with_explanation
+from eth_defi.uniswap_v2.utils import ZERO_ADDRESS
 
 
 @pytest.fixture(scope="module")
@@ -47,13 +48,21 @@ def deployer(web3) -> LocalAccount:
 
 @pytest.fixture()
 def guard_project_folder() -> Path:
-    """Location of terms of service folder."""
-    p = (Path(os.path.dirname(__file__)) / ".." / ".." / "contracts" / "guard").absolute()
+    """Location of test Foundry folder."""
+    p = (Path(os.path.dirname(__file__)) / ".." / ".." / "contracts" / "guard").resolve()
     assert p.exists(), f"Does not exist: {p}"
     return p
 
 
-def test_deploy_contract_with_forge(
+@pytest.fixture()
+def inhouse_project_folder() -> Path:
+    """Location of test Foundry folder."""
+    p = (Path(os.path.dirname(__file__)) / ".." / ".." / "contracts" / "in-house").resolve()
+    assert p.exists(), f"Does not exist: {p}"
+    return p
+
+
+def test_deploy_contract_with_forge_no_constructor_args(
     web3,
     guard_project_folder,
     deployer: LocalAccount,
@@ -70,3 +79,22 @@ def test_deploy_contract_with_forge(
     )
 
     assert contract.functions.getInternalVersion().call() > 0
+
+
+def test_deploy_contract_with_forge_with_constructor_args(
+    web3,
+    inhouse_project_folder,
+    deployer: LocalAccount,
+):
+    """Deploy a contract using forge command."""
+
+    contract = deploy_contract_with_forge(
+        web3,
+        inhouse_project_folder,
+        Path("GuardedGenericAdapter.sol"),
+        "GuardedGenericAdapter",
+        deployer._private_key,
+        constructor_args=[ZERO_ADDRESS, ZERO_ADDRESS],
+    )
+
+    assert contract.functions.vault().call() == ZERO_ADDRESS
