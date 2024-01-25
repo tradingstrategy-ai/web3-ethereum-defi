@@ -7,7 +7,8 @@ from eth_defi.abi import encode_function_call
 from eth_defi.enzyme.deployment import EnzymeDeployment
 from eth_defi.enzyme.generic_adapter import execute_calls_for_generic_adapter
 from eth_defi.enzyme.vault import Vault
-from eth_defi.uniswap_v2.deployment import UniswapV2Deployment, FOREVER_DEADLINE
+from eth_defi.uniswap_v2.deployment import FOREVER_DEADLINE, UniswapV2Deployment
+from eth_defi.uniswap_v2.fees import UniswapV2FeeCalculator
 
 
 # fmt: off
@@ -18,7 +19,8 @@ def prepare_swap(
     generic_adapter: Contract,
     token_in: Contract,
     token_out: Contract,
-    swap_amount: int
+    swap_amount: int,
+    token_intermediate: Contract | None = None,
 ) -> ContractFunction:
     """Prepare a Uniswap v2 swap transaction for Enzyme vault.
 
@@ -81,12 +83,18 @@ def prepare_swap(
 
     assert isinstance(generic_adapter, Contract), f"generic_adapter is needed for swap integration"
 
+    price_helper = UniswapV2FeeCalculator(uniswap_v2)
+
     # Prepare the swap parameters
     token_in_swap_amount = swap_amount
     spend_asset_amounts = [token_in_swap_amount]
     spend_assets = [token_in]
+
     path = [token_in.address, token_out.address]
-    expected_outgoing_amount, expected_incoming_amount = uniswap_v2.router.functions.getAmountsOut(token_in_swap_amount, path).call()
+    if token_intermediate:
+        path = [token_in.address, token_intermediate.address, token_out.address]
+
+    expected_incoming_amount = price_helper.get_amount_out(token_in_swap_amount, path)
     incoming_assets = [token_out]
     min_incoming_assets_amounts = [expected_incoming_amount]
 
