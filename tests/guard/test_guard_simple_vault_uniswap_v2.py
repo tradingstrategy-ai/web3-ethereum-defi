@@ -7,7 +7,7 @@
 
 import pytest
 from eth_tester.exceptions import TransactionFailed
-from web3 import Web3, EthereumTesterProvider
+from web3 import EthereumTesterProvider, Web3
 from web3._utils.events import EventLogErrorFlags
 from web3.contract import Contract
 
@@ -15,8 +15,13 @@ from eth_defi.abi import get_contract, get_deployed_contract, get_function_selec
 from eth_defi.deploy import deploy_contract
 from eth_defi.simple_vault.transact import encode_simple_vault_transaction
 from eth_defi.token import create_token
-from eth_defi.uniswap_v2.deployment import deploy_uniswap_v2_like, deploy_trading_pair, UniswapV2Deployment, FOREVER_DEADLINE
-from eth_defi.uniswap_v2.pair import fetch_pair_details, PairDetails
+from eth_defi.uniswap_v2.deployment import (
+    FOREVER_DEADLINE,
+    UniswapV2Deployment,
+    deploy_trading_pair,
+    deploy_uniswap_v2_like,
+)
+from eth_defi.uniswap_v2.pair import PairDetails, fetch_pair_details
 
 
 @pytest.fixture
@@ -294,11 +299,11 @@ def test_guard_token_in_not_approved(
 
 def test_guard_pair_not_approved(
     uniswap_v2: UniswapV2Deployment,
-    shitcoin_usdc_pair: PairDetails,
     owner: str,
     asset_manager: str,
     deployer: str,
     usdc: Contract,
+    weth: Contract,
     shitcoin: Contract,
     vault: Contract,
     guard: Contract,
@@ -311,8 +316,6 @@ def test_guard_pair_not_approved(
     usdc_amount = 10_000 * 10**6
     usdc.functions.transfer(vault.address, usdc_amount).transact({"from": deployer})
 
-    path = [usdc.address, shitcoin.address]
-
     approve_call = usdc.functions.approve(
         uniswap_v2.router.address,
         usdc_amount,
@@ -321,6 +324,8 @@ def test_guard_pair_not_approved(
     target, call_data = encode_simple_vault_transaction(approve_call)
     vault.functions.performCall(target, call_data).transact({"from": asset_manager})
 
+    # path with only 1 pool
+    path = [usdc.address, shitcoin.address]
     trade_call = uniswap_v2.router.functions.swapExactTokensForTokens(
         usdc_amount,
         0,
@@ -329,7 +334,21 @@ def test_guard_pair_not_approved(
         FOREVER_DEADLINE,
     )
 
-    with pytest.raises(TransactionFailed, match="execution reverted: Token out not allowed"):
+    with pytest.raises(TransactionFailed, match="execution reverted: Token not allowed"):
+        target, call_data = encode_simple_vault_transaction(trade_call)
+        vault.functions.performCall(target, call_data).transact({"from": asset_manager})
+
+    # path with 2 pools where shitcoin is the intermediate token
+    path = [usdc.address, shitcoin.address, weth.address]
+    trade_call = uniswap_v2.router.functions.swapExactTokensForTokens(
+        usdc_amount,
+        0,
+        path,
+        vault.address,
+        FOREVER_DEADLINE,
+    )
+
+    with pytest.raises(TransactionFailed, match="execution reverted: Token not allowed"):
         target, call_data = encode_simple_vault_transaction(trade_call)
         vault.functions.performCall(target, call_data).transact({"from": asset_manager})
 

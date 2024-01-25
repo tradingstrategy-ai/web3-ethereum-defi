@@ -285,3 +285,62 @@ def test_guard_third_party_trade(
     with pytest.raises(TransactionFailed, match="execution reverted: Sender not allowed"):
         target, call_data = encode_simple_vault_transaction(trade_call)
         vault.functions.performCall(target, call_data).transact({"from": third_party})
+
+
+def test_guard_pair_not_approved(
+    uniswap_v3: UniswapV3Deployment,
+    owner: str,
+    asset_manager: str,
+    deployer: str,
+    usdc: Contract,
+    weth: Contract,
+    shitcoin: Contract,
+    vault: Contract,
+):
+    """Don't allow trading in scam token.
+
+    - Prevent exit scam through non-liquid token
+    """
+
+    usdc_amount = 10_000 * 10**6
+    usdc.functions.transfer(vault.address, usdc_amount).transact({"from": deployer})
+
+    approve_call = usdc.functions.approve(
+        uniswap_v3.swap_router.address,
+        usdc_amount,
+    )
+
+    target, call_data = encode_simple_vault_transaction(approve_call)
+    vault.functions.performCall(target, call_data).transact({"from": asset_manager})
+
+    # path with only 1 pool
+    encoded_path = encode_path([usdc.address, shitcoin.address], [POOL_FEE_RAW])
+    trade_call = uniswap_v3.swap_router.functions.exactInput(
+        (
+            encoded_path,
+            vault.address,
+            FOREVER_DEADLINE,
+            usdc_amount,
+            0,
+        )
+    )
+
+    with pytest.raises(TransactionFailed, match="execution reverted: Token not allowed"):
+        target, call_data = encode_simple_vault_transaction(trade_call)
+        vault.functions.performCall(target, call_data).transact({"from": asset_manager})
+
+    # path with 2 pools where shitcoin is the intermediate token
+    encoded_path = encode_path([usdc.address, shitcoin.address, weth.address], [POOL_FEE_RAW, POOL_FEE_RAW])
+    trade_call = uniswap_v3.swap_router.functions.exactInput(
+        (
+            encoded_path,
+            vault.address,
+            FOREVER_DEADLINE,
+            usdc_amount,
+            0,
+        )
+    )
+
+    with pytest.raises(TransactionFailed, match="execution reverted: Token not allowed"):
+        target, call_data = encode_simple_vault_transaction(trade_call)
+        vault.functions.performCall(target, call_data).transact({"from": asset_manager})

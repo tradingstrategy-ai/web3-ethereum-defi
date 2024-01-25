@@ -241,11 +241,13 @@ contract GuardV0 is IGuard, Ownable {
     // Validate Uniswap v2 trade
     function validate_swapExactTokensForTokens(bytes memory callData) public view {
         (, , address[] memory path, address to, ) = abi.decode(callData, (uint, uint, address[], address, uint));
-        address tokenIn = path[0];
-        address tokenOut = path[path.length - 1];
+
         require(isAllowedReceiver(to), "Receiver address does not match");
-        require(isAllowedAsset(tokenIn), "Token in not allowed");
-        require(isAllowedAsset(tokenOut), "Token out not allowed");
+
+        for (uint i = 0; i < path.length; i++) {
+            address token = path[i];
+            require(isAllowedAsset(token), "Token not allowed");
+        }        
     }
 
     function whitelistUniswapV2Router(address router, string calldata notes) external {
@@ -256,20 +258,40 @@ contract GuardV0 is IGuard, Ownable {
     // validate Uniswap v3 trade
     function validate_exactInput(bytes memory callData) public view {
         (ExactInputParams memory params) = abi.decode(callData, (ExactInputParams));
-        (address tokenOut, address tokenIn, ) = params.path.decodeFirstPool();
-
+        
         require(isAllowedReceiver(params.recipient), "Receiver address does not match");
-        require(isAllowedAsset(tokenIn), "Token in not allowed");
-        require(isAllowedAsset(tokenOut), "Token out not allowed");
+
+        while (true) {
+            (address tokenOut, address tokenIn, ) = params.path.decodeFirstPool();
+
+            require(isAllowedAsset(tokenIn), "Token not allowed");
+            require(isAllowedAsset(tokenOut), "Token not allowed");
+
+            if (params.path.hasMultiplePools()) {
+                params.path = params.path.skipToken();
+            } else {
+                break;
+            }
+        }
     }
 
     function validate_exactOutput(bytes memory callData) public view {
         (ExactOutputParams memory params) = abi.decode(callData, (ExactOutputParams));
-        (address tokenOut, address tokenIn, ) = params.path.decodeFirstPool();
-
+        
         require(isAllowedReceiver(params.recipient), "Receiver address does not match");
-        require(isAllowedAsset(tokenIn), "Token in not allowed");
-        require(isAllowedAsset(tokenOut), "Token out not allowed");
+
+        while (true) {
+            (address tokenOut, address tokenIn, ) = params.path.decodeFirstPool();
+
+            require(isAllowedAsset(tokenIn), "Token not allowed");
+            require(isAllowedAsset(tokenOut), "Token not allowed");
+
+            if (params.path.hasMultiplePools()) {
+                params.path = params.path.skipToken();
+            } else {
+                break;
+            }
+        }
     }
 
     function whitelistUniswapV3Router(address router, string calldata notes) external {
