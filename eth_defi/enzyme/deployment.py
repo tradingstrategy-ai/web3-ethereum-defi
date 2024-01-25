@@ -603,7 +603,7 @@ class EnzymeDeployment:
         weth = get_deployed_contract(web3, "ERC20MockDecimals.json", contracts.comptroller_lib.functions.getWethToken().call())
 
         if "usdc" in contract_addresses:
-            usdc = get_deployed_contract(web3, "ERC20MockDecimals.json", contract_addresses["udsc"])
+            usdc = get_deployed_contract(web3, "ERC20MockDecimals.json", contract_addresses["usdc"])
         else:
             usdc = None
 
