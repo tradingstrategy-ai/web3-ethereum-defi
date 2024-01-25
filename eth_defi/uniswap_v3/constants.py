@@ -19,11 +19,32 @@ DEFAULT_TICK_SPACINGS = {
 
 DEFAULT_FEES = list(DEFAULT_TICK_SPACINGS.keys())
 
-# address of factory deployed on Ethereum mainnet, Polygon, Optimism, Arbitrum, etc.
-# https://docs.uniswap.org/protocol/reference/deployments
-UNISWAP_V3_FACTORY_ADDRESS = "0x1F98431c8aD98523631AE4a59f267346ea31F984"
+# https://docs.uniswap.org/contracts/v3/reference/deployments
+DEPLOYMENTS = {
+    "ethereum": {
+        "factory": "0x1F98431c8aD98523631AE4a59f267346ea31F984",
+        "router": "0xE592427A0AEce92De3Edee1F18E0157C05861564",
+        "position_manager": "0xC36442b4a4522E871399CD717aBDD847Ab11FE88",
+        "quoter": "0xb27308f9F90D607463bb33eA1BeBb41C27CE5AB6",
+    },
+    "polygon": {
+        "factory": "0x1F98431c8aD98523631AE4a59f267346ea31F984",
+        "router": "0xE592427A0AEce92De3Edee1F18E0157C05861564",
+        "position_manager": "0xC36442b4a4522E871399CD717aBDD847Ab11FE88",
+        "quoter": "0xb27308f9F90D607463bb33eA1BeBb41C27CE5AB6",
+    },
+    "arbitrum": {
+        "factory": "0x1F98431c8aD98523631AE4a59f267346ea31F984",
+        "router": "0xE592427A0AEce92De3Edee1F18E0157C05861564",
+        "position_manager": "0xC36442b4a4522E871399CD717aBDD847Ab11FE88",
+        "quoter": "0xb27308f9F90D607463bb33eA1BeBb41C27CE5AB6",
+    },
+}
 
-# block when factory was deployed
+# address of factory deployed on Ethereum mainnet, Polygon, Optimism, Arbitrum
+UNISWAP_V3_FACTORY_ADDRESS = DEPLOYMENTS["ethereum"]["factory"]
+
+# block when factory was deployed on Ethereum mainnet
 UNISWAP_V3_FACTORY_CREATED_AT_BLOCK = 12369621
 UNISWAP_V3_SUBGRAPH_URL = "https://api.thegraph.com/subgraphs/name/uniswap/uniswap-v3"
 
