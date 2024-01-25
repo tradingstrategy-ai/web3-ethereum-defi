@@ -1,6 +1,6 @@
 .. meta::
-   :description: Python and Pandas examples for blockchain data research
-   :title: Web3 tutorials for Python
+   :description: Learn Python and Pandas with blockchain examples
+   :title: Ethereum and Web3 tutorials for Python
 
 .. _tutorials:
 
