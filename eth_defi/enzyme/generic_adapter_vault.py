@@ -1,5 +1,6 @@
 """Safe deployment of Enzyme vaults with generic adapter. """
 import logging
+import os
 from pathlib import Path
 from typing import Collection
 
@@ -15,6 +16,7 @@ from eth_defi.foundry.forge import deploy_contract_with_forge
 from eth_defi.token import TokenDetails, fetch_erc20_details
 from eth_defi.trace import assert_transaction_success_with_explanation
 from eth_defi.uniswap_v2.utils import ZERO_ADDRESS
+
 
 logger = logging.getLogger(__name__)
 
@@ -32,6 +34,7 @@ def deploy_vault_with_generic_adapter(
     fund_name="Example Fund",
     fund_symbol="EXAMPLE",
     whitelisted_assets: Collection[TokenDetails] | None = None,
+    etherscan_api_key: str | None = None,
 ) -> Vault:
     """Deploy an Enzyme vault and make it secure.
 
@@ -88,6 +91,9 @@ def deploy_vault_with_generic_adapter(
     :param usdc:
         USDC token used as the vault denomination currency.
 
+    :param etherscan_api_key:
+        Needed to verify deployed contracts.
+
     :return:
         Freshly deployed vault
     """
@@ -103,18 +109,21 @@ def deploy_vault_with_generic_adapter(
         assert isinstance(asset, TokenDetails)
 
     logger.info(
-        "Deploying Enzyme vault. Enzyme fund deployer is %s, Terms of service is %s, USDC is %s",
+        "Deploying Enzyme vault. Enzyme fund deployer: %s, Terms of service: %s, USDC: %s, Etherscan API key: %s",
         deployment.contracts.fund_deployer.address,
         terms_of_service.address,
         usdc.address,
+        etherscan_api_key,
     )
 
     web3 = deployment.web3
 
     guard = deploy_contract_with_forge(
         web3,
-        f"guard/GuardV0.json",
-        deployer,
+        CONTRACTS_ROOT / "guard",
+        "GuardV0.sol",
+        f"GuardV0",
+        deployer._private_key,
     )
     assert guard.functions.getInternalVersion().call() == 1
 

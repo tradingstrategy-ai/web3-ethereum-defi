@@ -75,10 +75,10 @@ def _exec_cmd(
 def deploy_contract_with_forge(
     web3: Web3,
     project_folder: Path,
-    contract_file: Path,
+    contract_file: Path | str,
     contract_name: str,
     private_key: HexBytes,
-    constructor_args: list[str],
+    constructor_args: list[str] | None = None,
     etherscan_api_key: str | None = None,
     register_for_tracing=True,
     timeout=DEFAULT_TIMEOUT,
@@ -134,6 +134,14 @@ def deploy_contract_with_forge(
     assert isinstance(contract_file, Path)
     assert type(contract_name) == str
     assert isinstance(private_key, HexBytes), f"Got private key: {type(private_key)}"
+
+    if constructor_args is None:
+        constructor_args = []
+
+    if type(contract_file) == str:
+        contract_file = Path(contract_file)
+
+    assert type(constructor_args) in (list, tuple)
 
     json_rpc_url = web3.provider.endpoint_uri
 
