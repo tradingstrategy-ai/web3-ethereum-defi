@@ -1,33 +1,24 @@
 """Deploy a new Enzyme vault with a generic adapter.
 
-- Deploys a tailored Enzyme vault - a different what you would be able eto deploy through Enzyme user interface
+- Deploys a tailored Enzyme vault with custom policies and adapters.
+  This is a different what you would be able eto deploy through Enzyme user interface.
 
-- The adapter is configured to use the generic adapter for trading from eth_defi package
+- The adapter is configured to use the generic adapter for trading from eth_defi package,
 
-- The deposit and terms of service contracts are present
+- The custom deposit and terms of service contracts are bound to the vault.
+
 """
 
-import csv
 import sys
-from functools import lru_cache
 import logging
 import os
 
-import coloredlogs
 from eth_account import Account
 
 from eth_defi.abi import get_deployed_contract
 from eth_defi.enzyme.deployment import POLYGON_DEPLOYMENT, ETHEREUM_DEPLOYMENT, EnzymeDeployment
 from eth_defi.enzyme.generic_adapter_vault import deploy_generic_adapter_vault
-from eth_defi.enzyme.price_feed import UnsupportedBaseAsset
-from eth_defi.enzyme.vault import Vault
-from eth_defi.event_reader.conversion import convert_uint256_bytes_to_address, convert_uint256_string_to_address, decode_data
-from eth_defi.event_reader.filter import Filter
-from eth_defi.event_reader.multithread import MultithreadEventReader
-from eth_defi.event_reader.progress_update import PrintProgressUpdate
 from eth_defi.provider.multi_provider import create_multi_provider_web3
-from eth_defi.token import TokenDetails, fetch_erc20_details
-from eth_defi.chainlink.token_price import get_native_token_price_with_chainlink, get_token_price_with_chainlink
 from eth_defi.utils import setup_console_logging
 from tradeexecutor.monkeypatch.web3 import construct_sign_and_send_raw_middleware
 
@@ -87,14 +78,18 @@ def main():
         logger.info("Ownership will be transferred to %s", owner_address)
     else:
         logger.info("WARNING! Ownership will be retained at the deployer %d", deployer.address)
-    logger.info("Asset manager is %s", asset_manager_address)
+
+    if asset_manager_address != deployer.address:
+        logger.info("Asset manager is %s", asset_manager_address)
+    else:
+        logger.info("WARNING! No separate asset manager role set")
 
     confirm = input("Ok [y/n]?")
     if not confirm.lower().startswith("y"):
         print("Aborted")
         sys.exit(1)
 
-    logger.info("Deploying")
+    logger.info("Starting deployment")
 
     vault = deploy_generic_adapter_vault(
         enzyme,
@@ -109,5 +104,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-

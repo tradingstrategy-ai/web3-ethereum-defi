@@ -35,11 +35,7 @@ vault = Vault.fetch(web3, vault_address)
 # )
 # print(f"Generic adapter is {generic_adapter.address}")
 
-generic_adapter = get_deployed_contract(
-    web3,
-    f"VaultSpecificGenericAdapter.json",
-    "0x8C35a027FE7986FA5736813869C0A2A7A991BEDd"
-)
+generic_adapter = get_deployed_contract(web3, f"VaultSpecificGenericAdapter.json", "0x8C35a027FE7986FA5736813869C0A2A7A991BEDd")
 vault.generic_adapter = generic_adapter
 
 wmatic = fetch_erc20_details(web3, "0x0d500b1d8e8ef31e21c99d1db9a6444d3adf1270").contract
@@ -115,5 +111,3 @@ print("Broadcasting", tx_hash.hex())
 receipt = web3.eth.wait_for_transaction_receipt(tx_hash)
 
 print("Receipt", receipt)
-
-

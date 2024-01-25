@@ -47,6 +47,11 @@ POLYGON_DEPLOYMENT = {
     "wmatic": "0x0d500B1d8E8eF31E21C99d1Db9A6444d3ADf1270",
     "fund_value_calculator": "0xcdf038Dd3b66506d2e5378aee185b2f0084B7A33",
     "deployed_at": 25_825_795,  # When comptroller lib was deployed
+    "cumulative_slippage_tolerance_policy": "0x1332367C181F1157F751b160187DcAa219706bF2",
+    "allowed_adapters_policy": "0x4218783aE10BD1841E6664cF048ac295D8d27a4a",
+    "only_remove_dust_external_position_policy": "0xC0f49507c125a000e02ab58C22bE9764e2ABAB99",
+    "only_untrack_dust_or_priceless_assets_policy": "0x9F856372F7Bd844dac0254c7859B117259b5c9D2",
+    "allowed_external_position_types_policy": "0x5A739da3099fd4fC954BD764099Fc000Da76D8e7",
 }
 
 #: Enzyme deployment details for Ehereum
@@ -138,6 +143,13 @@ class EnzymeContracts:
 
     def get_deployed_contract(self, contract_name: str, address: HexAddress) -> Contract:
         """Helper access for IVault and IComptroller"""
+        contract = get_deployed_contract(self.web3, f"enzyme/{contract_name}.json", address)
+        return contract
+
+    def get_optionally_deployed_contract(self, contract_name: str, address: HexAddress | None) -> Contract | None:
+        """Helper access for IVault and IComptroller"""
+        if address is None:
+            return None
         contract = get_deployed_contract(self.web3, f"enzyme/{contract_name}.json", address)
         return contract
 
@@ -579,11 +591,20 @@ class EnzymeDeployment:
         contracts.integration_manager = contracts.get_deployed_contract("IntegrationManager", contracts.comptroller_lib.functions.getIntegrationManager().call())
         contracts.value_interpreter = contracts.get_deployed_contract("ValueInterpreter", contracts.comptroller_lib.functions.getValueInterpreter().call())
 
+        # Load policy contracts if we know their addresses
+        contracts.cumulative_slippage_tolerance_policy = contracts.get_optionally_deployed_contract("CumulativeSlippageTolerancePolicy", contract_addresses.get("cumulative_slippage_tolerance_policy"))
+        contracts.allowed_adapters_policy = contracts.get_optionally_deployed_contract("AllowedAdaptersPolicy", contract_addresses.get("allowed_adapters_policy"))
+        contracts.only_remove_dust_external_position_policy = contracts.get_optionally_deployed_contract("OnlyRemoveDustExternalPositionPolicy", contract_addresses.get("only_remove_dust_external_position_policy"))
+        contracts.only_untrack_dust_or_priceless_assets_policy = contracts.get_optionally_deployed_contract("OnlyUntrackDustOrPricelessAssetsPolicy", contract_addresses.get("only_untrack_dust_or_priceless_assets_policy"))
+        contracts.allowed_external_position_types_policy = contracts.get_optionally_deployed_contract("AllowedExternalPositionTypesPolicy", contract_addresses.get("allowed_external_position_types_policy"))
+
         mln = get_deployed_contract(web3, "ERC20MockDecimals.json", contracts.comptroller_lib.functions.getMlnToken().call())
         weth = get_deployed_contract(web3, "ERC20MockDecimals.json", contracts.comptroller_lib.functions.getWethToken().call())
 
         if "usdc" in contract_addresses:
-            usdc = get_deployed_contract(web3, "ERC20MockDecimals.json", contract_addresses["udsc"])
+            usdc = get_deployed_contract(web3, "ERC20MockDecimals.json", contract_addresses["usdc"])
+        else:
+            usdc = None
 
         return EnzymeDeployment(
             web3,

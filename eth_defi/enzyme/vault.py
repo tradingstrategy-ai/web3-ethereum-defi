@@ -17,6 +17,7 @@ from eth_defi.enzyme.price_feed import EnzymePriceFeed
 from eth_defi.event_reader.filter import Filter
 from eth_defi.event_reader.reader import Web3EventReader
 from eth_defi.token import TokenDetails, fetch_erc20_details
+from eth_defi.uniswap_v2.utils import ZERO_ADDRESS
 
 
 @dataclass
@@ -107,6 +108,18 @@ class Vault:
     #:
     deployed_at_block: int | None = None
 
+    #: If this vault has a dedicated asset manager address set for it.
+    #:
+    #: Vaults can have multiple asset managers, but it is rare.
+    #:
+    asset_manager: str | None = None
+
+    #: If this vault was set to be transferred to a owner multisig after the deployment.
+    #:
+    #: The owner needs to confirm the transfer.
+    #:
+    nominated_owner: str | None = None
+
     def __repr__(self) -> str:
         return f"<Vault vault={self.vault.address} adapter={self.generic_adapter and self.generic_adapter.address} payment_forwader={self.payment_forwarder and self.payment_forwarder.address}>"
 
@@ -120,10 +133,12 @@ class Vault:
         """
         return {
             "VAULT_ADDRESS": self.vault.address,
-            "VAULT_ADAPTER_ADDRESS": self.generic_adapter.address,
-            "VAULT_PAYMENT_FORWARDER_ADDRESS": self.payment_forwarder.address,
-            "VAULT_GUARD_ADDRESS": self.guard_contract.address,
-            "VAULT_DEPLOYMENT_BLOCK_NUMBER": self.deployed_at_block,
+            "VAULT_ADAPTER_ADDRESS": self.generic_adapter.address if self.generic_adapter else "",
+            "VAULT_PAYMENT_FORWARDER_ADDRESS": self.payment_forwarder.address if self.payment_forwarder else "",
+            "VAULT_GUARD_ADDRESS": self.guard_contract.address if self.guard_contract else "",
+            "VAULT_DEPLOYMENT_BLOCK_NUMBER": self.deployed_at_block or "",
+            "VAULT_ASSET_MANAGER_ADDRESS": self.asset_manager or "",
+            "VAULT_NOMINATED_OWNER_ADDRESS": self.nominated_ower or "",
         }
 
     @property
@@ -324,8 +339,16 @@ class Vault:
         generic_adapter_address: str | HexAddress | None = None,
         payment_forwarder: str | HexAddress | None = None,
         deployed_at_block: int | None = None,
+        asset_manager: HexAddress | None = None,
     ) -> "Vault":
-        """Fetch Enzyme vault and deployment information based only on the vault address."""
+        """Fetch Enzyme vault and deployment information based only on the vault address.
+
+        Because vault does not have a way to cross-reference its contracts,
+        we are now manually passing around a bunch of contracts and addresses.
+
+        :return:
+            Enzyme vault instance with all the information populated in
+        """
 
         contract_name = "VaultLib"
         vault_contract = get_deployed_contract(web3, f"enzyme/{contract_name}.json", vault_address)
@@ -365,6 +388,10 @@ class Vault:
             except:
                 pass
 
+        nominated_owner = vault_contract.functions.getNominatedOwner().call()
+        if nominated_owner == ZERO_ADDRESS:
+            nominated_owner = None
+
         return Vault(
             vault_contract,
             comptroller_contract,
@@ -373,4 +400,6 @@ class Vault:
             payment_forwarder_contract,
             guard_contract,
             deployed_at_block=deployed_at_block,
+            nominated_owner=nominated_owner,
+            asset_manager=asset_manager,  # We cannot read asset manager back from the vault because it's just EVM hash map
         )
