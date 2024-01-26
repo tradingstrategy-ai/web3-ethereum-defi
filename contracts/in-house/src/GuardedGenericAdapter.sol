@@ -72,7 +72,7 @@ contract GuardedGenericAdapter is AdapterBase {
     // Because this is called only once and damage cannot be done
     // except maybe screwing up the deployment, we do not track ownership here.
     //
-    function bindVault(IVaultMock _vault, bool production, string meta) external {
+    function bindVault(IVaultMock _vault, bool production, string calldata meta) external {
         require(address(vault) == address(0x0), "Can be initialised only once");
         require(address(_vault) != address(0x0), "Null address encountered");
         // Sanity check for smart contract integration - mainly checks vault providers getCreator() as an interface check
