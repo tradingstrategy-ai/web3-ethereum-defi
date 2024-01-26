@@ -43,11 +43,20 @@ contract GuardedGenericAdapter is AdapterBase {
     // Guard implementation associated with this vault
     IGuard public guard;
 
+    // Is this vault intended for the production usage
+    //
+    // Should the vault to be indexed in DeFi explorers
+    //
+    bool public production;
+
     // Post an event to track what are Trading Strategy vaults.
     //
     // We can use these protoc events to track vaults that belong to
     // the protocol, as currently Enzyme does not allow
     // to add easy metadata to its vaults.
+    //
+    // Also this event with production flag can be used to signal
+    // DeFi explorers.
     //
     event GuardedGenericAdapterDeployed(address vault, bool production, string meta);
 
@@ -72,12 +81,14 @@ contract GuardedGenericAdapter is AdapterBase {
     // Because this is called only once and damage cannot be done
     // except maybe screwing up the deployment, we do not track ownership here.
     //
-    function bindVault(IVaultMock _vault, bool production, string calldata meta) external {
+    function bindVault(IVaultMock _vault, bool _production, string calldata meta) external {
         require(address(vault) == address(0x0), "Can be initialised only once");
         require(address(_vault) != address(0x0), "Null address encountered");
         // Sanity check for smart contract integration - mainly checks vault providers getCreator() as an interface check
         require(_vault.getCreator() != address(0x0), "Encountered funny vault");
         vault = _vault;
+
+        production = _production;
 
         emit GuardedGenericAdapterDeployed(address(vault), production, meta);
     }
