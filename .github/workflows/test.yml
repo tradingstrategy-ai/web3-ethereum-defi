@@ -57,6 +57,11 @@ jobs:
         run: |
           poetry run install-aave-for-testing
 
+      # We also work around race condition for setting up Aave NPM packages.
+      - name: Build needed contracts
+        run: |
+          make guard in-house 
+
       # Run tests parallel.
       - name: Run test scripts
         run: |

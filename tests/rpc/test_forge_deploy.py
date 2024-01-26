@@ -24,9 +24,6 @@ from eth_defi.trace import assert_transaction_success_with_explanation
 from eth_defi.uniswap_v2.utils import ZERO_ADDRESS
 
 
-pytestmark = pytest.mark.skipif(os.environ.get("CI") is not None, reason="forge deploy tests skipped on Github as currently they rely on slow built dependencies (Enzyme, Inhouse)")
-
-
 @pytest.fixture(scope="module")
 def anvil() -> AnvilLaunch:
     """Launch Anvil for the test backend."""
