@@ -5,10 +5,12 @@ from pathlib import Path
 import pytest
 from eth_account import Account
 from eth_account.signers.local import LocalAccount
+from hexbytes import HexBytes
 from web3 import HTTPProvider, Web3
 
 from eth_defi.chain import install_chain_middleware
 from eth_defi.foundry.forge import deploy_contract_with_forge
+from eth_defi.hotwallet import HotWallet
 from eth_defi.provider.anvil import AnvilLaunch, launch_anvil
 from eth_defi.trace import assert_transaction_success_with_explanation
 from eth_defi.uniswap_v2.utils import ZERO_ADDRESS
@@ -69,15 +71,21 @@ def test_deploy_contract_with_forge_no_constructor_args(
 ):
     """Deploy a contract using forge command."""
 
-    contract = deploy_contract_with_forge(
+    hot_wallet = HotWallet(deployer)
+    hot_wallet.sync_nonce(web3)
+
+    contract, tx_hash = deploy_contract_with_forge(
         web3,
         guard_project_folder,
         Path("GuardV0.sol"),
         "GuardV0",
-        deployer._private_key,
+        hot_wallet,
         constructor_args=[],
+        wait_for_block_confirmations=0,
     )
 
+    assert isinstance(tx_hash, HexBytes)
+    assert len(tx_hash) == 32
     assert contract.functions.getInternalVersion().call() > 0
 
 
@@ -87,14 +95,17 @@ def test_deploy_contract_with_forge_with_constructor_args(
     deployer: LocalAccount,
 ):
     """Deploy a contract using forge command."""
+    hot_wallet = HotWallet(deployer)
+    hot_wallet.sync_nonce(web3)
 
-    contract = deploy_contract_with_forge(
+    contract, _ = deploy_contract_with_forge(
         web3,
         inhouse_project_folder,
         Path("GuardedGenericAdapter.sol"),
         "GuardedGenericAdapter",
-        deployer._private_key,
+        hot_wallet,
         constructor_args=[ZERO_ADDRESS, ZERO_ADDRESS],
+        wait_for_block_confirmations=0,
     )
 
     assert contract.functions.vault().call() == ZERO_ADDRESS

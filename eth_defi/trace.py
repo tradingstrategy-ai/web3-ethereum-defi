@@ -246,6 +246,7 @@ def print_symbolic_trace(
 def assert_transaction_success_with_explanation(
     web3: Web3,
     tx_hash: HexBytes,
+    RaisedException=TransactionAssertionError,
 ) -> TxReceipt:
     """Checks if a transaction succeeds and give a verbose explanation why not..
 
@@ -284,6 +285,9 @@ def assert_transaction_success_with_explanation(
 
         Gas limit must have been set for this transaction.
 
+    :param RaisedException:
+        Raise a custom exception instead of :py:class:`TransactionAssertionError`.
+
     :raise TransactionAssertionError:
         Outputs a verbose AssertionError on what went wrong.
 
@@ -301,13 +305,13 @@ def assert_transaction_success_with_explanation(
             revert_reason = fetch_transaction_revert_reason(web3, tx_hash)
             trace_data = trace_evm_transaction(web3, tx_hash, TraceMethod.parity)
             trace_output = print_symbolic_trace(get_or_create_contract_registry(web3), trace_data)
-            raise TransactionAssertionError(
+            raise RaisedException(
                 f"Transaction failed: {tx_details}\n" f"Revert reason: {revert_reason}\n" f"Solidity stack trace:\n" f"{trace_output}\n",
                 revert_reason=revert_reason,
                 solidity_stack_trace=trace_output,
             )
         else:
-            raise RuntimeError(f"Transaction failed: {tx_details} - tracing disabled")
+            raise RaisedException(f"Transaction failed: {tx_details} - tracing disabled")
 
     return receipt
 

@@ -65,6 +65,7 @@ from web3.middleware import construct_sign_and_send_raw_middleware
 from eth_defi.abi import get_deployed_contract
 from eth_defi.enzyme.deployment import POLYGON_DEPLOYMENT, ETHEREUM_DEPLOYMENT, EnzymeDeployment
 from eth_defi.enzyme.generic_adapter_vault import deploy_vault_with_generic_adapter
+from eth_defi.hotwallet import HotWallet
 from eth_defi.provider.anvil import launch_anvil
 from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.token import fetch_erc20_details
@@ -91,6 +92,7 @@ def main():
     owner_address = os.environ["OWNER_ADDRESS"]
     fund_name = os.environ["FUND_NAME"]
     fund_symbol = os.environ["FUND_SYMBOL"]
+    etherscan_api_key = os.environ.get("ETHERSCAN_API_KEY")
     simulate = True if os.environ.get("SIMULATE", "").strip() else False
 
     if simulate:
@@ -98,9 +100,10 @@ def main():
         anvil = launch_anvil(json_rpc_url)
         web3 = create_multi_provider_web3(anvil.json_rpc_url)
     else:
-        logger.info("Producton deployment")
+        logger.info("Production deployment")
         web3 = create_multi_provider_web3(json_rpc_url)
         anvil = None
+        assert etherscan_api_key is not None, "You need Etherscan API key to verify deployed prod contracts"
 
     deployer = Account.from_key(private_key)
     web3.middleware_onion.add(construct_sign_and_send_raw_middleware(deployer))
@@ -131,20 +134,21 @@ def main():
     assert owner_address.startswith("0x")
     assert asset_manager_address.startswith("0x")
 
-    balance = web3.eth.get_balance(deployer.address) / 10**18
+    hot_wallet = HotWallet(deployer)
+    hot_wallet.sync_nonce(web3)
 
     if simulate:
         logger.info("Simulation deployment")
     else:
         logger.info("Ready to deploy")
     logger.info("-" * 80)
-    logger.info("Deployer hot wallet is %s", deployer.address)
-    logger.info("Deployer balance is %f", balance)
-    logger.info("Enzyme FundDeployer is %s", enzyme.contracts.fund_deployer.address)
-    logger.info("USDC is %s", enzyme.usdc.address)
-    logger.info("Terms of service contract is %s", terms_of_service.address)
-    logger.info("Fund is %s (%s)", fund_name, fund_symbol)
-    logger.info("Whitelisted assets are USDC and %s", ", ".join([a.symbol for a in whitelisted_assets]))
+    logger.info("Deployer hot wallet: %s", deployer.address)
+    logger.info("Deployer balance: %f, nonce %d", hot_wallet.get_native_currency_balance(web3), hot_wallet.current_nonce)
+    logger.info("Enzyme FundDeployer: %s", enzyme.contracts.fund_deployer.address)
+    logger.info("USDC: %s", enzyme.usdc.address)
+    logger.info("Terms of service: %s", terms_of_service.address)
+    logger.info("Fund: %s (%s)", fund_name, fund_symbol)
+    logger.info("Whitelisted assets: USDC and %s", ", ".join([a.symbol for a in whitelisted_assets]))
     if owner_address != deployer.address:
         logger.info("Ownership will be transferred to %s", owner_address)
     else:
@@ -167,7 +171,7 @@ def main():
 
     vault = deploy_vault_with_generic_adapter(
         enzyme,
-        deployer.address,
+        hot_wallet,
         asset_manager_address,
         owner_address,
         enzyme.usdc,
