@@ -34,6 +34,8 @@ def deploy_vault_with_generic_adapter(
     fund_symbol="EXAMPLE",
     whitelisted_assets: Collection[TokenDetails] | None = None,
     etherscan_api_key: str | None = None,
+    production=False,
+    meta: str = "",
 ) -> Vault:
     """Deploy an Enzyme vault and make it secure.
 
@@ -92,6 +94,12 @@ def deploy_vault_with_generic_adapter(
 
     :param etherscan_api_key:
         Needed to verify deployed contracts.
+
+    :param production:
+        Production flag set on `GuardedGenericAdapterDeployed` event.
+
+    :param meta:
+        Metadata for `GuardedGenericAdapterDeployed` event.
 
     :return:
         Freshly deployed vault
@@ -196,7 +204,11 @@ def deploy_vault_with_generic_adapter(
 
     # Give generic adapter back reference to the vault
     assert vault.functions.getCreator().call() != ZERO_ADDRESS, f"Bad vault creator {vault.functions.getCreator().call()}"
-    tx_hash = generic_adapter.functions.bindVault(vault.address).transact({"from": deployer.address})
+    tx_hash = generic_adapter.functions.bindVault(
+        vault.address,
+        production,
+        meta,
+    ).transact({"from": deployer.address})
     assert_transaction_success_with_explanation(web3, tx_hash)
 
     receipt = web3.eth.get_transaction_receipt(tx_hash)
