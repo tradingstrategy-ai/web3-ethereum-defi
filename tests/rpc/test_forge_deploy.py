@@ -1,4 +1,12 @@
-"""Test contract deployment with Forge."""
+"""Test contract deployment with Forge.
+
+To prepare test run:
+
+.. code-block:: shell
+
+    make guard in-house
+
+"""
 import os.path
 from pathlib import Path
 
