@@ -35,3 +35,6 @@
 [submodule "contracts/terms-of-service"]
 	path = contracts/terms-of-service
 	url = https://github.com/tradingstrategy-ai/terms-of-service.git
+[submodule "contracts/velvet"]
+	path = contracts/velvet
+	url = https://github.com/Velvet-Capital/protocol-v2-public.git

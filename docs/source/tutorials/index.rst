@@ -55,6 +55,7 @@ Tutorials and examples
    pancakeswap-live-minimal
    aave-v3-interest-analysis
    enzyme-read-vaults
+   enzyme-deploy
    verify-node-integrity
    multithread-reader
    multi-rpc-configuration

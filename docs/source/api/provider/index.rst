@@ -3,7 +3,7 @@ JSON-RPC provider API
 
 This submodule offers functionality to connect and enhance robustness of various EVM JSON-RPC API providers..
 
-- See :ref:`multi prc` for a tutorial
+- See :ref:`multi rpc` for a tutorial
 
 - Support for test and mainnet fork backends like :py:mod:`eth_defi.provider.anvil` and :py:mod:`eth_defi.provider.ganache`
 
