@@ -33,6 +33,11 @@ jobs:
           node-version: 16
           cache: 'npm'
           cache-dependency-path: contracts/aave-v3-deploy/package-lock.json
+      - uses: pnpm/action-setup@v2
+        # pnpm needed to compile Enzyme
+        name: Install pnpm
+        with:
+          run_install: false
       - name: Install poetry
         run: pipx install poetry
       - name: Set up Python 3.12
