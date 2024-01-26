@@ -16,11 +16,14 @@ from eth_defi.enzyme.deployment import EnzymeDeployment
 from eth_defi.enzyme.price_feed import EnzymePriceFeed
 from eth_defi.event_reader.filter import Filter
 from eth_defi.event_reader.reader import Web3EventReader
+from eth_defi.hotwallet import HotWallet
 from eth_defi.token import TokenDetails, fetch_erc20_details
 from eth_defi.uniswap_v2.utils import ZERO_ADDRESS
 
 
-@dataclass
+# Cannot be slots because of cached property
+# @dataclass(slots=True)
+@dataclass()
 class Vault:
     """Enzyme vault wrapper.
 
@@ -120,6 +123,13 @@ class Vault:
     #:
     nominated_owner: str | None = None
 
+    #: Drag the deployer hot wallet along
+    #:
+    #: Used for unit testing and such, so that we can easily
+    #: configure guard with the same account that deployed it.
+    #:
+    deployer_hot_wallet: HotWallet | None = None
+
     def __repr__(self) -> str:
         return f"<Vault vault={self.vault.address} adapter={self.generic_adapter and self.generic_adapter.address} payment_forwader={self.payment_forwarder and self.payment_forwarder.address}>"
 
@@ -138,7 +148,7 @@ class Vault:
             "VAULT_GUARD_ADDRESS": self.guard_contract.address if self.guard_contract else "",
             "VAULT_DEPLOYMENT_BLOCK_NUMBER": self.deployed_at_block or "",
             "VAULT_ASSET_MANAGER_ADDRESS": self.asset_manager or "",
-            "VAULT_NOMINATED_OWNER_ADDRESS": self.nominated_ower or "",
+            "VAULT_NOMINATED_OWNER_ADDRESS": self.nominated_owner or "",
         }
 
     @property
@@ -189,7 +199,7 @@ class Vault:
 
         See `IVaultCore.sol`.
         """
-        return self.vault.functions.getOwner()
+        return self.vault.functions.getOwner().call()
 
     def get_name(self) -> str:
         """Get the name of the share token.

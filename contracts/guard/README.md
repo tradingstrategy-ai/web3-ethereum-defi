@@ -120,3 +120,19 @@ forge build
 Because of complex the integrations, tests are part of `eth_defi` package
 test suite, which provides fixtures to ramp up various protocols (Enzyme, Uniswap, Aave, 1delta).
 Please refer to [eth_defi developer documentation]https://web3-ethereum-defi.readthedocs.io/) how to run tests.
+
+## Deployment
+
+Example:
+
+```shell
+export DEPLOY_PRIVATE_KEY=
+export JSON_RPC_POLYGON=
+export POLYGONSCAN_API_KEY=
+forge create \
+  --rpc-url $JSON_RPC_POLYGON \
+  --private-key $DEPLOY_PRIVATE_KEY \
+  --etherscan-api-key $POLYGONSCAN_API_KEY \
+  --verify \
+  src/GuardV0.sol:GuardV0
+```

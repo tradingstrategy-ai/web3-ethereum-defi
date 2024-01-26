@@ -122,6 +122,10 @@ class HotWallet:
         """Get address of the private key of the wallet."""
         return self.account.address
 
+    @property
+    def private_key(self) -> HexBytes:
+        return self.account._private_key
+
     def sync_nonce(self, web3: Web3):
         """Read the current nonce"""
         self.current_nonce = web3.eth.get_transaction_count(self.account.address)

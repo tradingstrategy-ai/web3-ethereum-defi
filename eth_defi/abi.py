@@ -170,7 +170,7 @@ def get_linked_contract(
 
 def get_deployed_contract(
     web3: Web3,
-    fname: str,
+    fname: str | Path,
     address: Union[HexAddress, str],
     register_for_tracing: bool = True,
 ) -> Contract:

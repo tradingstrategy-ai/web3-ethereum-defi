@@ -2,7 +2,8 @@
 
 `See Github for available contracts <https://github.com/tradingstrategy-ai/web3-ethereum-defi/tree/master/eth_defi/abi>`_.
 """
-
+from pathlib import Path
+from shutil import which
 from typing import Dict, TypeAlias, Union
 
 from eth_typing import HexAddress
@@ -90,6 +91,8 @@ def deploy_contract(
         register_contract(web3, tx_receipt["contractAddress"], instance)
 
     return instance
+
+
 
 
 def get_or_create_contract_registry(web3: Web3) -> ContractRegistry:

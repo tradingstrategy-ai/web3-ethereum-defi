@@ -7,6 +7,10 @@
 import datetime
 import random
 
+from web3.middleware import construct_sign_and_send_raw_middleware
+
+from eth_defi.enzyme.generic_adapter_vault import deploy_vault_with_generic_adapter
+
 import pytest
 from eth_account import Account
 from eth_account.signers.local import LocalAccount
@@ -22,10 +26,10 @@ from web3.contract import Contract
 from eth_defi.abi import get_deployed_contract
 from eth_defi.deploy import deploy_contract
 from eth_defi.enzyme.deployment import EnzymeDeployment, RateAsset
-from eth_defi.enzyme.erc20 import prepare_approve, prepare_transfer
-from eth_defi.enzyme.generic_adapter_vault import deploy_generic_adapter_vault
+from eth_defi.enzyme.erc20 import prepare_approve
 from eth_defi.enzyme.uniswap_v2 import prepare_swap
 from eth_defi.enzyme.vault import Vault
+from eth_defi.hotwallet import HotWallet
 from eth_defi.middleware import construct_sign_and_send_raw_middleware_anvil
 from eth_defi.token import TokenDetails
 from eth_defi.trace import (
@@ -156,12 +160,25 @@ def vault(
 ) -> Vault:
     """Deploy an Enzyme vault.
 
+    Set up a forge compatible deployer account.
+
     - GuardV0
     - GuardedGenericAdapter
     - TermsOfService
     - TermedVaultUSDCPaymentForwarder
     """
-    return deploy_generic_adapter_vault(enzyme, deployer, asset_manager, deployer, usdc, terms_of_service)
+
+    _deployer = web3.eth.accounts[0]
+    account: LocalAccount = Account.create()
+    stash = web3.eth.get_balance(_deployer)
+    tx_hash = web3.eth.send_transaction({"from": _deployer, "to": account.address, "value": stash // 2})
+    assert_transaction_success_with_explanation(web3, tx_hash)
+
+    hot_wallet = HotWallet(account)
+    hot_wallet.sync_nonce(web3)
+    web3.middleware_onion.add(construct_sign_and_send_raw_middleware(account))
+
+    return deploy_vault_with_generic_adapter(enzyme, hot_wallet, asset_manager, deployer, usdc, terms_of_service)
 
 
 @pytest.fixture()
@@ -180,10 +197,10 @@ def uniswap_v2_whitelisted(
 ) -> UniswapV2Deployment:
     """Whitelist uniswap deployment and WETH-USDC pair on the guard."""
     guard = vault.guard_contract
-    guard.functions.whitelistUniswapV2Router(uniswap_v2.router.address, "").transact({"from": deployer})
-    guard.functions.whitelistToken(usdc.address, "").transact({"from": deployer})
-    guard.functions.whitelistToken(weth.address, "").transact({"from": deployer})
-    guard.functions.whitelistToken(mln.address, "").transact({"from": deployer})
+    guard.functions.whitelistUniswapV2Router(uniswap_v2.router.address, "").transact({"from": vault.deployer_hot_wallet.address})
+    guard.functions.whitelistToken(usdc.address, "").transact({"from": vault.deployer_hot_wallet.address})
+    guard.functions.whitelistToken(weth.address, "").transact({"from": vault.deployer_hot_wallet.address})
+    guard.functions.whitelistToken(mln.address, "").transact({"from": vault.deployer_hot_wallet.address})
     return uniswap_v2
 
 

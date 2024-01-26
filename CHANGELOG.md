@@ -1,6 +1,8 @@
 # Current
 
 - Bump web3.py to 6.12.x
+- Add Foundry and Forge integration: `deploy_contract_with_forge()`
+- Add initial Etherscan integration
 - Add [Terms of Service acceptance manager integration](https://github.com/tradingstrategy-ai/terms-of-service)
 - Add GuardV0 and SimpleVaultV0 implementations for creating safe automated asset managers
 - Add support for Enzyme policies

@@ -84,6 +84,7 @@ test = ["pytest-xdist"]
 # TODO: CLean up dev dep gorups
 [tool.poetry.group.dev.dependencies]
 black = "^23.3.0"
+coloredlogs = "^15.0.1"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]
