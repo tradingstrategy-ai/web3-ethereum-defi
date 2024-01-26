@@ -4,11 +4,9 @@ import os
 from pathlib import Path
 from typing import Collection
 
-from eth_account.signers.local import LocalAccount
 from eth_typing import HexAddress
 from web3.contract import Contract
 
-from eth_defi.deploy import deploy_contract
 from eth_defi.enzyme.deployment import EnzymeDeployment
 from eth_defi.enzyme.policy import create_safe_default_policy_configuration_for_generic_adapter
 from eth_defi.enzyme.vault import Vault
