@@ -33,8 +33,14 @@ jobs:
           cache: 'npm'
           cache-dependency-path: contracts/aave-v3-deploy/package-lock.json
         # pnpm needed to compile Enzyme
+
       - name: Install pnpm
-        run: curl -fsSL https://get.pnpm.io/install.sh | sh -
+        run: |
+          curl -fsSL https://get.pnpm.io/install.sh | sh -
+          PNPM_HOME="/home/runner/.local/share/pnpm"
+          # https://docs.github.com/en/actions/using-workflows/workflow-commands-for-github-actions#adding-a-system-path
+          echo $PNPM_HOME >> $GITHUB_PATH
+
       - name: Install poetry
         run: pipx install poetry
       - name: Set up Python 3.12
@@ -62,8 +68,8 @@ jobs:
       # We also work around race condition for setting up Aave NPM packages.
       - name: Build needed contracts
         run: |
-          make guard in-house 
-
+          pnpm --version 
+          make guard in-house
       # Run tests parallel.
       - name: Run test scripts
         run: |
