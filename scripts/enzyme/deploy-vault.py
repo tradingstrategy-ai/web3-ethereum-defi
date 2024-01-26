@@ -40,6 +40,8 @@ Example how to run this script to deploy a vault on Polygon:
 .. code-block:: shell
 
     export SIMULATE=true
+    # Set production=true flag - affects GuardedGenericAdapterDeployed event
+    export PRODUCTION=true
     export FUND_NAME="TradingStrategy.ai ETH Breakpoint I"
     export FUND_SYMBOL=TS1
     export TERMS_OF_SERVICE=0xDCD7C644a6AA72eb2f86781175b18ADc30Aa4f4d
@@ -94,6 +96,7 @@ def main():
     fund_symbol = os.environ["FUND_SYMBOL"]
     etherscan_api_key = os.environ.get("ETHERSCAN_API_KEY")
     simulate = True if os.environ.get("SIMULATE", "").strip() else False
+    production = True if os.environ.get("PRODUCTION", "").strip() else False
 
     if simulate:
         logger.info("Simulating deployment")
@@ -179,6 +182,7 @@ def main():
         fund_name=fund_name,
         fund_symbol=fund_symbol,
         whitelisted_assets=whitelisted_assets,
+        production=production,
     )
 
     if anvil:
