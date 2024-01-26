@@ -21,7 +21,9 @@ from eth_defi.token import TokenDetails, fetch_erc20_details
 from eth_defi.uniswap_v2.utils import ZERO_ADDRESS
 
 
-@dataclass(slots=True)
+# Cannot be slots because of cached property
+# @dataclass(slots=True)
+@dataclass()
 class Vault:
     """Enzyme vault wrapper.
 
