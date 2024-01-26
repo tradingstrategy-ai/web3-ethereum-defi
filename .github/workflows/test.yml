@@ -32,9 +32,8 @@ jobs:
           node-version: 16
           cache: 'npm'
           cache-dependency-path: contracts/aave-v3-deploy/package-lock.json
-      - uses: pnpm/action-setup@v2
         # pnpm needed to compile Enzyme
-        name: Install pnpm
+      - name: Install pnpm
         run: curl -fsSL https://get.pnpm.io/install.sh | sh -
       - name: Install poetry
         run: pipx install poetry
