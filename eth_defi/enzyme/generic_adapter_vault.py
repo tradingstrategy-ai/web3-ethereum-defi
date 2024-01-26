@@ -233,6 +233,7 @@ def deploy_vault_with_generic_adapter(
         deployed_at_block=deployed_at_block,
         asset_manager=asset_manager,
     )
+    vault.deployer_hot_wallet = deployer
     assert vault.guard_contract.address == guard.address
 
     logger.info(

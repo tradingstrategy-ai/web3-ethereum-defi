@@ -16,6 +16,7 @@ from eth_defi.enzyme.deployment import EnzymeDeployment
 from eth_defi.enzyme.price_feed import EnzymePriceFeed
 from eth_defi.event_reader.filter import Filter
 from eth_defi.event_reader.reader import Web3EventReader
+from eth_defi.hotwallet import HotWallet
 from eth_defi.token import TokenDetails, fetch_erc20_details
 from eth_defi.uniswap_v2.utils import ZERO_ADDRESS
 
@@ -119,6 +120,13 @@ class Vault:
     #: The owner needs to confirm the transfer.
     #:
     nominated_owner: str | None = None
+
+    #: Drag the deployer hot wallet along
+    #:
+    #: Used for unit testing and such, so that we can easily
+    #: configure guard with the same account that deployed it.
+    #:
+    deployer_hot_wallet: HotWallet | None = None
 
     def __repr__(self) -> str:
         return f"<Vault vault={self.vault.address} adapter={self.generic_adapter and self.generic_adapter.address} payment_forwader={self.payment_forwarder and self.payment_forwarder.address}>"
