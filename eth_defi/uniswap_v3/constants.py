@@ -20,7 +20,7 @@ DEFAULT_TICK_SPACINGS = {
 DEFAULT_FEES = list(DEFAULT_TICK_SPACINGS.keys())
 
 # https://docs.uniswap.org/contracts/v3/reference/deployments
-DEPLOYMENTS = {
+UNISWAP_V3_DEPLOYMENTS = {
     "ethereum": {
         "factory": "0x1F98431c8aD98523631AE4a59f267346ea31F984",
         "router": "0xE592427A0AEce92De3Edee1F18E0157C05861564",
@@ -42,7 +42,7 @@ DEPLOYMENTS = {
 }
 
 # address of factory deployed on Ethereum mainnet, Polygon, Optimism, Arbitrum
-UNISWAP_V3_FACTORY_ADDRESS = DEPLOYMENTS["ethereum"]["factory"]
+UNISWAP_V3_FACTORY_ADDRESS = UNISWAP_V3_DEPLOYMENTS["ethereum"]["factory"]
 
 # block when factory was deployed on Ethereum mainnet
 UNISWAP_V3_FACTORY_CREATED_AT_BLOCK = 12369621
