@@ -74,7 +74,7 @@ jobs:
       # Run tests parallel.
       - name: Run test scripts
         run: |
-          poetry run pytest --tb=native -n auto --dist loadscope
+          poetry run pytest --tb=native -n auto
         env:
           BNB_CHAIN_JSON_RPC: ${{ secrets.BNB_CHAIN_JSON_RPC }}
           JSON_RPC_POLYGON_ARCHIVE: ${{ secrets.JSON_RPC_POLYGON_ARCHIVE }}
