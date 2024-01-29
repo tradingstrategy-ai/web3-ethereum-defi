@@ -7,6 +7,8 @@ from dataclasses import dataclass
 from functools import cached_property
 from typing import Collection, Optional
 
+from web3.exceptions import ContractLogicError
+
 from eth_defi.abi import get_deployed_contract
 from eth_typing import HexAddress
 from web3 import Web3
@@ -373,7 +375,7 @@ class Vault:
             try:
                 generic_adapter_contract = get_deployed_contract(web3, f"GuardedGenericAdapter.json", generic_adapter_address)
                 generic_adapter_contract.functions.guard().call()  # Version check, will cause exception
-            except ValueError:
+            except (ValueError, ContractLogicError):
                 # EthereumTester raises ValueError, but are the other exceptions?
                 generic_adapter_contract = get_deployed_contract(web3, f"VaultSpecificGenericAdapter.json", generic_adapter_address)
         else:
@@ -383,7 +385,7 @@ class Vault:
             try:
                 payment_forwarder_contract = get_deployed_contract(web3, f"TermedVaultUSDCPaymentForwarder.json", payment_forwarder)
                 payment_forwarder_contract.functions.isTermsOfServiceEnabled().call()
-            except ValueError:  # TODO: Check exception here
+            except (ValueError, ContractLogicError):
                 # EVMTester will give ValueError if the function does not exist
                 # Legacy
                 payment_forwarder_contract = get_deployed_contract(web3, f"VaultUSDCPaymentForwarder.json", payment_forwarder)
