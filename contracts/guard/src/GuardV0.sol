@@ -7,10 +7,7 @@ pragma solidity ^0.8.0;
 
 import "@openzeppelin/access/Ownable.sol";
 import "./lib/Path.sol";
-
-interface IGuard {
-    function validateCall(address sender, address target, bytes memory callDataWithSelector) external;
-}
+import "./IGuard.sol";
 
 /**
  * Prototype guard implementation.

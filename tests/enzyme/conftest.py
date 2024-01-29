@@ -18,7 +18,7 @@ from eth_defi.chain import install_chain_middleware
 from eth_defi.deploy import deploy_contract
 from eth_defi.provider.anvil import AnvilLaunch, launch_anvil
 from eth_defi.provider.multi_provider import create_multi_provider_web3
-from eth_defi.token import TokenDetails, create_token, fetch_erc20_details
+from eth_defi.token import TokenDetails, create_token, fetch_erc20_details, reset_default_token_cache
 from eth_defi.trace import assert_transaction_success_with_explanation
 from eth_defi.uniswap_v2.deployment import (
     UniswapV2Deployment,
@@ -74,6 +74,10 @@ def web3(anvil: AnvilLaunch) -> Web3:
 
     Also perform the Anvil state reset for each test.
     """
+
+    # We have tests mixing USDC with 6 an 18 decimals
+    reset_default_token_cache()
+
     web3 = create_multi_provider_web3(anvil.json_rpc_url)
     return web3
 

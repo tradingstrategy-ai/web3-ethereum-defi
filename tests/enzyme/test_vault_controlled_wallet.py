@@ -94,7 +94,6 @@ def deployment(
 
 def test_asset_delta_mul(usdc: Contract):
     """Check that the asset delta multiplier works."""
-
     d = AssetDelta(usdc.address, 1 * 10**6)
     d2 = d * 0.99
     assert d2.raw_amount == int(10**6 * 0.99)

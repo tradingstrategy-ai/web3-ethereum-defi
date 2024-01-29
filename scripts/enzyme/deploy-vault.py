@@ -130,12 +130,8 @@ def main():
     match web3.eth.chain_id:
         case 137:
             enzyme = EnzymeDeployment.fetch_deployment(web3, POLYGON_DEPLOYMENT, deployer=deployer.address)
-            uniswap_v2_router = None
-            uniswap_v3_router = UNISWAP_V3_DEPLOYMENTS["polygon"]["router"]
         case 1:
             enzyme = EnzymeDeployment.fetch_deployment(web3, ETHEREUM_DEPLOYMENT, deployer=deployer.address)
-            uniswap_v2_router = UNISWAP_V2_DEPLOYMENTS["ethereum"]["router"]
-            uniswap_v3_router = UNISWAP_V3_DEPLOYMENTS["ethereum"]["router"]
         case _:
             raise AssertionError(f"Chain {web3.eth.chain_id} not supported")
 
@@ -167,7 +163,7 @@ def main():
     if owner_address != deployer.address:
         logger.info("Ownership will be transferred to %s", owner_address)
     else:
-        logger.warning("Ownership will be retained at the deployer %d", deployer.address)
+        logger.warning("Ownership will be retained at the deployer %s", deployer.address)
 
     if asset_manager_address != deployer.address:
         logger.info("Asset manager is %s", asset_manager_address)
@@ -196,16 +192,6 @@ def main():
         whitelisted_assets=whitelisted_assets,
         production=production,
     )
-
-    if uniswap_v2 and uniswap_v2_router:
-        logger.info("Whitelisting Uniswap V2 router %s", uniswap_v2_router)
-        tx_hash = vault.guard_contract.functions.whitelistUniswapV2Router(uniswap_v2_router, "").transact({"from": deployer.address})
-        assert_transaction_success_with_explanation(web3, tx_hash)
-
-    if uniswap_v3 and uniswap_v3_router:
-        logger.info("Whitelisting Uniswap V3 router %s", uniswap_v3_router)
-        tx_hash = vault.guard_contract.functions.whitelistUniswapV3Router(uniswap_v3_router, "").transact({"from": deployer.address})
-        assert_transaction_success_with_explanation(web3, tx_hash)
 
     if anvil:
         anvil.close()

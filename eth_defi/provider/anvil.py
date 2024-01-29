@@ -33,7 +33,9 @@ The code was originally lifted from Brownie project.
 """
 
 import logging
+import os
 import random
+import shutil
 import sys
 import time
 import warnings
@@ -376,6 +378,10 @@ def launch_anvil(
 
     if unlocked_addresses is None:
         unlocked_addresses = []
+
+    # Give helpful error message
+    anvil = shutil.which("anvil")
+    assert anvil is not None, f"anvil command not in PATH {os.environ.get('PATH')}"
 
     # Find a free port
     if type(port) == tuple:

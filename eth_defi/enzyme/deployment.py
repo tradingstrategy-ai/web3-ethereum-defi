@@ -552,6 +552,7 @@ class EnzymeDeployment:
         web3: Web3,
         contract_addresses: dict,
         deployer: HexAddress | str | None = None,
+        usdc: Contract | None = None,
     ) -> "EnzymeDeployment":
         """Fetch enzyme deployment and some of its contract.
 
@@ -576,6 +577,9 @@ class EnzymeDeployment:
 
         :param deployer:
             Associate a deployer account with this Enzyme deployment to deploy new vaults.
+
+        :param usdc:
+            Set USDC contract address in unit testing.
 
         :return:
             Enzyme deployment details
@@ -608,10 +612,9 @@ class EnzymeDeployment:
         mln = get_deployed_contract(web3, "ERC20MockDecimals.json", contracts.comptroller_lib.functions.getMlnToken().call())
         weth = get_deployed_contract(web3, "ERC20MockDecimals.json", contracts.comptroller_lib.functions.getWethToken().call())
 
-        if "usdc" in contract_addresses:
-            usdc = get_deployed_contract(web3, "ERC20MockDecimals.json", contract_addresses["usdc"])
-        else:
-            usdc = None
+        if usdc is None:
+            if "usdc" in contract_addresses:
+                usdc = get_deployed_contract(web3, "ERC20MockDecimals.json", contract_addresses["usdc"])
 
         return EnzymeDeployment(
             web3,
