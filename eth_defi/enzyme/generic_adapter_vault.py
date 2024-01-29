@@ -14,8 +14,9 @@ from eth_defi.foundry.forge import deploy_contract_with_forge
 from eth_defi.hotwallet import HotWallet
 from eth_defi.token import TokenDetails, fetch_erc20_details
 from eth_defi.trace import assert_transaction_success_with_explanation
+from eth_defi.uniswap_v2.constants import UNISWAP_V2_DEPLOYMENTS
 from eth_defi.uniswap_v2.utils import ZERO_ADDRESS
-
+from eth_defi.uniswap_v3.constants import UNISWAP_V3_DEPLOYMENTS
 
 logger = logging.getLogger(__name__)
 
@@ -36,6 +37,8 @@ def deploy_vault_with_generic_adapter(
     etherscan_api_key: str | None = None,
     production=False,
     meta: str = "",
+    uniswap_v2=True,
+    uniswap_v3=True,
 ) -> Vault:
     """Deploy an Enzyme vault and make it secure.
 
@@ -100,6 +103,12 @@ def deploy_vault_with_generic_adapter(
 
     :param meta:
         Metadata for `GuardedGenericAdapterDeployed` event.
+
+    :param uniswap_v2:
+        Whiteliste Uniswap v2 trading
+
+    :param uniswap_v3:
+        Whiteliste Uniswap v3 trading
 
     :return:
         Freshly deployed vault
@@ -245,6 +254,28 @@ def deploy_vault_with_generic_adapter(
     )
     vault.deployer_hot_wallet = deployer
     assert vault.guard_contract.address == guard.address
+
+    match web3.eth.chain_id:
+        case 137:
+            uniswap_v3_router = UNISWAP_V3_DEPLOYMENTS["polygon"]["router"]
+            uniswap_v2_router= None
+        case 1:
+            uniswap_v2_router = UNISWAP_V2_DEPLOYMENTS["ethereum"]["router"]
+            uniswap_v3_router = UNISWAP_V3_DEPLOYMENTS["ethereum"]["router"]
+        case _:
+            logger.info("Uniswap not supported for chain %d", web3.eth.chain_id)
+            uniswap_v2_router = None
+            uniswap_v3_router = None
+
+    if uniswap_v2 and uniswap_v2_router:
+        logger.info("Whitelisting Uniswap V2 router %s", uniswap_v2_router)
+        tx_hash = vault.guard_contract.functions.whitelistUniswapV2Router(uniswap_v2_router, "").transact({"from": deployer.address})
+        assert_transaction_success_with_explanation(web3, tx_hash)
+
+    if uniswap_v3 and uniswap_v3_router:
+        logger.info("Whitelisting Uniswap V3 router %s", uniswap_v3_router)
+        tx_hash = vault.guard_contract.functions.whitelistUniswapV3Router(uniswap_v3_router, "").transact({"from": deployer.address})
+        assert_transaction_success_with_explanation(web3, tx_hash)
 
     logger.info(
         "Deployed. Vault is %s, initial owner is %s, asset manager is %s",
