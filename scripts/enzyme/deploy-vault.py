@@ -163,7 +163,7 @@ def main():
     if owner_address != deployer.address:
         logger.info("Ownership will be transferred to %s", owner_address)
     else:
-        logger.warning("Ownership will be retained at the deployer %d", deployer.address)
+        logger.warning("Ownership will be retained at the deployer %s", deployer.address)
 
     if asset_manager_address != deployer.address:
         logger.info("Asset manager is %s", asset_manager_address)

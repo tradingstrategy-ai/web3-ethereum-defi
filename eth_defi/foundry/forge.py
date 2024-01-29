@@ -219,7 +219,12 @@ def deploy_contract_with_forge(
         "--private-key", deployer.private_key.hex(),
     ] + cmd_line[2:]
 
-    with contextlib.chdir(project_folder):
+    # Py 3.11 only
+    # with contextlib.chdir(project_folder):
+    old_path = os.getcwd()
+    try:
+        os.chdir(project_folder)
+
         assert (project_folder / "foundry.toml").exists(), f"foundry.toml missing: {project_folder}"
 
         assert src_contract_file.suffix == ".sol", f"Not Solidity source file: {contract_file}"
@@ -231,6 +236,8 @@ def deploy_contract_with_forge(
         # Check we produced an ABI file, or was created earlier
         contract_abi = project_folder / "out" / contract_file / f"{contract_name}.json"
         assert contract_abi.exists(), f"Forge did not produce ABI file: {contract_abi.absolute()}"
+    finally:
+        os.chdir(old_path)
 
     # Mad Web3.py API
     contract_address = ChecksumAddress(HexAddress(HexStr(contract_address)))
