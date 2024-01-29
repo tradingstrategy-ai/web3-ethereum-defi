@@ -56,23 +56,29 @@ Example how to run this script to deploy a vault on Polygon:
 
 """
 
-import sys
 import logging
 import os
+import sys
 from pprint import pformat
 
 from eth_account import Account
 from web3.middleware import construct_sign_and_send_raw_middleware
 
 from eth_defi.abi import get_deployed_contract
-from eth_defi.enzyme.deployment import POLYGON_DEPLOYMENT, ETHEREUM_DEPLOYMENT, EnzymeDeployment
+from eth_defi.enzyme.deployment import (
+    ETHEREUM_DEPLOYMENT,
+    POLYGON_DEPLOYMENT,
+    EnzymeDeployment,
+)
 from eth_defi.enzyme.generic_adapter_vault import deploy_vault_with_generic_adapter
 from eth_defi.hotwallet import HotWallet
 from eth_defi.provider.anvil import launch_anvil
 from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.token import fetch_erc20_details
+from eth_defi.trace import assert_transaction_success_with_explanation
+from eth_defi.uniswap_v2.constants import UNISWAP_V2_DEPLOYMENTS
+from eth_defi.uniswap_v3.constants import UNISWAP_V3_DEPLOYMENTS
 from eth_defi.utils import setup_console_logging
-
 
 logger = logging.getLogger(__name__)
 
@@ -95,8 +101,10 @@ def main():
     fund_name = os.environ["FUND_NAME"]
     fund_symbol = os.environ["FUND_SYMBOL"]
     etherscan_api_key = os.environ.get("ETHERSCAN_API_KEY")
-    simulate = True if os.environ.get("SIMULATE", "").strip() else False
-    production = True if os.environ.get("PRODUCTION", "").strip() else False
+    simulate = os.environ.get("SIMULATE", "").strip() == "true"
+    production = os.environ.get("PRODUCTION", "").strip() == "true"
+    uniswap_v2 = os.environ.get("UNISWAP_V2", "").strip() == "true"
+    uniswap_v3 = os.environ.get("UNISWAP_V3", "").strip() == "true"
 
     if simulate:
         logger.info("Simulating deployment")
@@ -118,12 +126,16 @@ def main():
         if token_address:
             whitelisted_assets.append(fetch_erc20_details(web3, token_address))
 
-    # Read Enzyme deployment from chain
+    # Read Enzyme deployment and other configs (Uniswap router, etc) from chain
     match web3.eth.chain_id:
         case 137:
             enzyme = EnzymeDeployment.fetch_deployment(web3, POLYGON_DEPLOYMENT, deployer=deployer.address)
+            uniswap_v2_router = None
+            uniswap_v3_router = UNISWAP_V3_DEPLOYMENTS["polygon"]["router"]
         case 1:
             enzyme = EnzymeDeployment.fetch_deployment(web3, ETHEREUM_DEPLOYMENT, deployer=deployer.address)
+            uniswap_v2_router = UNISWAP_V2_DEPLOYMENTS["ethereum"]["router"]
+            uniswap_v3_router = UNISWAP_V3_DEPLOYMENTS["ethereum"]["router"]
         case _:
             raise AssertionError(f"Chain {web3.eth.chain_id} not supported")
 
@@ -185,13 +197,22 @@ def main():
         production=production,
     )
 
+    if uniswap_v2 and uniswap_v2_router:
+        logger.info("Whitelisting Uniswap V2 router %s", uniswap_v2_router)
+        tx_hash = vault.guard_contract.functions.whitelistUniswapV2Router(uniswap_v2_router, "").transact({"from": deployer.address})
+        assert_transaction_success_with_explanation(web3, tx_hash)
+
+    if uniswap_v3 and uniswap_v3_router:
+        logger.info("Whitelisting Uniswap V3 router %s", uniswap_v3_router)
+        tx_hash = vault.guard_contract.functions.whitelistUniswapV3Router(uniswap_v3_router, "").transact({"from": deployer.address})
+        assert_transaction_success_with_explanation(web3, tx_hash)
+
     if anvil:
         anvil.close()
 
     logger.warning("GuardV0 owner is still set to the deployer %s", deployer.address)
     logger.info("Vault deployed")
     logger.info("Vault info is:\n%s", pformat(vault.get_deployment_info()))
-
 
 
 if __name__ == "__main__":
