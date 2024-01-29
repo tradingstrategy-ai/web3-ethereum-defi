@@ -226,6 +226,8 @@ contract GuardV0 is IGuard, Ownable {
             validate_swapExactTokensForTokens(callData);
         } else if(selector == getSelector("exactInput((bytes,address,uint256,uint256,uint256))")) {
             validate_exactInput(callData);
+        } else if(selector == getSelector("multicall(bytes[])")) {
+            validate_multicall(callData);
         } else if(selector == getSelector("transfer(address,uint256)")) {
             validate_transfer(callData);
         } else if(selector == getSelector("approve(address,uint256)")) {
@@ -294,6 +296,18 @@ contract GuardV0 is IGuard, Ownable {
     function whitelistUniswapV3Router(address router, string calldata notes) external {
         allowCallSite(router, getSelector("exactInput((bytes,address,uint256,uint256,uint256))"), notes);
         allowCallSite(router, getSelector("exactOutput((bytes,address,uint256,uint256,uint256))"), notes);
+        allowApprovalDestination(router, notes);
+    }
+
+    // validate 1delta trade
+    function validate_multicall(bytes memory callData) public view {
+        (ExactInputParams memory params) = abi.decode(callData, (ExactInputParams));
+        
+        require(isAllowedReceiver(params.recipient), "Receiver address does not match");
+    }
+
+    function whitelistOnedeltaBrokerProxy(address router, string calldata notes) external {
+        allowCallSite(router, getSelector("multicall(bytes[])"), notes);
         allowApprovalDestination(router, notes);
     }
 }
