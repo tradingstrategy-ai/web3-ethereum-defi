@@ -28,7 +28,7 @@ def deploy_vault_with_generic_adapter(
     deployer: HotWallet,
     asset_manager: HexAddress | str,
     owner: HexAddress | str,
-    usdc: Contract,
+    denomination_asset: Contract,
     terms_of_service: Contract,
     fund_name="Example Fund",
     fund_symbol="EXAMPLE",
@@ -89,7 +89,7 @@ def deploy_vault_with_generic_adapter(
 
         USDC is always whitelisted.
 
-    :param usdc:
+    :param denomination_asset:
         USDC token used as the vault denomination currency.
 
     :param etherscan_api_key:
@@ -121,7 +121,7 @@ def deploy_vault_with_generic_adapter(
         "Deploying Enzyme vault. Enzyme fund deployer: %s, Terms of service: %s, USDC: %s, Etherscan API key: %s",
         deployment.contracts.fund_deployer.address,
         terms_of_service.address,
-        usdc.address,
+        denomination_asset.address,
         etherscan_api_key,
     )
 
@@ -164,14 +164,14 @@ def deploy_vault_with_generic_adapter(
 
     comptroller, vault = deployment.create_new_vault(
         deployer.address,
-        usdc,
+        denomination_asset,
         policy_configuration=policy_configuration,
         fund_name=fund_name,
         fund_symbol=fund_symbol,
     )
 
-    assert comptroller.functions.getDenominationAsset().call() == usdc.address
-    assert vault.functions.getTrackedAssets().call() == [usdc.address]
+    assert comptroller.functions.getDenominationAsset().call() == denomination_asset.address
+    assert vault.functions.getTrackedAssets().call() == [denomination_asset.address]
 
     # asset manager role is the trade executor
     if asset_manager != deployer.address:
@@ -187,7 +187,7 @@ def deploy_vault_with_generic_adapter(
         "TermedVaultUSDCPaymentForwarder.sol",
         "TermedVaultUSDCPaymentForwarder",
         deployer,
-        [usdc.address, comptroller.address, terms_of_service.address],
+        [denomination_asset.address, comptroller.address, terms_of_service.address],
         etherscan_api_key=etherscan_api_key,
     )
     logger.info("TermedVaultUSDCPaymentForwarder is %s deployed at %s", payment_forwarder.address, tx_hash.hex())
@@ -215,13 +215,13 @@ def deploy_vault_with_generic_adapter(
     deployed_at_block = receipt["blockNumber"]
 
     assert generic_adapter.functions.getIntegrationManager().call() == deployment.contracts.integration_manager.address
-    assert comptroller.functions.getDenominationAsset().call() == usdc.address
-    assert vault.functions.getTrackedAssets().call() == [usdc.address]
+    assert comptroller.functions.getDenominationAsset().call() == denomination_asset.address
+    assert vault.functions.getTrackedAssets().call() == [denomination_asset.address]
     if asset_manager != deployer.address:
         assert vault.functions.canManageAssets(asset_manager).call()
     assert guard.functions.isAllowedSender(vault.address).call()  # vault = asset manager for the guard
 
-    usdc_token = fetch_erc20_details(web3, usdc.address)
+    usdc_token = fetch_erc20_details(web3, denomination_asset.address)
     all_assets = [usdc_token] + whitelisted_assets
     for asset in all_assets:
         logger.info("Whitelisting %s", asset)
