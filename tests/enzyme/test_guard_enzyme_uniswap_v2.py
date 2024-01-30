@@ -295,6 +295,12 @@ def test_enzyme_usdc_payment_forwarder_transfer_with_authorization_and_terms(
     assert terms_of_service.functions.canAddressProceed(vault_investor.address).call()
 
 
+def test_fetch_terms_of_service(web3: Web3, vault: Vault):
+    """Resolve terms of service based on the vault."""
+    vault2 = Vault.fetch(web3, vault.address, payment_forwarder=vault.payment_forwarder.address)
+    assert vault2.terms_of_service_contract is not None
+
+
 def test_enzyme_guarded_trade_singlehop_uniswap_v2(
     web3: Web3,
     deployer: HexAddress,
