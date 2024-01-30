@@ -189,7 +189,7 @@ def deploy_contract_with_forge(
 
     if etherscan_api_key:
         # Tuned retry parameters
-        #
+        # https://github.com/foundry-rs/foundry/issues/6953
         cmd_line += [
             "--etherscan-api-key", etherscan_api_key,
             "--verify",
