@@ -188,9 +188,13 @@ def deploy_contract_with_forge(
     ]
 
     if etherscan_api_key:
+        # Tuned retry parameters
+        #
         cmd_line += [
             "--etherscan-api-key", etherscan_api_key,
-            "--verify"
+            "--verify",
+            "--retries", "10",
+            "--delay", "30",
         ]
 
     cmd_line += [
