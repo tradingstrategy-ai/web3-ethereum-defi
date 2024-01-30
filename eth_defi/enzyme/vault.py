@@ -109,6 +109,13 @@ class Vault:
     #:
     guard_contract: Optional[Contract] = None
 
+    #: Terms of service contract.
+    #:
+    #: - We must have a TermedVaultUSDCPaymentForwarder
+    #: - Resolved from TermedVaultUSDCPaymentForwarder.termsOfService() accessor
+    #:
+    terms_of_service_contract: Optional[Contract] = None
+
     #: What was the block number when this vault was deployed
     #:
     deployed_at_block: int | None = None
@@ -381,10 +388,14 @@ class Vault:
         else:
             generic_adapter_contract = None
 
+        terms_of_service_contract = None
         if payment_forwarder is not None:
             try:
                 payment_forwarder_contract = get_deployed_contract(web3, f"TermedVaultUSDCPaymentForwarder.json", payment_forwarder)
                 payment_forwarder_contract.functions.isTermsOfServiceEnabled().call()
+                terms_of_service_address = payment_forwarder_contract.functions.termsOfService().call()
+                terms_of_service_contract = get_deployed_contract(web3, "terms-of-service/TermsOfService.json", terms_of_service_address)
+
             except (ValueError, ContractLogicError):
                 # EVMTester will give ValueError if the function does not exist
                 # Legacy
@@ -411,6 +422,7 @@ class Vault:
             generic_adapter_contract,
             payment_forwarder_contract,
             guard_contract,
+            terms_of_service_contract,
             deployed_at_block=deployed_at_block,
             nominated_owner=nominated_owner,
             asset_manager=asset_manager,  # We cannot read asset manager back from the vault because it's just EVM hash map
