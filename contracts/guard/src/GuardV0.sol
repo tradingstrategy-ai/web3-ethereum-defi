@@ -58,6 +58,9 @@ contract GuardV0 is IGuard, Ownable {
     // Allowed routers
     mapping(address destination => bool allowed) public allowedApprovalDestinations;
 
+    // Allowed routers
+    mapping(address destination => bool allowed) public allowedDelegationApprovalDestinations;
+
     event CallSiteApproved(address target, bytes4 selector, string notes);
     event CallSiteRemoved(address target, bytes4 selector, string notes);
 
@@ -72,6 +75,9 @@ contract GuardV0 is IGuard, Ownable {
 
     event ApprovalDestinationApproved(address sender, string notes);
     event ApprovalDestinationRemoved(address sender, string notes);
+
+    event DelegationApprovalDestinationApproved(address sender, string notes);
+    event DelegationApprovalDestinationRemoved(address sender, string notes);
 
     event AssetApproved(address sender, string notes);
     event AssetRemoved(address sender, string notes);
@@ -151,6 +157,16 @@ contract GuardV0 is IGuard, Ownable {
         emit ApprovalDestinationRemoved(destination, notes);
     }
 
+    function allowDelegationApprovalDestination(address destination, string calldata notes) public onlyOwner {
+        allowedDelegationApprovalDestinations[destination] = true;
+        emit ApprovalDestinationApproved(destination, notes);
+    }
+
+    function removeDelegationApprovalDestination(address destination, string calldata notes) public onlyOwner {
+        delete allowedApprovalDestinations[destination];
+        emit ApprovalDestinationRemoved(destination, notes);
+    }
+
     function allowAsset(address asset, string calldata notes) public onlyOwner {
         allowedAssets[asset] = true;
         emit AssetApproved(asset, notes);
@@ -183,6 +199,10 @@ contract GuardV0 is IGuard, Ownable {
         return allowedApprovalDestinations[receiver] == true;
     }
 
+    function isAllowedDelegationApprovalDestination(address receiver) public view returns (bool) {
+        return allowedDelegationApprovalDestinations[receiver] == true;
+    }
+
     function isAllowedAsset(address token) public view returns (bool) {
         return allowedAssets[token] == true;
     }
@@ -197,9 +217,19 @@ contract GuardV0 is IGuard, Ownable {
         require(isAllowedApprovalDestination(to), "Approve address does not match");
     }
 
+    function validate_approveDelegation(bytes memory callData) public view {
+        (address to, ) = abi.decode(callData, (address, uint));
+        require(isAllowedDelegationApprovalDestination(to), "Approve delegation address does not match");
+    }
+
     function whitelistToken(address token, string calldata notes) external {
         allowCallSite(token, getSelector("transfer(address,uint256)"), notes);
         allowCallSite(token, getSelector("approve(address,uint256)"), notes);
+        allowAsset(token, notes);
+    }
+
+    function whitelistTokenForDelegation(address token, string calldata notes) external {
+        allowCallSite(token, getSelector("approveDelegation(address,uint256)"), notes);
         allowAsset(token, notes);
     }
 
@@ -232,6 +262,8 @@ contract GuardV0 is IGuard, Ownable {
             validate_transfer(callData);
         } else if(selector == getSelector("approve(address,uint256)")) {
             validate_approve(callData);
+        } else if(selector == getSelector("approveDelegation(address,uint256)")) {
+            validate_approveDelegation(callData);
         } else {
             revert("Unknown function selector");
         }
@@ -306,8 +338,10 @@ contract GuardV0 is IGuard, Ownable {
         require(isAllowedReceiver(params.recipient), "Receiver address does not match");
     }
 
-    function whitelistOnedeltaBrokerProxy(address router, string calldata notes) external {
-        allowCallSite(router, getSelector("multicall(bytes[])"), notes);
-        allowApprovalDestination(router, notes);
+    function whitelistOnedelta(address brokerProxy, address lendingPool, string calldata notes) external {
+        allowCallSite(brokerProxy, getSelector("multicall(bytes[])"), notes);
+        allowApprovalDestination(brokerProxy, notes);
+        allowDelegationApprovalDestination(brokerProxy, notes);
+        allowApprovalDestination(lendingPool, notes);
     }
 }

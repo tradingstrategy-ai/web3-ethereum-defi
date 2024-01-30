@@ -17,15 +17,19 @@ from web3 import EthereumTesterProvider, Web3
 from web3._utils.events import EventLogErrorFlags
 from web3.contract import Contract
 
+from eth_defi.aave_v3.deployment import AaveV3Deployment
+from eth_defi.aave_v3.deployment import fetch_deployment as fetch_aave_deployment
 from eth_defi.abi import get_contract, get_deployed_contract, get_function_selector
 from eth_defi.deploy import deploy_contract
 from eth_defi.hotwallet import HotWallet
 from eth_defi.one_delta.deployment import OneDeltaDeployment
 from eth_defi.one_delta.deployment import fetch_deployment as fetch_1delta_deployment
+from eth_defi.one_delta.position import approve, open_short_position
 from eth_defi.provider.anvil import fork_network_anvil, mine
 from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.simple_vault.transact import encode_simple_vault_transaction
 from eth_defi.token import create_token, fetch_erc20_details
+from eth_defi.trace import assert_transaction_success_with_explanation
 
 pytestmark = pytest.mark.skipif(
     (os.environ.get("JSON_RPC_POLYGON") is None) or (shutil.which("anvil") is None),
@@ -67,9 +71,31 @@ def usdc(web3) -> Contract:
 
 
 @pytest.fixture
+def ausdc(web3):
+    """Get aPolUSDC on Polygon."""
+    return fetch_erc20_details(web3, "0x625E7708f30cA75bfd92586e17077590C60eb4cD", contract_name="aave_v3/AToken.json").contract
+
+
+@pytest.fixture
 def weth(web3) -> Contract:
     """Get WETH on Polygon."""
     return fetch_erc20_details(web3, "0x7ceB23fD6bC0adD59E62ac25578270cFf1b9f619").contract
+
+
+@pytest.fixture
+def vweth(web3) -> Contract:
+    """Get vPolWETH on Polygon."""
+    return fetch_erc20_details(web3, "0x0c84331e39d6658Cd6e6b9ba04736cC4c4734351", contract_name="aave_v3/VariableDebtToken.json").contract
+
+
+@pytest.fixture
+def aave_v3_deployment(web3) -> AaveV3Deployment:
+    return fetch_aave_deployment(
+        web3,
+        pool_address="0x794a61358D6845594F94dc1DB02A252b5b4814aD",
+        data_provider_address="0x69FA688f1Dc47d4B5d8029D5a35FB7a548310654",
+        oracle_address="0xb023e699F5a33916Ea823A16485e259257cA8Bd1",
+    )
 
 
 @pytest.fixture
@@ -110,11 +136,14 @@ def third_party(web3) -> str:
 def vault(
     web3: Web3,
     usdc: Contract,
+    ausdc: Contract,
     weth: Contract,
+    vweth: Contract,
     deployer: str,
     owner: str,
     asset_manager: str,
     one_delta_deployment: OneDeltaDeployment,
+    aave_v3_deployment: AaveV3Deployment,
 ) -> Contract:
     """Mock vault."""
     vault = deploy_contract(web3, "guard/SimpleVaultV0.json", deployer, asset_manager)
@@ -128,11 +157,15 @@ def vault(
     assert guard.functions.owner().call() == owner
 
     broker_proxy_address = one_delta_deployment.broker_proxy.address
-    note = "Allow 1delta broker proxy"
-    tx_hash = guard.functions.whitelistOnedeltaBrokerProxy(broker_proxy_address, note).transact({"from": owner})
+    aave_pool_address = aave_v3_deployment.pool.address
+    note = "Allow 1delta"
+    tx_hash = guard.functions.whitelistOnedelta(broker_proxy_address, aave_pool_address, note).transact({"from": owner})
     receipt = web3.eth.get_transaction_receipt(tx_hash)
+    assert len(receipt["logs"]) == 4
 
-    assert len(receipt["logs"]) == 2
+    # check 1delta broker and aave pool were approved
+    assert guard.functions.isAllowedApprovalDestination(broker_proxy_address).call()
+    assert guard.functions.isAllowedApprovalDestination(aave_pool_address).call()
 
     # Check 1delta broker call sites was enabled in the receipt
     call_site_events = guard.events.CallSiteApproved().process_receipt(receipt, errors=EventLogErrorFlags.Ignore)
@@ -140,12 +173,13 @@ def vault(
     assert call_site_events[0]["args"]["notes"] == note
     assert call_site_events[0]["args"]["selector"].hex() == multicall_selector.hex()
     assert call_site_events[0]["args"]["target"] == broker_proxy_address
-
     assert guard.functions.isAllowedCallSite(broker_proxy_address, multicall_selector).call()
 
     guard.functions.whitelistToken(usdc.address, "Allow USDC").transact({"from": owner})
     guard.functions.whitelistToken(weth.address, "Allow WETH").transact({"from": owner})
-    assert guard.functions.callSiteCount().call() == 5
+    guard.functions.whitelistToken(ausdc.address, "Allow aUSDC").transact({"from": owner})
+    guard.functions.whitelistTokenForDelegation(vweth.address, "Allow vWETH").transact({"from": owner})
+    assert guard.functions.callSiteCount().call() == 8
 
     return vault
 
@@ -164,8 +198,11 @@ def test_vault_initialised(
     vault: Contract,
     guard: Contract,
     usdc: Contract,
+    ausdc: Contract,
     weth: Contract,
+    vweth: Contract,
     one_delta_deployment: OneDeltaDeployment,
+    aave_v3_deployment: AaveV3Deployment,
 ):
     """Vault and guard are initialised for the owner."""
     assert guard.functions.owner().call() == owner
@@ -176,11 +213,64 @@ def test_vault_initialised(
     assert guard.functions.isAllowedReceiver(vault.address).call() is True
 
     # We have accessed needed for a swap
-    assert guard.functions.callSiteCount().call() == 5
     broker = one_delta_deployment.broker_proxy
+    assert guard.functions.callSiteCount().call() == 8
     assert guard.functions.isAllowedApprovalDestination(broker.address)
+    assert guard.functions.isAllowedApprovalDestination(aave_v3_deployment.pool.address)
     assert guard.functions.isAllowedCallSite(broker.address, get_function_selector(broker.functions.multicall)).call()
     assert guard.functions.isAllowedCallSite(usdc.address, get_function_selector(usdc.functions.approve)).call()
     assert guard.functions.isAllowedCallSite(usdc.address, get_function_selector(usdc.functions.transfer)).call()
+    assert guard.functions.isAllowedCallSite(ausdc.address, get_function_selector(ausdc.functions.approve)).call()
     assert guard.functions.isAllowedAsset(usdc.address).call()
+    assert guard.functions.isAllowedAsset(ausdc.address).call()
     assert guard.functions.isAllowedAsset(weth.address).call()
+
+
+def test_guard_can_open_short_1delta(
+    web3: Web3,
+    one_delta_deployment: OneDeltaDeployment,
+    aave_v3_deployment: AaveV3Deployment,
+    asset_manager: str,
+    deployer: str,
+    vault: Contract,
+    guard: Contract,
+    usdc: Contract,
+    ausdc: Contract,
+    weth: Contract,
+    vweth: Contract,
+):
+    """Asset manager can perform open short multicall."""
+    weth_amount = 1 * 10**18
+    usdc_amount = 10_000 * 10**6
+    usdc.functions.transfer(vault.address, usdc_amount).transact({"from": deployer})
+
+    approve_calls = approve(
+        one_delta_deployment=one_delta_deployment,
+        collateral_token=usdc,
+        borrow_token=weth,
+        atoken=ausdc,
+        vtoken=vweth,
+        aave_v3_deployment=aave_v3_deployment,
+        collateral_amount=usdc_amount,
+    )
+    for approve_call in approve_calls:
+        target, call_data = encode_simple_vault_transaction(approve_call)
+        tx_hash = vault.functions.performCall(target, call_data).transact({"from": asset_manager})
+        assert_transaction_success_with_explanation(web3, tx_hash)
+
+    # trade_call = open_short_position(
+    #     one_delta_deployment=one_delta_deployment,
+    #     collateral_token=usdc,
+    #     borrow_token=weth,
+    #     pool_fee=POOL_FEE_RAW,
+    #     collateral_amount=usdc_amount,
+    #     borrow_amount=weth_amount,
+    #     wallet_address=vault.address,
+    # )
+
+    # target, call_data = encode_simple_vault_transaction(trade_call)
+    # tx_hash = vault.functions.performCall(target, call_data).transact({"from": asset_manager})
+
+    # assert_transaction_success_with_explanation(web3, tx_hash)
+
+    # assert weth.functions.balanceOf(vault.address).call() == 3326659993034849236
