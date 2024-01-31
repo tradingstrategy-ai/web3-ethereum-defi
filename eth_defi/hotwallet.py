@@ -1,4 +1,4 @@
-"""Utilities for managing hot wallets.
+"""How wallet management utilities.
 
 - Create local wallets from a private key
 
@@ -94,20 +94,22 @@ class SignedTransactionWithNonce(NamedTuple):
 
 
 class HotWallet:
-    """Hot wallet.
+    """Hot wallet for signing transactions effectively.
 
-    A hot wallet maintains an unecrypted private key of an Ethereum address in the process memory.
-    It is able to sign transactions.
+    - A hot wallet maintains an plain text private key of an Ethereum address in the process memory
+      using :py:class:`eth_account.signers.local.LocalAccount` and nonce counter.
 
-    This particular hot wallet implementation carries the information of allocated tx nonces with us.
-    This allows us to prepare multiple transactions from the same account upfront.
+    - It is able to sign transactions, including batches, using manual nonce management.
+      See :py:meth:`sync_nonce`, :py:meth:`allocate_nonce` and :py:meth:`sign_transaction_with_new_nonce`.
 
-    `See also how to create private keys from command line <https://ethereum.stackexchange.com/q/82926/620>`_.
+    - Signed transactions carry extra debug information with them in :py:class:`SignedTransactionWithNonce`
 
     .. note ::
 
-        Not thread safe. This class manages consumed nonce counter locally.
+        This class is not thread safe. If mutiple threads try to sign transactions
+        at the same time, nonce tracking may be lost.
 
+    `See also how to create private keys from command line <https://ethereum.stackexchange.com/q/82926/620>`_.
     """
 
     def __init__(self, account: LocalAccount):
