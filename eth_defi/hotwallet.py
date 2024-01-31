@@ -106,7 +106,7 @@ class HotWallet:
 
     .. note ::
 
-        This class is not thread safe. If mutiple threads try to sign transactions
+        This class is not thread safe. If multiple threads try to sign transactions
         at the same time, nonce tracking may be lost.
 
     `See also how to create private keys from command line <https://ethereum.stackexchange.com/q/82926/620>`_.
