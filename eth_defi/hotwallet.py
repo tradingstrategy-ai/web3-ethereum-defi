@@ -113,6 +113,7 @@ class HotWallet:
     """
 
     def __init__(self, account: LocalAccount):
+        """Create a hot wallet from a local account."""
         self.account = account
         self.current_nonce: Optional[int] = None
 
