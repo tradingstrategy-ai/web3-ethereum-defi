@@ -17,6 +17,8 @@ Examples include
 
 * Making swaps on Uniswap, Pancakeswap, others
 
+* Creating your own price feeds for ERC-20 tokens
+
 * Data research with Jupyter Notebooks and Pandas
 
 * Integrating DeFi protocols for backend and data research pipeline
