@@ -121,7 +121,7 @@ class HotWallet:
 
     @property
     def address(self) -> HexAddress:
-        """Ethereum address ofof the wallet."""
+        """Ethereum address of the wallet."""
         return self.account.address
 
     @property
