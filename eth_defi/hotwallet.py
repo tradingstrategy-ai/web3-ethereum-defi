@@ -131,7 +131,7 @@ class HotWallet:
         return self.account._private_key
 
     def sync_nonce(self, web3: Web3):
-        """Read the current nonce"""
+        """Initialise the current nonce from the on-chain data."""
         self.current_nonce = web3.eth.get_transaction_count(self.account.address)
         logger.info("Synced nonce for %s to %d", self.account.address, self.current_nonce)
 
