@@ -19,7 +19,6 @@ from hexbytes import HexBytes
 from web3 import Web3
 from web3._utils.contracts import prepare_transaction
 from web3.contract.contract import ContractFunction
-from web3.contract.utils import build_transaction_for_function
 
 from eth_defi.gas import estimate_gas_fees, apply_gas
 from eth_defi.tx import decode_signed_transaction
