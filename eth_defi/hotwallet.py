@@ -14,6 +14,7 @@ from typing import Optional, NamedTuple
 from eth_account import Account
 from eth_account.datastructures import __getitem__
 from eth_account.signers.local import LocalAccount
+from eth_typing import HexAddress
 from hexbytes import HexBytes
 from web3 import Web3
 from web3._utils.contracts import prepare_transaction
@@ -120,12 +121,13 @@ class HotWallet:
         return f"<Hot wallet {self.account.address}>"
 
     @property
-    def address(self):
-        """Get address of the private key of the wallet."""
+    def address(self) -> HexAddress:
+        """Ethereum address ofof the wallet."""
         return self.account.address
 
     @property
     def private_key(self) -> HexBytes:
+        """The private key as plain text."""
         return self.account._private_key
 
     def sync_nonce(self, web3: Web3):
