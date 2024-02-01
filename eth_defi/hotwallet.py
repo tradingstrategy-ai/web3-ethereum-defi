@@ -106,13 +106,16 @@ class HotWallet:
 
     To use this class with the existing web3.py `Contract.functions.myFunc().transact()`
     you can add the private key as the local signing middleware. However you
-    should try to use :py:meth:`sign_bound_call_with_new_nonce` instead when possible.
+    should try to use  :py:meth:`sign_bound_call_with_new_nonce` instead when possible.
+    See also :py:func:`eth_defi.middleware.construct_sign_and_send_raw_middleware_anvil`
+    when working with Anvil.
 
     Example:
 
     .. code-block:: python
 
             from eth_account import Account
+            from web3.middleware import construct_sign_and_send_raw_middleware
 
             from eth_defi.trace import assert_transaction_success_with_explanation
             from eth_defi.hotwallet import HotWallet
@@ -130,14 +133,16 @@ class HotWallet:
 
             # Create a hot wallet instance
             hot_wallet = HotWallet(account)
-            hot_wallet.sync_nonce(ewb3)
+            hot_wallet.sync_nonce(web3)
 
             # Use web3.py signing (NOTE: does not correctly increment nonce)
             # so you need to call hot_wallet.sync_nonce() after the tx has been confirmed
-            usdc.functions.transfer(
+            tx_hash = usdc.functions.transfer(
                 some_address,
                 500 * 10**6,
             ).transact({"from": hot_wallet.address})
+            assert_transaction_success_with_explanation(web3, tx_hash)
+            hot_wallet.sync_nonce(web3)  # Sync nonce again, as the manual management is off
 
     .. note ::
 
