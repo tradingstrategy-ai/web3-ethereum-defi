@@ -104,6 +104,41 @@ class HotWallet:
 
     - Signed transactions carry extra debug information with them in :py:class:`SignedTransactionWithNonce`
 
+    To use this class with the existing web3.py `Contract.functions.myFunc().transact()`
+    you can add the private key as the local signing middleware. However you
+    should try to use :py:meth:`sign_bound_call_with_new_nonce` instead when possible.
+
+    Example:
+
+    .. code-block:: python
+
+            from eth_account import Account
+
+            from eth_defi.trace import assert_transaction_success_with_explanation
+            from eth_defi.hotwallet import HotWallet
+
+            account = Account.create()
+
+            # Move 1/2 of ETH from the first test account to ours
+            test_account_1 = web3.eth.accounts[0]
+            stash = web3.eth.get_balance(test_account_1)
+            tx_hash = web3.eth.send_transaction({"from": deployer, "to": account.address, "value": stash // 2})
+            assert_transaction_success_with_explanation(web3, tx_hash)
+
+            # Attach local private key to the web3.py middleware machinery
+            web3.middleware_onion.add(construct_sign_and_send_raw_middleware_anvil(account))
+
+            # Create a hot wallet instance
+            hot_wallet = HotWallet(account)
+            hot_wallet.sync_nonce(ewb3)
+
+            # Use web3.py signing (NOTE: does not correctly increment nonce)
+            # so you need to call hot_wallet.sync_nonce() after the tx has been confirmed
+            usdc.functions.transfer(
+                some_address,
+                500 * 10**6,
+            ).transact({"from": hot_wallet.address})
+
     .. note ::
 
         This class is not thread safe. If multiple threads try to sign transactions
