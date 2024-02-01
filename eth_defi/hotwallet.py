@@ -129,7 +129,7 @@ class HotWallet:
             assert_transaction_success_with_explanation(web3, tx_hash)
 
             # Attach local private key to the web3.py middleware machinery
-            web3.middleware_onion.add(construct_sign_and_send_raw_middleware_anvil(account))
+            web3.middleware_onion.add(construct_sign_and_send_raw_middleware(account))
 
             # Create a hot wallet instance
             hot_wallet = HotWallet(account)
