@@ -160,6 +160,13 @@ def deploy_contract_with_forge(
 
         Need to be able to stringify these for forge.
 
+    :param etherscan_api_key:
+        Needed for the source code verification on Etherscan and related services.
+
+        You need a private API key.
+
+        E.g. ``3F3H8....`.
+
     :param register_for_tracing:
         Make the symbolic contract information available on web3 instance.
 
