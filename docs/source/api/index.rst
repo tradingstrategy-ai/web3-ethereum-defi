@@ -24,6 +24,8 @@ API documentation
    one_delta/index
    enzyme/index
    chainlink/index
+   foundry/index
+   etherscan/index
    event_reader/index
    price_oracle/index
    data_research/index

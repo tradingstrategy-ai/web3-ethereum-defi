@@ -1,19 +1,19 @@
-"""Forge toolchain integration.
+"""Forge smart contracte development toolchain integration.
 
 - Compile and deploy smart contracts using Forge
 
 - Verify smart contracts on Etherscan
+
+- See `Foundry book <https://book.getfoundry.sh/>`__ for more information.
 """
-import contextlib
 import datetime
-import io
 import logging
 import os
 
 from pathlib import Path
 from shutil import which
 from subprocess import DEVNULL, PIPE
-from typing import Collection, Tuple
+from typing import Tuple
 
 import psutil
 from eth_typing import ChecksumAddress, HexAddress, HexStr
@@ -22,10 +22,10 @@ from web3 import Web3
 from web3.contract import Contract
 
 from eth_defi.abi import get_deployed_contract
-from eth_defi.confirmation import wait_transactions_to_complete
 from eth_defi.deploy import register_contract
 from eth_defi.hotwallet import HotWallet
 from eth_defi.trace import assert_transaction_success_with_explanation
+
 
 logger = logging.getLogger(__name__)
 
@@ -101,7 +101,9 @@ def deploy_contract_with_forge(
     timeout=DEFAULT_TIMEOUT,
     wait_for_block_confirmations=0,
 ) -> Tuple[Contract, HexBytes]:
-    """Deploys a new contract using Forge command from Foundry.
+    """Deploy and verify smart contract with Forge.
+
+    - The smart contracts must be developed with Foundry tool chain and its `forge` command
 
     - Uses Forge to verify the contract on Etherscan
 
@@ -111,10 +113,22 @@ def deploy_contract_with_forge(
 
     .. code-block:: python
 
-        token = deploy_contract(web3, deployer, "ERC20Mock.json", name, symbol, supply)
-        print(f"Deployed ERC-20 token at {token.address}")
+        guard, tx_hash = deploy_contract_with_forge(
+            web3,
+            CONTRACTS_ROOT / "guard",  # Foundry projec path
+            "GuardV0.sol",  # src/GuardV0.sol
+            f"GuardV0",  # GuardV0 is the smart contract name
+            deployer,  # Local account with a private key we use for the deployment
+            etherscan_api_key=etherscan_api_key,  # Etherscan API key we use for the verification
+        )
+        logger.info("GuardV0 is %s deployed at %s", guard.address, tx_hash.hex())
+
+        # Test the deployed contract
+        assert guard.functions.getInternalVersion().call() == 1
 
     Assumes standard Foundry project layout with foundry.toml, src and out.
+
+    See `Foundry book <https://book.getfoundry.sh/>`__ for more information.
 
     :param web3:
         Web3 instance
@@ -125,17 +139,17 @@ def deploy_contract_with_forge(
         We need to be able to manually track the nonce across multiple contract deployments.
 
     :param project_folder:
-        Foundry project with ``foundry.toml` in the root.
+        Foundry project with `foundry.toml` in the root.
 
     :param contract_file:
         Contract path relative to the project folder.
 
-        E.g. `ermsOfService.sol`.
+        E.g. `TermsOfService.sol`.
 
     :param contract_name:
         The smart contract name within the file.
 
-        E.g. `TermsOfServce`.
+        E.g. `TermsOfService`.
 
     :param constructor_args:
         Other arguments to pass to the contract's constructor.
