@@ -128,7 +128,11 @@ def deploy_contract_with_forge(
 
     Assumes standard Foundry project layout with foundry.toml, src and out.
 
-    See `Foundry book <https://book.getfoundry.sh/>`__ for more information.
+    See
+
+    - `Foundry book <https://book.getfoundry.sh/>`__ for more information
+
+    - :py:func:`eth_defi.deploy.deploy_contract` for simple, non-verified contract deployments
 
     :param web3:
         Web3 instance

@@ -44,6 +44,8 @@ def deploy_contract(
         token = deploy_contract(web3, deployer, "ERC20Mock.json", name, symbol, supply)
         print(f"Deployed ERC-20 token at {token.address}")
 
+    If you need to verify the deployed contract use :py:func:`eth_defi.foundry.forge.deploy_contract_with_forge`.
+
     :param web3:
         Web3 instance
 
