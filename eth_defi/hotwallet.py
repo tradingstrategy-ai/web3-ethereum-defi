@@ -125,7 +125,7 @@ class HotWallet:
             # Move 1/2 of ETH from the first test account to ours
             test_account_1 = web3.eth.accounts[0]
             stash = web3.eth.get_balance(test_account_1)
-            tx_hash = web3.eth.send_transaction({"from": deployer, "to": account.address, "value": stash // 2})
+            tx_hash = web3.eth.send_transaction({"from": test_account_1, "to": account.address, "value": stash // 2})
             assert_transaction_success_with_explanation(web3, tx_hash)
 
             # Attach local private key to the web3.py middleware machinery
