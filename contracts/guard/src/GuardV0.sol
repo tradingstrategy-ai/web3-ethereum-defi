@@ -17,6 +17,7 @@ import "./IGuard.sol";
  */
 contract GuardV0 is IGuard, Ownable {
     using Path for bytes;
+    using BytesLib for bytes;
 
     struct ExactInputParams {
         bytes path;
@@ -333,8 +334,44 @@ contract GuardV0 is IGuard, Ownable {
 
     // validate 1delta trade
     function validate_multicall(bytes memory callData) public view {
-        
+        (bytes[] memory callArr) = abi.decode(callData, (bytes[]));
+
+        // loop through all sub-calls and validate
+        for (uint8 i; i < callArr.length; i++) {
+            bytes memory callDataWithSelector = callArr[i];
+
+            // bytes memory has to be sliced using BytesLib
+            bytes4 selector = bytes4(callDataWithSelector.slice(0, 4));
+            bytes memory subCallData = callDataWithSelector.slice(4, callDataWithSelector.length - 4);
+
+            // validate each sub-call
+            if (selector == getSelector("transferERC20In(address,uint256)")) {
+                validate_transferERC20In(subCallData);
+            } else if (selector == getSelector("transferERC20AllIn(address)")) {
+                validate_transferERC20AllIn(subCallData);
+            } else if (selector == getSelector("deposit(address,address)")) {
+                validate_deposit(subCallData);
+            } else if (selector == getSelector("withdraw(address,address)")) {
+                validate_withdraw(subCallData);
+            } else if (selector == getSelector("flashSwapExactIn(uint256,uint256,bytes)")) {
+                validate_flashSwapExactInt(subCallData);
+            } else if (selector == getSelector("flashSwapExactOut(uint256,uint256,bytes)")) {
+                validate_flashSwapExactOut(subCallData);
+            } else if (selector == getSelector("flashSwapAllOut(uint256,bytes)")) {
+                validate_flashSwapAllOut(subCallData);
+            } else {
+                revert("Unknown function selector");
+            }
+        }
     }
+
+    function validate_transferERC20In(bytes memory callData) public view {}
+    function validate_transferERC20AllIn(bytes memory callData) public view {}
+    function validate_deposit(bytes memory callData) public view {}
+    function validate_withdraw(bytes memory callData) public view {}
+    function validate_flashSwapExactInt(bytes memory callData) public view {}
+    function validate_flashSwapExactOut(bytes memory callData) public view {}
+    function validate_flashSwapAllOut(bytes memory callData) public view {}
 
     function whitelistOnedelta(address brokerProxy, address lendingPool, string calldata notes) external {
         allowCallSite(brokerProxy, getSelector("multicall(bytes[])"), notes);
