@@ -333,9 +333,7 @@ contract GuardV0 is IGuard, Ownable {
 
     // validate 1delta trade
     function validate_multicall(bytes memory callData) public view {
-        (ExactInputParams memory params) = abi.decode(callData, (ExactInputParams));
         
-        require(isAllowedReceiver(params.recipient), "Receiver address does not match");
     }
 
     function whitelistOnedelta(address brokerProxy, address lendingPool, string calldata notes) external {

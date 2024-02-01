@@ -40,7 +40,19 @@ POOL_FEE_RAW = 3000
 
 
 @pytest.fixture
-def anvil_polygon_chain_fork(request) -> str:
+def large_usdc_holder() -> HexAddress:
+    """A random account picked from Polygon that holds a lot of USDC.
+
+    This account is unlocked on Anvil, so you have access to good USDC stash.
+
+    `To find large holder accounts, use <https://polygonscan.com/token/0x2791bca1f2de4661ed88a30c99a7a9449aa84174#balances>`_.
+    """
+    # Binance Hot Wallet 6
+    return HexAddress(HexStr("0xe7804c37c13166fF0b37F5aE0BB07A3aEbb6e245"))
+
+
+@pytest.fixture
+def anvil_polygon_chain_fork(request, large_usdc_holder) -> str:
     """Create a testable fork of live Polygon.
 
     :return: JSON-RPC URL for Web3
@@ -48,6 +60,7 @@ def anvil_polygon_chain_fork(request) -> str:
     mainnet_rpc = os.environ["JSON_RPC_POLYGON"]
     launch = fork_network_anvil(
         mainnet_rpc,
+        unlocked_addresses=[large_usdc_holder],
         fork_block_number=51_000_000,
     )
     try:
@@ -109,12 +122,19 @@ def one_delta_deployment(web3) -> OneDeltaDeployment:
 
 
 @pytest.fixture()
-def deployer(web3) -> str:
+def deployer(web3, usdc, large_usdc_holder) -> str:
     """Deploy account.
 
     Do some account allocation for tests.
     """
-    return web3.eth.accounts[0]
+    address = web3.eth.accounts[0]
+
+    usdc.functions.transfer(
+        address,
+        500_000 * 10**6,
+    ).transact({"from": large_usdc_holder})
+
+    return address
 
 
 @pytest.fixture()
@@ -240,7 +260,7 @@ def test_guard_can_open_short_1delta(
     vweth: Contract,
 ):
     """Asset manager can perform open short multicall."""
-    weth_amount = 1 * 10**18
+    weth_amount_to_short = 1 * 10**18
     usdc_amount = 10_000 * 10**6
     usdc.functions.transfer(vault.address, usdc_amount).transact({"from": deployer})
 
@@ -258,19 +278,18 @@ def test_guard_can_open_short_1delta(
         tx_hash = vault.functions.performCall(target, call_data).transact({"from": asset_manager})
         assert_transaction_success_with_explanation(web3, tx_hash)
 
-    # trade_call = open_short_position(
-    #     one_delta_deployment=one_delta_deployment,
-    #     collateral_token=usdc,
-    #     borrow_token=weth,
-    #     pool_fee=POOL_FEE_RAW,
-    #     collateral_amount=usdc_amount,
-    #     borrow_amount=weth_amount,
-    #     wallet_address=vault.address,
-    # )
+    trade_call = open_short_position(
+        one_delta_deployment=one_delta_deployment,
+        collateral_token=usdc,
+        borrow_token=weth,
+        pool_fee=POOL_FEE_RAW,
+        collateral_amount=usdc_amount,
+        borrow_amount=weth_amount_to_short,
+        wallet_address=vault.address,
+    )
 
-    # target, call_data = encode_simple_vault_transaction(trade_call)
-    # tx_hash = vault.functions.performCall(target, call_data).transact({"from": asset_manager})
+    target, call_data = encode_simple_vault_transaction(trade_call)
+    tx_hash = vault.functions.performCall(target, call_data).transact({"from": asset_manager})
+    assert_transaction_success_with_explanation(web3, tx_hash)
 
-    # assert_transaction_success_with_explanation(web3, tx_hash)
-
-    # assert weth.functions.balanceOf(vault.address).call() == 3326659993034849236
+    assert vweth.functions.balanceOf(vault.address).call() == weth_amount_to_short
