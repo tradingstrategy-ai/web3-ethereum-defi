@@ -1,3 +1,7 @@
+# Current
+
+- Have a safe redemption time lock on Enzyme vault deployments 
+
 # 0.25
 
 - Bump web3.py to 6.12.x

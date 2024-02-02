@@ -187,9 +187,11 @@ class VaultPolicyConfiguration:
     #:
     #: Prevent arbitrage attacks.
     #:
-    #: Set to 1 hour.
+    #: Set to zero by default, because there is a conflict with this setting and
+    #: using a deposit contract (TermedVaultUSDCPaymentForwarder).
+    #: Can be set to any value after Enzyme whitelists the deposit contract.
     #:
-    shares_action_time_lock: int = 3600
+    shares_action_time_lock: int = 0
 
     def __post_init__(self):
         for p in self.policies.keys():
@@ -330,7 +332,7 @@ class EnzymeDeployment:
 
             if shares_action_time_lock is None:
                 shares_action_time_lock = policy_configuration.shares_action_time_lock
-                assert shares_action_time_lock > 0
+                assert shares_action_time_lock >= 0
                 assert type(shares_action_time_lock) == int
 
         if shares_action_time_lock is None:

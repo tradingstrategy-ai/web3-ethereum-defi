@@ -103,8 +103,7 @@ def test_redemption_time_lock(
     """
 
     policy = create_safe_default_policy_configuration_for_generic_adapter(deployment)
-
-    assert policy.shares_action_time_lock == 3600
+    policy.shares_action_time_lock = 3600
 
     comptroller_contract, vault_contract = deployment.create_new_vault(
         user_1,

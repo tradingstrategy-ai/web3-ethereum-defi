@@ -234,6 +234,8 @@ def deploy_vault_with_generic_adapter(
         )
         logger.info("VaultUSDCPaymentForwarder is %s deployed at %s", payment_forwarder.address, tx_hash.hex())
 
+        comptroller.functions.registerBuySharesOnBehalfCallers()
+
     if not mock_guard:
         # When swap is performed, the tokens will land on the integration contract
         # and this contract must be listed as the receiver.
