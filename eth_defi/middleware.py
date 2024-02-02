@@ -126,7 +126,16 @@ DEFAULT_RETRYABLE_RPC_ERROR_CODES = (
 #:
 #: See :py:data:`DEFAULT_RETRYABLE_RPC_ERROR_CODES`.
 #:
-DEFAULT_RETRYABLE_RPC_ERROR_MESSAGES = {"nonce too low"}
+DEFAULT_RETRYABLE_RPC_ERROR_MESSAGES = {
+
+    # When broadcasting batch transactions, the RPC provider
+    # has a load balancer that is not internally coherent
+    "nonce too low",
+
+    # Some random load balancer error?
+    # https://github.com/MetaMask/metamask-extension/issues/7234
+    "header not found"
+}
 
 #: Ethereum JSON-RPC calls where the value never changes
 #:
