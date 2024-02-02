@@ -81,3 +81,24 @@ def test_fetch_default_safe_policies(
 
     policies = list(get_vault_policies(vault))
     assert len(policies) == 0
+
+
+def test_redemption_time_lock(
+    web3: Web3,
+    deployment: EnzymeDeployment,
+    user_1,
+    usdc,
+):
+    """Do not allow arbitrage trades against share price by having a time lock on redemption.
+
+    - Enzyme stores as ComptrollerLib.shareActionTimeLock variable
+    """
+
+    comptroller_contract, vault_contract = deployment.create_new_vault(user_1, usdc, fund_name="Cow says Moo", fund_symbol="MOO")
+    vault = Vault(vault_contract, comptroller_contract, deployment)
+
+    time_lock =
+    assert time_lock !=
+
+    policies = list(get_vault_policies(vault))
+    assert len(policies) == 0
