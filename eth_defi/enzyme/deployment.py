@@ -183,6 +183,14 @@ class VaultPolicyConfiguration:
     #:
     policies: Dict[HexAddress, bytes]
 
+    #: What is the minimum time before user can redeem shares after deposit.
+    #:
+    #: Prevent arbitrage attacks.
+    #:
+    #: Set to 1 hour.
+    #:
+    shares_action_time_lock: int = 3600
+
     def __post_init__(self):
         for p in self.policies.keys():
             assert p.startswith("0x")
@@ -291,7 +299,7 @@ class EnzymeDeployment:
         denomination_asset: Contract,
         fund_name="Example Fund",
         fund_symbol="EXAMPLE",
-        shares_action_time_lock: int = 0,
+        shares_action_time_lock = None,
         fee_manager_config_data=b"",
         policy_manager_config_data=b"",
         deployer=None,
@@ -303,6 +311,9 @@ class EnzymeDeployment:
         - See `CreateNewVault.sol`.
 
         - See `FundDeployer.sol`.
+
+        :param shares_action_time_lock:
+            Give part of the policy_configuration.
 
         :return:
             Tuple (Comptroller contract, vault contract)
@@ -316,6 +327,11 @@ class EnzymeDeployment:
         if policy_configuration is not None:
             assert not policy_manager_config_data
             policy_manager_config_data = policy_configuration.encode()
+
+            if shares_action_time_lock is None:
+                shares_action_time_lock = policy_configuration.shares_action_time_lock
+                assert shares_action_time_lock > 0
+                assert type(shares_action_time_lock) == int
 
         fund_deployer = self.contracts.fund_deployer
         tx_hash = fund_deployer.functions.createNewFund(

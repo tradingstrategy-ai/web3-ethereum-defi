@@ -55,14 +55,25 @@ def get_vault_policies(vault: Vault) -> Iterable[Contract]:
 
 def create_safe_default_policy_configuration_for_generic_adapter(
     deployment: EnzymeDeployment,
-    generic_adapter: Contract,
-    cumulative_slippage_tolerance=10,
+    generic_adapter: Contract | None = None,
+    cumulative_slippage_tolerance: int=10,
 ) -> VaultPolicyConfiguration:
-    """.asdf
+    """Create safe policies for a vault.
+
+    - Asset manager cannot steal assets
 
     An example vault deployment tx by the Enzyme UI:
 
     - https://polygonscan.com/tx/0xb26ca057152000b4154852ca8823e2b9c86546e770561a9af2924d0fadcb3b1c
+
+    :param deployment:
+        Our Enzyme
+
+    :param generic_adapter:
+        Lock trading to use only this adapter if given.
+
+    :param cumulative_slippage_tolerance:
+        How many percent we can have total slippage per week.
     """
 
     # Sanity check
@@ -99,12 +110,16 @@ def create_safe_default_policy_configuration_for_generic_adapter(
         # See CumulativeSlippageTolerancePolicy.addFundSettings
         contracts.cumulative_slippage_tolerance_policy.address: encode(["uint64"], [cumulative_slippage_tolerance * ONE_HUNDRED_PERCENT // 100]),
         # See AddressListRegistryPerUserPolicyBase.addFundSettings
-        contracts.allowed_adapters_policy.address: encode_single_address_list_policy_args(generic_adapter.address),
-        # See AddressListRegistryPerUserPolicyBase.addFundSettings
         contracts.only_remove_dust_external_position_policy.address: b"",
         contracts.only_untrack_dust_or_priceless_assets_policy.address: b"",
         contracts.allowed_external_position_types_policy.address: b"",
     }
+
+    # Lock policy
+    if generic_adapter is not None:
+        policies.update({
+            contracts.allowed_adapters_policy.address: encode_single_address_list_policy_args(generic_adapter.address),
+        })
 
     return VaultPolicyConfiguration(policies)
 

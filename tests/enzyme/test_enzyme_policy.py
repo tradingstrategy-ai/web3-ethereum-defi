@@ -7,7 +7,7 @@ from web3 import Web3
 from web3.contract import Contract
 
 from eth_defi.enzyme.deployment import EnzymeDeployment, RateAsset
-from eth_defi.enzyme.policy import get_vault_policies
+from eth_defi.enzyme.policy import get_vault_policies, create_safe_default_policy_configuration_for_generic_adapter
 from eth_defi.enzyme.vault import Vault
 from eth_defi.trace import assert_transaction_success_with_explanation
 
@@ -76,11 +76,19 @@ def test_fetch_default_safe_policies(
 ):
     """Deploy a vault with the default safe policies."""
 
-    comptroller_contract, vault_contract = deployment.create_new_vault(user_1, usdc, fund_name="Cow says Moo", fund_symbol="MOO")
+    policy = create_safe_default_policy_configuration_for_generic_adapter(deployment)
+
+    comptroller_contract, vault_contract = deployment.create_new_vault(
+        user_1,
+        usdc,
+        fund_name="Cow says Moo",
+        fund_symbol="MOO",
+        policy_configuration=policy,
+    )
     vault = Vault(vault_contract, comptroller_contract, deployment)
 
     policies = list(get_vault_policies(vault))
-    assert len(policies) == 0
+    assert len(policies) == 4
 
 
 def test_redemption_time_lock(
@@ -94,11 +102,18 @@ def test_redemption_time_lock(
     - Enzyme stores as ComptrollerLib.shareActionTimeLock variable
     """
 
-    comptroller_contract, vault_contract = deployment.create_new_vault(user_1, usdc, fund_name="Cow says Moo", fund_symbol="MOO")
+    policy = create_safe_default_policy_configuration_for_generic_adapter(deployment)
+
+    assert policy.shares_action_time_lock == 3600
+
+    comptroller_contract, vault_contract = deployment.create_new_vault(
+        user_1,
+        usdc,
+        fund_name="Cow says Moo",
+        fund_symbol="MOO",
+        policy_configuration=policy,
+    )
     vault = Vault(vault_contract, comptroller_contract, deployment)
 
-    time_lock =
-    assert time_lock !=
-
-    policies = list(get_vault_policies(vault))
-    assert len(policies) == 0
+    # Set to 1h
+    assert vault.comptroller.functions.getSharesActionTimelock().call() == 3600
