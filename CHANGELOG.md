@@ -1,4 +1,4 @@
-# Current
+# 0.25
 
 - Bump web3.py to 6.12.x
 - Add Foundry and Forge integration: `deploy_contract_with_forge()`
