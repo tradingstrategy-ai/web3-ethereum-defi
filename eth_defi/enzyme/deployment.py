@@ -333,6 +333,9 @@ class EnzymeDeployment:
                 assert shares_action_time_lock > 0
                 assert type(shares_action_time_lock) == int
 
+        if shares_action_time_lock is None:
+            shares_action_time_lock = 0  # Zero means no arbitrage lock
+
         fund_deployer = self.contracts.fund_deployer
         tx_hash = fund_deployer.functions.createNewFund(
             owner,
