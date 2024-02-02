@@ -95,8 +95,6 @@ def deploy_contract(
     return instance
 
 
-
-
 def get_or_create_contract_registry(web3: Web3) -> ContractRegistry:
     """Get a contract registry associated with a Web3 connection.
 

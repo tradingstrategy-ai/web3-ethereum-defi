@@ -15,11 +15,12 @@ import pytest
 from eth_account import Account
 from eth_account.signers.local import LocalAccount
 from eth_typing import HexAddress
-from terms_of_service.acceptance_message import (
+from eth_defi.terms_of_service.acceptance_message import (
     generate_acceptance_message,
     get_signing_hash,
     sign_terms_of_service,
 )
+
 from web3 import Web3
 from web3.contract import Contract
 

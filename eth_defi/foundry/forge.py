@@ -32,7 +32,7 @@ logger = logging.getLogger(__name__)
 
 #: Crash unless forge completes in 3 minutes
 #:
-DEFAULT_TIMEOUT = 3*60
+DEFAULT_TIMEOUT = 3 * 60
 
 
 class ForgeFailed(Exception):
@@ -208,28 +208,29 @@ def deploy_contract_with_forge(
     cmd_line = [
         forge,
         "create",
-        "--rpc-url", json_rpc_url,
-        "--nonce", str(deployer.allocate_nonce()),
+        "--rpc-url",
+        json_rpc_url,
+        "--nonce",
+        str(deployer.allocate_nonce()),
     ]
 
     if etherscan_api_key:
         # Tuned retry parameters
         # https://github.com/foundry-rs/foundry/issues/6953
         cmd_line += [
-            "--etherscan-api-key", etherscan_api_key,
+            "--etherscan-api-key",
+            etherscan_api_key,
             "--verify",
-            "--retries", "10",
-            "--delay", "30",
+            "--retries",
+            "10",
+            "--delay",
+            "30",
         ]
 
-    cmd_line += [
-        f"{src_contract_file}:{contract_name}"
-    ]
+    cmd_line += [f"{src_contract_file}:{contract_name}"]
 
     if constructor_args:
-        cmd_line += [
-            "--constructor-args"
-        ]
+        cmd_line += ["--constructor-args"]
         for arg in constructor_args:
             cmd_line.append(arg)
 
@@ -245,7 +246,8 @@ def deploy_contract_with_forge(
     cmd_line = [
         forge,
         "create",
-        "--private-key", deployer.private_key.hex(),
+        "--private-key",
+        deployer.private_key.hex(),
     ] + cmd_line[2:]
 
     # Py 3.11 only
@@ -270,11 +272,7 @@ def deploy_contract_with_forge(
 
     # Mad Web3.py API
     contract_address = ChecksumAddress(HexAddress(HexStr(contract_address)))
-    instance = get_deployed_contract(
-        web3,
-        contract_abi,
-        contract_address
-    )
+    instance = get_deployed_contract(web3, contract_abi, contract_address)
 
     if register_for_tracing:
         instance.name = contract_name

@@ -235,7 +235,6 @@ def deploy_vault_with_generic_adapter(
         logger.info("VaultUSDCPaymentForwarder is %s deployed at %s", payment_forwarder.address, tx_hash.hex())
 
     if not mock_guard:
-
         # When swap is performed, the tokens will land on the integration contract
         # and this contract must be listed as the receiver.
         # Enzyme will then internally move tokens to its vault from here.
@@ -297,7 +296,7 @@ def deploy_vault_with_generic_adapter(
         match web3.eth.chain_id:
             case 137:
                 uniswap_v3_router = UNISWAP_V3_DEPLOYMENTS["polygon"]["router"]
-                uniswap_v2_router= None
+                uniswap_v2_router = None
             case 1:
                 uniswap_v2_router = UNISWAP_V2_DEPLOYMENTS["ethereum"]["router"]
                 uniswap_v3_router = UNISWAP_V3_DEPLOYMENTS["ethereum"]["router"]

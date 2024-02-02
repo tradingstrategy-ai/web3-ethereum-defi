@@ -27,9 +27,6 @@ Sponsor = "https://tradingstrategy.ai"
 [tool.poetry.dependencies]
 python = ">=3.10,<3.13"
 
-# Only soft dependency in tests, but RTD complains
-terms-of-service = {path = "contracts/terms-of-service", develop = true}
-
 # https://github.com/apache/arrow/pull/35412
 # Last checked 2023-07, still broken
 urllib3 = "<2"
@@ -66,6 +63,11 @@ sphinxcontrib-devhelp = {version = "1.0.2", optional = true} # Version pindowns 
 sphinxcontrib-htmlhelp = {version = "2.0.1", optional = true} # Version pindowns https://github.com/sphinx-doc/sphinxcontrib-htmlhelp/blob/master/CHANGES
 sphinxcontrib-serializinghtml = {version = "1.1.5", optional = true} # Version pindowns https://github.com/sphinx-doc/sphinxcontrib-serializinghtml/blob/master/CHANGES
 sphinxcontrib-qthelp = {version = "1.0.3", optional = true} # Version pindowns https://github.com/sphinx-doc/sphinxcontrib-qthelp/blob/master/CHANGES
+
+
+# Removed
+# Only soft dependency in tests, but RTD complains
+# terms-of-service = {path = "contracts/terms-of-service", develop = true}
 
 [tool.poetry.dev-dependencies]
 pytest = "^7.4.3"

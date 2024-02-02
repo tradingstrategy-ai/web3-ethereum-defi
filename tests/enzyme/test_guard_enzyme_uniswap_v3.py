@@ -11,7 +11,7 @@ import pytest
 from eth_account import Account
 from eth_account.signers.local import LocalAccount
 from eth_typing import ChecksumAddress, HexAddress
-from terms_of_service.acceptance_message import (
+from eth_defi.terms_of_service.acceptance_message import (
     generate_acceptance_message,
     get_signing_hash,
     sign_terms_of_service,

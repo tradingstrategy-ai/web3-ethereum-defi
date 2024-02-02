@@ -46,8 +46,7 @@ def web3(anvil: AnvilLaunch):
 
 @pytest.fixture
 def deployer(web3) -> LocalAccount:
-    """Create a priavte key with balance.
-    """
+    """Create a priavte key with balance."""
     _deployer = web3.eth.accounts[0]
     account: LocalAccount = Account.create()
     stash = web3.eth.get_balance(_deployer)
