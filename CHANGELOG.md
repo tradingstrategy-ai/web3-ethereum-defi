@@ -1,7 +1,7 @@
 # 0.25.1
 
 - Add: `VaultPolicyConfiguration.shares_action_timelock` Have a safe redemption time lock on Enzyme vault deployments
-- Add: `header not found` in retryable exceptions
+- Add: [header not found](https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/201) in retryable exceptions
 
 # 0.25
 
