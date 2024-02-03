@@ -258,7 +258,7 @@ contract GuardV0 is IGuard, Ownable {
         } else if(selector == getSelector("exactInput((bytes,address,uint256,uint256,uint256))")) {
             validate_exactInput(callData);
         } else if(selector == getSelector("multicall(bytes[])")) {
-            validate_multicall(callData);
+            validate_1deltaMulticall(callData);
         } else if(selector == getSelector("transfer(address,uint256)")) {
             validate_transfer(callData);
         } else if(selector == getSelector("approve(address,uint256)")) {
@@ -276,8 +276,9 @@ contract GuardV0 is IGuard, Ownable {
 
         require(isAllowedReceiver(to), "Receiver address does not match");
 
+        address token;
         for (uint i = 0; i < path.length; i++) {
-            address token = path[i];
+            token = path[i];
             require(isAllowedAsset(token), "Token not allowed");
         }        
     }
@@ -292,34 +293,28 @@ contract GuardV0 is IGuard, Ownable {
         (ExactInputParams memory params) = abi.decode(callData, (ExactInputParams));
         
         require(isAllowedReceiver(params.recipient), "Receiver address does not match");
-
-        while (true) {
-            (address tokenOut, address tokenIn, ) = params.path.decodeFirstPool();
-
-            require(isAllowedAsset(tokenIn), "Token not allowed");
-            require(isAllowedAsset(tokenOut), "Token not allowed");
-
-            if (params.path.hasMultiplePools()) {
-                params.path = params.path.skipToken();
-            } else {
-                break;
-            }
-        }
+        validateUniswapV3Path(params.path);
     }
 
     function validate_exactOutput(bytes memory callData) public view {
         (ExactOutputParams memory params) = abi.decode(callData, (ExactOutputParams));
         
         require(isAllowedReceiver(params.recipient), "Receiver address does not match");
+        validateUniswapV3Path(params.path);
+    }
+
+    function validateUniswapV3Path(bytes memory path) public view {
+        address tokenIn;
+        address tokenOut;
 
         while (true) {
-            (address tokenOut, address tokenIn, ) = params.path.decodeFirstPool();
+            (tokenOut, tokenIn, ) = path.decodeFirstPool();
 
             require(isAllowedAsset(tokenIn), "Token not allowed");
             require(isAllowedAsset(tokenOut), "Token not allowed");
 
-            if (params.path.hasMultiplePools()) {
-                params.path = params.path.skipToken();
+            if (path.hasMultiplePools()) {
+                path = path.skipToken();
             } else {
                 break;
             }
@@ -333,11 +328,11 @@ contract GuardV0 is IGuard, Ownable {
     }
 
     // validate 1delta trade
-    function validate_multicall(bytes memory callData) public view {
+    function validate_1deltaMulticall(bytes memory callData) public view {
         (bytes[] memory callArr) = abi.decode(callData, (bytes[]));
 
         // loop through all sub-calls and validate
-        for (uint8 i; i < callArr.length; i++) {
+        for (uint i; i < callArr.length; i++) {
             bytes memory callDataWithSelector = callArr[i];
 
             // bytes memory has to be sliced using BytesLib
@@ -365,13 +360,71 @@ contract GuardV0 is IGuard, Ownable {
         }
     }
 
-    function validate_transferERC20In(bytes memory callData) public view {}
+    function validate_transferERC20In(bytes memory callData) public view {
+        (address token, ) = abi.decode(callData, (address, uint256));
+        require(isAllowedAsset(token), "Token not allowed");
+    }
+
     function validate_transferERC20AllIn(bytes memory callData) public view {}
-    function validate_deposit(bytes memory callData) public view {}
+    
+    function validate_deposit(bytes memory callData) public view {
+        (address token, address receiver) = abi.decode(callData, (address, address));
+        
+        require(isAllowedAsset(token), "Token not allowed");
+        require(isAllowedReceiver(receiver), "Receiver address does not match");
+    }
+
     function validate_withdraw(bytes memory callData) public view {}
-    function validate_flashSwapExactInt(bytes memory callData) public view {}
-    function validate_flashSwapExactOut(bytes memory callData) public view {}
+    
+    function validate_flashSwapExactInt(bytes memory callData) public view {
+        (, , bytes memory path) = abi.decode(callData, (uint256, uint256, bytes));
+
+        validate1deltaPath(path);
+    }
+
+    function validate_flashSwapExactOut(bytes memory callData) public view {
+        (, , bytes memory path) = abi.decode(callData, (uint256, uint256, bytes));
+
+        validate1deltaPath(path);
+    }
+
     function validate_flashSwapAllOut(bytes memory callData) public view {}
+
+    /// @dev The length of the bytes encoded address
+    uint256 private constant ADDR_SIZE = 20;
+    /// @dev The length of the bytes encoded fee
+    uint256 private constant FEE_SIZE = 3;
+
+    uint256 private constant ID_SIZE = 1;
+    uint256 private constant FLAG_SIZE = 1;
+    uint256 private constant OFFSET_TILL_ID = ADDR_SIZE + FEE_SIZE;
+
+    /// @dev The offset of a single token address and pool fee
+    uint256 private constant NEXT_OFFSET = ADDR_SIZE + FEE_SIZE + ID_SIZE + FLAG_SIZE;
+    /// @dev The offset of an encoded pool key
+    uint256 private constant POP_OFFSET = NEXT_OFFSET + ADDR_SIZE;
+    /// @dev The minimum length of an encoding that contains 2 or more pools
+    uint256 private constant MULTIPLE_POOLS_MIN_LENGTH = POP_OFFSET + NEXT_OFFSET;
+
+    function validate1deltaPath(bytes memory path) public view {
+        address tokenIn;
+        address tokenOut;
+
+        while (true) {
+            tokenIn = path.toAddress(0);
+            tokenOut = path.toAddress(NEXT_OFFSET);
+
+            require(isAllowedAsset(tokenIn), "Token not allowed");
+            require(isAllowedAsset(tokenOut), "Token not allowed");
+
+            // get next slice if the path still has multiple pools
+            if (path.length >= MULTIPLE_POOLS_MIN_LENGTH) {
+                path = path.slice(NEXT_OFFSET, path.length - NEXT_OFFSET);
+            } else {
+                break;
+            }
+        }
+    }
 
     function whitelistOnedelta(address brokerProxy, address lendingPool, string calldata notes) external {
         allowCallSite(brokerProxy, getSelector("multicall(bytes[])"), notes);
