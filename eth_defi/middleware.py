@@ -1,6 +1,6 @@
 """Web3 middleware.
 
-Most for dealing with JSON-RPC unreliability issues with retries.
+Most are for dealing with JSON-RPC unreliability issues with retries.
 
 - Taken from exception_retry_request.py from Web3.py
 
@@ -94,14 +94,14 @@ DEFAULT_RETRYABLE_HTTP_STATUS_CODES = (
 #: See GoEthereum error codes https://github.com/ethereum/go-ethereum/blob/master/rpc/errors.go
 #:
 DEFAULT_RETRYABLE_RPC_ERROR_CODES = (
-    # The node provider has corrupted database or something GoEthereum
+    # The node provider has corrupted database or something, GoEthereum
     # cannot handle gracefully.
     # ValueError: {'message': 'Internal JSON-RPC error.', 'code': -32603}
     -32603,
     # ValueError: {'code': -32000, 'message': 'nonce too low'}.
     # Might happen when we are broadcasting multiple transactions through multiple RPC providers
     # using eth_sendRawTransaction
-    # One provide has not yet seeing a transaction broadcast through the other provider.
+    # One provider has not yet seen a transaction broadcast through the other provider.
     # CRAP! -32000 is also Execution reverted on Alchemy.
     # -32000,
     # ValueError: {'code': -32003, 'message': 'nonce too low'}.
@@ -423,7 +423,7 @@ def static_call_cache_middleware(
     make_request: Callable[[RPCEndpoint, Any], Any],
     web3: "Web3",
 ) -> Callable[[RPCEndpoint, Any], Any]:
-    """Cache JSON-RPC call values that never chance.
+    """Cache JSON-RPC call values that never change.
 
     The cache is web3 instance itself, to allow sharing the cache
     between different JSON-RPC providers.
