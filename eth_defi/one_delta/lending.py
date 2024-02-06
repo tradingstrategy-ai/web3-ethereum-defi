@@ -116,7 +116,7 @@ def _build_withdraw_multicall(
     :return: list of encoded ABI calls
     """
     if amount == MAX_AMOUNT:
-        # use MAX_AMOUNT to make sure the whole balane is swept
+        # use MAX_AMOUNT to make sure the whole balance is swept
         call_transfer = one_delta_deployment.flash_aggregator.encodeABI(
             fn_name="transferERC20AllIn",
             args=[atoken.address],

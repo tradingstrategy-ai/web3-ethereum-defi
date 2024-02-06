@@ -19,6 +19,21 @@ contract GuardV0 is IGuard, Ownable {
     using Path for bytes;
     using BytesLib for bytes;
 
+    /// @dev The length of the bytes encoded address
+    uint256 private constant ADDR_SIZE = 20;
+    /// @dev The length of the bytes encoded pool fee
+    uint256 private constant ONEDELTA_FEE_SIZE = 3;
+    /// @dev The length of the bytes encoded DEX ID
+    uint256 private constant ONEDELTA_PID_SIZE = 1;
+    /// @dev The length of the bytes encoded action
+    uint256 private constant ONEDELTA_ACTION_SIZE = 1;
+    /// @dev The offset of a single token address, fee, pid and action
+    uint256 private constant ONEDELTA_NEXT_OFFSET = ADDR_SIZE + ONEDELTA_FEE_SIZE + ONEDELTA_PID_SIZE + ONEDELTA_ACTION_SIZE;
+    /// @dev The offset of an encoded pool key
+    uint256 private constant ONEDELTA_POP_OFFSET = ONEDELTA_NEXT_OFFSET + ADDR_SIZE;
+    /// @dev The minimum length of an encoding that contains 2 or more pools
+    uint256 private constant ONEDELTA_MULTIPLE_POOLS_MIN_LENGTH = ONEDELTA_POP_OFFSET + ONEDELTA_NEXT_OFFSET;
+
     struct ExactInputParams {
         bytes path;
         address recipient;
@@ -277,7 +292,7 @@ contract GuardV0 is IGuard, Ownable {
         require(isAllowedReceiver(to), "Receiver address does not match");
 
         address token;
-        for (uint i = 0; i < path.length; i++) {
+        for (uint256 i = 0; i < path.length; i++) {
             token = path[i];
             require(isAllowedAsset(token), "Token not allowed");
         }        
@@ -362,10 +377,15 @@ contract GuardV0 is IGuard, Ownable {
 
     function validate_transferERC20In(bytes memory callData) public view {
         (address token, ) = abi.decode(callData, (address, uint256));
+
         require(isAllowedAsset(token), "Token not allowed");
     }
 
-    function validate_transferERC20AllIn(bytes memory callData) public view {}
+    function validate_transferERC20AllIn(bytes memory callData) public view {
+        (address token) = abi.decode(callData, (address));
+
+        require(isAllowedAsset(token), "Token not allowed");
+    }
     
     function validate_deposit(bytes memory callData) public view {
         (address token, address receiver) = abi.decode(callData, (address, address));
@@ -374,7 +394,12 @@ contract GuardV0 is IGuard, Ownable {
         require(isAllowedReceiver(receiver), "Receiver address does not match");
     }
 
-    function validate_withdraw(bytes memory callData) public view {}
+    function validate_withdraw(bytes memory callData) public view {
+        (address token, address receiver) = abi.decode(callData, (address, address));
+        
+        require(isAllowedAsset(token), "Token not allowed");
+        require(isAllowedReceiver(receiver), "Receiver address does not match");
+    }
     
     function validate_flashSwapExactInt(bytes memory callData) public view {
         (, , bytes memory path) = abi.decode(callData, (uint256, uint256, bytes));
@@ -388,23 +413,11 @@ contract GuardV0 is IGuard, Ownable {
         validate1deltaPath(path);
     }
 
-    function validate_flashSwapAllOut(bytes memory callData) public view {}
+    function validate_flashSwapAllOut(bytes memory callData) public view {
+        (, bytes memory path) = abi.decode(callData, (uint256, bytes));
 
-    /// @dev The length of the bytes encoded address
-    uint256 private constant ADDR_SIZE = 20;
-    /// @dev The length of the bytes encoded fee
-    uint256 private constant FEE_SIZE = 3;
-
-    uint256 private constant ID_SIZE = 1;
-    uint256 private constant FLAG_SIZE = 1;
-    uint256 private constant OFFSET_TILL_ID = ADDR_SIZE + FEE_SIZE;
-
-    /// @dev The offset of a single token address and pool fee
-    uint256 private constant NEXT_OFFSET = ADDR_SIZE + FEE_SIZE + ID_SIZE + FLAG_SIZE;
-    /// @dev The offset of an encoded pool key
-    uint256 private constant POP_OFFSET = NEXT_OFFSET + ADDR_SIZE;
-    /// @dev The minimum length of an encoding that contains 2 or more pools
-    uint256 private constant MULTIPLE_POOLS_MIN_LENGTH = POP_OFFSET + NEXT_OFFSET;
+        validate1deltaPath(path);
+    }
 
     function validate1deltaPath(bytes memory path) public view {
         address tokenIn;
@@ -412,14 +425,14 @@ contract GuardV0 is IGuard, Ownable {
 
         while (true) {
             tokenIn = path.toAddress(0);
-            tokenOut = path.toAddress(NEXT_OFFSET);
+            tokenOut = path.toAddress(ONEDELTA_NEXT_OFFSET);
 
             require(isAllowedAsset(tokenIn), "Token not allowed");
             require(isAllowedAsset(tokenOut), "Token not allowed");
 
-            // get next slice if the path still has multiple pools
-            if (path.length >= MULTIPLE_POOLS_MIN_LENGTH) {
-                path = path.slice(NEXT_OFFSET, path.length - NEXT_OFFSET);
+            // iterate to next slice if the path still contains multiple pools
+            if (path.length >= ONEDELTA_MULTIPLE_POOLS_MIN_LENGTH) {
+                path = path.slice(ONEDELTA_NEXT_OFFSET, path.length - ONEDELTA_NEXT_OFFSET);
             } else {
                 break;
             }
