@@ -100,6 +100,10 @@ addopts = "--capture=no"
 # https://stackoverflow.com/a/58306308/315168
 norecursedirs="contracts/*"
 
+filterwarnings = [
+    "ignore::DeprecationWarning:pkg_resources.*:",
+    "ignore::DeprecationWarning:eth_tester.*:",
+]
 
 # We hate arbitrary line lengths
 [tool.black]
