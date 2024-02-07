@@ -19,6 +19,11 @@ contract GuardV0 is IGuard, Ownable {
     using Path for bytes;
     using BytesLib for bytes;
 
+    /**
+     * Constants for 1delta path decoding using similar approach as Uniswap v3 `Path.sol`
+     * 
+     * Check our implementation at: `validate1deltaPath()`
+     */
     /// @dev The length of the bytes encoded address
     uint256 private constant ADDR_SIZE = 20;
     /// @dev The length of the bytes encoded pool fee
@@ -375,18 +380,21 @@ contract GuardV0 is IGuard, Ownable {
         }
     }
 
+    // 1delta implementation: https://github.com/1delta-DAO/contracts-delegation/blob/4f27e1593c564c419ff042cdd932ed52d04216bf/contracts/1delta/modules/aave/FlashAggregator.sol#L78-L81
     function validate_transferERC20In(bytes memory callData) public view {
         (address token, ) = abi.decode(callData, (address, uint256));
 
         require(isAllowedAsset(token), "Token not allowed");
     }
 
+    // 1delta implementation: https://github.com/1delta-DAO/contracts-delegation/blob/4f27e1593c564c419ff042cdd932ed52d04216bf/contracts/1delta/modules/aave/FlashAggregator.sol#L83-L93
     function validate_transferERC20AllIn(bytes memory callData) public view {
         (address token) = abi.decode(callData, (address));
 
         require(isAllowedAsset(token), "Token not allowed");
     }
     
+    // 1delta implementation: https://github.com/1delta-DAO/contracts-delegation/blob/4f27e1593c564c419ff042cdd932ed52d04216bf/contracts/1delta/modules/aave/FlashAggregator.sol#L34-L39
     function validate_deposit(bytes memory callData) public view {
         (address token, address receiver) = abi.decode(callData, (address, address));
         
@@ -394,6 +402,7 @@ contract GuardV0 is IGuard, Ownable {
         require(isAllowedReceiver(receiver), "Receiver address does not match");
     }
 
+    // 1delta: https://github.com/1delta-DAO/contracts-delegation/blob/4f27e1593c564c419ff042cdd932ed52d04216bf/contracts/1delta/modules/aave/FlashAggregator.sol#L71-L74
     function validate_withdraw(bytes memory callData) public view {
         (address token, address receiver) = abi.decode(callData, (address, address));
         
@@ -401,24 +410,35 @@ contract GuardV0 is IGuard, Ownable {
         require(isAllowedReceiver(receiver), "Receiver address does not match");
     }
     
+    // 1delta implementation: https://github.com/1delta-DAO/contracts-delegation/blob/4f27e1593c564c419ff042cdd932ed52d04216bf/contracts/1delta/modules/aave/MarginTrading.sol#L43-L89
     function validate_flashSwapExactInt(bytes memory callData) public view {
         (, , bytes memory path) = abi.decode(callData, (uint256, uint256, bytes));
 
         validate1deltaPath(path);
     }
 
+    // Reference in 1delta: https://github.com/1delta-DAO/contracts-delegation/blob/4f27e1593c564c419ff042cdd932ed52d04216bf/contracts/1delta/modules/aave/MarginTrading.sol#L91-L103
     function validate_flashSwapExactOut(bytes memory callData) public view {
         (, , bytes memory path) = abi.decode(callData, (uint256, uint256, bytes));
 
         validate1deltaPath(path);
     }
 
+    // 1delta implementation: https://github.com/1delta-DAO/contracts-delegation/blob/4f27e1593c564c419ff042cdd932ed52d04216bf/contracts/1delta/modules/aave/MarginTrading.sol#L153-L203
     function validate_flashSwapAllOut(bytes memory callData) public view {
         (, bytes memory path) = abi.decode(callData, (uint256, bytes));
 
         validate1deltaPath(path);
     }
 
+    /**
+     * Our implementation of 1delta path decoding and validation using similar 
+     * approach as Uniswap v3 `Path.sol`
+     *
+     * Read more:
+     * - How 1delta encodes the path: https://github.com/1delta-DAO/contracts-delegation/blob/4f27e1593c564c419ff042cdd932ed52d04216bf/test-ts/1delta/shared/aggregatorPath.ts#L5-L32
+     * - How 1delta decodes the path: https://github.com/1delta-DAO/contracts-delegation/blob/4f27e1593c564c419ff042cdd932ed52d04216bf/contracts/1delta/modules/aave/MarginTrading.sol#L54-L60
+     */
     function validate1deltaPath(bytes memory path) public view {
         address tokenIn;
         address tokenOut;
@@ -442,7 +462,10 @@ contract GuardV0 is IGuard, Ownable {
     function whitelistOnedelta(address brokerProxy, address lendingPool, string calldata notes) external {
         allowCallSite(brokerProxy, getSelector("multicall(bytes[])"), notes);
         allowApprovalDestination(brokerProxy, notes);
-        allowDelegationApprovalDestination(brokerProxy, notes);
         allowApprovalDestination(lendingPool, notes);
+
+        // vToken has to be approved delegation for broker proxy
+        // Reference in 1delta tests: https://github.com/1delta-DAO/contracts-delegation/blob/4f27e1593c564c419ff042cdd932ed52d04216bf/test-ts/1delta/aave/marginSwap.spec.ts#L206
+        allowDelegationApprovalDestination(brokerProxy, notes);
     }
 }
