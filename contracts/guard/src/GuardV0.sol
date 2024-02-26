@@ -17,6 +17,27 @@ import "./IGuard.sol";
  */
 contract GuardV0 is IGuard, Ownable {
     using Path for bytes;
+    using BytesLib for bytes;
+
+    /**
+     * Constants for 1delta path decoding using similar approach as Uniswap v3 `Path.sol`
+     * 
+     * Check our implementation at: `validate1deltaPath()`
+     */
+    /// @dev The length of the bytes encoded address
+    uint256 private constant ADDR_SIZE = 20;
+    /// @dev The length of the bytes encoded pool fee
+    uint256 private constant ONEDELTA_FEE_SIZE = 3;
+    /// @dev The length of the bytes encoded DEX ID
+    uint256 private constant ONEDELTA_PID_SIZE = 1;
+    /// @dev The length of the bytes encoded action
+    uint256 private constant ONEDELTA_ACTION_SIZE = 1;
+    /// @dev The offset of a single token address, fee, pid and action
+    uint256 private constant ONEDELTA_NEXT_OFFSET = ADDR_SIZE + ONEDELTA_FEE_SIZE + ONEDELTA_PID_SIZE + ONEDELTA_ACTION_SIZE;
+    /// @dev The offset of an encoded pool key
+    uint256 private constant ONEDELTA_POP_OFFSET = ONEDELTA_NEXT_OFFSET + ADDR_SIZE;
+    /// @dev The minimum length of an encoding that contains 2 or more pools
+    uint256 private constant ONEDELTA_MULTIPLE_POOLS_MIN_LENGTH = ONEDELTA_POP_OFFSET + ONEDELTA_NEXT_OFFSET;
 
     struct ExactInputParams {
         bytes path;
@@ -58,6 +79,9 @@ contract GuardV0 is IGuard, Ownable {
     // Allowed routers
     mapping(address destination => bool allowed) public allowedApprovalDestinations;
 
+    // Allowed routers
+    mapping(address destination => bool allowed) public allowedDelegationApprovalDestinations;
+
     event CallSiteApproved(address target, bytes4 selector, string notes);
     event CallSiteRemoved(address target, bytes4 selector, string notes);
 
@@ -72,6 +96,9 @@ contract GuardV0 is IGuard, Ownable {
 
     event ApprovalDestinationApproved(address sender, string notes);
     event ApprovalDestinationRemoved(address sender, string notes);
+
+    event DelegationApprovalDestinationApproved(address sender, string notes);
+    event DelegationApprovalDestinationRemoved(address sender, string notes);
 
     event AssetApproved(address sender, string notes);
     event AssetRemoved(address sender, string notes);
@@ -151,6 +178,16 @@ contract GuardV0 is IGuard, Ownable {
         emit ApprovalDestinationRemoved(destination, notes);
     }
 
+    function allowDelegationApprovalDestination(address destination, string calldata notes) public onlyOwner {
+        allowedDelegationApprovalDestinations[destination] = true;
+        emit ApprovalDestinationApproved(destination, notes);
+    }
+
+    function removeDelegationApprovalDestination(address destination, string calldata notes) public onlyOwner {
+        delete allowedApprovalDestinations[destination];
+        emit ApprovalDestinationRemoved(destination, notes);
+    }
+
     function allowAsset(address asset, string calldata notes) public onlyOwner {
         allowedAssets[asset] = true;
         emit AssetApproved(asset, notes);
@@ -183,6 +220,10 @@ contract GuardV0 is IGuard, Ownable {
         return allowedApprovalDestinations[receiver] == true;
     }
 
+    function isAllowedDelegationApprovalDestination(address receiver) public view returns (bool) {
+        return allowedDelegationApprovalDestinations[receiver] == true;
+    }
+
     function isAllowedAsset(address token) public view returns (bool) {
         return allowedAssets[token] == true;
     }
@@ -197,9 +238,19 @@ contract GuardV0 is IGuard, Ownable {
         require(isAllowedApprovalDestination(to), "Approve address does not match");
     }
 
+    function validate_approveDelegation(bytes memory callData) public view {
+        (address to, ) = abi.decode(callData, (address, uint));
+        require(isAllowedDelegationApprovalDestination(to), "Approve delegation address does not match");
+    }
+
     function whitelistToken(address token, string calldata notes) external {
         allowCallSite(token, getSelector("transfer(address,uint256)"), notes);
         allowCallSite(token, getSelector("approve(address,uint256)"), notes);
+        allowAsset(token, notes);
+    }
+
+    function whitelistTokenForDelegation(address token, string calldata notes) external {
+        allowCallSite(token, getSelector("approveDelegation(address,uint256)"), notes);
         allowAsset(token, notes);
     }
 
@@ -226,10 +277,14 @@ contract GuardV0 is IGuard, Ownable {
             validate_swapExactTokensForTokens(callData);
         } else if(selector == getSelector("exactInput((bytes,address,uint256,uint256,uint256))")) {
             validate_exactInput(callData);
+        } else if(selector == getSelector("multicall(bytes[])")) {
+            validate_1deltaMulticall(callData);
         } else if(selector == getSelector("transfer(address,uint256)")) {
             validate_transfer(callData);
         } else if(selector == getSelector("approve(address,uint256)")) {
             validate_approve(callData);
+        } else if(selector == getSelector("approveDelegation(address,uint256)")) {
+            validate_approveDelegation(callData);
         } else {
             revert("Unknown function selector");
         }
@@ -241,8 +296,9 @@ contract GuardV0 is IGuard, Ownable {
 
         require(isAllowedReceiver(to), "Receiver address does not match");
 
-        for (uint i = 0; i < path.length; i++) {
-            address token = path[i];
+        address token;
+        for (uint256 i = 0; i < path.length; i++) {
+            token = path[i];
             require(isAllowedAsset(token), "Token not allowed");
         }        
     }
@@ -257,34 +313,28 @@ contract GuardV0 is IGuard, Ownable {
         (ExactInputParams memory params) = abi.decode(callData, (ExactInputParams));
         
         require(isAllowedReceiver(params.recipient), "Receiver address does not match");
-
-        while (true) {
-            (address tokenOut, address tokenIn, ) = params.path.decodeFirstPool();
-
-            require(isAllowedAsset(tokenIn), "Token not allowed");
-            require(isAllowedAsset(tokenOut), "Token not allowed");
-
-            if (params.path.hasMultiplePools()) {
-                params.path = params.path.skipToken();
-            } else {
-                break;
-            }
-        }
+        validateUniswapV3Path(params.path);
     }
 
     function validate_exactOutput(bytes memory callData) public view {
         (ExactOutputParams memory params) = abi.decode(callData, (ExactOutputParams));
         
         require(isAllowedReceiver(params.recipient), "Receiver address does not match");
+        validateUniswapV3Path(params.path);
+    }
+
+    function validateUniswapV3Path(bytes memory path) public view {
+        address tokenIn;
+        address tokenOut;
 
         while (true) {
-            (address tokenOut, address tokenIn, ) = params.path.decodeFirstPool();
+            (tokenOut, tokenIn, ) = path.decodeFirstPool();
 
             require(isAllowedAsset(tokenIn), "Token not allowed");
             require(isAllowedAsset(tokenOut), "Token not allowed");
 
-            if (params.path.hasMultiplePools()) {
-                params.path = params.path.skipToken();
+            if (path.hasMultiplePools()) {
+                path = path.skipToken();
             } else {
                 break;
             }
@@ -295,5 +345,127 @@ contract GuardV0 is IGuard, Ownable {
         allowCallSite(router, getSelector("exactInput((bytes,address,uint256,uint256,uint256))"), notes);
         allowCallSite(router, getSelector("exactOutput((bytes,address,uint256,uint256,uint256))"), notes);
         allowApprovalDestination(router, notes);
+    }
+
+    // validate 1delta trade
+    function validate_1deltaMulticall(bytes memory callData) public view {
+        (bytes[] memory callArr) = abi.decode(callData, (bytes[]));
+
+        // loop through all sub-calls and validate
+        for (uint i; i < callArr.length; i++) {
+            bytes memory callDataWithSelector = callArr[i];
+
+            // bytes memory has to be sliced using BytesLib
+            bytes4 selector = bytes4(callDataWithSelector.slice(0, 4));
+            bytes memory subCallData = callDataWithSelector.slice(4, callDataWithSelector.length - 4);
+
+            // validate each sub-call
+            if (selector == getSelector("transferERC20In(address,uint256)")) {
+                validate_transferERC20In(subCallData);
+            } else if (selector == getSelector("transferERC20AllIn(address)")) {
+                validate_transferERC20AllIn(subCallData);
+            } else if (selector == getSelector("deposit(address,address)")) {
+                validate_deposit(subCallData);
+            } else if (selector == getSelector("withdraw(address,address)")) {
+                validate_withdraw(subCallData);
+            } else if (selector == getSelector("flashSwapExactIn(uint256,uint256,bytes)")) {
+                validate_flashSwapExactInt(subCallData);
+            } else if (selector == getSelector("flashSwapExactOut(uint256,uint256,bytes)")) {
+                validate_flashSwapExactOut(subCallData);
+            } else if (selector == getSelector("flashSwapAllOut(uint256,bytes)")) {
+                validate_flashSwapAllOut(subCallData);
+            } else {
+                revert("Unknown function selector");
+            }
+        }
+    }
+
+    // 1delta implementation: https://github.com/1delta-DAO/contracts-delegation/blob/4f27e1593c564c419ff042cdd932ed52d04216bf/contracts/1delta/modules/aave/FlashAggregator.sol#L78-L81
+    function validate_transferERC20In(bytes memory callData) public view {
+        (address token, ) = abi.decode(callData, (address, uint256));
+
+        require(isAllowedAsset(token), "Token not allowed");
+    }
+
+    // 1delta implementation: https://github.com/1delta-DAO/contracts-delegation/blob/4f27e1593c564c419ff042cdd932ed52d04216bf/contracts/1delta/modules/aave/FlashAggregator.sol#L83-L93
+    function validate_transferERC20AllIn(bytes memory callData) public view {
+        (address token) = abi.decode(callData, (address));
+
+        require(isAllowedAsset(token), "Token not allowed");
+    }
+    
+    // 1delta implementation: https://github.com/1delta-DAO/contracts-delegation/blob/4f27e1593c564c419ff042cdd932ed52d04216bf/contracts/1delta/modules/aave/FlashAggregator.sol#L34-L39
+    function validate_deposit(bytes memory callData) public view {
+        (address token, address receiver) = abi.decode(callData, (address, address));
+        
+        require(isAllowedAsset(token), "Token not allowed");
+        require(isAllowedReceiver(receiver), "Receiver address does not match");
+    }
+
+    // 1delta: https://github.com/1delta-DAO/contracts-delegation/blob/4f27e1593c564c419ff042cdd932ed52d04216bf/contracts/1delta/modules/aave/FlashAggregator.sol#L71-L74
+    function validate_withdraw(bytes memory callData) public view {
+        (address token, address receiver) = abi.decode(callData, (address, address));
+        
+        require(isAllowedAsset(token), "Token not allowed");
+        require(isAllowedReceiver(receiver), "Receiver address does not match");
+    }
+    
+    // 1delta implementation: https://github.com/1delta-DAO/contracts-delegation/blob/4f27e1593c564c419ff042cdd932ed52d04216bf/contracts/1delta/modules/aave/MarginTrading.sol#L43-L89
+    function validate_flashSwapExactInt(bytes memory callData) public view {
+        (, , bytes memory path) = abi.decode(callData, (uint256, uint256, bytes));
+
+        validate1deltaPath(path);
+    }
+
+    // Reference in 1delta: https://github.com/1delta-DAO/contracts-delegation/blob/4f27e1593c564c419ff042cdd932ed52d04216bf/contracts/1delta/modules/aave/MarginTrading.sol#L91-L103
+    function validate_flashSwapExactOut(bytes memory callData) public view {
+        (, , bytes memory path) = abi.decode(callData, (uint256, uint256, bytes));
+
+        validate1deltaPath(path);
+    }
+
+    // 1delta implementation: https://github.com/1delta-DAO/contracts-delegation/blob/4f27e1593c564c419ff042cdd932ed52d04216bf/contracts/1delta/modules/aave/MarginTrading.sol#L153-L203
+    function validate_flashSwapAllOut(bytes memory callData) public view {
+        (, bytes memory path) = abi.decode(callData, (uint256, bytes));
+
+        validate1deltaPath(path);
+    }
+
+    /**
+     * Our implementation of 1delta path decoding and validation using similar 
+     * approach as Uniswap v3 `Path.sol`
+     *
+     * Read more:
+     * - How 1delta encodes the path: https://github.com/1delta-DAO/contracts-delegation/blob/4f27e1593c564c419ff042cdd932ed52d04216bf/test-ts/1delta/shared/aggregatorPath.ts#L5-L32
+     * - How 1delta decodes the path: https://github.com/1delta-DAO/contracts-delegation/blob/4f27e1593c564c419ff042cdd932ed52d04216bf/contracts/1delta/modules/aave/MarginTrading.sol#L54-L60
+     */
+    function validate1deltaPath(bytes memory path) public view {
+        address tokenIn;
+        address tokenOut;
+
+        while (true) {
+            tokenIn = path.toAddress(0);
+            tokenOut = path.toAddress(ONEDELTA_NEXT_OFFSET);
+
+            require(isAllowedAsset(tokenIn), "Token not allowed");
+            require(isAllowedAsset(tokenOut), "Token not allowed");
+
+            // iterate to next slice if the path still contains multiple pools
+            if (path.length >= ONEDELTA_MULTIPLE_POOLS_MIN_LENGTH) {
+                path = path.slice(ONEDELTA_NEXT_OFFSET, path.length - ONEDELTA_NEXT_OFFSET);
+            } else {
+                break;
+            }
+        }
+    }
+
+    function whitelistOnedelta(address brokerProxy, address lendingPool, string calldata notes) external {
+        allowCallSite(brokerProxy, getSelector("multicall(bytes[])"), notes);
+        allowApprovalDestination(brokerProxy, notes);
+        allowApprovalDestination(lendingPool, notes);
+
+        // vToken has to be approved delegation for broker proxy
+        // Reference in 1delta tests: https://github.com/1delta-DAO/contracts-delegation/blob/4f27e1593c564c419ff042cdd932ed52d04216bf/test-ts/1delta/aave/marginSwap.spec.ts#L206
+        allowDelegationApprovalDestination(brokerProxy, notes);
     }
 }

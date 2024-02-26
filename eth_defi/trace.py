@@ -8,6 +8,7 @@
 - Currently only works with Anvil (:py:mod:`eth_defi.anvil`) backend
 
 """
+
 import enum
 import logging
 from typing import Any, Iterator, Optional, cast
@@ -247,6 +248,7 @@ def assert_transaction_success_with_explanation(
     web3: Web3,
     tx_hash: HexBytes,
     RaisedException=TransactionAssertionError,
+    tracing: bool = False,
 ) -> TxReceipt:
     """Checks if a transaction succeeds and give a verbose explanation why not..
 
@@ -288,6 +290,9 @@ def assert_transaction_success_with_explanation(
     :param RaisedException:
         Raise a custom exception instead of :py:class:`TransactionAssertionError`.
 
+    :param tracing:
+        Force turn on transaction tracing to use in e.g testing.
+
     :raise TransactionAssertionError:
         Outputs a verbose AssertionError on what went wrong.
 
@@ -300,7 +305,7 @@ def assert_transaction_success_with_explanation(
         # Explain why the transaction failed
         tx_details = web3.eth.get_transaction(tx_hash)
 
-        if web3.eth.chain_id == 31337:
+        if web3.eth.chain_id == 31337 or tracing:
             # Transaction tracing only enabled to anvil
             revert_reason = fetch_transaction_revert_reason(web3, tx_hash)
             trace_data = trace_evm_transaction(web3, tx_hash, TraceMethod.parity)

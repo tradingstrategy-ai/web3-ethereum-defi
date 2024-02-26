@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-2.0-or-later
+// SPDX-License-Identifier: Unlicense
 /*
  * @title Solidity Bytes Arrays Utils
  * @author Gonçalo Sá <goncalo.sa@consensys.net>
@@ -6,7 +6,7 @@
  * @dev Bytes tightly packed arrays utility library for ethereum contracts written in Solidity.
  *      The library lets you concatenate, slice and type cast bytes arrays both in memory and storage.
  */
-pragma solidity >=0.5.0;
+pragma solidity >=0.8.0 <0.9.0;
 
 library BytesLib {
     function slice(
@@ -94,6 +94,17 @@ library BytesLib {
 
         assembly {
             tempUint := mload(add(add(_bytes, 0x3), _start))
+        }
+
+        return tempUint;
+    }
+
+    function toUint8(bytes memory _bytes, uint256 _start) internal pure returns (uint8) {
+        require(_bytes.length >= _start + 1 , "toUint8_outOfBounds");
+        uint8 tempUint;
+
+        assembly {
+            tempUint := mload(add(add(_bytes, 0x1), _start))
         }
 
         return tempUint;
