@@ -11,6 +11,9 @@ subclass instances of :py:class:`web3.Web3` core connector.
 
 These instances support multiple JSON-RPC providers, mainly
 
+- Gracefully deal and retry JSON-RPC errors, even on a single RPC provider.
+  If multiple providers are provided, then recover if the provider goes down for a longer period of time.
+
 - Automatic fallback to another JSON-RPC provider when one fails, also known as
   "hot spare" or "hot switch" strategy in DevOps
 
