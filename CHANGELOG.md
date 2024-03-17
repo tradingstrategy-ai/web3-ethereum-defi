@@ -1,4 +1,4 @@
-# Current
+# 0.25.2
 
 - Handle HTTP 525 retryable, as returned by Alchemy JSON-RPC 
 
