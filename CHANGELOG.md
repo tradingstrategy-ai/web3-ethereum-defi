@@ -1,3 +1,7 @@
+# Current
+
+- Handle HTTP 525 retryable, as returned by Alchemy JSON-RPC 
+
 # 0.25.1
 
 - Add: `VaultPolicyConfiguration.shares_action_timelock` Have a safe redemption time lock on Enzyme vault deployments

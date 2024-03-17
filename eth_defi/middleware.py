@@ -75,6 +75,7 @@ DEFAULT_RETRYABLE_HTTP_STATUS_CODES = (
     502,
     503,
     504,
+    525,  # Returned by Alchemy - SSL handshake failed - cause unknown, internal Alchemy failure suspected https://http.dev/525
 )
 
 #: List of ValueError status codes we know we might want to retry after a timeout
