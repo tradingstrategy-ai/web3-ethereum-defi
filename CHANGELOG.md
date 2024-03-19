@@ -1,3 +1,7 @@
+# 0.25.3
+
+- Improve graphql support check in `has_graphql_support()`
+
 # 0.25.2
 
 - Handle HTTP 525 retryable, as returned by Alchemy JSON-RPC 

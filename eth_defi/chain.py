@@ -3,23 +3,23 @@
 Many chains like Polygon and BNB Chain may need their own Web3 connection tuning.
 In this module, we have helpers.
 """
+
 import datetime
 from collections import Counter
-from typing import Callable, Optional, Any
+from typing import Any, Callable, Optional
 
 #: These chains need POA middleware
 from urllib.parse import urljoin
 
 import requests
-from web3 import Web3, HTTPProvider
-from web3.middleware import geth_poa_middleware, construct_time_based_cache_middleware
-from web3.providers import JSONBaseProvider, BaseProvider
-from web3.types import RPCEndpoint, RPCResponse
+from web3 import HTTPProvider, Web3
 from web3.datastructures import NamedElementOnion
+from web3.middleware import construct_time_based_cache_middleware, geth_poa_middleware
+from web3.providers import BaseProvider, JSONBaseProvider
+from web3.types import RPCEndpoint, RPCResponse
 
 from eth_defi.event_reader.conversion import convert_jsonrpc_value_to_int
 from eth_defi.middleware import http_retry_request_with_sleep_middleware
-from eth_defi.provider.llamanodes import is_llama_bad_grapql_reply
 from eth_defi.provider.named import NamedProvider
 
 #: List of chain ids that need to have proof-of-authority middleweare installed
@@ -199,10 +199,10 @@ def has_graphql_support(provider: BaseProvider) -> bool:
     graphql_url = get_graphql_url(provider)
 
     try:
-        resp = requests.get(graphql_url)
-        return resp.status_code == 400 and not is_llama_bad_grapql_reply(resp)
+        resp = requests.get(graphql_url, json={"query": "query{block{number}}"})
+        return resp.status_code == 200 and resp.json()["data"]["block"]["number"]
     except Exception as e:
-        # ConnectionError, etc.
+        # ConnectionError, RequestsJSONDecodeError, etc.
         return False
 
 
