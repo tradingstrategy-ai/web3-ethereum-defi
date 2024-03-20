@@ -5,12 +5,16 @@ It's unlikely you want to use any of these contracts directly.
  
 [See Web3-Ethereum-Defi project for full documentation](https://web3-ethereum-defi.readthedocs.io/).
 
+## Solidity version
+
+- We are stuck 0.6.12 because of Enzyme dependency of AdapterBase
+- We have flattened out a local copy of AdapterBase to the source tree,
+  because the original Enzyme hardhat compilation toolchain is too difficult to install and run in many environments,
+  like Docker
+
 ## Compile
 
 ```shell
-# Need to fetch OpenZeppelin version we depend on
-(cd contracts/enzyme && pnpm install)
-
 # Proceed with our own project
 cd contracts/in-house
 forge build
@@ -23,6 +27,8 @@ RUST_LOG=forge,foundry_evm,backend forge build --force
 ```
 
 ## Deploying USDC payment forwarder
+
+**Note**: Now this step is automated by `trade-executor enzyme-deploy-vault command`.
 
 The repository contains an example contract for USDC payment relay using EIP-3009 approve() free
 and gasless transactions.

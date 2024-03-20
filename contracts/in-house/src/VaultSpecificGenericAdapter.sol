@@ -1,11 +1,14 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: MIT
 
 pragma solidity 0.6.12;
 pragma experimental ABIEncoderV2;
 
-import "@enzyme/release/extensions/integration-manager/integrations/utils/AdapterBase.sol";
-import "@enzyme/release/core/fund/vault/VaultLib.sol";
+// Enzyme is too difficult to build reliably
+import "./AdapterBase_flatten.sol";
 
+interface IVaultCore {
+    function getCreator() external view returns (address creator_);
+}
 
 /**
  * A vault contract specific adapter/
@@ -30,9 +33,9 @@ contract VaultSpecificGenericAdapter is AdapterBase {
     ) public AdapterBase(_integrationManager) {
         whitelistedVault = _whitelistedVault;
 
-        // Check the vault is proper vault contract
+        // Check the vault is proper vault con tract
         // Only if the crappy Solidity development tooling had interfaces people use
-        VaultLib vault = VaultLib(whitelistedVault);
+        IVaultCore vault = IVaultCore(whitelistedVault);
         require(vault.getCreator() != 0x0000000000000000000000000000000000000000, "Encountered funny vault");
     }
 

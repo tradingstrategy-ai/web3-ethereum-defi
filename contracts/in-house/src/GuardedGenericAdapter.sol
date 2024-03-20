@@ -5,7 +5,8 @@
 pragma solidity ^0.6.12;
 pragma experimental ABIEncoderV2;
 
-import "@enzyme/release/extensions/integration-manager/integrations/utils/AdapterBase.sol";
+// Enzyme is too difficult to build reliably
+import "./AdapterBase_flatten.sol";
 
 // Circular imports within Enzyme
 interface IVaultMock {

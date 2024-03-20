@@ -1,3 +1,9 @@
+# Current
+
+- Make it possible to deploy in-house contracts without installing Enzyme toolchain:
+  node.js, hardhat and node-gyp were un-co-operative. Instead, now we just flatten out Enzyme sol
+  files and store them in the source tree as copies.
+
 # 0.25.3
 
 - Improve graphql support check in `has_graphql_support()`
