@@ -7,7 +7,7 @@ from web3 import Web3, HTTPProvider
 from eth_defi.provider.anvil import AnvilLaunch, launch_anvil
 from eth_defi.chain import install_chain_middleware
 from eth_defi.provider.multi_provider import create_multi_provider_web3
-from eth_defi.token import TokenDetails
+from eth_defi.token import TokenDetails, reset_default_token_cache
 from eth_defi.usdc.deployment import deploy_fiat_token
 
 
@@ -27,6 +27,7 @@ def web3(anvil: AnvilLaunch) -> Web3:
 
     Also perform the Anvil state reset for each test.
     """
+    reset_default_token_cache()  # Avoid race conditions in parallel tests
     web3 = create_multi_provider_web3(anvil.json_rpc_url)
     return web3
 
