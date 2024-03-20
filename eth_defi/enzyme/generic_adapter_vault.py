@@ -238,6 +238,8 @@ def deploy_vault_with_generic_adapter(
         # we set the vault address itself as asset manager for the guard
         tx_hash = guard.functions.allowSender(vault.address, "").transact({"from": deployer.address})
         assert_transaction_success_with_explanation(web3, tx_hash)
+
+        logger.info("GenericAdapter %s whitelisted as receiver", generic_adapter.address)
     else:
         # Production deployment foobar - add this warning message for now until figuring
         # out why allowReceiver() failed
