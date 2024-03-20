@@ -341,6 +341,6 @@ def test_guard_pair_not_approved(
         )
     )
 
-    with pytest.raises(TransactionFailed, match="execution reverted: Token not allowed"):
+    with pytest.raises(TransactionFailed, match="Token not allowed"):
         target, call_data = encode_simple_vault_transaction(trade_call)
         vault.functions.performCall(target, call_data).transact({"from": asset_manager})
