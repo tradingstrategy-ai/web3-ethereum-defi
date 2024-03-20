@@ -130,17 +130,16 @@ def deploy_vault_with_generic_adapter(
 
     # Log EtherScan API key
     # Nothing bad can be done with this key, but good diagnostics is more important
+    web3 = deployment.web3
+    deployed_at_block = web3.eth.block_number
     logger.info(
-        "Deploying Enzyme vault. Enzyme fund deployer: %s, Terms of service: %s, USDC: %s, Etherscan API key: %s",
+        "Deploying Enzyme vault. Enzyme fund deployer: %s, Terms of service: %s, USDC: %s, Etherscan API key: %s, block %d",
         deployment.contracts.fund_deployer.address,
         terms_of_service.address if terms_of_service is not None else "-",
         denomination_asset.address,
         etherscan_api_key,
+        deployed_at_block,
     )
-
-    web3 = deployment.web3
-
-    deployed_at_block = web3.eth.block_number
 
     if not mock_guard:
         guard, tx_hash = deploy_contract_with_forge(
@@ -164,14 +163,6 @@ def deploy_vault_with_generic_adapter(
             etherscan_api_key=etherscan_api_key,
         )
         logger.info("MockGuard is %s deployed at %s", guard.address, tx_hash.hex())
-
-    # generic_adapter = deploy_contract(
-    #     web3,
-    #     f"GuardedGenericAdapter.json",
-    #     deployer,
-    #     deployment.contracts.integration_manager.address,
-    #     guard.address,
-    # )
 
     generic_adapter, tx_hash = deploy_contract_with_forge(
         web3,
@@ -240,12 +231,17 @@ def deploy_vault_with_generic_adapter(
         # When swap is performed, the tokens will land on the integration contract
         # and this contract must be listed as the receiver.
         # Enzyme will then internally move tokens to its vault from here.
-        guard.functions.allowReceiver(generic_adapter.address, "").transact({"from": deployer.address})
+        tx_hash = guard.functions.allowReceiver(generic_adapter.address, "").transact({"from": deployer.address})
+        assert_transaction_success_with_explanation(web3, tx_hash)
 
         # Because Enzyme does not pass the asset manager address to through integration manager,
         # we set the vault address itself as asset manager for the guard
         tx_hash = guard.functions.allowSender(vault.address, "").transact({"from": deployer.address})
         assert_transaction_success_with_explanation(web3, tx_hash)
+    else:
+        # Production deployment foobar - add this warning message for now until figuring
+        # out why allowReceiver() failed
+        logger.warning("No receiver whitelisted")
 
     # Give generic adapter back reference to the vault
     assert vault.functions.getCreator().call() != ZERO_ADDRESS, f"Bad vault creator {vault.functions.getCreator().call()}"
@@ -255,8 +251,6 @@ def deploy_vault_with_generic_adapter(
         meta,
     ).transact({"from": deployer.address})
     assert_transaction_success_with_explanation(web3, tx_hash)
-
-    receipt = web3.eth.get_transaction_receipt(tx_hash)
 
     assert generic_adapter.functions.getIntegrationManager().call() == deployment.contracts.integration_manager.address
     assert comptroller.functions.getDenominationAsset().call() == denomination_asset.address

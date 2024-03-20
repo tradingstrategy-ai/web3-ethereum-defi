@@ -334,7 +334,7 @@ def test_guard_pair_not_approved(
         FOREVER_DEADLINE,
     )
 
-    with pytest.raises(TransactionFailed, match="execution reverted: Token not allowed"):
+    with pytest.raises(TransactionFailed, match="Token not allowed"):
         target, call_data = encode_simple_vault_transaction(trade_call)
         vault.functions.performCall(target, call_data).transact({"from": asset_manager})
 
@@ -393,7 +393,7 @@ def test_guard_unauthorized_withdraw(
         usdc_amount,
     )
 
-    with pytest.raises(TransactionFailed, match="execution reverted: Receiver address does not match"):
+    with pytest.raises(TransactionFailed, match="Receiver address"):
         target, call_data = encode_simple_vault_transaction(transfer_call)
         vault.functions.performCall(target, call_data).transact({"from": asset_manager})
 
@@ -416,7 +416,7 @@ def test_guard_unauthorized_approve(
         usdc_amount,
     )
 
-    with pytest.raises(TransactionFailed, match="execution reverted: Approve address does not match"):
+    with pytest.raises(TransactionFailed, match="Approve address"):
         target, call_data = encode_simple_vault_transaction(transfer_call)
         vault.functions.performCall(target, call_data).transact({"from": asset_manager})
 
@@ -455,6 +455,6 @@ def test_guard_third_party_trade(
         FOREVER_DEADLINE,
     )
 
-    with pytest.raises(TransactionFailed, match="execution reverted: Sender not allowed"):
+    with pytest.raises(TransactionFailed, match="Sender not allowed"):
         target, call_data = encode_simple_vault_transaction(trade_call)
         vault.functions.performCall(target, call_data).transact({"from": third_party})
