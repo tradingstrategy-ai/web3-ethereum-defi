@@ -5,6 +5,10 @@ It's unlikely you want to use any of these contracts directly.
  
 [See Web3-Ethereum-Defi project for full documentation](https://web3-ethereum-defi.readthedocs.io/).
 
+## Solidity version
+
+- We are stuck 0.6.12 because of Enzyme dependency of AdapterBase
+
 ## Compile
 
 ```shell

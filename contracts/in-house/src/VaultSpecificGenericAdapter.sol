@@ -1,10 +1,10 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: MIT
 
 pragma solidity 0.6.12;
 pragma experimental ABIEncoderV2;
 
-import "@enzyme/release/extensions/integration-manager/integrations/utils/AdapterBase.sol";
-import "@enzyme/release/core/fund/vault/VaultLib.sol";
+// Enzyme is too difficult to build reliably
+import "./AdapterBase_flatten.sol";
 
 
 /**
