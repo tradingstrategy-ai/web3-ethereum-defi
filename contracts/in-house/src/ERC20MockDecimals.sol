@@ -1,8 +1,6 @@
-// SPDX-License-Identifier: MIT
-
 pragma solidity >=0.6.0 <0.8.0;
 
-import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import "./ERC20_flat.sol";
 
 /**
  * None of the libraries provide a contract that allows mock us decimals of ERC-20 token, needed for USDC mocks
