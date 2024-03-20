@@ -140,6 +140,8 @@ def deploy_vault_with_generic_adapter(
 
     web3 = deployment.web3
 
+    deployed_at_block = web3.eth.block_number
+
     if not mock_guard:
         guard, tx_hash = deploy_contract_with_forge(
             web3,
@@ -255,7 +257,6 @@ def deploy_vault_with_generic_adapter(
     assert_transaction_success_with_explanation(web3, tx_hash)
 
     receipt = web3.eth.get_transaction_receipt(tx_hash)
-    deployed_at_block = receipt["blockNumber"]
 
     assert generic_adapter.functions.getIntegrationManager().call() == deployment.contracts.integration_manager.address
     assert comptroller.functions.getDenominationAsset().call() == denomination_asset.address

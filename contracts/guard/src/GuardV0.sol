@@ -230,17 +230,17 @@ contract GuardV0 is IGuard, Ownable {
 
     function validate_transfer(bytes memory callData) public view {
         (address to, ) = abi.decode(callData, (address, uint));
-        require(isAllowedWithdrawDestination(to), "Receiver address does not match");
+        require(isAllowedWithdrawDestination(to), "validate_transfer: Receiver address not whitelisted by Guard");
     }
 
     function validate_approve(bytes memory callData) public view {
         (address to, ) = abi.decode(callData, (address, uint));
-        require(isAllowedApprovalDestination(to), "Approve address does not match");
+        require(isAllowedApprovalDestination(to), "validate_approve: Approve address does not match");
     }
 
     function validate_approveDelegation(bytes memory callData) public view {
         (address to, ) = abi.decode(callData, (address, uint));
-        require(isAllowedDelegationApprovalDestination(to), "Approve delegation address does not match");
+        require(isAllowedDelegationApprovalDestination(to), "validate_approveDelegation: Approve delegation address does not match");
     }
 
     function whitelistToken(address token, string calldata notes) external {
@@ -265,13 +265,13 @@ contract GuardV0 is IGuard, Ownable {
             return;
         }
 
-        require(isAllowedSender(sender), "Sender not allowed");
+        require(isAllowedSender(sender), "validateCall: Sender not allowed");
 
         // Assume sender is trade-executor hot wallet
 
         bytes4 selector = bytes4(callDataWithSelector[:4]);
         bytes calldata callData = callDataWithSelector[4:];
-        require(isAllowedCallSite(target, selector), "Call site not allowed");
+        require(isAllowedCallSite(target, selector), "validateCall: Call site not allowed");
 
         if(selector == getSelector("swapExactTokensForTokens(uint256,uint256,address[],address,uint256)")) {
             validate_swapExactTokensForTokens(callData);
@@ -294,7 +294,7 @@ contract GuardV0 is IGuard, Ownable {
     function validate_swapExactTokensForTokens(bytes memory callData) public view {
         (, , address[] memory path, address to, ) = abi.decode(callData, (uint, uint, address[], address, uint));
 
-        require(isAllowedReceiver(to), "Receiver address does not match");
+        require(isAllowedReceiver(to), "validate_swapExactTokensForTokens: Receiver address not whitelisted by Guard");
 
         address token;
         for (uint256 i = 0; i < path.length; i++) {
@@ -312,14 +312,14 @@ contract GuardV0 is IGuard, Ownable {
     function validate_exactInput(bytes memory callData) public view {
         (ExactInputParams memory params) = abi.decode(callData, (ExactInputParams));
         
-        require(isAllowedReceiver(params.recipient), "Receiver address does not match");
+        require(isAllowedReceiver(params.recipient), "validate_exactInput: Receiver address not whitelisted by Guard");
         validateUniswapV3Path(params.path);
     }
 
     function validate_exactOutput(bytes memory callData) public view {
         (ExactOutputParams memory params) = abi.decode(callData, (ExactOutputParams));
         
-        require(isAllowedReceiver(params.recipient), "Receiver address does not match");
+        require(isAllowedReceiver(params.recipient), "validate_exactOutput: Receiver address not whitelisted by Guard");
         validateUniswapV3Path(params.path);
     }
 
@@ -330,8 +330,8 @@ contract GuardV0 is IGuard, Ownable {
         while (true) {
             (tokenOut, tokenIn, ) = path.decodeFirstPool();
 
-            require(isAllowedAsset(tokenIn), "Token not allowed");
-            require(isAllowedAsset(tokenOut), "Token not allowed");
+            require(isAllowedAsset(tokenIn), "validateUniswapV3Path: Token not allowed");
+            require(isAllowedAsset(tokenOut), "validateUniswapV3Path: Token not allowed");
 
             if (path.hasMultiplePools()) {
                 path = path.skipToken();
@@ -375,7 +375,7 @@ contract GuardV0 is IGuard, Ownable {
             } else if (selector == getSelector("flashSwapAllOut(uint256,bytes)")) {
                 validate_flashSwapAllOut(subCallData);
             } else {
-                revert("Unknown function selector");
+                revert("validate_1deltaMulticall: Unknown function selector");
             }
         }
     }
@@ -384,30 +384,30 @@ contract GuardV0 is IGuard, Ownable {
     function validate_transferERC20In(bytes memory callData) public view {
         (address token, ) = abi.decode(callData, (address, uint256));
 
-        require(isAllowedAsset(token), "Token not allowed");
+        require(isAllowedAsset(token), "validate_transferERC20In: Token not allowed");
     }
 
     // 1delta implementation: https://github.com/1delta-DAO/contracts-delegation/blob/4f27e1593c564c419ff042cdd932ed52d04216bf/contracts/1delta/modules/aave/FlashAggregator.sol#L83-L93
     function validate_transferERC20AllIn(bytes memory callData) public view {
         (address token) = abi.decode(callData, (address));
 
-        require(isAllowedAsset(token), "Token not allowed");
+        require(isAllowedAsset(token), "validate_transferERC20AllIn: Token not allowed");
     }
     
     // 1delta implementation: https://github.com/1delta-DAO/contracts-delegation/blob/4f27e1593c564c419ff042cdd932ed52d04216bf/contracts/1delta/modules/aave/FlashAggregator.sol#L34-L39
     function validate_deposit(bytes memory callData) public view {
         (address token, address receiver) = abi.decode(callData, (address, address));
         
-        require(isAllowedAsset(token), "Token not allowed");
-        require(isAllowedReceiver(receiver), "Receiver address does not match");
+        require(isAllowedAsset(token), "validate_transferERC20AllIn: Token not allowed");
+        require(isAllowedReceiver(receiver), "validate_deposit: Receiver address not whitelisted by Guard");
     }
 
     // 1delta: https://github.com/1delta-DAO/contracts-delegation/blob/4f27e1593c564c419ff042cdd932ed52d04216bf/contracts/1delta/modules/aave/FlashAggregator.sol#L71-L74
     function validate_withdraw(bytes memory callData) public view {
         (address token, address receiver) = abi.decode(callData, (address, address));
         
-        require(isAllowedAsset(token), "Token not allowed");
-        require(isAllowedReceiver(receiver), "Receiver address does not match");
+        require(isAllowedAsset(token), "validate_withdraw: Token not allowed");
+        require(isAllowedReceiver(receiver), "validate_deposit: Receiver address not whitelisted by Guard");
     }
     
     // 1delta implementation: https://github.com/1delta-DAO/contracts-delegation/blob/4f27e1593c564c419ff042cdd932ed52d04216bf/contracts/1delta/modules/aave/MarginTrading.sol#L43-L89
@@ -447,8 +447,8 @@ contract GuardV0 is IGuard, Ownable {
             tokenIn = path.toAddress(0);
             tokenOut = path.toAddress(ONEDELTA_NEXT_OFFSET);
 
-            require(isAllowedAsset(tokenIn), "Token not allowed");
-            require(isAllowedAsset(tokenOut), "Token not allowed");
+            require(isAllowedAsset(tokenIn), "validate1deltaPath: Token not allowed");
+            require(isAllowedAsset(tokenOut), "validate1deltaPath: Token not allowed");
 
             // iterate to next slice if the path still contains multiple pools
             if (path.length >= ONEDELTA_MULTIPLE_POOLS_MIN_LENGTH) {
