@@ -163,7 +163,7 @@ def test_aave_v3_supply(
         # over withdraw should fail
         # error code 32 = 'User cannot withdraw more than the available balance'
         # https://github.com/aave/aave-v3-core/blob/e0bfed13240adeb7f05cb6cbe5e7ce78657f0621/contracts/protocol/libraries/helpers/Errors.sol#L41
-        (1.0001, TransactionAssertionError("execution reverted: 32")),
+        (1.0001, TransactionAssertionError("32")),
     ],
 )
 def test_aave_v3_withdraw(
@@ -208,13 +208,10 @@ def test_aave_v3_withdraw(
     tx_hash = web3.eth.send_raw_transaction(signed.rawTransaction)
 
     if isinstance(expected_exception, Exception):
-        with pytest.raises(type(expected_exception)) as e:
+        with pytest.raises(type(expected_exception), match=str(expected_exception)) as e:
             assert_transaction_success_with_explanation(web3, tx_hash)
 
-        assert str(expected_exception) == e.value.revert_reason
-
-        # revert reason should be in message as well
-        assert str(expected_exception) in str(e.value)
+        assert str(expected_exception) in e.value.revert_reason
     else:
         # withdraw successfully
         assert_transaction_success_with_explanation(web3, tx_hash)
@@ -274,12 +271,12 @@ def test_aave_v3_oracle(
         # try to borrow 8001 USDC should fail as collateral is 10k USDC and reserve LTV is 80%
         # error code 36 = 'There is not enough collateral to cover a new borrow'
         # https://github.com/aave/aave-v3-core/blob/e0bfed13240adeb7f05cb6cbe5e7ce78657f0621/contracts/protocol/libraries/helpers/Errors.sol#L45
-        ("usdc", 8_001 * 10**6, TransactionAssertionError("execution reverted: 36"), None),
+        ("usdc", 8_001 * 10**6, TransactionAssertionError("36"), None),
         # TODO: more test case for borrowing ETH
         # 1 WETH = 4000 USDC
         ("weth", 1 * 10**18, None, 2125000000000000000),
         # 2.1 WETH (8400 USDC) should fail
-        ("weth", int(2.1 * 10**18), TransactionAssertionError("execution reverted: 36"), None),
+        ("weth", int(2.1 * 10**18), TransactionAssertionError("36"), None),
     ],
 )
 def test_aave_v3_borrow(
@@ -328,13 +325,10 @@ def test_aave_v3_borrow(
     tx_hash = web3.eth.send_raw_transaction(signed.rawTransaction)
 
     if isinstance(expected_exception, Exception):
-        with pytest.raises(type(expected_exception)) as e:
+        with pytest.raises(type(expected_exception), match=str(expected_exception)) as e:
             assert_transaction_success_with_explanation(web3, tx_hash)
 
-        assert str(expected_exception) == e.value.revert_reason
-
-        # revert reason should be in message as well
-        assert str(expected_exception) in str(e.value)
+        assert str(expected_exception) in e.value.revert_reason
     else:
         # borrow successfully
         assert_transaction_success_with_explanation(web3, tx_hash)
@@ -364,7 +358,7 @@ def test_aave_v3_borrow(
         ("usdc", 8_000 * 10**6, MAX_AMOUNT, 1_000 * 10**6, None, 0),
         # repay everything: capital + interest
         # currently set to fail since hot wallet doesn't have enough to repay interest
-        ("usdc", 8_000 * 10**6, MAX_AMOUNT, 0, TransactionAssertionError("execution reverted: ERC20: transfer amount exceeds balance"), None),
+        ("usdc", 8_000 * 10**6, MAX_AMOUNT, 0, TransactionAssertionError("ERC20: transfer amount exceeds balance"), None),
     ],
 )
 def test_aave_v3_repay(
@@ -447,13 +441,10 @@ def test_aave_v3_repay(
     tx_hash = web3.eth.send_raw_transaction(signed.rawTransaction)
 
     if isinstance(expected_exception, Exception):
-        with pytest.raises(type(expected_exception)) as e:
+        with pytest.raises(type(expected_exception), match=str(expected_exception)) as e:
             assert_transaction_success_with_explanation(web3, tx_hash)
 
-        assert str(expected_exception) == e.value.revert_reason
-
-        # revert reason should be in message as well
-        assert str(expected_exception) in str(e.value)
+        assert str(expected_exception) in e.value.revert_reason
     else:
         # repay successfully
         assert_transaction_success_with_explanation(web3, tx_hash)

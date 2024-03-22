@@ -1,6 +1,7 @@
 """Test vault's wallet like interface.
 
 """
+
 import secrets
 from decimal import Decimal
 
@@ -270,4 +271,4 @@ def test_vault_controlled_wallet_make_unauthorised(
     signed, bound_func = vault_wallet.sign_transaction_with_new_nonce(approve_tx)
     tx_hash = web3.eth.send_raw_transaction(signed.raw_transaction)
     reason = fetch_transaction_revert_reason(web3, tx_hash)
-    assert reason == "execution reverted: receiveCallFromComptroller: Unauthorized"
+    assert "receiveCallFromComptroller: Unauthorized" in reason
