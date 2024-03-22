@@ -193,7 +193,7 @@ def get_deployed_contract(
     :return:
         `web3.contract.Contract` proxy
     """
-    assert address
+    assert address, f"get_deployed_contract() address was None"
 
     address = Web3.to_checksum_address(address)
 
