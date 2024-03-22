@@ -14,7 +14,7 @@ from eth_defi.foundry.forge import deploy_contract_with_forge
 from eth_defi.hotwallet import HotWallet
 from eth_defi.token import TokenDetails, fetch_erc20_details
 from eth_defi.trace import assert_transaction_success_with_explanation
-from eth_defi.uniswap_v2.constants import UNISWAP_V2_DEPLOYMENTS
+from eth_defi.uniswap_v2.constants import UNISWAP_V2_DEPLOYMENTS, QUICKSWAP_DEPLOYMENTS
 from eth_defi.uniswap_v2.utils import ZERO_ADDRESS
 from eth_defi.uniswap_v3.constants import UNISWAP_V3_DEPLOYMENTS
 
@@ -293,7 +293,7 @@ def deploy_vault_with_generic_adapter(
         match web3.eth.chain_id:
             case 137:
                 uniswap_v3_router = UNISWAP_V3_DEPLOYMENTS["polygon"]["router"]
-                uniswap_v2_router = None
+                uniswap_v2_router = QUICKSWAP_DEPLOYMENTS["polygon"]["router"]
             case 1:
                 uniswap_v2_router = UNISWAP_V2_DEPLOYMENTS["ethereum"]["router"]
                 uniswap_v3_router = UNISWAP_V3_DEPLOYMENTS["ethereum"]["router"]
@@ -303,7 +303,7 @@ def deploy_vault_with_generic_adapter(
                 uniswap_v3_router = None
 
         if uniswap_v2 and uniswap_v2_router:
-            logger.info("Whitelisting Uniswap V2 router %s", uniswap_v2_router)
+            logger.info("Whitelisting Uniswap/Quickswap V2 router %s", uniswap_v2_router)
             tx_hash = vault.guard_contract.functions.whitelistUniswapV2Router(uniswap_v2_router, "").transact({"from": deployer.address})
             assert_transaction_success_with_explanation(web3, tx_hash)
 
