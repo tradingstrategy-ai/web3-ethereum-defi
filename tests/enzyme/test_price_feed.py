@@ -1,27 +1,36 @@
 """Fetch enzyme price feeds.
 
 """
-from functools import partial
-from typing import cast, List
+
 from decimal import Decimal
+from functools import partial
+from typing import List, cast
 
 import pytest
 from eth.constants import ZERO_ADDRESS
 from eth_typing import HexAddress
-from web3 import Web3, HTTPProvider
+from web3 import HTTPProvider, Web3
 from web3.contract import Contract
 from web3.exceptions import ContractLogicError
 
 from eth_defi.deploy import deploy_contract
 from eth_defi.enzyme.deployment import EnzymeDeployment, RateAsset
-from eth_defi.enzyme.events import fetch_vault_balance_events, Deposit, Redemption
-from eth_defi.enzyme.price_feed import fetch_price_feeds, EnzymePriceFeed, fetch_updated_price_feed
+from eth_defi.enzyme.events import Deposit, Redemption, fetch_vault_balance_events
+from eth_defi.enzyme.price_feed import (
+    EnzymePriceFeed,
+    fetch_price_feeds,
+    fetch_updated_price_feed,
+)
 from eth_defi.enzyme.uniswap_v2 import prepare_swap
 from eth_defi.enzyme.vault import Vault
 from eth_defi.event_reader.multithread import MultithreadEventReader
-from eth_defi.event_reader.reader import extract_events, Web3EventReader
+from eth_defi.event_reader.reader import Web3EventReader, extract_events
 from eth_defi.token import fetch_erc20_details
-from eth_defi.trace import assert_transaction_success_with_explanation, TransactionAssertionError, assert_call_success_with_explanation
+from eth_defi.trace import (
+    TransactionAssertionError,
+    assert_call_success_with_explanation,
+    assert_transaction_success_with_explanation,
+)
 from eth_defi.uniswap_v2.deployment import UniswapV2Deployment
 
 
@@ -99,18 +108,12 @@ def test_unsupported_base_asset(web3: Web3, deployment: EnzymeDeployment, weth: 
     # and print a Solidity stack trace of errors if any
     value_interpreter = deployment.contracts.value_interpreter
     raw_amount = 10**18
-    with pytest.raises((ContractLogicError, ValueError)) as e:
+    with pytest.raises((ContractLogicError, ValueError), match="__calcAssetValue: Unsupported _baseAsset") as e:
         result = value_interpreter.functions.calcCanonicalAssetValue(
             ZERO_ADDRESS,
             raw_amount,
             usdc.address,
         ).call()
-
-    if isinstance(e, ContractLogicError):
-        assert e.value.args[0] == "execution reverted: __calcAssetValue: Unsupported _baseAsset"
-    else:
-        # ETHEREUM JSON RPC LOVELY
-        assert e.value.args[0]["message"] == "execution reverted: __calcAssetValue: Unsupported _baseAsset"
 
 
 def test_manipulate_price(
