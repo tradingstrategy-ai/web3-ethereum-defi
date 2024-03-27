@@ -4,6 +4,7 @@
   node.js, hardhat and node-gyp were un-co-operative. Instead, now we just flatten out Enzyme sol
   files and store them in the source tree as copies.
 - Improved error messages for `GuardV0`
+- Handle HTTP 520 retryable, as returned by Alchemy JSON-RPC 
 
 # 0.25.3
 
