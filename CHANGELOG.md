@@ -5,7 +5,8 @@
   files and store them in the source tree as copies.
 - Improved error messages for `GuardV0`
 - Handle HTTP 520 retryable, as returned by Alchemy JSON-RPC 
-
+- Handle HTTP 410 retryable, as returned by dRPC
+- 
 # 0.25.3
 
 - Improve graphql support check in `has_graphql_support()`
