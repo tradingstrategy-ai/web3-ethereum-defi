@@ -1,4 +1,4 @@
-# Current
+# 0.25.4
 
 - Make it possible to deploy in-house contracts without installing Enzyme toolchain:
   node.js, hardhat and node-gyp were un-co-operative. Instead, now we just flatten out Enzyme sol
