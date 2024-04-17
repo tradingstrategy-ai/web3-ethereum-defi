@@ -60,6 +60,9 @@ def swap_with_slippage_protection(
         tx_receipt = web3.eth.wait_for_transaction_receipt(tx_hash)
         assert tx_receipt.status == 1
 
+    Uniswap v3 has the same trading pair deployed multiple times as multiple pools
+    with different fee tiers. `Use DEX and trading pair search to figure out fee tiers <https://tradingstrategy.ai/search>`__.
+
     TODO: Take explicit `block_identifier` parameter and also return
     the estimated amounts. This would allow to estimate
     historical slippages.

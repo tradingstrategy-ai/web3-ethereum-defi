@@ -1,10 +1,15 @@
 # Current
 
+- TODO
+
+# 0.25.4
+
 - Make it possible to deploy in-house contracts without installing Enzyme toolchain:
   node.js, hardhat and node-gyp were un-co-operative. Instead, now we just flatten out Enzyme sol
   files and store them in the source tree as copies.
 - Improved error messages for `GuardV0`
 - Handle HTTP 520 retryable, as returned by Alchemy JSON-RPC 
+- Handle `ValueError: {'code': -32000, 'message': 'execution aborted (timeout = 5s)'}` as returned by Alchemy RPC
 
 # 0.25.3
 
