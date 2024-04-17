@@ -6,7 +6,7 @@
 
 # Web3-Ethereum-Defi
 
-Web-Ethereum-DeFi Python package provides high level modules for smart
+Web-Ethereum-DeFi (`eth_defi`) Python package provides high level modules for smart
 contracts, with prepackaged ABI files for DeFi protocol integration,
 wallet management, JSON-RPC providers and automated test suites. The
 package aims for robustness, high quality of the code and documentation.

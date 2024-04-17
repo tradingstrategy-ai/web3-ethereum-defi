@@ -77,6 +77,7 @@ DEFAULT_RETRYABLE_HTTP_STATUS_CODES = (
     504,
     525,  # Returned by Alchemy - SSL handshake failed - cause unknown, internal Alchemy failure suspected https://http.dev/525
     520,  # Returned by Alchemy - CloudFlare: Unknown error
+    410,  # happens on dRPC: requests.exceptions.HTTPError: 410 Client Error: Gone for url: https://lb.drpc.org/ogrpc?network=avalanche&dkey=xxx
 )
 
 #: List of ValueError status codes we know we might want to retry after a timeout
@@ -129,14 +130,15 @@ DEFAULT_RETRYABLE_RPC_ERROR_CODES = (
 #: See :py:data:`DEFAULT_RETRYABLE_RPC_ERROR_CODES`.
 #:
 DEFAULT_RETRYABLE_RPC_ERROR_MESSAGES = {
-
     # When broadcasting batch transactions, the RPC provider
     # has a load balancer that is not internally coherent
     "nonce too low",
-
     # Some random load balancer error?
     # https://github.com/MetaMask/metamask-extension/issues/7234
-    "header not found"
+    "header not found",
+    # Error from Alchemy
+    # ValueError: {'code': -32000, 'message': 'execution aborted (timeout = 5s)'}
+    "execution aborted (timeout = 5s)",
 }
 
 #: Ethereum JSON-RPC calls where the value never changes
