@@ -1,0 +1,10 @@
+{
+  "_format": "hh-sol-artifact-1",
+  "contractName": "LendingPoolStorage",
+  "sourceName": "contracts/protocol/lendingpool/LendingPoolStorage.sol",
+  "abi": [],
+  "bytecode": "0x6080604052348015600f57600080fd5b50603f80601d6000396000f3fe6080604052600080fdfea26469706673582212200524db279e490ff211679beb6db950eb46c19feaded066c6681b0d8561b7995364736f6c634300060c0033",
+  "deployedBytecode": "0x6080604052600080fdfea26469706673582212200524db279e490ff211679beb6db950eb46c19feaded066c6681b0d8561b7995364736f6c634300060c0033",
+  "linkReferences": {},
+  "deployedLinkReferences": {}
+}
