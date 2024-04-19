@@ -272,7 +272,7 @@ def _fetch_aave_events_to_csv(
     buffers = {}
 
     for event_name, mapping in event_mapping.items():
-        file_path = f"{output_folder}/aave-{aave_version}-{aave_network_name.lower()}-{event_name.lower()}.csv"
+        file_path = f"{output_folder}/aave-{aave_version.value}-{aave_network_name.lower()}-{event_name.lower()}.csv"
         exists_already = Path(file_path).exists()
         file_handler = open(file_path, "a")
         csv_writer = csv.DictWriter(file_handler, fieldnames=mapping["field_names"])

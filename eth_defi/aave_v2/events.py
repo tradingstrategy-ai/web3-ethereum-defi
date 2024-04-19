@@ -12,8 +12,8 @@ from typing import Callable
 
 from eth_defi.aave_v3.constants import AaveVersion
 from eth_defi.aave_v3.events import _fetch_aave_events_to_csv
+from eth_defi.event_reader.reorganisation_monitor import ReorganisationMonitor
 from eth_defi.event_reader.state import ScanState
-from eth_defi.
 
 logger = logging.getLogger(__name__)
 
@@ -27,7 +27,7 @@ def aave_v2_fetch_events_to_csv(
     output_folder: str = "/tmp",
     max_workers: int = 16,
     log_info: Callable = print,
-    reorg_monitor=None,
+    reorg_monitor: ReorganisationMonitor | None = None,
 ):
     """Fetch all tracked Aave v2 events to CSV files for notebook analysis.
 
@@ -68,5 +68,6 @@ def aave_v2_fetch_events_to_csv(
         output_folder=output_folder,
         max_workers=max_workers,
         log_info=log_info,
+        reorg_monitor=reorg_monitor,
         aave_version=AaveVersion.V2,
     )
