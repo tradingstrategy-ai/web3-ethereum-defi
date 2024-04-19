@@ -20,6 +20,7 @@ API documentation
    usdc/index
    uniswap_v2/index
    uniswap_v3/index
+   aave_v2/index
    aave_v3/index
    one_delta/index
    enzyme/index
