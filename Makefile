@@ -73,6 +73,11 @@ aavev3:
 	@mkdir -p eth_defi/abi/aave_v3
 	@find contracts/aave-v3-deploy/artifacts/@aave -iname "*.json" -not -iname "*.dbg.json" -exec cp {} eth_defi/abi/aave_v3 \;
 
+aavev2:
+	@(cd contracts/aave-v2 && npm ci && npm run compile) > /dev/null
+	@mkdir -p eth_defi/abi/aave_v2
+	@find contracts/aave-v2/artifacts/contracts -iname "*.json" -not -iname "*.dbg.json" -exec cp {} eth_defi/abi/aave_v2 \;
+
 # Compile and copy Enzyme contract ABIs from their Github repository
 # Needs pnpm: curl -fsSL https://get.pnpm.io/install.sh | sh -
 #

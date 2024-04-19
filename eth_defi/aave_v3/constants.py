@@ -1,4 +1,5 @@
 """Aave v3 constants."""
+
 import enum
 import json
 import os
@@ -216,6 +217,11 @@ _autofill_token_addresses()
 class AaveV3InterestRateMode(enum.IntEnum):
     STABLE = 1
     VARIABLE = 2
+
+
+class AaveVersion(enum.Enum):
+    V2 = "v2"
+    V3 = "v3"
 
 
 # Max amount user can withdraw or repay

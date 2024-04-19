@@ -6,34 +6,37 @@ Currently we are tracking these events:
 
 - ReserveDataUpdated
 """
+
 import csv
 import datetime
 import logging
 from pathlib import Path
+from typing import Callable
 
 from requests.adapters import HTTPAdapter
 from tqdm.auto import tqdm
 from web3 import Web3
 
+from eth_defi.aave_v2.constants import AAVE_V2_NETWORKS
 from eth_defi.aave_v3.constants import (
     AAVE_V3_NETWORKS,
+    AaveVersion,
     aave_v3_get_token_name_by_deposit_address,
 )
 from eth_defi.abi import get_contract
 from eth_defi.event_reader.conversion import (
     convert_int256_bytes_to_int,
+    convert_jsonrpc_value_to_int,
     convert_uint256_string_to_address,
     decode_data,
-    convert_jsonrpc_value_to_int,
 )
 from eth_defi.event_reader.logresult import LogContext
 from eth_defi.event_reader.reader import LogResult, read_events_concurrent
+from eth_defi.event_reader.reorganisation_monitor import ReorganisationMonitor
 from eth_defi.event_reader.state import ScanState
 from eth_defi.event_reader.web3factory import TunedWeb3Factory
 from eth_defi.event_reader.web3worker import create_thread_pool_executor
 from eth_defi.token import TokenDetails, fetch_erc20_details
-
-# from eth_defi.token import TokenDetails, fetch_erc20_details
 
 logger = logging.getLogger(__name__)
 
@@ -96,8 +99,19 @@ def _decode_base(log: LogResult) -> dict:
     }
 
 
-def decode_reserve_data_updated(aave_network_name: str, log: LogResult) -> dict:
-    """Process a ReserveDataUpdated event. The event signature is:
+def decode_reserve_data_updated(
+    aave_network_name: str,
+    log: LogResult,
+    aave_version: AaveVersion,
+) -> dict:
+    """Process a ReserveDataUpdated event.
+
+    .. note ::
+
+        Both Aave v2 and v3 have this same event, so we use the lending pool smart
+        contract to filter out the correct events.
+
+    The event signature is:
 
     .. code-block::
 
@@ -112,7 +126,11 @@ def decode_reserve_data_updated(aave_network_name: str, log: LogResult) -> dict:
         );
     """
     # Ensure the event comes from the correct smart contract
-    if log["address"].lower() != AAVE_V3_NETWORKS[aave_network_name.lower()].pool_address.lower():
+    if aave_version == AaveVersion.V2:
+        pool_address = AAVE_V2_NETWORKS[aave_network_name.lower()].pool_address.lower()
+    else:
+        pool_address = AAVE_V3_NETWORKS[aave_network_name.lower()].pool_address.lower()
+    if log["address"].lower() != pool_address:
         return None
 
     # Do additional lookup for the token data
@@ -151,7 +169,10 @@ def decode_reserve_data_updated(aave_network_name: str, log: LogResult) -> dict:
     )
 
     # Detect token name from reserve address (None if not found)
-    result["token"] = aave_v3_get_token_name_by_deposit_address(deposit_address)
+    if aave_version == AaveVersion.V3:
+        result["token"] = aave_v3_get_token_name_by_deposit_address(deposit_address)
+    else:
+        result["token"] = None
 
     logger.debug(f'EVENT: block={log["blockNumber"]} tx={log["transactionHash"]} token={result["token"]} reserve={deposit_address} liquidity_rate={liquidity_rate} stable_borrow_rate={stable_borrow_rate} variable_borrow_rate={variable_borrow_rate} liquidity_index={liquidity_index} variable_borrow_index={variable_borrow_rate}')
 
@@ -166,7 +187,8 @@ def aave_v3_fetch_events_to_csv(
     end_block: int,
     output_folder: str = "/tmp",
     max_workers: int = 16,
-    log_info=print,
+    log_info: Callable = print,
+    reorg_monitor: ReorganisationMonitor | None = None,
 ):
     """Fetch all tracked Aave v3 events to CSV files for notebook analysis.
 
@@ -197,6 +219,34 @@ def aave_v3_fetch_events_to_csv(
         and see how your node performs.
     :param log_info: Which function to use to output info messages about the progress
     """
+
+    return _fetch_aave_events_to_csv(
+        json_rpc_url=json_rpc_url,
+        state=state,
+        aave_network_name=aave_network_name,
+        start_block=start_block,
+        end_block=end_block,
+        output_folder=output_folder,
+        max_workers=max_workers,
+        log_info=log_info,
+        reorg_monitor=reorg_monitor,
+        aave_version=AaveVersion.V3,
+    )
+
+
+def _fetch_aave_events_to_csv(
+    json_rpc_url: str,
+    state: ScanState,
+    aave_network_name: str,
+    start_block: int,
+    end_block: int,
+    output_folder: str = "/tmp",
+    max_workers: int = 16,
+    log_info=print,
+    reorg_monitor: ReorganisationMonitor | None = None,
+    aave_version: AaveVersion = AaveVersion.V3,
+):
+    """Fetch all tracked Aave (v2 or v3) events to CSV file."""
     token_cache = TokenCache()
     http_adapter = HTTPAdapter(pool_connections=max_workers, pool_maxsize=max_workers)
     web3_factory = TunedWeb3Factory(json_rpc_url, http_adapter)
@@ -222,7 +272,7 @@ def aave_v3_fetch_events_to_csv(
     buffers = {}
 
     for event_name, mapping in event_mapping.items():
-        file_path = f"{output_folder}/aave-v3-{aave_network_name.lower()}-{event_name.lower()}.csv"
+        file_path = f"{output_folder}/aave-{aave_version.value}-{aave_network_name.lower()}-{event_name.lower()}.csv"
         exists_already = Path(file_path).exists()
         file_handler = open(file_path, "a")
         csv_writer = csv.DictWriter(file_handler, fieldnames=mapping["field_names"])
@@ -288,13 +338,15 @@ def aave_v3_fetch_events_to_csv(
             notify=update_progress,
             chunk_size=100,
             context=token_cache,
+            reorg_mon=reorg_monitor,
+            extract_timestamps=None,
         ):
             try:
                 # write to correct buffer
                 event_name = log_result["event"].event_name
                 buffer = buffers[event_name]["buffer"]
                 decode_function = event_mapping[event_name]["decode_function"]
-                decoded_result = decode_function(aave_network_name, log_result)
+                decoded_result = decode_function(aave_network_name, log_result, aave_version)
                 # Note: decoded_result is None if the event is e.g. from Aave v2 contract
                 if decoded_result:
                     logger.debug(f"Adding event to buffer: {event_name}")

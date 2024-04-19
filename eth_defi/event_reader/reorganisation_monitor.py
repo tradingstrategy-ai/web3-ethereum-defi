@@ -4,20 +4,21 @@ All EMV based blockchains are subject to minor chain reorganisation,
 when nodes have not yet reached consensus on the chain tip around the world.
 """
 
-import time
-from abc import abstractmethod, ABC
-from dataclasses import dataclass, asdict, field
-from typing import Dict, Iterable, Tuple, Optional, Type, Callable, cast
 import logging
+import time
+from abc import ABC, abstractmethod
+from dataclasses import asdict, dataclass, field
+from typing import Callable, Dict, Iterable, Optional, Tuple, Type, cast
 from urllib.parse import urljoin
 
 import pandas as pd
 from hexbytes import HexBytes
 from tqdm import tqdm
-from web3 import Web3, HTTPProvider
+from web3 import HTTPProvider, Web3
 
-from eth_defi.chain import has_graphql_support, get_graphql_url
+from eth_defi.chain import get_graphql_url, has_graphql_support
 from eth_defi.event_reader.block_header import BlockHeader, Timestamp
+from eth_defi.event_reader.conversion import convert_jsonrpc_value_to_int
 from eth_defi.provider.fallback import FallbackProvider
 from eth_defi.provider.mev_blocker import MEVBlockerProvider
 
@@ -617,7 +618,7 @@ class GraphQLReorganisationMonitor(ReorganisationMonitor):
         )
         result = self.client.execute(query)
         # {'block': {'number': 37634011}}
-        return result["block"]["number"]
+        return convert_jsonrpc_value_to_int(result["block"]["number"])
 
     def fetch_block_data(self, start_block, end_block) -> Iterable[BlockHeader]:
         total = end_block - start_block
@@ -638,7 +639,7 @@ class GraphQLReorganisationMonitor(ReorganisationMonitor):
         result = self.client.execute(query)
 
         for inp in result["blocks"]:
-            number = inp["number"]
+            number = convert_jsonrpc_value_to_int(inp["number"])
             hash = inp["hash"]
             timestamp = int(inp["timestamp"], 16)
             yield BlockHeader(block_number=number, block_hash=hash, timestamp=timestamp)

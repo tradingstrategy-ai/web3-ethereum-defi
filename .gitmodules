@@ -38,3 +38,6 @@
 [submodule "contracts/velvet"]
 	path = contracts/velvet
 	url = https://github.com/Velvet-Capital/protocol-v2-public.git
+[submodule "contracts/aave-v2"]
+	path = contracts/aave-v2
+	url = https://github.com/aave/protocol-v2.git

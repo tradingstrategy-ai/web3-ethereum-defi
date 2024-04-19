@@ -1,10 +1,11 @@
+# 0.25.6
+
+- Add Aave v2 event reader support
+
+
 # 0.25.5
 
 - Handle HTTP 410 retryable, as returned by dRPC
-- 
-# 0.25.4
-
-- TODO
 
 # 0.25.4
 

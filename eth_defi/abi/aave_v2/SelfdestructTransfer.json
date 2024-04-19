@@ -1,0 +1,24 @@
+{
+  "_format": "hh-sol-artifact-1",
+  "contractName": "SelfdestructTransfer",
+  "sourceName": "contracts/mocks/attacks/SefldestructTransfer.sol",
+  "abi": [
+    {
+      "inputs": [
+        {
+          "internalType": "address payable",
+          "name": "to",
+          "type": "address"
+        }
+      ],
+      "name": "destroyAndTransfer",
+      "outputs": [],
+      "stateMutability": "payable",
+      "type": "function"
+    }
+  ],
+  "bytecode": "0x6080604052348015600f57600080fd5b5060888061001e6000396000f3fe608060405260043610601c5760003560e01c8063785e07b3146021575b600080fd5b604460048036036020811015603557600080fd5b50356001600160a01b03166046565b005b806001600160a01b0316fffea26469706673582212200f1a8c6116e171c76155f63f6cf1ba888768ce44904e7a9d43323b0d54cc348564736f6c634300060c0033",
+  "deployedBytecode": "0x608060405260043610601c5760003560e01c8063785e07b3146021575b600080fd5b604460048036036020811015603557600080fd5b50356001600160a01b03166046565b005b806001600160a01b0316fffea26469706673582212200f1a8c6116e171c76155f63f6cf1ba888768ce44904e7a9d43323b0d54cc348564736f6c634300060c0033",
+  "linkReferences": {},
+  "deployedLinkReferences": {}
+}
