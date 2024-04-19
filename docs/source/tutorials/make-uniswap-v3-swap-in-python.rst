@@ -37,6 +37,13 @@ To run:
     export PRIVATE_KEY="your private key here"
     python scripts/make-swap-on-uniwap-v3.py
 
+.. note ::
+
+    Polygon is notoriously low quality what comes to broadcasting transactions and confirming them.
+    If you get errors like `Transaction confirmation failed` and `ValueError: {'code': -32000, 'message': 'replacement transaction underpriced'}`
+    it usually means that Polygon mempool is broken. In this case, try to run the script on Uniswap v3
+    deployment on some other blockchain.
+
 Example script
 ~~~~~~~~~~~~~~
 
