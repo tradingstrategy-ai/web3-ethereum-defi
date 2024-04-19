@@ -44,6 +44,7 @@ Tutorials and examples
    :maxdepth: 1
 
    transfer
+   make-uniswap-v3-swap-in-python
    make-uniswap-swap-in-python
    chainlink-price-feed
    chainlink-native-token
