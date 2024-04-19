@@ -1,4 +1,7 @@
-"""Uniswap v3 swap helper functions."""
+"""Uniswap v3 swap helper functions.
+
+- :ref:`Read full tutorial <uniswap-v3-swap>`_.
+"""
 import warnings
 from typing import Callable
 import logging
@@ -29,6 +32,8 @@ def swap_with_slippage_protection(
 ) -> Callable:
     """Helper function to prepare a swap from quote token to base token (buy base token with quote token)
     with price estimation and slippage protection baked in.
+
+    :ref:`Read full tutorial <uniswap-v3-swap>`_.
 
     Example:
 

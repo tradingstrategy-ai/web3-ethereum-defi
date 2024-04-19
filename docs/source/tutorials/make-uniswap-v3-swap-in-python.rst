@@ -1,3 +1,5 @@
+.. _uniswap-v3-swap:
+
 .. meta::
    :title: How to swap tokens on Uniswap v3 using Python
    :description: Python Uniswap 3 token swap tutorial
