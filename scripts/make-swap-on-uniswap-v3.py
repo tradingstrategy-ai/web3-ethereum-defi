@@ -35,6 +35,7 @@ To run:
 """
 
 import datetime
+import decimal
 import os
 import sys
 from decimal import Decimal
@@ -126,7 +127,7 @@ decimal_amount = input(f"How many {quote.symbol} tokens you wish to swap to {bas
 # Some input validation
 try:
     decimal_amount = Decimal(decimal_amount)
-except ValueError as e:
+except (ValueError, decimal.InvalidOperation) as e:
     raise AssertionError(f"Not a good decimal amount: {decimal_amount}") from e
 
 # Fat-fingering check
@@ -183,7 +184,7 @@ bound_solidity_func = swap_with_slippage_protection(
     max_slippage=20,  # Allow 20 BPS slippage before tx reverts
     amount_in=raw_amount,
     recipient_address=my_address,
-    pool_fees=[5],   #
+    pool_fees=[500],   # 5 BPS pool WETH-USDC
 )
 
 tx_2 = bound_solidity_func.build_transaction(
@@ -208,6 +209,7 @@ tx_hash_2 = web3.eth.send_transaction(tx_2)
 # whether the transaction completed or not.
 tx_wait_minutes = 2.5
 print(f"Broadcasted transactions {tx_hash_1.hex()}, {tx_hash_2.hex()}, now waiting {tx_wait_minutes} minutes for it to be included in a new block")
+print(f"View your transactions confirming at https://polygonscan/address/{my_address}")
 receipts = wait_transactions_to_complete(
     web3,
     [tx_hash_1, tx_hash_2],

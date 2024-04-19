@@ -187,10 +187,17 @@ def wait_transactions_to_complete(
             # Check if it time to try a better node provider
             if isinstance(web3.provider, FallbackProvider):
                 provider = cast(FallbackProvider, web3.provider)
-                logger.warning(
-                    "Timeout %s reached with this node provider. Trying with alternative node provider.",
-                    node_switch_timeout,
-                )
+                if len(provider.providers) > 1:
+                    logger.warning(
+                        "Timeout %s reached with this node provider. Trying with alternative node provider.",
+                        node_switch_timeout,
+                    )
+                else:
+                    logger.warning(
+                        "Timeout warning threshold %s reached when trying to confirm txs, still trying:\n%s",
+                        node_switch_timeout,
+                        unconfirmed_txs
+                    )
                 provider.switch_provider()
                 next_node_switch = datetime.datetime.utcnow() + node_switch_timeout
             else:

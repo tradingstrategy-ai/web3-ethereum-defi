@@ -34,6 +34,8 @@ def swap_with_slippage_protection(
 
     .. code-block:: python
 
+        weth_usdc_pool_trading_fee =
+
         # build transaction to swap from USDC to WETH
         swap_func = swap_with_slippage_protection(
             uniswap_v3_deployment=uniswap_v3,
@@ -72,7 +74,14 @@ def swap_with_slippage_protection(
     :param base_token: Base token of the trading pair
     :param quote_token: Quote token of the trading pair
     :param intermediate_token: Intermediate token which the swap can go through
-    :param pool_fees: List of all pools' trading fees in the path as raw_fee
+    :param pool_fees:
+        List of all pools' trading fees in the path as raw_fee.
+
+        Expressed as BPS * 100, or 1/1,000,000 units.
+
+        For example if your swap is directly between two pools, e.g, WETH-USDC 5 bps, and not routed through additional pools,
+        `pool_fees` would be `[500]`.
+
     :param amount_in: How much of the quote token we want to pay, this has to be `None` if `amount_out` is specified
     :param amount_out: How much of the base token we want to receive, this has to be `None` if `amount_in` is specified
 
