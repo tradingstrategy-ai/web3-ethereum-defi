@@ -173,6 +173,10 @@ def get_graphql_url(provider: BaseProvider) -> str:
     else:
         raise AssertionError(f"Do not know how to extract endpoint URI: {provider}")
 
+    # make sure base url contains a trailing slash so urljoin() below works correctly
+    if not base_url.endswith("/"):
+        base_url += "/"
+
     graphql_url = urljoin(base_url, "graphql")
 
     return graphql_url
