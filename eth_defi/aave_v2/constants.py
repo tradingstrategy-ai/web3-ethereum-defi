@@ -15,6 +15,9 @@ class AaveV2Network(NamedTuple):
     # Aave v2 lending pool address
     pool_address: str
 
+    # Aave v2 lending pool configurator address
+    pool_configurator_address: str
+
     # Block number when the pool was created
     pool_created_at_block: int
 
@@ -31,6 +34,7 @@ AAVE_V2_NETWORKS: dict[str, AaveV2Network] = {
     "ethereum": AaveV2Network(
         name="Ethereum",
         pool_address="0x7d2768de32b0b80b7a3454c06bdac94a69ddc7a9",
+        pool_configurator_address="0x311Bb771e4F8952E6Da169b425E7e92d6Ac45756",
         # https://etherscan.io/tx/0x7d77cc7523a491fa670bfefa0a386ab036b6511d6d9fa6c2cf5c07b349dc9d3a
         pool_created_at_block=11362579,
     ),
@@ -38,6 +42,7 @@ AAVE_V2_NETWORKS: dict[str, AaveV2Network] = {
     "polygon": AaveV2Network(
         name="Polygon",
         pool_address="0x8dFf5E27EA6b7AC08EbFdf9eB090F32ee9a30fcf",
+        pool_configurator_address="0x26db2b833021583566323e3b8985999981b9f1f3",
         # https://polygonscan.com/tx/0xb5a63fed49e97a58135b012fa14d83e680a0f3cd3aefeb551228d6e3640dbec9
         pool_created_at_block=12687245,
     ),
@@ -45,6 +50,7 @@ AAVE_V2_NETWORKS: dict[str, AaveV2Network] = {
     "avalanche": AaveV2Network(
         name="Avalanche",
         pool_address="0x4F01AeD16D97E3aB5ab2B501154DC9bb0F1A5A2C",
+        pool_configurator_address="0x230B618aD4C475393A7239aE03630042281BD86e",
         # https://snowtrace.io/tx/0x5db8b8c3026d4a433ca67cbc120540ab6f8897b3aff37e78ba014ac505d167bc?chainId=43114
         pool_created_at_block=4607005,
     ),
