@@ -1,3 +1,7 @@
+# 0.25.7
+
+- Update Aave deploymenet list
+
 # 0.25.6
 
 - Add Aave v2 event reader support
