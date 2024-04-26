@@ -1,7 +1,7 @@
 Uniswap v3 DEX API
 ------------------
 
-Uniswap v3 Python API contains wrappers to interact with Uniswap v3 style DEXes on
+Uniswap v3 Python API contains wrappers to interact with Uniswap v3 style DEXes including (but not limited to)
 
 - Ethereum mainnet
 
@@ -12,6 +12,8 @@ Uniswap v3 Python API contains wrappers to interact with Uniswap v3 style DEXes 
 - Optimism
 
 - BNB Chain
+
+See :ref:`tutorials` for more information how to do swaps in Python, or how to analyse price and liquidity data.
 
 .. autosummary::
    :toctree: _autosummary_uniswap_v3

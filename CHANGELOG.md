@@ -1,3 +1,7 @@
+# Current
+
+- dRPC ` x-drpc-provider-id` header support for troubleshooting issues with decentralised node providers 
+
 # 0.25.7
 
 - Update Aave deploymenet list
