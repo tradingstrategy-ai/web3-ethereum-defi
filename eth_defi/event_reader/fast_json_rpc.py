@@ -53,7 +53,6 @@ def _make_request(self, method: RPCEndpoint, params: Any) -> RPCResponse:
             raw_response.headers.get("x-drpc-provider-id", ""),
             extra={"response_headers": raw_response.headers},
         )
-        logger.exception(e)
         raise
 
 
