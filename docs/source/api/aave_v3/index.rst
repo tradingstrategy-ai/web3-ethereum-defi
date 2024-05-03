@@ -10,6 +10,8 @@ Functionality includes:
 - Opening credit, long and short positions
 - Creating Aave unit test deployments in Python
 
+See :ref:`tutorials` for code examples.
+
 .. autosummary::
    :toctree: _autosummary_aave_v3
    :recursive:

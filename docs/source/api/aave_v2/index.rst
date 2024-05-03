@@ -7,6 +7,8 @@ Functionality includes:
 
 - Reading current and historical Aave data and metrics
 
+See :ref:`tutorials` for code examples.
+
 .. autosummary::
    :toctree: _autosummary_aave_v2
    :recursive:
