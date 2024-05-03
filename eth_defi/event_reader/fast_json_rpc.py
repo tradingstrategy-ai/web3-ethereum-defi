@@ -50,10 +50,9 @@ def _make_request(self, method: RPCEndpoint, params: Any) -> RPCResponse:
         logger.error(
             "Unexpected decode RPC response error: %s, current provider ID is %s",
             str(e),
-            raw_response.headers.get("x-drpc-trace-id", ""),
+            raw_response.headers.get("x-drpc-provider-id", ""),
             extra={"response_headers": raw_response.headers},
         )
-        logger.exception(e)
         raise
 
 
