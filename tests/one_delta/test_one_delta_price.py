@@ -1,4 +1,5 @@
 """Test Uniswap v3 price calculation."""
+
 import logging
 import os
 import shutil
@@ -71,9 +72,9 @@ def test_price_helper(
 
     # test amount out
     for slippage, expected_amount_out in [
-        (0, 2_234_040_896),
-        (5 * 100, 2_127_657_996),
-        (50 * 100, 1_489_360_597),
+        (0, 2233287804),
+        (5 * 100, 2126940765),
+        (50 * 100, 1488858536),
     ]:
         amount_out = price_helper.get_amount_out(
             1 * 10**18,
@@ -89,9 +90,9 @@ def test_price_helper(
 
     # test amount in
     for slippage, expected_amount_in in [
-        (0, 2_250_551_091),
-        (5 * 100, 2_363_078_645),
-        (50 * 100, 3_375_826_636),
+        (0, 2250367818),
+        (5 * 100, 2362886208),
+        (50 * 100, 3375551727),
     ]:
         amount_in = price_helper.get_amount_in(
             1 * 10**18,
@@ -124,11 +125,11 @@ def test_estimate_buy_price_for_cash(
         3000,
     )
 
-    assert eth_received / 10**18 == pytest.approx(1.3327059176760288)
+    assert eth_received / 10**18 == pytest.approx(1.3327575201582416)
 
     # Calculate price of ETH as $ for our purchase
     price = usdc_amount_to_spend * 10 ** (18 - 6) / eth_received
-    assert price == pytest.approx(2251.0592623700486)
+    assert price == pytest.approx(2250.9721045459214)
 
     # test verbose mode
     eth_received, block_number = estimate_buy_received_amount(
@@ -140,7 +141,7 @@ def test_estimate_buy_price_for_cash(
         verbose=True,
     )
 
-    assert eth_received / 10**18 == pytest.approx(1.3327059176760288)
+    assert eth_received / 10**18 == pytest.approx(1.3327575201582416)
     assert block_number == 51_000_000
 
 
@@ -162,11 +163,11 @@ def test_estimate_sell_received_cash(
         3000,
     )
 
-    assert usdc_received / 10**6 == pytest.approx(107392.782653)
+    assert usdc_received / 10**6 == pytest.approx(105560.633339)
 
     # Calculate price of ETH as $ for our purchase
     price = usdc_received * 10 ** (18 - 6) / eth_amount_to_sell
-    assert price == pytest.approx(2147.85565306)
+    assert price == pytest.approx(2111.21266678)
 
     # test verbose mode
     usdc_received, block_number = estimate_sell_received_amount(
@@ -177,5 +178,5 @@ def test_estimate_sell_received_cash(
         3000,
         verbose=True,
     )
-    assert usdc_received / 1e6 == pytest.approx(107392.782653)
+    assert usdc_received / 1e6 == pytest.approx(105560.633339)
     assert block_number == 51_000_000

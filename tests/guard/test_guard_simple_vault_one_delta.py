@@ -142,7 +142,7 @@ def one_delta_deployment(web3) -> OneDeltaDeployment:
         web3,
         flash_aggregator_address="0x74E95F3Ec71372756a01eB9317864e3fdde1AC53",
         broker_proxy_address="0x74E95F3Ec71372756a01eB9317864e3fdde1AC53",
-        quoter_address="0x62CF92A2dBbc4436ee508f4923e6Aa8dfF2A5E0c",
+        quoter_address="0x36de3876ad1ef477e8f6d98EE9a162926f00463A",
     )
 
 
