@@ -17,6 +17,9 @@ from eth_defi.trace import assert_transaction_success_with_explanation
 from eth_defi.uniswap_v2.constants import UNISWAP_V2_DEPLOYMENTS, QUICKSWAP_DEPLOYMENTS
 from eth_defi.uniswap_v2.utils import ZERO_ADDRESS
 from eth_defi.uniswap_v3.constants import UNISWAP_V3_DEPLOYMENTS
+from eth_defi.aave_v3.deployment import fetch_deployment as fetch_aave_deployment
+from eth_defi.one_delta.deployment import fetch_deployment as fetch_1delta_deployment
+
 
 logger = logging.getLogger(__name__)
 
@@ -39,6 +42,7 @@ def deploy_vault_with_generic_adapter(
     meta: str = "",
     uniswap_v2=True,
     uniswap_v3=True,
+    one_delta=False,
     mock_guard=False,
 ) -> Vault:
     """Deploy an Enzyme vault and make it secure.
@@ -310,6 +314,39 @@ def deploy_vault_with_generic_adapter(
         if uniswap_v3 and uniswap_v3_router:
             logger.info("Whitelisting Uniswap V3 router %s", uniswap_v3_router)
             tx_hash = vault.guard_contract.functions.whitelistUniswapV3Router(uniswap_v3_router, "").transact({"from": deployer.address})
+            assert_transaction_success_with_explanation(web3, tx_hash)
+
+        if one_delta:
+
+            # TODO: Move to a separate function
+
+            aave_v3_deployment = fetch_aave_deployment(
+                web3,
+                pool_address="0x794a61358D6845594F94dc1DB02A252b5b4814aD",
+                data_provider_address="0x69FA688f1Dc47d4B5d8029D5a35FB7a548310654",
+                oracle_address="0xb023e699F5a33916Ea823A16485e259257cA8Bd1",
+            )
+
+            one_delta_deployment = fetch_1delta_deployment(
+                web3,
+                flash_aggregator_address="0x74E95F3Ec71372756a01eB9317864e3fdde1AC53",
+                broker_proxy_address="0x74E95F3Ec71372756a01eB9317864e3fdde1AC53",
+                quoter_address="0x36de3876ad1ef477e8f6d98EE9a162926f00463A",
+            )
+
+            match web3.eth.chain_id:
+                case 137:
+                    pass
+                case _:
+                    raise NotImplementedError("1delta/Aave lacks data for chain %d", web3.eth.chain_id)
+
+            broker_proxy_address = one_delta_deployment.broker_proxy.address
+            aave_pool_address = aave_v3_deployment.pool.address
+
+            logger.info("Whitelisting 1delta: %s and Aave: %s", broker_proxy_address, aave_pool_address)
+
+            note = "Allow 1delta"
+            tx_hash = guard.functions.whitelistOnedelta(broker_proxy_address, aave_pool_address, note).transact({"from": deployer.address})
             assert_transaction_success_with_explanation(web3, tx_hash)
 
     logger.info(
