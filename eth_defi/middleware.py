@@ -64,6 +64,7 @@ DEFAULT_RETRYABLE_EXCEPTIONS: Tuple[BaseException] = (
     # requests.exceptions.ChunkedEncodingError: ("Connection broken: InvalidChunkLength(got length b'', 0 bytes read)", InvalidChunkLength(got length b'', 0 bytes read))
     #
     ChunkedEncodingError,
+
 )
 
 #: List of HTTP status codes we know we might want to retry after a timeout
@@ -78,6 +79,11 @@ DEFAULT_RETRYABLE_HTTP_STATUS_CODES = (
     525,  # Returned by Alchemy - SSL handshake failed - cause unknown, internal Alchemy failure suspected https://http.dev/525
     520,  # Returned by Alchemy - CloudFlare: Unknown error
     410,  # happens on dRPC: requests.exceptions.HTTPError: 410 Client Error: Gone for url: https://lb.drpc.org/ogrpc?network=avalanche&dkey=xxx
+
+    # dRPC error
+    # requests.exceptions.HTTPError: 403 Client Error: Forbidden for url: https://lb.drpc.org/ogrpc?network=polygon&dkey=x/
+    403,
+
 )
 
 #: List of ValueError status codes we know we might want to retry after a timeout

@@ -1,6 +1,7 @@
 # Current
 
-- dRPC ` x-drpc-provider-id` header support for troubleshooting issues with decentralised node providers 
+- Add:dRPC ` x-drpc-provider-id` header support for troubleshooting issues with decentralised node providers
+- Fixed: Whitelist HTTP 403 Forbidden for dRPC as a retryable error
 
 # 0.25.7
 
