@@ -127,6 +127,10 @@ DEFAULT_RETRYABLE_RPC_ERROR_CODES = (
     # Some JSON-RPC provider is buying nodes from allondes.com have have screwed it up
     # ValueError: {'code': -32701, 'message': 'Please specify address in your request or, to remove restrictions, order a dedicated full node here: https://www.allnodes.com/bnb/host'}
     -32701,
+
+    # dRPC failure
+    # ValueError: {'message': 'There are not enough CUPs left to cover the CU required for current request.', 'code': 42903}g
+    42903,
 )
 
 
