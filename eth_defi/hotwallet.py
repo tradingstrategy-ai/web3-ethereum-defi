@@ -342,7 +342,8 @@ class HotWallet:
         :param key: 0x prefixed hex string
         :return: Ready to go hot wallet account
         """
-        assert key.startswith("0x")
+        assert type(key) == str
+        assert key.startswith("0x"), f"This system assumes private keys are prefixed with 0x, your key starts with {key[0:4]}..."
         account = Account.from_key(key)
         return HotWallet(account)
 
