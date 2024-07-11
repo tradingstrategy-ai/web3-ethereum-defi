@@ -54,7 +54,7 @@ POLYGON_DEPLOYMENT = {
     "allowed_external_position_types_policy": "0x5A739da3099fd4fC954BD764099Fc000Da76D8e7",
 }
 
-#: Enzyme deployment details for Ehereum
+#: Enzyme deployment details for Ethereum
 #:
 #: See :py:meth:`EnzymeDeployment.fetch_deployment`
 #:

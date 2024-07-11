@@ -110,7 +110,9 @@ def _launch(cmd: str, **kwargs) -> tuple[psutil.Popen, list[str]]:
     final_cmd_str = " ".join(cmd_list)
     logger.info("Launching anvil: %s", final_cmd_str)
     out = DEVNULL if sys.platform == "win32" else PIPE
-    return psutil.Popen(cmd_list, stdin=DEVNULL, stdout=out, stderr=out), cmd_list
+    env = os.environ.copy()
+    env["RUST_BACKTRACE"] = "1"  # Get tracebacks from crashed anvil
+    return psutil.Popen(cmd_list, stdin=DEVNULL, stdout=out, stderr=out, env=env), cmd_list
 
 
 def make_anvil_custom_rpc_request(web3: Web3, method: str, args: Optional[list] = None) -> Any:
