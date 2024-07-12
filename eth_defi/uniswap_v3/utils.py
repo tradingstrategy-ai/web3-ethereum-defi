@@ -9,7 +9,7 @@ from eth_defi.uniswap_v3.constants import (
     DEFAULT_TICK_SPACINGS,
     MAX_TICK,
     MIN_TICK,
-    UNISWAP_V3_SUBGRAPH_URL,
+    UNISWAP_V3_SUBGRAPH_ENDPOINTS
 )
 
 
@@ -165,12 +165,12 @@ def get_token1_amount_in_range(liquidity, sp, sa):
     return liquidity * (sp - sa)
 
 
-def run_graphql_query(query: str, *, variables: dict = {}, api_url=UNISWAP_V3_SUBGRAPH_URL) -> dict:
+def run_graphql_query(query: str, api_key: str, chain: int, *, variables: dict = {}) -> dict:
     """Run query on Uniswap v3 subgraph"""
     from gql import Client, gql
     from gql.transport.requests import RequestsHTTPTransport
 
-    transport = RequestsHTTPTransport(url=api_url, verify=True, retries=3)
+    transport = RequestsHTTPTransport(url=UNISWAP_V3_SUBGRAPH_ENDPOINTS[chain].replace('$', api_key), verify=True, retries=3)
     graphql_client = Client(transport=transport, fetch_schema_from_transport=True)
 
     return graphql_client.execute(gql(query), variable_values=variables)
