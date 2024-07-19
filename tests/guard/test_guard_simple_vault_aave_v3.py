@@ -207,8 +207,6 @@ def test_vault_initialised(
     guard: Contract,
     usdc: Contract,
     ausdc: Contract,
-    weth: Contract,
-    vweth: Contract,
     aave_v3_deployment: AaveV3Deployment,
 ):
     """Vault and guard are initialised for the owner."""
