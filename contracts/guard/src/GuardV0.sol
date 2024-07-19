@@ -285,9 +285,9 @@ contract GuardV0 is IGuard, Ownable {
             validate_approve(callData);
         } else if(selector == getSelector("approveDelegation(address,uint256)")) {
             validate_approveDelegation(callData);
-        } else if(selector == getSelector("supply(address,uint256)")) {
+        } else if(selector == getSelector("supply(address,uint256,address,uint16)")) {
             validate_aaveSupply(callData);
-        } else if(selector == getSelector("withdraw(address,uint256)")) {
+        } else if(selector == getSelector("withdraw(address,uint256,address)")) {
             validate_aaveWithdraw(callData);
         } else {
             revert("Unknown function selector");
@@ -475,7 +475,7 @@ contract GuardV0 is IGuard, Ownable {
 
     // Aave V3 implementation: https://github.com/aave/aave-v3-core/blob/e0bfed13240adeb7f05cb6cbe5e7ce78657f0621/contracts/protocol/pool/Pool.sol#L145
     function validate_aaveSupply(bytes memory callData) public view {
-        (address token, , address onBehalfOf, ) = abi.decode(callData, (address, uint, address, uint));
+        (address token, , , ) = abi.decode(callData, (address, uint, address, uint));
 
         require(isAllowedAsset(token), "Token not allowed");
         // require(isAllowedReceiver(wallet), "Receiver address not whitelisted by Guard");
@@ -490,8 +490,8 @@ contract GuardV0 is IGuard, Ownable {
     }
 
     function whitelistAaveV3(address lendingPool, string calldata notes) external {
-        allowCallSite(lendingPool, getSelector("supply(bytes[])"), notes);
-        allowCallSite(lendingPool, getSelector("withdraw(bytes[])"), notes);
+        allowCallSite(lendingPool, getSelector("supply(address,uint256,address,uint16)"), notes);
+        allowCallSite(lendingPool, getSelector("withdraw(address,uint256,address)"), notes);
         
         allowApprovalDestination(lendingPool, notes);
     }

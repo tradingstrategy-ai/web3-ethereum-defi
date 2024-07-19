@@ -21,20 +21,10 @@ from web3.contract import Contract
 from eth_defi.aave_v3.constants import MAX_AMOUNT, AaveV3InterestRateMode
 from eth_defi.aave_v3.deployment import AaveV3Deployment
 from eth_defi.aave_v3.deployment import fetch_deployment as fetch_aave_deployment
+from eth_defi.aave_v3.loan import supply, withdraw
 from eth_defi.abi import get_contract, get_deployed_contract, get_function_selector
 from eth_defi.deploy import deploy_contract
 from eth_defi.hotwallet import HotWallet
-from eth_defi.one_delta.constants import Exchange, TradeOperation, TradeType
-from eth_defi.one_delta.deployment import OneDeltaDeployment
-from eth_defi.one_delta.deployment import fetch_deployment as fetch_1delta_deployment
-from eth_defi.one_delta.lending import _build_supply_multicall
-from eth_defi.one_delta.position import (
-    approve,
-    close_short_position,
-    open_short_position,
-    reduce_short_position,
-)
-from eth_defi.one_delta.utils import encode_path
 from eth_defi.provider.anvil import fork_network_anvil, mine
 from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.simple_vault.transact import encode_simple_vault_transaction
@@ -109,24 +99,6 @@ def weth(web3) -> Contract:
 
 
 @pytest.fixture
-def vweth(web3) -> Contract:
-    """Get vPolWETH on Polygon."""
-    return fetch_erc20_details(web3, "0x0c84331e39d6658Cd6e6b9ba04736cC4c4734351", contract_name="aave_v3/VariableDebtToken.json").contract
-
-
-@pytest.fixture
-def wmatic(web3) -> Contract:
-    """Get WMATIC on Polygon."""
-    return fetch_erc20_details(web3, "0x0d500B1d8E8eF31E21C99d1Db9A6444d3ADf1270").contract
-
-
-@pytest.fixture
-def vwmatic(web3) -> Contract:
-    """Get vPolMATIC on Polygon."""
-    return fetch_erc20_details(web3, "0x4a1c3aD6Ed28a636ee1751C69071f6be75DEb8B8", contract_name="aave_v3/VariableDebtToken.json").contract
-
-
-@pytest.fixture
 def aave_v3_deployment(web3) -> AaveV3Deployment:
     return fetch_aave_deployment(
         web3,
@@ -172,8 +144,6 @@ def vault(
     web3: Web3,
     usdc: Contract,
     ausdc: Contract,
-    weth: Contract,
-    vweth: Contract,
     deployer: str,
     owner: str,
     asset_manager: str,
@@ -190,30 +160,34 @@ def vault(
     guard = get_deployed_contract(web3, "guard/GuardV0.json", vault.functions.guard().call())
     assert guard.functions.owner().call() == owner
 
-    broker_proxy_address = one_delta_deployment.broker_proxy.address
     aave_pool_address = aave_v3_deployment.pool.address
-    note = "Allow 1delta"
-    tx_hash = guard.functions.whitelistOnedelta(broker_proxy_address, aave_pool_address, note).transact({"from": owner})
+    note = "Allow Aave v3"
+    tx_hash = guard.functions.whitelistAaveV3(aave_pool_address, note).transact({"from": owner})
     receipt = web3.eth.get_transaction_receipt(tx_hash)
-    assert len(receipt["logs"]) == 4
+    assert len(receipt["logs"]) == 3
 
-    # check 1delta broker and aave pool were approved
-    assert guard.functions.isAllowedApprovalDestination(broker_proxy_address).call()
+    # check Aave pool was approved
     assert guard.functions.isAllowedApprovalDestination(aave_pool_address).call()
 
-    # Check 1delta broker call sites was enabled in the receipt
+    # Check Aave pool call sites was enabled in the receipt
     call_site_events = guard.events.CallSiteApproved().process_receipt(receipt, errors=EventLogErrorFlags.Ignore)
-    multicall_selector = get_function_selector(one_delta_deployment.broker_proxy.functions.multicall)
+    supply_selector = get_function_selector(aave_v3_deployment.pool.functions.supply)
+    withdraw_selector = get_function_selector(aave_v3_deployment.pool.functions.withdraw)
+
     assert call_site_events[0]["args"]["notes"] == note
-    assert call_site_events[0]["args"]["selector"].hex() == multicall_selector.hex()
-    assert call_site_events[0]["args"]["target"] == broker_proxy_address
-    assert guard.functions.isAllowedCallSite(broker_proxy_address, multicall_selector).call()
+    assert call_site_events[0]["args"]["selector"].hex() == supply_selector.hex()
+    assert call_site_events[0]["args"]["target"] == aave_pool_address
+
+    assert call_site_events[1]["args"]["notes"] == note
+    assert call_site_events[1]["args"]["selector"].hex() == withdraw_selector.hex()
+    assert call_site_events[1]["args"]["target"] == aave_pool_address
+
+    assert guard.functions.isAllowedCallSite(aave_pool_address, supply_selector).call()
+    assert guard.functions.isAllowedCallSite(aave_pool_address, withdraw_selector).call()
 
     guard.functions.whitelistToken(usdc.address, "Allow USDC").transact({"from": owner})
-    guard.functions.whitelistToken(weth.address, "Allow WETH").transact({"from": owner})
     guard.functions.whitelistToken(ausdc.address, "Allow aUSDC").transact({"from": owner})
-    guard.functions.whitelistTokenForDelegation(vweth.address, "Allow vWETH").transact({"from": owner})
-    assert guard.functions.callSiteCount().call() == 8
+    assert guard.functions.callSiteCount().call() == 6
 
     return vault
 
@@ -245,17 +219,18 @@ def test_vault_initialised(
     assert guard.functions.isAllowedWithdrawDestination(asset_manager).call() is False
     assert guard.functions.isAllowedReceiver(vault.address).call() is True
 
-    # We have accessed needed for a swap
-    assert guard.functions.callSiteCount().call() == 8
-    assert guard.functions.isAllowedApprovalDestination(broker.address)
+    # We have accessed needed for Aave v3
+    pool = aave_v3_deployment.pool
+    assert guard.functions.callSiteCount().call() == 6
+    assert guard.functions.isAllowedApprovalDestination(pool.address)
     assert guard.functions.isAllowedApprovalDestination(aave_v3_deployment.pool.address)
-    assert guard.functions.isAllowedCallSite(broker.address, get_function_selector(broker.functions.multicall)).call()
+    assert guard.functions.isAllowedCallSite(pool.address, get_function_selector(pool.functions.supply)).call()
+    assert guard.functions.isAllowedCallSite(pool.address, get_function_selector(pool.functions.withdraw)).call()
     assert guard.functions.isAllowedCallSite(usdc.address, get_function_selector(usdc.functions.approve)).call()
     assert guard.functions.isAllowedCallSite(usdc.address, get_function_selector(usdc.functions.transfer)).call()
     assert guard.functions.isAllowedCallSite(ausdc.address, get_function_selector(ausdc.functions.approve)).call()
     assert guard.functions.isAllowedAsset(usdc.address).call()
     assert guard.functions.isAllowedAsset(ausdc.address).call()
-    assert guard.functions.isAllowedAsset(weth.address).call()
 
 
 def test_guard_can_do_aave_supply(
@@ -268,9 +243,39 @@ def test_guard_can_do_aave_supply(
     usdc: Contract,
     ausdc: Contract,
     weth: Contract,
-    vweth: Contract,
 ):
-    pass
+    usdc.functions.transfer(vault.address, 50_000 * 10**6).transact({"from": deployer})
+    usdc_amount = 10_000 * 10**6
+
+    fn_calls = supply(
+        aave_v3_deployment=aave_v3_deployment,
+        token=usdc,
+        amount=usdc_amount,
+        wallet_address=vault.address,
+    )
+    for fn_call in fn_calls:
+        target, call_data = encode_simple_vault_transaction(fn_call)
+        tx_hash = vault.functions.performCall(target, call_data).transact({"from": asset_manager})
+        assert_transaction_success_with_explanation(web3, tx_hash, tracing=True)
+
+    assert usdc.functions.balanceOf(vault.address).call() == pytest.approx(40_000 * 10**6)
+    assert ausdc.functions.balanceOf(vault.address).call() == pytest.approx(usdc_amount)
+
+    # Shouldn't allow to supply WETH
+    approve_fn, supply_fn = supply(
+        aave_v3_deployment=aave_v3_deployment,
+        token=weth,
+        amount=1 * 10**18,
+        wallet_address=vault.address,
+    )
+    with pytest.raises(TransactionAssertionError, match="Call site not allowed"):
+        target, call_data = encode_simple_vault_transaction(approve_fn)
+        tx_hash = vault.functions.performCall(target, call_data).transact({"from": asset_manager})
+        assert_transaction_success_with_explanation(web3, tx_hash, tracing=True)
+    with pytest.raises(TransactionAssertionError, match="Token not allowed"):
+        target, call_data = encode_simple_vault_transaction(supply_fn)
+        tx_hash = vault.functions.performCall(target, call_data).transact({"from": asset_manager})
+        assert_transaction_success_with_explanation(web3, tx_hash, tracing=True)
 
 
 def test_guard_can_do_aave_withdraw(
@@ -283,7 +288,33 @@ def test_guard_can_do_aave_withdraw(
     usdc: Contract,
     ausdc: Contract,
     weth: Contract,
-    vweth: Contract,
-    wmatic: Contract,
 ):
-    pass
+    usdc.functions.transfer(vault.address, 50_000 * 10**6).transact({"from": deployer})
+    usdc_amount = 10_000 * 10**6
+
+    fn_calls = supply(
+        aave_v3_deployment=aave_v3_deployment,
+        token=usdc,
+        amount=usdc_amount,
+        wallet_address=vault.address,
+    )
+    for fn_call in fn_calls:
+        target, call_data = encode_simple_vault_transaction(fn_call)
+        tx_hash = vault.functions.performCall(target, call_data).transact({"from": asset_manager})
+        assert_transaction_success_with_explanation(web3, tx_hash, tracing=True)
+
+    assert usdc.functions.balanceOf(vault.address).call() == pytest.approx(40_000 * 10**6)
+    assert ausdc.functions.balanceOf(vault.address).call() == pytest.approx(usdc_amount)
+
+    withdraw_fn = withdraw(
+        aave_v3_deployment=aave_v3_deployment,
+        token=usdc,
+        amount=5_000 * 10**6,
+        wallet_address=vault.address,
+    )
+    target, call_data = encode_simple_vault_transaction(withdraw_fn)
+    tx_hash = vault.functions.performCall(target, call_data).transact({"from": asset_manager})
+    assert_transaction_success_with_explanation(web3, tx_hash, tracing=True)
+
+    assert usdc.functions.balanceOf(vault.address).call() == pytest.approx(45_000 * 10**6)
+    assert ausdc.functions.balanceOf(vault.address).call() == pytest.approx(5_000 * 10**6)
