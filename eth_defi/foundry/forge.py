@@ -100,6 +100,8 @@ def deploy_contract_with_forge(
     register_for_tracing=True,
     timeout=DEFAULT_TIMEOUT,
     wait_for_block_confirmations=0,
+    verify_delay=60,
+    verify_retries=9,
 ) -> Tuple[Contract, HexBytes]:
     """Deploy and verify smart contract with Forge.
 
@@ -222,9 +224,9 @@ def deploy_contract_with_forge(
             etherscan_api_key,
             "--verify",
             "--retries",
-            "10",
+            str(verify_retries),
             "--delay",
-            "30",
+            str(verify_delay),
         ]
 
     cmd_line += [f"{src_contract_file}:{contract_name}"]
