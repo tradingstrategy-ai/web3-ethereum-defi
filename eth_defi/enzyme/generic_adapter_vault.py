@@ -289,7 +289,7 @@ def deploy_vault_with_generic_adapter(
 
             # Check token address is valie
             token = fetch_erc20_details(web3, asset.address)
-            logger.info("Decimals of %s is %d", token.symbol, token.decimals)
+            logger.info("Decimals of %s is %s", token.symbol, token.decimals)
 
             tx_hash = guard.functions.whitelistToken(asset.address, f"Whitelisting {asset.symbol}").transact({"from": deployer.address})
             assert_transaction_success_with_explanation(web3, tx_hash)
