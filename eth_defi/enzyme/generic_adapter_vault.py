@@ -290,6 +290,7 @@ def deploy_vault_with_generic_adapter(
             # Check token address is valie
             token = fetch_erc20_details(web3, asset.address)
             logger.info("Decimals of %s is %s", token.symbol, token.decimals)
+            assert token.decimals > 0
 
             tx_hash = guard.functions.whitelistToken(asset.address, f"Whitelisting {asset.symbol}").transact({"from": deployer.address})
             assert_transaction_success_with_explanation(web3, tx_hash)
@@ -380,10 +381,10 @@ def deploy_vault_with_generic_adapter(
             logger.info("Aave whitelisting for pool %s, aUSDC %s", aave_pool_address, ausdc_address)
             note = f"Aave v3 pool whitelisting for USDC"
 
-            tx_hash = guard.functions.whitelistAaveV3(aave_pool_address, note).transact({"from": owner})
+            tx_hash = guard.functions.whitelistAaveV3(aave_pool_address, note).transact({"from": deployer.address})
             assert_transaction_success_with_explanation(web3, tx_hash)
 
-            tx_hash = guard.functions.whitelistToken(ausdc_address, note).transact({"from": owner})
+            tx_hash = guard.functions.whitelistToken(ausdc_address, note).transact({"from": deployer.address})
             assert_transaction_success_with_explanation(web3, tx_hash)
 
     logger.info(
