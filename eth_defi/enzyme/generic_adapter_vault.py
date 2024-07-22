@@ -1,4 +1,18 @@
-"""Safe deployment of Enzyme vaults with generic adapter. """
+"""Safe deployment of Enzyme vaults with generic adapter.
+
+To patch the guard deployment in console:
+
+.. code-block:: python
+
+    import json
+    from eth_defi.abi import get_deployed_contract
+
+    deploy_data = json.load(open("deploy/STOCH-RSI-vault-info.json", "rt))
+    guard_address = deploy_data["guard"]
+
+    guard = get_deployed_contract(web3, "guard/GuardV0", guard_address)
+
+"""
 import logging
 import os
 from pathlib import Path
@@ -43,6 +57,7 @@ def deploy_vault_with_generic_adapter(
     uniswap_v2=True,
     uniswap_v3=True,
     one_delta=False,
+    aave=True,
     mock_guard=False,
 ) -> Vault:
     """Deploy an Enzyme vault and make it secure.
@@ -271,6 +286,11 @@ def deploy_vault_with_generic_adapter(
         all_assets = [usdc_token] + whitelisted_assets
         for asset in all_assets:
             logger.info("Whitelisting %s", asset)
+
+            # Check token address is valie
+            token = fetch_erc20_details(web3, asset.address)
+            logger.info("Decimals of %s is %d", token.symbol, token.decimals)
+
             tx_hash = guard.functions.whitelistToken(asset.address, f"Whitelisting {asset.symbol}").transact({"from": deployer.address})
             assert_transaction_success_with_explanation(web3, tx_hash)
 
@@ -316,7 +336,7 @@ def deploy_vault_with_generic_adapter(
             tx_hash = vault.guard_contract.functions.whitelistUniswapV3Router(uniswap_v3_router, "").transact({"from": deployer.address})
             assert_transaction_success_with_explanation(web3, tx_hash)
 
-        if one_delta:
+        if one_delta or aave:
 
             # TODO: Move to a separate function
 
@@ -326,6 +346,11 @@ def deploy_vault_with_generic_adapter(
                 data_provider_address="0x69FA688f1Dc47d4B5d8029D5a35FB7a548310654",
                 oracle_address="0xb023e699F5a33916Ea823A16485e259257cA8Bd1",
             )
+            aave_pool_address = aave_v3_deployment.pool.address
+        else:
+            aave_pool_address = None
+
+        if one_delta:
 
             one_delta_deployment = fetch_1delta_deployment(
                 web3,
@@ -341,12 +366,22 @@ def deploy_vault_with_generic_adapter(
                     raise NotImplementedError("1delta/Aave lacks data for chain %d", web3.eth.chain_id)
 
             broker_proxy_address = one_delta_deployment.broker_proxy.address
-            aave_pool_address = aave_v3_deployment.pool.address
 
             logger.info("Whitelisting 1delta: %s and Aave: %s", broker_proxy_address, aave_pool_address)
 
             note = "Allow 1delta"
             tx_hash = guard.functions.whitelistOnedelta(broker_proxy_address, aave_pool_address, note).transact({"from": deployer.address})
+            assert_transaction_success_with_explanation(web3, tx_hash)
+
+        if aave:
+
+            assert web3.eth.chain_id == 1, "TODO: Add support for non-mainnet chains"
+            ausdc_address = "0x98c23e9d8f34fefb1b7bd6a91b7ff122f4e16f5c"
+
+            tx_hash = guard.functions.whitelistAaveV3(aave_pool_address, note).transact({"from": owner})
+            assert_transaction_success_with_explanation(web3, tx_hash)
+
+            tx_hash = guard.functions.whitelistToken(ausdc_address, note).transact({"from": owner})
             assert_transaction_success_with_explanation(web3, tx_hash)
 
     logger.info(
