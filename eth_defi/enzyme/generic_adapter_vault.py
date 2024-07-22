@@ -57,7 +57,7 @@ def deploy_vault_with_generic_adapter(
     uniswap_v2=True,
     uniswap_v3=True,
     one_delta=False,
-    aave=True,
+    aave=False,
     mock_guard=False,
 ) -> Vault:
     """Deploy an Enzyme vault and make it secure.
@@ -377,6 +377,8 @@ def deploy_vault_with_generic_adapter(
 
             assert web3.eth.chain_id == 1, "TODO: Add support for non-mainnet chains"
             ausdc_address = "0x98c23e9d8f34fefb1b7bd6a91b7ff122f4e16f5c"
+            logger.info("Aave whitelisting for pool %s, aUSDC %s", aave_pool_address, ausdc_address)
+            note = f"Aave v3 pool whitelisting for USDC"
 
             tx_hash = guard.functions.whitelistAaveV3(aave_pool_address, note).transact({"from": owner})
             assert_transaction_success_with_explanation(web3, tx_hash)
