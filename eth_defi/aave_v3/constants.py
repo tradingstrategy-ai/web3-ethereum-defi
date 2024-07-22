@@ -229,3 +229,13 @@ class AaveVersion(enum.Enum):
 # https://github.com/aave/aave-v3-core/blob/e0bfed13240adeb7f05cb6cbe5e7ce78657f0621/contracts/protocol/libraries/logic/SupplyLogic.sol#L123
 # 115792089237316195423570985008687907853269984665640564039457584007913129639935
 MAX_AMOUNT = 2**256 - 1
+
+# https://docs.aave.com/developers/deployed-contracts/v3-mainnet
+AAVE_V3_DEPLOYMENTS = {
+    "ethereum": {
+        "pool": "0x87870Bca3F3fD6335C3F4ce8392D69350B4fA4E2",
+    },
+    "arbitrum": {
+        "pool": "0x794a61358D6845594F94dc1DB02A252b5b4814aD",
+    },
+}

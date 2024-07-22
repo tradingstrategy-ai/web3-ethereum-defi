@@ -1,4 +1,5 @@
 """Aave v3 loan"""
+
 from eth_typing import HexAddress
 from web3.contract.contract import Contract, ContractFunction
 

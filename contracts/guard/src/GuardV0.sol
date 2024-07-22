@@ -285,6 +285,10 @@ contract GuardV0 is IGuard, Ownable {
             validate_approve(callData);
         } else if(selector == getSelector("approveDelegation(address,uint256)")) {
             validate_approveDelegation(callData);
+        } else if(selector == getSelector("supply(address,uint256,address,uint16)")) {
+            validate_aaveSupply(callData);
+        } else if(selector == getSelector("withdraw(address,uint256,address)")) {
+            validate_aaveWithdraw(callData);
         } else {
             revert("Unknown function selector");
         }
@@ -365,9 +369,9 @@ contract GuardV0 is IGuard, Ownable {
             } else if (selector == getSelector("transferERC20AllIn(address)")) {
                 validate_transferERC20AllIn(subCallData);
             } else if (selector == getSelector("deposit(address,address)")) {
-                validate_deposit(subCallData);
+                validate_1deltaDeposit(subCallData);
             } else if (selector == getSelector("withdraw(address,address)")) {
-                validate_withdraw(subCallData);
+                validate_1deltaWithdraw(subCallData);
             } else if (selector == getSelector("flashSwapExactIn(uint256,uint256,bytes)")) {
                 validate_flashSwapExactInt(subCallData);
             } else if (selector == getSelector("flashSwapExactOut(uint256,uint256,bytes)")) {
@@ -395,7 +399,7 @@ contract GuardV0 is IGuard, Ownable {
     }
     
     // 1delta implementation: https://github.com/1delta-DAO/contracts-delegation/blob/4f27e1593c564c419ff042cdd932ed52d04216bf/contracts/1delta/modules/aave/FlashAggregator.sol#L34-L39
-    function validate_deposit(bytes memory callData) public view {
+    function validate_1deltaDeposit(bytes memory callData) public view {
         (address token, address receiver) = abi.decode(callData, (address, address));
         
         require(isAllowedAsset(token), "validate_transferERC20AllIn: Token not allowed");
@@ -403,7 +407,7 @@ contract GuardV0 is IGuard, Ownable {
     }
 
     // 1delta: https://github.com/1delta-DAO/contracts-delegation/blob/4f27e1593c564c419ff042cdd932ed52d04216bf/contracts/1delta/modules/aave/FlashAggregator.sol#L71-L74
-    function validate_withdraw(bytes memory callData) public view {
+    function validate_1deltaWithdraw(bytes memory callData) public view {
         (address token, address receiver) = abi.decode(callData, (address, address));
         
         require(isAllowedAsset(token), "validate_withdraw: Token not allowed");
@@ -467,5 +471,28 @@ contract GuardV0 is IGuard, Ownable {
         // vToken has to be approved delegation for broker proxy
         // Reference in 1delta tests: https://github.com/1delta-DAO/contracts-delegation/blob/4f27e1593c564c419ff042cdd932ed52d04216bf/test-ts/1delta/aave/marginSwap.spec.ts#L206
         allowDelegationApprovalDestination(brokerProxy, notes);
+    }
+
+    // Aave V3 implementation: https://github.com/aave/aave-v3-core/blob/e0bfed13240adeb7f05cb6cbe5e7ce78657f0621/contracts/protocol/pool/Pool.sol#L145
+    function validate_aaveSupply(bytes memory callData) public view {
+        (address token, , , ) = abi.decode(callData, (address, uint, address, uint));
+
+        require(isAllowedAsset(token), "Token not allowed");
+        // require(isAllowedReceiver(wallet), "Receiver address not whitelisted by Guard");
+    }
+
+    // Aave V3 implementation: https://github.com/aave/aave-v3-core/blob/e0bfed13240adeb7f05cb6cbe5e7ce78657f0621/contracts/protocol/pool/Pool.sol#L198
+    function validate_aaveWithdraw(bytes memory callData) public view {
+        (address token, , address to) = abi.decode(callData, (address, uint, address));
+
+        require(isAllowedAsset(token), "Token not allowed");
+        require(isAllowedReceiver(to), "Receiver address not whitelisted by Guard");
+    }
+
+    function whitelistAaveV3(address lendingPool, string calldata notes) external {
+        allowCallSite(lendingPool, getSelector("supply(address,uint256,address,uint16)"), notes);
+        allowCallSite(lendingPool, getSelector("withdraw(address,uint256,address)"), notes);
+        
+        allowApprovalDestination(lendingPool, notes);
     }
 }
