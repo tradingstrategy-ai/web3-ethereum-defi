@@ -377,7 +377,7 @@ def deploy_vault_with_generic_adapter(
         if aave:
 
             assert web3.eth.chain_id == 1, "TODO: Add support for non-mainnet chains"
-            ausdc_address = "0x98c23e9d8f34fefb1b7bd6a91b7ff122f4e16f5c"
+            ausdc_address = "0x98C23E9d8f34FEFb1B7BD6a91B7FF122F4e16F5c"
             logger.info("Aave whitelisting for pool %s, aUSDC %s", aave_pool_address, ausdc_address)
             note = f"Aave v3 pool whitelisting for USDC"
 
