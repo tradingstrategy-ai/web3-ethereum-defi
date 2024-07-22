@@ -18,8 +18,10 @@ See Enzyme Subgraphs: ---
 
 
 """
+import logging
 import enum
 import re
+import time
 from dataclasses import dataclass, fields
 from typing import Dict, Optional, Tuple
 
@@ -33,6 +35,9 @@ from eth_defi.abi import encode_with_signature, get_deployed_contract
 from eth_defi.deploy import deploy_contract
 from eth_defi.enzyme.utils import ONE_DAY_IN_SECONDS
 from eth_defi.trace import assert_transaction_success_with_explanation
+
+
+logger = logging.getLogger(__name__)
 
 #: Enzyme deployment details for Polygon
 #:
@@ -356,6 +361,18 @@ class EnzymeDeployment:
         # Use stack trace supported explanation
         web3 = fund_deployer.w3
         assert_transaction_success_with_explanation(web3, tx_hash)
+
+        # TODO:
+        # Temp hack for Ethereum mainnet.
+        # WTF is going with nodes
+        for i in range(0, 20):
+            try:
+                receipt = web3.eth.get_transaction_receipt(tx_hash)
+            except Exception as e:
+                logger.info("Ethereum mainnet Enzyme deployment workaround %d: %s", i, e)
+                logger.exception(e)
+                time.sleep(i*2)
+                continue
 
         receipt = web3.eth.get_transaction_receipt(tx_hash)
 
