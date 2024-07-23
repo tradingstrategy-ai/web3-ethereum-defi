@@ -64,7 +64,7 @@ def anvil_polygon_chain_fork(request, large_usdc_holder) -> str:
     launch = fork_network_anvil(
         mainnet_rpc,
         unlocked_addresses=[large_usdc_holder],
-        fork_block_number=51_000_000,
+        fork_block_number=58_000_000,
     )
     try:
         yield launch.json_rpc_url

@@ -325,6 +325,8 @@ def test_guard_can_short(
     tx_hash = vault.functions.performCall(target, call_data).transact({"from": asset_manager})
     assert_transaction_success_with_explanation(web3, tx_hash, tracing=True)
 
+    mine(web3)
+
     # we should have some vWETH in the vault
     assert vweth.functions.balanceOf(vault.address).call() == pytest.approx(weth_amount_to_short)
     assert ausdc.functions.balanceOf(vault.address).call() == pytest.approx(12233287803)
@@ -345,6 +347,8 @@ def test_guard_can_short(
     target, call_data = encode_simple_vault_transaction(trade_call)
     tx_hash = vault.functions.performCall(target, call_data).transact({"from": asset_manager})
     assert_transaction_success_with_explanation(web3, tx_hash, tracing=True)
+
+    mine(web3)
 
     # check new position size
     assert vweth.functions.balanceOf(vault.address).call() == pytest.approx(weth_amount_to_short * 2)
@@ -368,6 +372,8 @@ def test_guard_can_short(
     target, call_data = encode_simple_vault_transaction(trade_call)
     tx_hash = vault.functions.performCall(target, call_data).transact({"from": asset_manager})
     assert_transaction_success_with_explanation(web3, tx_hash, tracing=True)
+
+    mine(web3)
 
     # check new position size
     assert vweth.functions.balanceOf(vault.address).call() == pytest.approx(weth_amount_to_short)

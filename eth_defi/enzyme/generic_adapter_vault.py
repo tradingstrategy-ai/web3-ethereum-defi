@@ -48,6 +48,7 @@ CONTRACTS_ROOT = Path(os.path.dirname(__file__)) / ".." / ".." / "contracts"
 
 def _get_chain_slug(web3: Web3) -> str:
     return {
+        31337: "anvil",  # only for testing
         1: "ethereum",
         137: "polygon",
         42161: "arbitrum",
