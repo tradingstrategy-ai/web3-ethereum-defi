@@ -13,32 +13,45 @@ To patch the guard deployment in console:
     guard = get_deployed_contract(web3, "guard/GuardV0", guard_address)
 
 """
+
 import logging
 import os
 from pathlib import Path
 from typing import Collection
 
 from eth_typing import HexAddress
+from web3 import Web3
 from web3.contract import Contract
 
+from eth_defi.aave_v3.constants import AAVE_V3_DEPLOYMENTS
+from eth_defi.aave_v3.deployment import fetch_deployment as fetch_aave_deployment
 from eth_defi.enzyme.deployment import EnzymeDeployment
-from eth_defi.enzyme.policy import create_safe_default_policy_configuration_for_generic_adapter
+from eth_defi.enzyme.policy import (
+    create_safe_default_policy_configuration_for_generic_adapter,
+)
 from eth_defi.enzyme.vault import Vault
 from eth_defi.foundry.forge import deploy_contract_with_forge
 from eth_defi.hotwallet import HotWallet
+from eth_defi.one_delta.constants import ONE_DELTA_DEPLOYMENTS
+from eth_defi.one_delta.deployment import fetch_deployment as fetch_1delta_deployment
 from eth_defi.token import TokenDetails, fetch_erc20_details
 from eth_defi.trace import assert_transaction_success_with_explanation
-from eth_defi.uniswap_v2.constants import UNISWAP_V2_DEPLOYMENTS, QUICKSWAP_DEPLOYMENTS
+from eth_defi.uniswap_v2.constants import QUICKSWAP_DEPLOYMENTS, UNISWAP_V2_DEPLOYMENTS
 from eth_defi.uniswap_v2.utils import ZERO_ADDRESS
 from eth_defi.uniswap_v3.constants import UNISWAP_V3_DEPLOYMENTS
-from eth_defi.aave_v3.deployment import fetch_deployment as fetch_aave_deployment
-from eth_defi.one_delta.deployment import fetch_deployment as fetch_1delta_deployment
-
 
 logger = logging.getLogger(__name__)
 
 
 CONTRACTS_ROOT = Path(os.path.dirname(__file__)) / ".." / ".." / "contracts"
+
+
+def _get_chain_slug(web3: Web3) -> str:
+    return {
+        1: "ethereum",
+        137: "polygon",
+        42161: "arbitrum",
+    }[web3.eth.chain_id]
 
 
 def deploy_vault_with_generic_adapter(
@@ -151,6 +164,7 @@ def deploy_vault_with_generic_adapter(
     # Nothing bad can be done with this key, but good diagnostics is more important
     web3 = deployment.web3
     deployed_at_block = web3.eth.block_number
+    chain_slug = _get_chain_slug(web3)
     logger.info(
         "Deploying Enzyme vault. Enzyme fund deployer: %s, Terms of service: %s, USDC: %s, Etherscan API key: %s, block %d",
         deployment.contracts.fund_deployer.address,
@@ -338,33 +352,27 @@ def deploy_vault_with_generic_adapter(
             assert_transaction_success_with_explanation(web3, tx_hash)
 
         if one_delta or aave:
-
-            # TODO: Move to a separate function
+            assert chain_slug in AAVE_V3_DEPLOYMENTS, f"Chain {chain_slug} not supported for Aave v3"
 
             aave_v3_deployment = fetch_aave_deployment(
                 web3,
-                pool_address="0x794a61358D6845594F94dc1DB02A252b5b4814aD",
-                data_provider_address="0x69FA688f1Dc47d4B5d8029D5a35FB7a548310654",
-                oracle_address="0xb023e699F5a33916Ea823A16485e259257cA8Bd1",
+                pool_address=AAVE_V3_DEPLOYMENTS[chain_slug]["pool"],
+                data_provider_address=AAVE_V3_DEPLOYMENTS[chain_slug]["data_provider"],
+                oracle_address=AAVE_V3_DEPLOYMENTS[chain_slug]["oracle"],
             )
             aave_pool_address = aave_v3_deployment.pool.address
         else:
             aave_pool_address = None
 
         if one_delta:
+            assert chain_slug in ONE_DELTA_DEPLOYMENTS, f"Chain {chain_slug} not supported for 1delta"
 
             one_delta_deployment = fetch_1delta_deployment(
                 web3,
-                flash_aggregator_address="0x74E95F3Ec71372756a01eB9317864e3fdde1AC53",
-                broker_proxy_address="0x74E95F3Ec71372756a01eB9317864e3fdde1AC53",
-                quoter_address="0x36de3876ad1ef477e8f6d98EE9a162926f00463A",
+                flash_aggregator_address=ONE_DELTA_DEPLOYMENTS[chain_slug]["broker_proxy"],
+                broker_proxy_address=ONE_DELTA_DEPLOYMENTS[chain_slug]["broker_proxy"],
+                quoter_address=ONE_DELTA_DEPLOYMENTS[chain_slug]["quoter"],
             )
-
-            match web3.eth.chain_id:
-                case 137:
-                    pass
-                case _:
-                    raise NotImplementedError("1delta/Aave lacks data for chain %d", web3.eth.chain_id)
 
             broker_proxy_address = one_delta_deployment.broker_proxy.address
 
@@ -376,14 +384,15 @@ def deploy_vault_with_generic_adapter(
 
         if aave:
 
-            assert web3.eth.chain_id == 1, "TODO: Add support for non-mainnet chains"
-            ausdc_address = "0x98C23E9d8f34FEFb1B7BD6a91B7FF122F4e16F5c"
-            logger.info("Aave whitelisting for pool %s, aUSDC %s", aave_pool_address, ausdc_address)
-            note = f"Aave v3 pool whitelisting for USDC"
-
+            note = f"Allow Aave v3 pool"
             tx_hash = guard.functions.whitelistAaveV3(aave_pool_address, note).transact({"from": deployer.address})
             assert_transaction_success_with_explanation(web3, tx_hash)
 
+            assert web3.eth.chain_id == 1, "TODO: Add support for non-mainnet chains"
+            ausdc_address = "0x98C23E9d8f34FEFb1B7BD6a91B7FF122F4e16F5c"
+            logger.info("Aave whitelisting for pool %s, aUSDC %s", aave_pool_address, ausdc_address)
+
+            note = f"Aave v3 pool whitelisting for USDC"
             tx_hash = guard.functions.whitelistToken(ausdc_address, note).transact({"from": deployer.address})
             assert_transaction_success_with_explanation(web3, tx_hash)
 

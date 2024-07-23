@@ -234,8 +234,17 @@ MAX_AMOUNT = 2**256 - 1
 AAVE_V3_DEPLOYMENTS = {
     "ethereum": {
         "pool": "0x87870Bca3F3fD6335C3F4ce8392D69350B4fA4E2",
+        "data_provider": "0x7B4EB56E7CD4b454BA8ff71E4518426369a138a3",
+        "oracle": "0x54586bE62E3c3580375aE3723C145253060Ca0C2",
     },
     "arbitrum": {
         "pool": "0x794a61358D6845594F94dc1DB02A252b5b4814aD",
+        "data_provider": "0x69FA688f1Dc47d4B5d8029D5a35FB7a548310654",
+        "oracle": "0xb56c2F0B653B2e0b10C9b928C8580Ac5Df02C7C7",
+    },
+    "polygon": {
+        "pool": "0x794a61358D6845594F94dc1DB02A252b5b4814aD",
+        "data_provider": "0x69FA688f1Dc47d4B5d8029D5a35FB7a548310654",
+        "oracle": "0xb023e699F5a33916Ea823A16485e259257cA8Bd1",
     },
 }
