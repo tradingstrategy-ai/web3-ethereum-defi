@@ -517,6 +517,8 @@ def wait_and_broadcast_multiple_nodes(
 
         See https://github.com/ethereum/go-ethereum/issues/26890
 
+        Problematic providers: Alchemy
+
     :return:
         Map of transaction hashes -> receipt
 
