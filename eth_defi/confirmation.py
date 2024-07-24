@@ -472,6 +472,7 @@ def wait_and_broadcast_multiple_nodes(
     node_switch_timeout=datetime.timedelta(minutes=3),
     check_nonce_validity=True,
     mine_blocks=False,
+    inter_node_delay=datetime.timedelta(seconds=15),
 ) -> Dict[HexBytes, dict]:
     """Try to broadcast transactions through multiple nodes.
 
@@ -508,6 +509,13 @@ def wait_and_broadcast_multiple_nodes(
         For forked mainnet RPCs (Anvil) make sure the blockchain is making blocks.
 
         Only use with Anvil.
+
+    :param inter_node_delay:
+        Work around bad JSON-RPC SaaS providers.
+
+        Sleep this time between multiple tx broadcasts.
+
+        See https://github.com/ethereum/go-ethereum/issues/26890
 
     :return:
         Map of transaction hashes -> receipt
@@ -556,11 +564,12 @@ def wait_and_broadcast_multiple_nodes(
     providers = provider.providers
 
     logger.info(
-        "Broadcasting %d transactions using %s to confirm in %d blocks, timeout is %s",
+        "Broadcasting %d transactions using %s to confirm in %d blocks, timeout is %s, inter node delay is %s",
         len(txs),
         ", ".join([get_provider_name(p) for p in providers]),
         confirmation_block_count,
         max_timeout,
+        inter_node_delay,
     )
 
     # Double check nonces before letting txs thru
@@ -589,13 +598,17 @@ def wait_and_broadcast_multiple_nodes(
     # Initial broadcast of txs
     for tx in txs:
         try:
-            _broadcast_multiple_nodes(providers, tx)
+            _broadcast_multiple_nodes(providers, tx, inter_node_delay=inter_node_delay,)
             last_exception = None
         except NonRetryableBroadcastException:
             # Don't try to handle
             raise
         except Exception as e:
             last_exception = e
+
+        if len(txs) >= 2:
+            # https://github.com/ethereum/go-ethereum/issues/26890
+            time.sleep(inter_node_delay.total_seconds())
 
     while len(unconfirmed_txs) > 0:
         # Transaction hashes that receive confirmation on this round
