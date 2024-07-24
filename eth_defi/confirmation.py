@@ -8,26 +8,23 @@
 import datetime
 import logging
 import time
+from typing import Collection, Dict, List, Set, TypeAlias, Union, cast
+
 from _decimal import Decimal
-from typing import Dict, List, Set, Union, cast, Collection, TypeAlias
-
 from eth_account.datastructures import SignedTransaction
-from eth_typing import HexStr, Address
-
-from eth_defi.provider.anvil import mine
-from eth_defi.provider.named import get_provider_name
+from eth_typing import Address, HexStr
 from hexbytes import HexBytes
 from web3 import Web3
 from web3.exceptions import TransactionNotFound
-
-from eth_defi.hotwallet import SignedTransactionWithNonce
-from eth_defi.timestamp import get_latest_block_timestamp
-from eth_defi.tx import decode_signed_transaction
-from eth_defi.provider.fallback import FallbackProvider, get_fallback_provider
 from web3.providers import BaseProvider
 
+from eth_defi.hotwallet import SignedTransactionWithNonce
+from eth_defi.provider.anvil import mine
+from eth_defi.provider.fallback import FallbackProvider, get_fallback_provider
+from eth_defi.provider.named import get_provider_name
+from eth_defi.timestamp import get_latest_block_timestamp
+from eth_defi.tx import decode_signed_transaction
 from eth_defi.utils import to_unix_timestamp
-
 
 logger = logging.getLogger(__name__)
 
@@ -196,7 +193,7 @@ def wait_transactions_to_complete(
                     logger.warning(
                         "Timeout warning threshold %s reached when trying to confirm txs, still trying:\n%s",
                         node_switch_timeout,
-                        unconfirmed_txs
+                        unconfirmed_txs,
                     )
                 provider.switch_provider()
                 next_node_switch = datetime.datetime.utcnow() + node_switch_timeout
@@ -600,7 +597,7 @@ def wait_and_broadcast_multiple_nodes(
     # Initial broadcast of txs
     for tx in txs:
         try:
-            _broadcast_multiple_nodes(providers, tx, inter_node_delay=inter_node_delay,)
+            _broadcast_multiple_nodes(providers, tx)
             last_exception = None
         except NonRetryableBroadcastException:
             # Don't try to handle
