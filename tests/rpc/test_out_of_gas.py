@@ -1,16 +1,16 @@
 """Out of gas tests."""
+
 import os
 
 import pytest
-
 from eth_account import Account
-from web3 import Web3, HTTPProvider
+from web3 import HTTPProvider, Web3
 
-from eth_defi.confirmation import wait_and_broadcast_multiple_nodes, OutOfGasFunds
-from eth_defi.gas import estimate_gas_fees, apply_gas
+from eth_defi.confirmation import OutOfGasFunds, wait_and_broadcast_multiple_nodes
+from eth_defi.gas import apply_gas, estimate_gas_fees
 from eth_defi.hotwallet import HotWallet
 from eth_defi.provider.multi_provider import create_multi_provider_web3
-from eth_defi.token import fetch_erc20_details, TokenDetails
+from eth_defi.token import TokenDetails, fetch_erc20_details
 from eth_defi.uniswap_v2.deployment import UniswapV2Deployment, fetch_deployment
 
 JSON_RPC_POLYGON = os.environ.get("JSON_RPC_POLYGON", "https://polygon-rpc.com")
