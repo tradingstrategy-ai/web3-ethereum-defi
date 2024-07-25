@@ -14,7 +14,7 @@ from typing import Dict, List, Set, Union, cast, Collection, TypeAlias
 from eth_account.datastructures import SignedTransaction
 from eth_typing import HexStr, Address
 
-from eth_defi.provider.anvil import mine
+from eth_defi.provider.anvil import mine, is_anvil
 from eth_defi.provider.named import get_provider_name
 from hexbytes import HexBytes
 from web3 import Web3
@@ -517,7 +517,9 @@ def wait_and_broadcast_multiple_nodes(
 
         See https://github.com/ethereum/go-ethereum/issues/26890
 
-        Problematic providers: Alchemy
+        Problematic providers: Alchemy.
+
+        Reset for Anvil to make unit tests faster.
 
     :return:
         Map of transaction hashes -> receipt
@@ -555,6 +557,9 @@ def wait_and_broadcast_multiple_nodes(
 
     if web3.eth.chain_id == 61:
         assert confirmation_block_count == 0, "Ethereum Tester chain does not progress itself, so we cannot wait"
+
+    if is_anvil(web3):
+        inter_node_delay = datetime.timedelta(seconds=0.1)
 
     for tx in txs:
         assert getattr(tx, "hash", None), f"Does not look like compatible TxType: {tx.__class__}: {tx}"
