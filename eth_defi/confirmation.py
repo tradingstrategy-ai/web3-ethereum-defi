@@ -471,7 +471,7 @@ def wait_and_broadcast_multiple_nodes(
     node_switch_timeout=datetime.timedelta(minutes=3),
     check_nonce_validity=True,
     mine_blocks=False,
-    inter_node_delay=datetime.timedelta(seconds=15),
+    inter_node_delay=datetime.timedelta(seconds=60),
 ) -> Dict[HexBytes, dict]:
     """Try to broadcast transactions through multiple nodes.
 
