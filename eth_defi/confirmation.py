@@ -619,6 +619,10 @@ def wait_and_broadcast_multiple_nodes(
                 inter_node_delay
             )
             time.sleep(inter_node_delay.total_seconds())
+        else:
+            logger.info(
+                "Internode sleep skipped",
+            )
 
     while len(unconfirmed_txs) > 0:
         # Transaction hashes that receive confirmation on this round
