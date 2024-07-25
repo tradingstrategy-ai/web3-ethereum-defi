@@ -614,6 +614,10 @@ def wait_and_broadcast_multiple_nodes(
 
         if len(txs) >= 2:
             # https://github.com/ethereum/go-ethereum/issues/26890
+            logger.info(
+                "Broadcasting multiple transactions, using inter node delay %s to sleep to ensure poor-quality nodes like Alchemy work",
+                inter_node_delay
+            )
             time.sleep(inter_node_delay.total_seconds())
 
     while len(unconfirmed_txs) > 0:
