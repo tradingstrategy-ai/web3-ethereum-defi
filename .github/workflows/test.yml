@@ -25,7 +25,7 @@ jobs:
         with:
           submodules: true
       - name: Setup Node.js
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v4
         with:
           node-version: 16
           cache: 'npm'
@@ -36,8 +36,7 @@ jobs:
       - name: Install pnpm
         run: |
           curl -fsSL https://get.pnpm.io/install.sh | env PNPM_VERSION=7.27.1 sh -
-          PNPM_HOME="/home/runner/.local/share/pnpm"
-          # https://docs.github.com/en/actions/using-workflows/workflow-commands-for-github-actions#adding-a-system-path
+          PNPM_HOME="/home/ubuntu/.local/share/pnpm"
           echo $PNPM_HOME >> $GITHUB_PATH
 
       - name: Install poetry
