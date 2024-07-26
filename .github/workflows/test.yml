@@ -51,8 +51,6 @@ jobs:
         run: |
           poetry env use '3.12'
           poetry install --all-extras
-      - name: Install Ganache
-        run: yarn global add ganache
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
         with:
