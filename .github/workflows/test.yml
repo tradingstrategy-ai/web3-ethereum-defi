@@ -9,10 +9,7 @@ on:
 jobs:
 
   test-python:
-
-    # Reserved multicore instance for running tests
-    runs-on:
-      group: Beefy runners
+    runs-on: self-hosted
 
     # Only run the action for the latest push
     # See https://docs.github.com/en/actions/using-jobs/using-concurrency#example-only-cancel-in-progress-jobs-or-runs-for-the-current-workflow
