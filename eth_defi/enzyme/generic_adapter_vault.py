@@ -175,9 +175,9 @@ def deploy_vault_with_generic_adapter(
         deployed_at_block,
     )
 
-    generic_adapter, tx_hash = deploy_contract_with_forge(
-        web3,
-        CONTRACTS_ROOT / "in-house",
+
+    generic_adapter = deploy_generic_adapter_with_guard(
+        deployment,
         "GuardedGenericAdapter.sol",
         "GuardedGenericAdapter",
         deployer,
@@ -484,3 +484,30 @@ def deploy_guard(
             assert_transaction_success_with_explanation(web3, tx_hash)
 
     return guard
+
+
+
+def deploy_generic_adapter_with_guard(
+    deployment: EnzymeDeployment,
+    deployer: HotWallet,
+    guard: Contract,
+    etherscan_api_key: str | None = None,
+) -> Contract:
+    """Deploy a new generic adapter for a vault."""
+    assert isinstance(guard, Contract)
+
+    web3 = deployment.web3
+
+    assert CONTRACTS_ROOT.exists(), f"Cannot find contracts folder {CONTRACTS_ROOT.resolve()} - are you running from git checkout?"
+
+    generic_adapter, tx_hash = deploy_contract_with_forge(
+        web3,
+        CONTRACTS_ROOT / "in-house",
+        "GuardedGenericAdapter.sol",
+        "GuardedGenericAdapter",
+        deployer,
+        [deployment.contracts.integration_manager.address, guard.address],
+        etherscan_api_key=etherscan_api_key,
+    )
+    logger.info("GuardedGenericAdapter is %s deployed at %s", generic_adapter.address, tx_hash.hex())
+    return generic_adapter

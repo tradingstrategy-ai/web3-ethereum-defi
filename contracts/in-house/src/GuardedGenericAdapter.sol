@@ -29,7 +29,7 @@ interface IGuard {
  * - Adapter is associated with a specific vault
  *
  */
-contract GuardedGenericAdapter is AdapterBase {
+contract   is AdapterBase {
 
     // The vault this adapter is associated with.
     //
