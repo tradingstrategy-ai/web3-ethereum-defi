@@ -175,29 +175,6 @@ def deploy_vault_with_generic_adapter(
         deployed_at_block,
     )
 
-    if not mock_guard:
-        guard, tx_hash = deploy_contract_with_forge(
-            web3,
-            CONTRACTS_ROOT / "guard",
-            "GuardV0.sol",
-            f"GuardV0",
-            deployer,
-            etherscan_api_key=etherscan_api_key,
-        )
-        logger.info("GuardV0 is %s deployed at %s", guard.address, tx_hash.hex())
-        assert guard.functions.getInternalVersion().call() == 1
-    else:
-        # Unit testing path
-        guard, tx_hash = deploy_contract_with_forge(
-            web3,
-            CONTRACTS_ROOT / "guard",
-            "MockGuard.sol",
-            f"MockGuard",
-            deployer,
-            etherscan_api_key=etherscan_api_key,
-        )
-        logger.info("MockGuard is %s deployed at %s", guard.address, tx_hash.hex())
-
     generic_adapter, tx_hash = deploy_contract_with_forge(
         web3,
         CONTRACTS_ROOT / "in-house",
@@ -261,23 +238,23 @@ def deploy_vault_with_generic_adapter(
         )
         logger.info("VaultUSDCPaymentForwarder is %s deployed at %s", payment_forwarder.address, tx_hash.hex())
 
-    if not mock_guard:
-        # When swap is performed, the tokens will land on the integration contract
-        # and this contract must be listed as the receiver.
-        # Enzyme will then internally move tokens to its vault from here.
-        tx_hash = guard.functions.allowReceiver(generic_adapter.address, "").transact({"from": deployer.address})
-        assert_transaction_success_with_explanation(web3, tx_hash)
-
-        # Because Enzyme does not pass the asset manager address to through integration manager,
-        # we set the vault address itself as asset manager for the guard
-        tx_hash = guard.functions.allowSender(vault.address, "").transact({"from": deployer.address})
-        assert_transaction_success_with_explanation(web3, tx_hash)
-
-        logger.info("GenericAdapter %s whitelisted as receiver", generic_adapter.address)
-    else:
-        # Production deployment foobar - add this warning message for now until figuring
-        # out why allowReceiver() failed
-        logger.warning("No receiver whitelisted")
+    guard = deploy_guard(
+        web3,
+        deployer=deployer,
+        asset_manager=asset_manager,
+        owner=owner,
+        denomination_asset=denomination_asset,
+        whitelisted_assets=whitelisted_assets,
+        mock_guard=mock_guard,
+        production=production,
+        etherscan_api_key=etherscan_api_key,
+        uniswap_v2=uniswap_v2,
+        uniswap_v3=uniswap_v3,
+        aave=aave,
+        one_delta=one_delta,
+        allow_sender=vault.address,
+        allow_receiver=generic_adapter.address,
+    )
 
     # Give generic adapter back reference to the vault
     assert vault.functions.getCreator().call() != ZERO_ADDRESS, f"Bad vault creator {vault.functions.getCreator().call()}"
@@ -286,6 +263,7 @@ def deploy_vault_with_generic_adapter(
         production,
         meta,
     ).transact({"from": deployer.address})
+
     assert_transaction_success_with_explanation(web3, tx_hash)
 
     assert generic_adapter.functions.getIntegrationManager().call() == deployment.contracts.integration_manager.address
@@ -293,22 +271,6 @@ def deploy_vault_with_generic_adapter(
     assert vault.functions.getTrackedAssets().call() == [denomination_asset.address]
     if asset_manager != deployer.address:
         assert vault.functions.canManageAssets(asset_manager).call()
-
-    if not mock_guard:
-        assert guard.functions.isAllowedSender(vault.address).call()  # vault = asset manager for the guard
-
-        usdc_token = fetch_erc20_details(web3, denomination_asset.address)
-        all_assets = [usdc_token] + whitelisted_assets
-        for asset in all_assets:
-            logger.info("Whitelisting %s", asset)
-
-            # Check token address is valie
-            token = fetch_erc20_details(web3, asset.address)
-            logger.info("Decimals of %s is %s", token.symbol, token.decimals)
-            assert token.decimals > 0
-
-            tx_hash = guard.functions.whitelistToken(asset.address, f"Whitelisting {asset.symbol}").transact({"from": deployer.address})
-            assert_transaction_success_with_explanation(web3, tx_hash)
 
     # We cannot directly transfer the ownership to a multisig,
     # but we can set nominated ownership pending
@@ -329,6 +291,125 @@ def deploy_vault_with_generic_adapter(
 
     assert vault.guard_contract.address == guard.address
 
+    logger.info(
+        "Deployed. Vault is %s, initial owner is %s, asset manager is %s",
+        vault.vault.address,
+        vault.get_owner(),
+        asset_manager,
+    )
+
+    return vault
+
+
+def deploy_guard(
+    web3: Web3,
+    deployer: HotWallet,
+    asset_manager: HexAddress | str,
+    owner: HexAddress | str,
+    denomination_asset: Contract,
+    whitelisted_assets: Collection[TokenDetails] | None = None,
+    etherscan_api_key: str | None = None,
+    uniswap_v2=True,
+    uniswap_v3=True,
+    one_delta=False,
+    aave=False,
+    mock_guard=False,
+    allow_receiver: str | None = None,
+    allow_sender: str | None = None,
+) -> Contract:
+    """Deploy a new GuardV0 smart contract.
+
+    - To be associated with Enzyme vault or SimpleVault
+
+    - Can be deployment standalone and the vault upgraded to use a newer version of the guard
+
+    :param mock_guard:
+        Set to true to disable actual deployment.
+
+        Used in legacy unit test setup.
+    """
+
+    assert isinstance(deployer, HotWallet), f"Got {type(deployer)}"
+    assert asset_manager.startswith("0x")
+    assert owner.startswith("0x")
+
+    assert CONTRACTS_ROOT.exists(), f"Cannot find contracts folder {CONTRACTS_ROOT.resolve()} - are you runnign from git checkout?"
+
+    whitelisted_assets = whitelisted_assets or []
+    for asset in whitelisted_assets:
+        assert isinstance(asset, TokenDetails)
+
+    # Log EtherScan API key
+    # Nothing bad can be done with this key, but good diagnostics is more important
+    deployed_at_block = web3.eth.block_number
+    chain_slug = _get_chain_slug(web3)
+    logger.info(
+        "Deploying Guard. USDC: %s, Etherscan API key: %s, block %d",
+        denomination_asset.address,
+        etherscan_api_key,
+        deployed_at_block,
+    )
+
+    if not mock_guard:
+        guard, tx_hash = deploy_contract_with_forge(
+            web3,
+            CONTRACTS_ROOT / "guard",
+            "GuardV0.sol",
+            f"GuardV0",
+            deployer,
+            etherscan_api_key=etherscan_api_key,
+        )
+        logger.info("GuardV0 is %s deployed at %s", guard.address, tx_hash.hex())
+        assert guard.functions.getInternalVersion().call() == 1
+    else:
+        # Unit testing path
+        guard, tx_hash = deploy_contract_with_forge(
+            web3,
+            CONTRACTS_ROOT / "guard",
+            "MockGuard.sol",
+            f"MockGuard",
+            deployer,
+            etherscan_api_key=etherscan_api_key,
+        )
+        logger.info("MockGuard is %s deployed at %s", guard.address, tx_hash.hex())
+
+    # Need to resync the nonce, because it was used outside HotWallet
+    deployer.sync_nonce(web3)
+
+    if not mock_guard:
+        # When swap is performed, the tokens will land on the integration contract
+        # and this contract must be listed as the receiver.
+        # Enzyme will then internally move tokens to its vault from here.
+        tx_hash = guard.functions.allowReceiver(allow_receiver, "").transact({"from": deployer.address})
+        assert_transaction_success_with_explanation(web3, tx_hash)
+
+        # Because Enzyme does not pass the asset manager address to through integration manager,
+        # we set the vault address itself as asset manager for the guard
+        tx_hash = guard.functions.allowSender(allow_sender, "").transact({"from": deployer.address})
+        assert_transaction_success_with_explanation(web3, tx_hash)
+
+        logger.info("GenericAdapter %s whitelisted as receiver, vault as sender", allow_receiver, allow_sender)
+    else:
+        # Production deployment foobar - add this warning message for now until figuring
+        # out why allowReceiver() failed
+        logger.warning("No receiver whitelisted")
+
+    if not mock_guard:
+        assert guard.functions.isAllowedSender(allow_sender).call()  # vault = asset manager for the guard
+
+        usdc_token = fetch_erc20_details(web3, denomination_asset.address)
+        all_assets = [usdc_token] + whitelisted_assets
+        for asset in all_assets:
+            logger.info("Whitelisting %s", asset)
+
+            # Check token address is valie
+            token = fetch_erc20_details(web3, asset.address)
+            logger.info("Decimals of %s is %s", token.symbol, token.decimals)
+            assert token.decimals > 0
+
+            tx_hash = guard.functions.whitelistToken(asset.address, f"Whitelisting {asset.symbol}").transact({"from": deployer.address})
+            assert_transaction_success_with_explanation(web3, tx_hash)
+
     if not mock_guard:
         match web3.eth.chain_id:
             case 137:
@@ -344,12 +425,12 @@ def deploy_vault_with_generic_adapter(
 
         if uniswap_v2 and uniswap_v2_router:
             logger.info("Whitelisting Uniswap/Quickswap V2 router %s", uniswap_v2_router)
-            tx_hash = vault.guard_contract.functions.whitelistUniswapV2Router(uniswap_v2_router, "").transact({"from": deployer.address})
+            tx_hash = guard.functions.whitelistUniswapV2Router(uniswap_v2_router, "").transact({"from": deployer.address})
             assert_transaction_success_with_explanation(web3, tx_hash)
 
         if uniswap_v3 and uniswap_v3_router:
             logger.info("Whitelisting Uniswap V3 router %s", uniswap_v3_router)
-            tx_hash = vault.guard_contract.functions.whitelistUniswapV3Router(uniswap_v3_router, "").transact({"from": deployer.address})
+            tx_hash = guard.functions.whitelistUniswapV3Router(uniswap_v3_router, "").transact({"from": deployer.address})
             assert_transaction_success_with_explanation(web3, tx_hash)
 
         if one_delta or aave:
@@ -397,11 +478,4 @@ def deploy_vault_with_generic_adapter(
             tx_hash = guard.functions.whitelistToken(ausdc_address, note).transact({"from": deployer.address})
             assert_transaction_success_with_explanation(web3, tx_hash)
 
-    logger.info(
-        "Deployed. Vault is %s, initial owner is %s, asset manager is %s",
-        vault.vault.address,
-        vault.get_owner(),
-        asset_manager,
-    )
-
-    return vault
+    return guard
