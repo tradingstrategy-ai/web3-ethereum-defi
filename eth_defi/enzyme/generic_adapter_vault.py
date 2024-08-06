@@ -323,6 +323,8 @@ def deploy_guard(
 
     - Can be deployment standalone and the vault upgraded to use a newer version of the guard
 
+    See :py:func:`deploy_vault_with_generic_adapter` for more details.
+
     :param mock_guard:
         Set to true to disable actual deployment.
 
