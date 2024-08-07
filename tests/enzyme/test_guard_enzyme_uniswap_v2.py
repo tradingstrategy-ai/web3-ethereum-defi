@@ -9,12 +9,14 @@ import random
 
 from web3.middleware import construct_sign_and_send_raw_middleware
 
-from eth_defi.enzyme.generic_adapter_vault import deploy_vault_with_generic_adapter
+from eth_defi.enzyme.generic_adapter_vault import deploy_vault_with_generic_adapter, deploy_guard, whitelist_sender_receiver, bind_vault, deploy_generic_adapter_with_guard
 
 import pytest
 from eth_account import Account
 from eth_account.signers.local import LocalAccount
 from eth_typing import HexAddress
+
+from eth_defi.enzyme.policy import update_adapter_policy, create_safe_default_policy_configuration_for_generic_adapter
 from eth_defi.terms_of_service.acceptance_message import (
     generate_acceptance_message,
     get_signing_hash,
@@ -147,6 +149,20 @@ def enzyme(
 
     return deployment
 
+@pytest.fixture()
+def hot_wallet(web3):
+
+    _deployer = web3.eth.accounts[0]
+    account: LocalAccount = Account.create()
+    stash = web3.eth.get_balance(_deployer)
+    tx_hash = web3.eth.send_transaction({"from": _deployer, "to": account.address, "value": stash // 2})
+    assert_transaction_success_with_explanation(web3, tx_hash)
+
+    hot_wallet = HotWallet(account)
+    hot_wallet.sync_nonce(web3)
+    web3.middleware_onion.add(construct_sign_and_send_raw_middleware(account))
+    return hot_wallet
+
 
 @pytest.fixture()
 def vault(
@@ -158,6 +174,7 @@ def vault(
     mln: Contract,
     usdc: Contract,
     terms_of_service: Contract,
+    hot_wallet: HotWallet,
 ) -> Vault:
     """Deploy an Enzyme vault.
 
@@ -168,16 +185,6 @@ def vault(
     - TermsOfService
     - TermedVaultUSDCPaymentForwarder
     """
-
-    _deployer = web3.eth.accounts[0]
-    account: LocalAccount = Account.create()
-    stash = web3.eth.get_balance(_deployer)
-    tx_hash = web3.eth.send_transaction({"from": _deployer, "to": account.address, "value": stash // 2})
-    assert_transaction_success_with_explanation(web3, tx_hash)
-
-    hot_wallet = HotWallet(account)
-    hot_wallet.sync_nonce(web3)
-    web3.middleware_onion.add(construct_sign_and_send_raw_middleware(account))
 
     return deploy_vault_with_generic_adapter(enzyme, hot_wallet, asset_manager, deployer, usdc, terms_of_service)
 
@@ -529,3 +536,141 @@ def test_enzyme_enable_transfer(
 
     revert_reason = exc_info.value.revert_reason
     assert "Approve address does not match" in revert_reason
+
+
+@pytest.mark.skip(reason="Currently Enzyme does not way to update AdapterPolicy. Instead, the whole vault needs to be reconfigured with 7 days delay.")
+def test_enzyme_guarded_trade_singlehop_uniswap_v2_guard_redeploy(
+    web3: Web3,
+    deployer: HexAddress,
+    asset_manager: HexAddress,
+    enzyme: EnzymeDeployment,
+    vault: Vault,
+    vault_investor: LocalAccount,
+    weth_token: TokenDetails,
+    mln: Contract,
+    usdc_token: TokenDetails,
+    usdc_usd_mock_chainlink_aggregator: Contract,
+    payment_forwarder: Contract,
+    acceptance_message: str,
+    terms_of_service: Contract,
+    uniswap_v2_whitelisted: UniswapV2Deployment,
+    weth_usdc_pair: Contract,
+    hot_wallet,
+    vault_owner: Account,
+):
+    """Make a single-hop swap that goes through the call guard."""
+
+    assert vault.is_supported_asset(usdc_token.address)
+    assert vault.is_supported_asset(weth_token.address)
+
+    # Sign terms of service
+    acceptance_hash, signature = sign_terms_of_service(vault_investor, acceptance_message)
+
+    # The transfer will expire in one hour
+    # in the test EVM timeline
+    block = web3.eth.get_block("latest")
+    valid_before = block["timestamp"] + 3600
+
+    # Construct bounded ContractFunction instance
+    # that will transact with MockEIP3009Receiver.deposit()
+    # smart contract function.
+    bound_func = make_eip_3009_transfer(
+        token=usdc_token,
+        from_=vault_investor,
+        to=payment_forwarder.address,
+        func=payment_forwarder.functions.buySharesOnBehalfUsingTransferWithAuthorizationAndTermsOfService,
+        value=500 * 10**6,  # 500 USD,
+        valid_before=valid_before,
+        extra_args=(1, acceptance_hash, signature),
+        authorization_type=EIP3009AuthorizationType.TransferWithAuthorization,
+    )
+
+    # Sign and broadcast the tx
+    tx_hash = bound_func.transact(
+        {
+            "from": vault_investor.address,
+        }
+    )
+
+    # Print out Solidity stack trace if this fails
+    assert_transaction_success_with_explanation(web3, tx_hash)
+
+    assert payment_forwarder.functions.amountProxied().call() == 500 * 10**6  # Got shares
+
+    assert vault.get_gross_asset_value() == 500 * 10**6  # Vault has been funded
+
+    hot_wallet.sync_nonce(web3)
+
+    # Adds a new guard to the vault
+    guard = deploy_guard(
+        web3=web3,
+        deployer=hot_wallet,
+        asset_manager=asset_manager,
+        owner=hot_wallet.address,
+        denomination_asset=usdc_token.contract,
+        whitelisted_assets=[weth_token, usdc_token],
+        etherscan_api_key=None,
+        uniswap_v2=True,
+    )
+
+    generic_adapter = deploy_generic_adapter_with_guard(
+        enzyme,
+        hot_wallet,
+        guard,
+        etherscan_api_key=None,
+    )
+
+    # TODO: Fix this so we do not need to fetch Vault twice
+    vault = Vault.fetch(
+        web3,
+        vault.address,
+        extra_addresses={
+            "comptroller_lib": enzyme.contracts.comptroller_lib.address,
+            "allowed_adapters_policy": enzyme.contracts.allowed_adapters_policy.address,
+            "generic_adapter": generic_adapter.address,
+        }
+    )
+
+    bind_vault(
+        generic_adapter,
+        vault.vault,
+        False,
+        "",
+        hot_wallet,
+    )
+
+    policy_configuration = create_safe_default_policy_configuration_for_generic_adapter(
+        enzyme,
+        generic_adapter,
+    )
+
+    # update_adapter_policy(
+    #    vault,
+    #    generic_adapter,
+    #    hot_wallet
+    #)
+
+    whitelist_sender_receiver(
+        guard,
+        hot_wallet,
+        allow_receiver=generic_adapter.address,
+        allow_sender=vault.address,
+    )
+
+    # Vault swaps USDC->ETH for both users
+    # Buy ETH worth of 200 USD
+    prepared_tx = prepare_swap(
+        enzyme,
+        vault,
+        uniswap_v2_whitelisted,
+        vault.generic_adapter,
+        usdc_token.contract,
+        weth_token.contract,
+        200 * 10**6,  # 200 USD
+    )
+
+    tx_hash = prepared_tx.transact({"from": asset_manager, "gas": 1_000_000})
+    assert_transaction_success_with_explanation(web3, tx_hash)
+
+    # Bought ETH landed in the vault
+    assert weth_token.contract.functions.balanceOf(vault.address).call() == pytest.approx(0.12450087262998791 * 10**18)

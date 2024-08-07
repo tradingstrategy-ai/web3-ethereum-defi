@@ -10,6 +10,7 @@ Enzyme frontend has some vault policies by default, but Enzyme frontend is not o
 """
 import enum
 from typing import Iterable
+import logging
 
 from eth_abi import encode
 from eth_typing import HexAddress
@@ -18,6 +19,11 @@ from web3.contract import Contract
 from eth_defi.abi import get_deployed_contract
 from eth_defi.enzyme.deployment import EnzymeDeployment, VaultPolicyConfiguration
 from eth_defi.enzyme.vault import Vault
+from eth_defi.hotwallet import HotWallet
+from eth_defi.trace import assert_transaction_success_with_explanation
+
+
+logger = logging.getLogger(__name__)
 
 
 class AddressListUpdateType(enum.Enum):
@@ -43,10 +49,8 @@ def get_vault_policies(vault: Vault) -> Iterable[Contract]:
     """
 
     web3 = vault.web3
-
     policy_manager_address = vault.comptroller.functions.getPolicyManager().call()
     policy_manager = get_deployed_contract(web3, "enzyme/PolicyManager.json", policy_manager_address)
-
     policies = policy_manager.functions.getEnabledPoliciesForFund(vault.comptroller.address).call()
     for policy_address in policies:
         policy = get_deployed_contract(web3, "enzyme/IPolicy.json", policy_address)
@@ -115,7 +119,7 @@ def create_safe_default_policy_configuration_for_generic_adapter(
         contracts.allowed_external_position_types_policy.address: b"",
     }
 
-    # Lock policy
+    # Lock adapter policy to use only our adapter
     if generic_adapter is not None:
         policies.update({
             contracts.allowed_adapters_policy.address: encode_single_address_list_policy_args(generic_adapter.address),
@@ -162,3 +166,52 @@ def encode_single_address_list_policy_args(
     initial_items = [address]
     new_list_args = [encode(["uint256", "address[]"], [update_type.value, initial_items])]
     return encode(["uint256[]", "bytes[]"], [existing_list_ids, new_list_args])
+
+
+def update_adapter_policy(
+    vault: Vault,
+    generic_adapter: Contract,
+    deployer: HotWallet,
+):
+    """Set vault to use a new generic adapter.
+
+    - Overwrite the existing AllowedAdapterPolicy configuration
+
+    .. warning::
+
+        Existing adapter policy cannot be changed. Only new set.
+
+    """
+    assert isinstance(generic_adapter, Contract)
+
+    web3 = vault.web3
+    policy_manager_address = vault.comptroller.functions.getPolicyManager().call()
+    contracts = vault.deployment.contracts
+    policy_manager = get_deployed_contract(web3, "enzyme/PolicyManager.json", policy_manager_address)
+
+    logger.info(
+        "update_adapter_policy(), fund owner is %s, deployer is %s",
+        vault.get_owner(),
+        deployer.address,
+    )
+
+    assert deployer is not None
+    assert vault.comptroller
+    assert generic_adapter
+    assert contracts.allowed_adapters_policy, "AllowedAdaptersPolicy contract address missing in Enzyme configuration"
+    assert contracts.allowed_adapters_policy.functions.identifier().call() == "ALLOWED_ADAPTERS", f"Got {contracts.allowed_adapters_policy.functions.identifier().call()}"
+
+    assert vault.get_owner() == deployer.address, "update_adapter_policy(): You can perform this transaction only as a vault owner"
+
+    # tx_hash = policy_manager.functions.disablePolicyForFund(
+    #     vault.comptroller.address,
+    #     contracts.allowed_adapters_policy.address,
+    # ).transact({"from": deployer.address})
+    # assert_transaction_success_with_explanation(web3, tx_hash)
+
+    tx_hash = policy_manager.functions.enablePolicyForFund(
+        vault.comptroller.address,
+        contracts.allowed_adapters_policy.address,
+        encode_single_address_list_policy_args(generic_adapter.address),
+    ).transact({"from": deployer.address})
+    assert_transaction_success_with_explanation(web3, tx_hash)
