@@ -41,6 +41,9 @@ jobs:
           curl -fsSL https://get.pnpm.io/install.sh | env PNPM_VERSION=7.27.1 sh -
           PNPM_HOME="$HOME/.local/share/pnpm"
           echo $PNPM_HOME >> $GITHUB_PATH
+          
+      - name: Add pipx to PATH
+        run: echo "$HOME/.local/bin" >> $GITHUB_PATH
 
       - name: Install poetry
         run: pipx install poetry
