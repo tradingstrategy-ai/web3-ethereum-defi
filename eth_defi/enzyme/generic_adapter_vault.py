@@ -175,14 +175,28 @@ def deploy_vault_with_generic_adapter(
         deployed_at_block,
     )
 
+    guard = deploy_guard(
+        web3,
+        deployer=deployer,
+        asset_manager=asset_manager,
+        owner=owner,
+        denomination_asset=denomination_asset,
+        whitelisted_assets=whitelisted_assets,
+        mock_guard=mock_guard,
+        etherscan_api_key=etherscan_api_key,
+        uniswap_v2=uniswap_v2,
+        uniswap_v3=uniswap_v3,
+        aave=aave,
+        one_delta=one_delta,
+    )
+
     generic_adapter = deploy_generic_adapter_with_guard(
         deployment,
-        "GuardedGenericAdapter.sol",
-        "GuardedGenericAdapter",
         deployer,
+        guard=guard,
         etherscan_api_key=etherscan_api_key,
     )
-    logger.info("GuardedGenericAdapter is %s deployed at %s", generic_adapter.address, tx_hash.hex())
+    logger.info("GuardedGenericAdapter is deployed at %s", generic_adapter.address)
 
     if deployment.contracts.cumulative_slippage_tolerance_policy is not None:
         policy_configuration = create_safe_default_policy_configuration_for_generic_adapter(
@@ -203,6 +217,16 @@ def deploy_vault_with_generic_adapter(
 
     assert comptroller.functions.getDenominationAsset().call() == denomination_asset.address
     assert vault.functions.getTrackedAssets().call() == [denomination_asset.address]
+
+    deployer.sync_nonce(web3)
+
+    bind_vault(
+        generic_adapter,
+        vault,
+        production,
+        meta,
+        deployer,
+    )
 
     # asset manager role is the trade executor
     if asset_manager != deployer.address:
@@ -236,35 +260,12 @@ def deploy_vault_with_generic_adapter(
         )
         logger.info("VaultUSDCPaymentForwarder is %s deployed at %s", payment_forwarder.address, tx_hash.hex())
 
-    guard = deploy_guard(
-        web3,
-        deployer=deployer,
-        asset_manager=asset_manager,
-        owner=owner,
-        denomination_asset=denomination_asset,
-        whitelisted_assets=whitelisted_assets,
-        mock_guard=mock_guard,
-        production=production,
-        etherscan_api_key=etherscan_api_key,
-        uniswap_v2=uniswap_v2,
-        uniswap_v3=uniswap_v3,
-        aave=aave,
-        one_delta=one_delta,
-        allow_sender=vault.address,
-        allow_receiver=generic_adapter.address,
-    )
-
     # Give generic adapter back reference to the vault
     assert vault.functions.getCreator().call() != ZERO_ADDRESS, f"Bad vault creator {vault.functions.getCreator().call()}"
-    tx_hash = generic_adapter.functions.bindVault(
-        vault.address,
-        production,
-        meta,
-    ).transact({"from": deployer.address})
-
-    assert_transaction_success_with_explanation(web3, tx_hash)
 
     whitelist_sender_receiver(
+        guard,
+        deployer,
         allow_sender=generic_adapter.address,
         allow_receiver=vault.address,
     )
@@ -462,25 +463,24 @@ def deploy_guard(
             tx_hash = guard.functions.whitelistToken(ausdc_address, note).transact({"from": deployer.address})
             assert_transaction_success_with_explanation(web3, tx_hash)
 
+    deployer.sync_nonce(web3)
+
     return guard
 
 
 def deploy_generic_adapter_with_guard(
     deployment: EnzymeDeployment,
     deployer: HotWallet,
-    vault: Vault,
     guard: Contract,
     etherscan_api_key: str | None = None,
-    production=False,
-    meta: str = "",
-    upgrade_policy=False,
 ) -> Contract:
     """Deploy a new generic adapter for a vault.
 
     TODO: If the vault has existing generic adapter, we do not currently revoke the old adapter.
     """
 
-    assert isinstance(guard, Contract)
+    assert isinstance(deployment, EnzymeDeployment), f"Got {deployment}"
+    assert isinstance(guard, Contract), f"Got {guard}"
 
     web3 = deployment.web3
 
@@ -497,17 +497,12 @@ def deploy_generic_adapter_with_guard(
     )
     logger.info("GuardedGenericAdapter is %s deployed at %s", generic_adapter.address, tx_hash.hex())
 
-    tx_hash = generic_adapter.functions.bindVault(
-        vault.address,
-        production,
-        meta,
-    ).transact({"from": deployer.address})
-    assert_transaction_success_with_explanation(web3, tx_hash)
+    deployer.sync_nonce(web3)
+
     return generic_adapter
 
 
 def whitelist_sender_receiver(
-    web3,
     guard: Contract,
     deployer: HotWallet,
     allow_sender: str | None = None,
@@ -517,6 +512,9 @@ def whitelist_sender_receiver(
 
     - Configure where incoming/outgoing tokens
     """
+
+    web3 = guard.w3
+
     # When swap is performed, the tokens will land on the integration contract
     # and this contract must be listed as the receiver.
     # Enzyme will then internally move tokens to its vault from here.
@@ -539,3 +537,20 @@ def whitelist_sender_receiver(
         # Production deployment foobar - add this warning message for now until figuring
         # out why allowReceiver() failed
         logger.warning("No receiver whitelisted")
+
+
+def bind_vault(
+    generic_adapter: Contract,
+    vault: Contract,
+    production: bool,
+    meta: str,
+    deployer: HotWallet,
+):
+    assert isinstance(vault, Contract), f"Got {vault}"
+    web3 = vault.w3
+    tx_hash = generic_adapter.functions.bindVault(
+        vault.address,
+        production,
+        meta,
+    ).transact({"from": deployer.address})
+    assert_transaction_success_with_explanation(web3, tx_hash)

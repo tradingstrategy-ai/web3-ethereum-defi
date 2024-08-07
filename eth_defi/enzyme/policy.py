@@ -10,6 +10,7 @@ Enzyme frontend has some vault policies by default, but Enzyme frontend is not o
 """
 import enum
 from typing import Iterable
+import logging
 
 from eth_abi import encode
 from eth_typing import HexAddress
@@ -20,6 +21,9 @@ from eth_defi.enzyme.deployment import EnzymeDeployment, VaultPolicyConfiguratio
 from eth_defi.enzyme.vault import Vault
 from eth_defi.hotwallet import HotWallet
 from eth_defi.trace import assert_transaction_success_with_explanation
+
+
+logger = logging.getLogger(__name__)
 
 
 class AddressListUpdateType(enum.Enum):
@@ -169,7 +173,10 @@ def update_adapter_policy(
     generic_adapter: Contract,
     deployer: HotWallet,
 ):
-    """Set vault to use a new generic adapter."""
+    """Set vault to use a new generic adapter.
+
+    - Overwrite the existing AllowedAdapterPolicy configuration
+    """
     assert isinstance(generic_adapter, Contract)
 
     web3 = vault.web3
@@ -177,7 +184,22 @@ def update_adapter_policy(
     contracts = vault.deployment.contracts
     policy_manager = get_deployed_contract(web3, "enzyme/PolicyManager.json", policy_manager_address)
 
-    policy_manager.functions.enablePolicyForFund(
+    logger.info(
+        "update_adapter_policy(), fund owner is %s, deployer is %s",
+        vault.get_owner(),
+        deployer.address,
+    )
+
+    assert deployer is not None
+    assert vault.comptroller
+    assert generic_adapter
+    assert contracts.allowed_adapters_policy, "AllowedAdaptersPolicy contract address missing in Enzyme configuration"
+    assert contracts.allowed_adapters_policy.functions.identifier().call() == "ALLOWED_ADAPTERS", f"Got {contracts.allowed_adapters_policy.functions.identifier().call()}"
+
+    assert vault.get_owner() == deployer.address, "update_adapter_policy(): You can perform this transaction only as a vault owner"
+
+    tx_hash = policy_manager.functions.enablePolicyForFund(
+        vault.comptroller.address,
         contracts.allowed_adapters_policy.address,
         encode_single_address_list_policy_args(generic_adapter.address),
     ).transact({"from": deployer.address})
