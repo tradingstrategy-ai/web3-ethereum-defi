@@ -35,6 +35,8 @@ jobs:
       # We need version 7 to be exact.
       - name: Install pnpm
         run: |
+          SHELL="/bin/bash"
+          export SHELL
           echo $SHELL
           curl -fsSL https://get.pnpm.io/install.sh | env PNPM_VERSION=7.27.1 sh -
           PNPM_HOME="$HOME/.local/share/pnpm"
