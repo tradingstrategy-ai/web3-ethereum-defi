@@ -16,7 +16,7 @@ from eth_account import Account
 from eth_account.signers.local import LocalAccount
 from eth_typing import HexAddress
 
-from eth_defi.enzyme.policy import update_adapter_policy
+from eth_defi.enzyme.policy import update_adapter_policy, create_safe_default_policy_configuration_for_generic_adapter
 from eth_defi.terms_of_service.acceptance_message import (
     generate_acceptance_message,
     get_signing_hash,
@@ -538,6 +538,7 @@ def test_enzyme_enable_transfer(
     assert "Approve address does not match" in revert_reason
 
 
+@pytest.mark.skip(reason="Currently Enzyme does not way to update AdapterPolicy. Instead, the whole vault needs to be reconfigured with 7 days delay.")
 def test_enzyme_guarded_trade_singlehop_uniswap_v2_guard_redeploy(
     web3: Web3,
     deployer: HexAddress,
@@ -638,11 +639,16 @@ def test_enzyme_guarded_trade_singlehop_uniswap_v2_guard_redeploy(
         hot_wallet,
     )
 
-    update_adapter_policy(
-        vault,
+    policy_configuration = create_safe_default_policy_configuration_for_generic_adapter(
+        enzyme,
         generic_adapter,
-        hot_wallet
     )
+
+    # update_adapter_policy(
+    #    vault,
+    #    generic_adapter,
+    #    hot_wallet
+    #)
 
     whitelist_sender_receiver(
         guard,

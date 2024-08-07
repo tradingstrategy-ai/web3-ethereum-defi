@@ -176,6 +176,11 @@ def update_adapter_policy(
     """Set vault to use a new generic adapter.
 
     - Overwrite the existing AllowedAdapterPolicy configuration
+
+    .. warning::
+
+        Existing adapter policy cannot be changed. Only new set.
+
     """
     assert isinstance(generic_adapter, Contract)
 
@@ -198,10 +203,15 @@ def update_adapter_policy(
 
     assert vault.get_owner() == deployer.address, "update_adapter_policy(): You can perform this transaction only as a vault owner"
 
-    tx_hash = policy_manager.functions.updatePolicySettingsForFund(
+    # tx_hash = policy_manager.functions.disablePolicyForFund(
+    #     vault.comptroller.address,
+    #     contracts.allowed_adapters_policy.address,
+    # ).transact({"from": deployer.address})
+    # assert_transaction_success_with_explanation(web3, tx_hash)
+
+    tx_hash = policy_manager.functions.enablePolicyForFund(
         vault.comptroller.address,
         contracts.allowed_adapters_policy.address,
         encode_single_address_list_policy_args(generic_adapter.address),
     ).transact({"from": deployer.address})
-
     assert_transaction_success_with_explanation(web3, tx_hash)
