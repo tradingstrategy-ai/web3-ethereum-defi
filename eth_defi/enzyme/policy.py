@@ -198,7 +198,7 @@ def update_adapter_policy(
 
     assert vault.get_owner() == deployer.address, "update_adapter_policy(): You can perform this transaction only as a vault owner"
 
-    tx_hash = policy_manager.functions.enablePolicyForFund(
+    tx_hash = policy_manager.functions.updatePolicySettingsForFund(
         vault.comptroller.address,
         contracts.allowed_adapters_policy.address,
         encode_single_address_list_policy_args(generic_adapter.address),
