@@ -175,13 +175,11 @@ def deploy_vault_with_generic_adapter(
         deployed_at_block,
     )
 
-
     generic_adapter = deploy_generic_adapter_with_guard(
         deployment,
         "GuardedGenericAdapter.sol",
         "GuardedGenericAdapter",
         deployer,
-        [deployment.contracts.integration_manager.address, guard.address],
         etherscan_api_key=etherscan_api_key,
     )
     logger.info("GuardedGenericAdapter is %s deployed at %s", generic_adapter.address, tx_hash.hex())
@@ -266,6 +264,11 @@ def deploy_vault_with_generic_adapter(
 
     assert_transaction_success_with_explanation(web3, tx_hash)
 
+    whitelist_sender_receiver(
+        allow_sender=generic_adapter.address,
+        allow_receiver=vault.address,
+    )
+
     assert generic_adapter.functions.getIntegrationManager().call() == deployment.contracts.integration_manager.address
     assert comptroller.functions.getDenominationAsset().call() == denomination_asset.address
     assert vault.functions.getTrackedAssets().call() == [denomination_asset.address]
@@ -314,8 +317,6 @@ def deploy_guard(
     one_delta=False,
     aave=False,
     mock_guard=False,
-    allow_receiver: str | None = None,
-    allow_sender: str | None = None,
 ) -> Contract:
     """Deploy a new GuardV0 smart contract.
 
@@ -379,28 +380,6 @@ def deploy_guard(
     deployer.sync_nonce(web3)
 
     if not mock_guard:
-        # When swap is performed, the tokens will land on the integration contract
-        # and this contract must be listed as the receiver.
-        # Enzyme will then internally move tokens to its vault from here.
-        if allow_receiver:
-            tx_hash = guard.functions.allowReceiver(allow_receiver, "").transact({"from": deployer.address})
-            assert_transaction_success_with_explanation(web3, tx_hash)
-
-        # Because Enzyme does not pass the asset manager address to through integration manager,
-        # we set the vault address itself as asset manager for the guard
-        if allow_sender:
-            tx_hash = guard.functions.allowSender(allow_sender, "").transact({"from": deployer.address})
-            assert_transaction_success_with_explanation(web3, tx_hash)
-
-        logger.info("GenericAdapter %s whitelisted as receiver, %s as sender", allow_receiver, allow_sender)
-    else:
-        # Production deployment foobar - add this warning message for now until figuring
-        # out why allowReceiver() failed
-        logger.warning("No receiver whitelisted")
-
-    if not mock_guard:
-        if allow_sender:
-            assert guard.functions.isAllowedSender(allow_sender).call()  # vault = asset manager for the guard
 
         usdc_token = fetch_erc20_details(web3, denomination_asset.address)
         all_assets = [usdc_token] + whitelisted_assets
@@ -486,14 +465,21 @@ def deploy_guard(
     return guard
 
 
-
 def deploy_generic_adapter_with_guard(
     deployment: EnzymeDeployment,
     deployer: HotWallet,
+    vault: Vault,
     guard: Contract,
     etherscan_api_key: str | None = None,
+    production=False,
+    meta: str = "",
+    upgrade_policy=False,
 ) -> Contract:
-    """Deploy a new generic adapter for a vault."""
+    """Deploy a new generic adapter for a vault.
+
+    TODO: If the vault has existing generic adapter, we do not currently revoke the old adapter.
+    """
+
     assert isinstance(guard, Contract)
 
     web3 = deployment.web3
@@ -510,4 +496,46 @@ def deploy_generic_adapter_with_guard(
         etherscan_api_key=etherscan_api_key,
     )
     logger.info("GuardedGenericAdapter is %s deployed at %s", generic_adapter.address, tx_hash.hex())
+
+    tx_hash = generic_adapter.functions.bindVault(
+        vault.address,
+        production,
+        meta,
+    ).transact({"from": deployer.address})
+    assert_transaction_success_with_explanation(web3, tx_hash)
     return generic_adapter
+
+
+def whitelist_sender_receiver(
+    web3,
+    guard: Contract,
+    deployer: HotWallet,
+    allow_sender: str | None = None,
+    allow_receiver: str | None = None,
+):
+    """Configure guard to allow vault to trade with tokens.
+
+    - Configure where incoming/outgoing tokens
+    """
+    # When swap is performed, the tokens will land on the integration contract
+    # and this contract must be listed as the receiver.
+    # Enzyme will then internally move tokens to its vault from here.
+    if allow_receiver:
+        tx_hash = guard.functions.allowReceiver(allow_receiver, "").transact({"from": deployer.address})
+        assert_transaction_success_with_explanation(web3, tx_hash)
+
+    # Because Enzyme does not pass the asset manager address to through integration manager,
+    # we set the vault address itself as asset manager for the guard
+    if allow_sender:
+        tx_hash = guard.functions.allowSender(allow_sender, "").transact({"from": deployer.address})
+        assert_transaction_success_with_explanation(web3, tx_hash)
+
+    logger.info("GenericAdapter %s whitelisted as receiver, %s as sender", allow_receiver, allow_sender)
+
+    if allow_sender:
+        assert guard.functions.isAllowedSender(allow_sender).call()  # vault = asset manager for the guard
+
+    if not (allow_receiver or allow_sender):
+        # Production deployment foobar - add this warning message for now until figuring
+        # out why allowReceiver() failed
+        logger.warning("No receiver whitelisted")
