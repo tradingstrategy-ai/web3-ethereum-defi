@@ -266,8 +266,8 @@ def deploy_vault_with_generic_adapter(
     whitelist_sender_receiver(
         guard,
         deployer,
-        allow_sender=generic_adapter.address,
-        allow_receiver=vault.address,
+        allow_sender=vault.address,
+        allow_receiver=generic_adapter.address,
     )
 
     assert generic_adapter.functions.getIntegrationManager().call() == deployment.contracts.integration_manager.address
@@ -546,6 +546,7 @@ def bind_vault(
     meta: str,
     deployer: HotWallet,
 ):
+    """Make GenericAdapter to work with a single vault only."""
     assert isinstance(vault, Contract), f"Got {vault}"
     web3 = vault.w3
     tx_hash = generic_adapter.functions.bindVault(
