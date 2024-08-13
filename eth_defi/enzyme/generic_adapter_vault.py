@@ -16,6 +16,7 @@ To patch the guard deployment in console:
 
 import logging
 import os
+import time
 from pathlib import Path
 from typing import Collection
 
@@ -219,6 +220,12 @@ def deploy_vault_with_generic_adapter(
     assert vault.functions.getTrackedAssets().call() == [denomination_asset.address]
 
     deployer.sync_nonce(web3)
+
+    # Some issue with Polygon deployment,
+    # bind_vault() fails in the estimate gas
+    if web3.eth.chain_id == 137:
+        logger.info("Polygon RPC bug around sleep")
+        time.sleep(30)
 
     bind_vault(
         generic_adapter,
@@ -548,6 +555,10 @@ def bind_vault(
 ):
     """Make GenericAdapter to work with a single vault only."""
     assert isinstance(vault, Contract), f"Got {vault}"
+
+    assert generic_adapter.functions.vault().call() == ZERO_ADDRESS, "vault() accessor tells vault already bound"
+    assert generic_adapter.functions.guard().call() != ZERO_ADDRESS, "Does not look like GuardedGenericAdapter: guard() accessor missing"
+
     web3 = vault.w3
     tx_hash = generic_adapter.functions.bindVault(
         vault.address,
