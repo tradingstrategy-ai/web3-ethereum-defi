@@ -117,7 +117,7 @@ def decode_pool_created(web3: Web3, log: LogResult) -> dict:
     return result
 
 
-def decode_swap(web3: Web3, log: LogResult) -> dict:
+def decode_swap(log: LogResult) -> dict:
     """Process swap event. The event signature is:
 
     .. code-block::
