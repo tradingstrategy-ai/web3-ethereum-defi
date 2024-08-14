@@ -619,6 +619,7 @@ def wait_and_broadcast_multiple_nodes(
                 inter_node_delay
             )
             time.sleep(inter_node_delay.total_seconds())
+            logger.info("Sleep done")
         else:
             logger.info(
                 "Internode sleep skipped",
