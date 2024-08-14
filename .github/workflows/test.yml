@@ -17,8 +17,6 @@ jobs:
     concurrency:
       group: ${{ github.workflow }}-${{ github.ref }}
       cancel-in-progress: true
-    env:
-      SHELL: /bin/bash
     steps:
       # TODO: we only need contracts/aave-v3-deploy for tests
       # but there does not seem to be an option to choose which submodules to checkout
@@ -37,14 +35,14 @@ jobs:
       # We need version 7 to be exact.
       - name: Install pnpm
         run: |
+          SHELL="/bin/bash"
           curl -fsSL https://get.pnpm.io/install.sh | env PNPM_VERSION=7.27.1 sh -
           PNPM_HOME="$HOME/.local/share/pnpm"
           echo $PNPM_HOME >> $GITHUB_PATH
-
+      - name: Add pipx to PATH
+        run: echo "$HOME/.local/bin" >> $GITHUB_PATH
       - name: Install poetry
-        run: |
-          pipx install poetry
-          pipx ensurepath
+        run: pipx install poetry
       - name: Set up Python 3.12
         uses: actions/setup-python@v3
         with:
