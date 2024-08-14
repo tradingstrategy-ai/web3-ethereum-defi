@@ -42,7 +42,9 @@ jobs:
           echo $PNPM_HOME >> $GITHUB_PATH
 
       - name: Install poetry
-        run: pipx install poetry
+        run: |
+          pipx install poetry
+          pipx ensurepath
       - name: Set up Python 3.12
         uses: actions/setup-python@v3
         with:
