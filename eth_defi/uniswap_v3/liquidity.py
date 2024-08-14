@@ -183,8 +183,8 @@ def create_tick_csv(
     return file_path
 
 
-def get_pool_state_at_block(pool_address: HexAddress, block_number: int):
-    """Get a pool state (current liquidity, tick, ticks) at a given block using Uniswap V3 subgraph data"""
+def get_pool_state_at_block(pool_address: HexAddress, block_number: int, api_key: str, chain: int = 1):
+    """Get a pool state (current liquidity, tick, ticks) at a given block using Uniswap V3 subgraph data. Needs thegraph api key to work, default ethereum chain - Mainnet (1)"""
     batch_limit = 1000
 
     result = run_graphql_query(
@@ -218,6 +218,8 @@ def get_pool_state_at_block(pool_address: HexAddress, block_number: int):
             }
         }
         """,
+        api_key, 
+        chain,
         variables={
             "pool_id": pool_address,
             "pool": pool_address,  # we need a separate variable since pool_id has gql type ID instead of String
@@ -250,6 +252,8 @@ def get_pool_state_at_block(pool_address: HexAddress, block_number: int):
                     }
                 }
                 """,
+                api_key, 
+                chain,
                 variables={
                     "pool": pool_address,
                     "block_number": block_number,
