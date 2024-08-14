@@ -237,7 +237,7 @@ def deploy_vault_with_generic_adapter(
     )
 
     # asset manager role is the trade executor
-    if asset_manager != owner.address:
+    if asset_manager != owner:
         tx_hash = vault.functions.addAssetManagers([asset_manager]).transact({"from": deployer.address})
         assert_transaction_success_with_explanation(web3, tx_hash)
 
