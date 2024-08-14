@@ -112,7 +112,7 @@ def restore_state(state_fname, default_block: int) -> int:
     return default_block
 
 
-def decode_pair_created(log: LogResult) -> dict:
+def decode_pair_created(web3: Web3, log: LogResult) -> dict:
     """Process a pair created event.
 
     This function does manually optimised high speed decoding of the event.
@@ -128,7 +128,6 @@ def decode_pair_created(log: LogResult) -> dict:
     # {'address': '0x5c69bee701ef814a2b6a3edd4b1652cb9cc5aa6f', 'blockHash': '0x359d1dc4f14f9a07cba3ae8416958978ce98f78ad7b8d505925dad9722081f04', 'blockNumber': '0x98b723', 'data': '0x000000000000000000000000b4e16d0168e52d35cacd2c6185b44281ec28c9dc0000000000000000000000000000000000000000000000000000000000000001', 'logIndex': '0x22', 'removed': False, 'topics': ['0x0d3648bd0f6ba80134a33ba9275ac585d9d315f0ad8355cddefde31afa28d0e9', '0x000000000000000000000000a0b86991c6218b36c1d19d4a2e9eb0ce3606eb48', '0x000000000000000000000000c02aaa39b223fe8d0a0e5c4f27ead9083c756cc2'], 'transactionHash': '0xd07cbde817318492092cc7a27b3064a69bd893c01cb593d6029683ffd290ab3a', 'transactionIndex': '0x26', 'event': <class 'web3._utils.datatypes.PairCreated'>, 'timestamp': 1588710145}
 
     # Do additional lookup for the token data
-    web3 = log["event"].web3
     token_cache: TokenCache = log["context"]
 
     block_time = datetime.datetime.utcfromtimestamp(log["timestamp"])
@@ -302,7 +301,7 @@ def main():
                 # Choose between where to store.
                 try:
                     if log_result["event"].event_name == "PairCreated":
-                        pairs_event_buffer.append(decode_pair_created(log_result))
+                        pairs_event_buffer.append(decode_pair_created(web3, log_result))
                     elif log_result["event"].event_name == "Swap":
                         swaps_event_buffer.append(decode_swap(log_result))
                 except Exception as e:
