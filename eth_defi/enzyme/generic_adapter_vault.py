@@ -35,6 +35,7 @@ from eth_defi.foundry.forge import deploy_contract_with_forge
 from eth_defi.hotwallet import HotWallet
 from eth_defi.one_delta.constants import ONE_DELTA_DEPLOYMENTS
 from eth_defi.one_delta.deployment import fetch_deployment as fetch_1delta_deployment
+from eth_defi.provider.anvil import is_anvil
 from eth_defi.token import TokenDetails, fetch_erc20_details
 from eth_defi.trace import assert_transaction_success_with_explanation
 from eth_defi.uniswap_v2.constants import QUICKSWAP_DEPLOYMENTS, UNISWAP_V2_DEPLOYMENTS
@@ -223,8 +224,8 @@ def deploy_vault_with_generic_adapter(
 
     # Some issue with Polygon deployment,
     # bind_vault() fails in the estimate gas
-    if web3.eth.chain_id == 137:
-        logger.info("Polygon RPC bug around sleep")
+    if not is_anvil(web3):
+        logger.info("Making sure all contract deployment txs propagade")
         time.sleep(30)
 
     bind_vault(
@@ -236,7 +237,7 @@ def deploy_vault_with_generic_adapter(
     )
 
     # asset manager role is the trade executor
-    if asset_manager != deployer.address:
+    if asset_manager != owner.address:
         tx_hash = vault.functions.addAssetManagers([asset_manager]).transact({"from": deployer.address})
         assert_transaction_success_with_explanation(web3, tx_hash)
 
@@ -552,8 +553,14 @@ def bind_vault(
     production: bool,
     meta: str,
     deployer: HotWallet,
+    gas: int = 500_000,
 ):
-    """Make GenericAdapter to work with a single vault only."""
+    """Make GenericAdapter to work with a single vault only.
+
+    :param gas:
+        estimateGas will crash when calling bindVault() because the tx to deploy the contract
+        has not hit all RPCs yet.
+    """
     assert isinstance(vault, Contract), f"Got {vault}"
 
     assert generic_adapter.functions.vault().call() == ZERO_ADDRESS, "vault() accessor tells vault already bound"
@@ -564,5 +571,8 @@ def bind_vault(
         vault.address,
         production,
         meta,
-    ).transact({"from": deployer.address})
+    ).transact({
+        "from": deployer.address,
+        "gas": gas,
+    })
     assert_transaction_success_with_explanation(web3, tx_hash)
