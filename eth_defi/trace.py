@@ -246,7 +246,7 @@ def print_symbolic_trace(
 
 def assert_transaction_success_with_explanation(
     web3: Web3,
-    tx_hash: HexBytes,
+    tx_hash: HexBytes | str,
     RaisedException=TransactionAssertionError,
     tracing: bool = False,
 ) -> TxReceipt:
@@ -300,6 +300,9 @@ def assert_transaction_success_with_explanation(
         Output transaction receipt if no error is raised
     """
 
+    if type(tx_hash) == str:
+        tx_hash = HexBytes(tx_hash)
+
     receipt = web3.eth.wait_for_transaction_receipt(tx_hash)
     if receipt["status"] == 0:
         # Explain why the transaction failed
@@ -316,7 +319,7 @@ def assert_transaction_success_with_explanation(
                 solidity_stack_trace=trace_output,
             )
         else:
-            raise RaisedException(f"Transaction failed: {tx_details} - tracing disabled")
+            raise RaisedException(f"Transaction {tx_hash.hex()} failed: {tx_details} - tracing disabled")
 
     return receipt
 
