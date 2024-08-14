@@ -25,7 +25,7 @@ Discord = "https://discord.gg/5M88m9nM8H"
 Sponsor = "https://tradingstrategy.ai"
 
 [tool.poetry.dependencies]
-python = ">=3.9,<4"
+python = ">=3.10,<4"
 
 # https://github.com/apache/arrow/pull/35412
 # Last checked 2023-07, still broken

@@ -6,7 +6,7 @@
 - Internal change: Move `deploy_guard()` to its own function and refactor Enzyme vault deployment to more manageable
 - Dependencies: Numpy < 2.x for now as it breaks too much stuff, updating dependencies is a headache
 - Add and fixed: Various logging and diagnostics lines 
-
+- Fixed: [Uniswap Subgraphs now require an API key](https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/215)
 
 # 0.25.7
 
