@@ -9,8 +9,8 @@ on:
 jobs:
 
   test-python:
-    runs-on: [self-hosted, DEFI]
-    #  group: selfhost-docker
+    runs-on:
+      group: selfhost
 
     # Only run the action for the latest push
     # See https://docs.github.com/en/actions/using-jobs/using-concurrency#example-only-cancel-in-progress-jobs-or-runs-for-the-current-workflow
@@ -35,15 +35,9 @@ jobs:
       # We need version 7 to be exact.
       - name: Install pnpm
         run: |
-          SHELL="/bin/bash"
-          export SHELL
-          echo $SHELL
           curl -fsSL https://get.pnpm.io/install.sh | env PNPM_VERSION=7.27.1 sh -
           PNPM_HOME="$HOME/.local/share/pnpm"
           echo $PNPM_HOME >> $GITHUB_PATH
-          
-      - name: Add pipx to PATH
-        run: echo "$HOME/.local/bin" >> $GITHUB_PATH
 
       - name: Install poetry
         run: pipx install poetry
