@@ -25,7 +25,7 @@ Discord = "https://discord.gg/5M88m9nM8H"
 Sponsor = "https://tradingstrategy.ai"
 
 [tool.poetry.dependencies]
-python = ">=3.10,<3.13"
+python = ">=3.9,<4"
 
 # https://github.com/apache/arrow/pull/35412
 # Last checked 2023-07, still broken
@@ -33,16 +33,19 @@ urllib3 = "<2"
 
 psutil = "^5.9.0"
 ujson = ">=5.8.0"
-cachetools = "^5.3.2"
+cachetools = ">=4,<=6"
 futureproof = "^0.3.1"
-setuptools = {version = "^69.0.2"}
+setuptools = {version = ">=64.0.2,<=70"}
 eth-bloom = "^2.0.0"
 evm-trace = "^0.1.0a17"
 web3 = {version = "6.14.0", extras = ["tester"]}
 tqdm-loggable = ">=0.1.3"
 sigfig = "^1.3.2"
 tqdm = {version = ">=4.66.1", optional = true}
-pandas = {version = "<2.2", optional = true}
+# Some packages have still compatibility issues with Numpy 2.x release,
+# too tired to deal with them now
+numpy = {version = "<2", optional = true}
+pandas = {version = "^2.2.2", optional = true}
 gql = {extras = ["requests"], version = "^3.3.0", optional = true}
 jupyter = {version = "^1.0.0", optional = true}
 matplotlib = {version = "^3.5.2", optional = true}
@@ -79,7 +82,7 @@ flaky = "^3.7.0"
 # See discussion https://github.com/python-poetry/poetry/issues/3348#issuecomment-726534462
 [tool.poetry.extras]
 docs = ["Sphinx", "sphinx-rtd-theme", "sphinx-sitemap", "sphinx-autodoc-typehints", "furo", "nbsphinx", "zope.dottedname", "sphinx-sitemap", "sphinx-rtd-theme"]
-data = ["jupyter", "tqdm", "pandas", "gql", "matplotlib", "plotly", "pyarrow"]
+data = ["jupyter", "tqdm", "pandas", "gql", "matplotlib", "plotly", "pyarrow", "numpy"]
 test = ["pytest-xdist"]
 
 # Since new Poetry version

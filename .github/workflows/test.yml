@@ -80,6 +80,7 @@ jobs:
           JSON_RPC_POLYGON_ARCHIVE: ${{ secrets.JSON_RPC_POLYGON_ARCHIVE }}
           JSON_RPC_POLYGON: ${{ secrets.JSON_RPC_POLYGON }}
           JSON_RPC_ETHEREUM: ${{ secrets.JSON_RPC_ETHEREUM }}
+          ETHEREUM_JSON_RPC: ${{ secrets.JSON_RPC_ETHEREUM }}
       # Disabled for now
       # https://github.com/reviewdog/action-flake8/issues/40
       # - name: Run flake8

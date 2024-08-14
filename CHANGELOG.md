@@ -4,6 +4,9 @@
 - Fixed: Whitelist HTTP 403 Forbidden for dRPC as a retryable error
 - Add: `wait_and_broadcast_multiple_nodes(inter_node_delay)` to fix Alchemy https://github.com/ethereum/go-ethereum/issues/26890
 - Internal change: Move `deploy_guard()` to its own function and refactor Enzyme vault deployment to more manageable
+- Dependencies: Numpy < 2.x for now as it breaks too much stuff, updating dependencies is a headache
+- Add and fixed: Various logging and diagnostics lines 
+
 
 # 0.25.7
 
