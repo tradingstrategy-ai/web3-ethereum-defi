@@ -1,5 +1,5 @@
 ---
-name: Issue tempalte
+name: Issue template
 about: Bug report template
 title: ''
 labels: ''
