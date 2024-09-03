@@ -84,6 +84,10 @@ DEFAULT_RETRYABLE_HTTP_STATUS_CODES = (
     # requests.exceptions.HTTPError: 403 Client Error: Forbidden for url: https://lb.drpc.org/ogrpc?network=polygon&dkey=x/
     403,
 
+    # Getblock.io error
+    #
+    404,
+
 )
 
 #: List of ValueError status codes we know we might want to retry after a timeout

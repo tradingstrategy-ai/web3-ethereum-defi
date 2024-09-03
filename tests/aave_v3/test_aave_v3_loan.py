@@ -204,8 +204,8 @@ def test_aave_v3_withdraw(
             "gas": 350_000,
         }
     )
-    signed = hot_wallet.sign_transaction_with_new_nonce(tx)
     tx_hash = web3.eth.send_raw_transaction(signed.rawTransaction)
+    signed = hot_wallet.sign_transaction_with_new_nonce(tx)
 
     if isinstance(expected_exception, Exception):
         with pytest.raises(type(expected_exception), match=str(expected_exception)) as e:

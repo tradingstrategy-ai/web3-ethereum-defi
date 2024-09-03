@@ -54,7 +54,6 @@ def test_broadcast_and_wait_multiple_out_of_gas(
 
     user = Account.create()
     hot_wallet = HotWallet(user)
-
     hot_wallet.sync_nonce(web3)
 
     # Do a swap that will fail

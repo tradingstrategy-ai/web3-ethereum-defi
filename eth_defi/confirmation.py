@@ -9,10 +9,11 @@ import datetime
 import logging
 import time
 from _decimal import Decimal
-from typing import Dict, List, Set, Union, cast, Collection, TypeAlias
+from typing import Dict, List, Set, Union, cast, Collection, TypeAlias, Tuple
 
 from eth_account.datastructures import SignedTransaction
 from eth_typing import HexStr, Address
+from requests import Response
 
 from eth_defi.provider.anvil import mine
 from eth_defi.provider.named import get_provider_name
@@ -58,6 +59,13 @@ class NonceTooLow(NonRetryableBroadcastException):
 
 class BadChainId(NonRetryableBroadcastException):
     """Out of gas funds for an executor."""
+
+
+class SendRawTransactionError(NonRetryableBroadcastException):
+    """Our custom send raw transaction failed.
+
+    See :py:func:`send_raw_transaction_with_response`
+    """
 
 
 def wait_transactions_to_complete(
@@ -718,3 +726,44 @@ def check_nonce_mismatch(web3: Web3, txs: Collection[SignedTxType]):
 
         if on_chain_nonce != nonce:
             raise NonceMismatch(f"Nonce mismatch for broadcasted transactions.\n" + f"Address {address}, we have signed with nonce {nonce}, but on-chain is {on_chain_nonce}.\n" + f"Potential reasons include incorrectly shared hot wallet or badly synced hot wallet nonce.")
+
+
+def send_raw_transaction_with_response(web3: Web3, transaction: HexStr) -> Tuple[HexBytes, Response]:
+    """Broadcasts an Ethereum transaction.
+    
+    - Similar to `web3.eth.send_raw_transaction`
+    
+    - HTTP response headers are needed to diagnose failing transaction with dRPC,
+      MEV solutions 
+    
+    :return:
+        Transaction hash, full HTTP provider response
+
+    :raise SendRawTransactionError:
+        If there is an issue to broadcast the transaction
+    """
+
+    assert isinstance(transaction, HexBytes)
+
+    method = "eth_sendRawTransaction"
+    args = [transaction]
+    response = web3.provider.make_request(method, args)  # type: ignore
+
+    if "result" in response:
+        return response["result"], response
+
+    error_message = response.get("error") or str(response)
+
+    headers = list(response.headers.items())
+
+    provider = web3.provider
+    raise SendRawTransactionError(
+        f"{method} failed on {provider}\n"
+        f"Error: {error_message}\n"
+        f"Transaction is: {transaction}\n"
+        f"Hash is: {transaction}\n"
+        f"HTTP reply headers are: {headers}\n"
+    )
+
+
+
