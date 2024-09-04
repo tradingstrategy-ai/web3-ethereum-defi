@@ -3,8 +3,8 @@
 Documentation for `{{ fullname }}` Python module.
 
 .. meta::
-    :description: {{ fullname|extract_module_docstring }}
-    :title: {{ name }} module in {{ fullname|obj_path }}
+    :description: {{ name }} module in {{ fullname|obj_path }}
+    :title: {{ fullname|extract_module_docstring }}
 
 .. automodule:: {{ fullname }}
 
