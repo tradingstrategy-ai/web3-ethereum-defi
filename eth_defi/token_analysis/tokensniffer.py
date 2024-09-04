@@ -479,6 +479,7 @@ class CachedTokenSniffer(TokenSniffer):
 
         db_file = Path(cache_path) / "tokensniffer.sqlite"
 
+        tokensniffer_threshold = 24  # Quite low threshold, 0 = total scam
         sniffer = CachedTokenSniffer(
             db_file,
             TOKENSNIFFER_API_KEY,
