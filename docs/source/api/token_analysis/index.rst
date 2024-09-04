@@ -12,3 +12,4 @@ Functionality includes:
    :recursive:
 
    eth_defi.token_analysis.tokensniffer
+   eth_defi.token_analysis.sqlite_cache
