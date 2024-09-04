@@ -27,6 +27,7 @@ API documentation
    chainlink/index
    foundry/index
    etherscan/index
+   token_analysis/index
    event_reader/index
    price_oracle/index
    data_research/index
