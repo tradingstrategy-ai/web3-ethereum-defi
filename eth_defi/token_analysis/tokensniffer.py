@@ -2,11 +2,13 @@
 
 - Python wrapper for TokenSniffer API
 
-- TokeSniffer REST API documentation https://tokensniffer.readme.io/reference/introduction
+- Allows to fetch  ERC-20 risk score and other automatically analysed metadata to determine if a token is some sort of a scam or not
+
+- For usage see :py:class:`CachedTokenSniffer` class
 
 - TokenSniffer API is $99/month, 500 requests a day
 
-- For usage see :py:class:`CachedTokenSniffer`
+- `Read TokeSniffer REST API documentation <https://tokensniffer.readme.io/reference/introduction>`__
 
 - For more examples see `Getting started repo <https://github.com/tradingstrategy-ai/getting-started>`__
 """
