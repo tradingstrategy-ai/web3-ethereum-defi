@@ -459,6 +459,8 @@ class TokenSniffer:
 class CachedTokenSniffer(TokenSniffer):
     """Add file-system based cache for TokenSniffer API.
 
+    - See :py:class:`TokenSniffer` class for details
+
     - Use SQLite DB as a key-value cache backend
 
     - No cache expiration
@@ -478,17 +480,17 @@ class CachedTokenSniffer(TokenSniffer):
         db_file = Path(cache_path) / "tokensniffer.sqlite"
 
         sniffer = CachedTokenSniffer(
-        db_file,
-        TOKENSNIFFER_API_KEY,
+            db_file,
+            TOKENSNIFFER_API_KEY,
         )
 
         ticker = make_full_ticker(pair_metadata[pair_id])
         address = pair_metadata[pair_id]["base_token_address"]
         sniffed_data = sniffer.fetch_token_info(chain_id.value, address)
-        if not is_tradeable_token(sniffed_data, tokensniffer_threshold):
-          score = sniffed_data["score"]
-          print(f"WARN: Skipping pair {ticker} as the TokenSniffer score {score} is below our risk threshold")
-          continue
+        if not is_tradeable_token(sniffed_data, risk_score_threshold=tokensniffer_threshold):
+            score = sniffed_data["score"]
+            print(f"WARN: Skipping pair {ticker} as the TokenSniffer score {score} is below our risk threshold")
+            continue
 
     """
 
