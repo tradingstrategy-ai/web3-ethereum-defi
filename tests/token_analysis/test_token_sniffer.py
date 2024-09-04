@@ -26,3 +26,6 @@ def test_token_sniffer_cached(tmp_path):
     data = sniffer.fetch_token_info(1, "0x873259322be8e50d80a4b868d186cc5ab148543a")
     assert data["cached"] is True
 
+    print(data)
+    import ipdb ; ipdb.set_trace()
+

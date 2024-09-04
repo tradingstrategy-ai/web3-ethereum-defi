@@ -1,6 +1,6 @@
 # Current 
 
-- TODO
+- Add: TokenSniffer API wrapper with a persistent cache
 
 # 0.26
 
