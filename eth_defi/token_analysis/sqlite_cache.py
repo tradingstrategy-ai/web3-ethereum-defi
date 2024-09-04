@@ -18,6 +18,7 @@ class PersistentKeyValueStore(dict):
         super().__init__()
         self.autocommit = autocommit
         assert isinstance(filename, Path)
+        self.filename = filename
         try:
             self.conn = sqlite3.connect(filename)
         except Exception as e:

@@ -2,13 +2,17 @@
 
 - Python wrapper for TokenSniffer API
 
-- API documentation https://tokensniffer.readme.io/reference/introduction
+- TokeSniffer REST API documentation https://tokensniffer.readme.io/reference/introduction
 
 - TokenSniffer API is $99/month, 500 requests a day
+
+- For usage see :py:class:`CachedTokenSniffer`
+
 """
 import logging
 import json
 from pathlib import Path
+from statistics import mean
 from typing import TypedDict
 
 import requests
@@ -34,6 +38,8 @@ class TokenSnifferReply(TypedDict):
     - Some of the fields annotated (not all)
 
     - Described here https://tokensniffer.readme.io/reference/response
+
+    - Token is low risk if :py:attr:`score` > 80
 
     Example data:
 
@@ -435,6 +441,32 @@ class CachedTokenSniffer(TokenSniffer):
     - No cache expiration
 
     - No support for multithreading/etc. fancy stuff
+
+    Example usage:
+
+    .. code-block:: python
+
+        from eth_defi.token_analysis.tokensniffer import CachedTokenSniffer, is_tradeable_token
+
+        #
+        # Setup TokenSniffer
+        #
+
+        db_file = Path(cache_path) / "tokensniffer.sqlite"
+
+        sniffer = CachedTokenSniffer(
+        db_file,
+        TOKENSNIFFER_API_KEY,
+        )
+
+        ticker = make_full_ticker(pair_metadata[pair_id])
+        address = pair_metadata[pair_id]["base_token_address"]
+        sniffed_data = sniffer.fetch_token_info(chain_id.value, address)
+        if not is_tradeable_token(sniffed_data, tokensniffer_threshold):
+          score = sniffed_data["score"]
+          print(f"WARN: Skipping pair {ticker} as the TokenSniffer score {score} is below our risk threshold")
+          continue
+
     """
 
     def __init__(
@@ -463,3 +495,41 @@ class CachedTokenSniffer(TokenSniffer):
             decoded["cached"] = True
 
         return decoded
+
+    def get_diagnostics(self) -> str:
+        """Get a diagnostics message.
+
+        - Use for logging what kind of data we have collected
+
+        :return:
+            Multi-line human readable string
+        """
+
+        scores = []
+        path = self.cache.filename
+
+        for key in self.cache.keys():
+            data = json.loads(self.cache[key])
+            scores.append(data["score"])
+
+        text = f"""
+        TokenSniffer cache database {path} summary:
+        
+        Entries: {len(scores)}
+        Max score: {max(scores)}
+        Min score: {min(scores)}
+        Avg score: {mean(scores)}        
+        """
+        return text
+
+
+def is_tradeable_token(data: TokenSnifferReply, risk_score_threshold=75) -> bool:
+    """Risk assessment for open-ended trade universe.
+
+    - Based on TokenSniffer reply, determine if we want to trade this token or not
+
+    :return:
+        True if we want to trade
+    """
+    return data["score"] >= risk_score_threshold
+

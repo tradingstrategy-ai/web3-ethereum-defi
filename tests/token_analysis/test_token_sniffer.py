@@ -3,7 +3,7 @@ import os
 
 import pytest
 
-from eth_defi.token_analysis.tokensniffer import CachedTokenSniffer
+from eth_defi.token_analysis.tokensniffer import CachedTokenSniffer, is_tradeable_token
 
 TOKENSNIFFER_API_KEY = os.environ.get("TOKENSNIFFER_API_KEY")
 pytestmark = pytest.mark.skipif(not TOKENSNIFFER_API_KEY, reason="This test needs TOKENSNIFFER_API_KEY set")
@@ -26,6 +26,7 @@ def test_token_sniffer_cached(tmp_path):
     data = sniffer.fetch_token_info(1, "0x873259322be8e50d80a4b868d186cc5ab148543a")
     assert data["cached"] is True
 
-    print(data)
-    import ipdb ; ipdb.set_trace()
+    assert not is_tradeable_token(data)
 
+    info = sniffer.get_diagnostics()
+    assert type(info) == str
