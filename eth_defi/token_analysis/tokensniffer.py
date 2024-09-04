@@ -8,6 +8,7 @@
 
 - For usage see :py:class:`CachedTokenSniffer`
 
+- For more examples see `Getting started repo <https://github.com/tradingstrategy-ai/getting-started>`__
 """
 import logging
 import json
@@ -24,6 +25,23 @@ from eth_defi.token_analysis.sqlite_cache import PersistentKeyValueStore
 
 logger  = logging.getLogger(__name__)
 
+
+#: Manually whitelist some custodian tokens
+#:
+#: See :py:func:`is_tradeable_token`.
+#:
+KNOWN_GOOD_TOKENS = {
+    "USDC",
+    "MKR",
+    "DAI",
+    "WBTC",
+    "NEXO",
+    "PEPE",
+    "NEXO",
+    "AAVE",
+    "SYN",
+    "SNX"
+}
 
 class TokenSnifferError(Exception):
     """Wrap bad API replies from TokenSniffer.
@@ -377,6 +395,9 @@ class TokenSnifferReply(TypedDict):
     #: 0-100 d
     score: int
 
+    #: Trading pool data
+    pools: list[dict]
+
 
 class TokenSniffer:
     """TokenSniffer API."""
@@ -536,7 +557,12 @@ class CachedTokenSniffer(TokenSniffer):
         return text
 
 
-def is_tradeable_token(data: TokenSnifferReply, risk_score_threshold=65) -> bool:
+def is_tradeable_token(
+    data: TokenSnifferReply,
+    symbol: str | None = None,
+    risk_score_threshold=65,
+    whitelist=KNOWN_GOOD_TOKENS,
+) -> bool:
     """Risk assessment for open-ended trade universe.
 
     - Based on TokenSniffer reply, determine if we want to trade this token or not
@@ -557,8 +583,23 @@ def is_tradeable_token(data: TokenSnifferReply, risk_score_threshold=65) -> bool
         WARN: Skipping pair FLOKI-WETH-uniswap-v2-30bps as the TokenSniffer score 69 is below our risk threshold, liquidity is 8,786,378.77
         WARN: Skipping pair BEAM-WETH-uniswap-v2-30bps as the TokenSniffer score 70 is below our risk threshold, liquidity is 5,192,385.34
 
+    :param symbol:
+        For manual whitelist check.
+
+    :param whitelist:
+        Always whitelist these if the token symbol matches.
+
+        E.g. WBTC needs to be whitelisted, as its risk score is 45.
+
     :return:
         True if we want to trade
     """
+
+    if symbol is not None:
+        if symbol in whitelist:
+            return True
+
+    # Trust on TokenSniffer heurestics
     return data["score"] >= risk_score_threshold
+
 
