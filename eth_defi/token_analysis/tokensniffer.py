@@ -501,6 +501,19 @@ class CachedTokenSniffer(TokenSniffer):
 
         - Use for logging what kind of data we have collected
 
+        Example output:
+
+        .. code-block:: text
+
+            Token sniffer info is:
+
+                    TokenSniffer cache database /Users/moo/.cache/tradingstrategy/tokensniffer.sqlite summary:
+
+                    Entries: 195
+                    Max score: 100
+                    Min score: 0
+                    Avg score: 56.6
+
         :return:
             Multi-line human readable string
         """
@@ -523,10 +536,26 @@ class CachedTokenSniffer(TokenSniffer):
         return text
 
 
-def is_tradeable_token(data: TokenSnifferReply, risk_score_threshold=75) -> bool:
+def is_tradeable_token(data: TokenSnifferReply, risk_score_threshold=65) -> bool:
     """Risk assessment for open-ended trade universe.
 
     - Based on TokenSniffer reply, determine if we want to trade this token or not
+
+    .. note::
+
+        This will alert for USDT/USDC, etc. so be careful.
+
+    Some example thresholds:
+
+    .. code-block:: text
+
+        WARN: Skipping pair USDT-USDC-uniswap-v2-30bps, address 0xdac17f958d2ee523a2206206994597c13d831ec7 as the TokenSniffer score 45 is below our risk threshold, liquidity is 2,447,736.44 USD
+        WARN: Skipping pair MKR-DAI-uniswap-v2-30bps as the TokenSniffer score 70 is below our risk threshold, liquidity is 76,978,850.37
+        WARN: Skipping pair PEPE-WETH-uniswap-v2-30bps as the TokenSniffer score 70 is below our risk threshold, liquidity is 19,104,516.38
+        WARN: Skipping pair XXi-WETH-uniswap-v2-30bps as the TokenSniffer score 50 is below our risk threshold, liquidity is 10,234,803.81
+        WARN: Skipping pair PAXG-WETH-uniswap-v2-30bps as the TokenSniffer score 20 is below our risk threshold, liquidity is 9,197,796.28
+        WARN: Skipping pair FLOKI-WETH-uniswap-v2-30bps as the TokenSniffer score 69 is below our risk threshold, liquidity is 8,786,378.77
+        WARN: Skipping pair BEAM-WETH-uniswap-v2-30bps as the TokenSniffer score 70 is below our risk threshold, liquidity is 5,192,385.34
 
     :return:
         True if we want to trade
