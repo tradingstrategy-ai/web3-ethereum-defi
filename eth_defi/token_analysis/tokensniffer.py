@@ -42,7 +42,8 @@ KNOWN_GOOD_TOKENS = {
     "NEXO",
     "AAVE",
     "SYN",
-    "SNX"
+    "SNX",
+    "FLOKI"
 }
 
 class TokenSnifferError(Exception):

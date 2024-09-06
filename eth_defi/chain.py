@@ -13,14 +13,12 @@ from urllib.parse import urljoin
 
 import requests
 from web3 import HTTPProvider, Web3
-from web3.datastructures import NamedElementOnion
-from web3.middleware import construct_time_based_cache_middleware, geth_poa_middleware
+from web3.middleware import geth_poa_middleware
 from web3.providers import BaseProvider, JSONBaseProvider
 from web3.types import RPCEndpoint, RPCResponse
 
 from eth_defi.event_reader.conversion import convert_jsonrpc_value_to_int
 from eth_defi.middleware import http_retry_request_with_sleep_middleware
-from eth_defi.provider.named import NamedProvider
 
 #: List of chain ids that need to have proof-of-authority middleweare installed
 POA_MIDDLEWARE_NEEDED_CHAIN_IDS = {

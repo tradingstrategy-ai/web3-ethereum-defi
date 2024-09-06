@@ -13,6 +13,8 @@ These instances support multiple JSON-RPC providers, mainly
 
 - Gracefully deal and retry JSON-RPC errors, even on a single RPC provider.
   If multiple providers are provided, then recover if the provider goes down for a longer period of time.
+  This is especially important if you use an RPC multiplexing service like (drpc)[https://drpc.org]
+  where you get a high failure rate of random requests.
 
 - Automatic fallback to another JSON-RPC provider when one fails, also known as
   "hot spare" or "hot switch" strategy in DevOps
@@ -101,3 +103,21 @@ And then:
     from eth_defi.provider.multi_provider import create_multi_provider_web3
 
     web3 = create_multi_provider_web3(os.environ["JSON_RPC_POLYGON"])
+
+Typical retryable errors
+------------------------
+
+A typical recoverable RPC error looks like:
+
+.. code-block:: text
+
+    Encountered JSON-RPC retryable error HTTPSConnectionPool(host='lb.drpc.org', port=443): Read timed out. (read timeout=10)
+     When calling method: eth_getLogs({'topics': [['0x783cca1c0412dd0d695e784568c96da2e9c22ff989357a2e8b1d9b2b4e6b7118', '0xc42079f94a6350d7e6235f29174924f928cc2ac818eb64fed8004e115fbcca67', '0x7a53080ba414158be7ec69b987b5fb7d07dee101fe85488f0853ae16239d0bde', '0x0c396cd989a39f4459b5fa1aed6a9a8dcdbc45908acfd67e028cd568da98982c']], 'fromBlock': '0xbd5345', 'toBlock': '0xbd5b14'},)
+    Retrying in 5.000000 seconds, retry #1 / 6
+
+Another example, no idea what this error is:
+
+.. code-block:: text
+
+    Encountered JSON-RPC retryable error {'message': 'IllegalStateException: No executor delegate for eth_getBlockByHash', 'code': -32005}
+    When calling method: eth_getBlockByHash('0x4b16e6e01697e7917639a5216495db14160bf7d0ee75ccc5c8cbb623feace9cf', False)

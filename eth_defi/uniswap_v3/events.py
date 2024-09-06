@@ -148,7 +148,7 @@ def decode_swap(log: LogResult) -> dict:
     return result
 
 
-def decode_mint(web3: Web3, log: LogResult) -> dict:
+def decode_mint(log: LogResult) -> dict:
     """Process mint event. The event signature is:
 
     .. code-block::
@@ -181,7 +181,7 @@ def decode_mint(web3: Web3, log: LogResult) -> dict:
     return result
 
 
-def decode_burn(web3: Web3, log: LogResult) -> dict:
+def decode_burn(log: LogResult) -> dict:
     """Process burn event. The event signature is:
 
     .. code-block::
@@ -241,7 +241,7 @@ def get_event_mapping(web3: Web3) -> dict:
                 "token1_address",
                 "token1_symbol",
             ],
-            "decode_function": decode_pool_created,
+            "decode_function": lambda log: decode_pool_created(web3, log),  # Legacy compatibility
         },
         "Swap": {
             "contract_event": Pool.events.Swap,
@@ -459,10 +459,9 @@ def fetch_events_to_csv(
                 event_name = log_result["event"].event_name  # Which event this is: Swap, Burn,...
                 buffer = buffers[event_name]["buffer"]  # Choose CSV buffer for this event
                 decode_function = event_mapping[event_name]["decode_function"]  # Each event needs its own decoder
-
-                buffer.append(decode_function(web3, log_result))
+                buffer.append(decode_function(log_result))
             except Exception as e:
-                raise RuntimeError(f"Could not decode {log_result}") from e
+                raise RuntimeError(f"Could not decode {log_result}: {e}") from e
 
     # close files and print stats
     for event_name, buffer in buffers.items():
