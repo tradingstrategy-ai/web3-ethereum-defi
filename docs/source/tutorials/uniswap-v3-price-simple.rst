@@ -1,5 +1,5 @@
 .. meta::
-   :description: Read live price of Uniswap v3 pool
+   :description: Read live price of Uniswap v3 pool tutorial
    :title: Uniswap v3 price read using Python
 
 Uniswap v3 price (minimal)
