@@ -48,6 +48,7 @@ Tutorials and examples
    make-uniswap-swap-in-python
    chainlink-price-feed
    chainlink-native-token
+   uniswap-v3-price-simple
    live-price
    uniswap-v3-liquidity-analysis
    uniswap-v3-price-analysis

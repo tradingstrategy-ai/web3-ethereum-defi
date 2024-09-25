@@ -43,6 +43,12 @@ class PoolDetails:
     def convert_price_to_human(self, tick: int, reverse_token_order=False) -> Decimal:
         """Convert the price obtained through
 
+        Example:
+
+        .. code-block:: python
+
+
+
         :param tick:
             Logarithmic tick from the Uniswap pool
 
