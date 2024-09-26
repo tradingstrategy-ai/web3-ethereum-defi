@@ -304,15 +304,13 @@ def test_enzyme_aave_arbitrum(
     raw_amount = 100 * 10 ** 6
 
     # Supply to USDT reserve
+    vault_delivery_address = vault.generic_adapter.address
     approve_fn, supply_fn = supply(
         aave_v3_deployment=aave_v3,
-        wallet_address=user_1,
+        wallet_address=vault_delivery_address,
         token=usdt.contract,
         amount=raw_amount,
     )
-    # approve_fn.transact({"from": deployer})
-    # tx_hash = supply_fn.transact({"from": deployer})
-    # assert_transaction_success_with_explanation(web3, tx_hash)
 
     # The vault performs a swap on Uniswap v3
     encoded_approve = encode_function_call(
@@ -343,4 +341,4 @@ def test_enzyme_aave_arbitrum(
     assert_transaction_success_with_explanation(web3, tx_hash)
 
     # Supplied aUSDT landed in the vault
-    assert ausdt.fetch_balance_of(vault.address) == raw_amount
+    assert ausdt.fetch_balance_of(vault.address) == 100
