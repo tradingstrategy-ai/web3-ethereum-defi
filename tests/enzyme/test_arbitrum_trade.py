@@ -1,9 +1,10 @@
-"""Get Enzyme trade on Arbitrum.
+"""Enzyme trade on Arbitrum.
 
-- Use Arbitrum live RPC for testing
+- Use Arbitrum mainnet fork for testing
 
-- Deploy a vault on a live mainnet fork and do a Uniswap v3 trade as an asset manager
+- Deploy a vault with a guard
 
+- Do swap and credit supply tests
 """
 import os
 
