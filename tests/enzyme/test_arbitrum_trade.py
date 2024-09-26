@@ -16,8 +16,12 @@ from eth_typing import HexAddress
 from web3 import Web3
 from web3.contract import Contract
 
-from eth_defi.abi import get_deployed_contract
+from eth_defi.aave_v3.constants import AAVE_V3_NETWORKS, AAVE_V3_DEPLOYMENTS
+from eth_defi.aave_v3.deployment import AaveV3Deployment
+from eth_defi.aave_v3.loan import supply
+from eth_defi.abi import get_deployed_contract, encode_function_call
 from eth_defi.enzyme.deployment import ARBITRUM_DEPLOYMENT
+from eth_defi.enzyme.generic_adapter import execute_calls_for_generic_adapter
 from eth_defi.provider.anvil import AnvilLaunch, launch_anvil
 from eth_defi.enzyme.deployment import EnzymeDeployment
 from eth_defi.enzyme.generic_adapter_vault import deploy_vault_with_generic_adapter
@@ -34,7 +38,7 @@ from eth_defi.uniswap_v3.deployment import (
     UniswapV3Deployment, fetch_deployment,
 )
 from eth_defi.uniswap_v3.pool import PoolDetails, fetch_pool_details
-
+from eth_defi.aave_v3.deployment import fetch_deployment as fetch_aave_v3_deployment
 
 JSON_RPC_ARBITRUM = os.environ.get("JSON_RPC_ARBITRUM")
 pytestmark = pytest.mark.skipif(not JSON_RPC_ARBITRUM, reason="Set JSON_RPC_ARBITRUM to run this test")
@@ -84,6 +88,12 @@ def user_1(web3) -> Account:
 @pytest.fixture
 def usdt(web3) -> TokenDetails:
     details = fetch_erc20_details(web3, "0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9")
+    return details
+
+
+@pytest.fixture
+def ausdt(web3) -> TokenDetails:
+    details = fetch_erc20_details(web3, AAVE_V3_NETWORKS["arbitrum"].token_contracts["USDT"].deposit_address)
     return details
 
 
@@ -186,6 +196,17 @@ def uniswap_v3(
 
 
 @pytest.fixture()
+def aave_v3(web3) -> AaveV3Deployment:
+    deployment_info = AAVE_V3_DEPLOYMENTS["arbitrum"]
+    return fetch_aave_v3_deployment(
+        web3,
+        pool_address=deployment_info["pool"],
+        data_provider_address=deployment_info["data_provider"],
+        oracle_address=deployment_info["oracle"],
+    )
+
+
+@pytest.fixture()
 def weth_usdt_pool(web3) -> PoolDetails:
     # https://tradingstrategy.ai/trading-view/arbitrum/uniswap-v3/eth-usdt-fee-5
     return fetch_pool_details(web3, "0x641c00a822e8b671738d32a431a4fb6074e5c79d")
@@ -205,7 +226,7 @@ def test_enzyme_uniswap_v3_arbitrum(
     uniswap_v3: UniswapV3Deployment,
     weth_usdt_pool: PoolDetails,
 ):
-    """Make a swap that goes through the call guard."""
+    """Make a vault swap USDT->WETH."""
 
     # Check that all the assets are supported on the Enzyme protocol level
     # (Separate from our guard whitelist)
@@ -245,3 +266,81 @@ def test_enzyme_uniswap_v3_arbitrum(
 
     # Bought ETH landed in the vault
     assert 0.01 < weth.fetch_balance_of(vault.address) < 1
+
+
+def test_enzyme_aave_arbitrum(
+    web3: Web3,
+    deployer: HexAddress,
+    asset_manager: HexAddress,
+    user_1,
+    usdt_whale,
+    enzyme: EnzymeDeployment,
+    vault: Vault,
+    weth: TokenDetails,
+    usdt: TokenDetails,
+    ausdt: TokenDetails,
+    aave_v3: AaveV3Deployment,
+):
+    """Make a Aave deposit USDT -> aUSDT that goes through a vault."""
+
+    # Check that all the assets are supported on the Enzyme protocol level
+    # (Separate from our guard whitelist)
+    assert vault.is_supported_asset(usdt.address)
+    assert vault.is_supported_asset(weth.address)
+
+    assert usdt.fetch_balance_of(usdt_whale) > 500, f"Whale balance is {usdt.fetch_balance_of(usdt_whale)}"
+
+    # Get USDT, to the initial shares buy
+    tx_hash = usdt.contract.functions.transfer(user_1, 500 * 10 ** 6, ).transact({"from": usdt_whale})
+    assert_transaction_success_with_explanation(web3, tx_hash)
+    tx_hash = usdt.contract.functions.approve(vault.comptroller.address, 500 * 10 ** 6).transact({"from": user_1})
+    assert_transaction_success_with_explanation(web3, tx_hash)
+    tx_hash = vault.comptroller.functions.buyShares(500 * 10 ** 6, 1).transact({"from": user_1})
+    assert_transaction_success_with_explanation(web3, tx_hash)
+
+    assert vault.get_gross_asset_value() == 500 * 10 ** 6  # Vault has been funded
+
+    # Deposit $100 USDT
+    raw_amount = 100 * 10 ** 6
+
+    # Supply to USDT reserve
+    approve_fn, supply_fn = supply(
+        aave_v3_deployment=aave_v3,
+        wallet_address=user_1,
+        token=usdt.contract,
+        amount=raw_amount,
+    )
+    # approve_fn.transact({"from": deployer})
+    # tx_hash = supply_fn.transact({"from": deployer})
+    # assert_transaction_success_with_explanation(web3, tx_hash)
+
+    # The vault performs a swap on Uniswap v3
+    encoded_approve = encode_function_call(
+        approve_fn,
+        approve_fn.arguments,
+    )
+
+    encoded_supply = encode_function_call(
+        supply_fn,
+        supply_fn.arguments,
+    )
+
+    prepared_tx = execute_calls_for_generic_adapter(
+        comptroller=vault.comptroller,
+        external_calls=(
+            (usdt.contract, encoded_approve),
+            (aave_v3.pool, encoded_supply),
+        ),
+        generic_adapter=vault.generic_adapter,
+        incoming_assets=[ausdt.address],
+        integration_manager=enzyme.contracts.integration_manager,
+        min_incoming_asset_amounts=[raw_amount],
+        spend_asset_amounts=[raw_amount],
+        spend_assets=[usdt.address],
+    )
+
+    tx_hash = prepared_tx.transact({"from": asset_manager, "gas": 1_000_000})
+    assert_transaction_success_with_explanation(web3, tx_hash)
+
+    # Supplied aUSDT landed in the vault
+    assert ausdt.fetch_balance_of(vault.address) == raw_amount
