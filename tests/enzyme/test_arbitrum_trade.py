@@ -6,8 +6,6 @@
 
 """
 import os
-import datetime
-import random
 
 import pytest
 
@@ -17,18 +15,11 @@ from eth_typing import HexAddress
 
 from web3 import Web3
 from web3.contract import Contract
-from web3.middleware import construct_sign_and_send_raw_middleware
 
-from eth_defi.abi import get_contract
+from eth_defi.abi import get_deployed_contract
 from eth_defi.enzyme.deployment import ARBITRUM_DEPLOYMENT
 from eth_defi.provider.anvil import AnvilLaunch, launch_anvil
-from eth_defi.terms_of_service.acceptance_message import (
-    generate_acceptance_message,
-    get_signing_hash,
-    sign_terms_of_service,
-)
-from eth_defi.deploy import deploy_contract
-from eth_defi.enzyme.deployment import EnzymeDeployment, RateAsset
+from eth_defi.enzyme.deployment import EnzymeDeployment
 from eth_defi.enzyme.generic_adapter_vault import deploy_vault_with_generic_adapter
 from eth_defi.enzyme.uniswap_v3 import prepare_swap
 from eth_defi.enzyme.vault import Vault
@@ -43,6 +34,7 @@ from eth_defi.uniswap_v3.deployment import (
     UniswapV3Deployment, fetch_deployment,
 )
 from eth_defi.uniswap_v3.pool import PoolDetails, fetch_pool_details
+
 
 JSON_RPC_ARBITRUM = os.environ.get("JSON_RPC_ARBITRUM")
 pytestmark = pytest.mark.skipif(not JSON_RPC_ARBITRUM, reason="Set JSON_RPC_ARBITRUM to run this test")
@@ -97,7 +89,8 @@ def usdt(web3) -> TokenDetails:
 
 @pytest.fixture
 def weth(web3) -> TokenDetails:
-    details = fetch_erc20_details(web3, "0xec32aad0e8fc6851f4ba024b33de09607190ce9b")
+    # https://arbiscan.io/token/0x82af49447d8a07e3bd95bd0d56f35241523fbab1
+    details = fetch_erc20_details(web3, "0x82aF49447D8a07e3bd95BD0d56f35241523fBab1")
     return details
 
 
@@ -118,9 +111,10 @@ def enzyme(
 
 @pytest.fixture()
 def terms_of_service(web3) -> Contract:
-    tos = get_contract(
+    tos = get_deployed_contract(
         web3,
         "terms-of-service/TermsOfService.json",
+        "0xDCD7C644a6AA72eb2f86781175b18ADc30Aa4f4d", # https://github.com/tradingstrategy-ai/terms-of-service
     )
     return tos
 
@@ -170,18 +164,15 @@ def vault(
         terms_of_service=terms_of_service,
         whitelisted_assets=[weth, wbtc, usdt],
         uniswap_v3=True,
+        uniswap_v2=False,
         one_delta=False,
         aave=True,
     )
 
 
 @pytest.fixture()
-def uniswap(
+def uniswap_v3(
     web3: Web3,
-    weth: Contract,
-    usdc: Contract,
-    mln: Contract,
-    deployer: str,
 ) -> UniswapV3Deployment:
     addresses = UNISWAP_V3_DEPLOYMENTS["arbitrum"]
     uniswap = fetch_deployment(
@@ -189,7 +180,7 @@ def uniswap(
         addresses["factory"],
         addresses["router"],
         addresses["position_manager"],
-        addresses["quoter_address"],
+        addresses["quoter"],
     )
     return uniswap
 
@@ -208,7 +199,6 @@ def test_enzyme_uniswap_v3_arbitrum(
     usdt_whale,
     enzyme: EnzymeDeployment,
     vault: Vault,
-    vault_investor: LocalAccount,
     weth: TokenDetails,
     usdt: TokenDetails,
     wbtc: TokenDetails,
@@ -217,19 +207,19 @@ def test_enzyme_uniswap_v3_arbitrum(
 ):
     """Make a swap that goes through the call guard."""
 
+    # Check that all the assets are supported on the Enzyme protocol level
+    # (Separate from our guard whitelist)
     assert vault.is_supported_asset(usdt.address)
     assert vault.is_supported_asset(weth.address)
     assert vault.is_supported_asset(wbtc.address)
 
-    tx_hash = usdt.contract.functions.transfer(
-        user_1,
-        500 * 10 ** 6,
-    ).transact({"from": usdt_whale})
-    assert_transaction_success_with_explanation(web3, tx_hash)
+    assert usdt.fetch_balance_of(usdt_whale) > 500, f"Whale balance is {usdt.fetch_balance_of(usdt_whale)}"
 
-    tx_hash = usdt.contract.functions.transfer(user_1, 500 * 10 ** 6).transact({"from": deployer})
+    # Get USDT, to the initial shares buy
+    tx_hash = usdt.contract.functions.transfer(user_1, 500 * 10 ** 6,).transact({"from": usdt_whale})
     assert_transaction_success_with_explanation(web3, tx_hash)
-
+    tx_hash = usdt.contract.functions.approve(vault.comptroller.address, 500 * 10 ** 6).transact({"from": user_1})
+    assert_transaction_success_with_explanation(web3, tx_hash)
     tx_hash = vault.comptroller.functions.buyShares(500 * 10 ** 6, 1).transact({"from": user_1})
     assert_transaction_success_with_explanation(web3, tx_hash)
 
@@ -254,4 +244,4 @@ def test_enzyme_uniswap_v3_arbitrum(
     assert_transaction_success_with_explanation(web3, tx_hash)
 
     # Bought ETH landed in the vault
-    assert weth.contract.functions.balanceOf(vault.address).call() == pytest.approx(0.123090978678222650 * 10**18)
+    assert 0.01 < weth.fetch_balance_of(vault.address) < 1

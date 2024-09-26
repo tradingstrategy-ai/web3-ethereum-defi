@@ -105,15 +105,22 @@ AAVE_V3_NETWORKS: dict[str, AaveNetwork] = {
         },
     ),
     # Arbitrum Mainnet (XXX TODO - add more tokens)
+    # https://docs.aave.com/developers/deployed-contracts/v3-mainnet/arbitrum
     "arbitrum": AaveNetwork(
         name="Arbitrum",
         pool_address="0x794a61358D6845594F94dc1DB02A252b5b4814aD",
         pool_configurator_address="0x8145eddDf43f50276641b55bd3AD95944510021E",
         pool_created_at_block=7742429,  # https://arbiscan.io/tx/0xf73ad5eb856faaf2eaf6e8a0823d2964e80ca4ad7cc2031f0606b158d236b5a9
+        # https://github.com/bgd-labs/aave-address-book/blob/main/src/AaveV3Arbitrum.sol
         token_contracts={
             # Aave token contracts defined in the Arbitrum network
             "AAVE": AaveToken(token_address="0xba5DdD1f9d7F570dc94a51479a000E3BCE967196", deposit_address="0xf329e36C7bF6E5E86ce2150875a84Ce77f477375", variable_borrow_address="0xE80761Ea617F66F96274eA5e8c37f03960ecC679", stable_borrow_address="0xfAeF6A702D15428E588d4C0614AEFb4348D83D48", token_created_at_block=7410775),  # https://arbiscan.io/address/0xba5ddd1f9d7f570dc94a51479a000e3bce967196
             "WETH": AaveToken(token_address="0x82aF49447D8a07e3bd95BD0d56f35241523fBab1", deposit_address="0xe50fA9b3c56FfB159cB0FCA61F5c9D750e8128c8", variable_borrow_address="0x0c84331e39d6658Cd6e6b9ba04736cC4c4734351", stable_borrow_address="0xD8Ad37849950903571df17049516a5CD4cbE55F6", token_created_at_block=55),  # https://arbiscan.io/address/0x82aF49447D8a07e3bd95BD0d56f35241523fBab1
+            "USDT": AaveToken(token_address="0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9", deposit_address="0x6ab707Aca953eDAeFBc4fD23bA73294241490620", variable_borrow_address="0xfb00AC187a8Eb5AFAE4eACE434F493Eb62672df7", stable_borrow_address="0x70eFfc565DB6EEf7B927610155602d31b670e802", token_created_at_block=1),
+            # USDC native (not bridged)
+            "USDC": AaveToken(token_address="0xaf88d065e77c8cC2239327C5EDb3A432268e5831", deposit_address="0x724dc807b04555b71ed48a6896b6F41593b8C637", variable_borrow_address="0xf611aEb5013fD2c0511c9CD55c7dc5C1140741A6", stable_borrow_address="0xDC1fad70953Bb3918592b6fCc374fe05F5811B6a", token_created_at_block=1),
+            # USDC bridged
+            "USDC.e": AaveToken(token_address="0xFF970A61A04b1cA14834A43f5dE4533eBDDB5CC8", deposit_address="0x625E7708f30cA75bfd92586e17077590C60eb4cD", variable_borrow_address="0xFCCf3cAbbe80101232d343252614b6A3eE81C989", stable_borrow_address="0x307ffe186F84a3bc2613D1eA417A5737D69A7007", token_created_at_block=1),
         },
     ),
     # Fantom Mainnet (XXX TODO - add more tokens)

@@ -245,6 +245,9 @@ def deploy_vault_with_generic_adapter(
     deployer.sync_nonce(web3)
 
     if terms_of_service is not None:
+        assert denomination_asset.address
+        assert comptroller.address
+        assert terms_of_service.address
         payment_forwarder, tx_hash = deploy_contract_with_forge(
             web3,
             CONTRACTS_ROOT / "in-house",
@@ -411,8 +414,13 @@ def deploy_guard(
             case 1:
                 uniswap_v2_router = UNISWAP_V2_DEPLOYMENTS["ethereum"]["router"]
                 uniswap_v3_router = UNISWAP_V3_DEPLOYMENTS["ethereum"]["router"]
+            case 42161:
+                if uniswap_v2:
+                    raise NotImplementedError(f"Uniswap v2 not configured for Arbitrum yet")
+                uniswap_v2_router = None
+                uniswap_v3_router = UNISWAP_V3_DEPLOYMENTS["arbitrum"]["router"]
             case _:
-                logger.info("Uniswap not supported for chain %d", web3.eth.chain_id)
+                logger.error("Uniswap not supported for chain %d", web3.eth.chain_id)
                 uniswap_v2_router = None
                 uniswap_v3_router = None
 
@@ -475,9 +483,14 @@ def deploy_guard(
                 case 42161:
                     # Arbitrum
                     aave_tokens = AAVE_V3_NETWORKS["arbitrum"].token_contracts
+
+                    # TODO: We automatically list all main a tokens as allowed assets
+                    # we should limit here only to what the strategy needs,
+                    # as these tokens may have their liquidity to dry up in the future
                     for symbol, token in aave_tokens.items():
                         logger.info(
                             "Aave whitelisting for pool %s, atoken:%s address: %s",
+                            symbol,
                             aave_pool_address,
                             token.token_address,
                         )
