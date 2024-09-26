@@ -24,7 +24,7 @@ from eth_typing import HexAddress
 from web3 import Web3
 from web3.contract import Contract
 
-from eth_defi.aave_v3.constants import AAVE_V3_DEPLOYMENTS
+from eth_defi.aave_v3.constants import AAVE_V3_DEPLOYMENTS, AAVE_V3_NETWORKS
 from eth_defi.aave_v3.deployment import fetch_deployment as fetch_aave_deployment
 from eth_defi.enzyme.deployment import EnzymeDeployment
 from eth_defi.enzyme.policy import (
@@ -463,12 +463,30 @@ def deploy_guard(
             tx_hash = guard.functions.whitelistAaveV3(aave_pool_address, note).transact({"from": deployer.address})
             assert_transaction_success_with_explanation(web3, tx_hash)
 
-            assert web3.eth.chain_id == 1, "TODO: Add support for non-mainnet chains"
-            ausdc_address = "0x98C23E9d8f34FEFb1B7BD6a91B7FF122F4e16F5c"
-            logger.info("Aave whitelisting for pool %s, aUSDC %s", aave_pool_address, ausdc_address)
+            match web3.eth.chain_id:
+                case 1:
+                    assert web3.eth.chain_id == 1, "TODO: Add support for non-mainnet chains"
+                    ausdc_address = "0x98C23E9d8f34FEFb1B7BD6a91B7FF122F4e16F5c"
+                    logger.info("Aave whitelisting for pool %s, aUSDC %s", aave_pool_address, ausdc_address)
 
-            note = f"Aave v3 pool whitelisting for USDC"
-            tx_hash = guard.functions.whitelistToken(ausdc_address, note).transact({"from": deployer.address})
+                    note = f"Aave v3 pool whitelisting for USDC"
+                    tx_hash = guard.functions.whitelistToken(ausdc_address, note).transact({"from": deployer.address})
+
+                case 42161:
+                    # Arbitrum
+                    aave_tokens = AAVE_V3_NETWORKS["arbitrum"].token_contracts
+                    for symbol, token in aave_tokens.items():
+                        logger.info(
+                            "Aave whitelisting for pool %s, atoken:%s address: %s",
+                            aave_pool_address,
+                            token.token_address,
+                        )
+                        note = f"Whitelisting Aave {symbol}"
+                        tx_hash = guard.functions.whitelistToken(token.token_address, note).transact({"from": deployer.address})
+                        assert_transaction_success_with_explanation(web3, tx_hash)
+                case _:
+                    raise NotImplementedError(f"TODO: Add support for non-mainnet chains, got {web3.eth.chain_id}")
+
             assert_transaction_success_with_explanation(web3, tx_hash)
 
     deployer.sync_nonce(web3)

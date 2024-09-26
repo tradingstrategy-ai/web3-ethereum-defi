@@ -191,6 +191,8 @@ def deploy_contract_with_forge(
     assert type(contract_name) == str
     assert isinstance(deployer, HotWallet), f"Got deployer: {type(deployer)}"
 
+    assert deployer.private_key is not None, f"Deployer missing private key: {deployer}"
+
     if constructor_args is None:
         constructor_args = []
 
@@ -236,7 +238,11 @@ def deploy_contract_with_forge(
         for arg in constructor_args:
             cmd_line.append(arg)
 
-    censored_command = " ".join(cmd_line)
+    try:
+        censored_command = " ".join(cmd_line)
+    except TypeError as e:
+        # Be helpful with None error
+        raise TypeError(f"Could not splice command line: {cmd_line}") from e
 
     logger.info(
         "Deploying a contract with forge. Working directory %s, forge command: %s",
