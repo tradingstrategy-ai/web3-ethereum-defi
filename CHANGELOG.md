@@ -1,6 +1,7 @@
 # Current 
 
 - Add: TokenSniffer API wrapper with a persistent cache
+- Add: Enzyme vault deployments on Arbitrum
 
 # 0.26
 
