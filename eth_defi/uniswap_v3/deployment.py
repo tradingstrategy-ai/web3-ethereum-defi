@@ -62,6 +62,9 @@ class UniswapV3Deployment:
     #: `See the Solidity source code <https://github.com/Uniswap/v3-core/blob/v1.0.0/contracts/UniswapV3Pool.sol>`__.
     PoolContract: Contract
 
+    def __repr__(self):
+        return f"<Uniswap v3 as chain: {self.web3.eth.chain_id}, router: {self.swap_router.address} factory: {self.factory.address}>"
+
 
 def deploy_uniswap_v3_factory(web3: Web3, deployer: HexAddress) -> Contract:
     """Deploy a Uniswap v3 factory contract.
