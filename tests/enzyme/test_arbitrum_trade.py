@@ -115,7 +115,6 @@ def wbtc(web3) -> TokenDetails:
 def enzyme(
     web3,
 ) -> EnzymeDeployment:
-    """Deploy Enzyme protocol with few Chainlink feeds mocked with a static price."""
     deployment = EnzymeDeployment.fetch_deployment(web3, ARBITRUM_DEPLOYMENT)
     return deployment
 
@@ -151,20 +150,11 @@ def vault(
     - TermedVaultUSDCPaymentForwarder
     """
 
-    # Note that the only way to deploy vault is with a local private key,
-    # because we call external foundry processes
-    local_signer: LocalAccount = Account.create()
-    stash = web3.eth.get_balance(deployer)
-    tx_hash = web3.eth.send_transaction({"from": deployer, "to": local_signer.address, "value": stash // 2})
-    assert_transaction_success_with_explanation(web3, tx_hash)
-
-    hot_wallet = HotWallet(local_signer)
-    hot_wallet.sync_nonce(web3)
+    hot_wallet = HotWallet.create_for_testing(web3)
+    web3.middleware_onion.add(construct_sign_and_send_raw_middleware_anvil(hot_wallet.account))
 
     # TODO: Hack
     enzyme.deployer = hot_wallet.address
-
-    web3.middleware_onion.add(construct_sign_and_send_raw_middleware_anvil(local_signer))
 
     return deploy_vault_with_generic_adapter(
         enzyme,
