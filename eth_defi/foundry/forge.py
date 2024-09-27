@@ -100,7 +100,7 @@ def deploy_contract_with_forge(
     register_for_tracing=True,
     timeout=DEFAULT_TIMEOUT,
     wait_for_block_confirmations=0,
-    verify_delay=60,
+    verify_delay=20,
     verify_retries=9,
 ) -> Tuple[Contract, HexBytes]:
     """Deploy and verify smart contract with Forge.
