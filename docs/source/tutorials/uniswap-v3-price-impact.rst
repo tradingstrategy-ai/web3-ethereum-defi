@@ -15,6 +15,8 @@ This is a minimal example code for estimating Uniswap v3 price impact.
 
 - In this example we are buying WETH with $1,000,000.50 USDC cash in hand
 
+- See :py:mod:`eth_defi.uniswap_v3` for Uniswap v3 API documentation
+
 To run:
 
 .. code-block:: shell
