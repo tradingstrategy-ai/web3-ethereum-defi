@@ -2,8 +2,8 @@
    :description: Read live price of Uniswap v3 pool tutorial
    :title: Uniswap v3 price read using Python
 
-Uniswap v3 price (minimal)
---------------------------
+Uniswap v3 price read (minimal)
+-------------------------------
 
 This is a minimal example code for reading the live price of a single Uniswap v3 pool.
 
