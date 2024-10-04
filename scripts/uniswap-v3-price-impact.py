@@ -12,8 +12,6 @@ To run:
 
 
 import os
-import time
-import datetime
 from decimal import Decimal
 
 from eth_defi.provider.multi_provider import create_multi_provider_web3

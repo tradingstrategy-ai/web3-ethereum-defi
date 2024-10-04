@@ -49,6 +49,7 @@ Tutorials and examples
    chainlink-price-feed
    chainlink-native-token
    uniswap-v3-price-simple
+   uniswap-v3-price-impact
    live-price
    uniswap-v3-liquidity-analysis
    uniswap-v3-price-analysis
