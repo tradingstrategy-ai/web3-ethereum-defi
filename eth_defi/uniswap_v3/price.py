@@ -148,7 +148,11 @@ def estimate_buy_received_amount(
 
     See another example in :py:mod:`eth_defi.uniswap_v3.price`.
 
-    :param quantity: How much of the base token we want to buy
+    :param quantity:
+        How much of the base token we want to buy.
+
+        Expressed in raw token.
+
     :param uniswap: Uniswap v3 deployment
     :param base_token_address: Base token address of the trading pair
     :param quote_token_address: Quote token address of the trading pair

@@ -40,6 +40,10 @@ class PoolDetails:
     def __repr__(self):
         return f"Pool {self.address} is {self.token0.symbol}-{self.token1.symbol}, with the fee {self.fee * 100:.04f}%"
 
+    def get_fee_bps(self) -> int:
+        """Return pool fee in Basis Points"""
+        return int(self.fee * 10_000)
+
     def convert_price_to_human(self, tick: int, reverse_token_order=False) -> Decimal:
         """Convert the price obtained through
 
