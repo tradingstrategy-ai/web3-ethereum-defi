@@ -265,8 +265,8 @@ def estimate_buy_received_amount(
             uniswap_v3,
             weth.address,
             usdc.address,
-            1650 * 10**18,
-            500,
+            1650 * 10**18,  # Must be raw token units
+            500,  # 100 Uniswap v3 fee units = 1 BPS, this is 5 BPS
         )
 
         assert eth_received / (10**18) == pytest.approx(0.9667409780905836)
@@ -275,26 +275,42 @@ def estimate_buy_received_amount(
         price = (1650*10**18) / eth_received
         assert price == pytest.approx(Decimal(1706.7653460381143))
 
-    See another example in :py:mod:`eth_defi.uniswap_v3.price`.
-
     :param quantity:
         How much of the base token we want to buy.
 
         Expressed in raw token.
 
-    :param uniswap: Uniswap v3 deployment
-    :param base_token_address: Base token address of the trading pair
-    :param quote_token_address: Quote token address of the trading pair
-    :param target_pair_fee: Trading fee of the target pair in raw format
+    :param uniswap:
+        Uniswap v3 deployment
+
+    :param base_token_address:
+        Base token address of the trading pair
+
+    :param quote_token_address:
+        Quote token address of the trading pair
+
+    :param target_pair_fee:
+        Trading fee of the target pair in Uniswap v3 fee units.
+
+        100 units = 1 BPS.
 
     :param slippage:
         Slippage express in bps.
         The amount will be estimated for the maximum slippage.
 
-    :param block_identifier: A specific block to estimate price
-    :param verbose: If True, return more debug info
-    :return: Expected base token amount to receive
-    :raise TokenDetailError: If we have an issue with ERC-20 contracts
+    :param block_identifier:
+        A specific block to estimate price.
+
+        Either block number or a block hash.
+
+    :param verbose:
+        If True, return more debug info
+
+    :return:
+        Expected base token amount to receive
+
+    :raise TokenDetailError:
+        If we have an issue with ERC-20 contracts
     """
     price_helper = UniswapV3PriceHelper(uniswap)
 
