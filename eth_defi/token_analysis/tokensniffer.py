@@ -12,6 +12,7 @@
 
 - For more examples see `Getting started repo <https://github.com/tradingstrategy-ai/getting-started>`__
 """
+import datetime
 import logging
 import json
 from pathlib import Path
@@ -454,6 +455,10 @@ class TokenSniffer:
         if data["message"] != "OK":
             raise TokenSnifferError(f"Bad TokenSniffer reply: {data}")
 
+        # Add timestamp when this was recorded,
+        # so cache can have this also as a content value
+        data["data_fetched_at"] = datetime.datetime.utcnow().isoformat()
+
         return data
 
 
@@ -497,19 +502,52 @@ class CachedTokenSniffer(TokenSniffer):
     """
 
     def __init__(
-            self,
-            cache_file: Path,
-            api_key: str,
-            session: Session = None
+        self,
+        cache_file: Path | None,
+        api_key: str,
+        session: Session = None,
+        cache: dict | None = None,
     ):
-        assert isinstance(cache_file, Path)
+        """
+
+        :param api_key:
+            TokenSniffer API key.
+
+        :param session:
+            requests.Session for persistent HTTP connections
+
+        :param cache_file:
+            Path to a local file system SQLite file used as a cached.
+
+            For simple local use cases.
+
+        :param cache:
+            Direct custom cache interface as a Python dict interface.
+
+            For your own database caching.
+
+            Cache keys are format: `cache_key = f"{chain_id}-{address}"`.
+            Cache values are JSON blobs as string.
+
+        """
         super().__init__(api_key, session)
-        self.cache = PersistentKeyValueStore(cache_file)
+
+        if cache is not None:
+            assert cache_file is None, "Cannot give both cache interface and cache_path"
+            self.cache = cache
+        else:
+            assert isinstance(cache_file, Path), f"Got {cache_file.__class__}"
+            self.cache = PersistentKeyValueStore(cache_file)
 
     def fetch_token_info(self, chain_id: int, address: str | HexAddress) -> TokenSnifferReply:
         """Get TokenSniffer info.
 
         Use local file cache if available.
+
+        :return:
+            Data passed through TokenSniffer.
+
+            A special member `cached` is set depending on whether the reply was cached or not.
         """
         cache_key = f"{chain_id}-{address}"
         cached = self.cache.get(cache_key)
