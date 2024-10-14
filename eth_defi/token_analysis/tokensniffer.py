@@ -35,6 +35,8 @@ logger  = logging.getLogger(__name__)
 #:
 KNOWN_GOOD_TOKENS = {
     "USDC",
+    "USDT",
+    "USDS",  # Dai rebranded
     "MKR",
     "DAI",
     "WBTC",
@@ -468,8 +470,6 @@ class CachedTokenSniffer(TokenSniffer):
     - See :py:class:`TokenSniffer` class for details
 
     - Use SQLite DB as a key-value cache backend, or your custom cache interface
-
-    - No cache expiration
 
     - No support for multithreading/etc. fancy stuff
 
