@@ -12,6 +12,7 @@
 
 - For more examples see `Getting started repo <https://github.com/tradingstrategy-ai/getting-started>`__
 """
+import datetime
 import logging
 import json
 from pathlib import Path
@@ -34,6 +35,8 @@ logger  = logging.getLogger(__name__)
 #:
 KNOWN_GOOD_TOKENS = {
     "USDC",
+    "USDT",
+    "USDS",  # Dai rebranded
     "MKR",
     "DAI",
     "WBTC",
@@ -454,6 +457,10 @@ class TokenSniffer:
         if data["message"] != "OK":
             raise TokenSnifferError(f"Bad TokenSniffer reply: {data}")
 
+        # Add timestamp when this was recorded,
+        # so cache can have this also as a content value
+        data["data_fetched_at"] = datetime.datetime.utcnow().isoformat()
+
         return data
 
 
@@ -462,9 +469,7 @@ class CachedTokenSniffer(TokenSniffer):
 
     - See :py:class:`TokenSniffer` class for details
 
-    - Use SQLite DB as a key-value cache backend
-
-    - No cache expiration
+    - Use SQLite DB as a key-value cache backend, or your custom cache interface
 
     - No support for multithreading/etc. fancy stuff
 
@@ -494,22 +499,104 @@ class CachedTokenSniffer(TokenSniffer):
             print(f"WARN: Skipping pair {ticker} as the TokenSniffer score {score} is below our risk threshold")
             continue
 
+    You can also use your own cache interface instead of SQLite. Here is an example SQLALchemy implementation:
+
+    .. code-block:: python
+
+        class TokenInternalCache(UserDict):
+
+            def __init__(self, dbsession: Session):
+                self.dbsession = dbsession
+
+            def match_token(self, token_spec: str) -> Token:
+                # Sniffer interface gives us tokens as {chain}-{address} strings
+                chain, address = token_spec.split("-")
+                chain_id = int(chain)
+                address = HexBytes(address)
+                return self.dbsession.query(Token).filter(Token.chain_id == chain_id, Token.address == address).one_or_none()
+
+            def __getitem__(self, name) -> None | str:
+                token = self.match_token(name)
+                if token is not None:
+                    if token.etherscan_data is not None:
+                        return token.etherscan_data.get("tokensniffer_data")
+
+                return None
+
+            def __setitem__(self, name, value):
+                token = self.match_token(name)
+                if token.etherscan_data is None:
+                    token.etherscan_data = {}
+                token.etherscan_data["tokensniffer_data"] = value
+
+            def __contains__(self, key):
+                return self.get(key) is not None
+
+        # And then usage:
+
+        weth = dbsession.query(Token).filter_by(symbol="WETH", chain_id=1).one()
+
+        sniffer = CachedTokenSniffer(
+            cache_file=None,
+            api_key=TOKENSNIFFER_API_KEY,
+            cache=cast(dict, TokenInternalCache(dbsession)),
+        )
+
+        data = sniffer.fetch_token_info(weth.chain_id, weth.address.hex())
+        assert data["cached"] is False
+
+        data = sniffer.fetch_token_info(weth.chain_id, weth.address.hex())
+        assert data["cached"] is True
+
     """
 
     def __init__(
-            self,
-            cache_file: Path,
-            api_key: str,
-            session: Session = None
+        self,
+        cache_file: Path | None,
+        api_key: str,
+        session: Session = None,
+        cache: dict | None = None,
     ):
-        assert isinstance(cache_file, Path)
+        """
+
+        :param api_key:
+            TokenSniffer API key.
+
+        :param session:
+            requests.Session for persistent HTTP connections
+
+        :param cache_file:
+            Path to a local file system SQLite file used as a cached.
+
+            For simple local use cases.
+
+        :param cache:
+            Direct custom cache interface as a Python dict interface.
+
+            For your own database caching.
+
+            Cache keys are format: `cache_key = f"{chain_id}-{address}"`.
+            Cache values are JSON blobs as string.
+
+        """
         super().__init__(api_key, session)
-        self.cache = PersistentKeyValueStore(cache_file)
+
+        if cache is not None:
+            assert cache_file is None, "Cannot give both cache interface and cache_path"
+            self.cache = cache
+        else:
+            assert isinstance(cache_file, Path), f"Got {cache_file.__class__}"
+            self.cache = PersistentKeyValueStore(cache_file)
 
     def fetch_token_info(self, chain_id: int, address: str | HexAddress) -> TokenSnifferReply:
         """Get TokenSniffer info.
 
         Use local file cache if available.
+
+        :return:
+            Data passed through TokenSniffer.
+
+            A special member `cached` is set depending on whether the reply was cached or not.
         """
         cache_key = f"{chain_id}-{address}"
         cached = self.cache.get(cache_key)
