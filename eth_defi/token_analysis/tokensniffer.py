@@ -467,7 +467,7 @@ class CachedTokenSniffer(TokenSniffer):
 
     - See :py:class:`TokenSniffer` class for details
 
-    - Use SQLite DB as a key-value cache backend
+    - Use SQLite DB as a key-value cache backend, or your custom cache interface
 
     - No cache expiration
 
@@ -498,6 +498,55 @@ class CachedTokenSniffer(TokenSniffer):
             score = sniffed_data["score"]
             print(f"WARN: Skipping pair {ticker} as the TokenSniffer score {score} is below our risk threshold")
             continue
+
+    You can also use your own cache interface instead of SQLite. Here is an example SQLALchemy implementation:
+
+    .. code-block:: python
+
+        class TokenInternalCache(UserDict):
+
+            def __init__(self, dbsession: Session):
+                self.dbsession = dbsession
+
+            def match_token(self, token_spec: str) -> Token:
+                # Sniffer interface gives us tokens as {chain}-{address} strings
+                chain, address = token_spec.split("-")
+                chain_id = int(chain)
+                address = HexBytes(address)
+                return self.dbsession.query(Token).filter(Token.chain_id == chain_id, Token.address == address).one_or_none()
+
+            def __getitem__(self, name) -> None | str:
+                token = self.match_token(name)
+                if token is not None:
+                    if token.etherscan_data is not None:
+                        return token.etherscan_data.get("tokensniffer_data")
+
+                return None
+
+            def __setitem__(self, name, value):
+                token = self.match_token(name)
+                if token.etherscan_data is None:
+                    token.etherscan_data = {}
+                token.etherscan_data["tokensniffer_data"] = value
+
+            def __contains__(self, key):
+                return self.get(key) is not None
+
+        # And then usage:
+
+        weth = dbsession.query(Token).filter_by(symbol="WETH", chain_id=1).one()
+
+        sniffer = CachedTokenSniffer(
+            cache_file=None,
+            api_key=TOKENSNIFFER_API_KEY,
+            cache=cast(dict, TokenInternalCache(dbsession)),
+        )
+
+        data = sniffer.fetch_token_info(weth.chain_id, weth.address.hex())
+        assert data["cached"] is False
+
+        data = sniffer.fetch_token_info(weth.chain_id, weth.address.hex())
+        assert data["cached"] is True
 
     """
 
