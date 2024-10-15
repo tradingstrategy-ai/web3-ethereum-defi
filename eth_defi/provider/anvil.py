@@ -49,7 +49,7 @@ from eth_typing import HexAddress
 from requests.exceptions import ConnectionError as RequestsConnectionError
 from web3 import HTTPProvider, Web3
 
-from eth_defi.utils import is_localhost_port_listening, shutdown_hard, find_free_port
+from eth_defi.utils import find_free_port, is_localhost_port_listening, shutdown_hard
 
 logger = logging.getLogger(__name__)
 
@@ -200,7 +200,7 @@ def launch_anvil(
     block_time=0,
     launch_wait_seconds=20.0,
     attempts=3,
-    hardfork="london",
+    hardfork: str | None = None,
     gas_limit: Optional[int] = None,
     steps_tracing=False,
     test_request_timeout=3.0,
