@@ -9,9 +9,15 @@ from dataclasses import dataclass
 from decimal import Decimal
 from functools import cached_property
 from typing import Optional, Union
+import warnings
 
 import cachetools
-from eth_tester.exceptions import TransactionFailed
+
+with warnings.catch_warnings():
+    # DeprecationWarning: pkg_resources is deprecated as an API. See https://setuptools.pypa.io/en/latest/pkg_resources.html
+    warnings.simplefilter("ignore")
+    from eth_tester.exceptions import TransactionFailed
+
 from eth_typing import HexAddress
 from web3 import Web3
 from web3.contract import Contract
