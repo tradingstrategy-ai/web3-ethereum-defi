@@ -742,7 +742,7 @@ def create_reorganisation_monitor(web3: Web3, check_depth=250) -> Reorganisation
         reorg_mon = GraphQLReorganisationMonitor(graphql_url=graphql_url, check_depth=check_depth)
     else:
         # Default slow implementation
-        logger.warning("The node does not support /graphql interface. " "Downloading block headers and timestamps will be extremely slow." "Check documentation how to configure your node or choose a smaller timeframe for the buffer of trades.")
+        logger.info("The node does not support /graphql interface. " "Downloading block headers and timestamps will be extremely slow." "Check documentation how to configure your node or choose a smaller timeframe for the buffer of trades.")
         reorg_mon = JSONRPCReorganisationMonitor(web3, check_depth=check_depth)
 
     return reorg_mon
