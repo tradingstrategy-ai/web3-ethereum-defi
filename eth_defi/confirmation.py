@@ -23,6 +23,7 @@ from web3.providers import BaseProvider
 from eth_defi.hotwallet import SignedTransactionWithNonce
 from eth_defi.provider.anvil import mine
 from eth_defi.provider.fallback import FallbackProvider, get_fallback_provider
+from eth_defi.provider.mev_blocker import MEVBlockerProvider
 from eth_defi.provider.named import get_provider_name
 from eth_defi.timestamp import get_latest_block_timestamp
 from eth_defi.tx import decode_signed_transaction
@@ -567,7 +568,17 @@ def wait_and_broadcast_multiple_nodes(
         check_nonce_mismatch(web3, txs)
 
     provider = get_fallback_provider(web3)  # Will raise if fallback provider is not configured
-    providers = provider.providers
+    all_providers = providers = provider.providers
+
+    mev_protected_providers = [p for p in providers if isinstance(p, MEVBlockerProvider)]
+
+    if mev_protected_providers:
+        providers = mev_protected_providers
+        logger.info(
+            "MEV blocking enabled.\nBroadcast only through: %s\nAll providers: %s",
+            providers,
+            all_providers,
+        )
 
     logger.info(
         "Broadcasting %d transactions using %s to confirm in %d blocks, timeout is %s, inter node delay is %s",
