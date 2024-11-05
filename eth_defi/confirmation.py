@@ -570,10 +570,10 @@ def wait_and_broadcast_multiple_nodes(
     provider = get_fallback_provider(web3)  # Will raise if fallback provider is not configured
     all_providers = providers = provider.providers
 
-    mev_protected_providers = [p for p in providers if isinstance(p, MEVBlockerProvider)]
+    transact_provider = getattr(web3.provider, "transact_provider", None)
 
-    if mev_protected_providers:
-        providers = mev_protected_providers
+    if transact_provider:
+        providers = [transact_provider]
         logger.info(
             "MEV blocking enabled.\nBroadcast only through: %s\nAll providers: %s",
             providers,
