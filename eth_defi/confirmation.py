@@ -579,6 +579,8 @@ def wait_and_broadcast_multiple_nodes(
             providers,
             all_providers,
         )
+    else:
+        logger.info("No MEV blocker enable")
 
     logger.info(
         "Broadcasting %d transactions using %s to confirm in %d blocks, timeout is %s, inter node delay is %s",
