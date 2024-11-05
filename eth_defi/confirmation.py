@@ -8,6 +8,7 @@
 import datetime
 import logging
 import time
+from distutils.command.install import install
 from typing import Collection, Dict, List, Set, TypeAlias, Union, cast
 
 from _decimal import Decimal
@@ -570,7 +571,11 @@ def wait_and_broadcast_multiple_nodes(
     provider = get_fallback_provider(web3)  # Will raise if fallback provider is not configured
     all_providers = providers = provider.providers
 
-    transact_provider = getattr(web3.provider, "transact_provider", None)
+    provider = web3.provider
+    if isinstance(provider, MEVBlockerProvider):
+        transact_provider = provider.transact_provider
+    else:
+        transact_provider = None
 
     if transact_provider:
         providers = [transact_provider]
