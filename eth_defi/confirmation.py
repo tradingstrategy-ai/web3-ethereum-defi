@@ -718,17 +718,25 @@ def wait_and_broadcast_multiple_nodes(
                 raise ConfirmationTimedOut(f"Transaction confirmation failed. Started: {started_at}, timed out after {max_timeout} ({max_timeout.total_seconds()}s). Poll delay: {poll_delay.total_seconds()}s. Still unconfirmed: {unconfirmed_tx_strs}")
 
         if datetime.datetime.utcnow() >= next_node_switch:
-            # Check if it time to try a better node provider
-            logger.warning(
-                "Timeout %s reached with this node provider. Trying confirm tx success with an alternative node provider: %s.",
-                node_switch_timeout,
-                provider,
-            )
-            provider.switch_provider()
+
+            if transact_provider:
+                logger.info(f"Broadcast failed with {transact_provider} - trying again")
+            else:
+                # Check if it time to try a better node provider
+                logger.warning(
+                    "Timeout %s reached with this node provider. Trying confirm tx success with an alternative node provider: %s.",
+                    node_switch_timeout,
+                    provider,
+                )
+                if hasattr(provider, "switch_provider"):
+                    provider.switch_provider()
+                else:
+                    logger.warning(f"Unknown provider {provider} of {providers} - cannot switch. Not sure what's going on")
+
             next_node_switch = datetime.datetime.utcnow() + node_switch_timeout
 
             # Rebroadcast txs again if we suspect a broadcast failed
-            for tx in txs:
+            for tx in unconfirmed_txs:
                 try:
                     _broadcast_multiple_nodes(providers, tx)
                     last_exception = None
