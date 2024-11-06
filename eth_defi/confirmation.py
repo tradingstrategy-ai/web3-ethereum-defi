@@ -8,8 +8,8 @@
 import datetime
 import logging
 import time
-from distutils.command.install import install
-from typing import Collection, Dict, List, Set, TypeAlias, Union, cast
+
+from typing import Collection, Dict, List, Set, Union, cast
 
 from _decimal import Decimal
 from eth_account.datastructures import SignedTransaction
@@ -559,7 +559,7 @@ def wait_and_broadcast_multiple_nodes(
     if web3.eth.chain_id == 61:
         assert confirmation_block_count == 0, "Ethereum Tester chain does not progress itself, so we cannot wait"
 
-    anviled = is_anvil()
+    anviled = is_anvil(web3)
 
     if anviled:
         inter_node_delay = datetime.timedelta(seconds=0.1)
