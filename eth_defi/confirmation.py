@@ -559,7 +559,9 @@ def wait_and_broadcast_multiple_nodes(
     if web3.eth.chain_id == 61:
         assert confirmation_block_count == 0, "Ethereum Tester chain does not progress itself, so we cannot wait"
 
-    if is_anvil(web3):
+    anviled = is_anvil()
+
+    if anviled:
         inter_node_delay = datetime.timedelta(seconds=0.1)
 
     for tx in txs:
@@ -585,7 +587,7 @@ def wait_and_broadcast_multiple_nodes(
             all_providers,
         )
     else:
-        logger.info("No MEV blocker enable")
+        logger.info("No MEV blocker enable, Anvil is %s", anviled)
 
     logger.info(
         "Broadcasting %d transactions using %s to confirm in %d blocks, timeout is %s, inter node delay is %s",
