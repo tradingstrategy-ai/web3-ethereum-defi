@@ -1,6 +1,7 @@
 """Uniswap v2 swap helper functions."""
 import warnings
 from typing import Callable, Optional
+import logging
 
 from eth_typing import HexAddress
 from web3.contract import Contract
@@ -8,6 +9,9 @@ from web3.contract.contract import ContractFunction
 
 from eth_defi.uniswap_v2.deployment import FOREVER_DEADLINE, UniswapV2Deployment
 from eth_defi.uniswap_v2.fees import estimate_buy_price, estimate_sell_price
+
+
+logger = logging.getLogger(__name__)
 
 
 def swap_with_slippage_protection(
@@ -135,6 +139,14 @@ def swap_with_slippage_protection(
     path = [quote_token.address, base_token.address]
     if intermediate_token:
         path = [quote_token.address, intermediate_token.address, base_token.address]
+
+    logger.info(
+        "swap_with_slippage_protection()\npath: %s\nmax_slippage: %s (BPS)\nfee: %s\ndeadline: %s",
+        path,
+        max_slippage,
+        fee,
+        deadline,
+    )
 
     if amount_in:
         assert amount_out is None, "amount_in is specified, amount_out has to be None"
