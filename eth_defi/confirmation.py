@@ -11,11 +11,14 @@ Some notes
 
 import datetime
 import logging
+import pprint
 import time
 
 from typing import Collection, Dict, List, Set, Union, cast
 
 from _decimal import Decimal
+
+import requests
 from eth_account.datastructures import SignedTransaction
 
 
@@ -879,6 +882,8 @@ def wait_and_broadcast_multiple_nodes_mev_blocker(
         max_timeout,
     )
 
+    provider_name = get_provider_name(provider)
+
     # Initial broadcast of txs
     last_exception = None
     for tx in txs:
@@ -890,7 +895,7 @@ def wait_and_broadcast_multiple_nodes_mev_blocker(
             tx.nonce,
             tx.hash.hex(),
             chain_nonce,
-            get_provider_name(provider),
+            provider_name,
             confirmation_timeout
         )
 
@@ -907,6 +912,15 @@ def wait_and_broadcast_multiple_nodes_mev_blocker(
 
             logger.info("Confirmation cycle, unconfirmed tx is: %s, sleeping %s", tx_hash.hex(), poll_delay)
             time.sleep(poll_delay.total_seconds())
+
+            if "mevblocker.io" in provider_name:
+                # Their special endpoint
+                # https://docs.cow.fi/mevblocker/users-and-integrators/users/api
+                try:
+                    mev_status = requests.get(f"https://rpc.mevblocker.io/tx/{tx_hash.hex()}").json()
+                    logger.info("MEV Blocker status:\n%s", pprint.pformat(mev_status))
+                except Exception as e:
+                    logger.error("Could not read MEVBlocker status", e)
 
             try:
                 receipt = web3.eth.get_transaction_receipt(tx_hash)
