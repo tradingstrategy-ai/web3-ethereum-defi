@@ -33,6 +33,7 @@ from eth_defi.provider.named import get_provider_name
 from eth_defi.timestamp import get_latest_block_timestamp
 from eth_defi.tx import decode_signed_transaction
 from eth_defi.utils import to_unix_timestamp
+from tradeexecutor.cli.commands.shared_options import confirmation_timeout
 
 logger = logging.getLogger(__name__)
 
@@ -871,10 +872,11 @@ def wait_and_broadcast_multiple_nodes_mev_blocker(
         poll_delay = datetime.timedelta(seconds=1)
 
     logger.info(
-        "wait_and_broadcast_multiple_nodes_mev_blocker(): broadcasting %d transactions, anvil is %s, provider is %s",
+        "wait_and_broadcast_multiple_nodes_mev_blocker(): broadcasting %d transactions, anvil is %s, provider is %s, timeout is %s",
         len(txs),
         anviled,
         transaction_provider,
+        max_timeout,
     )
 
     # Initial broadcast of txs
@@ -884,11 +886,12 @@ def wait_and_broadcast_multiple_nodes_mev_blocker(
         chain_nonce = web3.eth.get_transaction_count(tx.address)
 
         logger.info(
-            "Broadcasting tx nonce: %d, tx hash: %s, chain nonce: %d, endpoint: %s",
+            "Broadcasting tx nonce: %d, tx hash: %s, chain nonce: %d, endpoint: %s, timeout is %s",
             tx.nonce,
             tx.hash.hex(),
             chain_nonce,
             get_provider_name(provider),
+            confirmation_timeout
         )
 
         tx_hash = web3.eth.send_raw_transaction(tx.rawTransaction)
@@ -902,7 +905,7 @@ def wait_and_broadcast_multiple_nodes_mev_blocker(
                 # Anvil bug: the first send_raw_transaction might not work
                 mine(web3)
 
-            logger.debug("Starting MEV Blocker confirmation cycle, unconfirmed tx is: %s", tx_hash.hex())
+            logger.info("Confirmation cycle, unconfirmed tx is: %s, sleeping %s", tx_hash.hex(), poll_delay)
             time.sleep(poll_delay.total_seconds())
 
             try:
@@ -913,12 +916,13 @@ def wait_and_broadcast_multiple_nodes_mev_blocker(
                 logger.info("No receipt yet for tx: %s", str(e))
                 last_exception = e
 
-        if time.time() > end:
+        if time.time() >= end:
             raise ConfirmationTimedOut(
-                f"Run out of poll delay when confirming nonce {tx.nonce}: {tx.hash.hex()}, last exception was {las}",
+                f"Run out of poll delay when confirming nonce {tx.nonce}: {tx.hash.hex()}, last exception was {last_exception}",
             )
 
     if last_exception:
+        logger.error("Raising the latest exception %s", last_exception)
         raise last_exception
 
     logger.info("All broadcasted, hashes are: %s", [h.hex() for h in receipts.keys()])
