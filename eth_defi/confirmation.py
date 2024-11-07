@@ -919,9 +919,15 @@ def wait_and_broadcast_multiple_nodes_mev_blocker(
                 try:
                     mev_status = requests.get(f"https://rpc.mevblocker.io/tx/{tx_hash.hex()}").json()
                     logger.info("MEV Blocker status:\n%s", pprint.pformat(mev_status))
+
+                    if mev_status.get("status") == "PENDING":
+                        logger.info("MEV Blocker still pending, another attempt")
+                        time.sleep(poll_delay.total_seconds())
+                        continue
                 except Exception as e:
                     logger.error("Could not read MEVBlocker status: %s", e)
 
+            last_exception = None
             try:
                 receipt = web3.eth.get_transaction_receipt(tx_hash)
                 receipts[tx.hash] = receipt
