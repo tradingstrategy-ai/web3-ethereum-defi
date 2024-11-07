@@ -1,4 +1,4 @@
-from typing import TypedDict
+from decimal import Decimal
 
 from web3 import Web3
 from web3.logs import DISCARD
@@ -107,36 +107,60 @@ def analyse_trade_by_receipt(
     amount_in = input_args["amountIn"]
     amount_out_min = input_args["amountOutMinimum"]
 
+    in_token_details = fetch_erc20_details(web3, path[0])
+    out_token_details = fetch_erc20_details(web3, path[-1])
+
     # The tranasction logs are likely to contain several events like Transfer,
     # Sync, etc. We are only interested in Swap events.
     # See https://docs.uniswap.org/contracts/v3/reference/core/interfaces/pool/IUniswapV3PoolEvents#swap
     swap_events = uniswap.PoolContract.events.Swap().process_receipt(tx_receipt, errors=DISCARD)
 
-    # NOTE: we are interested in the last swap event
-    # AttributeDict({'args': AttributeDict({'sender': '0x6D411e0A54382eD43F02410Ce1c7a7c122afA6E1', 'recipient': '0xC2c2C1C8871C189829d3CCD169010F430275BC70', 'amount0': -292184487391376249, 'amount1': 498353865, 'sqrtPriceX96': 3267615572280113943555521, 'liquidity': 41231056256176602, 'tick': -201931}), 'event': 'Swap', 'logIndex': 3, 'transactionIndex': 0, 'transactionHash': HexBytes('0xe7fff8231effe313010aed7d973fdbe75f58dc4a59c187b230e3fc101c58ec97'), 'address': '0x4529B3F2578Bf95c1604942fe1fCDeB93F1bb7b6', 'blockHash': HexBytes('0xe06feb724020c57c6a0392faf7db29fedf4246ce5126a5b743b2627b7dc69230'), 'blockNumber': 24})
-    event = swap_events[-1]
+    if len(swap_events) == 1:
+        event = swap_events[0]
 
-    props = event["args"]
-    amount0 = props["amount0"]
-    amount1 = props["amount1"]
-    tick = props["tick"]
+        props = event["args"]
+        amount0 = props["amount0"]
+        amount1 = props["amount1"]
+        tick = props["tick"]
 
-    pool_address = event["address"]
-    pool = fetch_pool_details(web3, pool_address)
+        pool_address = event["address"]
+        pool = fetch_pool_details(web3, pool_address)
 
-    # Depending on the path, the out token can pop up as amount0Out or amount1Out
-    # For complex swaps (unspported) we can have both
-    assert (amount0 > 0 and amount1 < 0) or (amount0 < 0 and amount1 > 0), "Unsupported swap type"
+        # Depending on the path, the out token can pop up as amount0Out or amount1Out
+        # For complex swaps (unspported) we can have both
+        assert (amount0 > 0 and amount1 < 0) or (amount0 < 0 and amount1 > 0), "Unsupported swap type"
 
-    amount_out = amount0 if amount0 < 0 else amount1
-    assert amount_out < 0, "amount out should be negative for uniswap v3"
+        if amount0 > 0:
+            amount_in = amount0
+            amount_out = amount1
+        else:
+            amount_in = amount1
+            amount_out = amount0
 
-    in_token_details = fetch_erc20_details(web3, path[0])
-    out_token_details = fetch_erc20_details(web3, path[-1])
-    price = pool.convert_price_to_human(tick)  # Return price of token0/token1
+        # NOTE: LP fee paid in token_in amount, not USD
+        lp_fee_paid = float(amount_in * pool.fee / 10**in_token_details.decimals)
+    else:
+        first_event = swap_events[0]
+        if first_event["args"]["amount0"] > 0:
+            amount_in = first_event["args"]["amount0"]
+        else:
+            amount_in = first_event["args"]["amount1"]
 
-    amount_in = amount0 if amount0 > 0 else amount1
-    lp_fee_paid = float(amount_in * pool.fee / 10**in_token_details.decimals)
+        last_event = swap_events[-1]
+        if last_event["args"]["amount0"] > 0:
+            amount_out = last_event["args"]["amount1"]
+        else:
+            amount_out = last_event["args"]["amount0"]
+
+        # NOTE: with multiple hops, we do not know which token the LP fee is paid in to sum it up
+        lp_fee_paid = None
+
+    assert amount_out < 0, "amount out should be negative for Uniswap v3 swap"
+
+    amount_out_cleaned = Decimal(abs(amount_out)) / Decimal(10**out_token_details.decimals)
+    amount_in_cleaned = Decimal(abs(amount_in)) / Decimal(10**in_token_details.decimals)
+
+    price = amount_out_cleaned / amount_in_cleaned
 
     return TradeSuccess(
         gas_used,
@@ -148,7 +172,7 @@ def analyse_trade_by_receipt(
         price,
         in_token_details.decimals,
         out_token_details.decimals,
-        token0=pool.token0,
-        token1=pool.token1,
+        token0=in_token_details,
+        token1=out_token_details,
         lp_fee_paid=lp_fee_paid,
     )
