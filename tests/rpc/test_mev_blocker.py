@@ -1,8 +1,10 @@
 """Test MEV blocker provider switching."""
+from datetime import datetime
+
 import pytest
 from web3 import HTTPProvider, Web3
 
-from eth_defi.confirmation import wait_and_broadcast_multiple_nodes_mev_blocker
+from eth_defi.confirmation import wait_and_broadcast_multiple_nodes_mev_blocker, ConfirmationTimedOut
 from eth_defi.provider.anvil import launch_anvil, AnvilLaunch
 from eth_defi.provider.mev_blocker import MEVBlockerProvider
 
@@ -132,3 +134,28 @@ def test_mev_blocker_broadcast_two(mev_blocker_provider: MEVBlockerProvider):
     )
 
     assert len(receipts) == 2
+
+
+def test_mev_blocker_broadcast_timeout(mev_blocker_provider: MEVBlockerProvider):
+    """Use wait_and_broadcast_multiple_nodes_mev_blocker() MEV Blocker compatible broadcasting method"""
+
+    web3 = Web3(mev_blocker_provider)
+    wallet = HotWallet.create_for_testing(web3)
+
+    signed_tx = wallet.sign_transaction_with_new_nonce(
+        {
+            "from": wallet.address,
+            "to": ZERO_ADDRESS,
+            "value": 1,
+            "gas": 100_000,
+            "gasPrice": web3.eth.gas_price,
+        }
+    )
+
+    with pytest.raises(ConfirmationTimedOut):
+        wait_and_broadcast_multiple_nodes_mev_blocker(
+            web3.provider,
+            [signed_tx],
+            max_timeout=datetime.timedelta(seconds=-1)
+        )
+

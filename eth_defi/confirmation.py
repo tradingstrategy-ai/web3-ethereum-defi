@@ -895,7 +895,7 @@ def wait_and_broadcast_multiple_nodes_mev_blocker(
                 last_exception = e
 
         if time.time() > end:
-            raise RuntimeError(
+            raise ConfirmationTimedOut(
                 f"Run out of poll delay when confirming %d: %s",
                 tx.nonce,
                 tx.hash.hex()
