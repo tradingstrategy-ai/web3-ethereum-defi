@@ -3,6 +3,10 @@
 - Wait for multiple transactions to be confirmed and read back the results from the blockchain
 
 - The safest way to get transactions out is to use :py:func:`wait_and_broadcast_multiple_nodes`
+
+Some notes
+
+- `MEV Blocker endpoints <https://docs.cow.fi/mevblocker/users-and-integrators/users/available-endpoints>`__
 """
 
 import datetime
@@ -343,7 +347,10 @@ def broadcast_and_wait_transactions_to_complete(
 SignedTxType = Union[SignedTransaction, SignedTransactionWithNonce]
 
 
-def _broadcast_multiple_nodes(providers: Collection[BaseProvider], signed_tx: SignedTxType):
+def _broadcast_multiple_nodes(
+    providers: Collection[BaseProvider],
+    signed_tx: SignedTxType,
+):
     """Attempt to broadcast a transaction through multiple providers.
 
     We attemt to broadcast transaction through all providers,
@@ -377,7 +384,12 @@ def _broadcast_multiple_nodes(providers: Collection[BaseProvider], signed_tx: Si
 
     for p in providers:
         name = get_provider_name(p)
-        logger.info("Broadcasting %s through %s", signed_tx.hash.hex(), name)
+        logger.info(
+            "_broadcast_multiple_nodes(): Broadcasting nonce:%d hash:%s through %s",
+            signed_tx.nonce,
+            signed_tx.hash.hex(),
+            name,
+        )
 
         # Does not use any middleware
         web3 = Web3(p)
@@ -395,7 +407,7 @@ def _broadcast_multiple_nodes(providers: Collection[BaseProvider], signed_tx: Si
             # both for too high and too low nonces.
             # We also get nonce too low errors,
             # when broadcasting through multiple nodes and those nodes sync nonce faster than we broadcast
-            if resp_data["message"] == "nonce too low":
+            if "nonce too low" in resp_data["message"] or "nonce too high" in resp_data["message"]:
                 if address:
                     current_nonce = web3.eth.get_transaction_count(address)
                 else:
@@ -404,13 +416,13 @@ def _broadcast_multiple_nodes(providers: Collection[BaseProvider], signed_tx: Si
                 logger.info("Nonce too low. Current:%s proposed:%s address:%s: tx:%s resp:%s", current_nonce, nonce, address, signed_tx, resp_data)
                 # raise NonceTooLow(f"Current on-chain nonce {current_nonce}, proposed {nonce}") from e
 
-            if "invalid chain" in resp_data["message"]:
+            elif "invalid chain" in resp_data["message"]:
                 # Invalid chain id / chain id missing.
                 # Cannot retry.
                 logger.warning("Invalid chain: %s %s", signed_tx, resp_data)
                 raise BadChainId() from e
 
-            if "insufficient funds for gas" in resp_data["message"]:
+            elif "insufficient funds for gas" in resp_data["message"]:
                 logger.warning("Out of balance error. Tx: %s, resp: %s", signed_tx, resp_data)
                 # Always raise when we are out of funds,
                 # because any retry is not help
@@ -420,6 +432,8 @@ def _broadcast_multiple_nodes(providers: Collection[BaseProvider], signed_tx: Si
                 else:
                     our_balance = None
                 raise OutOfGasFunds(f"Failed to broadcast {tx_hash}, out of gas, account {address} balance is {our_balance}.\n" f"TX details: {signed_tx}") from e
+            else:
+                raise ValueError(f"Does not know how to handle error: {e}\nTx: {tx_hash}, nonce {nonce}, address {address}, see logs for further details") from e
 
         except Exception as e:
             exceptions[p] = e
@@ -774,3 +788,124 @@ def check_nonce_mismatch(web3: Web3, txs: Collection[SignedTxType]):
 
         if on_chain_nonce != nonce:
             raise NonceMismatch(f"Nonce mismatch for broadcasted transactions.\n" + f"Address {address}, we have signed with nonce {nonce}, but on-chain is {on_chain_nonce}.\n" + f"Potential reasons include incorrectly shared hot wallet or badly synced hot wallet nonce.")
+
+
+
+def wait_and_broadcast_multiple_nodes_mev_blocker(
+    provider: MEVBlockerProvider,
+    txs: Collection[SignedTxType],
+    max_timeout=datetime.timedelta(minutes=10),
+    poll_delay=datetime.timedelta(seconds=10),
+) -> Dict[HexBytes, dict]:
+    """Broadcast transactions through a MEV blocker enabled endpoint.
+
+    - Cannot transact multiple transactions simultaneously, need to broadacst and confirm one by one
+
+    For all transactions
+
+    - Broadcast transaction
+    - Wait until it is confirmed
+        - To avoid nonce errors
+
+    :param web3:
+        Web3 instance with :py:class:`eth_defi.provider.fallback.FallbackProvider`
+        configured as its RPC provider.
+
+    :param txs:
+        List of transaction to broadcast.
+
+        Most be pre-ordered by ``(address, nonce)``.
+
+    :param check_nonce_validity:
+        Check if signed nonces match on-chain data before attempting to broadcat.
+
+    :return:
+        Map of transaction hashes -> receipt
+
+    :raise ConfirmationTimedOut:
+        If we cannot get transactions out
+
+    :raise NonceMismatch:
+        Starting nonce does not match what we see on chain.
+
+        When ``check_nonce_validity`` is set.
+
+    :raise Exception:
+        If all nodes fail to broadcast the transaction, then raise an exception.
+
+        It's likely that there is a problem with a transaction.
+
+        The exception is raised after we try multiple nodes multiple times,
+        based on ``node_switch_timeout`` and other arguments.
+
+        A reverted transaction is not an exception, but will be returned
+        in the receipts.
+
+        In the case of multiple exceptions, the last one is raised.
+        The exception is whatever lower stack is giving us.
+
+    :raise OutOfGasFunds:
+        The hot wallet account does not have enough native token to cover the tx fees.
+
+    """
+
+    assert isinstance(provider, MEVBlockerProvider), f"Got: {provider}"
+
+    assert isinstance(poll_delay, datetime.timedelta)
+    assert isinstance(max_timeout, datetime.timedelta)
+
+    receipts = {}
+
+    # Only interact with the transact provider from no one
+    transaction_provider = provider.transact_provider
+    web3 = Web3(transaction_provider)
+
+    anviled = is_anvil(web3)
+    if anviled:
+        poll_delay = datetime.timedelta(seconds=0.1)
+
+    logger.info(
+        "wait_and_broadcast_multiple_nodes_mev_blocker(): broadcasting %d transactions, anvil is %s, provider is %s",
+        len(txs),
+        anviled,
+        transaction_provider,
+    )
+
+    # Initial broadcast of txs
+    last_exception = None
+    for tx in txs:
+
+        logger.info(
+            "Broadcasting nonce: %d, hash: %s, endpoint: %s",
+            tx.nonce,
+            tx.hash.hex(),
+            get_provider_name(provider),
+        )
+
+        tx_hash = web3.eth.send_raw_transaction(tx.rawTransaction)
+
+        end = time.time() + max_timeout.total_seconds()
+        while time.time() < end:
+            logger.debug("Starting MEV Blocker confirmation cycle, unconfirmed tx is: %s", tx_hash.hex())
+            time.sleep(poll_delay.total_seconds())
+            try:
+                receipt = web3.eth.get_transaction_receipt(tx_hash)
+                receipts[tx.hash] = receipt
+                break
+            except Exception as e:
+                logger.info("No receipt ye for t: %e", e)
+                last_exception = e
+
+        if time.time() > end:
+            raise ConfirmationTimedOut(
+                f"Run out of poll delay when confirming %d: %s",
+                tx.nonce,
+                tx.hash.hex()
+            )
+
+    if last_exception:
+        raise last_exception
+
+    logger.info("All broadcasted, hashes are: %s", [h.hex() for h in receipts.keys()])
+
+    return receipts
