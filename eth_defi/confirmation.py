@@ -849,20 +849,26 @@ def wait_and_broadcast_multiple_nodes_mev_blocker(
 
     """
 
-    assert isinstance(provider, MEVBlockerProvider), f"Got: {provider}"
-
     assert isinstance(poll_delay, datetime.timedelta)
     assert isinstance(max_timeout, datetime.timedelta)
 
     receipts = {}
 
     # Only interact with the transact provider from no one
-    transaction_provider = provider.transact_provider
+    if isinstance(provider, MEVBlockerProvider):
+        transaction_provider = provider.transact_provider
+    elif isinstance(provider, FallbackProvider):
+        # Anvil test path
+        transaction_provider = provider.get_active_provider()
+    else:
+        transaction_provider = provider
+        logger.info("MEV blocker test path, provider is %s", provider)
+
     web3 = Web3(transaction_provider)
 
     anviled = is_anvil(web3)
     if anviled:
-        poll_delay = datetime.timedelta(seconds=0.1)
+        poll_delay = datetime.timedelta(seconds=1)
 
     logger.info(
         "wait_and_broadcast_multiple_nodes_mev_blocker(): broadcasting %d transactions, anvil is %s, provider is %s",
@@ -875,32 +881,41 @@ def wait_and_broadcast_multiple_nodes_mev_blocker(
     last_exception = None
     for tx in txs:
 
+        chain_nonce = web3.eth.get_transaction_count(tx.address)
+
         logger.info(
-            "Broadcasting nonce: %d, hash: %s, endpoint: %s",
+            "Broadcasting tx nonce: %d, tx hash: %s, chain nonce: %d, endpoint: %s",
             tx.nonce,
             tx.hash.hex(),
+            chain_nonce,
             get_provider_name(provider),
         )
 
         tx_hash = web3.eth.send_raw_transaction(tx.rawTransaction)
 
+        assert tx_hash == tx.hash, f"Not a tx_hash reply: {tx_hash}"
+
         end = time.time() + max_timeout.total_seconds()
         while time.time() < end:
+
+            if anviled:
+                # Anvil bug: the first send_raw_transaction might not work
+                mine(web3)
+
             logger.debug("Starting MEV Blocker confirmation cycle, unconfirmed tx is: %s", tx_hash.hex())
             time.sleep(poll_delay.total_seconds())
+
             try:
                 receipt = web3.eth.get_transaction_receipt(tx_hash)
                 receipts[tx.hash] = receipt
                 break
             except Exception as e:
-                logger.info("No receipt ye for t: %e", e)
+                logger.info("No receipt yet for tx: %s", str(e))
                 last_exception = e
 
         if time.time() > end:
             raise ConfirmationTimedOut(
-                f"Run out of poll delay when confirming %d: %s",
-                tx.nonce,
-                tx.hash.hex()
+                f"Run out of poll delay when confirming nonce {tx.nonce}: {tx.hash.hex()}, last exception was {las}",
             )
 
     if last_exception:
