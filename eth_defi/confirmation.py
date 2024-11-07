@@ -799,7 +799,7 @@ def wait_and_broadcast_multiple_nodes_mev_blocker(
 ) -> Dict[HexBytes, dict]:
     """Broadcast transactions through a MEV blocker enabled endpoint.
 
-    - Cannot switch between providers while on this - must read and write the same single endpoint
+    - Cannot transact multiple transactions simultaneously, need to broadacst and confirm one by one
 
     For all transactions
 
@@ -849,24 +849,26 @@ def wait_and_broadcast_multiple_nodes_mev_blocker(
 
     """
 
-    assert isinstance(provider, MEVBlockerProvider)
+    assert isinstance(provider, MEVBlockerProvider), f"Got: {provider}"
 
     assert isinstance(poll_delay, datetime.timedelta)
     assert isinstance(max_timeout, datetime.timedelta)
 
-    web3 = Web3(provider)
+    receipts = {}
+
+    # Only interact with the transact provider from no one
+    transaction_provider = provider.transact_provider
+    web3 = Web3(transaction_provider)
 
     anviled = is_anvil(web3)
-
     if anviled:
         poll_delay = datetime.timedelta(seconds=0.1)
 
-    receipts = {}
-
     logger.info(
-        "wait_and_broadcast_multiple_nodes_mev_blocker(): broadcasting %d transactions, anvil is %s",
+        "wait_and_broadcast_multiple_nodes_mev_blocker(): broadcasting %d transactions, anvil is %s, provider is %s",
         len(txs),
         anviled,
+        transaction_provider,
     )
 
     # Initial broadcast of txs
@@ -907,4 +909,3 @@ def wait_and_broadcast_multiple_nodes_mev_blocker(
     logger.info("All broadcasted, hashes are: %s", [h.hex() for h in receipts.keys()])
 
     return receipts
-

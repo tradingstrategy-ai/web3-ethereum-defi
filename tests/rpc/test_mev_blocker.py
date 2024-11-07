@@ -1,12 +1,12 @@
 """Test MEV blocker provider switching."""
-from datetime import datetime
+import datetime
 
 import pytest
 from web3 import HTTPProvider, Web3
 
 from eth_defi.confirmation import wait_and_broadcast_multiple_nodes_mev_blocker, ConfirmationTimedOut
 from eth_defi.provider.anvil import launch_anvil, AnvilLaunch
-from eth_defi.provider.mev_blocker import MEVBlockerProvider
+from eth_defi.provider.mev_blocker import MEVBlockerProvider, get_mev_blocker_provider
 
 from eth_defi.hotwallet import HotWallet
 from eth_defi.trace import assert_transaction_success_with_explanation
@@ -84,6 +84,9 @@ def test_mev_blocker_broadcast_single(mev_blocker_provider: MEVBlockerProvider):
 
     web3 = Web3(mev_blocker_provider)
     wallet = HotWallet.create_for_testing(web3)
+
+    _mev_blocker = get_mev_blocker_provider(web3)
+    assert _mev_blocker == mev_blocker_provider
 
     signed_tx = wallet.sign_transaction_with_new_nonce(
         {

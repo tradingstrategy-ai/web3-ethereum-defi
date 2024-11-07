@@ -17,6 +17,7 @@ This module provides methods to create special
 from collections import Counter
 from typing import Any
 
+from web3 import Web3
 from web3.providers import JSONBaseProvider
 from web3.types import RPCEndpoint, RPCResponse
 
@@ -78,3 +79,11 @@ class MEVBlockerProvider(BaseNamedProvider):
     @property
     def call_endpoint_uri(self) -> str:
         return self.call_provider.endpoint_uri
+
+
+def get_mev_blocker_provider(web3: Web3) -> MEVBlockerProvider | None:
+    provider = web3.provider
+    if isinstance(provider, MEVBlockerProvider):
+        return provider
+    return None
+
