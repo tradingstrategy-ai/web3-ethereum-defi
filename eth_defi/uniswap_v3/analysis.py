@@ -123,9 +123,6 @@ def analyse_trade_by_receipt(
         amount1 = props["amount1"]
         tick = props["tick"]
 
-        pool_address = event["address"]
-        pool = fetch_pool_details(web3, pool_address)
-
         # Depending on the path, the out token can pop up as amount0Out or amount1Out
         # For complex swaps (unspported) we can have both
         assert (amount0 > 0 and amount1 < 0) or (amount0 < 0 and amount1 > 0), "Unsupported swap type"
@@ -138,6 +135,7 @@ def analyse_trade_by_receipt(
             amount_out = amount0
 
         # NOTE: LP fee paid in token_in amount, not USD
+        pool = fetch_pool_details(web3, event["address"])
         lp_fee_paid = float(amount_in * pool.fee / 10**in_token_details.decimals)
     else:
         first_event = swap_events[0]
@@ -152,8 +150,9 @@ def analyse_trade_by_receipt(
         else:
             amount_out = last_event["args"]["amount0"]
 
-        # NOTE: with multiple hops, we do not know which token the LP fee is paid in to sum it up
-        lp_fee_paid = None
+        # NOTE: with multiple hops, we make a temporary workaround that all pools in the path have similar fees
+        first_pool = fetch_pool_details(web3, first_event["address"])
+        lp_fee_paid = float(amount_in * first_pool.fee / 10**in_token_details.decimals) * len(swap_events)
 
     assert amount_out < 0, "amount out should be negative for Uniswap v3 swap"
 

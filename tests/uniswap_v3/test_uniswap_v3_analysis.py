@@ -210,7 +210,7 @@ def test_analyse_by_receipt(
     assert isinstance(analysis, TradeSuccess)
     assert analysis.amount_out_decimals == 18
     assert analysis.amount_in_decimals == 6
-    assert 1 / analysis.price == pytest.approx(Decimal(1705.125346038114263963445989))
+    assert analysis.get_human_price(reverse_token_order=True) == pytest.approx(Decimal(1705.125346038114263963445989))
     assert analysis.get_effective_gas_price_gwei() == 1
     assert analysis.lp_fee_paid == pytest.approx(0.03)
 
@@ -293,4 +293,4 @@ def test_analyse_multihop_trade(
     assert analysis.amount_in_decimals == 6
     assert analysis.price == pytest.approx(Decimal(0.9938344933))
     assert analysis.get_effective_gas_price_gwei() == 1
-    assert analysis.lp_fee_paid is None
+    assert analysis.lp_fee_paid == pytest.approx(0.6)
