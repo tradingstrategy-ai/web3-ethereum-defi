@@ -1,4 +1,5 @@
 """Uniswap v3 slippage and trade success tests."""
+
 from decimal import Decimal
 
 import pytest
@@ -84,21 +85,31 @@ def usdc(web3, deployer) -> Contract:
 
 
 @pytest.fixture()
+def dai(web3, deployer) -> Contract:
+    """Mock DAI token.
+
+    Note that this token has 18 decimals instead of 6 of real USDC.
+    """
+    token = create_token(web3, deployer, "DAI", "DAI", 100_000_000 * 10**18)
+    return token
+
+
+@pytest.fixture()
 def weth(uniswap_v3: UniswapV3Deployment) -> Contract:
     """Mock WETH token."""
     return uniswap_v3.weth
 
 
 @pytest.fixture()
-def weth_usdc_fee() -> int:
+def pool_trading_fee() -> int:
     """Get fee for weth_usdc trading pool on Uniswap v3 (fake)"""
     return 3000
 
 
 @pytest.fixture
-def weth_usdc_pool(web3, deployer, uniswap_v3, weth, usdc, weth_usdc_fee) -> HexAddress:
+def weth_usdc_pool(web3, deployer, uniswap_v3, weth, usdc, pool_trading_fee) -> HexAddress:
     """ETH-USDC pool with 1.7M liquidity."""
-    min_tick, max_tick = get_default_tick_range(weth_usdc_fee)
+    min_tick, max_tick = get_default_tick_range(pool_trading_fee)
 
     pool_contract = deploy_pool(
         web3,
@@ -106,7 +117,7 @@ def weth_usdc_pool(web3, deployer, uniswap_v3, weth, usdc, weth_usdc_fee) -> Hex
         deployment=uniswap_v3,
         token0=weth,
         token1=usdc,
-        fee=weth_usdc_fee,
+        fee=pool_trading_fee,
     )
 
     add_liquidity(
@@ -122,6 +133,39 @@ def weth_usdc_pool(web3, deployer, uniswap_v3, weth, usdc, weth_usdc_fee) -> Hex
     return pool_contract
 
 
+@pytest.fixture
+def weth_dai_pool(
+    web3: Web3,
+    deployer: str,
+    uniswap_v3: UniswapV3Deployment,
+    weth: Contract,
+    dai: Contract,
+    pool_trading_fee: int,
+):
+    pool = deploy_pool(
+        web3,
+        deployer,
+        deployment=uniswap_v3,
+        token0=weth,
+        token1=dai,
+        fee=pool_trading_fee,
+    )
+
+    min_tick, max_tick = get_default_tick_range(pool_trading_fee)
+    add_liquidity(
+        web3,
+        deployer,
+        deployment=uniswap_v3,
+        pool=pool,
+        amount0=500 * 10**18,
+        amount1=850_000 * 10**18,
+        lower_tick=min_tick,
+        upper_tick=max_tick,
+    )
+
+    return pool
+
+
 def test_analyse_by_receipt(
     web3: Web3,
     deployer: str,
@@ -130,9 +174,9 @@ def test_analyse_by_receipt(
     weth: Contract,
     usdc: Contract,
     weth_usdc_pool: Contract,
-    weth_usdc_fee: int,
+    pool_trading_fee: int,
 ):
-    """Analyse a Uniswap v3 trade by receipt."""
+    """Analyse a Uniswap v3 multihop trade by receipt."""
 
     # See if we can fix the Github CI random fails with this
     reset_default_token_cache()
@@ -146,7 +190,7 @@ def test_analyse_by_receipt(
 
     # Perform a swap USDC->WETH
     path = [usdc.address, weth.address]  # Path tell how the swap is routed
-    encoded_path = encode_path(path, [weth_usdc_fee])
+    encoded_path = encode_path(path, [pool_trading_fee])
 
     tx_hash = router.functions.exactInput(
         (
@@ -166,7 +210,7 @@ def test_analyse_by_receipt(
     assert isinstance(analysis, TradeSuccess)
     assert analysis.amount_out_decimals == 18
     assert analysis.amount_in_decimals == 6
-    assert analysis.price == pytest.approx(Decimal(1699.9102484539058))
+    assert analysis.get_human_price(reverse_token_order=True) == pytest.approx(Decimal(1705.125346038114263963445989))
     assert analysis.get_effective_gas_price_gwei() == 1
     assert analysis.lp_fee_paid == pytest.approx(0.03)
 
@@ -177,7 +221,7 @@ def test_analyse_by_receipt(
     reverse_path = [weth.address, usdc.address]  # Path tell how the swap is routed
     tx_hash = router.functions.exactInput(
         (
-            encode_path(reverse_path, [weth_usdc_fee]),
+            encode_path(reverse_path, [pool_trading_fee]),
             user_1,
             FOREVER_DEADLINE,
             all_weth_amount - 1000,
@@ -192,10 +236,61 @@ def test_analyse_by_receipt(
     analysis = analyse_trade_by_receipt(web3, uniswap_v3, tx, tx_hash, receipt)
 
     assert isinstance(analysis, TradeSuccess)
-    assert analysis.price == pytest.approx(Decimal(1699.9102484539058))
-    assert analysis.get_human_price(reverse_token_order=False) == pytest.approx(Decimal(1699.9102484539058))
-    assert analysis.get_human_price(reverse_token_order=True) == pytest.approx(Decimal(1 / 1699.9102484539058))
+    assert analysis.price == pytest.approx(Decimal(1694.90994))
+    assert analysis.get_human_price(reverse_token_order=False) == pytest.approx(Decimal(1694.90994))
+    assert analysis.get_human_price(reverse_token_order=True) == pytest.approx(Decimal(1 / 1694.90994))
     assert analysis.get_effective_gas_price_gwei() == 1
     assert analysis.amount_out_decimals == 6
     assert analysis.amount_in_decimals == 18
     assert analysis.lp_fee_paid == pytest.approx(1.7594014463335705e-05)
+
+
+def test_analyse_multihop_trade(
+    web3: Web3,
+    deployer: str,
+    user_1,
+    uniswap_v3: UniswapV3Deployment,
+    weth: Contract,
+    usdc: Contract,
+    dai: Contract,
+    weth_usdc_pool: Contract,
+    weth_dai_pool: Contract,
+    pool_trading_fee: int,
+):
+    """Analyse a Uniswap v3 trade by receipt."""
+
+    # See if we can fix the Github CI random fails with this
+    reset_default_token_cache()
+
+    router = uniswap_v3.swap_router
+
+    # Give user_1 some cash to buy ETH and approve it on the router
+    usdc_amount_to_pay = 500 * 10**6
+    usdc.functions.transfer(user_1, usdc_amount_to_pay).transact({"from": deployer})
+    usdc.functions.approve(router.address, usdc_amount_to_pay).transact({"from": user_1})
+
+    # Perform a swap USDC->WETH
+    path = [usdc.address, weth.address, dai.address]  # Path tell how the swap is routed
+    encoded_path = encode_path(path, [pool_trading_fee, pool_trading_fee])
+
+    tx_hash = router.functions.exactInput(
+        (
+            encoded_path,
+            user_1,
+            FOREVER_DEADLINE,
+            100 * 10**6,
+            0,
+        )
+    ).transact({"from": user_1})
+
+    tx = web3.eth.get_transaction(tx_hash)
+    receipt = web3.eth.get_transaction_receipt(tx_hash)
+
+    # user_1 has less than 500 USDC left to loses in the LP fees
+    analysis = analyse_trade_by_receipt(web3, uniswap_v3, tx, tx_hash, receipt)
+    assert isinstance(analysis, TradeSuccess)
+    assert analysis.amount_out_decimals == 18
+    assert analysis.amount_in_decimals == 6
+    assert analysis.price == pytest.approx(Decimal(0.9938344933))
+    assert analysis.get_effective_gas_price_gwei() == 1
+    assert analysis.lp_fee_paid == pytest.approx(0.6)
