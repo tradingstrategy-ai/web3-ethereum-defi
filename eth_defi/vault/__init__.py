@@ -1,0 +1,1 @@
+"""Generic interface for different vault protocols"""
