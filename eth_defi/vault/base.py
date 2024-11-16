@@ -50,5 +50,13 @@ class Vault(ABC):
     def deploy(self, params: VaultDeploymentParameters) -> VaultSpec:
         """Deploy a new vault."""
 
+    @abstractmethod
+    def fetch_deposit_queue(self, vault: VaultSpec) -> None:
+        """Read incoming pending deposits."""
+
+    @abstractmethod
+    def fetch_withdraw_queue(self, vault: VaultSpec) -> None:
+        """Read outgoing pending withdraws."""
+
 
 
