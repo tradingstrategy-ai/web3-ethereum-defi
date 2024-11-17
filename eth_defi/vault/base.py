@@ -3,6 +3,8 @@ from dataclasses import dataclass
 from decimal import Decimal
 from typing import Iterable, TypedDict
 
+from eth_defi.token import TokenAddress
+
 
 class VaultEvent:
     pass
@@ -15,6 +17,22 @@ class VaultSpec:
     vault_address: str
 
 
+@dataclass(slots=True)
+class BlockRange:
+    """Block range for reading onchain data.
+
+    - All our operations are based on a certain block number when actions happen.
+
+    - For many operations like deposits, we need to sync the events since the last end block
+    """
+
+    #: Start block (inclusive)
+    start_block: int
+
+    #: End block (inclusive)
+    end_block: int
+
+
 class VaultInfo(TypedDict):
     """Vault-protocol specific intormation about the vault."""
 
@@ -23,22 +41,36 @@ class VaultDeploymentParameters(TypedDict):
     """Input needed to deploy a vault."""
 
 
-class Vault(ABC):
+@dataclass
+class TradingUniverse:
+    """Input needed to deploy a vault."""
+
+    spot_token_addresses: set[TokenAddress]
+
+
+@dataclass
+class VaultPortfolio(TypedDict):
+    """Input needed to deploy a vault."""
+
+    spot_erc20: dict[TokenAddress, Decimal]
+
+
+
+class VaultBase(ABC):
     """Base class for vault protocol adapters."""
 
     @abstractmethod
-    def has_block_range_support(self) -> bool:
+    def has_block_range_event_support(self) -> bool:
         """Can we query delta changes by block ranges."""
 
     @abstractmethod
-    def fetch_balances(self, token_universe: set[str]) -> dict[str, Decimal]:
+    def fetch_portfolio(self, universe: TradingUniverse) -> VaultPortfolio:
         """Read token balances of a vault."""
 
     @abstractmethod
     def fetch_flow(
         self,
-        start_block: int,
-        end_block: int,
+        range: BlockRange,
     ) -> Iterable[VaultEvent]:
         """Read token balances of a vault."""
 
@@ -51,12 +83,19 @@ class Vault(ABC):
         """Deploy a new vault."""
 
     @abstractmethod
-    def fetch_deposit_queue(self, vault: VaultSpec) -> None:
+    def fetch_deposit_queue(
+        self,
+        vault: VaultSpec,
+        range: BlockRange,
+    ) -> None:
         """Read incoming pending deposits."""
 
     @abstractmethod
-    def fetch_withdraw_queue(self, vault: VaultSpec) -> None:
+    def fetch_withdraw_queue(
+        self,
+        vault: VaultSpec,
+        range: BlockRange,
+    ) -> None:
         """Read outgoing pending withdraws."""
-
 
 

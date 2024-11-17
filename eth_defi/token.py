@@ -8,7 +8,7 @@ from collections import OrderedDict
 from dataclasses import dataclass
 from decimal import Decimal
 from functools import cached_property
-from typing import Optional, Union
+from typing import Optional, Union, TypeAlias
 import warnings
 
 import cachetools
@@ -37,6 +37,10 @@ _call_missing_exceptions = (TransactionFailed, BadFunctionCallOutput, ValueError
 #:
 #:
 DEFAULT_TOKEN_CACHE = cachetools.LRUCache(1024)
+
+
+#: ERC-20 address, 0x prefixed string
+TokenAddress: TypeAlias = str
 
 
 @dataclass
@@ -91,7 +95,7 @@ class TokenDetails:
         return self.contract.w3.eth.chain_id
 
     @property
-    def address(self) -> HexAddress:
+    def address(self) -> TokenAddress:
         """The address of this token."""
         return self.contract.address
 
