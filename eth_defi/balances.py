@@ -151,21 +151,30 @@ def fetch_erc20_balances_by_token_list(
         When you give a non-ERC-20 contract as a token.
     """
 
+    assert len(tokens) > 0, "Queried token set is empty"
+
+    assert owner.startswith("0x")
+    owner = Web3.to_checksum_address(owner)
+
     if block_identifier is None:
         block_identifier = get_almost_latest_block_number(web3)
         last_block = web3.eth.block_number
-        logger.info(f"Reading token balances for {len(tokens)} tokens at block {block_identifier}, last block is {last_block}")
+    else:
+        last_block = None
+
+    logger.info(f"Reading the latest token balances for {len(tokens)} tokens at block identifier {block_identifier}, last block is {last_block}, address is {owner}")
 
     balances = {}
     for address in tokens:
-        erc_20 = get_deployed_contract(web3, "sushi/IERC20.json", address)
+        # Uses cached token ABI
+        token = fetch_erc20_details(web3, address)
         try:
-            raw_amount = erc_20.functions.balanceOf(owner).call(block_identifier=block_identifier)
             if decimalise:
-                token = fetch_erc20_details(web3, address)
-                balances[address] = token.convert_to_decimals(raw_amount)
+                balances[address] = token.fetch_balance_of(token.address, block_identifier)
             else:
+                raw_amount = token.contract.functions.balanceOf(owner).call(block_identifier=block_identifier)
                 balances[address] = raw_amount
+
         except BadFunctionCallOutput as e:
             raise BalanceFetchFailed(f"Could not get ERC-20 {address} balance for {owner}") from e
 

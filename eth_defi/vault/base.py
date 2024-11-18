@@ -3,6 +3,9 @@ from dataclasses import dataclass
 from decimal import Decimal
 from typing import Iterable, TypedDict
 
+from eth.typing import BlockRange
+from eth_typing import BlockIdentifier, HexAddress
+
 from eth_defi.token import TokenAddress
 
 
@@ -10,27 +13,16 @@ class VaultEvent:
     pass
 
 
-@dataclass(slots=True)
+@dataclass(slots=True, frozen=True)
 class VaultSpec:
     """Unique id for a vault"""
     chain_id: int
-    vault_address: str
+    vault_address: HexAddress
 
-
-@dataclass(slots=True)
-class BlockRange:
-    """Block range for reading onchain data.
-
-    - All our operations are based on a certain block number when actions happen.
-
-    - For many operations like deposits, we need to sync the events since the last end block
-    """
-
-    #: Start block (inclusive)
-    start_block: int
-
-    #: End block (inclusive)
-    end_block: int
+    def __post_init__(self):
+        assert isinstance(self.chain_id, int)
+        assert isinstance(self.vault_address, str)
+        assert self.vault_address.startswith("0x")
 
 
 class VaultInfo(TypedDict):
@@ -49,49 +41,37 @@ class TradingUniverse:
 
 
 @dataclass
-class VaultPortfolio(TypedDict):
+class VaultPortfolio:
     """Input needed to deploy a vault."""
 
     spot_erc20: dict[TokenAddress, Decimal]
 
 
-
-class VaultBase(ABC):
-    """Base class for vault protocol adapters."""
+class VaultFlowManager(ABC):
 
     @abstractmethod
-    def has_block_range_event_support(self) -> bool:
-        """Can we query delta changes by block ranges."""
-
-    @abstractmethod
-    def fetch_portfolio(self, universe: TradingUniverse) -> VaultPortfolio:
-        """Read token balances of a vault."""
-
-    @abstractmethod
-    def fetch_flow(
+    def fetch_pending_deposits(
         self,
-        range: BlockRange,
-    ) -> Iterable[VaultEvent]:
-        """Read token balances of a vault."""
-
-    @abstractmethod
-    def fetch_info(self, vault: VaultSpec) -> VaultInfo:
-        """Read vault parameters from the chain."""
-
-    @abstractmethod
-    def deploy(self, params: VaultDeploymentParameters) -> VaultSpec:
-        """Deploy a new vault."""
-
-    @abstractmethod
-    def fetch_deposit_queue(
-        self,
-        vault: VaultSpec,
         range: BlockRange,
     ) -> None:
         """Read incoming pending deposits."""
 
     @abstractmethod
-    def fetch_withdraw_queue(
+    def fetch_pending_redemptions(
+        self,
+        range: BlockRange,
+    ) -> None:
+        """Read outgoing pending withdraws."""
+
+    @abstractmethod
+    def fetch_processed_deposits(
+        self,
+        range: BlockRange,
+    ) -> None:
+        """Read incoming pending deposits."""
+
+    @abstractmethod
+    def fetch_processed_redemptions(
         self,
         vault: VaultSpec,
         range: BlockRange,
@@ -99,3 +79,35 @@ class VaultBase(ABC):
         """Read outgoing pending withdraws."""
 
 
+class VaultBase(ABC):
+    """Base class for vault protocol adapters.
+
+    - Takes :py:class:`VaultSpec` as a constructor argument and builds a proxy class
+      for accessing the vault based on this
+    """
+
+    @abstractmethod
+    def has_block_range_event_support(self) -> bool:
+        """Can we query delta changes by block ranges."""
+
+    @abstractmethod
+    def fetch_portfolio(
+        self,
+        universe: TradingUniverse,
+        block_identifier: BlockIdentifier | None = None,
+    ) -> VaultPortfolio:
+        """Read the current token balances of a vault.
+
+        - SHould be supported by all implementations
+        """
+
+    @abstractmethod
+    def fetch_info(self) -> VaultInfo:
+        """Read vault parameters from the chain."""
+
+    @abstractmethod
+    def get_flow_manager(self) -> VaultFlowManager:
+        """Get flow manager to read individial events.
+
+        - Only supported if :py:meth:`has_block_range_event_support` is True
+        """
