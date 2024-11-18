@@ -112,7 +112,7 @@ def fetch_erc20_balances_by_transfer_event(
 
 def fetch_erc20_balances_by_token_list(
     web3: Web3,
-    owner: HexAddress,
+    owner: HexAddress | str,
     tokens: Set[HexAddress | str],
     block_identifier: BlockIdentifier = None,
     decimalise=False,
@@ -170,7 +170,7 @@ def fetch_erc20_balances_by_token_list(
         token = fetch_erc20_details(web3, address)
         try:
             if decimalise:
-                balances[address] = token.fetch_balance_of(token.address, block_identifier)
+                balances[address] = token.fetch_balance_of(owner, block_identifier)
             else:
                 raw_amount = token.contract.functions.balanceOf(owner).call(block_identifier=block_identifier)
                 balances[address] = raw_amount

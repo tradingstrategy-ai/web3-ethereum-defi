@@ -40,6 +40,7 @@ def test_fetch_info(vault: VelvetVault):
     """Read vault metadata from private Velvet endpoint."""
     data = vault.fetch_info()
     assert data["owner"] == "0x0c9db006f1c7bfaa0716d70f012ec470587a8d4f"
+    assert data["vaultAddress"] == "0x9d247fbc63e4d50b257be939a264d68758b43d04"
 
 
 def test_fetch_vault_portfolio(vault: VelvetVault):
@@ -47,11 +48,11 @@ def test_fetch_vault_portfolio(vault: VelvetVault):
     web3 = vault.web3
     universe = TradingUniverse(
         spot_token_addresses={
-            "0x6921b130d297cc43754afba22e5eac0fbf8db75b",  # DogInMe
+            "0x6921B130D297cc43754afba22e5EAc0FBf8Db75b",  # DogInMe
             "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913",  # USDC on Base
         }
     )
     latest_block = get_almost_latest_block_number(web3)
     portfolio = vault.fetch_portfolio(universe, latest_block)
-    print(portfolio.spot_erc20)
-    import ipdb ; ipdb.set_trace()
+    assert portfolio.spot_erc20["0x833589fcd6edb6e08f4c7c32d4f71b54bda02913"] > 0
+    assert portfolio.spot_erc20["0x6921B130D297cc43754afba22e5EAc0FBf8Db75b"] > 0

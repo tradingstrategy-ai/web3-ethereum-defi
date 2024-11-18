@@ -8,6 +8,7 @@ Velvet Capital URLs
 - Vault metadata https://api.velvet.capital/api/v3/portfolio/0xbdd3897d59843220927f0915aa943ddfa1214703r
 
 """
+from functools import cached_property
 
 import requests
 from eth_typing import BlockIdentifier
@@ -61,6 +62,10 @@ class VelvetVault(VaultBase):
         spec: VaultSpec,
         api_url: str = DEFAULT_VELVET_API_URL,
     ):
+        """
+        :param spec:
+            Address must be Velvet portfolio address (not vault address)
+        """
         assert isinstance(web3, Web3)
         assert isinstance(spec, VaultSpec)
         self.web3 = web3
@@ -80,6 +85,10 @@ class VelvetVault(VaultBase):
         data = self.session.get(url).json()
         return data["data"]
 
+    @cached_property
+    def info(self) -> VelvetVaultInfo:
+        return self.fetch_info()
+
     def fetch_portfolio(
         self,
         universe: TradingUniverse,
@@ -90,9 +99,11 @@ class VelvetVault(VaultBase):
         - SHould be supported by all implementations
         """
 
+        vault_address = self.info["vaultAddress"]
+
         erc20_balances = fetch_erc20_balances_by_token_list(
             self.web3,
-            self.spec.vault_address,
+            vault_address,
             universe.spot_token_addresses,
             block_identifier=block_identifier,
             decimalise=True,
