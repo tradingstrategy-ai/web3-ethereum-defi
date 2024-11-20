@@ -1,6 +1,10 @@
 """Velvet capital tests.
 
-- Test against live deployed vault on Base
+- Test against mainnet fork of live deployed vault on Base
+
+- Vault meta https://api.velvet.capital/api/v3/portfolio/0x205e80371f6d1b33dff7603ca8d3e92bebd7dc25
+
+- Vault UI https://dapp.velvet.capital/ManagerVaultDetails/0x205e80371f6d1b33dff7603ca8d3e92bebd7dc25
 """
 
 import os
@@ -108,9 +112,12 @@ def test_vault_swap_partially(
     )
     latest_block = get_almost_latest_block_number(web3)
     portfolio = vault.fetch_portfolio(universe, latest_block)
-    assert portfolio.spot_erc20["0x833589fcd6edb6e08f4c7c32d4f71b54bda02913"] > Decimal(1.0)
+
     existing_dogmein_balance = portfolio.spot_erc20["0x6921B130D297cc43754afba22e5EAc0FBf8Db75b"]
     assert existing_dogmein_balance > 0
+
+    existing_usdc_balance = portfolio.spot_erc20["0x833589fcd6edb6e08f4c7c32d4f71b54bda02913"]
+    assert existing_usdc_balance > Decimal(1.0)
 
     # Build tx using Velvet API
     tx_data = vault.prepare_swap_with_enso(
@@ -120,9 +127,8 @@ def test_vault_swap_partially(
         slippage=0.01,
         remaining_tokens=universe.spot_token_addresses,
         swap_all=False,
+        from_=vault_owner,
     )
-
-    tx_data["from"] = Web3.to_checksum_address(vault_owner)
 
     # Perform swap
     tx_hash = web3.eth.send_transaction(tx_data)
@@ -132,9 +138,13 @@ def test_vault_swap_partially(
     latest_block = web3.eth.block_number
     portfolio = vault.fetch_portfolio(universe, latest_block)
     assert portfolio.spot_erc20["0x6921B130D297cc43754afba22e5EAc0FBf8Db75b"] > existing_dogmein_balance
+    assert portfolio.spot_erc20["0x833589fcd6edb6e08f4c7c32d4f71b54bda02913"] < existing_usdc_balance
 
 
-def test_vault_swap_very_little(vault: VelvetVault):
+def test_vault_swap_very_little(
+    vault: VelvetVault,
+    vault_owner: HexAddress,
+):
     """Simulate swap tokens using Enzo.
 
     - Do a very small amount of USDC
@@ -146,12 +156,6 @@ def test_vault_swap_very_little(vault: VelvetVault):
             "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913",  # USDC on Base
         }
     )
-    latest_block = get_almost_latest_block_number(web3)
-    portfolio = vault.fetch_portfolio(universe, latest_block)
-    assert portfolio.spot_erc20["0x833589fcd6edb6e08f4c7c32d4f71b54bda02913"] > Decimal(1.0)
-    existing_dogmein_balance = portfolio.spot_erc20["0x6921B130D297cc43754afba22e5EAc0FBf8Db75b"]
-    assert existing_dogmein_balance > 0
-
     # Build tx using Velvet API
     tx_data = vault.prepare_swap_with_enso(
         token_in="0x833589fcd6edb6e08f4c7c32d4f71b54bda02913",
@@ -160,15 +164,21 @@ def test_vault_swap_very_little(vault: VelvetVault):
         slippage=0.01,
         remaining_tokens=universe.spot_token_addresses,
         swap_all=False,
+        from_=vault_owner,
     )
 
-    # TODO: Test the actual swap
+    # Perform swap
+    tx_hash = web3.eth.send_transaction(tx_data)
+    assert_transaction_success_with_explanation(web3, tx_hash)
 
 
-def test_vault_swap_sell_to_usdc(vault: VelvetVault):
+def test_vault_swap_sell_to_usdc(
+    vault: VelvetVault,
+    vault_owner: HexAddress,
+):
     """Simulate swap tokens using Enzo.
 
-    - Do a very small amount of USDC
+    - Sell base token to get more USDC
     """
     web3 = vault.web3
     universe = TradingUniverse(
@@ -179,19 +189,23 @@ def test_vault_swap_sell_to_usdc(vault: VelvetVault):
     )
     latest_block = get_almost_latest_block_number(web3)
     portfolio = vault.fetch_portfolio(universe, latest_block)
-    assert portfolio.spot_erc20["0x833589fcd6edb6e08f4c7c32d4f71b54bda02913"] > Decimal(1.0)
-    existing_dogmein_balance = portfolio.spot_erc20["0x6921B130D297cc43754afba22e5EAc0FBf8Db75b"]
-    assert existing_dogmein_balance > 0
+    existing_usdc_balance = portfolio.spot_erc20["0x833589fcd6edb6e08f4c7c32d4f71b54bda02913"]
+    assert existing_usdc_balance > Decimal(1.0)
 
     # Build tx using Velvet API
     tx_data = vault.prepare_swap_with_enso(
         token_in="0x6921B130D297cc43754afba22e5EAc0FBf8Db75b",
         token_out="0x833589fcd6edb6e08f4c7c32d4f71b54bda02913",
-        swap_amount=1_000_000,
+        swap_amount=500 * 10**18,
         slippage=0.01,
         remaining_tokens=universe.spot_token_addresses,
         swap_all=False,
+        from_=vault_owner,
     )
 
-    # TODO: Test the actual swap
+    tx_hash = web3.eth.send_transaction(tx_data)
+    assert_transaction_success_with_explanation(web3, tx_hash)
 
+    latest_block = web3.eth.block_number
+    portfolio = vault.fetch_portfolio(universe, latest_block)
+    assert portfolio.spot_erc20["0x833589fcd6edb6e08f4c7c32d4f71b54bda02913"] > existing_usdc_balance

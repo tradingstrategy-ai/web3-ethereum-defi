@@ -128,8 +128,15 @@ class VelvetVault(VaultBase):
         slippage: float,
         remaining_tokens: set,
         swap_all=False,
+        from_: HexAddress | str | None = None,
     ) -> dict:
-        """Prepare a swap transaction using Enso intent engine and Vevlet API."""
+        """Prepare a swap transaction using Enso intent engine and Vevlet API.
+
+        :param from_:
+            Fill int the from field for the tx data.
+
+            Used with Anvil and unlocked accounts.
+        """
 
         if swap_all:
             remaining_tokens.remove(token_in)
@@ -144,6 +151,10 @@ class VelvetVault(VaultBase):
             remaining_tokens=remaining_tokens,
             chain_id=self.web3.eth.chain_id,
         )
+
+        if from_:
+            tx_data["from"] = Web3.to_checksum_address(from_)
+
         return tx_data
 
     def _make_api_request(
