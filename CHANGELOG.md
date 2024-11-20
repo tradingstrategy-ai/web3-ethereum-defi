@@ -1,8 +1,10 @@
 # Current
- 
-- Change `launch_anvil()` to use latest hardfork by default instead of `london`
+
+- Add: Vault abstraction framework to easily work with different onchain vaults
+- Add: Support for [Velvet Capital vaults](https://www.velvet.capital/)
 - Add: `wait_and_broadcast_multiple_nodes_mev_blocker()` for [MEV Blocker](https://mevblocker.io) - because the tx
   broadcast must be sequential
+- Change `launch_anvil()` to use latest hardfork by default instead of `london`
 
 # 0.26.1 
 

@@ -9,7 +9,6 @@ from decimal import Decimal
 
 import pytest
 from eth_account import Account
-from eth_typing import HexAddress
 from web3 import Web3
 
 from eth_defi.confirmation import wait_transactions_to_complete
