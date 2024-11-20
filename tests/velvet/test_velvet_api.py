@@ -49,7 +49,6 @@ def anvil_base_fork(request, vault_owner) -> AnvilLaunch:
         launch.close()
 
 
-
 @pytest.fixture()
 def web3(anvil_base_fork) -> Web3:
     web3 = create_multi_provider_web3(anvil_base_fork.json_rpc_url)
