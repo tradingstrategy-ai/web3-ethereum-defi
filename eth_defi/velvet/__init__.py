@@ -11,12 +11,12 @@ Velvet Capital URLs
 from functools import cached_property
 
 import requests
-from eth_typing import BlockIdentifier
+from eth_typing import BlockIdentifier, HexAddress
 from web3 import Web3
 
 from eth_defi.balances import fetch_erc20_balances_by_token_list
 from eth_defi.vault.base import VaultBase, VaultInfo, VaultSpec, TradingUniverse, VaultPortfolio
-
+from eth_defi.velvet.enso import swap_with_velvet_and_enso
 
 #: Signing API URL
 DEFAULT_VELVET_API_URL = "https://eventsapi.velvetdao.xyz/api/v3"
@@ -89,6 +89,14 @@ class VelvetVault(VaultBase):
     def info(self) -> VelvetVaultInfo:
         return self.fetch_info()
 
+    @property
+    def vault_address(self) -> HexAddress:
+        return self.info["vaultAddress"]
+
+    @property
+    def owner_address(self) -> HexAddress:
+        return self.info["owner"]
+
     def fetch_portfolio(
         self,
         universe: TradingUniverse,
@@ -111,6 +119,32 @@ class VelvetVault(VaultBase):
         return VaultPortfolio(
             spot_erc20=erc20_balances,
         )
+
+    def prepare_swap_with_enso(
+        self,
+        token_in: HexAddress | str,
+        token_out: HexAddress | str,
+        swap_amount: int,
+        slippage: float,
+        remaining_tokens: set,
+        swap_all=False,
+    ) -> dict:
+        """Prepare a swap transaction using Enso intent engine and Vevlet API."""
+
+        if swap_all:
+            remaining_tokens.remove(token_in)
+
+        tx_data = swap_with_velvet_and_enso(
+            rebalance_address=self.info["rebalancing"],
+            owner_address=self.owner_address,
+            token_in=token_in,
+            token_out=token_out,
+            swap_amount=swap_amount,
+            slippage=slippage,
+            remaining_tokens=remaining_tokens,
+            chain_id=self.web3.eth.chain_id,
+        )
+        return tx_data
 
     def _make_api_request(
         self,
