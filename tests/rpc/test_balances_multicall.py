@@ -52,7 +52,7 @@ def test_fetch_erc20_balances_multicall_failure(web3):
     """Multicall ERC-20 with a broken token."""
 
     tokens = {
-        "0x9d247fbc63e4d50b257be939a264d68758b43d04",  # Not  atoken
+        "0x9d247fbc63e4d50b257be939a264d68758b43d04",  # Not a token
     }
 
     # Velvet vault

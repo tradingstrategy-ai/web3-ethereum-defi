@@ -248,23 +248,47 @@ def fetch_erc20_balances_multicall(
 
     .. code-block:: python
 
-        def test_portfolio_token_list(web3: Web3, deployer: str, user_1: str, usdc: Contract, aave: Contract):
-            # Create a set of tokens
-            tokens = {aave.address, usdc.address}
-            # Load up the user with some tokens
-            usdc.functions.transfer(user_1, 500).transact({"from": deployer})
-            aave.functions.transfer(user_1, 200).transact({"from": deployer})
-            balances = fetch_erc20_balances_by_token_list(web3, user_1, tokens)
-            assert balances[usdc.address] == 500
-            assert balances[aave.address] == 200
+        def test_fetch_erc20_balances_multicall(web3):
+
+            tokens = {
+                "0x6921B130D297cc43754afba22e5EAc0FBf8Db75b",  # DogInMe
+                "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913",  # USDC on Base
+            }
+
+            # Velvet vault
+            address = "0x9d247fbc63e4d50b257be939a264d68758b43d04"
+
+            block_number = get_almost_latest_block_number(web3)
+
+            balances = fetch_erc20_balances_multicall(
+                web3,
+                address,
+                tokens,
+                block_identifier=block_number,
+            )
+
+            existing_dogmein_balance = balances["0x6921B130D297cc43754afba22e5EAc0FBf8Db75b"]
+            assert existing_dogmein_balance > 0
+
+            existing_usdc_balance = balances["0x833589fcd6edb6e08f4c7c32d4f71b54bda02913"]
+            assert existing_usdc_balance > Decimal(1.0)
+
+    :param address:
+        Address of which balances we query
 
     :param tokens:
-        ERC-20 list
+        List of ERC-20 addresses.
 
     :param block_identifier:
         Fetch at specific height.
 
         Must be given for a multicall.
+
+    :param chunk_size:
+        How many ERC-20 addresses feed to multicall once
+
+    :param gas_limit:
+        Gas limit of the multicall request
 
     :param decimalise:
         If ``True``, convert output amounts to humanised format in Python :py:class:`Decimal`.
