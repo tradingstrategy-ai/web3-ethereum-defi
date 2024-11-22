@@ -366,7 +366,3 @@ def fetch_erc20_balances_multicall(
         result = all_calls
 
     return result
-
-
-
-
