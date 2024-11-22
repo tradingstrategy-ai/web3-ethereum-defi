@@ -3,20 +3,22 @@ import logging
 from collections import Counter
 from dataclasses import dataclass
 from decimal import Decimal
-from typing import Dict, Optional, Set, Literal
+from itertools import islice
+from typing import Dict, Optional, Set
 
+import cachetools
 import requests.exceptions
 from eth_typing import BlockNumber, HexAddress
+from multicall import Multicall, Call
 from web3 import Web3
 from web3.contract import Contract
 from web3.exceptions import BadFunctionCallOutput
 from web3.types import BlockIdentifier
 
-from eth_defi.abi import get_contract, get_deployed_contract
+from eth_defi.abi import get_contract
 from eth_defi.event import fetch_all_events
 from eth_defi.provider.broken_provider import get_almost_latest_block_number
-from eth_defi.token import fetch_erc20_details
-
+from eth_defi.token import fetch_erc20_details, DEFAULT_TOKEN_CACHE
 
 logger = logging.getLogger(__name__)
 
@@ -223,3 +225,124 @@ def convert_balances_to_decimal(
         res[address] = DecimalisedHolding(Decimal(raw_balance) / Decimal(10**decimals), decimals, contract)
 
     return res
+
+
+def fetch_erc20_balances_multicall(
+    web3: Web3,
+    address: HexAddress | str,
+    tokens: list[HexAddress | str] | set[HexAddress | str],
+    block_identifier,
+    decimalise=True,
+    chunk_size=50,
+    token_cache: cachetools.Cache | None = DEFAULT_TOKEN_CACHE,
+    gas_limit=10_000_000,
+    raise_on_error=True,
+) -> dict[HexAddress | str, Decimal]:
+    """Read balance of multiple ERC-20 tokens on an address once using multicall.
+
+    - Fast, batches multiple calls on one JSON-RPC request
+
+    - Uses `Multicall library <https://github.com/banteg/multicall.py>`__
+
+    Example:
+
+    .. code-block:: python
+
+        def test_portfolio_token_list(web3: Web3, deployer: str, user_1: str, usdc: Contract, aave: Contract):
+            # Create a set of tokens
+            tokens = {aave.address, usdc.address}
+            # Load up the user with some tokens
+            usdc.functions.transfer(user_1, 500).transact({"from": deployer})
+            aave.functions.transfer(user_1, 200).transact({"from": deployer})
+            balances = fetch_erc20_balances_by_token_list(web3, user_1, tokens)
+            assert balances[usdc.address] == 500
+            assert balances[aave.address] == 200
+
+    :param tokens:
+        ERC-20 list
+
+    :param block_identifier:
+        Fetch at specific height.
+
+        Must be given for a multicall.
+
+    :param decimalise:
+        If ``True``, convert output amounts to humanised format in Python :py:class:`Decimal`.
+
+         Use cached :py:class:`TokenDetails` data.
+
+    :param token_cache:
+        Cache ERC-20 decimal data.
+
+    :param raise_on_error:
+        See `BalanceFetchFailed`.
+
+    :raise BalanceFetchFailed:
+        balanceOf() call failed.
+
+        When you give a non-ERC-20 contract as a token.
+
+    :return:
+        Map of token address -> balance.
+
+        If ERC-20 call failed, balance is set to `None` if `raise_on_error` is `False`.
+    """
+
+    assert address.startswith("0x")
+    assert block_identifier
+
+    all_calls = {}
+
+    def _handler(success, value):
+        if not success:
+            return None
+        return value
+
+    logger.info(
+        "Looking up token balances for %d addresses, chunk size %d, gas limit %d",
+        len(tokens),
+        chunk_size,
+        gas_limit,
+    )
+
+    tokens = list(tokens)
+
+    for i in range(0, len(tokens), chunk_size):
+
+        token_address_chunk = tokens[i:i + chunk_size]
+
+        # Build the batch of calls for
+        calls =[
+            Call(token_addr, ['balanceOf(address)(uint256)', address], [(token_addr, _handler)])
+            for token_addr in token_address_chunk
+        ]
+
+        multicall = Multicall(
+            calls=calls,
+            block_id=block_identifier,
+            _w3=web3,
+            require_success=False,
+            gas_limit=gas_limit,
+        )
+
+        batched_result = multicall()
+        all_calls.update(batched_result)
+
+    if raise_on_error:
+        for token_address, raw_balance in all_calls.items():
+            if raw_balance is None:
+                raise BalanceFetchFailed(f"Could not read token balance for ERC-20: {token_address} for address {address}")
+
+    if decimalise:
+        result = {}
+        for token_address, raw_balance in all_calls.items():
+            token = fetch_erc20_details(web3, token_address, cache=token_cache)
+            result[token_address] = token.convert_to_decimals(raw_balance) if raw_balance is not None else None
+    else:
+        result = all_calls
+
+    return result
+
+
+
+

@@ -97,6 +97,14 @@ class VelvetVault(VaultBase):
     def owner_address(self) -> HexAddress:
         return self.info["owner"]
 
+    @property
+    def name(self) -> str:
+        return self.info["name"]
+
+    @property
+    def token_symbol(self) -> str:
+        return self.info["symbol"]
+
     def fetch_portfolio(
         self,
         universe: TradingUniverse,
