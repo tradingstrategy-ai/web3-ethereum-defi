@@ -18,6 +18,7 @@ from eth_defi.provider.anvil import AnvilLaunch, fork_network_anvil
 from eth_defi.provider.broken_provider import get_almost_latest_block_number
 from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.trace import assert_transaction_success_with_explanation
+from eth_defi.uniswap_v3.constants import UNISWAP_V3_DEPLOYMENTS
 from eth_defi.uniswap_v3.deployment import UniswapV3Deployment, fetch_deployment
 from eth_defi.uniswap_v3.price import estimate_buy_received_amount
 from eth_defi.vault.base import VaultSpec, TradingUniverse
@@ -83,12 +84,14 @@ def test_fetch_doginme_price(web3: Web3):
     """Fetch price for DogInMe toeken."""
 
     # https://docs.uniswap.org/contracts/v3/reference/deployments/base-deployments
+    deployment_data = UNISWAP_V3_DEPLOYMENTS["base"]
     uniswap_v3_on_base = fetch_deployment(
         web3,
-        factory_address="0x33128a8fC17869897dcE68Ed026d694621f6FDfD",
-        router_address="0x2626664c2603336E57B271c5C0b26F421741e481",
-        position_manager_address="0x03a520b32C04BF3bEEf7BEb72E919cf822Ed34f1",
-        quoter_address="0x3d4e44Eb1374240CE5F1B871ab261CD16335B76a",
+        factory_address=deployment_data["factory"],
+        router_address=deployment_data["router"],
+        position_manager_address=deployment_data["position_manager"],
+        quoter_address=deployment_data["quoter"],
+        quoter_v2=deployment_data["quoter_v2"]
     )
 
     # https://app.uniswap.org/explore/pools/base/0x386298ce505067CA53e8a70FE82E12ff1dA7cc38

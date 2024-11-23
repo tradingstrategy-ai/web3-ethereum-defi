@@ -154,7 +154,10 @@ from eth_defi.uniswap_v3.utils import encode_path
 class UniswapV3PriceHelper:
     """Internal helper class for price calculations."""
 
-    def __init__(self, uniswap_v3: UniswapV3Deployment):
+    def __init__(
+            self,
+            uniswap_v3: UniswapV3Deployment,
+    ):
         self.deployment = uniswap_v3
 
     def get_amount_out(

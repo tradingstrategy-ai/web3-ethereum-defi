@@ -3,14 +3,11 @@
 Compatible exchanges include Uniswap v3 deployments on:
 
 - Ethereum mainnet
-
 - Avalanche
-
 - Polygon
-
 - Optimism
-
 - Arbitrum
+- Base
 
 """
 
@@ -61,6 +58,12 @@ class UniswapV3Deployment:
     # Pool contract proxy class.
     #: `See the Solidity source code <https://github.com/Uniswap/v3-core/blob/v1.0.0/contracts/UniswapV3Pool.sol>`__.
     PoolContract: Contract
+
+    #: Use QuoterV2 instead of classic V1
+    #:
+    #: Base chain has only V2.
+    #:
+    quoter_v2 = False
 
     def __repr__(self):
         return f"<Uniswap v3 as chain: {self.web3.eth.chain_id}, router: {self.swap_router.address} factory: {self.factory.address}>"
@@ -403,6 +406,7 @@ def fetch_deployment(
     router_address: HexAddress | str,
     position_manager_address: HexAddress | str,
     quoter_address: HexAddress | str,
+    quoter_v2=False,
 ) -> UniswapV3Deployment:
     """Construct Uniswap v3 deployment based on on-chain data.
 
@@ -412,13 +416,23 @@ def fetch_deployment(
         If set (default) ignore this error and just have
         `None` as the value for the wrapped token.
 
+    :param quoter_v2:
+        Quoter is a QuoterV2, not V1.
+
+        V1 not deployed on Base.
+
     :return:
         Data class representing Uniswap v3 exchange deployment
     """
     factory = get_deployed_contract(web3, "uniswap_v3/UniswapV3Factory.json", factory_address)
     router = get_deployed_contract(web3, "uniswap_v3/SwapRouter.json", router_address)
     position_manager = get_deployed_contract(web3, "uniswap_v3/NonfungiblePositionManager.json", position_manager_address)
-    quoter = get_deployed_contract(web3, "uniswap_v3/Quoter.json", quoter_address)
+
+    if quoter_v2:
+        quoter = get_deployed_contract(web3, "uniswap_v3/QuoterV2.json", quoter_address)
+    else:
+        quoter = get_deployed_contract(web3, "uniswap_v3/Quoter.json", quoter_address)
+
     PoolContract = get_contract(web3, "uniswap_v3/UniswapV3Pool.json")
 
     # https://github.com/Uniswap/v3-periphery/blob/6cce88e63e176af1ddb6cc56e029110289622317/contracts/SwapRouter.sol#L40
