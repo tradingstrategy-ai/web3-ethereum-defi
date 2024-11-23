@@ -141,6 +141,7 @@ See :ref:`slippage and price impact` tutorial for more information.
 
 """
 
+import logging
 from decimal import Decimal
 
 from eth_typing import HexAddress
@@ -151,10 +152,20 @@ from eth_defi.uniswap_v3.pool import fetch_pool_details
 from eth_defi.uniswap_v3.utils import encode_path
 
 
+logger = logging.getLogger(__name__)
+
+
+class QuotingFailed(Exception):
+    """QuoterV2 pukes ouk revert."""
+
+
 class UniswapV3PriceHelper:
     """Internal helper class for price calculations."""
 
-    def __init__(self, uniswap_v3: UniswapV3Deployment):
+    def __init__(
+            self,
+            uniswap_v3: UniswapV3Deployment,
+    ):
         self.deployment = uniswap_v3
 
     def get_amount_out(
@@ -198,11 +209,41 @@ class UniswapV3PriceHelper:
         """
         self.validate_args(path, fees, slippage, amount_in)
 
-        encoded_path = encode_path(path, fees)
-        amount_out = self.deployment.quoter.functions.quoteExactInput(
-            encoded_path,
-            amount_in,
-        ).call(block_identifier=block_identifier)
+        if self.deployment.quoter_v2:
+            # https://github.com/Uniswap/v3-periphery/blob/main/contracts/lens/QuoterV2.sol
+            # https://basescan.org/address/0x3d4e44Eb1374240CE5F1B871ab261CD16335B76a#readContract
+            encoded_path = encode_path(path, fees)
+
+            logger.info(
+                "QuoterV2: quoting get_amount_out(), path: %s, fees: %s, amount_in: %s",
+                path,
+                fees,
+                amount_in,
+            )
+
+            try:
+                quote_data = self.deployment.quoter.functions.quoteExactInput(
+                    encoded_path,
+                    amount_in,
+                ).call(block_identifier=block_identifier)
+            except ValueError as e:
+                raise QuotingFailed(f"Quoting failed. Path: {path}, fees: {fees}, amount_in: {amount_in}") from e
+
+            # quote_data is
+            #
+            # [1328788900753233521503, [11265578586930540950876463126030008], [736], 38846907]
+            #             uint256 amountOut,
+            #             uint160[] memory sqrtPriceX96AfterList,
+            #             uint32[] memory initializedTicksCrossedList,
+            #             uint256 gasEstimate
+
+            amount_out = quote_data[0]
+        else:
+            encoded_path = encode_path(path, fees)
+            amount_out = self.deployment.quoter.functions.quoteExactInput(
+                encoded_path,
+                amount_in,
+            ).call(block_identifier=block_identifier)
 
         return int(amount_out * 10_000 // (10_000 + slippage))
 
@@ -223,6 +264,9 @@ class UniswapV3PriceHelper:
         :param slippage: Slippage express in bps
         :param block_identifier: A specific block to estimate price
         """
+
+        assert not self.deployment.quoter_v2, "QuoterV2 support not yet added to get_amount_in()"
+
         self.validate_args(path, fees, slippage, amount_out)
 
         encoded_path = encode_path(path, fees, exact_output=True)
@@ -243,8 +287,8 @@ class UniswapV3PriceHelper:
 
 def estimate_buy_received_amount(
     uniswap: UniswapV3Deployment,
-    base_token_address: HexAddress,
-    quote_token_address: HexAddress,
+    base_token_address: HexAddress | str,
+    quote_token_address: HexAddress| str,
     quantity: Decimal | int,
     target_pair_fee: int,
     *,
@@ -373,7 +417,7 @@ def estimate_sell_received_amount(
 
     if intermediate_token_address:
         path = [base_token_address, intermediate_token_address, quote_token_address]
-        fees = [intermediate_pair_fee, target_pair_fee]
+        fees = [target_pair_fee, intermediate_pair_fee]
     else:
         path = [base_token_address, quote_token_address]
         fees = [target_pair_fee]

@@ -170,6 +170,9 @@ class HotWallet:
         """The private key as plain text."""
         return self.account._private_key
 
+    def get_main_address(self) -> HexAddress:
+        return self.address
+
     def sync_nonce(self, web3: Web3):
         """Initialise the current nonce from the on-chain data."""
         self.current_nonce = web3.eth.get_transaction_count(self.account.address)

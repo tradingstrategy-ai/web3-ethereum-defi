@@ -30,6 +30,7 @@ from web3.types import TxParams, TxReceipt
 
 from eth_defi.abi import decode_function_args, humanise_decoded_arg_data
 from eth_defi.deploy import ContractRegistry, get_or_create_contract_registry
+from eth_defi.provider.anvil import is_anvil
 from eth_defi.revert_reason import fetch_transaction_revert_reason
 
 logger = logging.getLogger(__name__)
@@ -303,12 +304,15 @@ def assert_transaction_success_with_explanation(
     if type(tx_hash) == str:
         tx_hash = HexBytes(tx_hash)
 
+
     receipt = web3.eth.wait_for_transaction_receipt(tx_hash)
     if receipt["status"] == 0:
         # Explain why the transaction failed
         tx_details = web3.eth.get_transaction(tx_hash)
 
-        if web3.eth.chain_id == 31337 or tracing:
+        on_anvil = is_anvil(web3)
+
+        if on_anvil or tracing:
             # Transaction tracing only enabled to anvil
             revert_reason = fetch_transaction_revert_reason(web3, tx_hash)
             trace_data = trace_evm_transaction(web3, tx_hash, TraceMethod.parity)
