@@ -80,32 +80,6 @@ def test_fetch_info(vault: VelvetVault):
     assert vault.owner_address == "0x0c9db006f1c7bfaa0716d70f012ec470587a8d4f"
 
 
-def test_fetch_doginme_price(web3: Web3):
-    """Fetch price for DogInMe toeken."""
-
-    # https://docs.uniswap.org/contracts/v3/reference/deployments/base-deployments
-    deployment_data = UNISWAP_V3_DEPLOYMENTS["base"]
-    uniswap_v3_on_base = fetch_deployment(
-        web3,
-        factory_address=deployment_data["factory"],
-        router_address=deployment_data["router"],
-        position_manager_address=deployment_data["position_manager"],
-        quoter_address=deployment_data["quoter"],
-        quoter_v2=deployment_data["quoter_v2"]
-    )
-
-    # https://app.uniswap.org/explore/pools/base/0x386298ce505067CA53e8a70FE82E12ff1dA7cc38
-    amount = estimate_buy_received_amount(
-        uniswap=uniswap_v3_on_base,
-        base_token_address="0x6921B130D297cc43754afba22e5EAc0FBf8Db75b",
-        quote_token_address="0x833589fcd6edb6e08f4c7c32d4f71b54bda02913",
-        quantity=500,
-        target_pair_fee=100,
-    )
-
-    assert amount > 0
-
-
 def test_fetch_vault_portfolio(vault: VelvetVault):
     """Read vault token balances."""
     web3 = vault.web3

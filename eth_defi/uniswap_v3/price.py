@@ -201,11 +201,31 @@ class UniswapV3PriceHelper:
         """
         self.validate_args(path, fees, slippage, amount_in)
 
-        encoded_path = encode_path(path, fees)
-        amount_out = self.deployment.quoter.functions.quoteExactInput(
-            encoded_path,
-            amount_in,
-        ).call(block_identifier=block_identifier)
+        if self.deployment.quoter_v2:
+            # https://github.com/Uniswap/v3-periphery/blob/main/contracts/lens/QuoterV2.sol
+            # https://basescan.org/address/0x3d4e44Eb1374240CE5F1B871ab261CD16335B76a#readContract
+            encoded_path = encode_path(path, fees)
+
+            quote_data = self.deployment.quoter.functions.quoteExactInput(
+                encoded_path,
+                amount_in,
+            ).call(block_identifier=block_identifier)
+
+            # quote_data is
+            #
+            # [1328788900753233521503, [11265578586930540950876463126030008], [736], 38846907]
+            #             uint256 amountOut,
+            #             uint160[] memory sqrtPriceX96AfterList,
+            #             uint32[] memory initializedTicksCrossedList,
+            #             uint256 gasEstimate
+
+            amount_out = quote_data[0]
+        else:
+            encoded_path = encode_path(path, fees)
+            amount_out = self.deployment.quoter.functions.quoteExactInput(
+                encoded_path,
+                amount_in,
+            ).call(block_identifier=block_identifier)
 
         return int(amount_out * 10_000 // (10_000 + slippage))
 
@@ -226,6 +246,9 @@ class UniswapV3PriceHelper:
         :param slippage: Slippage express in bps
         :param block_identifier: A specific block to estimate price
         """
+
+        assert not self.deployment.quoter_v2, "QuoterV2 support not yet added to get_amount_in()"
+
         self.validate_args(path, fees, slippage, amount_out)
 
         encoded_path = encode_path(path, fees, exact_output=True)

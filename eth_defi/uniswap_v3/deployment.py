@@ -30,7 +30,7 @@ from eth_defi.uniswap_v3.pool import fetch_pool_details
 from eth_defi.uniswap_v3.utils import encode_sqrt_ratio_x96, get_nearest_usable_tick
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class UniswapV3Deployment:
     """Describe Uniswap v3 deployment."""
 
@@ -61,9 +61,9 @@ class UniswapV3Deployment:
 
     #: Use QuoterV2 instead of classic V1
     #:
-    #: Base chain has only V2.
+    #: Base chain has only QuoterV2.
     #:
-    quoter_v2 = False
+    quoter_v2: bool = False
 
     def __repr__(self):
         return f"<Uniswap v3 as chain: {self.web3.eth.chain_id}, router: {self.swap_router.address} factory: {self.factory.address}>"
@@ -447,6 +447,7 @@ def fetch_deployment(
         position_manager=position_manager,
         quoter=quoter,
         PoolContract=PoolContract,
+        quoter_v2=quoter_v2,
     )
 
 
