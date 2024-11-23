@@ -119,3 +119,38 @@ def test_fetch_three_hop_doginme_price_buy(web3: Web3):
     )
 
     assert amount > 0
+
+
+def test_fetch_three_hop_doginme_price_sell(web3: Web3):
+    """Fetch price for DogInMe token, selling.
+
+    - Uses QuoterV2
+
+    - Use intermediary pair
+
+    - USDC->WETH->DogMeIn
+    """
+
+    deployment_data = UNISWAP_V3_DEPLOYMENTS["base"]
+    uniswap_v3_on_base = fetch_deployment(
+        web3,
+        factory_address=deployment_data["factory"],
+        router_address=deployment_data["router"],
+        position_manager_address=deployment_data["position_manager"],
+        quoter_address=deployment_data["quoter"],
+        quoter_v2=deployment_data["quoter_v2"],
+    )
+
+    # Pools https://app.uniswap.org/explore/tokens/base/0x6921b130d297cc43754afba22e5eac0fbf8db75b
+    #
+    amount = estimate_sell_received_amount(
+        uniswap=uniswap_v3_on_base,
+        base_token_address="0x6921B130D297cc43754afba22e5EAc0FBf8Db75b",  # DogInMe
+        quote_token_address="0x833589fcd6edb6e08f4c7c32d4f71b54bda02913",  # USDC
+        intermediate_token_address="0x4200000000000000000000000000000000000006",  # WETH
+        quantity=200 * 10**18,
+        target_pair_fee=1 * 100 * 100,  # 1% DogInMe pool, 100 units = 1 BPS
+        intermediate_pair_fee=5 * 100,  # 5 BPS WETH/USDC pool
+    )
+
+    assert amount > 0
