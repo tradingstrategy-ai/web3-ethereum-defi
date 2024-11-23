@@ -141,6 +141,7 @@ See :ref:`slippage and price impact` tutorial for more information.
 
 """
 
+import logging
 from decimal import Decimal
 
 from eth_typing import HexAddress
@@ -149,6 +150,13 @@ from web3 import Web3
 from eth_defi.uniswap_v3.deployment import UniswapV3Deployment
 from eth_defi.uniswap_v3.pool import fetch_pool_details
 from eth_defi.uniswap_v3.utils import encode_path
+
+
+logger = logging.getLogger(__name__)
+
+
+class QuotingFailed(Exception):
+    """QuoterV2 pukes ouk revert."""
 
 
 class UniswapV3PriceHelper:
@@ -206,10 +214,20 @@ class UniswapV3PriceHelper:
             # https://basescan.org/address/0x3d4e44Eb1374240CE5F1B871ab261CD16335B76a#readContract
             encoded_path = encode_path(path, fees)
 
-            quote_data = self.deployment.quoter.functions.quoteExactInput(
-                encoded_path,
+            logger.info(
+                "QuoterV2: quoting get_amount_out(), path: %s, fees: %s, amount_in: %s",
+                path,
+                fees,
                 amount_in,
-            ).call(block_identifier=block_identifier)
+            )
+
+            try:
+                quote_data = self.deployment.quoter.functions.quoteExactInput(
+                    encoded_path,
+                    amount_in,
+                ).call(block_identifier=block_identifier)
+            except ValueError as e:
+                raise QuotingFailed(f"Quoting failed. Path: {path}, fees: {fees}, amount_in: {amount_in}") from e
 
             # quote_data is
             #

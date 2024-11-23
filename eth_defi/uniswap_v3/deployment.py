@@ -392,6 +392,7 @@ def _deploy_nft_position_descriptor(web3: Web3, deployer: HexAddress, weth: Cont
     bytecode = contract_interface["bytecode"].replace("__$cea9be979eee3d87fb124d6cbb244bb0b5$__", nft_descriptor.address[2:])
     NonfungibleTokenPositionDescriptor = web3.eth.contract(abi=abi, bytecode=bytecode)
 
+    # New in v1.3.0 of perihelia contracts
     _nativeCurrencyLabelBytes = b"ETH" + b"\0" * 29
 
     return deploy_contract(
