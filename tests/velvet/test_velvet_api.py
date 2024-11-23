@@ -215,3 +215,22 @@ def test_vault_swap_sell_to_usdc(
     latest_block = web3.eth.block_number
     portfolio = vault.fetch_portfolio(universe, latest_block)
     assert portfolio.spot_erc20["0x833589fcd6edb6e08f4c7c32d4f71b54bda02913"] > existing_usdc_balance
+
+
+def test_velvet_api_deposit(
+    vault: VelvetVault,
+    vault_owner: HexAddress,
+):
+    """Use Velvet API to perform deposit"""
+
+    web3 = vault.web3
+    universe = TradingUniverse(
+        spot_token_addresses={
+            "0x6921B130D297cc43754afba22e5EAc0FBf8Db75b",  # DogInMe
+            "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913",  # USDC on Base
+        }
+    )
+    latest_block = get_almost_latest_block_number(web3)
+    portfolio = vault.fetch_portfolio(universe, latest_block)
+    existing_usdc_balance = portfolio.spot_erc20["0x833589fcd6edb6e08f4c7c32d4f71b54bda02913"]
+    assert existing_usdc_balance > Decimal(1.0)
