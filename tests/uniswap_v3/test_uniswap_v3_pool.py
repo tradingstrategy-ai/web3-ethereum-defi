@@ -5,7 +5,7 @@ from web3 import EthereumTesterProvider, Web3
 from web3._utils.events import EventLogErrorFlags
 from web3.contract import Contract
 
-from eth_defi.token import create_token
+from eth_defi.token import create_token, reset_default_token_cache
 from eth_defi.uniswap_v3.constants import DEFAULT_FEES
 from eth_defi.uniswap_v3.deployment import (
     UniswapV3Deployment,
@@ -296,6 +296,10 @@ def test_fetch_pool_details(
     usdc: Contract,
 ):
     """Get Uniswap v3 pool info."""
+
+    # There is USDC/DAI confusion across chains?
+    reset_default_token_cache()
+
     pool = deploy_pool(
         web3,
         deployer,

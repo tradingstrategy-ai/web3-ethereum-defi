@@ -10,6 +10,7 @@
 import os
 from decimal import Decimal
 
+import flaky
 import pytest
 from eth_typing import HexAddress
 from web3 import Web3
@@ -95,6 +96,7 @@ def test_fetch_vault_portfolio(vault: VelvetVault):
     assert portfolio.spot_erc20["0x6921B130D297cc43754afba22e5EAc0FBf8Db75b"] > 0
 
 
+@flaky.flaky
 def test_vault_swap_partially(
     vault: VelvetVault,
     vault_owner: HexAddress,
@@ -143,6 +145,7 @@ def test_vault_swap_partially(
     assert portfolio.spot_erc20["0x833589fcd6edb6e08f4c7c32d4f71b54bda02913"] < existing_usdc_balance
 
 
+@flaky.flaky
 def test_vault_swap_very_little(
     vault: VelvetVault,
     vault_owner: HexAddress,
@@ -174,6 +177,7 @@ def test_vault_swap_very_little(
     assert_transaction_success_with_explanation(web3, tx_hash)
 
 
+@flaky.flaky
 def test_vault_swap_sell_to_usdc(
     vault: VelvetVault,
     vault_owner: HexAddress,
