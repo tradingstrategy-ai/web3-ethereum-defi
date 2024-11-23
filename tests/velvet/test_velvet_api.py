@@ -18,6 +18,8 @@ from eth_defi.provider.anvil import AnvilLaunch, fork_network_anvil
 from eth_defi.provider.broken_provider import get_almost_latest_block_number
 from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.trace import assert_transaction_success_with_explanation
+from eth_defi.uniswap_v3.deployment import UniswapV3Deployment, fetch_deployment
+from eth_defi.uniswap_v3.price import estimate_buy_received_amount
 from eth_defi.vault.base import VaultSpec, TradingUniverse
 from eth_defi.velvet import VelvetVault
 
@@ -75,6 +77,30 @@ def test_fetch_info(vault: VelvetVault):
 
     assert vault.vault_address == "0x9d247fbc63e4d50b257be939a264d68758b43d04"
     assert vault.owner_address == "0x0c9db006f1c7bfaa0716d70f012ec470587a8d4f"
+
+
+def test_fetch_doginme_price(web3: Web3):
+    """Fetch price for DogInMe toeken."""
+
+    # https://docs.uniswap.org/contracts/v3/reference/deployments/base-deployments
+    uniswap_v3_on_base = fetch_deployment(
+        web3,
+        factory_address="0x33128a8fC17869897dcE68Ed026d694621f6FDfD",
+        router_address="0x2626664c2603336E57B271c5C0b26F421741e481",
+        position_manager_address="0x03a520b32C04BF3bEEf7BEb72E919cf822Ed34f1",
+        quoter_address="0x3d4e44Eb1374240CE5F1B871ab261CD16335B76a",
+    )
+
+    # https://app.uniswap.org/explore/pools/base/0x386298ce505067CA53e8a70FE82E12ff1dA7cc38
+    amount = estimate_buy_received_amount(
+        uniswap=uniswap_v3_on_base,
+        base_token_address="0x6921B130D297cc43754afba22e5EAc0FBf8Db75b",
+        quote_token_address="0x833589fcd6edb6e08f4c7c32d4f71b54bda02913",
+        quantity=500,
+        target_pair_fee=100,
+    )
+
+    assert amount > 0
 
 
 def test_fetch_vault_portfolio(vault: VelvetVault):

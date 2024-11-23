@@ -243,8 +243,8 @@ class UniswapV3PriceHelper:
 
 def estimate_buy_received_amount(
     uniswap: UniswapV3Deployment,
-    base_token_address: HexAddress,
-    quote_token_address: HexAddress,
+    base_token_address: HexAddress | str,
+    quote_token_address: HexAddress| str,
     quantity: Decimal | int,
     target_pair_fee: int,
     *,
