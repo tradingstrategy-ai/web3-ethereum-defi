@@ -417,7 +417,7 @@ def estimate_sell_received_amount(
 
     if intermediate_token_address:
         path = [base_token_address, intermediate_token_address, quote_token_address]
-        fees = [intermediate_pair_fee, target_pair_fee]
+        fees = [target_pair_fee, intermediate_pair_fee]
     else:
         path = [base_token_address, quote_token_address]
         fees = [target_pair_fee]
