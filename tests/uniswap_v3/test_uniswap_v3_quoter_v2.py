@@ -1,4 +1,7 @@
-"""Base + Uniswap Quoter v2 tests"""
+"""Base + Uniswap Quoter v2 tests.
+
+- Uses live Base Uniswap v3 deployment
+"""
 import os
 from decimal import Decimal
 
