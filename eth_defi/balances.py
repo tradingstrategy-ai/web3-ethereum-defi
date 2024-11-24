@@ -322,6 +322,8 @@ def fetch_erc20_balances_multicall(
             return None
         return value
 
+    chain_id = web3.eth.chain_id
+
     logger.info(
         "Looking up token balances for %d addresses, chunk size %d, gas limit %d",
         len(tokens),
@@ -360,7 +362,7 @@ def fetch_erc20_balances_multicall(
     if decimalise:
         result = {}
         for token_address, raw_balance in all_calls.items():
-            token = fetch_erc20_details(web3, token_address, cache=token_cache)
+            token = fetch_erc20_details(web3, token_address, cache=token_cache, chain_id=chain_id)
             result[token_address] = token.convert_to_decimals(raw_balance) if raw_balance is not None else None
     else:
         result = all_calls
