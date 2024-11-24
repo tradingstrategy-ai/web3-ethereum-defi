@@ -29,6 +29,8 @@ from eth_defi.velvet import VelvetVault
 
 JSON_RPC_BASE = os.environ.get("JSON_RPC_BASE", "https://mainnet.base.org")
 
+CI = os.environ.get("CI", None)
+
 pytestmark = pytest.mark.skipif(not JSON_RPC_BASE, reason="No JSON_RPC_BASE environment variable")
 
 
@@ -139,7 +141,7 @@ def test_fetch_vault_portfolio(vault: VelvetVault):
     assert portfolio.spot_erc20["0x6921B130D297cc43754afba22e5EAc0FBf8Db75b"] > 0
 
 
-@flaky.flaky
+@pytest.mark.skipif(CI, reason="Enso is such unstable crap that there is no hope we could run any tests with in CI")
 def test_vault_swap_partially(
     vault: VelvetVault,
     vault_owner: HexAddress,
