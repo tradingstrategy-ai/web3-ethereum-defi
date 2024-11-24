@@ -849,7 +849,6 @@ def wait_and_broadcast_multiple_nodes_mev_blocker(
 
     """
 
-    assert isinstance(provider, MEVBlockerProvider), f"Got: {provider}"
 
     assert isinstance(poll_delay, datetime.timedelta)
     assert isinstance(max_timeout, datetime.timedelta)
@@ -857,7 +856,12 @@ def wait_and_broadcast_multiple_nodes_mev_blocker(
     receipts = {}
 
     # Only interact with the transact provider from no one
-    transaction_provider = provider.transact_provider
+    if isinstance(provider, MEVBlockerProvider):
+        transaction_provider = provider.transact_provider
+    else:
+        # Test path
+        transaction_provider = provider
+
     web3 = Web3(transaction_provider)
 
     anviled = is_anvil(web3)
@@ -891,6 +895,7 @@ def wait_and_broadcast_multiple_nodes_mev_blocker(
             try:
                 receipt = web3.eth.get_transaction_receipt(tx_hash)
                 receipts[tx.hash] = receipt
+                last_exception = None
                 break
             except Exception as e:
                 logger.info("No receipt ye for t: %e", e)
