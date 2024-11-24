@@ -29,7 +29,7 @@ from eth_defi.velvet import VelvetVault
 
 JSON_RPC_BASE = os.environ.get("JSON_RPC_BASE", "https://mainnet.base.org")
 
-CI = os.environ.get("CI", None)
+CI = os.environ.get("CI", None) is not None
 
 pytestmark = pytest.mark.skipif(not JSON_RPC_BASE, reason="No JSON_RPC_BASE environment variable")
 

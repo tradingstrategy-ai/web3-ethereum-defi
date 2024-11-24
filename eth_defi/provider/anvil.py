@@ -546,5 +546,18 @@ def is_anvil(web3: Web3) -> bool:
     return "anvil/" in web3.client_version
 
 
+def is_mainnet_fork(web3: Web3) -> bool:
+    """Have we forked mainnet for this test.
+
+    - Only relevant with :py:func:`is_anvil`
+
+    :return:
+        True if we think we are connected to a forked mainnet,
+        False if we think we are a standalone local dev chain.
+    """
+    # Heurestics
+    return web3.eth.block_number > 500_000
+
+
 # Backwards compatibility
 fork_network_anvil = launch_anvil
