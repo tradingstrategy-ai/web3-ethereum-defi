@@ -222,7 +222,7 @@ def test_vault_swap_very_little(
     assert_transaction_success_with_explanation(web3, tx_hash)
 
 
-@flaky.flaky
+@pytest.mark.skipif(CI, reason="Enso is such unstable crap that there is no hope we could run any tests with in CI")
 def test_vault_swap_sell_to_usdc(
     vault: VelvetVault,
     vault_owner: HexAddress,
