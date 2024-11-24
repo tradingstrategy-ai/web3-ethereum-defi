@@ -260,6 +260,7 @@ def test_vault_swap_sell_to_usdc(
     assert portfolio.spot_erc20["0x833589fcd6edb6e08f4c7c32d4f71b54bda02913"] > existing_usdc_balance
 
 
+@pytest.mark.skip(reason="Velvet API is broken")
 def test_velvet_api_deposit(
     vault: VelvetVault,
     vault_owner: HexAddress,
