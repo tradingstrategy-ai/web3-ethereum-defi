@@ -16,6 +16,7 @@ from web3 import Web3
 
 from eth_defi.balances import fetch_erc20_balances_by_token_list, fetch_erc20_balances_multicall
 from eth_defi.vault.base import VaultBase, VaultInfo, VaultSpec, TradingUniverse, VaultPortfolio
+from eth_defi.velvet.deposit import deposit_to_velvet
 from eth_defi.velvet.enso import swap_with_velvet_and_enso
 
 #: Signing API URL
@@ -98,6 +99,10 @@ class VelvetVault(VaultBase):
         return self.info["owner"]
 
     @property
+    def portfolio_address(self) -> HexAddress:
+        return self.info["portfolio"]
+
+    @property
     def name(self) -> str:
         return self.info["name"]
 
@@ -163,6 +168,25 @@ class VelvetVault(VaultBase):
         if from_:
             tx_data["from"] = Web3.to_checksum_address(from_)
 
+        return tx_data
+
+    def prepare_deposit_with_enso(
+        self,
+        from_: HexAddress | str,
+        deposit_token_address: HexAddress | str,
+        amount: int,
+    ):
+        """Prepare a deposit transaction with Enso intents.
+
+        - Velvet trades any incoming assets and distributes them on open positions
+        """
+        tx_data = deposit_to_velvet(
+            portfolio=self.portfolio_address,
+            from_address=from_,
+            deposit_token_address=deposit_token_address,
+            amount=amount,
+            chain_id=self.web3.eth.chain_id,
+        )
         return tx_data
 
     def _make_api_request(

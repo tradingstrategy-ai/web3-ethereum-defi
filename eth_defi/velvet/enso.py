@@ -9,15 +9,13 @@ import requests
 from eth_typing import HexAddress
 from requests import HTTPError
 
+from eth_defi.velvet.config import VELVET_DEFAULT_API_URL
 
 logger = logging.getLogger(__name__)
 
 
 class VelvetSwapError(Exception):
     """Error reply from velvet txn API"""
-
-
-REBALANCER_API_URL = "https://eventsapi.velvetdao.xyz/api/v3/rebalance/txn"
 
 
 def swap_with_velvet_and_enso(
@@ -29,7 +27,7 @@ def swap_with_velvet_and_enso(
     swap_amount: int,
     slippage: float,
     remaining_tokens: set[HexAddress],
-    api_url: str = REBALANCER_API_URL,
+    api_url: str = VELVET_DEFAULT_API_URL,
 ) -> dict:
     """Set up a Enzo + Velvet swap tx.
 
@@ -65,7 +63,8 @@ def swap_with_velvet_and_enso(
     # Log out everything, so we can post the data for others to debug
     logger.info("Velvet + Enso swap:\n%s", pformat(payload))
 
-    resp = requests.post(api_url, json=payload)
+    url = f"{api_url}/rebalance/txn"
+    resp = requests.post(url, json=payload)
 
     try:
         resp.raise_for_status()

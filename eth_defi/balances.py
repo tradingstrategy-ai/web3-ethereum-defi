@@ -4,7 +4,7 @@ from collections import Counter
 from dataclasses import dataclass
 from decimal import Decimal
 from itertools import islice
-from typing import Dict, Optional, Set
+from typing import Dict, Optional, Set, Collection
 
 import cachetools
 import requests.exceptions
@@ -115,7 +115,7 @@ def fetch_erc20_balances_by_transfer_event(
 def fetch_erc20_balances_by_token_list(
     web3: Web3,
     owner: HexAddress | str,
-    tokens: Set[HexAddress | str],
+    tokens: Collection[HexAddress | str],
     block_identifier: BlockIdentifier = None,
     decimalise=False,
 ) -> Dict[HexAddress | str, int | Decimal]:
@@ -164,12 +164,14 @@ def fetch_erc20_balances_by_token_list(
     else:
         last_block = None
 
+    chain_id = web3.eth.chain_id
+
     logger.info(f"Reading the latest token balances for {len(tokens)} tokens at block identifier {block_identifier}, last block is {last_block}, address is {owner}")
 
     balances = {}
     for address in tokens:
         # Uses cached token ABI
-        token = fetch_erc20_details(web3, address)
+        token = fetch_erc20_details(web3, address, chain_id=chain_id)
         try:
             if decimalise:
                 balances[address] = token.fetch_balance_of(owner, block_identifier)
@@ -322,6 +324,8 @@ def fetch_erc20_balances_multicall(
             return None
         return value
 
+    chain_id = web3.eth.chain_id
+
     logger.info(
         "Looking up token balances for %d addresses, chunk size %d, gas limit %d",
         len(tokens),
@@ -360,7 +364,7 @@ def fetch_erc20_balances_multicall(
     if decimalise:
         result = {}
         for token_address, raw_balance in all_calls.items():
-            token = fetch_erc20_details(web3, token_address, cache=token_cache)
+            token = fetch_erc20_details(web3, token_address, cache=token_cache, chain_id=chain_id)
             result[token_address] = token.convert_to_decimals(raw_balance) if raw_balance is not None else None
     else:
         result = all_calls
