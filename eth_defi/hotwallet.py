@@ -351,7 +351,7 @@ class HotWallet:
         return HotWallet(account)
 
     @staticmethod
-    def create_for_testing(web3: Web3, test_account_n=0, eth_amount=10) -> "HotWallet":
+    def create_for_testing(web3: Web3, test_account_n=0, eth_amount=99) -> "HotWallet":
         """Creates a new hot wallet and seeds it with ETH from one of well-known test accounts.
 
         Shortcut method for unit testing.
