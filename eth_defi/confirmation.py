@@ -887,27 +887,38 @@ def wait_and_broadcast_multiple_nodes_mev_blocker(
         )
 
         end = time.time() + max_timeout.total_seconds()
+        tx_hash = None
         while time.time() < end:
-            logger.debug("Starting MEV Blocker confirmation cycle, unconfirmed tx is: %s", tx_hash.hex())
-            time.sleep(poll_delay.total_seconds())
             try:
+                if not tx_hash:
+                    tx_hash = web3.eth.send_raw_transaction(tx.rawTransaction)
+                logger.debug("Starting MEV Blocker confirmation cycle, unconfirmed tx is: %s, sleeping poll delay %s", tx_hash.hex(), poll_delay)
                 # Can raise nonce too low if some node is behind
-                tx_hash = web3.eth.send_raw_transaction(tx.rawTransaction)
                 # Can raise receipt not found
                 receipt = web3.eth.get_transaction_receipt(tx_hash)
                 receipts[tx.hash] = receipt
                 last_exception = None
                 break
             except Exception as e:
-                logger.info("No receipt ye for t: %e", e)
+                nonce = web3.eth.get_transaction_count(tx.address)
+                logger.info("No receipt yet: Current nonce: %d, exception %s", nonce, e, exc_info=e)
                 last_exception = e
+                time.sleep(poll_delay.total_seconds())
 
         if time.time() > end:
-            raise ConfirmationTimedOut(
-                f"Run out of poll delay when confirming %d: %s",
-                tx.nonce,
-                tx.hash.hex()
-            )
+            if last_exception:
+                raise ConfirmationTimedOut(
+                    f"Run out of poll delay when confirming %d: %s, last exception is %s",
+                    tx.nonce,
+                    tx.hash.hex(),
+                    last_exception,
+                ) from last_exception
+            else:
+                raise ConfirmationTimedOut(
+                    f"Run out of poll delay when confirming %d: %s",
+                    tx.nonce,
+                    tx.hash.hex()
+                )
 
     if last_exception:
         raise last_exception
