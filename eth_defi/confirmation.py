@@ -886,13 +886,14 @@ def wait_and_broadcast_multiple_nodes_mev_blocker(
             get_provider_name(provider),
         )
 
-        tx_hash = web3.eth.send_raw_transaction(tx.rawTransaction)
-
         end = time.time() + max_timeout.total_seconds()
         while time.time() < end:
             logger.debug("Starting MEV Blocker confirmation cycle, unconfirmed tx is: %s", tx_hash.hex())
             time.sleep(poll_delay.total_seconds())
             try:
+                # Can raise nonce too low if some node is behind
+                tx_hash = web3.eth.send_raw_transaction(tx.rawTransaction)
+                # Can raise receipt not found
                 receipt = web3.eth.get_transaction_receipt(tx_hash)
                 receipts[tx.hash] = receipt
                 last_exception = None
