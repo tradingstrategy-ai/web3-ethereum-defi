@@ -761,12 +761,18 @@ def wait_and_broadcast_multiple_nodes(
             next_node_switch = datetime.datetime.utcnow() + node_switch_timeout
 
             # Rebroadcast txs again if we suspect a broadcast failed
-            for tx in unconfirmed_txs:
-                try:
-                    _broadcast_multiple_nodes(providers, tx)
-                    last_exception = None
-                except Exception as e:
-                    last_exception = e
+            # This path starts to get extra hard to handle - needs to be cleaned up
+            logger.info("Rebroadcast in progress")
+            for tx in txs:
+                if tx.hash in unconfirmed_txs:
+                    logger.info("Rebroadcasting %s", tx)
+                    try:
+                        _broadcast_multiple_nodes(providers, tx)
+                        last_exception = None
+                    except Exception as e:
+                        last_exception = e
+                else:
+                    logger.info("Tx %s already successfully broadcasted", tx)
 
     if last_exception:
         raise last_exception
