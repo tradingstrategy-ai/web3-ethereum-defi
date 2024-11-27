@@ -48,14 +48,14 @@ def usdc_holder() -> HexAddress:
 
 
 @pytest.fixture()
-def anvil_base_fork(request, vault_owner, usdc_holder) -> AnvilLaunch:
+def anvil_base_fork(request, vault_owner, usdc_holder, deposit_user) -> AnvilLaunch:
     """Create a testable fork of live BNB chain.
 
     :return: JSON-RPC URL for Web3
     """
     launch = fork_network_anvil(
         JSON_RPC_BASE,
-        unlocked_addresses=[vault_owner, usdc_holder],
+        unlocked_addresses=[vault_owner, usdc_holder, deposit_user],
     )
     try:
         yield launch
@@ -114,6 +114,12 @@ def base_test_vault_spec() -> VaultSpec:
 @pytest.fixture()
 def vault(web3, base_test_vault_spec: VaultSpec) -> VelvetVault:
     return VelvetVault(web3, base_test_vault_spec)
+
+
+@pytest.fixture()
+def deposit_user() -> HexAddress:
+    """A user that has preapproved 5 USDC deposit for the vault above, no approve(0 needed."""
+    return "0x7612A94AafF7a552C373e3124654C1539a4486A8"
 
 
 def test_fetch_info(vault: VelvetVault):
@@ -262,11 +268,10 @@ def test_vault_swap_sell_to_usdc(
     assert portfolio.spot_erc20["0x833589fcd6edb6e08f4c7c32d4f71b54bda02913"] > existing_usdc_balance
 
 
-@pytest.mark.skip(reason="Only manual test available")
 def test_velvet_api_deposit(
     vault: VelvetVault,
     vault_owner: HexAddress,
-    hot_wallet_user: HotWallet,
+    deposit_user: HexAddress,
     usdc: TokenDetails,
 ):
     """Use Velvet API to perform deposit"""
@@ -277,7 +282,7 @@ def test_velvet_api_deposit(
     universe = TradingUniverse(
         spot_token_addresses={
             "0x6921B130D297cc43754afba22e5EAc0FBf8Db75b",  # DogInMe
-            "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913",  # USDC on Base
+            usdc.address,  # USDC on Base
         }
     )
 
@@ -285,31 +290,17 @@ def test_velvet_api_deposit(
     # the deposit process
     latest_block = get_almost_latest_block_number(web3)
     portfolio = vault.fetch_portfolio(universe, latest_block)
-    existing_usdc_balance = portfolio.spot_erc20["0x833589fcd6edb6e08f4c7c32d4f71b54bda02913"]
+    existing_usdc_balance = portfolio.spot_erc20[usdc.address]
     assert existing_usdc_balance > Decimal(1.0)
-
-    # Approve USDC deposit to a vault contract
-    deposit_amount = 500 * 10 ** 6
-    signed_tx = hot_wallet_user.transact_with_contract(
-        usdc.contract.functions.approve,
-        Web3.to_checksum_address(vault.rebalance_address),
-        deposit_amount
-    )
-    tx_hash = web3.eth.send_raw_transaction(signed_tx.raw_transaction)
-    assert_transaction_success_with_explanation(web3, tx_hash)
 
     # Prepare the deposit tx payload
     tx_data = vault.prepare_deposit_with_enso(
-        from_=hot_wallet_user.address,
+        from_=deposit_user,
         deposit_token_address=usdc.address,
-        amount=deposit_amount,
+        amount=5 * 10**6,
     )
-    # Broadcast the deposit x
-    hot_wallet_user.fill_in_gas_price(web3, tx_data)
-    signed_tx = hot_wallet_user.sign_transaction_with_new_nonce(tx_data)
-    tx_hash = web3.eth.send_raw_transaction(signed_tx.rawTransaction)
-    assert_transaction_success_with_explanation(web3, tx_hash)
+    web3.eth.send_transaction(tx_data)
 
     # USDC balance has increased after the deposit
     portfolio = vault.fetch_portfolio(universe, web3.eth.block_number)
-    assert portfolio.spot_erc20["0x833589fcd6edb6e08f4c7c32d4f71b54bda02913"] > existing_usdc_balance
+    assert portfolio.spot_erc20[usdc.address] > existing_usdc_balance
