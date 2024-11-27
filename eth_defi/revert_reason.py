@@ -113,7 +113,13 @@ def fetch_transaction_revert_reason(
         "from": tx["from"],
         "value": tx["value"],
         "data": get_transaction_data_field(tx),
+        "gas": tx["gas"],
     }
+
+    # Catch a common error - doing smart contract txs against empty addresses
+    code = web3.eth.get_code(tx["to"])
+    if code is None:
+        logger.warning("fetch_transaction_revert_reason(): target address %s is not a smart contract, likely cannot fetch the revert reason", tx["to"])
 
     # Replay the transaction locally
     try:
@@ -152,5 +158,5 @@ def fetch_transaction_revert_reason(
     current_block_number = web3.eth.block_number
     # TODO: Convert to logger record
     pretty_result = pprint.pformat(result)
-    logger.error(f"Transaction succeeded, when we tried to fetch its revert reason.\n" f"Hash: {tx_hash.hex()}, tx block num: {tx['blockNumber']}, current block number: {current_block_number}\n" f"Transaction result:\n" f"{pretty_result}\n" f"- Maybe the chain tip is unstable\n" f"- Maybe transaction failed due to slippage\n" f"- Maybe someone is frontrunning you and it does not happen with eth_call replay\n")
+    logger.error(f"Transaction succeeded, when we tried to fetch its revert reason.\n" f"To address: {tx['to']}, hash: {tx_hash.hex()}, tx block num: {tx['blockNumber']}, gas: {tx['gas']}, current block number: {current_block_number}\n" f"Transaction result:\n" f"{pretty_result}\n" f"- Maybe the chain tip is unstable\n" f"- Maybe transaction failed due to slippage\n" f"- Maybe someone is frontrunning you and it does not happen with eth_call replay\n- Maybe the target address is not code")
     return unknown_error_message
