@@ -576,10 +576,14 @@ def wait_and_broadcast_multiple_nodes(
     anviled = is_anvil(web3)
 
     if anviled:
-        inter_node_delay = datetime.timedelta(seconds=0.1)
+        # Anvil is buggy piece of crap when you hit it with multiple RPC/broadcast requests,
+        # so try to sleep and pray it works
+        inter_node_delay = datetime.timedelta(seconds=0.5)
 
     for tx in txs:
         assert getattr(tx, "hash", None), f"Does not look like compatible TxType: {tx.__class__}: {tx}"
+
+    txs = sorted(list(txs), key=lambda tx: tx.nonce)
 
     if check_nonce_validity:
         check_nonce_mismatch(web3, txs)
@@ -653,7 +657,11 @@ def wait_and_broadcast_multiple_nodes(
                 inter_node_delay
             )
             time.sleep(inter_node_delay.total_seconds())
-            logger.info("Sleep done")
+
+            if anviled:
+                mine(web3)
+
+            # logger.info("Sleep done")
         else:
             logger.info(
                 "Internode sleep skipped",
@@ -713,7 +721,10 @@ def wait_and_broadcast_multiple_nodes(
                     logger.error(f"Could not mine a block, propose timestamp {advanced_timestamp}, incoming timestamp was {timestamp}")
                     raise e
 
-            logger.info("We have still unconfirmed txs, sleeping %s", poll_delay.total_seconds())
+            logger.info("We have still unconfirmed %d txs, sleeping %s", len(unconfirmed_txs), poll_delay.total_seconds())
+            if anviled:
+                # Anvil hack on failing to get receipts
+                mine(web3)
             time.sleep(poll_delay.total_seconds())
 
             if datetime.datetime.utcnow() > started_at + max_timeout:
@@ -788,7 +799,6 @@ def check_nonce_mismatch(web3: Web3, txs: Collection[SignedTxType]):
 
         if on_chain_nonce != nonce:
             raise NonceMismatch(f"Nonce mismatch for broadcasted transactions.\n" + f"Address {address}, we have signed with nonce {nonce}, but on-chain is {on_chain_nonce}.\n" + f"Potential reasons include incorrectly shared hot wallet or badly synced hot wallet nonce.")
-
 
 
 def wait_and_broadcast_multiple_nodes_mev_blocker(
