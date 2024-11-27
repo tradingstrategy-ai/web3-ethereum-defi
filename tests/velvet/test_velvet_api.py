@@ -299,7 +299,8 @@ def test_velvet_api_deposit(
         deposit_token_address=usdc.address,
         amount=5 * 10**6,
     )
-    web3.eth.send_transaction(tx_data)
+    tx_hash = web3.eth.send_transaction(tx_data)
+    assert_transaction_success_with_explanation(web3, tx_hash)
 
     # USDC balance has increased after the deposit
     portfolio = vault.fetch_portfolio(universe, web3.eth.block_number)
