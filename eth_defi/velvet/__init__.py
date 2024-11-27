@@ -103,6 +103,10 @@ class VelvetVault(VaultBase):
         return self.info["portfolio"]
 
     @property
+    def rebalance_address(self) -> HexAddress:
+        return self.info["rebalancing"]
+
+    @property
     def name(self) -> str:
         return self.info["name"]
 

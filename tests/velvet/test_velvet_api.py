@@ -262,7 +262,6 @@ def test_vault_swap_sell_to_usdc(
     assert portfolio.spot_erc20["0x833589fcd6edb6e08f4c7c32d4f71b54bda02913"] > existing_usdc_balance
 
 
-@pytest.mark.skip(reason="Velvet API is broken")
 def test_velvet_api_deposit(
     vault: VelvetVault,
     vault_owner: HexAddress,
@@ -272,25 +271,40 @@ def test_velvet_api_deposit(
     """Use Velvet API to perform deposit"""
 
     web3 = vault.web3
+
+    # Velvet vault tracked assets
     universe = TradingUniverse(
         spot_token_addresses={
             "0x6921B130D297cc43754afba22e5EAc0FBf8Db75b",  # DogInMe
             "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913",  # USDC on Base
         }
     )
+
+    # Check the existing portfolio USDC balance before starting the
+    # the deposit process
     latest_block = get_almost_latest_block_number(web3)
     portfolio = vault.fetch_portfolio(universe, latest_block)
     existing_usdc_balance = portfolio.spot_erc20["0x833589fcd6edb6e08f4c7c32d4f71b54bda02913"]
     assert existing_usdc_balance > Decimal(1.0)
 
+    # Approve USDC deposit to a vault contract
+    deposit_amount = 500 * 10 ** 6
+    signed_tx = hot_wallet_user.transact_with_contract(
+        usdc.contract.functions.approve,
+        Web3.to_checksum_address(vault.rebalance_address),
+        deposit_amount
+    )
+    tx_hash = web3.eth.send_raw_transaction(signed_tx.raw_transaction)
+    assert_transaction_success_with_explanation(web3, tx_hash)
+
+    # Prepare the deposit tx payload
     tx_data = vault.prepare_deposit_with_enso(
         from_=hot_wallet_user.address,
         deposit_token_address=usdc.address,
-        amount=500 * 10 ** 6,
+        amount=deposit_amount,
     )
-
+    # Broadcast the deposit x
     hot_wallet_user.fill_in_gas_price(web3, tx_data)
-
     signed_tx = hot_wallet_user.sign_transaction_with_new_nonce(tx_data)
     tx_hash = web3.eth.send_raw_transaction(signed_tx.rawTransaction)
     assert_transaction_success_with_explanation(web3, tx_hash)

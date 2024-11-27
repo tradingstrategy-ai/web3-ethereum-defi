@@ -310,6 +310,43 @@ class HotWallet:
         balance = web3.eth.get_balance(self.address)
         return web3.from_wei(balance, "ether")
 
+    def transact_with_contract(
+        self,
+        func: ContractFunction,
+        *args,
+        **kwargs,
+    ) -> SignedTransactionWithNonce:
+        """Call a contract function.
+
+        - Construct a tx payload ready for `web3.eth.send_raw_transaction`,
+          signed using this hot wallet's private key
+
+        - Remember to call :py:meth:`sync_nonce` before calling this method.
+
+        Example:
+
+        .. code-block:: python
+
+            # Approve USDC deposit to a vault contract
+            deposit_amount = 500 * 10 ** 6
+            signed_tx = hot_wallet_user.transact_with_contract(
+                usdc.contract.functions.approve,
+                Web3.to_checksum_address(vault.rebalance_address),
+                deposit_amount
+            )
+            tx_hash = web3.eth.send_raw_transaction(signed_tx.raw_transaction)
+            assert_transaction_success_with_explanation(web3, tx_hash)
+        """
+        assert isinstance(func, ContractFunction), f"Got: {type(func)}"
+        assert func.address is not None, f"ContractFunction is not bound to a contract instance: {func}"
+        web3 = func.w3
+        assert web3 is not None, "ContractFunction not bound to web3 instance"
+        tx_data = func(*args, **kwargs).build_transaction({
+            "from": self.address,
+        })
+        self.fill_in_gas_price(web3, tx_data)
+        return self.sign_transaction_with_new_nonce(tx_data)
+
     @staticmethod
     def fill_in_gas_price(web3: Web3, tx: dict) -> dict:
         """Fills in the gas value fields for a transaction.
