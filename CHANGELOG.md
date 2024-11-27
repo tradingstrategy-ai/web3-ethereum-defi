@@ -4,7 +4,7 @@
 - Add: Support for [Velvet Capital vaults](https://www.velvet.capital/)
 - Add: `wait_and_broadcast_multiple_nodes_mev_blocker()` for [MEV Blocker](https://mevblocker.io) - because the tx
   broadcast must be sequential
-- Add: `fetch_erc20_balances_multicall` read multiple ERC-20 balances using Multicall library
+- Add: `fetch_erc20_balances_multicall` and `fetch_erc20_balances_fallback` read multiple ERC-20 balances using Multicall library
 - Add: `QuoterV2` support for Uniswap v3 - needed to get Base prices
 - Change `launch_anvil()` to use latest hardfork by default instead of `london`
 
