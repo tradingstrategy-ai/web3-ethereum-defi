@@ -1,0 +1,1 @@
+"""Lagoon vault protocol integration."""

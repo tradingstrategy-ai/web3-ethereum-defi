@@ -119,6 +119,11 @@ centre:
 	@mkdir -p eth_defi/abi/1delta
 	@find contracts/1delta/artifacts/contracts/1delta -iname "*.json" -not -iname "*.dbg.json" -exec cp {} eth_defi/abi/1delta \;
 
+lagoon:
+	@(cd contracts/lagoon && make build)
+	@mkdir -p eth_defi/abi/lagoon
+	@find contracts/lagoon/out -iname "*.json" -not -iname "*.dbg.json" -exec cp {} eth_defi/abi/lagoon \;
+
 # TODO: Not sure if this step works anymore
 clean:
 	@rm -rf contracts/*
