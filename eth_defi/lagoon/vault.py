@@ -2,6 +2,7 @@ from functools import cached_property
 
 from eth_typing import HexAddress, BlockIdentifier
 from web3 import Web3
+from web3.contract import Contract
 
 from eth_defi.balances import fetch_erc20_balances_fallback
 from eth_defi.vault.base import VaultBase, VaultSpec, VaultInfo, TradingUniverse, VaultPortfolio
@@ -45,6 +46,10 @@ class LagoonVault(VaultBase):
 
     @cached_property
     def info(self) -> LagoonVaultInfo:
+        return self.fetch_info()
+
+    @cached_property
+    def safe_contract(self) -> Contract:
         return self.fetch_info()
 
     @property

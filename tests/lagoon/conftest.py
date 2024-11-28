@@ -58,10 +58,17 @@ def web3(anvil_base_fork) -> Web3:
 
 
 @pytest.fixture()
-def usdc(web3) -> TokenDetails:
+def base_usdc(web3) -> TokenDetails:
     return fetch_erc20_details(
         web3,
         "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+    )
+
+@pytest.fixture()
+def base_weth(web3) -> TokenDetails:
+    return fetch_erc20_details(
+        web3,
+        "0x4200000000000000000000000000000000000006",
     )
 
 
@@ -93,7 +100,7 @@ def hot_wallet_user(web3, usdc, usdc_holder) -> HotWallet:
 
 @pytest.fixture()
 def base_test_vault_spec() -> VaultSpec:
-    """Vault https://dapp.velvet.capital/ManagerVaultDetails/0x205e80371f6d1b33dff7603ca8d3e92bebd7dc25"""
+    """Vault is https://app.safe.global/home?safe=base:0x20415f3Ec0FEA974548184bdD6e67575D128953F"""
     return VaultSpec(1, "0x205e80371f6d1b33dff7603ca8d3e92bebd7dc25")
 
 
