@@ -126,15 +126,6 @@ class LagoonVault(VaultBase):
             spot_erc20=erc20_balances,
         )
 
-    def get_role_contract(self, role_address: HexAddress) -> Contract:
-        """Create a object wrapper for a role contract.
-
-        -
-
-        - https://docs.roles.gnosisguild.org/
-        """
-        return get_deployed_contract(self.web3, "lagoon/Roles.json", role_address)
-
     def transact_through_module(
         self,
         func_call: ContractFunction,
@@ -143,6 +134,17 @@ class LagoonVault(VaultBase):
     ) -> ContractFunction:
         """Create a multisig transaction using a module.
 
+        - Calls `execTransactionFromModule` on Gnosis Safe contract
+
+        - Executes a transaction as a multisig
+
+        - Mostly used for testing w/whitelist ignore
+
+        :param func_call:
+            Bound smart contract function call
+
+        :param value:
+            ETH attached to the transaction
 
         :param operation:
             Gnosis enum.
