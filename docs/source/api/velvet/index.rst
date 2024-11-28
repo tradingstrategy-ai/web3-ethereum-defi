@@ -1,5 +1,5 @@
 Velvet Capital API
--------------------
+------------------
 
 Velvet Capital vaults integration.
 

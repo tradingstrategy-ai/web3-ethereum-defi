@@ -1,5 +1,5 @@
-Gnosis Safe integration
------------------------
+Gnosis Safe API
+---------------
 
 Gnosis Safe multisignature wallet integration.
 
