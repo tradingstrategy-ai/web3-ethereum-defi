@@ -1,0 +1,2 @@
+"""Lagoon vault NAV handling."""
+
