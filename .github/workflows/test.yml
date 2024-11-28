@@ -77,8 +77,8 @@ jobs:
         run: |
           pnpm --version 
           make guard in-house
-      # Run tests parallel.
-      - name: Run test scripts
+
+      - name: Run tests (parallel)
         run: |
           poetry run pytest --tb=native -n auto
         env:
@@ -88,9 +88,3 @@ jobs:
           JSON_RPC_ETHEREUM: ${{ secrets.JSON_RPC_ETHEREUM }}
           JSON_RPC_BASE: ${{ secrets.JSON_RPC_BASE }}
           ETHEREUM_JSON_RPC: ${{ secrets.JSON_RPC_ETHEREUM }}
-      # Disabled for now
-      # https://github.com/reviewdog/action-flake8/issues/40
-      # - name: Run flake8
-      #  uses: reviewdog/action-flake8@v3
-      #  with:
-      #    github_token: ${{ secrets.GITHUB_TOKEN }}
