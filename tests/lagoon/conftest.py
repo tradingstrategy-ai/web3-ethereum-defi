@@ -57,7 +57,20 @@ def anvil_base_fork(request, vault_owner, usdc_holder, asset_manager) -> AnvilLa
 
 @pytest.fixture()
 def web3(anvil_base_fork) -> Web3:
-    web3 = create_multi_provider_web3(anvil_base_fork.json_rpc_url)
+    """Create a web3 connector.
+
+    - By default use Anvil forked Base
+
+    - Eanble Tenderly testnet with `JSON_RPC_TENDERLY` to debug
+      otherwise impossible to debug Gnosis Safe transactions
+    """
+
+    tenderly_fork_rpc = os.environ.get("JSON_RPC_TENDERLY", None)
+
+    if tenderly_fork_rpc:
+        web3 = create_multi_provider_web3(tenderly_fork_rpc)
+    else:
+        web3 = create_multi_provider_web3(anvil_base_fork.json_rpc_url)
     assert web3.eth.chain_id == 8453
     return web3
 

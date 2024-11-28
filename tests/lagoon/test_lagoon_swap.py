@@ -8,14 +8,14 @@ import pytest
 from eth_typing import HexAddress
 from web3 import Web3
 
-from eth_defi.abi import encode_function_call
+
 from eth_defi.lagoon.vault import LagoonVault
 from eth_defi.token import TokenDetails
-from eth_defi.trace import assert_transaction_success_with_explanation
 from eth_defi.uniswap_v2.constants import UNISWAP_V2_DEPLOYMENTS
 from eth_defi.uniswap_v2.deployment import fetch_deployment
 from eth_defi.uniswap_v2.swap import swap_with_slippage_protection
 from eth_defi.vault.base import TradingUniverse
+from eth_defi.safe.trace import assert_safe_success
 
 
 @pytest.fixture()
@@ -26,7 +26,6 @@ def uniswap_v2(web3):
         router_address=UNISWAP_V2_DEPLOYMENTS["base"]["router"],
         init_code_hash=UNISWAP_V2_DEPLOYMENTS["base"]["init_code_hash"],
     )
-
 
 
 def test_lagoon_swap(
@@ -44,11 +43,26 @@ def test_lagoon_swap(
     - Perform a swap USDC -> WETH
 
     - For starting balances see test_lagoon_fetch_portfolio
+
+    To run with Tenderly tx inspector:
+
+    .. code-block:: shell
+
+        JSON_RPC_TENDERLY="https://virtual.base.rpc.tenderly.co/XXXXXXXXXX" pytest -k test_lagoon_swap
+
     """
     vault = lagoon_vault
     asset_manager = topped_up_asset_manager
 
-    amount = int(0.5 * 10**16)  # Half a dollar
+    # Check we have money for the swap
+    amount = int(0.1 * 10**6)  # 10 cents
+    assert base_usdc.contract.functions.balanceOf(vault.address).call() >= amount
+
+    # Approve USDC for the swap
+    approve_call = base_usdc.contract.functions.approve(uniswap_v2.router.address, amount)
+    moduled_tx = vault.transact_through_module(approve_call)
+    tx_hash = moduled_tx.transact({"from": asset_manager})
+    assert_safe_success(web3, tx_hash)
 
     # Creat a bound contract function instance
     # that presents Uniswap swap from the vault
@@ -60,15 +74,9 @@ def test_lagoon_swap(
         amount_in=amount,
     )
 
-    # Craft moduled transaction
-    contract_address = swap_call.address
-    data_payload = encode_function_call(swap_call, swap_call.arguments)
-    moduled_tx = vault.transact_through_module(
-        contract_address,
-        data_payload
-    )
+    moduled_tx = vault.transact_through_module(swap_call)
     tx_hash = moduled_tx.transact({"from": asset_manager})
-    assert_transaction_success_with_explanation(web3, tx_hash)
+    assert_safe_success(web3, tx_hash)
 
     # Check that vault balances are updated,
     # from what we have at the starting point at test_lagoon_fetch_portfolio
@@ -79,13 +87,5 @@ def test_lagoon_swap(
         }
     )
     portfolio = vault.fetch_portfolio(universe, web3.eth.block_number)
-    assert portfolio.spot_erc20 == {
-        base_usdc.address: pytest.approx(Decimal(0.347953)),
-        base_weth.address: pytest.approx(Decimal(1*10**-16)),
-    }
-
-
-
-
-
-
+    assert portfolio.spot_erc20[base_usdc.address] == pytest.approx(Decimal(0.247953))
+    assert portfolio.spot_erc20[base_weth.address] > Decimal(10**-16)  # Depends on daily ETH price

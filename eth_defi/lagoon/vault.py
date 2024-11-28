@@ -12,8 +12,8 @@ from eth_defi.vault.base import VaultBase, VaultSpec, VaultInfo, TradingUniverse
 
 from safe_eth.safe import Safe
 
-from .safe_compat import create_safe_ethereum_client
-from ..abi import get_deployed_contract
+from ..abi import get_deployed_contract, encode_function_call
+from ..safe.safe_compat import create_safe_ethereum_client
 
 
 class LagoonVaultInfo(VaultInfo):
@@ -85,7 +85,13 @@ class LagoonVault(VaultBase):
         return self.fetch_safe()
 
     @property
+    def address(self) -> HexAddress:
+        """Alias of :py:meth:`safe_address`"""
+        return self.safe_address
+
+    @property
     def safe_address(self) -> HexAddress:
+        """Get Safe multisig contract address"""
         return self.spec.vault_address
 
     @cached_property
@@ -132,8 +138,7 @@ class LagoonVault(VaultBase):
 
     def transact_through_module(
         self,
-        to: HexAddress,
-        data: HexBytes,
+        func_call: ContractFunction,
         value: int = 0,
         operation=0,
     ) -> ContractFunction:
@@ -151,12 +156,13 @@ class LagoonVault(VaultBase):
                     }
                 }
         """
-
+        contract_address = func_call.address
+        data_payload = encode_function_call(func_call, func_call.arguments)
         contract = self.safe_contract
         bound_func = contract.functions.execTransactionFromModule(
-            to,
+            contract_address,
             value,
-            data,
+            data_payload,
             operation,
         )
         return bound_func

@@ -1,0 +1,1 @@
+"""Gnosis safe integration."""
