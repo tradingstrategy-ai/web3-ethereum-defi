@@ -27,7 +27,7 @@ from eth_defi.uniswap_v3.price import estimate_buy_received_amount
 from eth_defi.vault.base import VaultSpec, TradingUniverse
 from eth_defi.velvet import VelvetVault
 
-JSON_RPC_BASE = os.environ.get("JSON_RPC_BASE", "https://mainnet.base.org")
+JSON_RPC_BASE = os.environ.get("JSON_RPC_BASE")
 
 CI = os.environ.get("CI", None) is not None
 
@@ -294,12 +294,31 @@ def test_velvet_api_deposit(
     existing_usdc_balance = portfolio.spot_erc20[usdc.address]
     assert existing_usdc_balance > Decimal(1.0)
 
+    # Velvet deposit manager on Base,
+    # the destination of allowance
+    deposit_manager = "0xe4e23120a38c4348D7e22Ab23976Fa0c4Bf6e2ED"
+
+    # Check there is ready-made manual approve() waiting onchain
+    allowance = usdc.contract.functions.allowance(
+        Web3.to_checksum_address(deposit_user),
+        Web3.to_checksum_address(deposit_manager),
+        ).call()
+    assert allowance == 5 * 10**6
+
+    # E               eth_defi.trace.TransactionAssertionError: Revert reason: execution reverted: revert: TransferHelper::transferFrom: transferFrom failed
+    # E               Solidity stack trace:
+    # E               CALL: [reverted] 0xe4e23120a38c4348D7e22Ab23976Fa0c4Bf6e2ED.0x9136d415(<unknown>) [29803 gas]
+    # E               └── CALL: 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913.transferFrom(sender=0x7612a94aaff7a552c373e3124654c1539a4486a8, recipient=0x6e3e0fe13dae2c42cca7ae2e849b0976e2e63e05, amount=5000000) [18763 gas]
+    # E                   └── DELEGATECALL: 0x2Ce6311ddAE708829bc0784C967b7d77D19FD779.0x23b872dd(<unknown>) [11573 gas]
+    # E               Transaction details:
+
     # Prepare the deposit tx payload
     tx_data = vault.prepare_deposit_with_enso(
         from_=deposit_user,
         deposit_token_address=usdc.address,
         amount=5 * 10**6,
     )
+    assert tx_data["to"] == deposit_manager
     tx_hash = web3.eth.send_transaction(tx_data)
     assert_transaction_success_with_explanation(web3, tx_hash)
 
