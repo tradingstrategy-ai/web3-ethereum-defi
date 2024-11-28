@@ -73,16 +73,10 @@ class LagoonVault(VaultBase):
         universe: TradingUniverse,
         block_identifier: BlockIdentifier | None = None,
     ) -> VaultPortfolio:
-        """Read the current token balances of a vault.
-
-        - SHould be supported by all implementations
-        """
-
-        vault_address = self.info["vaultAddress"]
-
+        """Read the current token balances of a vault."""
         erc20_balances = fetch_erc20_balances_fallback(
             self.web3,
-            vault_address,
+            self.safe_address,
             universe.spot_token_addresses,
             block_identifier=block_identifier,
             decimalise=True,

@@ -101,7 +101,7 @@ def hot_wallet_user(web3, usdc, usdc_holder) -> HotWallet:
 @pytest.fixture()
 def base_test_vault_spec() -> VaultSpec:
     """Vault is https://app.safe.global/home?safe=base:0x20415f3Ec0FEA974548184bdD6e67575D128953F"""
-    return VaultSpec(1, "0x205e80371f6d1b33dff7603ca8d3e92bebd7dc25")
+    return VaultSpec(1, "0x20415f3Ec0FEA974548184bdD6e67575D128953F")
 
 
 @pytest.fixture()
