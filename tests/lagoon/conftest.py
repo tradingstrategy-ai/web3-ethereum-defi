@@ -2,6 +2,7 @@
 
 - UI: https://app.safe.global/home?safe=base:0x20415f3Ec0FEA974548184bdD6e67575D128953F
 - Contract: https://basescan.org/address/0x20415f3Ec0FEA974548184bdD6e67575D128953F#readProxyContract
+- Roles: https://app.safe.global/apps/open?safe=base:0x20415f3Ec0FEA974548184bdD6e67575D128953F&appUrl=https%3A%2F%2Fzodiac.gnosisguild.org%2F
 """
 import os
 
@@ -115,7 +116,20 @@ def lagoon_vault(web3, base_test_vault_spec: VaultSpec) -> LagoonVault:
 
 @pytest.fixture()
 def asset_manager() -> HexAddress:
+    """The asset manager role."""
     return "0x0b2582E9Bf6AcE4E7f42883d4E91240551cf0947"
+
+
+@pytest.fixture()
+def topped_up_asset_manager(web3, asset_manager):
+    # Topped up with some ETH
+    tx_hash = web3.eth.send_transaction({
+        "to": asset_manager,
+        "from": web3.eth.accounts[0],
+        "value": 9 * 10**18,
+    })
+    assert_transaction_success_with_explanation(web3, tx_hash)
+    return asset_manager
 
 
 # Some addresses for the roles set:

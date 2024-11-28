@@ -13,6 +13,7 @@ from eth_defi.vault.base import VaultBase, VaultSpec, VaultInfo, TradingUniverse
 from safe_eth.safe import Safe
 
 from .safe_compat import create_safe_ethereum_client
+from ..abi import get_deployed_contract
 
 
 class LagoonVaultInfo(VaultInfo):
@@ -87,6 +88,10 @@ class LagoonVault(VaultBase):
     def safe_address(self) -> HexAddress:
         return self.spec.vault_address
 
+    @cached_property
+    def safe_contract(self) -> Contract:
+        return self.safe.contract
+
     @property
     def name(self) -> str:
         return self.info["name"]
@@ -116,9 +121,42 @@ class LagoonVault(VaultBase):
             spot_erc20=erc20_balances,
         )
 
-    def transact_through_module(self, payload: HexBytes) -> ContractFunction:
-        """Create a multisig transaction using a module."""
+    def get_role_contract(self, role_address: HexAddress) -> Contract:
+        """Create a object wrapper for a role contract.
+
+        -
+
+        - https://docs.roles.gnosisguild.org/
+        """
+        return get_deployed_contract(self.web3, "lagoon/Roles.json", role_address)
+
+    def transact_through_module(
+        self,
+        to: HexAddress,
+        data: HexBytes,
+        value: int = 0,
+        operation=0,
+    ) -> ContractFunction:
+        """Create a multisig transaction using a module.
 
 
+        :param operation:
+            Gnosis enum.
 
+            .. code-block:: text
+                library Enum {
+                    enum Operation {
+                        Call,
+                        DelegateCall
+                    }
+                }
+        """
 
+        contract = self.safe_contract
+        bound_func = contract.functions.execTransactionFromModule(
+            to,
+            value,
+            data,
+            operation,
+        )
+        return bound_func

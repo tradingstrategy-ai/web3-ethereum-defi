@@ -2,17 +2,20 @@
 
 - View Safe here https://app.safe.global/home?safe=base:0x20415f3Ec0FEA974548184bdD6e67575D128953F
 """
+from decimal import Decimal
+
 import pytest
 from eth_typing import HexAddress
-from hexbytes import HexBytes
 from web3 import Web3
 
-from eth_defi.abi import get_abi_by_filename, encode_function_call
+from eth_defi.abi import encode_function_call
 from eth_defi.lagoon.vault import LagoonVault
 from eth_defi.token import TokenDetails
+from eth_defi.trace import assert_transaction_success_with_explanation
 from eth_defi.uniswap_v2.constants import UNISWAP_V2_DEPLOYMENTS
 from eth_defi.uniswap_v2.deployment import fetch_deployment
 from eth_defi.uniswap_v2.swap import swap_with_slippage_protection
+from eth_defi.vault.base import TradingUniverse
 
 
 @pytest.fixture()
@@ -25,13 +28,14 @@ def uniswap_v2(web3):
     )
 
 
+
 def test_lagoon_swap(
     web3: Web3,
     uniswap_v2,
     lagoon_vault: LagoonVault,
     base_weth: TokenDetails,
     base_usdc: TokenDetails,
-    asset_manager: HexAddress,
+    topped_up_asset_manager: HexAddress,
 ):
     """Perform a basic swap.
 
@@ -42,6 +46,7 @@ def test_lagoon_swap(
     - For starting balances see test_lagoon_fetch_portfolio
     """
     vault = lagoon_vault
+    asset_manager = topped_up_asset_manager
 
     amount = int(0.5 * 10**16)  # Half a dollar
 
@@ -55,15 +60,29 @@ def test_lagoon_swap(
         amount_in=amount,
     )
 
+    # Craft moduled transaction
     contract_address = swap_call.address
     data_payload = encode_function_call(swap_call, swap_call.arguments)
+    moduled_tx = vault.transact_through_module(
+        contract_address,
+        data_payload
+    )
+    tx_hash = moduled_tx.transact({"from": asset_manager})
+    assert_transaction_success_with_explanation(web3, tx_hash)
 
-    # TODO: Zero padding in the address?
-    data = HexBytes(contract_address) + data_payload
-
-    roled_tx = vault.transact_through_module(data)
-
-
+    # Check that vault balances are updated,
+    # from what we have at the starting point at test_lagoon_fetch_portfolio
+    universe = TradingUniverse(
+        spot_token_addresses={
+            base_weth.address,
+            base_usdc.address,
+        }
+    )
+    portfolio = vault.fetch_portfolio(universe, web3.eth.block_number)
+    assert portfolio.spot_erc20 == {
+        base_usdc.address: pytest.approx(Decimal(0.347953)),
+        base_weth.address: pytest.approx(Decimal(1*10**-16)),
+    }
 
 
 
