@@ -10,7 +10,6 @@
 import os
 from decimal import Decimal
 
-import flaky
 import pytest
 from eth_typing import HexAddress
 from web3 import Web3
@@ -21,9 +20,6 @@ from eth_defi.provider.broken_provider import get_almost_latest_block_number
 from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.token import TokenDetails, fetch_erc20_details
 from eth_defi.trace import assert_transaction_success_with_explanation
-from eth_defi.uniswap_v3.constants import UNISWAP_V3_DEPLOYMENTS
-from eth_defi.uniswap_v3.deployment import UniswapV3Deployment, fetch_deployment
-from eth_defi.uniswap_v3.price import estimate_buy_received_amount
 from eth_defi.vault.base import VaultSpec, TradingUniverse
 from eth_defi.velvet import VelvetVault
 
