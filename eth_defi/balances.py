@@ -17,6 +17,7 @@ from web3.types import BlockIdentifier
 
 from eth_defi.abi import get_contract
 from eth_defi.event import fetch_all_events
+from eth_defi.provider.anvil import is_anvil, is_mainnet_fork
 from eth_defi.provider.broken_provider import get_almost_latest_block_number
 from eth_defi.token import fetch_erc20_details, DEFAULT_TOKEN_CACHE
 
@@ -370,3 +371,75 @@ def fetch_erc20_balances_multicall(
         result = all_calls
 
     return result
+
+
+def fetch_erc20_balances_fallback(
+    web3: Web3,
+    address: HexAddress | str,
+    tokens: list[HexAddress | str] | set[HexAddress | str],
+    block_identifier: BlockIdentifier,
+    decimalise=True,
+    chunk_size=50,
+    token_cache: cachetools.Cache | None = DEFAULT_TOKEN_CACHE,
+    gas_limit=10_000_000,
+    raise_on_error=True,
+    disable_multicall: bool=None,
+) -> dict[HexAddress | str, Decimal]:
+    """Get all onchain balances of the token.
+
+    - Safe variant
+
+    - Try multicall approach first
+
+    - If it fails for some reason, fall to individual JSON-RPC API approach
+
+    - A reason for the failure would be crappy RPC providers
+
+    See :py:func:`fetch_erc20_balances_multicall` for usage and argument descriptions.
+
+    :param disable_multicall:
+        Disable multicall behaviour.
+
+        If set to `None` autodetect local dev/test chain and disable based on the presence of Anvil:
+        assume no multicall contract deployed there. On the mainnet fork, assume the presence of multicall contract.
+    """
+
+    # Multicall not deployed on local test chains
+    if disable_multicall is None:
+        disable_multicall = is_anvil(web3) and not is_mainnet_fork(web3)
+
+    if disable_multicall:
+        balances = fetch_erc20_balances_by_token_list(
+            web3,
+            address,
+            tokens,
+            block_identifier=block_identifier,
+            decimalise=True,
+        )
+    else:
+        try:
+            balances = fetch_erc20_balances_multicall(
+                web3,
+                address,
+                tokens,
+                block_identifier=block_identifier,
+                decimalise=decimalise,
+                chunk_size=chunk_size,
+                token_cache=token_cache,
+                gas_limit=gas_limit,
+                raise_on_error=raise_on_error,
+            )
+        except Exception as e:
+            # RPC failure - multicall error cannot be handled gracefully.
+            # Try something better.
+            # https://github.com/banteg/multicall.py/issues/103
+            logger.error("fetch_erc20_balances_multicall() failed with %s, falling back to single call processing of balance fetches", e, exc_info=e)
+            balances = fetch_erc20_balances_by_token_list(
+                web3,
+                address,
+                tokens,
+                block_identifier=block_identifier,
+                decimalise=decimalise,
+            )
+
+    return balances

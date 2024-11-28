@@ -14,7 +14,7 @@ import requests
 from eth_typing import BlockIdentifier, HexAddress
 from web3 import Web3
 
-from eth_defi.balances import fetch_erc20_balances_by_token_list, fetch_erc20_balances_multicall
+from eth_defi.balances import fetch_erc20_balances_fallback
 from eth_defi.vault.base import VaultBase, VaultInfo, VaultSpec, TradingUniverse, VaultPortfolio
 from eth_defi.velvet.deposit import deposit_to_velvet
 from eth_defi.velvet.enso import swap_with_velvet_and_enso
@@ -103,6 +103,10 @@ class VelvetVault(VaultBase):
         return self.info["portfolio"]
 
     @property
+    def rebalance_address(self) -> HexAddress:
+        return self.info["rebalancing"]
+
+    @property
     def name(self) -> str:
         return self.info["name"]
 
@@ -122,7 +126,7 @@ class VelvetVault(VaultBase):
 
         vault_address = self.info["vaultAddress"]
 
-        erc20_balances = fetch_erc20_balances_multicall(
+        erc20_balances = fetch_erc20_balances_fallback(
             self.web3,
             vault_address,
             universe.spot_token_addresses,

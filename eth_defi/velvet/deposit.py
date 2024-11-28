@@ -30,6 +30,8 @@ def deposit_to_velvet(
 ) -> dict:
     """Construct Velvet deposit payload.
 
+    -
+
     - See https://github.com/Velvet-Capital/3rd-party-integration/issues/2#issuecomment-2490845963 for details
     """
     assert portfolio.startswith("0x")
@@ -47,7 +49,7 @@ def deposit_to_velvet(
 
     payload = {
         "portfolio": portfolio,
-        "depositAmount": amount,
+        "depositAmount": str(amount),
         "depositToken": deposit_token_address,
         "user": from_address,
         "depositType": "batch",
