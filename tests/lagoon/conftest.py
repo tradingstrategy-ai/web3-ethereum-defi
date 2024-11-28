@@ -1,4 +1,8 @@
-"""Base mainnet fork based tests for Lagoon"""
+"""Base mainnet fork based tests for Lagoon.
+
+- UI: https://app.safe.global/home?safe=base:0x20415f3Ec0FEA974548184bdD6e67575D128953F
+- Contract: https://basescan.org/address/0x20415f3Ec0FEA974548184bdD6e67575D128953F#readProxyContract
+"""
 import os
 
 import pytest
@@ -34,14 +38,14 @@ def usdc_holder() -> HexAddress:
 
 
 @pytest.fixture()
-def anvil_base_fork(request, vault_owner, usdc_holder, deposit_user) -> AnvilLaunch:
+def anvil_base_fork(request, vault_owner, usdc_holder, asset_manager) -> AnvilLaunch:
     """Create a testable fork of live BNB chain.
 
     :return: JSON-RPC URL for Web3
     """
     launch = fork_network_anvil(
         JSON_RPC_BASE,
-        unlocked_addresses=[vault_owner, usdc_holder, deposit_user],
+        unlocked_addresses=[vault_owner, usdc_holder, asset_manager],
     )
     try:
         yield launch
@@ -110,6 +114,33 @@ def lagoon_vault(web3, base_test_vault_spec: VaultSpec) -> LagoonVault:
 
 
 @pytest.fixture()
-def deposit_user() -> HexAddress:
-    """A user that has preapproved 5 USDC deposit for the vault above, no approve(0 needed."""
-    return "0x7612A94AafF7a552C373e3124654C1539a4486A8"
+def asset_manager() -> HexAddress:
+    return "0x0b2582E9Bf6AcE4E7f42883d4E91240551cf0947"
+
+
+# Some addresses for the roles set:
+"""
+
+## Vault Roles ##
+
+## Address responsible to receive fees ##
+FEE_RECEIVER=0xbc253b0918EE6f029637c91b3aEf7113e548eA3B
+
+## Vault Admin : Owner of the Vault ##
+ADMIN=0x6Ce4B6b4CDBe697885Ef7D2D8201584cd00826A5
+
+## VALUATION MANAGER : Address responsible to propose the NAV of the Vault ##
+VALUATION_MANAGER=0x8358bBFb4Afc9B1eBe4e8C93Db8bF0586BD8331a
+
+## VALUATION VALIDATOR : Address responsible to accept and enforce the NAV of the Vault ##
+VALUATION_VALIDATOR=0xFaE478e68B5C9337499656113326BdF5fe79B936
+
+## ASSET MANAGER : Address responsible to execute transaction of the Asset Manager ##
+ASSET_MANAGER=0x0b2582E9Bf6AcE4E7f42883d4E91240551cf0947
+
+## Owners of SAFE : List of address responsible to update the Whitelist of Protocols managed by ASSET_MANAGER ##
+## Exemple of MULTISIGS_THRESHOLD=3/5 ##
+## Exemple of MULTISIGS_SIGNERS=[0x0000, 0x0000] ##
+MULTISIGS_SIGNERS=[0xc690827Ca7AFD92Ccff616F73Ec5AB7c273295f4]
+MULTISIGS_THRESHOLD=1%               
+"""

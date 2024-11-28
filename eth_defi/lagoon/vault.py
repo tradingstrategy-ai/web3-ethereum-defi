@@ -1,18 +1,40 @@
+from dataclasses import asdict
 from functools import cached_property
 
-from eth_typing import HexAddress, BlockIdentifier
+from eth_typing import HexAddress, BlockIdentifier, ChecksumAddress
+from hexbytes import HexBytes
 from web3 import Web3
 from web3.contract import Contract
+from web3.contract.contract import ContractFunction
 
 from eth_defi.balances import fetch_erc20_balances_fallback
 from eth_defi.vault.base import VaultBase, VaultSpec, VaultInfo, TradingUniverse, VaultPortfolio
+
+from safe_eth.safe import Safe
+
+from .safe_compat import create_safe_ethereum_client
 
 
 class LagoonVaultInfo(VaultInfo):
     """TODO: Add Lagoon vault info query"""
 
-    #: Address of the Safe multisig the vault is build around
-    safe_address: HexAddress
+    #
+    # Safe multisig core info
+    #
+    address: ChecksumAddress
+    fallback_handler: ChecksumAddress
+    guard: ChecksumAddress
+    master_copy: ChecksumAddress
+    modules: list[ChecksumAddress]
+    nonce: int
+    owners: list[ChecksumAddress]
+    threshold: int
+    version: str
+
+    #
+    # Lagoon vault info
+    # TODO
+    #
 
 
 class LagoonVault(VaultBase):
@@ -38,27 +60,32 @@ class LagoonVault(VaultBase):
     def get_flow_manager(self):
         raise NotImplementedError("Velvet does not support individual deposit/redemption events yet")
 
+    def fetch_safe(self) -> Safe:
+        """Use :py:meth:`safe` property for cached access"""
+        client = create_safe_ethereum_client(self.web3)
+        return Safe(
+            self.safe_address,
+            client,
+        )
+
     def fetch_info(self) -> LagoonVaultInfo:
-        """Read vault parameters from the chain."""
-        return {
-            "safe_address": self.spec.vault_address,
-        }
+        """Use :py:meth:`info` property for cached access"""
+        info = self.safe.retrieve_all_info()
+        return asdict(info)
 
     @cached_property
     def info(self) -> LagoonVaultInfo:
+        """Get info dictionary related to this deployment."""
         return self.fetch_info()
 
     @cached_property
-    def safe_contract(self) -> Contract:
-        return self.fetch_info()
+    def safe(self) -> Safe:
+        """Get the underlying Safe object used as an API from safe-eth-py library"""
+        return self.fetch_safe()
 
     @property
     def safe_address(self) -> HexAddress:
-        return self.info["safe_address"]
-
-    @property
-    def owner_address(self) -> HexAddress:
-        return self.info["owner"]
+        return self.spec.vault_address
 
     @property
     def name(self) -> str:
@@ -73,7 +100,11 @@ class LagoonVault(VaultBase):
         universe: TradingUniverse,
         block_identifier: BlockIdentifier | None = None,
     ) -> VaultPortfolio:
-        """Read the current token balances of a vault."""
+        """Read the current token balances of a vault.
+
+        TODO: This is MVP implementation. For better deposit/redemption tracking switch
+        to use Lagoon events later.
+        """
         erc20_balances = fetch_erc20_balances_fallback(
             self.web3,
             self.safe_address,
@@ -84,3 +115,10 @@ class LagoonVault(VaultBase):
         return VaultPortfolio(
             spot_erc20=erc20_balances,
         )
+
+    def transact_through_module(self, payload: HexBytes) -> ContractFunction:
+        """Create a multisig transaction using a module."""
+
+
+
+

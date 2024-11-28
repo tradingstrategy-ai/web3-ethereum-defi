@@ -16,9 +16,25 @@ from eth_defi.vault.base import TradingUniverse
 
 
 def test_lagoon_info(lagoon_vault: LagoonVault):
+    """Get core info of Lagoon vault"""
     vault = lagoon_vault
     info = vault.fetch_info()
-    assert info["safe_address"] == "0x20415f3Ec0FEA974548184bdD6e67575D128953F"
+    assert info["address"] == "0x20415f3Ec0FEA974548184bdD6e67575D128953F"
+    assert len(info["owners"]) == 2
+
+
+def test_lagoon_safe(lagoon_vault: LagoonVault):
+    """Get Safe instance from safe-eth-py library.
+
+    For modules see
+
+    https://app.safe.global/apps/open?safe=base:0x20415f3Ec0FEA974548184bdD6e67575D128953F&appUrl=https%3A%2F%2Fzodiac.gnosisguild.org%2F
+    """
+    vault = lagoon_vault
+    safe = vault.fetch_safe()
+    # No idea what these are, but let's test out
+    assert safe.retrieve_owners() == ['0xc690827Ca7AFD92Ccff616F73Ec5AB7c273295f4', '0x8846189A4E46997Dd30Fd9e8bE48C1fA1B846920']
+    assert safe.retrieve_modules() == ['0x0b2582E9Bf6AcE4E7f42883d4E91240551cf0947', '0x0Cdee1aCD67a424E476AD97bC60aa5F35D2556c9']
 
 
 def test_lagoon_fetch_portfolio(
