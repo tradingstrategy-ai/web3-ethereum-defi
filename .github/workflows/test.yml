@@ -26,6 +26,7 @@ jobs:
       - uses: actions/checkout@v3
         with:
           submodules: true
+
       - name: Setup Node.js
         uses: actions/setup-node@v3
         with:
@@ -44,22 +45,27 @@ jobs:
 
       - name: Install poetry
         run: pipx install poetry
+
       - name: Set up Python 3.12
         uses: actions/setup-python@v3
         with:
           python-version: '3.12'
           cache: 'poetry'
+
       - name: Install dependencies
         run: |
           poetry env use '3.12'
           poetry install --all-extras
+
       - name: Install Ganache
         run: yarn global add ganache
+
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
         with:
           # pick a nightly release from: https://github.com/foundry-rs/foundry/releases
-          version: 'nightly-de33b6af53005037b463318d2628b5cfcaf39916'
+          # version: 'nightly-de33b6af53005037b463318d2628b5cfcaf39916'
+          version: "nightly-fdd321bac95f0935529164a88faf99d4d5cfa321"
 
       # We also work around race condition for setting up Aave NPM packages.
       - name: Setup Aave v3 for tests
@@ -71,8 +77,8 @@ jobs:
         run: |
           pnpm --version 
           make guard in-house
-      # Run tests parallel.
-      - name: Run test scripts
+
+      - name: Run tests (parallel)
         run: |
           poetry run pytest --tb=native -n auto
         env:
@@ -80,10 +86,5 @@ jobs:
           JSON_RPC_POLYGON_ARCHIVE: ${{ secrets.JSON_RPC_POLYGON_ARCHIVE }}
           JSON_RPC_POLYGON: ${{ secrets.JSON_RPC_POLYGON }}
           JSON_RPC_ETHEREUM: ${{ secrets.JSON_RPC_ETHEREUM }}
+          JSON_RPC_BASE: ${{ secrets.JSON_RPC_BASE }}
           ETHEREUM_JSON_RPC: ${{ secrets.JSON_RPC_ETHEREUM }}
-      # Disabled for now
-      # https://github.com/reviewdog/action-flake8/issues/40
-      # - name: Run flake8
-      #  uses: reviewdog/action-flake8@v3
-      #  with:
-      #    github_token: ${{ secrets.GITHUB_TOKEN }}

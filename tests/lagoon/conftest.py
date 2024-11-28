@@ -1,4 +1,9 @@
-"""Base mainnet fork based tests for Lagoon"""
+"""Base mainnet fork based tests for Lagoon.
+
+- UI: https://app.safe.global/home?safe=base:0x20415f3Ec0FEA974548184bdD6e67575D128953F
+- Contract: https://basescan.org/address/0x20415f3Ec0FEA974548184bdD6e67575D128953F#readProxyContract
+- Roles: https://app.safe.global/apps/open?safe=base:0x20415f3Ec0FEA974548184bdD6e67575D128953F&appUrl=https%3A%2F%2Fzodiac.gnosisguild.org%2F
+"""
 import os
 
 import pytest
@@ -34,14 +39,14 @@ def usdc_holder() -> HexAddress:
 
 
 @pytest.fixture()
-def anvil_base_fork(request, vault_owner, usdc_holder, deposit_user) -> AnvilLaunch:
+def anvil_base_fork(request, vault_owner, usdc_holder, asset_manager) -> AnvilLaunch:
     """Create a testable fork of live BNB chain.
 
     :return: JSON-RPC URL for Web3
     """
     launch = fork_network_anvil(
         JSON_RPC_BASE,
-        unlocked_addresses=[vault_owner, usdc_holder, deposit_user],
+        unlocked_addresses=[vault_owner, usdc_holder, asset_manager],
     )
     try:
         yield launch
@@ -52,16 +57,36 @@ def anvil_base_fork(request, vault_owner, usdc_holder, deposit_user) -> AnvilLau
 
 @pytest.fixture()
 def web3(anvil_base_fork) -> Web3:
-    web3 = create_multi_provider_web3(anvil_base_fork.json_rpc_url)
+    """Create a web3 connector.
+
+    - By default use Anvil forked Base
+
+    - Eanble Tenderly testnet with `JSON_RPC_TENDERLY` to debug
+      otherwise impossible to debug Gnosis Safe transactions
+    """
+
+    tenderly_fork_rpc = os.environ.get("JSON_RPC_TENDERLY", None)
+
+    if tenderly_fork_rpc:
+        web3 = create_multi_provider_web3(tenderly_fork_rpc)
+    else:
+        web3 = create_multi_provider_web3(anvil_base_fork.json_rpc_url)
     assert web3.eth.chain_id == 8453
     return web3
 
 
 @pytest.fixture()
-def usdc(web3) -> TokenDetails:
+def base_usdc(web3) -> TokenDetails:
     return fetch_erc20_details(
         web3,
         "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+    )
+
+@pytest.fixture()
+def base_weth(web3) -> TokenDetails:
+    return fetch_erc20_details(
+        web3,
+        "0x4200000000000000000000000000000000000006",
     )
 
 
@@ -93,8 +118,8 @@ def hot_wallet_user(web3, usdc, usdc_holder) -> HotWallet:
 
 @pytest.fixture()
 def base_test_vault_spec() -> VaultSpec:
-    """Vault https://dapp.velvet.capital/ManagerVaultDetails/0x205e80371f6d1b33dff7603ca8d3e92bebd7dc25"""
-    return VaultSpec(1, "0x205e80371f6d1b33dff7603ca8d3e92bebd7dc25")
+    """Vault is https://app.safe.global/home?safe=base:0x20415f3Ec0FEA974548184bdD6e67575D128953F"""
+    return VaultSpec(1, "0x20415f3Ec0FEA974548184bdD6e67575D128953F")
 
 
 @pytest.fixture()
@@ -103,6 +128,46 @@ def lagoon_vault(web3, base_test_vault_spec: VaultSpec) -> LagoonVault:
 
 
 @pytest.fixture()
-def deposit_user() -> HexAddress:
-    """A user that has preapproved 5 USDC deposit for the vault above, no approve(0 needed."""
-    return "0x7612A94AafF7a552C373e3124654C1539a4486A8"
+def asset_manager() -> HexAddress:
+    """The asset manager role."""
+    return "0x0b2582E9Bf6AcE4E7f42883d4E91240551cf0947"
+
+
+@pytest.fixture()
+def topped_up_asset_manager(web3, asset_manager):
+    # Topped up with some ETH
+    tx_hash = web3.eth.send_transaction({
+        "to": asset_manager,
+        "from": web3.eth.accounts[0],
+        "value": 9 * 10**18,
+    })
+    assert_transaction_success_with_explanation(web3, tx_hash)
+    return asset_manager
+
+
+# Some addresses for the roles set:
+"""
+
+## Vault Roles ##
+
+## Address responsible to receive fees ##
+FEE_RECEIVER=0xbc253b0918EE6f029637c91b3aEf7113e548eA3B
+
+## Vault Admin : Owner of the Vault ##
+ADMIN=0x6Ce4B6b4CDBe697885Ef7D2D8201584cd00826A5
+
+## VALUATION MANAGER : Address responsible to propose the NAV of the Vault ##
+VALUATION_MANAGER=0x8358bBFb4Afc9B1eBe4e8C93Db8bF0586BD8331a
+
+## VALUATION VALIDATOR : Address responsible to accept and enforce the NAV of the Vault ##
+VALUATION_VALIDATOR=0xFaE478e68B5C9337499656113326BdF5fe79B936
+
+## ASSET MANAGER : Address responsible to execute transaction of the Asset Manager ##
+ASSET_MANAGER=0x0b2582E9Bf6AcE4E7f42883d4E91240551cf0947
+
+## Owners of SAFE : List of address responsible to update the Whitelist of Protocols managed by ASSET_MANAGER ##
+## Exemple of MULTISIGS_THRESHOLD=3/5 ##
+## Exemple of MULTISIGS_SIGNERS=[0x0000, 0x0000] ##
+MULTISIGS_SIGNERS=[0xc690827Ca7AFD92Ccff616F73Ec5AB7c273295f4]
+MULTISIGS_THRESHOLD=1%               
+"""
