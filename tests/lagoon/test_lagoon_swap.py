@@ -1,6 +1,7 @@
 """Lagoon Base mainnet fork swap test.
 
 - View Safe here https://app.safe.global/home?safe=base:0x20415f3Ec0FEA974548184bdD6e67575D128953F
+
 """
 from decimal import Decimal
 
@@ -38,9 +39,9 @@ def test_lagoon_swap(
 ):
     """Perform a basic swap.
 
-    - The vault has whitelisted Uniswap router
+    - The test vault setup has a wildcard access for any transaction without whitelists
 
-    - Perform a swap USDC -> WETH
+    - Perform a swap USDC -> WETH using Uniswap v2 SwapRouter02 on Base
 
     - For starting balances see test_lagoon_fetch_portfolio
 

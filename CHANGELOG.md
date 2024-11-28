@@ -1,7 +1,9 @@
 # Current
 
-- Add: Vault abstraction framework to easily work with different onchain vaults. Abstract away vault interactions to its own encapsulating interface.
 - Add: Support for [Velvet Capital vaults](https://www.velvet.capital/)
+- Add: Support for [Lagoon vaults](https://lagoon.finance/)
+- Add: Support for Gnosis Safe [Lagoon vaults](https://safe.global/) via `safe-eth-py` library integration
+- Add: Vault abstraction framework to easily work with different onchain vaults. Abstract away vault interactions to its own encapsulating interface.
 - Add: `wait_and_broadcast_multiple_nodes_mev_blocker()` for [MEV Blocker](https://mevblocker.io) - because the tx
   broadcast must be sequential
 - Add: `fetch_erc20_balances_multicall` and `fetch_erc20_balances_fallback` read multiple ERC-20 balances using Multicall library
