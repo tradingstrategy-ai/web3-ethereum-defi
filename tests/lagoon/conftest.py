@@ -91,6 +91,19 @@ def base_weth(web3) -> TokenDetails:
 
 
 @pytest.fixture()
+def base_dino(web3) -> TokenDetails:
+    """A token that trades as DINO/WETH on Uniswap v2
+
+    https://app.uniswap.org/explore/pools/base/0x6a77CDeC82EFf6A6A5D273F18C1c27CD3d71A588
+    """
+    return fetch_erc20_details(
+        web3,
+        "0x85E90a5430AF45776548ADB82eE4cD9E33B08077",
+    )
+
+
+
+@pytest.fixture()
 def hot_wallet_user(web3, usdc, usdc_holder) -> HotWallet:
     """A test account with USDC balance."""
 

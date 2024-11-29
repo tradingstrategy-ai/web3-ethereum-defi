@@ -44,7 +44,17 @@ class TradingUniverse:
 class VaultPortfolio:
     """Input needed to deploy a vault."""
 
-    spot_erc20: dict[TokenDetails, Decimal]
+    spot_erc20: dict[HexAddress, Decimal]
+
+    def __post_init__(self):
+        for token, value in self.spot_erc20.items():
+            assert type(token) == str
+            assert isinstance(value, Decimal)
+
+    @property
+    def tokens(self) -> set[HexAddress]:
+        """Get list of tokens held in this portfolio"""
+        return set(self.spot_erc20.keys())
 
     def is_spot_only(self) -> bool:
         """Do we have only ERC-20 hold positions in this portfolio"""
