@@ -6,7 +6,7 @@ from typing import Iterable, TypedDict
 from eth.typing import BlockRange
 from eth_typing import BlockIdentifier, HexAddress
 
-from eth_defi.token import TokenAddress
+from eth_defi.token import TokenAddress, TokenDetails
 
 
 class VaultEvent:
@@ -44,7 +44,14 @@ class TradingUniverse:
 class VaultPortfolio:
     """Input needed to deploy a vault."""
 
-    spot_erc20: dict[TokenAddress, Decimal]
+    spot_erc20: dict[TokenDetails, Decimal]
+
+    def is_spot_only(self) -> bool:
+        """Do we have only ERC-20 hold positions in this portfolio"""
+        return True  # Other positiosn not supported yet
+
+    def get_position_count(self):
+        return len(self.spot_erc20)
 
 
 class VaultFlowManager(ABC):
