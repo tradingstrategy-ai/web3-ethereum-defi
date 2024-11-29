@@ -7,20 +7,29 @@ import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from decimal import Decimal
-from typing import Iterable, Callable, Any
+from typing import Iterable, Any, TypeAlias
 
 from eth_typing import HexAddress, BlockIdentifier
 from multicall import Call, Multicall
+from safe_eth.eth.constants import NULL_ADDRESS
 from web3 import Web3
 from web3.contract import Contract
-from web3.contract.contract import ContractFunction
+
 
 from eth_defi.provider.anvil import is_mainnet_fork
 from eth_defi.provider.broken_provider import get_almost_latest_block_number
-from eth_defi.token import TokenDetails, fetch_erc20_details
+from eth_defi.token import TokenDetails, fetch_erc20_details, TokenAddress
+from eth_defi.uniswap_v3.constants import FOREVER_DEADLINE
 from eth_defi.vault.base import VaultPortfolio
 
 logger = logging.getLogger(__name__)
+
+
+TokenAmount: TypeAlias = Decimal
+
+
+class NoRouteFound(Exception):
+    """We could not route some of the spot tokens to get any valuations for them."""
 
 
 @dataclass(slots=True)
@@ -36,6 +45,10 @@ class PortfolioValuation:
     #: Individual spot valuations
     spot_valuations: dict[HexAddress, Decimal]
 
+    def __post_init__(self):
+        for key, value in self.spot_valuations.items():
+            assert isinstance(value, Decimal), f"Valuation result was not Decimal number {key}: {value}"
+
     def get_total_equity(self) -> Decimal:
         """How much we value this portfolio in the :py:attr:`denomination_token`"""
         return sum(self.spot_valuations.values())
@@ -43,29 +56,67 @@ class PortfolioValuation:
 
 @dataclass(slots=True, frozen=True)
 class Route:
-    """A smart contract call """
-    token: TokenDetails
+    """One potential swap path.
+
+    - Present one potential swap path between source and target
+
+    - Routes can contain any number of intermediate tokens in the path
+
+    - Used to ABI encode for multicall calls
+    """
+    source_token: TokenDetails
+    target_token: TokenDetails
     router: "ValuationQuoter"
-    func: ContractFunction
-    args: tuple
-    handler: Callable
+    path: tuple[HexAddress]
+    contract_address: HexAddress
+    signature: list[Any]
     extra_data: Any | None = None
 
-    def create_multicall(self) -> Call:
-        sig = ""
-        sig_and_args = [sig, address]
-        return Call(self.contract.address, sig_and_args, [(self.token.address, self.handler)])
+    def __hash__(self) -> int:
+        return hash(self.router, self.source_token.address, self.path)
 
-    def handle_response(self, raw_return_value) -> Decimal:
-        """Convert the rwa Solidity function call result to a denominated token amount."""
-        return self.handler(
+    def __eq__(self, other: "Route") -> int:
+        return self.source_token == other.source_token and self.path == other.path and self.contract_address == other.contract_address
+
+    @property
+    def token(self) -> TokenDetails:
+        return self.path[0]
+
+    def create_multicall(self) -> Call:
+        # If we need to optimise Python parsing speed, we can directly pass function selectors and pre-packed ABI
+        return Call(self.contract_address, self.signature, [(self.source_token.address, self.handle_onchain_return_value)])
+
+    def handle_onchain_return_value(self, succeed: bool, raw_return_value: Any) -> TokenAmount | None:
+        """Convert the rwa Solidity function call result to a denominated token amount.
+
+        - Multicall library callback
+
+        :return:
+            The token amount in the reserve currency we get on the market sell.
+
+            None if this path was not supported (Solidity reverted).
+        """
+
+        if not succeed:
+            return None
+
+        return self.router.handle_onchain_return_value(
             self,
             raw_return_value,
         )
 
 
 class ValuationQuoter(ABC):
-    """Handle asset valuation on a specific DEX/quoter"""
+    """Handle asset valuation on a specific DEX/quoter.
+
+    - Takes in source and target tokens as input and generate all routing path combinations
+
+    - Creates routes to a specific DEX
+
+    - Each DEX has its own quoter contract we need to integrate
+
+    - Resolves the onchain Solidity function return value to a token amount we get
+    """
 
     @abstractmethod
     def generate_routes(
@@ -75,10 +126,12 @@ class ValuationQuoter(ABC):
         intermediate_tokens: set[TokenDetails],
         amount: Decimal,
     ) -> Iterable[Route]:
-        pass
+
+        # Direct route
+        yield ()
 
     @abstractmethod
-    def handle_response(
+    def handle_onchain_return_value(
         self,
         route: Route,
         raw_return_value: any,
@@ -86,11 +139,15 @@ class ValuationQuoter(ABC):
         pass
 
 
+
 class UniswapV2Router02Quoter(ValuationQuoter):
     """Handle Uniswap v2 quoters using Router02 contract.
 
     https://docs.uniswap.org/contracts/v2/reference/smart-contracts/router-02#swapexacttokensfortokens
     """
+
+    #: Router02 function we use to calculate outs from token ins
+    func_string = "swapExactTokensForTokens(uint,uint,address[],address,uint)(uint[])"
 
     def __init__(
         self,
@@ -106,14 +163,54 @@ class UniswapV2Router02Quoter(ValuationQuoter):
         intermediate_tokens: set[TokenDetails],
         amount: Decimal,
     ) -> Iterable[Route]:
-        pass
+        """Create routes we need to test on Uniswap v2"""
 
-    def handle_response(
+        for path in self.get_path_combinations(
+            source_token,
+            target_token,
+            intermediate_tokens,
+        ):
+            # https://docs.uniswap.org/contracts/v2/reference/smart-contracts/router-02#swapexacttokensfortokens
+            signature = [
+                self.func_string,
+                source_token.convert_to_raw(amount),
+                0,
+                path,
+                NULL_ADDRESS,
+                FOREVER_DEADLINE,
+            ]
+            yield Route(
+                contract_address=self.router_v2.address,
+                source_token=source_token,
+                target_token=target_token,
+                router=self,
+                path=path,
+                signature=signature,
+            )
+
+    def handle_onchain_return_value(
         self,
         route: Route,
         raw_return_value: any,
-    ):
-        pass
+    ) -> Decimal | None:
+        """Convert swapExactTokensForTokens() return value to tokens we receive"""
+        target_token_out = raw_return_value[-1]
+        return route.target_token.convert_to_decimals(target_token_out)
+
+    def get_path_combinations(
+        self,
+        source_token: TokenDetails,
+        target_token: TokenDetails,
+        intermediate_tokens: set[TokenDetails],
+    ) -> Iterable[tuple[HexAddress]]:
+        """Generate Uniswap v2 swap paths with all supported intermediate tokens"""
+
+        # Path without intermediates
+        yield (source_token.address, target_token.address)
+
+        # Path with each intermediate
+        for middle in intermediate_tokens:
+            yield (source_token.address, middle.address, target_token.address)
 
 
 class NetAssetValueCalculator:
@@ -161,7 +258,8 @@ class NetAssetValueCalculator:
         self.block_identifier = block_identifier
 
     def generate_routes_for_router(self, router: ValuationQuoter, portfolio: VaultPortfolio) -> Iterable[Route]:
-        for token_address, amount in portfolio.spot_erc20:
+        """Create all potential routes we need to test to get quotes for a single asset."""
+        for token_address, amount in portfolio.spot_erc20.items():
             token = _convert_to_token_details(self.web3, self.chain_id, token_address)
             yield from router.generate_routes(
                 source_token=token,
@@ -173,7 +271,7 @@ class NetAssetValueCalculator:
     def calculate_market_sell_nav(
         self,
         portfolio: VaultPortfolio,
-    ) -> dict[HexAddress, Decimal]:
+    ) -> PortfolioValuation:
         """Calculate net asset value for each position.
 
         - Portfolio net asset value is the sum of positions
@@ -186,18 +284,54 @@ s
             Map of token address -> valuation in denomiation token
         """
         assert portfolio.is_spot_only()
+        assert portfolio.get_position_count() > 0, "Empty portfolio"
         logger.info("Calculating NAV for a portfolio with %d assets", portfolio.get_position_count())
         routes = [r for router in self.quoters for r in self.generate_routes_for_router(router, portfolio)]
-        return self.fetch_onchain_valuations(routes)
+        all_routes = self.fetch_onchain_valuations(routes)
+
+        # Discard failed paths
+        succeed_routes = {k: v for k, v in all_routes.items() if v is not None}
+
+        assert len(succeed_routes) > 0, "Could not find any viable routes for any token. We messed up smart contract calls badly?"
+
+        best_result_by_token = self.resolve_best_valuations(succeed_routes)
+
+        # Discard bad paths with None value
+        valulation = PortfolioValuation(
+            denomination_token=self.denomination_token,
+            spot_valuations=best_result_by_token,
+        )
+        return valulation
+
+    def resolve_best_valuations(
+        self,
+        input_tokens: set[TokenDetails],
+        routes: dict[Route, TokenAmount]
+    ):
+        """Any source token may have multiple paths. Pick one that gives the best amount out."""
+
+        logger.info("Resolving best routes, %d tokens, %d routes", len(input_tokens), len(routes))
+        # best_route_by_token: dict[TokenAddress, Route]
+        best_result_by_token: dict[TokenAddress, TokenAmount] = {}
+        for route, token_amount in routes.items():
+            if token_amount > best_result_by_token.get(route.source_token.address, 0):
+                best_result_by_token[route.source_token.address] = token_amount
+
+        # Validate all tokens got at least one path
+        for token in input_tokens:
+            if token.address not in best_result_by_token:
+                raise NoRouteFound(f"Token {token} did not get any valid DEX routing paths to calculate its current market value")
+
+        return best_result_by_token
 
     def fetch_onchain_valuations(
         self,
         routes: list[Route],
-    ) -> PortfolioValuation:
+    ) -> dict[Route, TokenAmount]:
         """Use multicall to make calls to all of our quoters.
 
         :return:
-
+            Map routes -> amount out token amounts with this route
         """
         multicall = self.multicall
         if multicall is None:
@@ -222,33 +356,6 @@ s
             raise NotImplementedError()
 
 
-def calculate_nav_on_market_sell(
-    portfolio: VaultPortfolio,
-    quoter: Contract,
-    valuation_asset: HexAddress,
-    routers: set[Valu]
-):
-    """Calculate valuation of all vault spot assets, assuming we would sell them on Uniswap market sell.
-
-    :param portfolio:
-        The gathered portfolio of current assets
-
-    :param quoter:
-        Uniswap QuoterV2 smart contract.
-
-    :param intermedia_token:
-        The supported intermediate token if we cannot do direct market sell.
-
-    :param valuation_asset:
-        The asset in which we value the portfolio.
-
-        E.g. `USDC`.
-    """
-
-    calls = []
-    for token in portfolio.spot_erc20:
-        pass
-
 def _convert_to_token_details(
     web3: Web3,
     chain_id: int,
@@ -257,6 +364,7 @@ def _convert_to_token_details(
     if isinstance(token_or_address, TokenDetails):
         return token_or_address
     return fetch_erc20_details(web3, token_or_address, chain_id=chain_id)
+
 
 def _get_signature():
     pass

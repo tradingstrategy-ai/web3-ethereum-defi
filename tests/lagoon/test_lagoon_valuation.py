@@ -1,5 +1,8 @@
+"""NAV calcualtion and valuation commitee tests."""
+
 from decimal import Decimal
 
+import pytest
 from web3 import Web3
 
 from eth_defi.lagoon.vault import LagoonVault
@@ -21,7 +24,7 @@ def uniswap_v2(web3):
     )
 
 
-def test_lagoon_calculatee_portfolio_nav(
+def test_lagoon_calculate_portfolio_nav(
     web3: Web3,
     lagoon_vault: LagoonVault,
     base_usdc: TokenDetails,

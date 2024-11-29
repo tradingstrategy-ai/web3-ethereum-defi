@@ -168,5 +168,5 @@ class LagoonVault(VaultBase):
         )
         return bound_func
 
-    def calculate_nav(self):
+
 
