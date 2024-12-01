@@ -127,6 +127,10 @@ class MulticallWrapper:
         data = call.signature.fourbyte + call.data
         return data
 
+    def get_args(self) -> list[Any]:
+        """Get undecoded Solidity arguments passed to the underlying func."""
+        return self.signature[1:]
+
     def multicall_callback(self, succeed: bool, raw_return_value: Any) -> TokenAmount | None:
         """Convert the raw Solidity function call result to a denominated token amount.
 
@@ -244,7 +248,9 @@ class ValuationQuoter(ABC):
 class UniswapV2Router02Quoter(ValuationQuoter):
     """Handle Uniswap v2 quoters using Router02 contract.
 
-    https://docs.uniswap.org/contracts/v2/reference/smart-contracts/router-02#getamountsout
+    - https://docs.uniswap.org/contracts/v2/reference/smart-contracts/router-02#getamountsout
+
+    - https://basescan.org/address/0x4752ba5dbc23f44d87826276bf6fd6b1c372ad24#readContract
     """
 
     #: Quoter signature string for Multicall lib.

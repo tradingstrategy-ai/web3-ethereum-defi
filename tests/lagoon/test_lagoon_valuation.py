@@ -57,7 +57,8 @@ def test_uniswap_v2_weth_usdc_sell_route(
     try:
         raw_result = web3.eth.call(tx_data)
     except Exception as e:
-        raise AssertionError(f"Could not execute the call.\nAddress: {tx_data['to']}\nData: {tx_data['data'].hex()}") from e
+        # If this fails, just punch in the data to Tenderly Simulate transaction do debug
+        raise AssertionError(f"Could not execute the getAmountOuts().\nAddress: {tx_data['to']}\nArgs: {wrapped_call.get_args()}, Data: {tx_data['data'].hex()}") from e
 
     assert raw_result > 100
 
