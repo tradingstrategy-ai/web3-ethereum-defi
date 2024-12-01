@@ -165,10 +165,6 @@ class MulticallWrapper:
                 self,
                 raw_return_value,
             )
-
-            if token_amount in (0, None):
-                raise RuntimeError(f"Selling got zero amount. Route {self}, raw return value {raw_return_value}")
-
             return token_amount
 
         except Exception as e:
@@ -177,7 +173,8 @@ class MulticallWrapper:
                 self.quoter,
                 raw_return_value,
             )
-            raise e
+            raise e #  0.0000673
+
 
         if self.debug:
             logger.info(
@@ -335,7 +332,7 @@ class UniswapV2Router02Quoter(ValuationQuoter):
     ) -> Decimal | None:
         """Convert swapExactTokensForTokens() return value to tokens we receive"""
         route = wrapper.route
-        target_token_out = raw_return_value[0]
+        target_token_out = raw_return_value[-1]
         return route.target_token.convert_to_decimals(target_token_out)
 
     def get_path_combinations(
@@ -566,7 +563,18 @@ s
 
         - Flag routes that work
 
-        - Show both best and suboptimal routes
+        - Show values of each portfolio position if sold with the route
+
+        Outputs:
+
+        .. code-block:: text
+
+                                 Asset                                     Address        Balance                   Router Works  Value
+            Path
+            USDC                  USDC  0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913           0.35                            yes   0.35
+            WETH -> USDC          WETH  0x4200000000000000000000000000000000000006       0.000000  UniswapV2Router02Quoter   yes   0.00
+            DINO -> USDC          DINO  0x85E90a5430AF45776548ADB82eE4cD9E33B08077  547942.000069  UniswapV2Router02Quoter    no      -
+            DINO -> WETH -> USDC  DINO  0x85E90a5430AF45776548ADB82eE4cD9E33B08077  547942.000069  UniswapV2Router02Quoter   yes  36.69
 
         :return:
             Human-readable DataFrame.
@@ -583,10 +591,11 @@ s
         if reserve_balance:
             # Handle case where we cannot route reserve balance to itself
             data.append({
+                "Path": self.denomination_token.symbol,
                 "Asset": self.denomination_token.symbol,
+                "Address": self.denomination_token.address,
                 "Balance": f"{reserve_balance:,.2f}",
                 "Router": "",
-                "Path": "",
                 "Works": "yes",
                 "Value": f"{reserve_balance:,.2f}",
             })
@@ -595,22 +604,23 @@ s
 
             out_balance = sell_prices[route]
 
-            if out_balance:
+            if out_balance is not None:
                 formatted_balance = f"{out_balance:,.2f}"
             else:
                 formatted_balance = "-"
 
             data.append({
+                "Path": _format_symbolic_path_uniswap_v2(self.web3, route),
                 "Asset": route.source_token.symbol,
+                "Address": route.source_token.address,
                 "Balance": f"{portfolio.spot_erc20[route.source_token.address]:.6f}",
                 "Router": route.quoter.__class__.__name__,
-                "Path": _format_symbolic_path_uniswap_v2(self.web3, route),
                 "Works": "yes" if out_balance is not None else "no",
                 "Value": formatted_balance,
             })
 
         df = pd.DataFrame(data)
-        df = df.set_index("Asset")
+        df = df.set_index("Path")
         return df
 
 

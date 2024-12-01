@@ -39,6 +39,14 @@ def test_uniswap_v2_weth_usdc_sell_route(
     - See that the logic for a single route works
 
     - Test various ways of building the tx payload for eth_call
+
+    - Router address is 0x4752ba5dbc23f44d87826276bf6fd6b1c372ad24
+
+    - Dino amount is 547942000069182639312002
+
+    - Dino PATH is ["0x85E90a5430AF45776548ADB82eE4cD9E33B08077", "0x4200000000000000000000000000000000000006", "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913"]
+
+    - Dino value  0.0000673 * 547942 = $36.876496599999996
     """
 
     uniswap_v2_quoter_v2 = UniswapV2Router02Quoter(
@@ -177,4 +185,7 @@ def test_lagoon_diagnose_routes(
     print()
     print(routes)
 
-
+    assert routes.loc["USDC"]["Value"] is not None
+    assert routes.loc["WETH -> USDC"]["Value"] is not None
+    assert routes.loc["DINO -> WETH -> USDC"]["Value"] is not None
+    assert routes.loc["DINO -> USDC"]["Value"] == "-"
