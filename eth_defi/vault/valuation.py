@@ -477,8 +477,8 @@ s
         best_result_by_token = self.resolve_best_valuations(portfolio.tokens, succeed_routes)
 
         # Reserve currency does not need to be traded
-        if self.denomination_token in portfolio.spot_erc20:
-            best_result_by_token[self.denomination_token] = portfolio.spot_erc20[self.denomination_token]
+        if self.denomination_token.address in portfolio.spot_erc20:
+            best_result_by_token[self.denomination_token.address] = portfolio.spot_erc20[self.denomination_token.address]
 
         # Discard bad paths with None value
         valulation = PortfolioValuation(
@@ -499,7 +499,11 @@ s
         best_result_by_token: dict[TokenAddress, TokenAmount] = {}
         for route, token_amount in routes.items():
             logger.info("Route %s got result %s", route, token_amount)
-            if token_amount > best_result_by_token.get(route.source_token.address, 0):
+
+            if best_result_by_token.get(route.source_token.address, None) is None:
+                # Initialise with 0.00
+                best_result_by_token[route.source_token.address] = token_amount
+            elif token_amount > best_result_by_token.get(route.source_token.address, 0):
                 best_result_by_token[route.source_token.address] = token_amount
 
         # Validate all tokens got at least one path
@@ -578,7 +582,7 @@ s
 
         :return:
             Human-readable DataFrame.
-
+x
             Indexed by asset.
         """
         routes = [r for router in self.quoters for r in self.generate_routes_for_router(router, portfolio)]

@@ -138,13 +138,20 @@ def test_lagoon_calculate_portfolio_nav(
         debug=True,
     )
 
+    #                                  Asset                                     Address        Balance                   Router Works  Value
+    #             Path
+    #             USDC                  USDC  0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913           0.35                            yes   0.35
+    #             WETH -> USDC          WETH  0x4200000000000000000000000000000000000006       0.000000  UniswapV2Router02Quoter   yes   0.00
+    #             DINO -> USDC          DINO  0x85E90a5430AF45776548ADB82eE4cD9E33B08077  547942.000069  UniswapV2Router02Quoter    no      -
+    #             DINO -> WETH -> USDC  DINO  0x85E90a5430AF45776548ADB82eE4cD9E33B08077  547942.000069  UniswapV2Router02Quoter   yes  36.69
+
     portfolio_valuation = nav_calculator.calculate_market_sell_nav(portfolio)
     assert portfolio_valuation.denomination_token == base_usdc
-    assert len(portfolio_valuation.spot_valuations) == 2
-    assert portfolio_valuation.spot_valuations[base_usdc.address] == pytest.approx()
-    assert portfolio_valuation.spot_valuations[base_weth.address] == pytest.approx(0.0001)
-    assert portfolio_valuation.spot_valuations[base_dino.address] == pytest.approx(0.0001)
-    assert portfolio_valuation.get_total_equity() == Decimal(1.2)
+    assert len(portfolio_valuation.spot_valuations) == 3
+    assert portfolio_valuation.spot_valuations[base_usdc.address] == pytest.approx(Decimal(0.347953))
+    assert portfolio_valuation.spot_valuations[base_weth.address] == pytest.approx(Decimal(0))
+    assert portfolio_valuation.spot_valuations[base_dino.address] > 0
+    assert portfolio_valuation.get_total_equity() > 0
 
 
 def test_lagoon_diagnose_routes(
