@@ -9,7 +9,6 @@ import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from decimal import Decimal
-from functools import cached_property
 from typing import Iterable, Any, TypeAlias
 
 import pandas as pd
@@ -74,7 +73,7 @@ class Route:
     path: tuple[HexAddress, HexAddress] | tuple[HexAddress, HexAddress, HexAddress]
 
     def __repr__(self):
-        return f"<Route {self.path} using quoter {self.signature[0]}>"
+        return f"<Route {self.path} using quoter {self.quoter}>"
 
     def __hash__(self) -> int:
         """Unique hash for this instance"""
@@ -124,8 +123,13 @@ class MulticallWrapper:
     def get_data(self) -> bytes:
         """Return data field for the transaction payload"""
         call = self.create_multicall()
-        data = call.signature.fourbyte + call.data
+        data = call.data
         return data
+
+    def get_selector(self) -> bytes:
+        """Get 4-bytes Solidity function selector."""
+        call = self.create_multicall()
+        return call.signature.fourbyte
 
     def get_args(self) -> list[Any]:
         """Get undecoded Solidity arguments passed to the underlying func."""
@@ -141,7 +145,6 @@ class MulticallWrapper:
 
             None if this path was not supported (Solidity reverted).
         """
-
         if not succeed:
             # Avoid expensive logging if we do not need it
             if self.debug:
@@ -170,6 +173,8 @@ class MulticallWrapper:
             if token_amount in (0, None):
                 raise RuntimeError(f"Selling got zero amount. Route {self}, raw return value {raw_return_value}")
 
+            return token_amount
+
         except Exception as e:
             logger.error(
                 "Router handler failed %s for return value %s",
@@ -194,13 +199,28 @@ class MulticallWrapper:
             "data": self.get_data(),
         }
 
+    def get_debug_string(self) -> str:
+        """Help why we fail."""
+        data = self.get_data()
+        return f"Could not execute {self.signature_string}.\nAddress: {self.contract_address}\nSelector: {self.get_selector().hex()}\nArgs: {self.get_args()}\nData: {data.hex()}"
+
     def __call__(
         self,
         success: bool,
         raw_return_value: Any
     ):
         """Called by Multicall lib"""
-        return self.multicall_callback(success, raw_return_value)
+        try:
+            return self.multicall_callback(success, raw_return_value)
+        except Exception as e:
+            logger.error(
+                "Could not decode multicall result, success %s, %s=%s",
+                 success,
+                 self.route,
+                 raw_return_value,
+                exc_info=e,
+            )
+            raise
 
 
 class ValuationQuoter(ABC):
@@ -268,12 +288,15 @@ class UniswapV2Router02Quoter(ValuationQuoter):
         assert isinstance(swap_router_v2, Contract)        
         self.swap_router_v2 = swap_router_v2
 
+    def __repr__(self):
+        return f"<UniswapV2Router02Quoter({self.swap_router_v2.address})>"
+
     def create_multicall(self, route: Route, amount_in: int) -> MulticallWrapper:
         # If we need to optimise Python parsing speed, we can directly pass function selectors and pre-packed ABI
 
         signature = [
             self.signature_string,
-            route.source_token.convert_to_raw(amount_in),
+            amount_in,
             route.path,
         ]
 
@@ -311,10 +334,11 @@ class UniswapV2Router02Quoter(ValuationQuoter):
 
     def handle_onchain_return_value(
         self,
-        route: Route,
+        wrapper: MulticallWrapper,
         raw_return_value: any,
     ) -> Decimal | None:
         """Convert swapExactTokensForTokens() return value to tokens we receive"""
+        route = wrapper.route
         target_token_out = raw_return_value[0]
         return route.target_token.convert_to_decimals(target_token_out)
 
