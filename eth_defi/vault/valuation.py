@@ -12,6 +12,7 @@ from decimal import Decimal
 from functools import cached_property
 from typing import Iterable, Any, TypeAlias
 
+import pandas as pd
 from eth_typing import HexAddress, BlockIdentifier
 from multicall import Call, Multicall
 from web3 import Web3
@@ -446,6 +447,49 @@ s
             # Fallback not supported yet
             raise NotImplementedError()
 
+    def create_route_diagnostics(
+        self,
+        portfolio: VaultPortfolio,
+    ) -> pd.DataFrame:
+        """Create a route diagnotics table.
+
+        - Show all routes generated for the portfolio
+
+        - Flag routes that work
+
+        - Show both best and suboptimal routes
+
+        :return:
+            Human-readable DataFrame.
+
+            Indexed by asset.
+        """
+        routes = [r for router in self.quoters for r in self.generate_routes_for_router(router, portfolio)]
+        sell_prices = self.fetch_onchain_valuations(routes)
+
+        data = []
+        for route in routes:
+
+            out_balance = sell_prices[route]
+
+            if out_balance:
+                formatted_balance = f"{out_balance:,:2f}"
+            else:
+                formatted_balance = "-"
+
+            data.append({
+                "Asset": route.source_token.symbol,
+                "Balance": f"{portfolio.spot_erc20[route.source_token.address]:.6f}",
+                "Router": route.router.__class__.__name__,
+                "Path": _format_symbolic_path(self.web3, route),
+                "Works": "yes" if out_balance is not None else "no",
+                "Value": formatted_balance,
+            })
+
+        df = pd.DataFrame(data)
+        df = df.set_index("Asset")
+        return df
+
 
 def _convert_to_token_details(
     web3: Web3,
@@ -456,3 +500,22 @@ def _convert_to_token_details(
         return token_or_address
     return fetch_erc20_details(web3, token_or_address, chain_id=chain_id)
 
+
+def _format_symbolic_path(web3, route: Route) -> str:
+    """Get human-readable route path line."""
+
+    chain_id = web3.eth.chain_id
+
+    str_path = [
+        f"{route.source_token.symbol} ->"
+    ]
+
+    for step in route.path[1:-1]:
+        token = fetch_erc20_details(web3, step, chain_id=chain_id)
+        str_path.append(f"{token.symbol} ->")
+
+    str_path.append(
+        f"{route.target_token.symbol}"
+    )
+
+    return " ".join(str_path)
