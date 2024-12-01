@@ -15,6 +15,7 @@ from typing import Iterable, Any, TypeAlias
 import pandas as pd
 from eth_typing import HexAddress, BlockIdentifier
 from multicall import Call, Multicall
+from safe_eth.eth.constants import NULL_ADDRESS
 from web3 import Web3
 from web3.contract import Contract
 
@@ -56,6 +57,7 @@ class PortfolioValuation:
         return sum(self.spot_valuations.values())
 
 
+
 @dataclass(slots=True, frozen=True)
 class Route:
     """One potential swap path.
@@ -68,19 +70,15 @@ class Route:
     """
     source_token: TokenDetails
     target_token: TokenDetails
-    router: "ValuationQuoter"
-    path: tuple[HexAddress]
-    contract_address: HexAddress
-    signature: list[Any]
-    extra_data: Any | None = None
-    debug: bool = False  # Unit test flag
+    quoter: "ValuationQuoter"
+    path: tuple[HexAddress, HexAddress] | tuple[HexAddress, HexAddress, HexAddress]
 
     def __repr__(self):
         return f"<Route {self.path} using quoter {self.signature[0]}>"
 
     def __hash__(self) -> int:
         """Unique hash for this instance"""
-        return hash((self.router, self.source_token.address, self.path))
+        return hash((self.quoter, self.source_token.address, self.path))
 
     def __eq__(self, other: "Route") -> int:
         return self.source_token == other.source_token and self.path == other.path and self.contract_address == other.contract_address
@@ -91,14 +89,46 @@ class Route:
 
     @property
     def token(self) -> TokenDetails:
-        return self.path[0]
+        return self.source_token
 
     def create_multicall(self) -> Call:
         # If we need to optimise Python parsing speed, we can directly pass function selectors and pre-packed ABI
         return Call(self.contract_address, self.signature, [(self, self.handle_onchain_return_value)])
 
-    def handle_onchain_return_value(self, succeed: bool, raw_return_value: Any) -> TokenAmount | None:
-        """Convert the rwa Solidity function call result to a denominated token amount.
+
+@dataclass(slots=True, frozen=True)
+class MulticallWrapper:
+    """Wrap the undertlying Multicall with diagnostics data.
+
+    - Because the underlying Multicall lib is not powerful enough.
+
+    - And we do not have time to fix it
+    """
+
+    quoter: "ValuationQuoter"
+    route: Route
+    amount_in: int
+    signature_string: str
+    contract_address: HexAddress
+    signature: list[Any]
+    debug: bool = False  # Unit test flag
+
+    def __repr__(self):
+        return f"<MulticallWrapper {self.amount_in} for {self.signature_string}>"
+
+    def create_multicall(self) -> Call:
+        """Create underlying call about."""
+        call = Call(self.contract_address, self.signature, [(self.route, self)])
+        return call
+
+    def get_data(self) -> bytes:
+        """Return data field for the transaction payload"""
+        call = self.create_multicall()
+        data = call.signature.fourbyte + call.data
+        return data
+
+    def multicall_callback(self, succeed: bool, raw_return_value: Any) -> TokenAmount | None:
+        """Convert the raw Solidity function call result to a denominated token amount.
 
         - Multicall library callback
 
@@ -112,11 +142,11 @@ class Route:
             # Avoid expensive logging if we do not need it
             if self.debug:
                 # Print calldata so we can copy-paste it to Tenderly for symbolic debug stack trace
+                data = self.get_data()
                 call = self.create_multicall()
-                data = call.signature.fourbyte + call.data
                 logger.info("Path did not success: %s on %s, selector %s",
                     self,
-                    self.function_signature_string,
+                    self.signature_string,
                     call.signature.fourbyte.hex(),
                 )
                 logger.info("Arguments: %s", self.signature[1:])
@@ -128,7 +158,7 @@ class Route:
             return None
 
         try:
-            token_amount = self.router.handle_onchain_return_value(
+            token_amount = self.quoter.handle_onchain_return_value(
                 self,
                 raw_return_value,
             )
@@ -139,18 +169,34 @@ class Route:
         except Exception as e:
             logger.error(
                 "Router handler failed %s for return value %s",
-                self.router,
+                self.quoter,
                 raw_return_value,
             )
             raise e
 
         if self.debug:
             logger.info(
-            "Path succeed: %s, we can sell %s for %s reserve currency",
+            "Route succeed: %s, we can sell %s for %s reserve currency",
                 self,
-                self.token,
+                self.route,
                 token_amount
             )
+
+    def create_tx_data(self, from_= NULL_ADDRESS) -> dict:
+        """Create payload for eth_call."""
+        return {
+            "from": NULL_ADDRESS,
+            "to": self.contract_address,
+            "data": self.get_data(),
+        }
+
+    def __call__(
+        self,
+        success: bool,
+        raw_return_value: Any
+    ):
+        """Called by Multicall lib"""
+        return self.multicall_callback(success, raw_return_value)
 
 
 class ValuationQuoter(ABC):
@@ -164,6 +210,9 @@ class ValuationQuoter(ABC):
 
     - Resolves the onchain Solidity function return value to a token amount we get
     """
+
+    def __init__(self, debug: bool = False):
+        self.debug = debug
 
     @abstractmethod
     def generate_routes(
@@ -186,6 +235,10 @@ class ValuationQuoter(ABC):
     ):
         pass
 
+    @abstractmethod
+    def create_multicall(self, route: Route, amount_in: int) -> MulticallWrapper:
+        pass
+
 
 
 class UniswapV2Router02Quoter(ValuationQuoter):
@@ -194,18 +247,39 @@ class UniswapV2Router02Quoter(ValuationQuoter):
     https://docs.uniswap.org/contracts/v2/reference/smart-contracts/router-02#getamountsout
     """
 
+    #: Quoter signature string for Multicall lib.
+    #:
+    #: Not the standard string signature format,
+    #: because Multicall lib wants it special output format suffix here
+    signature_string = "getAmountsOut(uint256,address[])(uint256[])"
+
     def __init__(
         self,
         swap_router_v2: Contract,
+        debug: bool = False,
     ):
-        assert isinstance(swap_router_v2, Contract)
+        super().__init__(debug=debug)
+        assert isinstance(swap_router_v2, Contract)        
         self.swap_router_v2 = swap_router_v2
 
-    @cached_property
-    def func_string(self):
-        # Not the standard string signature format,
-        # because Multicall lib wants it special output format suffix here
-        return "getAmountsOut(uint256,address[])(uint256[])"
+    def create_multicall(self, route: Route, amount_in: int) -> MulticallWrapper:
+        # If we need to optimise Python parsing speed, we can directly pass function selectors and pre-packed ABI
+
+        signature = [
+            self.signature_string,
+            route.source_token.convert_to_raw(amount_in),
+            route.path,
+        ]
+
+        return MulticallWrapper(
+            quoter=self,
+            route=route,
+            amount_in=amount_in,
+            debug=self.debug,
+            signature_string=self.signature_string,
+            contract_address=self.swap_router_v2.address,
+            signature=signature,
+        )
 
     def generate_routes(
         self,
@@ -222,19 +296,11 @@ class UniswapV2Router02Quoter(ValuationQuoter):
             target_token,
             intermediate_tokens,
         ):
-            signature = [
-                self.func_string,
-                source_token.convert_to_raw(amount),
-                path,
-            ]
             yield Route(
-                contract_address=self.swap_router_v2.address,
                 source_token=source_token,
                 target_token=target_token,
-                router=self,
+                quoter=self,
                 path=path,
-                signature=signature,
-                debug=debug,
             )
 
     def handle_onchain_return_value(
@@ -480,8 +546,8 @@ s
             data.append({
                 "Asset": route.source_token.symbol,
                 "Balance": f"{portfolio.spot_erc20[route.source_token.address]:.6f}",
-                "Router": route.router.__class__.__name__,
-                "Path": _format_symbolic_path(self.web3, route),
+                "Router": route.quoter.__class__.__name__,
+                "Path": _format_symbolic_path_uniswap_v2(self.web3, route),
                 "Works": "yes" if out_balance is not None else "no",
                 "Value": formatted_balance,
             })
@@ -501,7 +567,7 @@ def _convert_to_token_details(
     return fetch_erc20_details(web3, token_or_address, chain_id=chain_id)
 
 
-def _format_symbolic_path(web3, route: Route) -> str:
+def _format_symbolic_path_uniswap_v2(web3, route: Route) -> str:
     """Get human-readable route path line."""
 
     chain_id = web3.eth.chain_id
