@@ -38,7 +38,7 @@ def test_uniswap_v2_weth_usdc_sell_route(
 
     - See that the logic for a single route works
 
-    - Test various ways of building the tx payload
+    - Test various ways of building the tx payload for eth_call
     """
 
     uniswap_v2_quoter_v2 = UniswapV2Router02Quoter(
@@ -55,7 +55,7 @@ def test_uniswap_v2_weth_usdc_sell_route(
 
     # Sell 1000 WETH
     amount = 1000 * 10**18
-    wrapped_call = uniswap_v2_quoter_v2.create_multicall(route, amount)
+    wrapped_call = uniswap_v2_quoter_v2.create_multicall_wrapper(route, amount)
 
     assert wrapped_call.contract_address == "0x4752ba5DBc23f44D87826276BF6Fd6b1C372aD24"
 
@@ -131,7 +131,11 @@ def test_lagoon_calculate_portfolio_nav(
     )
 
     portfolio_valuation = nav_calculator.calculate_market_sell_nav(portfolio)
-    assert len(portfolio_valuation.spot_valutions) == 2
+    assert portfolio_valuation.denomination_token == base_usdc
+    assert len(portfolio_valuation.spot_valuations) == 2
+    assert portfolio_valuation.spot_valuations[base_usdc.address] == pytest.approx()
+    assert portfolio_valuation.spot_valuations[base_weth.address] == pytest.approx(0.0001)
+    assert portfolio_valuation.spot_valuations[base_dino.address] == pytest.approx(0.0001)
     assert portfolio_valuation.get_total_equity() == Decimal(1.2)
 
 

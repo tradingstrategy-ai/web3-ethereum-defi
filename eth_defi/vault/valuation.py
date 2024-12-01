@@ -90,10 +90,6 @@ class Route:
     def token(self) -> TokenDetails:
         return self.source_token
 
-    def create_multicall(self) -> Call:
-        # If we need to optimise Python parsing speed, we can directly pass function selectors and pre-packed ABI
-        return Call(self.contract_address, self.signature, [(self, self.handle_onchain_return_value)])
-
 
 @dataclass(slots=True, frozen=True)
 class MulticallWrapper:
@@ -260,7 +256,7 @@ class ValuationQuoter(ABC):
         pass
 
     @abstractmethod
-    def create_multicall(self, route: Route, amount_in: int) -> MulticallWrapper:
+    def create_multicall_wrapper(self, route: Route, amount_in: int) -> MulticallWrapper:
         pass
 
 
@@ -291,7 +287,7 @@ class UniswapV2Router02Quoter(ValuationQuoter):
     def __repr__(self):
         return f"<UniswapV2Router02Quoter({self.swap_router_v2.address})>"
 
-    def create_multicall(self, route: Route, amount_in: int) -> MulticallWrapper:
+    def create_multicall_wrapper(self, route: Route, amount_in: int) -> MulticallWrapper:
         # If we need to optimise Python parsing speed, we can directly pass function selectors and pre-packed ABI
 
         signature = [
@@ -355,6 +351,11 @@ class UniswapV2Router02Quoter(ValuationQuoter):
 
         # Path with each intermediate
         for middle in intermediate_tokens:
+
+            if source_token.address == middle.address:
+                # Skip WETH -> WETH -> USDC
+                continue
+
             yield (source_token.address, middle.address, target_token.address)
 
 
@@ -467,7 +468,7 @@ s
         routes = [r for router in self.quoters for r in self.generate_routes_for_router(router, portfolio)]
 
         logger.info("Resolving total %d routes", len(routes))
-        all_routes = self.fetch_onchain_valuations(routes)
+        all_routes = self.fetch_onchain_valuations(routes, portfolio)
 
         logger.info("Got %d multicall results", len(all_routes))
         # Discard failed paths
@@ -506,6 +507,11 @@ s
 
         # Validate all tokens got at least one path
         for token_address in input_tokens:
+
+            if token_address == self.denomination_token.address:
+                # Cannot route reserve currency to itself
+                continue
+
             if token_address not in best_result_by_token:
                 token = fetch_erc20_details(self.web3, token_address)
                 raise NoRouteFound(f"Token {token} did not get any valid DEX routing paths to calculate its current market value")
@@ -515,8 +521,11 @@ s
     def fetch_onchain_valuations(
         self,
         routes: list[Route],
+        portfolio: VaultPortfolio,
     ) -> dict[Route, TokenAmount]:
         """Use multicall to make calls to all of our quoters.
+
+        - Does not handle reserve currency, as this never has any route to itself
 
         :return:
             Map routes -> amount out token amounts with this route
@@ -526,8 +535,12 @@ s
             logger.info("Autodetecting multicall")
             multicall = is_mainnet_fork(self.web3)
 
+        raw_balances = portfolio.get_raw_spot_balances(self.web3)
+
         logger.info("fetch_onchain_valuations(), %d routes, multicall is %s", len(routes), multicall)
-        calls = [r.create_multicall() for r in routes]
+        calls = [r.quoter.create_multicall_wrapper(r, raw_balances[r.source_token.address]).create_multicall() for r in routes]
+
+        logger.info("Processing %d Multicall Calls", len(calls))
 
         if multicall:
             multicall = Multicall(
@@ -561,15 +574,29 @@ s
             Indexed by asset.
         """
         routes = [r for router in self.quoters for r in self.generate_routes_for_router(router, portfolio)]
-        sell_prices = self.fetch_onchain_valuations(routes)
+        sell_prices = self.fetch_onchain_valuations(routes, portfolio)
 
         data = []
+
+        reserve_balance = portfolio.spot_erc20.get(self.denomination_token.address, 0)
+
+        if reserve_balance:
+            # Handle case where we cannot route reserve balance to itself
+            data.append({
+                "Asset": self.denomination_token.symbol,
+                "Balance": f"{reserve_balance:,.2f}",
+                "Router": "",
+                "Path": "",
+                "Works": "yes",
+                "Value": f"{reserve_balance:,.2f}",
+            })
+
         for route in routes:
 
             out_balance = sell_prices[route]
 
             if out_balance:
-                formatted_balance = f"{out_balance:,:2f}"
+                formatted_balance = f"{out_balance:,.2f}"
             else:
                 formatted_balance = "-"
 

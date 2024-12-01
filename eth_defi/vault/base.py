@@ -5,8 +5,9 @@ from typing import Iterable, TypedDict
 
 from eth.typing import BlockRange
 from eth_typing import BlockIdentifier, HexAddress
+from web3 import Web3
 
-from eth_defi.token import TokenAddress, TokenDetails
+from eth_defi.token import TokenAddress, TokenDetails, fetch_erc20_details
 
 
 class VaultEvent:
@@ -62,6 +63,12 @@ class VaultPortfolio:
 
     def get_position_count(self):
         return len(self.spot_erc20)
+
+    def get_raw_spot_balances(self, web3: Web3) -> dict[HexAddress, int]:
+        """Convert spot balances to raw token balances"""
+        chain_id = web3.eth.chain_id
+        return {addr: fetch_erc20_details(web3, addr, chain_id=chain_id).convert_to_raw(value) for addr, value in self.spot_erc20.items()}
+
 
 
 class VaultFlowManager(ABC):
