@@ -1,6 +1,7 @@
-"""Net asset valuation calculations.
+"""Net asset valuation calculations for token portfolios and vaults.
 
-- Calculate the value of vault portfolio using only onchain data
+- Calculate the value of vault portfolio using only onchain data,
+  available from JSON-RPC
 
 - See :py:class:`NetAssetValueCalculator` for usage
 

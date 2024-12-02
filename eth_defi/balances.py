@@ -3,8 +3,7 @@ import logging
 from collections import Counter
 from dataclasses import dataclass
 from decimal import Decimal
-from itertools import islice
-from typing import Dict, Optional, Set, Collection
+from typing import Dict, Optional, Collection
 
 import cachetools
 import requests.exceptions
