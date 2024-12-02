@@ -65,6 +65,10 @@ class BadChainId(NonRetryableBroadcastException):
     """Out of gas funds for an executor."""
 
 
+def is_out_of_gas(eth_rpc_error_messag: str) -> bool:
+    return "insufficient funds" in eth_rpc_error_messag
+
+
 def wait_transactions_to_complete(
     web3: Web3,
     txs: List[Union[HexBytes, str]],
@@ -926,6 +930,11 @@ def wait_and_broadcast_multiple_nodes_mev_blocker(
                 nonce = web3.eth.get_transaction_count(tx.address)
                 logger.info("No receipt yet, current nonce: %d, exception %s", nonce, e, exc_info=e)
                 last_exception = e
+
+                if is_out_of_gas(str(e)):
+                    # Out of gas situation we can never recover
+                    raise OutOfGasFunds(f"Run out of gas to broadcast a transaction {tx}: {e}") from e
+
                 time.sleep(poll_delay.total_seconds())
 
         if time.time() > end:
