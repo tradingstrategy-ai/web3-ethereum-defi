@@ -22,7 +22,13 @@ from eth_defi.token import TokenAddress, fetch_erc20_details, TokenDetails
 
 @dataclass(slots=True, frozen=True)
 class VaultSpec:
-    """Unique id for a vault"""
+    """Unique id for a vault.
+
+    - Each vault can be identified by smart contract address by one of the contracts,
+      related to its deployment. Usually this contract is vault contract itself.
+
+    - We need both chain and address to specify vault we mean.
+    """
 
     #: Ethereum chain id
     chain_id: int
@@ -44,10 +50,6 @@ class VaultInfo(TypedDict):
 
     - Not standardised yet
     """
-
-
-class VaultDeploymentParameters(TypedDict):
-    """Input needed to deploy a vault."""
 
 
 @dataclass
@@ -140,7 +142,9 @@ class VaultFlowManager(ABC):
 class VaultBase(ABC):
     """Base class for vault protocol adapters.
 
-    Allows automated interaction with different `vault protocols <https://tradingstrategy.ai/glossary/vault>`__.
+    - Allows automated interaction with different `vault protocols <https://tradingstrategy.ai/glossary/vault>`__.
+
+    - Contains various abstract methods that the implementation class must override
 
     Supported protocols include
 
@@ -150,7 +154,7 @@ class VaultBase(ABC):
 
     Code exists, but does not confirm the interface yet:
 
-    - Enzyme Finance :py:class:`eth_defi.lagoon.enzyme.vault.Vault`
+    - Enzyme Finance :py:class:`eth_defi.enzyme.vault.Vault`
 
     What this wrapper class does:
 

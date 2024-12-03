@@ -153,7 +153,11 @@ class LagoonVault(VaultBase):
         return fetch_erc20_details(self.web3, token_address, chain_id=self.spec.chain_id)
 
     def fetch_info(self) -> LagoonVaultInfo:
-        """Use :py:meth:`info` property for cached access"""
+        """Use :py:meth:`info` property for cached access.
+
+        :return:
+            See :py:class:`LagoonVaultInfo`
+        """
         vault_info = self.fetch_vault_info()
         safe = self.fetch_safe(vault_info['safe'])
         safe_info_dict = asdict(safe.retrieve_all_info())
