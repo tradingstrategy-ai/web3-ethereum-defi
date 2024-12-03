@@ -44,6 +44,7 @@ def anvil_base_fork(request, vault_owner, usdc_holder, asset_manager) -> AnvilLa
 
     :return: JSON-RPC URL for Web3
     """
+    assert JSON_RPC_BASE, "JSON_RPC_BASE not set"
     launch = fork_network_anvil(
         JSON_RPC_BASE,
         unlocked_addresses=[vault_owner, usdc_holder, asset_manager],
@@ -88,6 +89,19 @@ def base_weth(web3) -> TokenDetails:
         web3,
         "0x4200000000000000000000000000000000000006",
     )
+
+
+@pytest.fixture()
+def base_dino(web3) -> TokenDetails:
+    """A token that trades as DINO/WETH on Uniswap v2
+
+    https://app.uniswap.org/explore/pools/base/0x6a77CDeC82EFf6A6A5D273F18C1c27CD3d71A588
+    """
+    return fetch_erc20_details(
+        web3,
+        "0x85E90a5430AF45776548ADB82eE4cD9E33B08077",
+    )
+
 
 
 @pytest.fixture()

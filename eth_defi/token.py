@@ -95,7 +95,7 @@ class TokenDetails:
         return self.contract.w3.eth.chain_id
 
     @property
-    def address(self) -> TokenAddress:
+    def address(self) -> HexAddress:
         """The address of this token."""
         return self.contract.address
 

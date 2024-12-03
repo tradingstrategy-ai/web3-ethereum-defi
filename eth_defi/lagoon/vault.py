@@ -167,3 +167,18 @@ class LagoonVault(VaultBase):
             operation,
         )
         return bound_func
+
+    def post_valuation_commitee(
+        self,
+        portfolio: VaultPortfolio,
+    ):
+        """Update the valuations of this vault.
+
+        - Lagoon vault does not currently track individual positions, but takes a "total value" number
+
+        - Updating this number also allows deposits and redemptions to proceed
+        """
+        raise NotImplementedError()
+
+
+

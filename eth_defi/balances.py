@@ -3,8 +3,7 @@ import logging
 from collections import Counter
 from dataclasses import dataclass
 from decimal import Decimal
-from itertools import islice
-from typing import Dict, Optional, Set, Collection
+from typing import Dict, Optional, Collection
 
 import cachetools
 import requests.exceptions
@@ -19,6 +18,7 @@ from eth_defi.abi import get_contract
 from eth_defi.event import fetch_all_events
 from eth_defi.provider.anvil import is_anvil, is_mainnet_fork
 from eth_defi.provider.broken_provider import get_almost_latest_block_number
+from eth_defi.provider.named import get_provider_name
 from eth_defi.token import fetch_erc20_details, DEFAULT_TOKEN_CACHE
 
 logger = logging.getLogger(__name__)
@@ -327,11 +327,14 @@ def fetch_erc20_balances_multicall(
 
     chain_id = web3.eth.chain_id
 
+    rpc_name = get_provider_name(web3.provider)
+
     logger.info(
-        "Looking up token balances for %d addresses, chunk size %d, gas limit %d",
+        "Looking up token balances for %d addresses, chunk size %d, gas limit %d, using provider %s",
         len(tokens),
         chunk_size,
         gas_limit,
+        rpc_name,
     )
 
     tokens = list(tokens)
