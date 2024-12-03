@@ -1,8 +1,11 @@
 """Base mainnet fork based tests for Lagoon.
 
+Explore the static deployment which we fork from the Base mainnet:
+
 - Vault UI: https://trading-stategy-users-frontend.vercel.app/vault/8453/0xab4ac28d10a4bc279ad073b1d74bfa0e385c010c
+- Vault contract: https://basescan.org/address/0xab4ac28d10a4bc279ad073b1d74bfa0e385c010c#readProxyContract
 - Safe UI: https://app.safe.global/home?safe=base:0x20415f3Ec0FEA974548184bdD6e67575D128953F
-- Contract: https://basescan.org/address/0x20415f3Ec0FEA974548184bdD6e67575D128953F#readProxyContract
+- Safe contract: https://basescan.org/address/0x20415f3Ec0FEA974548184bdD6e67575D128953F#readProxyContract
 - Roles: https://app.safe.global/apps/open?safe=base:0x20415f3Ec0FEA974548184bdD6e67575D128953F&appUrl=https%3A%2F%2Fzodiac.gnosisguild.org%2F
 """
 import os
@@ -43,6 +46,12 @@ def usdc_holder() -> HexAddress:
 def valuation_manager() -> HexAddress:
     """Unlockable account set as the vault valuation manager."""
     return "0x8358bBFb4Afc9B1eBe4e8C93Db8bF0586BD8331a"
+
+
+@pytest.fixture()
+def safe_address() -> HexAddress:
+    """Unlockable Safe multisig as spoofed Anvil account."""
+    return "0x20415f3Ec0FEA974548184bdD6e67575D128953F"
 
 
 @pytest.fixture()
@@ -181,6 +190,18 @@ def topped_up_valuation_manager(web3, valuation_manager):
     })
     assert_transaction_success_with_explanation(web3, tx_hash)
     return valuation_manager
+
+
+@pytest.fixture()
+def spoofed_safe(web3, safe_address):
+    # Topped up with some ETH
+    tx_hash = web3.eth.send_transaction({
+        "to": safe_address,
+        "from": web3.eth.accounts[0],
+        "value": 9 * 10**18,
+    })
+    assert_transaction_success_with_explanation(web3, tx_hash)
+    return safe_address
 
 
 # Some addresses for the roles set:

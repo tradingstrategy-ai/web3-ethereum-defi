@@ -146,6 +146,21 @@ class LagoonVault(VaultBase):
         del safe_info_dict["address"]  # Key conflict
         return vault_info | safe_info_dict
 
+    def fetch_nav(self) -> Decimal:
+        """Fetch the most recent onchain NAV value.
+
+        - In the case of Lagoon, this is the last value written in the contract with
+          `updateNewTotalAssets()` and ` settleDeposit()`
+
+        - TODO: `updateNewTotalAssets()` there is no way to read pending asset update on chain
+
+        :return:
+            Vault NAV, denominated in :py:meth:`denomination_token`
+        """
+        token = self.denomination_token
+        raw_amount = self.vault_contract.functions.totalAssets().call()
+        return token.convert_to_decimals(raw_amount)
+
     @property
     def address(self) -> HexAddress:
         """Get the vault smart contract address."""
@@ -261,6 +276,18 @@ class LagoonVault(VaultBase):
         raw_amount = self.denomination_token.convert_to_raw(total_valuation)
         bound_func = self.vault_contract.functions.updateNewTotalAssets(raw_amount)
         return bound_func
+
+    def settle(self) -> ContractFunction:
+        """Settle the new valuation and deposits.
+
+        - settleDeposit will also settle the redeems request if possible
+
+        - if there is nothing to settle: no deposit and redeem requests you can still call settleDeposit/settleRedeem to validate the new nav
+        """
+        logger.info("Settling vault %s valuation", )
+        bound_func = self.vault_contract.functions.settleDeposit()
+        return bound_func
+
 
 
 

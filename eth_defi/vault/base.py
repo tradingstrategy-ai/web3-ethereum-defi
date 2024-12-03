@@ -237,7 +237,6 @@ class VaultBase(ABC):
             Vault NAV, denominated in :py:meth:`denomination_token`
         """
 
-
     @cached_property
     def denomination_token(self) -> TokenDetails:
         return self.fetch_denomination_token()

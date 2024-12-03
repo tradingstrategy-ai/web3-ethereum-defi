@@ -200,6 +200,7 @@ def test_lagoon_diagnose_routes(
     assert routes.loc["DINO -> USDC"]["Value"] == "-"
 
 
+@pytest.mark.skip(reason="Unfinished")
 def test_lagoon_post_valuation(
     web3: Web3,
     lagoon_vault: LagoonVault,
@@ -208,6 +209,7 @@ def test_lagoon_post_valuation(
     base_dino: TokenDetails,
     uniswap_v2: UniswapV2Deployment,
     topped_up_valuation_manager: HexAddress,
+    spoofed_safe: HexAddress,
 ):
     """Update vault NAV."""
 
@@ -216,7 +218,7 @@ def test_lagoon_post_valuation(
 
     # Check value before update
     nav = vault.fetch_nav()
-    assert nav == pytest.approx(Decimal(0.1))
+    assert nav == pytest.approx(Decimal(0))  # settle() never called for this vault
 
     universe = TradingUniverse(
         spot_token_addresses={
@@ -241,15 +243,17 @@ def test_lagoon_post_valuation(
 
     portfolio_valuation = nav_calculator.calculate_market_sell_nav(portfolio)
 
+    # First post the new valuation as valuation manager
     total_value = portfolio_valuation.get_total_equity()
     bound_func = vault.post_new_valuation(total_value)
+    tx_hash = bound_func.transact({"from": valuation_manager})      # Unlocked by anvil
+    assert_transaction_success_with_explanation(web3, tx_hash)
 
-    # Unlocked by anvil
-    tx_hash = bound_func.transact({"from": valuation_manager})
+    # Then settle the valuation as the vault owner
+    bound_func = vault.settle()
+    tx_hash = bound_func.transact({"from": spoofed_safe})
     assert_transaction_success_with_explanation(web3, tx_hash)
 
     # Check value after update
     nav = vault.fetch_nav()
     assert nav == pytest.approx(Decimal(0.1))
-
-
