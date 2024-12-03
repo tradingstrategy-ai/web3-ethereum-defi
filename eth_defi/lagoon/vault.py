@@ -51,13 +51,13 @@ class LagoonVaultInfo(VaultInfo):
 
 
 class LagoonVault(VaultBase):
-    """Python interface for interacting with Velvet Capital vaults.
+    """Python interface for interacting with Lagoon Finance vaults.
+
+    TODO
 
     Notes
 
     - Vault contract knows about Safe, Safe does not know about the Vault
-
-    -
     """
 
     def __init__(
