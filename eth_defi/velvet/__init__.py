@@ -204,4 +204,13 @@ class VelvetVault(VaultBase):
         data = resp.json()
         return data
 
+    def fetch_denomination_token(self):
+        raise NotImplementedError()
+
+    def fetch_share_token(self):
+        raise NotImplementedError()
+
+    @property
+    def symbol(self):
+        raise NotImplementedError()
 
