@@ -1,6 +1,7 @@
 """Base mainnet fork based tests for Lagoon.
 
-- UI: https://app.safe.global/home?safe=base:0x20415f3Ec0FEA974548184bdD6e67575D128953F
+- Vault UI: https://trading-stategy-users-frontend.vercel.app/vault/8453/0xab4ac28d10a4bc279ad073b1d74bfa0e385c010c
+- Safe UI: https://app.safe.global/home?safe=base:0x20415f3Ec0FEA974548184bdD6e67575D128953F
 - Contract: https://basescan.org/address/0x20415f3Ec0FEA974548184bdD6e67575D128953F#readProxyContract
 - Roles: https://app.safe.global/apps/open?safe=base:0x20415f3Ec0FEA974548184bdD6e67575D128953F&appUrl=https%3A%2F%2Fzodiac.gnosisguild.org%2F
 """
@@ -132,8 +133,12 @@ def hot_wallet_user(web3, usdc, usdc_holder) -> HotWallet:
 
 @pytest.fixture()
 def base_test_vault_spec() -> VaultSpec:
-    """Vault is https://app.safe.global/home?safe=base:0x20415f3Ec0FEA974548184bdD6e67575D128953F"""
-    return VaultSpec(1, "0x20415f3Ec0FEA974548184bdD6e67575D128953F")
+    """Vault is 0xab4ac28d10a4bc279ad073b1d74bfa0e385c010c
+
+    - https://trading-stategy-users-frontend.vercel.app/vault/8453/0xab4ac28d10a4bc279ad073b1d74bfa0e385c010c
+    - https://app.safe.global/home?safe=base:0x20415f3Ec0FEA974548184bdD6e67575D128953F
+    """
+    return VaultSpec(1, "0xab4ac28d10a4bc279ad073b1d74bfa0e385c010c")
 
 
 @pytest.fixture()

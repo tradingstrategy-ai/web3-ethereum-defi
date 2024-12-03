@@ -3,14 +3,14 @@
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from decimal import Decimal
+from functools import cached_property
 from typing import TypedDict
 
 from eth.typing import BlockRange
 from eth_typing import BlockIdentifier, HexAddress
 from web3 import Web3
 
-from eth_defi.token import TokenAddress, fetch_erc20_details
-
+from eth_defi.token import TokenAddress, fetch_erc20_details, TokenDetails
 
 
 @dataclass(slots=True, frozen=True)
@@ -145,7 +145,7 @@ class VaultBase(ABC):
 
     - Enzyme Finance :py:class:`eth_defi.lagoon.enzyme.vault.Vault`
 
-    What this wraper class does:
+    What this wrapper class does:
 
     - Takes :py:class:`VaultSpec` as a constructor argument and builds a proxy class
       for accessing the vault based on this
@@ -167,6 +167,16 @@ class VaultBase(ABC):
         - No standardised data structure yet
 
     For code examples see `tests/lagoon` and `tests/velvet`.
+
+    Integration check list
+
+    - [ ] read vault core info
+    - [ ] read vault investors
+    - [ ] read vault share price
+    - [ ] deposit integration test
+    - [ ] redemption integration
+    - [ ] swap integration test
+    - [ ] re-valuation integration test
     """
 
     @abstractmethod
@@ -186,7 +196,10 @@ class VaultBase(ABC):
 
     @abstractmethod
     def fetch_info(self) -> VaultInfo:
-        """Read vault parameters from the chain."""
+        """Read vault parameters from the chain.
+
+        Use :py:meth:`info` property for cached access.
+        """
 
     @abstractmethod
     def get_flow_manager(self) -> VaultFlowManager:
@@ -194,3 +207,16 @@ class VaultBase(ABC):
 
         - Only supported if :py:meth:`has_block_range_event_support` is True
         """
+
+    @abstractmethod
+    def fetch_denomination_token(self) -> TokenDetails:
+        """Use :py:method:`denomination_token` to access"""
+
+    @cached_property
+    def denomination_token(self):
+        return self.fetch_denomination_token()
+
+    @cached_property
+    def info(self) -> VaultInfo:
+        """Get info dictionary related to this deployment."""
+        return self.fetch_info()

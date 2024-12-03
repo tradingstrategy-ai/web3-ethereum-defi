@@ -1,3 +1,5 @@
+"""Vault adapter for Lagoon protocol."""
+
 from dataclasses import asdict
 from functools import cached_property
 
@@ -13,6 +15,7 @@ from safe_eth.safe import Safe
 
 from ..abi import get_deployed_contract, encode_function_call
 from ..safe.safe_compat import create_safe_ethereum_client
+from ..token import TokenDetails, fetch_erc20_details
 
 
 class LagoonVaultInfo(VaultInfo):
@@ -33,12 +36,24 @@ class LagoonVaultInfo(VaultInfo):
 
     #
     # Lagoon vault info
-    # TODO
     #
+    safe: HexAddress
+    whitelistManager: HexAddress  # Can be 0x0000000000000000000000000000000000000000
+    feeReceiver: HexAddress
+    feeRegistry: HexAddress
+    valuationManager: HexAddress
+    asset: HexAddress
 
 
 class LagoonVault(VaultBase):
-    """Python interface for interacting with Velvet Capital vaults."""
+    """Python interface for interacting with Velvet Capital vaults.
+
+    Notes
+
+    - Vault contract knows about Safe, Safe does not know about the Vault
+
+    -
+    """
 
     def __init__(
         self,
@@ -60,38 +75,68 @@ class LagoonVault(VaultBase):
     def get_flow_manager(self):
         raise NotImplementedError("Velvet does not support individual deposit/redemption events yet")
 
-    def fetch_safe(self) -> Safe:
+    def fetch_safe(self, address) -> Safe:
         """Use :py:meth:`safe` property for cached access"""
         client = create_safe_ethereum_client(self.web3)
         return Safe(
-            self.safe_address,
+            address,
             client,
         )
 
+    @cached_property
+    def vault_contract(self) -> Contract:
+        """Get vault deployment."""
+        return get_deployed_contract(
+            self.web3,
+            "lagoon/Vault.json",
+            self.spec.vault_address,
+        )
+
+    def fetch_vault_info(self) -> dict:
+        """Get all information we can extract from the vault smart contracts."""
+        vault = self.vault_contract
+        roles_tuple = vault.functions.getRolesStorage().call()
+        whitelistManager, feeReceiver, safe, feeRegistry, valuationManager = roles_tuple
+        asset = vault.functions.asset().call()
+        return {
+            "address": vault.address,
+            "whitelistManager": whitelistManager,
+            "feeReceiver": feeReceiver,
+            "feeRegistry": feeRegistry,
+            "valuationManager": valuationManager,
+            "safe": safe,
+            "asset": asset,
+        }
+
+    def fetch_denomination_token(self) -> TokenDetails:
+        token_address = self.info["asset"]
+        return fetch_erc20_details(self.web3, token_address, chain_id=self.spec.chain_id)
+
     def fetch_info(self) -> LagoonVaultInfo:
         """Use :py:meth:`info` property for cached access"""
-        info = self.safe.retrieve_all_info()
-        return asdict(info)
-
-    @cached_property
-    def info(self) -> LagoonVaultInfo:
-        """Get info dictionary related to this deployment."""
-        return self.fetch_info()
-
-    @cached_property
-    def safe(self) -> Safe:
-        """Get the underlying Safe object used as an API from safe-eth-py library"""
-        return self.fetch_safe()
+        vault_info = self.fetch_vault_info()
+        safe = self.fetch_safe(vault_info['safe'])
+        safe_info_dict = asdict(safe.retrieve_all_info())
+        del safe_info_dict["address"]  # Key conflict
+        return vault_info | safe_info_dict
 
     @property
     def address(self) -> HexAddress:
-        """Alias of :py:meth:`safe_address`"""
-        return self.safe_address
+        """Get the vault smart contract address."""
+        return self.spec.vault_address
 
     @property
     def safe_address(self) -> HexAddress:
         """Get Safe multisig contract address"""
-        return self.spec.vault_address
+        return self.info["safe"]
+
+    @cached_property
+    def safe(self) -> Safe:
+        """Get the underlying Safe object used as an API from safe-eth-py library.
+
+        - Warps Safe Contract using Gnosis's in-house library
+        """
+        return self.fetch_safe(self.info["safe"])
 
     @cached_property
     def safe_contract(self) -> Contract:
