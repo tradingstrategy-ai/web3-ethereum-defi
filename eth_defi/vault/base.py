@@ -176,12 +176,15 @@ class VaultBase(ABC):
     - [ ] read vault share token
     - [ ] read all positions
     - [ ] read NAV
+    - [ ] read pending redemptions to know how much USDC we will need for the next settlement cycles
     - [ ] deposit integration test
     - [ ] redemption integration
     - [ ] swap integration test
     - [ ] re-valuation integration test
     - [ ] only asset manager allowed to swap negative test
     - [ ] only valuation commitee allowed to update vault valuations (if applicable)
+    - [ ] can redeem if enough USDC to settle
+    - [ ] cannot redeem not enough USDC to settle
     """
 
     @property
