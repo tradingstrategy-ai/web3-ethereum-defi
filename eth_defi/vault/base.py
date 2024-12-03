@@ -1,6 +1,13 @@
-"""Generic Vault interface base classes"""
+"""Generic Vault adapter base classes.
 
-from abc import ABC, abstractmethod, abstractproperty
+- Create unified interface across different vault protocols and their investment flows
+
+- Helps to create automated trading agents against any vault easily
+
+- Handle both trading (asset management role) and investor management (deposits/redemptions)
+"""
+
+from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from decimal import Decimal
 from functools import cached_property
