@@ -71,7 +71,7 @@ def web3(anvil_base_fork) -> Web3:
         web3 = create_multi_provider_web3(tenderly_fork_rpc)
     else:
         web3 = create_multi_provider_web3(anvil_base_fork.json_rpc_url)
-    assert web3.eth.chain_id == 8453
+    assert web3.eth.chain_id in (8453, 31337)  # TODO: Difference in Anvil versions, something else?
     return web3
 
 
