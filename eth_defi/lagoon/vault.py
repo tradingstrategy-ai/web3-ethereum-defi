@@ -1,4 +1,4 @@
-"""Vault adapter for Lagoon protocol."""
+"""Vault adapter for Lagoon Finance protocol."""
 
 import logging
 from dataclasses import asdict
@@ -24,36 +24,50 @@ logger = logging.getLogger(__name__)
 
 
 class LagoonVaultInfo(VaultInfo):
-    """TODO: Add Lagoon vault info query"""
+    """Capture information about Lagoon vault deployment."""
 
-    #
-    # Safe multisig core info
-    #
+    #: The ERC-20 token that nominates the vault assets
+    asset: HexAddress
+
+    #: Lagoon vault deployment info
+    safe: HexAddress
+    #: Lagoon vault deployment info
+    whitelistManager: HexAddress  # Can be 0x0000000000000000000000000000000000000000
+    #: Lagoon vault deployment info
+    feeReceiver: HexAddress
+    #: Lagoon vault deployment info
+    feeRegistry: HexAddress
+    #: Lagoon vault deployment info
+    valuationManager: HexAddress
+
+    #: Safe multisig core info
     address: ChecksumAddress
+    #: Safe multisig core info
     fallback_handler: ChecksumAddress
+    #: Safe multisig core info
     guard: ChecksumAddress
+    #: Safe multisig core info
     master_copy: ChecksumAddress
+    #: Safe multisig core info
     modules: list[ChecksumAddress]
+    #: Safe multisig core info
     nonce: int
+    #: Safe multisig core info
     owners: list[ChecksumAddress]
+    #: Safe multisig core info
     threshold: int
+    #: Safe multisig core info
     version: str
 
-    #
-    # Lagoon vault info
-    #
-    safe: HexAddress
-    whitelistManager: HexAddress  # Can be 0x0000000000000000000000000000000000000000
-    feeReceiver: HexAddress
-    feeRegistry: HexAddress
-    valuationManager: HexAddress
-    asset: HexAddress
+
 
 
 class LagoonVault(VaultBase):
     """Python interface for interacting with Lagoon Finance vaults.
 
     TODO
+
+    For information see :py:class:`VaultBase` base class documentation.
 
     Notes
 
@@ -181,10 +195,15 @@ class LagoonVault(VaultBase):
 
     @cached_property
     def safe_contract(self) -> Contract:
+        """Safe multisig as a contract.
+
+        - Interact with Safe multisig ABI
+        """
         return self.safe.contract
 
     @property
     def valuation_manager(self) -> HexAddress:
+        """Valuation manager role on the vault."""
         return self.info["valuationManager"]
 
     def fetch_portfolio(
@@ -192,11 +211,6 @@ class LagoonVault(VaultBase):
         universe: TradingUniverse,
         block_identifier: BlockIdentifier | None = None,
     ) -> VaultPortfolio:
-        """Read the current token balances of a vault.
-
-        TODO: This is MVP implementation. For better deposit/redemption tracking switch
-        to use Lagoon events later.
-        """
         erc20_balances = fetch_erc20_balances_fallback(
             self.web3,
             self.safe_address,
@@ -283,13 +297,9 @@ class LagoonVault(VaultBase):
         - settleDeposit will also settle the redeems request if possible
 
         - if there is nothing to settle: no deposit and redeem requests you can still call settleDeposit/settleRedeem to validate the new nav
+
+        -
         """
         logger.info("Settling vault %s valuation", )
         bound_func = self.vault_contract.functions.settleDeposit()
         return bound_func
-
-
-
-
-
-

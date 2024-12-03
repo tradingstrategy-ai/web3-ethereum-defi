@@ -10,12 +10,14 @@ from web3 import Web3
 
 from eth_defi.lagoon.vault import LagoonVault
 from eth_defi.provider.broken_provider import get_almost_latest_block_number
+from eth_defi.safe.trace import assert_safe_success
 from eth_defi.token import TokenDetails
 from eth_defi.trace import assert_transaction_success_with_explanation
 from eth_defi.uniswap_v2.constants import UNISWAP_V2_DEPLOYMENTS
 from eth_defi.uniswap_v2.deployment import fetch_deployment, UniswapV2Deployment
 from eth_defi.vault.base import TradingUniverse
 from eth_defi.vault.valuation import NetAssetValueCalculator, UniswapV2Router02Quoter, Route
+from tests.lagoon.conftest import topped_up_asset_manager
 
 
 @pytest.fixture()
@@ -200,7 +202,7 @@ def test_lagoon_diagnose_routes(
     assert routes.loc["DINO -> USDC"]["Value"] == "-"
 
 
-@pytest.mark.skip(reason="Unfinished")
+@pytest.mark.skip(reason="Currently debugging why the last tx fails")
 def test_lagoon_post_valuation(
     web3: Web3,
     lagoon_vault: LagoonVault,
@@ -209,16 +211,25 @@ def test_lagoon_post_valuation(
     base_dino: TokenDetails,
     uniswap_v2: UniswapV2Deployment,
     topped_up_valuation_manager: HexAddress,
-    spoofed_safe: HexAddress,
+    topped_up_asset_manager: HexAddress,
 ):
-    """Update vault NAV."""
+    """Update vault NAV.
+
+    To debug the multisig settle tx:
+
+    .. code-block:: shell
+
+        JSON_RPC_TENDERLY="https://virtual.base.rpc.tenderly.co/ae8c0d9c-b013-47fb-bdf5-eac4f888a5db" pytest -k test_lagoon_post_valuation
+    """
 
     vault = lagoon_vault
     valuation_manager = topped_up_valuation_manager
+    asset_manager = topped_up_asset_manager
 
     # Check value before update
+    # settle() never called for this vault, so the value is zero
     nav = vault.fetch_nav()
-    assert nav == pytest.approx(Decimal(0))  # settle() never called for this vault
+    assert nav == pytest.approx(Decimal(0))
 
     universe = TradingUniverse(
         spot_token_addresses={
@@ -249,10 +260,11 @@ def test_lagoon_post_valuation(
     tx_hash = bound_func.transact({"from": valuation_manager})      # Unlocked by anvil
     assert_transaction_success_with_explanation(web3, tx_hash)
 
-    # Then settle the valuation as the vault owner
-    bound_func = vault.settle()
-    tx_hash = bound_func.transact({"from": spoofed_safe})
-    assert_transaction_success_with_explanation(web3, tx_hash)
+    # Then settle the valuation as the vault owner (Safe multisig) in this case
+    settle_call = vault.settle()
+    moduled_tx = vault.transact_through_module(settle_call)
+    tx_hash = moduled_tx.transact({"from": asset_manager})
+    assert_safe_success(web3, tx_hash)
 
     # Check value after update
     nav = vault.fetch_nav()

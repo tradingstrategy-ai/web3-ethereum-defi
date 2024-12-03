@@ -192,16 +192,16 @@ def topped_up_valuation_manager(web3, valuation_manager):
     return valuation_manager
 
 
-@pytest.fixture()
-def spoofed_safe(web3, safe_address):
-    # Topped up with some ETH
-    tx_hash = web3.eth.send_transaction({
-        "to": safe_address,
-        "from": web3.eth.accounts[0],
-        "value": 9 * 10**18,
-    })
-    assert_transaction_success_with_explanation(web3, tx_hash)
-    return safe_address
+# @pytest.fixture()
+# def spoofed_safe(web3, safe_address):
+#     # Topped up with some ETH
+#     tx_hash = web3.eth.send_transaction({
+#         "to": safe_address,
+#         "from": web3.eth.accounts[0],
+#         "value": 9 * 10**18,
+#     })
+#     assert_transaction_success_with_explanation(web3, tx_hash)
+#     return safe_address
 
 
 # Some addresses for the roles set:
