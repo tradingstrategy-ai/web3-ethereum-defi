@@ -57,7 +57,7 @@ def test_lagoon_swap(
 
     # Check we have money for the swap
     amount = int(0.1 * 10**6)  # 10 cents
-    assert base_usdc.contract.functions.balanceOf(vault.address).call() >= amount
+    assert base_usdc.contract.functions.balanceOf(vault.safe_address).call() >= amount
 
     # Approve USDC for the swap
     approve_call = base_usdc.contract.functions.approve(uniswap_v2.router.address, amount)

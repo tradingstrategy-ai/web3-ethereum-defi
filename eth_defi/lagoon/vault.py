@@ -1,4 +1,8 @@
+"""Vault adapter for Lagoon Finance protocol."""
+
+import logging
 from dataclasses import asdict
+from decimal import Decimal
 from functools import cached_property
 
 from eth_typing import HexAddress, BlockIdentifier, ChecksumAddress
@@ -13,32 +17,62 @@ from safe_eth.safe import Safe
 
 from ..abi import get_deployed_contract, encode_function_call
 from ..safe.safe_compat import create_safe_ethereum_client
+from ..token import TokenDetails, fetch_erc20_details
+
+
+logger = logging.getLogger(__name__)
 
 
 class LagoonVaultInfo(VaultInfo):
-    """TODO: Add Lagoon vault info query"""
+    """Capture information about Lagoon vault deployment."""
 
-    #
-    # Safe multisig core info
-    #
+    #: The ERC-20 token that nominates the vault assets
+    asset: HexAddress
+
+    #: Lagoon vault deployment info
+    safe: HexAddress
+    #: Lagoon vault deployment info
+    whitelistManager: HexAddress  # Can be 0x0000000000000000000000000000000000000000
+    #: Lagoon vault deployment info
+    feeReceiver: HexAddress
+    #: Lagoon vault deployment info
+    feeRegistry: HexAddress
+    #: Lagoon vault deployment info
+    valuationManager: HexAddress
+
+    #: Safe multisig core info
     address: ChecksumAddress
+    #: Safe multisig core info
     fallback_handler: ChecksumAddress
+    #: Safe multisig core info
     guard: ChecksumAddress
+    #: Safe multisig core info
     master_copy: ChecksumAddress
+    #: Safe multisig core info
     modules: list[ChecksumAddress]
+    #: Safe multisig core info
     nonce: int
+    #: Safe multisig core info
     owners: list[ChecksumAddress]
+    #: Safe multisig core info
     threshold: int
+    #: Safe multisig core info
     version: str
 
-    #
-    # Lagoon vault info
-    # TODO
-    #
+
 
 
 class LagoonVault(VaultBase):
-    """Python interface for interacting with Velvet Capital vaults."""
+    """Python interface for interacting with Lagoon Finance vaults.
+
+    TODO
+
+    For information see :py:class:`VaultBase` base class documentation.
+
+    Notes
+
+    - Vault contract knows about Safe, Safe does not know about the Vault
+    """
 
     def __init__(
         self,
@@ -60,61 +94,123 @@ class LagoonVault(VaultBase):
     def get_flow_manager(self):
         raise NotImplementedError("Velvet does not support individual deposit/redemption events yet")
 
-    def fetch_safe(self) -> Safe:
+    def fetch_safe(self, address) -> Safe:
         """Use :py:meth:`safe` property for cached access"""
         client = create_safe_ethereum_client(self.web3)
         return Safe(
-            self.safe_address,
+            address,
             client,
         )
 
+    @property
+    def name(self) -> str:
+        return self.share_token.name
+
+    @property
+    def symbol(self) -> str:
+        return self.share_token.symbol
+
+    @cached_property
+    def vault_contract(self) -> Contract:
+        """Get vault deployment."""
+        return get_deployed_contract(
+            self.web3,
+            "lagoon/Vault.json",
+            self.spec.vault_address,
+        )
+
+    @cached_property
+    def vault_contract(self) -> Contract:
+        """Get vault deployment."""
+        return get_deployed_contract(
+            self.web3,
+            "lagoon/Vault.json",
+            self.spec.vault_address,
+        )
+
+    def fetch_vault_info(self) -> dict:
+        """Get all information we can extract from the vault smart contracts."""
+        vault = self.vault_contract
+        roles_tuple = vault.functions.getRolesStorage().call()
+        whitelistManager, feeReceiver, safe, feeRegistry, valuationManager = roles_tuple
+        asset = vault.functions.asset().call()
+        return {
+            "address": vault.address,
+            "whitelistManager": whitelistManager,
+            "feeReceiver": feeReceiver,
+            "feeRegistry": feeRegistry,
+            "valuationManager": valuationManager,
+            "safe": safe,
+            "asset": asset,
+        }
+
+    def fetch_denomination_token(self) -> TokenDetails:
+        token_address = self.info["asset"]
+        return fetch_erc20_details(self.web3, token_address, chain_id=self.spec.chain_id)
+
+    def fetch_share_token(self) -> TokenDetails:
+        token_address = self.info["address"]
+        return fetch_erc20_details(self.web3, token_address, chain_id=self.spec.chain_id)
+
     def fetch_info(self) -> LagoonVaultInfo:
         """Use :py:meth:`info` property for cached access"""
-        info = self.safe.retrieve_all_info()
-        return asdict(info)
+        vault_info = self.fetch_vault_info()
+        safe = self.fetch_safe(vault_info['safe'])
+        safe_info_dict = asdict(safe.retrieve_all_info())
+        del safe_info_dict["address"]  # Key conflict
+        return vault_info | safe_info_dict
 
-    @cached_property
-    def info(self) -> LagoonVaultInfo:
-        """Get info dictionary related to this deployment."""
-        return self.fetch_info()
+    def fetch_nav(self) -> Decimal:
+        """Fetch the most recent onchain NAV value.
 
-    @cached_property
-    def safe(self) -> Safe:
-        """Get the underlying Safe object used as an API from safe-eth-py library"""
-        return self.fetch_safe()
+        - In the case of Lagoon, this is the last value written in the contract with
+          `updateNewTotalAssets()` and ` settleDeposit()`
+
+        - TODO: `updateNewTotalAssets()` there is no way to read pending asset update on chain
+
+        :return:
+            Vault NAV, denominated in :py:meth:`denomination_token`
+        """
+        token = self.denomination_token
+        raw_amount = self.vault_contract.functions.totalAssets().call()
+        return token.convert_to_decimals(raw_amount)
 
     @property
     def address(self) -> HexAddress:
-        """Alias of :py:meth:`safe_address`"""
-        return self.safe_address
+        """Get the vault smart contract address."""
+        return self.spec.vault_address
 
     @property
     def safe_address(self) -> HexAddress:
         """Get Safe multisig contract address"""
-        return self.spec.vault_address
+        return self.info["safe"]
+
+    @cached_property
+    def safe(self) -> Safe:
+        """Get the underlying Safe object used as an API from safe-eth-py library.
+
+        - Warps Safe Contract using Gnosis's in-house library
+        """
+        return self.fetch_safe(self.info["safe"])
 
     @cached_property
     def safe_contract(self) -> Contract:
+        """Safe multisig as a contract.
+
+        - Interact with Safe multisig ABI
+        """
         return self.safe.contract
 
     @property
-    def name(self) -> str:
-        return self.info["name"]
-
-    @property
-    def token_symbol(self) -> str:
-        return self.info["symbol"]
+    def valuation_manager(self) -> HexAddress:
+        """Valuation manager role on the vault."""
+        return self.info["valuationManager"]
 
     def fetch_portfolio(
         self,
         universe: TradingUniverse,
         block_identifier: BlockIdentifier | None = None,
     ) -> VaultPortfolio:
-        """Read the current token balances of a vault.
-
-        TODO: This is MVP implementation. For better deposit/redemption tracking switch
-        to use Lagoon events later.
-        """
         erc20_balances = fetch_erc20_balances_fallback(
             self.web3,
             self.safe_address,
@@ -168,17 +264,42 @@ class LagoonVault(VaultBase):
         )
         return bound_func
 
-    def post_valuation_commitee(
+    def post_new_valuation(
         self,
-        portfolio: VaultPortfolio,
-    ):
+        total_valuation: Decimal,
+    ) -> ContractFunction:
         """Update the valuations of this vault.
 
         - Lagoon vault does not currently track individual positions, but takes a "total value" number
 
         - Updating this number also allows deposits and redemptions to proceed
+
+        Notes:
+
+        > How can I post a valuation commitee update 1. as the valuationManager, call the function updateNewTotalAssets(_newTotalAssets) _newTotalAssets being expressed in underlying in its smallest unit for usdc, it would  with its 6 decimals. Do not take into account requestDeposit and requestRedeem in your valuation
+
+        > 2. as the safe, call the function settleDeposit()
+
+        :param total_valuation:
+            The vault value nominated in :py:meth:`denomination_token`.
+
+        :return:
+            Bound contract function that can be turned to a transaction
         """
-        raise NotImplementedError()
+        logger.info("Updating vault %s valuation to %s %s", self.address, total_valuation, self.denomination_token.symbol)
+        raw_amount = self.denomination_token.convert_to_raw(total_valuation)
+        bound_func = self.vault_contract.functions.updateNewTotalAssets(raw_amount)
+        return bound_func
 
+    def settle(self) -> ContractFunction:
+        """Settle the new valuation and deposits.
 
+        - settleDeposit will also settle the redeems request if possible
 
+        - if there is nothing to settle: no deposit and redeem requests you can still call settleDeposit/settleRedeem to validate the new nav
+
+        -
+        """
+        logger.info("Settling vault %s valuation", )
+        bound_func = self.vault_contract.functions.settleDeposit()
+        return bound_func

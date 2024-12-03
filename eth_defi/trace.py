@@ -304,7 +304,6 @@ def assert_transaction_success_with_explanation(
     if type(tx_hash) == str:
         tx_hash = HexBytes(tx_hash)
 
-
     receipt = web3.eth.wait_for_transaction_receipt(tx_hash)
     if receipt["status"] == 0:
         # Explain why the transaction failed

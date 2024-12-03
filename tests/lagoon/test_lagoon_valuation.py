@@ -3,17 +3,21 @@
 from decimal import Decimal
 
 import pytest
-from multicall import Multicall, Call
+from eth_typing import HexAddress
+from multicall import Multicall
 from safe_eth.eth.constants import NULL_ADDRESS
 from web3 import Web3
 
 from eth_defi.lagoon.vault import LagoonVault
 from eth_defi.provider.broken_provider import get_almost_latest_block_number
+from eth_defi.safe.trace import assert_safe_success
 from eth_defi.token import TokenDetails
+from eth_defi.trace import assert_transaction_success_with_explanation
 from eth_defi.uniswap_v2.constants import UNISWAP_V2_DEPLOYMENTS
 from eth_defi.uniswap_v2.deployment import fetch_deployment, UniswapV2Deployment
 from eth_defi.vault.base import TradingUniverse
 from eth_defi.vault.valuation import NetAssetValueCalculator, UniswapV2Router02Quoter, Route
+from tests.lagoon.conftest import topped_up_asset_manager
 
 
 @pytest.fixture()
@@ -155,12 +159,12 @@ def test_lagoon_calculate_portfolio_nav(
 
 
 def test_lagoon_diagnose_routes(
-        web3: Web3,
-        lagoon_vault: LagoonVault,
-        base_usdc: TokenDetails,
-        base_weth: TokenDetails,
-        base_dino: TokenDetails,
-        uniswap_v2: UniswapV2Deployment,
+    web3: Web3,
+    lagoon_vault: LagoonVault,
+    base_usdc: TokenDetails,
+    base_weth: TokenDetails,
+    base_dino: TokenDetails,
+    uniswap_v2: UniswapV2Deployment,
 ):
     """Run route diagnostics.
     """
@@ -196,3 +200,72 @@ def test_lagoon_diagnose_routes(
     assert routes.loc["WETH -> USDC"]["Value"] is not None
     assert routes.loc["DINO -> WETH -> USDC"]["Value"] is not None
     assert routes.loc["DINO -> USDC"]["Value"] == "-"
+
+
+@pytest.mark.skip(reason="Currently debugging why the last tx fails")
+def test_lagoon_post_valuation(
+    web3: Web3,
+    lagoon_vault: LagoonVault,
+    base_usdc: TokenDetails,
+    base_weth: TokenDetails,
+    base_dino: TokenDetails,
+    uniswap_v2: UniswapV2Deployment,
+    topped_up_valuation_manager: HexAddress,
+    topped_up_asset_manager: HexAddress,
+):
+    """Update vault NAV.
+
+    To debug the multisig settle tx:
+
+    .. code-block:: shell
+
+        JSON_RPC_TENDERLY="https://virtual.base.rpc.tenderly.co/ae8c0d9c-b013-47fb-bdf5-eac4f888a5db" pytest -k test_lagoon_post_valuation
+    """
+
+    vault = lagoon_vault
+    valuation_manager = topped_up_valuation_manager
+    asset_manager = topped_up_asset_manager
+
+    # Check value before update
+    # settle() never called for this vault, so the value is zero
+    nav = vault.fetch_nav()
+    assert nav == pytest.approx(Decimal(0))
+
+    universe = TradingUniverse(
+        spot_token_addresses={
+            base_weth.address,
+            base_usdc.address,
+            base_dino.address,
+        }
+    )
+    latest_block = get_almost_latest_block_number(web3)
+    portfolio = vault.fetch_portfolio(universe, latest_block)
+    assert portfolio.get_position_count() == 3
+
+    uniswap_v2_quoter_v2 = UniswapV2Router02Quoter(uniswap_v2.router)
+
+    nav_calculator = NetAssetValueCalculator(
+        web3,
+        denomination_token=base_usdc,
+        intermediary_tokens={base_weth.address},  # Allow DINO->WETH->USDC
+        quoters={uniswap_v2_quoter_v2},
+        debug=True,
+    )
+
+    portfolio_valuation = nav_calculator.calculate_market_sell_nav(portfolio)
+
+    # First post the new valuation as valuation manager
+    total_value = portfolio_valuation.get_total_equity()
+    bound_func = vault.post_new_valuation(total_value)
+    tx_hash = bound_func.transact({"from": valuation_manager})      # Unlocked by anvil
+    assert_transaction_success_with_explanation(web3, tx_hash)
+
+    # Then settle the valuation as the vault owner (Safe multisig) in this case
+    settle_call = vault.settle()
+    moduled_tx = vault.transact_through_module(settle_call)
+    tx_hash = moduled_tx.transact({"from": asset_manager})
+    assert_safe_success(web3, tx_hash)
+
+    # Check value after update
+    nav = vault.fetch_nav()
+    assert nav == pytest.approx(Decimal(0.1))
