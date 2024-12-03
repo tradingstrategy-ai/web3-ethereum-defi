@@ -121,7 +121,7 @@ class LagoonVault(VaultBase):
 
     @cached_property
     def vault_contract(self) -> Contract:
-        """Get vault deployment."""
+        """Underlying Vault smart contract."""
         return get_deployed_contract(
             self.web3,
             "lagoon/Vault.json",

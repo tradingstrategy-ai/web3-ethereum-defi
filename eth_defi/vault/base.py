@@ -208,7 +208,10 @@ class VaultBase(ABC):
 
     @abstractmethod
     def has_block_range_event_support(self) -> bool:
-        """Can we query delta changes by block ranges."""
+        """Does this vault support block range-based event queries for deposits and redemptions.
+
+        - If not we use chain balance polling-based approach
+        """
 
     @abstractmethod
     def fetch_portfolio(
