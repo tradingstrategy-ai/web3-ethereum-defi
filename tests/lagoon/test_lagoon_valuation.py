@@ -155,12 +155,12 @@ def test_lagoon_calculate_portfolio_nav(
 
 
 def test_lagoon_diagnose_routes(
-        web3: Web3,
-        lagoon_vault: LagoonVault,
-        base_usdc: TokenDetails,
-        base_weth: TokenDetails,
-        base_dino: TokenDetails,
-        uniswap_v2: UniswapV2Deployment,
+    web3: Web3,
+    lagoon_vault: LagoonVault,
+    base_usdc: TokenDetails,
+    base_weth: TokenDetails,
+    base_dino: TokenDetails,
+    uniswap_v2: UniswapV2Deployment,
 ):
     """Run route diagnostics.
     """
@@ -196,3 +196,45 @@ def test_lagoon_diagnose_routes(
     assert routes.loc["WETH -> USDC"]["Value"] is not None
     assert routes.loc["DINO -> WETH -> USDC"]["Value"] is not None
     assert routes.loc["DINO -> USDC"]["Value"] == "-"
+
+
+def test_lagoon_post_valuation_commitee(
+    web3: Web3,
+    lagoon_vault: LagoonVault,
+    base_usdc: TokenDetails,
+    base_weth: TokenDetails,
+    base_dino: TokenDetails,
+    uniswap_v2: UniswapV2Deployment,
+):
+    """Update vault NAV."""
+
+    vault = lagoon_vault
+
+    universe = TradingUniverse(
+        spot_token_addresses={
+            base_weth.address,
+            base_usdc.address,
+            base_dino.address,
+        }
+    )
+    latest_block = get_almost_latest_block_number(web3)
+    portfolio = vault.fetch_portfolio(universe, latest_block)
+    assert portfolio.get_position_count() == 3
+
+    uniswap_v2_quoter_v2 = UniswapV2Router02Quoter(uniswap_v2.router)
+
+    nav_calculator = NetAssetValueCalculator(
+        web3,
+        denomination_token=base_usdc,
+        intermediary_tokens={base_weth.address},  # Allow DINO->WETH->USDC
+        quoters={uniswap_v2_quoter_v2},
+        debug=True,
+    )
+
+    portfolio_valuation = nav_calculator.calculate_market_sell_nav(portfolio)
+
+    total_value = portfolio_valuation.get_total_equity()
+    tx_data = vault.post_valuation_commitee(total_value)
+
+
+

@@ -1,6 +1,6 @@
 """Lagoon Base mainnet fork based tests.
 
-- View Safe here https://app.safe.global/home?safe=base:0x20415f3Ec0FEA974548184bdD6e67575D128953F
+- Read various information out of the vault
 """
 
 from decimal import Decimal
@@ -27,6 +27,7 @@ def test_lagoon_info(read_only_vault: LagoonVault):
     info = vault.fetch_info()
     assert info["address"].lower() == "0xab4ac28d10a4bc279ad073b1d74bfa0e385c010c"
     assert info["safe"] == "0x20415f3Ec0FEA974548184bdD6e67575D128953F"
+    assert info["valuationManager"] == "0x20415f3Ec0FEA974548184bdD6e67575D128953F"  # Hotkey, unlocked for tests
     assert len(info["owners"]) == 2
 
 
@@ -44,10 +45,13 @@ def test_lagoon_safe(read_only_vault: LagoonVault):
     assert safe.retrieve_modules() == ['0x0b2582E9Bf6AcE4E7f42883d4E91240551cf0947', '0x0Cdee1aCD67a424E476AD97bC60aa5F35D2556c9']
 
 
-def test_lagoon_denomination_token(read_only_vault: LagoonVault):
+def test_lagoon_tokens(read_only_vault: LagoonVault):
     """We are denominated in the USDC"""
     vault = read_only_vault
     assert vault.denomination_token.symbol == "USDC"
+    assert vault.share_token.symbol == "XMPL"
+    assert vault.name == "Example"
+    assert vault.symbol == "XMPL"
 
 
 def test_lagoon_fetch_portfolio(

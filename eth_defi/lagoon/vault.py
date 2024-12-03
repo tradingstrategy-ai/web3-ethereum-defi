@@ -1,6 +1,7 @@
 """Vault adapter for Lagoon protocol."""
 
 from dataclasses import asdict
+from decimal import Decimal
 from functools import cached_property
 
 from eth_typing import HexAddress, BlockIdentifier, ChecksumAddress
@@ -83,6 +84,14 @@ class LagoonVault(VaultBase):
             client,
         )
 
+    @property
+    def name(self) -> str:
+        return self.share_token.name
+
+    @property
+    def symbol(self) -> str:
+        return self.share_token.symbol
+
     @cached_property
     def vault_contract(self) -> Contract:
         """Get vault deployment."""
@@ -110,6 +119,10 @@ class LagoonVault(VaultBase):
 
     def fetch_denomination_token(self) -> TokenDetails:
         token_address = self.info["asset"]
+        return fetch_erc20_details(self.web3, token_address, chain_id=self.spec.chain_id)
+
+    def fetch_share_token(self) -> TokenDetails:
+        token_address = self.info["address"]
         return fetch_erc20_details(self.web3, token_address, chain_id=self.spec.chain_id)
 
     def fetch_info(self) -> LagoonVaultInfo:
@@ -143,12 +156,8 @@ class LagoonVault(VaultBase):
         return self.safe.contract
 
     @property
-    def name(self) -> str:
-        return self.info["name"]
-
-    @property
-    def token_symbol(self) -> str:
-        return self.info["symbol"]
+    def valuation_manager(self) -> HexAddress:
+        return self.info["valuationManager"]
 
     def fetch_portfolio(
         self,
@@ -215,15 +224,19 @@ class LagoonVault(VaultBase):
 
     def post_valuation_commitee(
         self,
-        portfolio: VaultPortfolio,
+        total_valuation: Decimal,
     ):
         """Update the valuations of this vault.
 
         - Lagoon vault does not currently track individual positions, but takes a "total value" number
 
         - Updating this number also allows deposits and redemptions to proceed
+
+        :param total_valuation:
+            The vault value nominated in :py:meth:`denomination_token`.
         """
-        raise NotImplementedError()
+
+
 
 
 

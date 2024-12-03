@@ -1,6 +1,6 @@
 """Generic Vault interface base classes"""
 
-from abc import ABC, abstractmethod
+from abc import ABC, abstractmethod, abstractproperty
 from dataclasses import dataclass
 from decimal import Decimal
 from functools import cached_property
@@ -173,11 +173,24 @@ class VaultBase(ABC):
     - [ ] read vault core info
     - [ ] read vault investors
     - [ ] read vault share price
+    - [ ] read vault share token
     - [ ] deposit integration test
     - [ ] redemption integration
     - [ ] swap integration test
     - [ ] re-valuation integration test
     """
+
+    @property
+    @abstractmethod
+    def name(self) -> str:
+        """Vault name."""
+        pass
+
+    @property
+    @abstractmethod
+    def symbol(self) -> str:
+        """Vault share token symbol"""
+        pass
 
     @abstractmethod
     def has_block_range_event_support(self) -> bool:
@@ -213,8 +226,17 @@ class VaultBase(ABC):
         """Use :py:method:`denomination_token` to access"""
 
     @cached_property
-    def denomination_token(self):
+    def denomination_token(self) -> TokenDetails:
         return self.fetch_denomination_token()
+
+    @abstractmethod
+    def fetch_share_token(self) -> TokenDetails:
+        """Use :py:method:`share_token` to access"""
+
+    @cached_property
+    def share_token(self) -> TokenDetails:
+        """ERC-20 that presents vault shares."""
+        return self.fetch_share_token()
 
     @cached_property
     def info(self) -> VaultInfo:
