@@ -65,9 +65,9 @@ class LagoonVaultInfo(VaultInfo):
 class LagoonVault(VaultBase):
     """Python interface for interacting with Lagoon Finance vaults.
 
-    TODO
+    TODO: Work in progress
 
-    For information see :py:class:`VaultBase` base class documentation.
+    For information see :py:class:`~eth_defi.vault.base.VaultBase` base class documentation.
 
     Notes
 
@@ -276,9 +276,9 @@ class LagoonVault(VaultBase):
 
         Notes:
 
-        > How can I post a valuation commitee update 1. as the valuationManager, call the function updateNewTotalAssets(_newTotalAssets) _newTotalAssets being expressed in underlying in its smallest unit for usdc, it would  with its 6 decimals. Do not take into account requestDeposit and requestRedeem in your valuation
+            How can I post a valuation commitee update 1. as the valuationManager, call the function updateNewTotalAssets(_newTotalAssets) _newTotalAssets being expressed in underlying in its smallest unit for usdc, it would  with its 6 decimals. Do not take into account requestDeposit and requestRedeem in your valuation
 
-        > 2. as the safe, call the function settleDeposit()
+            2. as the safe, call the function settleDeposit()
 
         :param total_valuation:
             The vault value nominated in :py:meth:`denomination_token`.
@@ -298,7 +298,6 @@ class LagoonVault(VaultBase):
 
         - if there is nothing to settle: no deposit and redeem requests you can still call settleDeposit/settleRedeem to validate the new nav
 
-        -
         """
         logger.info("Settling vault %s valuation", )
         bound_func = self.vault_contract.functions.settleDeposit()

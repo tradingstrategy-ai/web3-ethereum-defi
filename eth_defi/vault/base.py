@@ -237,7 +237,10 @@ class VaultBase(ABC):
 
     @abstractmethod
     def fetch_denomination_token(self) -> TokenDetails:
-        """Use :py:method:`denomination_token` to access"""
+        """Read denomination token from onchain.
+
+        Use :py:meth:`denomination_token` for cached access.
+        """
 
     @abstractmethod
     def fetch_nav(self) -> Decimal:
@@ -249,18 +252,43 @@ class VaultBase(ABC):
 
     @cached_property
     def denomination_token(self) -> TokenDetails:
+        """Get the token which denominates the vault valuation
+
+        - Used in deposits and redemptions
+
+        - Used in NAV calculation
+
+        - Used in profit benchmarks
+
+        - Usually USDC
+
+        :return:
+            Token wrapper instance
+        """
         return self.fetch_denomination_token()
 
     @abstractmethod
     def fetch_share_token(self) -> TokenDetails:
-        """Use :py:method:`share_token` to access"""
+        """Read share token details onchain.
+
+        Use :py:meth:`share_token` for cached access.
+        """
 
     @cached_property
     def share_token(self) -> TokenDetails:
-        """ERC-20 that presents vault shares."""
+        """ERC-20 that presents vault shares.
+
+        - User gets shares on deposit and burns them on redemption
+        """
         return self.fetch_share_token()
 
     @cached_property
     def info(self) -> VaultInfo:
-        """Get info dictionary related to this deployment."""
+        """Get info dictionary related to this vault deployment.
+
+        - Get cached data on the various vault parameters
+
+        :return:
+            Vault protocol specific information dictionary
+        """
         return self.fetch_info()
