@@ -40,7 +40,13 @@ def usdc_holder() -> HexAddress:
 
 
 @pytest.fixture()
-def anvil_base_fork(request, vault_owner, usdc_holder, asset_manager) -> AnvilLaunch:
+def valuation_manager() -> HexAddress:
+    """Unlockable account set as the vault valuation manager."""
+    return "0x8358bBFb4Afc9B1eBe4e8C93Db8bF0586BD8331a"
+
+
+@pytest.fixture()
+def anvil_base_fork(request, vault_owner, usdc_holder, asset_manager, valuation_manager) -> AnvilLaunch:
     """Create a testable fork of live BNB chain.
 
     :return: JSON-RPC URL for Web3
@@ -48,7 +54,7 @@ def anvil_base_fork(request, vault_owner, usdc_holder, asset_manager) -> AnvilLa
     assert JSON_RPC_BASE, "JSON_RPC_BASE not set"
     launch = fork_network_anvil(
         JSON_RPC_BASE,
-        unlocked_addresses=[vault_owner, usdc_holder, asset_manager],
+        unlocked_addresses=[vault_owner, usdc_holder, asset_manager, valuation_manager],
     )
     try:
         yield launch
@@ -162,6 +168,19 @@ def topped_up_asset_manager(web3, asset_manager):
     })
     assert_transaction_success_with_explanation(web3, tx_hash)
     return asset_manager
+
+
+
+@pytest.fixture()
+def topped_up_valuation_manager(web3, valuation_manager):
+    # Topped up with some ETH
+    tx_hash = web3.eth.send_transaction({
+        "to": valuation_manager,
+        "from": web3.eth.accounts[0],
+        "value": 9 * 10**18,
+    })
+    assert_transaction_success_with_explanation(web3, tx_hash)
+    return valuation_manager
 
 
 # Some addresses for the roles set:

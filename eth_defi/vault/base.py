@@ -174,10 +174,14 @@ class VaultBase(ABC):
     - [ ] read vault investors
     - [ ] read vault share price
     - [ ] read vault share token
+    - [ ] read all positions
+    - [ ] read NAV
     - [ ] deposit integration test
     - [ ] redemption integration
     - [ ] swap integration test
     - [ ] re-valuation integration test
+    - [ ] only asset manager allowed to swap negative test
+    - [ ] only valuation commitee allowed to update vault valuations (if applicable)
     """
 
     @property
@@ -224,6 +228,15 @@ class VaultBase(ABC):
     @abstractmethod
     def fetch_denomination_token(self) -> TokenDetails:
         """Use :py:method:`denomination_token` to access"""
+
+    @abstractmethod
+    def fetch_nav(self) -> Decimal:
+        """Fetch the most recent onchain NAV value.
+
+        :return:
+            Vault NAV, denominated in :py:meth:`denomination_token`
+        """
+
 
     @cached_property
     def denomination_token(self) -> TokenDetails:

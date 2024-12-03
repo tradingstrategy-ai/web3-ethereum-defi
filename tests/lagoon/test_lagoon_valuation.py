@@ -3,13 +3,15 @@
 from decimal import Decimal
 
 import pytest
-from multicall import Multicall, Call
+from eth_typing import HexAddress
+from multicall import Multicall
 from safe_eth.eth.constants import NULL_ADDRESS
 from web3 import Web3
 
 from eth_defi.lagoon.vault import LagoonVault
 from eth_defi.provider.broken_provider import get_almost_latest_block_number
 from eth_defi.token import TokenDetails
+from eth_defi.trace import assert_transaction_success_with_explanation
 from eth_defi.uniswap_v2.constants import UNISWAP_V2_DEPLOYMENTS
 from eth_defi.uniswap_v2.deployment import fetch_deployment, UniswapV2Deployment
 from eth_defi.vault.base import TradingUniverse
@@ -198,17 +200,23 @@ def test_lagoon_diagnose_routes(
     assert routes.loc["DINO -> USDC"]["Value"] == "-"
 
 
-def test_lagoon_post_valuation_commitee(
+def test_lagoon_post_valuation(
     web3: Web3,
     lagoon_vault: LagoonVault,
     base_usdc: TokenDetails,
     base_weth: TokenDetails,
     base_dino: TokenDetails,
     uniswap_v2: UniswapV2Deployment,
+    topped_up_valuation_manager: HexAddress,
 ):
     """Update vault NAV."""
 
     vault = lagoon_vault
+    valuation_manager = topped_up_valuation_manager
+
+    # Check value before update
+    nav = vault.fetch_nav()
+    assert nav == pytest.approx(Decimal(0.1))
 
     universe = TradingUniverse(
         spot_token_addresses={
@@ -234,7 +242,14 @@ def test_lagoon_post_valuation_commitee(
     portfolio_valuation = nav_calculator.calculate_market_sell_nav(portfolio)
 
     total_value = portfolio_valuation.get_total_equity()
-    tx_data = vault.post_valuation_commitee(total_value)
+    bound_func = vault.post_new_valuation(total_value)
 
+    # Unlocked by anvil
+    tx_hash = bound_func.transact({"from": valuation_manager})
+    assert_transaction_success_with_explanation(web3, tx_hash)
+
+    # Check value after update
+    nav = vault.fetch_nav()
+    assert nav == pytest.approx(Decimal(0.1))
 
 

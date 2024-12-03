@@ -1,5 +1,6 @@
 """Vault adapter for Lagoon protocol."""
 
+import logging
 from dataclasses import asdict
 from decimal import Decimal
 from functools import cached_property
@@ -17,6 +18,9 @@ from safe_eth.safe import Safe
 from ..abi import get_deployed_contract, encode_function_call
 from ..safe.safe_compat import create_safe_ethereum_client
 from ..token import TokenDetails, fetch_erc20_details
+
+
+logger = logging.getLogger(__name__)
 
 
 class LagoonVaultInfo(VaultInfo):
@@ -91,6 +95,15 @@ class LagoonVault(VaultBase):
     @property
     def symbol(self) -> str:
         return self.share_token.symbol
+
+    @cached_property
+    def vault_contract(self) -> Contract:
+        """Get vault deployment."""
+        return get_deployed_contract(
+            self.web3,
+            "lagoon/Vault.json",
+            self.spec.vault_address,
+        )
 
     @cached_property
     def vault_contract(self) -> Contract:
@@ -222,19 +235,32 @@ class LagoonVault(VaultBase):
         )
         return bound_func
 
-    def post_valuation_commitee(
+    def post_new_valuation(
         self,
         total_valuation: Decimal,
-    ):
+    ) -> ContractFunction:
         """Update the valuations of this vault.
 
         - Lagoon vault does not currently track individual positions, but takes a "total value" number
 
         - Updating this number also allows deposits and redemptions to proceed
 
+        Notes:
+
+        > How can I post a valuation commitee update 1. as the valuationManager, call the function updateNewTotalAssets(_newTotalAssets) _newTotalAssets being expressed in underlying in its smallest unit for usdc, it would  with its 6 decimals. Do not take into account requestDeposit and requestRedeem in your valuation
+
+        > 2. as the safe, call the function settleDeposit()
+
         :param total_valuation:
             The vault value nominated in :py:meth:`denomination_token`.
+
+        :return:
+            Bound contract function that can be turned to a transaction
         """
+        logger.info("Updating vault %s valuation to %s %s", self.address, total_valuation, self.denomination_token.symbol)
+        raw_amount = self.denomination_token.convert_to_raw(total_valuation)
+        bound_func = self.vault_contract.functions.updateNewTotalAssets(raw_amount)
+        return bound_func
 
 
 

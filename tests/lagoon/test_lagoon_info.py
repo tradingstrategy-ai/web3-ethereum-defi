@@ -21,13 +21,13 @@ def read_only_vault(lagoon_vault) -> LagoonVault:
     return lagoon_vault
 
 
-def test_lagoon_info(read_only_vault: LagoonVault):
+def test_lagoon_core_info(read_only_vault: LagoonVault):
     """Get core info of Lagoon vault"""
     vault = read_only_vault
     info = vault.fetch_info()
     assert info["address"].lower() == "0xab4ac28d10a4bc279ad073b1d74bfa0e385c010c"
     assert info["safe"] == "0x20415f3Ec0FEA974548184bdD6e67575D128953F"
-    assert info["valuationManager"] == "0x20415f3Ec0FEA974548184bdD6e67575D128953F"  # Hotkey, unlocked for tests
+    assert info["valuationManager"] == "0x8358bBFb4Afc9B1eBe4e8C93Db8bF0586BD8331a"  # Hotkey, unlocked for tests
     assert len(info["owners"]) == 2
 
 
