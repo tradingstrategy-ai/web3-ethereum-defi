@@ -44,6 +44,7 @@ def anvil_base_fork(request, vault_owner, usdc_holder, asset_manager) -> AnvilLa
 
     :return: JSON-RPC URL for Web3
     """
+    assert JSON_RPC_BASE, "JSON_RPC_BASE not set"
     launch = fork_network_anvil(
         JSON_RPC_BASE,
         unlocked_addresses=[vault_owner, usdc_holder, asset_manager],
@@ -71,7 +72,7 @@ def web3(anvil_base_fork) -> Web3:
         web3 = create_multi_provider_web3(tenderly_fork_rpc)
     else:
         web3 = create_multi_provider_web3(anvil_base_fork.json_rpc_url)
-    assert web3.eth.chain_id in (8453, 31337)  # TODO: Difference in Anvil versions, something else?
+    assert web3.eth.chain_id == 8453
     return web3
 
 
