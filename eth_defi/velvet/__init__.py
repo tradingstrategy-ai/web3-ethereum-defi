@@ -210,6 +210,9 @@ class VelvetVault(VaultBase):
     def fetch_share_token(self):
         raise NotImplementedError()
 
+    def fetch_nav(self):
+        raise NotImplementedError()
+
     @property
     def symbol(self):
         raise NotImplementedError()
