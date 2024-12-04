@@ -202,7 +202,7 @@ def test_lagoon_diagnose_routes(
     assert routes.loc["DINO -> USDC"]["Value"] == "-"
 
 
-@pytest.mark.skip(reason="Currently debugging why the last tx fails")
+#@pytest.mark.skip(reason="Currently debugging why the last tx fails")
 def test_lagoon_post_valuation(
     web3: Web3,
     lagoon_vault: LagoonVault,
@@ -259,6 +259,10 @@ def test_lagoon_post_valuation(
     bound_func = vault.post_new_valuation(total_value)
     tx_hash = bound_func.transact({"from": valuation_manager})      # Unlocked by anvil
     assert_transaction_success_with_explanation(web3, tx_hash)
+
+    # Check we have no pending redemptions (might abort settle)
+    redemption_shares = vault.get_flow_manager().fetch_pending_redemption(web3.eth.block_number)
+    assert redemption_shares == 0
 
     # Then settle the valuation as the vault owner (Safe multisig) in this case
     settle_call = vault.settle()
