@@ -167,7 +167,7 @@ def test_fetch_vault_portfolio(vault: VelvetVault):
     assert portfolio.spot_erc20["0x6921B130D297cc43754afba22e5EAc0FBf8Db75b"] > 0
 
 
-@pytest.mark.skipif(CI, reason="Enso is such unstable crap that there is no hope we could run any tests with in CI")
+#@pytest.mark.skipif(CI, reason="Enso is such unstable crap that there is no hope we could run any tests with in CI")
 def test_vault_swap_partially(
     vault: VelvetVault,
     vault_owner: HexAddress,
@@ -216,7 +216,7 @@ def test_vault_swap_partially(
     assert portfolio.spot_erc20["0x833589fcd6edb6e08f4c7c32d4f71b54bda02913"] < existing_usdc_balance
 
 
-@pytest.mark.skipif(CI, reason="Enso is such unstable crap that there is no hope we could run any tests with in CI")
+#@pytest.mark.skipif(CI, reason="Enso is such unstable crap that there is no hope we could run any tests with in CI")
 def test_vault_swap_very_little(
     vault: VelvetVault,
     vault_owner: HexAddress,
@@ -248,7 +248,7 @@ def test_vault_swap_very_little(
     assert_transaction_success_with_explanation(web3, tx_hash)
 
 
-@pytest.mark.skipif(CI, reason="Enso is such unstable crap that there is no hope we could run any tests with in CI")
+#@pytest.mark.skipif(CI, reason="Enso is such unstable crap that there is no hope we could run any tests with in CI")
 def test_vault_swap_sell_to_usdc(
     vault: VelvetVault,
     vault_owner: HexAddress,
@@ -288,7 +288,7 @@ def test_vault_swap_sell_to_usdc(
     assert portfolio.spot_erc20["0x833589fcd6edb6e08f4c7c32d4f71b54bda02913"] > existing_usdc_balance
 
 
-@pytest.mark.skipif(CI, reason="Enso is such unstable crap that there is no hope we could run any tests with in CI")
+#@pytest.mark.skipif(CI, reason="Enso is such unstable crap that there is no hope we could run any tests with in CI")
 def test_velvet_api_deposit(
     vault: VelvetVault,
     vault_owner: HexAddress,
