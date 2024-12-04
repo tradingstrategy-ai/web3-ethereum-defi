@@ -1,0 +1,42 @@
+{
+  "_format": "hh-sol-artifact-1",
+  "contractName": "RewardsCollector",
+  "sourceName": "contracts/base/RewardsCollector.sol",
+  "abi": [
+    {
+      "inputs": [],
+      "name": "UnableToClaim",
+      "type": "error"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": false,
+          "internalType": "uint256",
+          "name": "amount",
+          "type": "uint256"
+        }
+      ],
+      "name": "RewardsSent",
+      "type": "event"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bytes",
+          "name": "looksRareClaim",
+          "type": "bytes"
+        }
+      ],
+      "name": "collectRewards",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    }
+  ],
+  "bytecode": "0x",
+  "deployedBytecode": "0x",
+  "linkReferences": {},
+  "deployedLinkReferences": {}
+}

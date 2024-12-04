@@ -1,0 +1,31 @@
+{
+  "_format": "hh-sol-artifact-1",
+  "contractName": "SignatureVerification",
+  "sourceName": "permit2/src/libraries/SignatureVerification.sol",
+  "abi": [
+    {
+      "inputs": [],
+      "name": "InvalidContractSignature",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "InvalidSignature",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "InvalidSignatureLength",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "InvalidSigner",
+      "type": "error"
+    }
+  ],
+  "bytecode": "0x6080806040523460175760119081601d823930815050f35b600080fdfe600080fdfea164736f6c6343000811000a",
+  "deployedBytecode": "0x600080fdfea164736f6c6343000811000a",
+  "linkReferences": {},
+  "deployedLinkReferences": {}
+}
