@@ -86,7 +86,10 @@ def web3(anvil_base_fork) -> Web3:
             make_anvil_custom_rpc_request(web3, "evm_revert", [snapshot])
     else:
         # Anvil
-        web3 = create_multi_provider_web3(anvil_base_fork.json_rpc_url)
+        web3 = create_multi_provider_web3(
+            anvil_base_fork.json_rpc_url,
+            default_http_timeout=(2, 45),
+        )
         assert web3.eth.chain_id == 8453
         yield web3
 
