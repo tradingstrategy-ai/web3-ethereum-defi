@@ -61,7 +61,7 @@ def swap_with_velvet_and_enso(
     }
 
     # Log out everything, so we can post the data for others to debug
-    logger.info("Velvet + Enso swap:\n%s", pformat(payload))
+    logger.info("Velvet + Enso swap, slippage is %f:\n%s", slippage, pformat(payload))
 
     url = f"{api_url}/rebalance/txn"
     resp = requests.post(url, json=payload)

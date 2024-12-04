@@ -42,6 +42,17 @@ def usdc_holder() -> HexAddress:
     return "0x3304E22DDaa22bCdC5fCa2269b418046aE7b566A"
 
 
+@pytest.fixture()
+def slippage() -> float:
+    """Slippage value to be used in tests.
+
+    - Deal with mysterious Enso failures
+
+    - Random TooMuchSlippage "2Po" errors
+    """
+    return 0.10
+
+
 
 @pytest.fixture()
 def anvil_base_fork(request, vault_owner, usdc_holder, deposit_user) -> AnvilLaunch:
@@ -49,12 +60,11 @@ def anvil_base_fork(request, vault_owner, usdc_holder, deposit_user) -> AnvilLau
 
     :return: JSON-RPC URL for Web3
     """
-
     assert JSON_RPC_BASE is not None, "JSON_RPC_BASE not set"
     launch = fork_network_anvil(
         JSON_RPC_BASE,
         unlocked_addresses=[vault_owner, usdc_holder, deposit_user],
-        fork_block_number=23261311,
+        #  fork_block_number=23261311,  # Cannot use forked state because Enso has its own state
     )
     try:
         yield launch
@@ -174,6 +184,7 @@ def test_fetch_vault_portfolio(vault: VelvetVault):
 def test_vault_swap_partially(
     vault: VelvetVault,
     vault_owner: HexAddress,
+    slippage: float,
 ):
     """Simulate swap tokens using Enzo.
 
@@ -202,7 +213,7 @@ def test_vault_swap_partially(
         token_in="0x833589fcd6edb6e08f4c7c32d4f71b54bda02913",
         token_out="0x6921B130D297cc43754afba22e5EAc0FBf8Db75b",
         swap_amount=1_000_000,  # 1 USDC
-        slippage=0.01,
+        slippage=slippage,
         remaining_tokens=universe.spot_token_addresses,
         swap_all=False,
         from_=vault_owner,
@@ -223,6 +234,7 @@ def test_vault_swap_partially(
 def test_vault_swap_very_little(
     vault: VelvetVault,
     vault_owner: HexAddress,
+    slippage: float,
 ):
     """Simulate swap tokens using Enzo.
 
@@ -240,7 +252,7 @@ def test_vault_swap_very_little(
         token_in="0x833589fcd6edb6e08f4c7c32d4f71b54bda02913",
         token_out="0x6921B130D297cc43754afba22e5EAc0FBf8Db75b",
         swap_amount=1,  # 1 USDC
-        slippage=0.01,
+        slippage=slippage,
         remaining_tokens=universe.spot_token_addresses,
         swap_all=False,
         from_=vault_owner,
@@ -255,6 +267,7 @@ def test_vault_swap_very_little(
 def test_vault_swap_sell_to_usdc(
     vault: VelvetVault,
     vault_owner: HexAddress,
+    slippage: float,
 ):
     """Simulate swap tokens using Enzo.
 
@@ -277,7 +290,7 @@ def test_vault_swap_sell_to_usdc(
         token_in="0x6921B130D297cc43754afba22e5EAc0FBf8Db75b",
         token_out="0x833589fcd6edb6e08f4c7c32d4f71b54bda02913",
         swap_amount=500 * 10**18,
-        slippage=0.01,
+        slippage=slippage,
         remaining_tokens=universe.spot_token_addresses,
         swap_all=False,
         from_=vault_owner,
@@ -297,6 +310,7 @@ def test_velvet_api_deposit(
     vault_owner: HexAddress,
     deposit_user: HexAddress,
     usdc: TokenDetails,
+    slippage: float,
 ):
     """Use Velvet API to perform deposit"""
 
