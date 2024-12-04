@@ -54,7 +54,6 @@ def anvil_base_fork(request, vault_owner, usdc_holder, deposit_user) -> AnvilLau
     launch = fork_network_anvil(
         JSON_RPC_BASE,
         unlocked_addresses=[vault_owner, usdc_holder, deposit_user],
-        fork_block_number=23261311,
     )
     try:
         yield launch
