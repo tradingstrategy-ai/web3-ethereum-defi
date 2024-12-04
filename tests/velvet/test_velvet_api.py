@@ -15,7 +15,7 @@ from eth_typing import HexAddress
 from web3 import Web3
 
 from eth_defi.hotwallet import HotWallet
-from eth_defi.provider.anvil import AnvilLaunch, fork_network_anvil
+from eth_defi.provider.anvil import AnvilLaunch, fork_network_anvil, make_anvil_custom_rpc_request
 from eth_defi.provider.broken_provider import get_almost_latest_block_number
 from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.token import TokenDetails, fetch_erc20_details
@@ -49,10 +49,12 @@ def anvil_base_fork(request, vault_owner, usdc_holder, deposit_user) -> AnvilLau
 
     :return: JSON-RPC URL for Web3
     """
+
     assert JSON_RPC_BASE is not None, "JSON_RPC_BASE not set"
     launch = fork_network_anvil(
         JSON_RPC_BASE,
         unlocked_addresses=[vault_owner, usdc_holder, deposit_user],
+        fork_block_number=23261311,
     )
     try:
         yield launch
@@ -63,9 +65,30 @@ def anvil_base_fork(request, vault_owner, usdc_holder, deposit_user) -> AnvilLau
 
 @pytest.fixture()
 def web3(anvil_base_fork) -> Web3:
-    web3 = create_multi_provider_web3(anvil_base_fork.json_rpc_url)
-    assert web3.eth.chain_id == 8453
-    return web3
+    """Create Web3 instance.
+
+    - Use mainnet fork with Anvil for local testing
+
+    - If symbolic transaction debugging is needed, you can override
+      Anvil manually with a Tenderly virtual testnet
+    """
+    # Debug using Tenderly debugger
+    tenderly_fork_rpc = os.environ.get("JSON_RPC_TENDERLY", None)
+
+    if tenderly_fork_rpc:
+        web3 = create_multi_provider_web3(tenderly_fork_rpc)
+        snapshot = make_anvil_custom_rpc_request(web3, "evm_snapshot")
+        try:
+            yield web3
+        finally:
+            # Revert Tenderly testnet back to its original state
+            # https://docs.tenderly.co/forks/guides/testing/reset-transactions-after-completing-the-test
+            make_anvil_custom_rpc_request(web3, "evm_revert", [snapshot])
+    else:
+        # Anvil
+        web3 = create_multi_provider_web3(anvil_base_fork.json_rpc_url)
+        assert web3.eth.chain_id == 8453
+        yield web3
 
 
 @pytest.fixture()
@@ -115,7 +138,7 @@ def vault(web3, base_test_vault_spec: VaultSpec) -> VelvetVault:
 
 @pytest.fixture()
 def deposit_user() -> HexAddress:
-    """A user that has preapproved 5 USDC deposit for the vault above, no approve(0 needed."""
+    """A user that has preapproved 5 USDC deposit for the vault above, no approve() needed."""
     return "0x7612A94AafF7a552C373e3124654C1539a4486A8"
 
 
@@ -317,7 +340,15 @@ def test_velvet_api_deposit(
     )
     assert tx_data["to"] == deposit_manager
     tx_hash = web3.eth.send_transaction(tx_data)
-    assert_transaction_success_with_explanation(web3, tx_hash)
+    try:
+        assert_transaction_success_with_explanation(web3, tx_hash)
+    except Exception as e:
+        # Double check allowance - Anvil bug
+        allowance = usdc.contract.functions.allowance(
+            Web3.to_checksum_address(deposit_user),
+            Web3.to_checksum_address(deposit_manager),
+        ).call()
+        raise RuntimeError(f"transferFrom() failed, allowance after broadcast {allowance / 10**6} USDC: {e}") from e
 
     # USDC balance has increased after the deposit
     portfolio = vault.fetch_portfolio(universe, web3.eth.block_number)
