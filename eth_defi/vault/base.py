@@ -148,27 +148,22 @@ class VaultBase(ABC):
 
     Supported protocols include
 
-    - Velvet Capital :py:class:`eth_defi.velvet.vault.VelvetVault`
+    - Lagoon Finance: :py:class:`eth_defi.lagoon.vault.LagoonVault`
 
-    - Lagoon Finance :py:class:`eth_defi.lagoon.vault.LagoonVault`
+    - Velvet Capital: :py:class:`eth_defi.velvet.vault.VelvetVault`
 
     Code exists, but does not confirm the interface yet:
 
-    - Enzyme Finance :py:class:`eth_defi.enzyme.vault.Vault`
+    - Enzyme Finance: :py:class:`eth_defi.enzyme.vault.Vault`
 
-    What this wrapper class does:
-
-    - Takes :py:class:`VaultSpec` as a constructor argument and builds a proxy class
-      for accessing the vault based on this
-
-    Vault functionality that needs to be supported
+    **Vault covered functionality**
 
     - Fetching the current balances, deposits or redemptions
 
-        - Either using naive polling approach with :py:method:`fetch_portfolio`
+        - Either using naive polling approach with :py:meth:`fetch_portfolio`
         - Listen to vault events for deposits and redemptions using :py:meth:`get_flow_manager`
 
-    - Get vault information with :py:method:`fetch_info`
+    - Get vault information with :py:meth:`fetch_info`
         - No standardised data structures or functions yet
 
     - Build a swap through a vault
@@ -177,25 +172,27 @@ class VaultBase(ABC):
     - Update vault position valuations
         - No standardised data structure yet
 
-    For code examples see `tests/lagoon` and `tests/velvet`.
+    **Integration check list**
 
-    Integration check list
+    Integration tests needed for:
 
-    - [ ] read vault core info
-    - [ ] read vault investors
-    - [ ] read vault share price
-    - [ ] read vault share token
-    - [ ] read all positions
-    - [ ] read NAV
-    - [ ] read pending redemptions to know how much USDC we will need for the next settlement cycles
-    - [ ] deposit integration test
-    - [ ] redemption integration
-    - [ ] swap integration test
-    - [ ] re-valuation integration test
-    - [ ] only asset manager allowed to swap negative test
-    - [ ] only valuation commitee allowed to update vault valuations (if applicable)
-    - [ ] can redeem if enough USDC to settle
-    - [ ] cannot redeem not enough USDC to settle
+    - ☑️ read vault core info
+    - ☑️ read vault investors
+    - ☑️ read vault share price
+    - ☑️ read vault share token
+    - ☑️ read all positions
+    - ☑️ read NAV
+    - ☑️ read pending redemptions to know how much USDC we will need for the next settlement cycles
+    - ☑️ deposit integration test
+    - ☑️ redemption integration
+    - ☑️ swap integration test
+    - ☑️ re-valuation integration test
+    - ☑️ only asset manager allowed to swap negative test
+    - ☑️ only valuation commitee allowed to update vault valuations (if applicable)
+    - ☑️ can redeem if enough USDC to settle
+    - ☑️ cannot redeem not enough USDC to settle
+
+    For code examples see `tests/lagoon` and `tests/velvet` on the `Github repository <https://github.com/tradingstrategy-ai/web3-ethereum-defi>`__.
     """
 
     @property
