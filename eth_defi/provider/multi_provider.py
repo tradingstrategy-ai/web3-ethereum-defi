@@ -107,6 +107,7 @@ def create_multi_provider_web3(
     request_kwargs: Optional[Any] = None,
     session: Optional[Any] = None,
     switchover_noisiness=logging.WARNING,
+    default_http_timeout=(3.0, 30.0),
 ) -> MultiProviderWeb3:
     """Create a Web3 instance with multi-provider support.
 
@@ -155,7 +156,13 @@ def create_multi_provider_web3(
 
         See :py:class:`web3.HTTPProvider` for details.
 
+
         Example: ``request_kwargs={"timeout": 10.0}``
+
+    :param default_http_timeout:
+        Use this timeout value for HTTP requests library if `request_kwargs` not given.
+
+        Tuple (connect timeout, read timeout)
 
     :param session:
         Use specific HTTP 1.1 session with :py:mod:`requests`.
@@ -210,6 +217,9 @@ def create_multi_provider_web3(
         adapter = HTTPAdapter(max_retries=retry)
         session.mount("http://", adapter)
         session.mount("https://", adapter)
+
+    if request_kwargs is None:
+        request_kwargs = {"timeout": default_http_timeout}
 
     call_providers = [HTTPProvider(url, request_kwargs=request_kwargs, session=session) for url in call_endpoints]
 
