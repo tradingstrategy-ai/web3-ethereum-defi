@@ -49,6 +49,7 @@ def anvil_base_fork(request, vault_owner, usdc_holder, deposit_user) -> AnvilLau
 
     :return: JSON-RPC URL for Web3
     """
+    assert JSON_RPC_BASE is not None, "JSON_RPC_BASE not set"
     launch = fork_network_anvil(
         JSON_RPC_BASE,
         unlocked_addresses=[vault_owner, usdc_holder, deposit_user],
