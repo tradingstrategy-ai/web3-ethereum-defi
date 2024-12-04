@@ -68,6 +68,16 @@ copy-uniswapv3-abi: uniswapv3
 	@find contracts/uniswap-v3-core/artifacts/contracts -iname "*.json" -not -iname "*.dbg.json" -exec cp {} eth_defi/abi/uniswap_v3 \;
 	@find contracts/uniswap-v3-periphery/artifacts/contracts -iname "*.json" -not -iname "*.dbg.json" -exec cp {} eth_defi/abi/uniswap_v3 \;
 
+# Compile v3 core and periphery
+uniswap-universalrouter:
+	@(cd contracts/uniswap-universal-router && yarn install && yarn compile) > /dev/null
+
+# Extract ABI and copied over to our abi/uniswap_universal_router/ folder
+copy-uniswap-universalrouter-abi: uniswap-universalrouter
+	@mkdir -p eth_defi/abi/uniswap_universal_router
+	@find contracts/uniswap-universal-router/artifacts/contracts -iname "*.json" -not -iname "*.dbg.json" -exec cp {} eth_defi/abi/uniswap_universal_router \;
+	@find contracts/uniswap-universal-router/artifacts/permit2 -iname "*.json" -not -iname "*.dbg.json" -exec cp {} eth_defi/abi/uniswap_universal_router \;
+
 aavev3:
 	@(cd contracts/aave-v3-deploy && npm ci && npm run compile) > /dev/null
 	@mkdir -p eth_defi/abi/aave_v3

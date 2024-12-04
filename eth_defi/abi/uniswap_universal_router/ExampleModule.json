@@ -1,0 +1,43 @@
+{
+  "_format": "hh-sol-artifact-1",
+  "contractName": "ExampleModule",
+  "sourceName": "contracts/test/ExampleModule.sol",
+  "abi": [
+    {
+      "inputs": [],
+      "name": "CauseRevert",
+      "type": "error"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": false,
+          "internalType": "string",
+          "name": "message",
+          "type": "string"
+        }
+      ],
+      "name": "ExampleModuleEvent",
+      "type": "event"
+    },
+    {
+      "inputs": [],
+      "name": "causeRevert",
+      "outputs": [],
+      "stateMutability": "pure",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "logEvent",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    }
+  ],
+  "bytecode": "0x608080604052346100165761012c908161001c8239f35b600080fdfe608080604052600436101561001357600080fd5b600090813560e01c90816367192b63146100c3575063a5fe08721461003757600080fd5b346100c057807ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffc3601126100c0577ff173516ab337f2e7729ba9acd5771deab6be31f2ad8d5dd42dab5269e61701b9606060405160208152600960208201527f746573744576656e7400000000000000000000000000000000000000000000006040820152a180f35b80fd5b90503461011b57817ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffc36011261011b57807f39492f340000000000000000000000000000000000000000000000000000000060049252fd5b5080fdfea164736f6c6343000811000a",
+  "deployedBytecode": "0x608080604052600436101561001357600080fd5b600090813560e01c90816367192b63146100c3575063a5fe08721461003757600080fd5b346100c057807ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffc3601126100c0577ff173516ab337f2e7729ba9acd5771deab6be31f2ad8d5dd42dab5269e61701b9606060405160208152600960208201527f746573744576656e7400000000000000000000000000000000000000000000006040820152a180f35b80fd5b90503461011b57817ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffc36011261011b57807f39492f340000000000000000000000000000000000000000000000000000000060049252fd5b5080fdfea164736f6c6343000811000a",
+  "linkReferences": {},
+  "deployedLinkReferences": {}
+}

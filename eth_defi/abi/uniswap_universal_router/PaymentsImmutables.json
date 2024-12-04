@@ -1,0 +1,44 @@
+{
+  "_format": "hh-sol-artifact-1",
+  "contractName": "PaymentsImmutables",
+  "sourceName": "contracts/modules/PaymentsImmutables.sol",
+  "abi": [
+    {
+      "inputs": [
+        {
+          "components": [
+            {
+              "internalType": "address",
+              "name": "permit2",
+              "type": "address"
+            },
+            {
+              "internalType": "address",
+              "name": "weth9",
+              "type": "address"
+            },
+            {
+              "internalType": "address",
+              "name": "openseaConduit",
+              "type": "address"
+            },
+            {
+              "internalType": "address",
+              "name": "sudoswap",
+              "type": "address"
+            }
+          ],
+          "internalType": "struct PaymentsParameters",
+          "name": "params",
+          "type": "tuple"
+        }
+      ],
+      "stateMutability": "nonpayable",
+      "type": "constructor"
+    }
+  ],
+  "bytecode": "0x610100346100f657601f61012138819003918201601f19168301926001600160401b03929091838511838610176100e05781608092849260409788528339810103126100f65782519160808301908111838210176100e0578352610062816100fb565b8252610070602082016100fb565b80602084015261009360606100868685016100fb565b93868601948552016100fb565b606084019081526001600160a01b039182166080529251811660a0529051811660c05290511660e0525160119081610110823960805181505060a05181505060c05181505060e051815050f35b634e487b7160e01b600052604160045260246000fd5b600080fd5b51906001600160a01b03821682036100f65756fe600080fdfea164736f6c6343000811000a",
+  "deployedBytecode": "0x600080fdfea164736f6c6343000811000a",
+  "linkReferences": {},
+  "deployedLinkReferences": {}
+}

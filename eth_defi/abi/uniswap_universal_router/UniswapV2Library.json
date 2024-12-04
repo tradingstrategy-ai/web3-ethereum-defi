@@ -1,0 +1,21 @@
+{
+  "_format": "hh-sol-artifact-1",
+  "contractName": "UniswapV2Library",
+  "sourceName": "contracts/modules/uniswap/v2/UniswapV2Library.sol",
+  "abi": [
+    {
+      "inputs": [],
+      "name": "InvalidPath",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "InvalidReserves",
+      "type": "error"
+    }
+  ],
+  "bytecode": "0x6080806040523460175760119081601d823930815050f35b600080fdfe600080fdfea164736f6c6343000811000a",
+  "deployedBytecode": "0x600080fdfea164736f6c6343000811000a",
+  "linkReferences": {},
+  "deployedLinkReferences": {}
+}

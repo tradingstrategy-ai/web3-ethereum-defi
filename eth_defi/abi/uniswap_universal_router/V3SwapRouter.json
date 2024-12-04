@@ -1,0 +1,94 @@
+{
+  "_format": "hh-sol-artifact-1",
+  "contractName": "V3SwapRouter",
+  "sourceName": "contracts/modules/uniswap/v3/V3SwapRouter.sol",
+  "abi": [
+    {
+      "inputs": [],
+      "name": "FromAddressIsNotOwner",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "InsufficientETH",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "InsufficientToken",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "InvalidBips",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "InvalidSpender",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "SliceOutOfBounds",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "UnsafeCast",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "V3InvalidAmountOut",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "V3InvalidCaller",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "V3InvalidSwap",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "V3TooLittleReceived",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "V3TooMuchRequested",
+      "type": "error"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "int256",
+          "name": "amount0Delta",
+          "type": "int256"
+        },
+        {
+          "internalType": "int256",
+          "name": "amount1Delta",
+          "type": "int256"
+        },
+        {
+          "internalType": "bytes",
+          "name": "data",
+          "type": "bytes"
+        }
+      ],
+      "name": "uniswapV3SwapCallback",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    }
+  ],
+  "bytecode": "0x",
+  "deployedBytecode": "0x",
+  "linkReferences": {},
+  "deployedLinkReferences": {}
+}

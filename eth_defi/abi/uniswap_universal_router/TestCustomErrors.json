@@ -1,0 +1,21 @@
+{
+  "_format": "hh-sol-artifact-1",
+  "contractName": "TestCustomErrors",
+  "sourceName": "contracts/test/TestCustomErrors.sol",
+  "abi": [
+    {
+      "inputs": [],
+      "name": "InvalidSignature",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "UnsafeCast",
+      "type": "error"
+    }
+  ],
+  "bytecode": "0x608080604052346013576011908160198239f35b600080fdfe600080fdfea164736f6c6343000811000a",
+  "deployedBytecode": "0x600080fdfea164736f6c6343000811000a",
+  "linkReferences": {},
+  "deployedLinkReferences": {}
+}

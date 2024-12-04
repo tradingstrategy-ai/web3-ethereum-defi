@@ -44,3 +44,6 @@
 [submodule "contracts/velvet-core"]
 	path = contracts/velvet-core
 	url = https://github.com/Velvet-Capital/velvet-core.git
+[submodule "contracts/uniswap-universal-router"]
+	path = contracts/uniswap-universal-router
+	url = https://github.com/Uniswap/universal-router.git
