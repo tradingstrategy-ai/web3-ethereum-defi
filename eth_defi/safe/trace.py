@@ -9,7 +9,7 @@ from eth_defi.deploy import get_or_create_contract_registry
 from eth_defi.trace import trace_evm_transaction, print_symbolic_trace, TraceMethod
 
 
-def assert_safe_success(
+def assert_execute_module_success(
     web3: Web3,
     tx_hash: HexBytes,
     verbose=True,
@@ -36,7 +36,7 @@ def assert_safe_success(
             failure += 1
 
     if success == 0 and failure == 0:
-        raise AssertionError(f"Does not look like a Gnosis Safe transction")
+        raise AssertionError(f"Does not look like a Gnosis Safe transaction, no ExecutionFromModuleSuccess or ExecutionFromModuleFailure events detected:\n{receipt}")
     elif success + failure > 1:
         raise AssertionError(f"Too many success and failures in tx. Some weird nested case?")
     elif failure == 1:
