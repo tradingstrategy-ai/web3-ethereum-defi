@@ -360,13 +360,13 @@ class UniswapV2Router02Quoter(ValuationQuoter):
 class NetAssetValueCalculator:
     """Calculate valuation of all vault spot assets, assuming we would sell them on Uniswap market sell or similar.
 
-    - Query valuations using *only* onchain data / direct quoter smart contracts
+    - Query valuations using *only* onchain data / direct quoter smart contracts, no external indexers or services needed
 
     - Price impact and fees included
 
-    - Pack more RPC punch by using Multicall library
+    - Brute forces all possible route combinations
 
-    - Bruteforces all possible route combinations
+    - Pack more RPC punch by using Multicall library
 
     .. note ::
 
