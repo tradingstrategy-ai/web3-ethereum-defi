@@ -1,5 +1,5 @@
 """NAV calcualtion and valuation commitee tests."""
-
+import time
 from decimal import Decimal
 
 import pytest
@@ -8,6 +8,7 @@ from multicall import Multicall
 from safe_eth.eth.constants import NULL_ADDRESS
 from web3 import Web3
 
+from eth_defi.confirmation import wait_transactions_to_complete
 from eth_defi.lagoon.vault import LagoonVault
 from eth_defi.provider.broken_provider import get_almost_latest_block_number
 from eth_defi.safe.trace import assert_execute_module_success

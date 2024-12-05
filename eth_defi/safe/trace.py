@@ -5,6 +5,7 @@ from web3 import Web3
 
 from safe_eth.eth.account_abstraction.constants import EXECUTION_FROM_MODULE_FAILURE_TOPIC, EXECUTION_FROM_MODULE_SUCCESS_TOPIC
 
+from eth_defi.confirmation import wait_transactions_to_complete
 from eth_defi.deploy import get_or_create_contract_registry
 from eth_defi.trace import trace_evm_transaction, print_symbolic_trace, TraceMethod
 
@@ -23,8 +24,10 @@ def assert_execute_module_success(
     :raise AssertionError:
         If the transaction failed
     """
-    
-    receipt = web3.eth.get_transaction_receipt(tx_hash)
+
+    receipts = wait_transactions_to_complete(web3, [tx_hash])
+
+    receipt = receipts[tx_hash]
 
     success = 0
     failure = 0
