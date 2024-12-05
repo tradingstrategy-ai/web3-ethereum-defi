@@ -5,6 +5,8 @@
 - Helps to create automated trading agents against any vault easily
 
 - Handle both trading (asset management role) and investor management (deposits/redemptions)
+
+- See :py:class:`VaultBase` to get started
 """
 
 from abc import ABC, abstractmethod
@@ -65,7 +67,9 @@ class TradingUniverse:
 
 @dataclass
 class VaultPortfolio:
-    """Get the vault asset balances.
+    """Track assets and balances in a vault.
+
+    - Offchain method to track what assets a vault contains
 
     - Takes :py:class:`TradingUniverse` as an input and resolves all relevant balances the vault holds for this trading universe
 
@@ -102,7 +106,10 @@ class VaultPortfolio:
 
 
 class VaultFlowManager(ABC):
-    """Manage deposit/redemption events
+    """Manage deposit/redemption events.
+
+    - For some vault structures, we need to know how much redemptions there are in the queue, so
+      we can rebalance to have enough cash
 
     - Create a replay of flow events that happened for a vault within a specific block range
 

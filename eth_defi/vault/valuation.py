@@ -360,11 +360,62 @@ class UniswapV2Router02Quoter(ValuationQuoter):
 class NetAssetValueCalculator:
     """Calculate valuation of all vault spot assets, assuming we would sell them on Uniswap market sell or similar.
 
-    - Query valuations using onchain data / direct quoter smart contracts
+    - Query valuations using *only* onchain data / direct quoter smart contracts
 
     - Price impact and fees included
 
     - Pack more RPC punch by using Multicall library
+
+    - Bruteforces all possible route combinations
+
+    .. note ::
+
+        Early prototype code.
+
+    Example:
+
+    .. code-block::
+
+        vault = lagoon_vault
+
+        universe = TradingUniverse(
+            spot_token_addresses={
+                base_weth.address,
+                base_usdc.address,
+                base_dino.address,
+            }
+        )
+        latest_block = get_almost_latest_block_number(web3)
+        portfolio = vault.fetch_portfolio(universe, latest_block)
+        assert portfolio.get_position_count() == 3
+
+        uniswap_v2_quoter_v2 = UniswapV2Router02Quoter(uniswap_v2.router)
+
+        nav_calculator = NetAssetValueCalculator(
+            web3,
+            denomination_token=base_usdc,
+            intermediary_tokens={base_weth.address},  # Allow DINO->WETH->USDC
+            quoters={uniswap_v2_quoter_v2},
+            debug=True,
+        )
+
+        routes = nav_calculator.create_route_diagnostics(portfolio)
+
+        print(routes)
+
+    Outputs:
+
+    .. code-block:: text
+
+        # Routes and their sell values:
+
+                              Asset                                     Address        Balance                   Router Works  Value
+         Path
+         USDC                  USDC  0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913           0.35                            yes   0.35
+         WETH -> USDC          WETH  0x4200000000000000000000000000000000000006       0.000000  UniswapV2Router02Quoter   yes   0.00
+         DINO -> USDC          DINO  0x85E90a5430AF45776548ADB82eE4cD9E33B08077  547942.000069  UniswapV2Router02Quoter    no      -
+         DINO -> WETH -> USDC  DINO  0x85E90a5430AF45776548ADB82eE4cD9E33B08077  547942.000069  UniswapV2Router02Quoter   yes  36.69
+
     """
 
     def __init__(
