@@ -202,7 +202,6 @@ def test_lagoon_diagnose_routes(
     assert routes.loc["DINO -> USDC"]["Value"] == "-"
 
 
-#@pytest.mark.skip(reason="Currently debugging why the last tx fails")
 def test_lagoon_post_valuation(
     web3: Web3,
     lagoon_vault: LagoonVault,
