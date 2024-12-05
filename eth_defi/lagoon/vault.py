@@ -255,6 +255,27 @@ class LagoonVault(VaultBase):
 
         - Mostly used for testing w/whitelist ignore
 
+        .. warning ::
+
+            A special gas fix is needed, because `eth_estimateGas` seems to fail for these Gnosis Safe transactions.
+
+        Example:
+
+        .. code-block:: python
+
+            # Then settle the valuation as the vault owner (Safe multisig) in this case
+            settle_call = vault.settle()
+            moduled_tx = vault.transact_through_module(settle_call)
+            tx_data = moduled_tx.build_transaction({
+                "from": asset_manager,
+            })
+            # Normal estimate_gas does not give enough gas for
+            # Safe execTransactionFromModule() transaction for some reason
+            gnosis_gas_fix = 1_000_000
+            tx_data["gas"] = web3.eth.estimate_gas(tx_data) + gnosis_gas_fix
+            tx_hash = web3.eth.send_transaction(tx_data)
+            assert_execute_module_success(web3, tx_hash)
+
         :param func_call:
             Bound smart contract function call
 
