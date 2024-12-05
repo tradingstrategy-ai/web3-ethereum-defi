@@ -108,6 +108,7 @@ def create_multi_provider_web3(
     session: Optional[Any] = None,
     switchover_noisiness=logging.WARNING,
     default_http_timeout=(3.0, 30.0),
+    retries: int = 6,
 ) -> MultiProviderWeb3:
     """Create a Web3 instance with multi-provider support.
 
@@ -172,6 +173,9 @@ def create_multi_provider_web3(
     :param switchover_noisiness:
         Log level for messages when one RPC provider fails and we try other one.
 
+    :param retries:
+        How many retry count we do calling JSON-RPC API if the API response fails.
+
     :return:
         Configured Web3 instance with multiple providers
     """
@@ -227,7 +231,13 @@ def create_multi_provider_web3(
     for p in call_providers:
         _fix_provider(p)
 
-    fallback_provider = FallbackProvider(call_providers, sleep=fallback_sleep, backoff=fallback_backoff, switchover_noisiness=switchover_noisiness)
+    fallback_provider = FallbackProvider(
+        call_providers,
+        sleep=fallback_sleep,
+        backoff=fallback_backoff,
+        switchover_noisiness=switchover_noisiness,
+        retries=retries,
+    )
     transact_provider = None
     if len(transact_endpoints) > 0:
         transact_endpoint = transact_endpoints[0]

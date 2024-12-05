@@ -98,7 +98,8 @@ def web3(anvil_base_fork) -> Web3:
         # Anvil
         web3 = create_multi_provider_web3(
             anvil_base_fork.json_rpc_url,
-            default_http_timeout=(2, 45),
+            default_http_timeout=(2, 60),
+            retries=0,  # Tests will fail if we need to retry eth_sendTransaction
         )
         assert web3.eth.chain_id == 8453
         yield web3
