@@ -36,6 +36,7 @@ pytestmark = pytest.mark.skipif(
 logger = logging.getLogger(__name__)
 
 
+@flaky.flaky
 def test_1delta_open_and_close_short_multipairs(
     web3,
     hot_wallet,

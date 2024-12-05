@@ -5,13 +5,14 @@ from dataclasses import asdict
 from decimal import Decimal
 from functools import cached_property
 
+from eth.typing import BlockRange
 from eth_typing import HexAddress, BlockIdentifier, ChecksumAddress
 from web3 import Web3
 from web3.contract import Contract
 from web3.contract.contract import ContractFunction
 
 from eth_defi.balances import fetch_erc20_balances_fallback
-from eth_defi.vault.base import VaultBase, VaultSpec, VaultInfo, TradingUniverse, VaultPortfolio
+from eth_defi.vault.base import VaultBase, VaultSpec, VaultInfo, TradingUniverse, VaultPortfolio, VaultFlowManager
 
 from safe_eth.safe import Safe
 
@@ -72,6 +73,10 @@ class LagoonVault(VaultBase):
     Notes
 
     - Vault contract knows about Safe, Safe does not know about the Vault
+
+    - Ok so for settlement you dont have to worry about this metric, the only thing you have to value is the assets inside the safe (what you currently have under management) and update the NAV of the vault by calling updateNewTotalAssets (ex: if you have 1M inside the vault and 500K pending deposit you only need to call updateTotalAssets with the 1M that are currently inside the safe). Then, to settle you just call settleDeposit and the vault calculate everything for you.
+
+    - To monitor the pending deposits it's a bit more complicated. You have to check the balanceOf the pendingSilo contract (0xAD1241Ba37ab07fFc5d38e006747F8b92BB217D5) in term of underlying (here USDC) for pending deposit and in term of shares (so the vault itself) for pending withdraw requests
     """
 
     def __init__(
@@ -91,8 +96,8 @@ class LagoonVault(VaultBase):
     def has_block_range_event_support(self):
         return True
 
-    def get_flow_manager(self):
-        raise NotImplementedError("Velvet does not support individual deposit/redemption events yet")
+    def get_flow_manager(self) -> "LagoonFlowManager":
+        return LagoonFlowManager(self)
 
     def fetch_safe(self, address) -> Safe:
         """Use :py:meth:`safe` property for cached access"""
@@ -210,6 +215,16 @@ class LagoonVault(VaultBase):
         """Valuation manager role on the vault."""
         return self.info["valuationManager"]
 
+    @cached_property
+    def silo_contract(self) -> Contract:
+        """Pending Silo contract.
+
+        - This contract does not have any functionality, but stores deposits (pending USDC) and redemptions (pending share token)
+        """
+        vault_contract = self.vault_contract
+        silo_address = vault_contract.functions.pendingSilo().call()
+        return get_deployed_contract(self.web3, "lagoon/Silo.json", silo_address)
+
     def fetch_portfolio(
         self,
         universe: TradingUniverse,
@@ -239,6 +254,27 @@ class LagoonVault(VaultBase):
         - Executes a transaction as a multisig
 
         - Mostly used for testing w/whitelist ignore
+
+        .. warning ::
+
+            A special gas fix is needed, because `eth_estimateGas` seems to fail for these Gnosis Safe transactions.
+
+        Example:
+
+        .. code-block:: python
+
+            # Then settle the valuation as the vault owner (Safe multisig) in this case
+            settle_call = vault.settle()
+            moduled_tx = vault.transact_through_module(settle_call)
+            tx_data = moduled_tx.build_transaction({
+                "from": asset_manager,
+            })
+            # Normal estimate_gas does not give enough gas for
+            # Safe execTransactionFromModule() transaction for some reason
+            gnosis_gas_fix = 1_000_000
+            tx_data["gas"] = web3.eth.estimate_gas(tx_data) + gnosis_gas_fix
+            tx_hash = web3.eth.send_transaction(tx_data)
+            assert_execute_module_success(web3, tx_hash)
 
         :param func_call:
             Bound smart contract function call
@@ -306,3 +342,41 @@ class LagoonVault(VaultBase):
         logger.info("Settling vault %s valuation", )
         bound_func = self.vault_contract.functions.settleDeposit()
         return bound_func
+
+
+class LagoonFlowManager(VaultFlowManager):
+    """Manage deposit/redemption queue for Lagoon.
+
+    - Lagoon uses `ERC-7540 <https://eips.ethereum.org/EIPS/eip-7540>`__ Asynchronous ERC-4626 Tokenized Vaults for
+      deposits and redemptions flow
+
+    On the Lagoon flow:
+
+        Ok so for settlement you dont have to worry about this metric, the only thing you have to value is the assets inside the safe (what you currently have under management) and update the NAV of the vault by calling updateNewTotalAssets (ex: if you have 1M inside the vault and 500K pending deposit you only need to call updateTotalAssets with the 1M that are currently inside the safe). Then, to settle you just call settleDeposit and the vault calculate everything for you.
+
+        To monitor the pending deposits it's a bit more complicated. You have to check the balanceOf the pendingSilo contract (0xAD1241Ba37ab07fFc5d38e006747F8b92BB217D5) in term of underlying (here USDC) for pending deposit and in term of shares (so the vault itself) for pending withdraw requests
+
+    """
+
+    def __init__(self, vault: LagoonVault) -> None:
+        self.vault = vault
+
+    def fetch_pending_redemption(self, block_identifier: BlockIdentifier) -> Decimal:
+        silo = self.vault.silo_contract
+        return self.vault.share_token.fetch_balance_of(silo.address, block_identifier)
+
+    def fetch_pending_deposit_events(self, range: BlockRange) -> None:
+        raise NotImplementedError()
+
+    def fetch_pending_redemption_event(self, range: BlockRange) -> None:
+        raise NotImplementedError()
+
+    def fetch_processed_deposit_event(self, range: BlockRange) -> None:
+        pass
+
+    def fetch_processed_redemption_event(self, vault: VaultSpec, range: BlockRange) -> None:
+        raise NotImplementedError()
+
+
+
+

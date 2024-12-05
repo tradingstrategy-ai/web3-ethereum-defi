@@ -10,7 +10,7 @@ from web3 import Web3
 
 from eth_defi.lagoon.vault import LagoonVault
 from eth_defi.provider.broken_provider import get_almost_latest_block_number
-from eth_defi.safe.trace import assert_safe_success
+from eth_defi.safe.trace import assert_execute_module_success
 from eth_defi.token import TokenDetails
 from eth_defi.trace import assert_transaction_success_with_explanation
 from eth_defi.uniswap_v2.constants import UNISWAP_V2_DEPLOYMENTS
@@ -202,7 +202,7 @@ def test_lagoon_diagnose_routes(
     assert routes.loc["DINO -> USDC"]["Value"] == "-"
 
 
-@pytest.mark.skip(reason="Currently debugging why the last tx fails")
+#@pytest.mark.skip(reason="Currently debugging why the last tx fails")
 def test_lagoon_post_valuation(
     web3: Web3,
     lagoon_vault: LagoonVault,
@@ -260,12 +260,25 @@ def test_lagoon_post_valuation(
     tx_hash = bound_func.transact({"from": valuation_manager})      # Unlocked by anvil
     assert_transaction_success_with_explanation(web3, tx_hash)
 
+    # Check we have no pending redemptions (might abort settle)
+    redemption_shares = vault.get_flow_manager().fetch_pending_redemption(web3.eth.block_number)
+    assert redemption_shares == 0
+
     # Then settle the valuation as the vault owner (Safe multisig) in this case
     settle_call = vault.settle()
     moduled_tx = vault.transact_through_module(settle_call)
-    tx_hash = moduled_tx.transact({"from": asset_manager})
-    assert_safe_success(web3, tx_hash)
+    tx_data = moduled_tx.build_transaction({
+        "from": asset_manager,
+    })
+    # Normal estimate_gas does not give enough gas for
+    # Safe execTransactionFromModule() transaction for some reason
+    gnosis_gas_fix = 1_000_000
+    tx_data["gas"] = web3.eth.estimate_gas(tx_data) + gnosis_gas_fix
+    tx_hash = web3.eth.send_transaction(tx_data)
+    assert_execute_module_success(web3, tx_hash)
 
-    # Check value after update
+    # Check value after update.
+    # We should have USDC value of the vault readable
+    # from NAV smart contract endpoint
     nav = vault.fetch_nav()
-    assert nav == pytest.approx(Decimal(0.1))
+    assert nav > Decimal(30)  # Changes every day as we need to test live mainnet

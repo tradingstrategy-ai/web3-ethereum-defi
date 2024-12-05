@@ -16,7 +16,7 @@ from eth_defi.uniswap_v2.constants import UNISWAP_V2_DEPLOYMENTS
 from eth_defi.uniswap_v2.deployment import fetch_deployment
 from eth_defi.uniswap_v2.swap import swap_with_slippage_protection
 from eth_defi.vault.base import TradingUniverse
-from eth_defi.safe.trace import assert_safe_success
+from eth_defi.safe.trace import assert_execute_module_success
 
 
 @pytest.fixture()
@@ -63,7 +63,7 @@ def test_lagoon_swap(
     approve_call = base_usdc.contract.functions.approve(uniswap_v2.router.address, amount)
     moduled_tx = vault.transact_through_module(approve_call)
     tx_hash = moduled_tx.transact({"from": asset_manager})
-    assert_safe_success(web3, tx_hash)
+    assert_execute_module_success(web3, tx_hash)
 
     # Creat a bound contract function instance
     # that presents Uniswap swap from the vault
@@ -77,7 +77,7 @@ def test_lagoon_swap(
 
     moduled_tx = vault.transact_through_module(swap_call)
     tx_hash = moduled_tx.transact({"from": asset_manager})
-    assert_safe_success(web3, tx_hash)
+    assert_execute_module_success(web3, tx_hash)
 
     # Check that vault balances are updated,
     # from what we have at the starting point at test_lagoon_fetch_portfolio

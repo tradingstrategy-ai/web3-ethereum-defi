@@ -13,7 +13,7 @@ from decimal import Decimal
 from functools import cached_property
 from typing import TypedDict
 
-from eth.typing import BlockRange
+from eth.typing import BlockRange, Block
 from eth_typing import BlockIdentifier, HexAddress
 from web3 import Web3
 
@@ -110,28 +110,44 @@ class VaultFlowManager(ABC):
     """
 
     @abstractmethod
-    def fetch_pending_deposits(
+    def fetch_pending_redemption(
+        self,
+        block_identifier: BlockIdentifier,
+    ) -> Decimal:
+        """Get how much users want to redeem from the vault.
+
+        :param block_identifier:
+            Block number
+
+        :return:
+            Number of share tokens the users want to redeem from the vault.
+
+            Shares must be valued separately.
+        """
+
+    @abstractmethod
+    def fetch_pending_deposit_events(
         self,
         range: BlockRange,
     ) -> None:
         """Read incoming pending deposits."""
 
     @abstractmethod
-    def fetch_pending_redemptions(
+    def fetch_pending_redemption_event(
         self,
         range: BlockRange,
     ) -> None:
         """Read outgoing pending withdraws."""
 
     @abstractmethod
-    def fetch_processed_deposits(
+    def fetch_processed_deposit_event(
         self,
         range: BlockRange,
     ) -> None:
         """Read incoming pending deposits."""
 
     @abstractmethod
-    def fetch_processed_redemptions(
+    def fetch_processed_redemption_event(
         self,
         vault: VaultSpec,
         range: BlockRange,
