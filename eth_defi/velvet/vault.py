@@ -214,6 +214,7 @@ class VelvetVault(VaultBase):
         from_: HexAddress | str,
         amount: int,
         withdraw_token_address: HexAddress | str,
+        slippage: float,
     ) -> dict:
         """Perform a redemption.
 
@@ -222,11 +223,13 @@ class VelvetVault(VaultBase):
         """
 
         chain_id = self.web3.eth.chain_id
-        tx_data =  redeem_from_velvet_velvet(
-            from_address=from_,
+        tx_data = redeem_from_velvet_velvet(
+            from_address=Web3.to_checksum_address(from_),
+            portfolio=Web3.to_checksum_address(self.portfolio_address),
             amount=amount,
             chain_id=chain_id,
-            withdraw_token_address=withdraw_token,
+            withdraw_token_address=Web3.to_checksum_address(withdraw_token_address),
+            slippage=slippage,
         )
         return tx_data
 
@@ -247,7 +250,7 @@ class VelvetVault(VaultBase):
     def fetch_share_token(self):
         # Velvet's share token is the same contract as
         portfolio_address = self.info["portfolio"]
-        return fetch_erc20_details(web3, portfolio_address)
+        return fetch_erc20_details(self.web3, portfolio_address)
 
     def fetch_nav(self):
         raise NotImplementedError()

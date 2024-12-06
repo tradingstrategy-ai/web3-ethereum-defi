@@ -26,6 +26,7 @@ def redeem_from_velvet_velvet(
     withdraw_token_address: HexAddress | str,
     amount: int,
     chain_id: int,
+    slippage: float,
     api_url=VELVET_DEFAULT_API_URL,
 ) -> dict:
     """Construct Velvet redemption payload.
@@ -42,8 +43,9 @@ def redeem_from_velvet_velvet(
         "withdrawToken": withdraw_token_address,
         "user": from_address,
         "withdrawType": "batch",
-        "tokenType": "erc20"
-        "portfolio",
+        "tokenType": "erc20",
+        "portfolio": portfolio,
+        "slippage": str(int(slippage * 10_000)),  # 100 = 1%
     }
 
     url = f"{api_url}/portfolio/withdraw"
