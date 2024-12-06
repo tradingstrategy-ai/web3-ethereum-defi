@@ -305,13 +305,13 @@ def test_vault_swap_sell_to_usdc(
     assert portfolio.spot_erc20["0x833589fcd6edb6e08f4c7c32d4f71b54bda02913"] > existing_usdc_balance
 
 
-#@pytest.mark.skipif(CI, reason="Enso is such unstable crap that there is no hope we could run any tests with in CI")
 def test_velvet_api_deposit(
     vault: VelvetVault,
     vault_owner: HexAddress,
     deposit_user: HexAddress,
     usdc: TokenDetails,
     slippage: float,
+    base_doginme_token: TokenDetails,
 ):
     """Use Velvet API to perform deposit"""
 
@@ -320,7 +320,7 @@ def test_velvet_api_deposit(
     # Velvet vault tracked assets
     universe = TradingUniverse(
         spot_token_addresses={
-            "0x6921B130D297cc43754afba22e5EAc0FBf8Db75b",  # DogInMe
+            base_doginme_token.address,  # DogInMe
             usdc.address,  # USDC on Base
         }
     )
@@ -371,3 +371,59 @@ def test_velvet_api_deposit(
     # USDC balance has increased after the deposit
     portfolio = vault.fetch_portfolio(universe, web3.eth.block_number)
     assert portfolio.spot_erc20[usdc.address] > existing_usdc_balance
+
+
+def test_velvet_api_redeem(
+    vault: VelvetVault,
+    vault_owner: HexAddress,
+    existing_shareholder: HexAddress,
+    usdc: TokenDetails,
+    base_doginme_token: TokenDetails,
+    slippage: float,
+):
+    """Use Velvet API to perform redemption."""
+
+    web3 = vault.web3
+
+    # Check we have our shares
+    share_token = vault.share_token
+    shares = share_token.fetch_balance_of(existing_shareholder)
+    assert shares > 0
+
+    tx_hash = share_token.contract.functions.approve(
+        vault.portfolio_address,
+        share_token.convert_to_raw(shares)
+    ).transact({
+        "from": existing_shareholder,
+    })
+    assert_transaction_success_with_explanation(web3, tx_hash)
+
+    # Velvet vault tracked assets
+    universe = TradingUniverse(
+        spot_token_addresses={
+            base_doginme_token.address,  # DogInMe
+            usdc.address,  # USDC on Base
+        }
+    )
+
+    # Check the existing portfolio USDC balance before starting the
+    # the deposit process
+    latest_block = get_almost_latest_block_number(web3)
+    portfolio = vault.fetch_portfolio(universe, latest_block)
+    existing_usdc_balance = portfolio.spot_erc20[usdc.address]
+    assert existing_usdc_balance > Decimal(1.0)
+
+    # Prepare the redemption tx payload
+    tx_data = vault.prepare_redemption(
+        from_=existing_shareholder,
+        amount=share_token.convert_to_raw(shares),
+        withdraw_token_address=usdc.address,
+    )
+    assert tx_data["to"] == vault.portfolio_address
+    tx_hash = web3.eth.send_transaction(tx_data)
+    assert_transaction_success_with_explanation(web3, tx_hash)
+
+    # USDC balance has increased after the deposit
+    portfolio = vault.fetch_portfolio(universe, web3.eth.block_number)
+    assert portfolio.spot_erc20[usdc.address] == pytest.approx(0)
+    assert portfolio.spot_erc20[base_doginme_token.address] == pytest.approx(0)

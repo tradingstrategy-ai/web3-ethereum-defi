@@ -238,6 +238,17 @@ class VaultBase(ABC):
         """
 
     @abstractmethod
+    def has_deposit_distribution_to_all_positions(self) -> bool:
+        """Deposits go automatically to all open positions.
+
+        - Deposits do not land into the vault as cash
+
+        - Instead, smart contracts automatically increase all open positions
+
+        - The behaviour of Velvet Capital
+        """
+
+    @abstractmethod
     def fetch_portfolio(
         self,
         universe: TradingUniverse,
