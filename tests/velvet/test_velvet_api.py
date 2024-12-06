@@ -8,6 +8,7 @@
 """
 
 import os
+import time
 from decimal import Decimal
 
 import pytest
@@ -375,16 +376,18 @@ def test_velvet_api_deposit(
         slippage=slippage,
     )
     assert tx_data["to"] == deposit_manager
+    started_at = time.time()
     tx_hash = web3.eth.send_transaction(tx_data)
     try:
         assert_transaction_success_with_explanation(web3, tx_hash)
     except Exception as e:
         # Double check allowance - Anvil bug
+        duration = time.time() = started
         allowance = usdc.contract.functions.allowance(
             Web3.to_checksum_address(deposit_user),
             Web3.to_checksum_address(deposit_manager),
         ).call()
-        raise RuntimeError(f"transferFrom() failed, allowance after broadcast {allowance / 10**6} USDC: {e}") from e
+        raise RuntimeError(f"transferFrom() failed, allowance after broadcast {allowance / 10**6} USDC: {e}, crash took {duration} seconds") from e
 
     # USDC balance has increased after the deposit
     portfolio = vault.fetch_portfolio(universe, web3.eth.block_number)
