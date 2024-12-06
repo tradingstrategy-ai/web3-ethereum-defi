@@ -318,7 +318,7 @@ def assert_transaction_success_with_explanation(
             trace_data = trace_evm_transaction(web3, tx_hash, TraceMethod.parity)
             trace_output = print_symbolic_trace(get_or_create_contract_registry(web3), trace_data)
             raise RaisedException(
-                f"Revert reason: {revert_reason}\nSolidity stack trace:\n{trace_output}\nTransaction details:\n{tx_details}",
+                f"Revert reason: {revert_reason}\nSolidity stack trace:\n{trace_output}\nTransaction details:\n{tx_details}\nTransaction receipt:{receipt}",
                 revert_reason=revert_reason,
                 solidity_stack_trace=trace_output,
             )
