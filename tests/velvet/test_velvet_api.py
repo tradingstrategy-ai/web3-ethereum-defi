@@ -382,7 +382,7 @@ def test_velvet_api_deposit(
         assert_transaction_success_with_explanation(web3, tx_hash)
     except Exception as e:
         # Double check allowance - Anvil bug
-        duration = time.time() = started
+        duration = time.time() - started_at
         allowance = usdc.contract.functions.allowance(
             Web3.to_checksum_address(deposit_user),
             Web3.to_checksum_address(deposit_manager),
