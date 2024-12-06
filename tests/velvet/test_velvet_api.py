@@ -372,6 +372,7 @@ def test_velvet_api_deposit(
         from_=deposit_user,
         deposit_token_address=usdc.address,
         amount=5 * 10**6,
+        slippage=slippage,
     )
     assert tx_data["to"] == deposit_manager
     tx_hash = web3.eth.send_transaction(tx_data)

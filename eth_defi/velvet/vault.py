@@ -192,6 +192,7 @@ class VelvetVault(VaultBase):
         from_: HexAddress | str,
         deposit_token_address: HexAddress | str,
         amount: int,
+        slippage: float,
     ) -> dict:
         """Prepare a deposit transaction with Enso intents.
 
@@ -206,6 +207,7 @@ class VelvetVault(VaultBase):
             deposit_token_address=deposit_token_address,
             amount=amount,
             chain_id=self.web3.eth.chain_id,
+            slippage=slippage,
         )
         return tx_data
 

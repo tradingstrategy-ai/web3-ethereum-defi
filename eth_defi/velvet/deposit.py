@@ -26,6 +26,7 @@ def deposit_to_velvet(
     deposit_token_address: HexAddress | str,
     amount: int,
     chain_id: int,
+    slippage: float,
     api_url=VELVET_DEFAULT_API_URL,
 ) -> dict:
     """Construct Velvet deposit payload.
@@ -53,7 +54,8 @@ def deposit_to_velvet(
         "depositToken": deposit_token_address,
         "user": from_address,
         "depositType": "batch",
-        "tokenType": "erc20"
+        "tokenType": "erc20",
+        "slippage": str(int(slippage * 10_000)),  # 100 = 1%
     }
 
     url = f"{api_url}/portfolio/deposit"
