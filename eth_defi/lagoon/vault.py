@@ -96,6 +96,9 @@ class LagoonVault(VaultBase):
     def has_block_range_event_support(self):
         return True
 
+    def has_deposit_distribution_to_all_positions(self):
+        return False
+
     def get_flow_manager(self) -> "LagoonFlowManager":
         return LagoonFlowManager(self)
 

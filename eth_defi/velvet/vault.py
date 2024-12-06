@@ -17,10 +17,13 @@ import requests
 from eth_typing import BlockIdentifier, HexAddress
 from web3 import Web3
 
+from eth_defi.abi import get_deployed_contract
 from eth_defi.balances import fetch_erc20_balances_fallback
+from eth_defi.token import fetch_erc20_details
 from eth_defi.vault.base import VaultBase, VaultInfo, VaultSpec, TradingUniverse, VaultPortfolio
 from eth_defi.velvet.deposit import deposit_to_velvet
 from eth_defi.velvet.enso import swap_with_velvet_and_enso
+from eth_defi.velvet.redeem import redeem_from_velvet_velvet
 
 #: Signing API URL
 DEFAULT_VELVET_API_URL = "https://eventsapi.velvetdao.xyz/api/v3"
@@ -83,6 +86,9 @@ class VelvetVault(VaultBase):
 
     def has_block_range_event_support(self):
         return False
+
+    def has_deposit_distribution_to_all_positions(self):
+        return True
 
     def get_flow_manager(self):
         raise NotImplementedError("Velvet does not support individual deposit/redemption events yet")
@@ -186,10 +192,14 @@ class VelvetVault(VaultBase):
         from_: HexAddress | str,
         deposit_token_address: HexAddress | str,
         amount: int,
-    ):
+        slippage: float,
+    ) -> dict:
         """Prepare a deposit transaction with Enso intents.
 
         - Velvet trades any incoming assets and distributes them on open positions
+
+        :return:
+            Ethereum transaction payload
         """
         tx_data = deposit_to_velvet(
             portfolio=self.portfolio_address,
@@ -197,6 +207,31 @@ class VelvetVault(VaultBase):
             deposit_token_address=deposit_token_address,
             amount=amount,
             chain_id=self.web3.eth.chain_id,
+            slippage=slippage,
+        )
+        return tx_data
+
+    def prepare_redemption(
+        self,
+        from_: HexAddress | str,
+        amount: int,
+        withdraw_token_address: HexAddress | str,
+        slippage: float,
+    ) -> dict:
+        """Perform a redemption.
+
+        :return:
+            Ethereum transaction payload
+        """
+
+        chain_id = self.web3.eth.chain_id
+        tx_data = redeem_from_velvet_velvet(
+            from_address=Web3.to_checksum_address(from_),
+            portfolio=Web3.to_checksum_address(self.portfolio_address),
+            amount=amount,
+            chain_id=chain_id,
+            withdraw_token_address=Web3.to_checksum_address(withdraw_token_address),
+            slippage=slippage,
         )
         return tx_data
 
@@ -215,7 +250,9 @@ class VelvetVault(VaultBase):
         raise NotImplementedError()
 
     def fetch_share_token(self):
-        raise NotImplementedError()
+        # Velvet's share token is the same contract as
+        portfolio_address = self.info["portfolio"]
+        return fetch_erc20_details(self.web3, portfolio_address)
 
     def fetch_nav(self):
         raise NotImplementedError()
