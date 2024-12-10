@@ -1,15 +1,12 @@
 """Analyse price impact and slippage of executed Enso trades"""
 
-from decimal import Decimal
-
 from web3 import Web3
 from web3.logs import DISCARD
 
-from eth_defi.abi import get_transaction_data_field, get_contract
+from eth_defi.abi import get_contract
 from eth_defi.revert_reason import fetch_transaction_revert_reason
 from eth_defi.token import fetch_erc20_details
 from eth_defi.trade import TradeFail, TradeSuccess
-from eth_defi.uniswap_v3.pool import fetch_pool_details
 
 
 def analyse_trade_by_receipt_generic(
@@ -18,7 +15,7 @@ def analyse_trade_by_receipt_generic(
     tx_receipt: dict,
     intent_based=True,
 ) -> TradeSuccess | TradeFail:
-    """Analyse of any trade.
+    """Analyse of any trade based on ERC-20 transfer events.
 
     Figure out
 
@@ -31,6 +28,49 @@ def analyse_trade_by_receipt_generic(
     - Assume first `Transfer()` event is tokens going into trade
 
     - Assume last `Transfer()` event is tokens coming out of the trade
+
+    Example:
+
+    .. code-block:: python
+
+
+        # Build tx using Velvet API
+        tx_data = vault.prepare_swap_with_enso(
+            token_in="0x833589fcd6edb6e08f4c7c32d4f71b54bda02913",
+            token_out="0x6921B130D297cc43754afba22e5EAc0FBf8Db75b",
+            swap_amount=1_000_000,  # 1 USDC
+            slippage=slippage,
+            remaining_tokens=universe.spot_token_addresses,
+            swap_all=False,
+            from_=vault_owner,
+        )
+
+        # Perform swap
+        tx_hash = web3.eth.send_transaction(tx_data)
+        assert_transaction_success_with_explanation(web3, tx_hash)
+
+        receipt = web3.eth.get_transaction_receipt(tx_hash)
+
+        analysis = analyse_trade_by_receipt_generic(
+            web3,
+            tx_hash,
+            receipt,
+        )
+
+        assert isinstance(analysis, TradeSuccess)
+        assert analysis.intent_based
+        assert analysis.token0.symbol == "USDC"
+        assert analysis.token1.symbol == "doginme"
+        assert analysis.amount_in == 1 * 10**6
+        assert analysis.amount_out > 0
+        # https://www.coingecko.com/en/coins/doginme
+        price = analysis.get_human_price(reverse_token_order=True)
+        assert 0 < price < 0.01
+
+    :return:
+        TradeSuccess or TradeFail instance.
+
+        For TradeSuccess, unknown fields we cannot figure out without DEX details are set to ``None``.
     """
 
     chain_id = web3.eth.chain_id
