@@ -17,7 +17,6 @@ from eth_defi.uniswap_v2.constants import UNISWAP_V2_DEPLOYMENTS
 from eth_defi.uniswap_v2.deployment import fetch_deployment, UniswapV2Deployment
 from eth_defi.vault.base import TradingUniverse
 from eth_defi.vault.valuation import NetAssetValueCalculator, UniswapV2Router02Quoter, Route
-from tests.lagoon.conftest import topped_up_asset_manager
 
 
 @pytest.fixture()
