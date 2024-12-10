@@ -7,6 +7,9 @@ Velvet Capital vaults integration.
    :toctree: _autosummary_velvet
    :recursive:
 
-   eth_defi.velvet
+   eth_defi.velvet.vault
    eth_defi.velvet.config
    eth_defi.velvet.deposit
+   eth_defi.velvet.redeem
+   eth_defi.velvet.enso
+   eth_defi.velvet.analysis

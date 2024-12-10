@@ -21,8 +21,10 @@ from eth_defi.provider.broken_provider import get_almost_latest_block_number
 from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.token import TokenDetails, fetch_erc20_details
 from eth_defi.trace import assert_transaction_success_with_explanation
+from eth_defi.trade import TradeSuccess
 from eth_defi.vault.base import VaultSpec, TradingUniverse
 from eth_defi.velvet import VelvetVault
+from eth_defi.velvet.analysis import analyse_trade_by_receipt_generic
 
 JSON_RPC_BASE = os.environ.get("JSON_RPC_BASE")
 
@@ -127,7 +129,10 @@ def usdc(web3) -> TokenDetails:
 
 @pytest.fixture()
 def base_doginme_token(web3) -> TokenDetails:
-    """DogInMe"""
+    """DogInMe.
+
+    https://www.coingecko.com/en/coins/doginme
+    """
     return fetch_erc20_details(web3, "0x6921B130D297cc43754afba22e5EAc0FBf8Db75b")
 
 
@@ -200,7 +205,6 @@ def test_fetch_vault_portfolio(vault: VelvetVault):
     assert portfolio.spot_erc20["0x6921B130D297cc43754afba22e5EAc0FBf8Db75b"] > 0
 
 
-#@pytest.mark.skipif(CI, reason="Enso is such unstable crap that there is no hope we could run any tests with in CI")
 def test_vault_swap_partially(
     vault: VelvetVault,
     vault_owner: HexAddress,
@@ -250,7 +254,6 @@ def test_vault_swap_partially(
     assert portfolio.spot_erc20["0x833589fcd6edb6e08f4c7c32d4f71b54bda02913"] < existing_usdc_balance
 
 
-#@pytest.mark.skipif(CI, reason="Enso is such unstable crap that there is no hope we could run any tests with in CI")
 def test_vault_swap_very_little(
     vault: VelvetVault,
     vault_owner: HexAddress,
@@ -464,3 +467,64 @@ def test_velvet_api_redeem(
     portfolio = vault.fetch_portfolio(universe, web3.eth.block_number)
     assert portfolio.spot_erc20[usdc.address] == pytest.approx(0)
     assert portfolio.spot_erc20[base_doginme_token.address] == pytest.approx(0)
+
+
+def test_vault_swap_analyse(
+    vault: VelvetVault,
+    vault_owner: HexAddress,
+    slippage: float,
+):
+    """Analyse the receipt of Enso swap transaction
+
+    - Swap 1 SUDC to DogInMe
+
+    - Figure out the actual price executed
+    """
+    web3 = vault.web3
+    universe = TradingUniverse(
+        spot_token_addresses={
+            "0x6921B130D297cc43754afba22e5EAc0FBf8Db75b",  # DogInMe
+            "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913",  # USDC on Base
+        }
+    )
+    latest_block = get_almost_latest_block_number(web3)
+    portfolio = vault.fetch_portfolio(universe, latest_block)
+
+    existing_dogmein_balance = portfolio.spot_erc20["0x6921B130D297cc43754afba22e5EAc0FBf8Db75b"]
+    assert existing_dogmein_balance > 0
+
+    existing_usdc_balance = portfolio.spot_erc20["0x833589fcd6edb6e08f4c7c32d4f71b54bda02913"]
+    assert existing_usdc_balance > Decimal(1.0)
+
+    # Build tx using Velvet API
+    tx_data = vault.prepare_swap_with_enso(
+        token_in="0x833589fcd6edb6e08f4c7c32d4f71b54bda02913",
+        token_out="0x6921B130D297cc43754afba22e5EAc0FBf8Db75b",
+        swap_amount=1_000_000,  # 1 USDC
+        slippage=slippage,
+        remaining_tokens=universe.spot_token_addresses,
+        swap_all=False,
+        from_=vault_owner,
+    )
+
+    # Perform swap
+    tx_hash = web3.eth.send_transaction(tx_data)
+    assert_transaction_success_with_explanation(web3, tx_hash)
+
+    receipt = web3.eth.get_transaction_receipt(tx_hash)
+
+    analysis = analyse_trade_by_receipt_generic(
+        web3,
+        tx_hash,
+        receipt,
+    )
+
+    assert isinstance(analysis, TradeSuccess)
+    assert analysis.intent_based
+    assert analysis.token0.symbol == "USDC"
+    assert analysis.token1.symbol == "doginme"
+    assert analysis.amount_in == 1 * 10**6
+    assert analysis.amount_out > 0
+    # https://www.coingecko.com/en/coins/doginme
+    price = analysis.get_human_price(reverse_token_order=True)
+    assert 0 < price < 0.01
