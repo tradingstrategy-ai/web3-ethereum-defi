@@ -51,8 +51,13 @@ class TradeSuccess(TradeResult):
     #: Routing path that was used for this trade
     path: List[HexAddress] | None
 
+    #: How much token swas swapped from
     amount_in: int
+
+    #: What was the expected minimum output with slippage tolerance
     amount_out_min: int | None
+
+    #: What was the actual output
     amount_out: int
 
     #: The price of the trade in some order.
@@ -88,6 +93,14 @@ class TradeSuccess(TradeResult):
     #:
     #: Note: this is the raw amount in terms of the amount in token
     lp_fee_paid: float | None
+
+    #: Did we use a third party intent service for this swap.
+    #:
+    #: E.g. Enso.
+    #:
+    #: We might not be analyse fees and path directly.
+    #:
+    intent_based: bool | None = None
 
     def __post_init__(self):
         if self.price is not None:

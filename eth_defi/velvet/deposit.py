@@ -10,8 +10,7 @@ from eth_typing import HexAddress
 from requests import HTTPError
 from web3 import Web3
 
-from eth_defi.velvet.config import VELVET_DEFAULT_API_URL
-
+from eth_defi.velvet.config import VELVET_DEFAULT_API_URL, VELVET_GAS_EXTRA_SAFETY_MARGIN
 
 logger = logging.getLogger(__name__)
 
@@ -28,6 +27,7 @@ def deposit_to_velvet(
     chain_id: int,
     slippage: float,
     api_url=VELVET_DEFAULT_API_URL,
+    gas_safety_margin: int = VELVET_GAS_EXTRA_SAFETY_MARGIN,
 ) -> dict:
     """Construct Velvet deposit payload.
 
@@ -76,4 +76,5 @@ def deposit_to_velvet(
 
     tx_data["from"] = Web3.to_checksum_address(from_address)
     tx_data["chainId"] = chain_id
+    tx_data["gasLimit"] = int(tx_data["gasLimit"]) + gas_safety_margin
     return tx_data

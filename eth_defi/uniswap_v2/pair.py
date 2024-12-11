@@ -190,6 +190,8 @@ def fetch_pair_details(
 
     """
 
+    chain_id = web3.eth.chain_id
+
     if base_token_address or quote_token_address:
         assert reverse_token_order is None, f"Give either (base_token_address, quote_token_address) or reverse_token_order"
         reverse_token_order = int(base_token_address, 16) > int(quote_token_address, 16)
@@ -198,8 +200,8 @@ def fetch_pair_details(
     token0_address = pool.functions.token0().call()
     token1_address = pool.functions.token1().call()
 
-    token0 = fetch_erc20_details(web3, token0_address)
-    token1 = fetch_erc20_details(web3, token1_address)
+    token0 = fetch_erc20_details(web3, token0_address, chain_id=chain_id)
+    token1 = fetch_erc20_details(web3, token1_address, chain_id=chain_id)
 
     return PairDetails(
         pool,

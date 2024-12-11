@@ -9,7 +9,7 @@ import requests
 from eth_typing import HexAddress
 from requests import HTTPError
 
-from eth_defi.velvet.config import VELVET_DEFAULT_API_URL
+from eth_defi.velvet.config import VELVET_DEFAULT_API_URL, VELVET_GAS_EXTRA_SAFETY_MARGIN
 
 logger = logging.getLogger(__name__)
 
@@ -28,6 +28,7 @@ def swap_with_velvet_and_enso(
     slippage: float,
     remaining_tokens: set[HexAddress],
     api_url: str = VELVET_DEFAULT_API_URL,
+    gas_safety_margin: int = VELVET_GAS_EXTRA_SAFETY_MARGIN,
 ) -> dict:
     """Set up a Enzo + Velvet swap tx.
 
@@ -36,6 +37,9 @@ def swap_with_velvet_and_enso(
 
     :param slippage:
         Max slippage expressed as 0...1 where 1 = 100%
+
+    :param gas_safety_margin:
+        Gas estimation fails
 
     :return:
         Constructor transsaction payload.
@@ -69,7 +73,7 @@ def swap_with_velvet_and_enso(
     try:
         resp.raise_for_status()
     except HTTPError as e:
-        raise VelvetSwapError(f"Velvet API error on {api_url}, code {resp.status_code}: {resp.text}") from e
+        raise VelvetSwapError(f"Velvet API error on {api_url}, code {resp.status_code}: {resp.text}\nParameters were:\n{pformat(payload)}") from e
 
     data = resp.json()
 
@@ -79,7 +83,7 @@ def swap_with_velvet_and_enso(
     tx = {
         "to": data["to"],
         "data": data["data"],
-        "gas": int(data["gasLimit"]),
+        "gas": int(data["gasLimit"]) + gas_safety_margin,
         "gasPrice": int(data["gasPrice"]),
         "chainId": chain_id,
     }
