@@ -9,7 +9,7 @@ import requests
 from eth_typing import HexAddress
 from requests import HTTPError
 
-from eth_defi.velvet.config import VELVET_DEFAULT_API_URL
+from eth_defi.velvet.config import VELVET_DEFAULT_API_URL, VELVET_GAS_EXTRA_SAFETY_MARGIN
 
 logger = logging.getLogger(__name__)
 
@@ -28,7 +28,7 @@ def swap_with_velvet_and_enso(
     slippage: float,
     remaining_tokens: set[HexAddress],
     api_url: str = VELVET_DEFAULT_API_URL,
-    gas_safety_margin: int = 500_000,
+    gas_safety_margin: int = VELVET_GAS_EXTRA_SAFETY_MARGIN,
 ) -> dict:
     """Set up a Enzo + Velvet swap tx.
 
