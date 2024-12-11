@@ -76,5 +76,5 @@ def deposit_to_velvet(
 
     tx_data["from"] = Web3.to_checksum_address(from_address)
     tx_data["chainId"] = chain_id
-    tx_data["gasLimit"] = int(tx_data["gasLimit"]) + gas_safety_margin
+    tx_data["gas"] = int(tx_data["gasLimit"]) + gas_safety_margin
     return tx_data
