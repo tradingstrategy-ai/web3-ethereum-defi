@@ -98,7 +98,6 @@ def analyse_trade_by_receipt_generic(
     in_token_details = fetch_erc20_details(web3, first_transfer_event["address"], chain_id=chain_id)
     out_token_details = fetch_erc20_details(web3, last_transfer_event["address"], chain_id=chain_id)
 
-
     amount_in = first_transfer_event["args"]["value"]
     amount_out_min = None
     amount_out = last_transfer_event["args"]["value"]

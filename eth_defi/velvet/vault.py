@@ -156,7 +156,7 @@ class VelvetVault(VaultBase):
         token_out: HexAddress | str,
         swap_amount: int,
         slippage: float,
-        remaining_tokens: set,
+        remaining_tokens: set | list,
         swap_all=False,
         from_: HexAddress | str | None = None,
     ) -> dict:
