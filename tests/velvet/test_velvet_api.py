@@ -189,6 +189,8 @@ def test_fetch_info(vault: VelvetVault):
     assert vault.vault_address == "0x9d247fbc63e4d50b257be939a264d68758b43d04"
     assert vault.owner_address == "0x0c9db006f1c7bfaa0716d70f012ec470587a8d4f"
 
+    vault.check_valid_contract()
+
 
 def test_fetch_vault_portfolio(vault: VelvetVault):
     """Read vault token balances."""

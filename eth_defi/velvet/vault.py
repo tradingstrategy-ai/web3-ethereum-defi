@@ -94,12 +94,18 @@ class VelvetVault(VaultBase):
     def get_flow_manager(self):
         raise NotImplementedError("Velvet does not support individual deposit/redemption events yet")
 
-    def check_valid_vault_contract(self):
+    def check_valid_contract(self):
         """Check that we have connected to a proper Velvet capital vault contract, not wrong contract.
 
         :raise AssertionError:
             Looks bad
         """
+        try:
+            portfolio_contract = self.portfolio_contract
+            config = portfolio_contract.functions.protocolConfig().call()
+            assert config.startswith("0x")
+        except Exception as e:
+            raise AssertionError(f"Does not look like a Velvet portfolio contract: {self.portfolio_address}") from e
 
     def fetch_info(self) -> VelvetVaultInfo:
         """Read vault parameters from the chain."""
@@ -116,10 +122,11 @@ class VelvetVault(VaultBase):
         return self.info["vaultAddress"]
 
     @property
-    def vault_contract(self) -> Contract:
+    def portfolio_contract(self) -> Contract:
         return get_deployed_contract(
             self.web3,
-            "velvet/"
+            "velvet/PortfolioV3_4.json",
+            self.portfolio_address
         )
 
     @property
