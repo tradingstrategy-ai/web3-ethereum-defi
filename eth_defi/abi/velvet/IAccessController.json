@@ -1,0 +1,106 @@
+{
+  "_format": "hh-sol-artifact-1",
+  "contractName": "IAccessController",
+  "sourceName": "contracts/access/IAccessController.sol",
+  "abi": [
+    {
+      "inputs": [
+        {
+          "internalType": "bytes32",
+          "name": "role",
+          "type": "bytes32"
+        },
+        {
+          "internalType": "address",
+          "name": "account",
+          "type": "address"
+        }
+      ],
+      "name": "hasRole",
+      "outputs": [
+        {
+          "internalType": "bool",
+          "name": "",
+          "type": "bool"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "components": [
+            {
+              "internalType": "address",
+              "name": "_portfolio",
+              "type": "address"
+            },
+            {
+              "internalType": "address",
+              "name": "_portfolioCreator",
+              "type": "address"
+            },
+            {
+              "internalType": "address",
+              "name": "_rebalancing",
+              "type": "address"
+            },
+            {
+              "internalType": "address",
+              "name": "_feeModule",
+              "type": "address"
+            }
+          ],
+          "internalType": "struct FunctionParameters.AccessSetup",
+          "name": "_setupData",
+          "type": "tuple"
+        }
+      ],
+      "name": "setUpRoles",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bytes32",
+          "name": "_role",
+          "type": "bytes32"
+        },
+        {
+          "internalType": "address",
+          "name": "_account",
+          "type": "address"
+        }
+      ],
+      "name": "setupRole",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "_oldAccount",
+          "type": "address"
+        },
+        {
+          "internalType": "address",
+          "name": "_newAccount",
+          "type": "address"
+        }
+      ],
+      "name": "transferSuperAdminOwnership",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    }
+  ],
+  "bytecode": "0x",
+  "deployedBytecode": "0x",
+  "linkReferences": {},
+  "deployedLinkReferences": {}
+}

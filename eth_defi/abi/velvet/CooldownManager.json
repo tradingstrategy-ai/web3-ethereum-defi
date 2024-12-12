@@ -1,0 +1,49 @@
+{
+  "_format": "hh-sol-artifact-1",
+  "contractName": "CooldownManager",
+  "sourceName": "contracts/core/cooldown/CooldownManager.sol",
+  "abi": [
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "",
+          "type": "address"
+        }
+      ],
+      "name": "userCooldownPeriod",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "",
+          "type": "address"
+        }
+      ],
+      "name": "userLastDepositTime",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    }
+  ],
+  "bytecode": "0x608060405234801561001057600080fd5b5060e78061001f6000396000f3fe6080604052348015600f57600080fd5b506004361060325760003560e01c8063665714a9146037578063c88c82a5146066575b600080fd5b605460423660046083565b60006020819052908152604090205481565b60405190815260200160405180910390f35b605460713660046083565b60016020526000908152604090205481565b600060208284031215609457600080fd5b81356001600160a01b038116811460aa57600080fd5b939250505056fea2646970667358221220b6d0ab8768e223c43bd6ee7ffb81e77e01a368d49d8dca42c1222ab6a3d4dd6764736f6c63430008110033",
+  "deployedBytecode": "0x6080604052348015600f57600080fd5b506004361060325760003560e01c8063665714a9146037578063c88c82a5146066575b600080fd5b605460423660046083565b60006020819052908152604090205481565b60405190815260200160405180910390f35b605460713660046083565b60016020526000908152604090205481565b600060208284031215609457600080fd5b81356001600160a01b038116811460aa57600080fd5b939250505056fea2646970667358221220b6d0ab8768e223c43bd6ee7ffb81e77e01a368d49d8dca42c1222ab6a3d4dd6764736f6c63430008110033",
+  "linkReferences": {},
+  "deployedLinkReferences": {}
+}

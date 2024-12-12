@@ -1,0 +1,365 @@
+{
+  "_format": "hh-sol-artifact-1",
+  "contractName": "IPortfolioFactory",
+  "sourceName": "contracts/core/interfaces/IPortfolioFactory.sol",
+  "abi": [
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "_portfolioId",
+          "type": "uint256"
+        }
+      ],
+      "name": "PortfolioInfolList",
+      "outputs": [
+        {
+          "components": [
+            {
+              "internalType": "address",
+              "name": "portfolioSwap",
+              "type": "address"
+            },
+            {
+              "internalType": "address",
+              "name": "tokenExclusionManager",
+              "type": "address"
+            },
+            {
+              "internalType": "address",
+              "name": "rebalancing",
+              "type": "address"
+            },
+            {
+              "internalType": "address",
+              "name": "owner",
+              "type": "address"
+            },
+            {
+              "internalType": "address",
+              "name": "assetManagementConfig",
+              "type": "address"
+            },
+            {
+              "internalType": "address",
+              "name": "feeModule",
+              "type": "address"
+            },
+            {
+              "internalType": "address",
+              "name": "vaultAddress",
+              "type": "address"
+            },
+            {
+              "internalType": "address",
+              "name": "gnosisModule",
+              "type": "address"
+            }
+          ],
+          "internalType": "struct IPortfolioFactory.PortfoliolInfo",
+          "name": "",
+          "type": "tuple"
+        }
+      ],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "components": [
+            {
+              "internalType": "address",
+              "name": "_assetManagerTreasury",
+              "type": "address"
+            },
+            {
+              "internalType": "address[]",
+              "name": "_whitelistedTokens",
+              "type": "address[]"
+            },
+            {
+              "internalType": "uint256",
+              "name": "_managementFee",
+              "type": "uint256"
+            },
+            {
+              "internalType": "uint256",
+              "name": "_performanceFee",
+              "type": "uint256"
+            },
+            {
+              "internalType": "uint256",
+              "name": "_entryFee",
+              "type": "uint256"
+            },
+            {
+              "internalType": "uint256",
+              "name": "_exitFee",
+              "type": "uint256"
+            },
+            {
+              "internalType": "uint256",
+              "name": "_initialPortfolioAmount",
+              "type": "uint256"
+            },
+            {
+              "internalType": "uint256",
+              "name": "_minPortfolioTokenHoldingAmount",
+              "type": "uint256"
+            },
+            {
+              "internalType": "bool",
+              "name": "_public",
+              "type": "bool"
+            },
+            {
+              "internalType": "bool",
+              "name": "_transferable",
+              "type": "bool"
+            },
+            {
+              "internalType": "bool",
+              "name": "_transferableToPublic",
+              "type": "bool"
+            },
+            {
+              "internalType": "bool",
+              "name": "_whitelistTokens",
+              "type": "bool"
+            },
+            {
+              "internalType": "string",
+              "name": "_name",
+              "type": "string"
+            },
+            {
+              "internalType": "string",
+              "name": "_symbol",
+              "type": "string"
+            }
+          ],
+          "internalType": "struct FunctionParameters.PortfolioCreationInitData",
+          "name": "initData",
+          "type": "tuple"
+        },
+        {
+          "internalType": "address[]",
+          "name": "_owners",
+          "type": "address[]"
+        },
+        {
+          "internalType": "uint256",
+          "name": "_threshold",
+          "type": "uint256"
+        }
+      ],
+      "name": "createPortfolioCustodial",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "components": [
+            {
+              "internalType": "address",
+              "name": "_assetManagerTreasury",
+              "type": "address"
+            },
+            {
+              "internalType": "address[]",
+              "name": "_whitelistedTokens",
+              "type": "address[]"
+            },
+            {
+              "internalType": "uint256",
+              "name": "_managementFee",
+              "type": "uint256"
+            },
+            {
+              "internalType": "uint256",
+              "name": "_performanceFee",
+              "type": "uint256"
+            },
+            {
+              "internalType": "uint256",
+              "name": "_entryFee",
+              "type": "uint256"
+            },
+            {
+              "internalType": "uint256",
+              "name": "_exitFee",
+              "type": "uint256"
+            },
+            {
+              "internalType": "uint256",
+              "name": "_initialPortfolioAmount",
+              "type": "uint256"
+            },
+            {
+              "internalType": "uint256",
+              "name": "_minPortfolioTokenHoldingAmount",
+              "type": "uint256"
+            },
+            {
+              "internalType": "bool",
+              "name": "_public",
+              "type": "bool"
+            },
+            {
+              "internalType": "bool",
+              "name": "_transferable",
+              "type": "bool"
+            },
+            {
+              "internalType": "bool",
+              "name": "_transferableToPublic",
+              "type": "bool"
+            },
+            {
+              "internalType": "bool",
+              "name": "_whitelistTokens",
+              "type": "bool"
+            },
+            {
+              "internalType": "string",
+              "name": "_name",
+              "type": "string"
+            },
+            {
+              "internalType": "string",
+              "name": "_symbol",
+              "type": "string"
+            }
+          ],
+          "internalType": "struct FunctionParameters.PortfolioCreationInitData",
+          "name": "initData",
+          "type": "tuple"
+        }
+      ],
+      "name": "createPortfolioNonCustodial",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "portfoliofundId",
+          "type": "uint256"
+        }
+      ],
+      "name": "getPortfolioList",
+      "outputs": [
+        {
+          "internalType": "address",
+          "name": "",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "components": [
+            {
+              "internalType": "address",
+              "name": "_basePortfolioAddress",
+              "type": "address"
+            },
+            {
+              "internalType": "address",
+              "name": "_baseTokenExclusionManagerAddress",
+              "type": "address"
+            },
+            {
+              "internalType": "address",
+              "name": "_baseRebalancingAddres",
+              "type": "address"
+            },
+            {
+              "internalType": "address",
+              "name": "_baseAssetManagementConfigAddress",
+              "type": "address"
+            },
+            {
+              "internalType": "address",
+              "name": "_feeModuleImplementationAddress",
+              "type": "address"
+            },
+            {
+              "internalType": "address",
+              "name": "_baseTokenRemovalVaultImplementation",
+              "type": "address"
+            },
+            {
+              "internalType": "address",
+              "name": "_baseVelvetGnosisSafeModuleAddress",
+              "type": "address"
+            },
+            {
+              "internalType": "address",
+              "name": "_gnosisSingleton",
+              "type": "address"
+            },
+            {
+              "internalType": "address",
+              "name": "_gnosisFallbackLibrary",
+              "type": "address"
+            },
+            {
+              "internalType": "address",
+              "name": "_gnosisMultisendLibrary",
+              "type": "address"
+            },
+            {
+              "internalType": "address",
+              "name": "_gnosisSafeProxyFactory",
+              "type": "address"
+            },
+            {
+              "internalType": "address",
+              "name": "_protocolConfig",
+              "type": "address"
+            }
+          ],
+          "internalType": "struct FunctionParameters.PortfolioFactoryInitData",
+          "name": "initData",
+          "type": "tuple"
+        }
+      ],
+      "name": "initialize",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "",
+          "type": "address"
+        }
+      ],
+      "name": "whitelistedPortfolioAddress",
+      "outputs": [
+        {
+          "internalType": "bool",
+          "name": "",
+          "type": "bool"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    }
+  ],
+  "bytecode": "0x",
+  "deployedBytecode": "0x",
+  "linkReferences": {},
+  "deployedLinkReferences": {}
+}

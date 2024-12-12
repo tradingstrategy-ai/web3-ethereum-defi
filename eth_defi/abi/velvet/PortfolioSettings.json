@@ -1,0 +1,224 @@
+{
+  "_format": "hh-sol-artifact-1",
+  "contractName": "PortfolioSettings",
+  "sourceName": "contracts/config/assetManagement/PortfolioSettings.sol",
+  "abi": [
+    {
+      "inputs": [],
+      "name": "CallerNotAssetManager",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "InvalidInitialPortfolioAmount",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "InvalidMinPortfolioTokenHoldingAmount",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "PublicFundToWhitelistedNotAllowed",
+      "type": "error"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "bool",
+          "name": "isPublic",
+          "type": "bool"
+        },
+        {
+          "indexed": true,
+          "internalType": "bool",
+          "name": "isTransferableToPublic",
+          "type": "bool"
+        }
+      ],
+      "name": "ChangedPortfolioToPublic",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "uint256",
+          "name": "_newInitialPortfolioAmount",
+          "type": "uint256"
+        }
+      ],
+      "name": "InitialPortfolioAmountUpdated",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": false,
+          "internalType": "uint8",
+          "name": "version",
+          "type": "uint8"
+        }
+      ],
+      "name": "Initialized",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "uint256",
+          "name": "_minPortfolioTokenHoldingAmount",
+          "type": "uint256"
+        }
+      ],
+      "name": "MinPortfolioTokenHoldingAmountUpdated",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "bool",
+          "name": "_transferable",
+          "type": "bool"
+        },
+        {
+          "indexed": true,
+          "internalType": "bool",
+          "name": "_publicTransfers",
+          "type": "bool"
+        }
+      ],
+      "name": "TransferabilityUpdated",
+      "type": "event"
+    },
+    {
+      "inputs": [],
+      "name": "convertPrivateFundToPublic",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "initialPortfolioAmount",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "minPortfolioTokenHoldingAmount",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "publicPortfolio",
+      "outputs": [
+        {
+          "internalType": "bool",
+          "name": "",
+          "type": "bool"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "transferable",
+      "outputs": [
+        {
+          "internalType": "bool",
+          "name": "",
+          "type": "bool"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "transferableToPublic",
+      "outputs": [
+        {
+          "internalType": "bool",
+          "name": "",
+          "type": "bool"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "_newAmount",
+          "type": "uint256"
+        }
+      ],
+      "name": "updateInitialPortfolioAmount",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "_minPortfolioTokenHoldingAmount",
+          "type": "uint256"
+        }
+      ],
+      "name": "updateMinPortfolioTokenHoldingAmount",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bool",
+          "name": "_transferable",
+          "type": "bool"
+        },
+        {
+          "internalType": "bool",
+          "name": "_publicTransfer",
+          "type": "bool"
+        }
+      ],
+      "name": "updateTransferability",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    }
+  ],
+  "bytecode": "0x",
+  "deployedBytecode": "0x",
+  "linkReferences": {},
+  "deployedLinkReferences": {}
+}

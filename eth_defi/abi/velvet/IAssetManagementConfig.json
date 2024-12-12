@@ -1,0 +1,308 @@
+{
+  "_format": "hh-sol-artifact-1",
+  "contractName": "IAssetManagementConfig",
+  "sourceName": "contracts/config/assetManagement/IAssetManagementConfig.sol",
+  "abi": [
+    {
+      "inputs": [],
+      "name": "assetManagerTreasury",
+      "outputs": [
+        {
+          "internalType": "address",
+          "name": "",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "entryFee",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "exitFee",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "components": [
+            {
+              "internalType": "uint256",
+              "name": "_managementFee",
+              "type": "uint256"
+            },
+            {
+              "internalType": "uint256",
+              "name": "_performanceFee",
+              "type": "uint256"
+            },
+            {
+              "internalType": "uint256",
+              "name": "_entryFee",
+              "type": "uint256"
+            },
+            {
+              "internalType": "uint256",
+              "name": "_exitFee",
+              "type": "uint256"
+            },
+            {
+              "internalType": "uint256",
+              "name": "_initialPortfolioAmount",
+              "type": "uint256"
+            },
+            {
+              "internalType": "uint256",
+              "name": "_minPortfolioTokenHoldingAmount",
+              "type": "uint256"
+            },
+            {
+              "internalType": "address",
+              "name": "_protocolConfig",
+              "type": "address"
+            },
+            {
+              "internalType": "address",
+              "name": "_accessController",
+              "type": "address"
+            },
+            {
+              "internalType": "address",
+              "name": "_feeModule",
+              "type": "address"
+            },
+            {
+              "internalType": "address",
+              "name": "_assetManagerTreasury",
+              "type": "address"
+            },
+            {
+              "internalType": "address[]",
+              "name": "_whitelistedTokens",
+              "type": "address[]"
+            },
+            {
+              "internalType": "bool",
+              "name": "_publicPortfolio",
+              "type": "bool"
+            },
+            {
+              "internalType": "bool",
+              "name": "_transferable",
+              "type": "bool"
+            },
+            {
+              "internalType": "bool",
+              "name": "_transferableToPublic",
+              "type": "bool"
+            },
+            {
+              "internalType": "bool",
+              "name": "_whitelistTokens",
+              "type": "bool"
+            }
+          ],
+          "internalType": "struct FunctionParameters.AssetManagementConfigInitData",
+          "name": "initData",
+          "type": "tuple"
+        }
+      ],
+      "name": "init",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "initialPortfolioAmount",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "managementFee",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "minPortfolioTokenHoldingAmount",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "performanceFee",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "publicPortfolio",
+      "outputs": [
+        {
+          "internalType": "bool",
+          "name": "",
+          "type": "bool"
+        }
+      ],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "tokenWhitelistingEnabled",
+      "outputs": [
+        {
+          "internalType": "bool",
+          "name": "",
+          "type": "bool"
+        }
+      ],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "transferable",
+      "outputs": [
+        {
+          "internalType": "bool",
+          "name": "",
+          "type": "bool"
+        }
+      ],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "transferableToPublic",
+      "outputs": [
+        {
+          "internalType": "bool",
+          "name": "",
+          "type": "bool"
+        }
+      ],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "_newPrice",
+          "type": "uint256"
+        }
+      ],
+      "name": "updateInitialPortfolioAmount",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "_minPortfolioTokenHoldingAmount",
+          "type": "uint256"
+        }
+      ],
+      "name": "updateMinPortfolioTokenHoldingAmount",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "token",
+          "type": "address"
+        }
+      ],
+      "name": "whitelistedTokens",
+      "outputs": [
+        {
+          "internalType": "bool",
+          "name": "",
+          "type": "bool"
+        }
+      ],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "user",
+          "type": "address"
+        }
+      ],
+      "name": "whitelistedUsers",
+      "outputs": [
+        {
+          "internalType": "bool",
+          "name": "",
+          "type": "bool"
+        }
+      ],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    }
+  ],
+  "bytecode": "0x",
+  "deployedBytecode": "0x",
+  "linkReferences": {},
+  "deployedLinkReferences": {}
+}

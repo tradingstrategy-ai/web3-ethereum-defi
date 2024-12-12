@@ -1,0 +1,111 @@
+{
+  "_format": "hh-sol-artifact-1",
+  "contractName": "FeeEvents",
+  "sourceName": "contracts/fee/FeeEvents.sol",
+  "abi": [
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "uint256",
+          "name": "entryExitProtocolFeeAmount",
+          "type": "uint256"
+        },
+        {
+          "indexed": true,
+          "internalType": "uint256",
+          "name": "entryExitAssetManagerFeeAmount",
+          "type": "uint256"
+        }
+      ],
+      "name": "EntryExitFeeCharged",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "assetManagementTreasury",
+          "type": "address"
+        },
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "protocolTreasury",
+          "type": "address"
+        },
+        {
+          "indexed": true,
+          "internalType": "uint256",
+          "name": "protocolFeeAmount",
+          "type": "uint256"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint256",
+          "name": "managerFeeAmount",
+          "type": "uint256"
+        }
+      ],
+      "name": "FeesToBeMinted",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "uint256",
+          "name": "protocolStreamingFeeAmount",
+          "type": "uint256"
+        },
+        {
+          "indexed": true,
+          "internalType": "uint256",
+          "name": "managementFeeAmount",
+          "type": "uint256"
+        },
+        {
+          "indexed": true,
+          "internalType": "uint256",
+          "name": "protocolFeeCutAmount",
+          "type": "uint256"
+        }
+      ],
+      "name": "ManagementFeeCalculated",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "uint256",
+          "name": "performanceFeeProtocolAmount",
+          "type": "uint256"
+        },
+        {
+          "indexed": true,
+          "internalType": "uint256",
+          "name": "performanceFeeAssetManagerAmount",
+          "type": "uint256"
+        },
+        {
+          "indexed": true,
+          "internalType": "uint256",
+          "name": "currentPrice",
+          "type": "uint256"
+        }
+      ],
+      "name": "PerformanceFeeCalculated",
+      "type": "event"
+    }
+  ],
+  "bytecode": "0x6080604052348015600f57600080fd5b50603f80601d6000396000f3fe6080604052600080fdfea26469706673582212206e5c6f4dba60befbb797f8518b8e0ea5632f3d63555048238df584fb919c459b64736f6c63430008110033",
+  "deployedBytecode": "0x6080604052600080fdfea26469706673582212206e5c6f4dba60befbb797f8518b8e0ea5632f3d63555048238df584fb919c459b64736f6c63430008110033",
+  "linkReferences": {},
+  "deployedLinkReferences": {}
+}
