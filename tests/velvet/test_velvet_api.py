@@ -359,7 +359,7 @@ def test_velvet_api_deposit(
 
     # Velvet deposit manager on Base,
     # the destination of allowance
-    deposit_manager = "0xe4e23120a38c4348D7e22Ab23976Fa0c4Bf6e2ED"
+    deposit_manager = vault.deposit_manager_address
 
     # Check there is ready-made manual approve() waiting onchain
     allowance = usdc.contract.functions.allowance(
@@ -424,7 +424,7 @@ def test_velvet_api_redeem(
     shares = share_token.fetch_balance_of(existing_shareholder)
     assert shares > 0
 
-    withdrawal_manager = "0x99e9C4d3171aFAA3075D0d1aE2Bb42B5E53aEdAB"
+    withdrawal_manager = vault.withdraw_manager_address
 
     # Check there is ready-made manual approve() waiting onchain
     allowance = share_token.contract.functions.allowance(

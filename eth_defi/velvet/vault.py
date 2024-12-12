@@ -70,6 +70,7 @@ class VelvetVaultInfo(VaultInfo):
     withdrawManager: str  # Ethereum address
     depositorManager: str  # Ethereum address
 
+
 class VelvetVault(VaultBase):
     """Python interface for interacting with Velvet Capital vaults."""
 
