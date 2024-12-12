@@ -30,6 +30,10 @@ from eth_defi.velvet.redeem import redeem_from_velvet_velvet
 DEFAULT_VELVET_API_URL = "https://eventsapi.velvetdao.xyz/api/v3"
 
 
+class VelvetBadConfig(Exception):
+    """Likely wrong vault address given"""
+
+
 class VelvetVaultInfo(VaultInfo):
     """Velvet Capital vault deployment info.
 
@@ -63,7 +67,8 @@ class VelvetVaultInfo(VaultInfo):
     creatorName: str
     description: str
     avatar: str  # URL
-
+    withdrawManager: str  # Ethereum address
+    depositorManager: str  # Ethereum address
 
 class VelvetVault(VaultBase):
     """Python interface for interacting with Velvet Capital vaults."""
@@ -109,8 +114,11 @@ class VelvetVault(VaultBase):
 
     def fetch_info(self) -> VelvetVaultInfo:
         """Read vault parameters from the chain."""
-        url = f"https://api.velvet.capital/api/v3/portfolio/{self.spec.vault_address}"
+        # url = f"https://api.velvet.capital/api/v3/portfolio/{self.spec.vault_address}"
+        url = f"https://eventsapi.velvetdao.xyz/api/v3/portfolio/{self.spec.vault_address}"
         data = self.session.get(url).json()
+        if "error" in data:
+            raise VelvetBadConfig(f"Velvet portfolio info failed: {data}")
         return data["data"]
 
     @cached_property
@@ -120,6 +128,14 @@ class VelvetVault(VaultBase):
     @property
     def vault_address(self) -> HexAddress:
         return self.info["vaultAddress"]
+
+    @property
+    def deposit_manager_address(self) -> HexAddress:
+        return self.info["depositManager"]
+
+    @property
+    def withdraw_manager_address(self) -> HexAddress:
+        return self.info["withdrawManager"]
 
     @property
     def portfolio_contract(self) -> Contract:

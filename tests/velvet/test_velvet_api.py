@@ -188,6 +188,8 @@ def test_fetch_info(vault: VelvetVault):
 
     assert vault.vault_address == "0x9d247fbc63e4d50b257be939a264d68758b43d04"
     assert vault.owner_address == "0x0c9db006f1c7bfaa0716d70f012ec470587a8d4f"
+    assert vault.deposit_manager_address == "0xe4e23120a38c4348d7e22ab23976fa0c4bf6e2ed"
+    assert vault.withdraw_manager_address == "0x99e9c4d3171afaa3075d0d1ae2bb42b5e53aedab"
 
     vault.check_valid_contract()
 
