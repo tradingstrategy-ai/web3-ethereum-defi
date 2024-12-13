@@ -1,0 +1,10 @@
+{
+  "_format": "hh-sol-artifact-1",
+  "contractName": "TokenCalculations",
+  "sourceName": "contracts/core/calculations/TokenCalculations.sol",
+  "abi": [],
+  "bytecode": "0x6080604052348015600f57600080fd5b50603f80601d6000396000f3fe6080604052600080fdfea2646970667358221220c3d0914834dd3ee961329832b716560d6011373f80f3fba15f9ad45741ddf83d64736f6c63430008110033",
+  "deployedBytecode": "0x6080604052600080fdfea2646970667358221220c3d0914834dd3ee961329832b716560d6011373f80f3fba15f9ad45741ddf83d64736f6c63430008110033",
+  "linkReferences": {},
+  "deployedLinkReferences": {}
+}

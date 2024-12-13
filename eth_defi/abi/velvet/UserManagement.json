@@ -1,0 +1,75 @@
+{
+  "_format": "hh-sol-artifact-1",
+  "contractName": "UserManagement",
+  "sourceName": "contracts/core/user/UserManagement.sol",
+  "abi": [
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": false,
+          "internalType": "uint8",
+          "name": "version",
+          "type": "uint8"
+        }
+      ],
+      "name": "Initialized",
+      "type": "event"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "",
+          "type": "address"
+        }
+      ],
+      "name": "_lastDepositTime",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "",
+          "type": "address"
+        }
+      ],
+      "name": "_lastWithdrawCooldown",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "tokenExclusionManager",
+      "outputs": [
+        {
+          "internalType": "contract ITokenExclusionManager",
+          "name": "",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    }
+  ],
+  "bytecode": "0x608060405234801561001057600080fd5b5061011b806100206000396000f3fe6080604052348015600f57600080fd5b5060043610603c5760003560e01c806345b12b651460415780634631f667146071578063ca5fafdd14608e575b600080fd5b605e604c36600460b7565b60016020526000908152604090205481565b6040519081526020015b60405180910390f35b605e607c36600460b7565b60026020526000908152604090205481565b60035460a0906001600160a01b031681565b6040516001600160a01b0390911681526020016068565b60006020828403121560c857600080fd5b81356001600160a01b038116811460de57600080fd5b939250505056fea2646970667358221220eecedf80d0fec68167b0f4c720a914c211d733bd0f9d30a45eaf30ce6617e5d464736f6c63430008110033",
+  "deployedBytecode": "0x6080604052348015600f57600080fd5b5060043610603c5760003560e01c806345b12b651460415780634631f667146071578063ca5fafdd14608e575b600080fd5b605e604c36600460b7565b60016020526000908152604090205481565b6040519081526020015b60405180910390f35b605e607c36600460b7565b60026020526000908152604090205481565b60035460a0906001600160a01b031681565b6040516001600160a01b0390911681526020016068565b60006020828403121560c857600080fd5b81356001600160a01b038116811460de57600080fd5b939250505056fea2646970667358221220eecedf80d0fec68167b0f4c720a914c211d733bd0f9d30a45eaf30ce6617e5d464736f6c63430008110033",
+  "linkReferences": {},
+  "deployedLinkReferences": {}
+}

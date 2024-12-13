@@ -177,7 +177,7 @@ def vault(web3, base_test_vault_spec: VaultSpec) -> VelvetVault:
 @pytest.fixture()
 def deposit_user() -> HexAddress:
     """A user that has preapproved 5 USDC deposit for the vault above, no approve() needed."""
-    return "0x7612A94AafF7a552C373e3124654C1539a4486A8"
+    return "0x9C5749f73e3D8728DDC77d69b3DB3C60B91A91E2"
 
 
 def test_fetch_info(vault: VelvetVault):
@@ -188,6 +188,10 @@ def test_fetch_info(vault: VelvetVault):
 
     assert vault.vault_address == "0x9d247fbc63e4d50b257be939a264d68758b43d04"
     assert vault.owner_address == "0x0c9db006f1c7bfaa0716d70f012ec470587a8d4f"
+    assert vault.deposit_manager_address == "0xe4e23120a38c4348d7e22ab23976fa0c4bf6e2ed"
+    assert vault.withdraw_manager_address == "0x99e9c4d3171afaa3075d0d1ae2bb42b5e53aedab"
+
+    vault.check_valid_contract()
 
 
 def test_fetch_vault_portfolio(vault: VelvetVault):
@@ -355,14 +359,15 @@ def test_velvet_api_deposit(
 
     # Velvet deposit manager on Base,
     # the destination of allowance
-    deposit_manager = "0xe4e23120a38c4348D7e22Ab23976Fa0c4Bf6e2ED"
+    deposit_manager = "0xe4e23120a38c4348D7e22Ab23976Fa0c4Bf6e2ED"  # vault.deposit_manager_address
 
     # Check there is ready-made manual approve() waiting onchain
     allowance = usdc.contract.functions.allowance(
         Web3.to_checksum_address(deposit_user),
         Web3.to_checksum_address(deposit_manager),
         ).call()
-    assert allowance == 5 * 10**6
+    raw_amount = 4999999
+    assert allowance == raw_amount
 
     # E               eth_defi.trace.TransactionAssertionError: Revert reason: execution reverted: revert: TransferHelper::transferFrom: transferFrom failed
     # E               Solidity stack trace:
@@ -375,7 +380,7 @@ def test_velvet_api_deposit(
     tx_data = vault.prepare_deposit_with_enso(
         from_=deposit_user,
         deposit_token_address=usdc.address,
-        amount=5 * 10**6,
+        amount=raw_amount,
         slippage=slippage,
     )
     assert tx_data["to"] == deposit_manager
@@ -420,7 +425,7 @@ def test_velvet_api_redeem(
     shares = share_token.fetch_balance_of(existing_shareholder)
     assert shares > 0
 
-    withdrawal_manager = "0x99e9C4d3171aFAA3075D0d1aE2Bb42B5E53aEdAB"
+    withdrawal_manager = vault.withdraw_manager_address
 
     # Check there is ready-made manual approve() waiting onchain
     allowance = share_token.contract.functions.allowance(
@@ -459,7 +464,7 @@ def test_velvet_api_redeem(
         withdraw_token_address=usdc.address,
         slippage=slippage,
     )
-    assert tx_data["to"] == withdrawal_manager
+    assert tx_data["to"] == "0x99e9C4d3171aFAA3075D0d1aE2Bb42B5E53aEdAB"
     tx_hash = web3.eth.send_transaction(tx_data)
     assert_transaction_success_with_explanation(web3, tx_hash)
 

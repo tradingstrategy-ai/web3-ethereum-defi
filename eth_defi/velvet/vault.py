@@ -16,6 +16,7 @@ from functools import cached_property
 import requests
 from eth_typing import BlockIdentifier, HexAddress
 from web3 import Web3
+from web3.contract import Contract
 
 from eth_defi.abi import get_deployed_contract
 from eth_defi.balances import fetch_erc20_balances_fallback
@@ -27,6 +28,10 @@ from eth_defi.velvet.redeem import redeem_from_velvet_velvet
 
 #: Signing API URL
 DEFAULT_VELVET_API_URL = "https://eventsapi.velvetdao.xyz/api/v3"
+
+
+class VelvetBadConfig(Exception):
+    """Likely wrong vault address given"""
 
 
 class VelvetVaultInfo(VaultInfo):
@@ -62,6 +67,8 @@ class VelvetVaultInfo(VaultInfo):
     creatorName: str
     description: str
     avatar: str  # URL
+    withdrawManager: str  # Ethereum address
+    depositorManager: str  # Ethereum address
 
 
 class VelvetVault(VaultBase):
@@ -93,10 +100,26 @@ class VelvetVault(VaultBase):
     def get_flow_manager(self):
         raise NotImplementedError("Velvet does not support individual deposit/redemption events yet")
 
+    def check_valid_contract(self):
+        """Check that we have connected to a proper Velvet capital vault contract, not wrong contract.
+
+        :raise AssertionError:
+            Looks bad
+        """
+        try:
+            portfolio_contract = self.portfolio_contract
+            config = portfolio_contract.functions.protocolConfig().call()
+            assert config.startswith("0x")
+        except Exception as e:
+            raise AssertionError(f"Does not look like a Velvet portfolio contract: {self.portfolio_address}") from e
+
     def fetch_info(self) -> VelvetVaultInfo:
         """Read vault parameters from the chain."""
-        url = f"https://api.velvet.capital/api/v3/portfolio/{self.spec.vault_address}"
+        # url = f"https://api.velvet.capital/api/v3/portfolio/{self.spec.vault_address}"
+        url = f"https://eventsapi.velvetdao.xyz/api/v3/portfolio/{self.spec.vault_address}"
         data = self.session.get(url).json()
+        if "error" in data:
+            raise VelvetBadConfig(f"Velvet portfolio info failed: {data}")
         return data["data"]
 
     @cached_property
@@ -106,6 +129,22 @@ class VelvetVault(VaultBase):
     @property
     def vault_address(self) -> HexAddress:
         return self.info["vaultAddress"]
+
+    @property
+    def deposit_manager_address(self) -> HexAddress:
+        return self.info["depositManager"]
+
+    @property
+    def withdraw_manager_address(self) -> HexAddress:
+        return self.info["withdrawManager"]
+
+    @property
+    def portfolio_contract(self) -> Contract:
+        return get_deployed_contract(
+            self.web3,
+            "velvet/PortfolioV3_4.json",
+            self.portfolio_address
+        )
 
     @property
     def owner_address(self) -> HexAddress:

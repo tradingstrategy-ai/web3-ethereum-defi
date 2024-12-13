@@ -1,0 +1,137 @@
+{
+  "_format": "hh-sol-artifact-1",
+  "contractName": "FeeCalculations",
+  "sourceName": "contracts/fee/FeeCalculations.sol",
+  "abi": [
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "uint256",
+          "name": "entryExitProtocolFeeAmount",
+          "type": "uint256"
+        },
+        {
+          "indexed": true,
+          "internalType": "uint256",
+          "name": "entryExitAssetManagerFeeAmount",
+          "type": "uint256"
+        }
+      ],
+      "name": "EntryExitFeeCharged",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "assetManagementTreasury",
+          "type": "address"
+        },
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "protocolTreasury",
+          "type": "address"
+        },
+        {
+          "indexed": true,
+          "internalType": "uint256",
+          "name": "protocolFeeAmount",
+          "type": "uint256"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint256",
+          "name": "managerFeeAmount",
+          "type": "uint256"
+        }
+      ],
+      "name": "FeesToBeMinted",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "uint256",
+          "name": "protocolStreamingFeeAmount",
+          "type": "uint256"
+        },
+        {
+          "indexed": true,
+          "internalType": "uint256",
+          "name": "managementFeeAmount",
+          "type": "uint256"
+        },
+        {
+          "indexed": true,
+          "internalType": "uint256",
+          "name": "protocolFeeCutAmount",
+          "type": "uint256"
+        }
+      ],
+      "name": "ManagementFeeCalculated",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "uint256",
+          "name": "performanceFeeProtocolAmount",
+          "type": "uint256"
+        },
+        {
+          "indexed": true,
+          "internalType": "uint256",
+          "name": "performanceFeeAssetManagerAmount",
+          "type": "uint256"
+        },
+        {
+          "indexed": true,
+          "internalType": "uint256",
+          "name": "currentPrice",
+          "type": "uint256"
+        }
+      ],
+      "name": "PerformanceFeeCalculated",
+      "type": "event"
+    },
+    {
+      "inputs": [],
+      "name": "ONE_YEAR_IN_SECONDS",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "TOTAL_WEIGHT",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    }
+  ],
+  "bytecode": "0x6080604052348015600f57600080fd5b5060918061001e6000396000f3fe6080604052348015600f57600080fd5b506004361060325760003560e01c8063e7c8fed4146037578063ed2a2f9d146053575b600080fd5b60416301e1338081565b60405190815260200160405180910390f35b60416127108156fea2646970667358221220f2198c7b9370069ba1504316a7fc8e0a1aa0f1d4b2be4707624fa5fb34f7981f64736f6c63430008110033",
+  "deployedBytecode": "0x6080604052348015600f57600080fd5b506004361060325760003560e01c8063e7c8fed4146037578063ed2a2f9d146053575b600080fd5b60416301e1338081565b60405190815260200160405180910390f35b60416127108156fea2646970667358221220f2198c7b9370069ba1504316a7fc8e0a1aa0f1d4b2be4707624fa5fb34f7981f64736f6c63430008110033",
+  "linkReferences": {},
+  "deployedLinkReferences": {}
+}

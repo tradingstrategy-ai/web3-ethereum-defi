@@ -1,0 +1,56 @@
+{
+  "_format": "hh-sol-artifact-1",
+  "contractName": "IDepositBatch",
+  "sourceName": "contracts/bundle/IDepositBatch.sol",
+  "abi": [
+    {
+      "inputs": [
+        {
+          "components": [
+            {
+              "internalType": "uint256",
+              "name": "_minMintAmount",
+              "type": "uint256"
+            },
+            {
+              "internalType": "uint256",
+              "name": "_depositAmount",
+              "type": "uint256"
+            },
+            {
+              "internalType": "address",
+              "name": "_target",
+              "type": "address"
+            },
+            {
+              "internalType": "address",
+              "name": "_depositToken",
+              "type": "address"
+            },
+            {
+              "internalType": "bytes[]",
+              "name": "_callData",
+              "type": "bytes[]"
+            }
+          ],
+          "internalType": "struct FunctionParameters.BatchHandler",
+          "name": "data",
+          "type": "tuple"
+        },
+        {
+          "internalType": "address",
+          "name": "user",
+          "type": "address"
+        }
+      ],
+      "name": "multiTokenSwapAndDeposit",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    }
+  ],
+  "bytecode": "0x",
+  "deployedBytecode": "0x",
+  "linkReferences": {},
+  "deployedLinkReferences": {}
+}

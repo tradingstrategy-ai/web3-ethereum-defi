@@ -1,0 +1,443 @@
+{
+  "_format": "hh-sol-artifact-1",
+  "contractName": "ErrorLibrary",
+  "sourceName": "contracts/library/ErrorLibrary.sol",
+  "abi": [
+    {
+      "inputs": [],
+      "name": "AlreadyInitialized",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "AmountCannotBeZero",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "BalanceOfHandlerShouldBeZero",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "BalanceOfHandlerShouldNotExceedDust",
+      "type": "error"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "",
+          "type": "address"
+        }
+      ],
+      "name": "BalanceOfVaultCannotNotBeZero",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "BalanceOfVaultIsZero",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "CallFailed",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "CallerNeedToMaintainMinTokenAmount",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "CallerNotAdmin",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "CallerNotAssetManager",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "CallerNotHavingGivenPortfolioTokenAmount",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "CallerNotOwner",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "CallerNotPortfolioManager",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "CallerNotRebalancerContract",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "CallerNotSuperAdmin",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "CallerNotWhitelistManager",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "ClaimFailed",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "CoolDownPeriodNotPassed",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "DivisionByZero",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "IncorrectArrayLength",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "InsufficientAllowance",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "InvalidAddress",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "InvalidAssetLimit",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "InvalidBalance",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "InvalidBalanceDiff",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "InvalidBuyTokenList",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "InvalidCooldownPeriod",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "InvalidDepositInputLength",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "InvalidDustTolerance",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "InvalidExemptionTokens",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "InvalidExemptionTokensLength",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "InvalidFee",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "InvalidId",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "InvalidInitialPortfolioAmount",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "InvalidLength",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "InvalidMinAmountByAssetManager",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "InvalidMinPortfolioAmount",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "InvalidMinPortfolioAmountByAssetManager",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "InvalidMinPortfolioTokenHoldingAmount",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "InvalidMintAmount",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "InvalidOracleAddress",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "InvalidProtocolFee",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "InvalidProtocolStreamingFee",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "InvalidSolver",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "InvalidSpender",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "InvalidTargetAddress",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "InvalidThresholdLength",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "InvalidTokenAddress",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "InvalidTokenRemovalPercentage",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "InvalidTokenWhitelistLength",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "InvalidWhitelistLimit",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "IsPortfolioToken",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "MintedAmountIsNotAccepted",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "ModuleNotInitialised",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "NoNewFeeSet",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "NoOwnerPassed",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "NoTokensRemoved",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "NonPortfolioTokenBalanceIsNotZero",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "NotPortfolioToken",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "PortfolioCreationIsPause",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "PortfolioTokenNotInitialized",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "PreviousTreasuryAddress",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "PriceOracleExpired",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "PriceOracleInvalid",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "ProtocolEmergencyPaused",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "ProtocolIsPaused",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "ProtocolNotPaused",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "PublicFundToWhitelistedNotAllowed",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "ReturnValueLessThenExpected",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "RewardTargetNotEnabled",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "SequencerIsDown",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "SequencerThresholdNotCrossed",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "TimePeriodNotOver",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "TimeSinceLastUnpauseNotElapsed",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "TokenAlreadyExist",
+      "type": "error"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "limit",
+          "type": "uint256"
+        }
+      ],
+      "name": "TokenCountOutOfLimit",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "TokenNotEnabled",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "TokenNotInPriceOracle",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "TokenNotWhitelisted",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "TransferFailed",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "Transferprohibited",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "UserNotAllowedToDeposit",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "WithdrawalAmountIsSmall",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "ZeroAddressTreasury",
+      "type": "error"
+    }
+  ],
+  "bytecode": "0x60566037600b82828239805160001a607314602a57634e487b7160e01b600052600060045260246000fd5b30600052607381538281f3fe73000000000000000000000000000000000000000030146080604052600080fdfea26469706673582212204e36768ef5af80aff6a935ced1eafd2b70b4d72b57786a1565f0ff09a562839f64736f6c63430008110033",
+  "deployedBytecode": "0x73000000000000000000000000000000000000000030146080604052600080fdfea26469706673582212204e36768ef5af80aff6a935ced1eafd2b70b4d72b57786a1565f0ff09a562839f64736f6c63430008110033",
+  "linkReferences": {},
+  "deployedLinkReferences": {}
+}

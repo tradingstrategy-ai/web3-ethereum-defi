@@ -1,0 +1,62 @@
+{
+  "_format": "hh-sol-artifact-1",
+  "contractName": "UserManagementV3_2",
+  "sourceName": "contracts/mock/upgradeability/changedDependencies/v3_2/UserManagementV3_2.sol",
+  "abi": [
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "",
+          "type": "address"
+        }
+      ],
+      "name": "_lastDepositTime",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "",
+          "type": "address"
+        }
+      ],
+      "name": "_lastWithdrawCooldown",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "tokenExclusionManager",
+      "outputs": [
+        {
+          "internalType": "contract ITokenExclusionManager",
+          "name": "",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    }
+  ],
+  "bytecode": "0x608060405234801561001057600080fd5b5061011b806100206000396000f3fe6080604052348015600f57600080fd5b5060043610603c5760003560e01c806345b12b651460415780634631f667146071578063ca5fafdd14608e575b600080fd5b605e604c36600460b7565b60006020819052908152604090205481565b6040519081526020015b60405180910390f35b605e607c36600460b7565b60016020526000908152604090205481565b60025460a0906001600160a01b031681565b6040516001600160a01b0390911681526020016068565b60006020828403121560c857600080fd5b81356001600160a01b038116811460de57600080fd5b939250505056fea2646970667358221220be5ac53c682b40c4bf517fad1cd8721d178c8ad08d454cdbcf0ef8b7622c814b64736f6c63430008110033",
+  "deployedBytecode": "0x6080604052348015600f57600080fd5b5060043610603c5760003560e01c806345b12b651460415780634631f667146071578063ca5fafdd14608e575b600080fd5b605e604c36600460b7565b60006020819052908152604090205481565b6040519081526020015b60405180910390f35b605e607c36600460b7565b60016020526000908152604090205481565b60025460a0906001600160a01b031681565b6040516001600160a01b0390911681526020016068565b60006020828403121560c857600080fd5b81356001600160a01b038116811460de57600080fd5b939250505056fea2646970667358221220be5ac53c682b40c4bf517fad1cd8721d178c8ad08d454cdbcf0ef8b7622c814b64736f6c63430008110033",
+  "linkReferences": {},
+  "deployedLinkReferences": {}
+}
