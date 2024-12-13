@@ -30,6 +30,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v3
         with:
+          # npm version need to support aave-deploy
           node-version: 18
           cache: 'npm'
           cache-dependency-path: contracts/aave-v3-deploy/package-lock.json
