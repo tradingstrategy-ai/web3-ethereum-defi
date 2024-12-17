@@ -48,6 +48,7 @@ KNOWN_GOOD_TOKENS = {
     "SNX",
     "FLOKI",
     "WETH",
+    "cbBTC",
 }
 
 class TokenSnifferError(Exception):
