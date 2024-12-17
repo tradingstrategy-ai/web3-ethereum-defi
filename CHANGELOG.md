@@ -1,4 +1,4 @@
-# Current
+# 0.27
 
 - Add: Support for [Velvet Capital vaults](https://www.velvet.capital/)
 - Add: Support for [Lagoon vaults](https://lagoon.finance/)
@@ -9,6 +9,7 @@
 - Add: `fetch_erc20_balances_multicall` and `fetch_erc20_balances_fallback` read multiple ERC-20 balances using Multicall library
 - Add: `QuoterV2` support for Uniswap v3 - needed to get Base prices
 - Change `launch_anvil()` to use latest hardfork by default instead of `london`
+- Various smaller bug fixes and optimisations
 
 # 0.26.1 
 
