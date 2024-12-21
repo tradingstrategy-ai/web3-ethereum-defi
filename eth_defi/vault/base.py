@@ -10,7 +10,7 @@
 """
 
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from decimal import Decimal
 from functools import cached_property
 from typing import TypedDict
@@ -82,8 +82,10 @@ class VaultPortfolio:
     #: List of tokens and their amounts
     spot_erc20: dict[HexAddress, Decimal]
 
-    #: For route finding, which DEX tokens should use
-    dex_hints: dict[HexAddress, list[str]]
+    #: For route finding, which DEX tokens should use.
+    #:
+    #: Token address -> DEX id string mapping
+    dex_hints: dict[HexAddress, list[str]] = field(default_factory=dict)
 
     def __post_init__(self):
         for token, value in self.spot_erc20.items():

@@ -5,16 +5,17 @@ from decimal import Decimal
 import pytest
 from eth_typing import HexAddress
 from multicall import Multicall
-from safe_eth.eth.constants import NULL_ADDRESS
 from web3 import Web3
+from web3.contract.contract import ContractFunction
 
 from eth_defi.lagoon.vault import LagoonVault
 from eth_defi.provider.broken_provider import get_almost_latest_block_number
 from eth_defi.safe.trace import assert_execute_module_success
-from eth_defi.token import TokenDetails
+from eth_defi.token import TokenDetails, fetch_erc20_details
 from eth_defi.trace import assert_transaction_success_with_explanation
 from eth_defi.uniswap_v2.constants import UNISWAP_V2_DEPLOYMENTS
 from eth_defi.uniswap_v2.deployment import fetch_deployment, UniswapV2Deployment
+from eth_defi.uniswap_v2.utils import ZERO_ADDRESS
 from eth_defi.uniswap_v3.constants import UNISWAP_V3_DEPLOYMENTS
 from eth_defi.uniswap_v3.deployment import fetch_deployment as fetch_deployment_uni_v3, UniswapV3Deployment
 
@@ -59,10 +60,11 @@ def extensive_portfolio(
     Mixed Uniswap v2/v3 routing.
     """
 
+    vault = lagoon_vault
     asset_manager = topped_up_asset_manager
 
     # Top up the vault with 999 USDC
-    tx_hash = base_usdc.contract.functions.transfer(usdc_holder, 999 * 10**6).transact({"from": usdc_holder, "gas": 100_000})
+    tx_hash = base_usdc.contract.functions.transfer(lagoon_vault.safe_address, 999 * 10**6).transact({"from": usdc_holder, "gas": 100_000})
     assert_transaction_success_with_explanation(web3, tx_hash)
 
     portfolio = create_buy_portfolio(
@@ -72,33 +74,39 @@ def extensive_portfolio(
 
     buy_result = buy_tokens(
         web3,
-        user=lagoon_vault.address,  # We cheat by having this address unlockeed in Anvl
+        user=lagoon_vault.safe_address,  # We cheat by having this address unlockeed in Anvl
         portfolio=portfolio,
         denomination_token=base_usdc,
         intermediary_tokens={base_weth},
         quoters={
             UniswapV2Router02Quoter(swap_router_v2=uniswap_v2.router)
         },
+        uniswap_v2=uniswap_v2,
     )
+
+    assert len(buy_result.needed_transactions) > 0
 
     # Asset manager executes approve + swap texs for all tokens we want to buy
     for call in buy_result.needed_transactions:
-        wrapped_call = lagoon_vault.transact_through_module(
-            call,
-        )
-        tx_data = wrapped_call.transact({"from": asset_manager})
+        assert isinstance(call, ContractFunction)
+        try:
+            wrapped_call = lagoon_vault.transact_through_module(call)
+        except Exception as e:
+            # Annoying checksum address
+            raise RuntimeError(f"Wrapped call failed: {call}") from e
+        tx_data = wrapped_call.build_transaction({"from": asset_manager})
+        tx_data["gas"] = tx_data["gas"] + 1_000_000   # Gnosis tx tend to underestimate gas
         tx_hash = web3.eth.send_transaction(tx_data)
-        assert_transaction_success_with_explanation(web3, tx_hash)
+        assert_execute_module_success(web3, tx_hash)
+
+    return portfolio
 
 
 @pytest.fixture()
 def vault_with_more_tokens(web3, lagoon_vault, extensive_portfolio):
-    return fetch_deployment(
-        web3,
-        factory_address=UNISWAP_V2_DEPLOYMENTS["base"]["factory"],
-        router_address=UNISWAP_V2_DEPLOYMENTS["base"]["router"],
-        init_code_hash=UNISWAP_V2_DEPLOYMENTS["base"]["init_code_hash"],
-    )
+    """Execute portfolio buys for the vault."""
+    vault = lagoon_vault
+    return vault
 
 
 def test_uniswap_v2_weth_usdc_sell_route(
@@ -147,7 +155,7 @@ def test_uniswap_v2_weth_usdc_sell_route(
 
     # Another method to double check call data encoding
     tx_data_2 = uniswap_v2_quoter_v2.swap_router_v2.functions.getAmountsOut(amount, route.path).build_transaction(
-        {"from": NULL_ADDRESS}
+        {"from": ZERO_ADDRESS}
     )
     correct_bytes = tx_data_2["data"][2:]
 
@@ -371,25 +379,30 @@ def test_lagoon_mixed_routes(
 ):
     """Value a portfolio with mixed Uniswap v2/v3 routes."""
 
+    chain_id = web3.eth.chain_id
     vault = vault_with_more_tokens
     valuation_manager = topped_up_valuation_manager
     asset_manager = topped_up_asset_manager
 
-    # Check value before update
-    # settle() never called for this vault, so the value is zero
-    nav = vault.fetch_nav()
-    assert nav == pytest.approx(Decimal(0))
+    all_tokens = {
+        base_weth.address,
+        base_usdc.address,
+        base_dino.address,
+    } | extensive_portfolio.tokens
+
+    all_tokens = sorted(all_tokens)  # Deterministic
+
+    for addr in all_tokens:
+        token = fetch_erc20_details(web3, addr, chain_id=chain_id)
+        balance = token.fetch_balance_of(vault.safe_address)
+        assert balance > 0, f"No token {token} in vault {vault}"
 
     universe = TradingUniverse(
-        spot_token_addresses={
-            base_weth.address,
-            base_usdc.address,
-            base_dino.address,
-        } | extensive_portfolio.tokens,
+        spot_token_addresses=all_tokens,
     )
     latest_block = get_almost_latest_block_number(web3)
     portfolio = vault.fetch_portfolio(universe, latest_block)
-    assert portfolio.get_position_count() == 3
+    assert portfolio.get_position_count() == 7
 
     uniswap_v2_quoter_v2 = UniswapV2Router02Quoter(uniswap_v2.router)
 

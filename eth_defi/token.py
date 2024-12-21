@@ -139,6 +139,7 @@ class TokenDetails:
         :return:
             Converted to decimal using :py:meth:`convert_to_decimal`
         """
+        address = Web3.to_checksum_address(address)
         raw_amount = self.contract.functions.balanceOf(address).call(block_identifier=block_identifier)
         return self.convert_to_decimals(raw_amount)
 
@@ -210,6 +211,15 @@ def create_token(
     return deploy_contract(web3, "ERC20MockDecimals.json", deployer, name, symbol, supply, decimals)
 
 
+def get_erc20_contract(
+    web3: Web3,
+    address: HexAddress,
+    contract_name="ERC20MockDecimals.json",
+) -> Contract:
+    """Wrap address as ERC-20 standard interface."""
+    return get_deployed_contract(web3, contract_name, address)
+
+
 def fetch_erc20_details(
     web3: Web3,
     token_address: Union[HexAddress, str],
@@ -275,7 +285,7 @@ def fetch_erc20_details(
     if not chain_id:
         chain_id = web3.eth.chain_id
 
-    erc_20 = get_deployed_contract(web3, contract_name, token_address)
+    erc_20 = get_erc20_contract(web3, token_address, contract_name)
 
     key = TokenDetails.generate_cache_key(chain_id, token_address)
 

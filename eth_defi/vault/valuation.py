@@ -97,7 +97,7 @@ class Route:
 
     @property
     def dex_hint(self) -> str:
-        return self.quoter.dex_hint()
+        return self.quoter.dex_hint
 
 
 @dataclass(slots=True, frozen=True)
@@ -558,6 +558,7 @@ class NetAssetValueCalculator:
     def calculate_market_sell_nav(
         self,
         portfolio: VaultPortfolio,
+        allow_failed_routing=False,
     ) -> PortfolioValuation:
         """Calculate net asset value for each position.
 
@@ -566,6 +567,9 @@ class NetAssetValueCalculator:
         - What is our NAV if we do market sell on DEXes for the whole portfolio now
 
         - Price impact included
+
+        :param allow_failed_routing:
+            Raise an error if we cannot get a single route for some token
 s
         :return:
             Map of token address -> valuation in denomiation token
@@ -577,6 +581,16 @@ s
 
         logger.info("Resolving total %d routes", len(routes))
         all_routes = self.fetch_onchain_valuations(routes, portfolio)
+
+        if not allow_failed_routing:
+            routes_per_token = defaultdict(list)
+            for r, value in all_routes.items():
+                routes_per_token[r.source_token].append((r, value))
+
+            for token, routes in routes_per_token.items():
+                if not any(t[1] for t in routes):
+                    new_line = "\n"
+                    raise NoRouteFound(f"No single successful route for token {token}\nRoutes:\n{new_line.join(str(r[0]) for r in routes)}")
 
         logger.info("Got %d multicall results", len(all_routes))
         # Discard failed paths
@@ -610,7 +624,6 @@ s
         best_result_by_token: dict[TokenAddress, TokenAmount] = {}
         for route, token_amount in routes.items():
             logger.info("Route %s got result %s", route, token_amount)
-
             if best_result_by_token.get(route.source_token.address, None) is None:
                 # Initialise with 0.00
                 best_result_by_token[route.source_token.address] = token_amount
@@ -626,7 +639,8 @@ s
 
             if token_address not in best_result_by_token:
                 token = fetch_erc20_details(self.web3, token_address)
-                raise NoRouteFound(f"Token {token} did not get any valid DEX routing paths to calculate its current market value")
+                routes_tried = [r for r in routes.keys() if r.source_token.address == token_address]
+                raise NoRouteFound(f"Token {token} did not get any valid DEX routing paths to calculate its current market value.\nRoutes tried: {routes_tried}")
 
         return best_result_by_token
 
@@ -794,7 +808,6 @@ s
         all_route_results = self.try_swap_paths(routes, portfolio)
         results_by_token = defaultdict(list)
         for r, amount in all_route_results.items():
-
             results_by_token[r.target_token].append((r, amount))
 
         def _get_route_priorisation_sort_key(route_amount_tuple):

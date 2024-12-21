@@ -86,12 +86,15 @@ class LagoonVault(VaultBase):
     ):
         """
         :param spec:
-            Address must be Velvet portfolio address (not vault address)
+            Address must be Lagoon vault  address (not Safe address)
         """
         assert isinstance(web3, Web3)
         assert isinstance(spec, VaultSpec)
         self.web3 = web3
         self.spec = spec
+
+    def __repr__(self):
+        return f"<Lagoon vault:{self.vault_contract.address} safe:{self.safe_address}>"
 
     def has_block_range_event_support(self):
         return True
