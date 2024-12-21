@@ -13,6 +13,7 @@ from abc import ABC, abstractmethod, abstractclassmethod
 from collections import defaultdict
 from dataclasses import dataclass
 from decimal import Decimal
+from functools import cached_property
 from typing import Iterable, Any, TypeAlias
 
 import pandas as pd
@@ -27,6 +28,7 @@ from eth_defi.provider.anvil import is_mainnet_fork
 from eth_defi.provider.broken_provider import get_almost_latest_block_number
 from eth_defi.token import TokenDetails, fetch_erc20_details, TokenAddress
 from eth_defi.uniswap_v2.utils import ZERO_ADDRESS
+from eth_defi.uniswap_v3.utils import encode_path
 from eth_defi.vault.base import VaultPortfolio
 
 
@@ -66,26 +68,56 @@ class PortfolioValuation:
 class Route:
     """One potential swap path.
 
+    - Support paths with 2 or 3 pairs
+
     - Present one potential swap path between source and target
 
     - Routes can contain any number of intermediate tokens in the path
 
     - Used to ABI encode for multicall calls
     """
-    source_token: TokenDetails
-    target_token: TokenDetails
+
+    #: What router we use
     quoter: "ValuationQuoter"
-    path: tuple[HexAddress, HexAddress] | tuple[HexAddress, HexAddress, HexAddress]
+
+    #: What route path we take
+    path: tuple[TokenDetails, TokenDetails] | tuple[TokenDetails, TokenDetails, TokenDetails]
+
+    #: Fees between pools for Uni v3
+    fees: tuple[int] | tuple[int, int] | None = None
+
+    def __post_init__(self):
+        assert isinstance(self.path[0], TokenDetails), f"Got {self.path[0]}"
+        assert isinstance(self.path[1], TokenDetails), f"Got {self.path[1]}"
+        if self.fees:
+            for f in self.fees:
+                assert type(f), f"Got {f}"
 
     def __repr__(self):
         return f"<Route {self.source_token.symbol} -> {self.target_token.symbol} using path {self.path} using quoter {self.quoter.__class__.__name__}>"
 
     def __hash__(self) -> int:
         """Unique hash for this instance"""
-        return hash((self.quoter, self.source_token.address, self.path))
+        return hash((self.dex_hint, self.path, self.fees))
 
-    def __eq__(self, other: "Route") -> int:
-        return self.source_token == other.source_token and self.path == other.path and self.contract_address == other.contract_address
+    def __eq__(self, other: "Route") -> bool:
+        return self.path == other.path and \
+               self.dex_hint == other.dex_hint  and \
+               self.fees == other.fees
+
+    @property
+    def source_token(self) -> TokenDetails:
+        return self.path[0]
+
+    @property
+    def target_token(self) -> TokenDetails:
+        return self.path[-1]
+
+    @property
+    def intermediate_token(self) -> TokenDetails | None:
+        if len(self.path) == 3:
+            return self.path[1]
+        return None
 
     @property
     def function_signature_string(self) -> str:
@@ -98,6 +130,10 @@ class Route:
     @property
     def dex_hint(self) -> str:
         return self.quoter.dex_hint
+
+    @property
+    def address_path(self) -> list[str]:
+        return [x.address for x in self.path]
 
 
 @dataclass(slots=True, frozen=True)
@@ -284,6 +320,11 @@ class ValuationQuoter(ABC):
     def create_multicall_wrapper(self, route: Route, amount_in: int) -> MulticallWrapper:
         pass
 
+    @abstractmethod
+    def format_path(self, route: Route) -> str:
+        """Get human-readable route path line."""
+
+
     @classmethod
     @abstractmethod
     def dex_hint(cls) -> str:
@@ -291,6 +332,7 @@ class ValuationQuoter(ABC):
 
         E.g. ``uniswap-v2``.
         """
+
 
 
 class UniswapV2Router02Quoter(ValuationQuoter):
@@ -329,7 +371,7 @@ class UniswapV2Router02Quoter(ValuationQuoter):
         signature = [
             self.signature_string,
             amount_in,
-            route.path,
+            route.address_path,
         ]
 
         return MulticallWrapper(
@@ -358,8 +400,6 @@ class UniswapV2Router02Quoter(ValuationQuoter):
             intermediate_tokens,
         ):
             yield Route(
-                source_token=source_token,
-                target_token=target_token,
                 quoter=self,
                 path=path,
             )
@@ -379,11 +419,11 @@ class UniswapV2Router02Quoter(ValuationQuoter):
         source_token: TokenDetails,
         target_token: TokenDetails,
         intermediate_tokens: set[TokenDetails],
-    ) -> Iterable[tuple[HexAddress]]:
+    ) -> Iterable[list[TokenDetails]]:
         """Generate Uniswap v2 swap paths with all supported intermediate tokens"""
 
         # Path without intermediates
-        yield (source_token.address, target_token.address)
+        yield (source_token, target_token)
 
         # Path with each intermediate
         for middle in intermediate_tokens:
@@ -392,7 +432,167 @@ class UniswapV2Router02Quoter(ValuationQuoter):
                 # Skip WETH -> WETH -> USDC
                 continue
 
-            yield (source_token.address, middle.address, target_token.address)
+            yield (source_token, middle, target_token)
+
+    def format_path(self, route) -> str:
+
+        str_path = [
+            f"{route.source_token.symbol} ->"
+        ]
+
+        for token in route.path[1:-1]:
+            str_path.append(f"{token.symbol} ->")
+
+        str_path.append(
+            f"{route.target_token.symbol}"
+        )
+
+        return " ".join(str_path)
+
+
+def _fee_hook(
+    source_token,
+    target_token) -> tuple[int] | tuple[int, int]:
+    """Guess supported fees for Uniswap v3 pairs.
+
+    - Radically reduce the search space by using heurestics
+
+    - 5 BPS is only available on well known pools, otherwise it is 30 bps or 1%
+    """
+
+    # #: 1 BPS = 100 units
+    if (source_token.symbol == "WETH" and target_token.symbol == "USDC") or \
+       (source_token.symbol == "USDC" and target_token.symbol == "WETH"):
+        # 5 BPS is only enabled on
+        return (500,)
+    return (30*100, 100*100,)
+
+
+class UniswapV3Quoter(ValuationQuoter):
+    """Handle Uniswap v3 quoters using QuoterV2 contract."""
+
+    #: Quoter signature string for Multicall lib.
+    #:
+    #: https://basescan.org/address/0x3d4e44Eb1374240CE5F1B871ab261CD16335B76a#code
+    signature_string = "quoteExactInput(bytes,uint256)(uint256,uint160[],uint32[],uint256)"
+
+    def __init__(
+        self,
+        quoter: Contract,
+        debug: bool = False,
+        #fee_tiers=(0.0030, 0.0005, 0.01),
+        fee_hook=_fee_hook,
+    ):
+        super().__init__(debug=debug)
+        assert isinstance(quoter, Contract)
+        self.quoter = quoter
+        #self.fee_tiers = [int(f * 1_000_000) for f in fee_tiers]
+        self.fee_hook = _fee_hook
+
+    def __repr__(self):
+        return f"<UniswapV3QuoterV2({self.quoter.address})>"
+
+    @classproperty
+    def dex_hint(cls) -> str:
+        return "uniswap-v3"
+
+    def create_multicall_wrapper(self, route: Route, amount_in: int) -> MulticallWrapper:
+        # If we need to optimise Python parsing speed, we can directly pass function selectors and pre-packed ABI
+
+        signature = [
+            self.signature_string,
+            encode_path(route.address_path, route.fees),
+            amount_in,
+        ]
+
+        return MulticallWrapper(
+            quoter=self,
+            route=route,
+            amount_in=amount_in,
+            debug=self.debug,
+            signature_string=self.signature_string,
+            contract_address=self.quoter.address,
+            signature=signature,
+        )
+
+    def generate_routes(
+        self,
+        source_token: TokenDetails,
+        target_token: TokenDetails,
+        intermediate_tokens: set[TokenDetails],
+        amount: Decimal,
+        debug: bool,
+    ) -> Iterable[Route]:
+        """Create routes we need to test on Uniswap v2"""
+
+        for path, fees in self.get_path_combinations(
+            source_token,
+            target_token,
+            intermediate_tokens,
+        ):
+            yield Route(
+                quoter=self,
+                path=path,
+                fees=fees
+            )
+
+    def handle_onchain_return_value(
+        self,
+        wrapper: MulticallWrapper,
+        raw_return_value: any,
+    ) -> Decimal | None:
+        """Convert swapExactTokensForTokens() return value to tokens we receive"""
+        route = wrapper.route
+        #         returns (
+        #             uint256 amountOut,
+        #             uint160[] memory sqrtPriceX96AfterList,
+        #             uint32[] memory initializedTicksCrossedList,
+        #             uint256 gasEstimate
+        #         );
+
+        if raw_return_value == 0:
+            return None
+
+        # TODO: Multicall decoding problem?
+        target_token_out = raw_return_value
+        return route.target_token.convert_to_decimals(target_token_out)
+
+    def get_path_combinations(
+        self,
+        source_token: TokenDetails,
+        target_token: TokenDetails,
+        intermediate_tokens: set[TokenDetails],
+    ) -> Iterable[tuple[list[HexAddress], list[int]]]:
+        """Generate Uniswap v3 swap paths and fee with all supported intermediate tokens"""
+
+        # Path without intermediates
+        fees = self.fee_hook(source_token, target_token)
+        for fee in fees:
+            yield (source_token, target_token), (fee,)
+
+        # Path with each intermediate
+        for middle in intermediate_tokens:
+            fees_1 = self.fee_hook(source_token, middle)
+            fees_2 = self.fee_hook(middle, target_token)
+            for fee_1 in fees_1:
+                for fee_2 in fees_2:
+                    yield (source_token, middle, target_token), (fee_1, fee_2)
+
+
+    def format_path(self, route) -> str:
+
+        str_path = [
+            f"{route.source_token.symbol} -({route.fees[0] // 100} BPS)->"
+        ]
+
+        for token in route.path[1:-1]:
+            str_path.append(f"{token.symbol} -({route.fees[1] // 100} BPS)->")
+
+        str_path.append(
+            f"{route.target_token.symbol}"
+        )
+
+        return " ".join(str_path)
 
 
 class NetAssetValueCalculator:
@@ -707,7 +907,12 @@ s
         tokens: dict[HexAddress, TokenDetails] = {address: fetch_erc20_details(web3, address, chain_id) for address in portfolio.tokens}
         raw_balances = {address: token.convert_to_raw(portfolio.spot_erc20[address]) for address, token in tokens.items()}
 
-        logger.info("try_swap_paths(), %d routes, multicall is %s", len(routes), multicall)
+        logger.info(
+            "try_swap_paths(), %d routes, %d quoters, multicall is %s",
+            len(routes),
+            len(self.quoters),
+            multicall,
+        )
 
         calls = [r.quoter.create_multicall_wrapper(r, raw_balances[r.target_token.address]).create_multicall() for r in routes]
 
@@ -765,11 +970,12 @@ s
         if reserve_balance:
             # Handle case where we cannot route reserve balance to itself
             data.append({
+                "DEX": "reserve",
                 "Path": self.denomination_token.symbol,
-                "Asset": self.denomination_token.symbol,
-                "Address": self.denomination_token.address,
+                # "Asset": self.denomination_token.symbol,
+                # "Address": self.denomination_token.address,
                 "Balance": f"{reserve_balance:,.2f}",
-                "Router": "",
+                # "Router": "",
                 "Works": "yes",
                 "Value": f"{reserve_balance:,.2f}",
             })
@@ -784,17 +990,17 @@ s
                 formatted_balance = "-"
 
             data.append({
-                "Path": _format_symbolic_path_uniswap_v2(self.web3, route),
-                "Asset": route.source_token.symbol,
-                "Address": route.source_token.address,
+                "DEX": route.quoter.dex_hint,
+                "Path": route.quoter.format_path(route),
+                # "Asset": route.source_token.symbol,
+                # "Address": route.source_token.address,
                 "Balance": f"{portfolio.spot_erc20[route.source_token.address]:.6f}",
-                "Router": route.quoter.__class__.__name__,
                 "Works": "yes" if out_balance is not None else "no",
                 "Value": formatted_balance,
             })
 
         df = pd.DataFrame(data)
-        df = df.set_index("Path")
+        df = df.sort_values(by=["Path", "DEX"])
         return df
 
     def find_swap_routes(self, portfolio: VaultPortfolio, buy=True) -> SwapMatrix:
@@ -802,7 +1008,7 @@ s
 
         assert portfolio.is_spot_only()
         assert portfolio.get_position_count() > 0, "Empty portfolio"
-        logger.info("Finding buy routes portfolio with %d assets", portfolio.get_position_count())
+        logger.info("find_swap_routes(), portfolio with %d assets", portfolio.get_position_count())
         routes = [r for router in self.quoters for r in self.generate_routes_for_router(router, portfolio, buy=buy)]
         logger.info("Resolving total %d routes", len(routes))
         all_route_results = self.try_swap_paths(routes, portfolio)
@@ -836,21 +1042,3 @@ def _convert_to_token_details(
     return fetch_erc20_details(web3, token_or_address, chain_id=chain_id)
 
 
-def _format_symbolic_path_uniswap_v2(web3, route: Route) -> str:
-    """Get human-readable route path line."""
-
-    chain_id = web3.eth.chain_id
-
-    str_path = [
-        f"{route.source_token.symbol} ->"
-    ]
-
-    for step in route.path[1:-1]:
-        token = fetch_erc20_details(web3, step, chain_id=chain_id)
-        str_path.append(f"{token.symbol} ->")
-
-    str_path.append(
-        f"{route.target_token.symbol}"
-    )
-
-    return " ".join(str_path)

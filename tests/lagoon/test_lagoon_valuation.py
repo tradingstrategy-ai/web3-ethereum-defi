@@ -21,7 +21,7 @@ from eth_defi.uniswap_v3.deployment import fetch_deployment as fetch_deployment_
 
 from eth_defi.vault.base import TradingUniverse, VaultPortfolio
 from eth_defi.vault.mass_buyer import create_buy_portfolio, BASE_SHOPPING_LIST, buy_tokens
-from eth_defi.vault.valuation import NetAssetValueCalculator, UniswapV2Router02Quoter, Route
+from eth_defi.vault.valuation import NetAssetValueCalculator, UniswapV2Router02Quoter, Route, UniswapV3Quoter
 
 
 @pytest.fixture()
@@ -36,12 +36,16 @@ def uniswap_v2(web3):
 
 @pytest.fixture()
 def uniswap_v3(web3):
-    return fetch_deployment_uni_v3(
+    deployment_data = UNISWAP_V3_DEPLOYMENTS["base"]
+    uniswap_v3_on_base = fetch_deployment_uni_v3(
         web3,
-        factory_address=UNISWAP_V3_DEPLOYMENTS["base"]["factory"],
-        router_address=UNISWAP_V3_DEPLOYMENTS["base"]["router"],
-        init_code_hash=UNISWAP_V3_DEPLOYMENTS["base"]["init_code_hash"],
+        factory_address=deployment_data["factory"],
+        router_address=deployment_data["router"],
+        position_manager_address=deployment_data["position_manager"],
+        quoter_address=deployment_data["quoter"],
+        quoter_v2=deployment_data["quoter_v2"],
     )
+    return uniswap_v3_on_base
 
 
 @pytest.fixture()
@@ -51,16 +55,19 @@ def extensive_portfolio(
     base_usdc,
     base_weth,
     uniswap_v2,
+    uniswap_v3,
     usdc_holder,
     topped_up_asset_manager,
 ) -> VaultPortfolio:
     """Make a shopping list of Base tokens.
 
-    Acquire some more tokens for the tests, each 5 USDC.
-    Mixed Uniswap v2/v3 routing.
+    - Acquire some more tokens for the tests, each 5 USDC.
+      Mixed Uniswap v2/v3 routing.
+
+    - Fixture slow as we brute force paths
     """
 
-    vault = lagoon_vault
+    vault = lagoon_vaultg
     asset_manager = topped_up_asset_manager
 
     # Top up the vault with 999 USDC
@@ -79,9 +86,11 @@ def extensive_portfolio(
         denomination_token=base_usdc,
         intermediary_tokens={base_weth},
         quoters={
-            UniswapV2Router02Quoter(swap_router_v2=uniswap_v2.router)
+            UniswapV2Router02Quoter(swap_router_v2=uniswap_v2.router),
+            UniswapV3Quoter(quoter=uniswap_v3.quoter),
         },
         uniswap_v2=uniswap_v2,
+        uniswap_v3=uniswap_v3,
     )
 
     assert len(buy_result.needed_transactions) > 0
@@ -366,7 +375,7 @@ def test_lagoon_post_valuation(
     assert nav > Decimal(30)  # Changes every day as we need to test live mainnet
 
 
-def test_lagoon_mixed_routes(
+def test_valuation_mixed_routes(
     web3: Web3,
     vault_with_more_tokens: LagoonVault,
     extensive_portfolio: VaultPortfolio,
@@ -374,10 +383,16 @@ def test_lagoon_mixed_routes(
     base_weth: TokenDetails,
     base_dino: TokenDetails,
     uniswap_v2: UniswapV2Deployment,
+    uniswap_v3: UniswapV3Deployment,
     topped_up_valuation_manager: HexAddress,
     topped_up_asset_manager: HexAddress,
 ):
-    """Value a portfolio with mixed Uniswap v2/v3 routes."""
+    """Value a portfolio with mixed Uniswap v2/v3 routes.
+
+    - Use lagoon, but the valuation itself does not care abut Lagoon
+
+    - This test is very slow due to high number of Multicalls made
+    """
 
     chain_id = web3.eth.chain_id
     vault = vault_with_more_tokens
@@ -402,19 +417,23 @@ def test_lagoon_mixed_routes(
     portfolio = vault.fetch_portfolio(universe, latest_block)
     assert portfolio.get_position_count() == 6
 
-    uniswap_v2_quoter_v2 = UniswapV2Router02Quoter(uniswap_v2.router)
+    uniswap_v2_quoter = UniswapV2Router02Quoter(uniswap_v2.router)
+    uniswap_v3_quoter = UniswapV3Quoter(uniswap_v3.quoter)
 
     nav_calculator = NetAssetValueCalculator(
         web3,
         denomination_token=base_usdc,
         intermediary_tokens={base_weth.address},  # Allow DINO->WETH->USDC
-        quoters={uniswap_v2_quoter_v2},
+        quoters={uniswap_v2_quoter, uniswap_v3_quoter},
         debug=True,
     )
 
     portfolio_valuation = nav_calculator.calculate_market_sell_nav(portfolio)
-    for token, value in portfolio_valuation.spot_valuations.items():
-        print(token, value)
-
     assert portfolio_valuation.spot_valuations["0x9a26f5433671751c3276a065f57e5a02d2817973"] > 4.9  # Keycat
     assert portfolio_valuation.spot_valuations["0x7484a9fb40b16c4dfe9195da399e808aa45e9bb9"] > 4.9  # AGNT
+
+    # Check routes
+    routes = nav_calculator.create_route_diagnostics(portfolio)
+    print()
+    print(routes)
+    assert len(routes) > 0

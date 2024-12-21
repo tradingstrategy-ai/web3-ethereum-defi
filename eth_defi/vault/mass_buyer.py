@@ -11,6 +11,7 @@ from web3.contract.contract import ContractFunction
 from eth_defi.token import TokenDetails, get_erc20_contract
 from eth_defi.uniswap_v2.deployment import UniswapV2Deployment
 from eth_defi.uniswap_v2.swap import swap_with_slippage_protection as swap_with_slippage_protection_uni_v2
+from eth_defi.uniswap_v3.swap import swap_with_slippage_protection as swap_with_slippage_protection_uni_v3
 from eth_defi.uniswap_v3.deployment import UniswapV3Deployment
 from eth_defi.vault.base import VaultPortfolio
 from eth_defi.vault.valuation import NetAssetValueCalculator, Route, ValuationQuoter
@@ -26,6 +27,7 @@ BASE_SHOPPING_LIST: list[TokenTradeDefinition] = [
     ("uniswap-v3", "odos", "0xca73ed1815e5915489570014e024b7ebe65de679"),  # ODOS-WETH
     ("uniswap-v3", "cbBTC", "0xcbb7c0000ab88b473b1f5afd9ef808440eed33bf"),  # CBBTC-USDC
     ("uniswap-v2", "AGNT", "0x7484a9fb40b16c4dfe9195da399e808aa45e9bb9"),  # AGNT-USDC
+    ("uniswap-v3", "SIMMI", "0x161e113b8e9bbaefb846f73f31624f6f9607bd44")  # Uniswap v3 only
 ]
 
 
@@ -57,15 +59,13 @@ def _default_buy_function(
     source_token = route.source_token
     raw_amount = source_token.convert_to_raw(amount)
 
+    logger.info("About to buy %s", route.quoter.format_path(route))
+
     match route.dex_hint:
         case "uniswap-v2":
             assert uniswap_v2, "Uniswap v2 deployment must be given"
             assert len(route.path) in (2, 3), f"Long paths not supported: {route.path}"
-            intermediate_token_address = route.path[1] if len(route.path) == 3 else None
-            if intermediate_token_address:
-                intermediate_token = get_erc20_contract(web3, intermediate_token_address)
-            else:
-                intermediate_token = None
+            intermediate_token = route.intermediate_token
             existing_balance = source_token.fetch_balance_of(user)
             assert existing_balance > amount, f"Not enough token {source_token.symbol} to approve(). Has {existing_balance}, need {amount}"
             yield source_token.contract.functions.approve(uniswap_v2.router.address, raw_amount)
@@ -78,7 +78,20 @@ def _default_buy_function(
                 amount_in=raw_amount,
             )
         case "uniswap-v3":
-            raise NotImplementedError()
+            assert uniswap_v3, "Uniswap v3 deployment must be given"
+            assert len(route.path) in (2, 3), f"Long paths not supported: {route.path}"
+            intermediate_token = route.intermediate_token
+            existing_balance = source_token.fetch_balance_of(user)
+            assert existing_balance > amount, f"Not enough token {source_token.symbol} to approve(). Has {existing_balance}, need {amount}"
+            yield source_token.contract.functions.approve(uniswap_v3.swap_router.address, raw_amount)
+            yield swap_with_slippage_protection_uni_v3(
+                uniswap_v3_deployment=uniswap_v3,
+                recipient_address=user,
+                quote_token=route.source_token.contract,
+                base_token=route.target_token.contract,
+                intermediate_token=intermediate_token,
+                amount_in=raw_amount,
+            )
         case _:
             raise NotImplementedError(f"Unknown dex_hint {route.dex_hint} for {route}")
 
