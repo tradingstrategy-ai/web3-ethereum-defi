@@ -3,11 +3,13 @@
 - Calculate the value of vault portfolio using only onchain data,
   available from JSON-RPC
 
+- Find best routes to buy tokens, which result to the best price, using brute force
+
 - See :py:class:`NetAssetValueCalculator` for usage
 
 """
 import logging
-from abc import ABC, abstractmethod
+from abc import ABC, abstractmethod, abstractclassmethod
 from collections import defaultdict
 from dataclasses import dataclass
 from decimal import Decimal
@@ -15,6 +17,7 @@ from typing import Iterable, Any, TypeAlias
 
 import pandas as pd
 from eth_typing import HexAddress, BlockIdentifier
+from matplotlib._api import classproperty
 from multicall import Call, Multicall
 from web3 import Web3
 from web3.contract import Contract
@@ -74,9 +77,6 @@ class Route:
     quoter: "ValuationQuoter"
     path: tuple[HexAddress, HexAddress] | tuple[HexAddress, HexAddress, HexAddress]
 
-    #: "uniswap-v2" or "uniswap-v3" if set
-    dex_hint: str | None = None
-
     def __repr__(self):
         return f"<Route {self.source_token.symbol} -> {self.target_token.symbol} using path {self.path} using quoter {self.quoter.__class__.__name__}>"
 
@@ -94,6 +94,10 @@ class Route:
     @property
     def token(self) -> TokenDetails:
         return self.source_token
+
+    @property
+    def dex_hint(self) -> str:
+        return self.quoter.dex_hint()
 
 
 @dataclass(slots=True, frozen=True)
@@ -280,6 +284,13 @@ class ValuationQuoter(ABC):
     def create_multicall_wrapper(self, route: Route, amount_in: int) -> MulticallWrapper:
         pass
 
+    @classmethod
+    @abstractmethod
+    def dex_hint(cls) -> str:
+        """Return string id used to identify this DEX.
+
+        E.g. ``uniswap-v2``.
+        """
 
 
 class UniswapV2Router02Quoter(ValuationQuoter):
@@ -307,6 +318,10 @@ class UniswapV2Router02Quoter(ValuationQuoter):
 
     def __repr__(self):
         return f"<UniswapV2Router02Quoter({self.swap_router_v2.address})>"
+
+    @classproperty
+    def dex_hint(cls) -> str:
+        return "uniswap-v2"
 
     def create_multicall_wrapper(self, route: Route, amount_in: int) -> MulticallWrapper:
         # If we need to optimise Python parsing speed, we can directly pass function selectors and pre-packed ABI

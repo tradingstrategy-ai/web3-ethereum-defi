@@ -44,7 +44,7 @@ def _default_buy_function(
     amount: Decimal,
     uniswap_v2: UniswapV2Deployment,
     uniswap_v3: UniswapV3Deployment,
-) -> Iterable[Contract]:
+) -> Iterable[ContractFunction]:
     """Buy tokens.
 
     :param user:
@@ -61,18 +61,15 @@ def _default_buy_function(
 
     match route.dex_hint:
         case "uniswap-v2":
-            tx_hash = source_token.contract.functions.approve(uniswap_v2.router, raw_amount).transact({"from": user})
-            assert_transaction_success_with_explanation(web3, tx_hash)
-            tx_hash = swap_with_slippage_protection_uni_v2(
+            yield source_token.contract.functions.approve(uniswap_v2.router, raw_amount)
+            yield swap_with_slippage_protection_uni_v2(
                 recipient_address=user,
                 quote_token=route.source_token,
                 base_token=route.target_token,
                 intermediate_token=route.path
             )
-            assert_transaction_success_with_explanation(web3, tx_hash)
         case "uniswap-v3":
-            tx_hash = source_token.contract.functions.approve(uniswap_v3.router, raw_amount).transact({"from": user})
-            assert_transaction_success_with_explanation(web3, tx_hash)
+            raise NotImplementedError()
         case _:
             raise NotImplementedError(f"Unknown dex_hint {route.dex_hint} for {route}")
 
