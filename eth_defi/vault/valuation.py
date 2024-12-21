@@ -8,6 +8,7 @@
 """
 import logging
 from abc import ABC, abstractmethod
+from collections import defaultdict
 from dataclasses import dataclass
 from decimal import Decimal
 from typing import Iterable, Any, TypeAlias
@@ -15,7 +16,6 @@ from typing import Iterable, Any, TypeAlias
 import pandas as pd
 from eth_typing import HexAddress, BlockIdentifier
 from multicall import Call, Multicall
-from safe_eth.eth.constants import NULL_ADDRESS
 from web3 import Web3
 from web3.contract import Contract
 
@@ -23,7 +23,9 @@ from web3.contract import Contract
 from eth_defi.provider.anvil import is_mainnet_fork
 from eth_defi.provider.broken_provider import get_almost_latest_block_number
 from eth_defi.token import TokenDetails, fetch_erc20_details, TokenAddress
+from eth_defi.uniswap_v2.utils import ZERO_ADDRESS
 from eth_defi.vault.base import VaultPortfolio
+
 
 logger = logging.getLogger(__name__)
 
@@ -57,7 +59,6 @@ class PortfolioValuation:
         return sum(self.spot_valuations.values())
 
 
-
 @dataclass(slots=True, frozen=True)
 class Route:
     """One potential swap path.
@@ -73,8 +74,11 @@ class Route:
     quoter: "ValuationQuoter"
     path: tuple[HexAddress, HexAddress] | tuple[HexAddress, HexAddress, HexAddress]
 
+    #: "uniswap-v2" or "uniswap-v3" if set
+    dex_hint: str | None = None
+
     def __repr__(self):
-        return f"<Route {self.path} using quoter {self.quoter}>"
+        return f"<Route {self.source_token.symbol} -> {self.target_token.symbol} using path {self.path} using quoter {self.quoter.__class__.__name__}>"
 
     def __hash__(self) -> int:
         """Unique hash for this instance"""
@@ -185,10 +189,10 @@ class MulticallWrapper:
                 token_amount
             )
 
-    def create_tx_data(self, from_= NULL_ADDRESS) -> dict:
+    def create_tx_data(self, from_= ZERO_ADDRESS) -> dict:
         """Create payload for eth_call."""
         return {
-            "from": NULL_ADDRESS,
+            "from": ZERO_ADDRESS,
             "to": self.contract_address,
             "data": self.get_data(),
         }
@@ -215,6 +219,25 @@ class MulticallWrapper:
                 exc_info=e,
             )
             raise
+
+
+@dataclass(frozen=True, slots=True)
+class SwapMatrix:
+    """Brute-forced route swap result for a portfolio of buying multiple tokens.
+
+    See :py:meth:`NetAssetValueCalculator.find_swap_routes`
+    """
+
+    #: Outcome of different attempted routes.
+    #:
+    #: Result is none if the path did not exist or the smart contract call failed.
+    #:
+    results: dict[Route, Decimal | None]
+    best_results_by_token: dict[TokenDetails, list[tuple[Route, Decimal | None]]]
+
+    @property
+    def tokens(self) -> set:
+        return set(self.best_results_by_token.keys())
 
 
 class ValuationQuoter(ABC):
@@ -479,8 +502,19 @@ class NetAssetValueCalculator:
 
         self.block_identifier = block_identifier
 
-    def generate_routes_for_router(self, router: ValuationQuoter, portfolio: VaultPortfolio) -> Iterable[Route]:
-        """Create all potential routes we need to test to get quotes for a single asset."""
+    def generate_routes_for_router(
+        self,
+        router: ValuationQuoter,
+        portfolio: VaultPortfolio,
+        buy=False,
+    ) -> Iterable[Route]:
+        """Create all potential routes we need to test to get quotes for a single asset.
+
+        :param buy:
+            Generate routes for buying: portfolio tokens present buy target.
+
+            Otherwise generate routes for selling: portfolio tokens present tokens we want to get rid off.
+        """
         for token_address, amount in portfolio.spot_erc20.items():
 
             if token_address == self.denomination_token.address:
@@ -488,13 +522,23 @@ class NetAssetValueCalculator:
                 continue
 
             token = _convert_to_token_details(self.web3, self.chain_id, token_address)
-            yield from router.generate_routes(
-                source_token=token,
-                target_token=self.denomination_token,
-                intermediate_tokens=self.intermediary_tokens,
-                amount=amount,
-                debug=self.debug,
-            )
+
+            if buy:
+                yield from router.generate_routes(
+                    source_token=self.denomination_token,
+                    target_token=token,
+                    intermediate_tokens=self.intermediary_tokens,
+                    amount=amount,
+                    debug=self.debug,
+                )
+            else:
+                yield from router.generate_routes(
+                    source_token=token,
+                    target_token=self.denomination_token,
+                    intermediate_tokens=self.intermediary_tokens,
+                    amount=amount,
+                    debug=self.debug,
+                )
 
     def calculate_market_sell_nav(
         self,
@@ -609,6 +653,51 @@ s
             # Fallback not supported yet
             raise NotImplementedError()
 
+    def try_swap_paths(
+        self,
+        routes: list[Route],
+        portfolio: VaultPortfolio,
+    ) -> dict[Route, TokenAmount]:
+        """Use multicall to try all possible swap paths for tokens.
+
+        - Find the best buy options
+
+        - Asssume :py:attr:`VaultPortfolio.spot_erc20` contains token amounts we want to buy
+
+        :return:
+            Map routes -> amount out token amounts with this route
+        """
+        multicall = self.multicall
+        if multicall is None:
+            logger.info("Autodetecting multicall")
+            multicall = is_mainnet_fork(self.web3)
+
+        web3 = self.web3
+        chain_id = web3.eth.chain_id
+
+        tokens: dict[HexAddress, TokenDetails] = {address: fetch_erc20_details(web3, address, chain_id) for address in portfolio.tokens}
+        raw_balances = {address: token.convert_to_raw(portfolio.spot_erc20[address]) for address, token in tokens.items()}
+
+        logger.info("try_swap_paths(), %d routes, multicall is %s", len(routes), multicall)
+
+        calls = [r.quoter.create_multicall_wrapper(r, raw_balances[r.target_token.address]).create_multicall() for r in routes]
+
+        logger.info("Processing %d Multicall Calls", len(calls))
+
+        if multicall:
+            multicall = Multicall(
+                calls=calls,
+                block_id=self.block_identifier,
+                _w3=self.web3,
+                require_success=False,
+                gas_limit=self.multicall_gas_limit,
+            )
+            batched_result = multicall()
+            return batched_result
+        else:
+            # Fallback not supported yet
+            raise NotImplementedError()
+
     def create_route_diagnostics(
         self,
         portfolio: VaultPortfolio,
@@ -634,7 +723,7 @@ s
 
         :return:
             Human-readable DataFrame.
-x
+
             Indexed by asset.
         """
         routes = [r for router in self.quoters for r in self.generate_routes_for_router(router, portfolio)]
@@ -679,6 +768,35 @@ x
         df = df.set_index("Path")
         return df
 
+    def find_swap_routes(self, portfolio: VaultPortfolio, buy=True) -> SwapMatrix:
+        """Find the best routes to buy tokens."""
+
+        assert portfolio.is_spot_only()
+        assert portfolio.get_position_count() > 0, "Empty portfolio"
+        logger.info("Finding buy routes portfolio with %d assets", portfolio.get_position_count())
+        routes = [r for router in self.quoters for r in self.generate_routes_for_router(router, portfolio, buy=buy)]
+        logger.info("Resolving total %d routes", len(routes))
+        all_route_results = self.try_swap_paths(routes, portfolio)
+        results_by_token = defaultdict(list)
+        for r, amount in all_route_results.items():
+
+            results_by_token[r.target_token].append((r, amount))
+
+        def _get_route_priorisation_sort_key(route_amount_tuple):
+            amount = route_amount_tuple[1]
+            if amount is None:
+                # router failed, sort to end
+                return Decimal(9999999 * 10**18)
+
+            return amount
+
+        # Make so that the best result (most tokens bought) is the first of all tried results
+        results_by_token = {token: sorted(routes, key=_get_route_priorisation_sort_key) for token, routes in results_by_token.items()}
+
+        return SwapMatrix(
+            results=all_route_results,
+            best_results_by_token=results_by_token,
+        )
 
 def _convert_to_token_details(
     web3: Web3,

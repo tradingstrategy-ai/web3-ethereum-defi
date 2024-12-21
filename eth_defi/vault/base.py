@@ -79,7 +79,11 @@ class VaultPortfolio:
     - See :py:meth:`VaultBase.fetch_portfolio`
     """
 
+    #: List of tokens and their amounts
     spot_erc20: dict[HexAddress, Decimal]
+
+    #: For route finding, which DEX tokens should use
+    dex_hints: dict[HexAddress, list[str]]
 
     def __post_init__(self):
         for token, value in self.spot_erc20.items():

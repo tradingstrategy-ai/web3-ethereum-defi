@@ -94,10 +94,13 @@ class TokenDetails:
         """The EVM chain id where this token lives."""
         return self.contract.w3.eth.chain_id
 
-    @property
+    @cached_property
     def address(self) -> HexAddress:
-        """The address of this token."""
-        return self.contract.address
+        """The address of this token.
+
+        Always lowercase.
+        """
+        return self.contract.address.lower()
 
     def convert_to_decimals(self, raw_amount: int) -> Decimal:
         """Convert raw token units to decimals.

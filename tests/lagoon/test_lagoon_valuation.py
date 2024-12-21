@@ -15,12 +15,84 @@ from eth_defi.token import TokenDetails
 from eth_defi.trace import assert_transaction_success_with_explanation
 from eth_defi.uniswap_v2.constants import UNISWAP_V2_DEPLOYMENTS
 from eth_defi.uniswap_v2.deployment import fetch_deployment, UniswapV2Deployment
-from eth_defi.vault.base import TradingUniverse
+from eth_defi.uniswap_v3.constants import UNISWAP_V3_DEPLOYMENTS
+from eth_defi.uniswap_v3.deployment import fetch_deployment as fetch_deployment_uni_v3, UniswapV3Deployment
+
+from eth_defi.vault.base import TradingUniverse, VaultPortfolio
+from eth_defi.vault.mass_buyer import create_buy_portfolio, BASE_SHOPPING_LIST, buy_tokens
 from eth_defi.vault.valuation import NetAssetValueCalculator, UniswapV2Router02Quoter, Route
 
 
 @pytest.fixture()
 def uniswap_v2(web3):
+    return fetch_deployment(
+        web3,
+        factory_address=UNISWAP_V2_DEPLOYMENTS["base"]["factory"],
+        router_address=UNISWAP_V2_DEPLOYMENTS["base"]["router"],
+        init_code_hash=UNISWAP_V2_DEPLOYMENTS["base"]["init_code_hash"],
+    )
+
+
+@pytest.fixture()
+def uniswap_v3(web3):
+    return fetch_deployment_uni_v3(
+        web3,
+        factory_address=UNISWAP_V3_DEPLOYMENTS["base"]["factory"],
+        router_address=UNISWAP_V3_DEPLOYMENTS["base"]["router"],
+        init_code_hash=UNISWAP_V3_DEPLOYMENTS["base"]["init_code_hash"],
+    )
+
+
+@pytest.fixture()
+def extensive_portfolio(
+    web3,
+    lagoon_vault: LagoonVault,
+    base_usdc,
+    base_weth,
+    uniswap_v2,
+    usdc_holder,
+    topped_up_asset_manager,
+) -> VaultPortfolio:
+    """Make a shopping list of Base tokens.
+
+    Acquire some more tokens for the tests, each 5 USDC.
+    Mixed Uniswap v2/v3 routing.
+    """
+
+    asset_manager = topped_up_asset_manager
+
+    # Top up the vault with 999 USDC
+    tx_hash = base_usdc.contract.functions.transfer(usdc_holder, 999 * 10**6).transact({"from": usdc_holder, "gas": 100_000})
+    assert_transaction_success_with_explanation(web3, tx_hash)
+
+    portfolio = create_buy_portfolio(
+        BASE_SHOPPING_LIST,
+        Decimal(5.0)
+    )
+
+    buy_result = buy_tokens(
+        web3,
+        user=lagoon_vault.address,  # We cheat by having this address unlockeed in Anvl
+        portfolio=portfolio,
+        denomination_token=base_usdc,
+        intermediary_tokens={base_weth},
+        quoters={
+            UniswapV2Router02Quoter(swap_router_v2=uniswap_v2.router)
+        },
+    )
+
+    # Asset manager executes approve + swap texs for all tokens we want to buy
+    for call in buy_result.needed_transactions:
+        wrapped_call = lagoon_vault.transact_through_module(
+            call,
+        )
+        tx_data = wrapped_call.transact({"from": asset_manager})
+        tx_hash = web3.eth.send_transaction(tx_data)
+        assert_transaction_success_with_explanation(web3, tx_hash)
+
+
+@pytest.fixture()
+def vault_with_more_tokens(web3, lagoon_vault, extensive_portfolio):
     return fetch_deployment(
         web3,
         factory_address=UNISWAP_V2_DEPLOYMENTS["base"]["factory"],
@@ -284,3 +356,55 @@ def test_lagoon_post_valuation(
     # from NAV smart contract endpoint
     nav = vault.fetch_nav()
     assert nav > Decimal(30)  # Changes every day as we need to test live mainnet
+
+
+def test_lagoon_mixed_routes(
+    web3: Web3,
+    vault_with_more_tokens: LagoonVault,
+    extensive_portfolio: VaultPortfolio,
+    base_usdc: TokenDetails,
+    base_weth: TokenDetails,
+    base_dino: TokenDetails,
+    uniswap_v2: UniswapV2Deployment,
+    topped_up_valuation_manager: HexAddress,
+    topped_up_asset_manager: HexAddress,
+):
+    """Value a portfolio with mixed Uniswap v2/v3 routes."""
+
+    vault = vault_with_more_tokens
+    valuation_manager = topped_up_valuation_manager
+    asset_manager = topped_up_asset_manager
+
+    # Check value before update
+    # settle() never called for this vault, so the value is zero
+    nav = vault.fetch_nav()
+    assert nav == pytest.approx(Decimal(0))
+
+    universe = TradingUniverse(
+        spot_token_addresses={
+            base_weth.address,
+            base_usdc.address,
+            base_dino.address,
+        } | extensive_portfolio.tokens,
+    )
+    latest_block = get_almost_latest_block_number(web3)
+    portfolio = vault.fetch_portfolio(universe, latest_block)
+    assert portfolio.get_position_count() == 3
+
+    uniswap_v2_quoter_v2 = UniswapV2Router02Quoter(uniswap_v2.router)
+
+    nav_calculator = NetAssetValueCalculator(
+        web3,
+        denomination_token=base_usdc,
+        intermediary_tokens={base_weth.address},  # Allow DINO->WETH->USDC
+        quoters={uniswap_v2_quoter_v2},
+        debug=True,
+    )
+
+    portfolio_valuation = nav_calculator.calculate_market_sell_nav(portfolio)
+
+    # First post the new valuation as valuation manager
+    total_value = portfolio_valuation.get_total_equity()
+    bound_func = vault.post_new_valuation(total_value)
+    tx_hash = bound_func.transact({"from": valuation_manager})      # Unlocked by anvil
+    assert_transaction_success_with_explanation(web3, tx_hash)

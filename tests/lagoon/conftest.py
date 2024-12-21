@@ -41,7 +41,6 @@ def usdc_holder() -> HexAddress:
     return "0x3304E22DDaa22bCdC5fCa2269b418046aE7b566A"
 
 
-
 @pytest.fixture()
 def valuation_manager() -> HexAddress:
     """Unlockable account set as the vault valuation manager."""
@@ -177,7 +176,6 @@ def topped_up_asset_manager(web3, asset_manager):
     })
     assert_transaction_success_with_explanation(web3, tx_hash)
     return asset_manager
-
 
 
 @pytest.fixture()
