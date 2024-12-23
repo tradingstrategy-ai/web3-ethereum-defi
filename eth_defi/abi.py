@@ -328,7 +328,10 @@ def encode_function_call(
         fn_abi,
         args,
     )
-    encoded = encode_abi(w3, fn_abi, fn_arguments, fn_selector)
+    try:
+        encoded = encode_abi(w3, fn_abi, fn_arguments, fn_selector)
+    except Exception as e:
+        raise RuntimeError(f"Could not encode ABI: {fn_abi}, args: {fn_arguments}") from e
     return HexBytes(encoded)
 
 

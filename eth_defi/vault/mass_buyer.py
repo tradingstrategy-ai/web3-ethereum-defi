@@ -90,6 +90,7 @@ def _default_buy_function(
                 base_token=route.target_token.contract,
                 intermediate_token=intermediate_token,
                 amount_in=raw_amount,
+                pool_fees=route.fees,
             )
         case _:
             raise NotImplementedError(f"Unknown dex_hint {route.dex_hint} for {route}")

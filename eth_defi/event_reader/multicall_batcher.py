@@ -23,8 +23,9 @@ from hexbytes import HexBytes
 from multicall import Call, Multicall
 from web3 import Web3
 from web3.contract import Contract
+from web3.contract.contract import ContractFunction
 
-from eth_defi.abi import get_deployed_contract, ZERO_ADDRESS
+from eth_defi.abi import get_deployed_contract, ZERO_ADDRESS, encode_function_args, encode_function_call
 
 logger = logging.getLogger(__name__)
 
@@ -116,10 +117,10 @@ def call_multicall(
 
 def call_multicall_batched_single_thread(
     multicall_contract: Contract,
-    calls: list[Call],
+    calls: list["MulticallWrapper"],
     block_identifier: BlockIdentifier,
     batch_size=15,
-):
+) -> dict[Hashable, Any]:
     """Call Multicall contract with a payload.
 
     - Single threaded
@@ -131,11 +132,13 @@ def call_multicall_batched_single_thread(
         Don't do more than this calls per one RPC.
 
     """
+    result = {}
     assert len(calls) > 0
     for idx, batch in enumerate(_batcher(calls, batch_size), start=1):
-        logger.info("Processing multicall batch %d, batch size %d", idx, batch_size)
-        call_multicall(multicall_contract, batch, block_identifier)
-
+        logger.info("Processing multicall batch #%d, batch size %d", idx, batch_size)
+        partial_result = call_multicall(multicall_contract, batch, block_identifier)
+        result.update(partial_result)
+    return result
 
 
 def call_multicall_debug_single_thread(
@@ -167,6 +170,10 @@ def call_multicall_debug_single_thread(
             call.get_human_args(),
         )
         started = datetime.datetime.utcnow()
+
+        # 0xcdca1753000000000000000000000000000000000000000000000000000000000000004000000000000000000000000000000000000000000000000000000000004c4b400000000000000000000000000000000000000000000000000000000000000042833589fcd6edb6e08f4c7c32d4f71b54bda029130001f44200000000000000000000000000000000000006000bb8ca73ed1815e5915489570014e024b7ebe65de67900000000000000000000000000000000000000000000000000000000000
+        if len(data) >= 196:
+            logger.info("To: %s, data: %s", address, data.hex())
 
         try:
             output = web3.eth.call(
@@ -211,20 +218,18 @@ class MulticallWrapper(abc.ABC):
     - And we do not have time to fix it
     """
 
+    call: ContractFunction
     debug: bool
-    signature_string: str
-    contract_address: HexAddress
-    signature: list[Any]
+
+    def __post_init__(self):
+        assert isinstance(self.call, ContractFunction)
+        assert self.call.args
 
     def __repr__(self):
         raise NotImplementedError(f"Please implement in a subclass")
 
     @abstractmethod
     def get_key(self) -> Hashable:
-        pass
-
-    @abstractmethod
-    def create_multicall(self) -> Call:
         pass
 
     @abstractmethod
@@ -250,8 +255,11 @@ class MulticallWrapper(abc.ABC):
         return call.signature.fourbyte, call.data
 
     def get_address_and_data(self) -> tuple[HexAddress, bytes]:
-        call = self.create_multicall()
-        return self.contract_address, call.data
+        data = encode_function_call(
+            self.call,
+            self.call.args
+        )
+        return self.call.address, data
 
     def get_args(self) -> list[Any]:
         """Get undecoded Solidity arguments passed to the underlying func."""
@@ -259,7 +267,7 @@ class MulticallWrapper(abc.ABC):
 
     def get_human_args(self) -> str:
         """Get Solidity args as human readable string for debugging."""
-        args = self.signature[1:]
+        args = self.call.args
         def _humanise(a):
             if not type(a) == int:
                 if hasattr(a, "hex"):
@@ -271,7 +279,7 @@ class MulticallWrapper(abc.ABC):
         """Create payload for eth_call."""
         return {
             "from": ZERO_ADDRESS,
-            "to": self.contract_address,
+            "to": self.call.address,
             "data": self.get_data(),
         }
 

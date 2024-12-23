@@ -21,6 +21,7 @@ from matplotlib._api import classproperty
 from multicall import Call, Multicall
 from web3 import Web3
 from web3.contract import Contract
+from web3.contract.contract import ContractFunction
 
 from eth_defi.event_reader.multicall_batcher import get_multicall_contract, call_multicall_batched_single_thread, MulticallWrapper, call_multicall_debug_single_thread
 from eth_defi.provider.anvil import is_mainnet_fork
@@ -152,7 +153,7 @@ class Route:
 
     @property
     def address_path(self) -> list[str]:
-        return [x.address for x in self.path]
+        return [Web3.to_checksum_address(x.address) for x in self.path]
 
 
 @dataclass(slots=True, frozen=True)
@@ -169,7 +170,7 @@ class ValuationMulticallWrapper(MulticallWrapper):
     amount_in: int
 
     def __repr__(self):
-        return f"<ValuationMulticallWrapper on DEX {self.quoter.dex_hint} tokens:{self.amount_in} for func:{self.signature_string}>"
+        return f"<ValuationMulticallWrapper on DEX:{self.quoter.dex_hint}, route:{self.quoter.format_path(self.route)}, amount in:{self.amount_in} using func:{self.call.fn_name}>"
 
     def get_key(self) -> Hashable:
         return self.route
@@ -283,21 +284,13 @@ class UniswapV2Router02Quoter(ValuationQuoter):
 
     def create_multicall_wrapper(self, route: Route, amount_in: int) -> ValuationMulticallWrapper:
         # If we need to optimise Python parsing speed, we can directly pass function selectors and pre-packed ABI
-
-        signature = [
-            self.signature_string,
-            amount_in,
-            route.address_path,
-        ]
-
+        bound_func = self.swap_router_v2.functions.getAmountsOut(amount_in, route.address_path)
         return ValuationMulticallWrapper(
             quoter=self,
             route=route,
             amount_in=amount_in,
             debug=self.debug,
-            signature_string=self.signature_string,
-            contract_address=self.swap_router_v2.address,
-            signature=signature,
+            call=bound_func,
         )
 
     def generate_routes(
@@ -414,21 +407,18 @@ class UniswapV3Quoter(ValuationQuoter):
 
     def create_multicall_wrapper(self, route: Route, amount_in: int) -> ValuationMulticallWrapper:
         # If we need to optimise Python parsing speed, we can directly pass function selectors and pre-packed ABI
+        path = encode_path(route.address_path, route.fees)
 
-        signature = [
-            self.signature_string,
-            encode_path(route.address_path, route.fees),
+        bound_func = self.quoter.functions.quoteExactInput(
+            path,
             amount_in,
-        ]
-
+        )
         return ValuationMulticallWrapper(
             quoter=self,
             route=route,
             amount_in=amount_in,
             debug=self.debug,
-            signature_string=self.signature_string,
-            contract_address=self.quoter.address,
-            signature=signature,
+            call=bound_func,
         )
 
     def generate_routes(
@@ -788,18 +778,18 @@ s
                 self.web3,
                 block_identifier=self.block_identifier,
             )
-            return call_multicall_debug_single_thread(
-                multicall_contract,
-                calls=calls,
-                block_identifier=self.block_identifier,
-            )
-
-            # return call_multicall_batched_single_thread(
+            # return call_multicall_debug_single_thread(
             #     multicall_contract,
             #     calls=calls,
             #     block_identifier=self.block_identifier,
-            #     batch_size=self.batch_size,
             # )
+
+            return call_multicall_batched_single_thread(
+                multicall_contract,
+                calls=calls,
+                block_identifier=self.block_identifier,
+                batch_size=self.batch_size,
+            )
 
     def fetch_onchain_valuations(
         self,
@@ -841,7 +831,7 @@ s
 
         - Find the best buy options
 
-        - Asssume :py:attr:`VaultPortfolio.spot_erc20` contains token amounts we want to buy
+        - Assume :py:attr:`VaultPortfolio.spot_erc20` contains token amounts we want to buy
 
         :return:
             Map routes -> amount out token amounts with this route
@@ -854,8 +844,9 @@ s
         web3 = self.web3
         chain_id = web3.eth.chain_id
 
+        denomination_token = self.denomination_token
         tokens: dict[HexAddress, TokenDetails] = {address: fetch_erc20_details(web3, address, chain_id) for address in portfolio.tokens}
-        raw_balances = {address: token.convert_to_raw(portfolio.spot_erc20[address]) for address, token in tokens.items()}
+        raw_balances = {address: denomination_token.convert_to_raw(portfolio.spot_erc20[address]) for address, token in tokens.items()}
 
         logger.info(
             "try_swap_paths(), %d routes, %d quoters, multicall is %s",

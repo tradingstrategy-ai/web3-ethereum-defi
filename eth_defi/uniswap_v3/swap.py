@@ -23,7 +23,7 @@ def swap_with_slippage_protection(
     recipient_address: HexAddress,
     base_token: Contract,
     quote_token: Contract,
-    pool_fees: list[int],
+    pool_fees: list[int] | tuple[int],
     intermediate_token: Contract | None = None,
     max_slippage: float = 15,
     amount_in: int | None = None,
