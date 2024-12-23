@@ -10,14 +10,13 @@ from web3 import Web3
 from web3.contract import Contract
 from web3.exceptions import ContractLogicError
 
-from eth_defi.abi import get_deployed_contract
+from eth_defi.abi import get_deployed_contract, ZERO_ADDRESS_STR
 from eth_defi.chainlink.round_data import ChainLinkLatestRoundData
 from eth_defi.enzyme.deployment import EnzymeDeployment, RateAsset
 from eth_defi.event_reader.conversion import decode_data, convert_uint256_bytes_to_address, convert_int256_bytes_to_int
 from eth_defi.event_reader.filter import Filter
 from eth_defi.event_reader.reader import Web3EventReader
 from eth_defi.token import fetch_erc20_details, TokenDetails
-from eth_defi.utils import ZERO_ADDRESS_STR
 
 
 class UnsupportedBaseAsset(Exception):

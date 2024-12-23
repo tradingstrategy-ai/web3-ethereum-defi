@@ -24,7 +24,6 @@ TokenTradeDefinition: TypeAlias = tuple[str, str, str]
 BASE_SHOPPING_LIST: list[TokenTradeDefinition] = [
     ("uniswap-v2", "keycat", "0x9a26f5433671751c3276a065f57e5a02d2817973"),  # KEYCAT-WETH
     ("uniswap-v3", "odos", "0xca73ed1815e5915489570014e024b7ebe65de679"),  # ODOS-WETH
-    ("uniswap-v3", "odos", "0xca73ed1815e5915489570014e024b7ebe65de679"),  # ODOS-WETH
     ("uniswap-v3", "cbBTC", "0xcbb7c0000ab88b473b1f5afd9ef808440eed33bf"),  # CBBTC-USDC
     ("uniswap-v2", "AGNT", "0x7484a9fb40b16c4dfe9195da399e808aa45e9bb9"),  # AGNT-USDC
     ("uniswap-v3", "SIMMI", "0x161e113b8e9bbaefb846f73f31624f6f9607bd44")  # Uniswap v3 only
@@ -121,6 +120,7 @@ def buy_tokens(
     buy_func=_default_buy_function,
     uniswap_v2: UniswapV2Deployment | None = None,
     uniswap_v3: UniswapV3Deployment | None = None,
+    multicall_batch_size: int=5,
 ) -> BuyResult:
     """Buy bunch of tokens on the wish list.
 
@@ -137,6 +137,7 @@ def buy_tokens(
         intermediary_tokens=intermediary_tokens,
         quoters=quoters,
         multicall=multicall,
+        batch_size=multicall_batch_size,
     )
 
     swap_matrix = nav.find_swap_routes(portfolio)

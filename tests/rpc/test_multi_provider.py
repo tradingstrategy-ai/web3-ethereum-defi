@@ -10,7 +10,7 @@ from eth_defi.provider.anvil import AnvilLaunch, launch_anvil
 from eth_defi.provider.multi_provider import create_multi_provider_web3, MultiProviderConfigurationError
 from eth_defi.provider.named import get_provider_name
 from eth_defi.trace import assert_transaction_success_with_explanation
-from eth_defi.uniswap_v2.utils import ZERO_ADDRESS
+from eth_defi.abi import ZERO_ADDRESS
 
 
 @pytest.fixture(scope="module")

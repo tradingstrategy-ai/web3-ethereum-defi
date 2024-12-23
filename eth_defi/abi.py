@@ -27,10 +27,18 @@ from web3.contract.contract import Contract, ContractFunction
 # Cache loaded ABI files in-process memory for speedup
 from web3.datastructures import AttributeDict
 
-from eth_defi.utils import ZERO_ADDRESS_STR
-
 # How big are our ABI and contract caches
 _CACHE_SIZE = 512
+
+
+#: Ethereum 0x0000000000000000000000000000000000000000 address as a string.
+#:
+#: Legacy. Use one below.
+#:
+ZERO_ADDRESS_STR = "0x0000000000000000000000000000000000000000"
+
+#: Ethereum 0x0000000000000000000000000000000000000000 address
+ZERO_ADDRESS = ZERO_ADDRESS_STR
 
 
 @lru_cache(maxsize=_CACHE_SIZE)
@@ -464,3 +472,4 @@ def get_function_selector(func: ContractFunction) -> bytes:
     function_signature = _abi_to_signature(fn_abi)
     fn_selector = function_signature_to_4byte_selector(function_signature)  # type: ignore
     return fn_selector
+

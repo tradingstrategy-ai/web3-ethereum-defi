@@ -10,7 +10,7 @@ import logging
 
 from web3.exceptions import ContractLogicError
 
-from eth_defi.abi import get_deployed_contract
+from eth_defi.abi import get_deployed_contract, ZERO_ADDRESS
 from eth_typing import HexAddress
 from web3 import Web3
 from web3.contract import Contract
@@ -21,7 +21,6 @@ from eth_defi.event_reader.filter import Filter
 from eth_defi.event_reader.reader import Web3EventReader
 from eth_defi.hotwallet import HotWallet
 from eth_defi.token import TokenDetails, fetch_erc20_details
-from eth_defi.uniswap_v2.utils import ZERO_ADDRESS
 
 logger = logging.getLogger(__name__)
 

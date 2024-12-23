@@ -1,6 +1,7 @@
 """NAV calcualtion and valuation commitee tests."""
 
 from decimal import Decimal
+from shlex import quote
 
 import pytest
 from eth_typing import HexAddress
@@ -15,9 +16,10 @@ from eth_defi.token import TokenDetails, fetch_erc20_details
 from eth_defi.trace import assert_transaction_success_with_explanation
 from eth_defi.uniswap_v2.constants import UNISWAP_V2_DEPLOYMENTS
 from eth_defi.uniswap_v2.deployment import fetch_deployment, UniswapV2Deployment
-from eth_defi.uniswap_v2.utils import ZERO_ADDRESS
+from eth_defi.abi import ZERO_ADDRESS
 from eth_defi.uniswap_v3.constants import UNISWAP_V3_DEPLOYMENTS
 from eth_defi.uniswap_v3.deployment import fetch_deployment as fetch_deployment_uni_v3, UniswapV3Deployment
+from eth_defi.uniswap_v3.utils import encode_path
 
 from eth_defi.vault.base import TradingUniverse, VaultPortfolio
 from eth_defi.vault.mass_buyer import create_buy_portfolio, BASE_SHOPPING_LIST, buy_tokens
@@ -49,6 +51,12 @@ def uniswap_v3(web3):
 
 
 @pytest.fixture()
+def multicall_batch_size() -> int:
+    """Keep it low, Anvil very slow"""
+    return 3
+
+
+@pytest.fixture()
 def extensive_portfolio(
     web3,
     lagoon_vault: LagoonVault,
@@ -58,6 +66,7 @@ def extensive_portfolio(
     uniswap_v3,
     usdc_holder,
     topped_up_asset_manager,
+    multicall_batch_size,
 ) -> VaultPortfolio:
     """Make a shopping list of Base tokens.
 
@@ -67,7 +76,7 @@ def extensive_portfolio(
     - Fixture slow as we brute force paths
     """
 
-    vault = lagoon_vaultg
+    vault = lagoon_vault
     asset_manager = topped_up_asset_manager
 
     # Top up the vault with 999 USDC
@@ -91,6 +100,7 @@ def extensive_portfolio(
         },
         uniswap_v2=uniswap_v2,
         uniswap_v3=uniswap_v3,
+        multicall_batch_size=multicall_batch_size,
     )
 
     assert len(buy_result.needed_transactions) > 0
@@ -116,6 +126,41 @@ def vault_with_more_tokens(web3, lagoon_vault, extensive_portfolio):
     """Execute portfolio buys for the vault."""
     vault = lagoon_vault
     return vault
+
+
+def test_uniswap_v3_quoter_basic_three_leg(
+    web3: Web3,
+    uniswap_v3: UniswapV3Deployment,
+    base_usdc,
+    base_weth
+):
+    """Check the underlying quoter smart contract works."""
+
+    quoter = uniswap_v3.quoter
+    parts = [
+        base_usdc.address,
+        base_weth.address,
+        "0xca73ed1815e5915489570014e024b7ebe65de679",  # ODOS
+    ]
+    fees = [
+        5 * 100,
+        30 * 100,
+    ]
+
+    path = encode_path(
+        parts,
+        fees
+    )
+
+    amount = 5 * 10**6
+
+    quote_result  = quoter.functions.quoteExactInput(
+        path,
+        amount
+    ).call()
+
+    amount_out = quote_result[0]
+    assert amount_out > 10**18
 
 
 def test_uniswap_v2_weth_usdc_sell_route(
@@ -423,7 +468,7 @@ def test_valuation_mixed_routes(
     nav_calculator = NetAssetValueCalculator(
         web3,
         denomination_token=base_usdc,
-        intermediary_tokens={base_weth.address},  # Allow DINO->WETH->USDC
+        intermediary_tokens={base_weth.address},
         quoters={uniswap_v2_quoter, uniswap_v3_quoter},
         debug=True,
     )

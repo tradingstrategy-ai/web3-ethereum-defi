@@ -9,12 +9,11 @@
 
 """
 import logging
-from abc import ABC, abstractmethod, abstractclassmethod
+from abc import ABC, abstractmethod
 from collections import defaultdict
 from dataclasses import dataclass
 from decimal import Decimal
-from functools import cached_property
-from typing import Iterable, Any, TypeAlias
+from typing import Iterable, Any, TypeAlias, Hashable
 
 import pandas as pd
 from eth_typing import HexAddress, BlockIdentifier
@@ -23,11 +22,11 @@ from multicall import Call, Multicall
 from web3 import Web3
 from web3.contract import Contract
 
-
+from eth_defi.event_reader.multicall_batcher import get_multicall_contract, call_multicall_batched_single_thread, MulticallWrapper, call_multicall_debug_single_thread
 from eth_defi.provider.anvil import is_mainnet_fork
 from eth_defi.provider.broken_provider import get_almost_latest_block_number
 from eth_defi.token import TokenDetails, fetch_erc20_details, TokenAddress
-from eth_defi.uniswap_v2.utils import ZERO_ADDRESS
+from eth_defi.abi import ZERO_ADDRESS
 from eth_defi.uniswap_v3.utils import encode_path
 from eth_defi.vault.base import VaultPortfolio
 
@@ -62,6 +61,26 @@ class PortfolioValuation:
     def get_total_equity(self) -> Decimal:
         """How much we value this portfolio in the :py:attr:`denomination_token`"""
         return sum(self.spot_valuations.values())
+
+
+
+@dataclass(frozen=True, slots=True)
+class SwapMatrix:
+    """Brute-forced route swap result for a portfolio of buying multiple tokens.
+
+    See :py:meth:`NetAssetValueCalculator.find_swap_routes`
+    """
+
+    #: Outcome of different attempted routes.
+    #:
+    #: Result is none if the path did not exist or the smart contract call failed.
+    #:
+    results: dict["Route", Decimal | None]
+    best_results_by_token: dict[TokenDetails, list[tuple["Route", Decimal | None]]]
+
+    @property
+    def tokens(self) -> set:
+        return set(self.best_results_by_token.keys())
 
 
 @dataclass(slots=True, frozen=True)
@@ -137,7 +156,7 @@ class Route:
 
 
 @dataclass(slots=True, frozen=True)
-class MulticallWrapper:
+class ValuationMulticallWrapper(MulticallWrapper):
     """Wrap the undertlying Multicall with diagnostics data.
 
     - Because the underlying Multicall lib is not powerful enough.
@@ -148,61 +167,24 @@ class MulticallWrapper:
     quoter: "ValuationQuoter"
     route: Route
     amount_in: int
-    signature_string: str
-    contract_address: HexAddress
-    signature: list[Any]
-    debug: bool = False  # Unit test flag
 
     def __repr__(self):
-        return f"<MulticallWrapper {self.amount_in} for {self.signature_string}>"
+        return f"<ValuationMulticallWrapper on DEX {self.quoter.dex_hint} tokens:{self.amount_in} for func:{self.signature_string}>"
+
+    def get_key(self) -> Hashable:
+        return self.route
+
+    def get_human_id(self) -> str:
+        return str(self.get_key())
 
     def create_multicall(self) -> Call:
         """Create underlying call about."""
         call = Call(self.contract_address, self.signature, [(self.route, self)])
         return call
 
-    def get_data(self) -> bytes:
-        """Return data field for the transaction payload"""
-        call = self.create_multicall()
-        data = call.data
-        return data
+    def handle(self, success, raw_return_value) -> TokenAmount | None:
 
-    def get_selector(self) -> bytes:
-        """Get 4-bytes Solidity function selector."""
-        call = self.create_multicall()
-        return call.signature.fourbyte
-
-    def get_args(self) -> list[Any]:
-        """Get undecoded Solidity arguments passed to the underlying func."""
-        return self.signature[1:]
-
-    def multicall_callback(self, succeed: bool, raw_return_value: Any) -> TokenAmount | None:
-        """Convert the raw Solidity function call result to a denominated token amount.
-
-        - Multicall library callback
-
-        :return:
-            The token amount in the reserve currency we get on the market sell.
-
-            None if this path was not supported (Solidity reverted).
-        """
-        if not succeed:
-            # Avoid expensive logging if we do not need it
-            if self.debug:
-                # Print calldata so we can copy-paste it to Tenderly for symbolic debug stack trace
-                data = self.get_data()
-                call = self.create_multicall()
-                logger.info("Path did not success: %s on %s, selector %s",
-                    self,
-                    self.signature_string,
-                    call.signature.fourbyte.hex(),
-                )
-                logger.info("Arguments: %s", self.signature[1:])
-                logger.info(
-                    "Contract: %s\nCalldata: %s",
-                    self.contract_address,
-                    data.hex()
-                )
+        if not success:
             return None
 
         try:
@@ -210,74 +192,9 @@ class MulticallWrapper:
                 self,
                 raw_return_value,
             )
-            return token_amount
-
         except Exception as e:
-            logger.error(
-                "Router handler failed %s for return value %s",
-                self.quoter,
-                raw_return_value,
-            )
-            raise e #  0.0000673
-
-
-        if self.debug:
-            logger.info(
-            "Route succeed: %s, we can sell %s for %s reserve currency",
-                self,
-                self.route,
-                token_amount
-            )
-
-    def create_tx_data(self, from_= ZERO_ADDRESS) -> dict:
-        """Create payload for eth_call."""
-        return {
-            "from": ZERO_ADDRESS,
-            "to": self.contract_address,
-            "data": self.get_data(),
-        }
-
-    def get_debug_string(self) -> str:
-        """Help why we fail."""
-        data = self.get_data()
-        return f"Could not execute {self.signature_string}.\nAddress: {self.contract_address}\nSelector: {self.get_selector().hex()}\nArgs: {self.get_args()}\nData: {data.hex()}"
-
-    def __call__(
-        self,
-        success: bool,
-        raw_return_value: Any
-    ):
-        """Called by Multicall lib"""
-        try:
-            return self.multicall_callback(success, raw_return_value)
-        except Exception as e:
-            logger.error(
-                "Could not decode multicall result, success %s, %s=%s",
-                 success,
-                 self.route,
-                 raw_return_value,
-                exc_info=e,
-            )
-            raise
-
-
-@dataclass(frozen=True, slots=True)
-class SwapMatrix:
-    """Brute-forced route swap result for a portfolio of buying multiple tokens.
-
-    See :py:meth:`NetAssetValueCalculator.find_swap_routes`
-    """
-
-    #: Outcome of different attempted routes.
-    #:
-    #: Result is none if the path did not exist or the smart contract call failed.
-    #:
-    results: dict[Route, Decimal | None]
-    best_results_by_token: dict[TokenDetails, list[tuple[Route, Decimal | None]]]
-
-    @property
-    def tokens(self) -> set:
-        return set(self.best_results_by_token.keys())
+            raise RuntimeError(f"Filed to decode. Quoter {self.quoter}, return dadta {raw_return_value}") from e
+        return token_amount
 
 
 class ValuationQuoter(ABC):
@@ -317,13 +234,12 @@ class ValuationQuoter(ABC):
         pass
 
     @abstractmethod
-    def create_multicall_wrapper(self, route: Route, amount_in: int) -> MulticallWrapper:
+    def create_multicall_wrapper(self, route: Route, amount_in: int) -> ValuationMulticallWrapper:
         pass
 
     @abstractmethod
     def format_path(self, route: Route) -> str:
         """Get human-readable route path line."""
-
 
     @classmethod
     @abstractmethod
@@ -365,7 +281,7 @@ class UniswapV2Router02Quoter(ValuationQuoter):
     def dex_hint(cls) -> str:
         return "uniswap-v2"
 
-    def create_multicall_wrapper(self, route: Route, amount_in: int) -> MulticallWrapper:
+    def create_multicall_wrapper(self, route: Route, amount_in: int) -> ValuationMulticallWrapper:
         # If we need to optimise Python parsing speed, we can directly pass function selectors and pre-packed ABI
 
         signature = [
@@ -374,7 +290,7 @@ class UniswapV2Router02Quoter(ValuationQuoter):
             route.address_path,
         ]
 
-        return MulticallWrapper(
+        return ValuationMulticallWrapper(
             quoter=self,
             route=route,
             amount_in=amount_in,
@@ -406,7 +322,7 @@ class UniswapV2Router02Quoter(ValuationQuoter):
 
     def handle_onchain_return_value(
         self,
-        wrapper: MulticallWrapper,
+        wrapper: ValuationMulticallWrapper,
         raw_return_value: any,
     ) -> Decimal | None:
         """Convert swapExactTokensForTokens() return value to tokens we receive"""
@@ -496,7 +412,7 @@ class UniswapV3Quoter(ValuationQuoter):
     def dex_hint(cls) -> str:
         return "uniswap-v3"
 
-    def create_multicall_wrapper(self, route: Route, amount_in: int) -> MulticallWrapper:
+    def create_multicall_wrapper(self, route: Route, amount_in: int) -> ValuationMulticallWrapper:
         # If we need to optimise Python parsing speed, we can directly pass function selectors and pre-packed ABI
 
         signature = [
@@ -505,7 +421,7 @@ class UniswapV3Quoter(ValuationQuoter):
             amount_in,
         ]
 
-        return MulticallWrapper(
+        return ValuationMulticallWrapper(
             quoter=self,
             route=route,
             amount_in=amount_in,
@@ -538,10 +454,11 @@ class UniswapV3Quoter(ValuationQuoter):
 
     def handle_onchain_return_value(
         self,
-        wrapper: MulticallWrapper,
+        wrapper: ValuationMulticallWrapper,
         raw_return_value: any,
     ) -> Decimal | None:
         """Convert swapExactTokensForTokens() return value to tokens we receive"""
+
         route = wrapper.route
         #         returns (
         #             uint256 amountOut,
@@ -551,11 +468,11 @@ class UniswapV3Quoter(ValuationQuoter):
         #         );
 
         if raw_return_value == 0:
+            # Not sure what's this?
             return None
 
-        # TODO: Multicall decoding problem?
-        target_token_out = raw_return_value
-        return route.target_token.convert_to_decimals(target_token_out)
+        amount_out = int.from_bytes(raw_return_value[0:32])
+        return route.target_token.convert_to_decimals(amount_out)
 
     def get_path_combinations(
         self,
@@ -666,6 +583,8 @@ class NetAssetValueCalculator:
         block_identifier: BlockIdentifier = None,
         multicall_gas_limit=10_000_000,
         debug=False,
+        batch_size=15,
+        legacy_multicall=False,
     ):
         """Create a new NAV calculator.
 
@@ -697,6 +616,9 @@ class NetAssetValueCalculator:
         :param multicall_gas_limit:
             Let's not explode our RPC node
 
+        :param batch_size:
+            Batch size to one Multicall RPC in the number of calls.
+
         :param debug:
             Unit test flag.
 
@@ -711,6 +633,8 @@ class NetAssetValueCalculator:
         self.multicall = multicall
         self.multicall_gas_limit = multicall_gas_limit
         self.debug = debug
+        self.batch_size = batch_size
+        self.legacy_multicall = legacy_multicall
 
         if block_identifier is None:
             block_identifier = get_almost_latest_block_number(web3)
@@ -844,10 +768,44 @@ s
 
         return best_result_by_token
 
+    def do_multicall(
+        self,
+        calls: list[MulticallWrapper]
+    ):
+        if self.legacy_multicall:
+            # Old bantg path
+            multicall = Multicall(
+                calls=[c.create_multicall() for c in calls],
+                block_id=self.block_identifier,
+                _w3=self.web3,
+                require_success=False,
+                gas_limit=self.multicall_gas_limit,
+            )
+            batched_result = multicall()
+            return batched_result
+        else:
+            multicall_contract = get_multicall_contract(
+                self.web3,
+                block_identifier=self.block_identifier,
+            )
+            return call_multicall_debug_single_thread(
+                multicall_contract,
+                calls=calls,
+                block_identifier=self.block_identifier,
+            )
+
+            # return call_multicall_batched_single_thread(
+            #     multicall_contract,
+            #     calls=calls,
+            #     block_identifier=self.block_identifier,
+            #     batch_size=self.batch_size,
+            # )
+
     def fetch_onchain_valuations(
         self,
         routes: list[Route],
         portfolio: VaultPortfolio,
+        legacy=False,
     ) -> dict[Route, TokenAmount]:
         """Use multicall to make calls to all of our quoters.
 
@@ -869,15 +827,7 @@ s
         logger.info("Processing %d Multicall Calls", len(calls))
 
         if multicall:
-            multicall = Multicall(
-                calls=calls,
-                block_id=self.block_identifier,
-                _w3=self.web3,
-                require_success=False,
-                gas_limit=self.multicall_gas_limit,
-            )
-            batched_result = multicall()
-            return batched_result
+            return self.do_multicall(calls)
         else:
             # Fallback not supported yet
             raise NotImplementedError()
@@ -914,20 +864,12 @@ s
             multicall,
         )
 
-        calls = [r.quoter.create_multicall_wrapper(r, raw_balances[r.target_token.address]).create_multicall() for r in routes]
+        calls = [r.quoter.create_multicall_wrapper(r, raw_balances[r.target_token.address]) for r in routes]
 
         logger.info("Processing %d Multicall Calls", len(calls))
 
         if multicall:
-            multicall = Multicall(
-                calls=calls,
-                block_id=self.block_identifier,
-                _w3=self.web3,
-                require_success=False,
-                gas_limit=self.multicall_gas_limit,
-            )
-            batched_result = multicall()
-            return batched_result
+            return self.do_multicall(calls)
         else:
             # Fallback not supported yet
             raise NotImplementedError()

@@ -21,15 +21,13 @@ from eth_typing import HexAddress, HexStr, ChecksumAddress
 from web3 import Web3
 from web3.contract import Contract
 
-from eth_defi.abi import get_contract, get_deployed_contract
+from eth_defi.abi import get_contract, get_deployed_contract, ZERO_ADDRESS_STR
 from eth_defi.deploy import deploy_contract
 from eth_defi.revert_reason import fetch_transaction_revert_reason
 
 #: A constant to tell the trade won't expire
 from eth_defi.uniswap_v2.utils import pair_for, sort_tokens
 from web3.exceptions import ContractLogicError
-
-from eth_defi.utils import ZERO_ADDRESS_STR
 
 FOREVER_DEADLINE = 2**63
 
