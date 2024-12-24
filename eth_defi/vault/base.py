@@ -20,6 +20,7 @@ from eth_typing import BlockIdentifier, HexAddress
 from web3 import Web3
 
 from eth_defi.token import TokenAddress, fetch_erc20_details, TokenDetails
+from eth_defi.vault.lower_case_dict import LowercaseDict
 
 
 @dataclass(slots=True, frozen=True)
@@ -91,12 +92,12 @@ class VaultPortfolio:
     dex_hints: dict[HexAddress, list[str]] = field(default_factory=dict)
 
     def __post_init__(self):
+
+        assert isinstance(self.spot_erc20, LowercaseDict)
+
         for token, value in self.spot_erc20.items():
             assert type(token) == str
             assert isinstance(value, Decimal)
-
-        # Always lowercased
-        self.spot_erc20 = {k.lower(): v for k, v in self.spot_erc20.items()}
 
     @property
     def tokens(self) -> set[HexAddress]:

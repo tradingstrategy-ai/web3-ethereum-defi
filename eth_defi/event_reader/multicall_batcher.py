@@ -19,13 +19,11 @@ from itertools import islice
 from typing import TypeAlias, Iterable, Generator, Hashable, Any, Final
 
 from eth_typing import HexAddress, BlockIdentifier, BlockNumber
-from hexbytes import HexBytes
-from multicall import Call, Multicall
 from web3 import Web3
 from web3.contract import Contract
 from web3.contract.contract import ContractFunction
 
-from eth_defi.abi import get_deployed_contract, ZERO_ADDRESS, encode_function_args, encode_function_call
+from eth_defi.abi import get_deployed_contract, ZERO_ADDRESS, encode_function_call
 
 logger = logging.getLogger(__name__)
 

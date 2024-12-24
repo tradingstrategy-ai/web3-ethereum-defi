@@ -28,7 +28,7 @@ from eth_defi.provider.broken_provider import get_almost_latest_block_number
 from eth_defi.token import TokenDetails, fetch_erc20_details, TokenAddress
 from eth_defi.uniswap_v3.utils import encode_path
 from eth_defi.vault.base import VaultPortfolio
-
+from eth_defi.vault.lower_case_dict import LowercaseDict
 
 logger = logging.getLogger(__name__)
 
@@ -38,6 +38,7 @@ TokenAmount: TypeAlias = Decimal
 
 class NoRouteFound(Exception):
     """We could not route some of the spot tokens to get any valuations for them."""
+
 
 
 @dataclass(slots=True)
@@ -733,7 +734,7 @@ s
 
         logger.info("Resolving best routes, %d tokens, %d routes", len(input_tokens), len(routes))
         # best_route_by_token: dict[TokenAddress, Route]
-        best_result_by_token: dict[TokenAddress, TokenAmount] = {}
+        best_result_by_token: dict[TokenAddress, TokenAmount] = LowercaseDict()
         for route, token_amount in routes.items():
             logger.info("Route %s got result %s", route, token_amount)
             if best_result_by_token.get(route.source_token.address, None) is None:
