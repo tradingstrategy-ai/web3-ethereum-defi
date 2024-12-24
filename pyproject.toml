@@ -73,6 +73,7 @@ sphinxcontrib-qthelp = {version = "1.0.3", optional = true} # Version pindowns h
 # terms-of-service = {path = "contracts/terms-of-service", develop = true}
 multicall = "^0.9.0"
 safe-eth-py = "6.0.0b42"
+uniswap-universal-router-decoder = "^1.2.1"
 
 [tool.poetry.dev-dependencies]
 pytest = "^7.4.3"

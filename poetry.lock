@@ -5475,6 +5475,20 @@ files = [
 ]
 
 [[package]]
+name = "uniswap-universal-router-decoder"
+version = "1.2.1"
+description = "Decode & Encode transactions sent to the Uniswap Universal Router"
+optional = false
+python-versions = ">=3.8"
+files = [
+    {file = "uniswap_universal_router_decoder-1.2.1-py3-none-any.whl", hash = "sha256:55ab2c81ba66656aab6bed1149281700d66fe4c014dfd16761997217c3e99b9e"},
+    {file = "uniswap_universal_router_decoder-1.2.1.tar.gz", hash = "sha256:d1666a98dc962abd249cd34e4e0bc1de93b92f107bdaf5d336980a644013e7d6"},
+]
+
+[package.dependencies]
+web3 = ">=6.0.0,<8.0.0"
+
+[[package]]
 name = "uri-template"
 version = "1.3.0"
 description = "RFC 6570 URI Template Processor"
@@ -5800,4 +5814,8 @@ test = ["pytest-xdist"]
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.10,<4"
+<<<<<<< Updated upstream
 content-hash = "e7b3564a0cb86325f2b421a7391b6635ccbaa76542f1afb64dae6027e3853afd"
+=======
+content-hash = "1116c797dc93e7d700522d138fcceed6573aead69dbfb1326e14ce4205642bc6"
+>>>>>>> Stashed changes
