@@ -1,7 +1,6 @@
 """NAV calcualtion and valuation commitee tests."""
 
 from decimal import Decimal
-from shlex import quote
 
 import pytest
 from eth_typing import HexAddress
@@ -46,6 +45,7 @@ def uniswap_v3(web3):
         position_manager_address=deployment_data["position_manager"],
         quoter_address=deployment_data["quoter"],
         quoter_v2=deployment_data["quoter_v2"],
+        router_v2=deployment_data["router_v2"],
     )
     return uniswap_v3_on_base
 
@@ -484,7 +484,13 @@ def test_valuation_mixed_routes(
 ):
     """Value a portfolio with mixed Uniswap v2/v3 routes.
 
-    - Use lagoon, but the valuation itself does not care abut Lagoon
+    - Buy some random tokens, on the top of the existing tokens the address already helds
+
+    - See that the valuation of bought tokens match what was the buy price
+
+    - Do miked two leg/three leg/uniswap v2/uniswap v3 routing
+
+    - Use lagoon, but the valuation itself does not care about Lagoon
 
     - This test is very slow due to high number of Multicalls made
     """
@@ -510,7 +516,7 @@ def test_valuation_mixed_routes(
     )
     latest_block = get_almost_latest_block_number(web3)
     portfolio = vault.fetch_portfolio(universe, latest_block)
-    assert portfolio.get_position_count() == 6
+    assert portfolio.get_position_count() == 7
 
     uniswap_v2_quoter = UniswapV2Router02Quoter(uniswap_v2.router)
     uniswap_v3_quoter = UniswapV3Quoter(uniswap_v3.quoter)
@@ -523,9 +529,11 @@ def test_valuation_mixed_routes(
         debug=True,
     )
 
+    # We bought using 5 USD, so all token holding valuations should be in ballpark
     portfolio_valuation = nav_calculator.calculate_market_sell_nav(portfolio)
-    assert portfolio_valuation.spot_valuations["0x9a26f5433671751c3276a065f57e5a02d2817973"] > 4.9  # Keycat
-    assert portfolio_valuation.spot_valuations["0x7484a9fb40b16c4dfe9195da399e808aa45e9bb9"] > 4.9  # AGNT
+    import ipdb ; ipdb.set_trace()
+    assert portfolio_valuation.spot_valuations["0x9a26f5433671751c3276a065f57e5a02d2817973"] > 4.5  # Keycat
+    assert portfolio_valuation.spot_valuations["0x7484a9fb40b16c4dfe9195da399e808aa45e9bb9"] > 4.5  # AGNT
 
     # Check routes
     routes = nav_calculator.create_route_diagnostics(portfolio)

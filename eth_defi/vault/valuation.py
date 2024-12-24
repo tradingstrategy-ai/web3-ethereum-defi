@@ -21,13 +21,11 @@ from matplotlib._api import classproperty
 from multicall import Call, Multicall
 from web3 import Web3
 from web3.contract import Contract
-from web3.contract.contract import ContractFunction
 
 from eth_defi.event_reader.multicall_batcher import get_multicall_contract, call_multicall_batched_single_thread, MulticallWrapper, call_multicall_debug_single_thread
 from eth_defi.provider.anvil import is_mainnet_fork
 from eth_defi.provider.broken_provider import get_almost_latest_block_number
 from eth_defi.token import TokenDetails, fetch_erc20_details, TokenAddress
-from eth_defi.abi import ZERO_ADDRESS
 from eth_defi.uniswap_v3.utils import encode_path
 from eth_defi.vault.base import VaultPortfolio
 
@@ -762,8 +760,11 @@ s
         self,
         calls: list[MulticallWrapper]
     ):
+        """Multicall mess untangling."""
         if self.legacy_multicall:
-            # Old bantg path
+            # Old bantg path.
+            # Do not use.
+            # Only headche.
             multicall = Multicall(
                 calls=[c.create_multicall() for c in calls],
                 block_id=self.block_identifier,
@@ -812,7 +813,7 @@ s
         raw_balances = portfolio.get_raw_spot_balances(self.web3)
 
         logger.info("fetch_onchain_valuations(), %d routes, multicall is %s", len(routes), multicall)
-        calls = [r.quoter.create_multicall_wrapper(r, raw_balances[r.source_token.address]).create_multicall() for r in routes]
+        calls = [r.quoter.create_multicall_wrapper(r, raw_balances[r.source_token.address]) for r in routes]
 
         logger.info("Processing %d Multicall Calls", len(calls))
 
@@ -946,6 +947,7 @@ s
         logger.info("Resolving total %d routes", len(routes))
         all_route_results = self.try_swap_paths(routes, portfolio)
         results_by_token = defaultdict(list)
+
         for r, amount in all_route_results.items():
             results_by_token[r.target_token].append((r, amount))
 
@@ -953,12 +955,12 @@ s
             amount = route_amount_tuple[1]
             if amount is None:
                 # router failed, sort to end
-                return Decimal(9999999 * 10**18)
+                return Decimal(0)
 
             return amount
 
         # Make so that the best result (most tokens bought) is the first of all tried results
-        results_by_token = {token: sorted(routes, key=_get_route_priorisation_sort_key) for token, routes in results_by_token.items()}
+        results_by_token = {token: sorted(routes, key=_get_route_priorisation_sort_key, reverse=True) for token, routes in results_by_token.items()}
 
         return SwapMatrix(
             results=all_route_results,
