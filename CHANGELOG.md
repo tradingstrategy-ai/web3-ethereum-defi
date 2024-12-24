@@ -1,3 +1,10 @@
+# Current
+
+- Add Multicall3 support in `multicall_batcher` module
+- Add `SwapRouter02` support on Base for doing Uniswap v3 swaps
+- Add Uniswap V3 quoter for the valuation
+- Add `buy_tokens()` helper to buy multiple tokens once, automatically look up best routes
+
 # 0.27
 
 - Add: Support for [Velvet Capital vaults](https://www.velvet.capital/)
