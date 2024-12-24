@@ -75,7 +75,5 @@ def test_lagoon_fetch_portfolio(
     latest_block = get_almost_latest_block_number(web3)
     portfolio = vault.fetch_portfolio(universe, latest_block)
 
-    assert portfolio.spot_erc20 == {
-        base_usdc.address: pytest.approx(Decimal(0.347953)),
-        base_weth.address: pytest.approx(Decimal(1*10**-16)),
-    }
+    assert portfolio.spot_erc20[base_usdc.address] == pytest.approx(Decimal(0.347953))
+    assert portfolio.spot_erc20[base_weth.address] == pytest.approx(Decimal(1*10**-16))

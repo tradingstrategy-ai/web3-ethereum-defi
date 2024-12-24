@@ -1,5 +1,10 @@
 class LowercaseDict(dict):
-    """A dictionary subclass that automatically converts all string keys to lowercase."""
+    """A dictionary subclass that automatically converts all string keys to lowercase.
+
+    - Ethereum checksum addresse where a f**king bad idea and everyone needs to suffer from
+      this shitty idea for the eternity
+
+    """
 
     def __init__(self, *args, **kwargs):
         super().__init__()
