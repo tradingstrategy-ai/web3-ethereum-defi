@@ -4,7 +4,6 @@ from decimal import Decimal
 
 import pytest
 from eth_typing import HexAddress
-from multicall import Multicall
 from web3 import Web3
 from web3.contract.contract import ContractFunction
 
