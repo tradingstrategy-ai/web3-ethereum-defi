@@ -531,7 +531,6 @@ def test_valuation_mixed_routes(
 
     # We bought using 5 USD, so all token holding valuations should be in ballpark
     portfolio_valuation = nav_calculator.calculate_market_sell_nav(portfolio)
-    import ipdb ; ipdb.set_trace()
     assert portfolio_valuation.spot_valuations["0x9a26f5433671751c3276a065f57e5a02d2817973"] > 4.5  # Keycat
     assert portfolio_valuation.spot_valuations["0x7484a9fb40b16c4dfe9195da399e808aa45e9bb9"] > 4.5  # AGNT
 
