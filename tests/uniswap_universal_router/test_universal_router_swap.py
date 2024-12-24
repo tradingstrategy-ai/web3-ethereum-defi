@@ -117,12 +117,6 @@ def universal_router(web3: Web3) -> UniswapUniversalRouterDeployment:
     )
 
 
-def test_fetch_deployment(web3: Web3):
-    """Read vault metadata from private Velvet endpoint."""
-    deployment = fetch_uniswap_universal_router_deployment(web3, "0x3fC91A3afd70395Cd496C647d5a6CC9D4B2b7FAD")
-    assert deployment.router.address == "0x3fC91A3afd70395Cd496C647d5a6CC9D4B2b7FAD"
-
-
 def test_universal_router_swap_v3(web3: Web3, hot_wallet: HotWallet, usdc: TokenDetails, weth: TokenDetails, universal_router: UniswapUniversalRouterDeployment):
     usdc_to_spend = 1000 * 10**6
     approve_fn, data, signable_message = approve_token(universal_router, token=usdc.contract, amount=usdc_to_spend)

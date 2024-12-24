@@ -14,6 +14,7 @@ from web3.contract.contract import Contract, ContractFunction
 from eth_defi.uniswap_universal_router.deployment import UniswapUniversalRouterDeployment
 from uniswap_universal_router_decoder import RouterCodec, FunctionRecipient
 
+FOREVER_DEADLINE = 2**63
 
 logger = logging.getLogger(__name__)
 
