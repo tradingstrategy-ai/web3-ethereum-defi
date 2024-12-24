@@ -14,6 +14,7 @@ from eth_defi.uniswap_v2.swap import swap_with_slippage_protection as swap_with_
 from eth_defi.uniswap_v3.swap import swap_with_slippage_protection as swap_with_slippage_protection_uni_v3
 from eth_defi.uniswap_v3.deployment import UniswapV3Deployment
 from eth_defi.vault.base import VaultPortfolio
+from eth_defi.vault.lower_case_dict import LowercaseDict
 from eth_defi.vault.valuation import NetAssetValueCalculator, Route, ValuationQuoter
 
 logger = logging.getLogger(__name__)
@@ -102,7 +103,7 @@ def create_buy_portfolio(
 ) -> VaultPortfolio:
     """Create a portfolio of tokens to buy based on given Python."""
     buy_portfolio = VaultPortfolio(
-        spot_erc20={t[2]: amount_denomination_token for t in tokens},
+        spot_erc20=LowercaseDict(**{t[2]: amount_denomination_token for t in tokens}),
         dex_hints={t[2]: t[0] for t in tokens},
     )
     return buy_portfolio

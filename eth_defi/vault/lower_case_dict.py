@@ -1,9 +1,12 @@
+"""Ethereum address headache tools."""
+
 class LowercaseDict(dict):
     """A dictionary subclass that automatically converts all string keys to lowercase.
 
+    - Because of legacy, Ethrereum services mix loewrcased and checksum-case addresses
+
     - Ethereum checksum addresse where a f**king bad idea and everyone needs to suffer from
       this shitty idea for the eternity
-
     """
 
     def __init__(self, *args, **kwargs):
@@ -18,20 +21,17 @@ class LowercaseDict(dict):
 
     def __setitem__(self, key, value):
         """Override setitem to convert string keys to lowercase."""
-        if isinstance(key, str):
-            key = key.lower()
+        key = key.lower()
         super().__setitem__(key, value)
 
     def __getitem__(self, key):
         """Override getitem to convert string keys to lowercase."""
-        if isinstance(key, str):
-            key = key.lower()
+        key = key.lower()
         return super().__getitem__(key)
 
     def get(self, key, default=None):
         """Override get method to convert string keys to lowercase."""
-        if isinstance(key, str):
-            key = key.lower()
+        key = key.lower()
         return super().get(key, default)
 
     def update(self, other=None, **kwargs):
@@ -44,6 +44,5 @@ class LowercaseDict(dict):
 
     def setdefault(self, key, default=None):
         """Override setdefault to convert string keys to lowercase."""
-        if isinstance(key, str):
-            key = key.lower()
+        key = key.lower()
         return super().setdefault(key, default)

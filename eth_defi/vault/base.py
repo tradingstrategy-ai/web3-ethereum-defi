@@ -84,7 +84,7 @@ class VaultPortfolio:
     #:
     #: Addresses not checksummed
     #:
-    spot_erc20: dict[HexAddress, Decimal]
+    spot_erc20: LowercaseDict
 
     #: For route finding, which DEX tokens should use.
     #:
@@ -111,10 +111,10 @@ class VaultPortfolio:
     def get_position_count(self):
         return len(self.spot_erc20)
 
-    def get_raw_spot_balances(self, web3: Web3) -> dict[HexAddress, int]:
+    def get_raw_spot_balances(self, web3: Web3) -> LowercaseDict:
         """Convert spot balances to raw token balances"""
         chain_id = web3.eth.chain_id
-        return {addr: fetch_erc20_details(web3, addr, chain_id=chain_id).convert_to_raw(value) for addr, value in self.spot_erc20.items()}
+        return LowercaseDict(**{addr: fetch_erc20_details(web3, addr, chain_id=chain_id).convert_to_raw(value) for addr, value in self.spot_erc20.items()})
 
 
 

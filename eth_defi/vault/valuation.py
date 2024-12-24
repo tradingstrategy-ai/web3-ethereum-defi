@@ -746,7 +746,7 @@ s
         # Validate all tokens got at least one path
         for token_address in input_tokens:
 
-            if token_address == self.denomination_token.address:
+            if token_address == self.denomination_token.address_lower:
                 # Cannot route reserve currency to itself
                 continue
 
@@ -848,7 +848,7 @@ s
 
         denomination_token = self.denomination_token
         tokens: dict[HexAddress, TokenDetails] = {address: fetch_erc20_details(web3, address, chain_id) for address in portfolio.tokens}
-        raw_balances = {address: denomination_token.convert_to_raw(portfolio.spot_erc20[address]) for address, token in tokens.items()}
+        raw_balances = LowercaseDict(**{address: denomination_token.convert_to_raw(portfolio.spot_erc20[address]) for address, token in tokens.items()})
 
         logger.info(
             "try_swap_paths(), %d routes, %d quoters, multicall is %s",
