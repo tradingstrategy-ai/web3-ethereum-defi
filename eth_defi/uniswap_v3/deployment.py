@@ -65,6 +65,9 @@ class UniswapV3Deployment:
     #:
     quoter_v2: bool = False
 
+    #: Router contract is SwapRouter02
+    router_v2: bool = False
+
     def __repr__(self):
         return f"<Uniswap v3 as chain: {self.web3.eth.chain_id}, router: {self.swap_router.address} factory: {self.factory.address}>"
 
@@ -411,6 +414,7 @@ def fetch_deployment(
     position_manager_address: HexAddress | str,
     quoter_address: HexAddress | str,
     quoter_v2=False,
+    router_v2=False,
 ) -> UniswapV3Deployment:
     """Construct Uniswap v3 deployment based on on-chain data.
 
@@ -429,7 +433,11 @@ def fetch_deployment(
         Data class representing Uniswap v3 exchange deployment
     """
     factory = get_deployed_contract(web3, "uniswap_v3/UniswapV3Factory.json", factory_address)
-    router = get_deployed_contract(web3, "uniswap_v3/SwapRouter.json", router_address)
+
+    if router_v2:
+        router = get_deployed_contract(web3, "uniswap-swap-contracts/SwapRouter02.json", router_address)
+    else:
+        router = get_deployed_contract(web3, "uniswap_v3/SwapRouter.json", router_address)
     position_manager = get_deployed_contract(web3, "uniswap_v3/NonfungiblePositionManager.json", position_manager_address)
 
     if quoter_v2:
@@ -452,6 +460,7 @@ def fetch_deployment(
         quoter=quoter,
         PoolContract=PoolContract,
         quoter_v2=quoter_v2,
+        router_v2=router_v2,
     )
 
 

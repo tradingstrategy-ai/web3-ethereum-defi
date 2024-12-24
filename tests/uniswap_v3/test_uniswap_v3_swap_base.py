@@ -81,6 +81,7 @@ def uniswap_v3(web3):
         position_manager_address=deployment_data["position_manager"],
         quoter_address=deployment_data["quoter"],
         quoter_v2=deployment_data["quoter_v2"],
+        router_v2=deployment_data["router_v2"],
     )
     return uniswap_v3_on_base
 
