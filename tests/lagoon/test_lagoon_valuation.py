@@ -382,10 +382,10 @@ def test_lagoon_diagnose_routes(
     print()
     print(routes)
 
-    assert routes.loc["USDC"]["Value"] is not None
-    assert routes.loc["WETH -> USDC"]["Value"] is not None
-    assert routes.loc["DINO -> WETH -> USDC"]["Value"] is not None
-    assert routes.loc["DINO -> USDC"]["Value"] == "-"
+    assert routes.loc[routes["Path"] == "USDC"]["Value"] is not None
+    assert routes.loc[routes["Path"] == "WETH -> USDC"]["Value"] is not None
+    assert routes.loc[routes["Path"] == "DINO -> WETH -> USDC"]["Value"] is not None
+    assert routes.loc[routes["Path"] == "DINO -> USDC"]["Value"].iloc[0] == "-"
 
 
 def test_lagoon_post_valuation(
@@ -445,6 +445,8 @@ def test_lagoon_post_valuation(
 
     # First post the new valuation as valuation manager
     total_value = portfolio_valuation.get_total_equity()
+    assert total_value > 10  # 0.30 USDC
+
     bound_func = vault.post_new_valuation(total_value)
     tx_hash = bound_func.transact({"from": valuation_manager})      # Unlocked by anvil
     assert_transaction_success_with_explanation(web3, tx_hash)

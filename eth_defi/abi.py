@@ -11,7 +11,7 @@ import json
 import re
 from functools import lru_cache
 from pathlib import Path
-from typing import Optional, Sequence, Type, Union
+from typing import Optional, Sequence, Type, Union, Any
 
 import eth_abi
 from eth_abi import decode
@@ -294,6 +294,34 @@ def encode_function_args(func: ContractFunction, args: Sequence) -> bytes:
     arg_types = [t["type"] for t in fn_abi["inputs"]]
     encoded_args = eth_abi.encode(arg_types, args)
     return encoded_args
+
+
+def decode_function_output(func: ContractFunction, data: bytes) -> Any:
+    """Decode raw return value of Solidity function using Contract proxy object.
+
+    Uses `web3.Contract.functions` prepared function as the ABI source.
+
+    :param func:
+        Function which arguments we are going to encode.
+
+        Must be bound.
+
+    :param result:
+        Raw encoded Solidity bytes.
+    """
+    assert isinstance(func, ContractFunction)
+
+    web3 = func.w3
+
+    fn_abi, fn_selector, aligned_fn_arguments = get_function_info(
+        func.fn_name,
+        web3.codec,
+        func.contract_abi,
+        args=func.args,
+    )
+    arg_types = [t["type"] for t in fn_abi["outputs"]]
+    decoded_out = eth_abi.decode(arg_types, data)
+    return decoded_out
 
 
 def encode_function_call(

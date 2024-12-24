@@ -22,6 +22,7 @@ from multicall import Call, Multicall
 from web3 import Web3
 from web3.contract import Contract
 
+from eth_defi.abi import decode_function_output
 from eth_defi.event_reader.multicall_batcher import get_multicall_contract, call_multicall_batched_single_thread, MulticallWrapper, call_multicall_debug_single_thread
 from eth_defi.provider.anvil import is_mainnet_fork
 from eth_defi.provider.broken_provider import get_almost_latest_block_number
@@ -186,7 +187,7 @@ class ValuationMulticallWrapper(MulticallWrapper):
         call = Call(self.contract_address, self.signature, [(self.route, self)])
         return call
 
-    def handle(self, success, raw_return_value) -> TokenAmount | None:
+    def handle(self, success, raw_return_value: bytes) -> TokenAmount | None:
 
         if not success:
             return None
@@ -197,7 +198,7 @@ class ValuationMulticallWrapper(MulticallWrapper):
                 raw_return_value,
             )
         except Exception as e:
-            raise RuntimeError(f"Filed to decode. Quoter {self.quoter}, return dadta {raw_return_value}") from e
+            raise RuntimeError(f"Failed to decode. Quoter {self.quoter}, return dadta {raw_return_value}") from e
         return token_amount
 
 
@@ -319,13 +320,23 @@ class UniswapV2Router02Quoter(ValuationQuoter):
     def handle_onchain_return_value(
         self,
         wrapper: ValuationMulticallWrapper,
-        raw_return_value: any,
+        raw_return_value: bytes,
     ) -> Decimal | None:
-        """Convert swapExactTokensForTokens() return value to tokens we receive"""
+        """Convert getAmountsOut() return value to tokens we receive"""
         route = wrapper.route
-        target_token_out = raw_return_value[-1]
-        logger.info("Uniswap V2, resolved %s to %s", route.get_formatted_path(), target_token_out)
-        return route.target_token.convert_to_decimals(target_token_out)
+        func = self.swap_router_v2.functions.getAmountsOut(wrapper.amount_in, wrapper.route.address_path)
+        decoded = decode_function_output(func, raw_return_value)
+        target_token_out = decoded[0][-1]
+        human_out = route.target_token.convert_to_decimals(target_token_out)
+        logger.info(
+            "Uniswap V2, path %s resolved, %s %s -> %s %s",
+            route.get_formatted_path(),
+            route.source_token.convert_to_decimals(wrapper.amount_in),
+            route.source_token.symbol,
+            human_out,
+            route.target_token.symbol
+        )
+        return human_out
 
     def get_path_combinations(
         self,

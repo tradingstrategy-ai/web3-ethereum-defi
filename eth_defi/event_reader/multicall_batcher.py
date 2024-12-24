@@ -238,7 +238,7 @@ class MulticallWrapper(abc.ABC):
         """Get key that will identify this call in the result dictionary"""
 
     @abstractmethod
-    def handle(self, succeed: bool, raw_return_value: Any) -> Any:
+    def handle(self, succeed: bool, raw_return_value: bytes) -> Any:
         """Parse the call result.
 
         :param succeed:
@@ -285,22 +285,10 @@ class MulticallWrapper(abc.ABC):
             # Avoid expensive logging if we do not need it
             if self.debug:
                 # Print calldata so we can copy-paste it to Tenderly for symbolic debug stack trace
-                data = self.get_data()
-                call = self.create_multicall()
-                logger.info("Path did not success: %s on %s, selector %s",
-                    self,
-                    self.signature_string,
-                    call.signature.fourbyte.hex(),
-                )
-                logger.info("Arguments: %s", self.signature[1:])
-                logger.info(
-                    "Contract: %s\nCalldata: %s",
-                    self.contract_address,
-                    data.hex()
-                )
+                address, data = self.get_address_and_data()
+                logger.info("Calldata failed %s: %s", address, data)
         try:
             value = self.handle(succeed, raw_return_value)
-
         except Exception as e:
             logger.error(
                 "Handler failed %s for return value %s",
