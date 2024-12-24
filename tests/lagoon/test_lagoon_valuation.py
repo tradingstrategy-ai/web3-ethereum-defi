@@ -315,6 +315,9 @@ def test_lagoon_calculate_portfolio_nav(
     portfolio = vault.fetch_portfolio(universe, latest_block)
     assert portfolio.get_position_count() == 3
 
+    # Very small value, will sell for 0
+    assert portfolio.spot_erc20[base_weth.address] == Decimal(10) ** -16
+
     uniswap_v2_quoter_v2 = UniswapV2Router02Quoter(uniswap_v2.router)
 
     nav_calculator = NetAssetValueCalculator(

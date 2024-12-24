@@ -113,7 +113,7 @@ class Route:
                 assert type(f), f"Got {f}"
 
     def __repr__(self):
-        return f"<Route {self.source_token.symbol} -> {self.target_token.symbol} using path {self.path} using quoter {self.quoter.__class__.__name__}>"
+        return f"<Route {self.get_formatted_path()} using quoter {self.quoter.dex_hint}>"
 
     def __hash__(self) -> int:
         """Unique hash for this instance"""
@@ -153,6 +153,10 @@ class Route:
     @property
     def address_path(self) -> list[str]:
         return [Web3.to_checksum_address(x.address) for x in self.path]
+
+    def get_formatted_path(self) -> str:
+        """Return human readable path."""
+        return self.quoter.format_path(self)
 
 
 @dataclass(slots=True, frozen=True)
@@ -320,6 +324,7 @@ class UniswapV2Router02Quoter(ValuationQuoter):
         """Convert swapExactTokensForTokens() return value to tokens we receive"""
         route = wrapper.route
         target_token_out = raw_return_value[-1]
+        logger.info("Uniswap V2, resolved %s to %s", route.get_formatted_path(), target_token_out)
         return route.target_token.convert_to_decimals(target_token_out)
 
     def get_path_combinations(
@@ -701,9 +706,9 @@ s
                 routes_per_token[r.source_token].append((r, value))
 
             for token, routes in routes_per_token.items():
-                if not any(t[1] for t in routes):
+                if not any(t[1] is not None for t in routes):
                     new_line = "\n"
-                    raise NoRouteFound(f"No single successful route for token {token}\nRoutes:\n{new_line.join(str(r[0]) for r in routes)}")
+                    raise NoRouteFound(f"No single successful route for token {token}\nRoutes:\n{new_line.join(str(r[0]) + ':' + str(r[1]) for r in routes)}")
 
         logger.info("Got %d multicall results", len(all_routes))
         # Discard failed paths
@@ -715,7 +720,7 @@ s
         best_result_by_token = self.resolve_best_valuations(portfolio.tokens, succeed_routes)
 
         # Reserve currency does not need to be traded
-        if self.denomination_token.address in portfolio.spot_erc20:
+        if self.denomination_token.address_lower in portfolio.spot_erc20:
             best_result_by_token[self.denomination_token.address_lower] = portfolio.spot_erc20[self.denomination_token.address_lower]
 
         # Discard bad paths with None value
