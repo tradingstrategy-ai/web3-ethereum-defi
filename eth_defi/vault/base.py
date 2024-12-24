@@ -80,6 +80,9 @@ class VaultPortfolio:
     """
 
     #: List of tokens and their amounts
+    #:
+    #: Addresses not checksummed
+    #:
     spot_erc20: dict[HexAddress, Decimal]
 
     #: For route finding, which DEX tokens should use.
@@ -91,6 +94,9 @@ class VaultPortfolio:
         for token, value in self.spot_erc20.items():
             assert type(token) == str
             assert isinstance(value, Decimal)
+
+        # Always lowercased
+        self.spot_erc20 = {k.lower(): v for k, v in self.spot_erc20.items()}
 
     @property
     def tokens(self) -> set[HexAddress]:

@@ -231,6 +231,10 @@ class MulticallWrapper(abc.ABC):
         """Log output about this call"""
         raise NotImplementedError(f"Please implement in a subclass")
 
+    @property
+    def contract_address(self) -> HexAddress:
+        return self.call.address
+
     @abstractmethod
     def get_key(self) -> Hashable:
         """Get key that will identify this call in the result dictionary"""

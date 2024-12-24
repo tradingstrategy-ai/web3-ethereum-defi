@@ -100,6 +100,14 @@ class TokenDetails:
 
         Always lowercase.
         """
+        return self.contract.address
+
+    @cached_property
+    def address_lower(self) -> HexAddress:
+        """The address of this token.
+
+        Always lowercase.
+        """
         return self.contract.address.lower()
 
     def convert_to_decimals(self, raw_amount: int) -> Decimal:

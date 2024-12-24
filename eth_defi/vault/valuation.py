@@ -644,7 +644,7 @@ class NetAssetValueCalculator:
         """
         for token_address, amount in portfolio.spot_erc20.items():
 
-            if token_address == self.denomination_token.address:
+            if token_address == self.denomination_token.address_lower:
                 # Reserve currency does not need to be valued in the reserve currency
                 continue
 
@@ -715,7 +715,7 @@ s
 
         # Reserve currency does not need to be traded
         if self.denomination_token.address in portfolio.spot_erc20:
-            best_result_by_token[self.denomination_token.address] = portfolio.spot_erc20[self.denomination_token.address]
+            best_result_by_token[self.denomination_token.address_lower] = portfolio.spot_erc20[self.denomination_token.address_lower]
 
         # Discard bad paths with None value
         valulation = PortfolioValuation(

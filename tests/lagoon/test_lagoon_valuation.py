@@ -8,6 +8,7 @@ from multicall import Multicall
 from web3 import Web3
 from web3.contract.contract import ContractFunction
 
+from eth_defi.event_reader.multicall_batcher import get_multicall_contract, call_multicall_batched_single_thread, MulticallWrapper
 from eth_defi.lagoon.vault import LagoonVault
 from eth_defi.provider.broken_provider import get_almost_latest_block_number
 from eth_defi.safe.trace import assert_execute_module_success
@@ -242,10 +243,8 @@ def test_uniswap_v2_weth_usdc_sell_route(
     )
 
     route = Route(
-        source_token=base_weth,
-        target_token=base_usdc,
+        path=[base_weth, base_usdc],
         quoter=uniswap_v2_quoter_v2,
-        path=(base_weth.address, base_usdc.address),
     )
 
     # Sell 1000 WETH
@@ -254,17 +253,22 @@ def test_uniswap_v2_weth_usdc_sell_route(
 
     assert wrapped_call.contract_address == "0x4752ba5DBc23f44D87826276BF6Fd6b1C372aD24"
 
-    test_call_result = uniswap_v2_quoter_v2.swap_router_v2.functions.getAmountsOut(amount, route.path).call()
+    test_call_result = uniswap_v2_quoter_v2.swap_router_v2.functions.getAmountsOut(amount, route.address_path).call()
     assert test_call_result is not None
 
     # Another method to double check call data encoding
-    tx_data_2 = uniswap_v2_quoter_v2.swap_router_v2.functions.getAmountsOut(amount, route.path).build_transaction(
+    bound_call = uniswap_v2_quoter_v2.swap_router_v2.functions.getAmountsOut(amount, route.address_path)
+    tx_data_2 = bound_call.build_transaction(
         {"from": ZERO_ADDRESS}
     )
     correct_bytes = tx_data_2["data"][2:]
 
-    tx_data = wrapped_call.create_tx_data()
-    assert tx_data["data"].hex() == correct_bytes
+    address, data = wrapped_call.get_address_and_data()
+    tx_data ={
+        "data": data,
+        "address": address,
+    }
+    assert tx_data["data"].hex()[2:] == correct_bytes
 
     # 0xd06ca61f00000000000000000000000000000002f050fe938943acc45f65568000000000000000000000000000000000000000000000000000000000000000000000004000000000000000000000000000000000000000000000000000000000000000020000000000000000000000004200000000000000000000000000000000000006000000000000000000000000833589fcd6edb6e08f4c7c32d4f71b54bda02913
     try:
@@ -275,15 +279,11 @@ def test_uniswap_v2_weth_usdc_sell_route(
 
     assert raw_result is not None
 
-    # Now using Multicall
-    multicall = Multicall(
-        calls=[wrapped_call.create_multicall()],
-        block_id=web3.eth.block_number,
-        _w3=web3,
-        require_success=False,
-        gas_limit=10_000_000,
+    multicall_contract =  get_multicall_contract(web3)
+    batched_result = call_multicall_batched_single_thread(
+        multicall_contract,
+        calls=[MulticallWrapper(call=bound_call, debug=False)]
     )
-    batched_result = multicall()
     result = batched_result[route]
     assert result is not None, f"Reading quoter using Multicall failed"
 
