@@ -208,17 +208,19 @@ def _batcher(iterable: Iterable, batch_size: int) -> Generator:
         yield batch
 
 
-
 @dataclass(slots=True, frozen=True)
 class MulticallWrapper(abc.ABC):
-    """Wrap the undertlying Multicall with diagnostics data.
+    """Wrap a call going through the Multicall contract.
 
-    - Because the underlying Multicall lib is not powerful enough.
+    - Each call in the batch is represented by one instance of :py:class:`MulticallWrapper`
 
-    - And we do not have time to fix it
+    - This class must be subclassed and needed :py:meth:`get_key`, :py:meth:`handle` and :py:meth:`__repr__`
     """
 
+    #: Bound web3.py function with args in the place
     call: ContractFunction
+
+    #: Set for extensive info logging
     debug: bool
 
     def __post_init__(self):
@@ -226,33 +228,29 @@ class MulticallWrapper(abc.ABC):
         assert self.call.args
 
     def __repr__(self):
+        """Log output about this call"""
         raise NotImplementedError(f"Please implement in a subclass")
 
     @abstractmethod
     def get_key(self) -> Hashable:
-        pass
+        """Get key that will identify this call in the result dictionary"""
 
     @abstractmethod
     def handle(self, succeed: bool, raw_return_value: Any) -> Any:
-        pass
+        """Parse the call result.
+
+        :param succeed:
+            Did we revert or not
+
+        :param raw_return_value:
+            Undecoded bytes from the Solidity function call
+
+        :return:
+            The value placed in the return dict
+        """
 
     def get_human_id(self) -> str:
         return str(self.get_key())
-
-    def get_data(self) -> bytes:
-        """Return data field for the transaction payload"""
-        call = self.create_multicall()
-        data = call.data
-        return data
-
-    def get_selector(self) -> bytes:
-        """Get 4-bytes Solidity function selector."""
-        call = self.create_multicall()
-        return call.signature.fourbyte
-
-    def get_selector_and_data(self) -> tuple[bytes, bytes]:
-        call = self.create_multicall()
-        return call.signature.fourbyte, call.data
 
     def get_address_and_data(self) -> tuple[HexAddress, bytes]:
         data = encode_function_call(
@@ -260,10 +258,6 @@ class MulticallWrapper(abc.ABC):
             self.call.args
         )
         return self.call.address, data
-
-    def get_args(self) -> list[Any]:
-        """Get undecoded Solidity arguments passed to the underlying func."""
-        return self.signature[1:]
 
     def get_human_args(self) -> str:
         """Get Solidity args as human readable string for debugging."""
@@ -274,19 +268,6 @@ class MulticallWrapper(abc.ABC):
                     return a.hex()
             return str(a)
         return "(" + ", ".join(_humanise(a) for a in args) + ")"
-
-    def create_tx_data(self, from_= ZERO_ADDRESS) -> dict:
-        """Create payload for eth_call."""
-        return {
-            "from": ZERO_ADDRESS,
-            "to": self.call.address,
-            "data": self.get_data(),
-        }
-
-    def get_debug_string(self) -> str:
-        """Help why we fail."""
-        data = self.get_data()
-        return f"Could not execute {self.signature_string}.\nAddress: {self.contract_address}\nSelector: {self.get_selector().hex()}\nArgs: {self.get_args()}\nData: {data.hex()}"
 
     def multicall_callback(self, succeed: bool, raw_return_value: Any) -> Any:
         """Convert the raw Solidity function call result to a denominated token amount.

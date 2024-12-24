@@ -42,9 +42,11 @@ UNISWAP_V3_DEPLOYMENTS = {
         "position_manager": "0xC36442b4a4522E871399CD717aBDD847Ab11FE88",
         "quoter": "0xb27308f9F90D607463bb33eA1BeBb41C27CE5AB6",
     },
+    # Base router is SwapRouter02 deployed by Mikko
+    # https://github.com/tradingstrategy-ai/swap-router-contracts
     "base": {
         "factory": "0x33128a8fC17869897dcE68Ed026d694621f6FDfD",
-        "router": "0x2626664c2603336E57B271c5C0b26F421741e481",
+        "router": "0x5788F91Aa320e0610122fb88B39Ab8f35e50040b",
         "position_manager": "0x03a520b32C04BF3bEEf7BEb72E919cf822Ed34f1",
         "quoter": "0x3d4e44Eb1374240CE5F1B871ab261CD16335B76a",
         "quoter_v2": True,
