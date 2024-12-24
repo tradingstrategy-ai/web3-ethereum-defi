@@ -30,3 +30,5 @@ contracts/aave-v3-deploy/hardhat-deployment-export.json
 
 # pyenv local
 .python-version
+
+contracts/lagoon-v0

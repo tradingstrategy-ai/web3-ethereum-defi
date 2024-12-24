@@ -8,8 +8,11 @@ from pprint import pformat
 import requests
 from eth_typing import HexAddress
 from requests import HTTPError
+from requests.exceptions import RetryError
+from requests.sessions import HTTPAdapter
 
 from eth_defi.velvet.config import VELVET_DEFAULT_API_URL, VELVET_GAS_EXTRA_SAFETY_MARGIN
+from eth_defi.velvet.logging_retry import LoggingRetry
 
 logger = logging.getLogger(__name__)
 
@@ -29,6 +32,7 @@ def swap_with_velvet_and_enso(
     remaining_tokens: set[HexAddress],
     api_url: str = VELVET_DEFAULT_API_URL,
     gas_safety_margin: int = VELVET_GAS_EXTRA_SAFETY_MARGIN,
+    retries=5,
 ) -> dict:
     """Set up a Enzo + Velvet swap tx.
 
@@ -54,6 +58,17 @@ def swap_with_velvet_and_enso(
     assert len(remaining_tokens) >= 1, f"At least the vault reserve currency must be always left"
     assert type(swap_amount) == int, f"Got {type(swap_amount)} instead of int, swap amount must be the raw number of tokens"
 
+    session = requests.Session()
+
+    if retries > 0:
+        retry_policy = LoggingRetry(
+            total=retries,
+            backoff_factor=0.1,
+            status_forcelist=[500, 502, 503, 504],
+            allowed_methods=["POST"],  # Need to whitelist POST
+        )
+        session.mount('https://', HTTPAdapter(max_retries=retry_policy))
+
     payload = {
         "rebalanceAddress": rebalance_address,
         "sellToken": token_in,
@@ -68,10 +83,17 @@ def swap_with_velvet_and_enso(
     logger.info("Velvet + Enso swap, slippage is %f:\n%s", slippage, pformat(payload))
 
     url = f"{api_url}/rebalance/txn"
-    resp = requests.post(url, json=payload)
 
     try:
-        resp.raise_for_status()
+        try:
+            resp = session.post(url, json=payload)
+            resp.raise_for_status()
+        except RetryError as e:
+            # Run out of retries
+            # Don't let RetryError mask the real err0r, send one more time to get good exception
+            logger.warning("Run out of retries")
+            resp = requests.post(url, json=payload)
+            resp.raise_for_status()
     except HTTPError as e:
         raise VelvetSwapError(f"Velvet API error on {api_url}, code {resp.status_code}: {resp.text}\nParameters were:\n{pformat(payload)}") from e
 

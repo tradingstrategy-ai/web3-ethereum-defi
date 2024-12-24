@@ -198,6 +198,7 @@ class VelvetVault(VaultBase):
         remaining_tokens: set | list,
         swap_all=False,
         from_: HexAddress | str | None = None,
+        retries=5,
     ) -> dict:
         """Prepare a swap transaction using Enso intent engine and Vevlet API.
 
@@ -219,6 +220,7 @@ class VelvetVault(VaultBase):
             slippage=slippage,
             remaining_tokens=remaining_tokens,
             chain_id=self.web3.eth.chain_id,
+            retries=retries,
         )
 
         if from_:

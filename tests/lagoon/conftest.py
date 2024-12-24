@@ -41,7 +41,6 @@ def usdc_holder() -> HexAddress:
     return "0x3304E22DDaa22bCdC5fCa2269b418046aE7b566A"
 
 
-
 @pytest.fixture()
 def valuation_manager() -> HexAddress:
     """Unlockable account set as the vault valuation manager."""
@@ -87,7 +86,10 @@ def web3(anvil_base_fork) -> Web3:
     if tenderly_fork_rpc:
         web3 = create_multi_provider_web3(tenderly_fork_rpc)
     else:
-        web3 = create_multi_provider_web3(anvil_base_fork.json_rpc_url)
+        web3 = create_multi_provider_web3(
+            anvil_base_fork.json_rpc_url,
+            default_http_timeout=(3, 250.0),  # multicall slow, so allow improved timeout
+        )
     assert web3.eth.chain_id == 8453
     return web3
 
@@ -177,7 +179,6 @@ def topped_up_asset_manager(web3, asset_manager):
     })
     assert_transaction_success_with_explanation(web3, tx_hash)
     return asset_manager
-
 
 
 @pytest.fixture()

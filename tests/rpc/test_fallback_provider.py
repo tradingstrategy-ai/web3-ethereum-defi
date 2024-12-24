@@ -19,7 +19,7 @@ from eth_defi.middleware import ProbablyNodeHasNoBlock
 from eth_defi.provider.fallback import FallbackProvider
 from eth_defi.token import fetch_erc20_details
 from eth_defi.trace import assert_transaction_success_with_explanation
-from eth_defi.uniswap_v2.utils import ZERO_ADDRESS
+from eth_defi.abi import ZERO_ADDRESS
 
 
 @pytest.fixture(scope="module")

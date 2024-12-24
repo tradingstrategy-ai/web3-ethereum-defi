@@ -39,7 +39,7 @@ from eth_defi.provider.anvil import is_anvil
 from eth_defi.token import TokenDetails, fetch_erc20_details
 from eth_defi.trace import assert_transaction_success_with_explanation
 from eth_defi.uniswap_v2.constants import QUICKSWAP_DEPLOYMENTS, UNISWAP_V2_DEPLOYMENTS
-from eth_defi.uniswap_v2.utils import ZERO_ADDRESS
+from eth_defi.abi import ZERO_ADDRESS
 from eth_defi.uniswap_v3.constants import UNISWAP_V3_DEPLOYMENTS
 
 logger = logging.getLogger(__name__)

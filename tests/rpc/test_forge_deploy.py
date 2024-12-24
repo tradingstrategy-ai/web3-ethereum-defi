@@ -21,7 +21,7 @@ from eth_defi.foundry.forge import deploy_contract_with_forge
 from eth_defi.hotwallet import HotWallet
 from eth_defi.provider.anvil import AnvilLaunch, launch_anvil
 from eth_defi.trace import assert_transaction_success_with_explanation
-from eth_defi.uniswap_v2.utils import ZERO_ADDRESS
+from eth_defi.abi import ZERO_ADDRESS
 
 
 @pytest.fixture(scope="module")

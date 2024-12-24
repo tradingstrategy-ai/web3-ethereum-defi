@@ -188,3 +188,5 @@ def swap_with_slippage_protection(
             recipient_address,
             deadline,
         )
+
+    raise NotImplementedError("Whoops, something wrong with function arguments")

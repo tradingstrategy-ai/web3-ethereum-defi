@@ -48,7 +48,7 @@ def assert_execute_module_success(
             trace_output = print_symbolic_trace(get_or_create_contract_registry(web3), trace_data)
             raise AssertionError(f"Gnosis Safe multisig tx {tx_hash.hex()} failed.\nTrace output:\n{trace_output}\nYou might want to trace with JSON_RPC_TENDERLY method to get better diagnostics.")
         else:
-            raise AssertionError(f"Gnosis Safe tx failed")
+            raise AssertionError(f"Gnosis Safe tx failed. Remember to check gas.")
     elif success == 1:
         return
     else:

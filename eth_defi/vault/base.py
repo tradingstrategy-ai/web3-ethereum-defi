@@ -10,7 +10,7 @@
 """
 
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from decimal import Decimal
 from functools import cached_property
 from typing import TypedDict
@@ -20,6 +20,7 @@ from eth_typing import BlockIdentifier, HexAddress
 from web3 import Web3
 
 from eth_defi.token import TokenAddress, fetch_erc20_details, TokenDetails
+from eth_defi.vault.lower_case_dict import LowercaseDict
 
 
 @dataclass(slots=True, frozen=True)
@@ -79,9 +80,21 @@ class VaultPortfolio:
     - See :py:meth:`VaultBase.fetch_portfolio`
     """
 
-    spot_erc20: dict[HexAddress, Decimal]
+    #: List of tokens and their amounts
+    #:
+    #: Addresses not checksummed
+    #:
+    spot_erc20: LowercaseDict
+
+    #: For route finding, which DEX tokens should use.
+    #:
+    #: Token address -> DEX id string mapping
+    dex_hints: dict[HexAddress, list[str]] = field(default_factory=dict)
 
     def __post_init__(self):
+
+        assert isinstance(self.spot_erc20, LowercaseDict)
+
         for token, value in self.spot_erc20.items():
             assert type(token) == str
             assert isinstance(value, Decimal)
@@ -98,10 +111,10 @@ class VaultPortfolio:
     def get_position_count(self):
         return len(self.spot_erc20)
 
-    def get_raw_spot_balances(self, web3: Web3) -> dict[HexAddress, int]:
+    def get_raw_spot_balances(self, web3: Web3) -> LowercaseDict:
         """Convert spot balances to raw token balances"""
         chain_id = web3.eth.chain_id
-        return {addr: fetch_erc20_details(web3, addr, chain_id=chain_id).convert_to_raw(value) for addr, value in self.spot_erc20.items()}
+        return LowercaseDict(**{addr: fetch_erc20_details(web3, addr, chain_id=chain_id).convert_to_raw(value) for addr, value in self.spot_erc20.items()})
 
 
 

@@ -23,7 +23,7 @@ def swap_with_slippage_protection(
     recipient_address: HexAddress,
     base_token: Contract,
     quote_token: Contract,
-    pool_fees: list[int],
+    pool_fees: list[int] | tuple[int],
     intermediate_token: Contract | None = None,
     max_slippage: float = 15,
     amount_in: int | None = None,
@@ -149,15 +149,38 @@ def swap_with_slippage_protection(
             block_number,
         )
 
-        return router.functions.exactInput(
-            (
-                encoded_path,
-                recipient_address,
-                deadline,
-                amount_in,
-                estimated_min_amount_out,
+        if uniswap_v3_deployment.router_v2:
+            #     struct ExactInputParams {
+            #         bytes path;
+            #         address recipient;
+            #         uint256 amountIn;
+            #         uint256 amountOutMinimum;
+            #     }
+            #
+            #     /// @notice Swaps `amountIn` of one token for as much as possible of another along the specified path
+            #     /// @dev Setting `amountIn` to 0 will cause the contract to look up its own balance,
+            #     /// and swap the entire amount, enabling contracts to send tokens before calling this function.
+            #     /// @param params The parameters necessary for the multi-hop swap, encoded as `ExactInputParams` in calldata
+            #     /// @return amountOut The amount of the received token
+            #     function exactInput(ExactInputParams calldata params) external payable returns (uint256 amountOut);
+            return router.functions.exactInput(
+                (
+                    encoded_path,
+                    recipient_address,
+                    amount_in,
+                    estimated_min_amount_out,
+                )
             )
-        )
+        else:
+            return router.functions.exactInput(
+                (
+                    encoded_path,
+                    recipient_address,
+                    deadline,
+                    amount_in,
+                    estimated_min_amount_out,
+                )
+            )
     elif amount_out:
         if amount_in is not None:
             raise ValueError("amount_out is specified, amount_in has to be None")

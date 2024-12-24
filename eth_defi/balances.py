@@ -20,6 +20,7 @@ from eth_defi.provider.anvil import is_anvil, is_mainnet_fork
 from eth_defi.provider.broken_provider import get_almost_latest_block_number
 from eth_defi.provider.named import get_provider_name
 from eth_defi.token import fetch_erc20_details, DEFAULT_TOKEN_CACHE
+from eth_defi.vault.lower_case_dict import LowercaseDict
 
 logger = logging.getLogger(__name__)
 
@@ -366,7 +367,7 @@ def fetch_erc20_balances_multicall(
                 raise BalanceFetchFailed(f"Could not read token balance for ERC-20: {token_address} for address {address}")
 
     if decimalise:
-        result = {}
+        result = LowercaseDict()
         for token_address, raw_balance in all_calls.items():
             token = fetch_erc20_details(web3, token_address, cache=token_cache, chain_id=chain_id)
             result[token_address] = token.convert_to_decimals(raw_balance) if raw_balance is not None else None
