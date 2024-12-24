@@ -1,0 +1,51 @@
+{
+  "_format": "hh-sol-artifact-1",
+  "contractName": "V2SwapRouter",
+  "sourceName": "contracts/modules/uniswap/v2/V2SwapRouter.sol",
+  "abi": [
+    {
+      "inputs": [],
+      "name": "FromAddressIsNotOwner",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "InsufficientETH",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "InsufficientToken",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "InvalidBips",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "InvalidSpender",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "V2InvalidPath",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "V2TooLittleReceived",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "V2TooMuchRequested",
+      "type": "error"
+    }
+  ],
+  "bytecode": "0x",
+  "deployedBytecode": "0x",
+  "linkReferences": {},
+  "deployedLinkReferences": {}
+}

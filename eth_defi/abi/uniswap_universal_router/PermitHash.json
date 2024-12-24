@@ -1,0 +1,128 @@
+{
+  "_format": "hh-sol-artifact-1",
+  "contractName": "PermitHash",
+  "sourceName": "permit2/src/libraries/PermitHash.sol",
+  "abi": [
+    {
+      "inputs": [],
+      "name": "_PERMIT_BATCH_TRANSFER_FROM_TYPEHASH",
+      "outputs": [
+        {
+          "internalType": "bytes32",
+          "name": "",
+          "type": "bytes32"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "_PERMIT_BATCH_TYPEHASH",
+      "outputs": [
+        {
+          "internalType": "bytes32",
+          "name": "",
+          "type": "bytes32"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "_PERMIT_BATCH_WITNESS_TRANSFER_FROM_TYPEHASH_STUB",
+      "outputs": [
+        {
+          "internalType": "string",
+          "name": "",
+          "type": "string"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "_PERMIT_DETAILS_TYPEHASH",
+      "outputs": [
+        {
+          "internalType": "bytes32",
+          "name": "",
+          "type": "bytes32"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "_PERMIT_SINGLE_TYPEHASH",
+      "outputs": [
+        {
+          "internalType": "bytes32",
+          "name": "",
+          "type": "bytes32"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "_PERMIT_TRANSFER_FROM_TYPEHASH",
+      "outputs": [
+        {
+          "internalType": "bytes32",
+          "name": "",
+          "type": "bytes32"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "_PERMIT_TRANSFER_FROM_WITNESS_TYPEHASH_STUB",
+      "outputs": [
+        {
+          "internalType": "string",
+          "name": "",
+          "type": "string"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "_TOKEN_PERMISSIONS_TYPEHASH",
+      "outputs": [
+        {
+          "internalType": "bytes32",
+          "name": "",
+          "type": "bytes32"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "_TOKEN_PERMISSIONS_TYPESTRING",
+      "outputs": [
+        {
+          "internalType": "string",
+          "name": "",
+          "type": "string"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    }
+  ],
+  "bytecode": "0x6080806040523461001a576105a29081610020823930815050f35b600080fdfe60806040818152600436101561001457600080fd5b600091823560e01c9081633eb8b8fd146104dc57508063415e982d146104895780636302c3cf146104365780636e4f2775146103e357806378f168301461039057806384b8efbb146102a057806390bbf2f3146101b0578063c0c7fa7e146100db5763c5df4f031461008557600080fd5b817ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffc3601126100d757602090517ff3841cd1ff0085026a6327b620b67997ce40f282c88a8e905a7a5626e310f3d08152f35b5080fd5b50817ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffc3601126100d7578051906060820182811067ffffffffffffffff8211176101835761017f93508152602e82527f546f6b656e5065726d697373696f6e73286164647265737320746f6b656e2c7560208301527f696e7432353620616d6f756e742900000000000000000000000000000000000081830152519182918261052f565b0390f35b6024847f4e487b710000000000000000000000000000000000000000000000000000000081526041600452fd5b50817ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffc3601126100d75780519060a0820182811067ffffffffffffffff8211176101835761017f93508152606b82527f5065726d697442617463685769746e6573735472616e7366657246726f6d285460208301527f6f6b656e5065726d697373696f6e735b5d207065726d69747465642c61646472818301527f657373207370656e6465722c75696e74323536206e6f6e63652c75696e74323560608301527f3620646561646c696e652c0000000000000000000000000000000000000000006080830152519182918261052f565b50817ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffc3601126100d75780519060a0820182811067ffffffffffffffff8211176101835761017f93508152606482527f5065726d69745769746e6573735472616e7366657246726f6d28546f6b656e5060208301527f65726d697373696f6e73207065726d69747465642c6164647265737320737065818301527f6e6465722c75696e74323536206e6f6e63652c75696e7432353620646561646c60608301527f696e652c000000000000000000000000000000000000000000000000000000006080830152519182918261052f565b50817ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffc3601126100d757602090517f939c21a48a8dbe3a9a2404a1d46691e4d39f6583d6ec6b35714604c986d801068152f35b50817ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffc3601126100d757602090517f65626cad6cb96493bf6f5ebea28756c966f023ab9e8a83a7101849d5573b36788152f35b50817ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffc3601126100d757602090517faf1b0d30d2cab0380e68f0689007e3254993c596f2fdd0aaa7f4d04f794408638152f35b50817ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffc3601126100d757602090517f618358ac3db8dc274f0cd8829da7e234bd48cd73c4a740aede1adec9846d06a18152f35b8390817ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffc3601126100d757807ffcf35f5ac6a2c28868dc44c302166470266239195f02b0ee408334829333b76660209252f35b60208082528251818301819052939260005b858110610581575050507fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe0601f8460006040809697860101520116010190565b81810183015184820160400152820161054156fea164736f6c6343000811000a",
+  "deployedBytecode": "0x60806040818152600436101561001457600080fd5b600091823560e01c9081633eb8b8fd146104dc57508063415e982d146104895780636302c3cf146104365780636e4f2775146103e357806378f168301461039057806384b8efbb146102a057806390bbf2f3146101b0578063c0c7fa7e146100db5763c5df4f031461008557600080fd5b817ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffc3601126100d757602090517ff3841cd1ff0085026a6327b620b67997ce40f282c88a8e905a7a5626e310f3d08152f35b5080fd5b50817ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffc3601126100d7578051906060820182811067ffffffffffffffff8211176101835761017f93508152602e82527f546f6b656e5065726d697373696f6e73286164647265737320746f6b656e2c7560208301527f696e7432353620616d6f756e742900000000000000000000000000000000000081830152519182918261052f565b0390f35b6024847f4e487b710000000000000000000000000000000000000000000000000000000081526041600452fd5b50817ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffc3601126100d75780519060a0820182811067ffffffffffffffff8211176101835761017f93508152606b82527f5065726d697442617463685769746e6573735472616e7366657246726f6d285460208301527f6f6b656e5065726d697373696f6e735b5d207065726d69747465642c61646472818301527f657373207370656e6465722c75696e74323536206e6f6e63652c75696e74323560608301527f3620646561646c696e652c0000000000000000000000000000000000000000006080830152519182918261052f565b50817ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffc3601126100d75780519060a0820182811067ffffffffffffffff8211176101835761017f93508152606482527f5065726d69745769746e6573735472616e7366657246726f6d28546f6b656e5060208301527f65726d697373696f6e73207065726d69747465642c6164647265737320737065818301527f6e6465722c75696e74323536206e6f6e63652c75696e7432353620646561646c60608301527f696e652c000000000000000000000000000000000000000000000000000000006080830152519182918261052f565b50817ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffc3601126100d757602090517f939c21a48a8dbe3a9a2404a1d46691e4d39f6583d6ec6b35714604c986d801068152f35b50817ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffc3601126100d757602090517f65626cad6cb96493bf6f5ebea28756c966f023ab9e8a83a7101849d5573b36788152f35b50817ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffc3601126100d757602090517faf1b0d30d2cab0380e68f0689007e3254993c596f2fdd0aaa7f4d04f794408638152f35b50817ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffc3601126100d757602090517f618358ac3db8dc274f0cd8829da7e234bd48cd73c4a740aede1adec9846d06a18152f35b8390817ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffc3601126100d757807ffcf35f5ac6a2c28868dc44c302166470266239195f02b0ee408334829333b76660209252f35b60208082528251818301819052939260005b858110610581575050507fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe0601f8460006040809697860101520116010190565b81810183015184820160400152820161054156fea164736f6c6343000811000a",
+  "linkReferences": {},
+  "deployedLinkReferences": {}
+}

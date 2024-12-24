@@ -1,0 +1,16 @@
+{
+  "_format": "hh-sol-artifact-1",
+  "contractName": "LockAndMsgSender",
+  "sourceName": "contracts/base/LockAndMsgSender.sol",
+  "abi": [
+    {
+      "inputs": [],
+      "name": "ContractLocked",
+      "type": "error"
+    }
+  ],
+  "bytecode": "0x60808060405234602657600080546001600160a01b031916600117905560119081602c8239f35b600080fdfe600080fdfea164736f6c6343000811000a",
+  "deployedBytecode": "0x600080fdfea164736f6c6343000811000a",
+  "linkReferences": {},
+  "deployedLinkReferences": {}
+}
