@@ -199,6 +199,7 @@ class VelvetVault(VaultBase):
         swap_all=False,
         from_: HexAddress | str | None = None,
         retries=5,
+        manage_token_list=True,
     ) -> dict:
         """Prepare a swap transaction using Enso intent engine and Vevlet API.
 
@@ -208,8 +209,10 @@ class VelvetVault(VaultBase):
             Used with Anvil and unlocked accounts.
         """
 
-        if swap_all:
-            remaining_tokens.remove(token_in)
+        if manage_token_list:
+            if swap_all:
+                assert token_in in remaining_tokens, f"Enso swap full amount: Tried to remove {token_in}, not in the list {remaining_tokens}"
+                remaining_tokens.remove(token_in)
 
         tx_data = swap_with_velvet_and_enso(
             rebalance_address=self.info["rebalancing"],
