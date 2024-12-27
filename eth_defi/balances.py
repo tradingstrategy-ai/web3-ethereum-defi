@@ -18,6 +18,7 @@ from eth_defi.abi import get_contract
 from eth_defi.event import fetch_all_events
 from eth_defi.provider.anvil import is_anvil, is_mainnet_fork
 from eth_defi.provider.broken_provider import get_almost_latest_block_number
+from eth_defi.provider.mev_blocker import MEVBlockerProvider
 from eth_defi.provider.named import get_provider_name
 from eth_defi.token import fetch_erc20_details, DEFAULT_TOKEN_CACHE
 from eth_defi.vault.lower_case_dict import LowercaseDict
@@ -325,6 +326,15 @@ def fetch_erc20_balances_multicall(
         if not success:
             return None
         return value
+
+    # TODO: Rewrite this code without using Multicall library
+    # See multicall_batcher.py
+
+    # Handle our special MEV + Fallback (read) providers
+    provider = web3.provider
+    if isinstance(provider, MEVBlockerProvider):
+        logger.info("Skipping MEV RPC provider, using %s for multicall", provider.call_provider)
+        web3 = Web3(provider.call_provider)
 
     chain_id = web3.eth.chain_id
 
