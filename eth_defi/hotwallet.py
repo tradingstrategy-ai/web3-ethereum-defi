@@ -359,6 +359,27 @@ class HotWallet:
 
         - likely queries the values from the node
 
+        .. note ::
+
+            Mutates ``tx`` in place.
+
+        .. note ::
+
+            Before calling this method, you need to set ``gas`` and
+            ``chainId`` fields of ``tx``,
+            which is the max gas limit (not price).
+
+        Example:
+
+        .. code-block:: python
+
+
+
+        :param tx:
+            Transaction data as a dictionary.
+
+            Contains keys like ``to``, ``data``, ``gas``.
+
         :return:
             Transaction data (mutated) with gas values filled in.
         """

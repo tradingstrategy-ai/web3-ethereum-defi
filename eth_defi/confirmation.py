@@ -69,6 +69,11 @@ def is_out_of_gas(eth_rpc_error_messag: str) -> bool:
     return "insufficient funds" in eth_rpc_error_messag
 
 
+def is_invalid_sender(eth_rpc_error_messag: str) -> bool:
+    """from address missing in the tx payload"""
+    return "invalid sender" in eth_rpc_error_messag
+
+
 def wait_transactions_to_complete(
     web3: Web3,
     txs: List[Union[HexBytes, str]],
@@ -876,6 +881,11 @@ def wait_and_broadcast_multiple_nodes_mev_blocker(
 
     receipts = {}
 
+    # We need to perform some read calls,
+    # and Base sequencer will crash with:
+    # requests.exceptions.HTTPError: 403 Client Error: Forbidden for url: https://mainnet-sequencer.base.org/
+    full_web3 = Web3(provider)
+
     # Only interact with the transact provider from no one
     if isinstance(provider, MEVBlockerProvider):
         transaction_provider = provider.transact_provider
@@ -885,7 +895,7 @@ def wait_and_broadcast_multiple_nodes_mev_blocker(
 
     web3 = Web3(transaction_provider)
 
-    anviled = is_anvil(web3)
+    anviled = is_anvil(full_web3)
     if anviled:
         poll_delay = datetime.timedelta(seconds=0.1)
 
@@ -921,19 +931,24 @@ def wait_and_broadcast_multiple_nodes_mev_blocker(
 
                 logger.debug("Starting MEV Blocker confirmation cycle, unconfirmed tx is: %s, sleeping poll delay %s", tx_hash.hex(), poll_delay)
 
-                # Can raise receipt not found
-                receipt = web3.eth.get_transaction_receipt(tx_hash)
+                # Read receipt using read node,
+                # as mainnet-sequencer on Base does not give even the receipt
+                receipt = full_web3.eth.get_transaction_receipt(tx_hash)
                 receipts[tx.hash] = receipt
                 last_exception = None
                 break
             except Exception as e:
-                nonce = web3.eth.get_transaction_count(tx.address)
+                nonce = full_web3.eth.get_transaction_count(tx.address)
                 logger.info("No receipt yet, current nonce: %d, exception %s", nonce, e, exc_info=e)
                 last_exception = e
 
                 if is_out_of_gas(str(e)):
                     # Out of gas situation we can never recover
                     raise OutOfGasFunds(f"Run out of gas to broadcast a transaction {tx}: {e}") from e
+
+                if is_invalid_sender(str(e)):
+                    # Out of gas situation we can never recover
+                    raise NonRetryableBroadcastException(f"Invalid from value {tx}: {e}") from e
 
                 time.sleep(poll_delay.total_seconds())
 

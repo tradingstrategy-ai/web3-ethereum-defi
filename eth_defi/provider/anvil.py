@@ -536,6 +536,12 @@ def is_anvil(web3: Web3) -> bool:
 
     See also :py:func:`launch_anvil`
 
+    .. warning::
+
+        This method will crash with Base mainnet sequencer:
+
+        ``requests.exceptions.HTTPError: 403 Client Error: Forbidden for url: https://mainnet-sequencer.base.org/``.
+
     :param web3:
         Web3 connection instance to check
 
