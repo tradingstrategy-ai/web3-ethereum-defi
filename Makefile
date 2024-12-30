@@ -154,7 +154,7 @@ clean-abi:
 # Compile all contracts we are using
 #
 # Move ABI files to within a Python package for PyPi distribution
-compile-projects-and-prepare-abi: clean-abi sushi in-house guard copy-uniswapv3-abi aavev3 enzyme dhedge centre 1delta
+compile-projects-and-prepare-abi: clean-abi sushi in-house guard safe-integration copy-uniswapv3-abi aavev3 enzyme dhedge centre 1delta
 
 all: clean-docs compile-projects-and-prepare-abi build-docs
 
