@@ -33,7 +33,7 @@ urllib3 = "<2"
 
 psutil = "^5.9.0"
 ujson = ">=5.8.0"
-cachetools = ">=4,<=6"
+cachetools = ">=4"
 futureproof = "^0.3.1"
 setuptools = {version = ">=64.0.2,<=70"}
 eth-bloom = "^2.0.0"
