@@ -11,10 +11,12 @@ import "./IGuard.sol";
 /**
  * Prototype guard implementation.
  *
- * - Hardcoded actions for Uniswap v2, v3, 1delta
+ * - Hardcoded actions for Uniswap v2, v3, 1delta, Aave
+ *
+ * - Abstract base contract to deal with different ownership modifiers and initialisers (Safe, OpenZeppelin)
  *
  */
-abstract contract GuardV0Base {
+abstract contract GuardV0Base is IGuard  {
     using Path for bytes;
     using BytesLib for bytes;
 
@@ -247,7 +249,16 @@ abstract contract GuardV0Base {
         allowAsset(token, notes);
     }
 
+    // Satisfy IGuard
     function validateCall(
+        address sender,
+        address target,
+        bytes calldata callDataWithSelector
+    ) external view {
+        _validateCallInternal(sender, target, callDataWithSelector);
+    }
+
+    function _validateCallInternal(
         address sender,
         address target,
         bytes calldata callDataWithSelector

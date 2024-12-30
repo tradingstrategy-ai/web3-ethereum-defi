@@ -66,7 +66,7 @@ contract TradingStrategyModule is Module, GuardV0Base {
 
         // Check that the asset manager can perform this function.
         // Will revert() on error
-        validateCall(msg.sender, target, callData);
+        _validateCallInternal(msg.sender, target, callData);
 
         // Inherit from Module contract,
         // execute a tx on behalf of Gnosis
