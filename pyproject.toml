@@ -38,7 +38,7 @@ futureproof = "^0.3.1"
 setuptools = {version = ">=64.0.2,<=70"}
 eth-bloom = "^2.0.0"
 evm-trace = "^0.1.0a17"
-web3 = {version = "6.14.0", extras = ["tester"]}
+web3 = {version = ">=6.14", extras = ["tester"]}
 tqdm-loggable = ">=0.1.3"
 sigfig = "^1.3.2"
 tqdm = {version = ">=4.66.1", optional = true}
