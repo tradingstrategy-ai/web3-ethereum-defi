@@ -1,5 +1,10 @@
 pragma solidity ^0.8.0;
 
+/**
+ * Trade execution guard.
+ *
+ * - Check that we cannot do trades for which we do not have permission for
+ */
 interface IGuard {
 
     /**

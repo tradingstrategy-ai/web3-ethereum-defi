@@ -47,6 +47,16 @@ guard:
 		\) \
 		-exec cp {} eth_defi/abi/guard \;
 
+# Guard as  a safe module
+safe-integration:
+	@mkdir -p eth_defi/abi/safe-integration
+	@(cd contracts/safe-integration && forge build)
+	@find contracts/safe-integration/out \
+		\(  \
+		-name "TradingStrategyModule.json" \
+		\) \
+		-exec cp {} eth_defi/abi/safe-integration \;
+
 # Terms of service acceptance manager contract
 terms-of-service:
 	@mkdir -p eth_defi/abi/terms-of-service
