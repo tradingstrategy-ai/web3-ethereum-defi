@@ -16,16 +16,22 @@ from typing import Optional, Sequence, Type, Union, Any
 import eth_abi
 from eth_abi import decode
 from eth_typing import HexAddress
-from eth_utils import encode_hex, function_abi_to_4byte_selector
-from eth_utils.abi import _abi_to_signature, function_signature_to_4byte_selector
+from eth_utils.abi import function_signature_to_4byte_selector
 from hexbytes import HexBytes
 from web3 import Web3
-from web3._utils.abi import get_abi_input_names, get_abi_input_types
-from web3._utils.contracts import encode_abi, get_function_info
+try:
+    from web3._utils.contracts import encode_abi, get_function_info, find_matching_fn_abi
+    from web3._utils.abi import get_abi_input_names, get_abi_input_types
+except ImportError:
+    from .compat import encode_abi, get_function_info, find_matching_fn_abi
+    from .compat import get_abi_input_names, get_abi_input_types
+
 from web3.contract.contract import Contract, ContractFunction
 
 # Cache loaded ABI files in-process memory for speedup
 from web3.datastructures import AttributeDict
+
+from eth_defi.compat import _abi_to_signature, get_function_info
 
 # How big are our ABI and contract caches
 _CACHE_SIZE = 512
