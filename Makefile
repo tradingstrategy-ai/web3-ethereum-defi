@@ -53,7 +53,9 @@ safe-integration:
 	@(cd contracts/safe-integration && forge build)
 	@find contracts/safe-integration/out \
 		\(  \
-		-name "TradingStrategyModule.json" \
+		-name "TradingStrategyModuleV0.json" \
+		-o \
+		-name "MockSafe.json" \
 		\) \
 		-exec cp {} eth_defi/abi/safe-integration \;
 

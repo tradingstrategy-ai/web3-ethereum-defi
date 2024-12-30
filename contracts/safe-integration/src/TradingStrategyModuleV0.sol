@@ -23,11 +23,13 @@ import "@guard/GuardV0Base.sol";
  * - Support Lagoon, Gnosis Safe and other Gnosis Safe-based ecosystems which support Zodiac modules
  * - Owner should point to Gnosis Safe / DAO
  *
+ * This is initial, MVP, version.
+ *
  */
-contract TradingStrategyModule is Module, GuardV0Base {
+contract TradingStrategyModuleV0 is Module, GuardV0Base {
 
-    constructor(address _owner) {
-        bytes memory initializeParams = abi.encode(_owner);
+    constructor(address _owner, address _target) {
+        bytes memory initializeParams = abi.encode(_owner, _target);
         setUp(initializeParams);
     }
 
@@ -48,9 +50,9 @@ contract TradingStrategyModule is Module, GuardV0Base {
     /// https://gist.github.com/auryn-macmillan/841906d0bc6c2624e83598cdfac17de8
     function setUp(bytes memory initializeParams) public override initializer {
         __Ownable_init(msg.sender);
-        (address _owner) = abi.decode(initializeParams, (address));
-
-        setAvatar(_owner);
+        (address _owner, address _target) = abi.decode(initializeParams, (address, address));
+        setAvatar(_target);
+        setTarget(_target);
         transferOwnership(_owner);
     }
 
@@ -74,7 +76,7 @@ contract TradingStrategyModule is Module, GuardV0Base {
             target,
             0,
             callData,
-            Enum.Operation.Call
+            Enum.Operation.DelegateCall
         );
     }
 }
