@@ -29,11 +29,11 @@ python = ">=3.10,<4"
 
 # https://github.com/apache/arrow/pull/35412
 # Last checked 2023-07, still broken
-urllib3 = "<2"
+urllib3 = ">=2"
 
 psutil = "^5.9.0"
 ujson = ">=5.8.0"
-cachetools = ">=4,<=6"
+cachetools = ">=4"
 futureproof = "^0.3.1"
 setuptools = {version = ">=64.0.2,<=70"}
 eth-bloom = "^2.0.0"
