@@ -2,7 +2,6 @@
 import os
 
 import pytest
-from eth_tester.exceptions import TransactionFailed
 
 from eth_typing import HexAddress
 from safe_eth.safe import Safe
@@ -15,7 +14,6 @@ from eth_defi.deploy import deploy_contract
 from eth_defi.hotwallet import HotWallet
 from eth_defi.provider.anvil import fork_network_anvil, AnvilLaunch
 from eth_defi.provider.multi_provider import create_multi_provider_web3
-from eth_defi.revert_reason import fetch_transaction_revert_reason
 from eth_defi.safe.safe_compat import create_safe_ethereum_client
 from eth_defi.simple_vault.transact import encode_simple_vault_transaction
 from eth_defi.token import TokenDetails, fetch_erc20_details
@@ -40,6 +38,12 @@ def deployer(web3) -> HexAddress:
 def asset_manager(web3) -> HexAddress:
     """Role who can perform trades"""
     return web3.eth.accounts[1]
+
+
+@pytest.fixture()
+def attacker_account(web3) -> HexAddress:
+    """Unauthorised account, without roles"""
+    return web3.eth.accounts[2]
 
 
 @pytest.fixture()
@@ -342,3 +346,36 @@ def test_swap_through_module_revert(
         ts_module.functions.performCall(target, call_data).transact({"from": asset_manager})
 
     assert "TRANSFER_FROM_FAILED" in str(e)
+
+
+def test_swap_through_module_unauthorised(
+    web3: Web3,
+    safe: Safe,
+    safe_deployer_hot_wallet: HotWallet,
+    deployer: HexAddress,
+    asset_manager: HexAddress,
+    base_usdc: TokenDetails,
+    base_weth: TokenDetails,
+    uniswap_v2: UniswapV2Deployment,
+    uniswap_v2_whitelisted_trading_strategy_module,
+    usdc_whale: HexAddress,
+    attacker_account: HexAddress,
+):
+    """Operation initiated by someone that is not trade-executor"""
+
+    ts_module = uniswap_v2_whitelisted_trading_strategy_module
+    assert safe.retrieve_modules() == [ts_module.address]
+
+    usdc = base_usdc.contract
+    usdc_amount = 10_000 * 10**6
+
+    approve_call = usdc.functions.approve(
+        uniswap_v2.router.address,
+        usdc_amount,
+    )
+
+    target, call_data = encode_simple_vault_transaction(approve_call)
+    with pytest.raises(ValueError) as e:
+        ts_module.functions.performCall(target, call_data).transact({"from": attacker_account})
+    assert "validateCall: Sender not allowed" in str(e)
+
