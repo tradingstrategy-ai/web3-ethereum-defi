@@ -72,12 +72,18 @@ contract TradingStrategyModuleV0 is Module, GuardV0Base {
 
         // Inherit from Module contract,
         // execute a tx on behalf of Gnosis
-        exec(
+        bool success = exec(
             target,
             0,
             callData,
             Enum.Operation.DelegateCall
         );
+
+        if (!success) {
+            assembly {
+                revert(add(response, 0x20), mload(response))
+            }
+       }
     }
 }
 
