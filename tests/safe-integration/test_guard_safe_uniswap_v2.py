@@ -219,8 +219,7 @@ def test_safe_module_initialised(
     """Vault and guard are initialised for the owner."""
     assert guard.functions.owner().call() == owner
     assert guard.functions.isAllowedSender(asset_manager).call() is True
-    assert guard.functions.isAllowedWithdrawDestination(owner).call() is True
-    assert guard.functions.isAllowedWithdrawDestination(asset_manager).call() is False
+    assert guard.functions.isAllowedSender(safe.address).call() is False
 
     # We have accessed needed for a swap
     assert guard.functions.callSiteCount().call() == 5

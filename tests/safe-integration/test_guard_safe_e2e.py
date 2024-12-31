@@ -378,4 +378,3 @@ def test_swap_through_module_unauthorised(
     with pytest.raises(ValueError) as e:
         ts_module.functions.performCall(target, call_data).transact({"from": attacker_account})
     assert "validateCall: Sender not allowed" in str(e)
-
