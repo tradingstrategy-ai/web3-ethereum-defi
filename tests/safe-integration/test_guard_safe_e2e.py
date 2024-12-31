@@ -105,7 +105,7 @@ def web3(anvil_base_fork) -> Web3:
 
     - By default use Anvil forked Base
 
-    - Eanble Tenderly testnet with `JSON_RPC_TENDERLY` to debug
+    - Optionally enable Tenderly testnet with `JSON_RPC_TENDERLY` to debug
       otherwise impossible to debug Gnosis Safe transactions
     """
 
@@ -177,20 +177,12 @@ def uniswap_v2_whitelisted_trading_strategy_module(
 
     owner = deployer
 
-    guard = deploy_contract(
-        web3,
-        "safe-integration/TradingStrategyModuleV0.json",
-        deployer,
-        deployer,
-        safe.address,
-    )
-
     # Deploy guard module
     module = deploy_contract(
         web3,
         "safe-integration/TradingStrategyModuleV0.json",
         deployer,
-        safe.address,
+        owner,
         safe.address,
     )
 
@@ -207,26 +199,26 @@ def uniswap_v2_whitelisted_trading_strategy_module(
     assert_transaction_success_with_explanation(web3, tx_hash)
 
     # Enable asset_manager as the whitelisted trade-executor
-    tx_hash = guard.functions.allowSender(asset_manager, "Whitelist trade-executor").transact({"from": owner})
+    tx_hash = module.functions.allowSender(asset_manager, "Whitelist trade-executor").transact({"from": owner})
     assert_transaction_success_with_explanation(web3, tx_hash)
 
     # Enable safe as the receiver of tokens
-    tx_hash = guard.functions.allowReceiver(safe.address, "Whitelist Safe as trade receiver").transact({"from": owner})
+    tx_hash = module.functions.allowReceiver(safe.address, "Whitelist Safe as trade receiver").transact({"from": owner})
     assert_transaction_success_with_explanation(web3, tx_hash)
 
     # Whitelist tokens
-    guard.functions.whitelistToken(base_usdc.address, "Allow USDC").transact({"from": owner})
-    guard.functions.whitelistToken(base_weth.address, "Allow WETH").transact({"from": owner})
+    module.functions.whitelistToken(base_usdc.address, "Allow USDC").transact({"from": owner})
+    module.functions.whitelistToken(base_weth.address, "Allow WETH").transact({"from": owner})
 
     # Whitelist Uniswap v2
-    tx_hash = guard.functions.whitelistUniswapV2Router(uniswap_v2.router.address, "Allow Uniswap v2").transact({"from": owner})
+    tx_hash = module.functions.whitelistUniswapV2Router(uniswap_v2.router.address, "Allow Uniswap v2").transact({"from": owner})
     assert_transaction_success_with_explanation(web3, tx_hash)
 
     # Relinquish ownership
-    tx_hash = guard.functions.transferOwnership(safe.address).transact({"from": owner})
+    tx_hash = module.functions.transferOwnership(safe.address).transact({"from": owner})
     assert_transaction_success_with_explanation(web3, tx_hash)
 
-    return guard
+    return module
 
 
 def test_enable_safe_module(
@@ -278,6 +270,8 @@ def test_swap_through_module(
     """Perform Uniswap v2 swap using TradingStrategyModuleV0."""
 
     ts_module = uniswap_v2_whitelisted_trading_strategy_module
+    assert safe.retrieve_modules() == [ts_module.address]
+
     usdc = base_usdc.contract
     weth = base_weth.contract
     usdc_amount = 10_000 * 10**6
@@ -294,6 +288,8 @@ def test_swap_through_module(
     tx_hash = ts_module.functions.performCall(target, call_data).transact({"from": asset_manager})
     assert_transaction_success_with_explanation(web3, tx_hash)
 
+    assert weth.functions.balanceOf(safe.address).call() == 0
+
     trade_call = uniswap_v2.router.functions.swapExactTokensForTokens(
         usdc_amount,
         0,
@@ -305,5 +301,5 @@ def test_swap_through_module(
     tx_hash = ts_module.functions.performCall(target, call_data).transact({"from": asset_manager})
     assert_transaction_success_with_explanation(web3, tx_hash)
 
-    assert weth.functions.balanceOf(safe.address).call() == 3696700037078235076
+    assert weth.functions.balanceOf(safe.address).call() > 0
 

@@ -25,6 +25,9 @@ import "@guard/GuardV0Base.sol";
  *
  * This is initial, MVP, version.
  *
+ * Notes
+ * - See VelvetSafeModule as an example https://github.com/Velvet-Capital/velvet-core/blob/9d487937d0569c12e85b436a1c6f3e68a1dc8c44/contracts/vault/VelvetSafeModule.sol#L16
+ *
  */
 contract TradingStrategyModuleV0 is Module, GuardV0Base {
 
@@ -66,17 +69,20 @@ contract TradingStrategyModuleV0 is Module, GuardV0Base {
      */
     function performCall(address target, bytes calldata callData) external {
 
+        bool success;
+        bytes memory response;
+
         // Check that the asset manager can perform this function.
         // Will revert() on error
         _validateCallInternal(msg.sender, target, callData);
 
         // Inherit from Module contract,
         // execute a tx on behalf of Gnosis
-        bool success = exec(
+        (success, response) = execAndReturnData(
             target,
             0,
             callData,
-            Enum.Operation.DelegateCall
+            Enum.Operation.Call
         );
 
         if (!success) {
