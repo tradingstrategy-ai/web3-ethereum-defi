@@ -1,1 +1,3 @@
 @openzeppelin/=lib/openzeppelin-contracts/contracts
+@gnosis.pm/=lib
+

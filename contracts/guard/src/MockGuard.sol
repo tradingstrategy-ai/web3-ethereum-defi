@@ -15,7 +15,7 @@ contract MockGuard is IGuard {
         address sender,
         address target,
         bytes calldata callDataWithSelector
-    ) external view {
+    ) public view {
         // Don't revert
     }
 

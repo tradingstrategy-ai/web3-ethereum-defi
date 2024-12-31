@@ -53,6 +53,7 @@ def safe_address() -> HexAddress:
     return "0x20415f3Ec0FEA974548184bdD6e67575D128953F"
 
 
+
 @pytest.fixture()
 def anvil_base_fork(request, vault_owner, usdc_holder, asset_manager, valuation_manager) -> AnvilLaunch:
     """Create a testable fork of live BNB chain.

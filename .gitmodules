@@ -44,3 +44,15 @@
 [submodule "contracts/velvet-core"]
 	path = contracts/velvet-core
 	url = https://github.com/Velvet-Capital/velvet-core.git
+[submodule "contracts/safe-integration/lib/zodiac"]
+	path = contracts/safe-integration/lib/zodiac
+	url = https://github.com/gnosisguild/zodiac.git
+[submodule "contracts/safe-integration/lib/safe-contracts"]
+	path = contracts/safe-integration/lib/safe-contracts
+	url = git@github.com:safe-global/safe-smart-account.git
+[submodule "contracts/safe-integration/lib/openzeppelin-contracts"]
+	path = contracts/safe-integration/lib/openzeppelin-contracts
+	url = https://github.com/OpenZeppelin/openzeppelin-contracts.git
+[submodule "contracts/safe-integration/lib/openzeppelin-contracts-upgradeable"]
+	path = contracts/safe-integration/lib/openzeppelin-contracts-upgradeable
+	url = https://github.com/OpenZeppelin/openzeppelin-contracts-upgradeable.git

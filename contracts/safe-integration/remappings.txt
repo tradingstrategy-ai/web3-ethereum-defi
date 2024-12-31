@@ -1,0 +1,4 @@
+@openzeppelin/contracts-upgradeable=lib/openzeppelin-contracts-upgradeable/contracts
+@openzeppelin/=lib/openzeppelin-contracts/contracts
+@gnosis.pm/=lib
+@guard=../guard/src
