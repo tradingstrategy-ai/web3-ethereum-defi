@@ -36,13 +36,16 @@ contract TradingStrategyModuleV0 is Module, GuardV0Base {
         setUp(initializeParams);
     }
 
+    // Override to use Zodiac Module's ownership mechanism
     modifier onlyGuardOwner() override {
         _checkOwner();
         _;
     }
 
     /**
-     * Get the address of the proto DAO
+     * Get the address of the proto DAO.@author
+     *
+     * Override to use Zodiac Module's ownership mechanism.
      */
     function getGovernanceAddress() override public view returns (address) {
         return owner();
@@ -85,6 +88,7 @@ contract TradingStrategyModuleV0 is Module, GuardV0Base {
             Enum.Operation.Call
         );
 
+        // Bubble up the revert reason
         if (!success) {
             assembly {
                 revert(add(response, 0x20), mload(response))
