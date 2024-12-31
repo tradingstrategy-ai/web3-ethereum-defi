@@ -1,7 +1,8 @@
-"""Mainnet fork test for Safe module integration."""
+"""Base mainnet fork based interation tests for TradingStrategyModuleV0 Safe module integration."""
 import os
 
 import pytest
+from eth_tester.exceptions import TransactionFailed
 
 from eth_typing import HexAddress
 from safe_eth.safe import Safe
@@ -10,11 +11,11 @@ from web3 import Web3
 from web3.contract import Contract
 from web3.middleware import construct_sign_and_send_raw_middleware
 
-from eth_defi.abi import get_function_selector
 from eth_defi.deploy import deploy_contract
 from eth_defi.hotwallet import HotWallet
 from eth_defi.provider.anvil import fork_network_anvil, AnvilLaunch
 from eth_defi.provider.multi_provider import create_multi_provider_web3
+from eth_defi.revert_reason import fetch_transaction_revert_reason
 from eth_defi.safe.safe_compat import create_safe_ethereum_client
 from eth_defi.simple_vault.transact import encode_simple_vault_transaction
 from eth_defi.token import TokenDetails, fetch_erc20_details
@@ -255,7 +256,7 @@ def test_enable_safe_module(
     assert modules == [module.address]
 
 
-def test_swap_through_module(
+def test_swap_through_module_succeed(
     web3: Web3,
     safe: Safe,
     safe_deployer_hot_wallet: HotWallet,
@@ -303,3 +304,41 @@ def test_swap_through_module(
 
     assert weth.functions.balanceOf(safe.address).call() > 0
 
+
+def test_swap_through_module_revert(
+    web3: Web3,
+    safe: Safe,
+    safe_deployer_hot_wallet: HotWallet,
+    deployer: HexAddress,
+    asset_manager: HexAddress,
+    base_usdc: TokenDetails,
+    base_weth: TokenDetails,
+    uniswap_v2: UniswapV2Deployment,
+    uniswap_v2_whitelisted_trading_strategy_module,
+    usdc_whale: HexAddress,
+):
+    """Swap reverts (token not approved)"""
+
+    ts_module = uniswap_v2_whitelisted_trading_strategy_module
+    assert safe.retrieve_modules() == [ts_module.address]
+
+    usdc = base_usdc.contract
+    weth = base_weth.contract
+    usdc_amount = 10_000 * 10**6
+    usdc.functions.transfer(safe.address, usdc_amount).transact({"from": usdc_whale})
+
+    path = [usdc.address, weth.address]
+
+    trade_call = uniswap_v2.router.functions.swapExactTokensForTokens(
+        usdc_amount,
+        0,
+        path,
+        safe.address,
+        FOREVER_DEADLINE,
+    )
+    target, call_data = encode_simple_vault_transaction(trade_call)
+
+    with pytest.raises(ValueError) as e:
+        ts_module.functions.performCall(target, call_data).transact({"from": asset_manager})
+
+    assert "TRANSFER_FROM_FAILED" in str(e)
