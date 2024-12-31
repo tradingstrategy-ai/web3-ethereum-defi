@@ -8,7 +8,6 @@
 - Fix: Base MEV protected broadcast failed
 - Add: Integrate `TradingStrategyModuleV0` module to Gnosis Safe-based protocols using Zodiac module. Mainly needed for Lagoon vaults, but can work for others: vanilla Safe, DAOs.
 
-
 # 0.27
 
 - Add: Support for [Velvet Capital vaults](https://www.velvet.capital/)
