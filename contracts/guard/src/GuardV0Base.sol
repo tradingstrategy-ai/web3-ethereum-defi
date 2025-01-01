@@ -15,6 +15,8 @@ import "./IGuard.sol";
  *
  * - Abstract base contract to deal with different ownership modifiers and initialisers (Safe, OpenZeppelin)
  *
+ * TODO: Externally managed safe token registry
+ *
  */
 abstract contract GuardV0Base is IGuard  {
     using Path for bytes;
@@ -56,7 +58,7 @@ abstract contract GuardV0Base is IGuard  {
         uint256 amountInMaximum;
     }
 
-    // Allowed ERC20.approve()
+    // Allowed external smart contract calls (address, function selector) tuples
     mapping(address target => mapping(bytes4 selector => bool allowed)) public allowedCallSites;
 
     // How many call sites we have enabled all-time counter.
@@ -83,6 +85,12 @@ abstract contract GuardV0Base is IGuard  {
     // Allowed routers
     mapping(address destination => bool allowed) public allowedDelegationApprovalDestinations;
 
+    // Allow trading any token
+    //
+    // Dangerous, as malicious/compromised trade-executor can drain all assets through creating fake tokens
+    //
+    bool public anyAsset;
+
     event CallSiteApproved(address target, bytes4 selector, string notes);
     event CallSiteRemoved(address target, bytes4 selector, string notes);
 
@@ -104,10 +112,17 @@ abstract contract GuardV0Base is IGuard  {
     event AssetApproved(address sender, string notes);
     event AssetRemoved(address sender, string notes);
 
+    event AnyAssetSet(bool value, string notes);
+
+    // Implementation needs to provide its own ownership policy hooks
     modifier onlyGuardOwner() virtual;
 
+    // Implementation needs to provide its own ownership policy hooks
     function getGovernanceAddress() virtual public view returns (address);
 
+    /**
+     * Calculate Solidity 4-byte function selector from a string.
+     */
     function getSelector(string memory _func) internal pure returns (bytes4) {
         // https://solidity-by-example.org/function-selector/
         return bytes4(keccak256(bytes(_func)));
@@ -195,6 +210,15 @@ abstract contract GuardV0Base is IGuard  {
 
     // Basic check if any target contract is whitelisted
     function isAllowedCallSite(address target, bytes4 selector) public view returns (bool) {
+
+        // If we have dynamic whitelist/any token, we cannot check approve() call sites of
+        // individual tokens
+        if(anyAsset) {
+            if(selector == getSelector("approve(address,uint256)")) {
+                return true;
+            }
+        }
+
         return allowedCallSites[target][selector];
     }
 
@@ -219,8 +243,11 @@ abstract contract GuardV0Base is IGuard  {
         return allowedDelegationApprovalDestinations[receiver] == true;
     }
 
+    /**
+     * Are we allowed to trade/own an ERC-20.
+     */
     function isAllowedAsset(address token) public view returns (bool) {
-        return allowedAssets[token] == true;
+        return anyAsset || allowedAssets[token] == true;
     }
 
     function validate_transfer(bytes memory callData) public view {
@@ -247,6 +274,23 @@ abstract contract GuardV0Base is IGuard  {
     function whitelistTokenForDelegation(address token, string calldata notes) external {
         allowCallSite(token, getSelector("approveDelegation(address,uint256)"), notes);
         allowAsset(token, notes);
+    }
+
+    function whitelistUniswapV3Router(address router, string calldata notes) external {
+        allowCallSite(router, getSelector("exactInput((bytes,address,uint256,uint256,uint256))"), notes);
+        allowCallSite(router, getSelector("exactOutput((bytes,address,uint256,uint256,uint256))"), notes);
+        allowApprovalDestination(router, notes);
+    }
+
+    function whitelistUniswapV2Router(address router, string calldata notes) external {
+        allowCallSite(router, getSelector("swapExactTokensForTokens(uint256,uint256,address[],address,uint256)"), notes);
+        allowApprovalDestination(router, notes);
+    }
+
+    // Enable unlimited trading space
+    function setAnyAssetAllowed(bool value, string calldata notes) external onlyGuardOwner {
+        anyAsset = value;
+        emit AnyAssetSet(value, notes);
     }
 
     // Satisfy IGuard
@@ -311,11 +355,6 @@ abstract contract GuardV0Base is IGuard  {
         }        
     }
 
-    function whitelistUniswapV2Router(address router, string calldata notes) external {
-        allowCallSite(router, getSelector("swapExactTokensForTokens(uint256,uint256,address[],address,uint256)"), notes);
-        allowApprovalDestination(router, notes);
-    }
-
     // validate Uniswap v3 trade
     function validate_exactInput(bytes memory callData) public view {
         (ExactInputParams memory params) = abi.decode(callData, (ExactInputParams));
@@ -347,12 +386,6 @@ abstract contract GuardV0Base is IGuard  {
                 break;
             }
         }
-    }
-
-    function whitelistUniswapV3Router(address router, string calldata notes) external {
-        allowCallSite(router, getSelector("exactInput((bytes,address,uint256,uint256,uint256))"), notes);
-        allowCallSite(router, getSelector("exactOutput((bytes,address,uint256,uint256,uint256))"), notes);
-        allowApprovalDestination(router, notes);
     }
 
     // validate 1delta trade

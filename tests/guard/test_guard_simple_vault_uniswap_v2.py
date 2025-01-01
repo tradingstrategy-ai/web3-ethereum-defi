@@ -266,7 +266,6 @@ def test_guard_token_in_not_approved(
         target, call_data = encode_simple_vault_transaction(trade_call)
         vault.functions.performCall(target, call_data).transact({"from": asset_manager})
 
-
 def test_guard_token_in_not_approved(
     uniswap_v2: UniswapV2Deployment,
     weth_usdc_pair: PairDetails,
@@ -458,3 +457,76 @@ def test_guard_third_party_trade(
     with pytest.raises(TransactionFailed, match="Sender not allowed"):
         target, call_data = encode_simple_vault_transaction(trade_call)
         vault.functions.performCall(target, call_data).transact({"from": third_party})
+
+
+def test_guard_can_trade_any_asset_uniswap_v2(
+    web3: Web3,
+    uniswap_v2: UniswapV2Deployment,
+    weth_usdc_pair: PairDetails,
+    owner: str,
+    asset_manager: str,
+    deployer: str,
+    weth: Contract,
+    usdc: Contract,
+):
+    """After whitelist removed, we can trade any asset."""
+    weth = uniswap_v2.weth
+    vault = deploy_contract(web3, "guard/SimpleVaultV0.json", deployer, asset_manager)
+    vault.functions.initialiseOwnership(owner).transact({"from": deployer})
+
+    guard = get_deployed_contract(web3, "guard/GuardV0.json", vault.functions.guard().call())
+    guard.functions.whitelistUniswapV2Router(uniswap_v2.router.address, "Allow Uniswap v2").transact({"from": owner})
+    guard.functions.setAnyAssetAllowed(True, "Allow any asset").transact({"from": owner})
+
+    usdc_amount = 10_000 * 10**6
+    usdc.functions.transfer(vault.address, usdc_amount).transact({"from": deployer})
+
+    path = [usdc.address, weth.address]
+
+    #
+    # Buy WETH
+    #
+
+    approve_call = usdc.functions.approve(
+        uniswap_v2.router.address,
+        usdc_amount,
+    )
+
+    target, call_data = encode_simple_vault_transaction(approve_call)
+    vault.functions.performCall(target, call_data).transact({"from": asset_manager})
+
+    trade_call = uniswap_v2.router.functions.swapExactTokensForTokens(
+        usdc_amount,
+        0,
+        path,
+        vault.address,
+        FOREVER_DEADLINE,
+    )
+
+    target, call_data = encode_simple_vault_transaction(trade_call)
+    vault.functions.performCall(target, call_data).transact({"from": asset_manager})
+
+    weth_amount = 3696700037078235076
+    assert weth.functions.balanceOf(vault.address).call() == weth_amount
+
+    #
+    # Sell it back
+    #
+
+    approve_call = weth.functions.approve(
+        uniswap_v2.router.address,
+        weth_amount,
+    )
+    target, call_data = encode_simple_vault_transaction(approve_call)
+    vault.functions.performCall(target, call_data).transact({"from": asset_manager})
+
+    trade_call = uniswap_v2.router.functions.swapExactTokensForTokens(
+        weth_amount,
+        0,
+        [weth.address, usdc.address],
+        vault.address,
+        FOREVER_DEADLINE,
+    )
+
+    target, call_data = encode_simple_vault_transaction(trade_call)
+    vault.functions.performCall(target, call_data).transact({"from": asset_manager})
