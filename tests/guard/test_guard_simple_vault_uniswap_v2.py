@@ -483,6 +483,10 @@ def test_guard_can_trade_any_asset_uniswap_v2(
 
     path = [usdc.address, weth.address]
 
+    #
+    # Buy WETH
+    #
+
     approve_call = usdc.functions.approve(
         uniswap_v2.router.address,
         usdc_amount,
@@ -502,4 +506,27 @@ def test_guard_can_trade_any_asset_uniswap_v2(
     target, call_data = encode_simple_vault_transaction(trade_call)
     vault.functions.performCall(target, call_data).transact({"from": asset_manager})
 
-    assert weth.functions.balanceOf(vault.address).call() == 3696700037078235076
+    weth_amount = 3696700037078235076
+    assert weth.functions.balanceOf(vault.address).call() == weth_amount
+
+    #
+    # Sell it back
+    #
+
+    approve_call = weth.functions.approve(
+        uniswap_v2.router.address,
+        weth_amount,
+    )
+    target, call_data = encode_simple_vault_transaction(approve_call)
+    vault.functions.performCall(target, call_data).transact({"from": asset_manager})
+
+    trade_call = uniswap_v2.router.functions.swapExactTokensForTokens(
+        weth_amount,
+        0,
+        [weth.address, usdc.address],
+        vault.address,
+        FOREVER_DEADLINE,
+    )
+
+    target, call_data = encode_simple_vault_transaction(trade_call)
+    vault.functions.performCall(target, call_data).transact({"from": asset_manager})
