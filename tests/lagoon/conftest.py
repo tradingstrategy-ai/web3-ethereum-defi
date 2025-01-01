@@ -102,6 +102,7 @@ def base_usdc(web3) -> TokenDetails:
         "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
     )
 
+
 @pytest.fixture()
 def base_weth(web3) -> TokenDetails:
     return fetch_erc20_details(
@@ -120,7 +121,6 @@ def base_dino(web3) -> TokenDetails:
         web3,
         "0x85E90a5430AF45776548ADB82eE4cD9E33B08077",
     )
-
 
 
 @pytest.fixture()

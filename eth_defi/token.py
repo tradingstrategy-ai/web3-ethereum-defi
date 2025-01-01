@@ -378,5 +378,17 @@ def get_wrapped_native_token_address(chain_id: int):
 
 #: Addresses of wrapped native token (WETH9) of different chains
 WRAPPED_NATIVE_TOKEN: dict[int,HexAddress] = {
-    1: "",
+    # Mainnet
+    1: "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",
+    # Base
+    8453: "0x4200000000000000000000000000000000000006",
+}
+
+
+#: Addresses of wrapped native token (WETH9) of different chains
+USDC_NATIVE_TOKEN: dict[int,HexAddress] = {
+    # Mainnet
+    1: "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
+    # Base
+    8453: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
 }
