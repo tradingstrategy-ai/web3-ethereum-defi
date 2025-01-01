@@ -41,7 +41,7 @@ class VaultSpec:
 
     def __post_init__(self):
         assert isinstance(self.chain_id, int)
-        assert isinstance(self.vault_address, str)
+        assert isinstance(self.vault_address, str), f"Expected str, got {self.vault_address}"
         assert self.vault_address.startswith("0x")
 
 

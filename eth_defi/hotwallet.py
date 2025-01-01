@@ -185,7 +185,7 @@ class HotWallet:
 
         Increase the nonce counter
         """
-        assert self.current_nonce is not None, "Nonce is not yet synced from the blockchain"
+        assert self.current_nonce is not None, f"Nonce is not yet synced from the blockchain: {self}"
         nonce = self.current_nonce
         self.current_nonce += 1
         return nonce

@@ -118,8 +118,9 @@ class VelvetVault(VaultBase):
         # url = f"https://api.velvet.capital/api/v3/portfolio/{self.spec.vault_address}"
         url = f"https://eventsapi.velvetdao.xyz/api/v3/portfolio/{self.spec.vault_address}"
         data = self.session.get(url).json()
-        if "error" in data:
+        if ("error" in data) or ("message" in data):
             raise VelvetBadConfig(f"Velvet portfolio info failed: {data}")
+
         return data["data"]
 
     @cached_property
