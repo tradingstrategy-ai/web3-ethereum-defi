@@ -368,3 +368,15 @@ def reset_default_token_cache():
     DEFAULT_TOKEN_CACHE.__dict__["_LRUCache__order"] = OrderedDict()
     DEFAULT_TOKEN_CACHE.__dict__["_Cache__currsize"] = 0
     DEFAULT_TOKEN_CACHE.__dict__["_Cache__data"] = dict()
+
+
+def get_wrapped_native_token_address(chain_id: int):
+    address = WRAPPED_NATIVE_TOKEN.get(chain_id)
+    assert address, f"Chain id {chain_id} not found"
+    return address
+
+
+#: Addresses of wrapped native token (WETH9) of different chains
+WRAPPED_NATIVE_TOKEN: dict[int,HexAddress] = {
+    1: "",
+}
