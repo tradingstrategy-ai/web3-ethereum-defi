@@ -119,7 +119,7 @@ class VelvetVault(VaultBase):
         url = f"https://eventsapi.velvetdao.xyz/api/v3/portfolio/{self.spec.vault_address}"
         data = self.session.get(url).json()
         if ("error" in data) or ("message" in data):
-            raise VelvetBadConfig(f"Velvet portfolio info failed: {data}")
+            raise VelvetBadConfig(f"Portfolio: {self.spec.vault_address} - velvet portfolio info failed: {data}")
 
         return data["data"]
 
