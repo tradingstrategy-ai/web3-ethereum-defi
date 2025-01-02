@@ -86,6 +86,7 @@ def test_lagoon_deploy_base_guarded_any_token(
     assert deploy_info.chain_id == 8453
     assert deploy_info.vault.safe.retrieve_owners() == multisig_owners
     assert deploy_info.trading_strategy_module.functions.owner() == deploy_info.vault.safe.address
+    assert deploy_info.vault.safe.retrieve_modules() == [deploy_info.trading_strategy_module.address]
 
     # Top up USDC
 
