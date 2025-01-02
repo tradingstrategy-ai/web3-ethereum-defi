@@ -236,7 +236,7 @@ def deploy_safe_trading_strategy_module(
         safe.address,
     )
 
-    # Enable Safe module
+    # Enable TradingStrategyModuleV0 as Safe module
     # Multisig owners can enable the module
     tx = safe.contract.functions.enableModule(module.address).build_transaction(
         {"from": deployer.address, "gas": 0, "gasPrice": 0}
@@ -257,6 +257,7 @@ def setup_guard(
     deployer: LocalAccount,
     owner: HexAddress,
     asset_manager: HexAddress,
+    vault: Contract,
     module: Contract,
     any_asset: bool = False,
     uniswap_v2: UniswapV2Deployment = None,
@@ -266,6 +267,7 @@ def setup_guard(
     assert isinstance(deployer, LocalAccount)
     assert type(owner) == str
     assert isinstance(module, Contract)
+    assert isinstance(vault, Contract)
     assert any_asset, f"Only wildcard trading supported at the moment"
 
     web3.middleware_onion.add(construct_sign_and_send_raw_middleware_anvil(deployer))
@@ -284,15 +286,15 @@ def setup_guard(
     tx_hash = module.functions.whitelistUniswapV2Router(uniswap_v2.router.address, "Allow Uniswap v2").transact({"from": deployer.address})
     assert_transaction_success_with_explanation(web3, tx_hash)
 
-    # Whitelist all assts
+    # Whitelist all assets
     if any_asset:
         tx_hash = module.functions.setAnyAssetAllowed(True, "Allow any asset").transact({"from": deployer.address})
         assert_transaction_success_with_explanation(web3, tx_hash)
     else:
         logger.info("Using only whitelisted assets")
 
-    # Relinquish ownership
-    tx_hash = module.functions.transferOwnership(owner).transact({"from": deployer.address})
+    # Whitelist vault settle
+    tx_hash = module.functions.whitelistLagoon(vault.address, "Whitelist vault settlement").transact({"from": deployer.address})
     assert_transaction_success_with_explanation(web3, tx_hash)
 
 
@@ -354,6 +356,7 @@ def deploy_automated_lagoon_vault(
     setup_guard(
         web3=web3,
         safe=safe,
+        vault=vault_contract,
         deployer=deployer,
         owner=safe.address,
         asset_manager=asset_manager,
@@ -364,22 +367,16 @@ def deploy_automated_lagoon_vault(
     )
 
     # After everything is deployed, fix ownership
-    # 1. Transfer guard ownership to Gnosis
+    # 1. Transfer TradingStrategyModuleV0 module ownership to Gnosis
     # 2. Approve redemptions for Safe
     # 3. Set Gnosis to a true multisig
 
     # 1. Transfer guard ownership to Gnosis
-    tx_params = module.functions.transferOwnership(safe.address).build_transaction({
-        "from": deployer.address,
-        "gas": 1_000_000,
-        "nonce": web3.eth.get_transaction_count(deployer.address),
-        "chainId": chain_id,
-    })
-    signed_tx = deployer.sign_transaction(tx_params)
-    tx_hash = web3.eth.send_raw_transaction(signed_tx.rawTransaction)
+    assert module.functions.owner().call() == deployer.address
+    tx_hash = module.functions.transferOwnership(safe.address).transact({"from": deployer.address})
     assert_transaction_success_with_explanation(web3, tx_hash)
 
-    # 2. Approve redemptions for Safe
+    # 2. USDC.approve() for redemptions on Safe
     underlying = fetch_erc20_details(web3, parameters.underlying, chain_id=chain_id)
     tx_params = underlying.contract.functions.approve(vault_contract.address, 2**256-1).build_transaction({
         "from": deployer.address,
@@ -403,7 +400,8 @@ def deploy_automated_lagoon_vault(
 
     vault = LagoonVault(
         web3,
-        VaultSpec(chain_id, vault_contract.address)
+        VaultSpec(chain_id, vault_contract.address),
+        trading_strategy_module_address=module.address,
     )
 
     return LagoonAutomatedDeployment(

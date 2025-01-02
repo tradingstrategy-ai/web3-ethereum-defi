@@ -1,4 +1,6 @@
 """Deploy a new Lagoon vault on Base."""
+from decimal import Decimal
+
 import pytest
 from eth_account.signers.local import LocalAccount
 from eth_typing import HexAddress
@@ -64,11 +66,12 @@ def test_lagoon_deploy_base_guarded_any_token(
     Full e2e test to deploy a new Lagoon vault and do automated trades on it.
 
     1. Deploy a new Lagoon vault
-    2. Add deposits to the deposit queue
-    3. Asset manager process deposts
-    4. After deployment, perform a basic swap
-    5. Revalue the vault now holding USDC and WETH
-    6. Redeem some USDC back
+    2. Do the initial valuation at 0
+    3. Add deposits to the deposit queue
+    4. Asset manager process deposits
+    5. After deployment, perform a basic swap
+    6. Revalue the vault now holding USDC and WETH
+    7. Redeem some USDC back
 
     To run with Tenderly tx inspector:
 
@@ -108,30 +111,46 @@ def test_lagoon_deploy_base_guarded_any_token(
     assert deploy_info.trading_strategy_module.functions.owner().call() == deploy_info.vault.safe.address
     assert deploy_info.vault.safe.retrieve_modules() == [deploy_info.trading_strategy_module.address]
     assert deploy_info.is_asset_manager(asset_manager), f"Guard asset manager not set: {asset_manager}"
+    assert deploy_info.vault.valuation_manager == asset_manager
+    assert deploy_info.vault.underlying_token.symbol == "USDC"
+    assert deploy_info.trading_strategy_module.functions.isAllowedLagoonVault(deploy_info.vault.address).call()
     vault = deploy_info.vault
 
-    # Deposit into the vault
+    # We need to do the initial valuation at value 0
+    bound_func = vault.post_new_valuation(Decimal(0))
+    tx_hash = bound_func.transact({"from": asset_manager})
+    assert_transaction_success_with_explanation(web3, tx_hash)
+
+    # Deposit 9.00 USDC into the vault
     usdc_amount = 9 * 10**6
-    deposit_func = vault.deposit(usdc_amount)
+    tx_hash = usdc.contract.functions.approve(vault.address, usdc_amount).transact({"from": depositor})
+    assert_transaction_success_with_explanation(web3, tx_hash)
+    deposit_func = vault.deposit(depositor, usdc_amount)
     tx_hash = deposit_func.transact({"from": depositor})
     assert_transaction_success_with_explanation(web3, tx_hash)
 
+    # See deposit was registered
+    assert vault.get_flow_manager().fetch_pending_deposit(web3.eth.block_number) == Decimal(9)
+
     # Run deposit queue
-    settle_func = vault.settle()
-    tx_hash = settle_func.transact({"from": asset_manager})
+    settle_func = vault.settle_via_trading_strategy_module()
+    tx_hash = settle_func.transact({
+        "from": asset_manager,
+        "gas": 1_000_000,
+    })
     assert_transaction_success_with_explanation(web3, tx_hash)
 
     # Check we have money for the swap
     swap_amount = usdc_amount // 2
     assert usdc.contract.functions.balanceOf(vault.safe_address).call() >= swap_amount
 
-    # Approve USDC for the swap
+    # Approve USDC for the swap by tghe vault
     approve_call = usdc.contract.functions.approve(uniswap_v2.router.address, swap_amount)
-    moduled_tx = vault.transact_through_module(approve_call)
+    moduled_tx = vault.transact_via_exec_module(approve_call)
     tx_hash = moduled_tx.transact({"from": asset_manager})
     assert_transaction_success_with_explanation(web3, tx_hash)
 
-    # Do swap
+    # Do swap by the vault
     swap_call = swap_with_slippage_protection(
         uniswap_v2,
         recipient_address=lagoon_vault.safe_address,
@@ -140,7 +159,7 @@ def test_lagoon_deploy_base_guarded_any_token(
         amount_in=swap_amount,
     )
 
-    moduled_tx = vault.transact_through_module(swap_call)
+    moduled_tx = vault.transact_via_exec_module(swap_call)
     tx_hash = moduled_tx.transact({"from": asset_manager})
     assert_transaction_success_with_explanation(web3, tx_hash)
 
@@ -155,3 +174,6 @@ def test_lagoon_deploy_base_guarded_any_token(
     portfolio = vault.fetch_portfolio(universe, web3.eth.block_number)
     assert portfolio.spot_erc20[base_usdc.address] == pytest.approx(Decimal(0.247953))
     assert portfolio.spot_erc20[base_weth.address] > Decimal(10**-16)  # Depends on daily ETH price
+
+    # Redeem whatever USDC is unswapped
+

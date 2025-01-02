@@ -83,6 +83,7 @@ class LagoonVault(VaultBase):
         self,
         web3: Web3,
         spec: VaultSpec,
+        trading_strategy_module_address: HexAddress | None = None,
     ):
         """
         :param spec:
@@ -92,6 +93,7 @@ class LagoonVault(VaultBase):
         assert isinstance(spec, VaultSpec)
         self.web3 = web3
         self.spec = spec
+        self.trading_strategy_module_address = trading_strategy_module_address
 
     def __repr__(self):
         return f"<Lagoon vault:{self.vault_contract.address} safe:{self.safe_address}>"
@@ -145,6 +147,15 @@ class LagoonVault(VaultBase):
             self.web3,
             "lagoon/Vault.json",
             self.spec.vault_address,
+        )
+
+    @cached_property
+    def trading_strategy_module(self) -> Contract:
+        assert self.trading_strategy_module_address, "TradingStrategyModuleV0 address must be separately given in the configuration"
+        return get_deployed_contract(
+            self.web3,
+            "safe-integration/TradingStrategyModuleV0.json",
+            self.trading_strategy_module_address,
         )
 
     def fetch_vault_info(self) -> dict:
@@ -242,7 +253,8 @@ class LagoonVault(VaultBase):
     @cached_property
     def underlying_token(self) -> TokenDetails:
         """Get underlying (USDC)"""
-        underlying = fetch_erc20_details(self.web3, self.info["underlying"], chain_id=self.chain_id)
+        underlying_address = self.vault_contract.functions.asset().call()
+        underlying = fetch_erc20_details(self.web3, underlying_address, chain_id=self.chain_id)
         return underlying
 
     def fetch_portfolio(
@@ -261,7 +273,7 @@ class LagoonVault(VaultBase):
             spot_erc20=erc20_balances,
         )
 
-    def transact_through_module(
+    def transact_via_exec_module(
         self,
         func_call: ContractFunction,
         value: int = 0,
@@ -324,61 +336,25 @@ class LagoonVault(VaultBase):
         )
         return bound_func
 
-    def transact_through_trading_strategy_module(
+    def transact_via_trading_strategy_module(
         self,
-        module: Contract,
         func_call: ContractFunction,
     ) -> ContractFunction:
-        """Create a multisig transaction using a module.
+        """Create a Safe multisig transaction using TradingStrategyModuleV0.
 
-        - Calls `execTransactionFromModule` on Gnosis Safe contract
-
-        - Executes a transaction as a multisig
-
-        - Mostly used for testing w/whitelist ignore
-
-        .. warning ::
-
-            A special gas fix is needed, because `eth_estimateGas` seems to fail for these Gnosis Safe transactions.
-
-        Example:
-
-        .. code-block:: python
-
-            # Then settle the valuation as the vault owner (Safe multisig) in this case
-            settle_call = vault.settle()
-            moduled_tx = vault.transact_through_module(settle_call)
-            tx_data = moduled_tx.build_transaction({
-                "from": asset_manager,
-            })
-            # Normal estimate_gas does not give enough gas for
-            # Safe execTransactionFromModule() transaction for some reason
-            gnosis_gas_fix = 1_000_000
-            tx_data["gas"] = web3.eth.estimate_gas(tx_data) + gnosis_gas_fix
-            tx_hash = web3.eth.send_transaction(tx_data)
-            assert_execute_module_success(web3, tx_hash)
+        :param module:
+            Deployed TradingStrategyModuleV0 contract that is enabled on Safe.
 
         :param func_call:
             Bound smart contract function call
 
-        :param value:
-            ETH attached to the transaction
+        :return:
+            Bound Solidity functionc all you need to turn to a transaction
 
-        :param operation:
-            Gnosis enum.
-
-            .. code-block:: text
-                library Enum {
-                    enum Operation {
-                        Call,
-                        DelegateCall
-                    }
-                }
         """
         contract_address = func_call.address
         data_payload = encode_function_call(func_call, func_call.arguments)
-        contract = self.safe_contract
-        bound_func = module.functions.performCall(
+        bound_func = self.trading_strategy_module.functions.performCall(
             contract_address,
             data_payload,
         )
@@ -411,7 +387,7 @@ class LagoonVault(VaultBase):
         bound_func = self.vault_contract.functions.updateNewTotalAssets(raw_amount)
         return bound_func
 
-    def settle(self) -> ContractFunction:
+    def settle_via_trading_strategy_module(self) -> ContractFunction:
         """Settle the new valuation and deposits.
 
         - settleDeposit will also settle the redeems request if possible
@@ -419,23 +395,33 @@ class LagoonVault(VaultBase):
         - if there is nothing to settle: no deposit and redeem requests you can still call settleDeposit/settleRedeem to validate the new nav
 
         """
-        logger.info("Settling vault %s valuation", )
+        assert self.trading_strategy_module_address, "TradingStrategyModuleV0 not configured"
+        block = self.web3.eth.block_number
+        pending = self.get_flow_manager().fetch_pending_deposit(block)
+        logger.info("Settling deposits for the block %d, we have %s %s deposits pending", block, pending, self.underlying_token.symbol)
         bound_func = self.vault_contract.functions.settleDeposit()
-        return bound_func
+        return self.transact_via_trading_strategy_module(bound_func)
 
     def deposit(self, depositor: HexAddress, amount: int) -> ContractFunction:
         """Build a deposit transction.
 
         - Used for testing
         - Must be approved() first
+        - Uses the vault underlying token (USDC)
 
         :param amount:
             Raw amount in underlying token
         """
         underlying = self.underlying_token
-        assert underlying.fetch_raw_balance_of(underlying.address) >= amount
-        assert underlying.contract.functions.allowance(self.vault_address, underlying.address).call() >= amount
-        return self.vault_contract.functions.deposit(underlying.address, amount)
+        existing_balance = underlying.fetch_raw_balance_of(depositor)
+        assert existing_balance >= amount, f"Cannot deposit {underlying.symbol} by {depositor}. Have: {existing_balance}, asked to deposit: {amount}"
+        existing_allowance = underlying.contract.functions.allowance(depositor, self.vault_address).call()
+        assert existing_allowance >= amount, f"Cannot deposit {underlying.symbol} by {depositor}. Allowance: {existing_allowance}, asked to deposit: {amount}"
+        return self.vault_contract.functions.requestDeposit(
+            amount,
+            depositor,
+            depositor,
+        )
 
 
 class LagoonFlowManager(VaultFlowManager):
@@ -458,6 +444,10 @@ class LagoonFlowManager(VaultFlowManager):
     def fetch_pending_redemption(self, block_identifier: BlockIdentifier) -> Decimal:
         silo = self.vault.silo_contract
         return self.vault.share_token.fetch_balance_of(silo.address, block_identifier)
+
+    def fetch_pending_deposit(self, block_identifier: BlockIdentifier) -> Decimal:
+        silo = self.vault.silo_contract
+        return self.vault.underlying_token.fetch_balance_of(silo.address, block_identifier)
 
     def fetch_pending_deposit_events(self, range: BlockRange) -> None:
         raise NotImplementedError()

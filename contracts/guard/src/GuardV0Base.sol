@@ -82,8 +82,14 @@ abstract contract GuardV0Base is IGuard  {
     // Allowed routers
     mapping(address destination => bool allowed) public allowedApprovalDestinations;
 
-    // Allowed routers
+    // Allowed delegation approval destinations
     mapping(address destination => bool allowed) public allowedDelegationApprovalDestinations;
+
+    // Allowed Lagoon vault settlement destinations
+    //
+    // We need to perform this action as a Safe multisig by calling Vault.settleDeposit() and Vault.settleRedeem()
+    //
+    mapping(address destination => bool allowed) public allowedLagoonVaults;
 
     // Allow trading any token
     //
@@ -113,6 +119,8 @@ abstract contract GuardV0Base is IGuard  {
     event AssetRemoved(address sender, string notes);
 
     event AnyAssetSet(bool value, string notes);
+
+    event LagoonVaultApproved(address vault, string notes);
 
     // Implementation needs to provide its own ownership policy hooks
     modifier onlyGuardOwner() virtual;
@@ -208,6 +216,13 @@ abstract contract GuardV0Base is IGuard  {
         emit AssetRemoved(asset, notes);
     }
 
+    function whitelistLagoon(address vault, string calldata notes) public onlyGuardOwner {
+        allowedLagoonVaults[vault] = true;
+        allowCallSite(vault, getSelector("settleDeposit()"), notes);
+        allowCallSite(vault, getSelector("settleRedeem()"), notes);
+        emit LagoonVaultApproved(vault, notes);
+    }
+
     // Basic check if any target contract is whitelisted
     function isAllowedCallSite(address target, bytes4 selector) public view returns (bool) {
 
@@ -248,6 +263,10 @@ abstract contract GuardV0Base is IGuard  {
      */
     function isAllowedAsset(address token) public view returns (bool) {
         return anyAsset || allowedAssets[token] == true;
+    }
+
+    function isAllowedLagoonVault(address vault) public view returns (bool) {
+        return allowedLagoonVaults[vault] == true;
     }
 
     function validate_transfer(bytes memory callData) public view {
@@ -337,6 +356,10 @@ abstract contract GuardV0Base is IGuard  {
             validate_aaveSupply(callData);
         } else if(selector == getSelector("withdraw(address,uint256,address)")) {
             validate_aaveWithdraw(callData);
+        } else if (selector == getSelector("settleDeposit()")) {
+            validate_lagoonSettle(target);
+        } else if (selector == getSelector("settleRedeem()")) {
+            validate_lagoonSettle(target);
         } else {
             revert("Unknown function selector");
         }
@@ -532,4 +555,9 @@ abstract contract GuardV0Base is IGuard  {
         
         allowApprovalDestination(lendingPool, notes);
     }
+
+    function validate_lagoonSettle(address vault) public view {
+        require(isAllowedLagoonVault(vault), "Vault not allowed");
+    }
+
 }
