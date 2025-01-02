@@ -36,6 +36,12 @@ def vault_owner() -> HexAddress:
 
 
 @pytest.fixture()
+def depositor() -> HexAddress:
+    # Someone how deposited assets to the vault earlier
+    return "0x20415f3Ec0FEA974548184bdD6e67575D128953F"
+
+
+@pytest.fixture()
 def usdc_holder() -> HexAddress:
     # https://basescan.org/token/0x833589fcd6edb6e08f4c7c32d4f71b54bda02913#balances
     return "0x3304E22DDaa22bCdC5fCa2269b418046aE7b566A"
@@ -51,7 +57,6 @@ def valuation_manager() -> HexAddress:
 def safe_address() -> HexAddress:
     """Unlockable Safe multisig as spoofed Anvil account."""
     return "0x20415f3Ec0FEA974548184bdD6e67575D128953F"
-
 
 
 @pytest.fixture()
@@ -102,6 +107,7 @@ def base_usdc(web3) -> TokenDetails:
         "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
     )
 
+
 @pytest.fixture()
 def base_weth(web3) -> TokenDetails:
     return fetch_erc20_details(
@@ -120,7 +126,6 @@ def base_dino(web3) -> TokenDetails:
         web3,
         "0x85E90a5430AF45776548ADB82eE4cD9E33B08077",
     )
-
 
 
 @pytest.fixture()

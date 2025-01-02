@@ -146,6 +146,21 @@ class VaultFlowManager(ABC):
         """
 
     @abstractmethod
+    def fetch_pending_deposit(
+        self,
+        block_identifier: BlockIdentifier,
+    ) -> Decimal:
+        """Get how much users want to redeem from the vault.
+
+        :param block_identifier:
+            Block number
+
+        :return:
+            Number of underlying tokens the users want to redeem from the vault.
+
+        """
+
+    @abstractmethod
     def fetch_pending_deposit_events(
         self,
         range: BlockRange,

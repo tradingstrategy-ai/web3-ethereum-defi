@@ -61,7 +61,7 @@ def test_lagoon_swap(
 
     # Approve USDC for the swap
     approve_call = base_usdc.contract.functions.approve(uniswap_v2.router.address, amount)
-    moduled_tx = vault.transact_through_module(approve_call)
+    moduled_tx = vault.transact_via_exec_module(approve_call)
     tx_hash = moduled_tx.transact({"from": asset_manager})
     assert_execute_module_success(web3, tx_hash)
 
@@ -75,7 +75,7 @@ def test_lagoon_swap(
         amount_in=amount,
     )
 
-    moduled_tx = vault.transact_through_module(swap_call)
+    moduled_tx = vault.transact_via_exec_module(swap_call)
     tx_hash = moduled_tx.transact({"from": asset_manager})
     assert_execute_module_success(web3, tx_hash)
 

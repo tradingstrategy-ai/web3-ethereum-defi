@@ -151,6 +151,19 @@ class TokenDetails:
         raw_amount = self.contract.functions.balanceOf(address).call(block_identifier=block_identifier)
         return self.convert_to_decimals(raw_amount)
 
+    def fetch_raw_balance_of(self, address: HexAddress | str, block_identifier="latest") -> Decimal:
+        """Get an address token balance.
+
+        :param block_identifier:
+            A specific block to query if doing archive node historical queries
+
+        :return:
+            Raw token amount.
+        """
+        address = Web3.to_checksum_address(address)
+        raw_amount = self.contract.functions.balanceOf(address).call(block_identifier=block_identifier)
+        return raw_amount
+
     @staticmethod
     def generate_cache_key(chain_id: int, address: str) -> int:
         """Generate a cache key for this token.
@@ -368,3 +381,27 @@ def reset_default_token_cache():
     DEFAULT_TOKEN_CACHE.__dict__["_LRUCache__order"] = OrderedDict()
     DEFAULT_TOKEN_CACHE.__dict__["_Cache__currsize"] = 0
     DEFAULT_TOKEN_CACHE.__dict__["_Cache__data"] = dict()
+
+
+def get_wrapped_native_token_address(chain_id: int):
+    address = WRAPPED_NATIVE_TOKEN.get(chain_id)
+    assert address, f"Chain id {chain_id} not found"
+    return address
+
+
+#: Addresses of wrapped native token (WETH9) of different chains
+WRAPPED_NATIVE_TOKEN: dict[int,HexAddress] = {
+    # Mainnet
+    1: "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",
+    # Base
+    8453: "0x4200000000000000000000000000000000000006",
+}
+
+
+#: Addresses of wrapped native token (WETH9) of different chains
+USDC_NATIVE_TOKEN: dict[int,HexAddress] = {
+    # Mainnet
+    1: "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
+    # Base
+    8453: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+}

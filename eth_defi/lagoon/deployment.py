@@ -1,0 +1,467 @@
+"""Deploy new Lagoon vaults.
+
+Lagoon automatised vault consists of
+
+- Safe multisig - we use 1.4.1 here
+- Vault module
+- Lagoon protocol smart contracts
+- TradingStrategyModuleV0 module enabling guarded automated trade executor for the Safe
+
+Any Safe must be deployed as 1-of-1 deployer address multisig and multisig holders changed after the deployment.
+"""
+import logging
+from dataclasses import dataclass, asdict
+from io import StringIO
+from pprint import pformat
+
+from eth_account.signers.local import LocalAccount
+from eth_typing import HexAddress, BlockNumber
+from safe_eth.safe.safe import Safe
+
+from web3 import Web3
+from web3.contract import Contract
+
+from eth_defi.deploy import deploy_contract
+from eth_defi.lagoon.vault import LagoonVault
+from eth_defi.middleware import construct_sign_and_send_raw_middleware_anvil
+from eth_defi.safe.deployment import deploy_safe, add_new_safe_owners
+from eth_defi.token import get_wrapped_native_token_address, fetch_erc20_details
+from eth_defi.trace import assert_transaction_success_with_explanation
+from eth_defi.uniswap_v2.deployment import UniswapV2Deployment
+from eth_defi.uniswap_v3.deployment import UniswapV3Deployment
+from eth_defi.vault.base import VaultSpec
+
+
+logger = logging.getLogger(__name__)
+
+DEFAULT_RATE_UPDATE_COOLDOWN = 86400
+
+DEFAULT_MANAGEMENT_RATE = 200
+
+DEFAULT_PERFORMANCE_RATE = 2000
+
+
+@dataclass(slots=True)
+class LagoonDeploymentParameters:
+    """Capture core parameters needed to deploy a Lagoon vault"""
+    underlying: HexAddress
+    name: str
+    symbol: str
+    safe: str | None = None
+    whitelistManager: str | None = None
+    valuationManager: str | None = None
+    admin: str = None
+    feeReceiver: str = None
+    feeRegistry: str = None
+
+    #: Management fee in BPS
+    managementRate: int = DEFAULT_MANAGEMENT_RATE  # Assuming these are integers, adjust type if different
+
+    #: Performance fee in BPS
+    performanceRate: int = DEFAULT_PERFORMANCE_RATE
+    enableWhitelist: bool = False
+
+    #: Max rate update frequency, seconds
+    rateUpdateCooldown: int = DEFAULT_RATE_UPDATE_COOLDOWN
+
+    #: If set None, then autoresolve
+    wrappedNativeToken: HexAddress | None = None
+
+    def as_solidity_struct(self) -> dict:
+        # Return Vault.InitStruct to be passed to the constructor
+        return asdict(self)
+
+
+@dataclass(slots=True, frozen=True)
+class LagoonAutomatedDeployment:
+    """Capture information of the lagoon automated deployment.
+
+    - Have the deployment report for the users for diagnostics
+    """
+    chain_id: int
+    vault: LagoonVault
+    trading_strategy_module: Contract
+    asset_manager: HexAddress
+    multisig_owners: list[HexAddress]
+    deployer: HexAddress
+    block_number: BlockNumber
+
+    def is_asset_manager(self, address: HexAddress) -> bool:
+        return self.trading_strategy_module.functions.isAllowedSender(address).call()
+
+    def pformat(self) -> str:
+        """Return pretty print of deployment info."""
+        vault = self.vault
+        safe = vault.safe
+        fields = {
+            "Deployer": self.deployer,
+            "Safe": safe.address,
+            "Vault": vault.address,
+            "Trading strategy module": self.trading_strategy_module.address,
+            "Asset manager": self.asset_manager,
+            "Underlying token": self.vault.underlying_token.address,
+            "Underlying symbol": self.vault.underlying_token.symbol,
+            "Share token": self.vault.share_token.address,
+            "Share token symbol": self.vault.share_token.symbol,
+            "Multisig owners": ", ".join(self.multisig_owners),
+            "Block number": f"{self.block_number:,}",
+        }
+
+        # https://stackoverflow.com/a/17330263/315168
+        io = StringIO()
+        print("{:<30} {:30}".format('Key', 'Label'), file=io)
+        for k, v in fields.items():
+            print("{:<30} {:<30}".format(k, v), file=io)
+
+        return io.getvalue()
+
+
+def deploy_lagoon(
+    web3: Web3,
+    deployer: LocalAccount,
+    safe: Safe,
+    asset_manager: HexAddress,
+    parameters: LagoonDeploymentParameters,
+    owner: HexAddress | None,
+    gas=2_000_000,
+) -> Contract:
+    """Deploy a new Lagoon vault.
+
+    - Create a new Safe
+
+    - Create a new Lagoon vault
+
+    - Set guard policies
+
+    - Set owership
+
+    For Foundry recipe see https://github.com/hopperlabsxyz/lagoon-v0/blob/main/script/deploy_vault.s.sol
+
+    :param deployer:
+        The initial account used to deploy smart contracts
+
+    :param owner:
+        All transfership is transferred to this user after
+
+    :param asset_manager:
+        Able to perform trades, valuations
+
+    :return:
+        Vault contract.
+
+        Is a proxy contract.
+    """
+
+    assert isinstance(safe, Safe)
+    assert isinstance(deployer, LocalAccount)
+
+    chain_id = web3.eth.chain_id
+
+    logger.info(
+        "Deploying Lagoon vault on chain %d, deployer is %s",
+        chain_id,
+        deployer,
+    )
+
+    if owner is None:
+        owner = safe.address
+
+    # Autoresolve some parameters based on our deployment structure
+
+    if parameters.wrappedNativeToken is None:
+        parameters.wrappedNativeToken = get_wrapped_native_token_address(chain_id)
+
+    if parameters.feeReceiver is None:
+        parameters.feeReceiver = owner
+
+    if parameters.whitelistManager is None:
+        parameters.whitelistManager = owner
+
+    if parameters.valuationManager is None:
+        parameters.valuationManager = asset_manager
+
+    if parameters.feeRegistry is None:
+        parameters.feeRegistry = LAGOON_FEE_REGISTRIES[chain_id]
+
+    if parameters.admin is None:
+        parameters.admin = owner
+
+    init_struct = parameters.as_solidity_struct()
+
+    logger.info(
+        "Parameters are:\n%s",
+        pformat(init_struct)
+    )
+
+    # TODO: Beacon proxy deployment does not work
+
+    vault = deploy_contract(
+        web3,
+        "lagoon/Vault.json",
+        deployer,
+        False,
+    )
+
+    tx_params = vault.functions.initialize(init_struct).build_transaction({
+        "gas": 2_000_000,
+        "chainId": chain_id,
+        "nonce": web3.eth.get_transaction_count(deployer.address),
+    })
+    signed_tx = deployer.sign_transaction(tx_params)
+    tx_hash = web3.eth.send_raw_transaction(signed_tx.rawTransaction)
+    assert_transaction_success_with_explanation(web3, tx_hash)
+    return vault
+
+    # VaultContract = get_contract(
+    #     web3,
+    #     "lagoon/Vault.json",
+    # )
+    #
+
+    # payable(Upgrades.deployBeaconProxy(beacon, abi.encodeWithSelector(Vault.initialize.selector, init)))
+    # E           Could not identify the intended function with name `initialize`, positional arguments with type(s) `address,str,str,address,address,address,address,address,address,int,int,bool,int,address` and keyword arguments with type(s) `{}`.
+    #
+    # abi_packed_init_args = encode_function_call(
+    #     VaultContract.functions.initialize,
+    #     [init_struct],  # Solidity struct encoding is a headache
+    # )
+    #
+    # tx_hash = deploy_contract(
+    #     web3,
+    #     "lagoon/BeaconProxy.json",
+    #     deployer,
+    #     owner,
+    #     abi_packed_init_args,
+    #     gas=gas,
+    #     confirm=False,
+    # )
+    # tx_receipt = assert_transaction_success_with_explanation(web3, tx_hash)
+    #
+    # beacon_address = tx_receipt["contractAddress"]
+    # vault_proxy = get_deployed_contract(
+    #     web3,
+    #     "lagoon/Vault.json",
+    #     beacon_address,
+    # )
+    # return vault_proxy
+
+
+def deploy_safe_trading_strategy_module(
+    web3,
+    deployer: LocalAccount,
+    safe: Safe,
+) -> Contract:
+    """Deploy TradingStrategyModuleV0 for Safe and Lagoon.
+
+    :return:
+        TradingStrategyModuleV0 instance
+    """
+
+    logger.info("Deploying TradingStrategyModuleV0")
+
+    owner = deployer.address
+
+    # Deploy guard module
+    module = deploy_contract(
+        web3,
+        "safe-integration/TradingStrategyModuleV0.json",
+        deployer,
+        owner,
+        safe.address,
+    )
+
+    # Enable TradingStrategyModuleV0 as Safe module
+    # Multisig owners can enable the module
+    tx = safe.contract.functions.enableModule(module.address).build_transaction(
+        {"from": deployer.address, "gas": 0, "gasPrice": 0}
+    )
+    safe_tx = safe.build_multisig_tx(safe.address, 0, tx["data"])
+    safe_tx.sign(deployer._private_key.hex())
+    tx_hash, tx = safe_tx.execute(
+        tx_sender_private_key=deployer._private_key.hex(),
+    )
+    assert_transaction_success_with_explanation(web3, tx_hash)
+
+    return module
+
+
+def setup_guard(
+    web3: Web3,
+    safe: Safe,
+    deployer: LocalAccount,
+    owner: HexAddress,
+    asset_manager: HexAddress,
+    vault: Contract,
+    module: Contract,
+    any_asset: bool = False,
+    uniswap_v2: UniswapV2Deployment = None,
+    uniswap_v3: UniswapV3Deployment = None,
+):
+
+    assert isinstance(deployer, LocalAccount)
+    assert type(owner) == str
+    assert isinstance(module, Contract)
+    assert isinstance(vault, Contract)
+    assert any_asset, f"Only wildcard trading supported at the moment"
+
+    web3.middleware_onion.add(construct_sign_and_send_raw_middleware_anvil(deployer))
+
+    logger.info("Setting up TradingStrategyModuleV0 guard")
+
+    # Enable asset_manager as the whitelisted trade-executor
+    tx_hash = module.functions.allowSender(asset_manager, "Whitelist trade-executor").transact({"from": deployer.address})
+    assert_transaction_success_with_explanation(web3, tx_hash)
+
+    # Enable safe as the receiver of tokens
+    tx_hash = module.functions.allowReceiver(safe.address, "Whitelist Safe as trade receiver").transact({"from": deployer.address})
+    assert_transaction_success_with_explanation(web3, tx_hash)
+
+    # Whitelist Uniswap v2
+    tx_hash = module.functions.whitelistUniswapV2Router(uniswap_v2.router.address, "Allow Uniswap v2").transact({"from": deployer.address})
+    assert_transaction_success_with_explanation(web3, tx_hash)
+
+    # Whitelist all assets
+    if any_asset:
+        tx_hash = module.functions.setAnyAssetAllowed(True, "Allow any asset").transact({"from": deployer.address})
+        assert_transaction_success_with_explanation(web3, tx_hash)
+    else:
+        logger.info("Using only whitelisted assets")
+
+    # Whitelist vault settle
+    tx_hash = module.functions.whitelistLagoon(vault.address, "Whitelist vault settlement").transact({"from": deployer.address})
+    assert_transaction_success_with_explanation(web3, tx_hash)
+
+
+def deploy_automated_lagoon_vault(
+    web3: Web3,
+    deployer: LocalAccount,
+    asset_manager: HexAddress,
+    parameters: LagoonDeploymentParameters,
+    safe_owners: list[HexAddress | str],
+    safe_threshold: int,
+    uniswap_v2: UniswapV2Deployment | None,
+    uniswap_v3: UniswapV3Deployment | None,
+    any_asset: bool = False,
+) -> LagoonAutomatedDeployment:
+    """Deploy a full Lagoon setup with a guard.
+
+    Lagoon automatised vault consists of
+
+    - Safe multisig - we use 1.4.1 here
+    - Vault module
+    - Lagoon protocol smart contracts
+    - TradingStrategyModuleV0 module enabling guarded automated trade executor for the Safe
+
+    For roles
+    - Asset manager (Trading Straegy) and Valuation Manager (Lagoon) are the same role
+    - Any Safe must be deployed as 1-of-1 deployer address multisig and multisig holders changed after the deployment.
+
+    .. note ::
+
+        Deployer account must be manually removed from the Safe by new owners.
+    """
+
+    chain_id = web3.eth.chain_id
+
+    safe = deploy_safe(
+        web3,
+        deployer,
+        owners=[deployer.address],
+        threshold=1,
+    )
+
+    parameters.safe = safe.address
+
+    vault_contract = deploy_lagoon(
+        web3=web3,
+        deployer=deployer,
+        safe=safe,
+        asset_manager=asset_manager,
+        parameters=parameters,
+        owner=safe.address,
+    )
+
+    module = deploy_safe_trading_strategy_module(
+        web3=web3,
+        deployer=deployer,
+        safe=safe,
+    )
+
+    setup_guard(
+        web3=web3,
+        safe=safe,
+        vault=vault_contract,
+        deployer=deployer,
+        owner=safe.address,
+        asset_manager=asset_manager,
+        module=module,
+        uniswap_v2=uniswap_v2,
+        uniswap_v3=uniswap_v3,
+        any_asset=any_asset,
+    )
+
+    # After everything is deployed, fix ownership
+    # 1. Transfer TradingStrategyModuleV0 module ownership to Gnosis
+    # 2. Approve redemptions for Safe. USDC must be transferable to Vault (not Silo).
+    # 3. Set Gnosis to a true multisig
+
+    # 1. Transfer guard ownership to Gnosis
+    assert module.functions.owner().call() == deployer.address
+    tx_hash = module.functions.transferOwnership(safe.address).transact({"from": deployer.address})
+    assert_transaction_success_with_explanation(web3, tx_hash)
+
+    # 2. USDC.approve() for redemptions on Safe
+    underlying = fetch_erc20_details(web3, parameters.underlying, chain_id=chain_id)
+    tx_data = underlying.contract.functions.approve(vault_contract.address, 2**256-1).build_transaction({
+        "from": deployer.address,
+        "gas": 0,
+        "gasPrice": 0,
+    })
+    safe_tx = safe.build_multisig_tx(underlying.address, 0, tx_data["data"])
+    safe_tx.sign(deployer._private_key.hex())
+    tx_hash, tx = safe_tx.execute(
+        tx_sender_private_key=deployer._private_key.hex(),
+    )
+    assert_transaction_success_with_explanation(web3, tx_hash)
+
+    # 3. Set Gnosis to a true multisig
+    # DOES NOT REMOVE DEPLOYER
+    add_new_safe_owners(
+        web3,
+        safe,
+        deployer,
+        owners=safe_owners,
+        threshold=safe_threshold,
+    )
+
+    vault = LagoonVault(
+        web3,
+        VaultSpec(chain_id, vault_contract.address),
+        trading_strategy_module_address=module.address,
+    )
+
+    return LagoonAutomatedDeployment(
+        chain_id=chain_id,
+        vault=vault,
+        trading_strategy_module=module,
+        asset_manager=asset_manager,
+        multisig_owners=safe_owners,
+        block_number=web3.eth.block_number,
+        deployer=deployer.address,
+    )
+
+
+#  https://github.com/hopperlabsxyz/lagoon-v0
+LAGOON_BEACONS = {
+    # Base
+    8453: "0xD69BC314bdaa329EB18F36E4897D96A3A48C3eeF",
+}
+
+
+# https://github.com/hopperlabsxyz/lagoon-v0
+LAGOON_FEE_REGISTRIES = {
+    # Base
+    8453: "0x6dA4D1859bA1d02D095D2246142CdAd52233e27C",
+}
+
+

@@ -43,7 +43,7 @@ contract TradingStrategyModuleV0 is Module, GuardV0Base {
     }
 
     /**
-     * Get the address of the proto DAO.@author
+     * Get the address of the proto DAO.
      *
      * Override to use Zodiac Module's ownership mechanism.
      */

@@ -280,6 +280,11 @@ def assert_transaction_success_with_explanation(
 
     See also :py:func:`print_symbolic_trace`.
 
+
+    .. note::
+
+        TODO: Currently does not work with failed contract deployment transactions.
+
     :param web3:
         Web3 instance
 
