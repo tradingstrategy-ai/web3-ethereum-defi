@@ -456,7 +456,7 @@ def test_lagoon_post_valuation(
     assert redemption_shares == 0
 
     # Then settle the valuation as the vault owner (Safe multisig) in this case
-    settle_call = vault.settle()
+    settle_call = vault.vault_contract.functions.settleDeposit()
     moduled_tx = vault.transact_via_exec_module(settle_call)
     tx_data = moduled_tx.build_transaction({
         "from": asset_manager,

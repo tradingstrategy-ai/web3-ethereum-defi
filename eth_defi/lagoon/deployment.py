@@ -74,7 +74,10 @@ class LagoonDeploymentParameters:
 
 @dataclass(slots=True, frozen=True)
 class LagoonAutomatedDeployment:
-    """Capture information of the lagoon automated deployment."""
+    """Capture information of the lagoon automated deployment.
+
+    - Have the deployment report for the users for diagnostics
+    """
     chain_id: int
     vault: LagoonVault
     trading_strategy_module: Contract
