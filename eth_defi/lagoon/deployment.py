@@ -14,7 +14,7 @@ from dataclasses import dataclass, asdict
 from pprint import pformat
 
 from eth_account.signers.local import LocalAccount
-from eth_typing import HexAddress
+from eth_typing import HexAddress, BlockNumber
 from safe_eth.safe.safe import Safe
 
 from web3 import Web3
@@ -77,9 +77,28 @@ class LagoonAutomatedDeployment:
     chain_id: int
     vault: LagoonVault
     trading_strategy_module: Contract
+    asset_manager: HexAddress
+    multisig_owners: list[HexAddress]
+    deployer: HexAddress
+    block_number: BlockNumber
 
     def is_asset_manager(self, address: HexAddress) -> bool:
         return self.trading_strategy_module.functions.isAllowedSender(address).call()
+
+    def pformat(self) -> str:
+        """Return pretty print of deployment info."""
+        vault = self.vault
+        safe = vault.safe
+        fields = {
+            "Deployer": self.deployer,
+            "Safe": safe.address,
+            "Vault": vault.address,
+            "Trading strategy module": self.trading_strategy_module.address,
+            "Asset manager": self.asset_manager,
+            "Multisig owners": ", ".join(self.multisig_owners),
+            "Block number": f"{self.block_number:,}",
+        }
+        return pformat(fields)
 
 
 def deploy_lagoon(
@@ -408,6 +427,10 @@ def deploy_automated_lagoon_vault(
         chain_id=chain_id,
         vault=vault,
         trading_strategy_module=module,
+        asset_manager=asset_manager,
+        multisig_owners=safe_owners,
+        block_number=web3.eth.block_number,
+        deployer=deployer.address,
     )
 
 

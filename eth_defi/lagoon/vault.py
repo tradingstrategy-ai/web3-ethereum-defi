@@ -88,6 +88,11 @@ class LagoonVault(VaultBase):
         """
         :param spec:
             Address must be Lagoon vault  address (not Safe address)
+
+        :param trading_strategy_module_address:
+            TradingStrategyModuleV0 enabled on Safe for automated trading.
+
+            If not given, not known.
         """
         assert isinstance(web3, Web3)
         assert isinstance(spec, VaultSpec)

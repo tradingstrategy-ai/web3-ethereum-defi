@@ -49,7 +49,6 @@ def depositor(web3, base_usdc, usdc_holder) -> HexAddress:
     return address
 
 
-
 def test_lagoon_deploy_base_guarded_any_token(
     web3: Web3,
     uniswap_v2,
@@ -116,6 +115,9 @@ def test_lagoon_deploy_base_guarded_any_token(
     assert deploy_info.trading_strategy_module.functions.isAllowedLagoonVault(deploy_info.vault.address).call()
     vault = deploy_info.vault
 
+    pretty = deploy_info.pformat()
+    assert type(pretty) == str
+
     # We need to do the initial valuation at value 0
     bound_func = vault.post_new_valuation(Decimal(0))
     tx_hash = bound_func.transact({"from": asset_manager})
@@ -129,16 +131,33 @@ def test_lagoon_deploy_base_guarded_any_token(
     tx_hash = deposit_func.transact({"from": depositor})
     assert_transaction_success_with_explanation(web3, tx_hash)
 
-    # See deposit was registered
+    # Deposit was registered
+    receipt = web3.eth.get_transaction_receipt(tx_hash)
+    # TODO: Why ABI signature mismatch
+    # deposit_events = vault.vault_contract.events.Deposit().process_receipt(receipt, errors=EventLogErrorFlags.Discard)
+    # import ipdb ; ipdb.set_trace()
+    assert len(receipt["logs"]) == 2  # Transfer + Deposit
+
+    # We see deposits in the queue
+    assert vault.underlying_token.fetch_balance_of(depositor) == 990
     assert vault.get_flow_manager().fetch_pending_deposit(web3.eth.block_number) == Decimal(9)
 
-    # Run deposit queue
-    settle_func = vault.settle_via_trading_strategy_module()
-    tx_hash = settle_func.transact({
-        "from": asset_manager,
-        "gas": 1_000_000,
-    })
+    # We need to do the initial valuation at value 0
+    bound_func = vault.post_new_valuation(Decimal(0))
+    tx_hash = bound_func.transact({"from": asset_manager})
     assert_transaction_success_with_explanation(web3, tx_hash)
+
+    # Settle deposit queue 9 USDC -> 0 USDC
+    # settle_func = vault.settle_via_trading_strategy_module()
+    # tx_hash = settle_func.transact({
+    #     "from": asset_manager,
+    #     "gas": 1_000_000,
+    # })
+    # assert_transaction_success_with_explanation(web3, tx_hash)
+    # receipt = web3.eth.get_transaction_receipt(tx_hash)
+    # import ipdb ; ipdb.set_trace()
+
+    assert vault.get_flow_manager().fetch_pending_deposit(web3.eth.block_number) == 0
 
     # Check we have money for the swap
     swap_amount = usdc_amount // 2
