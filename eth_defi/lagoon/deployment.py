@@ -19,6 +19,7 @@ from safe_eth.safe.safe import Safe
 from web3 import Web3
 from web3.contract import Contract
 
+from eth_defi.abi import get_contract, encode_function_call
 from eth_defi.deploy import deploy_contract
 from eth_defi.lagoon.vault import LagoonVault
 from eth_defi.safe.deployment import deploy_safe
@@ -76,11 +77,9 @@ class LagoonDeployment:
 
 
 
-
-
 def deploy_lagoon(
     web3: Web3,
-    deployer: HexAddress,
+    deployer: LocalAccount,
     safe: Safe,
     asset_manager: HexAddress,
     parameters: LagoonDeploymentParameters,
@@ -114,6 +113,7 @@ def deploy_lagoon(
     """
 
     assert isinstance(safe, Safe)
+    assert isinstance(deployer, LocalAccount)
 
     chain_id = web3.eth.chain_id
 
@@ -126,7 +126,8 @@ def deploy_lagoon(
     if owner is None:
         owner = safe.address
 
-    # Autoresolve
+    # Autoresolve some parameters based on our deployment structure
+
     if parameters.wrappedNativeToken is None:
         parameters.wrappedNativeToken = get_wrapped_native_token_address(chain_id)
 
@@ -139,20 +140,39 @@ def deploy_lagoon(
     if parameters.valuationManager is None:
         parameters.valuationManager = asset_manager
 
-    pdict = parameters.as_solidity_struct()
+    if parameters.feeRegistry is None:
+        parameters.feeRegistry = LAGOON_FEE_REGISTRIES[chain_id]
+
+    if parameters.admin is None:
+        parameters.admin = owner
+
+    init_struct = parameters.as_solidity_struct()
 
     logger.info(
         "Parameters are:\n%s",
-        pformat(pdict)
+        pformat(init_struct)
     )
 
-    encoded_init_params = b""
+    VaultContract = get_contract(
+        web3,
+        "lagoon/Vault.json",
+    )
+
+    # payable(Upgrades.deployBeaconProxy(beacon, abi.encodeWithSelector(Vault.initialize.selector, init)))
+    # E           Could not identify the intended function with name `initialize`, positional arguments with type(s) `address,str,str,address,address,address,address,address,address,int,int,bool,int,address` and keyword arguments with type(s) `{}`.
+
+    # import ipdb ; ipdb.set_trace()
+    abi_packed_init_args = encode_function_call(
+        VaultContract.functions.initialize,
+        [init_struct],  # Solidity struct encoding is a headache
+    )
 
     beacon_proxy = deploy_contract(
         web3,
         "lagoon/BeaconProxy.json",
         deployer,
-        encoded_init_params,
+        owner,
+        abi_packed_init_args,
     )
 
     return beacon_proxy
@@ -162,15 +182,12 @@ def deploy_safe_trading_strategy_module(
     web3,
     deployer: LocalAccount,
     safe: Safe,
-    onwer: HexAddress | str,
 ) -> Contract:
     """Deploy TradingStrategyModuleV0 for Safe and Lagoon.
 
     :return:
         TradingStrategyModuleV0 instance
     """
-
-    assert any_asset, f"Only wildcard trading supported at the moment"
 
     logger.info("Deploying TradingStrategyModuleV0")
 
@@ -208,6 +225,8 @@ def setup_guard(
     uniswap_v2: UniswapV2Deployment = None,
     uniswap_v3: UniswapV3Deployment = None,
 ):
+    assert any_asset, f"Only wildcard trading supported at the moment"
+
     logger.info("Setting up TradingStrategyModuleV0 guard")
 
 
@@ -240,23 +259,25 @@ def deploy_automated_lagoon_vault(
     safe = deploy_safe(
         web3,
         deployer,
-        owners=[deployer],
+        owners=[deployer.address],
         threshold=1,
     )
 
     parameters.safe = safe.address
 
     vault = deploy_lagoon(
-        deployer,
-        safe,
+        web3=web3,
+        deployer=deployer,
+        safe=safe,
         asset_manager=asset_manager,
         parameters=parameters,
+        owner=safe.address,
     )
 
     module = deploy_safe_trading_strategy_module(
-        web3,
-        deployer,
-        safe,
+        web3=web3,
+        deployer=deployer,
+        safe=safe,
     )
 
     setup_guard(

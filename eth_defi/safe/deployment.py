@@ -23,6 +23,9 @@ def deploy_safe(
 
     - Use version Safe v 1.4.1
 
+    :param deployer:
+        Must be LocalAccount due to Safe library limitations.
+
     :param master_copy_address:
         See Safe info.
 
@@ -31,9 +34,14 @@ def deploy_safe(
     """
 
     assert isinstance(deployer, LocalAccount), f"Safe can be only deployed using LocalAccount"
+    for a in owners:
+        assert type(a) == str and a.startswith("0x"), f"owners must be hex addresses, got {type(a)}"
 
     logger.info("Deploying safe.\nOwners: %s\nThreshold: %s", owners, threshold)
     ethereum_client = create_safe_ethereum_client(web3)
+
+    owners = [Web3.to_checksum_address(a) for a in owners]
+    master_copy_address = Web3.to_checksum_address(master_copy_address)
 
     safe_tx = SafeV141.create(
         ethereum_client,

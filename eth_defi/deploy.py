@@ -6,7 +6,9 @@ from pathlib import Path
 from shutil import which
 from typing import Dict, TypeAlias, Union
 
+from eth_account.signers.local import LocalAccount
 from eth_typing import HexAddress
+from pytz.reference import Local
 from web3 import Web3
 from web3.contract import Contract
 
@@ -29,7 +31,7 @@ class ContractDeploymentFailed(Exception):
 def deploy_contract(
     web3: Web3,
     contract: Union[str, Contract],
-    deployer: str,
+    deployer: str | LocalAccount,
     *constructor_args,
     register_for_tracing=True,
 ) -> Contract:
@@ -53,7 +55,9 @@ def deploy_contract(
         Contract file path as string or contract proxy class
 
     :param deployer:
-        Deployer account
+        Deployer account.
+
+        Either address (use ``construct_sign_and_send_raw_middleware``) or LocalAccount.
 
     :param constructor_args:
         Other arguments to pass to the contract's constructor
@@ -80,7 +84,14 @@ def deploy_contract(
         Contract = contract
         contract_name = None
 
-    tx_hash = Contract.constructor(*constructor_args).transact({"from": deployer})
+    if isinstance(deployer, LocalAccount):
+        # Sign locally
+        tx_data = Contract.constructor(*constructor_args).build_transaction({"from": deployer.address})
+        signed_tx = deployer.sign_transaction(tx_data)
+        tx_hash = web3.eth.send_raw_transaction(signed_tx.rawTransaction)
+    else:
+        # Delegate to test RPC
+        tx_hash = Contract.constructor(*constructor_args).transact({"from": deployer})
 
     tx_receipt = web3.eth.wait_for_transaction_receipt(tx_hash)
     if tx_receipt["status"] != 1:
