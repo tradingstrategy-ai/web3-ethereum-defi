@@ -114,6 +114,14 @@ class LagoonVault(VaultBase):
         )
 
     @property
+    def chain_id(self) -> int:
+        return self.spec.chain_id
+
+    @property
+    def vault_address(self) -> HexAddress:
+        return self.spec.vault_address
+
+    @property
     def name(self) -> str:
         return self.share_token.name
 
@@ -231,6 +239,12 @@ class LagoonVault(VaultBase):
         silo_address = vault_contract.functions.pendingSilo().call()
         return get_deployed_contract(self.web3, "lagoon/Silo.json", silo_address)
 
+    @cached_property
+    def underlying_token(self) -> TokenDetails:
+        """Get underlying (USDC)"""
+        underlying = fetch_erc20_details(self.web3, self.info["underlying"], chain_id=self.chain_id)
+        return underlying
+
     def fetch_portfolio(
         self,
         universe: TradingUniverse,
@@ -310,6 +324,66 @@ class LagoonVault(VaultBase):
         )
         return bound_func
 
+    def transact_through_trading_strategy_module(
+        self,
+        module: Contract,
+        func_call: ContractFunction,
+    ) -> ContractFunction:
+        """Create a multisig transaction using a module.
+
+        - Calls `execTransactionFromModule` on Gnosis Safe contract
+
+        - Executes a transaction as a multisig
+
+        - Mostly used for testing w/whitelist ignore
+
+        .. warning ::
+
+            A special gas fix is needed, because `eth_estimateGas` seems to fail for these Gnosis Safe transactions.
+
+        Example:
+
+        .. code-block:: python
+
+            # Then settle the valuation as the vault owner (Safe multisig) in this case
+            settle_call = vault.settle()
+            moduled_tx = vault.transact_through_module(settle_call)
+            tx_data = moduled_tx.build_transaction({
+                "from": asset_manager,
+            })
+            # Normal estimate_gas does not give enough gas for
+            # Safe execTransactionFromModule() transaction for some reason
+            gnosis_gas_fix = 1_000_000
+            tx_data["gas"] = web3.eth.estimate_gas(tx_data) + gnosis_gas_fix
+            tx_hash = web3.eth.send_transaction(tx_data)
+            assert_execute_module_success(web3, tx_hash)
+
+        :param func_call:
+            Bound smart contract function call
+
+        :param value:
+            ETH attached to the transaction
+
+        :param operation:
+            Gnosis enum.
+
+            .. code-block:: text
+                library Enum {
+                    enum Operation {
+                        Call,
+                        DelegateCall
+                    }
+                }
+        """
+        contract_address = func_call.address
+        data_payload = encode_function_call(func_call, func_call.arguments)
+        contract = self.safe_contract
+        bound_func = module.functions.performCall(
+            contract_address,
+            data_payload,
+        )
+        return bound_func
+
     def post_new_valuation(
         self,
         total_valuation: Decimal,
@@ -348,6 +422,20 @@ class LagoonVault(VaultBase):
         logger.info("Settling vault %s valuation", )
         bound_func = self.vault_contract.functions.settleDeposit()
         return bound_func
+
+    def deposit(self, depositor: HexAddress, amount: int) -> ContractFunction:
+        """Build a deposit transction.
+
+        - Used for testing
+        - Must be approved() first
+
+        :param amount:
+            Raw amount in underlying token
+        """
+        underlying = self.underlying_token
+        assert underlying.fetch_raw_balance_of(underlying.address) >= amount
+        assert underlying.contract.functions.allowance(self.vault_address, underlying.address).call() >= amount
+        return self.vault_contract.functions.deposit(underlying.address, amount)
 
 
 class LagoonFlowManager(VaultFlowManager):

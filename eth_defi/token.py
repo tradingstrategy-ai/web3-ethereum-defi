@@ -151,6 +151,19 @@ class TokenDetails:
         raw_amount = self.contract.functions.balanceOf(address).call(block_identifier=block_identifier)
         return self.convert_to_decimals(raw_amount)
 
+    def fetch_raw_balance_of(self, address: HexAddress | str, block_identifier="latest") -> Decimal:
+        """Get an address token balance.
+
+        :param block_identifier:
+            A specific block to query if doing archive node historical queries
+
+        :return:
+            Raw token amount.
+        """
+        address = Web3.to_checksum_address(address)
+        raw_amount = self.contract.functions.balanceOf(address).call(block_identifier=block_identifier)
+        return raw_amount
+
     @staticmethod
     def generate_cache_key(chain_id: int, address: str) -> int:
         """Generate a cache key for this token.

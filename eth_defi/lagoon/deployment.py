@@ -16,17 +16,20 @@ from pprint import pformat
 from eth_account.signers.local import LocalAccount
 from eth_typing import HexAddress
 from safe_eth.safe.safe import Safe
+
 from web3 import Web3
 from web3.contract import Contract
 
 from eth_defi.deploy import deploy_contract
 from eth_defi.lagoon.vault import LagoonVault
+from eth_defi.middleware import construct_sign_and_send_raw_middleware_anvil
 from eth_defi.safe.deployment import deploy_safe, add_new_safe_owners
 from eth_defi.token import get_wrapped_native_token_address, fetch_erc20_details
 from eth_defi.trace import assert_transaction_success_with_explanation
 from eth_defi.uniswap_v2.deployment import UniswapV2Deployment
 from eth_defi.uniswap_v3.deployment import UniswapV3Deployment
 from eth_defi.vault.base import VaultSpec
+
 
 logger = logging.getLogger(__name__)
 
@@ -74,6 +77,9 @@ class LagoonAutomatedDeployment:
     chain_id: int
     vault: LagoonVault
     trading_strategy_module: Contract
+
+    def is_asset_manager(self, address: HexAddress) -> bool:
+        return self.trading_strategy_module.functions.isAllowedSender(address).call()
 
 
 def deploy_lagoon(
@@ -247,16 +253,47 @@ def deploy_safe_trading_strategy_module(
 
 def setup_guard(
     web3: Web3,
+    safe: Safe,
     deployer: LocalAccount,
+    owner: HexAddress,
+    asset_manager: HexAddress,
     module: Contract,
     any_asset: bool = False,
     uniswap_v2: UniswapV2Deployment = None,
     uniswap_v3: UniswapV3Deployment = None,
 ):
+
+    assert isinstance(deployer, LocalAccount)
+    assert type(owner) == str
+    assert isinstance(module, Contract)
     assert any_asset, f"Only wildcard trading supported at the moment"
+
+    web3.middleware_onion.add(construct_sign_and_send_raw_middleware_anvil(deployer))
 
     logger.info("Setting up TradingStrategyModuleV0 guard")
 
+    # Enable asset_manager as the whitelisted trade-executor
+    tx_hash = module.functions.allowSender(asset_manager, "Whitelist trade-executor").transact({"from": deployer.address})
+    assert_transaction_success_with_explanation(web3, tx_hash)
+
+    # Enable safe as the receiver of tokens
+    tx_hash = module.functions.allowReceiver(safe.address, "Whitelist Safe as trade receiver").transact({"from": deployer.address})
+    assert_transaction_success_with_explanation(web3, tx_hash)
+
+    # Whitelist Uniswap v2
+    tx_hash = module.functions.whitelistUniswapV2Router(uniswap_v2.router.address, "Allow Uniswap v2").transact({"from": deployer.address})
+    assert_transaction_success_with_explanation(web3, tx_hash)
+
+    # Whitelist all assts
+    if any_asset:
+        tx_hash = module.functions.setAnyAssetAllowed(True, "Allow any asset").transact({"from": deployer.address})
+        assert_transaction_success_with_explanation(web3, tx_hash)
+    else:
+        logger.info("Using only whitelisted assets")
+
+    # Relinquish ownership
+    tx_hash = module.functions.transferOwnership(owner).transact({"from": deployer.address})
+    assert_transaction_success_with_explanation(web3, tx_hash)
 
 
 def deploy_automated_lagoon_vault(
@@ -315,9 +352,12 @@ def deploy_automated_lagoon_vault(
     )
 
     setup_guard(
-        web3,
-        deployer,
-        module,
+        web3=web3,
+        safe=safe,
+        deployer=deployer,
+        owner=safe.address,
+        asset_manager=asset_manager,
+        module=module,
         uniswap_v2=uniswap_v2,
         uniswap_v3=uniswap_v3,
         any_asset=any_asset,

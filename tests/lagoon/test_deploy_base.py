@@ -7,8 +7,10 @@ from web3 import Web3
 from eth_defi.hotwallet import HotWallet
 from eth_defi.lagoon.deployment import LagoonDeploymentParameters, deploy_automated_lagoon_vault
 from eth_defi.token import TokenDetails, USDC_NATIVE_TOKEN
+from eth_defi.trace import assert_transaction_success_with_explanation
 from eth_defi.uniswap_v2.constants import UNISWAP_V2_DEPLOYMENTS
 from eth_defi.uniswap_v2.deployment import fetch_deployment
+from eth_defi.uniswap_v2.swap import swap_with_slippage_protection
 from eth_defi.vault.base import TradingUniverse
 
 
@@ -33,12 +35,26 @@ def multisig_owners(web3) -> list[HexAddress]:
     return [web3.eth.accounts[2], web3.eth.accounts[3], web3.eth.accounts[4]]
 
 
+@pytest.fixture()
+def depositor(web3, base_usdc, usdc_holder) -> HexAddress:
+    """Prepare depositor account with USDC.
+
+    - Start with 999 USCC
+    """
+    address = web3.eth.accounts[5]
+    tx_hash = base_usdc.contract.functions.transfer(address, 999 * 10**6).transact({"from": usdc_holder, "gas": 100_000})
+    assert_transaction_success_with_explanation(web3, tx_hash)
+    return address
+
+
+
 def test_lagoon_deploy_base_guarded_any_token(
     web3: Web3,
     uniswap_v2,
     base_weth: TokenDetails,
     base_usdc: TokenDetails,
     topped_up_asset_manager: HexAddress,
+    depositor: HexAddress,
     usdc_holder: HexAddress,
     deployer_local_account,
     multisig_owners: list[str],
@@ -48,8 +64,11 @@ def test_lagoon_deploy_base_guarded_any_token(
     Full e2e test to deploy a new Lagoon vault and do automated trades on it.
 
     1. Deploy a new Lagoon vault
-    2. After deployment, perform a basic swap
-    3. Revalue the vault now holding USDC and WETH
+    2. Add deposits to the deposit queue
+    3. Asset manager process deposts
+    4. After deployment, perform a basic swap
+    5. Revalue the vault now holding USDC and WETH
+    6. Redeem some USDC back
 
     To run with Tenderly tx inspector:
 
@@ -62,6 +81,7 @@ def test_lagoon_deploy_base_guarded_any_token(
     chain_id = web3.eth.chain_id
     deployer = deployer_local_account
     asset_manager = topped_up_asset_manager
+    usdc = base_usdc
 
     parameters = LagoonDeploymentParameters(
         underlying=USDC_NATIVE_TOKEN[chain_id],
@@ -85,35 +105,44 @@ def test_lagoon_deploy_base_guarded_any_token(
     # Safe it set to take the ownership
     assert deploy_info.chain_id == 8453
     assert len(deploy_info.vault.safe.retrieve_owners()) == 4   # Multisig owners + deployer account we cannot remove
-    assert deploy_info.trading_strategy_module.functions.owner() == deploy_info.vault.safe.address
+    assert deploy_info.trading_strategy_module.functions.owner().call() == deploy_info.vault.safe.address
     assert deploy_info.vault.safe.retrieve_modules() == [deploy_info.trading_strategy_module.address]
+    assert deploy_info.is_asset_manager(asset_manager), f"Guard asset manager not set: {asset_manager}"
+    vault = deploy_info.vault
 
-    # Buy into the vault
+    # Deposit into the vault
+    usdc_amount = 9 * 10**6
+    deposit_func = vault.deposit(usdc_amount)
+    tx_hash = deposit_func.transact({"from": depositor})
+    assert_transaction_success_with_explanation(web3, tx_hash)
 
+    # Run deposit queue
+    settle_func = vault.settle()
+    tx_hash = settle_func.transact({"from": asset_manager})
+    assert_transaction_success_with_explanation(web3, tx_hash)
 
     # Check we have money for the swap
-    amount = int(0.1 * 10**6)  # 10 cents
-    assert base_usdc.contract.functions.balanceOf(vault.safe_address).call() >= amount
+    swap_amount = usdc_amount // 2
+    assert usdc.contract.functions.balanceOf(vault.safe_address).call() >= swap_amount
 
     # Approve USDC for the swap
-    approve_call = base_usdc.contract.functions.approve(uniswap_v2.router.address, amount)
+    approve_call = usdc.contract.functions.approve(uniswap_v2.router.address, swap_amount)
     moduled_tx = vault.transact_through_module(approve_call)
     tx_hash = moduled_tx.transact({"from": asset_manager})
-    assert_execute_module_success(web3, tx_hash)
+    assert_transaction_success_with_explanation(web3, tx_hash)
 
-    # Creat a bound contract function instance
-    # that presents Uniswap swap from the vault
+    # Do swap
     swap_call = swap_with_slippage_protection(
         uniswap_v2,
         recipient_address=lagoon_vault.safe_address,
         base_token=base_weth.contract,
         quote_token=base_usdc.contract,
-        amount_in=amount,
+        amount_in=swap_amount,
     )
 
     moduled_tx = vault.transact_through_module(swap_call)
     tx_hash = moduled_tx.transact({"from": asset_manager})
-    assert_execute_module_success(web3, tx_hash)
+    assert_transaction_success_with_explanation(web3, tx_hash)
 
     # Check that vault balances are updated,
     # from what we have at the starting point at test_lagoon_fetch_portfolio
