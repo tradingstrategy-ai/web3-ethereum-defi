@@ -100,6 +100,11 @@ def add_new_safe_owners(
     for owner in owners:
         assert isinstance(owner, str), f"Owner must be hex addresses, got {type(owner)}"
         assert owner.startswith("0x"), f"Owner must be hex addresses, got {type(owner)}"
+
+        if owner == deployer.address:
+            logger.info("Deployer: already exist on Safe cosigner")
+            continue
+
         tx = safe.contract.functions.addOwnerWithThreshold(owner, 1).build_transaction(
             {"from": deployer.address, "gas": 0, "gasPrice": 0}
         )

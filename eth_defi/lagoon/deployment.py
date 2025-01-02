@@ -11,6 +11,7 @@ Any Safe must be deployed as 1-of-1 deployer address multisig and multisig holde
 """
 import logging
 from dataclasses import dataclass, asdict
+from io import StringIO
 from pprint import pformat
 
 from eth_account.signers.local import LocalAccount
@@ -98,7 +99,14 @@ class LagoonAutomatedDeployment:
             "Multisig owners": ", ".join(self.multisig_owners),
             "Block number": f"{self.block_number:,}",
         }
-        return pformat(fields)
+
+        # https://stackoverflow.com/a/17330263/315168
+        io = StringIO()
+        print("{:<30} {:30}".format('Key', 'Label'), file=io)
+        for k, v in fields.items():
+            print("{:<30} {:<30}".format(k, v), file=io)
+
+        return io.getvalue()
 
 
 def deploy_lagoon(
