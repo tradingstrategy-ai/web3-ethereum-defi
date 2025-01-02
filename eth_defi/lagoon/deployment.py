@@ -96,6 +96,10 @@ class LagoonAutomatedDeployment:
             "Vault": vault.address,
             "Trading strategy module": self.trading_strategy_module.address,
             "Asset manager": self.asset_manager,
+            "Underlying token": self.vault.underlying_token.address,
+            "Underlying symbol": self.vault.underlying_token.symbol,
+            "Share token": self.vault.share_token.address,
+            "Share token symbol": self.vault.share_token.symbol,
             "Multisig owners": ", ".join(self.multisig_owners),
             "Block number": f"{self.block_number:,}",
         }
@@ -395,7 +399,7 @@ def deploy_automated_lagoon_vault(
 
     # After everything is deployed, fix ownership
     # 1. Transfer TradingStrategyModuleV0 module ownership to Gnosis
-    # 2. Approve redemptions for Safe
+    # 2. Approve redemptions for Safe. USDC must be transferable to Vault (not Silo).
     # 3. Set Gnosis to a true multisig
 
     # 1. Transfer guard ownership to Gnosis
@@ -405,14 +409,16 @@ def deploy_automated_lagoon_vault(
 
     # 2. USDC.approve() for redemptions on Safe
     underlying = fetch_erc20_details(web3, parameters.underlying, chain_id=chain_id)
-    tx_params = underlying.contract.functions.approve(vault_contract.address, 2**256-1).build_transaction({
+    tx_data = underlying.contract.functions.approve(vault_contract.address, 2**256-1).build_transaction({
         "from": deployer.address,
-        "gas": 1_000_000,
-        "nonce": web3.eth.get_transaction_count(deployer.address),
-        "chainId": chain_id,
+        "gas": 0,
+        "gasPrice": 0,
     })
-    signed_tx = deployer.sign_transaction(tx_params)
-    tx_hash = web3.eth.send_raw_transaction(signed_tx.rawTransaction)
+    safe_tx = safe.build_multisig_tx(underlying.address, 0, tx_data["data"])
+    safe_tx.sign(deployer._private_key.hex())
+    tx_hash, tx = safe_tx.execute(
+        tx_sender_private_key=deployer._private_key.hex(),
+    )
     assert_transaction_success_with_explanation(web3, tx_hash)
 
     # 3. Set Gnosis to a true multisig

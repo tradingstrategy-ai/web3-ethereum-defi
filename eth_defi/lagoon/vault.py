@@ -7,6 +7,7 @@ from functools import cached_property
 
 from eth.typing import BlockRange
 from eth_typing import HexAddress, BlockIdentifier, ChecksumAddress
+from fontTools.unicodedata import block
 from web3 import Web3
 from web3.contract import Contract
 from web3.contract.contract import ContractFunction
@@ -19,7 +20,7 @@ from safe_eth.safe import Safe
 from ..abi import get_deployed_contract, encode_function_call
 from ..safe.safe_compat import create_safe_ethereum_client
 from ..token import TokenDetails, fetch_erc20_details
-
+from ..trace import assert_transaction_success_with_explanation
 
 logger = logging.getLogger(__name__)
 
@@ -214,6 +215,55 @@ class LagoonVault(VaultBase):
         raw_amount = self.vault_contract.functions.totalAssets().call()
         return token.convert_to_decimals(raw_amount)
 
+    def fetch_total_assets(self, block_identifier: BlockIdentifier) -> Decimal:
+        """What is the total NAV of the vault.
+
+        :return:
+            The vault value in underlyinh token
+        """
+        raw_amount = self.vault_contract.functions.totalAssets().call(block_identifier=block_identifier)
+        return self.underlying_token.convert_to_decimals(raw_amount)
+
+
+    def fetch_total_supply(self, block_identifier: BlockIdentifier) -> Decimal:
+        """What is the current outstanding shares.
+
+        :return:
+            The vault value in underlyinh token
+        """
+        raw_amount = self.vault_contract.functions.totalSupply().call(block_identifier=block_identifier)
+        return self.share_token.convert_to_decimals(raw_amount)
+
+    def fetch_share_price(self, block_identifier: BlockIdentifier) -> Decimal:
+        """Get the current share price.
+
+        :return:
+            The share price in underlying token.
+
+            If supply is zero return zero.
+        """
+
+        #     function _convertToAssets(
+        #         uint256 shares,
+        #         uint40 requestId,
+        #         Math.Rounding rounding
+        #     ) internal view returns (uint256) {
+        #         ERC7540Storage storage $ = _getERC7540Storage();
+        #
+        #         // cache
+        #         uint40 settleId = $.epochs[requestId].settleId;
+        #
+        #         uint256 _totalAssets = $.settles[settleId].totalAssets + 1;
+        #         uint256 _totalSupply = $.settles[settleId].totalSupply + 10 ** _decimalsOffset();
+        #
+        #         return shares.mulDiv(_totalAssets, _totalSupply, rounding);
+        #     }
+        total_assets = self.fetch_total_assets(block_identifier)
+        total_supply = self.fetch_total_supply(block_identifier)
+        if total_supply == 0:
+            return Decimal(0)
+        return total_assets / self.fetch_total_supply(block_identifier)
+
     @property
     def address(self) -> HexAddress:
         """Get the vault smart contract address."""
@@ -255,12 +305,10 @@ class LagoonVault(VaultBase):
         silo_address = vault_contract.functions.pendingSilo().call()
         return get_deployed_contract(self.web3, "lagoon/Silo.json", silo_address)
 
-    @cached_property
+    @property
     def underlying_token(self) -> TokenDetails:
-        """Get underlying (USDC)"""
-        underlying_address = self.vault_contract.functions.asset().call()
-        underlying = fetch_erc20_details(self.web3, underlying_address, chain_id=self.chain_id)
-        return underlying
+        """Alias for :py:meth:`denomination_token`"""
+        return self.denomination_token
 
     def fetch_portfolio(
         self,
@@ -395,10 +443,12 @@ class LagoonVault(VaultBase):
     def settle_via_trading_strategy_module(self) -> ContractFunction:
         """Settle the new valuation and deposits.
 
-        - settleDeposit will also settle the redeems request if possible
+        - settleDeposit will also settle the redeems request if possible. If there are enough assets in the safe it will settleRedeem
+          It there are not enough assets, it will only settleDeposit.
 
         - if there is nothing to settle: no deposit and redeem requests you can still call settleDeposit/settleRedeem to validate the new nav
 
+        - If there is not enough USDC to redeem, the transaction will revert
         """
         assert self.trading_strategy_module_address, "TradingStrategyModuleV0 not configured"
         block = self.web3.eth.block_number
@@ -407,26 +457,103 @@ class LagoonVault(VaultBase):
         bound_func = self.vault_contract.functions.settleDeposit()
         return self.transact_via_trading_strategy_module(bound_func)
 
-    def deposit(self, depositor: HexAddress, amount: int) -> ContractFunction:
+    def post_valuation_and_settle(
+        self,
+        valuation: Decimal,
+        asset_manager: HexAddress,
+        gas=1_000_000,
+    ):
+        """Do both new valuation and settle.
+
+        - Only after this we can read back
+
+        - Broadcasts two transactions
+
+        - If there is not enough USDC to redeem, the second transaction will fail with revert
+        """
+
+        assert isinstance(valuation, Decimal)
+
+        bound_func = self.post_new_valuation(valuation)
+        tx_hash = bound_func.transact({"from": asset_manager, "gas": gas})
+        assert_transaction_success_with_explanation(self.web3, tx_hash)
+
+        bound_func = self.settle_via_trading_strategy_module()
+        tx_hash = bound_func.transact({"from": asset_manager, "gas": gas})
+        assert_transaction_success_with_explanation(self.web3, tx_hash)
+
+    def request_deposit(self, depositor: HexAddress, raw_amount: int) -> ContractFunction:
         """Build a deposit transction.
 
+        - Phase 1 of deposit before settlement
         - Used for testing
         - Must be approved() first
         - Uses the vault underlying token (USDC)
 
-        :param amount:
+        :param raw_amount:
             Raw amount in underlying token
         """
         underlying = self.underlying_token
         existing_balance = underlying.fetch_raw_balance_of(depositor)
-        assert existing_balance >= amount, f"Cannot deposit {underlying.symbol} by {depositor}. Have: {existing_balance}, asked to deposit: {amount}"
+        assert existing_balance >= raw_amount, f"Cannot deposit {underlying.symbol} by {depositor}. Have: {existing_balance}, asked to deposit: {amount}"
         existing_allowance = underlying.contract.functions.allowance(depositor, self.vault_address).call()
-        assert existing_allowance >= amount, f"Cannot deposit {underlying.symbol} by {depositor}. Allowance: {existing_allowance}, asked to deposit: {amount}"
+        assert existing_allowance >= raw_amount, f"Cannot deposit {underlying.symbol} by {depositor}. Allowance: {existing_allowance}, asked to deposit: {amount}"
         return self.vault_contract.functions.requestDeposit(
-            amount,
+            raw_amount,
             depositor,
             depositor,
         )
+
+    def finalise_deposit(self, depositor: HexAddress, raw_amount: int | None = None) -> ContractFunction:
+        """Move shares we received to the user wallet.
+
+        - Phase 2 of deposit after settlement
+        """
+
+        if raw_amount is None:
+            raw_amount = self.vault_contract.functions.maxDeposit(depositor).call()
+
+        return self.vault_contract.functions.deposit(raw_amount, depositor)
+
+    def request_redeem(self, depositor: HexAddress, raw_amount: int) -> ContractFunction:
+        """Build a redeem transction.
+
+        - Phase 1 of redemption, before settlement
+        - Used for testing
+        - Sets up a redemption request for X shares
+
+        :param raw_amount:
+            Raw amount in share token
+        """
+        assert type(raw_amount) == int, f"Got {raw_amount} {type(raw_amount)}"
+        shares = self.share_token
+        block_number = self.web3.eth.block_number
+
+        # Check we have shares
+        owned_raw_amount = shares.fetch_raw_balance_of(depositor, block_number)
+        assert owned_raw_amount >= raw_amount, f"Cannot redeem, has only {owned_raw_amount} shares when {raw_amount} needed"
+
+        human_amount = shares.convert_to_decimals(raw_amount)
+        total_shares = self.fetch_total_supply(block_number)
+        logger.info("Setting up redemption for %s %s shares out of %s, for %s", human_amount, shares.symbol, total_shares, depositor)
+        return self.vault_contract.functions.requestRedeem(
+            raw_amount,
+            depositor,
+            depositor,
+        )
+
+    def finalise_redeem(self, depositor: HexAddress, raw_amount: int | None = None) -> ContractFunction:
+        """Move redeemed assets to the user wallet.
+
+        - Phase 2 of the redemption
+        """
+
+        assert type(depositor) == str, f"Got {depositor} {type(depositor)}"
+
+        if raw_amount is None:
+            raw_amount = self.vault_contract.functions.maxRedeem(depositor).call()
+
+        return self.vault_contract.functions.redeem(raw_amount, depositor, depositor)
 
 
 class LagoonFlowManager(VaultFlowManager):
@@ -465,6 +592,21 @@ class LagoonFlowManager(VaultFlowManager):
 
     def fetch_processed_redemption_event(self, vault: VaultSpec, range: BlockRange) -> None:
         raise NotImplementedError()
+
+    def calculate_underlying_neeeded_for_redemptions(self, block_identifier: BlockIdentifier) -> Decimal:
+        """How much underlying token (USDC) we are going to need on the next redemption cycle.
+
+        :return:
+            Raw token amount
+        """
+        # How many shares we have pending for the redemption
+        shares_pending = self.fetch_pending_redemption(block_identifier)
+        share_price = self.vault.fetch_share_price(block_identifier)
+        return shares_pending * share_price
+
+
+
+
 
 
 
