@@ -8,3 +8,4 @@ Lagoon protocol vaults integration.
    :recursive:
 
    eth_defi.lagoon.vault
+   eth_defi.lagoon.deployment

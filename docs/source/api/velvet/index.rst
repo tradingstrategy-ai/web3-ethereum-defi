@@ -13,3 +13,4 @@ Velvet Capital vaults integration.
    eth_defi.velvet.redeem
    eth_defi.velvet.enso
    eth_defi.velvet.analysis
+   eth_defi.velvet.logging_retry
