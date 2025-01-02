@@ -24,7 +24,7 @@ def uniswap_v2(web3):
 
 @pytest.fixture()
 def deployer_local_account(web3) -> LocalAccount:
-    hot_wallet = HotWallet.create_for_testing(web3)
+    hot_wallet = HotWallet.create_for_testing(web3, eth_amount=1)
     return hot_wallet.account
 
 
@@ -78,17 +78,18 @@ def test_lagoon_deploy_base_guarded_any_token(
         safe_threshold=2,
         uniswap_v2=uniswap_v2,
         uniswap_v3=None,
-        any_token=True,
+        any_asset=True,
     )
 
     # We look correctly initialised, and
     # Safe it set to take the ownership
     assert deploy_info.chain_id == 8453
-    assert deploy_info.vault.safe.retrieve_owners() == multisig_owners
+    assert len(deploy_info.vault.safe.retrieve_owners()) == 4   # Multisig owners + deployer account we cannot remove
     assert deploy_info.trading_strategy_module.functions.owner() == deploy_info.vault.safe.address
     assert deploy_info.vault.safe.retrieve_modules() == [deploy_info.trading_strategy_module.address]
 
-    # Top up USDC
+    # Buy into the vault
+
 
     # Check we have money for the swap
     amount = int(0.1 * 10**6)  # 10 cents

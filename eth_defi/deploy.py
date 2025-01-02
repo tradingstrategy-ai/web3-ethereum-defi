@@ -8,6 +8,7 @@ from typing import Dict, TypeAlias, Union
 
 from eth_account.signers.local import LocalAccount
 from eth_typing import HexAddress
+from hexbytes import HexBytes
 from pytz.reference import Local
 from web3 import Web3
 from web3.contract import Contract
@@ -34,7 +35,9 @@ def deploy_contract(
     deployer: str | LocalAccount,
     *constructor_args,
     register_for_tracing=True,
-) -> Contract:
+    gas: int=None,
+    confirm=True,
+) -> Contract | HexBytes:
     """Deploys a new contract from ABI file.
 
     A generic helper function to deploy any contract.
@@ -67,11 +70,19 @@ def deploy_contract(
 
         See :py:func:`get_contract_registry`
 
+    :param gas:
+        Gas limit.
+
+        If not set tries to estimate and probably may hit reverts when doing so.
+
+    :param confirm:
+        Confirm the contract deployment.
+
     :raise ContractDeploymentFailed:
         In the case we could not deploy the contract.
 
     :return:
-        Contract proxy instance
+        Contract proxy instance or tx_hash if confirm=false.
 
     """
     if isinstance(contract, str):
@@ -86,12 +97,27 @@ def deploy_contract(
 
     if isinstance(deployer, LocalAccount):
         # Sign locally
-        tx_data = Contract.constructor(*constructor_args).build_transaction({"from": deployer.address})
+        nonce = web3.eth.get_transaction_count(deployer.address)
+        tx_params = {
+            "from": deployer.address,
+            "nonce": nonce,
+            "chainId": web3.eth.chain_id,
+        }
+        if gas:
+            tx_params["gas"] = gas
+        tx_data = Contract.constructor(*constructor_args).build_transaction(tx_params)
+
         signed_tx = deployer.sign_transaction(tx_data)
         tx_hash = web3.eth.send_raw_transaction(signed_tx.rawTransaction)
     else:
         # Delegate to test RPC
-        tx_hash = Contract.constructor(*constructor_args).transact({"from": deployer})
+        tx_params = {"from": deployer}
+        if gas:
+            tx_params["gas"] = gas
+        tx_hash = Contract.constructor(*constructor_args).transact(tx_params)
+
+    if not confirm:
+        return tx_hash
 
     tx_receipt = web3.eth.wait_for_transaction_receipt(tx_hash)
     if tx_receipt["status"] != 1:
