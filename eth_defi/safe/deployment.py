@@ -23,7 +23,7 @@ def deploy_safe(
     deployer: LocalAccount,
     owners: list[HexAddress | str],
     threshold: int,
-    master_copy_address = "0x41675C099F32341bf84BFc5382aF534df5C7461a",
+    master_copy_address = "0x29fcB43b46531BcA003ddC8FCB67FFE91900C762",
 ) -> Safe:
     """Deploy a new Safe wallet.
 
@@ -33,10 +33,17 @@ def deploy_safe(
         Must be LocalAccount due to Safe library limitations.
 
     :param master_copy_address:
-        See Safe info.
 
-        - https://help.safe.global/en/articles/40834-verify-safe-creation
-        - https://basescan.org/address/0x41675C099F32341bf84BFc5382aF534df5C7461a
+        Default Safe 1.4.1 layer two master copy address.
+
+        See ``MASTER_COPIES``
+
+        - Use +L2 version tag for Layer two chains
+        - https://github.com/safe-global/safe-eth-py/blob/76489e9641f4f1f4ea4dbbcee2dc2ce42e84d24f/safe_eth/safe/addresses.py#L16
+
+        Discussion
+
+        - https://ethereum.stackexchange.com/questions/167329/programmatically-creating-safe-ui-compatible-multisig-wallets
     """
 
     assert isinstance(deployer, LocalAccount), f"Safe can be only deployed using LocalAccount"
