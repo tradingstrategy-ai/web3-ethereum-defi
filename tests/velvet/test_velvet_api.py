@@ -465,6 +465,7 @@ def test_velvet_api_redeem(
         slippage=slippage,
     )
     assert tx_data["to"] == "0x99e9C4d3171aFAA3075D0d1aE2Bb42B5E53aEdAB"
+    # TODO: Not sure why times out
     tx_hash = web3.eth.send_transaction(tx_data)
     assert_transaction_success_with_explanation(web3, tx_hash)
 
