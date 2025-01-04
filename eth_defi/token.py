@@ -12,6 +12,7 @@ from typing import Optional, Union, TypeAlias
 import warnings
 
 import cachetools
+from web3.contract.contract import ContractFunction
 
 with warnings.catch_warnings():
     # DeprecationWarning: pkg_resources is deprecated as an API. See https://setuptools.pypa.io/en/latest/pkg_resources.html
@@ -150,6 +151,52 @@ class TokenDetails:
         address = Web3.to_checksum_address(address)
         raw_amount = self.contract.functions.balanceOf(address).call(block_identifier=block_identifier)
         return self.convert_to_decimals(raw_amount)
+
+    def transfer(
+        self,
+        to: HexAddress | str,
+        amount: Decimal,
+    ) -> ContractFunction:
+        """Prepare a ERC20.transfer() transaction with human-readable amount.
+
+        Example:
+
+        .. code-block:: python
+
+            another_new_depositor = web3.eth.accounts[6]
+            tx_hash = base_usdc.transfer(another_new_depositor, Decimal(500)).transact({"from": usdc_holder, "gas": 100_000})
+            assert_transaction_success_with_explanation(web3, tx_hash)
+
+        :return:
+            Bound contract function you need to turn to a tx
+        """
+        assert isinstance(amount, Decimal), f"Give amounts in decimal, got {type(amount)}"
+        to = Web3.to_checksum_address(to)
+        raw_amount = self.convert_to_raw(amount)
+        return self.contract.functions.transfer(to, raw_amount)
+
+    def approve(
+        self,
+        to: HexAddress | str,
+        amount: Decimal,
+    ) -> ContractFunction:
+        """Prepare a ERC20.approve() transaction with human-readable amount.
+
+        Example:
+
+        .. code-block:: python
+
+            usdc_amount = Decimal(9.00)
+            tx_hash = usdc.approve(vault.address, usdc_amount).transact({"from": depositor})
+            assert_transaction_success_with_explanation(web3, tx_hash)
+
+        :return:
+            Bound contract function you need to turn to a tx
+        """
+        assert isinstance(amount, Decimal), f"Give amounts in decimal, got {type(amount)}"
+        to = Web3.to_checksum_address(to)
+        raw_amount = self.convert_to_raw(amount)
+        return self.contract.functions.approve(to, raw_amount)
 
     def fetch_raw_balance_of(self, address: HexAddress | str, block_identifier="latest") -> Decimal:
         """Get an address token balance.
