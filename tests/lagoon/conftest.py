@@ -9,6 +9,7 @@ Explore the static deployment which we fork from the Base mainnet:
 - Roles: https://app.safe.global/apps/open?safe=base:0x20415f3Ec0FEA974548184bdD6e67575D128953F&appUrl=https%3A%2F%2Fzodiac.gnosisguild.org%2F
 """
 import os
+from decimal import Decimal
 
 import pytest
 from eth_typing import HexAddress
@@ -176,7 +177,7 @@ def asset_manager() -> HexAddress:
 
 
 @pytest.fixture()
-def topped_up_asset_manager(web3, asset_manager):
+def topped_up_asset_manager(web3, asset_manager) -> HexAddress:
     # Topped up with some ETH
     tx_hash = web3.eth.send_transaction({
         "to": asset_manager,
@@ -188,7 +189,7 @@ def topped_up_asset_manager(web3, asset_manager):
 
 
 @pytest.fixture()
-def topped_up_valuation_manager(web3, valuation_manager):
+def topped_up_valuation_manager(web3, valuation_manager) -> HexAddress:
     # Topped up with some ETH
     tx_hash = web3.eth.send_transaction({
         "to": valuation_manager,
@@ -197,6 +198,32 @@ def topped_up_valuation_manager(web3, valuation_manager):
     })
     assert_transaction_success_with_explanation(web3, tx_hash)
     return valuation_manager
+
+
+@pytest.fixture()
+def new_depositor(web3, base_usdc, usdc_holder) -> HexAddress:
+    """User with some USDC ready to deposit.
+
+    - Start with 500 USDC
+    """
+    new_depositor = web3.eth.accounts[5]
+    tx_hash = base_usdc.transfer(new_depositor, Decimal(500)).transact({"from": usdc_holder, "gas": 100_000})
+    assert_transaction_success_with_explanation(web3, tx_hash)
+    return new_depositor
+
+
+@pytest.fixture()
+def another_new_depositor(web3, base_usdc, usdc_holder) -> HexAddress:
+    """User with some USDC ready to deposit.
+
+    - Start with 500 USDC
+    - We need two test users
+    """
+    another_new_depositor = web3.eth.accounts[6]
+    tx_hash = base_usdc.transfer(another_new_depositor, Decimal(500)).transact({"from": usdc_holder, "gas": 100_000})
+    assert_transaction_success_with_explanation(web3, tx_hash)
+    return another_new_depositor
+
 
 
 # @pytest.fixture()
