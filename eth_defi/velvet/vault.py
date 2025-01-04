@@ -30,6 +30,9 @@ from eth_defi.velvet.redeem import redeem_from_velvet_velvet
 DEFAULT_VELVET_API_URL = "https://eventsapi.velvetdao.xyz/api/v3"
 
 
+logger = logging.getLogger(__name__)
+
+
 class VelvetBadConfig(Exception):
     """Likely wrong vault address given"""
 
@@ -132,6 +135,10 @@ class VelvetVault(VaultBase):
         return self.info["vaultAddress"]
 
     @property
+    def chain_id(self) -> int:
+        return self.spec.chain_id
+
+    @property
     def deposit_manager_address(self) -> HexAddress:
         return self.info["depositManager"]
 
@@ -201,6 +208,7 @@ class VelvetVault(VaultBase):
         from_: HexAddress | str | None = None,
         retries=5,
         manage_token_list=True,
+        swap_all_tripwire_pct=0.01,
     ) -> dict:
         """Prepare a swap transaction using Enso intent engine and Vevlet API.
 
@@ -210,10 +218,32 @@ class VelvetVault(VaultBase):
             Used with Anvil and unlocked accounts.
         """
 
+        logger.info(
+            "Enso swap. Token %s -> %s, amount %d, swap all is %s",
+            token_in,
+            token_out,
+            swap_amount,
+            swap_all,
+        )
+
         if manage_token_list:
             if swap_all:
                 assert token_in in remaining_tokens, f"Enso swap full amount: Tried to remove {token_in}, not in the list {remaining_tokens}"
                 remaining_tokens.remove(token_in)
+
+        # Sell all - we need to deal with Velvet specific dust filter,
+        # or the smart contract will revert
+        if swap_all:
+            erc20 = fetch_erc20_details(self.web3, token_in, chain_id=self.chain_id)
+            onchain_amount = erc20.fetch_raw_balance_of(self.vault_address)
+            logger.info(
+                "Sell all: Applying onchain exact amount dust filter. Onchain balance: %s, swap balance: %s",
+                onchain_amount,
+                swap_amount
+            )
+            diff_pct = abs(swap_amount - onchain_amount) / onchain_amount
+            assert diff_pct < swap_all_tripwire_pct, f"Onchain balance: {onchain_amount}, asked sell all balance: {swap_all}, diff {diff_pct:%}"
+            swap_amount = onchain_amount
 
         tx_data = swap_with_velvet_and_enso(
             rebalance_address=self.info["rebalancing"],
