@@ -11,6 +11,7 @@ Notes:
     - Vault metadata https://api.velvet.capital/api/v3/portfolio/0xbdd3897d59843220927f0915aa943ddfa1214703r
 
 """
+import logging
 from functools import cached_property
 
 import requests
