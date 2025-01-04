@@ -9,3 +9,4 @@ Lagoon protocol vaults integration.
 
    eth_defi.lagoon.vault
    eth_defi.lagoon.deployment
+   eth_defi.lagoon.analysis
