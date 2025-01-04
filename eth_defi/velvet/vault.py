@@ -227,6 +227,8 @@ class VelvetVault(VaultBase):
             swap_all,
         )
 
+        assert swap_amount > 0
+
         if manage_token_list:
             if swap_all:
                 assert token_in in remaining_tokens, f"Enso swap full amount: Tried to remove {token_in}, not in the list {remaining_tokens}"
@@ -237,12 +239,14 @@ class VelvetVault(VaultBase):
         if swap_all:
             erc20 = fetch_erc20_details(self.web3, token_in, chain_id=self.chain_id)
             onchain_amount = erc20.fetch_raw_balance_of(self.vault_address)
-            logger.info(
-                "Sell all: Applying onchain exact amount dust filter. Onchain balance: %s, swap balance: %s",
-                onchain_amount,
-                swap_amount
-            )
+            assert onchain_amount > 0, f"{self.vault_address} did not have any onchain token {token_in} to swap "
             diff_pct = abs(swap_amount - onchain_amount) / onchain_amount
+            logger.info(
+                "Sell all: Applying onchain exact amount dust filter. Onchain balance: %s, swap balance: %s, dust diff %f %%",
+                onchain_amount,
+                swap_amount,
+                diff_pct * 100,
+            )
             assert diff_pct < swap_all_tripwire_pct, f"Onchain balance: {onchain_amount}, asked sell all balance: {swap_all}, diff {diff_pct:%}"
             swap_amount = onchain_amount
 
