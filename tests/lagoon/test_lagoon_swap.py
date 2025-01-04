@@ -21,6 +21,7 @@ from eth_defi.safe.trace import assert_execute_module_success
 
 @pytest.fixture()
 def uniswap_v2(web3):
+    """Uniswap V2 on Base"""
     return fetch_deployment(
         web3,
         factory_address=UNISWAP_V2_DEPLOYMENTS["base"]["factory"],

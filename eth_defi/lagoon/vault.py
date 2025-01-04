@@ -8,6 +8,7 @@ from functools import cached_property
 from eth.typing import BlockRange
 from eth_typing import HexAddress, BlockIdentifier, ChecksumAddress
 from fontTools.unicodedata import block
+from hexbytes import HexBytes
 from web3 import Web3
 from web3.contract import Contract
 from web3.contract.contract import ContractFunction
@@ -125,9 +126,9 @@ class LagoonVault(VaultBase):
     def chain_id(self) -> int:
         return self.spec.chain_id
 
-    @property
+    @cached_property
     def vault_address(self) -> HexAddress:
-        return self.spec.vault_address
+        return Web3.to_checksum_address(self.spec.vault_address)
 
     @property
     def name(self) -> str:
@@ -462,14 +463,19 @@ class LagoonVault(VaultBase):
         valuation: Decimal,
         asset_manager: HexAddress,
         gas=1_000_000,
-    ):
+    ) -> HexBytes:
         """Do both new valuation and settle.
+
+        - Quickhand method for asset_manager code
 
         - Only after this we can read back
 
-        - Broadcasts two transactions
+        - Broadcasts two transactions and waits for the confirmation
 
         - If there is not enough USDC to redeem, the second transaction will fail with revert
+
+        :return:
+            The transaction hash of the settlement transaction
         """
 
         assert isinstance(valuation, Decimal)
@@ -481,6 +487,8 @@ class LagoonVault(VaultBase):
         bound_func = self.settle_via_trading_strategy_module()
         tx_hash = bound_func.transact({"from": asset_manager, "gas": gas})
         assert_transaction_success_with_explanation(self.web3, tx_hash)
+
+        return tx_hash
 
     def request_deposit(self, depositor: HexAddress, raw_amount: int) -> ContractFunction:
         """Build a deposit transction.

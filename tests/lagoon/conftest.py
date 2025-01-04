@@ -9,17 +9,22 @@ Explore the static deployment which we fork from the Base mainnet:
 - Roles: https://app.safe.global/apps/open?safe=base:0x20415f3Ec0FEA974548184bdD6e67575D128953F&appUrl=https%3A%2F%2Fzodiac.gnosisguild.org%2F
 """
 import os
+from decimal import Decimal
 
 import pytest
+from eth_account.signers.local import LocalAccount
 from eth_typing import HexAddress
 from web3 import Web3
 
 from eth_defi.hotwallet import HotWallet
+from eth_defi.lagoon.deployment import LagoonDeploymentParameters, deploy_automated_lagoon_vault, LagoonAutomatedDeployment
 from eth_defi.lagoon.vault import LagoonVault
 from eth_defi.provider.anvil import AnvilLaunch, fork_network_anvil
 from eth_defi.provider.multi_provider import create_multi_provider_web3
-from eth_defi.token import TokenDetails, fetch_erc20_details
+from eth_defi.token import TokenDetails, fetch_erc20_details, USDC_NATIVE_TOKEN
 from eth_defi.trace import assert_transaction_success_with_explanation
+from eth_defi.uniswap_v2.constants import UNISWAP_V2_DEPLOYMENTS
+from eth_defi.uniswap_v2.deployment import fetch_deployment
 from eth_defi.vault.base import VaultSpec
 
 JSON_RPC_BASE = os.environ.get("JSON_RPC_BASE")
@@ -166,7 +171,49 @@ def base_test_vault_spec() -> VaultSpec:
 
 @pytest.fixture()
 def lagoon_vault(web3, base_test_vault_spec: VaultSpec) -> LagoonVault:
+    """Get the predeployed lagoon vault.
+
+    - This is an early vault without TradingStrategyModuleV0 - do not use in new tests
+    """
     return LagoonVault(web3, base_test_vault_spec)
+
+
+@pytest.fixture()
+def automated_lagoon_vault(
+    web3,
+    deployer_local_account,
+    asset_manager,
+    multisig_owners,
+    uniswap_v2,
+) -> LagoonAutomatedDeployment:
+    """Deploy a new Lagoon vault with TradingStrategyModuleV0.
+
+    - Whitelist any Uniswap v2 token for trading using TradingStrategyModuleV0 and asset_manager
+    """
+
+    chain_id = web3.eth.chain_id
+    deployer = deployer_local_account
+
+    parameters = LagoonDeploymentParameters(
+        underlying=USDC_NATIVE_TOKEN[chain_id],
+        name="Example",
+        symbol="EXA",
+    )
+
+    deploy_info = deploy_automated_lagoon_vault(
+        web3=web3,
+        deployer=deployer,
+        asset_manager=asset_manager,
+        parameters=parameters,
+        safe_owners=multisig_owners,
+        safe_threshold=2,
+        uniswap_v2=uniswap_v2,
+        uniswap_v3=None,
+        any_asset=True,
+    )
+
+    return deploy_info
+
 
 
 @pytest.fixture()
@@ -176,7 +223,7 @@ def asset_manager() -> HexAddress:
 
 
 @pytest.fixture()
-def topped_up_asset_manager(web3, asset_manager):
+def topped_up_asset_manager(web3, asset_manager) -> HexAddress:
     # Topped up with some ETH
     tx_hash = web3.eth.send_transaction({
         "to": asset_manager,
@@ -188,7 +235,7 @@ def topped_up_asset_manager(web3, asset_manager):
 
 
 @pytest.fixture()
-def topped_up_valuation_manager(web3, valuation_manager):
+def topped_up_valuation_manager(web3, valuation_manager) -> HexAddress:
     # Topped up with some ETH
     tx_hash = web3.eth.send_transaction({
         "to": valuation_manager,
@@ -197,6 +244,57 @@ def topped_up_valuation_manager(web3, valuation_manager):
     })
     assert_transaction_success_with_explanation(web3, tx_hash)
     return valuation_manager
+
+
+@pytest.fixture()
+def new_depositor(web3, base_usdc, usdc_holder) -> HexAddress:
+    """User with some USDC ready to deposit.
+
+    - Start with 500 USDC
+    """
+    new_depositor = web3.eth.accounts[5]
+    tx_hash = base_usdc.transfer(new_depositor, Decimal(500)).transact({"from": usdc_holder, "gas": 100_000})
+    assert_transaction_success_with_explanation(web3, tx_hash)
+    return new_depositor
+
+
+@pytest.fixture()
+def another_new_depositor(web3, base_usdc, usdc_holder) -> HexAddress:
+    """User with some USDC ready to deposit.
+
+    - Start with 500 USDC
+    - We need two test users
+    """
+    another_new_depositor = web3.eth.accounts[6]
+    tx_hash = base_usdc.transfer(another_new_depositor, Decimal(500)).transact({"from": usdc_holder, "gas": 100_000})
+    assert_transaction_success_with_explanation(web3, tx_hash)
+    return another_new_depositor
+
+
+@pytest.fixture()
+def uniswap_v2(web3):
+    """Uniswap V2 on Base"""
+    return fetch_deployment(
+        web3,
+        factory_address=UNISWAP_V2_DEPLOYMENTS["base"]["factory"],
+        router_address=UNISWAP_V2_DEPLOYMENTS["base"]["router"],
+        init_code_hash=UNISWAP_V2_DEPLOYMENTS["base"]["init_code_hash"],
+    )
+
+
+
+@pytest.fixture()
+def deployer_local_account(web3) -> LocalAccount:
+    """Account that we use for Lagoon deployment"""
+    hot_wallet = HotWallet.create_for_testing(web3, eth_amount=1)
+    return hot_wallet.account
+
+
+@pytest.fixture()
+def multisig_owners(web3) -> list[HexAddress]:
+    """Accouunts that are set as the owners of deployed Safe w/valt"""
+    return [web3.eth.accounts[2], web3.eth.accounts[3], web3.eth.accounts[4]]
+
 
 
 # @pytest.fixture()
