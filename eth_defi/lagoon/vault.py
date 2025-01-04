@@ -126,9 +126,9 @@ class LagoonVault(VaultBase):
     def chain_id(self) -> int:
         return self.spec.chain_id
 
-    @property
+    @cached_property
     def vault_address(self) -> HexAddress:
-        return self.spec.vault_address
+        return Web3.to_checksum_address(self.spec.vault_address)
 
     @property
     def name(self) -> str:

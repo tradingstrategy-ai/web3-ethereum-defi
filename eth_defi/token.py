@@ -164,13 +164,14 @@ class TokenDetails:
         .. code-block:: python
 
             another_new_depositor = web3.eth.accounts[6]
-            tx_hash = base_usdc.transfer(another_new_depositor, 500).transact({"from": usdc_holder, "gas": 100_000})
+            tx_hash = base_usdc.transfer(another_new_depositor, Decimal(500)).transact({"from": usdc_holder, "gas": 100_000})
             assert_transaction_success_with_explanation(web3, tx_hash)
 
         :return:
             Bound contract function you need to turn to a tx
         """
         assert isinstance(amount, Decimal), f"Give amounts in decimal, got {type(amount)}"
+        to = Web3.to_checksum_address(to)
         raw_amount = self.convert_to_raw(amount)
         return self.contract.functions.transfer(to, raw_amount)
 
@@ -193,6 +194,7 @@ class TokenDetails:
             Bound contract function you need to turn to a tx
         """
         assert isinstance(amount, Decimal), f"Give amounts in decimal, got {type(amount)}"
+        to = Web3.to_checksum_address(to)
         raw_amount = self.convert_to_raw(amount)
         return self.contract.functions.approve(to, raw_amount)
 
