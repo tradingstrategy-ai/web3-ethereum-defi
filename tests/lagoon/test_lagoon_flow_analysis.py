@@ -88,14 +88,20 @@ def test_lagoon_deposit_redeem(
     tx_hash = bound_func.transact({"from": depositor, "gas": 1_000_000})
     assert_transaction_success_with_explanation(web3, tx_hash)
 
+    # Check the pending queues
+    flow_manager = vault.get_flow_manager()
+    block_number = web3.eth.block_number
+    assert flow_manager.fetch_pending_deposit(block_number) == 5
+    assert flow_manager.fetch_pending_redemption(block_number) == 3
+
     # Settle both
     tx_hash = vault.post_valuation_and_settle(Decimal(9), asset_manager)
     analysis = analyse_vault_flow_in_settlement(vault, tx_hash)
 
     assert analysis.deposited == 5
     assert analysis.redeemed == pytest.approx(Decimal(3))
-    assert analysis.shares_minted == 9
-    assert analysis.shares_burned == 0
+    assert analysis.shares_minted == pytest.approx(Decimal(5))
+    assert analysis.shares_burned == pytest.approx(Decimal(3))
 
 
 
