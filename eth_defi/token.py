@@ -257,6 +257,10 @@ def fetch_erc20_details(
 
     The function should not raise an exception as long as the underlying node connection does not fail.
 
+    .. note ::
+
+        Always give ``chain_id`` when possible. Otherwise the caching of data is inefficient.
+
     Example:
 
     .. code-block:: python
