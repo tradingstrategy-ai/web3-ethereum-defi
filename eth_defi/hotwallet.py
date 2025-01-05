@@ -20,7 +20,7 @@ from web3 import Web3
 from web3._utils.contracts import prepare_transaction
 from web3.contract.contract import ContractFunction
 
-from eth_defi.gas import estimate_gas_fees, apply_gas
+from eth_defi.gas import estimate_gas_fees, apply_gas, estimate_gas_price
 from eth_defi.tx import decode_signed_transaction
 
 
@@ -242,6 +242,8 @@ class HotWallet:
         self,
         func: ContractFunction,
         tx_params: dict | None = None,
+        web3: Web3 | None=None,
+        fill_gas_price=True,
     ) -> SignedTransactionWithNonce:
         """Signs a bound Web3 Contract call.
 
@@ -262,6 +264,18 @@ class HotWallet:
             tx_gas_parameters = apply_gas({"gas": 100_000}, gas_estimation)  # approve should not take more than 100k gas
             signed_tx = hot_wallet.sign_bound_call_with_new_nonce(approve_call, tx_gas_parameters)
 
+        Another example that fills in gas price automatically (but not gas limit):
+
+        .. code-block:: python
+
+            bound_func = vault.settle_via_trading_strategy_module()
+            signed_tx_2 = self.hot_wallet.sign_bound_call_with_new_nonce(
+                bound_func,
+                tx_params={"gas": DEFAULT_LAGOON_SETTLE_GAS},
+                web3=web3,
+                fill_gas_price=True
+            )
+
         See also
 
         - :py:meth:`sign_transaction_with_new_nonce`
@@ -271,6 +285,15 @@ class HotWallet:
 
         :param tx_params:
             Transaction parameters like `gas`
+
+        :param web3:
+            Needed for gas price estimation
+
+        :param fill_gas_price:
+            Fill the gas price automatically.
+
+        :return:
+            A signed transaction with debugging details like used nonce.
         """
         assert isinstance(func, ContractFunction)
 
@@ -283,6 +306,11 @@ class HotWallet:
 
         if "chainId" not in tx_params:
             tx_params["chainId"] = func.w3.eth.chain_id
+
+        if fill_gas_price:
+            assert web3, f"web3 instance must be given for automatic gas price fill"
+            gas_price_suggestion = estimate_gas_price(web3)
+            apply_gas(tx_params, gas_price_suggestion)
 
         if original_tx_params is None:
             # Use the default gas filler

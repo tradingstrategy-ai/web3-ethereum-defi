@@ -26,6 +26,12 @@ from ..trace import assert_transaction_success_with_explanation
 
 logger = logging.getLogger(__name__)
 
+#: How much gas we use for valuation post
+DEFAULT_LAGOON_POST_VALUATION_GAS = 500_000
+
+#: How much gas we use for valuation post
+DEFAULT_LAGOON_SETTLE_GAS = 500_000
+
 
 class LagoonVaultInfo(VaultInfo):
     """Capture information about Lagoon vault deployment."""

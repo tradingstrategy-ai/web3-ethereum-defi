@@ -91,6 +91,9 @@ class LagoonSettlementEvent:
     #:
     pending_redemptions_shares: Decimal
 
+    #: Balance of the underlying token (treasuty/reserve) at the end of the block
+    underlying_balance: Decimal
+
     @property
     def underlying(self) -> TokenDetails:
         """Get USDC."""
@@ -123,6 +126,15 @@ class LagoonSettlementEvent:
             "pending_redemptions_underlying": self.pending_redemptions_underlying,
             "pending_redemptions_shares": self.pending_redemptions_shares,
         }
+
+    def get_underlying_diff(self) -> Decimal:
+        """How much the underlying asset changed in the vault treasury"""
+        return self.deposited - self.redeemed
+
+    def get_underlying_balance(self) -> Decimal:
+        """How much of treasury we are holding after this update"""
+        return self.underlying_balance
+
 
 def analyse_vault_flow_in_settlement(
     vault: LagoonVault,
@@ -171,6 +183,8 @@ def analyse_vault_flow_in_settlement(
     else:
         share_price = Decimal(0)
 
+    underlying_balance = vault.underlying_token.fetch_balance_of(vault.safe_address, block_number)
+
     return LagoonSettlementEvent(
         chain_id=vault.chain_id,
         tx_hash=tx_hash,
@@ -188,4 +202,5 @@ def analyse_vault_flow_in_settlement(
         pending_redemptions_shares=pending_shares,
         pending_redemptions_underlying=pending_shares * share_price,
         share_price=share_price,
+        underlying_balance=underlying_balance,
     )

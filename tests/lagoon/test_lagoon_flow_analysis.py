@@ -79,6 +79,7 @@ def test_lagoon_deposit_redeem(
     assert analysis.share_price == Decimal(1)  # No share price yet, because valuation as done for the empty vault
     assert analysis.deposit_events == 1
     assert analysis.redeem_events == 0
+    assert analysis.underlying_balance == pytest.approx(Decimal(9))
     assert usdc.fetch_balance_of(vault.silo_address) == pytest.approx(Decimal(0))
     assert usdc.fetch_balance_of(vault.safe_address) == pytest.approx(Decimal(9))
 
@@ -132,6 +133,7 @@ def test_lagoon_deposit_redeem(
     assert analysis.total_supply == pytest.approx(Decimal(11))
     assert analysis.deposit_events == 1
     assert analysis.redeem_events == 1
+    assert analysis.underlying_balance == pytest.approx(Decimal(11))
 
     # No events, 3 USDC redemption held by vault smart contract, Safe helds 11 USDC
     assert usdc.fetch_balance_of(vault.address) == pytest.approx(Decimal(3))

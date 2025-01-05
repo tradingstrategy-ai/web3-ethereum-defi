@@ -33,12 +33,10 @@ from eth_defi.utils import sanitise_string
 #: `ValueError` is raised by Ganache
 _call_missing_exceptions = (TransactionFailed, BadFunctionCallOutput, ValueError, ContractLogicError)
 
-
 #: By default we cache 1024 token details using LRU.
 #:
 #:
 DEFAULT_TOKEN_CACHE = cachetools.LRUCache(1024)
-
 
 #: ERC-20 address, 0x prefixed string
 TokenAddress: TypeAlias = str
@@ -123,7 +121,7 @@ class TokenDetails:
             assert details.convert_to_decimals(1) == Decimal("0.0000000000000001")
 
         """
-        return Decimal(raw_amount) / Decimal(10**self.decimals)
+        return Decimal(raw_amount) / Decimal(10 ** self.decimals)
 
     def convert_to_raw(self, decimal_amount: Decimal) -> int:
         """Convert decimalised token amount to raw uint256.
@@ -137,7 +135,7 @@ class TokenDetails:
             assert details.convert_to_raw(1) == 1_000_000
 
         """
-        return int(decimal_amount * 10**self.decimals)
+        return int(decimal_amount * 10 ** self.decimals)
 
     def fetch_balance_of(self, address: HexAddress | str, block_identifier="latest") -> Decimal:
         """Get an address token balance.
@@ -153,9 +151,9 @@ class TokenDetails:
         return self.convert_to_decimals(raw_amount)
 
     def transfer(
-        self,
-        to: HexAddress | str,
-        amount: Decimal,
+            self,
+            to: HexAddress | str,
+            amount: Decimal,
     ) -> ContractFunction:
         """Prepare a ERC20.transfer() transaction with human-readable amount.
 
@@ -176,9 +174,9 @@ class TokenDetails:
         return self.contract.functions.transfer(to, raw_amount)
 
     def approve(
-        self,
-        to: HexAddress | str,
-        amount: Decimal,
+            self,
+            to: HexAddress | str,
+            amount: Decimal,
     ) -> ContractFunction:
         """Prepare a ERC20.approve() transaction with human-readable amount.
 
@@ -230,12 +228,12 @@ class TokenDetailError(Exception):
 
 
 def create_token(
-    web3: Web3,
-    deployer: str,
-    name: str,
-    symbol: str,
-    supply: int,
-    decimals: int = 18,
+        web3: Web3,
+        deployer: str,
+        name: str,
+        symbol: str,
+        supply: int,
+        decimals: int = 18,
 ) -> Contract:
     """Deploys a new ERC-20 token on local dev, testnet or mainnet.
 
@@ -280,22 +278,22 @@ def create_token(
 
 
 def get_erc20_contract(
-    web3: Web3,
-    address: HexAddress,
-    contract_name="ERC20MockDecimals.json",
+        web3: Web3,
+        address: HexAddress,
+        contract_name="ERC20MockDecimals.json",
 ) -> Contract:
     """Wrap address as ERC-20 standard interface."""
     return get_deployed_contract(web3, contract_name, address)
 
 
 def fetch_erc20_details(
-    web3: Web3,
-    token_address: Union[HexAddress, str],
-    max_str_length: int = 256,
-    raise_on_error=True,
-    contract_name="ERC20MockDecimals.json",
-    cache: cachetools.Cache | None = DEFAULT_TOKEN_CACHE,
-    chain_id: int = None,
+        web3: Web3,
+        token_address: Union[HexAddress, str],
+        max_str_length: int = 256,
+        raise_on_error=True,
+        contract_name="ERC20MockDecimals.json",
+        cache: cachetools.Cache | None = DEFAULT_TOKEN_CACHE,
+        chain_id: int = None,
 ) -> TokenDetails:
     """Read token details from on-chain data.
 
@@ -441,16 +439,15 @@ def get_wrapped_native_token_address(chain_id: int):
 
 
 #: Addresses of wrapped native token (WETH9) of different chains
-WRAPPED_NATIVE_TOKEN: dict[int,HexAddress] = {
+WRAPPED_NATIVE_TOKEN: dict[int, HexAddress] = {
     # Mainnet
     1: "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",
     # Base
     8453: "0x4200000000000000000000000000000000000006",
 }
 
-
 #: Addresses of wrapped native token (WETH9) of different chains
-USDC_NATIVE_TOKEN: dict[int,HexAddress] = {
+USDC_NATIVE_TOKEN: dict[int, HexAddress] = {
     # Mainnet
     1: "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
     # Base
