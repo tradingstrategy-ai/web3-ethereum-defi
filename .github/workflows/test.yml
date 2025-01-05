@@ -44,8 +44,10 @@ jobs:
           # https://docs.github.com/en/actions/using-workflows/workflow-commands-for-github-actions#adding-a-system-path
           echo $PNPM_HOME >> $GITHUB_PATH
 
+      # Poetry 2.0 breaks everything
+      # https://github.com/python-poetry/poetry/blob/main/CHANGELOG.md
       - name: Install poetry
-        run: pipx install poetry
+        run: pipx install "poetry<2"
 
       - name: Set up Python 3.12
         uses: actions/setup-python@v3
