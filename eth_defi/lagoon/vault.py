@@ -8,6 +8,7 @@ from functools import cached_property
 from eth.typing import BlockRange
 from eth_typing import HexAddress, BlockIdentifier, ChecksumAddress
 
+
 from hexbytes import HexBytes
 from web3 import Web3
 from web3.contract import Contract

@@ -314,6 +314,7 @@ import json
 import logging
 import os
 import subprocess
+import sys
 from functools import lru_cache
 from pathlib import Path
 from shutil import which
@@ -595,5 +596,7 @@ def install_aave_for_testing():
 
     It will do npm install for Aave deployer.
     """
+    logging.basicConfig(level=logging.INFO, stream=sys.stdout)
+    logging.info("Preparing to install Aave dev env")
     deployer = AaveDeployer()
     deployer.install(echo=True)
