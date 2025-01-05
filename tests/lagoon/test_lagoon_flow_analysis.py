@@ -131,8 +131,9 @@ def test_lagoon_deposit_redeem(
     assert analysis.deposit_events == 1
     assert analysis.redeem_events == 1
 
-    # No events, 11 USDC still hold in the vault as the user has not claimed redemption
+    # No events, 3 USDC redemption held by vault smart contract, Safe helds 11 USDC
     assert usdc.fetch_balance_of(vault.address) == pytest.approx(Decimal(3))
+    assert usdc.fetch_balance_of(vault.safe_address) == pytest.approx(Decimal(11))
     tx_hash = vault.post_valuation_and_settle(Decimal(11), asset_manager)
     analysis = analyse_vault_flow_in_settlement(vault, tx_hash)
     assert analysis.deposited == 0
