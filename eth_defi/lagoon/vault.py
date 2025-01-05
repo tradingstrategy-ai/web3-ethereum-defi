@@ -63,12 +63,8 @@ class LagoonVaultInfo(VaultInfo):
     version: str
 
 
-
-
 class LagoonVault(VaultBase):
     """Python interface for interacting with Lagoon Finance vaults.
-
-    TODO: Work in progress
 
     For information see :py:class:`~eth_defi.vault.base.VaultBase` base class documentation.
 
@@ -79,6 +75,12 @@ class LagoonVault(VaultBase):
     - Ok so for settlement you dont have to worry about this metric, the only thing you have to value is the assets inside the safe (what you currently have under management) and update the NAV of the vault by calling updateNewTotalAssets (ex: if you have 1M inside the vault and 500K pending deposit you only need to call updateTotalAssets with the 1M that are currently inside the safe). Then, to settle you just call settleDeposit and the vault calculate everything for you.
 
     - To monitor the pending deposits it's a bit more complicated. You have to check the balanceOf the pendingSilo contract (0xAD1241Ba37ab07fFc5d38e006747F8b92BB217D5) in term of underlying (here USDC) for pending deposit and in term of shares (so the vault itself) for pending withdraw requests
+
+    Lagoon tokens can be in
+    - Safe: Tradeable assets
+    - Silo: pending deposits (USDC)
+    - Vault: pending redemptions (USDC)
+    - User wallets: after `deposit()` have been called share tokens are moved to the user wallet
     """
 
     def __init__(

@@ -46,10 +46,10 @@ class LagoonSettlementEvent:
     #: Vault address
     vault: LagoonVault
 
-    #: Number of deposit event processes (0..1)
+    #: Number of deposit event processed (0..1)
     deposit_events: int
 
-    #: Number of deposit event processes (0..1)
+    #: Number of deposit event processed (0..1)
     redeem_events: int
 
     #: How much new underlying was added to the vault
