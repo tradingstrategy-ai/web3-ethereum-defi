@@ -297,14 +297,19 @@ class LagoonVault(VaultBase):
         return self.info["valuationManager"]
 
     @cached_property
+    def silo_address(self) -> HexAddress:
+        """Pending Silo contract address"""
+        vault_contract = self.vault_contract
+        silo_address = vault_contract.functions.pendingSilo().call()
+        return silo_address
+
+    @cached_property
     def silo_contract(self) -> Contract:
         """Pending Silo contract.
 
         - This contract does not have any functionality, but stores deposits (pending USDC) and redemptions (pending share token)
         """
-        vault_contract = self.vault_contract
-        silo_address = vault_contract.functions.pendingSilo().call()
-        return get_deployed_contract(self.web3, "lagoon/Silo.json", silo_address)
+        return get_deployed_contract(self.web3, "lagoon/Silo.json", self.silo_address)
 
     @property
     def underlying_token(self) -> TokenDetails:
