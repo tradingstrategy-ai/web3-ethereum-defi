@@ -188,6 +188,7 @@ class LagoonVault(VaultBase):
             "valuationManager": valuationManager,
             "safe": safe,
             "asset": asset,
+            "tradingStrategyModuleAddress": self.trading_strategy_module_address,
         }
 
     def fetch_denomination_token(self) -> TokenDetails:
