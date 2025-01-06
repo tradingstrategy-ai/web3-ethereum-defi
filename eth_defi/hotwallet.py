@@ -243,7 +243,7 @@ class HotWallet:
         func: ContractFunction,
         tx_params: dict | None = None,
         web3: Web3 | None=None,
-        fill_gas_price=True,
+        fill_gas_price=False,
     ) -> SignedTransactionWithNonce:
         """Signs a bound Web3 Contract call.
 
