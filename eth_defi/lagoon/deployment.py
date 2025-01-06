@@ -6,12 +6,15 @@ Lagoon automatised vault consists of
 - Vault module
 - Lagoon protocol smart contracts
 - TradingStrategyModuleV0 module enabling guarded automated trade executor for the Safe
+- Support deployments with Forge and Etherscan verification
 
 Any Safe must be deployed as 1-of-1 deployer address multisig and multisig holders changed after the deployment.
 """
 import logging
+import os
 from dataclasses import dataclass, asdict
 from io import StringIO
+from pathlib import Path
 from pprint import pformat
 
 from eth_account.signers.local import LocalAccount
@@ -22,6 +25,7 @@ from web3 import Web3
 from web3.contract import Contract
 
 from eth_defi.deploy import deploy_contract
+from eth_defi.foundry.forge import deploy_contract_with_forge
 from eth_defi.lagoon.vault import LagoonVault
 from eth_defi.middleware import construct_sign_and_send_raw_middleware_anvil
 from eth_defi.safe.deployment import deploy_safe, add_new_safe_owners
@@ -40,6 +44,8 @@ DEFAULT_MANAGEMENT_RATE = 200
 
 DEFAULT_PERFORMANCE_RATE = 2000
 
+
+CONTRACTS_ROOT = Path(os.path.dirname(__file__)) / ".." / ".." / "contracts"
 
 @dataclass(slots=True)
 class LagoonDeploymentParameters:
@@ -131,6 +137,8 @@ def deploy_lagoon(
     parameters: LagoonDeploymentParameters,
     owner: HexAddress | None,
     gas=2_000_000,
+    etherscan_api_key: str = None,
+    use_forge=False,
 ) -> Contract:
     """Deploy a new Lagoon vault.
 
@@ -202,6 +210,9 @@ def deploy_lagoon(
 
     # TODO: Beacon proxy deployment does not work
 
+    if use_forge:
+        logger.warning("lagoon/Vault.sol yet not open source - cannot do source verified deploy")
+
     vault = deploy_contract(
         web3,
         "lagoon/Vault.json",
@@ -257,8 +268,13 @@ def deploy_safe_trading_strategy_module(
     web3,
     deployer: LocalAccount,
     safe: Safe,
+    use_forge=False,
+    etherscan_api_key: str = None,
 ) -> Contract:
     """Deploy TradingStrategyModuleV0 for Safe and Lagoon.
+
+    :param use_forge:
+        Deploy Etherscan verified build with Forge
 
     :return:
         TradingStrategyModuleV0 instance
@@ -269,13 +285,24 @@ def deploy_safe_trading_strategy_module(
     owner = deployer.address
 
     # Deploy guard module
-    module = deploy_contract(
-        web3,
-        "safe-integration/TradingStrategyModuleV0.json",
-        deployer,
-        owner,
-        safe.address,
-    )
+    if use_forge:
+        module, tx_hash = deploy_contract_with_forge(
+            web3,
+            CONTRACTS_ROOT / "safe-integration",
+            "TradingStrategyModuleV0.sol",
+            "TradingStrategyModuleV0",
+            deployer,
+            [owner, safe.address],
+            etherscan_api_key=etherscan_api_key,
+        )
+    else:
+        module = deploy_contract(
+            web3,
+            "safe-integration/TradingStrategyModuleV0.json",
+            deployer,
+            owner,
+            safe.address,
+        )
 
     # Enable TradingStrategyModuleV0 as Safe module
     # Multisig owners can enable the module
@@ -324,8 +351,9 @@ def setup_guard(
     assert_transaction_success_with_explanation(web3, tx_hash)
 
     # Whitelist Uniswap v2
-    tx_hash = module.functions.whitelistUniswapV2Router(uniswap_v2.router.address, "Allow Uniswap v2").transact({"from": deployer.address})
-    assert_transaction_success_with_explanation(web3, tx_hash)
+    if uniswap_v2:
+        tx_hash = module.functions.whitelistUniswapV2Router(uniswap_v2.router.address, "Allow Uniswap v2").transact({"from": deployer.address})
+        assert_transaction_success_with_explanation(web3, tx_hash)
 
     # Whitelist all assets
     if any_asset:
@@ -349,6 +377,8 @@ def deploy_automated_lagoon_vault(
     uniswap_v2: UniswapV2Deployment | None,
     uniswap_v3: UniswapV3Deployment | None,
     any_asset: bool = False,
+    etherscan_api_key: str = None,
+    use_forge=False,
 ) -> LagoonAutomatedDeployment:
     """Deploy a full Lagoon setup with a guard.
 
@@ -388,12 +418,16 @@ def deploy_automated_lagoon_vault(
         asset_manager=asset_manager,
         parameters=parameters,
         owner=safe.address,
+        etherscan_api_key=etherscan_api_key,
+        use_forge=True,
     )
 
     module = deploy_safe_trading_strategy_module(
         web3=web3,
         deployer=deployer,
         safe=safe,
+        etherscan_api_key=etherscan_api_key,
+        use_forge=True,
     )
 
     setup_guard(
