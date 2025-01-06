@@ -292,8 +292,7 @@ def deploy_safe_trading_strategy_module(
             "TradingStrategyModuleV0.sol",
             "TradingStrategyModuleV0",
             deployer,
-            owner,
-            safe.address,
+            [owner, safe.address],
             etherscan_api_key=etherscan_api_key,
         )
     else:
@@ -352,8 +351,9 @@ def setup_guard(
     assert_transaction_success_with_explanation(web3, tx_hash)
 
     # Whitelist Uniswap v2
-    tx_hash = module.functions.whitelistUniswapV2Router(uniswap_v2.router.address, "Allow Uniswap v2").transact({"from": deployer.address})
-    assert_transaction_success_with_explanation(web3, tx_hash)
+    if uniswap_v2:
+        tx_hash = module.functions.whitelistUniswapV2Router(uniswap_v2.router.address, "Allow Uniswap v2").transact({"from": deployer.address})
+        assert_transaction_success_with_explanation(web3, tx_hash)
 
     # Whitelist all assets
     if any_asset:
