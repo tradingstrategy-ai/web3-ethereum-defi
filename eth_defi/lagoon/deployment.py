@@ -113,7 +113,7 @@ class LagoonAutomatedDeployment:
 
     def pformat(self) -> str:
         """Return pretty print of deployment info."""
-        fields = self.get_deploymeny_data()
+        fields = self.get_deployment_data()
         # https://stackoverflow.com/a/17330263/315168
         io = StringIO()
         print("{:<30} {:30}".format('Key', 'Label'), file=io)
