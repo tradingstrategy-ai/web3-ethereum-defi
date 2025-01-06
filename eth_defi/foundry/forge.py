@@ -69,7 +69,8 @@ def _exec_cmd(
     output = proc.stdout.read().decode("utf-8") + proc.stderr.read().decode("utf-8")
 
     if result != 0:
-        raise ForgeFailed(f"forge return code {result} when running: {censored_command}\nOutput is:\n{output}")
+        if "No files changed, compilation skipped" not in output:
+            raise ForgeFailed(f"forge return code {result} when running: {censored_command}\nOutput is:\n{output}")
 
     logger.debug("forge result:\n%s", output)
 
@@ -84,7 +85,7 @@ def _exec_cmd(
             tx_hash = line.split(":")[1].strip()
 
     if not (address and tx_hash):
-        raise ForgeFailed(f"Could not parse forge output:\n{output}")
+        raise ForgeFailed(f"Could not parse forge output:\n{output}\nCommand line was:{' '.join(cmd_line)}")
 
     return address, tx_hash
 
@@ -212,6 +213,7 @@ def deploy_contract_with_forge(
     cmd_line = [
         forge,
         "create",
+        "--broadcast",
         "--rpc-url",
         json_rpc_url,
         "--nonce",

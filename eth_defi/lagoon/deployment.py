@@ -89,8 +89,11 @@ class LagoonAutomatedDeployment:
     def is_asset_manager(self, address: HexAddress) -> bool:
         return self.trading_strategy_module.functions.isAllowedSender(address).call()
 
-    def pformat(self) -> str:
-        """Return pretty print of deployment info."""
+    def get_deployment_data(self) -> dict:
+        """Get JSON data describing the deployment.
+
+        Store all addresses etc.
+        """
         vault = self.vault
         safe = vault.safe
         fields = {
@@ -106,7 +109,11 @@ class LagoonAutomatedDeployment:
             "Multisig owners": ", ".join(self.multisig_owners),
             "Block number": f"{self.block_number:,}",
         }
+        return fields
 
+    def pformat(self) -> str:
+        """Return pretty print of deployment info."""
+        fields = self.get_deployment_data()
         # https://stackoverflow.com/a/17330263/315168
         io = StringIO()
         print("{:<30} {:30}".format('Key', 'Label'), file=io)
@@ -360,6 +367,8 @@ def deploy_automated_lagoon_vault(
 
         Deployer account must be manually removed from the Safe by new owners.
     """
+
+    assert len(safe_owners) >= 1, "Multisig owners emptty"
 
     chain_id = web3.eth.chain_id
 

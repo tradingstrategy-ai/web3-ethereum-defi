@@ -7,6 +7,7 @@
 - Add `buy_tokens()` helper to buy multiple tokens once, automatically look up best routes
 - Fix: Base MEV protected broadcast failed
 - Add: Integrate `TradingStrategyModuleV0` module to Gnosis Safe-based protocols using Zodiac module. Mainly needed for Lagoon vaults, but can work for others: vanilla Safe, DAOs.
+- Change: Default to Anvil 0.3.0, Cancun EVM hardfork
 
 # 0.27
 

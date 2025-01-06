@@ -68,7 +68,8 @@ jobs:
         with:
           # pick a nightly release from: https://github.com/foundry-rs/foundry/releases
           # version: 'nightly-de33b6af53005037b463318d2628b5cfcaf39916'
-          version: "nightly-fdd321bac95f0935529164a88faf99d4d5cfa321"
+          #version: "nightly-fdd321bac95f0935529164a88faf99d4d5cfa321"
+          version: "v0.3.0"
 
       # We also work around race condition for setting up Aave NPM packages.
       - name: Setup Aave v3 for tests
