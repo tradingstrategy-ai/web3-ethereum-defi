@@ -194,7 +194,7 @@ def test_vault_initialised(
     assert guard.functions.isAllowedReceiver(vault.address).call() is True
 
     # We have accessed needed for a swap
-    assert guard.functions.callSiteCount().call() == 6
+    assert guard.functions.callSiteCount().call() == 7
     router = uniswap_v3.swap_router
     assert guard.functions.isAllowedApprovalDestination(router.address)
     assert guard.functions.isAllowedCallSite(router.address, get_function_selector(router.functions.exactInput)).call()

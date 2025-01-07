@@ -227,7 +227,7 @@ class UniswapV3PriceHelper:
                     amount_in,
                 ).call(block_identifier=block_identifier)
             except ValueError as e:
-                raise QuotingFailed(f"Quoting failed. Path: {path}, fees: {fees}, amount_in: {amount_in}") from e
+                raise QuotingFailed(f"Quoting failed for QuoterV2. Path: {path}, fees: {fees}, amount_in: {amount_in}") from e
 
             # quote_data is
             #
