@@ -1,10 +1,10 @@
-"""OpenZeppelin beacon proxy support."""
+"""OpenZeppelin beacon proxy contract deployments."""
 
 import logging
 
 from eth_account.signers.local import LocalAccount
 from eth_typing import HexAddress
-from hexbytes import HexBytes
+
 from web3 import Web3
 from web3.contract import Contract
 
