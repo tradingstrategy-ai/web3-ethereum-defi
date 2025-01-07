@@ -505,3 +505,40 @@ def get_function_selector(func: ContractFunction) -> bytes:
     fn_selector = function_signature_to_4byte_selector(function_signature)  # type: ignore
     return fn_selector
 
+
+def _hexify(s: Any):
+    if type(s) in (list, tuple):
+        return str([_hexify(x) for x in s])
+    if isinstance(s, str):
+        return s
+    elif isinstance(s, bytes):
+        return "0x" + s.hex()
+    return str(s)
+
+
+def present_solidity_args(a: list | tuple | Any) -> str:
+    """Try make Solidity call args human readable.
+
+    Make sure we display bytes as hex.
+
+    Example:
+
+    .. code-block:: python
+
+        contract_address = func_call.address
+        data_payload = encode_function_call(func_call, func_call.arguments)
+        logger.info(
+            "Lagoon: Wrapping call to TradingStrategyModuleV0. Target: %s, function: %s (0x%s), args: %s, payload is %d bytes",
+            contract_address,
+            func_call.fn_name,
+            get_function_selector(func_call).hex(),
+            present_solidity_args(func_call.arguments),
+            len(data_payload),
+        )
+
+    Output::
+
+        Lagoon: Wrapping call to TradingStrategyModuleV0. Target: 0x5788F91Aa320e0610122fb88B39Ab8f35e50040b, function: exactInput (c04b8d59), args: ["['0x833589fcd6edb6e08f4c7c32d4f71b54bda029130001f442000000000000000000000000000000000000060027106921b130d297cc43754afba22e5eac0fbf8db75b', '0xEBee4d3fE83DD4755761C65b772f6a4f900A118b', '9223372036854775808', '10000000', '25455184317467649376256']"], payload is 324 bytes
+
+    """
+    return _hexify(a)

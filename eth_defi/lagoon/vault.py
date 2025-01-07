@@ -19,7 +19,7 @@ from eth_defi.vault.base import VaultBase, VaultSpec, VaultInfo, TradingUniverse
 
 from safe_eth.safe import Safe
 
-from ..abi import get_deployed_contract, encode_function_call
+from ..abi import get_deployed_contract, encode_function_call, present_solidity_args, get_function_selector
 from ..safe.safe_compat import create_safe_ethereum_client
 from ..token import TokenDetails, fetch_erc20_details
 from ..trace import assert_transaction_success_with_explanation
@@ -423,6 +423,14 @@ class LagoonVault(VaultBase):
         """
         contract_address = func_call.address
         data_payload = encode_function_call(func_call, func_call.arguments)
+        logger.info(
+            "Lagoon: Wrapping call to TradingStrategyModuleV0. Target: %s, function: %s (0x%s), args: %s, payload is %d bytes",
+            contract_address,
+            func_call.fn_name,
+            get_function_selector(func_call).hex(),
+            present_solidity_args(func_call.arguments),
+            len(data_payload),
+        )
         bound_func = self.trading_strategy_module.functions.performCall(
             contract_address,
             data_payload,
