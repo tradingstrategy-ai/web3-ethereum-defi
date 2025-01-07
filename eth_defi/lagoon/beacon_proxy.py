@@ -25,6 +25,8 @@ def deploy_beacon_proxy(
 ) -> Contract:
     """Deploy a new proxy contract from the beacon master contract.
 
+    - Uses [OpenZeppelin beacon proxy contract deployment pattern](https://github.com/OpenZeppelin/openzeppelin-foundry-upgrades/)
+
     See https://github.com/OpenZeppelin/openzeppelin-foundry-upgrades/blob/3a4bd0d10e945e82472b306776eb5ec272571945/src/Upgrades.sol#L295
 
     Example:
