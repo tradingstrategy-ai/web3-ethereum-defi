@@ -211,7 +211,7 @@ class LagoonVault(VaultBase):
         del safe_info_dict["address"]  # Key conflict
         return vault_info | safe_info_dict
 
-    def fetch_nav(self) -> Decimal:
+    def fetch_nav(self, block_identifier=None) -> Decimal:
         """Fetch the most recent onchain NAV value.
 
         - In the case of Lagoon, this is the last value written in the contract with
@@ -223,7 +223,7 @@ class LagoonVault(VaultBase):
             Vault NAV, denominated in :py:meth:`denomination_token`
         """
         token = self.denomination_token
-        raw_amount = self.vault_contract.functions.totalAssets().call()
+        raw_amount = self.vault_contract.functions.totalAssets().call(block_identifier=block_identifier)
         return token.convert_to_decimals(raw_amount)
 
     def fetch_total_assets(self, block_identifier: BlockIdentifier) -> Decimal:
