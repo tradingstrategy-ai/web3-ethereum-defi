@@ -24,8 +24,10 @@ from safe_eth.safe.safe import Safe
 from web3 import Web3
 from web3.contract import Contract
 
+from eth_defi.abi import get_contract
 from eth_defi.deploy import deploy_contract
 from eth_defi.foundry.forge import deploy_contract_with_forge
+from eth_defi.lagoon.beacon_proxy import deploy_beacon_proxy
 from eth_defi.lagoon.vault import LagoonVault
 from eth_defi.middleware import construct_sign_and_send_raw_middleware_anvil
 from eth_defi.safe.deployment import deploy_safe, add_new_safe_owners
@@ -139,6 +141,8 @@ def deploy_lagoon(
     gas=2_000_000,
     etherscan_api_key: str = None,
     use_forge=False,
+    beacon_proxy=True,
+    beacon_address = "0x652716FaD571f04D26a3c8fFd9E593F17123Ab20"
 ) -> Contract:
     """Deploy a new Lagoon vault.
 
@@ -156,10 +160,23 @@ def deploy_lagoon(
         The initial account used to deploy smart contracts
 
     :param owner:
-        All transfership is transferred to this user after
+        All transfership is transferred to this user after.
+
+        Usually defaults to newly deployed Safe the vault is associated with.
 
     :param asset_manager:
         Able to perform trades, valuations
+
+    :param beacon_address:
+        Vault beacon on base.
+
+    :param use_forge:
+        Deploy a new vault contract from source with Forge and Etherscan verification.
+
+        TODO: Not implemented, contract not yet open source.
+
+    :param etherscan_api_key:
+        For Forge.
 
     :return:
         Vault contract.
@@ -213,12 +230,21 @@ def deploy_lagoon(
     if use_forge:
         logger.warning("lagoon/Vault.sol yet not open source - cannot do source verified deploy")
 
-    vault = deploy_contract(
-        web3,
-        "lagoon/Vault.json",
-        deployer,
-        False,
-    )
+    if beacon_proxy:
+        vault = deploy_beacon_proxy(
+            web3,
+            deployer=deployer,
+            beacon_address=beacon_address,
+            implementation_contract_abi="lagoon/Vault.json",
+        )
+
+    else:
+        vault = deploy_contract(
+            web3,
+            "lagoon/Vault.json",
+            deployer,
+            False,
+        )
 
     tx_params = vault.functions.initialize(init_struct).build_transaction({
         "gas": 2_000_000,
@@ -228,6 +254,7 @@ def deploy_lagoon(
     signed_tx = deployer.sign_transaction(tx_params)
     tx_hash = web3.eth.send_raw_transaction(signed_tx.rawTransaction)
     assert_transaction_success_with_explanation(web3, tx_hash)
+
     return vault
 
     # VaultContract = get_contract(
