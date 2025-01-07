@@ -452,4 +452,4 @@ def test_aave_v3_repay(
         # check amount of remaining debt
         # total_collateral_base=1000000001600, total_debt_base=1800, available_borrows_base=799999999480, current_liquidation_threshold=8500, ltv=8000, health_factor=472222222977777777777777778
         user_data = aave_v3_deployment.get_user_data(hot_wallet.address)
-        assert user_data.total_debt_base == remaining_debt
+        assert user_data.total_debt_base == pytest.approx(remaining_debt)

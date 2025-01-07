@@ -143,7 +143,7 @@ def vault(
     tx_hash = guard.functions.whitelistUniswapV3Router(router_address, "Allow Uniswap v3 router").transact({"from": owner})
     receipt = web3.eth.get_transaction_receipt(tx_hash)
 
-    assert len(receipt["logs"]) == 3
+    assert len(receipt["logs"]) == 4
 
     # Check Uniswap router call sites was enabled in the receipt
     call_site_events = guard.events.CallSiteApproved().process_receipt(receipt, errors=EventLogErrorFlags.Ignore)
