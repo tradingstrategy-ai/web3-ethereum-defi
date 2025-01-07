@@ -220,10 +220,31 @@ def launch_anvil(
     This function waits `launch_wait_seconds` in order to `anvil` process to start
     and complete the chain fork.
 
-    **Unit test backend**:
+    **Standalone testing backend**: Start with block 1 and ``web.eth.accounts`` 0-10 unlocked and loaded with ETH.
 
-    - See `eth_defi.tests.enzyme.conftest <https://github.com/tradingstrategy-ai/web3-ethereum-defi/blob/master/tests/enzyme/conftest.py>`__ for an example
-      how to use Anvil in your Python based unit test suite
+    .. code-block:: python
+
+        import pytest
+
+        from from eth_defi.provider.anvil import launch_anvil, AnvilLaunch
+        from eth_defi.provider.multi_provider import create_multi_provider_web3
+
+        @pytest.fixture()
+        def anvil() -> AnvilLaunch:
+            # Launch Anvil for the test backend.
+            anvil = launch_anvil()
+            try:
+                yield anvil
+            finally:
+                anvil.close()
+
+
+        @pytest.fixture()
+        def web3(anvil: AnvilLaunch) -> Web3:
+            # Set up the Anvil Web3 connection.
+            # create_multi_provider_web3() will configure all middleware and timeouts by default
+            web3 = create_multi_provider_web3(anvil.json_rpc_url)
+            return web3
 
     **Mainnet fork**: Here is an example that forks BNB chain mainnet and transfer 500 BUSD stablecoin to a test
     account we control:
