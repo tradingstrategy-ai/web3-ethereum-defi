@@ -6,11 +6,11 @@ from eth_account.signers.local import LocalAccount
 from eth_typing import HexAddress
 from web3 import Web3
 
+from eth_defi.abi import get_function_selector
 from eth_defi.lagoon.deployment import LagoonAutomatedDeployment, LagoonDeploymentParameters, deploy_automated_lagoon_vault
 from eth_defi.token import TokenDetails, USDC_NATIVE_TOKEN
 from eth_defi.trace import assert_transaction_success_with_explanation
 from eth_defi.uniswap_v3.constants import UNISWAP_V3_DEPLOYMENTS
-from eth_defi.uniswap_v3.deployment import UniswapV3Deployment
 from eth_defi.uniswap_v3.swap import swap_with_slippage_protection
 from eth_defi.uniswap_v3.deployment import fetch_deployment as fetch_deployment_uni_v3, UniswapV3Deployment
 
@@ -71,6 +71,7 @@ def test_lagoon_uniswap_v3(
     )
 
     vault = deploy_info.vault
+    assert vault.trading_strategy_module.functions.anyAsset().call()
 
     # We need to do the initial valuation at value 0
     bound_func = vault.post_new_valuation(Decimal(0))
@@ -102,11 +103,16 @@ def test_lagoon_uniswap_v3(
     swap_amount = usdc_amount // 2
     assert usdc.contract.functions.balanceOf(vault.safe_address).call() >= swap_amount
 
-    # Approve USDC for the swap by tghe vault
+    # Approve USDC for the swap by the vault
     approve_call = usdc.contract.functions.approve(uniswap_v3.swap_router.address, swap_amount)
     moduled_tx = vault.transact_via_trading_strategy_module(approve_call)
     tx_hash = moduled_tx.transact({"from": asset_manager, "gas": 1_000_000})
     assert_transaction_success_with_explanation(web3, tx_hash)
+
+    # Check selector
+    function = uniswap_v3.swap_router.functions.exactInput
+    selector = get_function_selector(function)
+    assert selector.hex() == "b858183f"  # Compare to whitelistUniswapV3Router in GuardV0Base
 
     # Do swap by the vault
     swap_call = swap_with_slippage_protection(

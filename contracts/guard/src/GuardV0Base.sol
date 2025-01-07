@@ -61,6 +61,13 @@ abstract contract GuardV0Base is IGuard  {
     // Allowed external smart contract calls (address, function selector) tuples
     mapping(address target => mapping(bytes4 selector => bool allowed)) public allowedCallSites;
 
+    // Because of EVM limitations, maintain a separate list of allowed target smart contracts,
+    // so we can produce better error messages.
+    // Note: This list is only refefential, as because EVM and Solidity are such crap,
+    // it is not possible to smartly remove items from this list.
+    // It is not used in the security checks.
+    mapping(address target => bool allowed) public allowedTargets;
+
     // How many call sites we have enabled all-time counter.
     //
     // Used for diagnostics/debugging.
@@ -147,6 +154,7 @@ abstract contract GuardV0Base is IGuard  {
 
     function allowCallSite(address target, bytes4 selector, string calldata notes) public onlyGuardOwner {
         allowedCallSites[target][selector] = true;
+        allowedTargets[target] = true;
         callSiteCount++;
         emit CallSiteApproved(target, selector, notes);
     }
@@ -223,18 +231,17 @@ abstract contract GuardV0Base is IGuard  {
         emit LagoonVaultApproved(vault, notes);
     }
 
+    function isAnyTokenApprove(bytes4 selector) internal pure returns (bool) {
+        return selector == getSelector("approve(address,uint256)");
+    }
+
     // Basic check if any target contract is whitelisted
     function isAllowedCallSite(address target, bytes4 selector) public view returns (bool) {
-
-        // If we have dynamic whitelist/any token, we cannot check approve() call sites of
-        // individual tokens
-        if(anyAsset) {
-            if(selector == getSelector("approve(address,uint256)")) {
-                return true;
-            }
-        }
-
         return allowedCallSites[target][selector];
+    }
+
+    function isAllowedTarget(address target) public view returns (bool) {
+        return allowedTargets[target] == true;
     }
 
     function isAllowedSender(address sender) public view returns (bool) {
@@ -295,9 +302,20 @@ abstract contract GuardV0Base is IGuard  {
         allowAsset(token, notes);
     }
 
+    // Whitelist SwapRouter or SwapRouter02
+    // The selector doesn't really matter as long as router address is correct
     function whitelistUniswapV3Router(address router, string calldata notes) external {
+
+        // Original SwapRouter
         allowCallSite(router, getSelector("exactInput((bytes,address,uint256,uint256,uint256))"), notes);
         allowCallSite(router, getSelector("exactOutput((bytes,address,uint256,uint256,uint256))"), notes);
+
+        // SwapRouter02
+        // https://github.com/Uniswap/swap-router-contracts/blob/70bc2e40dfca294c1cea9bf67a4036732ee54303/contracts/interfaces/IV3SwapRouter.sol#L39
+        // function exactInput(ExactInputParams calldata params) external payable returns (uint256 amountOut);
+        // https://basescan.org/address/0x5788F91Aa320e0610122fb88B39Ab8f35e50040b#writeContract
+        // exactInput (0xb858183f)
+        allowCallSite(router, 0xb858183f, notes);
         allowApprovalDestination(router, notes);
     }
 
@@ -325,25 +343,43 @@ abstract contract GuardV0Base is IGuard  {
         address sender,
         address target,
         bytes calldata callDataWithSelector
-    ) public view {
+    ) internal view {
 
+        // Governance can always perform any action through guard
         if(sender == getGovernanceAddress()) {
-            // Governance can manually recover any issue
             return;
         }
 
-        require(isAllowedSender(sender), "validateCall: Sender not allowed");
-
         // Assume sender is trade-executor hot wallet
+        require(isAllowedSender(sender), "validateCall: Sender not allowed");
 
         bytes4 selector = bytes4(callDataWithSelector[:4]);
         bytes calldata callData = callDataWithSelector[4:];
-        require(isAllowedCallSite(target, selector), "validateCall: Call site not allowed");
 
+        // If we have dynamic whitelist/any token, we cannot check approve() call sites of
+        // individual tokens
+        bool anyTokenCheck = anyAsset && isAnyTokenApprove(selector);
+
+        // With anyToken, we cannot check approve() call site because we do not whitelist
+        // individual token addresses
+        if(!anyTokenCheck) {
+            if(!isAllowedCallSite(target, selector)) {
+                // Do dual check for better error message
+                require(isAllowedTarget(target), "validateCall: target not allowed");
+                require(isAllowedCallSite(target, selector), "validateCall: selector not allowed on the target");
+            }
+        }
+
+        // Validate the function payaload.
+        // Depends on the called protocol.
         if(selector == getSelector("swapExactTokensForTokens(uint256,uint256,address[],address,uint256)")) {
             validate_swapExactTokensForTokens(callData);
         } else if(selector == getSelector("exactInput((bytes,address,uint256,uint256,uint256))")) {
             validate_exactInput(callData);
+        } else if(selector == 0xb858183f) {
+            // See whitelistUniswapV3Router
+            // TODO: Build logic later if needed
+            require(anyAsset, "validateCall: SwapRouter02 is currently supported only with anyAsset whitelist");
         } else if(selector == getSelector("multicall(bytes[])")) {
             validate_1deltaMulticall(callData);
         } else if(selector == getSelector("transfer(address,uint256)")) {

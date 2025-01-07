@@ -359,11 +359,12 @@ def setup_guard(
     # Whitelist Uniswap v3
     if uniswap_v3:
         logger.info("Whitelisting Uniswap v3 router: %s", uniswap_v3.swap_router.address)
-        tx_hash = module.functions.whitelistUniswapV2Router(uniswap_v3.swap_router.address, "Allow Uniswap v3").transact({"from": deployer.address})
+        tx_hash = module.functions.whitelistUniswapV3Router(uniswap_v3.swap_router.address, "Allow Uniswap v3").transact({"from": deployer.address})
         assert_transaction_success_with_explanation(web3, tx_hash)
 
     # Whitelist all assets
     if any_asset:
+        logger.info("Allow any asset whitelist")
         tx_hash = module.functions.setAnyAssetAllowed(True, "Allow any asset").transact({"from": deployer.address})
         assert_transaction_success_with_explanation(web3, tx_hash)
     else:
