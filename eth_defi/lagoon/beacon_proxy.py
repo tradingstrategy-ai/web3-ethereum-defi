@@ -27,11 +27,32 @@ def deploy_beacon_proxy(
 
     See https://github.com/OpenZeppelin/openzeppelin-foundry-upgrades/blob/3a4bd0d10e945e82472b306776eb5ec272571945/src/Upgrades.sol#L295
 
+    Example:
+
+    .. code-block:: python
+
+        # Deploy a new vault contract using a beacon proxy contract pattern
+        vault = deploy_beacon_proxy(
+            web3,
+            deployer=deployer,
+            beacon_address=beacon_address,
+            implementation_contract_abi="lagoon/Vault.json",
+        )
+
     :param web3:
         Web3 instance
 
+    :parma beacon_address:
+        The master copy beacon address
+
     :param implementation_contract_abi:
         The name of the JSON ABI file for the implementation.
+
+    :param payload:
+        Encoded constructor args.
+
+    :param gas:
+        Gas limit for the deployment.
 
     :return:
         Proxied contract interface
