@@ -352,11 +352,19 @@ def setup_guard(
 
     # Whitelist Uniswap v2
     if uniswap_v2:
+        logger.info("Whitelisting Uniswap v2 router: %s", uniswap_v2.router.address)
         tx_hash = module.functions.whitelistUniswapV2Router(uniswap_v2.router.address, "Allow Uniswap v2").transact({"from": deployer.address})
+        assert_transaction_success_with_explanation(web3, tx_hash)
+
+    # Whitelist Uniswap v3
+    if uniswap_v3:
+        logger.info("Whitelisting Uniswap v3 router: %s", uniswap_v3.swap_router.address)
+        tx_hash = module.functions.whitelistUniswapV3Router(uniswap_v3.swap_router.address, "Allow Uniswap v3").transact({"from": deployer.address})
         assert_transaction_success_with_explanation(web3, tx_hash)
 
     # Whitelist all assets
     if any_asset:
+        logger.info("Allow any asset whitelist")
         tx_hash = module.functions.setAnyAssetAllowed(True, "Allow any asset").transact({"from": deployer.address})
         assert_transaction_success_with_explanation(web3, tx_hash)
     else:
@@ -419,7 +427,7 @@ def deploy_automated_lagoon_vault(
         parameters=parameters,
         owner=safe.address,
         etherscan_api_key=etherscan_api_key,
-        use_forge=True,
+        use_forge=use_forge,
     )
 
     module = deploy_safe_trading_strategy_module(
@@ -427,7 +435,7 @@ def deploy_automated_lagoon_vault(
         deployer=deployer,
         safe=safe,
         etherscan_api_key=etherscan_api_key,
-        use_forge=True,
+        use_forge=use_forge,
     )
 
     setup_guard(

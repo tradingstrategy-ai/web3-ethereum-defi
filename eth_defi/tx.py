@@ -97,6 +97,9 @@ class AssetDelta:
         assert type(self.asset) in (HexAddress, str)
         assert self.raw_amount, "Raw amount should be specified"
 
+    def __repr__(self) -> str:
+        return f"<{self.asset}={self.raw_amount}>"
+
     def __mul__(self, other: float | int) -> "AssetDelta":
         """Adjust asset delta by multiplier.
 

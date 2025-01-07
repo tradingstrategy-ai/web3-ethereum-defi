@@ -39,7 +39,11 @@ def swap_with_slippage_protection(
 
     .. code-block:: python
 
-        weth_usdc_pool_trading_fee =
+        # 5 BPS
+        weth_usdc_pool_trading_fee = 500
+
+        # 30 BPS
+        weth_usdc_pool_trading_fee = 3000
 
         # build transaction to swap from USDC to WETH
         swap_func = swap_with_slippage_protection(

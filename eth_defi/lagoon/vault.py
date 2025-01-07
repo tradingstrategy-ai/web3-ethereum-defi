@@ -19,7 +19,7 @@ from eth_defi.vault.base import VaultBase, VaultSpec, VaultInfo, TradingUniverse
 
 from safe_eth.safe import Safe
 
-from ..abi import get_deployed_contract, encode_function_call
+from ..abi import get_deployed_contract, encode_function_call, present_solidity_args, get_function_selector
 from ..safe.safe_compat import create_safe_ethereum_client
 from ..token import TokenDetails, fetch_erc20_details
 from ..trace import assert_transaction_success_with_explanation
@@ -211,7 +211,7 @@ class LagoonVault(VaultBase):
         del safe_info_dict["address"]  # Key conflict
         return vault_info | safe_info_dict
 
-    def fetch_nav(self) -> Decimal:
+    def fetch_nav(self, block_identifier=None) -> Decimal:
         """Fetch the most recent onchain NAV value.
 
         - In the case of Lagoon, this is the last value written in the contract with
@@ -223,7 +223,7 @@ class LagoonVault(VaultBase):
             Vault NAV, denominated in :py:meth:`denomination_token`
         """
         token = self.denomination_token
-        raw_amount = self.vault_contract.functions.totalAssets().call()
+        raw_amount = self.vault_contract.functions.totalAssets().call(block_identifier=block_identifier)
         return token.convert_to_decimals(raw_amount)
 
     def fetch_total_assets(self, block_identifier: BlockIdentifier) -> Decimal:
@@ -423,6 +423,14 @@ class LagoonVault(VaultBase):
         """
         contract_address = func_call.address
         data_payload = encode_function_call(func_call, func_call.arguments)
+        logger.info(
+            "Lagoon: Wrapping call to TradingStrategyModuleV0. Target: %s, function: %s (0x%s), args: %s, payload is %d bytes",
+            contract_address,
+            func_call.fn_name,
+            get_function_selector(func_call).hex(),
+            present_solidity_args(func_call.arguments),
+            len(data_payload),
+        )
         bound_func = self.trading_strategy_module.functions.performCall(
             contract_address,
             data_payload,
