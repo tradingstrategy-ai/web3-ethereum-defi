@@ -142,7 +142,7 @@ def deploy_lagoon(
     etherscan_api_key: str = None,
     use_forge=False,
     beacon_proxy=True,
-    beacon_address = "0xD69BC314bdaa329EB18F36E4897D96A3A48C3eeF"
+    beacon_address = "0x652716FaD571f04D26a3c8fFd9E593F17123Ab20"
 ) -> Contract:
     """Deploy a new Lagoon vault.
 

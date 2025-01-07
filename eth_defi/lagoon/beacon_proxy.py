@@ -58,6 +58,6 @@ def deploy_beacon_proxy(
 
     return get_deployed_contract(
         web3,
-        beacon_proxy.address,
         implementation_contract_abi,
+        beacon_proxy.address,
     )
