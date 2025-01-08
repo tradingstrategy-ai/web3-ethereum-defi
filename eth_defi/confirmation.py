@@ -939,7 +939,12 @@ def wait_and_broadcast_multiple_nodes_mev_blocker(
                 break
             except Exception as e:
                 nonce = full_web3.eth.get_transaction_count(tx.address)
-                logger.info("No receipt yet, current nonce: %d, exception %s", nonce, e, exc_info=e)
+
+                if not isinstance(e, TransactionNotFound):
+                    logger.info("No receipt yet, current nonce: %d, exception %s", nonce, e, exc_info=e)
+                else:
+                    logger.info("TransactionNotFound - will keep trying")
+
                 last_exception = e
 
                 if is_out_of_gas(str(e)):

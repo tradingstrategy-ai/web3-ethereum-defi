@@ -106,7 +106,7 @@ def extensive_portfolio(
     for call in buy_result.needed_transactions:
         assert isinstance(call, ContractFunction)
         try:
-            wrapped_call = lagoon_vault.transact_through_module(call)
+            wrapped_call = lagoon_vault.transact_via_exec_module(call)
         except Exception as e:
             # Annoying checksum address
             raise RuntimeError(f"Wrapped call failed: {call}") from e
@@ -456,8 +456,8 @@ def test_lagoon_post_valuation(
     assert redemption_shares == 0
 
     # Then settle the valuation as the vault owner (Safe multisig) in this case
-    settle_call = vault.settle()
-    moduled_tx = vault.transact_through_module(settle_call)
+    settle_call = vault.vault_contract.functions.settleDeposit()
+    moduled_tx = vault.transact_via_exec_module(settle_call)
     tx_data = moduled_tx.build_transaction({
         "from": asset_manager,
     })

@@ -57,7 +57,7 @@ class GasPriceSuggestion:
             return {"gasPrice": self.legacy_gas_price}
 
 
-def estimate_gas_fees(web3: Web3) -> GasPriceSuggestion:
+def estimate_gas_price(web3: Web3) -> GasPriceSuggestion:
     """Get a good gas price for a transaction.
 
     TODO: This is non-optimal, first draft implementation.
@@ -87,6 +87,9 @@ def estimate_gas_fees(web3: Web3) -> GasPriceSuggestion:
         # Legacy gas strategy
         return GasPriceSuggestion(method=GasPriceMethod.legacy, legacy_gas_price=web3.eth.generate_gas_price())
 
+
+# Legacy
+estimate_gas_fees = estimate_gas_price
 
 def apply_gas(tx: dict, suggestion: GasPriceSuggestion) -> dict:
     """Apply gas fees to a raw transaction dict.

@@ -10,9 +10,6 @@ import os
 import shutil
 
 import pytest
-from eth_account import Account
-from eth_account.signers.local import LocalAccount
-from eth_tester.exceptions import TransactionFailed
 from eth_typing import HexAddress, HexStr
 from flaky import flaky
 from web3 import EthereumTesterProvider, Web3
@@ -267,7 +264,7 @@ def test_guard_can_do_aave_supply(
         amount=1 * 10**18,
         wallet_address=vault.address,
     )
-    with pytest.raises(TransactionAssertionError, match="Call site not allowed"):
+    with pytest.raises(TransactionAssertionError, match="target not allowed"):
         target, call_data = encode_simple_vault_transaction(approve_fn)
         tx_hash = vault.functions.performCall(target, call_data).transact({"from": asset_manager})
         assert_transaction_success_with_explanation(web3, tx_hash, tracing=True)

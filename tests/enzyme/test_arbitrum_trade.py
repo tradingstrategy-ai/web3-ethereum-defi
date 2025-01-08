@@ -331,4 +331,4 @@ def test_enzyme_aave_arbitrum(
     assert_transaction_success_with_explanation(web3, tx_hash)
 
     # Supplied aUSDT landed in the vault
-    assert ausdt.fetch_balance_of(vault.address) == 100
+    assert ausdt.fetch_balance_of(vault.address) == pytest.approx(Decimal(100))

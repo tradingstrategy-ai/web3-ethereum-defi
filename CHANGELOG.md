@@ -1,10 +1,13 @@
 # Current
 
+- Mainly needed for Lagoon vaults, but can work for others: vanilla Safe, DAOs
 - Add Multicall3 support in `multicall_batcher` module
 - Add `SwapRouter02` support on Base for doing Uniswap v3 swaps
 - Add Uniswap V3 quoter for the valuation
 - Add `buy_tokens()` helper to buy multiple tokens once, automatically look up best routes
 - Fix: Base MEV protected broadcast failed
+- Add: Integrate `TradingStrategyModuleV0` module to Gnosis Safe-based protocols using Zodiac module. Mainly needed for Lagoon vaults, but can work for others: vanilla Safe, DAOs.
+- Change: Default to Anvil 0.3.0, Cancun EVM hardfork
 
 # 0.27
 

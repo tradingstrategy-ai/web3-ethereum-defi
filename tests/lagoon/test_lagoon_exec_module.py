@@ -1,7 +1,8 @@
 """Lagoon Base mainnet fork swap test.
 
-- View Safe here https://app.safe.global/home?safe=base:0x20415f3Ec0FEA974548184bdD6e67575D128953F
+- Legacy: Uses exec_module which is now deprecated
 
+- View Safe here https://app.safe.global/home?safe=base:0x20415f3Ec0FEA974548184bdD6e67575D128953F
 """
 from decimal import Decimal
 
@@ -15,12 +16,15 @@ from eth_defi.token import TokenDetails
 from eth_defi.uniswap_v2.constants import UNISWAP_V2_DEPLOYMENTS
 from eth_defi.uniswap_v2.deployment import fetch_deployment
 from eth_defi.uniswap_v2.swap import swap_with_slippage_protection
+from eth_defi.uniswap_v3.constants import UNISWAP_V3_DEPLOYMENTS
+from eth_defi.uniswap_v3.deployment import UniswapV3Deployment
 from eth_defi.vault.base import TradingUniverse
 from eth_defi.safe.trace import assert_execute_module_success
-
+from eth_defi.uniswap_v3.deployment import fetch_deployment as fetch_deployment_uni_v3, UniswapV3Deployment
 
 @pytest.fixture()
 def uniswap_v2(web3):
+    """Uniswap V2 on Base"""
     return fetch_deployment(
         web3,
         factory_address=UNISWAP_V2_DEPLOYMENTS["base"]["factory"],
@@ -29,7 +33,7 @@ def uniswap_v2(web3):
     )
 
 
-def test_lagoon_swap(
+def test_lagoon_swap_exec_module(
     web3: Web3,
     uniswap_v2,
     lagoon_vault: LagoonVault,
@@ -61,7 +65,7 @@ def test_lagoon_swap(
 
     # Approve USDC for the swap
     approve_call = base_usdc.contract.functions.approve(uniswap_v2.router.address, amount)
-    moduled_tx = vault.transact_through_module(approve_call)
+    moduled_tx = vault.transact_via_exec_module(approve_call)
     tx_hash = moduled_tx.transact({"from": asset_manager})
     assert_execute_module_success(web3, tx_hash)
 
@@ -75,7 +79,7 @@ def test_lagoon_swap(
         amount_in=amount,
     )
 
-    moduled_tx = vault.transact_through_module(swap_call)
+    moduled_tx = vault.transact_via_exec_module(swap_call)
     tx_hash = moduled_tx.transact({"from": asset_manager})
     assert_execute_module_success(web3, tx_hash)
 

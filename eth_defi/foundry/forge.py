@@ -16,6 +16,7 @@ from subprocess import DEVNULL, PIPE
 from typing import Tuple
 
 import psutil
+from eth_account.signers.local import LocalAccount
 from eth_typing import ChecksumAddress, HexAddress, HexStr
 from hexbytes import HexBytes
 from web3 import Web3
@@ -69,7 +70,8 @@ def _exec_cmd(
     output = proc.stdout.read().decode("utf-8") + proc.stderr.read().decode("utf-8")
 
     if result != 0:
-        raise ForgeFailed(f"forge return code {result} when running: {censored_command}\nOutput is:\n{output}")
+        if "No files changed, compilation skipped" not in output:
+            raise ForgeFailed(f"forge return code {result} when running: {censored_command}\nOutput is:\n{output}")
 
     logger.debug("forge result:\n%s", output)
 
@@ -84,7 +86,7 @@ def _exec_cmd(
             tx_hash = line.split(":")[1].strip()
 
     if not (address and tx_hash):
-        raise ForgeFailed(f"Could not parse forge output:\n{output}")
+        raise ForgeFailed(f"Could not parse forge output:\n{output}\nCommand line was:{' '.join(cmd_line)}")
 
     return address, tx_hash
 
@@ -94,7 +96,7 @@ def deploy_contract_with_forge(
     project_folder: Path,
     contract_file: Path | str,
     contract_name: str,
-    deployer: HotWallet,
+    deployer: HotWallet | LocalAccount,
     constructor_args: list[str] | None = None,
     etherscan_api_key: str | None = None,
     register_for_tracing=True,
@@ -189,9 +191,6 @@ def deploy_contract_with_forge(
     """
     assert isinstance(project_folder, Path)
     assert type(contract_name) == str
-    assert isinstance(deployer, HotWallet), f"Got deployer: {type(deployer)}"
-
-    assert deployer.private_key is not None, f"Deployer missing private key: {deployer}"
 
     if constructor_args is None:
         constructor_args = []
@@ -209,13 +208,23 @@ def deploy_contract_with_forge(
 
     src_contract_file = Path("src") / contract_file
 
+    if isinstance(deployer, HotWallet):
+        private_key = deployer.private_key.hex()
+        nonce = str(deployer.allocate_nonce())
+    elif isinstance(deployer, LocalAccount):
+        private_key = deployer._private_key.hex()
+        nonce = str(web3.eth.get_transaction_count(deployer.address))
+    else:
+        raise NotImplementedError(f"Unsupported deployer: {deployer}")
+
     cmd_line = [
         forge,
         "create",
+        "--broadcast",
         "--rpc-url",
         json_rpc_url,
         "--nonce",
-        str(deployer.allocate_nonce()),
+        nonce,
     ]
 
     if etherscan_api_key:
@@ -255,7 +264,7 @@ def deploy_contract_with_forge(
         forge,
         "create",
         "--private-key",
-        deployer.private_key.hex(),
+        private_key,
     ] + cmd_line[2:]
 
     # Py 3.11 only

@@ -200,7 +200,7 @@ def launch_anvil(
     block_time=0,
     launch_wait_seconds=20.0,
     attempts=3,
-    hardfork: str | None = None,
+    hardfork: str | None = "cancun",
     gas_limit: Optional[int] = None,
     steps_tracing=False,
     test_request_timeout=3.0,

@@ -41,7 +41,7 @@ class VaultSpec:
 
     def __post_init__(self):
         assert isinstance(self.chain_id, int)
-        assert isinstance(self.vault_address, str)
+        assert isinstance(self.vault_address, str), f"Expected str, got {self.vault_address}"
         assert self.vault_address.startswith("0x")
 
 
@@ -143,6 +143,21 @@ class VaultFlowManager(ABC):
             Number of share tokens the users want to redeem from the vault.
 
             Shares must be valued separately.
+        """
+
+    @abstractmethod
+    def fetch_pending_deposit(
+        self,
+        block_identifier: BlockIdentifier,
+    ) -> Decimal:
+        """Get how much users want to redeem from the vault.
+
+        :param block_identifier:
+            Block number
+
+        :return:
+            Number of underlying tokens the users want to redeem from the vault.
+
         """
 
     @abstractmethod
