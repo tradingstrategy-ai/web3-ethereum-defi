@@ -59,7 +59,7 @@ def test_lagoon_deploy_base_guarded_any_token(
     topped_up_asset_manager: HexAddress,
     depositor: HexAddress,
     usdc_holder: HexAddress,
-    deployer_local_account,
+    deployer_hot_wallet: HotWallet,
     multisig_owners: list[str],
 ):
     """Deploy a new automated Lagoon vault
@@ -84,7 +84,6 @@ def test_lagoon_deploy_base_guarded_any_token(
     """
 
     chain_id = web3.eth.chain_id
-    deployer = deployer_local_account
     asset_manager = topped_up_asset_manager
     usdc = base_usdc
 
@@ -96,7 +95,7 @@ def test_lagoon_deploy_base_guarded_any_token(
 
     deploy_info = deploy_automated_lagoon_vault(
         web3=web3,
-        deployer=deployer,
+        deployer=deployer_hot_wallet,
         asset_manager=asset_manager,
         parameters=parameters,
         safe_owners=multisig_owners,

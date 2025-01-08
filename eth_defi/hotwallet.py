@@ -369,11 +369,51 @@ class HotWallet:
         assert func.address is not None, f"ContractFunction is not bound to a contract instance: {func}"
         web3 = func.w3
         assert web3 is not None, "ContractFunction not bound to web3 instance"
+
         tx_data = func(*args, **kwargs).build_transaction({
             "from": self.address,
         })
+
         self.fill_in_gas_price(web3, tx_data)
         return self.sign_transaction_with_new_nonce(tx_data)
+
+    def transact_and_broadcast_with_contract(
+        self,
+        func: ContractFunction,
+        gas_limit: int=None,
+    ) -> HexBytes:
+        """Transacts with a contract, broadcasts transaction.
+
+        - Shorthand method
+        - Build a transaction and signs it
+        - Always use a correct manually managed nonce
+
+        Example:
+
+        .. code-block:: python
+
+            bound_func = module.functions.whitelistUniswapV3Router(uniswap_v3.swap_router.address, "Allow Uniswap v3")
+            tx_hash = deployer.transact_and_broadcast_with_contract(bound_func)
+
+        :return:
+            Transaction hash
+        """
+        assert isinstance(func, ContractFunction), f"Got: {type(func)}"
+        assert func.args is not None, f"Unbound contract function? {func}"
+        web3 = func.w3
+
+        tx_data = func.build_transaction({
+            "from": self.address,
+        })
+
+        if gas_limit is not None:
+            tx_data["gas"] = gas_limit
+
+        self.fill_in_gas_price(web3, tx_data)
+        signed_tx = self.sign_transaction_with_new_nonce(tx_data)
+
+        tx_hash = web3.eth.send_raw_transaction(signed_tx.raw_transaction)
+        return tx_hash
 
     @staticmethod
     def fill_in_gas_price(web3: Web3, tx: dict) -> dict:

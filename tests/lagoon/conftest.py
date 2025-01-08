@@ -282,12 +282,17 @@ def uniswap_v2(web3):
     )
 
 
+@pytest.fixture()
+def deployer_hot_wallet(web3) -> HotWallet:
+    """Manual nonce manager used for Lagoon deployment"""
+    hot_wallet = HotWallet.create_for_testing(web3, eth_amount=1)
+    return hot_wallet
+
 
 @pytest.fixture()
-def deployer_local_account(web3) -> LocalAccount:
+def deployer_local_account(deployer_hot_wallet) -> LocalAccount:
     """Account that we use for Lagoon deployment"""
-    hot_wallet = HotWallet.create_for_testing(web3, eth_amount=1)
-    return hot_wallet.account
+    return deployer_hot_wallet.account
 
 
 @pytest.fixture()

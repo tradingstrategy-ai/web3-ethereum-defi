@@ -95,6 +95,10 @@ def add_new_safe_owners(
     :param gas_per_tx:
         Gas limit for a single transaction.
 
+    :param between_calls_sleep:
+        Deployer hack
+
+
     More info:
 
     - https://github.com/safe-global/safe-smart-account/blob/main/contracts/base/OwnerManager.sol#L56C14-L56C35
@@ -118,6 +122,7 @@ def add_new_safe_owners(
             logger.info("Deployer: already exist on Safe cosigner")
             continue
 
+        logger.info("Adding owner %s", owner)
         tx = safe.contract.functions.addOwnerWithThreshold(owner, 1).build_transaction(
             {"from": deployer.address, "gas": gas_per_tx, "gasPrice": 0}
         )
@@ -129,6 +134,7 @@ def add_new_safe_owners(
         assert_transaction_success_with_explanation(web3, tx_hash)
 
     # Change the threshold
+    logger.info("Changing signign threhold to: %d", threshold)
     tx = safe.contract.functions.changeThreshold(threshold).build_transaction(
         {"from": deployer.address, "gas": gas_per_tx, "gasPrice": 0}
     )
@@ -138,3 +144,4 @@ def add_new_safe_owners(
         tx_sender_private_key=deployer._private_key.hex(),
     )
     assert_transaction_success_with_explanation(web3, tx_hash)
+    logger.info("Owners updated")
