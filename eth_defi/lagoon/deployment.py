@@ -17,17 +17,21 @@ from dataclasses import dataclass, asdict
 from io import StringIO
 from pathlib import Path
 from pprint import pformat
+from typing import Callable
 
 from eth_account.signers.local import LocalAccount
 from eth_typing import HexAddress, BlockNumber
+from hexbytes import HexBytes
 from safe_eth.safe.safe import Safe
 
 from web3 import Web3
 from web3.contract import Contract
+from web3.contract.contract import ContractFunction
 
 from eth_defi.abi import get_contract
 from eth_defi.deploy import deploy_contract
 from eth_defi.foundry.forge import deploy_contract_with_forge
+from eth_defi.hotwallet import HotWallet
 from eth_defi.lagoon.beacon_proxy import deploy_beacon_proxy
 from eth_defi.lagoon.vault import LagoonVault
 from eth_defi.middleware import construct_sign_and_send_raw_middleware_anvil
@@ -356,57 +360,62 @@ def setup_guard(
     asset_manager: HexAddress,
     vault: Contract,
     module: Contract,
+    broadcast_func: Callable[[ContractFunction], HexBytes],
     any_asset: bool = False,
     uniswap_v2: UniswapV2Deployment = None,
     uniswap_v3: UniswapV3Deployment = None,
 ):
 
-    assert isinstance(deployer, LocalAccount)
+    assert isinstance(deployer, HotWallet)
     assert type(owner) == str
     assert isinstance(module, Contract)
     assert isinstance(vault, Contract)
     assert any_asset, f"Only wildcard trading supported at the moment"
+    assert callable(broadcast_func), "Must have a broadcast function for txs"
 
-    web3.middleware_onion.add(construct_sign_and_send_raw_middleware_anvil(deployer))
+    _broadcast = broadcast_func
 
     logger.info("Setting up TradingStrategyModuleV0 guard")
 
     # Enable asset_manager as the whitelisted trade-executor
-    tx_hash = module.functions.allowSender(asset_manager, "Whitelist trade-executor").transact({"from": deployer.address})
+    logger.info("Whitelisting trade-executor as sender")
+    tx_hash = _broadcast(module.functions.allowSender(asset_manager, "Whitelist trade-executor"))
     assert_transaction_success_with_explanation(web3, tx_hash)
 
     # Enable safe as the receiver of tokens
-    tx_hash = module.functions.allowReceiver(safe.address, "Whitelist Safe as trade receiver").transact({"from": deployer.address})
+    logger.info("Whitelist Safe as trade receiver")
+    tx_hash = _broadcast(module.functions.allowReceiver(safe.address, "Whitelist Safe as trade receiver"))
     assert_transaction_success_with_explanation(web3, tx_hash)
 
     # Whitelist Uniswap v2
     if uniswap_v2:
         logger.info("Whitelisting Uniswap v2 router: %s", uniswap_v2.router.address)
-        tx_hash = module.functions.whitelistUniswapV2Router(uniswap_v2.router.address, "Allow Uniswap v2").transact({"from": deployer.address})
+        tx_hash = _broadcast(module.functions.whitelistUniswapV2Router(uniswap_v2.router.address, "Allow Uniswap v2"))
         assert_transaction_success_with_explanation(web3, tx_hash)
 
     # Whitelist Uniswap v3
     if uniswap_v3:
         logger.info("Whitelisting Uniswap v3 router: %s", uniswap_v3.swap_router.address)
-        tx_hash = module.functions.whitelistUniswapV3Router(uniswap_v3.swap_router.address, "Allow Uniswap v3").transact({"from": deployer.address})
+        tx_hash = _broadcast(module.functions.whitelistUniswapV3Router(uniswap_v3.swap_router.address, "Allow Uniswap v3"))
         assert_transaction_success_with_explanation(web3, tx_hash)
 
     # Whitelist all assets
     if any_asset:
         logger.info("Allow any asset whitelist")
-        tx_hash = module.functions.setAnyAssetAllowed(True, "Allow any asset").transact({"from": deployer.address})
+        tx_hash = _broadcast(module.functions.setAnyAssetAllowed(True, "Allow any asset"))
         assert_transaction_success_with_explanation(web3, tx_hash)
     else:
         logger.info("Using only whitelisted assets")
 
     # Whitelist vault settle
-    tx_hash = module.functions.whitelistLagoon(vault.address, "Whitelist vault settlement").transact({"from": deployer.address})
+    logger.info("Whitelist vault settlement")
+    tx_hash = _broadcast(module.functions.whitelistLagoon(vault.address, "Whitelist vault settlement"))
     assert_transaction_success_with_explanation(web3, tx_hash)
 
 
 def deploy_automated_lagoon_vault(
     web3: Web3,
-    deployer: LocalAccount,
+    deployer: LocalAccount | HotWallet,
     asset_manager: HexAddress,
     parameters: LagoonDeploymentParameters,
     safe_owners: list[HexAddress | str],
@@ -431,6 +440,10 @@ def deploy_automated_lagoon_vault(
     - Asset manager (Trading Straegy) and Valuation Manager (Lagoon) are the same role
     - Any Safe must be deployed as 1-of-1 deployer address multisig and multisig holders changed after the deployment.
 
+    .. warning::
+
+        Because we need to mix Forge, Safe lib and Web3.py transaction nonce management becomes a madness.
+
     .. note ::
 
         Deployer account must be manually removed from the Safe by new owners.
@@ -440,9 +453,29 @@ def deploy_automated_lagoon_vault(
 
     chain_id = web3.eth.chain_id
 
+    if isinstance(deployer, HotWallet):
+        # Production nonce hack
+        deployer_local_account = deployer.account
+    else:
+        deployer_local_account = deployer
+
+    # Hack together a nonce management helper
+    def _broadcast(bound_func: ContractFunction):
+        assert isinstance(bound_func, ContractFunction)
+        assert bound_func.args is not None
+        if isinstance(deployer, HotWallet):
+            # Path must be taken with prod deployers
+            return deployer.transact_and_broadcast_with_contract(bound_func)
+        elif isinstance(deployer, LocalAccount):
+            # Only for Anvil
+            # Will cause nonce sync errors in proc
+            return bound_func.transact({"from": deployer.address})
+        else:
+            raise NotImplementedError(f"No idea about: {deployer}")
+
     safe = deploy_safe(
         web3,
-        deployer,
+        deployer_local_account,
         owners=[deployer.address],
         threshold=1,
     )
@@ -455,7 +488,7 @@ def deploy_automated_lagoon_vault(
 
     vault_contract = deploy_lagoon(
         web3=web3,
-        deployer=deployer,
+        deployer=deployer_local_account,
         safe=safe,
         asset_manager=asset_manager,
         parameters=parameters,
@@ -470,11 +503,18 @@ def deploy_automated_lagoon_vault(
 
     module = deploy_safe_trading_strategy_module(
         web3=web3,
-        deployer=deployer,
+        deployer=deployer_local_account,
         safe=safe,
         etherscan_api_key=etherscan_api_key,
         use_forge=use_forge,
     )
+
+    if not is_anvil(web3):
+        logger.info("Between contracts deployment delay: Sleeping %s for new nonce to propagade", between_contracts_delay_seconds)
+        time.sleep(between_contracts_delay_seconds)
+
+    if isinstance(deployer, HotWallet):
+        deployer.sync_nonce(web3)
 
     setup_guard(
         web3=web3,
@@ -487,6 +527,7 @@ def deploy_automated_lagoon_vault(
         uniswap_v2=uniswap_v2,
         uniswap_v3=uniswap_v3,
         any_asset=any_asset,
+        broadcast_func=_broadcast,
     )
 
     # After everything is deployed, fix ownership
@@ -496,7 +537,7 @@ def deploy_automated_lagoon_vault(
 
     # 1. Transfer guard ownership to Gnosis
     assert module.functions.owner().call() == deployer.address
-    tx_hash = module.functions.transferOwnership(safe.address).transact({"from": deployer.address})
+    tx_hash = _broadcast(module.functions.transferOwnership(safe.address))
     assert_transaction_success_with_explanation(web3, tx_hash)
 
     # 2. USDC.approve() for redemptions on Safe
@@ -507,9 +548,9 @@ def deploy_automated_lagoon_vault(
         "gasPrice": 0,
     })
     safe_tx = safe.build_multisig_tx(underlying.address, 0, tx_data["data"])
-    safe_tx.sign(deployer._private_key.hex())
+    safe_tx.sign(deployer_local_account._private_key.hex())
     tx_hash, tx = safe_tx.execute(
-        tx_sender_private_key=deployer._private_key.hex(),
+        tx_sender_private_key=deployer_local_account._private_key.hex(),
     )
     assert_transaction_success_with_explanation(web3, tx_hash)
 
@@ -518,7 +559,7 @@ def deploy_automated_lagoon_vault(
     add_new_safe_owners(
         web3,
         safe,
-        deployer,
+        deployer_local_account,
         owners=safe_owners,
         threshold=safe_threshold,
     )
