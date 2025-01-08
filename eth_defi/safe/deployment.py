@@ -50,7 +50,7 @@ def deploy_safe(
     for a in owners:
         assert type(a) == str and a.startswith("0x"), f"owners must be hex addresses, got {type(a)}"
 
-    logger.info("Deploying safe.\nOwners: %s\nThreshold: %s", owners, threshold)
+    logger.info("Deploying safe.\nInitial cosigner list: %s\nInitial threshold: %s", owners, threshold)
     ethereum_client = create_safe_ethereum_client(web3)
 
     owners = [Web3.to_checksum_address(a) for a in owners]
