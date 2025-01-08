@@ -25,6 +25,7 @@ from web3.contract import Contract
 from eth_defi.abi import get_deployed_contract
 from eth_defi.deploy import register_contract
 from eth_defi.hotwallet import HotWallet
+from eth_defi.provider.anvil import is_anvil
 from eth_defi.trace import assert_transaction_success_with_explanation
 
 
@@ -49,6 +50,7 @@ def _exec_cmd(
     cmd_line: list[str],
     censored_command: str,
     timeout=DEFAULT_TIMEOUT,
+    verbose: bool = False,
 ) -> Tuple[str, str]:
     """Execute the command line.
 
@@ -104,6 +106,7 @@ def deploy_contract_with_forge(
     wait_for_block_confirmations=0,
     verify_delay=20,
     verify_retries=9,
+    verbose=False,
 ) -> Tuple[Contract, HexBytes]:
     """Deploy and verify smart contract with Forge.
 
@@ -179,6 +182,9 @@ def deploy_contract_with_forge(
     :param wait_for_block_confirmations:
         Currently not used.
 
+    :param verbose:
+        Try to be extra verbose with Forge output to pin point errors
+
     :raise ForgeFailed:
         In the case we could not deploy the contract.
 
@@ -228,17 +234,21 @@ def deploy_contract_with_forge(
     ]
 
     if etherscan_api_key:
-        # Tuned retry parameters
-        # https://github.com/foundry-rs/foundry/issues/6953
-        cmd_line += [
-            "--etherscan-api-key",
-            etherscan_api_key,
-            "--verify",
-            "--retries",
-            str(verify_retries),
-            "--delay",
-            str(verify_delay),
-        ]
+        if is_anvil(web3):
+            logger.warning("Etherscan verification skipped, running on a local fork")
+        else:
+            logger.info("Doing Etherscan verification with %d retries", verify_retries)
+            # Tuned retry parameters
+            # https://github.com/foundry-rs/foundry/issues/6953
+            cmd_line += [
+                "--etherscan-api-key",
+                etherscan_api_key,
+                "--verify",
+                "--retries",
+                str(verify_retries),
+                "--delay",
+                str(verify_delay),
+            ]
 
     cmd_line += [f"{src_contract_file}:{contract_name}"]
 
@@ -279,7 +289,7 @@ def deploy_contract_with_forge(
         assert src_contract_file.exists(), f"Contract does not exist: {src_contract_file}, current working directory is {os.getcwd()}"
 
         # Run forge
-        contract_address, tx_hash = _exec_cmd(cmd_line, timeout=timeout, censored_command=censored_command)
+        contract_address, tx_hash = _exec_cmd(cmd_line, timeout=timeout, censored_command=censored_command, verbose=verbose)
 
         # Check we produced an ABI file, or was created earlier
         contract_abi = project_folder / "out" / contract_file / f"{contract_name}.json"
