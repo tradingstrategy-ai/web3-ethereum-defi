@@ -409,6 +409,11 @@ class HotWallet:
         if gas_limit is not None:
             tx_data["gas"] = gas_limit
 
+        if "maxFeePerGas" in tx_data and "gasPrice" in tx_data:
+            # We can have only one
+            # https://ethereum.stackexchange.com/questions/121361/web3py-issue-on-avalanche-when-using-maxpriorityfeepergas-and-maxfeepergas
+            del tx_data["gasPrice"]
+
         self.fill_in_gas_price(web3, tx_data)
         signed_tx = self.sign_transaction_with_new_nonce(tx_data)
 
