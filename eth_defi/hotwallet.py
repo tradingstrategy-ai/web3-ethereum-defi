@@ -9,6 +9,7 @@
 import logging
 import secrets
 from decimal import Decimal
+from pprint import pformat
 from typing import Optional, NamedTuple
 
 from eth_account import Account
@@ -409,13 +410,18 @@ class HotWallet:
         if gas_limit is not None:
             tx_data["gas"] = gas_limit
 
+        self.fill_in_gas_price(web3, tx_data)
+
         if "maxFeePerGas" in tx_data and "gasPrice" in tx_data:
             # We can have only one
             # https://ethereum.stackexchange.com/questions/121361/web3py-issue-on-avalanche-when-using-maxpriorityfeepergas-and-maxfeepergas
             del tx_data["gasPrice"]
 
-        self.fill_in_gas_price(web3, tx_data)
-        signed_tx = self.sign_transaction_with_new_nonce(tx_data)
+        try:
+            signed_tx = self.sign_transaction_with_new_nonce(tx_data)
+        except Exception as e:
+            # Probably mismatch between network expected gas parameter format and what we give
+            raise RuntimeError(f"Could not sign:\n{pformat(tx_data)}") from e
 
         tx_hash = web3.eth.send_raw_transaction(signed_tx.raw_transaction)
         return tx_hash
@@ -505,7 +511,7 @@ class HotWallet:
         :param key: 0x prefixed hex string
         :return: Ready to go hot wallet account
         """
-        assert type(key) == str, f"Expectd private key as string, got {type(key)}"
+        assert type(key) == str, f"Expected private key as string, got {type(key)}"
         assert key.startswith("0x"), f"This system assumes private keys are prefixed with 0x, your key starts with {key[0:8]}... Please add 0x prefix to your private key hex string"
         account = Account.from_key(key)
         return HotWallet(account)

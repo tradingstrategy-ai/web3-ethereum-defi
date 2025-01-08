@@ -37,10 +37,9 @@ def main():
     SIMULATE = os.environ.get("SIMULATE")
 
     deployer_wallet = HotWallet.from_private_key(PRIVATE_KEY)
-    deployer = deployer_wallet.account
-    asset_manager = deployer.address
+    asset_manager = deployer_wallet.address
     # Add some random multisig holders
-    multisig_owners = [deployer.address, RANDO1, RANDO2]
+    multisig_owners = [deployer_wallet.address, RANDO1, RANDO2]
 
     if SIMULATE:
         print("Simulation deployment with Anvil")
@@ -67,7 +66,7 @@ def main():
 
     deploy_info = deploy_automated_lagoon_vault(
         web3=web3,
-        deployer=deployer,
+        deployer=deployer_wallet,
         asset_manager=asset_manager,
         parameters=parameters,
         safe_owners=multisig_owners,
