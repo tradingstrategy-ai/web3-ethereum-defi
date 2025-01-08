@@ -228,6 +228,12 @@ def is_retryable_http_exception(
                 if message in retryable_rpc_error_messages:
                     return True
 
+                for string_check in retryable_rpc_error_messages:
+                    if string_check in message:
+                        # Some RPCs add their own crap to the error messages, so exact error
+                        # message matching does not seem to work
+                        return True
+
                 return False
 
     if isinstance(exc, ProbablyNodeHasNoBlock):

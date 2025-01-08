@@ -69,6 +69,8 @@ def deploy_safe(
     # Check that we can read back Safe data
     retrieved_owners = safe.retrieve_owners()
     assert retrieved_owners == owners
+
+    logger.info("Safe deployed at %s", safe.address)
     return safe
 
 

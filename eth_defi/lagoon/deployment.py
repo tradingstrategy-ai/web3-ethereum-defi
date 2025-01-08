@@ -12,6 +12,7 @@ Any Safe must be deployed as 1-of-1 deployer address multisig and multisig holde
 """
 import logging
 import os
+import time
 from dataclasses import dataclass, asdict
 from io import StringIO
 from pathlib import Path
@@ -30,6 +31,7 @@ from eth_defi.foundry.forge import deploy_contract_with_forge
 from eth_defi.lagoon.beacon_proxy import deploy_beacon_proxy
 from eth_defi.lagoon.vault import LagoonVault
 from eth_defi.middleware import construct_sign_and_send_raw_middleware_anvil
+from eth_defi.provider.anvil import is_anvil
 from eth_defi.safe.deployment import deploy_safe, add_new_safe_owners
 from eth_defi.token import get_wrapped_native_token_address, fetch_erc20_details
 from eth_defi.trace import assert_transaction_success_with_explanation
@@ -414,6 +416,7 @@ def deploy_automated_lagoon_vault(
     any_asset: bool = False,
     etherscan_api_key: str = None,
     use_forge=False,
+    between_contracts_delay_seconds=10.0,
 ) -> LagoonAutomatedDeployment:
     """Deploy a full Lagoon setup with a guard.
 
@@ -446,6 +449,10 @@ def deploy_automated_lagoon_vault(
 
     parameters.safe = safe.address
 
+    if not is_anvil(web3):
+        logger.info("Between contracts deployment delay: Sleeping %s for new nonce to propagade", between_contracts_delay_seconds)
+        time.sleep(between_contracts_delay_seconds)
+
     vault_contract = deploy_lagoon(
         web3=web3,
         deployer=deployer,
@@ -456,6 +463,10 @@ def deploy_automated_lagoon_vault(
         etherscan_api_key=etherscan_api_key,
         use_forge=use_forge,
     )
+
+    if not is_anvil(web3):
+        logger.info("Between contracts deployment delay: Sleeping %s for new nonce to propagade", between_contracts_delay_seconds)
+        time.sleep(between_contracts_delay_seconds)
 
     module = deploy_safe_trading_strategy_module(
         web3=web3,
