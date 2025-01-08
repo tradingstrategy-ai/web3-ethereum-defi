@@ -18,55 +18,42 @@ import logging
 import shutil
 
 from cchecksum import to_checksum_address
+from eth_defi.gas import apply_gas, estimate_gas_fees
 import pytest
-from eth_typing import ChecksumAddress, HexAddress
-from web3 import Web3
+from eth_typing import ChecksumAddress
+from web3 import EthereumTesterProvider, Web3
+from web3.contract import Contract
 
-from eth_defi.provider.anvil import fork_network_anvil
-from eth_defi.provider.multi_provider import create_multi_provider_web3
-from eth_defi.token import fetch_erc20_details
+from eth_defi.token import create_token
 from eth_defi.tx import decode_signed_transaction
 from eth_defi.hsm_hotwallet import HSMWallet
+from eth_defi.uniswap_v2.deployment import UniswapV2Deployment, deploy_uniswap_v2_like
 
 
 # Skip tests if required env vars are not set
-pytestmark = pytest.mark.skipif(not all([os.environ.get("ETH_NODE_URI"), os.environ.get("GOOGLE_CLOUD_PROJECT"), os.environ.get("GOOGLE_CLOUD_REGION"), os.environ.get("KEY_RING"), os.environ.get("KEY_NAME"), shutil.which("anvil")]), reason="Set ETH_NODE_URI and Google Cloud env vars, and install anvil to run these tests")
+pytestmark = pytest.mark.skipif(not all([os.environ.get("GOOGLE_CLOUD_PROJECT"), os.environ.get("GOOGLE_CLOUD_REGION"), os.environ.get("KEY_RING"), os.environ.get("KEY_NAME"), shutil.which("anvil")]), reason="Set Google Cloud env vars, and install anvil to run these tests")
 
 # Set up logging
 logger = logging.getLogger(__name__)
 
 
-def setup_module(module):
-    """Set up logging for the test module."""
-    # Get log level from environment, default to WARNING
-    log_level = os.environ.get("LOG_LEVEL", "WARNING").upper()
-    logging.basicConfig(level=log_level, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
-
-
-@pytest.fixture()
-def weth_holder() -> ChecksumAddress:
-    """Account that holds a lot of WETH on mainnet."""
-    # Binance 8
-    return to_checksum_address("0xf977814e90da44bfa03b6295a0616a897441acec")
-
-
-@pytest.fixture()
-def anvil_eth_fork(request, weth_holder) -> str:
-    """Create a testable fork of Ethereum mainnet."""
-    mainnet_rpc = os.environ["ETH_NODE_URI"]
-    launch = fork_network_anvil(mainnet_rpc, unlocked_addresses=[weth_holder], fork_block_number=17_500_000)  # Pick a stable recent block
-    try:
-        yield launch.json_rpc_url
-    finally:
-        # Wind down Anvil process after the test is complete
-        launch.close(log_level=logging.ERROR)
+@pytest.fixture
+def tester_provider():
+    # https://web3py.readthedocs.io/en/stable/examples.html#contract-unit-tests-in-python
+    return EthereumTesterProvider()
 
 
 @pytest.fixture
-def web3(anvil_eth_fork: str):
+def eth_tester(tester_provider):
+    # https://web3py.readthedocs.io/en/stable/examples.html#contract-unit-tests-in-python
+    return tester_provider.ethereum_tester
+
+
+@pytest.fixture
+def web3(tester_provider):
     """Set up a local unit testing blockchain."""
-    web3 = create_multi_provider_web3(anvil_eth_fork)
-    return web3
+    # https://web3py.readthedocs.io/en/stable/examples.html#contract-unit-tests-in-python
+    return Web3(tester_provider)
 
 
 @pytest.fixture()
@@ -76,6 +63,36 @@ def deployer(web3) -> str:
     Do some account allocation for tests.
     """
     return web3.eth.accounts[0]
+
+
+@pytest.fixture()
+def usdc(web3, deployer) -> Contract:
+    """Mock USDC token.
+
+    Note that this token has 18 decimals instead of 6 of real USDC.
+    """
+    token = create_token(web3, deployer, "USD Coin", "USDC", 100_000_000 * 10**18)
+    return token
+
+
+@pytest.fixture()
+def dai(web3, deployer) -> Contract:
+    """Mock DAI token."""
+    token = create_token(web3, deployer, "Dai Stablecoin", "DAI", 100_000_000 * 10**18)
+    return token
+
+
+@pytest.fixture()
+def uniswap_v2(web3, deployer) -> UniswapV2Deployment:
+    """Uniswap v2 deployment."""
+    deployment = deploy_uniswap_v2_like(web3, deployer)
+    return deployment
+
+
+@pytest.fixture()
+def weth(uniswap_v2) -> Contract:
+    """Mock WETH token."""
+    return uniswap_v2.weth
 
 
 @pytest.fixture
@@ -118,47 +135,63 @@ def test_eth_native_transfer(web3: Web3, deployer: str, hsm_wallet: HSMWallet):
     assert final_wallet_balance < web3.to_wei(1, "ether")  # Less than 1 ETH due to gas costs
 
 
-def test_dai_approval(web3: Web3, deployer: str, hsm_wallet: HSMWallet):
-    """Test DAI approve function with HSM wallet (DAI is simpler than USDC)."""
-
-    # Get DAI contract instead of USDC
-    # DAI on Ethereum mainnet
-    dai_details = fetch_erc20_details(web3, "0x6B175474E89094C44Da98b954EedeAC495271d0F")
-    dai = dai_details.contract
+def test_dai_sign_bound_call(web3: Web3, dai: Contract, deployer: str, hsm_wallet: HSMWallet):
+    """Test sign_bound_call_with_new_nonce with different parameter combinations."""
 
     # Fund HSM wallet with ETH for gas
     fund_tx = {"from": deployer, "to": hsm_wallet.address, "value": web3.to_wei(1, "ether")}
     fund_tx_hash = web3.eth.send_transaction(fund_tx)
-    fund_receipt = web3.eth.wait_for_transaction_receipt(fund_tx_hash)
-    assert fund_receipt["status"] == 1
-    logger.debug(f"HSM Wallet funded with {web3.from_wei(web3.eth.get_balance(hsm_wallet.address), 'ether')} ETH")
+    web3.eth.wait_for_transaction_receipt(fund_tx_hash)
 
-    # Prepare approval
-    spender = "0x0000000000000000000000000000000000000000"
-    approve_amount = 1000 * 10**18  # 1000 DAI (18 decimals)
+    # Send some DAI to HSM wallet
+    initial_dai = 2000 * 10**18
+    dai.functions.transfer(hsm_wallet.address, initial_dai).transact({"from": deployer})
 
-    initial_allowance = dai.functions.allowance(hsm_wallet.address, spender).call()
-    logger.debug(f"Initial DAI allowance: {initial_allowance}")
+    # Test Case 1: With gas estimation
+    hsm_wallet.sync_nonce(web3)
+    spender1 = "0x0000000000000000000000000000000000000001"
+    approve_func1 = dai.functions.approve(spender1, 100 * 10**18)
+    gas_estimation = estimate_gas_fees(web3)
+    tx_gas_parameters = apply_gas({"gas": 100_000}, gas_estimation)
+    tx_gas_parameters["gasPrice"] = web3.eth.gas_price
+    signed_tx1 = hsm_wallet.sign_bound_call_with_new_nonce(approve_func1, tx_gas_parameters)
+    tx_hash1 = web3.eth.send_raw_transaction(signed_tx1.rawTransaction)
+    receipt1 = web3.eth.wait_for_transaction_receipt(tx_hash1)
+    assert receipt1["status"] == 1
 
-    # Create approval transaction
-    approve_tx = dai.functions.approve(spender, approve_amount).build_transaction({"from": hsm_wallet.address, "gas": 100000, "gasPrice": web3.eth.gas_price, "chainId": web3.eth.chain_id})
+    # Test Case 2: Direct gas parameters
+    hsm_wallet.sync_nonce(web3)
+    spender2 = "0x0000000000000000000000000000000000000002"
+    approve_func2 = dai.functions.approve(spender2, 200 * 10**18)
+    tx_params2 = {
+        "gas": 100_000,
+        "gasPrice": web3.eth.gas_price * 2,  # Higher gas price
+    }
+    signed_tx2 = hsm_wallet.sign_bound_call_with_new_nonce(approve_func2, tx_params2)
+    tx_hash2 = web3.eth.send_raw_transaction(signed_tx2.rawTransaction)
+    receipt2 = web3.eth.wait_for_transaction_receipt(tx_hash2)
+    assert receipt2["status"] == 1
 
-    logger.debug(f"Approval transaction: {approve_tx}")
+    # Test Case 3: Fill gas price automatically
+    hsm_wallet.sync_nonce(web3)
+    spender3 = "0x0000000000000000000000000000000000000003"
+    approve_func3 = dai.functions.approve(spender3, 300 * 10**18)
+    signed_tx3 = hsm_wallet.sign_bound_call_with_new_nonce(approve_func3, tx_params={"gas": 100_000, "gasPrice": web3.eth.gas_price * 2}, web3=web3, fill_gas_price=True)
+    tx_hash3 = web3.eth.send_raw_transaction(signed_tx3.rawTransaction)
+    receipt3 = web3.eth.wait_for_transaction_receipt(tx_hash3)
+    assert receipt3["status"] == 1
 
-    # Sign and send approval
-    signed_tx = hsm_wallet.sign_transaction_with_new_nonce(approve_tx)
-    tx_hash = web3.eth.send_raw_transaction(signed_tx.rawTransaction)
-    receipt = web3.eth.wait_for_transaction_receipt(tx_hash)
-    logger.debug(f"Approval transaction receipt: {receipt}")
-    assert receipt["status"] == 1
+    # Verify all allowances
+    allowance1 = dai.functions.allowance(hsm_wallet.address, spender1).call()
+    allowance2 = dai.functions.allowance(hsm_wallet.address, spender2).call()
+    allowance3 = dai.functions.allowance(hsm_wallet.address, spender3).call()
 
-    # Verify allowance
-    new_allowance = dai.functions.allowance(hsm_wallet.address, spender).call()
-    logger.debug(f"New DAI allowance: {new_allowance}")
-    assert new_allowance == approve_amount
+    assert allowance1 == 100 * 10**18
+    assert allowance2 == 200 * 10**18
+    assert allowance3 == 300 * 10**18
 
 
-def test_eth_mainnet_hsm_tx_setup(web3: Web3, deployer: str):
+def test_eth_mainnet_hsm_tx_setup(web3: Web3, dai, deployer: str):
     """Test to logger.debug useful debugging information about the test environment."""
 
     # logger.debug deployer info
@@ -166,11 +199,8 @@ def test_eth_mainnet_hsm_tx_setup(web3: Web3, deployer: str):
     logger.debug(f"\nDeployer address: {deployer}")
     logger.debug(f"Deployer balance: {web3.from_wei(deployer_balance, 'ether')} ETH")
 
-    # Get USDC info
-    usdc_details = fetch_erc20_details(web3, "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48")
-    usdc = usdc_details.contract
-    deployer_usdc_balance = usdc.functions.balanceOf(deployer).call()
-    logger.debug(f"Deployer USDC balance: {deployer_usdc_balance / 10**6} USDC")
+    deployer_dai_balance = dai.functions.balanceOf(deployer).call()
+    logger.debug(f"Deployer DAI balance: {deployer_dai_balance / 10**6} DAI")
 
     # logger.debug chain info
     logger.debug(f"Chain ID: {web3.eth.chain_id}")
@@ -178,19 +208,14 @@ def test_eth_mainnet_hsm_tx_setup(web3: Web3, deployer: str):
     logger.debug(f"Gas price: {web3.from_wei(web3.eth.gas_price, 'gwei')} gwei")
 
 
-def test_eth_erc20_approval(web3: Web3, weth_holder: HexAddress, hsm_wallet: HSMWallet):
+def test_eth_erc20_approval(web3: Web3, weth, deployer, hsm_wallet: HSMWallet):
     """Test ERC-20 approve function with WETH."""
 
-    # Get WETH contract (Wrapped ETH on Ethereum mainnet)
-    weth_details = fetch_erc20_details(web3, "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2")
-    weth = weth_details.contract
     logger.debug("\nWETH contract details:")
-    logger.debug(f"Name: {weth_details.name}")
-    logger.debug(f"Symbol: {weth_details.symbol}")
-    logger.debug(f"Decimals: {weth_details.decimals}")
+    logger.debug(f"Name: {weth.name}")
 
     # Fund wallet with ETH for gas
-    fund_tx = {"from": weth_holder, "to": hsm_wallet.address, "value": web3.to_wei(1, "ether")}
+    fund_tx = {"from": deployer, "to": hsm_wallet.address, "value": web3.to_wei(1, "ether")}
     fund_tx_hash = web3.eth.send_transaction(fund_tx)
     receipt = web3.eth.wait_for_transaction_receipt(fund_tx_hash)
     assert receipt["status"] == 1

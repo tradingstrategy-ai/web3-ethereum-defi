@@ -221,52 +221,69 @@ class HSMWallet(BaseWallet):
     def sign_bound_call_with_new_nonce(
         self,
         func: ContractFunction,
-        tx_params: Optional[dict] = None,
+        tx_params: dict | None = None,
+        web3: Web3 | None = None,
+        fill_gas_price=False,
     ) -> SignedTransactionWithNonce:
-        """Sign a bound Web3 Contract call using HSM.
+        """Signs a bound Web3 Contract call.
 
         Example:
 
         .. code-block:: python
 
-            # Transfer 50 USDC
-            transfer_call = usdc_contract.functions.transfer(
-                recipient,
-                50 * 10**6
-            )
-            signed_tx = wallet.sign_bound_call_with_new_nonce(transfer_call)
-            tx_hash = web3.eth.send_raw_transaction(signed_tx.rawTransaction)
+            bound_func = busd_token.functions.transfer(user_2, 50*10**18)  # Transfer 50 BUDF
+            signed_tx = hot_wallet.sign_bound_call_with_new_nonce(bound_func)
+            web3.eth.send_raw_transaction(signed_tx.rawTransaction)
 
         With manual gas estimation:
 
         .. code-block:: python
 
-            # Approve USDC spend
-            approve_call = usdc_contract.functions.approve(
-                spender_address,
-                approve_amount
-            )
+            approve_call = usdc.contract.functions.approve(quickswap.router.address, raw_amount)
             gas_estimation = estimate_gas_fees(web3)
-            tx_params = apply_gas({"gas": 100_000}, gas_estimation)
-            signed_tx = wallet.sign_bound_call_with_new_nonce(
-                approve_call,
-                tx_params
-            )
+            tx_gas_parameters = apply_gas({"gas": 100_000}, gas_estimation)  # approve should not take more than 100k gas
+            signed_tx = hot_wallet.sign_bound_call_with_new_nonce(approve_call, tx_gas_parameters)
 
         Args:
-            func: Web3 contract function with bound arguments
-            tx_params: Optional transaction parameters like gas settings
+            func: Web3 contract function that has its arguments bound
+            tx_params: Transaction parameters like `gas`
+            web3: Optional Web3 instance for gas estimation
+            fill_gas_price: Whether to fill gas price automatically
 
         Returns:
             SignedTransactionWithNonce containing the signed contract call
         """
-        tx_params = tx_params or {}
+        assert isinstance(func, ContractFunction)
+
+        original_tx_params = tx_params
+
+        if tx_params is None:
+            tx_params = {}
+
+        # Ensure required fields
+        if "value" not in tx_params:
+            tx_params["value"] = 0
+
         tx_params["from"] = self.address
 
         if "chainId" not in tx_params:
             tx_params["chainId"] = func.w3.eth.chain_id
 
-        if tx_params:
+        if fill_gas_price:
+            assert web3, "web3 instance must be given for automatic gas price fill"
+            from eth_defi.gas import estimate_gas_price, apply_gas
+
+            gas_price_suggestion = estimate_gas_price(web3)
+            apply_gas(tx_params, gas_price_suggestion)
+        elif "gasPrice" not in tx_params and "maxFeePerGas" not in tx_params:
+            # If no gas price is set and not using automatic filling,
+            # use the chain's default gas price
+            tx_params["gasPrice"] = func.w3.eth.gas_price
+
+        if original_tx_params is None:
+            # Use the default gas filler
+            tx = func.build_transaction(tx_params)
+        else:
             # Use given gas parameters
             tx = prepare_transaction(
                 func.address,
@@ -278,9 +295,6 @@ class HSMWallet(BaseWallet):
                 fn_args=func.args,
                 fn_kwargs=func.kwargs,
             )
-        else:
-            # Use the default gas filler
-            tx = func.build_transaction(tx_params)
 
         return self.sign_transaction_with_new_nonce(tx)
 

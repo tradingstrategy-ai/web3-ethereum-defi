@@ -4612,7 +4612,7 @@ dev = ["backports.zoneinfo", "black", "build", "freezegun", "mdx_truly_sane_list
 name = "pytz"
 version = "2024.2"
 description = "World timezone definitions, modern and historical"
-optional = true
+optional = false
 python-versions = "*"
 files = [
     {file = "pytz-2024.2-py2.py3-none-any.whl", hash = "sha256:31c7c1817eb7fae7ca4b8c7ee50c72f93aa2dd863de768e1ef4245d426aa0725"},
@@ -6285,4 +6285,4 @@ test = ["pytest-xdist"]
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.10,<4"
-content-hash = "1f9623f9f537e84048530ad61d348b4f530f0dde7cbc796bf94c27f7db489017"
+content-hash = "844e3060bd9d210a2c735503e34506f02ab706e14460827fd7ed4395e9d7ba72"
