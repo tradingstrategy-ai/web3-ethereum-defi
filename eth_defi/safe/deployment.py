@@ -78,6 +78,7 @@ def add_new_safe_owners(
     deployer: LocalAccount,
     owners: list[HexAddress | str],
     threshold: int,
+    gas_per_tx=500_000,
 ):
     """Update Safe owners and threshold list.
 
@@ -88,6 +89,9 @@ def add_new_safe_owners(
     .. note ::
 
         We cannot remove deployer account from the list, but it must be done by the new owners
+
+    :param gas_per_tx:
+        Gas limit for a single transaction.
 
     More info:
 
@@ -113,7 +117,7 @@ def add_new_safe_owners(
             continue
 
         tx = safe.contract.functions.addOwnerWithThreshold(owner, 1).build_transaction(
-            {"from": deployer.address, "gas": 0, "gasPrice": 0}
+            {"from": deployer.address, "gas": gas_per_tx, "gasPrice": 0}
         )
         safe_tx = safe.build_multisig_tx(safe.address, 0, tx["data"])
         safe_tx.sign(deployer._private_key.hex())
@@ -124,7 +128,7 @@ def add_new_safe_owners(
 
     # Change the threshold
     tx = safe.contract.functions.changeThreshold(threshold).build_transaction(
-        {"from": deployer.address, "gas": 0, "gasPrice": 0}
+        {"from": deployer.address, "gas": gas_per_tx, "gasPrice": 0}
     )
     safe_tx = safe.build_multisig_tx(safe.address, 0, tx["data"])
     safe_tx.sign(deployer._private_key.hex())

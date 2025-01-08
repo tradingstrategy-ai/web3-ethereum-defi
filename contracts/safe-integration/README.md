@@ -1,7 +1,7 @@
 # Trading Strategy module as a Safe module using Zodiac.
 
 [TradingStrategyModuleV0](./src/TradingStrategyModuleV0.sol) is a Zodiac-module for Gnosis Safe multisignature wallets.
-It enables automated trading, "trading algorithms" or "AI-agent", for various use cases.
+It enables automated trading, "trading algorithms" or "AI-agent", for various use cases.`
 
 - You can assign an asset management role for an automated system 
 - The asset manager can perform automated trades allowed by whitelist-based rules
