@@ -18,7 +18,7 @@ from web3_google_hsm.config import BaseConfig
 from web3_google_hsm.types import Transaction as Web3HSMTransaction
 
 from eth_defi.basewallet import BaseWallet
-from eth_defi.gas import apply_gas, estimate_gas_fees
+from eth_defi.gas import apply_gas, estimate_gas_fees, estimate_gas_price
 from eth_defi.hotwallet import SignedTransactionWithNonce
 
 
@@ -271,8 +271,6 @@ class HSMWallet(BaseWallet):
 
         if fill_gas_price:
             assert web3, "web3 instance must be given for automatic gas price fill"
-            from eth_defi.gas import estimate_gas_price, apply_gas
-
             gas_price_suggestion = estimate_gas_price(web3)
             apply_gas(tx_params, gas_price_suggestion)
         elif "gasPrice" not in tx_params and "maxFeePerGas" not in tx_params:

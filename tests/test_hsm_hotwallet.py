@@ -3,8 +3,6 @@
 To run tests in this module:
 
 .. code-block:: shell
-
-    export ETH_NODE_URI="https://eth-mainnet.alchemyapi.io/v2/YOUR-API-KEY"
     export GOOGLE_CLOUD_PROJECT="your-project"
     export GOOGLE_CLOUD_REGION="us-east1"
     export KEY_RING="eth-keys"
@@ -17,10 +15,8 @@ import os
 import logging
 import shutil
 
-from cchecksum import to_checksum_address
 from eth_defi.gas import apply_gas, estimate_gas_fees
 import pytest
-from eth_typing import ChecksumAddress
 from web3 import EthereumTesterProvider, Web3
 from web3.contract import Contract
 
