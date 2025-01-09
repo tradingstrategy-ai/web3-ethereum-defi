@@ -822,6 +822,7 @@ def wait_and_broadcast_multiple_nodes_mev_blocker(
     max_timeout=datetime.timedelta(minutes=10),
     poll_delay=datetime.timedelta(seconds=10),
     broadcast_and_read_delay=datetime.timedelta(seconds=2),
+    try_other_provider_delay=datetime.timedelta(seconds=40),
 ) -> Dict[HexBytes, dict]:
     """Broadcast transactions through a MEV blocker enabled endpoint.
 
@@ -889,11 +890,14 @@ def wait_and_broadcast_multiple_nodes_mev_blocker(
     # Only interact with the transact provider from no one
     if isinstance(provider, MEVBlockerProvider):
         transaction_provider = provider.transact_provider
+        backup_provider = provider.call_provider
     else:
         # Test path
         transaction_provider = provider
+        backup_provider = provider
 
     web3 = Web3(transaction_provider)
+    backup_web3 = Web3(backup_provider)
 
     anviled = is_anvil(full_web3)
     if anviled:
@@ -908,6 +912,9 @@ def wait_and_broadcast_multiple_nodes_mev_blocker(
 
     # Initial broadcast of txs
     last_exception = None
+
+    try_other_provider_timeout = time.time() + try_other_provider_delay.total_seconds()
+
     for tx in txs:
 
         logger.info(
@@ -919,6 +926,7 @@ def wait_and_broadcast_multiple_nodes_mev_blocker(
 
         end = time.time() + max_timeout.total_seconds()
         tx_hash = None
+        tx_hash_2 = None
         while time.time() < end:
             try:
                 if not tx_hash:
@@ -928,6 +936,12 @@ def wait_and_broadcast_multiple_nodes_mev_blocker(
                     if not anviled:
                         # Sleep between send and first read
                         time.sleep(broadcast_and_read_delay.total_seconds())
+
+                if time.time() > try_other_provider_timeout:
+                    # Also try backup provider if sequencer is blocking us for some reason
+                    logger.info("Attempting backup provider %s", backup_provider)
+                    tx_hash_2 = backup_web3.eth.send_raw_transaction(tx.rawTransaction)
+                    logger.info("Received backup tx_hash: %s", tx_hash_2)
 
                 logger.debug("Starting MEV Blocker confirmation cycle, unconfirmed tx is: %s, sleeping poll delay %s", tx_hash.hex(), poll_delay)
 
@@ -943,7 +957,7 @@ def wait_and_broadcast_multiple_nodes_mev_blocker(
                 if not isinstance(e, TransactionNotFound):
                     logger.info("No receipt yet, current nonce: %d, exception %s", nonce, e, exc_info=e)
                 else:
-                    logger.info("TransactionNotFound - will keep trying")
+                    logger.info(f"TransactionNotFound - will keep trying. Primary tx hash: {tx_hash}, backup provider tx_hash: {tx_hash_2}")
 
                 last_exception = e
 
