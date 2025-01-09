@@ -355,7 +355,7 @@ def deploy_safe_trading_strategy_module(
 def setup_guard(
     web3: Web3,
     safe: Safe,
-    deployer: LocalAccount,
+    deployer: HotWallet,
     owner: HexAddress,
     asset_manager: HexAddress,
     vault: Contract,
@@ -366,7 +366,7 @@ def setup_guard(
     uniswap_v3: UniswapV3Deployment = None,
 ):
 
-    assert isinstance(deployer, HotWallet)
+    assert isinstance(deployer, HotWallet), f"Got: {deployer}"
     assert type(owner) == str
     assert isinstance(module, Contract)
     assert isinstance(vault, Contract)

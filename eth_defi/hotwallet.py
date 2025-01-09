@@ -386,13 +386,14 @@ class HotWallet:
         """Transacts with a contract, broadcasts transaction.
 
         - Shorthand method
-        - Build a transaction and signs it
+        - Build a contract function call transaction and signs it
         - Always use a correct manually managed nonce
 
         Example:
 
         .. code-block:: python
 
+            deployer = HotWallet.from_private_key(os.environ["PRIVATE_KEY"])
             bound_func = module.functions.whitelistUniswapV3Router(uniswap_v3.swap_router.address, "Allow Uniswap v3")
             tx_hash = deployer.transact_and_broadcast_with_contract(bound_func)
 
