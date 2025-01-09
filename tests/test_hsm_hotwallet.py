@@ -29,7 +29,7 @@ from eth_defi.uniswap_v2.deployment import UniswapV2Deployment, deploy_uniswap_v
 
 
 # Skip tests if required env vars are not set
-pytestmark = pytest.mark.skipif(not all([os.environ.get("GOOGLE_CLOUD_PROJECT"), os.environ.get("GOOGLE_CLOUD_REGION"), os.environ.get("KEY_RING"), os.environ.get("KEY_NAME"), shutil.which("anvil")]), reason="Set Google Cloud env vars, and install anvil to run these tests")
+pytestmark = pytest.mark.skipif(not all([os.environ.get("GOOGLE_CLOUD_PROJECT"), os.environ.get("GOOGLE_CLOUD_REGION"), os.environ.get("KEY_RING"), os.environ.get("KEY_NAME"), os.environ.get("GCP_ADC_CREDENTIALS_STRING"), shutil.which("anvil")]), reason="Set Google Cloud env vars, and install anvil to run these tests")
 
 # Set up logging
 logger = logging.getLogger(__name__)
