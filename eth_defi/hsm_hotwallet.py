@@ -44,7 +44,7 @@ class HSMWallet(BaseWallet):
 
             # Assumes required environment variables are set:
             # GOOGLE_CLOUD_PROJECT, GOOGLE_CLOUD_REGION, KEY_RING,
-            # KEY_NAME, GOOGLE_APPLICATION_CREDENTIALS
+            # KEY_NAME, GCP_CREDENTIALS_STRING
             from web3 import Web3
             from eth_defi.trace import assert_transaction_success_with_explanation
 
@@ -67,11 +67,12 @@ class HSMWallet(BaseWallet):
             tx_hash = web3.eth.send_raw_transaction(signed_tx.rawTransaction)
             assert_transaction_success_with_explanation(web3, tx_hash)
 
-    Example with explicit configuration(Not Recommended):
+    Example with explicit configuration:
 
     .. code-block:: python
 
             from web3_google_hsm.config import BaseConfig
+            import json
 
             config = BaseConfig(
                 project_id='my-project',
@@ -79,28 +80,17 @@ class HSMWallet(BaseWallet):
                 key_ring_id='eth-keys',
                 key_id='signing-key'
             )
+            credentials = json.loads(os.environ["GCP_CREDENTIALS_STRING"])
 
-            wallet = HSMWallet(config=config)
+            wallet = HSMWallet(config=config, credentials=credentials)
             wallet.sync_nonce(web3)
 
-            # Use with contract interactions
-            usdc_contract = web3.eth.contract(address=usdc_address, abi=usdc_abi)
-            transfer_amount = 500 * 10**6  # 500 USDC
-
-            signed_tx = wallet.transact_with_contract(
-                usdc_contract.functions.transfer,
-                recipient_address,
-                transfer_amount
-            )
-            tx_hash = web3.eth.send_raw_transaction(signed_tx.rawTransaction)
-            assert_transaction_success_with_explanation(web3, tx_hash)
-
-    Required environment variables if no config provided:
+    Required environment variables if no config/credentials provided:
         - GOOGLE_CLOUD_PROJECT: GCP project ID
         - GOOGLE_CLOUD_REGION: GCP region (e.g., us-east1)
         - KEY_RING: Name of the key ring in Cloud KMS
         - KEY_NAME: Name of the key in the key ring
-        - GOOGLE_APPLICATION_CREDENTIALS: Path to service account credentials JSON
+        - GCP_CREDENTIALS_STRING: Service account credentials as JSON string
 
     .. note::
 
@@ -114,18 +104,18 @@ class HSMWallet(BaseWallet):
         remotely in the HSM.
     """
 
-    def __init__(self, config: Optional[BaseConfig] = None):
-        """Initialize HSM wallet with optional Google Cloud KMS configuration.
+    def __init__(self, config: Optional[BaseConfig] = None, credentials: Optional[dict] = None):
+        """Initialize HSM wallet with Google Cloud KMS configuration and credentials.
 
         The wallet can be initialized either with explicit configuration via BaseConfig
-        or using environment variables. If no config is provided, it will attempt to
-        load configuration from environment variables.
+        and credentials, or using environment variables. If neither is provided, it will
+        attempt to load both configuration and credentials from environment variables.
 
         Args:
             config: Optional BaseConfig instance containing GCP project details and key information
-                   If not provided, environment variables will be used
+            credentials: Optional dictionary containing GCP service account credentials
         """
-        self.account = GCPKmsAccount(config=config)
+        self.account = GCPKmsAccount(config=config, credentials=credentials)
         self.current_nonce: Optional[int] = None
 
     def __repr__(self):
@@ -386,7 +376,7 @@ class HSMWallet(BaseWallet):
         return self.sign_transaction_with_new_nonce(tx_data)
 
     @staticmethod
-    def create_for_testing(web3: Web3, config: Optional[BaseConfig] = None, eth_amount: int = 99) -> "HSMWallet":
+    def create_for_testing(web3: Web3, config: Optional[BaseConfig] = None, credentials: Optional[dict] = None, eth_amount: int = 99) -> "HSMWallet":
         """Creates a new HSM wallet for testing and seeds it with ETH.
 
         This is a test helper that:
@@ -402,29 +392,21 @@ class HSMWallet(BaseWallet):
             web3 = Web3(Web3.HTTPProvider('http://localhost:8545'))
             wallet = HSMWallet.create_for_testing(web3)
 
-            # For testing with specific config
+            # For testing with specific config and credentials
             config = BaseConfig(...)
-            wallet = HSMWallet.create_for_testing(web3, config)
-
-            tx = {
-                "to": "0x742d35Cc6634C0532925a3b844Bc454e4438f44e",
-                "value": 1,
-                "gas": 100_000,
-                "chainId": web3.eth.chain_id,
-                "gasPrice": web3.eth.gas_price,
-            }
-            signed_tx = wallet.sign_transaction_with_new_nonce(tx)
-            tx_hash = web3.eth.send_raw_transaction(signed_tx.rawTransaction)
+            credentials = json.loads(os.environ["GCP_CREDENTIALS_STRING"])
+            wallet = HSMWallet.create_for_testing(web3, config, credentials)
 
         Args:
             web3: Web3 instance connected to a test node
-            config: Optional HSM configuration (uses env vars if not provided)
+            config: Optional HSM configuration
+            credentials: Optional GCP credentials dictionary
             eth_amount: Amount of ETH to seed the wallet with (default: 99)
 
         Returns:
             Initialized and funded HSM wallet ready for testing
         """
-        wallet = HSMWallet(config)
+        wallet = HSMWallet(config=config, credentials=credentials)
         tx_hash = web3.eth.send_transaction(
             {
                 "from": web3.eth.accounts[0],  # Use first test account

@@ -7,10 +7,11 @@ To run tests in this module:
     export GOOGLE_CLOUD_REGION="us-east1"
     export KEY_RING="eth-keys"
     export KEY_NAME="signing-key"
-    export GOOGLE_APPLICATION_CREDENTIALS="/path/to/credentials.json"
-    pytest -k test_hsm_wallet
+    export GCP_ADC_CREDENTIALS_STRING='{"ADC_credentials": "values"}'
+    pytest -k test_hsm_hotwallet
 """
 
+import json
 import os
 import logging
 import shutil
@@ -19,6 +20,7 @@ from eth_defi.gas import apply_gas, estimate_gas_fees
 import pytest
 from web3 import EthereumTesterProvider, Web3
 from web3.contract import Contract
+from web3_google_hsm.config import BaseConfig
 
 from eth_defi.token import create_token
 from eth_defi.tx import decode_signed_transaction
@@ -92,9 +94,21 @@ def weth(uniswap_v2) -> Contract:
 
 
 @pytest.fixture
-def hsm_wallet(web3: Web3) -> HSMWallet:
-    """HSM wallet implementation using env vars."""
-    wallet = HSMWallet()
+def gcp_config() -> BaseConfig:
+    """Create GCP config from environment variables."""
+    return BaseConfig(project_id=os.environ["GOOGLE_CLOUD_PROJECT"], location_id=os.environ["GOOGLE_CLOUD_REGION"], key_ring_id=os.environ["KEY_RING"], key_id=os.environ["KEY_NAME"])
+
+
+@pytest.fixture
+def gcp_credentials() -> dict:
+    """Load GCP credentials from environment variable."""
+    return json.loads(os.environ["GCP_ADC_CREDENTIALS_STRING"])
+
+
+@pytest.fixture
+def hsm_wallet(web3: Web3, gcp_credentials: dict) -> HSMWallet:
+    """HSM wallet implementation using loaded config and credentials."""
+    wallet = HSMWallet(credentials=gcp_credentials)
     wallet.sync_nonce(web3)
     return wallet
 
@@ -249,6 +263,24 @@ def test_eth_erc20_approval(web3: Web3, weth, deployer, hsm_wallet: HSMWallet):
     new_allowance = weth.functions.allowance(hsm_wallet.address, spender).call()
     logger.debug(f"\nNew WETH allowance: {new_allowance}")
     assert new_allowance == approve_amount
+
+
+def test_create_for_testing_with_auth(web3: Web3, gcp_config: BaseConfig, gcp_credentials: dict):
+    """Test creating a test wallet with explicit authentication."""
+    wallet = HSMWallet.create_for_testing(web3=web3, config=gcp_config, credentials=gcp_credentials, eth_amount=1)
+
+    # Verify wallet is funded and functional
+    balance = web3.eth.get_balance(wallet.address)
+    assert balance == web3.to_wei(1, "ether")
+
+    # Test a simple transfer
+    recipient = "0x0000000000000000000000000000000000000000"
+    tx = {"from": wallet.address, "to": recipient, "value": web3.to_wei(0.1, "ether"), "gas": 21000, "gasPrice": web3.eth.gas_price, "chainId": web3.eth.chain_id}
+
+    signed_tx = wallet.sign_transaction_with_new_nonce(tx)
+    tx_hash = web3.eth.send_raw_transaction(signed_tx.rawTransaction)
+    receipt = web3.eth.wait_for_transaction_receipt(tx_hash)
+    assert receipt["status"] == 1
 
 
 # Hsm client doesn't support EIP-1559 yet
