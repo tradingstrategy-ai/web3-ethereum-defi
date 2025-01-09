@@ -957,7 +957,7 @@ def wait_and_broadcast_multiple_nodes_mev_blocker(
                 if not isinstance(e, TransactionNotFound):
                     logger.info("No receipt yet, current nonce: %d, exception %s", nonce, e, exc_info=e)
                 else:
-                    logger.info(f"TransactionNotFound - will keep trying. Primary tx hash: {tx_hash.hex()}, backup provider tx_hash: {tx_hash_2.hex()}")
+                    logger.info(f"TransactionNotFound - will keep trying. Primary tx hash: {tx_hash.hex()}, backup provider tx_hash: {tx_hash_2.hex() if tx_hash_2 else '-'}")
 
                 last_exception = e
 
