@@ -821,7 +821,7 @@ def wait_and_broadcast_multiple_nodes_mev_blocker(
     txs: Collection[SignedTxType],
     max_timeout=datetime.timedelta(minutes=10),
     poll_delay=datetime.timedelta(seconds=10),
-    broadcast_and_read_delay=datetime.timedelta(seconds=2),
+    broadcast_and_read_delay=datetime.timedelta(seconds=6),
     try_other_provider_delay=datetime.timedelta(seconds=40),
 ) -> Dict[HexBytes, dict]:
     """Broadcast transactions through a MEV blocker enabled endpoint.
