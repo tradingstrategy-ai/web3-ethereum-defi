@@ -9,26 +9,30 @@ MEV protection and multiple JSON-RPCs configuration
 `Web-Ethereum-Defi package <https://github.com/tradingstrategy-ai/web3-ethereum-defi>`__ supports creating :py:class:`eth_defi.provider.multi_provider.MultiProviderWeb3`
 subclass instances of :py:class:`web3.Web3` core connector.
 
-These instances support multiple JSON-RPC providers, mainly
+These instances support advanced configuration over multiple JSON-RPC providers:
+
+- The method is compatible with Ethereum, but also with other `EVM compatible <https://tradingstrategy.ai/glossary/evm-compatible>`__ blockchains
+  like Polygon, Binance Smart Chain, Avalanche C-Chain and layer twos like Base and Arbitrum.
 
 - Gracefully deal and retry JSON-RPC errors, even on a single RPC provider.
   If multiple providers are provided, then recover if the provider goes down for a longer period of time.
-  This is especially important if you use an RPC multiplexing service like (drpc)[https://drpc.org]
+  This is especially important if you use an RPC multiplexing service like `drpc <https://drpc.org>`__
   where you get a high failure rate of random requests.
 
 - Automatic fallback to another JSON-RPC provider when one fails, also known as
-  "hot spare" or "hot switch" strategy in DevOps
+  "hot spare" or "hot switch" strategy in DevOps.
 
-- Using `Malicious Extractable Value (MEV) protection <https://tradingstrategy.ai/glossary/mev>`__
-  with a special endpoints when broadcasting a transaction to avoind being
-  frontrun, sandwich attacked and such
+- You can use `Malicious Extractable Value (MEV) protection <https://tradingstrategy.ai/glossary/mev>`__
+  with a special endpoints when broadcasting a transaction to avoid being
+  frontrun, sandwich attacked and such. This includes
+  `sending your transaction directly to a L2 sequencer <https://ethereum.stackexchange.com/questions/162207/how-to-broadcast-a-transaction-directly-to-a-centralised-sequencer-arbitrum-opt>`__
+  e.g. on Base, Arbitrum or using a specific MEV blocker RPC.
+
+More information:
 
 - See also :py:class:`eth_defi.provider.fallback.FallbackProvider` and
   :py:class:`eth_defi.provider.mev_blocker.MEVBlockerProvider` for specialised
   :py:class:`web3.providers.rpc.HTTPProvider` subclasses
-
-- The method is compatible with Ethereum, but also with other `EVM compatible <https://tradingstrategy.ai/glossary/evm-compatible>`__ blockchains
-  like Polygon, Binance Smart Chain, Arbitrum, Avalanche C-Chain
 
 - For some of JSON-RPC providers that provide private mempool, MEV blocking and backrunning services,
   see `MEV Blocker <https://mevblocker.io/>`__ by Cowswap, others. Alternatives include e.g.
@@ -73,6 +77,13 @@ Example:
         mev+https://rpc.mevblocker.io
         https://myethereumnode1.example.com
         https://fallback.example.com
+        """
+
+For L2 like Base you can do:
+
+    config = """
+        mev+https://mainnet-sequencer.base.org
+        https://mainnet.base.org
         """
 
 If you want to keep using a single RPC endpoint, you do not need to do any changes:

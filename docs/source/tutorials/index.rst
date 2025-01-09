@@ -63,7 +63,7 @@ Tutorials and examples
    enzyme-deploy
    verify-node-integrity
    multithread-reader
-   multi-rpc-configuration
+   mev-blocker
 
 `For more examples, browse tests folder on Github <https://github.com/tradingstrategy-ai/web3-ethereum-defi/tree/master/tests>`__.
 You can also search function names in `the repository <https://github.com/tradingstrategy-ai/web3-ethereum-defi/>`__
