@@ -3,6 +3,65 @@
 - Create Google Cloud HSM-backed wallets with automatic environment configuration
 - Sign transactions securely using Cloud HSM
 - Support batched transaction signing with nonce management
+
+**Setting up Google Cloud credentidals for HSM wallet**
+
+Example environment configuration for ``source`` shell script ``credentials.env``:
+
+.. code-block:: shell
+
+    export GOOGLE_CLOUD_PROJECT="your-gcp-project-425310"
+    export GOOGLE_CLOUD_REGION="global"
+    export KEY_RING="Github-CI"
+    export KEY_NAME="github-ci"
+    export GCP_ADC_CREDENTIALS_STRING=$(cat << EOF
+    {
+      "type": "service_account",
+      "project_id": "trading-strategy-425310",
+      "private_key_id": "snip",
+      "private_key": "-----BEGIN PRIVATE KEY----- snip -----END PRIVATE KEY-----\n",
+      "client_email": "tradingstrategy-hsm@trading-strategy-425310.iam.gserviceaccount.com",
+      "client_id": "snip",
+      "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+      "token_uri": "https://oauth2.googleapis.com/token",
+      "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+      "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/tradingstrategy-hsm%40trading-strategy-425310.iam.gserviceaccount.com",
+      "universe_domain": "googleapis.com"
+    }
+    EOF
+
+Include this is in your environment as:
+
+.. code-block::
+
+    source credentials.env
+
+To test that Google Cloud HSM setup work, copy-paste the following snippet to IPython console using ``%cpaste`:
+
+.. code-block:: python
+
+    import os
+    import json
+    from web3_google_hsm.config import BaseConfig
+    from eth_defi.hsm_hotwallet import HSMWallet
+
+    try:
+        credentials = json.loads(os.environ["GCP_ADC_CREDENTIALS_STRING"])
+        config = BaseConfig.from_env()
+        print("Environment configured successfully!")
+        print(f"Project ID: {config.project_id}")
+        print(f"Region: {config.location_id}")
+        print(f"Credentials client email {credentials['client_email']}")
+    except ValueError as e:
+        print(f"Configuration error: {e}")
+
+    hsm_wallet = HSMWallet(config)
+
+    # This will crash if your credentials have
+    # access issues
+    print(f"Google Cloud HSM wallet configured.")
+    print(f"HSM account is: {hsm_wallet.address}")
+
 """
 
 from decimal import Decimal
