@@ -1,5 +1,5 @@
 """Troublesome tokens"""
-
+from eth_typing import HexAddress
 
 # https://tokensniffer.com/token/base/iof2ha9v86i69416go2kzasch62nqbn9ecxmcssn8ie5j0z1qqv8p1ncvqs2
 # Valuation model failed GenericValuation failed for position <Open position #185 <Pair BOB-WETH spot_market_hold at 0x511088edf4c6fd71b48ca4fe4467d39a3c9e32e3 (1.0000% fee) on exchange uniswap-v3> $12.905446608819052>
@@ -11,6 +11,27 @@
 #:
 #: Sell at any available liquidity, with max slippage
 #:
+#: Symbol -> Address mapping
+#:
 RUGPULLS = {
+    # https://tradingstrategy.ai/trading-view/base/uniswap-v3/bob-usdc-fee-100
+    # https://tokensniffer.com/token/base/iof2ha9v86i69416go2kzasch62nqbn9ecxmcssn8ie5j0z1qqv8p1ncvqs2
     "BOB": "0xd9ea811a51d6fe491d27c2a0442b3f577852874d"
 }
+
+_rugpulls_by_address = {v: k for k, v in RUGPULLS.items()}
+
+
+def is_blacklisted_address(
+    address: str | HexAddress,
+    chain_id: int = None):
+    assert isinstance(address, str)
+    assert address.startswith("0x")
+    return address in _rugpulls_by_address
+
+
+def is_blacklisted_symbol(
+    symbol: str | HexAddress,
+    chain_id: int = None):
+    return symbol in RUGPULLS
+

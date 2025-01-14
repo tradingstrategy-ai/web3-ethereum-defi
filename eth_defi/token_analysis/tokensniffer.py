@@ -23,6 +23,7 @@ import requests
 from eth_typing import HexAddress
 from requests import Session
 
+from eth_defi.token_analysis.blacklist import is_blacklisted_symbol
 from eth_defi.token_analysis.sqlite_cache import PersistentKeyValueStore
 
 
@@ -655,6 +656,7 @@ class CachedTokenSniffer(TokenSniffer):
 def is_tradeable_token(
     data: TokenSnifferReply,
     symbol: str | None = None,
+    address: str | None = None,
     risk_score_threshold=65,
     whitelist=KNOWN_GOOD_TOKENS,
 ) -> bool:
@@ -686,6 +688,9 @@ def is_tradeable_token(
 
         E.g. WBTC needs to be whitelisted, as its risk score is 45.
 
+    :param address:
+        Token address checked against a blacklist
+
     :return:
         True if we want to trade
     """
@@ -693,6 +698,9 @@ def is_tradeable_token(
     if symbol is not None:
         if symbol in whitelist:
             return True
+
+    if is_blacklisted_symbol(symbol):
+        return False
 
     # Trust on TokenSniffer heurestics
     return data["score"] >= risk_score_threshold
