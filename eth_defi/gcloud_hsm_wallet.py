@@ -8,18 +8,19 @@
 **Setting up Google Cloud credentidals for HSM wallet**
 
 To get started with Google Cloud
+
 - Sign up, create a project
-- [Create a new Keyring](https://console.cloud.google.com/security/kms)
-- [Create a new key](https://console.cloud.google.com/security/kms) with parameters
-    - Purpose and algorithm: Asymmetric sign
-    - Algorithm: ``ec-sign-secp256k1-sha256``
-- [Create a service account that can access this key ring in IAM](https://console.cloud.google.com/security/kms)
-    - See ``scripts/hsm/create-hsm-service-account-credentials.sh`` on `Github <https://github.com/tradingstrategy-ai/web3-ethereum-defi#make>`__
+- `Create a new Keyring <https://console.cloud.google.com/security/kms>`__
+- `Create a new key <https://console.cloud.google.com/security/kms>`__ with parameters
+  - Purpose and algorithm: Asymmetric sign
+  - Algorithm: ``ec-sign-secp256k1-sha256``
+- Create a service account that can access this key ring in IAM
+  - See ``scripts/hsm/create-hsm-service-account-credentials.sh`` on `Github <https://github.com/tradingstrategy-ai/web3-ethereum-defi#make>`__
       for permissions needed and automation
 
 Example environment configuration for ``source`` shell script ``credentials.env``:
 
-.. code-block:: shell
+.. code-block:: text
 
     export GOOGLE_CLOUD_PROJECT="your-gcp-project-425310"
     export GOOGLE_CLOUD_REGION="global"
@@ -84,7 +85,7 @@ If you get error ``CRYPTO_SCHEME_MISMATCH``:
     }
     ]
 
-Make sure the key algorith is set to ``ec-sign-secp256k1-sha256``.
+Make sure the key algorith is set to ``ec-sign-secp256k1-sha256`` on your Google Cloud key.
 """
 
 from decimal import Decimal
