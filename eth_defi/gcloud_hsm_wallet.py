@@ -65,10 +65,9 @@ or use ``scripts/hsm/check-hsm-address.py`` script:
     print(f"Region: {config.location_id}")
     print(f"Credentials client email {credentials['client_email']}")
 
+    # This will crash if your credentials have access issues,
+    # or other Google Cloud configuration issues
     hsm_wallet = HSMWallet(config, credentials=credentials)
-
-    # This will crash if your credentials have
-    # access issues
     print(f"Google Cloud HSM wallet configured.")
     print(f"HSM account is: {hsm_wallet.address}")
 
