@@ -48,15 +48,16 @@ SA_NAME="${SA_NAME_UNCLEAN//_/-}"
 SA_EMAIL="${SA_NAME}@${GOOGLE_CLOUD_PROJECT}.iam.gserviceaccount.com"
 
 echo "Creating service account: ${SA_NAME}"
-gcloud iam service-accounts create "${SA_NAME}" \
-    --display-name="${DESCRIPTION}"
-
-echo "Creating credentials for service accounts ${SA_EMAIL} for role ${ROLE_ID}"
-gcloud kms keys add-iam-policy-binding $KEY_NAME \
-    --keyring=$KEY_RING \
-    --location=$GOOGLE_CLOUD_REGION \
-    --member="serviceAccount:${SA_EMAIL}" \
-    --role="projects/$GOOGLE_CLOUD_PROJECT/roles/$ROLE_ID"
+if ! gcloud iam service-accounts list --format="value(email)" --filter="email:${SA_EMAIL}" | grep -q "${SA_EMAIL}"; then
+  echo "Creating credentials for service accounts ${SA_EMAIL} for role ${ROLE_ID}"
+  gcloud kms keys add-iam-policy-binding $KEY_NAME \
+      --keyring=$KEY_RING \
+      --location=$GOOGLE_CLOUD_REGION \
+      --member="serviceAccount:${SA_EMAIL}" \
+      --role="projects/$GOOGLE_CLOUD_PROJECT/roles/$ROLE_ID"
+else
+    echo "Service account ${SA_EMAIL} already exists. Skipping creation."
+fi
 
 # Create a temporary file that will be automatically deleted afer
 # the script completed
@@ -67,6 +68,9 @@ trap 'rm -f "$temp_file"' EXIT ERR
 gcloud iam service-accounts keys create $temp_file \
     --iam-account="${SA_EMAIL}"
 
+echo "Role id: ${ROLE_ID}"
+echo "Role title: ${ROLE_TITLE}"
+echo "Service account email: ${SA_EMAIL}"
 echo "Your service credentials are:"
 
 cat $temp_file
