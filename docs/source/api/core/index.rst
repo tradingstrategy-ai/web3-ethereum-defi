@@ -20,6 +20,7 @@ The core API is built on the top of Web3.py library.
    eth_defi.confirmation
    eth_defi.revert_reason
    eth_defi.hotwallet
+   eth_defi.gcloud_hsm_wallet
    eth_defi.middleware
    eth_defi.tx
    eth_defi.trace
@@ -27,4 +28,4 @@ The core API is built on the top of Web3.py library.
    eth_defi.timestamp
    eth_defi.trade
    eth_defi.utils
-   eth_defi.hsm_hotwallet
+
