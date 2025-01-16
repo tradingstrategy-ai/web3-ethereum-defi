@@ -1,10 +1,20 @@
 """HSM wallet management utilities.
 
+- HSM is Hardware Security Module-backed wallet where the private key cannot be stolen
 - Create Google Cloud HSM-backed wallets with automatic environment configuration
 - Sign transactions securely using Cloud HSM
 - Support batched transaction signing with nonce management
 
 **Setting up Google Cloud credentidals for HSM wallet**
+
+To get started with Google Cloud
+- Sign up, create a project
+- [Create a new Keyring](https://console.cloud.google.com/security/kms)
+- [Create a new key](https://console.cloud.google.com/security/kms)
+    - Purpose and algorithm: Asymmetric sign
+    - Algorithm: (ec-sign-secp256k1-sha256)
+- [Create a service account that can access this key ring in IAM](https://console.cloud.google.com/security/kms)
+    - Only one permission needed:
 
 Example environment configuration for ``source`` shell script ``credentials.env``:
 
@@ -45,22 +55,35 @@ To test that Google Cloud HSM setup work, copy-paste the following snippet to IP
     from web3_google_hsm.config import BaseConfig
     from eth_defi.hsm_hotwallet import HSMWallet
 
-    try:
-        credentials = json.loads(os.environ["GCP_ADC_CREDENTIALS_STRING"])
-        config = BaseConfig.from_env()
-        print("Environment configured successfully!")
-        print(f"Project ID: {config.project_id}")
-        print(f"Region: {config.location_id}")
-        print(f"Credentials client email {credentials['client_email']}")
-    except ValueError as e:
-        print(f"Configuration error: {e}")
+    credentials = json.loads(os.environ["GCP_ADC_CREDENTIALS_STRING"])
+    config = BaseConfig.from_env()
+    print("Environment configured successfully!")
+    print(f"Project ID: {config.project_id}")
+    print(f"Region: {config.location_id}")
+    print(f"Credentials client email {credentials['client_email']}")
 
-    hsm_wallet = HSMWallet(config)
+    hsm_wallet = HSMWallet(config, credentials=credentials)
 
     # This will crash if your credentials have
     # access issues
     print(f"Google Cloud HSM wallet configured.")
     print(f"HSM account is: {hsm_wallet.address}")
+
+*Troubleshooting*
+
+``CRYPTO_SCHEME_MISMATCH``
+
+If you get error:
+
+.. code-block::
+
+    FailedPrecondition: 400 Operation requested for Key projects/trading-strategy-425310/locations/global/keyRings/Github-CI/cryptoKeys/github-ci/cryptoKeyVersions/1 has incorrect key purpose:
+    ENCRYPT_DECRYPT [violations {
+      type: "CRYPTO_SCHEME_MISMATCH"
+      subject: "projects/trading-strategy-425310/locations/global/keyRings/Github-CI/cryptoKeys/github-ci/cryptoKeyVersions/1"
+    }
+    ]
+
 
 """
 
