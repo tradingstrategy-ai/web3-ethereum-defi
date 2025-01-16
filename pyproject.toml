@@ -53,6 +53,10 @@ plotly = {version = "^5.8.2", optional = true}
 pyarrow = {version = "*", optional = true}
 pytest-xdist = {version = "^3.3.1", optional = true}
 
+# web3-google-hsm = {git = "https://github.com/Ankvik-Tech-Labs/web3-google-hsm"}
+web3-google-hsm = "^0.1.0"
+pytz = "^2024.2"
+
 # Docs
 Sphinx = {version = "^4.5.0", optional = true}
 sphinx-sitemap = {version = "^2.2.0", optional = true}
@@ -73,6 +77,8 @@ sphinxcontrib-qthelp = {version = "1.0.3", optional = true} # Version pindowns h
 # terms-of-service = {path = "contracts/terms-of-service", develop = true}
 multicall = "^0.9.0"
 safe-eth-py = "6.0.0b42"
+
+
 
 [tool.poetry.dev-dependencies]
 pytest = "^7.4.3"

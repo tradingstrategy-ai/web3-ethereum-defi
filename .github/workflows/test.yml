@@ -92,3 +92,8 @@ jobs:
           JSON_RPC_ETHEREUM: ${{ secrets.JSON_RPC_ETHEREUM }}
           JSON_RPC_BASE: ${{ secrets.JSON_RPC_BASE }}
           ETHEREUM_JSON_RPC: ${{ secrets.JSON_RPC_ETHEREUM }}
+          GOOGLE_CLOUD_PROJECT: ${{ secrets.GOOGLE_CLOUD_PROJECT }}
+          GOOGLE_CLOUD_REGION: ${{ secrets.GOOGLE_CLOUD_REGION }}
+          KEY_RING: ${{ secrets.KEY_RING }}
+          KEY_NAME: ${{ secrets.KEY_NAME }}
+          GCP_ADC_CREDENTIALS_STRING: ${{ secrets.GCP_ADC_CREDENTIALS_STRING }}
