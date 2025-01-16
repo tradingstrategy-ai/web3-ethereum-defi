@@ -24,7 +24,7 @@ from web3_google_hsm.config import BaseConfig
 
 from eth_defi.token import create_token
 from eth_defi.tx import decode_signed_transaction
-from eth_defi.hsm_hotwallet import HSMWallet
+from eth_defi.gcloud_hsm_wallet import GCloudHSMWallet
 from eth_defi.uniswap_v2.deployment import UniswapV2Deployment, deploy_uniswap_v2_like
 
 
@@ -106,14 +106,14 @@ def gcp_credentials() -> dict:
 
 
 @pytest.fixture
-def hsm_wallet(web3: Web3, gcp_credentials: dict) -> HSMWallet:
+def hsm_wallet(web3: Web3, gcp_credentials: dict) -> GCloudHSMWallet:
     """HSM wallet implementation using loaded config and credentials."""
-    wallet = HSMWallet(credentials=gcp_credentials)
+    wallet = GCloudHSMWallet(credentials=gcp_credentials)
     wallet.sync_nonce(web3)
     return wallet
 
 
-def test_eth_native_transfer(web3: Web3, deployer: str, hsm_wallet: HSMWallet):
+def test_eth_native_transfer(web3: Web3, deployer: str, hsm_wallet: GCloudHSMWallet):
     """Test native ETH transfer using HSM wallet."""
 
     # Fund HSM wallet with ETH
@@ -145,7 +145,7 @@ def test_eth_native_transfer(web3: Web3, deployer: str, hsm_wallet: HSMWallet):
     assert final_wallet_balance < web3.to_wei(1, "ether")  # Less than 1 ETH due to gas costs
 
 
-def test_dai_sign_bound_call(web3: Web3, dai: Contract, deployer: str, hsm_wallet: HSMWallet):
+def test_dai_sign_bound_call(web3: Web3, dai: Contract, deployer: str, hsm_wallet: GCloudHSMWallet):
     """Test sign_bound_call_with_new_nonce with different parameter combinations."""
 
     # Fund HSM wallet with ETH for gas
@@ -218,7 +218,7 @@ def test_eth_mainnet_hsm_tx_setup(web3: Web3, dai, deployer: str):
     logger.debug(f"Gas price: {web3.from_wei(web3.eth.gas_price, 'gwei')} gwei")
 
 
-def test_eth_erc20_approval(web3: Web3, weth, deployer, hsm_wallet: HSMWallet):
+def test_eth_erc20_approval(web3: Web3, weth, deployer, hsm_wallet: GCloudHSMWallet):
     """Test ERC-20 approve function with WETH."""
 
     logger.debug("\nWETH contract details:")
@@ -267,7 +267,7 @@ def test_eth_erc20_approval(web3: Web3, weth, deployer, hsm_wallet: HSMWallet):
 
 def test_create_for_testing_with_auth(web3: Web3, gcp_config: BaseConfig, gcp_credentials: dict):
     """Test creating a test wallet with explicit authentication."""
-    wallet = HSMWallet.create_for_testing(web3=web3, config=gcp_config, credentials=gcp_credentials, eth_amount=1)
+    wallet = GCloudHSMWallet.create_for_testing(web3=web3, config=gcp_config, credentials=gcp_credentials, eth_amount=1)
 
     # Verify wallet is funded and functional
     balance = web3.eth.get_balance(wallet.address)
@@ -284,7 +284,7 @@ def test_create_for_testing_with_auth(web3: Web3, gcp_config: BaseConfig, gcp_cr
 
 
 # Hsm client doesn't support EIP-1559 yet
-# def test_eth_eip1559_gas(web3: Web3, large_usdc_holder: HexAddress, hsm_wallet: HSMWallet):
+# def test_eth_eip1559_gas(web3: Web3, large_usdc_holder: HexAddress, hsm_wallet: GCloudHSMWallet):
 #     """Test EIP-1559 gas calculations with HSM wallet."""
 
 #     # Fund wallet
