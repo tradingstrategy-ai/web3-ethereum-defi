@@ -541,6 +541,5 @@ def test_valuation_mixed_routes(
 
     # Check routes
     routes = nav_calculator.create_route_diagnostics(portfolio)
-    print()
-    print(routes)
+    _ = str(routes)  # Emulate print(routes)
     assert len(routes) > 0
