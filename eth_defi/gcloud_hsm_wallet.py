@@ -20,7 +20,7 @@ To get started with Google Cloud
 
 Example environment configuration for ``source`` shell script ``credentials.env``:
 
-.. code-block:: text
+.. code-block:: shell
 
     export GOOGLE_CLOUD_PROJECT="your-gcp-project-425310"
     export GOOGLE_CLOUD_REGION="global"
@@ -31,7 +31,7 @@ Example environment configuration for ``source`` shell script ``credentials.env`
       "type": "service_account",
       "project_id": "trading-strategy-425310",
       "private_key_id": "snip",
-      "private_key": "-----BEGIN PRIVATE KEY----- snip -----END PRIVATE KEY-----\n",
+      "private_key": "-----BEGIN PRIVATE KEY----- snip -----END PRIVATE KEY-----",
       "client_email": "tradingstrategy-hsm@trading-strategy-425310.iam.gserviceaccount.com",
       "client_id": "snip",
       "auth_uri": "https://accounts.google.com/o/oauth2/auth",
