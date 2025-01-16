@@ -9,6 +9,7 @@
 - Add: Integrate `TradingStrategyModuleV0` module to Gnosis Safe-based protocols using Zodiac module. Mainly needed for Lagoon vaults, but can work for others: vanilla Safe, DAOs.
 - Change: Default to Anvil 0.3.0, Cancun EVM hardfork
 
+
 # 0.27
 
 - Add: Support for [Velvet Capital vaults](https://www.velvet.capital/)
