@@ -1,4 +1,4 @@
-"""HSM wallet management utilities.
+"""Google Clooud HSM wallet support.
 
 - HSM is Hardware Security Module-backed wallet where the private key cannot be stolen
 - Create Google Cloud HSM-backed wallets with automatic environment configuration
@@ -10,11 +10,12 @@
 To get started with Google Cloud
 - Sign up, create a project
 - [Create a new Keyring](https://console.cloud.google.com/security/kms)
-- [Create a new key](https://console.cloud.google.com/security/kms)
+- [Create a new key](https://console.cloud.google.com/security/kms) with parameters
     - Purpose and algorithm: Asymmetric sign
-    - Algorithm: (ec-sign-secp256k1-sha256)
+    - Algorithm: ``ec-sign-secp256k1-sha256``
 - [Create a service account that can access this key ring in IAM](https://console.cloud.google.com/security/kms)
-    - Only one permission needed:
+    - See ``scripts/hsm/create-hsm-service-account-credentials.sh`` on `Github <https://github.com/tradingstrategy-ai/web3-ethereum-defi#make>`__
+      for permissions needed and automation
 
 Example environment configuration for ``source`` shell script ``credentials.env``:
 
@@ -42,18 +43,19 @@ Example environment configuration for ``source`` shell script ``credentials.env`
 
 Include this is in your environment as:
 
-.. code-block::
+.. code-block:: shell
 
     source credentials.env
 
-To test that Google Cloud HSM setup work, copy-paste the following snippet to IPython console using ``%cpaste`:
+To test that Google Cloud HSM setup work, copy-paste the following snippet to IPython console using ``%cpaste`,
+or use ``scripts/hsm/check-hsm-address.py`` script:
 
 .. code-block:: python
 
     import os
     import json
     from web3_google_hsm.config import BaseConfig
-    from eth_defi.hsm_hotwallet import HSMWallet
+    from eth_defi.gcloud_hsm_wallet import HSMWallet
 
     credentials = json.loads(os.environ["GCP_ADC_CREDENTIALS_STRING"])
     config = BaseConfig.from_env()
@@ -71,11 +73,9 @@ To test that Google Cloud HSM setup work, copy-paste the following snippet to IP
 
 *Troubleshooting*
 
-``CRYPTO_SCHEME_MISMATCH``
+If you get error ``CRYPTO_SCHEME_MISMATCH``:
 
-If you get error:
-
-.. code-block::
+.. code-block:: text
 
     FailedPrecondition: 400 Operation requested for Key projects/trading-strategy-425310/locations/global/keyRings/Github-CI/cryptoKeys/github-ci/cryptoKeyVersions/1 has incorrect key purpose:
     ENCRYPT_DECRYPT [violations {
@@ -84,7 +84,7 @@ If you get error:
     }
     ]
 
-
+Make sure the key algorith is set to ``ec-sign-secp256k1-sha256``.
 """
 
 from decimal import Decimal
@@ -107,8 +107,8 @@ from eth_defi.hotwallet import SignedTransactionWithNonce
 logger = logging.getLogger(__name__)
 
 
-class HSMWallet(BaseWallet):
-    """HSM-backed wallet for secure transaction signing.
+class GCloudHSMWallet(BaseWallet):
+    """HSM-backed wallet for secure transaction signing, on Google Cloud.
 
     - An HSM wallet uses a Google Cloud KMS key for secure key management and transaction signing,
       providing enhanced security compared to plaintext private keys
@@ -458,7 +458,7 @@ class HSMWallet(BaseWallet):
         return self.sign_transaction_with_new_nonce(tx_data)
 
     @staticmethod
-    def create_for_testing(web3: Web3, config: Optional[BaseConfig] = None, credentials: Optional[dict] = None, eth_amount: int = 99) -> "HSMWallet":
+    def create_for_testing(web3: Web3, config: Optional[BaseConfig] = None, credentials: Optional[dict] = None, eth_amount: int = 99) -> "GCloudHSMWallet":
         """Creates a new HSM wallet for testing and seeds it with ETH.
 
         This is a test helper that:
@@ -488,7 +488,7 @@ class HSMWallet(BaseWallet):
         Returns:
             Initialized and funded HSM wallet ready for testing
         """
-        wallet = HSMWallet(config=config, credentials=credentials)
+        wallet = GCloudHSMWallet(config=config, credentials=credentials)
         tx_hash = web3.eth.send_transaction(
             {
                 "from": web3.eth.accounts[0],  # Use first test account

@@ -13,7 +13,7 @@ import os
 import json
 from web3_google_hsm.config import BaseConfig
 
-from eth_defi.hsm_hotwallet import HSMWallet
+from eth_defi.gcloud_hsm_wallet import GCloudHSMWallet
 
 
 def main():
@@ -25,7 +25,7 @@ def main():
     print(f"Region: {config.location_id}")
     print(f"Credentials client email {credentials['client_email']}")
 
-    hsm_wallet = HSMWallet(config, credentials=credentials)
+    hsm_wallet = GCloudHSMWallet(config, credentials=credentials)
 
     # This will crash if your credentials have
     # access issues
