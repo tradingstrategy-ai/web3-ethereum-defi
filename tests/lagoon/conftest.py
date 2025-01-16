@@ -181,7 +181,7 @@ def lagoon_vault(web3, base_test_vault_spec: VaultSpec) -> LagoonVault:
 @pytest.fixture()
 def automated_lagoon_vault(
     web3,
-    deployer_local_account,
+    deployer_hot_wallet,
     asset_manager,
     multisig_owners,
     uniswap_v2,
@@ -202,7 +202,7 @@ def automated_lagoon_vault(
 
     deploy_info = deploy_automated_lagoon_vault(
         web3=web3,
-        deployer=deployer,
+        deployer=deployer_hot_wallet,
         asset_manager=asset_manager,
         parameters=parameters,
         safe_owners=multisig_owners,
