@@ -1,6 +1,6 @@
 # Current
 
-- Mainly needed for Lagoon vaults, but can work for others: vanilla Safe, DAOs
+- Add: Google Cloud HSM hardware wallet support in `eth_defi.gcloud_hsm_wallet`
 - Add Multicall3 support in `multicall_batcher` module
 - Add `SwapRouter02` support on Base for doing Uniswap v3 swaps
 - Add Uniswap V3 quoter for the valuation

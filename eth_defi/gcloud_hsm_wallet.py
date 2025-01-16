@@ -163,7 +163,6 @@ class GCloudHSMWallet(BaseWallet):
                 key_id='signing-key'
             )
             credentials = json.loads(os.environ["GCP_CREDENTIALS_STRING"])
-
             wallet = HSMWallet(config=config, credentials=credentials)
             wallet.sync_nonce(web3)
 
