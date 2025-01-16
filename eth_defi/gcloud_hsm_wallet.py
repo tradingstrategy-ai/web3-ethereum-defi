@@ -120,6 +120,12 @@ class GCloudHSMWallet(BaseWallet):
 
     - Configuration can be provided either through environment variables or explicitly in the constructor
 
+
+    Unlike :py:class:`~eth_defi.hot_wallet.HotWallet`, this implementation does not expose private keys as they
+    are securely stored in Cloud HSM. All signing operations are performed
+    remotely in the HSM.
+
+
     Example using environment variables:
 
     .. code-block:: python
@@ -178,11 +184,6 @@ class GCloudHSMWallet(BaseWallet):
         This class is not thread safe. If multiple threads try to sign transactions
         at the same time, nonce tracking may be lost.
 
-    .. note::
-
-        Unlike HotWallet, this implementation does not expose private keys as they
-        are securely stored in Cloud HSM. All signing operations are performed
-        remotely in the HSM.
     """
 
     def __init__(self, config: Optional[BaseConfig] = None, credentials: Optional[dict] = None):
