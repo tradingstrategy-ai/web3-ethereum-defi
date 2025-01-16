@@ -472,7 +472,7 @@ def test_lagoon_post_valuation(
     # We should have USDC value of the vault readable
     # from NAV smart contract endpoint
     nav = vault.fetch_nav()
-    assert nav > Decimal(30)  # Changes every day as we need to test live mainnet
+    assert nav > Decimal(10)  # Changes every day as we need to test live mainnet
 
 
 def test_valuation_mixed_routes(
@@ -541,6 +541,5 @@ def test_valuation_mixed_routes(
 
     # Check routes
     routes = nav_calculator.create_route_diagnostics(portfolio)
-    print()
-    print(routes)
+    _ = str(routes)  # Emulate print(routes)
     assert len(routes) > 0

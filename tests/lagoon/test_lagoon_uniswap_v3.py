@@ -7,6 +7,7 @@ from eth_typing import HexAddress
 from web3 import Web3
 
 from eth_defi.abi import get_function_selector
+from eth_defi.hotwallet import HotWallet
 from eth_defi.lagoon.deployment import LagoonAutomatedDeployment, LagoonDeploymentParameters, deploy_automated_lagoon_vault
 from eth_defi.token import TokenDetails, USDC_NATIVE_TOKEN
 from eth_defi.trace import assert_transaction_success_with_explanation
@@ -37,7 +38,7 @@ def test_lagoon_uniswap_v3(
     base_weth: TokenDetails,
     topped_up_asset_manager: HexAddress,
     uniswap_v3: UniswapV3Deployment,
-    deployer_local_account: LocalAccount,
+    deployer_hot_wallet: HotWallet,
     multisig_owners,
     new_depositor: HexAddress,
 ):
@@ -47,7 +48,6 @@ def test_lagoon_uniswap_v3(
     """
 
     chain_id = web3.eth.chain_id
-    deployer = deployer_local_account
     asset_manager = topped_up_asset_manager
     usdc = base_usdc
     depositor = new_depositor
@@ -60,7 +60,7 @@ def test_lagoon_uniswap_v3(
 
     deploy_info = deploy_automated_lagoon_vault(
         web3=web3,
-        deployer=deployer,
+        deployer=deployer_hot_wallet,
         asset_manager=asset_manager,
         parameters=parameters,
         safe_owners=multisig_owners,
