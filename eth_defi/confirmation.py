@@ -17,7 +17,7 @@ from typing import Collection, Dict, List, Set, Union, cast
 
 from _decimal import Decimal
 from eth_account.datastructures import SignedTransaction
-
+from lxml.parser import ETCompatXMLParser
 
 from eth_defi.provider.anvil import is_anvil
 from hexbytes import HexBytes
@@ -33,6 +33,7 @@ from eth_defi.provider.named import get_provider_name
 from eth_defi.timestamp import get_latest_block_timestamp
 from eth_defi.tx import decode_signed_transaction
 from eth_defi.utils import to_unix_timestamp
+from tradeexecutor.strategy.execution_context import ExecutionContext
 
 logger = logging.getLogger(__name__)
 
@@ -940,7 +941,15 @@ def wait_and_broadcast_multiple_nodes_mev_blocker(
                 if time.time() > try_other_provider_timeout:
                     # Also try backup provider if sequencer is blocking us for some reason
                     logger.info("Attempting backup provider %s", backup_provider)
-                    tx_hash_2 = backup_web3.eth.send_raw_transaction(tx.rawTransaction)
+                    try:
+                        tx_hash_2 = backup_web3.eth.send_raw_transaction(tx.rawTransaction)
+                    except ValueError as e:
+                        if "already known" in str(e):
+                            # Will not retry, method eth_sendRawTransaction, as not a retryable exception <class 'ValueError'>: {'code': -32000, 'message': 'already known'}
+                            # base-memex  | 2025-01-18 17:42:39 eth_defi.confirmation
+                            logger.info("Already known race condition: %s", str(e))
+                        else:
+                            raise e
                     logger.info("Received backup tx_hash: %s", tx_hash_2.hex())
 
                 logger.debug("Starting MEV Blocker confirmation cycle, unconfirmed tx is: %s, sleeping poll delay %s", tx_hash.hex(), poll_delay)
