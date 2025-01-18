@@ -927,6 +927,7 @@ def wait_and_broadcast_multiple_nodes_mev_blocker(
         end = time.time() + max_timeout.total_seconds()
         tx_hash = None
         tx_hash_2 = None
+        backup_provider_receipt = None
         while time.time() < end:
             try:
                 if not tx_hash:
@@ -940,22 +941,36 @@ def wait_and_broadcast_multiple_nodes_mev_blocker(
                 if time.time() > try_other_provider_timeout:
                     # Also try backup provider if sequencer is blocking us for some reason
                     logger.info("Attempting backup provider %s", backup_provider)
-                    try:
-                        tx_hash_2 = backup_web3.eth.send_raw_transaction(tx.rawTransaction)
-                    except ValueError as e:
-                        if "already known" in str(e):
-                            # Will not retry, method eth_sendRawTransaction, as not a retryable exception <class 'ValueError'>: {'code': -32000, 'message': 'already known'}
-                            # base-memex  | 2025-01-18 17:42:39 eth_defi.confirmation
-                            logger.info("Already known race condition: %s", str(e))
-                        else:
-                            raise e
+
+                    backup_provider_receipt = backup_web3.eth.get_transaction_receipt(tx_hash)
+
+                    if not backup_provider_receipt:
+                        logger.info(
+                            "No receipt, attempting to broadcast with hash: %s with backup provider %s",
+                            tx.hash.hex(),
+                            backup_provider,
+                        )
+                        try:
+                            tx_hash_2 = backup_web3.eth.send_raw_transaction(tx.rawTransaction)
+                        except ValueError as e:
+                            if "already known" in str(e):
+                                # Will not retry, method eth_sendRawTransaction, as not a retryable exception <class 'ValueError'>: {'code': -32000, 'message': 'already known'}
+                                # base-memex  | 2025-01-18 17:42:39 eth_defi.confirmation
+                                logger.info("Already known race condition: %s", str(e))
+                            else:
+                                raise e
+
                     logger.info("Received backup tx_hash: %s", tx_hash_2.hex())
 
                 logger.debug("Starting MEV Blocker confirmation cycle, unconfirmed tx is: %s, sleeping poll delay %s", tx_hash.hex(), poll_delay)
 
                 # Read receipt using read node,
                 # as mainnet-sequencer on Base does not give even the receipt
-                receipt = full_web3.eth.get_transaction_receipt(tx_hash)
+                if backup_provider_receipt:
+                    logger.info("Using receipt from the backup provider")
+                    receipt = backup_provider_receipt
+                else:
+                    receipt = full_web3.eth.get_transaction_receipt(tx_hash)
                 receipts[tx.hash] = receipt
                 last_exception = None
                 break
