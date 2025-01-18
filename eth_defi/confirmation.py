@@ -942,6 +942,8 @@ def wait_and_broadcast_multiple_nodes_mev_blocker(
                     # Also try backup provider if sequencer is blocking us for some reason
                     logger.info("Attempting backup provider %s", backup_provider)
 
+                    # If we do not check for this we may get "nonce too low" error when
+                    # broadcasting the same transaction, which is a bug in JSON-RPC
                     backup_provider_receipt = backup_web3.eth.get_transaction_receipt(tx_hash)
 
                     if not backup_provider_receipt:
@@ -952,6 +954,7 @@ def wait_and_broadcast_multiple_nodes_mev_blocker(
                         )
                         try:
                             tx_hash_2 = backup_web3.eth.send_raw_transaction(tx.rawTransaction)
+                            logger.info("Backup provider broadcast complete: %s", tx_hash.hex())
                         except ValueError as e:
                             if "already known" in str(e):
                                 # Will not retry, method eth_sendRawTransaction, as not a retryable exception <class 'ValueError'>: {'code': -32000, 'message': 'already known'}

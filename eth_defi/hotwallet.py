@@ -111,6 +111,17 @@ class HotWallet:
     See also :py:func:`eth_defi.middleware.construct_sign_and_send_raw_middleware_anvil`
     when working with Anvil.
 
+
+    Example sending USDC with ``HotWallet`` class:
+
+    .. code-block:: python
+
+        from eth_defi.token import fetch_erc20_details
+        usdc = fetch_erc20_details(web3, "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48")  # Ethereum mainnet
+        bound_call = usdc.transfer("<to address here>", Decimal(2140))
+        tx_hash = hot_wallet.transact_and_broadcast_with_contract(bound_call)
+        print("Broadcasted:", tx_hash.hex())
+
     Example:
 
     .. code-block:: python
@@ -389,7 +400,17 @@ class HotWallet:
         - Build a contract function call transaction and signs it
         - Always use a correct manually managed nonce
 
-        Example:
+        Example sending USDC:
+
+        .. code-block:: python
+
+            from eth_defi.token import fetch_erc20_details
+            usdc = fetch_erc20_details(web3, "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48")  # Ethereum mainnet
+            bound_call = usdc.transfer("<to address here>", Decimal(2140))
+            tx_hash = hot_wallet.transact_and_broadcast_with_contract(bound_call)
+            print("Broadcasted:", tx_hash.hex())
+
+        Another example:
 
         .. code-block:: python
 
