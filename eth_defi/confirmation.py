@@ -17,7 +17,6 @@ from typing import Collection, Dict, List, Set, Union, cast
 
 from _decimal import Decimal
 from eth_account.datastructures import SignedTransaction
-from lxml.parser import ETCompatXMLParser
 
 from eth_defi.provider.anvil import is_anvil
 from hexbytes import HexBytes
@@ -33,7 +32,7 @@ from eth_defi.provider.named import get_provider_name
 from eth_defi.timestamp import get_latest_block_timestamp
 from eth_defi.tx import decode_signed_transaction
 from eth_defi.utils import to_unix_timestamp
-from tradeexecutor.strategy.execution_context import ExecutionContext
+
 
 logger = logging.getLogger(__name__)
 
