@@ -956,14 +956,15 @@ def wait_and_broadcast_multiple_nodes_mev_blocker(
                             tx_hash_2 = backup_web3.eth.send_raw_transaction(tx.rawTransaction)
                             logger.info("Backup provider broadcast complete: %s", tx_hash.hex())
                         except ValueError as e:
+                            logger.info("Backup broadcast failed: %s", e)
                             if "already known" in str(e):
                                 # Will not retry, method eth_sendRawTransaction, as not a retryable exception <class 'ValueError'>: {'code': -32000, 'message': 'already known'}
                                 # base-memex  | 2025-01-18 17:42:39 eth_defi.confirmation
                                 logger.info("Already known race condition: %s", str(e))
                             else:
                                 raise e
-
-                    logger.info("Received backup tx_hash: %s", tx_hash_2.hex())
+                    else:
+                        logger.info("Received backup receipt with has tx_hash: %s", tx.hash)
 
                 logger.debug("Starting MEV Blocker confirmation cycle, unconfirmed tx is: %s, sleeping poll delay %s", tx_hash.hex(), poll_delay)
 
@@ -973,7 +974,13 @@ def wait_and_broadcast_multiple_nodes_mev_blocker(
                     logger.info("Using receipt from the backup provider")
                     receipt = backup_provider_receipt
                 else:
+                    logger.info("Attempting to fetch receipt")
                     receipt = full_web3.eth.get_transaction_receipt(tx_hash)
+
+                if not receipt:
+                    logger.info("No receipt yet, keep trying")
+                    continue
+
                 receipts[tx.hash] = receipt
                 last_exception = None
                 break
@@ -1002,7 +1009,7 @@ def wait_and_broadcast_multiple_nodes_mev_blocker(
                 raise ConfirmationTimedOut(
                     f"Run out of poll delay when confirming %d: %s, last exception is %s",
                     tx.nonce,
-                    tx.hash.hex(),
+                    tx.hash.hex() if tx_hash else '-',
                     last_exception,
                 ) from last_exception
             else:

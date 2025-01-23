@@ -45,10 +45,10 @@ tqdm = {version = ">=4.66.1", optional = true}
 # Some packages have still compatibility issues with Numpy 2.x release,
 # too tired to deal with them now
 numpy = {version = "<2", optional = true}
-pandas = {version = ">=1.5", optional = true}
+pandas = {version = ">=1.4", optional = true}
 gql = {extras = ["requests"], version = "^3.3.0", optional = true}
 jupyter = {version = "^1.0.0", optional = true}
-matplotlib = {version = "^3.5.2", optional = true}
+matplotlib = {version = ">=3.5", optional = true}
 plotly = {version = "^5.8.2", optional = true}
 pyarrow = {version = "*", optional = true}
 pytest-xdist = {version = "^3.3.1", optional = true}
