@@ -1,4 +1,4 @@
-# Current
+# 0.28
 
 - Add: Google Cloud HSM hardware wallet support in `eth_defi.gcloud_hsm_wallet`
 - Add Multicall3 support in `multicall_batcher` module

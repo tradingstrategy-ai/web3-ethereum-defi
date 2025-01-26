@@ -904,10 +904,11 @@ def wait_and_broadcast_multiple_nodes_mev_blocker(
         poll_delay = datetime.timedelta(seconds=0.1)
 
     logger.info(
-        "wait_and_broadcast_multiple_nodes_mev_blocker(): broadcasting %d transactions, anvil is %s, provider is %s",
+        "wait_and_broadcast_multiple_nodes_mev_blocker(): broadcasting %d transactions, anvil is %s, provider is %s, timeout is %s",
         len(txs),
         anviled,
         transaction_provider,
+        max_timeout,
     )
 
     # Initial broadcast of txs
