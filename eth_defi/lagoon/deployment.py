@@ -10,6 +10,7 @@ Lagoon automatised vault consists of
 
 Any Safe must be deployed as 1-of-1 deployer address multisig and multisig holders changed after the deployment.
 """
+
 import logging
 import os
 import time
@@ -55,9 +56,11 @@ DEFAULT_PERFORMANCE_RATE = 2000
 
 CONTRACTS_ROOT = Path(os.path.dirname(__file__)) / ".." / ".." / "contracts"
 
+
 @dataclass(slots=True)
 class LagoonDeploymentParameters:
     """Capture core parameters needed to deploy a Lagoon vault"""
+
     underlying: HexAddress
     name: str
     symbol: str
@@ -92,6 +95,7 @@ class LagoonAutomatedDeployment:
 
     - Have the deployment report for the users for diagnostics
     """
+
     chain_id: int
     vault: LagoonVault
     trading_strategy_module: Contract
@@ -130,7 +134,7 @@ class LagoonAutomatedDeployment:
         fields = self.get_deployment_data()
         # https://stackoverflow.com/a/17330263/315168
         io = StringIO()
-        print("{:<30} {:30}".format('Key', 'Label'), file=io)
+        print("{:<30} {:30}".format("Key", "Label"), file=io)
         for k, v in fields.items():
             print("{:<30} {:<30}".format(k, v), file=io)
 
@@ -148,7 +152,7 @@ def deploy_lagoon(
     etherscan_api_key: str = None,
     use_forge=False,
     beacon_proxy=True,
-    beacon_address = "0x652716FaD571f04D26a3c8fFd9E593F17123Ab20"
+    beacon_address="0x652716FaD571f04D26a3c8fFd9E593F17123Ab20",
 ) -> Contract:
     """Deploy a new Lagoon vault.
 
@@ -226,10 +230,7 @@ def deploy_lagoon(
 
     init_struct = parameters.as_solidity_struct()
 
-    logger.info(
-        "Parameters are:\n%s",
-        pformat(init_struct)
-    )
+    logger.info("Parameters are:\n%s", pformat(init_struct))
 
     # TODO: Beacon proxy deployment does not work
 
@@ -252,11 +253,13 @@ def deploy_lagoon(
             False,
         )
 
-    tx_params = vault.functions.initialize(init_struct).build_transaction({
-        "gas": 2_000_000,
-        "chainId": chain_id,
-        "nonce": web3.eth.get_transaction_count(deployer.address),
-    })
+    tx_params = vault.functions.initialize(init_struct).build_transaction(
+        {
+            "gas": 2_000_000,
+            "chainId": chain_id,
+            "nonce": web3.eth.get_transaction_count(deployer.address),
+        }
+    )
     signed_tx = deployer.sign_transaction(tx_params)
     tx_hash = web3.eth.send_raw_transaction(signed_tx.rawTransaction)
     assert_transaction_success_with_explanation(web3, tx_hash)
@@ -339,9 +342,7 @@ def deploy_safe_trading_strategy_module(
 
     # Enable TradingStrategyModuleV0 as Safe module
     # Multisig owners can enable the module
-    tx = safe.contract.functions.enableModule(module.address).build_transaction(
-        {"from": deployer.address, "gas": 0, "gasPrice": 0}
-    )
+    tx = safe.contract.functions.enableModule(module.address).build_transaction({"from": deployer.address, "gas": 0, "gasPrice": 0})
     safe_tx = safe.build_multisig_tx(safe.address, 0, tx["data"])
     safe_tx.sign(deployer._private_key.hex())
     tx_hash, tx = safe_tx.execute(
@@ -542,11 +543,13 @@ def deploy_automated_lagoon_vault(
 
     # 2. USDC.approve() for redemptions on Safe
     underlying = fetch_erc20_details(web3, parameters.underlying, chain_id=chain_id)
-    tx_data = underlying.contract.functions.approve(vault_contract.address, 2**256-1).build_transaction({
-        "from": deployer.address,
-        "gas": 0,
-        "gasPrice": 0,
-    })
+    tx_data = underlying.contract.functions.approve(vault_contract.address, 2**256 - 1).build_transaction(
+        {
+            "from": deployer.address,
+            "gas": 0,
+            "gasPrice": 0,
+        }
+    )
     safe_tx = safe.build_multisig_tx(underlying.address, 0, tx_data["data"])
     safe_tx.sign(deployer_local_account._private_key.hex())
     tx_hash, tx = safe_tx.execute(
@@ -581,6 +584,41 @@ def deploy_automated_lagoon_vault(
     )
 
 
+def update_lagoon_vault_fees(
+    web3: Web3,
+    *,
+    deployer: LocalAccount | HotWallet,
+    vault_spec: VaultSpec,
+    management_rate: int,
+    performance_rate: int,
+) -> None:
+    if isinstance(deployer, HotWallet):
+        # Production nonce hack
+        deployer_local_account = deployer.account
+    else:
+        deployer_local_account = deployer
+
+    vault = LagoonVault(web3, vault_spec)
+    safe = vault.safe
+
+    print(f"Updating fees: {management_rate} {performance_rate}")
+
+    tx_data = vault.vault_contract.functions.updateRates((management_rate, performance_rate)).build_transaction(
+        {
+            "from": deployer_local_account.address,
+            "gas": 0,
+            "gasPrice": 0,
+        }
+    )
+
+    safe_tx = safe.build_multisig_tx(vault.vault_address, 0, tx_data["data"])
+    safe_tx.sign(deployer_local_account._private_key.hex())
+    tx_hash, tx = safe_tx.execute(
+        tx_sender_private_key=deployer_local_account._private_key.hex(),
+    )
+    assert_transaction_success_with_explanation(web3, tx_hash)
+
+
 #  https://github.com/hopperlabsxyz/lagoon-v0
 LAGOON_BEACONS = {
     # Base
@@ -593,5 +631,3 @@ LAGOON_FEE_REGISTRIES = {
     # Base
     8453: "0x6dA4D1859bA1d02D095D2246142CdAd52233e27C",
 }
-
-
