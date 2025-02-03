@@ -24,6 +24,7 @@ from eth_account.signers.local import LocalAccount
 from eth_typing import HexAddress, BlockNumber
 from hexbytes import HexBytes
 from safe_eth.safe.safe import Safe
+from safe_eth.safe.api.transaction_service_api.transaction_service_api import TransactionServiceApi
 
 from web3 import Web3
 from web3.contract import Contract
@@ -44,15 +45,26 @@ from eth_defi.uniswap_v2.deployment import UniswapV2Deployment
 from eth_defi.uniswap_v3.deployment import UniswapV3Deployment
 from eth_defi.vault.base import VaultSpec
 
-
 logger = logging.getLogger(__name__)
+
+#  https://github.com/hopperlabsxyz/lagoon-v0
+LAGOON_BEACONS = {
+    # Base
+    8453: "0xD69BC314bdaa329EB18F36E4897D96A3A48C3eeF",
+}
+
+
+# https://github.com/hopperlabsxyz/lagoon-v0
+LAGOON_FEE_REGISTRIES = {
+    # Base
+    8453: "0x6dA4D1859bA1d02D095D2246142CdAd52233e27C",
+}
 
 DEFAULT_RATE_UPDATE_COOLDOWN = 86400
 
 DEFAULT_MANAGEMENT_RATE = 200
 
 DEFAULT_PERFORMANCE_RATE = 2000
-
 
 CONTRACTS_ROOT = Path(os.path.dirname(__file__)) / ".." / ".." / "contracts"
 
@@ -450,7 +462,7 @@ def deploy_automated_lagoon_vault(
         Deployer account must be manually removed from the Safe by new owners.
     """
 
-    assert len(safe_owners) >= 1, "Multisig owners emptty"
+    assert len(safe_owners) >= 1, "Multisig owners empty"
 
     chain_id = web3.eth.chain_id
 
@@ -592,6 +604,23 @@ def update_lagoon_vault_fees(
     management_rate: int,
     performance_rate: int,
 ) -> None:
+    """
+    Update the management and performance fees for the Lagoon vault.
+
+    NOTE: this function only proposes a tx to the Safe, the tx must be confirmed by the Safe owners.
+
+    :param deployer:
+        The deployer account
+
+    :param vault_spec:
+        The vault specification
+
+    :param management_rate:
+        The management fee in BPS
+
+    :param performance_rate:
+        The performance fee in BPS
+    """
     if isinstance(deployer, HotWallet):
         # Production nonce hack
         deployer_local_account = deployer.account
@@ -600,8 +629,6 @@ def update_lagoon_vault_fees(
 
     vault = LagoonVault(web3, vault_spec)
     safe = vault.safe
-
-    print(f"Updating fees: {management_rate} {performance_rate}")
 
     tx_data = vault.vault_contract.functions.updateRates((management_rate, performance_rate)).build_transaction(
         {
@@ -613,21 +640,7 @@ def update_lagoon_vault_fees(
 
     safe_tx = safe.build_multisig_tx(vault.vault_address, 0, tx_data["data"])
     safe_tx.sign(deployer_local_account._private_key.hex())
-    tx_hash, tx = safe_tx.execute(
-        tx_sender_private_key=deployer_local_account._private_key.hex(),
-    )
-    assert_transaction_success_with_explanation(web3, tx_hash)
 
-
-#  https://github.com/hopperlabsxyz/lagoon-v0
-LAGOON_BEACONS = {
-    # Base
-    8453: "0xD69BC314bdaa329EB18F36E4897D96A3A48C3eeF",
-}
-
-
-# https://github.com/hopperlabsxyz/lagoon-v0
-LAGOON_FEE_REGISTRIES = {
-    # Base
-    8453: "0x6dA4D1859bA1d02D095D2246142CdAd52233e27C",
-}
+    # setup transaction service API and propose the tx to Safe
+    api = TransactionServiceApi.from_ethereum_client(safe.ethereum_client)
+    api.post_transaction(safe_tx)

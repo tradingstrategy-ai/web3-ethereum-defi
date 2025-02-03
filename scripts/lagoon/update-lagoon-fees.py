@@ -6,7 +6,10 @@ To run:
 
     export PRIVATE_KEY=...
     export JSON_RPC_BASE=...
-    SIMULATE=true python scripts/lagoon/update-lagoon-fees.py
+    export VAULT_ADDRESS=...
+    export MANAGEMENT_RATE=...
+    export PERFORMANCE_RATE=...
+    python scripts/lagoon/update-lagoon-fees.py
 """
 
 import logging
@@ -31,20 +34,9 @@ def main():
     MANAGEMENT_RATE = int(os.environ.get("MANAGEMENT_RATE", 0))
     PERFORMANCE_RATE = int(os.environ.get("PERFORMANCE_RATE", 0))
 
-    SIMULATE = os.environ.get("SIMULATE")
-
     deployer_wallet = HotWallet.from_private_key(PRIVATE_KEY)
 
-    print(deployer_wallet.address)
-
-    if SIMULATE:
-        print("Simulation deployment with Anvil")
-        anvil = fork_network_anvil(JSON_RPC_BASE)
-        web3 = create_multi_provider_web3(anvil.json_rpc_url)
-    else:
-        print("Base production deployment")
-        web3 = create_multi_provider_web3(JSON_RPC_BASE)
-
+    web3 = create_multi_provider_web3(JSON_RPC_BASE)
     chain_id = web3.eth.chain_id
 
     update_lagoon_vault_fees(
@@ -55,7 +47,7 @@ def main():
         performance_rate=PERFORMANCE_RATE,
     )
 
-    print("Lagoon vault fees updated")
+    print(f"Lagoon vault fees proposed to: management {MANAGEMENT_RATE} & performance {PERFORMANCE_RATE}, please confirm the tx on Safe")
 
 
 if __name__ == "__main__":
