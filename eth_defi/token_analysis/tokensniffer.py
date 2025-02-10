@@ -51,11 +51,21 @@ KNOWN_GOOD_TOKENS = {
     "cbBTC",
 }
 
+
 class TokenSnifferError(Exception):
     """Wrap bad API replies from TokenSniffer.
 
-
+    - Has attribute `status_code`
     """
+
+    def __init__(self, msg: str, status_code: int, address: str):
+        """
+        :param status_code:
+            to reflect the HTTP code (e.g. 404 if TokenSniffer does not have data)
+        """
+        super().__init__(msg)
+        self.status_code = status_code
+        self.address = address
 
 
 class TokenSnifferReply(TypedDict):
@@ -452,12 +462,16 @@ class TokenSniffer:
         url = f"https://tokensniffer.com/api/v2/tokens/{chain_id}/{address}"
         resp = self.session.get(url, params=parameters)
         if resp.status_code != 200:
-            raise TokenSnifferError(f"TokeSniffer replied: {resp}: {resp.text}")
+            raise TokenSnifferError(
+                msg=f"TokeSniffer replied on address {address}: {resp}: {resp.text}",
+                status_code=resp.status_code,
+                address=address,
+            )
 
         data = resp.json()
 
         if data["message"] != "OK":
-            raise TokenSnifferError(f"Bad TokenSniffer reply: {data}")
+            raise TokenSnifferError(f"Bad TokenSniffer address: {address} reply: {data}", status_code=resp.status_code, address=address)
 
         # Add timestamp when this was recorded,
         # so cache can have this also as a content value

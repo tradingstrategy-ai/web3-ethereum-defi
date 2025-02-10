@@ -444,6 +444,10 @@ WRAPPED_NATIVE_TOKEN: dict[int, HexAddress] = {
     1: "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",
     # Base
     8453: "0x4200000000000000000000000000000000000006",
+    # WBNB
+    56: "0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c",
+    # WAVAX
+    43114: "0xB31f66AA3C1e785363F0875A1B74E27b85FD66c7",
 }
 
 #: Addresses of wrapped native token (WETH9) of different chains
@@ -452,4 +456,18 @@ USDC_NATIVE_TOKEN: dict[int, HexAddress] = {
     1: "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
     # Base
     8453: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+    # Ava
+    43114: "0xB97EF9Ef8734C71904D8002F8b6Bc66Dd9c48a6E",
+}
+
+
+#: Addresses USDT Tether of different chains
+USDT_NATIVE_TOKEN: dict[int, HexAddress] = {
+    # Mainnet
+    1: "0xdAC17F958D2ee523a2206206994597C13D831ec7",
+    # Binance Smart Chain
+    56: "0x55d398326f99059FF775485246999027B3197955",
+    # USDT.E
+    43114: "0xB97EF9Ef8734C71904D8002F8b6Bc66Dd9c48a6E",
+
 }

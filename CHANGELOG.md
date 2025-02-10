@@ -1,3 +1,8 @@
+# 0.28.1
+
+- Expose `TokenSnifferError.status_code` attribute so clients can handle sniffer errors
+
+
 # 0.28
 
 - Add: Google Cloud HSM hardware wallet support in `eth_defi.gcloud_hsm_wallet`
