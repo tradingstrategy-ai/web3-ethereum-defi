@@ -124,8 +124,8 @@ class LagoonAutomatedDeployment:
             "Share token symbol": self.vault.share_token.symbol,
             "Multisig owners": ", ".join(self.multisig_owners),
             "Block number": f"{self.block_number:,}",
-            "Performance fee": f"{self.parameters.performanceRate / 100:,} %%",
-            "Management fee": f"{self.parameters.managementRate / 100:,} %%",
+            "Performance fee": f"{self.parameters.performanceRate / 100:,} %",
+            "Management fee": f"{self.parameters.managementRate / 100:,} %",
         }
         return fields
 
