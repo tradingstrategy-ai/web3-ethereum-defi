@@ -446,7 +446,7 @@ def deploy_automated_lagoon_vault(
     safe_threshold: int,
     uniswap_v2: UniswapV2Deployment | None,
     uniswap_v3: UniswapV3Deployment | None,
-    aave_v3: AaveV3Deployment | None,
+    aave_v3: AaveV3Deployment | None = None,
     any_asset: bool = False,
     etherscan_api_key: str = None,
     use_forge=False,
