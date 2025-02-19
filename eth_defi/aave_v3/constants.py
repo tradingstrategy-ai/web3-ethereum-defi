@@ -238,6 +238,7 @@ class AaveVersion(enum.Enum):
 MAX_AMOUNT = 2**256 - 1
 
 # https://docs.aave.com/developers/deployed-contracts/v3-mainnet
+# https://search.onaave.com/?q=base
 AAVE_V3_DEPLOYMENTS = {
     "ethereum": {
         "pool": "0x87870Bca3F3fD6335C3F4ce8392D69350B4fA4E2",
@@ -253,5 +254,11 @@ AAVE_V3_DEPLOYMENTS = {
         "pool": "0x794a61358D6845594F94dc1DB02A252b5b4814aD",
         "data_provider": "0x69FA688f1Dc47d4B5d8029D5a35FB7a548310654",
         "oracle": "0xb023e699F5a33916Ea823A16485e259257cA8Bd1",
+    },
+    # https://search.onaave.com/?q=base
+    "base": {
+        "pool": "0xA238Dd80C259a72e81d7e4664a9801593F98d1c5",  # POOL
+        "data_provider": "0xd82a47fdebB5bf5329b09441C3DaB4b5df2153Ad",  # AAVE_PROTOCOL_DATA_PROVIDER
+        "oracle": "0x2Cc0Fc26eD4563A5ce5e8bdcfe1A2878676Ae156",  # ORACLE
     },
 }
