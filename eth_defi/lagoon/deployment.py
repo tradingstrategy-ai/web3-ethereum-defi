@@ -99,6 +99,7 @@ class LagoonAutomatedDeployment:
     multisig_owners: list[HexAddress]
     deployer: HexAddress
     block_number: BlockNumber
+    parameters: LagoonDeploymentParameters
 
     def is_asset_manager(self, address: HexAddress) -> bool:
         return self.trading_strategy_module.functions.isAllowedSender(address).call()
@@ -122,6 +123,8 @@ class LagoonAutomatedDeployment:
             "Share token symbol": self.vault.share_token.symbol,
             "Multisig owners": ", ".join(self.multisig_owners),
             "Block number": f"{self.block_number:,}",
+            "Performance fee": f"{self.parameters.performanceRate / 100:,} %%",
+            "Management fee": f"{self.parameters.managementRate / 100:,} %%",
         }
         return fields
 
@@ -578,6 +581,7 @@ def deploy_automated_lagoon_vault(
         multisig_owners=safe_owners,
         block_number=web3.eth.block_number,
         deployer=deployer.address,
+        parameters=parameters,
     )
 
 
