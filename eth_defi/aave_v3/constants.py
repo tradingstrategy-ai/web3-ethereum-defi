@@ -260,5 +260,6 @@ AAVE_V3_DEPLOYMENTS = {
         "pool": "0xA238Dd80C259a72e81d7e4664a9801593F98d1c5",  # POOL
         "data_provider": "0xd82a47fdebB5bf5329b09441C3DaB4b5df2153Ad",  # AAVE_PROTOCOL_DATA_PROVIDER
         "oracle": "0x2Cc0Fc26eD4563A5ce5e8bdcfe1A2878676Ae156",  # ORACLE
+        "ausdc": "0x729Ef31D86d31440ecBF49f27F7cD7c16c6616d2",
     },
 }

@@ -524,6 +524,7 @@ class LagoonVault(VaultBase):
         :param raw_amount:
             Raw amount in underlying token
         """
+        assert type(raw_amount) == int
         underlying = self.underlying_token
         existing_balance = underlying.fetch_raw_balance_of(depositor)
         assert existing_balance >= raw_amount, f"Cannot deposit {underlying.symbol} by {depositor}. Have: {existing_balance}, asked to deposit: {amount}"

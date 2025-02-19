@@ -28,6 +28,7 @@ from web3 import Web3
 from web3.contract import Contract
 from web3.contract.contract import ContractFunction
 
+from eth_defi.aave_v3.deployment import AaveV3Deployment
 from eth_defi.abi import get_contract
 from eth_defi.deploy import deploy_contract
 from eth_defi.foundry.forge import deploy_contract_with_forge
@@ -367,6 +368,7 @@ def setup_guard(
     any_asset: bool = False,
     uniswap_v2: UniswapV2Deployment = None,
     uniswap_v3: UniswapV3Deployment = None,
+    aave_v3: AaveV3Deployment = None,
 ):
 
     assert isinstance(deployer, HotWallet), f"Got: {deployer}"
@@ -402,6 +404,25 @@ def setup_guard(
         tx_hash = _broadcast(module.functions.whitelistUniswapV3Router(uniswap_v3.swap_router.address, "Allow Uniswap v3"))
         assert_transaction_success_with_explanation(web3, tx_hash)
 
+    # Whitelist Aave v3 with aUSDC deposits.
+    # TODO: Add automatic whitelisting of any aToken and vToken
+    if aave_v3:
+
+        ausdc = aave_v3.ausdc
+        assert ausdc is not None, f"Aave aUSDC configuration missing for chain {web3.eth.chain_id}"
+
+        logger.info("Whitelisting Aave v3 deployment: %s (pool)", aave_v3.pool.address)
+        note = f"Allow Aave v3 pool"
+        tx_hash = _broadcast(module.functions.whitelistAaveV3(aave_v3.pool.address, note))
+        assert_transaction_success_with_explanation(web3, tx_hash)
+
+        atokens = [ausdc]
+        for token in atokens:
+            logger.info("Aave whitelisting for pool %s, aUSDC %s", aave_v3.pool.address, token.address)
+            note = f"Aave v3 pool whitelisting for {token.symbol}"
+            tx_hash = _broadcast(module.functions.whitelistToken(ausdc.address, note))
+            assert_transaction_success_with_explanation(web3, tx_hash)
+
     # Whitelist all assets
     if any_asset:
         logger.info("Allow any asset whitelist")
@@ -425,6 +446,7 @@ def deploy_automated_lagoon_vault(
     safe_threshold: int,
     uniswap_v2: UniswapV2Deployment | None,
     uniswap_v3: UniswapV3Deployment | None,
+    aave_v3: AaveV3Deployment | None,
     any_asset: bool = False,
     etherscan_api_key: str = None,
     use_forge=False,
@@ -529,6 +551,7 @@ def deploy_automated_lagoon_vault(
         module=module,
         uniswap_v2=uniswap_v2,
         uniswap_v3=uniswap_v3,
+        aave_v3=aave_v3,
         any_asset=any_asset,
         broadcast_func=_broadcast,
     )

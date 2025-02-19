@@ -8,6 +8,7 @@ from web3.contract import Contract
 
 from eth_defi.aave_v3.deployer import get_aave_hardhard_export
 from eth_defi.abi import get_deployed_contract, get_linked_contract
+from eth_defi.token import fetch_erc20_details, TokenDetails
 
 
 class AaveV3ReserveConfiguration(NamedTuple):
@@ -82,6 +83,9 @@ class AaveV3Deployment:
     #: AaveOracle contract
     oracle: Contract
 
+    #: aUSDC
+    ausdc: TokenDetails | None = None
+
     def get_reserve_configuration_data(self, token_address: HexAddress) -> AaveV3ReserveConfiguration:
         """Returns reserve configuration data."""
         # https://github.com/aave/aave-v3-core/blob/e0bfed13240adeb7f05cb6cbe5e7ce78657f0621/contracts/misc/AaveProtocolDataProvider.sol#L77
@@ -105,6 +109,7 @@ def fetch_deployment(
     pool_address: HexAddress | str,
     data_provider_address: HexAddress | str,
     oracle_address: HexAddress | str,
+    ausdc_address: HexAddress | None | str = None,
 ) -> AaveV3Deployment:
     """Construct Aave v3 deployment based on on-chain data.
 
@@ -116,9 +121,15 @@ def fetch_deployment(
     data_provider = get_deployed_contract(web3, "aave_v3/AaveProtocolDataProvider.json", data_provider_address)
     oracle = get_deployed_contract(web3, "aave_v3/AaveOracle.json", oracle_address)
 
+    if ausdc_address:
+        ausdc = fetch_erc20_details(web3, ausdc_address)
+    else:
+        ausdc = None
+
     return AaveV3Deployment(
         web3=web3,
         pool=pool,
         data_provider=data_provider,
         oracle=oracle,
+        ausdc=ausdc,
     )
