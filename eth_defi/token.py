@@ -228,12 +228,12 @@ class TokenDetailError(Exception):
 
 
 def create_token(
-        web3: Web3,
-        deployer: str,
-        name: str,
-        symbol: str,
-        supply: int,
-        decimals: int = 18,
+    web3: Web3,
+    deployer: str,
+    name: str,
+    symbol: str,
+    supply: int,
+    decimals: int = 18,
 ) -> Contract:
     """Deploys a new ERC-20 token on local dev, testnet or mainnet.
 
@@ -469,5 +469,4 @@ USDT_NATIVE_TOKEN: dict[int, HexAddress] = {
     56: "0x55d398326f99059FF775485246999027B3197955",
     # USDT.E
     43114: "0xB97EF9Ef8734C71904D8002F8b6Bc66Dd9c48a6E",
-
 }
