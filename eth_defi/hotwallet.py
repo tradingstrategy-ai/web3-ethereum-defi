@@ -21,6 +21,7 @@ from web3 import Web3
 from web3._utils.contracts import prepare_transaction
 from web3.contract.contract import ContractFunction
 
+from eth_defi.basewallet import BaseWallet
 from eth_defi.gas import estimate_gas_fees, apply_gas, estimate_gas_price
 from eth_defi.tx import decode_signed_transaction
 
@@ -94,7 +95,7 @@ class SignedTransactionWithNonce(NamedTuple):
         return __getitem__(self, index)
 
 
-class HotWallet:
+class HotWallet(BaseWallet):
     """Hot wallet for signing transactions effectively.
 
     - A hot wallet maintains an plain text private key of an Ethereum address in the process memory
