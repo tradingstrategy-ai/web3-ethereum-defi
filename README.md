@@ -85,9 +85,11 @@ To use this package you need to
 
 * Have Python 3.10, Python 3.11, or Python 3.12 (no other versions tested)
 * macOS, Linux or Windows Subsystem for Linux (WSL) needed, Microsoft Windows is not officially supported
+  * For WSL, [make sure you have gcc and other tools installed](https://stackoverflow.com/questions/62215963/how-to-install-gcc-and-gdb-for-wslwindows-subsytem-for-linux/63548362#63548362)
 * [Be proficient in Python programming](https://wiki.python.org/moin/BeginnersGuide)
 * [Understand of Web3.py library](https://web3py.readthedocs.io/en/stable/) 
 * [Understand Pytest basics](https://docs.pytest.org/)
+ 
 
 # Install
 
