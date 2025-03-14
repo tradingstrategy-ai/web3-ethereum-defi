@@ -2,7 +2,6 @@
 from decimal import Decimal
 
 import pytest
-from eth_account.signers.local import LocalAccount
 from eth_typing import HexAddress
 from web3 import Web3
 
