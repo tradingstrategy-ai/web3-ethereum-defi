@@ -17,10 +17,36 @@ The goal of this project is to integrate GMX with eth_defi, enabling users to in
 
 The integration will be structured into several modules:
 
-1. **GMXClient**: A client module to interact with GMX's smart contracts and APIs.
-2. **TradingModule**: A module to handle opening, closing, and managing positions.
-3. **DataModule**: A module to fetch real-time and historical market data.
-4. **Utils**: A utility module for helper functions and constants.
+##### Modules
+
+1. **GMXClient**:
+   - `GMXClient(config)`: Initializes the client with the given configuration.
+     ```python
+     config = {
+         "web3_provider": "https://arbitrum-rpc.com",
+         "chain_id": 42161,
+         [..]
+     }
+     ```
+   - `open_position(market_key, collateral_address, index_token_address, is_long, size_delta_usd, initial_collateral_delta_amount, slippage_percent, swap_path)`: Opens a new position.
+   - `close_position(market_key, collateral_address, index_token_address, is_long, size_delta_usd, initial_collateral_delta_amount, slippage_percent, swap_path)`: Closes an existing position.
+   - `get_data(market_key, start_block, end_block)`: Fetches market data for a given block range.
+
+2. **TradingModule**:
+   - `open_position(user_address, market_symbol, collateral_symbol, is_long, size_usd, leverage)`: Opens a leveraged position.
+   - `close_position(user_address, market_symbol, collateral_symbol, is_long, size_usd)`: Closes a position.
+   - `manage_position(user_address, market_symbol, collateral_symbol, is_long, size_usd, collateral_amount)`: Manages an existing position.
+
+3. **DataModule**:
+   - `get_data(market_symbol, start_block, end_block)`: Fetches data for a specific market and block range.
+
+4. **Utils**:
+   - `get_contract(contract_name)`: Returns the contract instance for a given contract name.
+   - `format_date(date)`: Formats a date string to the required format.
+   
+   
+   
+   **N.B.** Exact parameters and design of choice  may vary 
 
 ### Events and Smart Contracts
 
@@ -28,21 +54,187 @@ The integration will be structured into several modules:
 
 - **Smart Contracts**:
   - `ExchangeRouter`: For creating and managing orders.
-  - `Reader`: For reading market and position data.
+  - `ExchangeRouter.sol`
+    - https://github.com/gmx-io/gmx-synthetics/blob/main/contracts/router/ExchangeRouter.sol
+  - `Reader`: For reading market and position data. 
+    - `Reader.sol`
+        - https://github.com/gmx-io/gmx-synthetics/blob/main/contracts/reader/Reader.sol
+        - https://arbiscan.io/address/0x0537C767cDAC0726c76Bb89e92904fe28fd02fE1#readContract
+    
   - `GlvReader`: For reading GLV-specific data.
+    - `GivReader.sol`
+        - https://github.com/gmx-io/gmx-synthetics/blob/main/contracts/reader/GlvReader.sol
+  - DataStore: DataStore for all general state values. It acts as a single source of truth where many different kinds of data—from numeric values to addresses, booleans, strings, arrays, and even sets—is stored and managed. Only authorized controllers (as defined by the GMX access control modules) are allowed to modify this data.  
+    - `DataStore.sol`
+        - https://github.com/gmx-io/gmx-synthetics/blob/main/contracts/data/DataStore.sol
 - **Source Code**:
   - GMX smart contract source code will be integrated as a git submodule in `eth_defi/contracts`.
 
 #### How to Build
 
 1. Clone the GMX smart contract repository as a git submodule.
-2. Set up the development environment with the required Python libraries.
-3. Implement the modules and functions as described.
+
+```sh
+# Clone and setup
+git submodule add https://github.com/gmx-io/gmx-contracts.git eth_defi/contracts/gmx
+cd eth_defi/contracts/gmx
+
+# To compile contracts:
+
+npx hardhat compile
+
+# To run all tests:
+
+npx hardhat test
+
+export NODE_OPTIONS=--max_old_space_size=4096 # may be needed to run tests.
+
+# To print code metrics:
+
+npx ts-node metrics.ts
+
+
+# To print test coverage:
+
+npx hardhat coverage
+```
+
+2. Set up the development environment with the required Python libraries. (Information will be provided on the readme page of the module)
+3. Implement the modules and functions as described. (Module README)
 4. Write tests to ensure the functionality and reliability of the integration.
 
 ### Other Integrations
 
-- **Subgraphs/Indexers**: If needed, integrate with The Graph or a similar indexer to efficiently query historical data.
+- **Subgraphs/Indexers**: The subgraphs provide data like `Token Information, RewardToken, LiquidityPoolFee, DerivPerpProtocol, UsageMetricsDailySnapshot, UsageMetricsHourlySnapshot, FinancialsDailySnapshot` etc.
+    - Endpoints: 
+        - Devs Suggested: https://gmx.squids.live/gmx-synthetics-arbitrum:live/api/graphql
+        - Example:
+            ```graphql
+            query MyQuery {
+                marketInfo {
+                    id
+                    longOpenInterestInTokens
+                    longOpenInterestInTokensUsingLongToken
+                    longOpenInterestInTokensUsingShortToken
+                    shortOpenInterestInTokens
+                    shortOpenInterestInTokensUsingLongToken
+                    shortOpenInterestInTokensUsingShortToken
+                    longOpenInterestUsd
+                    longOpenInterestUsingLongToken
+                    longOpenInterestUsingShortToken
+                    shortOpenInterestUsd
+                    shortOpenInterestUsingLongToken
+                    shortOpenInterestUsingShortToken
+                }
+            }
+            ```
+
+            ```json
+            {
+                "data": {
+                    "marketInfos": [
+                        {
+                            "id": "0xe2fEDb9e6139a182B98e7C2688ccFa3e9A53c665",
+                            "longOpenInterestInTokens": "0",
+                            "longOpenInterestInTokensUsingLongToken": "0",
+                            "longOpenInterestInTokensUsingShortToken": "0",
+                            "shortOpenInterestInTokens": "0",
+                            "shortOpenInterestInTokensUsingLongToken": "0",
+                            "shortOpenInterestInTokensUsingShortToken": "0",
+                            "longOpenInterestUsd": "0",
+                            "longOpenInterestUsingLongToken": "0",
+                            "longOpenInterestUsingShortToken": "0",
+                            "shortOpenInterestUsd": "0",
+                            "shortOpenInterestUsingLongToken": "0",
+                            "shortOpenInterestUsingShortToken": "0"
+                        },
+                        {
+                            "id": "0x47c031236e19d024b42f8AE6780E44A573170703",
+                            "longOpenInterestInTokens": "34804233385",
+                            "longOpenInterestInTokensUsingLongToken": "3588784280",
+                            "longOpenInterestInTokensUsingShortToken": "31215449105",
+                            "shortOpenInterestInTokens": "30052902248",
+                            "shortOpenInterestInTokensUsingLongToken": "11023337021",
+                            "shortOpenInterestInTokensUsingShortToken": "19029565227",
+                            "longOpenInterestUsd": "30144834183408837182019585682814599010",
+                            "longOpenInterestUsingLongToken": "3233510783148258137752918913918705000",
+                            "longOpenInterestUsingShortToken": "26911323400260579044266666768895894010",
+                            "shortOpenInterestUsd": "24325893965336468729215281830714953267",
+                            "shortOpenInterestUsingLongToken": "8317431370090659206876246234024058727",
+                            "shortOpenInterestUsingShortToken": "16008462595245809522339035596690894540"
+                        },
+                        {
+                            "id": "0x45aD16Aaa28fb66Ef74d5ca0Ab9751F2817c81a4",
+                            "longOpenInterestInTokens": "0",
+                            "longOpenInterestInTokensUsingLongToken": "0",
+                            "longOpenInterestInTokensUsingShortToken": "0",
+                            "shortOpenInterestInTokens": "0",
+                            "shortOpenInterestInTokensUsingLongToken": "0",
+                            "shortOpenInterestInTokensUsingShortToken": "0",
+                            "longOpenInterestUsd": "0",
+                            "longOpenInterestUsingLongToken": "0",
+                            "longOpenInterestUsingShortToken": "0",
+                            "shortOpenInterestUsd": "0",
+                            "shortOpenInterestUsingLongToken": "0",
+                            "shortOpenInterestUsingShortToken": "0"
+                        }
+                    ]
+                }
+            }
+            ```
+
+
+    
+    
+    
+    - `Arbitrum One`: https://thegraph.com/explorer/subgraphs/E15amJKR3s5Wsaa4GeVhHcCzoo7jSu1Kk8SNqY4XXH9i?view=Query&chain=arbitrum-one
+    - `Avalanche`: https://thegraph.com/explorer/subgraphs/6pXgnXcL6mkXBjKX7NyHN7tCudv2JGFnXZ8wf8WbjPXv?view=Query&chain=arbitrum-one
+
+        - Example:
+            ```sh
+            curl -X POST \
+            -H "Content-Type: application/json" \
+            -d '{"query": "{ tokenStats(first: 2) { id token poolAmount poolAmountUsd period reservedAmount reservedAmountUsd usdgAmount timestamp } hourlyVolume(id: "") { burn margin mint swap } }", "operationName": "Subgraphs", "variables": {}}' \
+            https://gateway.thegraph.com/api/{api-key}/subgraphs/id/E15amJKR3s5Wsaa4GeVhHcCzoo7jSu1Kk8SNqY4XXH9i
+            ```
+
+            ```json
+            {
+            "data": {
+                "hourlyVolume": null,
+                "tokenStats": [
+                {
+                    "id": "1629936000:weekly:0x2f2a2543b76a4166549f7aab2e75bef0aefc5b0f",
+                    "period": "weekly",
+                    "poolAmount": "256630533",
+                    "poolAmountUsd": "123664756691541501322200000000000000",
+                    "reservedAmount": "47741",
+                    "reservedAmountUsd": "22698860083365099600000000000000",
+                    "timestamp": 1629936000,
+                    "token": "0x2f2a2543b76a4166549f7aab2e75bef0aefc5b0f",
+                    "usdgAmount": "123473085701470000000000"
+                },
+                {
+                    "id": "1629936000:weekly:0x82af49447d8a07e3bd95bd0d56f35241523fbab1",
+                    "period": "weekly",
+                    "poolAmount": "255847036218295555644",
+                    "poolAmountUsd": "975986894059865462212712735159400000",
+                    "reservedAmount": "24746566571469294133",
+                    "reservedAmountUsd": "93389510350686684637389469175750000",
+                    "timestamp": 1629936000,
+                    "token": "0x82af49447d8a07e3bd95bd0d56f35241523fbab1",
+                    "usdgAmount": "917727094391062984147017"
+                }
+                ]
+            }
+            ```
+
+### Events
+All events are emitted on the `EventEmitter` contract. Each event from the `EventEmitter` will have an `eventName`, so events can be monitored just by specifying the EventEmitter address and the eventName to be monitored. [`EventEmitter.sol`](https://github.com/gmx-io/gmx-synthetics/blob/main/contracts/event/EventEmitter.sol) contract. 
+
+Deployments:
+- Arbitrum: https://arbiscan.io/address/0xC8ee91A54287DB53897056e12D9819156D3822Fb#events
+- Avalanche: https://snowtrace.io/address/0xDb17B211c34240B014ab6d61d4A31FA0C0e20c26/events
 
 ### Dependencies
 
@@ -59,6 +251,23 @@ The integration will be structured into several modules:
 
 1. **GMXClient**:
    - `GMXClient(config)`: Initializes the client with the given configuration.
+   
+    Example:
+    - Config can be defined as a separate class like this
+    ```py
+        class ConfigManager:
+
+        def __init__(self, chain: str):
+
+            self.chain = chain
+            self.rpc = None
+            self.chain_id = None
+            self.user_wallet_address = None
+            self.private_key = None
+            self.tg_bot_token = None
+        [..]
+    ```
+
    - `open_position(market_key, collateral_address, index_token_address, is_long, size_delta_usd, initial_collateral_delta_amount, slippage_percent, swap_path)`: Opens a new position.
    - `close_position(market_key, collateral_address, index_token_address, is_long, size_delta_usd, initial_collateral_delta_amount, slippage_percent, swap_path)`: Closes an existing position.
    - `get_real_time_data(market_key)`: Fetches real-time market data.
@@ -191,6 +400,16 @@ class GMXStaking:
 ```
 
 ### `gmx/api.py`
+
+
+#### According to the devs
+Originally the prices are fetched from chain link oracles. Our api relays the calls to it. 
+
+The GMX API endpoints (e.g., `https://arbitrum-api.gmxinfra.io`) are centralized servers provided by GMX's infrastructure partners. These endpoints offer:
+- **Price Tickers:** Quick access to current asset prices.
+- **Candlestick Data:** Historical market data for constructing charts.
+
+
 
 ```python
 import requests
