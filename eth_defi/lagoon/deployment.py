@@ -599,18 +599,18 @@ def deploy_automated_lagoon_vault(
 def update_lagoon_vault_fees(
     web3: Web3,
     *,
-    deployer: LocalAccount | HotWallet,
+    deployer: LocalAccount | HotWallet | str,
     vault_spec: VaultSpec,
     management_rate: int,
     performance_rate: int,
-) -> None:
+) -> None | str:
     """
     Update the management and performance fees for the Lagoon vault.
 
     NOTE: this function only proposes a tx to the Safe, the tx must be confirmed by the Safe owners.
 
     :param deployer:
-        The deployer account
+        The deployer account, if deployer is a string, it is interpreted as deployer address
 
     :param vault_spec:
         The vault specification
@@ -620,27 +620,43 @@ def update_lagoon_vault_fees(
 
     :param performance_rate:
         The performance fee in BPS
+
+    :return:
+        The tx data, if deployer is a string, otherwise None
     """
+    deployer_local_account = None
     if isinstance(deployer, HotWallet):
         # Production nonce hack
         deployer_local_account = deployer.account
-    else:
+    elif isinstance(deployer, LocalAccount):
         deployer_local_account = deployer
 
     vault = LagoonVault(web3, vault_spec)
     safe = vault.safe
 
-    tx_data = vault.vault_contract.functions.updateRates((management_rate, performance_rate)).build_transaction(
-        {
-            "from": deployer_local_account.address,
-            "gas": 0,
-            "gasPrice": 0,
-        }
-    )
+    if deployer_local_account:
+        tx_data = vault.vault_contract.functions.updateRates((management_rate, performance_rate)).build_transaction(
+            {
+                "from": deployer_local_account.address,
+                "gas": 0,
+                "gasPrice": 0,
+            }
+        )
 
-    safe_tx = safe.build_multisig_tx(vault.vault_address, 0, tx_data["data"])
-    safe_tx.sign(deployer_local_account._private_key.hex())
+        safe_tx = safe.build_multisig_tx(vault.vault_address, 0, tx_data["data"])
+        safe_tx.sign(deployer_local_account._private_key.hex())
 
-    # setup transaction service API and propose the tx to Safe
-    api = TransactionServiceApi.from_ethereum_client(safe.ethereum_client)
-    api.post_transaction(safe_tx)
+        # setup transaction service API and propose the tx to Safe
+        api = TransactionServiceApi.from_ethereum_client(safe.ethereum_client)
+        api.post_transaction(safe_tx)
+    else:
+        assert isinstance(deployer, str), f"Expecting deployer address, got: {type(deployer)}"
+        tx_data = vault.vault_contract.functions.updateRates((management_rate, performance_rate)).build_transaction(
+            {
+                "from": deployer,
+                "gas": 0,
+                "gasPrice": 0,
+            }
+        )
+
+        return tx_data["data"]
