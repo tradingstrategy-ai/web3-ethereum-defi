@@ -10,8 +10,9 @@ from web3.types import BlockIdentifier
 
 from eth_defi.abi import get_deployed_contract
 from eth_defi.balances import fetch_erc20_balances_fallback
+from eth_defi.event_reader.multicall_batcher import MulticallWrapper
 from eth_defi.token import TokenDetails, fetch_erc20_details
-from eth_defi.vault.base import VaultBase, VaultSpec, VaultInfo, TradingUniverse, VaultPortfolio, VaultFlowManager
+from eth_defi.vault.base import VaultBase, VaultSpec, VaultInfo, TradingUniverse, VaultPortfolio, VaultFlowManager, VaultSharePriceReader
 
 
 class ERC4626VaultInfo(VaultInfo):
@@ -25,6 +26,19 @@ class ERC4626VaultInfo(VaultInfo):
     #: E.g. USDC.
     #:
     asset: HexAddress
+
+
+class ERC4626SharePriceReader(VaultSharePriceReader):
+    """Support reading historical vault share prices.
+
+    - Allows to construct historical returns
+    """
+
+        def construct_calls(self) -> list[MulticallWrapper]:
+            """Get the onchain calls that are needed to read the share price."""
+            return [
+                MulticallWrapper(self.vault)
+            ]
 
 
 class ERC4626Vault(VaultBase):

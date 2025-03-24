@@ -19,6 +19,8 @@ from eth.typing import BlockRange, Block
 from eth_typing import BlockIdentifier, HexAddress
 from web3 import Web3
 
+from eth_defi.enzyme.vault import Vault
+from eth_defi.event_reader.multicall_batcher import MulticallWrapper
 from eth_defi.token import TokenAddress, fetch_erc20_details, TokenDetails
 from eth_defi.vault.lower_case_dict import LowercaseDict
 
@@ -37,8 +39,7 @@ class VaultSpec:
     chain_id: int
 
     #: Vault smart contract address or whatever is the primary address for unravelling a vault deployment for a vault protocol
-    vault_address: HexAddress
-
+    vault_address: HexAddress | str
     def __post_init__(self):
         assert isinstance(self.chain_id, int)
         assert isinstance(self.vault_address, str), f"Expected str, got {self.vault_address}"
@@ -115,6 +116,21 @@ class VaultPortfolio:
         """Convert spot balances to raw token balances"""
         chain_id = web3.eth.chain_id
         return LowercaseDict(**{addr: fetch_erc20_details(web3, addr, chain_id=chain_id).convert_to_raw(value) for addr, value in self.spot_erc20.items()})
+
+
+
+class VaultSharePriceReader(ABC):
+    """Support reading historical vault share prices.
+
+    - Allows to construct historical returns
+    """
+
+    def __init__(self, vault: Vault):
+        self.vault = vault
+
+    @abstractmethod
+    def construct_calls(self) -> tuple[MulticallWrapper]:
+        """Get the onchain calls that are needed to read the share price."""
 
 
 
@@ -302,6 +318,14 @@ class VaultBase(ABC):
         """
 
     @abstractmethod
+    def get_share_price_reader(self) -> VaultSharePriceReader:
+        """Get share price reader to fetch historical returns.
+
+        :return:
+            None if unsupported
+        """
+
+    @abstractmethod
     def fetch_denomination_token(self) -> TokenDetails:
         """Read denomination token from onchain.
 
@@ -358,3 +382,4 @@ class VaultBase(ABC):
             Vault protocol specific information dictionary
         """
         return self.fetch_info()
+
