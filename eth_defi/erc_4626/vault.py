@@ -11,9 +11,9 @@ from web3.types import BlockIdentifier
 
 from eth_defi.abi import get_deployed_contract
 from eth_defi.balances import fetch_erc20_balances_fallback
-from eth_defi.event_reader.multicall_batcher import MulticallWrapper, EncodedCall, EncodedCallResult
+from eth_defi.event_reader.multicall_batcher import EncodedCall, EncodedCallResult
 from eth_defi.token import TokenDetails, fetch_erc20_details
-from eth_defi.vault.base import VaultBase, VaultSpec, VaultInfo, TradingUniverse, VaultPortfolio, VaultFlowManager, VaultSharePriceReader, VaultHistoricalReader, VaultHistoricalRead
+from eth_defi.vault.base import VaultBase, VaultSpec, VaultInfo, TradingUniverse, VaultPortfolio, VaultFlowManager, VaultHistoricalReader, VaultHistoricalRead
 
 
 class ERC4626VaultInfo(VaultInfo):
@@ -27,12 +27,6 @@ class ERC4626VaultInfo(VaultInfo):
     #: E.g. USDC.
     #:
     asset: HexAddress
-
-
-class ERC4626SharePriceReader(MulticallWrapper):
-
-    def __init__(self):
-        pass
 
 
 class ERC4626HistoricalReader(VaultHistoricalReader):
@@ -276,3 +270,6 @@ class ERC4626Vault(VaultBase):
 
     def has_deposit_distribution_to_all_positions(self):
         raise NotImplementedError()
+
+    def get_historical_reader(self) -> VaultHistoricalReader:
+        return ERC4626HistoricalReader(self)

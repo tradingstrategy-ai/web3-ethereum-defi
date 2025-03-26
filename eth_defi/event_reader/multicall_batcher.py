@@ -30,7 +30,7 @@ from web3.contract.contract import ContractFunction
 
 from eth_defi.abi import get_deployed_contract, ZERO_ADDRESS, encode_function_call
 from eth_defi.event_reader.web3factory import Web3Factory
-from tradeexecutor.utils.blockchain import get_block_timestamp
+from eth_defi.timestamp import get_block_timestamp
 
 logger = logging.getLogger(__name__)
 
@@ -365,7 +365,11 @@ class MulticallWrapper(abc.ABC):
 class EncodedCall:
     """Multicall payload, minified implementation.
 
+    - Designed for multiprocessing and historical reads
+
     - Only carry encoded data, not ABI etc. metadata
+
+    - Contain :py:attr:`extra_data` which allows route to call results from several calls to one handler class
     """
 
     #: Store ABI function for debugging purposers
@@ -398,19 +402,15 @@ class EncodedCall:
 
 @dataclass(slots=True, frozen=True)
 class EncodedCallResult:
+    """Result of an one multicall"""
     call: EncodedCall
     success: bool
     result: bytes
 
 
 @dataclass(slots=True, frozen=True)
-class EncodedCallHandler:
-    call: EncodedCall
-    handler: Callable[[EncodedCallResult], None]
-
-
-@dataclass(slots=True, frozen=True)
 class CombinedEncodedCallResult:
+    """Historical read result of multiple multicalls."""
     block_number: int
     timestamp: datetime.datetime
     results: list[EncodedCallResult]
@@ -461,7 +461,6 @@ class MultiprocessMulticallReader:
         assert len(calls_results) == len(calls_results)
         out_size = sum(len(o[1]) for o in calls_results)
 
-        results = {}
         for call, output_tuple in zip(calls, calls_results):
             yield EncodedCallResult(
                 call=call,
@@ -474,10 +473,9 @@ class MultiprocessMulticallReader:
         logger.info("Multicall result fetch and handling took %s, output was %d bytes", duration, out_size)
 
 
-
 def read_multicall_historical(
     web3factory: Web3Factory,
-    calls: Iterable[CombinedEncodedCall],
+    calls: Iterable[EncodedCall],
     start_block: int,
     end_block: int,
     step: int,
@@ -485,7 +483,10 @@ def read_multicall_historical(
     timeout=1800,
     display_progress=True,
 ) -> Iterable[CombinedEncodedCallResult]:
-    """Read historical data using multiple threads in parallel for speedup."""
+    """Read historical data using multiple threads in parallel for speedup.
+
+    - Show a progress bar using :py:mod:`tqdm`
+    """
 
     worker_processor = Parallel(
         n_jobs=max_workers,

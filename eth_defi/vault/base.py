@@ -19,8 +19,7 @@ from eth.typing import BlockRange, Block
 from eth_typing import BlockIdentifier, HexAddress
 from web3 import Web3
 
-from eth_defi.enzyme.vault import Vault
-from eth_defi.event_reader.multicall_batcher import MulticallWrapper, EncodedCall, EncodedCallHandler, EncodedCallResult, CombinedEncodedCall, CombinedEncodedCallResults
+from eth_defi.event_reader.multicall_batcher import EncodedCall, EncodedCallResult
 from eth_defi.token import TokenAddress, fetch_erc20_details, TokenDetails
 from eth_defi.vault.lower_case_dict import LowercaseDict
 
@@ -163,7 +162,7 @@ class VaultHistoricalReader(ABC):
 
     @abstractmethod
     def construct_multicalls(self) -> Iterable[EncodedCall]:
-        """Create all calls
+        """Create smart contract calls needed to read the historical state of this vault.
 
         - Multicall machinery will call these calls at a specific block and report back to :py:meth:`process_result`
         """
@@ -174,11 +173,14 @@ class VaultHistoricalReader(ABC):
         self,
         block_number: int,
         timestamp: datetime.datetime,
-        call_result: CombinedEncodedCallResults,
+        call_results: list[EncodedCallResult],
     ) -> VaultHistoricalRead:
-        pass
+        """Process the result of mult
 
+        - Calls are created in :py:meth:`construct_multicalls`
 
+        - This method combines result of this calls to a easy to manage historical record :py:class:`VaultHistoricalRead`
+        """
 
 
 class VaultFlowManager(ABC):

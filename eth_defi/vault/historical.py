@@ -1,21 +1,21 @@
-"""Read historical returns of ERC-4626 vaults.
+"""Read historical state of vaults.
 
-- Use multicall to get rates for multiple vaults once.
+- Use multicall to get data points for multiple vaults once
+- Include
+    - Share price
+    - TVL
+    - Fees
+
+See :py:class:`VaultHistoricalReadMulticaller` for usage.
 """
 import logging
-import threading
 from collections import defaultdict
-from dataclasses import dataclass
-from mailcap import subst
+
 from typing import Iterable
 
-from demeter.squeeth import Vault
 from eth_typing import HexAddress
-from joblib import Parallel
 
-from tqdm_loggable.auto import tqdm
-
-from eth_defi.event_reader.multicall_batcher import EncodedCall, MultiprocessMulticallReader, CombinedEncodedCall, CombinedEncodedCallResults, read_multicall_historical, EncodedCallResult
+from eth_defi.event_reader.multicall_batcher import EncodedCall, read_multicall_historical, EncodedCallResult
 from eth_defi.event_reader.web3factory import Web3Factory
 from eth_defi.token import TokenDetails
 from eth_defi.vault.base import VaultBase, VaultHistoricalReader, VaultHistoricalRead
@@ -27,37 +27,8 @@ class VaultReadNotSupported(Exception):
     """Vault cannot be read due to misconfiguration somewhere."""
 
 
-@dataclass(frozen=True, slots=True)
-class VaultReadSubprocessTask:
-    """Information send to the subprocess worker."""
-    web3factory: Web3Factory
-    block_number: int
-
-    #: Vault -> multicalls needed
-    calls: dict[HexAddress, CombinedEncodedCall]
-
-
-@dataclass(frozen=True, slots=True)
-class VaultReadTask:
-    """Information send to the subprocess worker."""
-
-    #: Each block as its own list of
-    subprocess_task: VaultReadSubprocessTask
-
-    #: Vault address -> reader mapping
-    readers: dict[HexAddress, VaultHistoricalReader]
-
-
-@dataclass(slots=True)
-class VaultReadSubprocessResult:
-    block_number: int
-    reader: VaultHistoricalReader
-    results: dict[HexAddress, CombinedEncodedCallResults]
-
-
-
-
-class VaultDataScanner:
+class VaultHistoricalReadMulticaller:
+    """Read historical data from multiple vaults using multicall and archive node polling."""
 
     def __init__(
         self,

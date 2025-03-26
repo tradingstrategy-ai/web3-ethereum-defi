@@ -470,3 +470,10 @@ USDT_NATIVE_TOKEN: dict[int, HexAddress] = {
     # USDT.E
     43114: "0xB97EF9Ef8734C71904D8002F8b6Bc66Dd9c48a6E",
 }
+
+
+#: Sky (MakerDAO) new tokens
+SUSDS_NATIVE_TOKEN: dict[int, HexAddress] = {
+    # Base
+    8453: "0x5875eEE11Cf8398102FdAd704C9E96607675467a",
+}
