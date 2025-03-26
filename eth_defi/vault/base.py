@@ -8,19 +8,19 @@
 
 - See :py:class:`VaultBase` to get started
 """
-
+import datetime
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from decimal import Decimal
 from functools import cached_property
-from typing import TypedDict
+from typing import TypedDict, Iterable
 
 from eth.typing import BlockRange, Block
 from eth_typing import BlockIdentifier, HexAddress
 from web3 import Web3
 
 from eth_defi.enzyme.vault import Vault
-from eth_defi.event_reader.multicall_batcher import MulticallWrapper
+from eth_defi.event_reader.multicall_batcher import MulticallWrapper, EncodedCall, EncodedCallHandler, EncodedCallResult, CombinedEncodedCall, CombinedEncodedCallResults
 from eth_defi.token import TokenAddress, fetch_erc20_details, TokenDetails
 from eth_defi.vault.lower_case_dict import LowercaseDict
 
@@ -118,19 +118,66 @@ class VaultPortfolio:
         return LowercaseDict(**{addr: fetch_erc20_details(web3, addr, chain_id=chain_id).convert_to_raw(value) for addr, value in self.spot_erc20.items()})
 
 
+@dataclass(slots=True, frozen=True)
+class VaultHistoricalRead:
+    """Vault share price and fee structure at the point of time."""
 
-class VaultSharePriceReader(ABC):
+    #: Vault for this result is
+    vault_address: HexAddress
+
+    #: block number of the reade
+    block_number: int
+
+    #: Naive datetime in UTC
+    timestamp: datetime.datetime
+
+    #: What was the share price in vault denomination token
+    share_price: Decimal
+
+    #: NAV / Assets under management in denomination token
+    total_assets: Decimal
+
+    #: Number of share tokens
+    total_supply: Decimal
+
+    #: What was the vault performance fee around the time
+    performance_fee: float | None
+
+    #: What was the vault management fee around the time
+    management_fee: float | None
+
+
+
+class VaultHistoricalReader(ABC):
     """Support reading historical vault share prices.
 
     - Allows to construct historical returns
     """
 
-    def __init__(self, vault: Vault):
+    def __init__(self, vault: "VaultBase"):
         self.vault = vault
 
+    @property
+    def address(self) -> HexAddress:
+        return self.vault.address
+
     @abstractmethod
-    def construct_calls(self) -> tuple[MulticallWrapper]:
-        """Get the onchain calls that are needed to read the share price."""
+    def construct_multicalls(self) -> Iterable[EncodedCall]:
+        """Create all calls
+
+        - Multicall machinery will call these calls at a specific block and report back to :py:meth:`process_result`
+        """
+        pass
+
+    @abstractmethod
+    def process_result(
+        self,
+        block_number: int,
+        timestamp: datetime.datetime,
+        call_result: CombinedEncodedCallResults,
+    ) -> VaultHistoricalRead:
+        pass
+
 
 
 
@@ -264,6 +311,20 @@ class VaultBase(ABC):
 
     @property
     @abstractmethod
+    def chain_id(self) -> int:
+        """Chain this vault is on"""
+
+    @property
+    @abstractmethod
+    def address(self) -> HexAddress:
+        """Vault contract address.
+
+        - Often vault protocols need multiple contracts per vault,
+          so what this function returns depends on the protocol
+        """
+
+    @property
+    @abstractmethod
     def name(self) -> str:
         """Vault name."""
         pass
@@ -318,7 +379,7 @@ class VaultBase(ABC):
         """
 
     @abstractmethod
-    def get_share_price_reader(self) -> VaultSharePriceReader:
+    def get_historical_reader(self) -> VaultHistoricalReader:
         """Get share price reader to fetch historical returns.
 
         :return:
@@ -382,4 +443,5 @@ class VaultBase(ABC):
             Vault protocol specific information dictionary
         """
         return self.fetch_info()
+
 

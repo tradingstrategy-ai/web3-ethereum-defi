@@ -1,7 +1,8 @@
 """Generic ECR-4626 vault reader implementation."""
-
+import datetime
 from decimal import Decimal
 from functools import cached_property
+from typing import Iterable
 
 from eth_typing import HexAddress
 from web3 import Web3
@@ -10,9 +11,9 @@ from web3.types import BlockIdentifier
 
 from eth_defi.abi import get_deployed_contract
 from eth_defi.balances import fetch_erc20_balances_fallback
-from eth_defi.event_reader.multicall_batcher import MulticallWrapper
+from eth_defi.event_reader.multicall_batcher import MulticallWrapper, EncodedCall, EncodedCallResult
 from eth_defi.token import TokenDetails, fetch_erc20_details
-from eth_defi.vault.base import VaultBase, VaultSpec, VaultInfo, TradingUniverse, VaultPortfolio, VaultFlowManager, VaultSharePriceReader
+from eth_defi.vault.base import VaultBase, VaultSpec, VaultInfo, TradingUniverse, VaultPortfolio, VaultFlowManager, VaultSharePriceReader, VaultHistoricalReader, VaultHistoricalRead
 
 
 class ERC4626VaultInfo(VaultInfo):
@@ -28,17 +29,54 @@ class ERC4626VaultInfo(VaultInfo):
     asset: HexAddress
 
 
-class ERC4626SharePriceReader(VaultSharePriceReader):
+class ERC4626SharePriceReader(MulticallWrapper):
+
+    def __init__(self):
+        pass
+
+
+class ERC4626HistoricalReader(VaultHistoricalReader):
     """Support reading historical vault share prices.
 
     - Allows to construct historical returns
     """
 
-        def construct_calls(self) -> list[MulticallWrapper]:
-            """Get the onchain calls that are needed to read the share price."""
-            return [
-                MulticallWrapper(self.vault)
-            ]
+    def __init__(self, vault: "ERC4626Vault"):
+        self.vault = vault
+
+    def construct_multicalls(self) -> Iterable[EncodedCall]:
+        """Get the onchain calls that are needed to read the share price."""
+        amount = self.vault.denomination_token.convert_to_raw(Decimal(1))
+        share_price_call = EncodedCall.from_contract_call(
+            self.vault.vault_contract.functions.convertToShares(amount),
+            extra_data = {
+                "function": "share_price",
+                "vault": self.vault.address,
+            }
+        )
+
+        yield share_price_call
+
+    def process_result(
+        self,
+        block_number: int,
+        timestamp: datetime.datetime,
+        call_results: list[EncodedCallResult],
+    ) -> VaultHistoricalRead:
+
+        call_by_name = {r.call.extra_data["function"] for r in call_results}
+        raw_share_price = call_by_name["share_price"]
+
+        return VaultHistoricalRead(
+            vault_address=self.address,
+            block_number=block_number,
+            timestamp=timestamp,
+            share_price=raw_share_price,
+            total_assets=0,
+            total_supply=0,
+            performance_fee=0,
+            management_fee=0,
+        )
 
 
 class ERC4626Vault(VaultBase):
