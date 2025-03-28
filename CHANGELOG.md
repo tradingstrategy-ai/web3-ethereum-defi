@@ -1,3 +1,9 @@
+# Current
+
+- Add: Abstract ERC-4626 base class out from Lagoon implementation
+- Add: Multicall historical reader
+- Add: IPOR vault support
+
 # 0.28.1
 
 - Expose `TokenSnifferError.status_code` attribute so clients can handle sniffer errors
