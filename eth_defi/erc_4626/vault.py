@@ -11,6 +11,7 @@ from web3.types import BlockIdentifier
 
 from eth_defi.abi import get_deployed_contract
 from eth_defi.balances import fetch_erc20_balances_fallback
+from eth_defi.event_reader.conversion import convert_int256_bytes_to_int
 from eth_defi.event_reader.multicall_batcher import EncodedCall, EncodedCallResult
 from eth_defi.token import TokenDetails, fetch_erc20_details
 from eth_defi.vault.base import VaultBase, VaultSpec, VaultInfo, TradingUniverse, VaultPortfolio, VaultFlowManager, VaultHistoricalReader, VaultHistoricalRead
@@ -30,9 +31,11 @@ class ERC4626VaultInfo(VaultInfo):
 
 
 class ERC4626HistoricalReader(VaultHistoricalReader):
-    """Support reading historical vault share prices.
+    """Support reading historical vault data.
 
-    - Allows to construct historical returns
+    - Share price (returns), supply, NAV
+    - For performance fees etc. there are no standards so you need to subclass this for
+      each protocol
     """
 
     def __init__(self, vault: "ERC4626Vault"):
@@ -40,6 +43,13 @@ class ERC4626HistoricalReader(VaultHistoricalReader):
 
     def construct_multicalls(self) -> Iterable[EncodedCall]:
         """Get the onchain calls that are needed to read the share price."""
+        yield from self.construct_core_erc_4626_multicall()
+
+    def construct_core_erc_4626_multicall(self) -> Iterable[EncodedCall]:
+        """Polling endpoints defined in ERC-4626 spec.
+
+        Does not include fees.
+        """
         amount = self.vault.denomination_token.convert_to_raw(Decimal(1))
         share_price_call = EncodedCall.from_contract_call(
             self.vault.vault_contract.functions.convertToShares(amount),
@@ -48,8 +58,35 @@ class ERC4626HistoricalReader(VaultHistoricalReader):
                 "vault": self.vault.address,
             }
         )
-
         yield share_price_call
+
+        total_assets = EncodedCall.from_contract_call(
+            self.vault.vault_contract.functions.totalAssets(),
+            extra_data = {
+                "function": "total_assets",
+                "vault": self.vault.address,
+            }
+        )
+        yield total_assets
+
+        total_supply = EncodedCall.from_contract_call(
+            self.vault.vault_contract.functions.totalSupply(),
+            extra_data = {
+                "function": "total_supply",
+                "vault": self.vault.address,
+            }
+        )
+        yield total_supply
+
+    def process_core_erc_4626_result(self, call_by_name: dict[str, EncodedCallResult]) -> tuple:
+        """Decode common ERC-4626 calls."""
+        raw_share_price = convert_int256_bytes_to_int(call_by_name["share_price"].result)
+        share_price = self.vault.denomination_token.convert_to_decimals(raw_share_price)
+        raw_total_supply = convert_int256_bytes_to_int(call_by_name["total_supply"].result)
+        total_supply = self.vault.share_token.convert_to_decimals(raw_total_supply)
+        raw_total_assets = convert_int256_bytes_to_int(call_by_name["total_assets"].result)
+        total_assets = self.vault.denomination_token.convert_to_decimals(raw_total_assets)
+        return share_price, total_assets, total_supply
 
     def process_result(
         self,
@@ -60,20 +97,23 @@ class ERC4626HistoricalReader(VaultHistoricalReader):
 
         call_by_name = {r.call.extra_data["function"]: r for r in call_results}
 
+        # Check that all multicalls succeed for this vault
         for result in call_by_name.values():
             assert result.success, f"Multicall {result.call} for vault {self.address}"
 
-        raw_share_price = call_by_name["share_price"]
+        # Decode common variables
+        share_price, total_supply, total_assets = self.process_core_erc_4626_result(call_by_name)
 
+        # Subclass
         return VaultHistoricalRead(
-            vault_address=self.address,
+            vault=self.vault,
             block_number=block_number,
             timestamp=timestamp,
-            share_price=raw_share_price,
-            total_assets=0,
-            total_supply=0,
-            performance_fee=0,
-            management_fee=0,
+            share_price=share_price,
+            total_assets=total_assets,
+            total_supply=total_supply,
+            performance_fee=None,
+            management_fee=None,
         )
 
 

@@ -1,4 +1,6 @@
+import datetime
 import os
+from decimal import Decimal
 
 import pytest
 from eth_typing import HexAddress
@@ -22,11 +24,6 @@ def web3() -> Web3:
 
 
 @pytest.fixture(scope='module')
-def test_block_number() -> int:
-    return 27975506
-
-
-@pytest.fixture(scope='module')
 def ipor_usdc_address() -> HexAddress:
     # https://app.ipor.io/fusion/base/0x45aa96f0b3188d47a1dafdbefce1db6b37f58216
     return "0x45aa96f0b3188d47a1dafdbefce1db6b37f58216"
@@ -37,8 +34,6 @@ def vault(web3, ipor_usdc_address) -> ERC4626VaultInfo:
     # https://app.ipor.io/fusion/base/0x45aa96f0b3188d47a1dafdbefce1db6b37f58216
     spec = VaultSpec(web3.eth.chain_id, ipor_usdc_address)
     return ERC4626Vault(web3, spec)
-
-
 
 
 def test_4626_historical_returns(
@@ -62,7 +57,8 @@ def test_4626_historical_returns(
         steakhouse_susds,
     ]
 
-    start = 15_000_000
+    # When IPOR vault was deployed https://basescan.org/tx/0x65e66f1b8648a880ade22e316d8394ed4feddab6fc0fc5bbc3e7128e994e84bf
+    start = 22_140_976
     end = 27_000_000
 
     usdc = fetch_erc20_details(web3, USDC_NATIVE_TOKEN[web3.eth.chain_id])
@@ -82,7 +78,28 @@ def test_4626_historical_returns(
     )
 
     records = list(records)
-    assert len(records) == 1
+    assert len(records) == 339
+
+    # Records are not guaranteed to be in specific order, so fix it here
+    records.sort(key=lambda r: (r.block_number, r.vault.address))
+
+    r = records[0]
+    assert r.block_number == 22140976
+    assert r.timestamp == datetime.datetime(2024, 11, 8, 13, 8, 19)
+    assert r.vault.name == "IPOR USDC Lending Optimizer Base"
+    assert r.total_assets == 0
+    assert r.total_supply == 0
+    assert r.share_price == Decimal(100)
+
+    r = records[-1]
+    assert r.block_number == 26979376
+    assert r.timestamp == datetime.datetime(2025, 2, 28, 13, 8, 19)
+    assert r.vault.name == "Moonwell Flagship USDC"
+    assert r.total_assets == Decimal('29370634.415894171925433087')
+    assert r.total_supply == Decimal('29958452.263395')
+    assert r.share_price == Decimal('980378917545.099855')
+
+
 
 
 

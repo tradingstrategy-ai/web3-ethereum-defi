@@ -122,7 +122,7 @@ class VaultHistoricalRead:
     """Vault share price and fee structure at the point of time."""
 
     #: Vault for this result is
-    vault_address: HexAddress
+    vault: "VaultBase"
 
     #: block number of the reade
     block_number: int
@@ -310,6 +310,9 @@ class VaultBase(ABC):
 
     For code examples see `tests/lagoon` and `tests/velvet` on the `Github repository <https://github.com/tradingstrategy-ai/web3-ethereum-defi>`__.
     """
+
+    def __repr__(self):
+        return f"<{self.__class__.__name__} {self.name} {self.symbol} at {self.address}>"
 
     @property
     @abstractmethod
