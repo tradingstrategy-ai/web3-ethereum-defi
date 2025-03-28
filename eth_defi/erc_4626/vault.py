@@ -88,6 +88,22 @@ class ERC4626HistoricalReader(VaultHistoricalReader):
         total_assets = self.vault.denomination_token.convert_to_decimals(raw_total_assets)
         return share_price, total_assets, total_supply
 
+    def dictify_multicall_results(self, block_number: int, call_results: list[EncodedCallResult]) -> dict[str, EncodedCallResult]:
+        """Convert batch of multicalls made for this vault to more digestible dict.
+
+        - Assert that all multicalls succeed
+
+        :return:
+            Dictionary where each multicall is keyed by its ``EncodedCall.extra_data["function"]``
+        """
+        call_by_name = {r.call.extra_data["function"]: r for r in call_results}
+
+        # Check that all multicalls succeed for this vault
+        for result in call_by_name.values():
+            assert result.success, f"Multicall failed at block {block_number:,}: {result.call} for vault {self.vault}\nDebug info for Tenderly: {result.call.get_debug_info()}"
+
+        return call_by_name
+
     def process_result(
         self,
         block_number: int,
@@ -95,11 +111,7 @@ class ERC4626HistoricalReader(VaultHistoricalReader):
         call_results: list[EncodedCallResult],
     ) -> VaultHistoricalRead:
 
-        call_by_name = {r.call.extra_data["function"]: r for r in call_results}
-
-        # Check that all multicalls succeed for this vault
-        for result in call_by_name.values():
-            assert result.success, f"Multicall {result.call} for vault {self.address}"
+        call_by_name = self.dictify_multicall_results(block_number, call_results)
 
         # Decode common variables
         share_price, total_supply, total_assets = self.process_core_erc_4626_result(call_by_name)

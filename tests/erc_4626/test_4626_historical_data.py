@@ -1,3 +1,5 @@
+"""Test ERC-4626 vault data pollers, share price, etc."""
+
 import datetime
 import os
 from decimal import Decimal
@@ -7,6 +9,7 @@ from eth_typing import HexAddress
 from web3 import Web3
 
 from eth_defi.erc_4626.vault import ERC4626VaultInfo, ERC4626Vault
+from eth_defi.ipor.vault import IPORVault
 from eth_defi.provider.multi_provider import create_multi_provider_web3, MultiProviderWeb3Factory
 from eth_defi.token import fetch_erc20_details, USDC_NATIVE_TOKEN, SUSDS_NATIVE_TOKEN
 from eth_defi.vault.base import VaultSpec
@@ -23,27 +26,13 @@ def web3() -> Web3:
     return web3
 
 
-@pytest.fixture(scope='module')
-def ipor_usdc_address() -> HexAddress:
-    # https://app.ipor.io/fusion/base/0x45aa96f0b3188d47a1dafdbefce1db6b37f58216
-    return "0x45aa96f0b3188d47a1dafdbefce1db6b37f58216"
-
-
-@pytest.fixture(scope='module')
-def vault(web3, ipor_usdc_address) -> ERC4626VaultInfo:
-    # https://app.ipor.io/fusion/base/0x45aa96f0b3188d47a1dafdbefce1db6b37f58216
-    spec = VaultSpec(web3.eth.chain_id, ipor_usdc_address)
-    return ERC4626Vault(web3, spec)
-
-
-def test_4626_historical_returns(
+def test_4626_historical_vault_data(
     web3: Web3,
-    vault: ERC4626Vault,
 ):
-    """Construct historical returns of IPOR USDC vault."""
+    """Read historical data of IPOR USDC and some other vaults."""
 
     # https://app.ipor.io/fusion/base/0x45aa96f0b3188d47a1dafdbefce1db6b37f58216
-    ipor_usdc = ERC4626Vault(web3, VaultSpec(web3.eth.chain_id, "0x45aa96f0b3188d47a1dafdbefce1db6b37f58216"))
+    ipor_usdc = IPORVault(web3, VaultSpec(web3.eth.chain_id, "0x45aa96f0b3188d47a1dafdbefce1db6b37f58216"))
 
     # https://app.morpho.org/base/vault/0xc1256Ae5FF1cf2719D4937adb3bbCCab2E00A2Ca/moonwell-flagship-usdc
     moonwell_flagship_usdc = ERC4626Vault(web3, VaultSpec(web3.eth.chain_id, "0xc1256Ae5FF1cf2719D4937adb3bbCCab2E00A2Ca"))
@@ -99,9 +88,12 @@ def test_4626_historical_returns(
     assert r.total_supply == Decimal('29958452.263395')
     assert r.share_price == Decimal('980378917545.099855')
 
-
-
-
-
-
-
+    r = records[-3]
+    assert r.block_number == 26979376
+    assert r.timestamp == datetime.datetime(2025, 2, 28, 13, 8, 19)
+    assert r.vault.name == "IPOR USDC Lending Optimizer Base"
+    assert r.total_assets == Decimal('1415874.31104752')
+    assert r.total_supply == Decimal('1458781.534629')
+    assert r.share_price == Decimal('97.058694')
+    assert r.performance_fee == 0.10
+    assert r.management_fee == 0.01

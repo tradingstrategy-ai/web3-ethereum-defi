@@ -385,8 +385,18 @@ class EncodedCall:
     #: Use this to match the reader
     extra_data: dict
 
+    def get_debug_info(self) -> str:
+        """Get human-readable details for debugging.
+
+        - Punch into Tenderly simulator
+
+        - Data contains both function signature and data payload
+        """
+        return f"""Address: {self.address}\nData: {self.data.hex()}"""
+
     @staticmethod
     def from_contract_call(call: ContractFunction, extra_data: dict) -> "EncodedCall":
+        """Create poller call from Web3.py Contract proxy object"""
         assert isinstance(call, ContractFunction)
         assert isinstance(extra_data, dict)
         data = encode_function_call(
@@ -397,6 +407,22 @@ class EncodedCall:
             func_name=call.fn_name,
             address=call.address,
             data=data,
+            extra_data=extra_data,
+        )
+
+    @staticmethod
+    def from_keccak_signature(address: HexAddress, function: str, signature: bytes, data: bytes, extra_data: dict) -> "EncodedCall":
+        """Create poller call directly from a raw function signature"""
+        assert isinstance(signature,  bytes)
+        assert len(signature) == 4
+        assert isinstance(data, bytes)
+
+        extra_data["function"] = function
+
+        return EncodedCall(
+            func_name=function,
+            address=address,
+            data=signature + data,
             extra_data=extra_data,
         )
 
