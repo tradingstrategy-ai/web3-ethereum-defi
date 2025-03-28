@@ -5,7 +5,7 @@ from eth_typing import HexAddress
 from web3 import Web3
 
 from eth_defi.erc_4626.vault import ERC4626VaultInfo, ERC4626Vault
-from eth_defi.provider.multi_provider import create_multi_provider_web3
+from eth_defi.provider.multi_provider import create_multi_provider_web3, MultiProviderWeb3Factory
 from eth_defi.token import fetch_erc20_details, USDC_NATIVE_TOKEN, SUSDS_NATIVE_TOKEN
 from eth_defi.vault.base import VaultSpec
 from eth_defi.vault.historical import VaultHistoricalReadMulticaller
@@ -39,6 +39,8 @@ def vault(web3, ipor_usdc_address) -> ERC4626VaultInfo:
     return ERC4626Vault(web3, spec)
 
 
+
+
 def test_4626_historical_returns(
     web3: Web3,
     vault: ERC4626Vault,
@@ -66,21 +68,23 @@ def test_4626_historical_returns(
     usdc = fetch_erc20_details(web3, USDC_NATIVE_TOKEN[web3.eth.chain_id])
     susds = fetch_erc20_details(web3, SUSDS_NATIVE_TOKEN[web3.eth.chain_id])
 
-    def web3factory(context: None):
-        return create_multi_provider_web3(JSON_RPC_BASE)
-
     reader = VaultHistoricalReadMulticaller(
-        web3factory=web3factory,
+        web3factory=MultiProviderWeb3Factory(JSON_RPC_BASE),
         supported_quote_tokens={usdc, susds}
     )
 
-    reader.read_historical(
+    records = reader.read_historical(
         vaults=vaults,
         start_block=start,
         end_block=end,
         # Base has block time of 2 sceonds
         step=24*3600 // 2,
     )
+
+    records = list(records)
+    assert len(records) == 1
+
+
 
 
 

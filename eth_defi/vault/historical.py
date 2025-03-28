@@ -20,6 +20,7 @@ from eth_defi.event_reader.web3factory import Web3Factory
 from eth_defi.token import TokenDetails
 from eth_defi.vault.base import VaultBase, VaultHistoricalReader, VaultHistoricalRead
 
+
 logger = logging.getLogger(__name__)
 
 
@@ -65,13 +66,13 @@ class VaultHistoricalReadMulticaller:
             readers[vault.address] = vault.get_historical_reader()
         return readers
 
-    def generate_vault_historical_read_tasks(
+    def generate_vault_historical_calls(
         self,
         readers: dict[HexAddress, VaultHistoricalReader],
     ) -> Iterable[EncodedCall]:
-        """Read share prices from """
+        """Generate multicalls for each vault to read its state at any block."""
         for reader in readers.values():
-            yield reader.construct_multicalls()
+            yield from reader.construct_multicalls()
 
     def read_historical(
         self,
@@ -79,9 +80,14 @@ class VaultHistoricalReadMulticaller:
         start_block: int,
         end_block: int,
         step: int,
-    ) -> VaultHistoricalRead:
+    ) -> Iterable[VaultHistoricalRead]:
+        """Create an iterable that extracts vault record from RPC.
+
+        :return:
+            Unordered results
+        """
         readers = self.prepare_readers(vaults)
-        calls = self.generate_vault_historical_read_tasks(readers)
+        calls = self.generate_vault_historical_calls(readers)
         for combined_result in read_multicall_historical(
             web3factory=self.web3factory,
             calls=calls,
@@ -90,13 +96,13 @@ class VaultHistoricalReadMulticaller:
             step=step,
             ):
 
+            # Transform single multicall call results to calls batched by vault-results
             block_number = combined_result.block_number
             timestamp = combined_result.timestamp
-            vault_data: dict[HexAddress, dict[str, EncodedCallResult]] = defaultdict(dict)
+            vault_data: dict[HexAddress, list[EncodedCallResult]] = defaultdict(list)
             for call_result in combined_result.results:
                 vault: HexAddress = call_result.call.extra_data["vault"]
-                function: str = call_result.call.extra_data["function"]
-                vault_data[vault][function] = call_result
+                vault_data[vault].append(call_result)
 
             for vault_address, results in vault_data.items():
                 reader = readers[vault_address]

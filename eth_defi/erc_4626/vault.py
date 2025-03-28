@@ -58,7 +58,11 @@ class ERC4626HistoricalReader(VaultHistoricalReader):
         call_results: list[EncodedCallResult],
     ) -> VaultHistoricalRead:
 
-        call_by_name = {r.call.extra_data["function"] for r in call_results}
+        call_by_name = {r.call.extra_data["function"]: r for r in call_results}
+
+        for result in call_by_name.values():
+            assert result.success, f"Multicall {result.call} for vault {self.address}"
+
         raw_share_price = call_by_name["share_price"]
 
         return VaultHistoricalRead(

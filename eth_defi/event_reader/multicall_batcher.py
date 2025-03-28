@@ -20,6 +20,7 @@ from dataclasses import dataclass
 from itertools import islice
 from typing import TypeAlias, Iterable, Generator, Hashable, Any, Final, Callable
 
+from attr.validators import is_callable
 from tqdm_loggable.auto import tqdm
 
 from eth_typing import HexAddress, BlockIdentifier, BlockNumber
@@ -407,6 +408,12 @@ class EncodedCallResult:
     success: bool
     result: bytes
 
+    def __post_init__(self):
+        assert isinstance(self.call, EncodedCall)
+        assert type(self.success) == bool
+        assert type(self.result) == bytes
+
+
 
 @dataclass(slots=True, frozen=True)
 class CombinedEncodedCallResult:
@@ -414,6 +421,7 @@ class CombinedEncodedCallResult:
     block_number: int
     timestamp: datetime.datetime
     results: list[EncodedCallResult]
+
 
 
 class MultiprocessMulticallReader:
@@ -434,9 +442,11 @@ class MultiprocessMulticallReader:
         block_identifier: BlockIdentifier,
         calls: list[EncodedCall]
     ) -> Iterable[EncodedCallResult]:
+
+        assert isinstance(calls, list)
         assert all(isinstance(c, EncodedCall) for c in calls), f"Got: {calls}"
 
-        encoded_calls = [(c.address, c.data) for c in calls.values()]
+        encoded_calls = [(c.address, c.data) for c in calls]
         payload_size = sum(20 + len(c[1]) for c in encoded_calls)
 
         start = datetime.datetime.utcnow()
@@ -493,6 +503,7 @@ def read_multicall_historical(
         backend="loky",
         timeout=timeout,
         max_nbytes=40*1024*1024,  # Allow passing 40 MBytes for child processes
+        return_as="generator_unordered",
     )
 
     iter_count = (end_block - start_block + 1) // step
@@ -506,11 +517,13 @@ def read_multicall_historical(
     else:
         progress_bar = None
 
-    def _task_gen() -> Iterable[tuple]:
-        for block_number in range(start_block, end_block, step):
-            yield (web3factory, block_number, calls)
+    calls_pickle_friendly = list(calls)
 
-    for completed_task in worker_processor(delayed(_execute_multicall_historical)(_task_gen())):
+    def _task_gen() -> Iterable[MulticallHistoricalTask]:
+        for block_number in range(start_block, end_block, step):
+            yield MulticallHistoricalTask(web3factory, block_number, calls_pickle_friendly)
+
+    for completed_task in worker_processor(delayed(_execute_multicall_historical)(task) for task in _task_gen()):
         if progress_bar:
             progress_bar.update(1)
 
@@ -523,25 +536,48 @@ def read_multicall_historical(
 _reader_instance = threading.local()
 
 
-def _execute_multicall_historical(web3factory, block_number, calls: list[EncodedCall]) -> CombinedEncodedCallResult:
+@dataclass(slots=True, frozen=True)
+class MulticallHistoricalTask:
+    """Pickled task send between multicall reader loop and subprocesses."""
+
+    #: Used to initialise web3 connection in the subprocess
+    web3factory: Web3Factory
+
+    #: Block number to sccan
+    block_number: int
+
+    # Multicalls to perform
+    calls: list[EncodedCall]
+
+    def __post_init__(self):
+        assert callable(self.web3factory)
+        assert type(self.block_number) == int
+        assert type(self.calls) == list
+        assert all(isinstance(c, EncodedCall) for c in self.calls), f"Expected list of EncodedCall objects, got {self.calls}"
+
+
+def _execute_multicall_historical(task: MulticallHistoricalTask) -> CombinedEncodedCallResult:
     """Extract raw JSON-RPC data from a node in a multiprocess"""
     global _reader_instance
 
-    # Initialise web3 connection when called for the first time
-    if _reader_instance is None:
-        _reader_instance = MultiprocessMulticallReader(web3factory)
+    reader: MultiprocessMulticallReader
 
-    timestamp = _reader_instance.get_block_timestamp(block_number)
+    # Initialise web3 connection when called for the first time
+    if getattr(_reader_instance, "reader", None) is None:
+        reader = _reader_instance.reader = MultiprocessMulticallReader(task.web3factory)
+    else:
+        reader = _reader_instance.reader
+
+    timestamp = reader.get_block_timestamp(task.block_number)
 
     # Perform multicall to read share prices
-    call_results = _reader_instance.process_calls(
-        block_number,
-        calls,
+    call_results = reader.process_calls(
+        task.block_number,
+        task.calls,
     )
     # Pass results back to the main process
     return CombinedEncodedCallResult(
-        block_number=block_number,
+        block_number=task.block_number,
         timestamp=timestamp,
         results=[c for c in call_results],
     )
-
