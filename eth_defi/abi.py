@@ -17,7 +17,7 @@ import eth_abi
 from eth_abi import decode
 from eth_typing import HexAddress, HexStr
 from eth_utils import encode_hex, function_abi_to_4byte_selector
-from eth_utils.abi import _abi_to_signature, function_signature_to_4byte_selector
+from eth_utils.abi import _abi_to_signature, function_signature_to_4byte_selector, event_abi_to_log_topic
 from hexbytes import HexBytes
 from web3 import Web3
 from web3._utils.abi import get_abi_input_names, get_abi_input_types
