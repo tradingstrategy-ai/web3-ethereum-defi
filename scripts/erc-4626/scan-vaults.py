@@ -20,7 +20,10 @@ import os
 import sys
 from urllib.parse import urlparse
 
-from eth_defi.erc_4626.hypersync_discovery import HypersyncVaultDiscover
+import pandas as pd
+
+from eth_defi.erc_4626.hypersync_discovery import HypersyncVaultDiscover, create_vault_scan_record
+from eth_defi.hypersync.server import get_hypersync_server
 
 try:
     import hypersync
@@ -29,27 +32,23 @@ except ImportError as e:
 
 from eth_defi.provider.multi_provider import create_multi_provider_web3, MultiProviderWeb3Factory
 
-JSON_RPC_BASE = os.environ.get('JSON_RPC_BASE')
-if JSON_RPC_BASE is None:
+JSON_RPC_URL = os.environ.get('JSON_RPC_URL')
+if JSON_RPC_URL is None:
     try:
-        urlparse(JSON_RPC_BASE)
+        urlparse(JSON_RPC_URL)
     except ValueError:
-        raise ValueError(f"Invalid JSON_RPC_BASE URL: {JSON_RPC_BASE}")
+        raise ValueError(f"Invalid JSON_RPC URL: {JSON_RPC_URL}")
 
 
 def main():
 
     logging.basicConfig(level=logging.INFO, stream=sys.stdout)
 
-    web3 = create_multi_provider_web3(JSON_RPC_BASE)
-    web3factory = MultiProviderWeb3Factory(JSON_RPC_BASE)
+    web3 = create_multi_provider_web3(JSON_RPC_URL)
+    web3factory = MultiProviderWeb3Factory(JSON_RPC_URL)
     print(f"Scanning ERC-4626 vaults on chain {web3.eth.chain_id}")
 
-    assert web3.eth.chain_id == 8453, "Hardcoded for Base for now"
-
-    # https://docs.envio.dev/docs/HyperSync/hypersync-supported-networks
-    hypersync_url = "https://base.hypersync.xyz/"
-
+    hypersync_url = get_hypersync_server(web3)
     client = hypersync.HypersyncClient(hypersync.ClientConfig(url=hypersync_url))
 
     start_block = 1
@@ -60,9 +59,14 @@ def main():
     else:
         end_block = int(end_block)
     vault_discover = HypersyncVaultDiscover(web3, web3factory, client)
-    result = list(vault_discover.scan_vaults(start_block, end_block))
 
+    rows = []
+    for vault_detection in vault_discover.scan_vaults(start_block, end_block):
+        rows.append(create_vault_scan_record(web3, vault_detection, end_block))
 
+    print(f"Total {len(rows)} vaults detected")
+    df = pd.DataFrame(rows)
+    print(df)
 
 
 

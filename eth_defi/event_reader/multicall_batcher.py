@@ -601,6 +601,8 @@ def read_multicall_chunked(
     chunk_count = len(calls) // chunk_size + 1
     total = chunk_count
 
+    logger.info("About to perform %d multicalls", len(calls))
+
     if progress_bar_desc:
         progress_bar = tqdm(
             total=total,
@@ -614,14 +616,27 @@ def read_multicall_chunked(
             chunk = calls[i:i + chunk_size]
             yield MulticallHistoricalTask(web3factory, block_identifier, chunk)
 
+    performed_calls = success_calls = failed_calls = 0
     for completed_task in worker_processor(delayed(_execute_multicall_subprocess)(task) for task in _task_gen()):
         if progress_bar:
             progress_bar.update(1)
 
         yield from completed_task.results
 
+        performed_calls += len(completed_task.results)
+        success_calls += len([r for r in completed_task.results if r.success])
+        failed_calls += len([r for r in completed_task.results if not r.success])
+
     if progress_bar:
         progress_bar.close()
+
+    logger.info(
+        "Performed %d calls, succeed: %d, failed: %d",
+        performed_calls,
+        success_calls,
+        failed_calls,
+    )
+
 
 
 _reader_instance = threading.local()

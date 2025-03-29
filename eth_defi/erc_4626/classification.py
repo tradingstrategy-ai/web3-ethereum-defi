@@ -15,6 +15,7 @@ from web3.types import BlockIdentifier
 from eth_defi.erc_4626.core import ERC4626Feature
 from eth_defi.event_reader.multicall_batcher import EncodedCall, read_multicall_chunked, EncodedCallResult
 from eth_defi.event_reader.web3factory import Web3Factory
+from eth_defi.vault.base import VaultBase, VaultSpec
 
 #: How many multicall probes per address we make
 #:
@@ -115,4 +116,26 @@ def probe_vaults(
             del results_per_address[address]
 
 
+def create_vault_instance(
+    web3: Web3,
+    address: HexAddress,
+    features: set[ERC4626Feature],
+) -> VaultBase | None:
+    """Create a new vault instance class based on the features.
 
+    :return:
+        None if the vault creation is not supported
+    """
+
+    spec = VaultSpec(web3.eth.chain_id, address)
+
+    if ERC4626Feature.broken in features:
+        return None
+    elif ERC4626Feature.ipor_like in features:
+        # IPOR instance
+        from eth_defi.ipor.vault import IPORVault
+        return IPORVault(web3, spec)
+    else:
+        # Generic ERC-4626 without fee data
+        from eth_defi.erc_4626.vault import ERC4626Vault
+        return ERC4626Vault(web3, spec)

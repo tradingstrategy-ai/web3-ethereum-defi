@@ -11,16 +11,18 @@ import logging
 import dataclasses
 
 import datetime
-from typing import AsyncIterable
+from typing import AsyncIterable, cast, Iterable
 
 from eth_typing import HexAddress, HexStr
 from web3 import Web3
 
 from tqdm_loggable.auto import tqdm
+from web3.types import BlockIdentifier
 
 from eth_defi.abi import get_topic_signature_from_event
-from eth_defi.erc_4626.classification import probe_vaults
+from eth_defi.erc_4626.classification import probe_vaults, create_vault_instance
 from eth_defi.erc_4626.core import get_erc_4626_contract, ERC4626Feature
+from eth_defi.erc_4626.vault import ERC4626Vault
 from eth_defi.event_reader.web3factory import Web3Factory
 
 
@@ -259,7 +261,7 @@ class HypersyncVaultDiscover:
         start_block: int,
         end_block: int,
         display_progress=True,
-    ) -> AsyncIterable[ERC4262VaultDetection]:
+    ) -> Iterable[ERC4262VaultDetection]:
         """Scan vaults.
 
         - Detect vault leads by events using :py:meth:`scan_potential_vaults`
@@ -307,3 +309,42 @@ class HypersyncVaultDiscover:
         logger.info("Found %d good ERC-4626 vaults", good_vaults)
 
 
+def create_vault_scan_record(
+    web3: Web3,
+    detection: ERC4262VaultDetection,
+    block_identifier: BlockIdentifier,
+):
+    """Create a row in the result table.
+
+    - Connect to the chain to read further vault metadata via JSON-RPC calls
+
+    :return:
+        Dict for human-readable tables
+    """
+
+    vault = create_vault_instance(web3, detection.address, detection.features)
+
+    if vault is None:
+        data = {
+            "Symbol": "",
+            "Name": "",
+            "Address": detection.address,
+            "Type": "<unknown>",
+            "Denomination": "",
+            "NAV": 0,
+            "Shares": 0,
+            "First seen": detection.first_seen_at,
+        }
+    else:
+        vault = cast(ERC4626Vault, vault)
+        data = {
+            "Symbol": vault.symbol,
+            "Name": vault.name,
+            "Address": detection.address,
+            "Denomination": vault.denomination_token.symbol,
+            "NAV": vault.fetch_total_assets(block_identifier),
+            "Shares": vault.fetch_total_supply(block_identifier),
+            "Type": vault.__class__.__name__,
+            "First seen": detection.first_seen_at,
+        }
+    return data
