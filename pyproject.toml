@@ -100,6 +100,10 @@ test = ["pytest-xdist"]
 black = "^23.3.0"
 coloredlogs = "^15.0.1"
 
+
+[tool.poetry.group.hypersync.dependencies]
+hypersync = "^0.8.5"
+
 [build-system]
 requires = ["poetry-core>=1.0.0"]
 build-backend = "poetry.core.masonry.api"

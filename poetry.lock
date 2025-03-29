@@ -2439,6 +2439,49 @@ files = [
 pyreadline3 = {version = "*", markers = "sys_platform == \"win32\" and python_version >= \"3.8\""}
 
 [[package]]
+name = "hypersync"
+version = "0.8.5"
+description = ""
+optional = false
+python-versions = ">=3.9"
+groups = ["hypersync"]
+markers = "implementation_name == \"cpython\" or implementation_name == \"pypy\""
+files = [
+    {file = "hypersync-0.8.5-cp310-cp310-macosx_10_12_x86_64.whl", hash = "sha256:f73ad0b8a4e505a9e4978f4117ccf0caa30dbaddcdb85cdebca395b9d4b597c9"},
+    {file = "hypersync-0.8.5-cp310-cp310-macosx_11_0_arm64.whl", hash = "sha256:59cc577f00654a1dd8d1dc4a94ec32af8b84a9f707712e439a7df178c667cb4f"},
+    {file = "hypersync-0.8.5-cp310-cp310-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:473a7bc74abf03ea4e30934170e80882c81b68afcf8922f2622f0f340e2d6d42"},
+    {file = "hypersync-0.8.5-cp310-cp310-manylinux_2_17_i686.manylinux2014_i686.whl", hash = "sha256:1f60eede2996000f751e187b18e15d5f59eca28a6590178da149181abd731c0f"},
+    {file = "hypersync-0.8.5-cp310-cp310-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:4813b1f33861582bd711f74ec66ad893e302ae24805584c2ff7b243a21fb1ebf"},
+    {file = "hypersync-0.8.5-cp310-cp310-win32.whl", hash = "sha256:a28058f67cbbae69a4a554c1f1331d7ba4ac1716274e3e17787af4fb11e4c6fd"},
+    {file = "hypersync-0.8.5-cp310-cp310-win_amd64.whl", hash = "sha256:828e50339244ec6cb5e61a6404df8757af139c8d000f1fc3a480ac171c313a68"},
+    {file = "hypersync-0.8.5-cp311-cp311-macosx_10_12_x86_64.whl", hash = "sha256:4f0f1ccca10bd87bbbed6d355a93106369f7d15f5c333799d2ccd9628e9ec27e"},
+    {file = "hypersync-0.8.5-cp311-cp311-macosx_11_0_arm64.whl", hash = "sha256:1a259acbbf84d3b6ee8b5700ae54335c15217b4e5191c494d292dea1ac8989ff"},
+    {file = "hypersync-0.8.5-cp311-cp311-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:fe39604525e8fb137584d99707effe06a3f547942c9396f08d1b1da6ba69a35e"},
+    {file = "hypersync-0.8.5-cp311-cp311-manylinux_2_17_i686.manylinux2014_i686.whl", hash = "sha256:317d9933425134bd6a07c0a3a41f168ff46b20cf9372624ea52bb93f7e9892da"},
+    {file = "hypersync-0.8.5-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:7139491cf4ef7ba6a72a0ef8f8ed8674eb16f83067186092f5d50f3d28664b41"},
+    {file = "hypersync-0.8.5-cp311-cp311-win32.whl", hash = "sha256:19523bc2d7f1d49f60f8bceb9650de086dbcd0542c3d475783f61f5cd2963d29"},
+    {file = "hypersync-0.8.5-cp311-cp311-win_amd64.whl", hash = "sha256:f8526e11f1b66f083e1ad42e71294f5092795f5132423d2c93a9559c211030b5"},
+    {file = "hypersync-0.8.5-cp312-cp312-macosx_10_12_x86_64.whl", hash = "sha256:b53a12b4ac3aa573841107e74651692ea71e34f5a4f28e1581d8daf48f87568c"},
+    {file = "hypersync-0.8.5-cp312-cp312-macosx_11_0_arm64.whl", hash = "sha256:7673c6db771a8a1f9dbecc7b87218431ba7931719201a4cd23165e9610563be8"},
+    {file = "hypersync-0.8.5-cp312-cp312-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:342d27f6ca24fa17d93d3cc44f400f4765709bff186520c1b17450582329d45c"},
+    {file = "hypersync-0.8.5-cp312-cp312-manylinux_2_17_i686.manylinux2014_i686.whl", hash = "sha256:6e4b288500b519949a58da5b55334ab3da908b9b5e2fbf218ea43e0501c08c7a"},
+    {file = "hypersync-0.8.5-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:8826e2512ba20e525dde88ae1f67a9c9361dbe44eead4e9ded93b312c8ccdc01"},
+    {file = "hypersync-0.8.5-cp312-cp312-win32.whl", hash = "sha256:3b00ac24e4091f378ad5afcc0f320b0790e60d3bdd604d6587aa89189b7c65d1"},
+    {file = "hypersync-0.8.5-cp312-cp312-win_amd64.whl", hash = "sha256:c85cc6f570f10a23f99c857ec87758068e5739a9e249daa088ad799b0151a388"},
+    {file = "hypersync-0.8.5-cp39-cp39-macosx_10_12_x86_64.whl", hash = "sha256:80d9c4d9cd8b062092b7106fff36539986815c9f7b79debdb9cc8a8f2545a686"},
+    {file = "hypersync-0.8.5-cp39-cp39-macosx_11_0_arm64.whl", hash = "sha256:8e51e34b4f0d76c4a07a7c0ad0e54872a63c83de8bd7fde9157e8954429c7d21"},
+    {file = "hypersync-0.8.5-cp39-cp39-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:a339433a723b42e497149f894ffce923cf2f621c0e26cc70c88dbd7fd809759f"},
+    {file = "hypersync-0.8.5-cp39-cp39-manylinux_2_17_i686.manylinux2014_i686.whl", hash = "sha256:be25b58e6298b93d5675691d359e326929aa33a92d2849f73b5c0f281d1fa839"},
+    {file = "hypersync-0.8.5-cp39-cp39-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:3a31b61135df6568f77bcce2302373d1cda186e8c3345aeebf863c854acdcc47"},
+    {file = "hypersync-0.8.5-cp39-cp39-win32.whl", hash = "sha256:5d96826dd86244a9b6cbd9eab2e9a91ae82d02a2a0ca284e0a5462673fc1367f"},
+    {file = "hypersync-0.8.5-cp39-cp39-win_amd64.whl", hash = "sha256:6601b916a5769989b97d824acb5b0c114e5cc830574353c7ae63a4f0c31a91d6"},
+    {file = "hypersync-0.8.5.tar.gz", hash = "sha256:716a7211e4287fe1155a336a22b14d5d41a4cb38b22a56fa57ab781e3fe7c251"},
+]
+
+[package.dependencies]
+strenum = ">=0.4.15,<0.4.16"
+
+[[package]]
 name = "idna"
 version = "3.10"
 description = "Internationalized Domain Names in Applications (IDNA)"
@@ -6027,6 +6070,24 @@ pure-eval = "*"
 tests = ["cython", "littleutils", "pygments", "pytest", "typeguard"]
 
 [[package]]
+name = "strenum"
+version = "0.4.15"
+description = "An Enum that inherits from str."
+optional = false
+python-versions = "*"
+groups = ["hypersync"]
+markers = "implementation_name == \"cpython\" or implementation_name == \"pypy\""
+files = [
+    {file = "StrEnum-0.4.15-py3-none-any.whl", hash = "sha256:a30cda4af7cc6b5bf52c8055bc4bf4b2b6b14a93b574626da33df53cf7740659"},
+    {file = "StrEnum-0.4.15.tar.gz", hash = "sha256:878fb5ab705442070e4dd1929bb5e2249511c0bcf2b0eeacf3bcd80875c82eff"},
+]
+
+[package.extras]
+docs = ["myst-parser[linkify]", "sphinx", "sphinx-rtd-theme"]
+release = ["twine"]
+test = ["pylint", "pytest", "pytest-black", "pytest-cov", "pytest-pylint"]
+
+[[package]]
 name = "tenacity"
 version = "9.0.0"
 description = "Retry code until it succeeds"
@@ -6784,4 +6845,4 @@ test = ["pytest-xdist"]
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.10,<4"
-content-hash = "774925d7e34f52b4bfc4d16170e085f72678298bbeec7397092f4e1a3f02038e"
+content-hash = "6eb9e9bafb1e574b90780fc7fad2e5d09a1b553f987d14c6dbe2a29a897e72aa"

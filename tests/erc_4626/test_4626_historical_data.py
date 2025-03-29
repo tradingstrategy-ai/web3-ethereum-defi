@@ -5,10 +5,10 @@ import os
 from decimal import Decimal
 
 import pytest
-from eth_typing import HexAddress
+
 from web3 import Web3
 
-from eth_defi.erc_4626.vault import ERC4626VaultInfo, ERC4626Vault
+from eth_defi.erc_4626.vault import ERC4626Vault
 from eth_defi.ipor.vault import IPORVault
 from eth_defi.provider.multi_provider import create_multi_provider_web3, MultiProviderWeb3Factory
 from eth_defi.token import fetch_erc20_details, USDC_NATIVE_TOKEN, SUSDS_NATIVE_TOKEN

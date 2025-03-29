@@ -11,6 +11,7 @@ from web3.types import BlockIdentifier
 
 from eth_defi.abi import get_deployed_contract
 from eth_defi.balances import fetch_erc20_balances_fallback
+from eth_defi.erc_4626.core import get_deployed_erc_4626_contract
 from eth_defi.event_reader.conversion import convert_int256_bytes_to_int
 from eth_defi.event_reader.multicall_batcher import EncodedCall, EncodedCallResult
 from eth_defi.token import TokenDetails, fetch_erc20_details
@@ -171,9 +172,8 @@ class ERC4626Vault(VaultBase):
     @cached_property
     def vault_contract(self) -> Contract:
         """Get vault deployment."""
-        return get_deployed_contract(
+        return get_deployed_erc_4626_contract(
             self.web3,
-            "lagoon/IERC4626.json",
             self.spec.vault_address,
         )
 
