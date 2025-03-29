@@ -6,6 +6,7 @@
 - This is because ERC-4626, like many other ERC standards, are very poorly designed, lacking proper identification events and interface introspection
 
 """
+import asyncio
 import logging
 import dataclasses
 
@@ -18,14 +19,17 @@ from web3 import Web3
 from tqdm_loggable.auto import tqdm
 
 from eth_defi.abi import get_topic_signature_from_event
+from eth_defi.erc_4626.classification import probe_vaults
 from eth_defi.erc_4626.core import get_erc_4626_contract, ERC4626Feature
+from eth_defi.event_reader.web3factory import Web3Factory
+
 
 try:
     import hypersync
 except ImportError as e:
     raise ImportError("Install the library with optional HyperSync dependency to use this module") from e
 
-from hypersync import BlockField, TransactionField, LogField
+from hypersync import BlockField, LogField
 
 
 logger = logging.getLogger(__name__)
@@ -46,7 +50,7 @@ class PotentialVaultMatch:
 
 
 @dataclasses.dataclass(slots=True, frozen=True)
-class ERC4262Vault:
+class ERC4262VaultDetection:
     """A ERC-4626 detection."""
     address: HexAddress
     first_seen_at_block: int
@@ -61,9 +65,31 @@ class HypersyncVaultDiscover:
     - Then probe given contracts and determine their ERC-4626 vault properties
     """
 
-    def __init__(self, web3: Web3, client: hypersync.HypersyncClient):
+    def __init__(
+        self,
+        web3: Web3,
+        web3factory: Web3Factory,
+        client: hypersync.HypersyncClient,
+        max_workers: int = 8,
+    ):
+        """Create vault discover.
+
+        :param web3:
+            Current process web3 connection
+
+        :param web3factory:
+            Used to initialise connection in created worker threads/processes
+
+        :param client:
+            HyperSync client used to scan lead event data
+
+        :param max_workers:
+            How many worker processes use in multicall probing
+        """
         self.web3 = web3
+        self.web3factory = web3factory
         self.client = client
+        self.max_workers = max_workers
 
     def get_topic_signatures(self) -> list[HexStr]:
         """Contracts must have at least one event of both these signatures
@@ -189,7 +215,7 @@ class HypersyncVaultDiscover:
                         block = block_lookup[log.block_number]
                         timestamp = datetime.datetime.utcfromtimestamp(int(block.timestamp, 16))
                         lead = PotentialVaultMatch(
-                            address=log.address,
+                            address=Web3.to_checksum_address(log.address),
                             first_seen_at_block=log.block_number,
                             first_seen_at=timestamp,
                             first_log_clue=log,
@@ -228,11 +254,56 @@ class HypersyncVaultDiscover:
         if progress_bar is not None:
             progress_bar.close()
 
-    async def scan_vaults(
+    def scan_vaults(
         self,
         start_block: int,
         end_block: int,
         display_progress=True,
-    ):
-        leads = [x async for x in self.scan_potential_vaults(start_block, end_block, display_progress)]
+    ) -> AsyncIterable[ERC4262VaultDetection]:
+        """Scan vaults.
+
+        - Detect vault leads by events using :py:meth:`scan_potential_vaults`
+        - Then perform multicall probing for each vault smart contract to detect protocol
+        """
+
+        # Don't leak async colored interface, as it is an implementation detail
+        async def _hypersync_asyncio_wrapper():
+            leads = {}
+            async for x in self.scan_potential_vaults(start_block, end_block, display_progress):
+                leads[x.address] = x
+            return leads
+
+        leads: dict[HexAddress, PotentialVaultMatch]
+        leads = asyncio.run(_hypersync_asyncio_wrapper())
+
         logger.info("Found %d leads", len(leads))
+        addresses = list(leads.keys())
+        good_vaults = 0
+
+        if display_progress:
+            progress_bar_desc = f"Identifying vaults, using {self.max_workers} workers"
+        else:
+            progress_bar_desc = None
+
+        for feature_probe in probe_vaults(
+            self.web3factory,
+            addresses,
+            block_identifier=end_block,
+            max_workers=self.max_workers,
+            progress_bar_desc=progress_bar_desc,
+        ):
+            lead = leads[feature_probe.address]
+
+            yield ERC4262VaultDetection(
+                address=feature_probe.address,
+                features=feature_probe.features,
+                first_seen_at_block=lead.first_seen_at_block,
+                first_seen_at=lead.first_seen_at,
+            )
+
+            if ERC4626Feature.broken not in feature_probe.features:
+                good_vaults += 1
+
+        logger.info("Found %d good ERC-4626 vaults", good_vaults)
+
+

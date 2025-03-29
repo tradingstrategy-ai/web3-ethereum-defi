@@ -74,7 +74,7 @@ def get_multicall_contract(
         if multicall_data is not None:
             assert multicall_data[0] < block_identifier, f"Multicall not yet deployed at {block_identifier}"
 
-    return get_deployed_contract(web3, "multicall/IMulticall3.json", address)
+    return get_deployed_contract(web3, "multicall/IMulticall3.json", Web3.to_checksum_address(address))
 
 
 def call_multicall(
@@ -383,7 +383,7 @@ class EncodedCall:
     data: bytes
 
     #: Use this to match the reader
-    extra_data: dict
+    extra_data: dict | None
 
     def get_debug_info(self) -> str:
         """Get human-readable details for debugging.
@@ -411,13 +411,20 @@ class EncodedCall:
         )
 
     @staticmethod
-    def from_keccak_signature(address: HexAddress, function: str, signature: bytes, data: bytes, extra_data: dict) -> "EncodedCall":
+    def from_keccak_signature(
+        address: HexAddress,
+        function: str,
+        signature: bytes,
+        data: bytes,
+        extra_data: dict | None
+    ) -> "EncodedCall":
         """Create poller call directly from a raw function signature"""
         assert isinstance(signature,  bytes)
         assert len(signature) == 4
         assert isinstance(data, bytes)
 
-        extra_data["function"] = function
+        if extra_data is not None:
+            extra_data["function"] = function
 
         return EncodedCall(
             func_name=function,
@@ -466,7 +473,7 @@ class MultiprocessMulticallReader:
     def process_calls(
         self,
         block_identifier: BlockIdentifier,
-        calls: list[EncodedCall]
+        calls: list[EncodedCall],
     ) -> Iterable[EncodedCallResult]:
 
         assert isinstance(calls, list)
@@ -549,11 +556,69 @@ def read_multicall_historical(
         for block_number in range(start_block, end_block, step):
             yield MulticallHistoricalTask(web3factory, block_number, calls_pickle_friendly)
 
-    for completed_task in worker_processor(delayed(_execute_multicall_historical)(task) for task in _task_gen()):
+    for completed_task in worker_processor(delayed(_execute_multicall_subprocess)(task) for task in _task_gen()):
         if progress_bar:
             progress_bar.update(1)
 
         yield completed_task
+
+    if progress_bar:
+        progress_bar.close()
+
+
+def read_multicall_chunked(
+    web3factory: Web3Factory,
+    calls: list[EncodedCall],
+    block_identifier: BlockIdentifier,
+    max_workers=8,
+    timeout=1800,
+    chunk_size: int=40,
+    progress_bar_desc: str | None = None,
+) -> Iterable[EncodedCallResult]:
+    """Read current data using multiple processes in parallel for speedup.
+
+    - All calls hit the same block number
+    - Show a progress bar using :py:mod:`tqdm`
+
+    :param chunk_size:
+        Max calls per one chunk sent to Multicall contract, to stay below JSON-RPC read gas limit.
+
+    :param total:
+        Estimated total number of calls for the progress bar.
+
+    :param progress_bar_template:
+        If set, display a TQDM progress bar for the process.
+    """
+
+    worker_processor = Parallel(
+        n_jobs=max_workers,
+        backend="loky",
+        timeout=timeout,
+        max_nbytes=40*1024*1024,  # Allow passing 40 MBytes for child processes
+        return_as="generator_unordered",
+    )
+
+    chunk_count = len(calls) // chunk_size + 1
+    total = chunk_count
+
+    if progress_bar_desc:
+        progress_bar = tqdm(
+            total=total,
+            desc=progress_bar_desc,
+        )
+    else:
+        progress_bar = None
+
+    def _task_gen() -> Iterable[MulticallHistoricalTask]:
+        for i in range(0, len(calls), chunk_size):
+            chunk = calls[i:i + chunk_size]
+            yield MulticallHistoricalTask(web3factory, block_identifier, chunk)
+
+    for completed_task in worker_processor(delayed(_execute_multicall_subprocess)(task) for task in _task_gen()):
+        if progress_bar:
+            progress_bar.update(1)
+
+        yield from completed_task.results
 
     if progress_bar:
         progress_bar.close()
@@ -582,7 +647,9 @@ class MulticallHistoricalTask:
         assert all(isinstance(c, EncodedCall) for c in self.calls), f"Expected list of EncodedCall objects, got {self.calls}"
 
 
-def _execute_multicall_historical(task: MulticallHistoricalTask) -> CombinedEncodedCallResult:
+def _execute_multicall_subprocess(
+    task: MulticallHistoricalTask,
+) -> CombinedEncodedCallResult:
     """Extract raw JSON-RPC data from a node in a multiprocess"""
     global _reader_instance
 
