@@ -1,4 +1,5 @@
 """Bunch of random utilities."""
+
 import calendar
 import datetime
 import logging
@@ -13,7 +14,6 @@ import psutil
 
 
 logger = logging.getLogger(__name__)
-
 
 
 def sanitise_string(s: str) -> str:

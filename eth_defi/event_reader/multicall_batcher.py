@@ -17,9 +17,8 @@ import threading
 from abc import abstractmethod
 from dataclasses import dataclass
 from itertools import islice
-from typing import TypeAlias, Iterable, Generator, Hashable, Any, Final, Callable
+from typing import TypeAlias, Iterable, Generator, Hashable, Any, Final
 
-from attr.validators import is_callable
 from tqdm_loggable.auto import tqdm
 
 from eth_typing import HexAddress, BlockIdentifier, BlockNumber
@@ -370,6 +369,21 @@ class EncodedCall:
     - Only carry encoded data, not ABI etc. metadata
 
     - Contain :py:attr:`extra_data` which allows route to call results from several calls to one handler class
+
+    Example:
+
+    .. code-block:: python
+
+        convert_to_shares_payload = eth_abi.encode(['uint256'], [share_probe_amount])
+
+        share_price_call = EncodedCall.from_keccak_signature(
+            address=address,
+            signature=Web3.keccak(text="convertToShares(uint256)")[0:4],
+            function="convertToShares",
+            data=convert_to_shares_payload,
+            extra_data=None,
+        )
+
     """
 
     #: Store ABI function for debugging purposers
@@ -435,7 +449,22 @@ class EncodedCall:
 
 @dataclass(slots=True, frozen=True)
 class EncodedCallResult:
-    """Result of an one multicall"""
+    """Result of an one multicall.
+
+    Example:
+
+    .. code-block:: python
+
+        # File 21 of 47 : PlasmaVaultStorageLib.sol
+        #     /// @custom:storage-location erc7201:io.ipor.PlasmaVaultPerformanceFeeData
+        #     struct PerformanceFeeData {
+        #         address feeManager;
+        #         uint16 feeInPercentage;
+        #     }
+        data = call_by_name["getPerformanceFeeData"].result
+        performance_fee = int.from_bytes(data[32:64], byteorder="big") / 10_000
+
+    """
     call: EncodedCall
     success: bool
     result: bytes
@@ -449,7 +478,10 @@ class EncodedCallResult:
 
 @dataclass(slots=True, frozen=True)
 class CombinedEncodedCallResult:
-    """Historical read result of multiple multicalls."""
+    """Historical read result of multiple multicalls.
+
+    Return the whole block worth of calls when iterating over chain block by block.
+    """
     block_number: int
     timestamp: datetime.datetime
     results: list[EncodedCallResult]
@@ -457,6 +489,10 @@ class CombinedEncodedCallResult:
 
 
 class MultiprocessMulticallReader:
+    """An instance created in a subprocess to do calls.
+
+    - Initialises the web3 connection at the start of the process
+    """
 
     def __init__(self, web3factory: Web3Factory):
         logger.info(
@@ -474,6 +510,7 @@ class MultiprocessMulticallReader:
         block_identifier: BlockIdentifier,
         calls: list[EncodedCall],
     ) -> Iterable[EncodedCallResult]:
+        """Work a chunk of calls in the subprocess."""
 
         assert isinstance(calls, list)
         assert all(isinstance(c, EncodedCall) for c in calls), f"Got: {calls}"

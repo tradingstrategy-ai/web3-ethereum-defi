@@ -264,13 +264,7 @@ class LagoonVault(ERC4626Vault):
         :param operation:
             Gnosis enum.
 
-            .. code-block:: text
-                library Enum {
-                    enum Operation {
-                        Call,
-                        DelegateCall
-                    }
-                }
+            Call = 0, DelegateCall = 1.
         """
         contract_address = func_call.address
         data_payload = encode_function_call(func_call, func_call.arguments)

@@ -16,7 +16,7 @@ To get started with Google Cloud
   - Algorithm: ``ec-sign-secp256k1-sha256``
 - Create a service account that can access this key ring in IAM
   - See ``scripts/hsm/create-hsm-service-account-credentials.sh`` on `Github <https://github.com/tradingstrategy-ai/web3-ethereum-defi#make>`__
-      for permissions needed and automation
+    for permissions needed and automation
 
 Example environment configuration for ``source`` shell script ``credentials.env``:
 

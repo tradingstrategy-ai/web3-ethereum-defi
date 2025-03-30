@@ -3,7 +3,7 @@ Vault framework
 
 A generic high-level Python framework to integrate different vault providers.
 
-- Provide an abstract base class and toolkit to interact with vault providers from Python applications
+- Provide an abstract base class and toolkit to interact with Ethereum vault providers from Python applications
 
 - The main use case is automated trading with vault-managed capital
 
@@ -12,7 +12,7 @@ A generic high-level Python framework to integrate different vault providers.
 - See also ERC-4626 specific implementation :py:mod:`eth_defi.vault.erc_4626`.
 
 .. autosummary::
-   :toctree: _autosummary_velvet
+   :toctree: _autosummary_vault
    :recursive:
 
    eth_defi.vault.base
