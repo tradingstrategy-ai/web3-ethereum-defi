@@ -1,14 +1,13 @@
-"""Multicall helpers.
+"""Multicall contract helpers.
 
 - Perform several smart contract calls in one RPC request using `Multicall <https://www.multicall3.com/>`__ contract
-
-- A wrapper around `Multicall library by Bantg <https://github.com/banteg/multicall.py>`__
-
-- Batching and multiprocessing reworked to use threads
+- Increase call througput using Multicall smart contract
+- Further increase call throughput using multiprocessing and
 
 .. warning::
 
     See Multicall `private key leak hack warning <https://github.com/mds1/multicall>`__.
+
 """
 import abc
 import datetime
