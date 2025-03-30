@@ -115,6 +115,15 @@ class LagoonVault(ERC4626Vault):
     def __repr__(self):
         return f"<Lagoon vault:{self.vault_contract.address} safe:{self.safe_address}>"
 
+    @cached_property
+    def vault_contract(self) -> Contract:
+        """Get vault deployment."""
+        return get_deployed_contract(
+            self.web3,
+            "lagoon/Vault.json",
+            self.spec.vault_address,
+        )
+
     def has_block_range_event_support(self):
         return True
 

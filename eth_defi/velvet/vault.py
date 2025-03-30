@@ -136,6 +136,10 @@ class VelvetVault(VaultBase):
         return self.info["vaultAddress"]
 
     @property
+    def address(self) -> HexAddress:
+        return self.vault_address
+
+    @property
     def chain_id(self) -> int:
         return self.spec.chain_id
 
