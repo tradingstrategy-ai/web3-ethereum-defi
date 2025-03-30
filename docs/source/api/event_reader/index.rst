@@ -17,6 +17,7 @@ resumed from the data on disk.
    :recursive:
 
    eth_defi.event_reader.multithread
+   eth_defi.event_reader.multicall_batcher
    eth_defi.event_reader.reader
    eth_defi.event_reader.logresult
    eth_defi.event_reader.filter
