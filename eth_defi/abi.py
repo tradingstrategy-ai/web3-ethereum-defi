@@ -15,14 +15,14 @@ from typing import Optional, Sequence, Type, Union, Any
 
 import eth_abi
 from eth_abi import decode
-from eth_typing import HexAddress
+from eth_typing import HexAddress, HexStr
 from eth_utils import encode_hex, function_abi_to_4byte_selector
-from eth_utils.abi import _abi_to_signature, function_signature_to_4byte_selector
+from eth_utils.abi import _abi_to_signature, function_signature_to_4byte_selector, event_abi_to_log_topic
 from hexbytes import HexBytes
 from web3 import Web3
 from web3._utils.abi import get_abi_input_names, get_abi_input_types
 from web3._utils.contracts import encode_abi, get_function_info
-from web3.contract.contract import Contract, ContractFunction
+from web3.contract.contract import Contract, ContractFunction, ContractEvent
 
 # Cache loaded ABI files in-process memory for speedup
 from web3.datastructures import AttributeDict
@@ -504,6 +504,14 @@ def get_function_selector(func: ContractFunction) -> bytes:
     function_signature = _abi_to_signature(fn_abi)
     fn_selector = function_signature_to_4byte_selector(function_signature)  # type: ignore
     return fn_selector
+
+
+def get_topic_signature_from_event(event: Type[ContractEvent]) -> HexStr:
+    """Get topic signature for an Event class."""
+    abi = event._get_event_abi()
+    event_topic = encode_hex(event_abi_to_log_topic(abi))  # type: ignore
+    return event_topic
+
 
 
 def _hexify(s: Any):

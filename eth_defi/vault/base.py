@@ -8,17 +8,18 @@
 
 - See :py:class:`VaultBase` to get started
 """
-
+import datetime
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from decimal import Decimal
 from functools import cached_property
-from typing import TypedDict
+from typing import TypedDict, Iterable
 
 from eth.typing import BlockRange, Block
 from eth_typing import BlockIdentifier, HexAddress
 from web3 import Web3
 
+from eth_defi.event_reader.multicall_batcher import EncodedCall, EncodedCallResult
 from eth_defi.token import TokenAddress, fetch_erc20_details, TokenDetails
 from eth_defi.vault.lower_case_dict import LowercaseDict
 
@@ -37,8 +38,7 @@ class VaultSpec:
     chain_id: int
 
     #: Vault smart contract address or whatever is the primary address for unravelling a vault deployment for a vault protocol
-    vault_address: HexAddress
-
+    vault_address: HexAddress | str
     def __post_init__(self):
         assert isinstance(self.chain_id, int)
         assert isinstance(self.vault_address, str), f"Expected str, got {self.vault_address}"
@@ -116,6 +116,71 @@ class VaultPortfolio:
         chain_id = web3.eth.chain_id
         return LowercaseDict(**{addr: fetch_erc20_details(web3, addr, chain_id=chain_id).convert_to_raw(value) for addr, value in self.spot_erc20.items()})
 
+
+@dataclass(slots=True, frozen=True)
+class VaultHistoricalRead:
+    """Vault share price and fee structure at the point of time."""
+
+    #: Vault for this result is
+    vault: "VaultBase"
+
+    #: block number of the reade
+    block_number: int
+
+    #: Naive datetime in UTC
+    timestamp: datetime.datetime
+
+    #: What was the share price in vault denomination token
+    share_price: Decimal
+
+    #: NAV / Assets under management in denomination token
+    total_assets: Decimal
+
+    #: Number of share tokens
+    total_supply: Decimal
+
+    #: What was the vault performance fee around the time
+    performance_fee: float | None
+
+    #: What was the vault management fee around the time
+    management_fee: float | None
+
+
+
+class VaultHistoricalReader(ABC):
+    """Support reading historical vault share prices.
+
+    - Allows to construct historical returns
+    """
+
+    def __init__(self, vault: "VaultBase"):
+        self.vault = vault
+
+    @property
+    def address(self) -> HexAddress:
+        return self.vault.address
+
+    @abstractmethod
+    def construct_multicalls(self) -> Iterable[EncodedCall]:
+        """Create smart contract calls needed to read the historical state of this vault.
+
+        - Multicall machinery will call these calls at a specific block and report back to :py:meth:`process_result`
+        """
+        pass
+
+    @abstractmethod
+    def process_result(
+        self,
+        block_number: int,
+        timestamp: datetime.datetime,
+        call_results: list[EncodedCallResult],
+    ) -> VaultHistoricalRead:
+        """Process the result of mult
+
+        - Calls are created in :py:meth:`construct_multicalls`
+
+        - This method combines result of this calls to a easy to manage historical record :py:class:`VaultHistoricalRead`
+        """
 
 
 class VaultFlowManager(ABC):
@@ -246,6 +311,23 @@ class VaultBase(ABC):
     For code examples see `tests/lagoon` and `tests/velvet` on the `Github repository <https://github.com/tradingstrategy-ai/web3-ethereum-defi>`__.
     """
 
+    def __repr__(self):
+        return f"<{self.__class__.__name__} {self.name} {self.symbol} at {self.address}>"
+
+    @property
+    @abstractmethod
+    def chain_id(self) -> int:
+        """Chain this vault is on"""
+
+    @property
+    @abstractmethod
+    def address(self) -> HexAddress:
+        """Vault contract address.
+
+        - Often vault protocols need multiple contracts per vault,
+          so what this function returns depends on the protocol
+        """
+
     @property
     @abstractmethod
     def name(self) -> str:
@@ -299,6 +381,14 @@ class VaultBase(ABC):
         """Get flow manager to read individial events.
 
         - Only supported if :py:meth:`has_block_range_event_support` is True
+        """
+
+    @abstractmethod
+    def get_historical_reader(self) -> VaultHistoricalReader:
+        """Get share price reader to fetch historical returns.
+
+        :return:
+            None if unsupported
         """
 
     @abstractmethod
@@ -358,3 +448,5 @@ class VaultBase(ABC):
             Vault protocol specific information dictionary
         """
         return self.fetch_info()
+
+

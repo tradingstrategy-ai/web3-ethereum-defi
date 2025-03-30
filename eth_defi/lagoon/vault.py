@@ -20,6 +20,7 @@ from eth_defi.vault.base import VaultBase, VaultSpec, VaultInfo, TradingUniverse
 from safe_eth.safe import Safe
 
 from ..abi import get_deployed_contract, encode_function_call, present_solidity_args, get_function_selector
+from ..erc_4626.vault import ERC4626Vault
 from ..safe.safe_compat import create_safe_ethereum_client
 from ..token import TokenDetails, fetch_erc20_details
 from ..trace import assert_transaction_success_with_explanation
@@ -70,7 +71,7 @@ class LagoonVaultInfo(VaultInfo):
     version: str
 
 
-class LagoonVault(VaultBase):
+class LagoonVault(ERC4626Vault):
     """Python interface for interacting with Lagoon Finance vaults.
 
     For information see :py:class:`~eth_defi.vault.base.VaultBase` base class documentation.
@@ -114,6 +115,15 @@ class LagoonVault(VaultBase):
     def __repr__(self):
         return f"<Lagoon vault:{self.vault_contract.address} safe:{self.safe_address}>"
 
+    @cached_property
+    def vault_contract(self) -> Contract:
+        """Get vault deployment."""
+        return get_deployed_contract(
+            self.web3,
+            "lagoon/Vault.json",
+            self.spec.vault_address,
+        )
+
     def has_block_range_event_support(self):
         return True
 
@@ -129,40 +139,6 @@ class LagoonVault(VaultBase):
         return Safe(
             address,
             client,
-        )
-
-    @property
-    def chain_id(self) -> int:
-        return self.spec.chain_id
-
-    @cached_property
-    def vault_address(self) -> HexAddress:
-        return Web3.to_checksum_address(self.spec.vault_address)
-
-    @property
-    def name(self) -> str:
-        return self.share_token.name
-
-    @property
-    def symbol(self) -> str:
-        return self.share_token.symbol
-
-    @cached_property
-    def vault_contract(self) -> Contract:
-        """Get vault deployment."""
-        return get_deployed_contract(
-            self.web3,
-            "lagoon/Vault.json",
-            self.spec.vault_address,
-        )
-
-    @cached_property
-    def vault_contract(self) -> Contract:
-        """Underlying Vault smart contract."""
-        return get_deployed_contract(
-            self.web3,
-            "lagoon/Vault.json",
-            self.spec.vault_address,
         )
 
     @cached_property
@@ -191,14 +167,6 @@ class LagoonVault(VaultBase):
             "tradingStrategyModuleAddress": self.trading_strategy_module_address,
         }
 
-    def fetch_denomination_token(self) -> TokenDetails:
-        token_address = self.info["asset"]
-        return fetch_erc20_details(self.web3, token_address, chain_id=self.spec.chain_id)
-
-    def fetch_share_token(self) -> TokenDetails:
-        token_address = self.info["address"]
-        return fetch_erc20_details(self.web3, token_address, chain_id=self.spec.chain_id)
-
     def fetch_info(self) -> LagoonVaultInfo:
         """Use :py:meth:`info` property for cached access.
 
@@ -210,75 +178,6 @@ class LagoonVault(VaultBase):
         safe_info_dict = asdict(safe.retrieve_all_info())
         del safe_info_dict["address"]  # Key conflict
         return vault_info | safe_info_dict
-
-    def fetch_nav(self, block_identifier=None) -> Decimal:
-        """Fetch the most recent onchain NAV value.
-
-        - In the case of Lagoon, this is the last value written in the contract with
-          `updateNewTotalAssets()` and ` settleDeposit()`
-
-        - TODO: `updateNewTotalAssets()` there is no way to read pending asset update on chain
-
-        :return:
-            Vault NAV, denominated in :py:meth:`denomination_token`
-        """
-        token = self.denomination_token
-        raw_amount = self.vault_contract.functions.totalAssets().call(block_identifier=block_identifier)
-        return token.convert_to_decimals(raw_amount)
-
-    def fetch_total_assets(self, block_identifier: BlockIdentifier) -> Decimal:
-        """What is the total NAV of the vault.
-
-        :return:
-            The vault value in underlyinh token
-        """
-        raw_amount = self.vault_contract.functions.totalAssets().call(block_identifier=block_identifier)
-        return self.underlying_token.convert_to_decimals(raw_amount)
-
-
-    def fetch_total_supply(self, block_identifier: BlockIdentifier) -> Decimal:
-        """What is the current outstanding shares.
-
-        :return:
-            The vault value in underlyinh token
-        """
-        raw_amount = self.vault_contract.functions.totalSupply().call(block_identifier=block_identifier)
-        return self.share_token.convert_to_decimals(raw_amount)
-
-    def fetch_share_price(self, block_identifier: BlockIdentifier) -> Decimal:
-        """Get the current share price.
-
-        :return:
-            The share price in underlying token.
-
-            If supply is zero return zero.
-        """
-
-        #     function _convertToAssets(
-        #         uint256 shares,
-        #         uint40 requestId,
-        #         Math.Rounding rounding
-        #     ) internal view returns (uint256) {
-        #         ERC7540Storage storage $ = _getERC7540Storage();
-        #
-        #         // cache
-        #         uint40 settleId = $.epochs[requestId].settleId;
-        #
-        #         uint256 _totalAssets = $.settles[settleId].totalAssets + 1;
-        #         uint256 _totalSupply = $.settles[settleId].totalSupply + 10 ** _decimalsOffset();
-        #
-        #         return shares.mulDiv(_totalAssets, _totalSupply, rounding);
-        #     }
-        total_assets = self.fetch_total_assets(block_identifier)
-        total_supply = self.fetch_total_supply(block_identifier)
-        if total_supply == 0:
-            return Decimal(0)
-        return total_assets / self.fetch_total_supply(block_identifier)
-
-    @property
-    def address(self) -> HexAddress:
-        """Get the vault smart contract address."""
-        return self.spec.vault_address
 
     @property
     def safe_address(self) -> HexAddress:
@@ -320,27 +219,6 @@ class LagoonVault(VaultBase):
         - This contract does not have any functionality, but stores deposits (pending USDC) and redemptions (pending share token)
         """
         return get_deployed_contract(self.web3, "lagoon/Silo.json", self.silo_address)
-
-    @property
-    def underlying_token(self) -> TokenDetails:
-        """Alias for :py:meth:`denomination_token`"""
-        return self.denomination_token
-
-    def fetch_portfolio(
-        self,
-        universe: TradingUniverse,
-        block_identifier: BlockIdentifier | None = None,
-    ) -> VaultPortfolio:
-        erc20_balances = fetch_erc20_balances_fallback(
-            self.web3,
-            self.safe_address,
-            universe.spot_token_addresses,
-            block_identifier=block_identifier,
-            decimalise=True,
-        )
-        return VaultPortfolio(
-            spot_erc20=erc20_balances,
-        )
 
     def transact_via_exec_module(
         self,

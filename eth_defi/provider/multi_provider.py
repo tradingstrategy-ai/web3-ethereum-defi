@@ -7,7 +7,6 @@ import logging
 from typing import List, Optional, Any, Dict
 
 import requests
-from requests import Session
 from requests.adapters import HTTPAdapter
 from urllib3.util import parse_url, Url, Retry
 from web3 import Web3, HTTPProvider
@@ -280,3 +279,14 @@ def create_multi_provider_web3(
 def _fix_provider(provider: HTTPProvider):
     provider.middlewares.clear()
     patch_provider(provider)
+
+
+class MultiProviderWeb3Factory:
+    """Needed to pass RPC URL as :py:type:`Web3Factory`"""
+
+    def __init__(self, rpc_url: str):
+        self.rpc_url = rpc_url
+
+    def __call__(self) -> Web3:
+        return create_multi_provider_web3(self.rpc_url)
+

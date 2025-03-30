@@ -22,7 +22,7 @@ from web3.contract import Contract
 from eth_defi.abi import get_deployed_contract
 from eth_defi.balances import fetch_erc20_balances_fallback
 from eth_defi.token import fetch_erc20_details
-from eth_defi.vault.base import VaultBase, VaultInfo, VaultSpec, TradingUniverse, VaultPortfolio
+from eth_defi.vault.base import VaultBase, VaultInfo, VaultSpec, TradingUniverse, VaultPortfolio, VaultHistoricalReader
 from eth_defi.velvet.deposit import deposit_to_velvet
 from eth_defi.velvet.enso import swap_with_velvet_and_enso
 from eth_defi.velvet.redeem import redeem_from_velvet_velvet
@@ -134,6 +134,10 @@ class VelvetVault(VaultBase):
     @property
     def vault_address(self) -> HexAddress:
         return self.info["vaultAddress"]
+
+    @property
+    def address(self) -> HexAddress:
+        return self.vault_address
 
     @property
     def chain_id(self) -> int:
@@ -341,3 +345,5 @@ class VelvetVault(VaultBase):
     def symbol(self):
         raise NotImplementedError()
 
+    def get_historical_reader(self) -> VaultHistoricalReader:
+        raise NotImplementedError()

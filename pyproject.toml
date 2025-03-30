@@ -77,6 +77,7 @@ sphinxcontrib-qthelp = {version = "1.0.3", optional = true} # Version pindowns h
 # terms-of-service = {path = "contracts/terms-of-service", develop = true}
 multicall = "^0.9.0"
 safe-eth-py = "6.0.0b42"
+joblib = "^1.4.2"
 
 
 
@@ -98,6 +99,10 @@ test = ["pytest-xdist"]
 [tool.poetry.group.dev.dependencies]
 black = "^23.3.0"
 coloredlogs = "^15.0.1"
+
+
+[tool.poetry.group.hypersync.dependencies]
+hypersync = "^0.8.5"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]
