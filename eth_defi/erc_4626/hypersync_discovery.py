@@ -11,18 +11,16 @@ import logging
 import dataclasses
 
 import datetime
-from typing import AsyncIterable, cast, Iterable
+from typing import AsyncIterable, Iterable
 
 from eth_typing import HexAddress, HexStr
 from web3 import Web3
 
 from tqdm_loggable.auto import tqdm
-from web3.types import BlockIdentifier
 
 from eth_defi.abi import get_topic_signature_from_event
-from eth_defi.erc_4626.classification import probe_vaults, create_vault_instance
+from eth_defi.erc_4626.classification import probe_vaults
 from eth_defi.erc_4626.core import get_erc_4626_contract, ERC4626Feature
-from eth_defi.erc_4626.vault import ERC4626Vault
 from eth_defi.event_reader.web3factory import Web3Factory
 
 

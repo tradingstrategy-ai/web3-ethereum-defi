@@ -1,3 +1,9 @@
+"""ERC-4626 core functions.
+
+- Access ERC-4626 ABI
+- Feature flags vaults can have
+"""
+
 import enum
 from typing import Type
 
@@ -68,6 +74,9 @@ class ERC4626Feature(enum.Enum):
     # https://reserve.org/
     reserve_like = "reserve_like"
 
+    # https://docs.fluid.instadapp.io/
+    fluid_like = "fluid_like"
+
 
 def get_vault_protocol_name(features: set[ERC4626Feature]) -> str:
     """Deduct vault protocol name based on Vault smart contract features.
@@ -79,6 +88,8 @@ def get_vault_protocol_name(features: set[ERC4626Feature]) -> str:
         return "<broken>"
     elif ERC4626Feature.morpho_like in features:
         return "Morpho"
+    elif ERC4626Feature.fluid_like in features:
+        return "Fluid"
     elif ERC4626Feature.harvest_finance in features:
         return "Harvest Finance"
     elif ERC4626Feature.ipor_like in features:

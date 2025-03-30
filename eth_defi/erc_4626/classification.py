@@ -135,7 +135,8 @@ def create_probe_calls(
             extra_data=None,
         )
 
-        # Moonwell
+        # Morpho
+        # Moonwell runs on Morpho
         # https://basescan.org/address/0x6b13c060F13Af1fdB319F52315BbbF3fb1D88844#readContract
         morpho_call = EncodedCall.from_keccak_signature(
             address=address,
@@ -144,6 +145,9 @@ def create_probe_calls(
             data=b"",
             extra_data=None,
         )
+
+        # https://docs.fluid.instadapp.io/
+        # https://basescan.org/address/0x1943FA26360f038230442525Cf1B9125b5DCB401#code
 
         yield name_call
         yield share_price_call
@@ -166,7 +170,7 @@ def identify_vault_features(
 
     if not calls["convertToShares"].success:
         # Not ERC-4626 vault
-        features.add({ERC4626Feature.broken})
+        features.add(ERC4626Feature.broken)
 
     if calls["getPerformanceFeeData"].success:
         features.add(ERC4626Feature.ipor_like)
@@ -206,6 +210,9 @@ def identify_vault_features(
                 features.add(ERC4626Feature.athena_like)
             elif "RightsToken" in name:
                 features.add(ERC4626Feature.reserve_like)
+            elif "Fluid" in name:
+                features.add(ERC4626Feature.fluid_like)
+
         except:
             pass
 

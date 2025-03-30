@@ -16,6 +16,7 @@ Or for faster small sample:
     END_BLOCK=5555721 python scripts/erc-4626/scan-vaults.py
 
 """
+import decimal
 import logging
 import os
 import sys
@@ -49,8 +50,8 @@ JSON_RPC_URL = os.environ.get('JSON_RPC_URL')
 if JSON_RPC_URL is None:
     try:
         urlparse(JSON_RPC_URL)
-    except ValueError:
-        raise ValueError(f"Invalid JSON_RPC URL: {JSON_RPC_URL}")
+    except ValueError as e:
+        raise ValueError(f"Invalid JSON_RPC URL: {JSON_RPC_URL}") from e
 
 
 def main():
@@ -114,7 +115,10 @@ def main():
     def round_below_epsilon(x, epsilon=Decimal("0.1"), round_factor=Decimal("0.001")):
         if isinstance(x, Decimal):
             x = Decimal('0') if abs(x) < epsilon else x
-            x = x.quantize(round_factor)
+            try:
+                x = x.quantize(round_factor)
+            except decimal.InvalidOperation:
+                logger.warning("Cannot quantise: %s", x)
             return x
         return x  # Not decimal
 
