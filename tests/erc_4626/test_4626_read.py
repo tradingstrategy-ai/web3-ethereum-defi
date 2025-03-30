@@ -1,3 +1,5 @@
+"""Read ERC-4626 data using Vault class"""
+
 import os
 from decimal import Decimal
 

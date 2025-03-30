@@ -6,6 +6,9 @@ ERC-4626 is a standard to optimize and unify the technical parameters of yield-b
 - Read historical market data
 - Deposit and redeem from vaults
 
+Tutorials
+
+- ref:`scan-erC_4626_vaults`
 
 More info
 

@@ -4,7 +4,8 @@
 """
 from web3 import Web3
 
-#: Converted with Grok
+#: Converted with Grok.
+#: Mess. Partially cleaned.
 HYPERSYNC_SERVES = {
     2741: {"Network Name": "Abstract", "URL": "https://abstract.hypersync.xyz or https://2741.hypersync.xyz", "Tier": "🪨", "Supports Traces": False},
     42161: {"Network Name": "Arbitrum", "URL": "https://arbitrum.hypersync.xyz or https://42161.hypersync.xyz", "Tier": "🏅", "Supports Traces": False},
