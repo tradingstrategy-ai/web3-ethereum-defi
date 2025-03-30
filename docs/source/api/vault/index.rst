@@ -9,9 +9,15 @@ A generic high-level Python framework to integrate different vault providers.
 
 - For more details see :py:class:`eth_defi.vault.base.VaultBase`
 
+- See also ERC-4626 specific implementation :py:mod:`eth_defi.vault.erc_4626`.
+
 .. autosummary::
    :toctree: _autosummary_velvet
    :recursive:
 
    eth_defi.vault.base
    eth_defi.vault.valuation
+   eth_defi.vault.historical
+   eth_defi.vault.lower_case_dict
+   eth_defi.vault.mass_buyer
+

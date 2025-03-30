@@ -25,6 +25,17 @@ and export the information to a CSV file.
 
 - Save raw data to a Parquet file
 
+The script does the vault discovery in three phases:
+
+1. Use :py:class:`eth_defi.erc_4626.hypersync_discovery.HypersyncVaultDiscover`
+   to pull all deposit events that gives us a clue of the existence of ERC-4626 vaults
+2. Use :py:func:`eth_defi.event_reader.multicall_batcher.read_multicall_chunked`
+   to fire hundreds of ``eth_call`` queries to the smart contracts to classify ERC-4626
+   vault types and feature based on what Solidity functions they implement.
+3. Use :py:class:`eth_defi.erc_4626.vault.Vault` instance to query the remaining data from the vaults,
+   like share and denomination token, which in turn query ERC-20 details from the chain using
+   :py:func:`eth_defi.token.fetch_erc20_details`.
+
 You must install the package with all extra dependencies (HyperSync) to use this script:
 
 .. code-block:: shell

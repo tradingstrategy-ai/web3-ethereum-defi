@@ -63,6 +63,8 @@ class HypersyncVaultDiscover:
 
     - First build map of potential contracts using :py:meth:`scan_potential_vaults`
     - Then probe given contracts and determine their ERC-4626 vault properties
+
+    See :ref:`scan-erc_4626_vaults` for usage.
     """
 
     def __init__(
