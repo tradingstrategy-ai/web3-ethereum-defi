@@ -7,4 +7,4 @@ API helpers for HyperSync client.
    :toctree: _autosummary_hypersync
    :recursive:
 
-   eth_defi.hypersync.servers
+   eth_defi.hypersync.server

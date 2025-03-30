@@ -33,6 +33,7 @@ API documentation
    chainlink/index
    foundry/index
    etherscan/index
+   hypersync/index
    token_analysis/index
    event_reader/index
    price_oracle/index

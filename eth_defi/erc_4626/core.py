@@ -47,34 +47,41 @@ class ERC4626Feature(enum.Enum):
     #: Harvest Finance like protocol
     harvest_finance = "morpho_like"
 
+    #: Panoptic
     #: https://panoptic.xyz/
     panoptic_like = "panoptic_like"
 
     #: BRT2
     baklava_space_like = "baklava_space_like"
 
-    # https://astrolab.fi/
+    #: https://astrolab.fi/
     astrolab_like = "astrolab_like"
 
-    # Gains network
-    # https://github.com/GainsNetwork
+    #: Gains network
+    #: https://github.com/GainsNetwork
     gains_like = "gains_like"
 
+    #: Return Finacne
     return_finance_like = "return_finance_like"
 
-    # https://defillama.com/protocol/arcadia-finance
+    #: Arcadia Finance
+    #: https://defillama.com/protocol/arcadia-finance
     arcadia_finance_like = "arcadia_finance_like"
 
-    # https://github.com/satsDAO/Satoshi
+    #: SATS DAO
+    #: https://github.com/satsDAO/Satoshi
     satoshi_stablecoin = "satoshi_stablecoin"
 
-    # https://www.athenafinance.io/
+    #: Athena
+    #: https://www.athenafinance.io/
     athena_like = "athena_like"
 
-    # https://reserve.org/
+    #: Reserve
+    #: https://reserve.org/
     reserve_like = "reserve_like"
 
-    # https://docs.fluid.instadapp.io/
+    #: Fluid
+    #: https://docs.fluid.instadapp.io/
     fluid_like = "fluid_like"
 
 

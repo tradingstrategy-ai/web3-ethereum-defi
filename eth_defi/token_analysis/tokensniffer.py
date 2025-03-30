@@ -79,7 +79,7 @@ class TokenSnifferReply(TypedDict):
 
     Example data:
 
-    .. code-block:: json
+    .. code-block:: javascript
 
             {'address': '0x873259322be8e50d80a4b868d186cc5ab148543a',
              'balances': {'burn_balance': 0.002441962189654333,
