@@ -58,6 +58,9 @@ def main():
     log_level = os.environ.get('LOG_LEVEL', 'WARNING').upper()
     logging.basicConfig(level=log_level, stream=sys.stdout)
 
+    # How many CPUs / subprocess we use
+    max_workers = 8
+
     web3 = create_multi_provider_web3(JSON_RPC_URL)
     web3factory = MultiProviderWeb3Factory(JSON_RPC_URL)
     print(f"Scanning ERC-4626 vaults on chain {web3.eth.chain_id}")
@@ -66,9 +69,6 @@ def main():
     client = hypersync.HypersyncClient(hypersync.ClientConfig(url=hypersync_url))
 
     start_block = 1
-
-    # How many CPUs / subprocess we use
-    max_workers = 8
 
     end_block = os.environ.get("END_BLOCK")
     if end_block is None:
@@ -107,7 +107,7 @@ def main():
 
     # Format DataFrame output for terminal
     df["First seen"] = df["First seen"].dt.strftime('%Y-%b-%d')
-    df["Address"] = df["Address"].apply(lambda x: x[0:8])  # Address is too wide in terminal
+    # df["Address"] = df["Address"].apply(lambda x: x[0:8])  # Address is too wide in terminal
     df = df.set_index("Address")
 
     # Round dust to zero, drop to 4 decimals

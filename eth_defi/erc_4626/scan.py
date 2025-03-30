@@ -1,12 +1,13 @@
 """Turn vault discoveries to human readable rows."""
 import threading
-from decimal import Decimal
+
 from typing import cast
 
 from web3 import Web3
 from web3.types import BlockIdentifier
 
 from eth_defi.erc_4626.classification import create_vault_instance
+from eth_defi.erc_4626.core import get_vault_protocol_name
 from eth_defi.erc_4626.hypersync_discovery import ERC4262VaultDetection
 from eth_defi.erc_4626.vault import ERC4626Vault
 from eth_defi.event_reader.web3factory import Web3Factory
@@ -33,7 +34,7 @@ def create_vault_scan_record(
             "Symbol": "",
             "Name": "",
             "Address": detection.address,
-            "Type": "<unkn  own>",
+            "Protocol": "<unknown>",
             "Denomination": "",
             "NAV": 0,
             "Shares": 0,
@@ -49,8 +50,8 @@ def create_vault_scan_record(
             "Address": detection.address,
             "Denomination": vault.denomination_token.symbol,
             "NAV": vault.fetch_total_assets(block_identifier),
+            "Protocol": get_vault_protocol_name(detection.features),
             "Shares": vault.fetch_total_supply(block_identifier),
-            "Type": vault.__class__.__name__,
             "First seen": detection.first_seen_at,
         }
 

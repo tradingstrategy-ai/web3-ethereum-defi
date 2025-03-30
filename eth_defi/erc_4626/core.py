@@ -9,9 +9,10 @@ from eth_defi.abi import get_contract, get_deployed_contract
 
 
 class ERC4626Feature(enum.Enum):
-    """Additional extensins ERc-4626 vault may have.
+    """Additional extensinons ERc-4626 vault may have.
 
-    Flag ERC-4626 matches in the scan.
+    - Flag ERC-4626 matches in the scan
+    - Use name/known calls to flag the protocol for which the vault belongs
     """
 
     #: Failed when probing with multicall, Deposit() event likely for other protocol
@@ -36,6 +37,77 @@ class ERC4626Feature(enum.Enum):
 
     #: Morpho protocol
     morpho_like = "morpho_like"
+
+    #: Harvest Finance like protocol
+    harvest_finance = "morpho_like"
+
+    #: https://panoptic.xyz/
+    panoptic_like = "panoptic_like"
+
+    #: BRT2
+    baklava_space_like = "baklava_space_like"
+
+    # https://astrolab.fi/
+    astrolab_like = "astrolab_like"
+
+    # Gains network
+    # https://github.com/GainsNetwork
+    gains_like = "gains_like"
+
+    return_finance_like = "return_finance_like"
+
+    # https://defillama.com/protocol/arcadia-finance
+    arcadia_finance_like = "arcadia_finance_like"
+
+    # https://github.com/satsDAO/Satoshi
+    satoshi_stablecoin = "satoshi_stablecoin"
+
+    # https://www.athenafinance.io/
+    athena_like = "athena_like"
+
+    # https://reserve.org/
+    reserve_like = "reserve_like"
+
+
+def get_vault_protocol_name(features: set[ERC4626Feature]) -> str:
+    """Deduct vault protocol name based on Vault smart contract features.
+
+    At least one feature must match.
+    """
+
+    if ERC4626Feature.broken in features:
+        return "<broken>"
+    elif ERC4626Feature.morpho_like in features:
+        return "Morpho"
+    elif ERC4626Feature.harvest_finance in features:
+        return "Harvest Finance"
+    elif ERC4626Feature.ipor_like in features:
+        return "IPOR"
+    elif ERC4626Feature.lagoon_like in features:
+        return "Lagoon"
+    elif ERC4626Feature.morpho_like in features:
+        return "Morpho"
+    elif ERC4626Feature.panoptic_like in features:
+        return "Panoptic"
+    elif ERC4626Feature.astrolab_like in features:
+        return "Astrolab"
+    elif ERC4626Feature.baklava_space_like in features:
+        return "Baklava"
+    elif ERC4626Feature.gains_like in features:
+        return "Gains Network"
+    elif ERC4626Feature.return_finance_like in features:
+        return "Return Finance"
+    elif ERC4626Feature.arcadia_finance_like in features:
+        return "Arcadia Finance"
+    elif ERC4626Feature.satoshi_stablecoin in features:
+        return "SATS Token"
+    elif ERC4626Feature.athena_like in features:
+        return "Athena Finance"
+    elif ERC4626Feature.reserve_like in features:
+        return "Reserve"
+    elif ERC4626Feature.erc_7540_like in features:
+        return "<generic 7540>"
+    return "<generic 4626>"
 
 
 def get_erc_4626_contract(web3: Web3) -> Type[Contract]:

@@ -17,11 +17,6 @@ from eth_defi.event_reader.multicall_batcher import EncodedCall, read_multicall_
 from eth_defi.event_reader.web3factory import Web3Factory
 from eth_defi.vault.base import VaultBase, VaultSpec
 
-#: How many multicall probes per address we make
-#:
-#: See :py:func:`create_probe_calls`
-FEATURE_COUNT = 2
-
 
 @dataclass(frozen=True, slots=True)
 class VaultFeatureProbe:
@@ -34,13 +29,27 @@ def create_probe_calls(
     addresses: Iterable[HexAddress],
     share_probe_amount=1_000_000,
 ) -> Iterable[EncodedCall]:
-    """Create calls that call each vault address using multicall"""
+    """Create calls that call each vault address using multicall.
+
+    - Because ERC standards are such a shit show, and nobody is using good interface standard,
+      we figure out the vault type by probing it with various calls
+    """
 
     convert_to_shares_payload = eth_abi.encode(['uint256'], [share_probe_amount])
+    zero_uint_payload = eth_abi.encode(['uint256'], [0])
 
     # TODO: Might be bit slowish here, but we are not perf intensive
     for address in addresses:
 
+        name_call = EncodedCall.from_keccak_signature(
+            address=address,
+            signature=Web3.keccak(text="name()")[0:4],
+            function="name",
+            data=b"",
+            extra_data=None,
+        )
+
+        # Shouldl be present in all ERC-4626 vaults
         share_price_call = EncodedCall.from_keccak_signature(
             address=address,
             signature=Web3.keccak(text="convertToShares(uint256)")[0:4],
@@ -58,8 +67,94 @@ def create_probe_calls(
             extra_data=None,
         )
 
+        # https://github.com/harvest-finance/harvest/blob/14420a4444c6aaa7bf0d2303a5888feb812a0521/contracts/Vault.sol#L86C12-L86C26
+        harvest_finance_call = EncodedCall.from_keccak_signature(
+            address=address,
+            signature=Web3.keccak(text="vaultFractionToInvestDenominator()")[0:4],
+            function="vaultFractionToInvestDenominator",
+            data=b"",
+            extra_data=None,
+        )
+
+        # See standard
+        # https://eips.ethereum.org/EIPS/eip-7540#methods
+        erc_7545_call = EncodedCall.from_keccak_signature(
+            address=address,
+            signature=Web3.keccak(text="isOperator()")[0:4],
+            function="isOperator",
+            data=b"",
+            extra_data=None,
+        )
+
+        # Baso Finance
+        # https://defillama.com/protocol/baso-finance
+        #
+        #     // earned is an estimation, it won't be exact till the supply > rewardPerToken calculations have run
+        #     function earned() public view returns (uint) {
+        #         if(startTime <= 0 || lastClaimTime > block.timestamp){
+        #             return 0;
+        #         }
+        #         return (block.timestamp - lastClaimTime)*emissionSpeed;
+        #     }
+        baso_finance_call = EncodedCall.from_keccak_signature(
+            address=address,
+            signature=Web3.keccak(text="isOperator()")[0:4],
+            function="isOperator",
+            data=b"",
+            extra_data=None,
+        )
+
+        # BRT2: vAMM
+        # https://basescan.org/address/0x49AF8CAf88CFc8394FcF08Cf997f69Cee2105f2b#readProxyContract
+        #
+        baklava_space = EncodedCall.from_keccak_signature(
+            address=address,
+            signature=Web3.keccak(text="outputToLp0Route(uint256)")[0:4],
+            function="outputToLp0Route",
+            data=zero_uint_payload,
+            extra_data=None,
+        )
+
+        # https://basescan.org/address/0x2aeB4A62f40257bfC96D5be55519f70DB871c744#readContract
+        astrolab_call = EncodedCall.from_keccak_signature(
+            address=address,
+            signature=Web3.keccak(text="agent()")[0:4],
+            function="agent",
+            data=b"",
+            extra_data=None,
+        )
+
+        # https://basescan.org/address/0x944766f715b51967E56aFdE5f0Aa76cEaCc9E7f9#readProxyContract
+        # https://basescan.org/address/0x2ac590a4a78298093e5bc7742685446af96d56e7#code
+        # https://github.com/GainsNetwork/gTrade-v6.1/tree/main
+        gains_network_call = EncodedCall.from_keccak_signature(
+            address=address,
+            signature=Web3.keccak(text="depositCap()")[0:4],
+            function="depositCap",
+            data=b"",
+            extra_data=None,
+        )
+
+        # Moonwell
+        # https://basescan.org/address/0x6b13c060F13Af1fdB319F52315BbbF3fb1D88844#readContract
+        morpho_call = EncodedCall.from_keccak_signature(
+            address=address,
+            signature=Web3.keccak(text="MORPHO()")[0:4],
+            function="MORPHO",
+            data=b"",
+            extra_data=None,
+        )
+
+        yield name_call
         yield share_price_call
         yield ipor_fee_call
+        yield harvest_finance_call
+        yield erc_7545_call
+        yield baso_finance_call
+        yield baklava_space
+        yield astrolab_call
+        yield gains_network_call
+        yield morpho_call
 
 
 def identify_vault_features(
@@ -69,12 +164,50 @@ def identify_vault_features(
 
     features = set()
 
-    # Not ERC-4626 vaul
     if not calls["convertToShares"].success:
-        return {ERC4626Feature.broken}
+        # Not ERC-4626 vault
+        features.add({ERC4626Feature.broken})
 
-    if not calls["getPerformanceFeeData"].success:
+    if calls["getPerformanceFeeData"].success:
         features.add(ERC4626Feature.ipor_like)
+
+    if calls["vaultFractionToInvestDenominator"].success:
+        features.add(ERC4626Feature.harvest_finance)
+
+    if calls["isOperator"].success:
+        features.add(ERC4626Feature.erc_7540_like)
+
+    if calls["agent"].success:
+        features.add(ERC4626Feature.astrolab_like)
+
+    if calls["depositCap"].success:
+        features.add(ERC4626Feature.gains_like)
+
+    if calls["MORPHO"].success:
+        features.add(ERC4626Feature.morpho_like)
+
+    # Panoptics do not expose any good calls we could get hold off.
+    # For some minor protocols, we do not bother to read their contracts.
+    name = calls["name"].result
+    if name:
+        try:
+            name = name.decode("utf-8")
+            if "POPT-V1" in name:
+                features.add(ERC4626Feature.panoptic_like)
+            elif "Return Finance" in name:
+                features.add(ERC4626Feature.panoptic_like)
+            elif "ArcadiaV2" in name:
+                features.add(ERC4626Feature.arcadia_finance_like)
+            elif "BRT2" in name:
+                features.add(ERC4626Feature.baklava_space_like)
+            elif name == "Satoshi":
+                features.add(ERC4626Feature.satoshi_stablecoin)
+            elif "Athena" in name:
+                features.add(ERC4626Feature.athena_like)
+            elif "RightsToken" in name:
+                features.add(ERC4626Feature.reserve_like)
+        except:
+            pass
 
     return features
 
@@ -107,13 +240,13 @@ def probe_vaults(
         address = call_result.call.address
         address_calls = results_per_address[address]
         address_calls[call_result.call.func_name] = call_result
-        if len(results_per_address[address]) >= FEATURE_COUNT:
-            features = identify_vault_features(address_calls)
-            yield VaultFeatureProbe(
-                address=address,
-                features=features,
-            )
-            del results_per_address[address]
+
+    for address, address_call_results in results_per_address.items():
+        features = identify_vault_features(address_call_results)
+        yield VaultFeatureProbe(
+            address=address,
+            features=features,
+        )
 
 
 def create_vault_instance(

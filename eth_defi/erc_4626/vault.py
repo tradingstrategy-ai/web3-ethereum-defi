@@ -184,11 +184,23 @@ class ERC4626Vault(VaultBase):
 
     def fetch_denomination_token(self) -> TokenDetails:
         token_address = self.info["asset"]
-        return fetch_erc20_details(self.web3, token_address, chain_id=self.spec.chain_id)
+        # eth_defi.token.TokenDetailError: Token 0x4C36388bE6F416A29C8d8Eee81C771cE6bE14B18 missing symbol
+        return fetch_erc20_details(
+            self.web3,
+            token_address,
+            chain_id=self.spec.chain_id,
+            raise_on_error=False,
+        )
 
     def fetch_share_token(self) -> TokenDetails:
         token_address = self.info["address"]
-        return fetch_erc20_details(self.web3, token_address, chain_id=self.spec.chain_id)
+        # eth_defi.token.TokenDetailError: Token 0xDb7869Ffb1E46DD86746eA7403fa2Bb5Caf7FA46 missing symbol
+        return fetch_erc20_details(
+            self.web3,
+            token_address,
+            raise_on_error=False,
+            chain_id=self.spec.chain_id
+        )
 
     def fetch_vault_info(self) -> dict:
         """Get all information we can extract from the vault smart contracts."""

@@ -25,9 +25,11 @@ API documentation
    one_delta/index
    safe/index
    vault/index
+   erc_4626/index
    enzyme/index
    lagoon/index
    velvet/index
+   ipor/index
    chainlink/index
    foundry/index
    etherscan/index
