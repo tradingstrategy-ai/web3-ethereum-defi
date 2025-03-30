@@ -8,10 +8,10 @@ Usage:
 
 .. code-block:: shell
 
-    export JSON_RPC_BASE=...
+    export JSON_RPC_URL=...
     python scripts/erc-4626/scan-vaults.py
 
-Or for faster small sample:
+Or for faster small sample scan limit the end block:
 
     END_BLOCK=5555721 python scripts/erc-4626/scan-vaults.py
 
@@ -60,7 +60,8 @@ def main():
     logging.basicConfig(level=log_level, stream=sys.stdout)
 
     # How many CPUs / subprocess we use
-    max_workers = 8
+    max_workers = 12
+    # max_workers = 1  # To debug, set workers to 1
 
     web3 = create_multi_provider_web3(JSON_RPC_URL)
     web3factory = MultiProviderWeb3Factory(JSON_RPC_URL)
@@ -115,11 +116,16 @@ def main():
     def round_below_epsilon(x, epsilon=Decimal("0.1"), round_factor=Decimal("0.001")):
         if isinstance(x, Decimal):
             x = Decimal('0') if abs(x) < epsilon else x
-            try:
-                x = x.quantize(round_factor)
-            except decimal.InvalidOperation:
-                logger.warning("Cannot quantise: %s", x)
+            if x < 1000:
+                try:
+                    x = x.quantize(round_factor)
+                except decimal.InvalidOperation:
+                    logger.warning("Cannot quantise: %s", x)
+            else:
+                # Decimals are not important in large values
+                x = int(x)
             return x
+
         return x  # Not decimal
 
     # Apply the function to all elements in the DataFrame

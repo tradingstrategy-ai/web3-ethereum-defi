@@ -45,12 +45,13 @@ class ERC4626Feature(enum.Enum):
     morpho_like = "morpho_like"
 
     #: Harvest Finance like protocol
-    harvest_finance = "morpho_like"
+    harvest_finance = "harvest_finance"
 
     #: Panoptic
     #: https://panoptic.xyz/
     panoptic_like = "panoptic_like"
 
+    #: Baklavaf
     #: BRT2
     baklava_space_like = "baklava_space_like"
 
@@ -90,7 +91,6 @@ def get_vault_protocol_name(features: set[ERC4626Feature]) -> str:
 
     At least one feature must match.
     """
-
     if ERC4626Feature.broken in features:
         return "<broken>"
     elif ERC4626Feature.morpho_like in features:
