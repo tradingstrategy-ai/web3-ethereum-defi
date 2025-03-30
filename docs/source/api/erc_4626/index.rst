@@ -13,7 +13,7 @@ ERC-4626 is a standard to optimize and unify the technical parameters of yield-b
 Tutorials
 =========
 
-- ref:`scan-erC_4626_vaults`
+- :ref:`scan-erc_4626_vaults`
 
 More info
 =========
