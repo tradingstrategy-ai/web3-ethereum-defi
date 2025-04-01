@@ -27,6 +27,19 @@ POA_MIDDLEWARE_NEEDED_CHAIN_IDS = {
     43114,  # Avalanche C-chain
 }
 
+#: Manually maintained shorthand names for different EVM chains
+CHAIN_NAMES = {
+    1: "Ethereum",
+    56: "Binance",
+    137: "Polygon",
+    43114: "Avalanche",
+    80094: "Berachain",
+    130: "Unichain",
+    645749: "Hyperliquid",
+    8545: "Base",
+    146: "Sonic",
+}
+
 
 def install_chain_middleware(web3: Web3, poa_middleware=None):
     """Install any chain-specific middleware to Web3 instance.
