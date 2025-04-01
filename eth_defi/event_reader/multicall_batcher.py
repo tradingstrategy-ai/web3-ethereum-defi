@@ -454,8 +454,26 @@ class EncodedCall:
     ) -> bytes:
         """Return raw results of the call.
 
+        Example:
+
+        .. code-block:: python
+
+            erc_7575_call = EncodedCall.from_keccak_signature(
+                address=self.vault_address,
+                signature=Web3.keccak(text="share()")[0:4],
+                function="share",
+                data=b"",
+                extra_data=None,
+            )
+
+            result = erc_7575_call.call(self.web3, block_identifier="latest")
+            share_token_address = convert_uint256_bytes_to_address(result)
+
         :return:
             Raw call results as bytes
+
+        :raise ValueError:
+            If the call reverts
         """
         transaction = {
             "to": self.address,

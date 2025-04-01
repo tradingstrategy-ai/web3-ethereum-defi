@@ -407,7 +407,7 @@ class VaultBase(ABC):
         """
 
     @cached_property
-    def denomination_token(self) -> TokenDetails:
+    def denomination_token(self) -> TokenDetails | None:
         """Get the token which denominates the vault valuation
 
         - Used in deposits and redemptions
@@ -419,7 +419,10 @@ class VaultBase(ABC):
         - Usually USDC
 
         :return:
-            Token wrapper instance
+            Token wrapper instance.
+
+            Maybe None for broken vaults like
+            https://arbiscan.io/address/0x9d0fbc852deccb7dcdd6cb224fa7561efda74411#code
         """
         return self.fetch_denomination_token()
 

@@ -438,6 +438,36 @@ def get_wrapped_native_token_address(chain_id: int):
     return address
 
 
+def get_chain_stablecoins(chain_id: int) -> set[TokenDetails]:
+    """Get all good known stablecoins on a chain.
+
+    :raise AssertionError:
+        Chain has zero stablecoins configured
+    """
+
+    assert type(chain_id) is int
+
+    tokens = set()
+    usdc = USDC_NATIVE_TOKEN.get(chain_id)
+    if usdc is not None:
+        tokens.add(usdc)
+
+    usdt = USDT_NATIVE_TOKEN.get(chain_id)
+    if usdt is not None:
+        tokens.add(usdt)
+
+    susds = SUSDS_NATIVE_TOKEN.get(chain_id)
+    if susds is not None:
+        tokens.add(susds)
+
+    honey = HONEY_NATIVE_TOKEN.get(chain_id)
+    if honey is not None:
+        tokens.add(honey)
+
+    assert len(tokens) > 0, f"Zero known good stablecoins configured for chain {chain_id}"
+    return tokens
+
+
 #: Addresses of wrapped native token (WETH9) of different chains
 WRAPPED_NATIVE_TOKEN: dict[int, HexAddress] = {
     # Mainnet
@@ -458,6 +488,11 @@ USDC_NATIVE_TOKEN: dict[int, HexAddress] = {
     8453: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
     # Ava
     43114: "0xB97EF9Ef8734C71904D8002F8b6Bc66Dd9c48a6E",
+    # Arbitrum
+    42161: "0xaf88d065e77c8cC2239327C5EDb3A432268e5831",
+    # BNB
+    # https://www.coingecko.com/en/coins/binance-bridged-usdc-bnb-smart-chain
+    56: "0x8ac76a51cc950d9822d68b83fe1ad97b32cd580d",
 }
 
 
@@ -467,8 +502,10 @@ USDT_NATIVE_TOKEN: dict[int, HexAddress] = {
     1: "0xdAC17F958D2ee523a2206206994597C13D831ec7",
     # Binance Smart Chain
     56: "0x55d398326f99059FF775485246999027B3197955",
-    # USDT.E
+    # Avalanche USDT.E
     43114: "0xB97EF9Ef8734C71904D8002F8b6Bc66Dd9c48a6E",
+    # Arbitrum
+    42161: "0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9",
 }
 
 
@@ -477,3 +514,12 @@ SUSDS_NATIVE_TOKEN: dict[int, HexAddress] = {
     # Base
     8453: "0x5875eEE11Cf8398102FdAd704C9E96607675467a",
 }
+
+#: Berachain
+#: 0xFCBD14DC51f0A4d49d5E53C2E0950e0bC26d0Dce
+#: https://docs.berachain.com/learn/pol/tokens/honey
+HONEY_NATIVE_TOKEN: dict[int, HexAddress] = {
+    # Berachain
+    80094: "0xFCBD14DC51f0A4d49d5E53C2E0950e0bC26d0Dce",
+}
+

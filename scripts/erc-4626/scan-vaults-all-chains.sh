@@ -9,6 +9,10 @@
 set -e
 set -u
 
+export JSON_RPC_URL=$JSON_RPC_HYPERLIQUID
+python scripts/erc-4626/scan-vaults.py
+
+
 
 export JSON_RPC_URL=$JSON_RPC_POLYGON
 python scripts/erc-4626/scan-vaults.py
@@ -19,9 +23,6 @@ python scripts/erc-4626/scan-vaults.py
 # Sonic net yet on HyperSync
 # export JSON_RPC_URL=$JSON_RPC_SONIC
 # python scripts/erc-4626/scan-vaults.py
-
-export JSON_RPC_URL=$JSON_RPC_HYPERLIQUID
-python scripts/erc-4626/scan-vaults.py
 
 export JSON_RPC_URL=$JSON_RPC_BERACHAIN
 python scripts/erc-4626/scan-vaults.py

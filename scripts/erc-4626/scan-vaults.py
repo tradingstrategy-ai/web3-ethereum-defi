@@ -122,8 +122,12 @@ def main():
     output_fname = Path(f"{output_folder}/chain-{chain}-vaults.parquet")
     parquet_df = df.copy()
     parquet_df = parquet_df.fillna(pd.NA)  # fillna replaces None and NaN with pd.NA
-    parquet_df['Mgmt fee'] = pd.to_numeric(parquet_df['Mgmt fee'], errors='coerce')
-    parquet_df['Perf fee'] = pd.to_numeric(parquet_df['Perf fee'], errors='coerce')
+    # Avoid funny number issues
+    # pyarrow.lib.ArrowInvalid: ('Decimal precision out of range [1, 76]: 90', 'Conversion failed for column NAV with type object')
+    parquet_df['Mgmt fee'] = pd.to_numeric(parquet_df['Mgmt fee'], errors='coerce').astype('float64')
+    parquet_df['Perf fee'] = pd.to_numeric(parquet_df['Perf fee'], errors='coerce').astype('float64')
+    parquet_df['Shares'] = pd.to_numeric(parquet_df['Shares'], errors='coerce').astype('float64')
+    parquet_df['NAV'] = pd.to_numeric(parquet_df['NAV'], errors='coerce').astype('float64')
     print(f"Saving raw data to {output_fname}")
     parquet_df.to_parquet(output_fname)
 

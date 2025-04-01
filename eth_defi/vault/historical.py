@@ -14,6 +14,7 @@ from collections import defaultdict
 from typing import Iterable
 
 from eth_typing import HexAddress
+from web3 import Web3
 
 from eth_defi.event_reader.multicall_batcher import EncodedCall, read_multicall_historical, EncodedCallResult
 from eth_defi.event_reader.web3factory import Web3Factory
@@ -109,5 +110,4 @@ class VaultHistoricalReadMulticaller:
                 yield reader.process_result(block_number, timestamp, results)
 
 
-
-
+d

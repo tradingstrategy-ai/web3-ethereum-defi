@@ -66,14 +66,18 @@ def create_vault_scan_record(
         except NotImplementedError:
             performance_fee = None
 
-        total_assets = vault.fetch_total_assets(block_identifier)
+        try:
+            total_assets = vault.fetch_total_assets(block_identifier)
+        except ValueError:
+            total_assets = None
+
         total_supply = vault.fetch_total_supply(block_identifier)
 
         data = {
             "Symbol": vault.symbol,
             "Name": vault.name,
             "Address": detection.address,
-            "Denomination": vault.denomination_token.symbol,
+            "Denomination": vault.denomination_token.symbol if vault.denomination_token else None,
             "NAV": total_assets,
             "Protocol": get_vault_protocol_name(detection.features),
             "Mgmt fee": management_fee,
@@ -94,7 +98,8 @@ def create_vault_scan_record(
             vault.__class__.__name__,
             detection.address,
             detection.features,
-            str(e)
+            str(e),
+            exc_info=True,
         )
         return record
 

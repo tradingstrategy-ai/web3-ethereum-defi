@@ -40,7 +40,7 @@ HYPERSYNC_SERVES = {
     1666600000: {"Network Name": "Harmony Shard 0", "URL": "https://harmony-shard-0.hypersync.xyz or https://1666600000.hypersync.xyz", "Tier": "🪨", "Supports Traces": False},
     17000: {"Network Name": "Holesky", "URL": "https://holesky.hypersync.xyz or https://17000.hypersync.xyz", "Tier": "🎒", "Supports Traces": False},  # Note: Holesky appears twice with different URLs
     # 17000: {"Network Name": "Holesky Token Test", "URL": "https://holesky-token-test.hypersync.xyz or https://17000.hypersync.xyz", "Tier": "🔒", "Supports Traces": False},  # Duplicate Network ID
-    645749: {"Network Name": "Hyperliquid", "URL": "https://hyperliquid.hypersync.xyz or https://645749.hypersync.xyz", "Tier": "🥉", "Supports Traces": False},
+    999: {"Network Name": "Hyperliquid", "URL": "https://hyperliquid.hypersync.xyz or https://645749.hypersync.xyz", "Tier": "🥉", "Supports Traces": False},
     645748: {"Network Name": "Hyperliquid Temp", "URL": "https://hyperliquid-temp.hypersync.xyz or https://645748.hypersync.xyz", "Tier": "🥉", "Supports Traces": False},
     57073: {"Network Name": "Ink", "URL": "https://ink.hypersync.xyz or https://57073.hypersync.xyz", "Tier": "🪨", "Supports Traces": False},
     16858666: {"Network Name": "Internal Test Chain", "URL": "https://internal-test-chain.hypersync.xyz or https://16858666.hypersync.xyz", "Tier": "🔒", "Supports Traces": False},

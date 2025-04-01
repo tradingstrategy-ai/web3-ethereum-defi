@@ -12,8 +12,9 @@ from web3.types import BlockIdentifier
 from eth_defi.abi import get_deployed_contract
 from eth_defi.balances import fetch_erc20_balances_fallback
 from eth_defi.erc_4626.core import get_deployed_erc_4626_contract
-from eth_defi.event_reader.conversion import convert_int256_bytes_to_int
+from eth_defi.event_reader.conversion import convert_int256_bytes_to_int, convert_uint256_bytes_to_address
 from eth_defi.event_reader.multicall_batcher import EncodedCall, EncodedCallResult
+from eth_defi.provider.broken_provider import get_almost_latest_block_number
 from eth_defi.token import TokenDetails, fetch_erc20_details
 from eth_defi.vault.base import VaultBase, VaultSpec, VaultInfo, TradingUniverse, VaultPortfolio, VaultFlowManager, VaultHistoricalReader, VaultHistoricalRead
 
@@ -26,9 +27,12 @@ class ERC4626VaultInfo(VaultInfo):
 
     #: The address of the underlying token used for the vault for accounting, depositing, withdrawing.
     #:
+    #: Some broken vaults do not expose this, and may be None.
+    #: e.g. https://arbiscan.io/address/0x9d0fbc852deccb7dcdd6cb224fa7561efda74411#code
+    #:
     #: E.g. USDC.
     #:
-    asset: HexAddress
+    asset: HexAddress | None
 
 
 class ERC4626HistoricalReader(VaultHistoricalReader):
@@ -133,11 +137,17 @@ class ERC4626HistoricalReader(VaultHistoricalReader):
 class ERC4626Vault(VaultBase):
     """ERC-4626 vault adapter
 
+    Handle vault operations:
+
     - Metadata
     - Deposit and redeem from the vault
-    - Vault price reader
+    - Vault historical price reader
+    - Also partial support for ERC-7575 extensions
+
+    More info:
 
     - `Find the interface here <https://github.com/OpenZeppelin/openzeppelin-contracts/blob/master/contracts/token/ERC20/extensions/ERC4626.sol>`__
+    - `EIP-7575 <https://eips.ethereum.org/EIPS/eip-7575>`__
     """
 
     def __init__(
@@ -182,32 +192,61 @@ class ERC4626Vault(VaultBase):
         """Alias for :py:meth:`denomination_token`"""
         return self.denomination_token
 
-    def fetch_denomination_token(self) -> TokenDetails:
+    def fetch_denomination_token(self) -> TokenDetails | None:
         token_address = self.info["asset"]
         # eth_defi.token.TokenDetailError: Token 0x4C36388bE6F416A29C8d8Eee81C771cE6bE14B18 missing symbol
-        return fetch_erc20_details(
-            self.web3,
-            token_address,
-            chain_id=self.spec.chain_id,
-            raise_on_error=False,
-        )
+        if token_address:
+            return fetch_erc20_details(
+                self.web3,
+                token_address,
+                chain_id=self.spec.chain_id,
+                raise_on_error=False,
+            )
+        else:
+            return None
 
     def fetch_share_token(self) -> TokenDetails:
-        token_address = self.info["address"]
+        """Get share token of this vault.
+
+        - Vault itself (ERC-4626)
+        - share() accessor (ERc-7575)
+        """
+        try:
+            # ERC-7575
+            erc_7575_call = EncodedCall.from_keccak_signature(
+                address=self.vault_address,
+                signature=Web3.keccak(text="share()")[0:4],
+                function="share",
+                data=b"",
+                extra_data=None,
+            )
+
+            result = erc_7575_call.call(self.web3, block_identifier="latest")
+            share_token_address = convert_uint256_bytes_to_address(result)
+
+        except ValueError as e:
+            if not "execution reverted" in str(e):
+                raise
+            share_token_address = self.vault_address
+
         # eth_defi.token.TokenDetailError: Token 0xDb7869Ffb1E46DD86746eA7403fa2Bb5Caf7FA46 missing symbol
         return fetch_erc20_details(
             self.web3,
-            token_address,
+            share_token_address,
             raise_on_error=False,
             chain_id=self.spec.chain_id
         )
 
-    def fetch_vault_info(self) -> dict:
+    def fetch_vault_info(self) -> ERC4626VaultInfo:
         """Get all information we can extract from the vault smart contracts."""
         vault = self.vault_contract
         #roles_tuple = vault.functions.getRolesStorage().call()
         #whitelistManager, feeReceiver, safe, feeRegistry, valuationManager = roles_tuple
-        asset = vault.functions.asset().call()
+        try:
+            asset = vault.functions.asset().call()
+        except ValueError as e:
+            asset = None
+
         return {
             "address": vault.address,
             "asset": asset,
@@ -225,7 +264,6 @@ class ERC4626Vault(VaultBase):
             assert vault.fetch_total_assets(block_identifier=test_block_number) == Decimal('1437072.77357')
             assert vault.fetch_total_supply(block_identifier=test_block_number) == Decimal('1390401.22652875')
 
-
         :param block_identifier:
             Block number to read.
 
@@ -235,7 +273,9 @@ class ERC4626Vault(VaultBase):
             The vault value in underlyinh token
         """
         raw_amount = self.vault_contract.functions.totalAssets().call(block_identifier=block_identifier)
-        return self.underlying_token.convert_to_decimals(raw_amount)
+        if self.underlying_token is not None:
+            return self.underlying_token.convert_to_decimals(raw_amount)
+        return None
 
     def fetch_total_supply(self, block_identifier: BlockIdentifier) -> Decimal:
         """What is the current outstanding shares.
@@ -257,7 +297,7 @@ class ERC4626Vault(VaultBase):
         :return:
             The vault value in underlyinh token
         """
-        raw_amount = self.vault_contract.functions.totalSupply().call(block_identifier=block_identifier)
+        raw_amount = self.share_token.contract.functions.totalSupply().call(block_identifier=block_identifier)
         return self.share_token.convert_to_decimals(raw_amount)
 
     def fetch_share_price(self, block_identifier: BlockIdentifier) -> Decimal:
