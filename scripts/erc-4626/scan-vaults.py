@@ -113,8 +113,12 @@ def main():
 
     chain = web3.eth.chain_id
     output_fname = Path(f"/tmp/chain-{chain}-vaults.parquet")
+    parquet_df = df.copy()
+    parquet_df = parquet_df.fillna(pd.NA)  # fillna replaces None and NaN with pd.NA
+    parquet_df['Mgmt fee'] = pd.to_numeric(parquet_df['Mgmt fee'], errors='coerce')
+    parquet_df['Perf fee'] = pd.to_numeric(parquet_df['Perf fee'], errors='coerce')
     print(f"Saving raw data to {output_fname}")
-    df.to_parquet(output_fname)
+    parquet_df.to_parquet(output_fname)
 
     #
     # Save machine-readable output
@@ -133,8 +137,8 @@ def main():
 
     # Format DataFrame output for terminal
     df["First seen"] = df["First seen"].dt.strftime('%Y-%b-%d')
-    df["Mgmt fee"] = df["Mgmt fee"].apply(lambda x: f"{x:%}" if x else "-")
-    df["Perf fee"] = df["Perf fee"].apply(lambda x: f"{x:%}" if x else "-")
+    df["Mgmt fee"] = df["Mgmt fee"].apply(lambda x: f"{x:%}" if type(x) == float else x)
+    df["Perf fee"] = df["Perf fee"].apply(lambda x: f"{x:%}" if type(x) == float else x)
     # df["Address"] = df["Address"].apply(lambda x: x[0:8])  # Address is too wide in terminal
     df = df.set_index("Address")
 
