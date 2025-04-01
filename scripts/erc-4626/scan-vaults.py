@@ -137,8 +137,8 @@ def main():
 
     # Format DataFrame output for terminal
     df["First seen"] = df["First seen"].dt.strftime('%Y-%b-%d')
-    df["Mgmt fee"] = df["Mgmt fee"].apply(lambda x: f"{x:%}" if type(x) == float else x)
-    df["Perf fee"] = df["Perf fee"].apply(lambda x: f"{x:%}" if type(x) == float else x)
+    df["Mgmt fee"] = df["Mgmt fee"].apply(lambda x: f"{x:.1%}" if type(x) == float else "-")
+    df["Perf fee"] = df["Perf fee"].apply(lambda x: f"{x:.1%}" if type(x) == float else "-")
     # df["Address"] = df["Address"].apply(lambda x: x[0:8])  # Address is too wide in terminal
     df = df.set_index("Address")
 

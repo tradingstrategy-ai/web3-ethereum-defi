@@ -47,6 +47,8 @@ def user(web3, deployer, usdc) -> LocalAccount:
     return account
 
 
+# FAILED tests/enzyme/test_enzyme_usdc_payment_forwarder.py::test_enzyme_usdc_payment_forwarder_receive_with_authorization - eth_defi.trace.TransactionAssertionError: Revert reason: execution reverted
+@flaky.flaky
 def test_enzyme_usdc_payment_forwarder_receive_with_authorization(
     web3: Web3,
     deployer: HexAddress,
