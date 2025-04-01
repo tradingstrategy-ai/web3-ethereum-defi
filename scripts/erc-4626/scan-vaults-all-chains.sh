@@ -26,3 +26,9 @@ python scripts/erc-4626/scan-vaults.py
 
 export JSON_RPC_URL=$JSON_RPC_AVALANCHE
 python scripts/erc-4626/scan-vaults.py
+
+export JSON_RPC_URL=$JSON_RPC_SONIC
+python scripts/erc-4626/scan-vaults.py
+
+export JSON_RPC_URL=$JSON_RPC_HYPERLIQUID
+python scripts/erc-4626/scan-vaults.py

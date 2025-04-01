@@ -67,7 +67,7 @@ def main():
     # max_workers = 1  # To debug, set workers to 1
 
     web3 = create_multi_provider_web3(JSON_RPC_URL)
-    web3factory = MultiProviderWeb3Factory(JSON_RPC_URL)
+    web3factory = MultiProviderWeb3Factory(JSON_RPC_URL, retries=5)
     print(f"Scanning ERC-4626 vaults on chain {web3.eth.chain_id}")
 
     hypersync_url = get_hypersync_server(web3)
@@ -108,6 +108,7 @@ def main():
     rows = worker_processor(delayed(create_vault_scan_record_subprocess)(web3factory, d, end_block) for d in tqdm(vault_detections, desc=desc))
 
     print(f"Total {len(rows)} vaults detected")
+    import ipdb ; ipdb.set_trace()
     df = pd.DataFrame(rows)
     # Cannot export the raw Python object,
     # this is for the pickle only

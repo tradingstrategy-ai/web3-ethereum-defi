@@ -1,5 +1,6 @@
 """Turn vault discoveries to human readable rows."""
 import threading
+import logging
 
 from typing import cast
 
@@ -11,6 +12,10 @@ from eth_defi.erc_4626.core import get_vault_protocol_name
 from eth_defi.erc_4626.hypersync_discovery import ERC4262VaultDetection
 from eth_defi.erc_4626.vault import ERC4626Vault
 from eth_defi.event_reader.web3factory import Web3Factory
+from eth_defi.middleware import ProbablyNodeHasNoBlock
+
+
+logger = logging.getLogger(__name__)
 
 
 def create_vault_scan_record(
@@ -28,22 +33,25 @@ def create_vault_scan_record(
 
     vault = create_vault_instance(web3, detection.address, detection.features)
 
+    empty_record = {
+        "Symbol": "",
+        "Name": "",
+        "Address": detection.address,
+        "Protocol": "<unknown>",
+        "Denomination": "",
+        "NAV": 0,
+        "Mgmt fee": "-",
+        "Perf fee": "-",
+        "Shares": 0,
+        "First seen": detection.first_seen_at,
+        "_detection_data": detection,
+    }
+
     if vault is None:
         # Probably not ERC-4626
-        data = {
-            "Symbol": "",
-            "Name": "",
-            "Address": detection.address,
-            "Protocol": "<unknown>",
-            "Denomination": "",
-            "NAV": 0,
-            "Mgmt fee": "-",
-            "Perf fee": "-",
-            "Shares": 0,
-            "First seen": detection.first_seen_at,
-            "_detection_data": detection,
-        }
-    else:
+        return empty_record
+
+    try:
         # Try to figure out the correct vault subclass
         # to pull out the data like fees
         vault = cast(ERC4626Vault, vault)
@@ -59,23 +67,41 @@ def create_vault_scan_record(
         except NotImplementedError:
             performance_fee = None
 
+        total_assets = vault.fetch_total_assets(block_identifier)
+        total_supply = vault.fetch_total_supply(block_identifier)
+
         data = {
             "Symbol": vault.symbol,
             "Name": vault.name,
             "Address": detection.address,
             "Denomination": vault.denomination_token.symbol,
-            "NAV": vault.fetch_total_assets(block_identifier),
+            "NAV": total_assets,
             "Protocol": get_vault_protocol_name(detection.features),
             "Mgmt fee": management_fee,
             "Perf fee": performance_fee,
-            "Shares": vault.fetch_total_supply(block_identifier),
+            "Shares": total_supply,
             "First seen": detection.first_seen_at,
             "_detection_data": detection,
         }
-
-    return data
-
-
+        return data
+    except ProbablyNodeHasNoBlock as e:
+        # Probably caused by misdetecting a vault, then we try to call its functions and they return 0x (no data) instead of cleanly reverting
+        # Not sure what is causing this
+        #  When calling method: eth_call({'to': '0x463DE7D52bF7C6849ab3630Bb6F999eA0e03ED9F', 'from': '0x0000000000000000000000000000000000000000', 'data': '0x31ee80ca', 'gas': '0x1312d00'}, '0x15259fb')
+        record = empty_record.copy()
+        record["Address"] = "<broken>"
+        logger.warning(
+            "Could not read %s %s (%s): %s",
+            vault.__class__.__name__,
+            detection.address,
+            detection.features,
+            str(e)
+        )
+        return record
+    except ValueError as e:
+        record = empty_record.copy()
+        record["Address"] = "<broken>"
+        return record
 
 _subprocess_web3_cache = threading.local()
 

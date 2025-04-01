@@ -284,9 +284,10 @@ def _fix_provider(provider: HTTPProvider):
 class MultiProviderWeb3Factory:
     """Needed to pass RPC URL as :py:type:`Web3Factory`"""
 
-    def __init__(self, rpc_url: str):
+    def __init__(self, rpc_url: str, retries=6):
         self.rpc_url = rpc_url
+        self.retries = retries
 
     def __call__(self) -> Web3:
-        return create_multi_provider_web3(self.rpc_url)
+        return create_multi_provider_web3(self.rpc_url, retries=self.retries)
 

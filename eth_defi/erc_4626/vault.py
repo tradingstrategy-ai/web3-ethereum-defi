@@ -213,7 +213,7 @@ class ERC4626Vault(VaultBase):
             "asset": asset,
         }
 
-    def fetch_total_assets(self, block_identifier: BlockIdentifier) -> Decimal:
+    def fetch_total_assets(self, block_identifier: BlockIdentifier) -> Decimal | None:
         """What is the total NAV of the vault.
 
         Example:

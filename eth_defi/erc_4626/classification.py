@@ -194,11 +194,18 @@ def identify_vault_features(
 
     features = set()
 
-    if not calls["convertToShares"].success:
+    # Should return uint256 share count. Broken proxies may return 0x or similar response.
+    if not calls["convertToShares"].success and len(calls["convertToShares"].result) != 32:
         # Not ERC-4626 vault
-        features.add(ERC4626Feature.broken)
+        return {ERC4626Feature.broken}
 
-    if calls["getPerformanceFeeData"].success:
+    if calls["getPerformanceFeeData"].success and len(calls["getPerformanceFeeData"].result) == 64:
+        # File 21 of 47 : PlasmaVaultStorageLib.sol
+        #     /// @custom:storage-location erc7201:io.ipor.PlasmaVaultPerformanceFeeData
+        #     struct PerformanceFeeData {
+        #         address feeManager;
+        #         uint16 feeInPercentage;
+        #     }
         features.add(ERC4626Feature.ipor_like)
 
     if calls["vaultFractionToInvestDenominator"].success:
@@ -226,6 +233,12 @@ def identify_vault_features(
         features.add(ERC4626Feature.lagoon_like)
         # All Lagoon should be ERC-7575
         assert ERC4626Feature.erc_7575_like in features
+
+    if len(features) > 4:
+        # This contract somehow responses to all calls with success.
+        # It is probably some sort of a broken proxy?
+        # WARNING:eth_defi.erc_4626.scan:Could not read IPORVault 0xaa3868461c0d3B26F71ee177aF4242E3A3974DC2 ({<ERC4626Feature.gains_like: 'gains_like'>, <ERC4626Feature.astrolab_like: 'astrolab_like'>, <ERC4626Feature.morpho_like: 'morpho_like'>, <ERC4626Feature.erc_7540_like: 'erc_7540_like'>, <ERC4626Feature.kiln_metavault_like: 'kiln_metavault_like'>, <ERC4626Feature.erc_7575_like: 'erc_7575_like'>, <ERC4626Feature.harvest_finance: 'harvest_finance'>, <ERC4626Feature.lagoon_like: 'lagoon_like'>, <ERC4626Feature.ipor_like: 'ipor_like'>}): Node lacked state data when doing eth_call for block 0x1525af9
+        return {ERC4626Feature.broken}
 
     # Panoptics do not expose any good calls we could get hold off.
     # For some minor protocols, we do not bother to read their contracts.
