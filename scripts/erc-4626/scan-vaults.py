@@ -108,7 +108,6 @@ def main():
     rows = worker_processor(delayed(create_vault_scan_record_subprocess)(web3factory, d, end_block) for d in tqdm(vault_detections, desc=desc))
 
     print(f"Total {len(rows)} vaults detected")
-    import ipdb ; ipdb.set_trace()
     df = pd.DataFrame(rows)
     # Cannot export the raw Python object,
     # this is for the pickle only
