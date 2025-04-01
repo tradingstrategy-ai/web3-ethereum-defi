@@ -38,6 +38,7 @@ logger = logging.getLogger(__name__)
 @dataclasses.dataclass(slots=True, frozen=False)
 class PotentialVaultMatch:
     """Categorise contracts that emit ERC-4626 like events."""
+    chain: int
     address: HexAddress
     first_seen_at_block: int
     first_seen_at: datetime.datetime
@@ -52,6 +53,7 @@ class PotentialVaultMatch:
 @dataclasses.dataclass(slots=True, frozen=True)
 class ERC4262VaultDetection:
     """A ERC-4626 detection."""
+    chain: int
     address: HexAddress
     first_seen_at_block: int
     first_seen_at: datetime.datetime
@@ -171,10 +173,12 @@ class HypersyncVaultDiscover:
         """
         assert end_block > start_block
 
+        chain = self.web3.eth.chain_id
+
         logger.info("Building HyperSync query")
         query = self.build_query(start_block, end_block)
 
-        logger.info(f"Starting HyperSync stream {start_block:,} to {end_block:,}, query is {query}")
+        logger.info(f"Starting HyperSync stream {start_block:,} to {end_block:,}, chain {chain}, query is {query}")
         # start the stream
         receiver = await self.client.stream(query, hypersync.StreamConfig())
 
@@ -217,6 +221,7 @@ class HypersyncVaultDiscover:
                         block = block_lookup[log.block_number]
                         timestamp = datetime.datetime.utcfromtimestamp(int(block.timestamp, 16))
                         lead = PotentialVaultMatch(
+                            chain=chain,
                             address=Web3.to_checksum_address(log.address),
                             first_seen_at_block=log.block_number,
                             first_seen_at=timestamp,
@@ -268,6 +273,8 @@ class HypersyncVaultDiscover:
         - Then perform multicall probing for each vault smart contract to detect protocol
         """
 
+        chain = self.web3.eth.chain_id
+
         # Don't leak async colored interface, as it is an implementation detail
         async def _hypersync_asyncio_wrapper():
             leads = {}
@@ -280,7 +287,7 @@ class HypersyncVaultDiscover:
 
         logger.info("Found %d leads", len(leads))
         addresses = list(leads.keys())
-        good_vaults = 0
+        good_vaults = broken_vaults = 0
 
         if display_progress:
             progress_bar_desc = f"Identifying vaults, using {self.max_workers} workers"
@@ -297,15 +304,22 @@ class HypersyncVaultDiscover:
             lead = leads[feature_probe.address]
 
             yield ERC4262VaultDetection(
+                chain=chain,
                 address=feature_probe.address,
                 features=feature_probe.features,
                 first_seen_at_block=lead.first_seen_at_block,
                 first_seen_at=lead.first_seen_at,
             )
 
-            if ERC4626Feature.broken not in feature_probe.features:
+            if ERC4626Feature.broken in feature_probe.features:
+                broken_vaults += 1
+            else:
                 good_vaults += 1
 
-        logger.info("Found %d good ERC-4626 vaults", good_vaults)
+        logger.info(
+            "Found %d good ERC-4626 vaults, %d broken vaults",
+            good_vaults,
+            broken_vaults,
+        )
 
 

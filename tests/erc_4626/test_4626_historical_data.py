@@ -10,6 +10,7 @@ from web3 import Web3
 
 from eth_defi.erc_4626.vault import ERC4626Vault
 from eth_defi.ipor.vault import IPORVault
+from eth_defi.morpho.vault import MorphoVault
 from eth_defi.provider.multi_provider import create_multi_provider_web3, MultiProviderWeb3Factory
 from eth_defi.token import fetch_erc20_details, USDC_NATIVE_TOKEN, SUSDS_NATIVE_TOKEN
 from eth_defi.vault.base import VaultSpec
@@ -35,7 +36,7 @@ def test_4626_historical_vault_data(
     ipor_usdc = IPORVault(web3, VaultSpec(web3.eth.chain_id, "0x45aa96f0b3188d47a1dafdbefce1db6b37f58216"))
 
     # https://app.morpho.org/base/vault/0xc1256Ae5FF1cf2719D4937adb3bbCCab2E00A2Ca/moonwell-flagship-usdc
-    moonwell_flagship_usdc = ERC4626Vault(web3, VaultSpec(web3.eth.chain_id, "0xc1256Ae5FF1cf2719D4937adb3bbCCab2E00A2Ca"))
+    moonwell_flagship_usdc = MorphoVault(web3, VaultSpec(web3.eth.chain_id, "0xc1256Ae5FF1cf2719D4937adb3bbCCab2E00A2Ca"))
 
     # https://www.superform.xyz/vault/Dgrw4wBA1YgfvI2BxA8YN/
     steakhouse_susds = ERC4626Vault(web3, VaultSpec(web3.eth.chain_id, "0xB17B070A56043e1a5a1AB7443AfAFDEbcc1168D7"))
@@ -87,6 +88,8 @@ def test_4626_historical_vault_data(
     assert r.total_assets == Decimal('29370634.415894171925433087')
     assert r.total_supply == Decimal('29958452.263395')
     assert r.share_price == Decimal('980378917545.099855')
+    assert r.management_fee == 0
+    assert r.performance_fee == 0.15
 
     r = records[-3]
     assert r.block_number == 26979376

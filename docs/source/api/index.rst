@@ -30,6 +30,7 @@ API documentation
    lagoon/index
    velvet/index
    ipor/index
+   morpho/index
    chainlink/index
    foundry/index
    etherscan/index

@@ -12,6 +12,7 @@ from eth_typing import HexAddress
 from web3 import Web3
 from web3.types import BlockIdentifier
 
+from eth_defi.abi import ZERO_ADDRESS_STR
 from eth_defi.erc_4626.core import ERC4626Feature
 from eth_defi.event_reader.multicall_batcher import EncodedCall, read_multicall_chunked, EncodedCallResult
 from eth_defi.event_reader.web3factory import Web3Factory
@@ -37,6 +38,7 @@ def create_probe_calls(
 
     convert_to_shares_payload = eth_abi.encode(['uint256'], [share_probe_amount])
     zero_uint_payload = eth_abi.encode(['uint256'], [0])
+    double_address = eth_abi.encode(['address', 'address'], [ZERO_ADDRESS_STR, ZERO_ADDRESS_STR])
 
     # TODO: Might be bit slowish here, but we are not perf intensive
     for address in addresses:
@@ -86,21 +88,12 @@ def create_probe_calls(
             extra_data=None,
         )
 
-        # Baso Finance
-        # https://defillama.com/protocol/baso-finance
-        #
-        #     // earned is an estimation, it won't be exact till the supply > rewardPerToken calculations have run
-        #     function earned() public view returns (uint) {
-        #         if(startTime <= 0 || lastClaimTime > block.timestamp){
-        #             return 0;
-        #         }
-        #         return (block.timestamp - lastClaimTime)*emissionSpeed;
-        #     }
-        baso_finance_call = EncodedCall.from_keccak_signature(
+        #function isOperator(address controller, address operator) external returns (bool);
+        erc_7540_call = EncodedCall.from_keccak_signature(
             address=address,
-            signature=Web3.keccak(text="isOperator()")[0:4],
+            signature=Web3.keccak(text="isOperator(address, address)")[0:4],
             function="isOperator",
-            data=b"",
+            data=double_address,
             extra_data=None,
         )
 
@@ -146,19 +139,52 @@ def create_probe_calls(
             extra_data=None,
         )
 
-        # https://docs.fluid.instadapp.io/
-        # https://basescan.org/address/0x1943FA26360f038230442525Cf1B9125b5DCB401#code
+        # interface IERC7575 is IERC4626 {
+        #     function share() external view returns (address);
+        # }
+        erc_7575_call = EncodedCall.from_keccak_signature(
+            address=address,
+            signature=Web3.keccak(text="share()")[0:4],
+            function="share",
+            data=b"",
+            extra_data=None,
+        )
+
+        # Kiln metavault
+        # https://basescan.org/address/0x4b2A4368544E276780342750D6678dC30368EF35#readProxyContract
+        # additionalRewardsStrategy
+        # https://github.com/0xZunia/Kiln.MetaVault
+        kiln_metavaut_call = EncodedCall.from_keccak_signature(
+            address=address,
+            signature=Web3.keccak(text="additionalRewardsStrategy()")[0:4],
+            function="additionalRewardsStrategy",
+            data=b"",
+            extra_data=None,
+        )
+
+        # MAX_MANAGEMENT_RATE
+        # https://basescan.org/address/0x6a5ea384e394083149ce39db29d5787a658aa98a#readContract
+        lagoon_call = EncodedCall.from_keccak_signature(
+            address=address,
+            signature=Web3.keccak(text="MAX_MANAGEMENT_RATE()")[0:4],
+            function="MAX_MANAGEMENT_RATE",
+            data=b"",
+            extra_data=None,
+        )
 
         yield name_call
         yield share_price_call
         yield ipor_fee_call
         yield harvest_finance_call
         yield erc_7545_call
-        yield baso_finance_call
+        yield erc_7540_call
         yield baklava_space
         yield astrolab_call
         yield gains_network_call
         yield morpho_call
+        yield erc_7575_call
+        yield kiln_metavaut_call
+        yield lagoon_call
 
 
 def identify_vault_features(
@@ -190,6 +216,17 @@ def identify_vault_features(
     if calls["MORPHO"].success:
         features.add(ERC4626Feature.morpho_like)
 
+    if calls["share"].success:
+        features.add(ERC4626Feature.erc_7575_like)
+
+    if calls["additionalRewardsStrategy"].success:
+        features.add(ERC4626Feature.kiln_metavault_like)
+
+    if calls["MAX_MANAGEMENT_RATE"].success:
+        features.add(ERC4626Feature.lagoon_like)
+        # All Lagoon should be ERC-7575
+        assert ERC4626Feature.erc_7575_like in features
+
     # Panoptics do not expose any good calls we could get hold off.
     # For some minor protocols, we do not bother to read their contracts.
     name = calls["name"].result
@@ -212,6 +249,8 @@ def identify_vault_features(
                 features.add(ERC4626Feature.reserve_like)
             elif "Fluid" in name:
                 features.add(ERC4626Feature.fluid_like)
+            elif "Peapods" in name:
+                features.add(ERC4626Feature.peapods_like)
 
         except:
             pass
@@ -226,9 +265,10 @@ def probe_vaults(
     max_workers=8,
     progress_bar_desc: str | None = None,
 ) -> Iterable[VaultFeatureProbe]:
-    """Perform multicalls against each vault addres to extract the features of the vault smart contract.
+    """Perform multicalls against each vault address to extract the features of the vault smart contract.
 
-    - USe multi
+    :return:
+        Iterator of what vault smart contract features we detected for each potential vault address
     """
 
     probe_calls = list(create_probe_calls(addresses))
@@ -261,7 +301,9 @@ def create_vault_instance(
     address: HexAddress,
     features: set[ERC4626Feature],
 ) -> VaultBase | None:
-    """Create a new vault instance class based on the features.
+    """Create a new vault instance class based on the detected features.
+
+    - Get a a protocol-specific Python instance that can e.g. read the fees of the vault (not standardised).
 
     :return:
         None if the vault creation is not supported
@@ -275,6 +317,14 @@ def create_vault_instance(
         # IPOR instance
         from eth_defi.ipor.vault import IPORVault
         return IPORVault(web3, spec)
+    elif ERC4626Feature.lagoon_like in features:
+        # Lagoon instance
+        from eth_defi.lagoon.vault import LagoonVault
+        return LagoonVault(web3, spec)
+    elif ERC4626Feature.morpho_like in features:
+        # Lagoon instance
+        from eth_defi.morpho.vault import MorphoVault
+        return MorphoVault(web3, spec)
     else:
         # Generic ERC-4626 without fee data
         from eth_defi.erc_4626.vault import ERC4626Vault

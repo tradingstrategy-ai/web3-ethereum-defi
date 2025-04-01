@@ -1,10 +1,11 @@
 # Current
 
-- Add: Abstract ERC-4626 base class out from Lagoon implementation
+- Add: Abstract ERC-4626 vault base class out from Lagoon implementation
 - Add: Multicall historical reader
 - Add: ERC-4626 automatic discovery onchain
 - Add: ERC-4626 vault type classification
 - Add: IPOR vault support
+- Add: Morpho vault support
 
 # 0.28.1
 

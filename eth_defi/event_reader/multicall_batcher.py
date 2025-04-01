@@ -27,7 +27,7 @@ from web3 import Web3
 from web3.contract import Contract
 from web3.contract.contract import ContractFunction
 
-from eth_defi.abi import get_deployed_contract, ZERO_ADDRESS, encode_function_call
+from eth_defi.abi import get_deployed_contract, ZERO_ADDRESS, encode_function_call, ZERO_ADDRESS_STR
 from eth_defi.event_reader.web3factory import Web3Factory
 from eth_defi.timestamp import get_block_timestamp
 
@@ -446,6 +446,28 @@ class EncodedCall:
             extra_data=extra_data,
         )
 
+    def call(
+        self,
+        web3: Web3, block_identifier: BlockIdentifier,
+        from_=ZERO_ADDRESS_STR,
+        gas=20_000_000,
+    ) -> bytes:
+        """Return raw results of the call.
+
+        :return:
+            Raw call results as bytes
+        """
+        transaction = {
+            "to": self.address,
+            "from": from_,
+            "data": self.data,
+            "gas": gas,
+        }
+        return web3.eth.call(
+            transaction=transaction,
+            block_identifier=block_identifier,
+        )
+
 
 @dataclass(slots=True, frozen=True)
 class EncodedCallResult:
@@ -494,13 +516,18 @@ class MultiprocessMulticallReader:
     - Initialises the web3 connection at the start of the process
     """
 
-    def __init__(self, web3factory: Web3Factory):
+    def __init__(self, web3factory: Web3Factory | Web3):
         logger.info(
             "Initialising multiprocess multicall handler, process %s, thread %s",
             os.getpid(),
             threading.current_thread(),
         )
-        self.web3 = web3factory()
+        if isinstance(web3factory, Web3):
+            # Directly passed
+            self.web3 = web3factory
+        else:
+            # Construct new RPC connection in every subprocess
+            self.web3 = web3factory()
 
     def get_block_timestamp(self, block_number: int) -> datetime.datetime:
         return get_block_timestamp(self.web3, block_number)

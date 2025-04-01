@@ -1,5 +1,5 @@
-Lagoon protocol API
--------------------
+Lagoon Finance API
+------------------
 
 Lagoon protocol vaults integration.
 

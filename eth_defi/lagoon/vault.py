@@ -76,15 +76,16 @@ class LagoonVault(ERC4626Vault):
 
     For information see :py:class:`~eth_defi.vault.base.VaultBase` base class documentation.
 
+    Example vault: https://basescan.org/address/0x6a5ea384e394083149ce39db29d5787a658aa98a#readContract
+
     Notes
 
     - Vault contract knows about Safe, Safe does not know about the Vault
-
     - Ok so for settlement you dont have to worry about this metric, the only thing you have to value is the assets inside the safe (what you currently have under management) and update the NAV of the vault by calling updateNewTotalAssets (ex: if you have 1M inside the vault and 500K pending deposit you only need to call updateTotalAssets with the 1M that are currently inside the safe). Then, to settle you just call settleDeposit and the vault calculate everything for you.
-
     - To monitor the pending deposits it's a bit more complicated. You have to check the balanceOf the pendingSilo contract (0xAD1241Ba37ab07fFc5d38e006747F8b92BB217D5) in term of underlying (here USDC) for pending deposit and in term of shares (so the vault itself) for pending withdraw requests
 
     Lagoon tokens can be in
+
     - Safe: Tradeable assets
     - Silo: pending deposits (USDC)
     - Vault: pending redemptions (USDC)
@@ -459,6 +460,20 @@ class LagoonVault(ERC4626Vault):
 
         return self.vault_contract.functions.redeem(raw_amount, depositor, depositor)
 
+    def get_management_fee(self, block_identifier: BlockIdentifier) -> float:
+        """Get Lagoon vault rates"""
+        rates = self.vault_contract.functions.feeRates().call(block_identifier=block_identifier)
+        return rates[0] / 10_000
+
+    def get_performance_fee(self, block_identifier: BlockIdentifier) -> float:
+        """Get Lagoon vault rates"""
+        # struct Rates {
+        #     uint16 managementRate;
+        #     uint16 performanceRate;
+        # }
+        rates = self.vault_contract.functions.feeRates().call(block_identifier=block_identifier)
+        return rates[1] / 10_000
+
 
 class LagoonFlowManager(VaultFlowManager):
     """Manage deposit/redemption queue for Lagoon.
@@ -507,6 +522,8 @@ class LagoonFlowManager(VaultFlowManager):
         shares_pending = self.fetch_pending_redemption(block_identifier)
         share_price = self.vault.fetch_share_price(block_identifier)
         return shares_pending * share_price
+
+
 
 
 

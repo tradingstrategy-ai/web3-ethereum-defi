@@ -1,12 +1,15 @@
 """IPOR vault reading implementation."""
 import datetime
+from functools import cached_property
 from typing import Iterable
 
 from web3 import Web3
+from web3.types import BlockIdentifier
 
+from eth_defi.abi import ZERO_ADDRESS_STR
 from eth_defi.erc_4626.vault import ERC4626HistoricalReader, ERC4626Vault
 from eth_defi.event_reader.conversion import convert_int256_bytes_to_int
-from eth_defi.event_reader.multicall_batcher import EncodedCall, EncodedCallResult
+from eth_defi.event_reader.multicall_batcher import EncodedCall, EncodedCallResult, MultiprocessMulticallReader
 from eth_defi.vault.base import VaultHistoricalReader, VaultHistoricalRead
 
 #: function getPerformanceFeeData() external view returns (PlasmaVaultStorageLib.PerformanceFeeData memory feeData);
@@ -106,8 +109,44 @@ class IPORVault(ERC4626Vault):
     """IPOR vault support.
 
     - Add specialised reader with fees support
+    - Example vault: https://app.ipor.io/fusion/base/0x45aa96f0b3188d47a1dafdbefce1db6b37f58216
     """
 
     def get_historical_reader(self) -> VaultHistoricalReader:
         return IPORVaultHistoricalReader(self)
+
+    def get_management_fee(self, block_identifier: BlockIdentifier) -> float:
+        """Get the current management fee as a percent.
+
+        :return:
+            0.1 = 10%
+        """
+        management_fee_call = EncodedCall.from_keccak_signature(
+            address=self.address,
+            function="getPerformanceFeeData",
+            signature=MANAGEGEMENT_FEE_CALL_SIGNATURE,
+            data=b"",
+            extra_data=None,
+        )
+        data = management_fee_call.call(self.web3, block_identifier)
+        management_fee = int.from_bytes(data[32:64], byteorder="big") / 10_000
+        return management_fee
+
+    def get_performance_fee(self, block_identifier: BlockIdentifier) -> float:
+        """Get the current performancae fee as a percent.
+
+        :return:
+            0.1 = 10%
+        """
+        performance_fee_call = EncodedCall.from_keccak_signature(
+            address=self.address,
+            function="getPerformanceFeeData",
+            signature=PERFORMANCE_FEE_CALL_SIGNATURE,
+            data=b"",
+            extra_data=None,
+        )
+        data = performance_fee_call.call(self.web3, block_identifier=block_identifier)
+        performance_fee = int.from_bytes(data[32:64], byteorder="big") / 10_000
+        return performance_fee
+
 

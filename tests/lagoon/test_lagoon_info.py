@@ -77,3 +77,11 @@ def test_lagoon_fetch_portfolio(
 
     assert portfolio.spot_erc20[base_usdc.address] == pytest.approx(Decimal(0.347953))
     assert portfolio.spot_erc20[base_weth.address] == pytest.approx(Decimal(1*10**-16))
+
+
+def test_lagoon_fee(web3: Web3, read_only_vault: LagoonVault):
+    """Read Lagoon vault fees."""
+    vault = read_only_vault
+    block_number = web3.eth.block_number
+    assert vault.get_management_fee(block_number) == 0.0002
+    assert vault.get_performance_fee(block_number) == 0.002
