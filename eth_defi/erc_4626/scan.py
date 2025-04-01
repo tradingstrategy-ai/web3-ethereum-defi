@@ -84,12 +84,12 @@ def create_vault_scan_record(
             "_detection_data": detection,
         }
         return data
-    except ProbablyNodeHasNoBlock as e:
+    except Exception as e:
         # Probably caused by misdetecting a vault, then we try to call its functions and they return 0x (no data) instead of cleanly reverting
         # Not sure what is causing this
         #  When calling method: eth_call({'to': '0x463DE7D52bF7C6849ab3630Bb6F999eA0e03ED9F', 'from': '0x0000000000000000000000000000000000000000', 'data': '0x31ee80ca', 'gas': '0x1312d00'}, '0x15259fb')
         record = empty_record.copy()
-        record["Address"] = "<broken>"
+        record["Name"] = f"<broken: {e.__class__.__name__}>"
         logger.warning(
             "Could not read %s %s (%s): %s",
             vault.__class__.__name__,
@@ -97,10 +97,6 @@ def create_vault_scan_record(
             detection.features,
             str(e)
         )
-        return record
-    except ValueError as e:
-        record = empty_record.copy()
-        record["Address"] = "<broken>"
         return record
 
 _subprocess_web3_cache = threading.local()
