@@ -81,6 +81,10 @@ def main():
     else:
         end_block = int(end_block)
 
+    output_folder = os.environ.get("OUTPUT_FOLDER")
+    if output_folder is None:
+        output_folder = "/tmp"
+
     # Create a scanner that uses web3, HyperSync and subprocesses
     vault_discover = HypersyncVaultDiscover(
         web3,
@@ -113,7 +117,7 @@ def main():
     #
 
     chain = web3.eth.chain_id
-    output_fname = Path(f"/tmp/chain-{chain}-vaults.parquet")
+    output_fname = Path(f"{output_folder}/chain-{chain}-vaults.parquet")
     parquet_df = df.copy()
     parquet_df = parquet_df.fillna(pd.NA)  # fillna replaces None and NaN with pd.NA
     parquet_df['Mgmt fee'] = pd.to_numeric(parquet_df['Mgmt fee'], errors='coerce')
@@ -128,7 +132,7 @@ def main():
     # Save dict -> data mapping with raw data to be read in notebooks and such.
     # This will preserve raw vault detection objects.
     data_dict = {r["Address"]: r for r in rows}
-    output_fname = Path(f"/tmp/chain-{chain}-vaults.pickle")
+    output_fname = Path(f"{output_folder}/chain-{chain}-vaults.pickle")
     print(f"Saving raw data to {output_fname}")
     pickle.dump(data_dict, output_fname.open("wb"))
 
