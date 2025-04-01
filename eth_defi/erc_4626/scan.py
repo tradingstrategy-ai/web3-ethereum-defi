@@ -49,11 +49,13 @@ def create_vault_scan_record(
         vault = cast(ERC4626Vault, vault)
         try:
             management_fee = vault.get_management_fee(block_identifier)
+            assert type(management_fee) == float, f"Vault {vault} gave {management_fee}"
         except NotImplementedError:
             management_fee = None
 
         try:
             performance_fee = vault.get_performance_fee(block_identifier)
+            assert type(performance_fee) == float
         except NotImplementedError:
             performance_fee = None
 

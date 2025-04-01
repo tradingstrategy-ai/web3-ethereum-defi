@@ -7,7 +7,6 @@ import os
 import pytest
 from web3 import Web3
 
-from eth_defi.ipor.vault import IPORVault
 from eth_defi.morpho.vault import MorphoVault
 from eth_defi.provider.multi_provider import create_multi_provider_web3
 

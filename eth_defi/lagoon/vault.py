@@ -461,13 +461,12 @@ class LagoonVault(ERC4626Vault):
         return self.vault_contract.functions.redeem(raw_amount, depositor, depositor)
 
     def get_management_fee(self, block_identifier: BlockIdentifier) -> float:
-        """Morpho vaults have no management fee"""
+        """Get Lagoon vault rates"""
         rates = self.vault_contract.functions.feeRates().call(block_identifier=block_identifier)
         return rates[0] / 10_000
 
-
     def get_performance_fee(self, block_identifier: BlockIdentifier) -> float:
-        """Get Morpho fee"""
+        """Get Lagoon vault rates"""
         # struct Rates {
         #     uint16 managementRate;
         #     uint16 performanceRate;

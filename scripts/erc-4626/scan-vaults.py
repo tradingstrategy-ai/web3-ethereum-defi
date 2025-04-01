@@ -108,7 +108,7 @@ def main():
     df = df.sort_values("First seen")
 
     #
-    # Save human-readable output
+    # Save raw data rows
     #
 
     chain = web3.eth.chain_id

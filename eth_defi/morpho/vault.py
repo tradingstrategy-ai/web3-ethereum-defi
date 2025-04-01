@@ -80,7 +80,7 @@ class MorphoVault(ERC4626Vault):
 
     def get_management_fee(self, block_identifier: BlockIdentifier) -> float:
         """Morpho vaults have no management fee"""
-        return 0
+        return 0.0
 
     def get_performance_fee(self, block_identifier: BlockIdentifier) -> float:
         """Get Morpho fee"""
