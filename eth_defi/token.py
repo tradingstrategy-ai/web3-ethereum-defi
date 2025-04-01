@@ -468,6 +468,11 @@ def get_chain_stablecoins(chain_id: int) -> set[TokenDetails]:
     return tokens
 
 
+def get_chain_known_quote_tokens(chain_id: int) -> set[TokenDetails]:
+    """Get all good quote tokens on  chain."""
+    pass
+
+
 #: Addresses of wrapped native token (WETH9) of different chains
 WRAPPED_NATIVE_TOKEN: dict[int, HexAddress] = {
     # Mainnet
