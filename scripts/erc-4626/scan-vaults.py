@@ -84,6 +84,8 @@ def main():
     output_folder = os.environ.get("OUTPUT_FOLDER")
     if output_folder is None:
         output_folder = "/tmp"
+    else:
+        output_folder = Path(output_folder).expanduser()
 
     # Create a scanner that uses web3, HyperSync and subprocesses
     vault_discover = HypersyncVaultDiscover(
