@@ -19,6 +19,7 @@ Or for faster small sample scan limit the end block:
 import decimal
 import logging
 import os
+import pickle
 import sys
 from decimal import Decimal
 from pathlib import Path
@@ -30,6 +31,7 @@ from joblib import Parallel, delayed
 
 from tqdm_loggable.auto import tqdm
 
+from eth_defi.erc_4626.core import ERC4626Feature
 from eth_defi.erc_4626.hypersync_discovery import HypersyncVaultDiscover
 from eth_defi.erc_4626.scan import create_vault_scan_record_subprocess
 from eth_defi.hypersync.server import get_hypersync_server
@@ -95,20 +97,44 @@ def main():
     logger.info("Extracting remaining vault metadata for %d vaults", len(vault_detections))
 
     # Quite a mouthful line to create a row of output for each vault detection using subproces pool
-    desc = f"Extracting vault metadata"
+    desc = f"Extracting vault metadata using {max_workers} workers"
     rows = worker_processor(delayed(create_vault_scan_record_subprocess)(web3factory, d, end_block) for d in tqdm(vault_detections, desc=desc))
 
     print(f"Total {len(rows)} vaults detected")
     df = pd.DataFrame(rows)
-
+    # Cannot export the raw Python object,
+    # this is for the pickle only
+    df = df.drop(columns="_detection_data")
     df = df.sort_values("First seen")
 
-    output_fname = Path("/tmp/vaults.parquet")
+    #
+    # Save human-readable output
+    #
+
+    chain = web3.eth.chain_id
+    output_fname = Path(f"/tmp/chain-{chain}-vaults.parquet")
     print(f"Saving raw data to {output_fname}")
     df.to_parquet(output_fname)
 
+    #
+    # Save machine-readable output
+    #
+
+    # Save dict -> data mapping with raw data to be read in notebooks and such.
+    # This will preserve raw vault detection objects.
+    data_dict = {r["Address"]: r for r in rows}
+    output_fname = Path(f"/tmp/chain-{chain}-vaults.pickle")
+    print(f"Saving raw data to {output_fname}")
+    pickle.dump(data_dict, output_fname.open("wb"))
+
+    #
+    # Display in terminal
+    #
+
     # Format DataFrame output for terminal
     df["First seen"] = df["First seen"].dt.strftime('%Y-%b-%d')
+    df["Mgmt fee"] = df["Mgmt fee"].apply(lambda x: f"{x:%}" if x else "-")
+    df["Perf fee"] = df["Perf fee"].apply(lambda x: f"{x:%}" if x else "-")
     # df["Address"] = df["Address"].apply(lambda x: x[0:8])  # Address is too wide in terminal
     df = df.set_index("Address")
 
@@ -130,6 +156,10 @@ def main():
 
     # Apply the function to all elements in the DataFrame
     df = df.apply(lambda col: col.map(round_below_epsilon))
+
+    erc_7540s = [v for v in rows if ERC4626Feature.erc_7540_like in v["_detection_data"].features]
+    print(f"Total: {len(df)} vaults detected")
+    print(f"ERC-7540: {len(erc_7540s)} vaults detected")
 
     with pd.option_context('display.max_rows', None):
         display(df)

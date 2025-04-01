@@ -449,4 +449,19 @@ class VaultBase(ABC):
         """
         return self.fetch_info()
 
+    def get_management_fee(self, block_identifier: BlockIdentifier) -> float:
+        """Get the current management fee as a percent.
+
+        :return:
+            0.1 = 10%
+        """
+        raise NotImplementedError()
+
+    def get_performance_fee(self, block_identifier: BlockIdentifier) -> float:
+        """Get the current performancae fee as a percent.
+
+        :return:
+            0.1 = 10%
+        """
+        raise NotImplementedError()
 

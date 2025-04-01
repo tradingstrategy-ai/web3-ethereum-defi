@@ -85,6 +85,13 @@ class ERC4626Feature(enum.Enum):
     #: https://docs.fluid.instadapp.io/
     fluid_like = "fluid_like"
 
+    #: Kiln metavault
+    #: https://github.com/0xZunia/Kiln.MetaVault
+    kiln_metavault_like = "kiln_metavault_like"
+
+    # https://beta.peapods.finance/
+    peapods_like = "peapods_like"
+
 
 def get_vault_protocol_name(features: set[ERC4626Feature]) -> str:
     """Deduct vault protocol name based on Vault smart contract features.
@@ -123,6 +130,12 @@ def get_vault_protocol_name(features: set[ERC4626Feature]) -> str:
         return "Athena Finance"
     elif ERC4626Feature.reserve_like in features:
         return "Reserve"
+    elif ERC4626Feature.kiln_metavault_like in features:
+        return "Kiln Metavault"
+    elif ERC4626Feature.peapods_like in features:
+        return "Peapods"
+    elif ERC4626Feature.lagoon_like in features:
+        return "Lagoon Finance"
     elif ERC4626Feature.erc_7540_like in features:
         return "<generic 7540>"
     return "<generic 4626>"
