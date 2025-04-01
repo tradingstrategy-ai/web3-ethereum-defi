@@ -1,4 +1,10 @@
 #!/bin/bash
+#
+# Scan vaults for all chains
+#
+# - Assume we have bunch of RPCs as JSON_RPC_ETHEREUM, JSON_RPC_xxx
+# - scan-vaults.py will pick the correct chain id and HyperSync client server
+#
 
 set -e
 set -u

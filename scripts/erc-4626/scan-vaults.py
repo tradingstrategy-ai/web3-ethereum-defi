@@ -3,6 +3,7 @@
 - Set up a HyperSync based vault discovery client
 - As the writing of this, we get 1108 leads on Base
 - Takes environment variables ``JSON_RPC_URL``, ``LOG_LEVEL``, ``END_BLOCK``
+- Save data to /tmp: both raw Python objects and Parquet dump
 
 Usage:
 
@@ -145,16 +146,26 @@ def main():
     # Round dust to zero, drop to 4 decimals
     def round_below_epsilon(x, epsilon=Decimal("0.1"), round_factor=Decimal("0.001")):
         if isinstance(x, Decimal):
+
+            # Eliminate dust
             x = Decimal('0') if abs(x) < epsilon else x
-            if x < 1000:
+
+            float_x = float(x)
+
+            # Get rid of numbers with too many digits
+            if float_x >= 1e12:  # Trillions
+                return f"{float_x / 1e12:.1f}T"
+            elif float_x >= 1e9:  # Billions
+                return f"{float_x / 1e9:.1f}G"
+            elif float_x >= 1e6:  # Millions
+                return f"{float_x / 1e6:.1f}M"
+            elif float_x >= 1e3:  # Millions
+                return f"{float_x / 1e6:.1f}K"
+            else:
                 try:
                     x = x.quantize(round_factor)
                 except decimal.InvalidOperation:
                     logger.warning("Cannot quantise: %s", x)
-            else:
-                # Decimals are not important in large values
-                x = int(x)
-            return x
 
         return x  # Not decimal
 
