@@ -62,7 +62,7 @@ class MorphoVaultHistoricalReader(ERC4626HistoricalReader):
             total_assets=total_assets,
             total_supply=total_supply,
             performance_fee=performance_fee,
-            management_fee=None,
+            management_fee=0,
         )
 
 

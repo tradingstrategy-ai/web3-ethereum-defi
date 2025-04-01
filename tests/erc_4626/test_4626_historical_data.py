@@ -89,7 +89,7 @@ def test_4626_historical_vault_data(
     assert r.total_supply == Decimal('29958452.263395')
     assert r.share_price == Decimal('980378917545.099855')
     assert r.management_fee == 0
-    assert r.performance_fee == 0.1
+    assert r.performance_fee == 0.15
 
     r = records[-3]
     assert r.block_number == 26979376
