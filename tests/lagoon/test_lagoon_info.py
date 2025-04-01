@@ -83,5 +83,5 @@ def test_lagoon_fee(web3: Web3, read_only_vault: LagoonVault):
     """Read Lagoon vault fees."""
     vault = read_only_vault
     block_number = web3.eth.block_number
-    assert vault.get_management_fee(block_number) == 0
-    assert vault.get_performance_fee(block_number) == 0
+    assert vault.get_management_fee(block_number) == 0.0002
+    assert vault.get_performance_fee(block_number) == 0.002

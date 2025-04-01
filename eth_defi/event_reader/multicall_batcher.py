@@ -450,6 +450,7 @@ class EncodedCall:
         self,
         web3: Web3, block_identifier: BlockIdentifier,
         from_=ZERO_ADDRESS_STR,
+        gas=20_000_000,
     ) -> bytes:
         """Return raw results of the call.
 
@@ -457,8 +458,10 @@ class EncodedCall:
             Raw call results as bytes
         """
         transaction = {
+            "to": self.address,
             "from": from_,
             "data": self.data,
+            "gas": gas,
         }
         return web3.eth.call(
             transaction=transaction,
