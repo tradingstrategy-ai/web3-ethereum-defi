@@ -10,7 +10,7 @@ ERC-4626 is a standard to optimize and unify the technical parameters of yield-b
 - Scan chains for all ERC-4626 vaults
 - Read historical market data
 - Deposit and redeem from vaults
-- Specific protocol integrations like :py:mod:`eth_defi.lagoon.vault` subclass these base classes
+- Specific protocol integrations like :py:mod:`eth_defi.lagoon.vault`, :py:mod:`eth_defi.ipor.vault`, :py:mod:`eth_defi.morpho.vault` subclass these base classes
 
 Tutorials
 =========

@@ -1,7 +1,7 @@
 .. meta::
    :description: Tutorial to find all ERC-4626 vaults onchain
 
-.. _scan-erC_4626_vaults:
+.. _scan-erc_4626_vaults:
 
 ERC-4626 scanning all vaults onchain
 ====================================
