@@ -79,7 +79,8 @@ multicall = "^0.9.0"
 safe-eth-py = "6.0.0b42"
 joblib = "^1.4.2"
 
-
+# HyperSync
+hypersync = {version = "^0.8.5", optional = true}
 
 [tool.poetry.dev-dependencies]
 pytest = "^7.4.3"
@@ -93,6 +94,8 @@ flaky = "^3.7.0"
 docs = ["Sphinx", "sphinx-rtd-theme", "sphinx-sitemap", "sphinx-autodoc-typehints", "furo", "nbsphinx", "zope.dottedname", "sphinx-sitemap", "sphinx-rtd-theme"]
 data = ["jupyter", "tqdm", "pandas", "gql", "matplotlib", "plotly", "pyarrow", "numpy"]
 test = ["pytest-xdist"]
+hypersync = ["hypersync"]
+
 
 # Since new Poetry version
 # TODO: CLean up dev dep gorups
@@ -101,8 +104,6 @@ black = "^23.3.0"
 coloredlogs = "^15.0.1"
 
 
-[tool.poetry.group.hypersync.dependencies]
-hypersync = "^0.8.5"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]
