@@ -9,10 +9,11 @@
 set -e
 set -u
 
-export JSON_RPC_URL=$JSON_RPC_HYPERLIQUID
+export JSON_RPC_URL=$JSON_RPC_MANTLE
 python scripts/erc-4626/scan-vaults.py
 
-
+export JSON_RPC_URL=$JSON_RPC_HYPERLIQUID
+python scripts/erc-4626/scan-vaults.py
 
 export JSON_RPC_URL=$JSON_RPC_POLYGON
 python scripts/erc-4626/scan-vaults.py
@@ -34,4 +35,7 @@ export JSON_RPC_URL=$JSON_RPC_ARBITRUM
 python scripts/erc-4626/scan-vaults.py
 
 export JSON_RPC_URL=$JSON_RPC_ETHEREUM
+python scripts/erc-4626/scan-vaults.py
+
+export JSON_RPC_URL=$JSON_RPC_MODE
 python scripts/erc-4626/scan-vaults.py

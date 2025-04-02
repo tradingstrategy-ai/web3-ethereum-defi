@@ -22,7 +22,7 @@ from eth_defi.abi import get_topic_signature_from_event
 from eth_defi.erc_4626.classification import probe_vaults
 from eth_defi.erc_4626.core import get_erc_4626_contract, ERC4626Feature
 from eth_defi.event_reader.web3factory import Web3Factory
-
+from eth_defi.vault.base import VaultSpec
 
 try:
     import hypersync
@@ -58,6 +58,11 @@ class ERC4262VaultDetection:
     first_seen_at_block: int
     first_seen_at: datetime.datetime
     features: set[ERC4626Feature]
+    updated_at: datetime.datetime
+
+    def get_spec(self) -> VaultSpec:
+        """Chain id/address tuple identifying this vault."""
+        return VaultSpec(self.chain, self.address)
 
 
 class HypersyncVaultDiscover:
@@ -309,6 +314,7 @@ class HypersyncVaultDiscover:
                 features=feature_probe.features,
                 first_seen_at_block=lead.first_seen_at_block,
                 first_seen_at=lead.first_seen_at,
+                updated_at=datetime.datetime.utcnow(),
             )
 
             if ERC4626Feature.broken in feature_probe.features:

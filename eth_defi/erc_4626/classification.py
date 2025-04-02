@@ -318,6 +318,11 @@ def create_vault_instance(
 
     - Get a a protocol-specific Python instance that can e.g. read the fees of the vault (not standardised).
 
+    :param features:
+        Previously/manually extracted vault feature flags for the type.
+
+        Give empty set for generic ERC-4626 vault class.
+
     :return:
         None if the vault creation is not supported
     """
