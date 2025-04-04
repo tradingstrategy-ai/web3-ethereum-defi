@@ -38,7 +38,18 @@ CHAIN_NAMES = {
     645749: "Hyperliquid",
     8545: "Base",
     146: "Sonic",
+    34443: "Mode",
+    5000: "Mantle",
+    999: "Hyperliquid",
 }
+
+def get_chain_name(chain_id: int) -> str:
+    """Translate Ethereum chain id to its name."""
+    name = CHAIN_NAMES.get(chain_id)
+    if name:
+        return name
+
+    return f"<Unknown chain, id {chain_id}>"
 
 
 def install_chain_middleware(web3: Web3, poa_middleware=None):

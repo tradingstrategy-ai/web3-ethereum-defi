@@ -17,6 +17,7 @@ import threading
 from abc import abstractmethod
 from dataclasses import dataclass
 from itertools import islice
+from pprint import pformat
 from typing import TypeAlias, Iterable, Generator, Hashable, Any, Final
 
 from tqdm_loggable.auto import tqdm
@@ -450,7 +451,7 @@ class EncodedCall:
         self,
         web3: Web3, block_identifier: BlockIdentifier,
         from_=ZERO_ADDRESS_STR,
-        gas=20_000_000,
+        gas=75_000_000,
     ) -> bytes:
         """Return raw results of the call.
 
@@ -478,13 +479,16 @@ class EncodedCall:
         transaction = {
             "to": self.address,
             "from": from_,
-            "data": self.data,
+            "data": self.data.hex(),
             "gas": gas,
         }
-        return web3.eth.call(
-            transaction=transaction,
-            block_identifier=block_identifier,
-        )
+        try:
+            return web3.eth.call(
+                transaction=transaction,
+                block_identifier=block_identifier,
+            )
+        except Exception as e:
+            raise ValueError(f"Call failed: {str(e)}\nBlock: {block_identifier}\nTransaction data:{pformat(transaction)}") from e
 
 
 @dataclass(slots=True, frozen=True)

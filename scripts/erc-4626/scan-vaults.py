@@ -32,6 +32,7 @@ from joblib import Parallel, delayed
 
 from tqdm_loggable.auto import tqdm
 
+from eth_defi.chain import get_chain_name
 from eth_defi.erc_4626.core import ERC4626Feature
 from eth_defi.erc_4626.hypersync_discovery import HypersyncVaultDiscover
 from eth_defi.erc_4626.scan import create_vault_scan_record_subprocess
@@ -68,7 +69,8 @@ def main():
 
     web3 = create_multi_provider_web3(JSON_RPC_URL)
     web3factory = MultiProviderWeb3Factory(JSON_RPC_URL, retries=5)
-    print(f"Scanning ERC-4626 vaults on chain {web3.eth.chain_id}")
+    name = get_chain_name(web3.eth.chain_id)
+    print(f"Scanning ERC-4626 vaults on chain {web3.eth.chain_id}: {name}")
 
     hypersync_url = get_hypersync_server(web3)
     client = hypersync.HypersyncClient(hypersync.ClientConfig(url=hypersync_url))
@@ -137,10 +139,19 @@ def main():
 
     # Save dict -> data mapping with raw data to be read in notebooks and such.
     # This will preserve raw vault detection objects.
-    data_dict = {r["Address"]: r for r in rows}
-    output_fname = Path(f"{output_folder}/chain-{chain}-vaults.pickle")
-    print(f"Saving raw data to {output_fname}")
-    pickle.dump(data_dict, output_fname.open("wb"))
+    # Keyed by (chain id, address)
+    data_dict = {r["_detection_data"].get_spec(): r  for r in rows}
+    output_fname = Path(f"{output_folder}/vault-db.pickle")
+    print(f"Saving vault pickled database to {output_fname}")
+    if not output_fname.exists():
+        existing_db = {}
+    else:
+        existing_db = pickle.load(output_fname.open('rb'))
+        assert type(existing_db) == dict, f"Got: {type(existing_db)}: {existing_db}"
+    # Merge new results
+    existing_db.update(data_dict)
+    pickle.dump(existing_db, output_fname.open("wb"))
+    print(f"Vault database has {len(existing_db)} entries")
 
     #
     # Display in terminal
