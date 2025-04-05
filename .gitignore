@@ -34,4 +34,4 @@ contracts/aave-v3-deploy/hardhat-deployment-export.json
 contracts/lagoon-v0
 
 # environment files
-.env.yml
+.env
