@@ -20,9 +20,8 @@ from tqdm_loggable.auto import tqdm
 
 from eth_defi.abi import get_topic_signature_from_event
 from eth_defi.erc_4626.classification import probe_vaults
-from eth_defi.erc_4626.core import get_erc_4626_contract, ERC4626Feature
+from eth_defi.erc_4626.core import get_erc_4626_contract, ERC4626Feature, ERC4262VaultDetection
 from eth_defi.event_reader.web3factory import Web3Factory
-from eth_defi.vault.base import VaultSpec
 
 try:
     import hypersync
@@ -48,21 +47,6 @@ class PotentialVaultMatch:
 
     def is_candidate(self) -> bool:
         return self.deposit_count > 0 and self.withdrawal_count > 0
-
-
-@dataclasses.dataclass(slots=True, frozen=True)
-class ERC4262VaultDetection:
-    """A ERC-4626 detection."""
-    chain: int
-    address: HexAddress
-    first_seen_at_block: int
-    first_seen_at: datetime.datetime
-    features: set[ERC4626Feature]
-    updated_at: datetime.datetime
-
-    def get_spec(self) -> VaultSpec:
-        """Chain id/address tuple identifying this vault."""
-        return VaultSpec(self.chain, self.address)
 
 
 class HypersyncVaultDiscover:
@@ -315,6 +299,8 @@ class HypersyncVaultDiscover:
                 first_seen_at_block=lead.first_seen_at_block,
                 first_seen_at=lead.first_seen_at,
                 updated_at=datetime.datetime.utcnow(),
+                deposit_count=lead.deposit_count,
+                redeem_count=lead.withdrawal_count,
             )
 
             if ERC4626Feature.broken in feature_probe.features:

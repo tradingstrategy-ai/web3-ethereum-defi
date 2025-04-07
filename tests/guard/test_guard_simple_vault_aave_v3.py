@@ -278,7 +278,7 @@ def test_guard_can_do_aave_supply(
 #   comparison failed
 #   Obtained: 2000000002537484976
 #   Expected: 1000000000000000000 ± 1.0e+12
-@flaky
+@pytest.mark.skip(reason="Aave market on Polygon dead")
 def test_guard_can_do_aave_withdraw(
     web3: Web3,
     aave_v3_deployment: AaveV3Deployment,

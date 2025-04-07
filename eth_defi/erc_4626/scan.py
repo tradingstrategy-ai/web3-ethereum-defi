@@ -27,7 +27,7 @@ def create_vault_scan_record(
     - Connect to the chain to read further vault metadata via JSON-RPC calls
 
     :return:
-        Dict for human-readable tables
+        Dict for human-readable tables, with internal columns prefixed with å underscore
     """
 
     vault = create_vault_instance(web3, detection.address, detection.features)
@@ -73,6 +73,9 @@ def create_vault_scan_record(
 
         total_supply = vault.fetch_total_supply(block_identifier)
 
+        denomination_token = vault.denomination_token.export() if vault.denomination_token else None
+        assert type(denomination_token) == dict, f"Got {denomination_token}"
+
         data = {
             "Symbol": vault.symbol,
             "Name": vault.name,
@@ -85,6 +88,8 @@ def create_vault_scan_record(
             "Shares": total_supply,
             "First seen": detection.first_seen_at,
             "_detection_data": detection,
+            "_denomination_token": denomination_token,
+            "_share_token": vault.share_token.export() if vault.share_token else None,
         }
         return data
     except Exception as e:

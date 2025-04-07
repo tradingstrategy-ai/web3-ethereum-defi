@@ -222,7 +222,11 @@ class ERC4626Vault(VaultBase):
             )
 
             result = erc_7575_call.call(self.web3, block_identifier="latest")
-            share_token_address = convert_uint256_bytes_to_address(result)
+            if len(result) == 32:
+                share_token_address = convert_uint256_bytes_to_address(result)
+            else:
+                # Could not read ERC4626Vault 0x0271353E642708517A07985eA6276944A708dDd1 (set()):
+                share_token_address = self.vault_address
 
         except ValueError as e:
             parsed_error = str(e)

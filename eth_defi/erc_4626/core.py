@@ -3,7 +3,8 @@
 - Access ERC-4626 ABI
 - Feature flags vaults can have
 """
-
+import dataclasses
+import datetime
 import enum
 from typing import Type
 
@@ -12,6 +13,7 @@ from web3 import Web3
 from web3.contract import Contract
 
 from eth_defi.abi import get_contract, get_deployed_contract
+from eth_defi.vault.base import VaultSpec
 
 
 class ERC4626Feature(enum.Enum):
@@ -156,3 +158,46 @@ def get_deployed_erc_4626_contract(web3: Web3, address: HexAddress) -> Contract:
         "lagoon/IERC4626.json",
         address=address,
     )
+
+
+@dataclasses.dataclass(slots=True, frozen=True)
+class ERC4262VaultDetection:
+    """A ERC-4626 detection."""
+
+    #: Chain
+    chain: int
+
+    #: Vault contract address
+    address: HexAddress
+
+    #: When this vault was first seen
+    first_seen_at_block: int
+
+    #: When this vault was first seen
+    first_seen_at: datetime.datetime
+
+    #: Detected features fo this vault
+    features: set[ERC4626Feature]
+
+    #: When this entry was scanned on chain
+    updated_at: datetime.datetime
+
+    #: Event counts
+    deposit_count: int
+
+    #: Event counts
+    redeem_count: int
+
+    def get_spec(self) -> VaultSpec:
+        """Chain id/address tuple identifying this vault."""
+        return VaultSpec(self.chain, self.address)
+
+    def is_protocol_identifiable(self) -> bool:
+        """Did we correctly identify the protocol?"""
+        # TODO: Hackish
+        protocol_name = get_vault_protocol_name(self.features)
+        return "<" not in protocol_name
+
+    def is_erc_7540(self) -> bool:
+        """Are we asynchronous vault"""
+        return ERC4626Feature.erc_7540_like in self.features

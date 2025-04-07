@@ -60,6 +60,7 @@ Tutorials and examples
    pancakeswap-live-minimal
    aave-v3-interest-analysis
    scan-erc-4626-vaults
+   erc-4626-vault-list
    enzyme-read-vaults
    enzyme-deploy
    verify-node-integrity
