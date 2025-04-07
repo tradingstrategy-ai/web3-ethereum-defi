@@ -7,6 +7,7 @@ import os
 import random
 import socket
 import time
+from itertools import islice
 from typing import Optional, Tuple
 from urllib.parse import urlparse
 
@@ -198,3 +199,15 @@ def setup_console_logging():
     logging.getLogger("web3.providers.HTTPProvider").setLevel(logging.WARNING)
     logging.getLogger("web3.RequestManager").setLevel(logging.WARNING)
     logging.getLogger("urllib3.connectionpool").setLevel(logging.WARNING)
+
+
+def chunked(iterable, chunk_size):
+    iterator = iter(iterable)  # Ensure we have an iterator
+    while True:
+        chunk = list(islice(iterator, chunk_size))
+        if not chunk:  # Break if no more items
+            break
+        yield chunk
+
+
+

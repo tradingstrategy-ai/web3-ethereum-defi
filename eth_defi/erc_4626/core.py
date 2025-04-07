@@ -163,12 +163,30 @@ def get_deployed_erc_4626_contract(web3: Web3, address: HexAddress) -> Contract:
 @dataclasses.dataclass(slots=True, frozen=True)
 class ERC4262VaultDetection:
     """A ERC-4626 detection."""
+
+    #: Chain
     chain: int
+
+    #: Vault contract address
     address: HexAddress
+
+    #: When this vault was first seen
     first_seen_at_block: int
+
+    #: When this vault was first seen
     first_seen_at: datetime.datetime
+
+    #: Detected features fo this vault
     features: set[ERC4626Feature]
+
+    #: When this entry was scanned on chain
     updated_at: datetime.datetime
+
+    #: Event counts
+    deposit_count: int
+
+    #: Event counts
+    redeem_count: int
 
     def get_spec(self) -> VaultSpec:
         """Chain id/address tuple identifying this vault."""

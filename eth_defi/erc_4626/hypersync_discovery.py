@@ -299,6 +299,8 @@ class HypersyncVaultDiscover:
                 first_seen_at_block=lead.first_seen_at_block,
                 first_seen_at=lead.first_seen_at,
                 updated_at=datetime.datetime.utcnow(),
+                deposit_count=lead.deposit_count,
+                redeem_count=lead.withdrawal_count,
             )
 
             if ERC4626Feature.broken in feature_probe.features:

@@ -153,7 +153,6 @@ def main():
     # Merge new results
     existing_db.update(data_dict)
     pickle.dump(existing_db, output_fname.open("wb"))
-    import ipdb ; ipdb.set_trace()
     print(f"Vault database has {len(existing_db)} entries")
 
     #
