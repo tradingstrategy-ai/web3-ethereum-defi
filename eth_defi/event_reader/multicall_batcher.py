@@ -609,11 +609,16 @@ def read_multicall_historical(
     step: int,
     max_workers=8,
     timeout=1800,
-    display_progress=True,
+    display_progress: bool | str = True,
 ) -> Iterable[CombinedEncodedCallResult]:
     """Read historical data using multiple threads in parallel for speedup.
 
     - Show a progress bar using :py:mod:`tqdm`
+
+    :param display_progress:
+        Whether to display progress bar or not.
+
+        Set to string to have a progress bar label.
     """
 
     assert type(start_block) == int, f"Got: {start_block}"
@@ -632,9 +637,13 @@ def read_multicall_historical(
     total = iter_count
 
     if display_progress:
+        if type(display_progress) == str:
+            desc = display_progress
+        else:
+            desc = f"Reading chain data w/historical multicall, {total} tasks, using {max_workers} CPUs"
         progress_bar = tqdm(
             total=total,
-            desc=f"Reading vault data, {total} tasks, using {max_workers} CPUs"
+            desc=desc,
         )
     else:
         progress_bar = None

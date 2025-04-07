@@ -170,7 +170,7 @@ class VaultHistoricalRead:
             ("chain", pa.uint32()),
             ("address", pa.string()),  # Lowercase
             ("block_number", pa.uint32()),
-            ("timestamp", pa.timestamp("s")),
+            ("timestamp", pa.timestamp("ms")),  # s accuracy does not seem to work on rewrite
             ("share_price", pa.float64()),
             ("total_assets", pa.float64()),
             ("total_supply", pa.float64()),

@@ -9,6 +9,7 @@ from web3 import Web3
 
 from eth_defi.erc_4626.vault import ERC4626Vault
 from eth_defi.ipor.vault import IPORVault
+from eth_defi.lagoon.vault import LagoonVault
 from eth_defi.morpho.vault import MorphoVault
 from eth_defi.provider.multi_provider import create_multi_provider_web3, MultiProviderWeb3Factory
 from eth_defi.vault.base import VaultSpec
@@ -16,8 +17,8 @@ from eth_defi.vault.historical import scan_historical_prices_to_parquet
 
 
 JSON_RPC_BASE = os.environ.get("JSON_RPC_BASE")
-
-pytestmark = pytest.mark.skipif(JSON_RPC_BASE is None, reason="JSON_RPC_BASE needed to run these tests")
+JSON_RPC_ETHEREUM = os.environ.get("JSON_RPC_ETHEREUM")
+pytestmark = pytest.mark.skipif(JSON_RPC_BASE is None or JSON_RPC_ETHEREUM is None, reason="JSON_RPC_BASE and JSON_RPC_ETHEREUM needed to run these tests")
 
 
 @pytest.fixture(scope='module')
@@ -26,11 +27,22 @@ def web3() -> Web3:
     return web3
 
 
+@pytest.fixture(scope='module')
+def web3_ethereum() -> Web3:
+    web3 = create_multi_provider_web3(JSON_RPC_ETHEREUM)
+    return web3
+
+
 def test_4626_historical_prices(
     web3: Web3,
+    web3_ethereum: Web3,
     tmp_path: Path,
 ):
-    """Read historical data of IPOR USDC and some other vaults."""
+    """Read historical prices of Base and Ethereum chain vaults to the same Parquet file"""
+
+    import pyarrow as pa
+    import pyarrow.parquet as pq
+    import pyarrow.compute as pc
 
     # https://app.ipor.io/fusion/base/0x45aa96f0b3188d47a1dafdbefce1db6b37f58216
     ipor_usdc = IPORVault(web3, VaultSpec(web3.eth.chain_id, "0x45aa96f0b3188d47a1dafdbefce1db6b37f58216"))
@@ -58,6 +70,9 @@ def test_4626_historical_prices(
 
     output_fname = tmp_path / 'price-history.parquet'
 
+    #
+    # First scan
+    #
     scan_result = scan_historical_prices_to_parquet(
         output_fname=output_fname,
         web3=web3,
@@ -68,7 +83,55 @@ def test_4626_historical_prices(
     )
 
     assert output_fname.exists(), f"Did not create: {output_fname}"
+    assert scan_result["existing"] is False
     assert scan_result["rows_written"] == 339
+    assert scan_result["rows_deleted"] == 0
 
+    table = pq.read_table(output_fname)
+    chain_column = table["chain"].to_pylist()
+    assert all(c == 8453 for c in chain_column)
 
+    #
+    # Rescan
+    #
+    scan_result = scan_historical_prices_to_parquet(
+        output_fname=output_fname,
+        web3=web3,
+        web3factory=web3_factory,
+        vaults=vaults,
+        start_block=start,
+        end_block=end,
+    )
+    assert output_fname.exists(), f"Did not create: {output_fname}"
+    assert scan_result["existing"] is True
+    assert scan_result["rows_written"] == 339
+    assert scan_result["rows_deleted"] == 339
 
+    # https://app.lagoon.finance/vault/1/0x03D1eC0D01b659b89a87eAbb56e4AF5Cb6e14BFc
+    lagoon_vault = LagoonVault(web3_ethereum, VaultSpec(web3_ethereum.eth.chain_id, "0x03D1eC0D01b659b89a87eAbb56e4AF5Cb6e14BFc"))
+    vaults = [
+        lagoon_vault,
+    ]
+    start = 21_137_231
+    end = 22_000_000
+    web3_factory = MultiProviderWeb3Factory(JSON_RPC_ETHEREUM)
+    lagoon_vault.first_seen_at_block = start
+
+    #
+    # Scan another chan
+    #
+    scan_result = scan_historical_prices_to_parquet(
+        output_fname=output_fname,
+        web3=web3_ethereum,
+        web3factory=web3_factory,
+        vaults=vaults,
+        start_block=start,
+        end_block=end,
+    )
+
+    assert scan_result["existing"] is True
+    assert scan_result["rows_written"] == 120
+    assert scan_result["rows_deleted"] == 0
+
+    table = pq.read_table(output_fname)
+    assert table.num_rows == 339 + 120

@@ -32,8 +32,11 @@ logger = logging.getLogger(__name__)
 
 class ParquetScanResult(TypedDict):
     """Result of generating historical prices Parquet file."""
+    existing: bool
     chain_id: int
     rows_written: int
+    rows_deleted: int
+    existing_row_count: int
     output_fname: Path
     file_size: int
 
@@ -49,6 +52,7 @@ class VaultHistoricalReadMulticaller:
         self,
         web3factory: Web3Factory,
         supported_quote_tokens=set[TokenDetails] | None,
+        max_workers=8,
     ):
         """
         :param supported_quote_tokens:
@@ -61,6 +65,7 @@ class VaultHistoricalReadMulticaller:
 
         self.supported_quote_tokens = supported_quote_tokens
         self.web3factory = web3factory
+        self.max_workers = max_workers
 
     def validate_vaults(
         self,
@@ -115,6 +120,8 @@ class VaultHistoricalReadMulticaller:
             start_block=start_block,
             end_block=end_block,
             step=step,
+            display_progress=f"Reading historical vault price data with {self.max_workers} workers, {start_block:,} - {end_block:,} blocks",
+            max_workers=self.max_workers,
             ):
 
             # Transform single multicall call results to calls batched by vault-results
@@ -130,7 +137,6 @@ class VaultHistoricalReadMulticaller:
                 yield reader.process_result(block_number, timestamp, results)
 
 
-
 def scan_historical_prices_to_parquet(
     output_fname: Path,
     web3: Web3,
@@ -141,22 +147,59 @@ def scan_historical_prices_to_parquet(
     end_block=None,
     step=None,
     chunk_size=1024,
+    compression="zstd",
 ) -> ParquetScanResult:
-    """Scan all historical share prices of vaults and save them in to Parquet file.
+    """Scan all historical vault share prices of vaults and save them in to Parquet file.
 
     - Write historical prices to a Parquet file
-    - Multiprocess
+    - Multiprocess-boosted
+    - The same Parquet file can contain data from multiple chains
 
     :param output_fname:
-        Path to a destination Parquet file
+        Path to a destination Parquet file.
 
-    :param addresses:
-        Prefiltered addresses of vaults to scan
+        If the file exists, all entries for the current chain are deleted and rewritten.
+
+    :param web3:
+        Web3 connection
+
+    :param web3factory:
+        Creation of connections in subprocess
+
+    :param vaults:
+        Vaults of which historical price we scan.
+
+        All vaults must have their ``first_seen_at_block`` attribute set to
+        increase scan performance.
+
+    :param start_block:
+        First block to scan.
+
+        Leave empty to autodetect
+
+    :param end_block:
+        Last block to scan.
+
+        Leave empty to autodetect.
+
+    :param step_duration:
+        What is the historical step size (1 day).
+
+        Will be automatically attmpeted to map  to a block time.
+
+    :param step:
+        What is the step is in number of blocks.
+
+    :param chunk_size:
+        How many rows to write to the Parquet file in one buffer.
+
+    :return:
+        Scan report.
     """
-
 
     import pyarrow as pa
     import pyarrow.parquet as pq
+    import pyarrow.compute as pc
 
     assert isinstance(output_fname, Path)
     if start_block is not None:
@@ -202,13 +245,41 @@ def scan_historical_prices_to_parquet(
 
     schema = VaultHistoricalRead.to_pyarrow_schema()
 
+    if output_fname.exists():
+        existing_table = pq.read_table(output_fname)
+        logger.info(
+            "Detected existing file %s with %d rows",
+            output_fname,
+            len(existing_table)
+        )
+        # Clear existing entries for this chain
+        mask = pc.equal(existing_table['chain'], chain_id)
+        rows_deleted = pc.sum(mask).as_py()
+        existing_table = existing_table.filter(pc.invert(mask))
+        existing_row_count = existing_table.num_rows
+        logger.info(
+            "Removed existing %d rows for chain %d from the vault time-series data, existing table has %d rows",
+            rows_deleted,
+            chain_id,
+            existing_row_count,
+        )
+        existing = True
+    else:
+        existing_table = None
+        rows_deleted = 0
+        existing = False
+        existing_row_count = 0
+
     # Initialize ParquetWriter with the schema
-    writer = pq.ParquetWriter(output_fname, schema, compression='zstd')
+    writer = pq.ParquetWriter(output_fname, schema, compression=compression)
+
+    if existing_table is not None:
+        writer.write_table(existing_table)
 
     rows_written = 0
 
     logger.info(
-        "Starting vault historical price export to %s, we have %d vaults, range %d - %d, block step is %d, block time is %s",
+        "Starting vault historical price export to %s, we have %d vaults, range %d - %d, block step is %d, block time is %s seconds",
         output_fname,
         len(vaults),
         start_block,
@@ -233,15 +304,11 @@ def scan_historical_prices_to_parquet(
 
     return ParquetScanResult(
         rows_written=rows_written,
+        rows_deleted=rows_deleted,
         output_fname=output_fname,
         chain_id=chain_id,
         file_size=size,
+        existing=existing,
+        existing_row_count=existing_row_count,
     )
-
-
-
-
-
-
-
 

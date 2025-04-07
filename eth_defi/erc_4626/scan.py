@@ -73,8 +73,11 @@ def create_vault_scan_record(
 
         total_supply = vault.fetch_total_supply(block_identifier)
 
-        denomination_token = vault.denomination_token.export() if vault.denomination_token else None
-        assert type(denomination_token) == dict, f"Got {denomination_token}"
+        if vault.denomination_token is not None:
+            denomination_token = vault.denomination_token.export()
+            assert type(denomination_token) == dict, f"Got {denomination_token}"
+        else:
+            denomination_token = None
 
         data = {
             "Symbol": vault.symbol,
