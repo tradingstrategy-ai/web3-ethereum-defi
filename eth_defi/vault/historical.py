@@ -13,7 +13,7 @@ from collections import defaultdict
 import datetime
 from pathlib import Path
 
-from typing import Iterable
+from typing import Iterable, TypedDict
 
 from eth_typing import HexAddress
 from web3 import Web3
@@ -28,6 +28,14 @@ from eth_defi.vault.base import VaultBase, VaultHistoricalReader, VaultHistorica
 
 
 logger = logging.getLogger(__name__)
+
+
+class ParquetScanResult(TypedDict):
+    """Result of generating historical prices Parquet file."""
+    chain_id: int
+    rows_written: int
+    output_fname: Path
+    file_size: int
 
 
 class VaultReadNotSupported(Exception):
@@ -123,16 +131,18 @@ class VaultHistoricalReadMulticaller:
 
 
 
-def scan_historical_prices(
+def scan_historical_prices_to_parquet(
     output_fname: Path,
     web3: Web3,
     web3factory: Web3Factory,
     vaults: list[VaultBase],
     step_duration=datetime.timedelta(hours=24),
+    start_block=None,
+    end_block=None,
     step=None,
     chunk_size=1024,
-):
-    """Scan all historical share prices of vaults.
+) -> ParquetScanResult:
+    """Scan all historical share prices of vaults and save them in to Parquet file.
 
     - Write historical prices to a Parquet file
     - Multiprocess
@@ -144,26 +154,38 @@ def scan_historical_prices(
         Prefiltered addresses of vaults to scan
     """
 
+
     import pyarrow as pa
     import pyarrow.parquet as pq
 
     assert isinstance(output_fname, Path)
+    if start_block is not None:
+        assert type(start_block) == int
+
+    if end_block is not None:
+        assert type(end_block) == int
 
     chain_id = web3.eth.chain_id
 
-    reader = VaultHistoricalReadMulticaller(web3factory, supported_quote_tokens=None)
-
     assert all(v.first_seen_at_block for v in vaults), f"You need to set vault.first_seen_at_block hint in order to run this reader"
+    assert all(v.chain_id == chain_id for v in vaults), f"All vaults must be on the same chain"
 
-    start_block = min(v.first_seen_at_block for v in vaults)
-    end_block = get_almost_latest_block_number(web3)
+    if start_block is None:
+        start_block = min(v.first_seen_at_block for v in vaults)
+
+    if end_block is None:
+        end_block = get_almost_latest_block_number(web3)
+
+    reader = VaultHistoricalReadMulticaller(web3factory, supported_quote_tokens=None)
 
     # Note this is an approx,
     # manual tuning will be needed
     if step is None:
         block_time = EVM_BLOCK_TIMES.get(chain_id)
         assert block_time is not None, f"Block time not configured for chain: {chain_id}"
-        step = step_duration / datetime.timedelta(seconds=block_time)
+        step = step_duration // datetime.timedelta(seconds=block_time)
+    else:
+        block_time = None
 
     entries_iter = reader.read_historical(
         vaults=vaults,
@@ -178,34 +200,42 @@ def scan_historical_prices(
 
     converted_iter = converter(entries_iter)
 
-    # Schema inference from the first chunk (optional, but recommended for consistency)
-    first_chunk = next(converted_iter())  # Get the first chunk to define schema
-    schema = pa.Table.from_pandas(first_chunk).schema
+    schema = VaultHistoricalRead.to_pyarrow_schema()
 
     # Initialize ParquetWriter with the schema
     writer = pq.ParquetWriter(output_fname, schema, compression='zstd')
 
-    writer.write_table(pa.Table.from_pandas(first_chunk, schema=schema))
-
     rows_written = 0
 
     logger.info(
-        "Starting vault historical price export to %s, we have %d vaults",
+        "Starting vault historical price export to %s, we have %d vaults, range %d - %d, block step is %d, block time is %s",
         output_fname,
         len(vaults),
+        start_block,
+        end_block,
+        step,
+        block_time,
     )
 
     for chunk in chunked(converted_iter, chunk_size):
-        table = pa.Table.from_pandas(chunk, schema=schema)  # Ensure schema consistency
+        table = pa.Table.from_pylist(chunk, schema=schema)
         writer.write_table(table)
         rows_written += len(chunk)
 
     # Close the writer to finalize the file
     writer.close()
 
+    size = output_fname.stat().st_size
+
     logger.info(
-        "Exported %d rows",
-        rows_written,
+        f"Exported {rows_written} rows, file size is now {size:,} bytes"
+    )
+
+    return ParquetScanResult(
+        rows_written=rows_written,
+        output_fname=output_fname,
+        chain_id=chain_id,
+        file_size=size,
     )
 
 

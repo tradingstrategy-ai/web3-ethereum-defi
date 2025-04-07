@@ -616,6 +616,10 @@ def read_multicall_historical(
     - Show a progress bar using :py:mod:`tqdm`
     """
 
+    assert type(start_block) == int, f"Got: {start_block}"
+    assert type(end_block) == int, f"Got: {end_block}"
+    assert type(step) == int, f"Got: {step}"
+
     worker_processor = Parallel(
         n_jobs=max_workers,
         backend="loky",

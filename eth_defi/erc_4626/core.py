@@ -91,8 +91,15 @@ class ERC4626Feature(enum.Enum):
     #: https://github.com/0xZunia/Kiln.MetaVault
     kiln_metavault_like = "kiln_metavault_like"
 
-    # https://beta.peapods.finance/
+    #: Peopods
+    #: https://beta.peapods.finance/
     peapods_like = "peapods_like"
+
+    #: Yearn
+    #: https://yearn.fi/
+    #: https://etherscan.io/address/0x4cE9c93513DfF543Bc392870d57dF8C04e89Ba0a#readProxyContract
+    #: Contracts have both proxy and non-proxy functions.
+    yearn_like = "yearn_like"
 
 
 def get_vault_protocol_name(features: set[ERC4626Feature]) -> str:
@@ -201,3 +208,7 @@ class ERC4262VaultDetection:
     def is_erc_7540(self) -> bool:
         """Are we asynchronous vault"""
         return ERC4626Feature.erc_7540_like in self.features
+
+    def is_erc_7575(self) -> bool:
+        """Are we asynchronous vault"""
+        return ERC4626Feature.erc_7575_like in self.features
