@@ -35,12 +35,13 @@ CHAIN_NAMES = {
     43114: "Avalanche",
     80094: "Berachain",
     130: "Unichain",
-    645749: "Hyperliquid",
-    8545: "Base",
+    645749: "Hyperliquid",  # TODO: Not sure what's correct for Hyperliquid
+    8453: "Base",
     146: "Sonic",
     34443: "Mode",
     5000: "Mantle",
-    999: "Hyperliquid",
+    999: "Hyperliquid",  # TODO: Not sure what's correct for Hyperliquid
+    42161: "Arbitrum",
 }
 
 def get_chain_name(chain_id: int) -> str:
