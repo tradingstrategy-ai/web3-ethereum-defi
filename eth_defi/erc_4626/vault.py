@@ -155,6 +155,7 @@ class ERC4626Vault(VaultBase):
         web3: Web3,
         spec: VaultSpec,
     ):
+        super().__init__()
         self.web3 = web3
         self.spec = spec
 
