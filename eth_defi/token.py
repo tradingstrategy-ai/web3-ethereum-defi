@@ -569,7 +569,7 @@ WRAPPED_STABLECOIN_LIKE = {"cUSDC", "cUSDT", "sUSD", "aDAI", "cDAI", "tfUSDC", "
 ALL_STABLECOIN_LIKE = STABLECOIN_LIKE | WRAPPED_STABLECOIN_LIKE
 
 
-def is_stablecoin_like(token_symbol: str, symbol_list=ALL_STABLECOIN_LIKE) -> bool:
+def is_stablecoin_like(token_symbol: str | None, symbol_list=ALL_STABLECOIN_LIKE) -> bool:
     """Check if specific token symbol is likely a stablecoin.
 
     Useful for quickly filtering stable/stable pairs in the pools.
@@ -585,6 +585,10 @@ def is_stablecoin_like(token_symbol: str, symbol_list=ALL_STABLECOIN_LIKE) -> bo
     :param symbol_list:
         Which filtering list we use.
     """
+
+    if token_symbol is None:
+        return False
+
     assert isinstance(token_symbol, str), f"We got {token_symbol}"
     return (token_symbol in symbol_list)
 
