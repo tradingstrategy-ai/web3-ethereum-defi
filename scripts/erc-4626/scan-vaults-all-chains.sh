@@ -11,9 +11,11 @@ set -u
 
 export JSON_RPC_URL=$JSON_RPC_BASE
 python scripts/erc-4626/scan-vaults.py
+python scripts/erc-4626/scan-prices.py
 
 export JSON_RPC_URL=$JSON_RPC_BINANCE
 python scripts/erc-4626/scan-vaults.py
+python scripts/erc-4626/scan-prices.py
 
 export JSON_RPC_URL=$JSON_RPC_MANTLE
 python scripts/erc-4626/scan-vaults.py
@@ -33,6 +35,7 @@ python scripts/erc-4626/scan-vaults.py
 
 export JSON_RPC_URL=$JSON_RPC_BERACHAIN
 python scripts/erc-4626/scan-vaults.py
+python scripts/erc-4626/scan-prices.py
 
 export JSON_RPC_URL=$JSON_RPC_UNICHAIN
 python scripts/erc-4626/scan-vaults.py

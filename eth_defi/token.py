@@ -4,6 +4,7 @@ Deploy ERC-20 tokens to be used within your test suite.
 
 `Read also unit test suite for tokens to see how ERC-20 can be manipulated in pytest <https://github.com/tradingstrategy-ai/web3-ethereum-defi/blob/master/tests/test_token.py>`_.
 """
+import logging
 from collections import OrderedDict
 from dataclasses import dataclass, asdict
 from decimal import Decimal
@@ -27,6 +28,9 @@ from web3.exceptions import BadFunctionCallOutput, ContractLogicError
 from eth_defi.abi import get_deployed_contract
 from eth_defi.deploy import deploy_contract
 from eth_defi.utils import sanitise_string
+
+
+logger = logging.getLogger(__name__)
 
 #: List of exceptions JSON-RPC provider can through when ERC-20 field look-up fails
 #: TODO: Add exceptios from real HTTPS/WSS providers
@@ -313,13 +317,14 @@ def get_erc20_contract(
 
 
 def fetch_erc20_details(
-        web3: Web3,
-        token_address: Union[HexAddress, str],
-        max_str_length: int = 256,
-        raise_on_error=True,
-        contract_name="ERC20MockDecimals.json",
-        cache: cachetools.Cache | None = DEFAULT_TOKEN_CACHE,
-        chain_id: int = None,
+    web3: Web3,
+    token_address: Union[HexAddress, str],
+    max_str_length: int = 256,
+    raise_on_error=True,
+    contract_name="ERC20MockDecimals.json",
+    cache: cachetools.Cache | None = DEFAULT_TOKEN_CACHE,
+    chain_id: int = None,
+    cause_diagnostics_message: str | None = None,
 ) -> TokenDetails:
     """Read token details from on-chain data.
 
@@ -374,12 +379,18 @@ def fetch_erc20_details(
 
         If not given do ``eth_chainId`` RPC call to figure out.
 
+    :param cause_diagnostics_message:
+        Log in Python logging subsystem why this fetch was done to debug RPC overuse.
+
     :return:
         Sanitised token info
     """
 
     if not chain_id:
+        chain_id_given = False
         chain_id = web3.eth.chain_id
+    else:
+        chain_id_given = True
 
     erc_20 = get_erc20_contract(web3, token_address, contract_name)
 
@@ -395,6 +406,16 @@ def fetch_erc20_details(
                 cached["supply"],
                 cached["decimals"],
             )
+
+    logger.info(
+        "Fetching uncached token, chain %s, address %s, chain id given: %s, reason: %s, token cache has %d entries",
+        chain_id,
+        token_address,
+        chain_id_given,
+        cause_diagnostics_message,
+        len(cache)
+    )
+
     try:
         symbol = sanitise_string(erc_20.functions.symbol().call()[0:max_str_length])
     except _call_missing_exceptions as e:

@@ -61,7 +61,8 @@ class ERC4626HistoricalReader(VaultHistoricalReader):
             extra_data = {
                 "function": "share_price",
                 "vault": self.vault.address,
-            }
+            },
+            first_block_number=self.first_block,
         )
         yield share_price_call
 
@@ -70,7 +71,8 @@ class ERC4626HistoricalReader(VaultHistoricalReader):
             extra_data = {
                 "function": "total_assets",
                 "vault": self.vault.address,
-            }
+            },
+            first_block_number = self.first_block,
         )
         yield total_assets
 
@@ -79,7 +81,8 @@ class ERC4626HistoricalReader(VaultHistoricalReader):
             extra_data = {
                 "function": "total_supply",
                 "vault": self.vault.address,
-            }
+            },
+            first_block_number=self.first_block,
         )
         yield total_supply
 
@@ -202,6 +205,7 @@ class ERC4626Vault(VaultBase):
                 token_address,
                 chain_id=self.spec.chain_id,
                 raise_on_error=False,
+                cause_diagnostics_message=f"Vault {self.address} lookup",
             )
         else:
             return None

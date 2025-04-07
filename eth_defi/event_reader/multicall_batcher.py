@@ -399,6 +399,12 @@ class EncodedCall:
     #: Use this to match the reader
     extra_data: dict | None
 
+    #: First block hint when doing historical multicall reading.
+    #:
+    #: Skip calls for blocks that are earlier than this block number.
+    #:
+    first_block_number: int | None = None
+
     def get_debug_info(self) -> str:
         """Get human-readable details for debugging.
 
@@ -409,7 +415,11 @@ class EncodedCall:
         return f"""Address: {self.address}\nData: {self.data.hex()}"""
 
     @staticmethod
-    def from_contract_call(call: ContractFunction, extra_data: dict) -> "EncodedCall":
+    def from_contract_call(
+        call: ContractFunction,
+        extra_data: dict,
+        first_block_number: int | None = None,
+    ) -> "EncodedCall":
         """Create poller call from Web3.py Contract proxy object"""
         assert isinstance(call, ContractFunction)
         assert isinstance(extra_data, dict)
@@ -422,6 +432,7 @@ class EncodedCall:
             address=call.address,
             data=data,
             extra_data=extra_data,
+            first_block_number=first_block_number,
         )
 
     @staticmethod
@@ -430,7 +441,8 @@ class EncodedCall:
         function: str,
         signature: bytes,
         data: bytes,
-        extra_data: dict | None
+        extra_data: dict | None,
+        first_block_number: int | None = None,
     ) -> "EncodedCall":
         """Create poller call directly from a raw function signature"""
         assert isinstance(signature,  bytes)
@@ -445,7 +457,14 @@ class EncodedCall:
             address=address,
             data=signature + data,
             extra_data=extra_data,
+            first_block_number=first_block_number,
         )
+
+    def is_valid_for_block(self, block_number: int) -> bool:
+        if self.first_block_number is None:
+            return True
+        assert isinstance(block_number, int)
+        return self.first_block_number >= block_number
 
     def call(
         self,
@@ -564,7 +583,7 @@ class MultiprocessMulticallReader:
         assert isinstance(calls, list)
         assert all(isinstance(c, EncodedCall) for c in calls), f"Got: {calls}"
 
-        encoded_calls = [(c.address, c.data) for c in calls]
+        encoded_calls = [(c.address, c.data) for c in calls if c.is_valid_for_block(block_identifier)]
         payload_size = sum(20 + len(c[1]) for c in encoded_calls)
 
         start = datetime.datetime.utcnow()
@@ -650,9 +669,19 @@ def read_multicall_historical(
 
     calls_pickle_friendly = list(calls)
 
+    logger.info("Per block we need to do %d calls", len(calls_pickle_friendly))
+
     def _task_gen() -> Iterable[MulticallHistoricalTask]:
         for block_number in range(start_block, end_block, step):
-            yield MulticallHistoricalTask(web3factory, block_number, calls_pickle_friendly)
+            task = MulticallHistoricalTask(web3factory, block_number, calls_pickle_friendly)
+            logger.info(
+                "Created task for block %d with %d calls",
+                block_number,
+                len(calls_pickle_friendly),
+            )
+            yield task
+
+    import ipdb; ipdb.set_trace()
 
     for completed_task in worker_processor(delayed(_execute_multicall_subprocess)(task) for task in _task_gen()):
         if progress_bar:
@@ -775,6 +804,8 @@ def _execute_multicall_subprocess(
         reader = _reader_instance.reader
 
     timestamp = reader.get_block_timestamp(task.block_number)
+
+    import ipdb ; ipdb.set_trace()
 
     # Perform multicall to read share prices
     call_results = reader.process_calls(

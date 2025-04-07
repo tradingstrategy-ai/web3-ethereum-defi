@@ -15,7 +15,9 @@ from pathlib import Path
 
 from typing import Iterable, TypedDict
 
+import ipdb
 from eth_typing import HexAddress
+from joblib import Parallel, delayed
 from web3 import Web3
 
 from eth_defi.chain import EVM_BLOCK_TIMES
@@ -84,12 +86,23 @@ class VaultHistoricalReadMulticaller:
                 if denomination_token not in self.supported_quote_tokens:
                     raise VaultReadNotSupported(f"Vault {vault} has denomination token {denomination_token} which is not supported denomination token set: {self.supported_quote_tokens}")
 
-    def prepare_readers(self, vaults: list[VaultBase]) -> dict[HexAddress, VaultHistoricalReader]:
+    def _prepare_reader(self, vault: VaultBase):
+        return vault.get_historical_reader()
+
+    def prepare_readers(
+        self,
+        vaults: list[VaultBase],
+    ) -> dict[HexAddress, VaultHistoricalReader]:
         """Create readrs for vaults."""
-        readers = {}
-        for vault in vaults:
-            assert not vault.address in readers, f"Vault twice: {vault}"
-            readers[vault.address] = vault.get_historical_reader()
+        logger.info(
+        "Preparing readers for %d vaults, using %d threads",
+    len(vaults),
+            self.max_workers,
+        )
+        # Each vault reader creation causes ~5 RPC call as it initialises the token information.
+        # We do parallel to cut down the time here.
+        results = Parallel(n_jobs=self.max_workers, backend='threading')(delayed(self._prepare_reader)(v) for v in vaults)
+        readers = {r.address: r for r in results}
         return readers
 
     def generate_vault_historical_calls(
@@ -124,6 +137,7 @@ class VaultHistoricalReadMulticaller:
             max_workers=self.max_workers,
             ):
 
+
             # Transform single multicall call results to calls batched by vault-results
             block_number = combined_result.block_number
             timestamp = combined_result.timestamp
@@ -148,6 +162,7 @@ def scan_historical_prices_to_parquet(
     step=None,
     chunk_size=1024,
     compression="zstd",
+    max_workers=8,
 ) -> ParquetScanResult:
     """Scan all historical vault share prices of vaults and save them in to Parquet file.
 
@@ -193,6 +208,9 @@ def scan_historical_prices_to_parquet(
     :param chunk_size:
         How many rows to write to the Parquet file in one buffer.
 
+    :param max_workers:
+        Number of subprocesses to use for multicall
+
     :return:
         Scan report.
     """
@@ -219,7 +237,11 @@ def scan_historical_prices_to_parquet(
     if end_block is None:
         end_block = get_almost_latest_block_number(web3)
 
-    reader = VaultHistoricalReadMulticaller(web3factory, supported_quote_tokens=None)
+    reader = VaultHistoricalReadMulticaller(
+        web3factory,
+        supported_quote_tokens=None,
+        max_workers=max_workers,
+    )
 
     # Note this is an approx,
     # manual tuning will be needed
@@ -246,7 +268,20 @@ def scan_historical_prices_to_parquet(
     schema = VaultHistoricalRead.to_pyarrow_schema()
 
     if output_fname.exists():
-        existing_table = pq.read_table(output_fname)
+        try:
+            existing_table = pq.read_table(output_fname)
+        except pa.lib.ArrowInvalid as e:
+            logger.warning(
+                "Parquet file %s, write damaged %s, resetting",
+                output_fname,
+                str(e),
+            )
+            existing_table = None
+    else:
+        existing_table = None
+
+    if existing_table is not None:
+
         logger.info(
             "Detected existing file %s with %d rows",
             output_fname,
@@ -254,7 +289,7 @@ def scan_historical_prices_to_parquet(
         )
         # Clear existing entries for this chain
         mask = pc.equal(existing_table['chain'], chain_id)
-        rows_deleted = pc.sum(mask).as_py()
+        rows_deleted = pc.sum(mask).as_py() or 0
         existing_table = existing_table.filter(pc.invert(mask))
         existing_row_count = existing_table.num_rows
         logger.info(
@@ -287,6 +322,8 @@ def scan_historical_prices_to_parquet(
         step,
         block_time,
     )
+
+    ipdb.set_trace()
 
     for chunk in chunked(converted_iter, chunk_size):
         table = pa.Table.from_pylist(chunk, schema=schema)

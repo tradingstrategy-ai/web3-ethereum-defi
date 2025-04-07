@@ -191,6 +191,10 @@ class VaultHistoricalReader(ABC):
         self.vault = vault
 
     @property
+    def first_block(self) -> int | None:
+        return self.vault.first_seen_at_block
+
+    @property
     def address(self) -> HexAddress:
         return self.vault.address
 
