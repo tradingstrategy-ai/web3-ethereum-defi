@@ -50,7 +50,7 @@ def main():
     token_cache = TokenDiskCache()
 
     # How many CPUs / subprocess we use
-    max_workers = 12
+    max_workers = 14
     # max_workers = 1  # To debug, set workers to 1
 
     web3 = create_multi_provider_web3(JSON_RPC_URL)

@@ -55,16 +55,18 @@ class ERC4626HistoricalReader(VaultHistoricalReader):
 
         Does not include fees.
         """
-        amount = self.vault.denomination_token.convert_to_raw(Decimal(1))
-        share_price_call = EncodedCall.from_contract_call(
-            self.vault.vault_contract.functions.convertToShares(amount),
-            extra_data = {
-                "function": "share_price",
-                "vault": self.vault.address,
-            },
-            first_block_number=self.first_block,
-        )
-        yield share_price_call
+
+        if self.vault.denomination_token is not None:
+            amount = self.vault.denomination_token.convert_to_raw(Decimal(1))
+            share_price_call = EncodedCall.from_contract_call(
+                self.vault.vault_contract.functions.convertToShares(amount),
+                extra_data = {
+                    "function": "share_price",
+                    "vault": self.vault.address,
+                },
+                first_block_number=self.first_block,
+            )
+            yield share_price_call
 
         total_assets = EncodedCall.from_contract_call(
             self.vault.vault_contract.functions.totalAssets(),
@@ -88,11 +90,13 @@ class ERC4626HistoricalReader(VaultHistoricalReader):
 
     def process_core_erc_4626_result(self, call_by_name: dict[str, EncodedCallResult]) -> tuple:
         """Decode common ERC-4626 calls."""
-        assert "share_price" in call_by_name, f"share_price call missing for {self.vault}, we got {list(call_by_name.items())}"
+
+        # Not generated with denomination token is busted
+        # assert "share_price" in call_by_name, f"share_price call missing for {self.vault}, we got {list(call_by_name.items())}"
         assert "total_supply" in call_by_name, f"total_supply call missing for {self.vault}, we got {list(call_by_name.items())}"
         assert "total_assets" in call_by_name, f"total_assets call missing for {self.vault}, we got {list(call_by_name.items())}"
 
-        if call_by_name["share_price"].success:
+        if self.vault.denomination_token is not None and call_by_name["share_price"].success:
             raw_share_price = convert_int256_bytes_to_int(call_by_name["share_price"].result)
             # convertToShares(1 USD) gives us how many shares we get for a dollar.
             # Share price is the inverse of this number.
@@ -109,7 +113,7 @@ class ERC4626HistoricalReader(VaultHistoricalReader):
         else:
             total_supply = None
 
-        if call_by_name["total_assets"].success:
+        if self.vault.denomination_token is not None and call_by_name["total_assets"].success:
             raw_total_assets = convert_int256_bytes_to_int(call_by_name["total_assets"].result)
             total_assets = self.vault.denomination_token.convert_to_decimals(raw_total_assets)
         else:
@@ -226,12 +230,16 @@ class ERC4626Vault(VaultBase):
         """Alias for :py:meth:`denomination_token`"""
         return self.denomination_token
 
-    def fetch_denomination_token_address(self) -> HexAddress:
-        asset = self.vault_contract.functions.asset().call()
-        return asset
+    def fetch_denomination_token_address(self) -> HexAddress | None:
+        try:
+            asset = self.vault_contract.functions.asset().call()
+            return asset
+        except ValueError:
+            pass
+        return None
 
     def fetch_denomination_token(self) -> TokenDetails | None:
-        token_address = self.info["asset"]
+        token_address = self.fetch_denomination_token_address()
         # eth_defi.token.TokenDetailError: Token 0x4C36388bE6F416A29C8d8Eee81C771cE6bE14B18 missing symbol
         if token_address:
             return fetch_erc20_details(

@@ -620,6 +620,16 @@ def is_stablecoin_like(token_symbol: str | None, symbol_list=ALL_STABLECOIN_LIKE
     Note that new stablecoins might be introduced, so this check
     is never going to be future proof.
 
+    Example:
+
+    .. code-block:: python
+
+        assert is_stablecoin_like("USDC") == True
+        assert is_stablecoin_like("USDT") == True
+        assert is_stablecoin_like("GHO") == True
+        assert is_stablecoin_like("crvUSD") == True
+        assert is_stablecoin_like("WBTC") == False
+
     :param token_symbol:
         Token symbol as it is written on the contract.
         May contain lower and uppercase latter.

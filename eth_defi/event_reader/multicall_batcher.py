@@ -573,7 +573,18 @@ class MultiprocessMulticallReader:
       then you get no results
     """
 
-    def __init__(self, web3factory: Web3Factory | Web3, chunk_size=64):
+    def __init__(self, web3factory: Web3Factory | Web3, chunk_size=24):
+        """Create subprocess worker instance.
+
+        :param web3factory:
+            Initialise connection within the subprocess
+
+        :param chunk_size:
+            How many calls we pack into the multicall.
+
+            Manually tuned number if your RPC nodes start to crap out, as they hit their internal time limits.
+
+        """
         logger.info(
             "Initialising multiprocess multicall handler, process %s, thread %s",
             os.getpid(),

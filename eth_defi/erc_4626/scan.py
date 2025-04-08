@@ -77,7 +77,10 @@ def create_vault_scan_record(
         except ValueError:
             total_assets = None
 
-        total_supply = vault.fetch_total_supply(block_identifier)
+        try:
+            total_supply = vault.fetch_total_supply(block_identifier)
+        except ValueError:
+            total_supply = None
 
         if vault.denomination_token is not None:
             denomination_token = vault.denomination_token.export()
