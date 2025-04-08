@@ -91,7 +91,7 @@ def create_probe_calls(
         #function isOperator(address controller, address operator) external returns (bool);
         erc_7540_call = EncodedCall.from_keccak_signature(
             address=address,
-            signature=Web3.keccak(text="isOperator(address, address)")[0:4],
+            signature=Web3.keccak(text="isOperator(address,address)")[0:4],
             function="isOperator",
             data=double_address,
             extra_data=None,
@@ -172,6 +172,16 @@ def create_probe_calls(
             extra_data=None,
         )
 
+        # GOV()
+        # https://etherscan.io/address/0x4cE9c93513DfF543Bc392870d57dF8C04e89Ba0a#readContract
+        yearn_call = EncodedCall.from_keccak_signature(
+            address=address,
+            signature=Web3.keccak(text="GOV()")[0:4],
+            function="GOV",
+            data=b"",
+            extra_data=None,
+        )
+
         yield name_call
         yield share_price_call
         yield ipor_fee_call
@@ -185,10 +195,12 @@ def create_probe_calls(
         yield erc_7575_call
         yield kiln_metavaut_call
         yield lagoon_call
+        yield yearn_call
 
 
 def identify_vault_features(
     calls: dict[str, EncodedCallResult],
+    debug_text: str | None,
 ) -> set[ERC4626Feature]:
     """Based on multicall results, create the feature flags for the vault."""
 
@@ -232,7 +244,10 @@ def identify_vault_features(
     if calls["MAX_MANAGEMENT_RATE"].success:
         features.add(ERC4626Feature.lagoon_like)
         # All Lagoon should be ERC-7575
-        assert ERC4626Feature.erc_7575_like in features
+        assert ERC4626Feature.erc_7540_like in features, f"Lagoon vault did not pass ERC-7540 check: {debug_text}"
+
+    if calls["GOV"].success:
+        features.add(ERC4626Feature.yearn_like)
 
     if len(features) > 4:
         # This contract somehow responses to all calls with success.
@@ -302,7 +317,7 @@ def probe_vaults(
         address_calls[call_result.call.func_name] = call_result
 
     for address, address_call_results in results_per_address.items():
-        features = identify_vault_features(address_call_results)
+        features = identify_vault_features(address_call_results, debug_text=f"vault: {address}")
         yield VaultFeatureProbe(
             address=address,
             features=features,

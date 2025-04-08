@@ -5,7 +5,7 @@ Deploy ERC-20 tokens to be used within your test suite.
 `Read also unit test suite for tokens to see how ERC-20 can be manipulated in pytest <https://github.com/tradingstrategy-ai/web3-ethereum-defi/blob/master/tests/test_token.py>`_.
 """
 from collections import OrderedDict
-from dataclasses import dataclass
+from dataclasses import dataclass, asdict
 from decimal import Decimal
 from functools import cached_property
 from typing import Optional, Union, TypeAlias
@@ -221,6 +221,32 @@ class TokenDetails:
         assert type(address) == str
         assert address.startswith("0x")
         return hash((chain_id, address.lower()))
+
+    def export(self) -> dict:
+        """Create a serialisable entry of this class.
+
+        Removes web3 connection and such unserialisable data.
+
+        :return:
+            Python dict of exported data.
+        """
+        clone = dict(**self.__dict__)
+        clone["address"] = self.address
+        clone["chain"] = self.chain_id
+        del clone["contract"]
+        return clone
+
+    def is_stablecoin_like(self) -> bool:
+        """Smell test for stablecoins.
+
+        - Symbol check for common stablecoins
+        - Not immune to scams
+        - For the list see :py:func:`is_stablecoin_like`
+
+        :return:
+            True if we think think this could be a stablecoin.
+        """
+        return is_stablecoin_like(self.symbol)
 
 
 class TokenDetailError(Exception):
@@ -527,4 +553,42 @@ HONEY_NATIVE_TOKEN: dict[int, HexAddress] = {
     # Berachain
     80094: "0xFCBD14DC51f0A4d49d5E53C2E0950e0bC26d0Dce",
 }
+
+
+#: Token symbols that are stablecoin like.
+#: Note that it is *not* safe to to check the token symbol to know if a token is a specific stablecoin,
+#: but you always need to check the contract address.
+#: Checking against this list only works
+STABLECOIN_LIKE = {'ALUSD', 'BAC', 'BDO', 'BEAN', 'BOB', 'BUSD', 'CADC', 'CEUR', 'CJPY', 'CNHT', 'CRVUSD', 'CUSD', 'DAI', 'DJED', 'DOLA', 'DUSD', 'EOSDT', 'EURA', 'EUROC', 'EUROe', 'EURS', 'EURT', 'EURe', 'EUSD', 'FDUSD', 'FEI', 'FLEXUSD', 'FRAX', 'FXD', 'FXUSD', 'GBPT', 'GHO', 'GHST', 'GUSD', 'GYD', 'GYEN', 'HUSD', 'IRON', 'JCHF', 'JPYC', 'KDAI', 'LISUSD', 'LUSD', 'MIM', 'MIMATIC', 'MKUSD', 'MUSD', 'ONC', 'OUSD', 'PAR', 'PAXG', 'PYUSD', 'RAI', 'RUSD', 'SEUR', 'SFRAX', 'SILK', 'STUSD', 'SUSD', 'TCNH', 'TOR', 'TRYB', 'TUSD', 'USC', 'USD+', 'USDB', 'USDC', 'USDC.e', 'USDD', 'USDE', 'USDN', 'USDP', 'USDR', 'USDS', 'USDT', 'USDT.e', 'USDV', 'USDX', 'USDs', 'USK', 'UST', 'USTC', 'USX', 'UUSD', 'VAI', 'VEUR', 'VST', 'VUSD', 'XAUT', 'XDAI', 'XIDR', 'XSGD', 'XSTUSD', 'XUSD', 'YUSD', 'ZSD', 'ZUSD', 'gmUSD', 'iUSD', 'jEUR', 'crvUSD', 'USDe', 'kUSD', 'sosUSDT', 'USDXL', 'USDA'}
+
+#: Stablecoins plus their interest wrapped counterparts on Compound and Aave.
+#: Also contains other derivates.
+WRAPPED_STABLECOIN_LIKE = {"cUSDC", "cUSDT", "sUSD", "aDAI", "cDAI", "tfUSDC", "alUSD", "agEUR", "gmdUSDC", "gDAI", "blUSD"}
+
+#: All stablecoin likes - both interested bearing and non interest bearing.
+ALL_STABLECOIN_LIKE = STABLECOIN_LIKE | WRAPPED_STABLECOIN_LIKE
+
+
+def is_stablecoin_like(token_symbol: str | None, symbol_list=ALL_STABLECOIN_LIKE) -> bool:
+    """Check if specific token symbol is likely a stablecoin.
+
+    Useful for quickly filtering stable/stable pairs in the pools.
+    However, you should never rely on this check alone.
+
+    Note that new stablecoins might be introduced, so this check
+    is never going to be future proof.
+
+    :param token_symbol:
+        Token symbol as it is written on the contract.
+        May contain lower and uppercase latter.
+
+    :param symbol_list:
+        Which filtering list we use.
+    """
+
+    if token_symbol is None:
+        return False
+
+    assert isinstance(token_symbol, str), f"We got {token_symbol}"
+    return (token_symbol in symbol_list)
 

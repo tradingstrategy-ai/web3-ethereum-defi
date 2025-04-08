@@ -85,9 +85,11 @@ def main():
 
     output_folder = os.environ.get("OUTPUT_FOLDER")
     if output_folder is None:
-        output_folder = "/tmp"
+        output_folder = Path("~/.tradingstrategy/vaults").expanduser()
     else:
         output_folder = Path(output_folder).expanduser()
+
+    os.makedirs(output_folder, exist_ok=True)
 
     # Create a scanner that uses web3, HyperSync and subprocesses
     vault_discover = HypersyncVaultDiscover(
@@ -111,9 +113,9 @@ def main():
 
     print(f"Total {len(rows)} vaults detected")
     df = pd.DataFrame(rows)
-    # Cannot export the raw Python object,
-    # this is for the pickle only
-    df = df.drop(columns="_detection_data")
+    # Parquet cannot export the raw Python objects,
+    # so we remove columns that are marked Python-internal only
+    df = df.drop(columns=[col for col in df.columns if col.startswith('_')])
     df = df.sort_values("First seen")
 
     #

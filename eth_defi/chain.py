@@ -35,13 +35,34 @@ CHAIN_NAMES = {
     43114: "Avalanche",
     80094: "Berachain",
     130: "Unichain",
-    645749: "Hyperliquid",
-    8545: "Base",
+    645749: "Hyperliquid",  # TODO: Not sure what's correct for Hyperliquid
+    8453: "Base",
     146: "Sonic",
     34443: "Mode",
     5000: "Mantle",
-    999: "Hyperliquid",
+    999: "Hyperliquid",  # TODO: Not sure what's correct for Hyperliquid
+    42161: "Arbitrum",
 }
+
+#: Chain avg block times.
+#:
+#: By Grok, not verified.
+EVM_BLOCK_TIMES = {
+    1: 12,        # Ethereum (post-Merge, ~12 seconds)
+    56: 3,        # Binance Smart Chain (~3 seconds)
+    137: 2,       # Polygon PoS (~2 seconds)
+    43114: 2,     # Avalanche C-Chain (~2 seconds)
+    80094: 1,     # Berachain (assuming ~1 second, based on high-performance claims; may need verification)
+    130: 1,       # Unichain (estimated ~1 second, as a high-throughput chain; confirm with official docs)
+    645749: 0.1,  # Hyperliquid (speculative: ~100ms, based on its high-speed design; adjust as needed)
+    8453: 2,      # Base (~2 seconds, aligned with Optimism rollup timing)
+    146: 1,       # Sonic (estimated ~1 second, designed for speed; confirm with official sources)
+    34443: 2,     # Mode (~2 seconds, typical for Optimistic rollups)
+    5000: 2,      # Mantle (~2 seconds, based on its Ethereum L2 design)
+    999: 0.1,     # Hyperliquid (same as 645749, assuming chain ID confusion; verify correct ID)
+    42161: 0.25   # Arbitrum (block time ~250ms, though batches vary; reflects Nitro update)
+}
+
 
 def get_chain_name(chain_id: int) -> str:
     """Translate Ethereum chain id to its name."""

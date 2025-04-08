@@ -15,7 +15,7 @@ from decimal import Decimal
 from functools import cached_property
 from typing import TypedDict, Iterable
 
-from eth.typing import BlockRange, Block
+from eth.typing import BlockRange
 from eth_typing import BlockIdentifier, HexAddress
 from web3 import Web3
 
@@ -144,6 +144,40 @@ class VaultHistoricalRead:
 
     #: What was the vault management fee around the time
     management_fee: float | None
+
+    def export(self) -> dict:
+        """Convert historical read for a Parquet/DataFrame export."""
+        return {
+            "chain": self.vault.chain_id,
+            "address": self.vault.address.lower(),
+            "block_number": self.block_number,
+            "timestamp": self.timestamp,
+            "share_price": float(self.share_price),
+            "total_assets": float(self.total_assets),
+            "total_supply": float(self.total_supply),
+            "performance_fee": float(self.performance_fee) if self.performance_fee is not None else float("nan"),
+            "management_fee": float(self.management_fee) if self.management_fee is not None else float("nan"),
+        }
+
+    @classmethod
+    def to_pyarrow_schema(cls) -> "pyarrow.Schema":
+        """Get parquet schema for writing this data.
+
+        - Write multiple chains, multiple vaults, to a single Parquet file
+        """
+        import pyarrow as pa
+        schema = pa.schema([
+            ("chain", pa.uint32()),
+            ("address", pa.string()),  # Lowercase
+            ("block_number", pa.uint32()),
+            ("timestamp", pa.timestamp("s")),
+            ("share_price", pa.float64()),
+            ("total_assets", pa.float64()),
+            ("total_supply", pa.float64()),
+            ("performance_fee", pa.float32()),
+            ("management_fee", pa.float32()),
+        ])
+        return schema
 
 
 
@@ -310,6 +344,16 @@ class VaultBase(ABC):
 
     For code examples see `tests/lagoon` and `tests/velvet` on the `Github repository <https://github.com/tradingstrategy-ai/web3-ethereum-defi>`__.
     """
+
+    #: Block number hint when this vault was deployed.
+    #:
+    #: Must be set externally, as because of shitty Ethereum RPC we cannot query this.
+    #: Allows us to avoid unnecessary work when scanning historical price data.
+    #:
+    first_seen_at_block: int | None
+
+    def __init__(self):
+        self.first_seen_at_block = None
 
     def __repr__(self):
         return f"<{self.__class__.__name__} {self.name} {self.symbol} at {self.address}>"
