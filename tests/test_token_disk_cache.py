@@ -4,8 +4,7 @@ import os
 import pytest
 
 from eth_defi.provider.multi_provider import MultiProviderWeb3Factory
-from eth_defi.token import TokenDiskCache
-
+from eth_defi.token import TokenDiskCache, fetch_erc20_details
 
 JSON_RPC_BASE = os.environ.get("JSON_RPC_BASE")
 
@@ -24,30 +23,63 @@ def test_token_disk_cache(tmp_path, max_workers):
     ]
 
     cache = TokenDiskCache(tmp_path / "disk_cache.sqlite")
-
     web3factory = MultiProviderWeb3Factory(JSON_RPC_BASE)
+    web3 = web3factory()
 
-    # Dry cache
+    #
+    # Do single token lookups against cache
+    #
+    token = fetch_erc20_details(
+        web3,
+        token_address="0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+        chain_id=web3.eth.chain_id,
+        cache=cache,
+    )
+    assert token.extra_data["cached"] == False
+    assert len(cache) == 1
+    # After one look up, we should have it cached
+    token = fetch_erc20_details(
+        web3,
+        token_address="0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+        chain_id=web3.eth.chain_id,
+        cache=cache,
+    )
+    assert token.extra_data["cached"] == True
+    cache.purge()
+
+    #
+    # Warm up multiple on dry cache
+    #
     result = cache.load_token_details_with_multicall(
-        chain_id=8543,
+        chain_id=web3.eth.chain_id,
         web3factory=web3factory,
         addresses=addresses,
         max_workers=max_workers,
         display_progress=False,
     )
     assert result["tokens_read"] == 4
-    assert "8543-0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913".lower() in cache
-    assert "8543-0x4200000000000000000000000000000000000006".lower() in cache
+    assert "8453-0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913".lower() in cache
+    assert "8453-0x4200000000000000000000000000000000000006".lower() in cache
 
-    cache_data = cache["8543-0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913".lower()]
+    cache_data = cache["8453-0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913".lower()]
     assert cache_data["name"] == "USD Coin"
     assert cache_data["symbol"] == "USDC"
     assert cache_data["decimals"] == 6
     assert cache_data["supply"] > 1_000_000
 
+    token = fetch_erc20_details(
+        web3,
+        token_address="0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+        chain_id=web3.eth.chain_id,
+        cache=cache,
+    )
+    assert token.extra_data["cached"] == True
+
+    #
     # Warmed up cache
+    #
     result = cache.load_token_details_with_multicall(
-        chain_id=8543,
+        chain_id=8453,
         web3factory=web3factory,
         addresses=addresses,
         max_workers=max_workers,

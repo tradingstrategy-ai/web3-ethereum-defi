@@ -104,3 +104,10 @@ class PersistentKeyValueStore(dict):
             value = self[key]
             return value
         return default
+
+    def purge(self):
+        """Delete all keys and save."""
+        keys = list(self.keys())
+        for key in keys:
+            del self[key]
+        self.commit()

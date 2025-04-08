@@ -9,7 +9,7 @@ import logging
 import datetime
 import os
 from collections import OrderedDict, defaultdict
-from dataclasses import dataclass, asdict
+from dataclasses import dataclass, asdict, field
 from decimal import Decimal
 from functools import cached_property
 from pathlib import Path
@@ -160,6 +160,9 @@ class TokenDetails:
     #: Number of decimals
     decimals: Optional[int] = None
 
+    #: Extra metadata, e.g. related to caching this result
+    extra_data: dict[str, Any] = field(default_factory=dict)
+
     def __eq__(self, other):
         """Token is the same if it's on the same chain and has the same contract address."""
         assert isinstance(other, TokenDetails)
@@ -306,9 +309,9 @@ class TokenDetails:
         :return:
             Human reaadable {chain_id}-{address}
         """
-        assert type(chain_id) == int
+        assert type(chain_id) == int, f"Bad chain id: {chain_id}"
         assert type(address) == str
-        assert address.startswith("0x")
+        assert address.startswith("0x"), f"Bad token address: {address}"
         return f"{chain_id}-{address.lower()}"
 
     def export(self) -> dict:
@@ -408,7 +411,7 @@ def fetch_erc20_details(
     max_str_length: int = 256,
     raise_on_error=True,
     contract_name="ERC20MockDecimals.json",
-    cache: cachetools.Cache | None = DEFAULT_TOKEN_CACHE,
+    cache: dict | None = DEFAULT_TOKEN_CACHE,
     chain_id: int = None,
     cause_diagnostics_message: str | None = None,
 ) -> TokenDetails:
@@ -491,6 +494,7 @@ def fetch_erc20_details(
                 cached["symbol"],
                 cached["supply"],
                 cached["decimals"],
+                extra_data={"cached": True},
             )
 
     logger.info(
@@ -542,7 +546,7 @@ def fetch_erc20_details(
             raise TokenDetailError(f"Token {token_address} missing totalSupply") from e
         supply = None
 
-    token_details = TokenDetails(erc_20, name, symbol, supply, decimals)
+    token_details = TokenDetails(erc_20, name, symbol, supply, decimals, extra_data={"cached": False})
     if cache is not None:
         cache[key] = {
             "name": name,
@@ -642,7 +646,7 @@ class TokenDiskCache(PersistentKeyValueStore):
     - For loading hundreds of tokens once
     - Shared across chains
     - Enable fast cache warmup with :py:meth:`load_token_details_with_multicall`
-    - Make sure subsequent batch jobs do not refetch token data over RPC as it is expensive
+    - Persistent: Make sure subsequent batch jobs do not refetch token data over RPC as it is expensive
     - Store as a SQLite database
 
     Example:
@@ -656,25 +660,58 @@ class TokenDiskCache(PersistentKeyValueStore):
             "0x554a1283cecca5a46bc31c2b82d6702785fc72d9",  # UNI
         ]
 
-        cache = TokenDiskCache()
+        cache = TokenDiskCache(tmp_path / "disk_cache.sqlite")
         web3factory = MultiProviderWeb3Factory(JSON_RPC_BASE)
+        web3 = web3factory()
 
+        #
+        # Do single token lookups against cache
+        #
+        token = fetch_erc20_details(
+            web3,
+            token_address="0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+            chain_id=web3.eth.chain_id,
+            cache=cache,
+        )
+        assert token.extra_data["cached"] == False
+        assert len(cache) == 1
+        # After one look up, we should have it cached
+        token = fetch_erc20_details(
+            web3,
+            token_address="0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+            chain_id=web3.eth.chain_id,
+            cache=cache,
+        )
+        assert token.extra_data["cached"] == True
+        cache.purge()
+
+        #
+        # Warm up multiple on dry cache
+        #
         result = cache.load_token_details_with_multicall(
-            chain_id=8543,  # Base
+            chain_id=web3.eth.chain_id,
             web3factory=web3factory,
             addresses=addresses,
             max_workers=max_workers,
             display_progress=False,
         )
         assert result["tokens_read"] == 4
-        assert "8543-0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913".lower() in cache
-        assert "8543-0x4200000000000000000000000000000000000006".lower() in cache
+        assert "8453-0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913".lower() in cache
+        assert "8453-0x4200000000000000000000000000000000000006".lower() in cache
 
-        cache_data = cache["8543-0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913".lower()]
-        assert cache_data["name"] == "USDC Coin"
+        cache_data = cache["8453-0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913".lower()]
+        assert cache_data["name"] == "USD Coin"
         assert cache_data["symbol"] == "USDC"
         assert cache_data["decimals"] == 6
         assert cache_data["supply"] > 1_000_000
+
+        token = fetch_erc20_details(
+            web3,
+            token_address="0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+            chain_id=web3.eth.chain_id,
+            cache=cache,
+        )
+        assert token.extra_data["cached"] == True
     """
 
     DEFAULT_TOKEN_DISK_CACHE_PATH = Path("~/.cache/eth-defi-tokens.sqlite")
@@ -685,6 +722,7 @@ class TokenDiskCache(PersistentKeyValueStore):
         max_str_length: int = 256,
     ):
         assert isinstance(filename, Path), f"We got {filename}"
+        filename = filename.expanduser()
         dirname = filename.parent
         os.makedirs(dirname, exist_ok=True)
         self.max_str_length = max_str_length
