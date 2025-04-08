@@ -63,6 +63,7 @@ Tutorials and examples
    erc-4626-scan-prices
    erc-4626-vault-list
    erc-4626-historical-price
+   erc-4626-best-vaults
    enzyme-read-vaults
    enzyme-deploy
    verify-node-integrity
