@@ -15,9 +15,9 @@ from pathlib import Path
 
 from typing import Iterable, TypedDict
 
-import ipdb
 from eth_typing import HexAddress
 from joblib import Parallel, delayed
+from tqdm_loggable.auto import tqdm
 from web3 import Web3
 
 from eth_defi.chain import EVM_BLOCK_TIMES
@@ -41,6 +41,7 @@ class ParquetScanResult(TypedDict):
     existing_row_count: int
     output_fname: Path
     file_size: int
+    chunks_done: int
 
 
 class VaultReadNotSupported(Exception):
@@ -93,10 +94,16 @@ class VaultHistoricalReadMulticaller:
                     raise VaultReadNotSupported(f"Vault {vault} has denomination token {denomination_token} which is not supported denomination token set: {self.supported_quote_tokens}")
 
     def _prepare_reader(self, vault: VaultBase):
+        """Run in subprocess"""
         return vault.get_historical_reader()
 
     def _prepare_denomination_token(self, vault: VaultBase) -> HexAddress:
+        """Run in subprocess"""
         return vault.fetch_denomination_token_address()
+
+    def _prepare_multicalls(self, reader: VaultHistoricalReader) -> Iterable[EncodedCall]:
+        """Run in subprocess"""
+        yield from list(reader.construct_multicalls())
 
     def prepare_readers(
         self,
@@ -132,10 +139,31 @@ class VaultHistoricalReadMulticaller:
     def generate_vault_historical_calls(
         self,
         readers: dict[HexAddress, VaultHistoricalReader],
+        display_progress: bool = True,
     ) -> Iterable[EncodedCall]:
         """Generate multicalls for each vault to read its state at any block."""
-        for reader in readers.values():
-            yield from reader.construct_multicalls()
+        # Each vault reader creation causes ~5 RPC call as it initialises the token information.
+        # We do parallel to cut down the time here.
+        logger.info("Preparing historical multicalls from %d readers using %d workers", len(readers), self.max_workers)
+
+        if display_progress:
+            progress_bar = tqdm(
+                total=len(readers),
+                unit=' readers',
+                desc=f"Preparing historical multicalls from {len(readers)} using {self.max_workers} workers"
+            )
+        else:
+            progress_bar = None
+
+        results = Parallel(n_jobs=self.max_workers, backend='threading')(delayed(self._prepare_multicalls)(r) for r in readers.values())
+
+        for r in results:
+            if progress_bar is not None:
+                progress_bar.update(1)
+            yield from r
+
+        if progress_bar is not None:
+            progress_bar.close()
 
     def read_historical(
         self,
@@ -150,7 +178,9 @@ class VaultHistoricalReadMulticaller:
             Unordered results
         """
         readers = self.prepare_readers(vaults)
+        logger.info("Prepared %d readers", len(readers))
         calls = list(self.generate_vault_historical_calls(readers))
+        logger.info(f"Starting historical read loop, total calls {len(calls)} per block, {start_block:,} - {end_block:,} blocks, step is {step}", )
         for combined_result in read_multicall_historical(
             web3factory=self.web3factory,
             calls=calls,
@@ -344,19 +374,23 @@ def scan_historical_prices_to_parquet(
     rows_written = 0
 
     logger.info(
-        "Starting vault historical price export to %s, we have %d vaults, range %d - %d, block step is %d, block time is %s seconds",
+        "Starting vault historical price export to %s, we have %d vaults, range %d - %d, block step is %d, block time is %s seconds, token cache is %s",
         output_fname,
         len(vaults),
         start_block,
         end_block,
         step,
         block_time,
+        token_cache.filename,
     )
 
+    chunks_done = 0
     for chunk in chunked(converted_iter, chunk_size):
+        logger.info("Processing chunk %d", chunks_done)
         table = pa.Table.from_pylist(chunk, schema=schema)
         writer.write_table(table)
         rows_written += len(chunk)
+        chunks_done += 1
 
     # Close the writer to finalize the file
     writer.close()
@@ -375,5 +409,6 @@ def scan_historical_prices_to_parquet(
         file_size=size,
         existing=existing,
         existing_row_count=existing_row_count,
+        chunks_done=chunks_done,
     )
 

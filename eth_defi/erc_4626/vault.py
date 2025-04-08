@@ -216,7 +216,7 @@ class ERC4626Vault(VaultBase):
                 token_address,
                 chain_id=self.spec.chain_id,
                 raise_on_error=False,
-                cause_diagnostics_message=f"Vault {self.address} lookup",
+                cause_diagnostics_message=f"Vault {self.__class__.__name__} {self.address} denominating token lookup",
                 cache=self.token_cache,
             )
         else:

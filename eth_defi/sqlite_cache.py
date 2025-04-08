@@ -4,6 +4,7 @@
 
 import sqlite3
 from pathlib import Path
+from threading import get_ident
 from typing import Any
 
 
@@ -17,6 +18,7 @@ class PersistentKeyValueStore(dict):
     - Disk cache can grow over time (supports append)
     - Cache keys must be strings
     - Cache values must be string-encodeable via :py:meth:`encode_value` and :py:meth:`decode_value` hooks
+    - Can be used across threads
     """
 
     def __init__(self, filename: Path, autocommit=True):
@@ -24,11 +26,16 @@ class PersistentKeyValueStore(dict):
         self.autocommit = autocommit
         assert isinstance(filename, Path)
         self.filename = filename
-        try:
-            self.conn = sqlite3.connect(filename)
-        except Exception as e:
-            raise RuntimeError(f"Sqlite3 connect failed: {filename}") from e
-        self.conn.execute("CREATE TABLE IF NOT EXISTS kv (key text unique, value text)")
+        self.thread_connection_map = {}
+
+    @property
+    def conn(self) -> sqlite3.Connection:
+        """One connection per thread"""
+        thread_id = get_ident()
+        if thread_id not in self.thread_connection_map:
+            self.thread_connection_map[thread_id] = sqlite3.connect(self.filename)
+            self.thread_connection_map[thread_id].execute("CREATE TABLE IF NOT EXISTS kv (key text unique, value text)")
+        return self.thread_connection_map[thread_id]
 
     def encode_value(self, value: Any) -> str:
         """Hook to convert Python objects to cache format"""
@@ -41,13 +48,11 @@ class PersistentKeyValueStore(dict):
     def close(self):
         self.conn.commit()
         self.conn.close()
+        thread_id = get_ident()
+        del self.thread_connection_map[thread_id]
 
     def commit(self):
         self.conn.commit()
-
-    def __len__(self):
-        rows = self.conn.execute('SELECT COUNT(*) FROM kv').fetchone()[0]
-        return rows if rows is not None else 0
 
     def iterkeys(self):
         c = self.conn.cursor()
@@ -99,6 +104,10 @@ class PersistentKeyValueStore(dict):
     def __iter__(self):
         return self.iterkeys()
 
+    def __len__(self):
+        rows = self.conn.execute('SELECT COUNT(*) FROM kv').fetchone()[0]
+        return rows if rows is not None else 0
+
     def get(self, key, default=None):
         if key in self:
             value = self[key]
@@ -111,3 +120,6 @@ class PersistentKeyValueStore(dict):
         for key in keys:
             del self[key]
         self.commit()
+
+    def get_file_size(self) -> int:
+        return self.filename.stat().st_size

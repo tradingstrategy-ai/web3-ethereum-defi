@@ -540,7 +540,7 @@ class EncodedCallResult:
 
     def __post_init__(self):
         assert isinstance(self.call, EncodedCall)
-        assert type(self.success) == bool
+        assert type(self.success) == bool, f"Got success: {self.success}"
         assert type(self.result) == bytes
 
 
@@ -563,7 +563,7 @@ class MultiprocessMulticallReader:
     - Initialises the web3 connection at the start of the process
     """
 
-    def __init__(self, web3factory: Web3Factory | Web3):
+    def __init__(self, web3factory: Web3Factory | Web3, chunk_size=32):
         logger.info(
             "Initialising multiprocess multicall handler, process %s, thread %s",
             os.getpid(),
@@ -575,6 +575,8 @@ class MultiprocessMulticallReader:
         else:
             # Construct new RPC connection in every subprocess
             self.web3 = web3factory()
+
+        self.chunk_size = chunk_size
 
     def get_block_timestamp(self, block_number: int) -> datetime.datetime:
         return get_block_timestamp(self.web3, block_number)
@@ -614,13 +616,19 @@ class MultiprocessMulticallReader:
             block_identifier=block_identifier,
         )
 
-        bound_func = multicall_contract.functions.tryBlockAndAggregate(
-            calls=encoded_calls,
-            requireSuccess=False,
-        )
-        _, _, calls_results = bound_func.call(block_identifier=block_identifier)
+        # If multicall payload is heavy,
+        # we need to break it to smaller multicall call chunks
+        # or we get RPC timeout
+        calls_results = []
+        for i in range(0, len(encoded_calls), self.chunk_size):
+            batch_calls = encoded_calls[i : i + self.chunk_size]
+            bound_func = multicall_contract.functions.tryBlockAndAggregate(
+                calls=batch_calls,
+                requireSuccess=False,
+            )
+            _, _, batch_results = bound_func.call(block_identifier=block_identifier)
+            calls_results += batch_results
 
-        assert len(calls_results) == len(calls_results)
         out_size = sum(len(o[1]) for o in calls_results)
 
         for call, output_tuple in zip(calls, calls_results):

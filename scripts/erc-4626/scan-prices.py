@@ -28,6 +28,7 @@ from eth_defi.chain import get_chain_name
 from eth_defi.erc_4626.classification import create_vault_instance
 from eth_defi.erc_4626.core import ERC4262VaultDetection
 from eth_defi.provider.multi_provider import create_multi_provider_web3, MultiProviderWeb3Factory
+from eth_defi.token import TokenDiskCache
 from eth_defi.vault.historical import scan_historical_prices_to_parquet
 
 logger = logging.getLogger(__name__)
@@ -45,6 +46,8 @@ def main():
 
     log_level = os.environ.get('LOG_LEVEL', 'WARNING').upper()
     logging.basicConfig(level=log_level, stream=sys.stdout)
+
+    token_cache = TokenDiskCache()
 
     # How many CPUs / subprocess we use
     max_workers = 12
@@ -93,10 +96,10 @@ def main():
         address = detection.address
 
         if detection.deposit_count < min_deposit_threshold:
-            print(f"Vault does not have enough deposits: {address}, threshold {min_deposit_threshold}")
+            # print(f"Vault does not have enough deposits: {address}, has: {detection.deposit_count}, threshold {min_deposit_threshold}")
             continue
 
-        vault = create_vault_instance(web3, detection.address, detection.features)
+        vault = create_vault_instance(web3, detection.address, detection.features, token_cache=token_cache)
         if vault is not None:
             vault.first_seen_at_block = detection.first_seen_at_block
             vaults.append(vault)
@@ -114,11 +117,15 @@ def main():
         start_block=start,
         end_block=end_block,
         max_workers=max_workers,
-        chunk_size=16,
+        chunk_size=1,
+        token_cache=token_cache,
     )
 
+    token_cache.commit()
+    print(f"Token cache size is {token_cache.get_file_size():,}")
     print("Scan complete")
     print(pformat(scan_result))
+
 
 
 if __name__ == '__main__':

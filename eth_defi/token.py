@@ -498,11 +498,12 @@ def fetch_erc20_details(
             )
 
     logger.info(
-        "Fetching uncached token, chain %s, address %s, chain id given: %s, reason: %s, token cache has %d entries",
+        "Fetching uncached token, chain %s, address %s, chain id given: %s, reason: %s, token cache %s has %d entries",
         chain_id,
         token_address,
         chain_id_given,
         cause_diagnostics_message,
+        cache.__class__.__name__,
         len(cache)
     )
 
@@ -869,6 +870,8 @@ class TokenDiskCache(PersistentKeyValueStore):
             chain_id,
             multicalls_done,
         )
+
+        self.commit()
 
         return TokenCacheWarmupResult(
             tokens_read=tokens_read,
