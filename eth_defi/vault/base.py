@@ -24,7 +24,7 @@ from eth_defi.token import TokenAddress, fetch_erc20_details, TokenDetails, DEFA
 from eth_defi.vault.lower_case_dict import LowercaseDict
 
 
-@dataclass(slots=True, frozen=True)
+@dataclass(slots=True)
 class VaultSpec:
     """Unique id for a vault.
 
@@ -46,7 +46,9 @@ class VaultSpec:
         assert isinstance(self.chain_id, int)
         assert isinstance(self.vault_address, str), f"Expected str, got {self.vault_address}"
         assert self.vault_address.startswith("0x")
-        assert self.vault_address == self.vault_address.lower(), f"Vault address not lowercase: {self.vault_address}"
+        # assert self.vault_address == self.vault_address.lower(), f"Vault address not lowercase: {self.vault_address}"
+        # TODO: Get rid of old codepaths so we can make this dataclass frozen
+        self.vault_address = self.vault_address.lower()
 
 
 class VaultInfo(TypedDict):

@@ -9,6 +9,8 @@
 See :py:class:`VaultHistoricalReadMulticaller` for usage.
 """
 import logging
+import os
+import tempfile
 from collections import defaultdict
 import datetime
 from pathlib import Path
@@ -312,8 +314,6 @@ def scan_historical_prices_to_parquet(
     if end_block is None:
         end_block = get_almost_latest_block_number(web3)
 
-    logger.info("Starting ")
-
     reader = VaultHistoricalReadMulticaller(
         web3factory,
         supported_quote_tokens=None,
@@ -383,35 +383,45 @@ def scan_historical_prices_to_parquet(
         existing = False
         existing_row_count = 0
 
-    # Initialize ParquetWriter with the schema
-    writer = pq.ParquetWriter(output_fname, schema, compression=compression)
+    # Perform atomic update of the prices Parquet file
+    with tempfile.NamedTemporaryFile(
+        mode='wb',
+        dir=output_fname.parent,
+        suffix='.parquet',
+        delete=False
+    ) as tmp:
 
-    if existing_table is not None:
-        writer.write_table(existing_table)
+        # Initialize ParquetWriter with the schema
+        temp_fname = tmp.name
+        writer = pq.ParquetWriter(temp_fname, schema, compression=compression)
 
-    rows_written = 0
+        if existing_table is not None:
+            writer.write_table(existing_table)
 
-    logger.info(
-        "Starting vault historical price export to %s, we have %d vaults, range %d - %d, block step is %d, block time is %s seconds, token cache is %s",
-        output_fname,
-        len(vaults),
-        start_block,
-        end_block,
-        step,
-        block_time,
-        token_cache.filename,
-    )
+        rows_written = 0
 
-    chunks_done = 0
-    for chunk in chunked(converted_iter, chunk_size):
-        logger.info("Processing chunk %d", chunks_done)
-        table = pa.Table.from_pylist(chunk, schema=schema)
-        writer.write_table(table)
-        rows_written += len(chunk)
-        chunks_done += 1
+        logger.info(
+            "Starting vault historical price export to %s, we have %d vaults, range %d - %d, block step is %d, block time is %s seconds, token cache is %s",
+            output_fname,
+            len(vaults),
+            start_block,
+            end_block,
+            step,
+            block_time,
+            token_cache.filename,
+        )
 
-    # Close the writer to finalize the file
-    writer.close()
+        chunks_done = 0
+        for chunk in chunked(converted_iter, chunk_size):
+            logger.info("Processing chunk %d", chunks_done)
+            table = pa.Table.from_pylist(chunk, schema=schema)
+            writer.write_table(table)
+            rows_written += len(chunk)
+            chunks_done += 1
+
+        # Close the writer to finalize the file
+        writer.close()
+        os.replace(temp_fname, output_fname)
 
     size = output_fname.stat().st_size
 

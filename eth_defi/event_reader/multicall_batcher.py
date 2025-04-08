@@ -48,10 +48,18 @@ MUTLICALL_DEPLOYED_AT: Final[dict[int, tuple[BlockNumber, datetime.datetime]]] =
     # values: (block_number, blok_timestamp)
     1: (14_353_601, datetime.datetime(2022, 3, 9, 16, 17, 56)),
     56: (15_921_452, datetime.datetime(2022, 3, 9, 23, 17, 54)),  # BSC
-    137: (25_770_160, datetime.datetime(2022, 3, 9, 15, 58, 11)),  # Pooly
+    137: (25_770_160, datetime.datetime(2022, 3, 9, 15, 58, 11)),  # Poly
     43114: (11_907_934, datetime.datetime(2022, 3, 9, 23, 11, 52)),  # Ava
     42161: (7_654_707, datetime.datetime(2022, 3, 9, 16, 5, 28)),  # Arbitrum
 }
+
+
+def get_multicall_block_number(chain_id: int) -> int | None:
+    """When the multicall contract was deployed for a chain."""
+    entry = MUTLICALL_DEPLOYED_AT.get(chain_id, None)
+    if entry:
+        return entry[0]
+    return None
 
 
 def get_multicall_contract(
@@ -71,7 +79,7 @@ def get_multicall_contract(
         chain_id = web3.eth.chain_id
         multicall_data = MUTLICALL_DEPLOYED_AT.get(chain_id)
         # Do a block number check for archive nodes
-        if multicall_data is not None:
+        if multicall_data is not None and type(block_identifier) == int:
             assert multicall_data[0] < block_identifier, f"Multicall not yet deployed at {block_identifier}"
 
     return get_deployed_contract(web3, "multicall/IMulticall3.json", Web3.to_checksum_address(address))
@@ -561,6 +569,8 @@ class MultiprocessMulticallReader:
     """An instance created in a subprocess to do calls.
 
     - Initialises the web3 connection at the start of the process
+    - If you try to read using multicall when the contract is not yet deployed (see :py:func:`get_multicall_block_number`)
+      then you get no results
     """
 
     def __init__(self, web3factory: Web3Factory | Web3, chunk_size=64):
@@ -613,6 +623,14 @@ class MultiprocessMulticallReader:
             block_identifier_str,
             filtered_out_call_block,
         )
+
+        # Cannot read as multicall is not yet deployed
+        if type(block_identifier) == int:
+            # Historical read
+            block_number = get_multicall_block_number(self.web3.eth.chain_id)
+            if block_number is not None:
+                if block_identifier < block_number:
+                    return
 
         multicall_contract = get_multicall_contract(
             self.web3,
