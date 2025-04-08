@@ -559,7 +559,7 @@ def format_debug_instructions(bound_call: ContractFunction) -> str:
     """
     contract_address = bound_call.address
     data = encode_function_call(bound_call, bound_call.arguments)
-    debug_template = f"""curl -X POST -H "Content-Type: application/json" \
+    debug_template = f"""curl -X POST -H "Content-Type: application/json" \\
     --data '{{
       "jsonrpc": "2.0",
       "method": "eth_call",
@@ -571,6 +571,6 @@ def format_debug_instructions(bound_call: ContractFunction) -> str:
         "latest"
       ],
       "id": 1
-    }}' \
+    }}' \\
     $JSON_RPC_URL"""
     return debug_template
