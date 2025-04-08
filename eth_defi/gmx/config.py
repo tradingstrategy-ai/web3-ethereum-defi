@@ -6,13 +6,7 @@ from gmx_python_sdk.scripts.v2.gmx_utils import ConfigManager
 class GMXConfig:
     """Secure configuration adapter for GMX integration."""
 
-    def __init__(
-            self,
-            web3: Web3,
-            chain: str = "arbitrum",
-            private_key: Optional[str] = None,
-            user_wallet_address: Optional[str] = None
-    ):
+    def __init__(self, web3: Web3, chain: str = "arbitrum", private_key: Optional[str] = None, user_wallet_address: Optional[str] = None):
         """
         Initialize GMX configuration.
 
@@ -34,35 +28,22 @@ class GMXConfig:
 
         # Create config dictionary - without private key for base config
         self._base_config_dict = {
-            'rpcs': {chain: self._rpc_url},
-            'chain_ids': {chain: web3.eth.chain_id},
-            'user_wallet_address': user_wallet_address,
+            "rpcs": {chain: self._rpc_url},
+            "chain_ids": {chain: web3.eth.chain_id},
+            "user_wallet_address": user_wallet_address,
         }
 
         # Initialize a read-only ConfigManager instance
-        self._read_config = ConfigManager(
-            chain=chain,
-            rpc=self._rpc_url,
-            chain_id=web3.eth.chain_id,
-            user_wallet_address=user_wallet_address,
-            config=self._base_config_dict
-        )
+        self._read_config = ConfigManager(chain=chain, rpc=self._rpc_url, chain_id=web3.eth.chain_id, user_wallet_address=user_wallet_address, config=self._base_config_dict)
 
         # Only initialize a write config if we have a private key
         self._write_config = None
         if private_key:
             # Create a separate config dict with private key for write operations
             write_config_dict = self._base_config_dict.copy()
-            write_config_dict['private_key'] = private_key
+            write_config_dict["private_key"] = private_key
 
-            self._write_config = ConfigManager(
-                chain=chain,
-                rpc=self._rpc_url,
-                chain_id=web3.eth.chain_id,
-                user_wallet_address=user_wallet_address,
-                private_key=private_key,
-                config=write_config_dict
-            )
+            self._write_config = ConfigManager(chain=chain, rpc=self._rpc_url, chain_id=web3.eth.chain_id, user_wallet_address=user_wallet_address, private_key=private_key, config=write_config_dict)
 
     def get_read_config(self) -> ConfigManager:
         """
@@ -100,8 +81,4 @@ class GMXConfig:
 
     def get_network_info(self) -> dict[str, Any]:
         """Get network information (chain, RPC, chain ID)."""
-        return {
-            'chain': self.chain,
-            'rpc_url': self._rpc_url,
-            'chain_id': self.web3.eth.chain_id
-        }
+        return {"chain": self.chain, "rpc_url": self._rpc_url, "chain_id": self.web3.eth.chain_id}

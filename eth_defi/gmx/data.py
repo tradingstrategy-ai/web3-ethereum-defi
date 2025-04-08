@@ -3,7 +3,6 @@ GMX Market Data Module
 
 This module provides access to GMX protocol market data.
 """
-import os
 from typing import Any, Optional
 
 from gmx_python_sdk.scripts.v2.get.get_available_liquidity import GetAvailableLiquidity
@@ -38,6 +37,8 @@ class GMXMarketData:
         """
         self.gmx_config = gmx_config
         self.config = gmx_config.get_read_config()
+        # These 2 are needed to support the base class because
+        # of whatever reason the devs decided to save the data at package level
         self.to_json = to_json
         self.to_csv = to_csv
 
@@ -51,63 +52,43 @@ class GMXMarketData:
         """
         Get available liquidity for all markets.
         """
-        return GetAvailableLiquidity(self.config).get_data(
-            to_csv=self.to_csv,
-            to_json=self.to_json
-        )
+        return GetAvailableLiquidity(self.config).get_data(to_csv=self.to_csv, to_json=self.to_json)
 
     def get_borrow_apr(self) -> dict[str, dict[str, float]]:
         """
         Get current borrowing rates for all markets.
         """
-        return GetBorrowAPR(self.config).get_data(
-            to_csv=self.to_csv,
-            to_json=self.to_json
-        )
+        return GetBorrowAPR(self.config).get_data(to_csv=self.to_csv, to_json=self.to_json)
 
     def get_claimable_fees(self) -> dict[str, Any]:
         """
         Get claimable fee information for liquidity providers.
         """
-        return GetClaimableFees(self.config).get_data(
-            to_csv=self.to_csv,
-            to_json=self.to_json
-        )
+        return GetClaimableFees(self.config).get_data(to_csv=self.to_csv, to_json=self.to_json)
 
     def get_contract_tvl(self) -> dict[str, Any]:
         """
         Get total value locked (TVL) at contract level.
         """
-        return ContractTVL(self.config).get_pool_balances(
-            to_json=self.to_json
-        )
+        return ContractTVL(self.config).get_pool_balances(to_json=self.to_json)
 
     def get_funding_apr(self) -> dict[str, dict[str, float]]:
         """
         Get current funding rates for all markets.
         """
-        return GetFundingFee(self.config).get_data(
-            to_csv=self.to_csv,
-            to_json=self.to_json
-        )
+        return GetFundingFee(self.config).get_data(to_csv=self.to_csv, to_json=self.to_json)
 
     def get_gm_price(self) -> dict[str, Any]:
         """
         Get current GM (liquidity provider) token prices.
         """
-        return GMPrices(self.config).get_price_traders(
-            to_csv=self.to_csv,
-            to_json=self.to_json
-        )
+        return GMPrices(self.config).get_price_traders(to_csv=self.to_csv, to_json=self.to_json)
 
     def get_open_interest(self) -> dict[str, dict[str, float]]:
         """
         Get current open interest for all markets.
         """
-        return OpenInterest(self.config).get_data(
-            to_csv=self.to_csv,
-            to_json=self.to_json
-        )
+        return OpenInterest(self.config).get_data(to_csv=self.to_csv, to_json=self.to_json)
 
     def get_oracle_prices(self) -> dict[str, Any]:
         """
@@ -119,10 +100,7 @@ class GMXMarketData:
         """
         Get total value locked (TVL) in liquidity pools.
         """
-        return GetPoolTVL(self.config).get_pool_balances(
-            to_csv=self.to_csv,
-            to_json=self.to_json
-        )
+        return GetPoolTVL(self.config).get_pool_balances(to_csv=self.to_csv, to_json=self.to_json)
 
     def get_glv_stats(self) -> dict[str, Any]:
         """
@@ -143,32 +121,33 @@ class GMXMarketData:
         return GetOpenPositions(self.config.chain, address=address).get_data()
 
 
-
 if __name__ == "__main__":
     from web3 import Web3
     from dotenv import load_dotenv
     import os
 
     load_dotenv()
-    rpc_url = os.environ["ARBITRUM"]
+    # rpc_url = os.environ["ARBITRUM"]
+    rpc_url = os.environ["AVALANCHE"]
     # Set up web3 connection
     web3 = Web3(Web3.HTTPProvider(rpc_url))
 
     # Create GMX configuration
-    config = GMXConfig(web3, chain="arbitrum")
+    config = GMXConfig(web3, chain="avalanche")
 
     # Initialize market data module
     market_data = GMXMarketData(config)
 
     # Access market data
-    markets = market_data.get_available_markets()
-    liquidity = market_data.get_available_liquidity()
-    borrow_apr = market_data.get_borrow_apr()
-    claimable_fees = market_data.get_claimable_fees()
-    contract_tvl = market_data.get_contract_tvl()
+    # markets = market_data.get_available_markets()
+    # liquidity = market_data.get_available_liquidity()
+    # borrow_apr = market_data.get_borrow_apr()
+    # claimable_fees = market_data.get_claimable_fees()
+    # contract_tvl = market_data.get_contract_tvl()
     funding_apr = market_data.get_funding_apr()
-    gm_prices = market_data.get_gm_price()
-    open_interest = market_data.get_open_interest()
-    oracle_prices = market_data.get_oracle_prices()
-    pool_tvl = market_data.get_pool_tvl()
-    glv_price = market_data.get_glv_stats()
+    # gm_prices = market_data.get_gm_price()
+    # open_interest = market_data.get_open_interest()
+    # oracle_prices = market_data.get_oracle_prices()
+    # pool_tvl = market_data.get_pool_tvl()
+    # glv_price = market_data.get_glv_stats()
+    print(funding_apr)

@@ -83,6 +83,7 @@ joblib = "^1.4.2"
 
 # HyperSync
 hypersync = {version = "^0.8.5", optional = true}
+cherry-etl = "^0.5.1"
 
 [tool.poetry.dev-dependencies]
 pytest = "^7.4.3"
