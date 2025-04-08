@@ -18,8 +18,9 @@ from abc import abstractmethod
 from dataclasses import dataclass
 from itertools import islice
 from pprint import pformat
-from typing import TypeAlias, Iterable, Generator, Hashable, Any, Final
+from typing import TypeAlias, Iterable, Generator, Hashable, Any, Final, Callable
 
+from fontTools.unicodedata import block
 from tqdm_loggable.auto import tqdm
 
 from eth_typing import HexAddress, BlockIdentifier, BlockNumber
@@ -28,7 +29,7 @@ from web3 import Web3
 from web3.contract import Contract
 from web3.contract.contract import ContractFunction
 
-from eth_defi.abi import get_deployed_contract, ZERO_ADDRESS, encode_function_call, ZERO_ADDRESS_STR
+from eth_defi.abi import get_deployed_contract, ZERO_ADDRESS, encode_function_call, ZERO_ADDRESS_STR, format_debug_instructions
 from eth_defi.event_reader.web3factory import Web3Factory
 from eth_defi.timestamp import get_block_timestamp
 
@@ -47,10 +48,18 @@ MUTLICALL_DEPLOYED_AT: Final[dict[int, tuple[BlockNumber, datetime.datetime]]] =
     # values: (block_number, blok_timestamp)
     1: (14_353_601, datetime.datetime(2022, 3, 9, 16, 17, 56)),
     56: (15_921_452, datetime.datetime(2022, 3, 9, 23, 17, 54)),  # BSC
-    137: (25_770_160, datetime.datetime(2022, 3, 9, 15, 58, 11)),  # Pooly
+    137: (25_770_160, datetime.datetime(2022, 3, 9, 15, 58, 11)),  # Poly
     43114: (11_907_934, datetime.datetime(2022, 3, 9, 23, 11, 52)),  # Ava
     42161: (7_654_707, datetime.datetime(2022, 3, 9, 16, 5, 28)),  # Arbitrum
 }
+
+
+def get_multicall_block_number(chain_id: int) -> int | None:
+    """When the multicall contract was deployed for a chain."""
+    entry = MUTLICALL_DEPLOYED_AT.get(chain_id, None)
+    if entry:
+        return entry[0]
+    return None
 
 
 def get_multicall_contract(
@@ -70,7 +79,7 @@ def get_multicall_contract(
         chain_id = web3.eth.chain_id
         multicall_data = MUTLICALL_DEPLOYED_AT.get(chain_id)
         # Do a block number check for archive nodes
-        if multicall_data is not None:
+        if multicall_data is not None and type(block_identifier) == int:
             assert multicall_data[0] < block_identifier, f"Multicall not yet deployed at {block_identifier}"
 
     return get_deployed_contract(web3, "multicall/IMulticall3.json", Web3.to_checksum_address(address))
@@ -399,6 +408,12 @@ class EncodedCall:
     #: Use this to match the reader
     extra_data: dict | None
 
+    #: First block hint when doing historical multicall reading.
+    #:
+    #: Skip calls for blocks that are earlier than this block number.
+    #:
+    first_block_number: int | None = None
+
     def get_debug_info(self) -> str:
         """Get human-readable details for debugging.
 
@@ -409,7 +424,11 @@ class EncodedCall:
         return f"""Address: {self.address}\nData: {self.data.hex()}"""
 
     @staticmethod
-    def from_contract_call(call: ContractFunction, extra_data: dict) -> "EncodedCall":
+    def from_contract_call(
+        call: ContractFunction,
+        extra_data: dict,
+        first_block_number: int | None = None,
+    ) -> "EncodedCall":
         """Create poller call from Web3.py Contract proxy object"""
         assert isinstance(call, ContractFunction)
         assert isinstance(extra_data, dict)
@@ -422,6 +441,7 @@ class EncodedCall:
             address=call.address,
             data=data,
             extra_data=extra_data,
+            first_block_number=first_block_number,
         )
 
     @staticmethod
@@ -430,7 +450,8 @@ class EncodedCall:
         function: str,
         signature: bytes,
         data: bytes,
-        extra_data: dict | None
+        extra_data: dict | None,
+        first_block_number: int | None = None,
     ) -> "EncodedCall":
         """Create poller call directly from a raw function signature"""
         assert isinstance(signature,  bytes)
@@ -445,7 +466,19 @@ class EncodedCall:
             address=address,
             data=signature + data,
             extra_data=extra_data,
+            first_block_number=first_block_number,
         )
+
+    def is_valid_for_block(self, block_number: BlockIdentifier) -> bool:
+        if self.first_block_number is None:
+            return True
+
+        if type(block_number) == str:
+            # "latest"
+            return True
+
+        assert isinstance(block_number, int)
+        return self.first_block_number <= block_number
 
     def call(
         self,
@@ -514,8 +547,8 @@ class EncodedCallResult:
     result: bytes
 
     def __post_init__(self):
-        assert isinstance(self.call, EncodedCall)
-        assert type(self.success) == bool
+        assert isinstance(self.call, EncodedCall), f"Got: {self.call}"
+        assert type(self.success) == bool, f"Got success: {self.success}"
         assert type(self.result) == bytes
 
 
@@ -536,9 +569,22 @@ class MultiprocessMulticallReader:
     """An instance created in a subprocess to do calls.
 
     - Initialises the web3 connection at the start of the process
+    - If you try to read using multicall when the contract is not yet deployed (see :py:func:`get_multicall_block_number`)
+      then you get no results
     """
 
-    def __init__(self, web3factory: Web3Factory | Web3):
+    def __init__(self, web3factory: Web3Factory | Web3, chunk_size=24):
+        """Create subprocess worker instance.
+
+        :param web3factory:
+            Initialise connection within the subprocess
+
+        :param chunk_size:
+            How many calls we pack into the multicall.
+
+            Manually tuned number if your RPC nodes start to crap out, as they hit their internal time limits.
+
+        """
         logger.info(
             "Initialising multiprocess multicall handler, process %s, thread %s",
             os.getpid(),
@@ -550,6 +596,8 @@ class MultiprocessMulticallReader:
         else:
             # Construct new RPC connection in every subprocess
             self.web3 = web3factory()
+
+        self.chunk_size = chunk_size
 
     def get_block_timestamp(self, block_number: int) -> datetime.datetime:
         return get_block_timestamp(self.web3, block_number)
@@ -564,32 +612,76 @@ class MultiprocessMulticallReader:
         assert isinstance(calls, list)
         assert all(isinstance(c, EncodedCall) for c in calls), f"Got: {calls}"
 
-        encoded_calls = [(c.address, c.data) for c in calls]
-        payload_size = sum(20 + len(c[1]) for c in encoded_calls)
+        # These calls we dropped because they are historical multicalls to later blocks
+        filtered_out_calls = [c for c in calls if not c.is_valid_for_block(block_identifier)]
+
+        # These calls with hit the RPC node
+        filtered_in_calls = [c for c in calls if c.is_valid_for_block(block_identifier)]
+        encoded_calls = [(Web3.to_checksum_address(c.address), c.data) for c in filtered_in_calls]
 
         start = datetime.datetime.utcnow()
 
+        if len(filtered_out_calls) > 0:
+            filtered_out_call_block = f"{filtered_out_calls[0].first_block_number:,}"
+        else:
+            filtered_out_call_block = "-"
+
+        block_identifier_str = f"{block_identifier:,}" if type(block_identifier) == int else str(block_identifier)
         logger.info(
-            f"Performing multicall, input payload total size %d bytes on %d functions, block is {block_identifier:,}",
-            payload_size,
+            f"Performing multicall, %d calls included, %d calls excluded, block is %s, example filtered out block number is %s",
             len(encoded_calls),
+            len(filtered_out_calls),
+            block_identifier_str,
+            filtered_out_call_block,
         )
+
+        if len(filtered_in_calls) == 0:
+            return
+
+        # Cannot read as multicall is not yet deployed
+        if type(block_identifier) == int:
+            # Historical read
+            block_number = get_multicall_block_number(self.web3.eth.chain_id)
+            if block_number is not None:
+                if block_identifier < block_number:
+                    return
 
         multicall_contract = get_multicall_contract(
             self.web3,
             block_identifier=block_identifier,
         )
 
-        bound_func = multicall_contract.functions.tryBlockAndAggregate(
-            calls=encoded_calls,
-            requireSuccess=False,
-        )
-        _, _, calls_results = bound_func.call(block_identifier=block_identifier)
+        # If multicall payload is heavy,
+        # we need to break it to smaller multicall call chunks
+        # or we get RPC timeout
+        calls_results = []
+        payload_size = 0
+        for i in range(0, len(encoded_calls), self.chunk_size):
+            batch_calls = encoded_calls[i : i + self.chunk_size]
+            # Calculate how many bytes we are going to use
+            payload_size += sum(20 + len(c[1]) for c in batch_calls)
 
-        assert len(calls_results) == len(calls_results)
+            # "empty reader set" -32000 error
+            # WTF
+            # https://github.com/onflow/go-ethereum/blob/18406ff59b887a1d132f46068aa0bee2a9234bd7/core/state/reader.go#L303C6-L303C25
+            bound_func = multicall_contract.functions.tryBlockAndAggregate(
+                calls=batch_calls,
+                requireSuccess=False,
+            )
+            try:
+                _, _, batch_results = bound_func.call(block_identifier=block_identifier)
+            except ValueError as e:
+                debug_data = format_debug_instructions(bound_func)
+                raise ValueError(f"Multicall failed. To simulate:\n{debug_data}") from e
+            calls_results += batch_results
+
+        # Calculate byte size of output
         out_size = sum(len(o[1]) for o in calls_results)
 
-        for call, output_tuple in zip(calls, calls_results):
+        assert len(filtered_in_calls) == len(calls_results), f"Calls: {len(filtered_in_calls)}, results: {len(calls_results)}"
+        assert len(encoded_calls) == len(calls_results), f"Calls: {len(encoded_calls)}, results: {len(calls_results)}"
+
+        for call, output_tuple in zip(filtered_in_calls, calls_results):
             yield EncodedCallResult(
                 call=call,
                 success=output_tuple[0],
@@ -598,7 +690,7 @@ class MultiprocessMulticallReader:
 
         # User friendly logging
         duration = datetime.datetime.utcnow() - start
-        logger.info("Multicall result fetch and handling took %s, output was %d bytes", duration, out_size)
+        logger.info("Multicall result fetch and handling took %s, input was %d bytes, output was %d bytes", duration, payload_size, out_size)
 
 
 def read_multicall_historical(
@@ -609,11 +701,17 @@ def read_multicall_historical(
     step: int,
     max_workers=8,
     timeout=1800,
-    display_progress=True,
+    display_progress: bool | str = True,
+    progress_suffix: Callable | None = None,
 ) -> Iterable[CombinedEncodedCallResult]:
     """Read historical data using multiple threads in parallel for speedup.
 
     - Show a progress bar using :py:mod:`tqdm`
+
+    :param display_progress:
+        Whether to display progress bar or not.
+
+        Set to string to have a progress bar label.
     """
 
     assert type(start_block) == int, f"Got: {start_block}"
@@ -625,29 +723,45 @@ def read_multicall_historical(
         backend="loky",
         timeout=timeout,
         max_nbytes=40*1024*1024,  # Allow passing 40 MBytes for child processes
-        return_as="generator_unordered",
+        return_as="generator",  # TODO: Dig generator_unordered cause bugs?
     )
 
     iter_count = (end_block - start_block + 1) // step
     total = iter_count
 
     if display_progress:
+        if type(display_progress) == str:
+            desc = display_progress
+        else:
+            desc = f"Reading chain data w/historical multicall, {total} tasks, using {max_workers} CPUs"
         progress_bar = tqdm(
             total=total,
-            desc=f"Reading vault data, {total} tasks, using {max_workers} CPUs"
+            desc=desc,
         )
     else:
         progress_bar = None
 
     calls_pickle_friendly = list(calls)
 
+    logger.info("Per block we need to do %d calls", len(calls_pickle_friendly))
+
     def _task_gen() -> Iterable[MulticallHistoricalTask]:
         for block_number in range(start_block, end_block, step):
-            yield MulticallHistoricalTask(web3factory, block_number, calls_pickle_friendly)
+            task = MulticallHistoricalTask(web3factory, block_number, calls_pickle_friendly)
+            logger.debug(
+                "Created task for block %d with %d calls",
+                block_number,
+                len(calls_pickle_friendly),
+            )
+            yield task
 
     for completed_task in worker_processor(delayed(_execute_multicall_subprocess)(task) for task in _task_gen()):
         if progress_bar:
             progress_bar.update(1)
+
+            if progress_suffix is not None:
+                suffixes = progress_suffix()
+                progress_bar.set_postfix(suffixes)
 
         yield completed_task
 
@@ -739,14 +853,14 @@ class MulticallHistoricalTask:
     web3factory: Web3Factory
 
     #: Block number to sccan
-    block_number: int
+    block_number: BlockIdentifier
 
     # Multicalls to perform
     calls: list[EncodedCall]
 
     def __post_init__(self):
         assert callable(self.web3factory)
-        assert type(self.block_number) == int
+        assert type(self.block_number) in (int, str), f"Got: {self.block_number}"
         assert type(self.calls) == list
         assert all(isinstance(c, EncodedCall) for c in self.calls), f"Expected list of EncodedCall objects, got {self.calls}"
 

@@ -27,7 +27,8 @@ class MorphoVaultHistoricalReader(ERC4626HistoricalReader):
             data=b"",
             extra_data = {
                 "vault": self.vault.address,
-            }
+            },
+            first_block_number=self.first_block,
         )
         yield fee_call
 

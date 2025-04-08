@@ -23,7 +23,7 @@ import requests
 from eth_typing import HexAddress
 from requests import Session
 
-from eth_defi.token_analysis.sqlite_cache import PersistentKeyValueStore
+from eth_defi.sqlite_cache import PersistentKeyValueStore
 
 
 logger  = logging.getLogger(__name__)
