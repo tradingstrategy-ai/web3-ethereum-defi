@@ -144,13 +144,13 @@ class VaultHistoricalReadMulticaller:
         """Generate multicalls for each vault to read its state at any block."""
         # Each vault reader creation causes ~5 RPC call as it initialises the token information.
         # We do parallel to cut down the time here.
-        logger.info("Preparing historical multicalls from %d readers using %d workers", len(readers), self.max_workers)
+        logger.info("Preparing historical multicalls for %d readers using %d workers", len(readers), self.max_workers)
 
         if display_progress:
             progress_bar = tqdm(
                 total=len(readers),
                 unit=' readers',
-                desc=f"Preparing historical multicalls from {len(readers)} using {self.max_workers} workers"
+                desc=f"Preparing historical multicalls for {len(readers)} readers using {self.max_workers} workers"
             )
         else:
             progress_bar = None
@@ -181,6 +181,9 @@ class VaultHistoricalReadMulticaller:
         logger.info("Prepared %d readers", len(readers))
         calls = list(self.generate_vault_historical_calls(readers))
         logger.info(f"Starting historical read loop, total calls {len(calls)} per block, {start_block:,} - {end_block:,} blocks, step is {step}", )
+
+        vault_data: dict[HexAddress, list[EncodedCallResult]] = defaultdict(list)
+
         for combined_result in read_multicall_historical(
             web3factory=self.web3factory,
             calls=calls,
@@ -194,7 +197,6 @@ class VaultHistoricalReadMulticaller:
             # Transform single multicall call results to calls batched by vault-results
             block_number = combined_result.block_number
             timestamp = combined_result.timestamp
-            vault_data: dict[HexAddress, list[EncodedCallResult]] = defaultdict(list)
             logger.debug(
                 "Got %d call results for block %s",
                 len(combined_result.results),

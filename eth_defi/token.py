@@ -504,7 +504,7 @@ def fetch_erc20_details(
         chain_id_given,
         cause_diagnostics_message,
         cache.__class__.__name__,
-        len(cache)
+        len(cache) if cache is not None else -1,
     )
 
     try:

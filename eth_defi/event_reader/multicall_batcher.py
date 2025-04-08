@@ -539,7 +539,7 @@ class EncodedCallResult:
     result: bytes
 
     def __post_init__(self):
-        assert isinstance(self.call, EncodedCall)
+        assert isinstance(self.call, EncodedCall), f"Got: {self.call}"
         assert type(self.success) == bool, f"Got success: {self.success}"
         assert type(self.result) == bytes
 
@@ -563,7 +563,7 @@ class MultiprocessMulticallReader:
     - Initialises the web3 connection at the start of the process
     """
 
-    def __init__(self, web3factory: Web3Factory | Web3, chunk_size=32):
+    def __init__(self, web3factory: Web3Factory | Web3, chunk_size=64):
         logger.info(
             "Initialising multiprocess multicall handler, process %s, thread %s",
             os.getpid(),
@@ -591,9 +591,12 @@ class MultiprocessMulticallReader:
         assert isinstance(calls, list)
         assert all(isinstance(c, EncodedCall) for c in calls), f"Got: {calls}"
 
+        # These calls we dropped because they are historical multicalls to later blocks
         filtered_out_calls = [c for c in calls if not c.is_valid_for_block(block_identifier)]
-        encoded_calls = [(Web3.to_checksum_address(c.address), c.data) for c in calls if c.is_valid_for_block(block_identifier)]
-        payload_size = sum(20 + len(c[1]) for c in encoded_calls)
+
+        # These calls with hit the RPC node
+        filtered_in_calls = [c for c in calls if c.is_valid_for_block(block_identifier)]
+        encoded_calls = [(Web3.to_checksum_address(c.address), c.data) for c in filtered_in_calls]
 
         start = datetime.datetime.utcnow()
 
@@ -604,10 +607,10 @@ class MultiprocessMulticallReader:
 
         block_identifier_str = f"{block_identifier:,}" if type(block_identifier) == int else str(block_identifier)
         logger.info(
-            f"Performing multicall, input payload total size %d bytes, %d calls included, %d calls excluded, block is {block_identifier_str}, example filtered out block number is %s",
-            payload_size,
+            f"Performing multicall, %d calls included, %d calls excluded, block is %s, example filtered out block number is %s",
             len(encoded_calls),
             len(filtered_out_calls),
+            block_identifier_str,
             filtered_out_call_block,
         )
 
@@ -620,8 +623,11 @@ class MultiprocessMulticallReader:
         # we need to break it to smaller multicall call chunks
         # or we get RPC timeout
         calls_results = []
+        payload_size = 0
         for i in range(0, len(encoded_calls), self.chunk_size):
             batch_calls = encoded_calls[i : i + self.chunk_size]
+            # Calculate how many bytes we are going to use
+            payload_size += sum(20 + len(c[1]) for c in batch_calls)
             bound_func = multicall_contract.functions.tryBlockAndAggregate(
                 calls=batch_calls,
                 requireSuccess=False,
@@ -629,9 +635,13 @@ class MultiprocessMulticallReader:
             _, _, batch_results = bound_func.call(block_identifier=block_identifier)
             calls_results += batch_results
 
+        # Calculate byte size of output
         out_size = sum(len(o[1]) for o in calls_results)
 
-        for call, output_tuple in zip(calls, calls_results):
+        assert len(filtered_in_calls) == len(calls_results), f"Calls: {len(filtered_in_calls)}, results: {len(calls_results)}"
+        assert len(encoded_calls) == len(calls_results), f"Calls: {len(encoded_calls)}, results: {len(calls_results)}"
+
+        for call, output_tuple in zip(filtered_in_calls, calls_results):
             yield EncodedCallResult(
                 call=call,
                 success=output_tuple[0],
@@ -640,7 +650,7 @@ class MultiprocessMulticallReader:
 
         # User friendly logging
         duration = datetime.datetime.utcnow() - start
-        logger.info("Multicall result fetch and handling took %s, output was %d bytes", duration, out_size)
+        logger.info("Multicall result fetch and handling took %s, input was %d bytes, output was %d bytes", duration, payload_size, out_size)
 
 
 def read_multicall_historical(
