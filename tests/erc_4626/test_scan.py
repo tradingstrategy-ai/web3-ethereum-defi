@@ -55,4 +55,4 @@ def test_4626_scan(web3):
 
     assert len(rows) == 24
     assert rows[0]["Name"] == "FARM_BSWAP-LP"
-    assert rows[0]["Address"] == "0x127dc157aF74858b36bcca07D5A02ef27Cd442d0"
+    assert rows[0]["Address"] == "0x127dc157aF74858b36bcca07D5A02ef27Cd442d0".lower()
