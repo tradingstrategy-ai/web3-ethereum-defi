@@ -1,7 +1,10 @@
 """Raw log event data conversion helpers."""
+from eth_abi import decode
 from eth_typing import ChecksumAddress
 from hexbytes import HexBytes
 from web3 import Web3
+
+from eth_defi.utils import sanitise_string
 
 
 def decode_data(data: str) -> list[bytes]:
@@ -101,3 +104,16 @@ def convert_jsonrpc_value_to_int(val: str | int) -> int:
 
     # Hex number
     return int(val, 16)
+
+
+def convert_solidity_bytes_to_string(byte_data: bytes, max_length: int, errors="ignore") -> str:
+    """Load string from contract function call.
+
+    - Decodes UTF-8, sanitise input and chops to max length
+    """
+
+    assert type(byte_data) in (bytes, HexBytes), f"Received: {type(byte_data)}"
+
+    string_data = decode(["string"], byte_data)[0]
+    sanitised = sanitise_string(string_data, max_length=max_length)
+    return sanitised

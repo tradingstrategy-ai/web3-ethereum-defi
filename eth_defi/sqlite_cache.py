@@ -13,6 +13,10 @@ class PersistentKeyValueStore(dict):
     Designed to cache JSON blobs from integrated API services like TokenSniffer.
 
     Based on https://stackoverflow.com/questions/47237807/use-sqlite-as-a-keyvalue-store
+
+    - Disk cache can grow over time (supports append)
+    - Cache keys must be strings
+    - Cache values must be string-encodeable via :py:meth:`encode_value` and :py:meth:`decode_value` hooks
     """
 
     def __init__(self, filename: Path, autocommit=True):
@@ -31,14 +35,6 @@ class PersistentKeyValueStore(dict):
         return value
 
     def decode_value(self, value: str) -> Any:
-        """Hook to convert SQLite values to Python objects"""
-        return value
-
-    def encode_key(self, value: Any) -> str:
-        """Hook to convert Python objects to cache format"""
-        return value
-
-    def decode_key(self, value: str) -> Any:
         """Hook to convert SQLite values to Python objects"""
         return value
 
@@ -85,7 +81,7 @@ class PersistentKeyValueStore(dict):
         item = self.conn.execute('SELECT value FROM kv WHERE key = ?', (key,)).fetchone()
         if item is None:
             raise KeyError(key)
-        return item[0]
+        return self.decode_value(item[0])
 
     def __setitem__(self, key, value):
         assert type(key) == str, f"Only string keys allowed, got {key}"
@@ -106,5 +102,5 @@ class PersistentKeyValueStore(dict):
     def get(self, key, default=None):
         if key in self:
             value = self[key]
-            return self.decode_value(value)
+            return value
         return default

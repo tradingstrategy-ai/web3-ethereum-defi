@@ -39,8 +39,8 @@ def test_token_disk_cache(tmp_path, max_workers):
     assert "8543-0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913".lower() in cache
     assert "8543-0x4200000000000000000000000000000000000006".lower() in cache
 
-    cache_data = cache["8543-0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913"]
-    assert cache_data["name"] == "USDC"
+    cache_data = cache["8543-0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913".lower()]
+    assert cache_data["name"] == "USD Coin"
     assert cache_data["symbol"] == "USDC"
     assert cache_data["decimals"] == 6
     assert cache_data["supply"] > 1_000_000

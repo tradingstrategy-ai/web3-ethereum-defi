@@ -19,7 +19,7 @@ import warnings
 import cachetools
 from web3.contract.contract import ContractFunction
 
-from eth_defi.event_reader.conversion import convert_int256_bytes_to_int
+from eth_defi.event_reader.conversion import convert_int256_bytes_to_int, convert_solidity_bytes_to_string
 from eth_defi.event_reader.multicall_batcher import EncodedCall, read_multicall_chunked, EncodedCallResult
 from eth_defi.event_reader.web3factory import Web3Factory
 from eth_defi.sqlite_cache import PersistentKeyValueStore
@@ -666,6 +666,12 @@ class TokenDiskCache(PersistentKeyValueStore):
         assert result["tokens_read"] == 4
         assert "8543-0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913".lower() in cache
         assert "8543-0x4200000000000000000000000000000000000006".lower() in cache
+
+        cache_data = cache["8543-0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913".lower()]
+        assert cache_data["name"] == "USDC Coin"
+        assert cache_data["symbol"] == "USDC"
+        assert cache_data["decimals"] == 6
+        assert cache_data["supply"] > 1_000_000
     """
 
     DEFAULT_TOKEN_DISK_CACHE_PATH = Path("~/.cache/eth-defi-tokens.sqlite")
@@ -742,13 +748,13 @@ class TokenDiskCache(PersistentKeyValueStore):
         symbol_result = call_results["symbol"]
         entry["address"] = symbol_result.call.address
         if symbol_result.success:
-            entry["symbol"] = sanitise_string(symbol_result.result.decode("utf-8", errors="ignore"), self.max_str_length)
+            entry["symbol"] = convert_solidity_bytes_to_string(symbol_result.result, self.max_str_length)
         else:
             entry["symbol"] = None
 
         name_result = call_results["name"]
         if name_result.success:
-            entry["name"] = sanitise_string(name_result.result.decode("utf-8", errors="ignore"), self.max_str_length)
+            entry["name"] = convert_solidity_bytes_to_string(name_result.result, self.max_str_length)
         else:
             entry["name"] = None
 
