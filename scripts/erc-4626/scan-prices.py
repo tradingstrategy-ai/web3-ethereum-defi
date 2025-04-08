@@ -125,7 +125,7 @@ def main():
     )
 
     token_cache.commit()
-    print(f"Token cache size is {token_cache.get_file_size():,}")
+    print(f"Token cache size is {token_cache.get_file_size():,} bytes, {len(token_cache):,} tokens")
     print("Scan complete")
     print(pformat(scan_result))
 
