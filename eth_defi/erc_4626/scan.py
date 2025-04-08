@@ -12,7 +12,7 @@ from eth_defi.erc_4626.core import get_vault_protocol_name
 from eth_defi.erc_4626.hypersync_discovery import ERC4262VaultDetection
 from eth_defi.erc_4626.vault import ERC4626Vault
 from eth_defi.event_reader.web3factory import Web3Factory
-
+from eth_defi.token import TokenDiskCache
 
 logger = logging.getLogger(__name__)
 
@@ -21,6 +21,7 @@ def create_vault_scan_record(
     web3: Web3,
     detection: ERC4262VaultDetection,
     block_identifier: BlockIdentifier,
+    token_cache: TokenDiskCache,
 ) -> dict:
     """Create a row in the result table.
 
@@ -30,7 +31,12 @@ def create_vault_scan_record(
         Dict for human-readable tables, with internal columns prefixed with å underscore
     """
 
-    vault = create_vault_instance(web3, detection.address, detection.features)
+    vault = create_vault_instance(
+        web3,
+        detection.address,
+        detection.features,
+        token_cache=token_cache,
+    )
 
     empty_record = {
         "Symbol": "",
@@ -114,6 +120,7 @@ def create_vault_scan_record(
 _subprocess_web3_cache = threading.local()
 
 
+
 def create_vault_scan_record_subprocess(
     web3factory: Web3Factory,
     detection: ERC4262VaultDetection,
@@ -131,8 +138,13 @@ def create_vault_scan_record_subprocess(
     if web3 is None:
         web3 = _subprocess_web3_cache.web3 = web3factory()
 
+    token_cache = getattr(_subprocess_web3_cache, "token_cache", None)
+    if token_cache is None:
+        token_cache = _subprocess_web3_cache.token_cache = TokenDiskCache()
+
     return create_vault_scan_record(
         web3,
         detection,
         block_number,
+        token_cache=token_cache
     )
