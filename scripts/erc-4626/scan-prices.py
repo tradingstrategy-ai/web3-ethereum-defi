@@ -117,7 +117,7 @@ def main():
         start_block=start,
         end_block=end_block,
         max_workers=max_workers,
-        chunk_size=1,
+        chunk_size=32,
         token_cache=token_cache,
     )
 

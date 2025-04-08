@@ -116,6 +116,7 @@ class VaultPortfolio:
         chain_id = web3.eth.chain_id
         return LowercaseDict(**{addr: fetch_erc20_details(web3, addr, chain_id=chain_id).convert_to_raw(value) for addr, value in self.spot_erc20.items()})
 
+_nan = float("nan")
 
 @dataclass(slots=True, frozen=True)
 class VaultHistoricalRead:
@@ -131,13 +132,19 @@ class VaultHistoricalRead:
     timestamp: datetime.datetime
 
     #: What was the share price in vault denomination token
-    share_price: Decimal
+    #:
+    #: None if the read failed (call execution reverted)
+    share_price: Decimal | None
 
     #: NAV / Assets under management in denomination token
-    total_assets: Decimal
+    #:
+    #: None if the read failed (call execution reverted)
+    total_assets: Decimal | None
 
     #: Number of share tokens
-    total_supply: Decimal
+    #:
+    #: None if the read failed (call execution reverted)
+    total_supply: Decimal | None
 
     #: What was the vault performance fee around the time
     performance_fee: float | None
@@ -152,11 +159,11 @@ class VaultHistoricalRead:
             "address": self.vault.address.lower(),
             "block_number": self.block_number,
             "timestamp": self.timestamp,
-            "share_price": float(self.share_price),
-            "total_assets": float(self.total_assets),
-            "total_supply": float(self.total_supply),
-            "performance_fee": float(self.performance_fee) if self.performance_fee is not None else float("nan"),
-            "management_fee": float(self.management_fee) if self.management_fee is not None else float("nan"),
+            "share_price": float(self.share_price) if self.share_price is not None else _nan,
+            "total_assets": float(self.total_assets) if self.total_assets is not None else _nan,
+            "total_supply": float(self.total_supply) if self.total_supply is not None else _nan,
+            "performance_fee": float(self.performance_fee) if self.performance_fee is not None else _nan,
+            "management_fee": float(self.management_fee) if self.management_fee is not None else _nan,
         }
 
     @classmethod

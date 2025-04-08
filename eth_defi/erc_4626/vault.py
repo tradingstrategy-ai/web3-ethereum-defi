@@ -91,15 +91,32 @@ class ERC4626HistoricalReader(VaultHistoricalReader):
         assert "share_price" in call_by_name, f"share_price call missing for {self.vault}, we got {list(call_by_name.items())}"
         assert "total_supply" in call_by_name, f"total_supply call missing for {self.vault}, we got {list(call_by_name.items())}"
         assert "total_assets" in call_by_name, f"total_assets call missing for {self.vault}, we got {list(call_by_name.items())}"
-        raw_share_price = convert_int256_bytes_to_int(call_by_name["share_price"].result)
-        share_price = self.vault.denomination_token.convert_to_decimals(raw_share_price)
-        raw_total_supply = convert_int256_bytes_to_int(call_by_name["total_supply"].result)
-        total_supply = self.vault.share_token.convert_to_decimals(raw_total_supply)
-        raw_total_assets = convert_int256_bytes_to_int(call_by_name["total_assets"].result)
-        total_assets = self.vault.denomination_token.convert_to_decimals(raw_total_assets)
+
+        if call_by_name["share_price"].success:
+            raw_share_price = convert_int256_bytes_to_int(call_by_name["share_price"].result)
+            share_price = self.vault.denomination_token.convert_to_decimals(raw_share_price)
+        else:
+            share_price = None
+
+        if call_by_name["total_supply"].success:
+            raw_total_supply = convert_int256_bytes_to_int(call_by_name["total_supply"].result)
+            total_supply = self.vault.share_token.convert_to_decimals(raw_total_supply)
+        else:
+            total_supply = None
+
+        if call_by_name["total_assets"].success:
+            raw_total_assets = convert_int256_bytes_to_int(call_by_name["total_assets"].result)
+            total_assets = self.vault.denomination_token.convert_to_decimals(raw_total_assets)
+        else:
+            total_assets = None
         return share_price, total_assets, total_supply
 
-    def dictify_multicall_results(self, block_number: int, call_results: list[EncodedCallResult]) -> dict[str, EncodedCallResult]:
+    def dictify_multicall_results(
+        self,
+        block_number: int,
+        call_results: list[EncodedCallResult],
+        allow_failure=True,
+    ) -> dict[str, EncodedCallResult]:
         """Convert batch of multicalls made for this vault to more digestible dict.
 
         - Assert that all multicalls succeed
@@ -110,8 +127,9 @@ class ERC4626HistoricalReader(VaultHistoricalReader):
         call_by_name = {r.call.extra_data["function"]: r for r in call_results}
 
         # Check that all multicalls succeed for this vault
-        for result in call_by_name.values():
-            assert result.success, f"Multicall failed at block {block_number:,}: {result.call} for vault {self.vault}\nDebug info for Tenderly: {result.call.get_debug_info()}"
+        if not allow_failure:
+            for result in call_by_name.values():
+                assert result.success, f"Multicall failed at block {block_number:,}: {result.call} for vault {self.vault}\nDebug info for Tenderly: {result.call.get_debug_info()}"
 
         return call_by_name
 

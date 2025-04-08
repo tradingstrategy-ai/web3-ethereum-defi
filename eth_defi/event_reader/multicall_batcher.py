@@ -18,7 +18,7 @@ from abc import abstractmethod
 from dataclasses import dataclass
 from itertools import islice
 from pprint import pformat
-from typing import TypeAlias, Iterable, Generator, Hashable, Any, Final
+from typing import TypeAlias, Iterable, Generator, Hashable, Any, Final, Callable
 
 from fontTools.unicodedata import block
 from tqdm_loggable.auto import tqdm
@@ -662,6 +662,7 @@ def read_multicall_historical(
     max_workers=8,
     timeout=1800,
     display_progress: bool | str = True,
+    progress_suffix: Callable | None = None,
 ) -> Iterable[CombinedEncodedCallResult]:
     """Read historical data using multiple threads in parallel for speedup.
 
@@ -717,6 +718,10 @@ def read_multicall_historical(
     for completed_task in worker_processor(delayed(_execute_multicall_subprocess)(task) for task in _task_gen()):
         if progress_bar:
             progress_bar.update(1)
+
+            if progress_suffix is not None:
+                suffixes = progress_suffix()
+                progress_bar.set_postfix(suffixes)
 
         yield completed_task
 

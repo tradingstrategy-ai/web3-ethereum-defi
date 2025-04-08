@@ -184,6 +184,14 @@ class VaultHistoricalReadMulticaller:
 
         vault_data: dict[HexAddress, list[EncodedCallResult]] = defaultdict(list)
 
+        active_vault_set = set()
+        last_block_at = None
+        def progress_bar_suffix():
+            return {
+                "Active vaults": len(active_vault_set),
+                "Last block at": last_block_at,
+            }
+
         for combined_result in read_multicall_historical(
             web3factory=self.web3factory,
             calls=calls,
@@ -192,7 +200,10 @@ class VaultHistoricalReadMulticaller:
             step=step,
             display_progress=f"Reading historical vault price data with {self.max_workers} workers, {start_block:,} - {end_block:,} blocks",
             max_workers=self.max_workers,
+            progress_suffix=progress_bar_suffix,
             ):
+
+            active_vault_set.clear()
 
             # Transform single multicall call results to calls batched by vault-results
             block_number = combined_result.block_number
@@ -205,6 +216,9 @@ class VaultHistoricalReadMulticaller:
             for call_result in combined_result.results:
                 vault: HexAddress = call_result.call.extra_data["vault"]
                 vault_data[vault].append(call_result)
+                active_vault_set.add(vault)
+
+            last_block_at = combined_result.timestamp
 
             for vault_address, results in vault_data.items():
                 reader = readers[vault_address]
@@ -297,6 +311,8 @@ def scan_historical_prices_to_parquet(
 
     if end_block is None:
         end_block = get_almost_latest_block_number(web3)
+
+    logger.info("Starting ")
 
     reader = VaultHistoricalReadMulticaller(
         web3factory,

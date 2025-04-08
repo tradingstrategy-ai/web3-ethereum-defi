@@ -20,15 +20,19 @@ if [[ "SCAN_PRICES" == "true" ]]; then python scripts/erc-4626/scan-prices.py ; 
 
 export JSON_RPC_URL=$JSON_RPC_MANTLE
 python scripts/erc-4626/scan-vaults.py
+if [[ "SCAN_PRICES" == "true" ]]; then python scripts/erc-4626/scan-prices.py ; fi
 
 export JSON_RPC_URL=$JSON_RPC_HYPERLIQUID
 python scripts/erc-4626/scan-vaults.py
+if [[ "$SCAN_PRICES" == "true" ]]; then python scripts/erc-4626/scan-prices.py ; fi
 
 export JSON_RPC_URL=$JSON_RPC_POLYGON
 python scripts/erc-4626/scan-vaults.py
+if [[ "$SCAN_PRICES" == "true" ]]; then python scripts/erc-4626/scan-prices.py ; fi
 
 export JSON_RPC_URL=$JSON_RPC_AVALANCHE
 python scripts/erc-4626/scan-vaults.py
+if [[ "$SCAN_PRICES" == "true" ]]; then python scripts/erc-4626/scan-prices.py ; fi
 
 # Sonic net yet on HyperSync
 # export JSON_RPC_URL=$JSON_RPC_SONIC
@@ -36,16 +40,19 @@ python scripts/erc-4626/scan-vaults.py
 
 export JSON_RPC_URL=$JSON_RPC_BERACHAIN
 python scripts/erc-4626/scan-vaults.py
-python scripts/erc-4626/scan-prices.py
+if [[ "$SCAN_PRICES" == "true" ]]; then python scripts/erc-4626/scan-prices.py ; fi
 
 export JSON_RPC_URL=$JSON_RPC_UNICHAIN
-python scripts/erc-4626/scan-vaults.py
+if [[ "$SCAN_PRICES" == "true" ]]; then python scripts/erc-4626/scan-prices.py ; fi
 
 export JSON_RPC_URL=$JSON_RPC_ARBITRUM
 python scripts/erc-4626/scan-vaults.py
+if [[ "$SCAN_PRICES" == "true" ]]; then python scripts/erc-4626/scan-prices.py ; fi
 
 export JSON_RPC_URL=$JSON_RPC_ETHEREUM
 python scripts/erc-4626/scan-vaults.py
+if [[ "$SCAN_PRICES" == "true" ]]; then python scripts/erc-4626/scan-prices.py ; fi
 
 export JSON_RPC_URL=$JSON_RPC_MODE
 python scripts/erc-4626/scan-vaults.py
+if [[ "$SCAN_PRICES" == "true" ]]; then python scripts/erc-4626/scan-prices.py ; fi
