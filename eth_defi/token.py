@@ -640,6 +640,32 @@ class TokenDiskCache(PersistentKeyValueStore):
     - For loading hundreds of tokens once
     - Enable fast cache warmup with :py:meth:`load_token_details_with_multicall`
     - Make sure subsequent batch jobs do not refetch token data over RPC as it is expensive
+    - Store as a SQLite database
+
+    Example:
+
+    .. code-block:: python
+
+        addresses = [
+            "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",  # USDC
+            "0x4200000000000000000000000000000000000006",  # WETH
+            "0x50c5725949A6F0c72E6C4a641F24049A917DB0Cb",  # DAI
+            "0x554a1283cecca5a46bc31c2b82d6702785fc72d9",  # UNI
+        ]
+
+        cache = TokenDiskCache()
+        web3factory = MultiProviderWeb3Factory(JSON_RPC_BASE)
+
+        result = cache.load_token_details_with_multicall(
+            chain_id=8543,  # Base
+            web3factory=web3factory,
+            addresses=addresses,
+            max_workers=max_workers,
+            display_progress=False,
+        )
+        assert result["tokens_read"] == 4
+        assert "8543-0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913".lower() in cache
+        assert "8543-0x4200000000000000000000000000000000000006".lower() in cache
     """
 
     DEFAULT_TOKEN_DISK_CACHE_PATH = Path("~/.cache/eth-defi-tokens.sqlite")
@@ -710,6 +736,7 @@ class TokenDiskCache(PersistentKeyValueStore):
                 logger.debug("Was already cached: %s", address)
 
     def create_cache_entry(self, call_results: dict[str, EncodedCallResult]) -> dict:
+        """Map multicall results to token details data for one address"""
         entry = {}
 
         symbol_result = call_results["symbol"]
@@ -729,7 +756,7 @@ class TokenDiskCache(PersistentKeyValueStore):
         if decimals_result.success:
             entry["decimals"] = convert_int256_bytes_to_int(decimals_result.result)
         else:
-            entry["decimals"] = None
+            entry["decimals"] = 0
 
         total_supply_result = call_results["totalSupply"]
         if total_supply_result.success:
