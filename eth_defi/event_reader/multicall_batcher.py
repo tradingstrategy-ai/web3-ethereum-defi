@@ -470,7 +470,7 @@ class EncodedCall:
             return True
 
         assert isinstance(block_number, int)
-        return self.first_block_number >= block_number
+        return self.first_block_number <= block_number
 
     def call(
         self,
@@ -589,16 +589,24 @@ class MultiprocessMulticallReader:
         assert isinstance(calls, list)
         assert all(isinstance(c, EncodedCall) for c in calls), f"Got: {calls}"
 
+        filtered_out_calls = [c for c in calls if not c.is_valid_for_block(block_identifier)]
         encoded_calls = [(Web3.to_checksum_address(c.address), c.data) for c in calls if c.is_valid_for_block(block_identifier)]
         payload_size = sum(20 + len(c[1]) for c in encoded_calls)
 
         start = datetime.datetime.utcnow()
 
+        if len(filtered_out_calls) > 0:
+            filtered_out_call_block = f"{filtered_out_calls[0].first_block_number:,}"
+        else:
+            filtered_out_call_block = "-"
+
         block_identifier_str = f"{block_identifier:,}" if type(block_identifier) == int else str(block_identifier)
         logger.info(
-            f"Performing multicall, input payload total size %d bytes on %d functions, block is {block_identifier_str}",
+            f"Performing multicall, input payload total size %d bytes, %d calls included, %d calls excluded, block is {block_identifier_str}, example filtered out block number is %s",
             payload_size,
             len(encoded_calls),
+            len(filtered_out_calls),
+            filtered_out_call_block,
         )
 
         multicall_contract = get_multicall_contract(

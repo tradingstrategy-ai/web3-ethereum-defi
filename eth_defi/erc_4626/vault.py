@@ -61,7 +61,8 @@ class ERC4626HistoricalReader(VaultHistoricalReader):
             extra_data = {
                 "function": "share_price",
                 "vault": self.vault.address,
-            }
+            },
+            first_block_number=self.first_block,
         )
         yield share_price_call
 
@@ -70,7 +71,8 @@ class ERC4626HistoricalReader(VaultHistoricalReader):
             extra_data = {
                 "function": "total_assets",
                 "vault": self.vault.address,
-            }
+            },
+            first_block_number=self.first_block,
         )
         yield total_assets
 
@@ -79,15 +81,16 @@ class ERC4626HistoricalReader(VaultHistoricalReader):
             extra_data = {
                 "function": "total_supply",
                 "vault": self.vault.address,
-            }
+            },
+            first_block_number=self.first_block,
         )
         yield total_supply
 
     def process_core_erc_4626_result(self, call_by_name: dict[str, EncodedCallResult]) -> tuple:
         """Decode common ERC-4626 calls."""
-        assert "share_price" in call_by_name, f"share_price call missing for {self.vault}"
-        assert "total_supply" in call_by_name, f"total_supply call missing for {self.vault}"
-        assert "total_assets" in call_by_name, f"total_assets call missing for {self.vault}"
+        assert "share_price" in call_by_name, f"share_price call missing for {self.vault}, we got {list(call_by_name.items())}"
+        assert "total_supply" in call_by_name, f"total_supply call missing for {self.vault}, we got {list(call_by_name.items())}"
+        assert "total_assets" in call_by_name, f"total_assets call missing for {self.vault}, we got {list(call_by_name.items())}"
         raw_share_price = convert_int256_bytes_to_int(call_by_name["share_price"].result)
         share_price = self.vault.denomination_token.convert_to_decimals(raw_share_price)
         raw_total_supply = convert_int256_bytes_to_int(call_by_name["total_supply"].result)
@@ -225,6 +228,7 @@ class ERC4626Vault(VaultBase):
         - Vault itself (ERC-4626)
         - share() accessor (ERc-7575)
         """
+        erc_7575 = False
         try:
             # ERC-7575
             erc_7575_call = EncodedCall.from_keccak_signature(
@@ -237,6 +241,7 @@ class ERC4626Vault(VaultBase):
 
             result = erc_7575_call.call(self.web3, block_identifier="latest")
             if len(result) == 32:
+                erc_7575 = True
                 share_token_address = convert_uint256_bytes_to_address(result)
             else:
                 # Could not read ERC4626Vault 0x0271353E642708517A07985eA6276944A708dDd1 (set()):
@@ -260,6 +265,7 @@ class ERC4626Vault(VaultBase):
             raise_on_error=False,
             chain_id=self.spec.chain_id,
             cache=self.token_cache,
+            cause_diagnostics_message=f"Share token for vault {self.address}, ERC-7575 is {erc_7575}",
         )
 
     def fetch_vault_info(self) -> ERC4626VaultInfo:

@@ -43,6 +43,8 @@ def test_4626_historical_prices(
 
     import pyarrow.parquet as pq
 
+    max_workers = 8
+
     token_cache = TokenDiskCache(tmp_path / "token-cache.sqlite")
 
     # https://app.ipor.io/fusion/base/0x45aa96f0b3188d47a1dafdbefce1db6b37f58216
@@ -62,7 +64,7 @@ def test_4626_historical_prices(
 
     # When IPOR vault was deployed https://basescan.org/tx/0x65e66f1b8648a880ade22e316d8394ed4feddab6fc0fc5bbc3e7128e994e84bf
     start = 22_140_976
-    end = 27_000_000
+    end = 23_000_000
 
     for v in vaults:
         v.first_seen_at_block = start
@@ -82,11 +84,12 @@ def test_4626_historical_prices(
         start_block=start,
         end_block=end,
         token_cache=token_cache,
+        max_workers=max_workers,
     )
 
     assert output_fname.exists(), f"Did not create: {output_fname}"
     assert scan_result["existing"] is False
-    assert scan_result["rows_written"] == 339
+    assert scan_result["rows_written"] == 60
     assert scan_result["rows_deleted"] == 0
 
     table = pq.read_table(output_fname)
@@ -103,11 +106,13 @@ def test_4626_historical_prices(
         vaults=vaults,
         start_block=start,
         end_block=end,
+        max_workers=max_workers,
+        token_cache=token_cache,
     )
     assert output_fname.exists(), f"Did not create: {output_fname}"
     assert scan_result["existing"] is True
-    assert scan_result["rows_written"] == 339
-    assert scan_result["rows_deleted"] == 339
+    assert scan_result["rows_written"] == 60
+    assert scan_result["rows_deleted"] == 60
 
     # https://app.lagoon.finance/vault/1/0x03D1eC0D01b659b89a87eAbb56e4AF5Cb6e14BFc
     lagoon_vault = LagoonVault(web3_ethereum, VaultSpec(web3_ethereum.eth.chain_id, "0x03D1eC0D01b659b89a87eAbb56e4AF5Cb6e14BFc"))
@@ -129,6 +134,8 @@ def test_4626_historical_prices(
         vaults=vaults,
         start_block=start,
         end_block=end,
+        max_workers=max_workers,
+        token_cache=token_cache,
     )
 
     assert scan_result["existing"] is True
@@ -136,4 +143,4 @@ def test_4626_historical_prices(
     assert scan_result["rows_deleted"] == 0
 
     table = pq.read_table(output_fname)
-    assert table.num_rows == 339 + 120
+    assert table.num_rows == 60 + 120

@@ -750,13 +750,13 @@ class TokenDiskCache(PersistentKeyValueStore):
 
         symbol_result = call_results["symbol"]
         entry["address"] = symbol_result.call.address
-        if symbol_result.success:
+        if symbol_result.success and len(symbol_result.result) > 0:
             entry["symbol"] = convert_solidity_bytes_to_string(symbol_result.result, self.max_str_length)
         else:
             entry["symbol"] = None
 
         name_result = call_results["name"]
-        if name_result.success:
+        if name_result.success and len(name_result.result) > 0:
             entry["name"] = convert_solidity_bytes_to_string(name_result.result, self.max_str_length)
         else:
             entry["name"] = None

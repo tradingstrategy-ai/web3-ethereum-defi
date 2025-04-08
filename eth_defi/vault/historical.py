@@ -150,7 +150,7 @@ class VaultHistoricalReadMulticaller:
             Unordered results
         """
         readers = self.prepare_readers(vaults)
-        calls = self.generate_vault_historical_calls(readers)
+        calls = list(self.generate_vault_historical_calls(readers))
         for combined_result in read_multicall_historical(
             web3factory=self.web3factory,
             calls=calls,
@@ -161,11 +161,15 @@ class VaultHistoricalReadMulticaller:
             max_workers=self.max_workers,
             ):
 
-
             # Transform single multicall call results to calls batched by vault-results
             block_number = combined_result.block_number
             timestamp = combined_result.timestamp
             vault_data: dict[HexAddress, list[EncodedCallResult]] = defaultdict(list)
+            logger.debug(
+                "Got %d call results for block %s",
+                len(combined_result.results),
+                block_number,
+            )
             for call_result in combined_result.results:
                 vault: HexAddress = call_result.call.extra_data["vault"]
                 vault_data[vault].append(call_result)

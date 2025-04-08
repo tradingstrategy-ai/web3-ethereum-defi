@@ -110,7 +110,7 @@ class LagoonVault(ERC4626Vault):
         """
         assert isinstance(web3, Web3)
         assert isinstance(spec, VaultSpec)
-        super.__init__(token_cache=token_cache)
+        super().__init__(web3, spec, token_cache=token_cache)
         self.web3 = web3
         self.spec = spec
         self.trading_strategy_module_address = trading_strategy_module_address
