@@ -50,6 +50,15 @@ class VaultSpec:
         # TODO: Get rid of old codepaths so we can make this dataclass frozen
         self.vault_address = self.vault_address.lower()
 
+    def __hash__(self):
+        return hash((self.chain_id, self.vault_address))
+
+    def __eq__(self, other):
+        if not isinstance(other, VaultSpec):
+            return False
+        return self.chain_id == other.chain_id and self.vault_address == other.vault_address
+
+
 
 class VaultInfo(TypedDict):
     """Vault-protocol specific intormation about the vault.

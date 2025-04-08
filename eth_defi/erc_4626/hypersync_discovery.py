@@ -313,5 +313,3 @@ class HypersyncVaultDiscover:
             good_vaults,
             broken_vaults,
         )
-
-

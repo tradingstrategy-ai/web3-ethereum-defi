@@ -29,7 +29,7 @@ from web3 import Web3
 from web3.contract import Contract
 from web3.contract.contract import ContractFunction
 
-from eth_defi.abi import get_deployed_contract, ZERO_ADDRESS, encode_function_call, ZERO_ADDRESS_STR
+from eth_defi.abi import get_deployed_contract, ZERO_ADDRESS, encode_function_call, ZERO_ADDRESS_STR, format_debug_instructions
 from eth_defi.event_reader.web3factory import Web3Factory
 from eth_defi.timestamp import get_block_timestamp
 
@@ -624,6 +624,9 @@ class MultiprocessMulticallReader:
             filtered_out_call_block,
         )
 
+        if len(filtered_in_calls) == 0:
+            return
+
         # Cannot read as multicall is not yet deployed
         if type(block_identifier) == int:
             # Historical read
@@ -646,11 +649,19 @@ class MultiprocessMulticallReader:
             batch_calls = encoded_calls[i : i + self.chunk_size]
             # Calculate how many bytes we are going to use
             payload_size += sum(20 + len(c[1]) for c in batch_calls)
+
+            # "empty reader set" -32000 error
+            # WTF
+            # https://github.com/onflow/go-ethereum/blob/18406ff59b887a1d132f46068aa0bee2a9234bd7/core/state/reader.go#L303C6-L303C25
             bound_func = multicall_contract.functions.tryBlockAndAggregate(
                 calls=batch_calls,
                 requireSuccess=False,
             )
-            _, _, batch_results = bound_func.call(block_identifier=block_identifier)
+            try:
+                _, _, batch_results = bound_func.call(block_identifier=block_identifier)
+            except ValueError as e:
+                debug_data = format_debug_instructions(bound_func)
+                raise ValueError(f"Multicall failed. To simulate:\n{debug_data}") from e
             calls_results += batch_results
 
         # Calculate byte size of output

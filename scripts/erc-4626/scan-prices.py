@@ -99,13 +99,14 @@ def main():
             # print(f"Vault does not have enough deposits: {address}, has: {detection.deposit_count}, threshold {min_deposit_threshold}")
             continue
 
-        vault = create_vault_instance(web3, detection.address, detection.features, token_cache=token_cache)
+        vault = create_vault_instance(web3, address, detection.features, token_cache=token_cache)
         if vault is not None:
             vault.first_seen_at_block = detection.first_seen_at_block
             vaults.append(vault)
             start = min(start, detection.first_seen_at_block)
         else:
-            print(f"Vault does not have a supported reader: {address}")
+            # print(f"Vault does not have a supported reader: {address}")
+            pass
 
     print(f"After filtering vaults for non-interesting entries, we have {len(vaults):,} vaults left")
 
