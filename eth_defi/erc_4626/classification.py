@@ -343,7 +343,7 @@ def create_vault_instance(
         None if the vault creation is not supported
     """
 
-    spec = VaultSpec(web3.eth.chain_id, address)
+    spec = VaultSpec(web3.eth.chain_id, address.lower())
 
     if ERC4626Feature.broken in features:
         return None

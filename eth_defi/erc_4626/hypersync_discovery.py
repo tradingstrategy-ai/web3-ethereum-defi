@@ -211,7 +211,7 @@ class HypersyncVaultDiscover:
                         timestamp = datetime.datetime.utcfromtimestamp(int(block.timestamp, 16))
                         lead = PotentialVaultMatch(
                             chain=chain,
-                            address=Web3.to_checksum_address(log.address),
+                            address=log.address.lower(),
                             first_seen_at_block=log.block_number,
                             first_seen_at=timestamp,
                             first_log_clue=log,
