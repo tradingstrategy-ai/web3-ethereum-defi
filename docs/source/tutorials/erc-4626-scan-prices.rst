@@ -12,7 +12,7 @@ Here is an example how to read the ERC-4626 vault historical data.
   performance of the vaults: `returns <https://tradingstrategy.ai/glossary/compound-annual-growth-rate-cagr>`__, 
   `Sharpe <https://tradingstrategy.ai/glossary/sharpe>`__ and such metrics.
 
-- Based on earlier :ref:`scan-erc_4626_vaults`__ tutorial which discovers all vaults for us
+- Based on earlier :ref:`scan-erc_4626_vaults` tutorial which discovers all vaults for us
   adds the ability to get historical prices and performance of the vaults.
 
 - Supports multiple EVM blockchains, like Ethereum, Base and Arbitrum
@@ -42,8 +42,8 @@ Then to run this script:
 
 Output looks like (scroll right):
 
-.. code-block:: text
-                                                                        Symbol                                               Name          Denomination  ...         Protocol                   Shares   First seen
+.. code-block:: plain
+                      
       Scanning vault historical prices on chain 999: Hyperliquid
       Chain Hyperliquid has 12 vaults in the vault detection database
       After filtering vaults for non-interesting entries, we have 6 vaults left

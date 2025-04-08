@@ -4,7 +4,7 @@
 .. _scan-erc_4626_vaults:
 
 ERC-4626: scanning all vaults onchain
-====================================
+=====================================
 
 Here is an example how to find all ERC-4626 vaults on a particular blockchain
 and export the information to a CSV file.
