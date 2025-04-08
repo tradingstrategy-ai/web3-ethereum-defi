@@ -24,7 +24,7 @@ from eth_defi.chain import EVM_BLOCK_TIMES
 from eth_defi.event_reader.multicall_batcher import EncodedCall, read_multicall_historical, EncodedCallResult
 from eth_defi.event_reader.web3factory import Web3Factory
 from eth_defi.provider.broken_provider import get_almost_latest_block_number
-from eth_defi.token import TokenDetails
+from eth_defi.token import TokenDetails, TokenDiskCache
 from eth_defi.utils import chunked
 from eth_defi.vault.base import VaultBase, VaultHistoricalReader, VaultHistoricalRead
 
@@ -55,6 +55,7 @@ class VaultHistoricalReadMulticaller:
         web3factory: Web3Factory,
         supported_quote_tokens=set[TokenDetails] | None,
         max_workers=8,
+        token_cache=None,
     ):
         """
         :param supported_quote_tokens:
@@ -68,6 +69,11 @@ class VaultHistoricalReadMulticaller:
         self.supported_quote_tokens = supported_quote_tokens
         self.web3factory = web3factory
         self.max_workers = max_workers
+
+        if token_cache is None:
+            token_cache = TokenDiskCache()
+
+        self.token_cache = token_cache
 
     def validate_vaults(
         self,
@@ -89,6 +95,9 @@ class VaultHistoricalReadMulticaller:
     def _prepare_reader(self, vault: VaultBase):
         return vault.get_historical_reader()
 
+    def _prepare_denomination_token(self, vault: VaultBase) -> HexAddress:
+        return vault.fetch_denomination_token_address()
+
     def prepare_readers(
         self,
         vaults: list[VaultBase],
@@ -99,6 +108,21 @@ class VaultHistoricalReadMulticaller:
     len(vaults),
             self.max_workers,
         )
+
+        assert len(vaults) > 0
+
+        chain_id = vaults[0].chain_id
+
+        # Warm up token disk cache for denomination tokens.
+        # We need to load this up before because we need to calculate share price for amount 1 in denomination token (USDC)
+        token_addresses = Parallel(n_jobs=self.max_workers, backend='threading')(delayed(self._prepare_denomination_token)(v) for v in vaults)
+        token_addresses = [a for a in token_addresses if a is not None]
+        self.token_cache.load_token_details_with_multicall(
+            chain_id=chain_id,
+            web3factory=self.web3factory,
+            addresses=token_addresses,
+        )
+
         # Each vault reader creation causes ~5 RPC call as it initialises the token information.
         # We do parallel to cut down the time here.
         results = Parallel(n_jobs=self.max_workers, backend='threading')(delayed(self._prepare_reader)(v) for v in vaults)
@@ -156,6 +180,7 @@ def scan_historical_prices_to_parquet(
     web3: Web3,
     web3factory: Web3Factory,
     vaults: list[VaultBase],
+    token_cache: TokenDiskCache,
     step_duration=datetime.timedelta(hours=24),
     start_block=None,
     end_block=None,
@@ -241,6 +266,7 @@ def scan_historical_prices_to_parquet(
         web3factory,
         supported_quote_tokens=None,
         max_workers=max_workers,
+        token_cache=token_cache,
     )
 
     # Note this is an approx,
@@ -322,8 +348,6 @@ def scan_historical_prices_to_parquet(
         step,
         block_time,
     )
-
-    ipdb.set_trace()
 
     for chunk in chunked(converted_iter, chunk_size):
         table = pa.Table.from_pylist(chunk, schema=schema)

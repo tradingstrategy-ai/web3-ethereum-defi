@@ -43,8 +43,8 @@ class ERC4626HistoricalReader(VaultHistoricalReader):
       each protocol
     """
 
-    def __init__(self, vault: "ERC4626Vault", contract_name: str):
-        self.vault = vault
+    def __init__(self, vault: "ERC4626Vault"):
+        super().__init__(vault)
 
     def construct_multicalls(self) -> Iterable[EncodedCall]:
         """Get the onchain calls that are needed to read the share price."""
@@ -55,10 +55,39 @@ class ERC4626HistoricalReader(VaultHistoricalReader):
 
         Does not include fees.
         """
+        amount = self.vault.denomination_token.convert_to_raw(Decimal(1))
+        share_price_call = EncodedCall.from_contract_call(
+            self.vault.vault_contract.functions.convertToShares(amount),
+            extra_data = {
+                "function": "share_price",
+                "vault": self.vault.address,
+            }
+        )
+        yield share_price_call
 
+        total_assets = EncodedCall.from_contract_call(
+            self.vault.vault_contract.functions.totalAssets(),
+            extra_data = {
+                "function": "total_assets",
+                "vault": self.vault.address,
+            }
+        )
+        yield total_assets
+
+        total_supply = EncodedCall.from_contract_call(
+            self.vault.vault_contract.functions.totalSupply(),
+            extra_data = {
+                "function": "total_supply",
+                "vault": self.vault.address,
+            }
+        )
+        yield total_supply
 
     def process_core_erc_4626_result(self, call_by_name: dict[str, EncodedCallResult]) -> tuple:
         """Decode common ERC-4626 calls."""
+        assert "share_price" in call_by_name, f"share_price call missing for {self.vault}"
+        assert "total_supply" in call_by_name, f"total_supply call missing for {self.vault}"
+        assert "total_assets" in call_by_name, f"total_assets call missing for {self.vault}"
         raw_share_price = convert_int256_bytes_to_int(call_by_name["share_price"].result)
         share_price = self.vault.denomination_token.convert_to_decimals(raw_share_price)
         raw_total_supply = convert_int256_bytes_to_int(call_by_name["total_supply"].result)
@@ -128,10 +157,14 @@ class ERC4626Vault(VaultBase):
         self,
         web3: Web3,
         spec: VaultSpec,
+        token_cache: dict | None = None
     ):
-        super().__init__()
+        super().__init__(token_cache=token_cache)
         self.web3 = web3
         self.spec = spec
+
+    def __repr__(self):
+        return f"<{self.__class__.__name__}: {self.spec}>"
 
     @property
     def chain_id(self) -> int:
@@ -167,6 +200,10 @@ class ERC4626Vault(VaultBase):
         """Alias for :py:meth:`denomination_token`"""
         return self.denomination_token
 
+    def fetch_denomination_token_address(self) -> HexAddress:
+        asset = self.vault_contract.functions.asset().call()
+        return asset
+
     def fetch_denomination_token(self) -> TokenDetails | None:
         token_address = self.info["asset"]
         # eth_defi.token.TokenDetailError: Token 0x4C36388bE6F416A29C8d8Eee81C771cE6bE14B18 missing symbol
@@ -177,6 +214,7 @@ class ERC4626Vault(VaultBase):
                 chain_id=self.spec.chain_id,
                 raise_on_error=False,
                 cause_diagnostics_message=f"Vault {self.address} lookup",
+                cache=self.token_cache,
             )
         else:
             return None
@@ -220,7 +258,8 @@ class ERC4626Vault(VaultBase):
             self.web3,
             share_token_address,
             raise_on_error=False,
-            chain_id=self.spec.chain_id
+            chain_id=self.spec.chain_id,
+            cache=self.token_cache,
         )
 
     def fetch_vault_info(self) -> ERC4626VaultInfo:

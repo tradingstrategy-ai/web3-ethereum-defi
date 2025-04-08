@@ -12,6 +12,7 @@ from eth_defi.ipor.vault import IPORVault
 from eth_defi.lagoon.vault import LagoonVault
 from eth_defi.morpho.vault import MorphoVault
 from eth_defi.provider.multi_provider import create_multi_provider_web3, MultiProviderWeb3Factory
+from eth_defi.token import TokenDiskCache
 from eth_defi.vault.base import VaultSpec
 from eth_defi.vault.historical import scan_historical_prices_to_parquet
 
@@ -40,18 +41,18 @@ def test_4626_historical_prices(
 ):
     """Read historical prices of Base and Ethereum chain vaults to the same Parquet file"""
 
-    import pyarrow as pa
     import pyarrow.parquet as pq
-    import pyarrow.compute as pc
+
+    token_cache = TokenDiskCache(tmp_path / "token-cache.sqlite")
 
     # https://app.ipor.io/fusion/base/0x45aa96f0b3188d47a1dafdbefce1db6b37f58216
-    ipor_usdc = IPORVault(web3, VaultSpec(web3.eth.chain_id, "0x45aa96f0b3188d47a1dafdbefce1db6b37f58216"))
+    ipor_usdc = IPORVault(web3, VaultSpec(web3.eth.chain_id, "0x45aa96f0b3188d47a1dafdbefce1db6b37f58216"), token_cache=token_cache)
 
     # https://app.morpho.org/base/vault/0xc1256Ae5FF1cf2719D4937adb3bbCCab2E00A2Ca/moonwell-flagship-usdc
-    moonwell_flagship_usdc = MorphoVault(web3, VaultSpec(web3.eth.chain_id, "0xc1256Ae5FF1cf2719D4937adb3bbCCab2E00A2Ca"))
+    moonwell_flagship_usdc = MorphoVault(web3, VaultSpec(web3.eth.chain_id, "0xc1256Ae5FF1cf2719D4937adb3bbCCab2E00A2Ca"), token_cache=token_cache)
 
     # https://www.superform.xyz/vault/Dgrw4wBA1YgfvI2BxA8YN/
-    steakhouse_susds = ERC4626Vault(web3, VaultSpec(web3.eth.chain_id, "0xB17B070A56043e1a5a1AB7443AfAFDEbcc1168D7"))
+    steakhouse_susds = ERC4626Vault(web3, VaultSpec(web3.eth.chain_id, "0xB17B070A56043e1a5a1AB7443AfAFDEbcc1168D7"), token_cache=token_cache)
 
     vaults = [
         ipor_usdc,
@@ -80,6 +81,7 @@ def test_4626_historical_prices(
         vaults=vaults,
         start_block=start,
         end_block=end,
+        token_cache=token_cache,
     )
 
     assert output_fname.exists(), f"Did not create: {output_fname}"

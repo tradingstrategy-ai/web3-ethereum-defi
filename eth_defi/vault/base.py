@@ -20,7 +20,7 @@ from eth_typing import BlockIdentifier, HexAddress
 from web3 import Web3
 
 from eth_defi.event_reader.multicall_batcher import EncodedCall, EncodedCallResult
-from eth_defi.token import TokenAddress, fetch_erc20_details, TokenDetails
+from eth_defi.token import TokenAddress, fetch_erc20_details, TokenDetails, DEFAULT_TOKEN_CACHE
 from eth_defi.vault.lower_case_dict import LowercaseDict
 
 
@@ -188,6 +188,7 @@ class VaultHistoricalReader(ABC):
     """
 
     def __init__(self, vault: "VaultBase"):
+        assert isinstance(vault, VaultBase)
         self.vault = vault
 
     @property
@@ -356,8 +357,18 @@ class VaultBase(ABC):
     #:
     first_seen_at_block: int | None
 
-    def __init__(self):
+    def __init__(self, token_cache: dict | None=None):
+        """
+        :param token_cache:
+            Token cache for vault tokens.
+
+            Allows to pass :py:class:`eth_defi.token.TokenDiskCache` to speed up operations.
+        """
         self.first_seen_at_block = None
+        if token_cache is None:
+            token_cache = DEFAULT_TOKEN_CACHE
+
+        self.token_cache = token_cache
 
     def __repr__(self):
         return f"<{self.__class__.__name__} {self.name} {self.symbol} at {self.address}>"
@@ -438,6 +449,13 @@ class VaultBase(ABC):
         :return:
             None if unsupported
         """
+
+    def fetch_denomination_token_address(self) -> HexAddress:
+        """Get the address for the denomination token.
+
+        Triggers RCP call
+        """
+        raise NotImplementedError()
 
     @abstractmethod
     def fetch_denomination_token(self) -> TokenDetails:

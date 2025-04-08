@@ -681,14 +681,12 @@ def read_multicall_historical(
     def _task_gen() -> Iterable[MulticallHistoricalTask]:
         for block_number in range(start_block, end_block, step):
             task = MulticallHistoricalTask(web3factory, block_number, calls_pickle_friendly)
-            logger.info(
+            logger.debug(
                 "Created task for block %d with %d calls",
                 block_number,
                 len(calls_pickle_friendly),
             )
             yield task
-
-    import ipdb; ipdb.set_trace()
 
     for completed_task in worker_processor(delayed(_execute_multicall_subprocess)(task) for task in _task_gen()):
         if progress_bar:

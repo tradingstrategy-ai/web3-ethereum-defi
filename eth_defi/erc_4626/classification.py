@@ -328,6 +328,7 @@ def create_vault_instance(
     web3: Web3,
     address: HexAddress,
     features: set[ERC4626Feature],
+    token_cache: dict | None = None,
 ) -> VaultBase | None:
     """Create a new vault instance class based on the detected features.
 
@@ -349,16 +350,16 @@ def create_vault_instance(
     elif ERC4626Feature.ipor_like in features:
         # IPOR instance
         from eth_defi.ipor.vault import IPORVault
-        return IPORVault(web3, spec)
+        return IPORVault(web3, spec, token_cache=token_cache)
     elif ERC4626Feature.lagoon_like in features:
         # Lagoon instance
         from eth_defi.lagoon.vault import LagoonVault
-        return LagoonVault(web3, spec)
+        return LagoonVault(web3, spec, token_cache=token_cache)
     elif ERC4626Feature.morpho_like in features:
         # Lagoon instance
         from eth_defi.morpho.vault import MorphoVault
-        return MorphoVault(web3, spec)
+        return MorphoVault(web3, spec, token_cache=token_cache)
     else:
         # Generic ERC-4626 without fee data
         from eth_defi.erc_4626.vault import ERC4626Vault
-        return ERC4626Vault(web3, spec)
+        return ERC4626Vault(web3, spec, token_cache=token_cache)

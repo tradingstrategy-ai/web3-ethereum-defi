@@ -632,12 +632,15 @@ def is_stablecoin_like(token_symbol: str | None, symbol_list=ALL_STABLECOIN_LIKE
 
 class TokenCacheWarmupResult(TypedDict):
     tokens_read: int
+    multicalls_done: int
 
 
 class TokenDiskCache(PersistentKeyValueStore):
     """Token cache that stores tokens in disk.
 
+    - Use with :py:func:`fetch_erc20_details`
     - For loading hundreds of tokens once
+    - Shared across chains
     - Enable fast cache warmup with :py:meth:`load_token_details_with_multicall`
     - Make sure subsequent batch jobs do not refetch token data over RPC as it is expensive
     - Store as a SQLite database
@@ -785,6 +788,7 @@ class TokenDiskCache(PersistentKeyValueStore):
         """Warm up cache and load token details for multiple """
 
         assert type(chain_id) == int, "chain_id must be an integer"
+        assert type(addresses) == list, "addresses must be a list of HexAddress"
 
         if type(display_progress) == str:
             progress_bar_desc = display_progress
@@ -794,6 +798,7 @@ class TokenDiskCache(PersistentKeyValueStore):
         logger.info(f"Loading token metadata for {len(addresses)} addresses using {max_workers} workers")
 
         encoded_calls = list(self.generate_calls(chain_id, addresses))
+        multicalls_done = len(encoded_calls)
 
         # Temporary work buffer were we count that all calls to the address have been made,
         # because results are dropping in one by one
@@ -813,16 +818,23 @@ class TokenDiskCache(PersistentKeyValueStore):
         for address, result_per_address in results_per_address.items():
             cache_entry = self.create_cache_entry(result_per_address)
             key = TokenDetails.generate_cache_key(chain_id, address)
+            cache_entry["chain_id"] = chain_id
             self[key] = cache_entry
             tokens_read += 1
 
             if tokens_read % checkpoint == 0:
                 self.commit()
 
-        logger.info("Read %d tokens for chain %d", tokens_read, chain_id)
+        logger.info(
+            "Read %d tokens for chain %d with %d multicalls ",
+            tokens_read,
+            chain_id,
+            multicalls_done,
+        )
 
         return TokenCacheWarmupResult(
             tokens_read=tokens_read,
+            multicalls_done=multicalls_done,
         )
 
 
