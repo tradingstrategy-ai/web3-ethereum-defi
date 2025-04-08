@@ -4,8 +4,10 @@
 - Add: Multicall historical reader
 - Add: ERC-4626 automatic discovery onchain
 - Add: ERC-4626 vault type classification
+- Add: ERC-4626 historical price reading
 - Add: IPOR vault support
 - Add: Morpho vault support
+- Add: `eth_defi.token.TokenDiskCache`
 
 # 0.28.1
 

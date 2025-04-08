@@ -6,10 +6,11 @@
 ERC-4626: scanning vaults' historical price and performance
 ===========================================================
 
-Here is an example how to get the ERC-4626 vault historical data.
+Here is an example how to read the ERC-4626 vault historical data.
 
 - Get share price, fees which then can be used to calculate the historical
-  performance of the vaults.
+  performance of the vaults: `returns <https://tradingstrategy.ai/glossary/compound-annual-growth-rate-cagr>`__, 
+  `Sharpe <https://tradingstrategy.ai/glossary/sharpe>`__ and such metrics.
 
 - Based on earlier :ref:`scan-erc_4626_vaults`__ tutorial which discovers all vaults for us
   adds the ability to get historical prices and performance of the vaults.
@@ -18,16 +19,17 @@ Here is an example how to get the ERC-4626 vault historical data.
 
 - `JSON-RPC API and node access needed <https://tradingstrategy.ai/glossary/json-rpc>`__,
   for an `archive node <https://ethereum.stackexchange.com/a/84200/620>`__.
+  No third party services or indexers needed.
 
 - See *ERC-4626: examine vault historical performance* tutorial how to read
-  the data from the Parquet file.
+  the data from the Parquet file, display price charts, returns and such.
 
 The script does the price scan in multiple phases:
 
-1. First get the available vaults from the earlier script in `vault-db.pickle` file
+1. First read the available vaults on a chain from the `vault-db.pickle` file produced by the earlier script
 2. Prepare vault metadata based on the given chain and Web3 connection
-3. Set up multicall batcher to read the vault state in every historical block
-4. Read all metrics of all vaults 
+3. Set up multicall batcher to read the vault state in at historical blocks, in regular intervals
+4. Read all metrics of all vaults, for the length of the chain
 5. Update a Parquet file for records for a specific chain
 
 Then to run this script:
@@ -58,6 +60,13 @@ Output looks like (scroll right):
       'output_fname': PosixPath('/Users/moo/.tradingstrategy/vaults/vault-prices.parquet'),
       'rows_deleted': 0,
       'rows_written': 15}
+
+There is also a `scan-vaults-all-chains.sh <https://github.com/tradingstrategy-ai/web3-ethereum-defi/blob/master/scripts/erc-4626/scan-vaults-all-chains.sh>`__ 
+Bash script showing how to scan multiple chains in one go.
+
+.. code-block:: shell
+
+   SCAN_PRICES=true scripts/erc-4626/scan-vaults-all-chains.sh
 
 Further reading
 
