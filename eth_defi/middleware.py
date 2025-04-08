@@ -149,6 +149,11 @@ DEFAULT_RETRYABLE_RPC_ERROR_MESSAGES = {
     # Error from Alchemy
     # ValueError: {'code': -32000, 'message': 'execution aborted (timeout = 5s)'}
     "execution aborted (timeout = 5s)",
+    # No idea about this one
+    # Comes with dRPC
+    # https://github.com/onflow/go-ethereum/blob/18406ff59b887a1d132f46068aa0bee2a9234bd7/core/state/reader.go#L303C6-L303C25
+    # ValueError: {'message': 'empty reader set', 'code': -32000}
+    "empty reader set",
 }
 
 #: Ethereum JSON-RPC calls where the value never changes

@@ -1,4 +1,4 @@
-"""Turn vault discoveries to human readable rows."""
+"""Turn vault discoveries to human-readable and machine-readable tables."""
 import threading
 import logging
 
@@ -117,9 +117,8 @@ def create_vault_scan_record(
         )
         return record
 
+#: Handle per-process connections and databases
 _subprocess_web3_cache = threading.local()
-
-
 
 def create_vault_scan_record_subprocess(
     web3factory: Web3Factory,
@@ -128,6 +127,7 @@ def create_vault_scan_record_subprocess(
 ) -> dict:
     """Process remaining vault data reads using multiprocessing
 
+    - Runs in a subprocess
     - See :py:func:`create_vault_scan_record`
     - Because ``Vault`` classes does reads using Python instance objects in serial manner,
       we want to speed up by doing many vaults parallel
@@ -142,9 +142,11 @@ def create_vault_scan_record_subprocess(
     if token_cache is None:
         token_cache = _subprocess_web3_cache.token_cache = TokenDiskCache()
 
-    return create_vault_scan_record(
+    record = create_vault_scan_record(
         web3,
         detection,
         block_number,
         token_cache=token_cache
     )
+
+    return record

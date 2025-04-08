@@ -1,5 +1,6 @@
-"""Key value cache based on SQLite
+"""A simple key-value persistent disk cache based on SQLite.
 
+See :py:class:`PersistentKeyValueStore`
 """
 
 import sqlite3
@@ -9,9 +10,11 @@ from typing import Any
 
 
 class PersistentKeyValueStore(dict):
-    """A simple key-value cache for sqlite3.
+    """A simple key-value cache for sqlite3, honouring Python dictionary interface.
 
-    Designed to cache JSON blobs from integrated API services like TokenSniffer.
+    Designed to cache
+    - JSON blobs from integrated API services like TokenSniffer
+    - Token metadata with :py:func:`~eth_defi.token.fetch_erc20_details`
 
     Based on https://stackoverflow.com/questions/47237807/use-sqlite-as-a-keyvalue-store
 
@@ -22,6 +25,11 @@ class PersistentKeyValueStore(dict):
     """
 
     def __init__(self, filename: Path, autocommit=True):
+        """
+        :param filename: Path to the sqlite database
+
+        :param autocommit: Whether to autocommit every time new entry is added to the database
+        """
         super().__init__()
         self.autocommit = autocommit
         assert isinstance(filename, Path)

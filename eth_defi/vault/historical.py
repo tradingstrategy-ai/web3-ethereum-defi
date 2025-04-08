@@ -186,6 +186,11 @@ class VaultHistoricalReadMulticaller:
 
         vault_data: dict[HexAddress, list[EncodedCallResult]] = defaultdict(list)
 
+        if len(vaults) == 0:
+            return
+
+        chain_id = vaults[0].chain_id
+
         active_vault_set = set()
         last_block_at = None
         def progress_bar_suffix():
@@ -200,7 +205,7 @@ class VaultHistoricalReadMulticaller:
             start_block=start_block,
             end_block=end_block,
             step=step,
-            display_progress=f"Reading historical vault price data with {self.max_workers} workers, {start_block:,} - {end_block:,} blocks",
+            display_progress=f"Reading historical vault price data for chain {chain_id} with {self.max_workers} workers, blocks {start_block:,} - {end_block:,}",
             max_workers=self.max_workers,
             progress_suffix=progress_bar_suffix,
             ):
