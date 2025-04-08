@@ -86,7 +86,9 @@ def main():
     chain_vaults = [v for v in vault_db.values() if v["_detection_data"].chain == chain_id]
     print(f"Chain {name} has {len(chain_vaults):,} vaults in the vault detection database")
 
-    assert len(chain_vaults) > 0, f"No vaults for chain {name}"
+    if len(chain_vaults) == 0:
+        print(f"No vaults on chain {name}")
+        sys.exit(0)
 
     vaults = []
     start = 999_999_999_999

@@ -94,7 +94,9 @@ class ERC4626HistoricalReader(VaultHistoricalReader):
 
         if call_by_name["share_price"].success:
             raw_share_price = convert_int256_bytes_to_int(call_by_name["share_price"].result)
-            share_price = self.vault.denomination_token.convert_to_decimals(raw_share_price)
+            # convertToShares(1 USD) gives us how many shares we get for a dollar.
+            # Share price is the inverse of this number.
+            share_price = Decimal(1) / self.vault.denomination_token.convert_to_decimals(raw_share_price)
         else:
             share_price = None
 
