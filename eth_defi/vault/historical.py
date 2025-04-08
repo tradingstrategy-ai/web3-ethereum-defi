@@ -335,6 +335,7 @@ def scan_historical_prices_to_parquet(
     else:
         block_time = None
 
+    # Create iterator that will drop in vault historical read entries block by block
     entries_iter = reader.read_historical(
         vaults=vaults,
         start_block=start_block,
@@ -342,6 +343,7 @@ def scan_historical_prices_to_parquet(
         step=step,
     )
 
+    # Convert VaultHistoricalRead objects to exportable dicts for Parquet
     def converter(entries_iter: Iterable[VaultHistoricalRead]) -> Iterable[dict]:
         for entry in entries_iter:
             yield entry.export()

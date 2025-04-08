@@ -56,17 +56,22 @@ class ERC4626HistoricalReader(VaultHistoricalReader):
         Does not include fees.
         """
 
+        # TODO: use asset / supply as it is more reliable
         if self.vault.denomination_token is not None:
-            amount = self.vault.denomination_token.convert_to_raw(Decimal(1))
-            share_price_call = EncodedCall.from_contract_call(
-                self.vault.vault_contract.functions.convertToShares(amount),
-                extra_data = {
-                    "function": "share_price",
-                    "vault": self.vault.address,
-                },
-                first_block_number=self.first_block,
-            )
-            yield share_price_call
+            # amount = self.vault.denomination_token.convert_to_raw(Decimal(1))
+            # share_price_call = EncodedCall.from_contract_call(
+            #     self.vault.vault_contract.functions.convertToShares(amount),
+            #     extra_data = {
+            #         "function": "share_price",
+            #         "vault": self.vault.address,
+            #         "amount": amount,
+            #         "denomination_token": self.vault.denomination_token.symbol,
+            #         "decimals": self.vault.denomination_token.decimals,
+            #     },
+            #     first_block_number=self.first_block,
+            # )
+            # yield share_price_call
+            pass
 
         total_assets = EncodedCall.from_contract_call(
             self.vault.vault_contract.functions.totalAssets(),
@@ -96,17 +101,6 @@ class ERC4626HistoricalReader(VaultHistoricalReader):
         assert "total_supply" in call_by_name, f"total_supply call missing for {self.vault}, we got {list(call_by_name.items())}"
         assert "total_assets" in call_by_name, f"total_assets call missing for {self.vault}, we got {list(call_by_name.items())}"
 
-        if self.vault.denomination_token is not None and call_by_name["share_price"].success:
-            raw_share_price = convert_int256_bytes_to_int(call_by_name["share_price"].result)
-            # convertToShares(1 USD) gives us how many shares we get for a dollar.
-            # Share price is the inverse of this number.
-            if raw_share_price != 0:
-                share_price = Decimal(1) / self.vault.denomination_token.convert_to_decimals(raw_share_price)
-            else:
-                share_price = Decimal(0)
-        else:
-            share_price = None
-
         if call_by_name["total_supply"].success:
             raw_total_supply = convert_int256_bytes_to_int(call_by_name["total_supply"].result)
             total_supply = self.vault.share_token.convert_to_decimals(raw_total_supply)
@@ -118,6 +112,12 @@ class ERC4626HistoricalReader(VaultHistoricalReader):
             total_assets = self.vault.denomination_token.convert_to_decimals(raw_total_assets)
         else:
             total_assets = None
+
+        if total_supply and total_assets:
+            share_price = Decimal(total_assets) / Decimal(total_supply)
+        else:
+            share_price = None
+
         return share_price, total_assets, total_supply
 
     def dictify_multicall_results(

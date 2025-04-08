@@ -723,7 +723,7 @@ def read_multicall_historical(
         backend="loky",
         timeout=timeout,
         max_nbytes=40*1024*1024,  # Allow passing 40 MBytes for child processes
-        return_as="generator_unordered",
+        return_as="generator",  # TODO: Dig generator_unordered cause bugs?
     )
 
     iter_count = (end_block - start_block + 1) // step
