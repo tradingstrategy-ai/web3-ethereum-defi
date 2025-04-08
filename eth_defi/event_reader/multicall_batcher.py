@@ -20,6 +20,7 @@ from itertools import islice
 from pprint import pformat
 from typing import TypeAlias, Iterable, Generator, Hashable, Any, Final
 
+from fontTools.unicodedata import block
 from tqdm_loggable.auto import tqdm
 
 from eth_typing import HexAddress, BlockIdentifier, BlockNumber
@@ -460,9 +461,14 @@ class EncodedCall:
             first_block_number=first_block_number,
         )
 
-    def is_valid_for_block(self, block_number: int) -> bool:
+    def is_valid_for_block(self, block_number: BlockIdentifier) -> bool:
         if self.first_block_number is None:
             return True
+
+        if type(block_number) == str:
+            # "latest"
+            return True
+
         assert isinstance(block_number, int)
         return self.first_block_number >= block_number
 
@@ -583,13 +589,14 @@ class MultiprocessMulticallReader:
         assert isinstance(calls, list)
         assert all(isinstance(c, EncodedCall) for c in calls), f"Got: {calls}"
 
-        encoded_calls = [(c.address, c.data) for c in calls if c.is_valid_for_block(block_identifier)]
+        encoded_calls = [(Web3.to_checksum_address(c.address), c.data) for c in calls if c.is_valid_for_block(block_identifier)]
         payload_size = sum(20 + len(c[1]) for c in encoded_calls)
 
         start = datetime.datetime.utcnow()
 
+        block_identifier_str = f"{block_identifier:,}" if type(block_identifier) == int else str(block_identifier)
         logger.info(
-            f"Performing multicall, input payload total size %d bytes on %d functions, block is {block_identifier:,}",
+            f"Performing multicall, input payload total size %d bytes on %d functions, block is {block_identifier_str}",
             payload_size,
             len(encoded_calls),
         )
@@ -777,14 +784,14 @@ class MulticallHistoricalTask:
     web3factory: Web3Factory
 
     #: Block number to sccan
-    block_number: int
+    block_number: BlockIdentifier
 
     # Multicalls to perform
     calls: list[EncodedCall]
 
     def __post_init__(self):
         assert callable(self.web3factory)
-        assert type(self.block_number) == int
+        assert type(self.block_number) in (int, str), f"Got: {self.block_number}"
         assert type(self.calls) == list
         assert all(isinstance(c, EncodedCall) for c in self.calls), f"Expected list of EncodedCall objects, got {self.calls}"
 
@@ -804,8 +811,6 @@ def _execute_multicall_subprocess(
         reader = _reader_instance.reader
 
     timestamp = reader.get_block_timestamp(task.block_number)
-
-    import ipdb ; ipdb.set_trace()
 
     # Perform multicall to read share prices
     call_results = reader.process_calls(

@@ -9,7 +9,7 @@ from web3 import Web3
 from web3.contract import Contract
 from web3.types import BlockIdentifier
 
-from eth_defi.abi import get_deployed_contract
+from eth_defi.abi import get_deployed_contract, get_contract
 from eth_defi.balances import fetch_erc20_balances_fallback
 from eth_defi.erc_4626.core import get_deployed_erc_4626_contract
 from eth_defi.event_reader.conversion import convert_int256_bytes_to_int, convert_uint256_bytes_to_address
@@ -43,7 +43,7 @@ class ERC4626HistoricalReader(VaultHistoricalReader):
       each protocol
     """
 
-    def __init__(self, vault: "ERC4626Vault"):
+    def __init__(self, vault: "ERC4626Vault", contract_name: str):
         self.vault = vault
 
     def construct_multicalls(self) -> Iterable[EncodedCall]:
@@ -55,36 +55,7 @@ class ERC4626HistoricalReader(VaultHistoricalReader):
 
         Does not include fees.
         """
-        amount = self.vault.denomination_token.convert_to_raw(Decimal(1))
-        share_price_call = EncodedCall.from_contract_call(
-            self.vault.vault_contract.functions.convertToShares(amount),
-            extra_data = {
-                "function": "share_price",
-                "vault": self.vault.address,
-            },
-            first_block_number=self.first_block,
-        )
-        yield share_price_call
 
-        total_assets = EncodedCall.from_contract_call(
-            self.vault.vault_contract.functions.totalAssets(),
-            extra_data = {
-                "function": "total_assets",
-                "vault": self.vault.address,
-            },
-            first_block_number = self.first_block,
-        )
-        yield total_assets
-
-        total_supply = EncodedCall.from_contract_call(
-            self.vault.vault_contract.functions.totalSupply(),
-            extra_data = {
-                "function": "total_supply",
-                "vault": self.vault.address,
-            },
-            first_block_number=self.first_block,
-        )
-        yield total_supply
 
     def process_core_erc_4626_result(self, call_by_name: dict[str, EncodedCallResult]) -> tuple:
         """Decode common ERC-4626 calls."""

@@ -4,6 +4,7 @@
 
 import sqlite3
 from pathlib import Path
+from typing import Any
 
 
 class PersistentKeyValueStore(dict):
@@ -25,9 +26,28 @@ class PersistentKeyValueStore(dict):
             raise RuntimeError(f"Sqlite3 connect failed: {filename}") from e
         self.conn.execute("CREATE TABLE IF NOT EXISTS kv (key text unique, value text)")
 
+    def encode_value(self, value: Any) -> str:
+        """Hook to convert Python objects to cache format"""
+        return value
+
+    def decode_value(self, value: str) -> Any:
+        """Hook to convert SQLite values to Python objects"""
+        return value
+
+    def encode_key(self, value: Any) -> str:
+        """Hook to convert Python objects to cache format"""
+        return value
+
+    def decode_key(self, value: str) -> Any:
+        """Hook to convert SQLite values to Python objects"""
+        return value
+
     def close(self):
         self.conn.commit()
         self.conn.close()
+
+    def commit(self):
+        self.conn.commit()
 
     def __len__(self):
         rows = self.conn.execute('SELECT COUNT(*) FROM kv').fetchone()[0]
@@ -69,6 +89,7 @@ class PersistentKeyValueStore(dict):
 
     def __setitem__(self, key, value):
         assert type(key) == str, f"Only string keys allowed, got {key}"
+        value = self.encode_value(value)
         assert type(value) == str, f"Only string values allowed, got {value}"
         self.conn.execute('REPLACE INTO kv (key, value) VALUES (?,?)', (key, value))
         if self.autocommit:
@@ -84,5 +105,6 @@ class PersistentKeyValueStore(dict):
 
     def get(self, key, default=None):
         if key in self:
-            return self[key]
-        return None
+            value = self[key]
+            return self.decode_value(value)
+        return default
