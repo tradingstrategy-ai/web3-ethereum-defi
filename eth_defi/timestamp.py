@@ -48,11 +48,14 @@ def get_block_timestamp(web3: Web3, block_identifier: BlockIdentifier) -> dateti
     """
 
     try:
-        assert type(block_identifier) == int, "Only supports numeric block lookup"
+        # assert type(block_identifier) == int, "Only supports numeric block lookup"
 
-        # Pass RPC machinery that seems to be broken for mantly
+        # Pass RPC machinery that seems to be broken for Mantle
         method = "eth_getBlockByNumber"
-        args = (hex(block_identifier), False)
+        if type(block_identifier) == int:
+            args = (hex(block_identifier), False)
+        else:
+            args = (block_identifier, False)
 
         response = web3.provider.make_request(method, args)  # type: ignore
 

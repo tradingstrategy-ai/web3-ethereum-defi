@@ -18,3 +18,6 @@ def test_mantle_timestamp():
     web3 = create_multi_provider_web3(JSON_RPC_MANTLE)
     timestamp = get_block_timestamp(web3, 1)
     assert timestamp == datetime.datetime(2023, 7, 2, 16, 21, 26)
+
+    timestamp = get_block_timestamp(web3, "latest")
+    assert timestamp > datetime.datetime(2023, 7, 2, 16, 21, 26)

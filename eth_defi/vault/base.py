@@ -37,12 +37,16 @@ class VaultSpec:
     #: Ethereum chain id
     chain_id: int
 
-    #: Vault smart contract address or whatever is the primary address for unravelling a vault deployment for a vault protocol
+    #: Vault smart contract address or whatever is the primary address for unravelling a vault deployment for a vault protocol.
+    #:
+    #: Always forced to lowercase.
     vault_address: HexAddress | str
+
     def __post_init__(self):
         assert isinstance(self.chain_id, int)
         assert isinstance(self.vault_address, str), f"Expected str, got {self.vault_address}"
         assert self.vault_address.startswith("0x")
+        assert self.vault_address == self.vault_address.lower(), f"Vault address not lowercase: {self.vault_address}"
 
 
 class VaultInfo(TypedDict):
