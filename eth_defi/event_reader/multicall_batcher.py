@@ -1,8 +1,9 @@
 """Multicall contract helpers.
 
 - Perform several smart contract calls in one RPC request using `Multicall <https://www.multicall3.com/>`__ contract
-- Increase call througput using Multicall smart contract
-- Further increase call throughput using multiprocessing and
+- Increase smart contract call throughput using Multicall smart contract
+- Further increase call throughput using multiprocessing with :py:class:`joblib.Parallel`
+- Do fast historical reads several blocks with :py:func:`read_multicall_historical`
 
 .. warning::
 
@@ -34,6 +35,7 @@ from eth_defi.event_reader.fast_json_rpc import get_last_headers
 from eth_defi.event_reader.web3factory import Web3Factory
 from eth_defi.provider.named import get_provider_name
 from eth_defi.timestamp import get_block_timestamp
+from tests.ethereum.polygon_forked.conftest import chain_id
 
 logger = logging.getLogger(__name__)
 
@@ -768,10 +770,34 @@ def read_multicall_historical(
 ) -> Iterable[CombinedEncodedCallResult]:
     """Read historical data using multiple threads in parallel for speedup.
 
+    - Run over period of time (blocks)
+    - Use multicall to harvest data from a single block at a time
+    -
     - Show a progress bar using :py:mod:`tqdm`
 
     :param chain_id:
-        Diangnostics parameter.
+        Which chain we are targeting with calls.
+
+    :param web3factory:
+        The connection factory for subprocesses
+
+    :param start_block:
+        Block range to scoop
+
+    :param end_block:
+        Block range to scoop
+
+    :param step:
+        How many blocks we iterate at once
+
+    :param timeout:
+        Joblib timeout to wait for a result from an individual task
+
+    :param progress_suffix:
+        Allow caller to decorate the progress bar
+
+    :param require_multicall_result:
+        Debug parameter to crash the reader if we start to get invalid replies from Multicall3 contract.
 
     :param display_progress:
         Whether to display progress bar or not.
@@ -910,7 +936,7 @@ def read_multicall_chunked(
     )
 
 
-
+#: Store per-chain reader instances recycled in multiprocess reading
 _reader_instance = threading.local()
 
 
@@ -927,9 +953,10 @@ class MulticallHistoricalTask:
     #: Block number to sccan
     block_number: BlockIdentifier
 
-    # Multicalls to perform
+    #: Multicalls to perform
     calls: list[EncodedCall]
 
+    #: Debug parameter to early abort if we get invalid replies from Multicall contract
     require_multicall_result: bool = False
 
     def __post_init__(self):
@@ -959,11 +986,14 @@ def _execute_multicall_subprocess(
     if per_chain_readers is None:
         per_chain_readers = _reader_instance.per_chain_readers = {}
 
+    assert task.chain_id
+
     reader = per_chain_readers.get(task.chain_id)
     if reader is None:
         reader = per_chain_readers[task.chain_id] = MultiprocessMulticallReader(task.web3factory)
 
     # Read block timestan for this batch
+    assert task.chain_id == reader.web3.eth.chain_id, f"chain_id mismatch. Wanted: {task.chain_id}, reader has: {reader.web3.eth.chain_id}"
     timestamp = reader.get_block_timestamp(task.block_number)
 
     # Perform multicall to read share prices

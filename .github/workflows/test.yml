@@ -84,9 +84,6 @@ jobs:
 
       - name: Run tests (parallel)
         run: |
-          echo "RPC cooked"
-          echo "${JSON_RPC_ETHEREUM:0:14}"
-          echo "${JSON_RPC_ETHEREUM_2:0:14}"
           poetry run pytest --tb=native -n auto
         env:
           BNB_CHAIN_JSON_RPC: ${{ secrets.BNB_CHAIN_JSON_RPC }}
