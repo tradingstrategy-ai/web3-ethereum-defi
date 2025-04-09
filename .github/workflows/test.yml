@@ -82,6 +82,10 @@ jobs:
           pnpm --version 
           make guard in-house
 
+      - name: dRPC debug step
+        run: |
+          bash scripts/drpc-debug.sh
+
       - name: Run tests (parallel)
         run: |
           poetry run pytest --tb=native -n auto

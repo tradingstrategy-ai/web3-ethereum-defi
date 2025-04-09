@@ -68,6 +68,8 @@ def test_steakhouse_usdt(
     )
     raw_result = total_assets.call(web3, block_identifier=last_scanned_block)
     assert convert_int256_bytes_to_int(raw_result) == 42449976669825
+    print(total_assets.get_curl_info(22_189_798))
+    raise NotImplementedError
 
     steakhouse_usdt.first_seen_at_block = start
 

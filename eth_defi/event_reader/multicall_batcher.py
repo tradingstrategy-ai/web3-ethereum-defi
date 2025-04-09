@@ -423,6 +423,31 @@ class EncodedCall:
         """
         return f"""Address: {self.address}\nData: {self.data.hex()}"""
 
+    def get_curl_info(self, block_number: int) -> str:
+        """Get human-readable details for debugging.
+
+        - Punch into Tenderly simulator
+
+        - Data contains both function signature and data payload
+        """
+        contract_address = self.address
+        data = self.data
+        debug_template = f"""curl -X POST -H "Content-Type: application/json" \\
+        --data '{{
+          "jsonrpc": "2.0",
+          "method": "eth_call",
+          "params": [
+            {{
+              "to": "{contract_address}",
+              "data": "{data.hex()}"
+            }},
+            "{hex(block_number)}"
+          ],
+          "id": 1
+        }}' \\
+        $JSON_RPC_URL"""
+        return debug_template
+
     @staticmethod
     def from_contract_call(
         call: ContractFunction,
