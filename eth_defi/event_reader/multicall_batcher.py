@@ -14,6 +14,7 @@ import datetime
 import logging
 import os
 import threading
+import time
 from abc import abstractmethod
 from dataclasses import dataclass
 from itertools import islice
@@ -726,7 +727,7 @@ class MultiprocessMulticallReader:
                     if output_tuple[1] == b"":
                         debug_str = format_debug_instructions(bound_func, block_identifier=block_identifier)
                         rpc_name = get_provider_name(multicall_contract.w3.provider)
-                        raise RuntimeError(f"Multicall gave empty result: at block {block_identifier}.\nDebug data is:\n{debug_str}\nRPC is: {rpc_name}\nBatch result: {batch_results}\nBatch calls: {batch_calls}\nReceived block number: {received_block_number}")
+                        raise MulticallStateProblem(f"Multicall gave empty result: at block {block_identifier}.\nDebug data is:\n{debug_str}\nRPC is: {rpc_name}\nBatch result: {batch_results}\nBatch calls: {batch_calls}\nReceived block number: {received_block_number}")
 
             calls_results += batch_results
 
@@ -940,6 +941,8 @@ def _execute_multicall_subprocess(
 
     timestamp = reader.get_block_timestamp(task.block_number)
 
+    sleep = 3.0
+
     # Perform multicall to read share prices
     for attempt in range(1, 5):
         try:
@@ -954,5 +957,8 @@ def _execute_multicall_subprocess(
                 timestamp=timestamp,
                 results=[c for c in call_results],
             )
-        except MulticallStateProblem:
-            logger.warning("Multicall attempt %d", attempt)
+        except MulticallStateProblem as e:
+            logger.warning("Multicall attempt %d: %s", attempt, e)
+            time.sleep(sleep)
+
+    raise RuntimeError("Out of multicall fix attempts")
