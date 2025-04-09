@@ -640,7 +640,11 @@ class MultiprocessMulticallReader:
         calls: list[EncodedCall],
         require_multicall_result=False,
     ) -> Iterable[EncodedCallResult]:
-        """Work a chunk of calls in the subprocess."""
+        """Work a chunk of calls in the subprocess.
+
+        :param require_multicall_result:
+            Headache debug flag.
+        """
 
         assert isinstance(calls, list)
         assert all(isinstance(c, EncodedCall) for c in calls), f"Got: {calls}"
@@ -689,34 +693,31 @@ class MultiprocessMulticallReader:
         # or we get RPC timeout
         calls_results = []
         payload_size = 0
-        bound_func = None
-        batch_results = None
         for i in range(0, len(encoded_calls), self.chunk_size):
             batch_calls = encoded_calls[i : i + self.chunk_size]
             # Calculate how many bytes we are going to use
             payload_size += sum(20 + len(c[1]) for c in batch_calls)
 
-            # "empty reader set" -32000 error
-            # WTF
             # https://github.com/onflow/go-ethereum/blob/18406ff59b887a1d132f46068aa0bee2a9234bd7/core/state/reader.go#L303C6-L303C25
+            # https://etherscan.io/address/0xcA11bde05977b3631167028862bE2a173976CA11#code
             bound_func = multicall_contract.functions.tryBlockAndAggregate(
                 calls=batch_calls,
                 requireSuccess=False,
             )
             try:
-                _, _, batch_results = bound_func.call(block_identifier=block_identifier)
+                received_block_number, received_block_hash, batch_results = bound_func.call(block_identifier=block_identifier)
             except ValueError as e:
                 debug_data = format_debug_instructions(bound_func)
                 raise ValueError(f"Multicall failed. To simulate:\n{debug_data}") from e
 
-            # Debug flag to diagnose WTF is going on on Github
+            # Debug flag to diagnose WTF is going on Github
             # where calls randomly get empty results
             if require_multicall_result:
                 for output_tuple in batch_results:
                     if output_tuple[1] == b"":
-                        debug_str = format_debug_instructions(bound_func)
+                        debug_str = format_debug_instructions(bound_func, block_identifier=block_identifier)
                         rpc_name = get_provider_name(multicall_contract.w3.provider)
-                        raise RuntimeError(f"Multicall gave empty result: at block {block_identifier}.\nDebug data is:\n{debug_str}\nRPC is: {rpc_name}\nBatch result: {batch_results}\nBatch calls: {batch_calls}")
+                        raise RuntimeError(f"Multicall gave empty result: at block {block_identifier}.\nDebug data is:\n{debug_str}\nRPC is: {rpc_name}\nBatch result: {batch_results}\nBatch calls: {batch_calls}\nReceived block number: {received_block_number}")
 
             calls_results += batch_results
 
