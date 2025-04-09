@@ -31,6 +31,7 @@ from web3.contract.contract import ContractFunction
 
 from eth_defi.abi import get_deployed_contract, ZERO_ADDRESS, encode_function_call, ZERO_ADDRESS_STR, format_debug_instructions
 from eth_defi.event_reader.web3factory import Web3Factory
+from eth_defi.provider.named import get_provider_name
 from eth_defi.timestamp import get_block_timestamp
 
 logger = logging.getLogger(__name__)
@@ -718,7 +719,8 @@ class MultiprocessMulticallReader:
             if require_multicall_result:
                 if output_tuple[1] == b"":
                     debug_str = format_debug_instructions(bound_func)
-                    raise RuntimeError(f"Multicall gave empty result: {call} at block {block_identifier}. Debug data is: {debug_str}")
+                    rpc_name = get_provider_name(multicall_contract.w3.provider)
+                    raise RuntimeError(f"Multicall gave empty result: {call} at block {block_identifier}.\nDebug data is:\n{debug_str}\nRPC is: {rpc_name}")
 
             yield EncodedCallResult(
                 call=call,
