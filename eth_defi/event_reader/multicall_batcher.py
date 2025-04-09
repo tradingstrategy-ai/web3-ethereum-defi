@@ -590,7 +590,6 @@ class EncodedCallResult:
         assert type(self.result) == bytes
 
 
-
 @dataclass(slots=True, frozen=True)
 class CombinedEncodedCallResult:
     """Historical read result of multiple multicalls.
@@ -840,7 +839,7 @@ def read_multicall_historical(
 
     def _task_gen() -> Iterable[MulticallHistoricalTask]:
         for block_number in range(start_block, end_block, step):
-            task = MulticallHistoricalTask(task.chain_id, web3factory, block_number, calls_pickle_friendly, require_multicall_result=require_multicall_result)
+            task = MulticallHistoricalTask(chain_id, web3factory, block_number, calls_pickle_friendly, require_multicall_result=require_multicall_result)
             logger.debug(
                 "Created task for block %d with %d calls",
                 block_number,
@@ -943,7 +942,10 @@ _reader_instance = threading.local()
 
 @dataclass(slots=True, frozen=True)
 class MulticallHistoricalTask:
-    """Pickled task send between multicall reader loop and subprocesses."""
+    """Pickled task send between multicall reader loop and subprocesses.
+
+    Send a batch of calls to a specific block.
+    """
 
     #: Track which chain this call belongs to
     chain_id: int
@@ -970,11 +972,13 @@ class MulticallHistoricalTask:
 def _execute_multicall_subprocess(
     task: MulticallHistoricalTask,
 ) -> CombinedEncodedCallResult:
-    """Extract raw JSON-RPC data from a node in a multiprocess.
+    """Extract raw JSON-RPC data from a node in.
 
-    - This is called in a subprocess by joblib.Parallel
+    - Subprocess entrypoint
+    - This is called by a joblib.Parallel
     - The subprocess is recycled between different batch jobs
-
+    - We cache reader Web3 connections between batch jobs
+    - joblib never shuts down this process
     """
     global _reader_instance
 
