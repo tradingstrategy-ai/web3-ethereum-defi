@@ -566,7 +566,7 @@ def format_debug_instructions(bound_call: ContractFunction) -> str:
       "params": [
         {{
           "to": "{contract_address}",
-          "data": "0x{data.hex()}"
+          "data": "{data.hex()}"
         }},
         "latest"
       ],

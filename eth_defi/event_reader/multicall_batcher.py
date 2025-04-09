@@ -688,6 +688,7 @@ class MultiprocessMulticallReader:
         # or we get RPC timeout
         calls_results = []
         payload_size = 0
+        bound_func = None
         for i in range(0, len(encoded_calls), self.chunk_size):
             batch_calls = encoded_calls[i : i + self.chunk_size]
             # Calculate how many bytes we are going to use
@@ -714,10 +715,10 @@ class MultiprocessMulticallReader:
         assert len(encoded_calls) == len(calls_results), f"Calls: {len(encoded_calls)}, results: {len(calls_results)}"
 
         for call, output_tuple in zip(filtered_in_calls, calls_results):
-
             if require_multicall_result:
                 if output_tuple[1] == b"":
-                    raise RuntimeError(f"Multicall failed: {call} at block {block_identifier}")
+                    debug_str = format_debug_instructions(bound_func)
+                    raise RuntimeError(f"Multicall gave empty result: {call} at block {block_identifier}. Debug data is: {debug_str}")
 
             yield EncodedCallResult(
                 call=call,
