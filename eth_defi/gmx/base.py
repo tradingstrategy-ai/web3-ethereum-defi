@@ -38,7 +38,7 @@ class GMXClient:
         self.trading = GMXTrading(config)
         self.order_manager = GMXOrderManager(config)
         self.liquidity_manager = GMXLiquidityManager(config)
-        self.events = GMXEvents(config)
+        # self.events = GMXEvents(config)
         self.api = GMXAPI(config)
 
     def get_chain(self) -> str:

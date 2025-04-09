@@ -4,7 +4,7 @@ GMX Order Management Module
 This module provides functionality for managing orders on GMX.
 """
 
-from typing import Dict, Any, List, Optional, Union
+from typing import Any, Optional
 
 from gmx_python_sdk.scripts.v2.get.get_open_positions import GetOpenPositions
 from gmx_python_sdk.scripts.v2.order.create_decrease_order import DecreaseOrder
@@ -27,7 +27,7 @@ class GMXOrderManager:
         """
         self.config = config
 
-    def get_open_positions(self, address: Optional[str] = None) -> Dict[str, Any]:
+    def get_open_positions(self, address: Optional[str] = None) -> dict[str, Any]:
         """
         Get open positions for a user.
 
