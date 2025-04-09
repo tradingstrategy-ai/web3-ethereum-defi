@@ -175,7 +175,7 @@ class VaultHistoricalRead:
     def export(self) -> dict:
         """Convert historical read for a Parquet/DataFrame export."""
         error_msgs = ", ".join(self.errors) if self.errors else None
-        return {
+        data = {
             "chain": self.vault.chain_id,
             "address": self.vault.address.lower(),
             "block_number": self.block_number,
@@ -187,6 +187,7 @@ class VaultHistoricalRead:
             "management_fee": float(self.management_fee) if self.management_fee is not None else _nan,
             "errors": error_msgs if error_msgs else "",
         }
+        return data
 
     @classmethod
     def to_pyarrow_schema(cls) -> "pyarrow.Schema":

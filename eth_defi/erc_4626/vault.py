@@ -5,6 +5,7 @@ from functools import cached_property
 from typing import Iterable
 
 from eth_typing import HexAddress
+from fontTools.unicodedata import block
 from web3 import Web3
 from web3.contract import Contract
 from web3.types import BlockIdentifier
@@ -93,7 +94,10 @@ class ERC4626HistoricalReader(VaultHistoricalReader):
         )
         yield total_supply
 
-    def process_core_erc_4626_result(self, call_by_name: dict[str, EncodedCallResult]) -> tuple:
+    def process_core_erc_4626_result(
+        self,
+        call_by_name: dict[str, EncodedCallResult],
+    ) -> tuple:
         """Decode common ERC-4626 calls."""
 
         errors = []

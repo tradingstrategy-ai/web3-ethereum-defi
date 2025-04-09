@@ -1,16 +1,18 @@
 """Scan Morpho vault price data"""
 
 import os
-from decimal import Decimal
 from pathlib import Path
 
 import pandas as pd
 import pytest
+from docutils.parsers.rst.roles import raw_role
 
 from web3 import Web3
 
 from eth_defi.erc_4626.classification import create_vault_instance
 from eth_defi.erc_4626.core import ERC4626Feature
+from eth_defi.event_reader.conversion import convert_int256_bytes_to_int
+from eth_defi.event_reader.multicall_batcher import EncodedCall
 from eth_defi.provider.multi_provider import create_multi_provider_web3, MultiProviderWeb3Factory
 from eth_defi.token import TokenDiskCache
 from eth_defi.vault.historical import scan_historical_prices_to_parquet
@@ -54,6 +56,17 @@ def test_steakhouse_usdt(
     start = 19_043_398
     end = 22_196_299
 
+    last_scanned_block = 22_189_798
+
+    # Correct with Tenderly
+    # https://dashboard.tenderly.co/miohtama/test-project/simulator/ccbb66cf-52be-4855-9284-b91a5ac2c08f
+    total_assets = EncodedCall.from_contract_call(
+        steakhouse_usdt.vault_contract.functions.totalAssets(),
+        extra_data={},
+    )
+    raw_result = total_assets.call(web3, block_identifier=last_scanned_block)
+    assert convert_int256_bytes_to_int(raw_result) == 42449976669825
+
     steakhouse_usdt.first_seen_at_block = start
 
     scan_report = scan_historical_prices_to_parquet(
@@ -71,15 +84,17 @@ def test_steakhouse_usdt(
     df = pd.read_parquet(parquet_file)
 
     # Records are not guaranteed to be in specific order, so fix it here
-    df = df.set_index("block_number").sort_index()
+    df = df.set_index("block_number", drop=False).sort_index()
 
     r = df.iloc[-1]
+    # 22_189_798
+    assert r.block_number == last_scanned_block
     assert r.errors == "", f"Got errors: {r.errors}"
     assert r.share_price == pytest.approx(1.077792700142924944038560077)
     assert r.management_fee == 0
     assert r.performance_fee == 0
     assert r.chain == 1
-    assert 1_000_000 < r.total_assets < 100_000_000
+    assert r.total_assets == pytest.approx(42449976.669825)
 
 
 @pytest.mark.skip(reason="No need to implement, the vault seems to read inception APY correctly")

@@ -482,7 +482,8 @@ class EncodedCall:
 
     def call(
         self,
-        web3: Web3, block_identifier: BlockIdentifier,
+        web3: Web3,
+        block_identifier: BlockIdentifier,
         from_=ZERO_ADDRESS_STR,
         gas=75_000_000,
     ) -> bytes:
@@ -516,10 +517,11 @@ class EncodedCall:
             "gas": gas,
         }
         try:
-            return web3.eth.call(
+            result = web3.eth.call(
                 transaction=transaction,
                 block_identifier=block_identifier,
             )
+            return result
         except Exception as e:
             raise ValueError(f"Call failed: {str(e)}\nBlock: {block_identifier}, chain: {web3.eth.chain_id}\nTransaction data:{pformat(transaction)}") from e
 
