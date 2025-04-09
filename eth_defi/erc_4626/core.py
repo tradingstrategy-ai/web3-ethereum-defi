@@ -185,7 +185,7 @@ def get_vault_protocol_name(features: set[ERC4626Feature]) -> str:
     elif ERC4626Feature.term_finance_like in features:
         return "Term Finance"
     elif ERC4626Feature.euler_like in features:
-        return "Euler"
+        return "Euler Vault Kit"
     elif ERC4626Feature.superform_like in features:
         return "Superform"
     elif ERC4626Feature.yearn_compounder_like in features:

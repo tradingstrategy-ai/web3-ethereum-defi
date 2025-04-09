@@ -521,7 +521,7 @@ class EncodedCall:
                 block_identifier=block_identifier,
             )
         except Exception as e:
-            raise ValueError(f"Call failed: {str(e)}\nBlock: {block_identifier}\nTransaction data:{pformat(transaction)}") from e
+            raise ValueError(f"Call failed: {str(e)}\nBlock: {block_identifier}, chain: {web3.eth.chain_id}\nTransaction data:{pformat(transaction)}") from e
 
 
 @dataclass(slots=True, frozen=True)
