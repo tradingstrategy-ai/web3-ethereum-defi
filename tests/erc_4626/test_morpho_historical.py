@@ -40,8 +40,8 @@ def test_steakhouse_usdt(
 
     name = get_provider_name(web3.provider)
     print("RPC name is", name)
-    print("RPC 1 is", JSON_RPC_ETHEREUM[0:10])
-    print("RPC 2 is", JSON_RPC_ETHEREUM_2[0:10])
+    print("RPC 1 is", JSON_RPC_ETHEREUM[0:15])
+    print("RPC 2 is", JSON_RPC_ETHEREUM_2[0:15])
     print("RPC done")
 
     token_cache = TokenDiskCache(tmp_path / "tokens.sqlite")

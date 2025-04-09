@@ -203,6 +203,7 @@ class VaultHistoricalReadMulticaller:
             }
 
         for combined_result in read_multicall_historical(
+            chain_id=chain_id,
             web3factory=self.web3factory,
             calls=calls,
             start_block=start_block,

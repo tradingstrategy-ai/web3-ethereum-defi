@@ -284,6 +284,7 @@ class HypersyncVaultDiscover:
             progress_bar_desc = None
 
         for feature_probe in probe_vaults(
+            chain,
             self.web3factory,
             addresses,
             block_identifier=end_block,

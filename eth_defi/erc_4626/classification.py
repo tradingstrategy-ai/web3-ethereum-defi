@@ -5,6 +5,7 @@
 """
 from collections import defaultdict
 from collections.abc import Iterable
+from itertools import chain
 
 import eth_abi
 from attr import dataclass
@@ -382,6 +383,7 @@ def identify_vault_features(
 
 
 def probe_vaults(
+    chain_id: int,
     web3factory: Web3Factory,
     addresses: list[HexAddress],
     block_identifier: BlockIdentifier,
@@ -394,6 +396,8 @@ def probe_vaults(
         Iterator of what vault smart contract features we detected for each potential vault address
     """
 
+    assert type(chain_id) == int
+
     probe_calls = list(create_probe_calls(addresses))
 
     # Temporary work buffer were we count that all calls to the address have been made,
@@ -401,6 +405,7 @@ def probe_vaults(
     results_per_address: dict[HexAddress, dict] = defaultdict(dict)
 
     for call_result in read_multicall_chunked(
+        chain_id,
         web3factory,
         probe_calls,
         block_identifier=block_identifier,

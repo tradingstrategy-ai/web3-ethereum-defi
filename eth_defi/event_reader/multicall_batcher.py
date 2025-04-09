@@ -605,6 +605,7 @@ class CombinedEncodedCallResult:
 class MultiprocessMulticallReader:
     """An instance created in a subprocess to do calls.
 
+    - Specific to a chain (connection is married with a chain, otherwise stateless)
     - Initialises the web3 connection at the start of the process
     - If you try to read using multicall when the contract is not yet deployed (see :py:func:`get_multicall_block_number`)
       then you get no results
@@ -637,9 +638,6 @@ class MultiprocessMulticallReader:
             threading.current_thread(),
             name,
         )
-
-        print(f"RPC is again: {name}")
-
         self.chunk_size = chunk_size
 
     def get_block_timestamp(self, block_number: int) -> datetime.datetime:
@@ -752,7 +750,11 @@ class MultiprocessMulticallReader:
         logger.info("Multicall result fetch and handling took %s, input was %d bytes, output was %d bytes", duration, payload_size, out_size)
 
 
+_multicall_task_id = 0
+
+
 def read_multicall_historical(
+    chain_id: int,
     web3factory: Web3Factory,
     calls: Iterable[EncodedCall],
     start_block: int,
@@ -768,6 +770,9 @@ def read_multicall_historical(
 
     - Show a progress bar using :py:mod:`tqdm`
 
+    :param chain_id:
+        Diangnostics parameter.
+
     :param display_progress:
         Whether to display progress bar or not.
 
@@ -777,6 +782,7 @@ def read_multicall_historical(
     assert type(start_block) == int, f"Got: {start_block}"
     assert type(end_block) == int, f"Got: {end_block}"
     assert type(step) == int, f"Got: {step}"
+    assert type(chain_id) == int, f"Got: {step}"
 
     worker_processor = Parallel(
         n_jobs=max_workers,
@@ -807,7 +813,7 @@ def read_multicall_historical(
 
     def _task_gen() -> Iterable[MulticallHistoricalTask]:
         for block_number in range(start_block, end_block, step):
-            task = MulticallHistoricalTask(web3factory, block_number, calls_pickle_friendly, require_multicall_result=require_multicall_result)
+            task = MulticallHistoricalTask(_multicall_task_id, web3factory, block_number, calls_pickle_friendly, require_multicall_result=require_multicall_result)
             logger.debug(
                 "Created task for block %d with %d calls",
                 block_number,
@@ -830,6 +836,7 @@ def read_multicall_historical(
 
 
 def read_multicall_chunked(
+    chain_id: int,
     web3factory: Web3Factory,
     calls: list[EncodedCall],
     block_identifier: BlockIdentifier,
@@ -852,6 +859,8 @@ def read_multicall_chunked(
     :param progress_bar_template:
         If set, display a TQDM progress bar for the process.
     """
+
+    assert type(chain_id) == int, f"Got: {chain_id}"
 
     worker_processor = Parallel(
         n_jobs=max_workers,
@@ -877,7 +886,7 @@ def read_multicall_chunked(
     def _task_gen() -> Iterable[MulticallHistoricalTask]:
         for i in range(0, len(calls), chunk_size):
             chunk = calls[i:i + chunk_size]
-            yield MulticallHistoricalTask(web3factory, block_identifier, chunk)
+            yield MulticallHistoricalTask(chain_id, web3factory, block_identifier, chunk)
 
     performed_calls = success_calls = failed_calls = 0
     for completed_task in worker_processor(delayed(_execute_multicall_subprocess)(task) for task in _task_gen()):
@@ -909,6 +918,9 @@ _reader_instance = threading.local()
 class MulticallHistoricalTask:
     """Pickled task send between multicall reader loop and subprocesses."""
 
+    #: Track which chain this call belongs to
+    chain_id: int
+
     #: Used to initialise web3 connection in the subprocess
     web3factory: Web3Factory
 
@@ -935,12 +947,18 @@ def _execute_multicall_subprocess(
 
     reader: MultiprocessMulticallReader
 
-    # Initialise web3 connection when called for the first time
-    if getattr(_reader_instance, "reader", None) is None:
-        reader = _reader_instance.reader = MultiprocessMulticallReader(task.web3factory)
-    else:
-        reader = _reader_instance.reader
+    # Initialise web3 connection when called for the first time.
+    # We will recycle the same connection instance and it is kept open
+    # until shutdown.
+    per_chain_readers = getattr(_reader_instance, "per_chain_readers", None)
+    if per_chain_readers is None:
+        per_chain_readers = _reader_instance.per_chain_readers = {}
 
+    reader = per_chain_readers.get(task.chain_id)
+    if reader is None:
+        reader = per_chain_readers[task.chain_id] = MultiprocessMulticallReader(task.web3factory)
+
+    # Read block timestan for this batch
     timestamp = reader.get_block_timestamp(task.block_number)
 
     # Perform multicall to read share prices

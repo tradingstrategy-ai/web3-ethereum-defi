@@ -88,4 +88,4 @@ def patch_web3(web3: Web3):
 
 def get_last_headers() -> dict:
     """Debug for dRPC."""
-    return last_headers_storage.headers
+    return getattr(last_headers_storage, "headers", {})
