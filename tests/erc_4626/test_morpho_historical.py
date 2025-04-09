@@ -37,7 +37,8 @@ def test_steakhouse_usdt(
     - Caused some data corruption
     """
 
-    assert not "drpc" in get_provider_name(web3.provider)
+    name = get_provider_name(web3.provider)
+    assert "drpc" not in name
 
     token_cache = TokenDiskCache(tmp_path / "tokens.sqlite")
     parquet_file = tmp_path / "prices.parquet"
@@ -81,6 +82,8 @@ def test_steakhouse_usdt(
     )
     raw_result = total_assets.call(web3, block_identifier=last_scanned_block)
     assert convert_int256_bytes_to_int(raw_result) == 42449976669825
+
+
 
     steakhouse_usdt.first_seen_at_block = start
 
