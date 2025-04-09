@@ -85,6 +85,9 @@ jobs:
       - name: dRPC debug step
         run: |
           bash scripts/drpc-debug.sh
+        end:
+          JSON_RPC_ETHEREUM: ${{ secrets.JSON_RPC_ETHEREUM }}
+          JSON_RPC_BASE: ${{ secrets.JSON_RPC_BASE }}
 
       - name: Run tests (parallel)
         run: |

@@ -576,7 +576,7 @@ class EncodedCallResult:
     block_identifier: BlockIdentifier
 
     def __repr__(self):
-        return f"<Call {self.call} at block {self.block_identifier}, success {self.success}, result: {self.result.hex()}>"
+        return f"<Call {self.call} at block {self.block_identifier}, success {self.success}, result: {self.result.hex()}, result len {len(self.result)}>"
 
     def __post_init__(self):
         assert isinstance(self.call, EncodedCall), f"Got: {self.call}"
@@ -690,6 +690,7 @@ class MultiprocessMulticallReader:
         calls_results = []
         payload_size = 0
         bound_func = None
+        batch_results = None
         for i in range(0, len(encoded_calls), self.chunk_size):
             batch_calls = encoded_calls[i : i + self.chunk_size]
             # Calculate how many bytes we are going to use
@@ -707,6 +708,16 @@ class MultiprocessMulticallReader:
             except ValueError as e:
                 debug_data = format_debug_instructions(bound_func)
                 raise ValueError(f"Multicall failed. To simulate:\n{debug_data}") from e
+
+            # Debug flag to diagnose WTF is going on on Github
+            # where calls randomly get empty results
+            if require_multicall_result:
+                for output_tuple in batch_results:
+                    if output_tuple[1] == b"":
+                        debug_str = format_debug_instructions(bound_func)
+                        rpc_name = get_provider_name(multicall_contract.w3.provider)
+                        raise RuntimeError(f"Multicall gave empty result: at block {block_identifier}.\nDebug data is:\n{debug_str}\nRPC is: {rpc_name}\nBatch result: {batch_results}\nBatch calls: {batch_calls}")
+
             calls_results += batch_results
 
         # Calculate byte size of output
@@ -716,12 +727,6 @@ class MultiprocessMulticallReader:
         assert len(encoded_calls) == len(calls_results), f"Calls: {len(encoded_calls)}, results: {len(calls_results)}"
 
         for call, output_tuple in zip(filtered_in_calls, calls_results):
-            if require_multicall_result:
-                if output_tuple[1] == b"":
-                    debug_str = format_debug_instructions(bound_func)
-                    rpc_name = get_provider_name(multicall_contract.w3.provider)
-                    raise RuntimeError(f"Multicall gave empty result: {call} at block {block_identifier}.\nDebug data is:\n{debug_str}\nRPC is: {rpc_name}")
-
             yield EncodedCallResult(
                 call=call,
                 success=output_tuple[0],
