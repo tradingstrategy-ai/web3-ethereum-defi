@@ -247,7 +247,7 @@ def _check_faulty_rpc_response(
         args, block_identifier = params
         if block_identifier != "latest":
             result = resp_data["result"]
-            if result == "0x":
+            if result == "0x" or len(result) == 0:
                 # eth_call returned empty response,
                 # assume node does not have data yet,
                 # switch to another node, wait some extra time
