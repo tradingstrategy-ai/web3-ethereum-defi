@@ -167,8 +167,14 @@ class VaultHistoricalRead:
     #: What was the vault management fee around the time
     management_fee: float | None
 
+    #: Add RPC error messages and such related to this read
+    #:
+    #: Exported as empty string in Parquet if no errors, otherwise concat strings
+    errors: list[str] | None
+
     def export(self) -> dict:
         """Convert historical read for a Parquet/DataFrame export."""
+        error_msgs = ", ".join(self.errors) if self.errors else None
         return {
             "chain": self.vault.chain_id,
             "address": self.vault.address.lower(),
@@ -179,6 +185,7 @@ class VaultHistoricalRead:
             "total_supply": float(self.total_supply) if self.total_supply is not None else _nan,
             "performance_fee": float(self.performance_fee) if self.performance_fee is not None else _nan,
             "management_fee": float(self.management_fee) if self.management_fee is not None else _nan,
+            "errors": error_msgs if error_msgs else "",
         }
 
     @classmethod
@@ -198,6 +205,7 @@ class VaultHistoricalRead:
             ("total_supply", pa.float64()),
             ("performance_fee", pa.float32()),
             ("management_fee", pa.float32()),
+            ("errors", pa.string()),
         ])
         return schema
 

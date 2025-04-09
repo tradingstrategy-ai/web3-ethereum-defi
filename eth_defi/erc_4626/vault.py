@@ -96,6 +96,8 @@ class ERC4626HistoricalReader(VaultHistoricalReader):
     def process_core_erc_4626_result(self, call_by_name: dict[str, EncodedCallResult]) -> tuple:
         """Decode common ERC-4626 calls."""
 
+        errors = []
+
         # Not generated with denomination token is busted
         # assert "share_price" in call_by_name, f"share_price call missing for {self.vault}, we got {list(call_by_name.items())}"
         assert "total_supply" in call_by_name, f"total_supply call missing for {self.vault}, we got {list(call_by_name.items())}"
@@ -105,20 +107,28 @@ class ERC4626HistoricalReader(VaultHistoricalReader):
             raw_total_supply = convert_int256_bytes_to_int(call_by_name["total_supply"].result)
             total_supply = self.vault.share_token.convert_to_decimals(raw_total_supply)
         else:
+            errors.append("total_supply call failed")
             total_supply = None
 
         if self.vault.denomination_token is not None and call_by_name["total_assets"].success:
             raw_total_assets = convert_int256_bytes_to_int(call_by_name["total_assets"].result)
             total_assets = self.vault.denomination_token.convert_to_decimals(raw_total_assets)
         else:
+            errors.append("total_assets call failed")
             total_assets = None
+
+        if total_assets == 0:
+            errors.append("total_assets zero")
+
+        if total_supply == 0:
+            errors.append("total_supply zero")
 
         if total_supply and total_assets:
             share_price = Decimal(total_assets) / Decimal(total_supply)
         else:
             share_price = None
 
-        return share_price, total_assets, total_supply
+        return share_price, total_assets, total_supply, (errors or None)
 
     def dictify_multicall_results(
         self,
@@ -152,7 +162,7 @@ class ERC4626HistoricalReader(VaultHistoricalReader):
         call_by_name = self.dictify_multicall_results(block_number, call_results)
 
         # Decode common variables
-        share_price, total_supply, total_assets = self.process_core_erc_4626_result(call_by_name)
+        share_price, total_supply, total_assets, errors = self.process_core_erc_4626_result(call_by_name)
 
         # Subclass
         return VaultHistoricalRead(
@@ -164,6 +174,7 @@ class ERC4626HistoricalReader(VaultHistoricalReader):
             total_supply=total_supply,
             performance_fee=None,
             management_fee=None,
+            errors=errors or None,
         )
 
 

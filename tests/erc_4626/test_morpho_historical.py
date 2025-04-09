@@ -74,12 +74,12 @@ def test_steakhouse_usdt(
     df = df.set_index("block_number").sort_index()
 
     r = df.iloc[-1]
+    assert r.errors == "", f"Got errors: {r.errors}"
     assert r.share_price == pytest.approx(1.077792700142924944038560077)
     assert r.management_fee == 0
     assert r.performance_fee == 0
     assert r.chain == 1
     assert 1_000_000 < r.total_assets < 100_000_000
-
 
 
 @pytest.mark.skip(reason="No need to implement, the vault seems to read inception APY correctly")

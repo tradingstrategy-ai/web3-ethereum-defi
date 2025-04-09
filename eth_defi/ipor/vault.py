@@ -90,7 +90,7 @@ class IPORVaultHistoricalReader(ERC4626HistoricalReader):
         call_by_name = self.dictify_multicall_results(block_number, call_results)
 
         # Decode common variables
-        share_price, total_supply, total_assets = self.process_core_erc_4626_result(call_by_name)
+        share_price, total_supply, total_assets, errors = self.process_core_erc_4626_result(call_by_name)
         performance_fee, management_fee = self.process_ipor_fee_result(call_by_name)
 
         # Subclass
@@ -103,6 +103,7 @@ class IPORVaultHistoricalReader(ERC4626HistoricalReader):
             total_supply=total_supply,
             performance_fee=performance_fee,
             management_fee=management_fee,
+            errors=errors,
         )
 
 
