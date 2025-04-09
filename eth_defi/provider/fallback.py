@@ -255,7 +255,8 @@ def _check_faulty_rpc_response(
                 # switch to another node, wait some extra time
                 # to ensure it gets blocks
                 # current_sleep = max(self.state_missing_switch_over_delay, current_sleep)
-                raise ProbablyNodeHasNoBlock(f"Empty 0x response for a smart contract call. Node lacked state data when doing eth_call for block {block_identifier}?")
+                headers = get_last_headers()
+                raise ProbablyNodeHasNoBlock(f"Empty 0x response for a smart contract call. Node lacked state data when doing eth_call for block {block_identifier}?\nLast response headers\n{pformat(headers)}")
 
     # BlockNotFound exception gets applied only later with the formatters,
     # so we need to trigger fallover here.

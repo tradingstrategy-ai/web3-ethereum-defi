@@ -18,7 +18,7 @@ from eth_defi.token import TokenDiskCache
 from eth_defi.vault.historical import scan_historical_prices_to_parquet
 
 JSON_RPC_ETHEREUM = os.environ.get("JSON_RPC_ETHEREUM")
-JSON_RPC_ETHEREUM_2 = os.environ.get("JSON_RPC_ETHEREUM_2")
+JSON_RPC_ETHEREUM_2 = os.environ.get("JSON_RPC_ETHEREUM_2", "")
 
 pytestmark = pytest.mark.skipif(JSON_RPC_ETHEREUM is None, reason="JSON_RPC_ETHEREUM needed to run these tests")
 
