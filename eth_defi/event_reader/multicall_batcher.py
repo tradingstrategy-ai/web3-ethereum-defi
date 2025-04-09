@@ -20,7 +20,6 @@ from itertools import islice
 from pprint import pformat
 from typing import TypeAlias, Iterable, Generator, Hashable, Any, Final, Callable
 
-from fontTools.unicodedata import block
 from tqdm_loggable.auto import tqdm
 
 from eth_typing import HexAddress, BlockIdentifier, BlockNumber
@@ -53,6 +52,10 @@ MUTLICALL_DEPLOYED_AT: Final[dict[int, tuple[BlockNumber, datetime.datetime]]] =
     43114: (11_907_934, datetime.datetime(2022, 3, 9, 23, 11, 52)),  # Ava
     42161: (7_654_707, datetime.datetime(2022, 3, 9, 16, 5, 28)),  # Arbitrum
 }
+
+
+class MulticallStateProblem(Exception):
+    """TODO"""
 
 
 def get_multicall_block_number(chain_id: int) -> int | None:
@@ -617,17 +620,23 @@ class MultiprocessMulticallReader:
             Manually tuned number if your RPC nodes start to crap out, as they hit their internal time limits.
 
         """
-        logger.info(
-            "Initialising multiprocess multicall handler, process %s, thread %s",
-            os.getpid(),
-            threading.current_thread(),
-        )
         if isinstance(web3factory, Web3):
             # Directly passed
             self.web3 = web3factory
         else:
             # Construct new RPC connection in every subprocess
             self.web3 = web3factory()
+
+        name = get_provider_name(self.web3.provider)
+
+        logger.info(
+            "Initialising multiprocess multicall handler, process %s, thread %s, provider %s",
+            os.getpid(),
+            threading.current_thread(),
+            name,
+        )
+
+        print(f"RPC is again: {name}")
 
         self.chunk_size = chunk_size
 
@@ -932,14 +941,18 @@ def _execute_multicall_subprocess(
     timestamp = reader.get_block_timestamp(task.block_number)
 
     # Perform multicall to read share prices
-    call_results = reader.process_calls(
-        task.block_number,
-        task.calls,
-        require_multicall_result=task.require_multicall_result,
-    )
-    # Pass results back to the main process
-    return CombinedEncodedCallResult(
-        block_number=task.block_number,
-        timestamp=timestamp,
-        results=[c for c in call_results],
-    )
+    for attempt in range(1, 5):
+        try:
+            call_results = reader.process_calls(
+                task.block_number,
+                task.calls,
+                require_multicall_result=task.require_multicall_result,
+            )
+            # Pass results back to the main process
+            return CombinedEncodedCallResult(
+                block_number=task.block_number,
+                timestamp=timestamp,
+                results=[c for c in call_results],
+            )
+        except MulticallStateProblem:
+            logger.warning("Multicall attempt %d", attempt)
