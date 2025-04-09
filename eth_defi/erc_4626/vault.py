@@ -132,7 +132,7 @@ class ERC4626HistoricalReader(VaultHistoricalReader):
         else:
             share_price = None
 
-        return share_price, total_assets, total_supply, (errors or None)
+        return share_price, total_supply, total_assets, (errors or None)
 
     def dictify_multicall_results(
         self,
@@ -164,12 +164,10 @@ class ERC4626HistoricalReader(VaultHistoricalReader):
     ) -> VaultHistoricalRead:
 
         call_by_name = self.dictify_multicall_results(block_number, call_results)
+        assert all(c.block_identifier == block_number for c in call_by_name.values()), "Sanity check for call block numbering"
 
         # Decode common variables
         share_price, total_supply, total_assets, errors = self.process_core_erc_4626_result(call_by_name)
-
-        if block_number == 22_196_299:
-            import ipdb ; ipdb.set_trace()
 
         # Subclass
         return VaultHistoricalRead(

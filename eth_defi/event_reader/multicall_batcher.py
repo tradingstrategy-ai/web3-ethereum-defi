@@ -547,6 +547,7 @@ class EncodedCallResult:
     call: EncodedCall
     success: bool
     result: bytes
+    block_identifier: BlockIdentifier
 
     def __post_init__(self):
         assert isinstance(self.call, EncodedCall), f"Got: {self.call}"
@@ -688,6 +689,7 @@ class MultiprocessMulticallReader:
                 call=call,
                 success=output_tuple[0],
                 result=output_tuple[1],
+                block_identifier=block_identifier,
             )
 
         # User friendly logging

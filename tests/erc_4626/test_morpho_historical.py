@@ -40,6 +40,8 @@ def test_steakhouse_usdt(
     token_cache = TokenDiskCache(tmp_path / "tokens.sqlite")
     parquet_file = tmp_path / "prices.parquet"
 
+    assert not parquet_file.exists()
+
     # https://etherscan.io/address/0xbEef047a543E45807105E51A8BBEFCc5950fcfBa#code
     # https://app.morpho.org/ethereum/vault/0xbEef047a543E45807105E51A8BBEFCc5950fcfBa/steakhouse-usdt
     steakhouse_usdt = create_vault_instance(
@@ -78,7 +80,6 @@ def test_steakhouse_usdt(
         end_block=end,
         step=24*3600 // 12,
         token_cache=token_cache,
-        max_workers=1,
     )
     assert scan_report["rows_written"] == 438
 

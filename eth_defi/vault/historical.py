@@ -214,6 +214,7 @@ class VaultHistoricalReadMulticaller:
 
             # Transform single multicall call results to calls batched by vault-results
             block_number = combined_result.block_number
+            assert all(c.block_identifier == block_number for c in combined_result.results), "Sanity check we do not mis-assign block numbers"
             timestamp = combined_result.timestamp
             logger.debug(
                 "Got %d call results for block %s",
