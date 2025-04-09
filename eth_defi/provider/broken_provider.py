@@ -9,6 +9,7 @@ See also
 - :py:mod:`eth_defi.provider.ankr`
 
 """
+
 from eth_defi.provider.ankr import is_ankr
 from web3 import Web3
 
@@ -114,3 +115,5 @@ def get_almost_latest_block_number(web3: Web3) -> int:
 
     """
     return max(1, web3.eth.block_number - get_block_tip_latency(web3))
+
+

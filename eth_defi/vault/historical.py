@@ -59,6 +59,7 @@ class VaultHistoricalReadMulticaller:
         supported_quote_tokens=set[TokenDetails] | None,
         max_workers=8,
         token_cache=None,
+        require_multicall_result=False,
     ):
         """
         :param supported_quote_tokens:
@@ -77,6 +78,7 @@ class VaultHistoricalReadMulticaller:
             token_cache = TokenDiskCache()
 
         self.token_cache = token_cache
+        self.require_multicall_result = require_multicall_result
 
     def validate_vaults(
         self,
@@ -105,7 +107,8 @@ class VaultHistoricalReadMulticaller:
 
     def _prepare_multicalls(self, reader: VaultHistoricalReader) -> Iterable[EncodedCall]:
         """Run in subprocess"""
-        yield from list(reader.construct_multicalls())
+        calls = list(reader.construct_multicalls())
+        return calls
 
     def prepare_readers(
         self,
@@ -200,6 +203,7 @@ class VaultHistoricalReadMulticaller:
             }
 
         for combined_result in read_multicall_historical(
+            chain_id=chain_id,
             web3factory=self.web3factory,
             calls=calls,
             start_block=start_block,
@@ -208,12 +212,14 @@ class VaultHistoricalReadMulticaller:
             display_progress=f"Reading historical vault price data for chain {chain_id} with {self.max_workers} workers, blocks {start_block:,} - {end_block:,}",
             max_workers=self.max_workers,
             progress_suffix=progress_bar_suffix,
+            require_multicall_result=self.require_multicall_result,
             ):
 
             active_vault_set.clear()
 
             # Transform single multicall call results to calls batched by vault-results
             block_number = combined_result.block_number
+            assert all(c.block_identifier == block_number for c in combined_result.results), "Sanity check we do not mis-assign block numbers"
             timestamp = combined_result.timestamp
             logger.debug(
                 "Got %d call results for block %s",
@@ -245,6 +251,7 @@ def scan_historical_prices_to_parquet(
     chunk_size=1024,
     compression="zstd",
     max_workers=8,
+    require_multicall_result=False,
 ) -> ParquetScanResult:
     """Scan all historical vault share prices of vaults and save them in to Parquet file.
 
@@ -324,6 +331,7 @@ def scan_historical_prices_to_parquet(
         supported_quote_tokens=None,
         max_workers=max_workers,
         token_cache=token_cache,
+        require_multicall_result=require_multicall_result,
     )
 
     # Note this is an approx,

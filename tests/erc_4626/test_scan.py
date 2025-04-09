@@ -56,3 +56,44 @@ def test_4626_scan(web3):
     assert len(rows) == 24
     assert rows[0]["Name"] == "FARM_BSWAP-LP"
     assert rows[0]["Address"] == "0x127dc157aF74858b36bcca07D5A02ef27Cd442d0".lower()
+
+
+def test_4626_scan_moonwell(web3):
+    """Test against good known Moonwell USDC vault on Base.
+
+    Scan NAV at a specific block to know NAV reads are good.
+    """
+
+    web3 = create_multi_provider_web3(JSON_RPC_BASE)
+    web3factory = MultiProviderWeb3Factory(JSON_RPC_BASE)
+
+    hypersync_url = get_hypersync_server(web3)
+    client = hypersync.HypersyncClient(hypersync.ClientConfig(url=hypersync_url))
+
+    start_block = 15_620_448
+    end_block = 15_968_629
+
+    # Create a scanner that uses web3, HyperSync and subprocesses
+    vault_discover = HypersyncVaultDiscover(
+        web3,
+        web3factory,
+        client,
+    )
+
+    # Perform vault discovery and categorisation,
+    # so we get information which address contains which kind of a vault
+    vault_detections = list(vault_discover.scan_vaults(start_block, end_block, display_progress=True))
+
+    # Prepare data export by reading further per-vault data using multiprocessing
+    worker_processor = Parallel(n_jobs=vault_discover.max_workers)
+
+    # Quite a mouthful line to create a row of output for each vault detection using subproces pool
+    scan_block = 28_698_633
+    rows = worker_processor(delayed(create_vault_scan_record_subprocess)(web3factory, d, scan_block) for d in vault_detections)
+    rows.sort(key=lambda x: x["Address"])
+
+    assert len(rows) == 73
+    moonwell = [r for r in rows if r["Name"] == "Moonwell Flagship USDC"][0]
+    assert 29_000_000 < moonwell["NAV"] < 31_000_000
+
+

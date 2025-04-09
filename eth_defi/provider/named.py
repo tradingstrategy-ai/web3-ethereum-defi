@@ -57,6 +57,12 @@ def get_provider_name(provider: BaseProvider) -> str:
     Supports :py:mod:`eth_defi` customer provider classes
     as well as :py:mod:`web3` core providers.
 
+    Example:
+
+    .. code-block:: python
+
+        print(get_provider_name(web3.provider))
+
     :return:
         HTTP provider URL's domain name if available.
 

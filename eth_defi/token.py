@@ -854,6 +854,7 @@ class TokenDiskCache(PersistentKeyValueStore):
         results_per_address: dict[HexAddress, dict] = defaultdict(dict)
 
         for call_result in read_multicall_chunked(
+            chain_id,
             web3factory,
             encoded_calls,
             block_identifier=block_identifier,

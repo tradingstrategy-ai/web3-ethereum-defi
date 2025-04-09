@@ -89,7 +89,7 @@ jobs:
           BNB_CHAIN_JSON_RPC: ${{ secrets.BNB_CHAIN_JSON_RPC }}
           JSON_RPC_POLYGON_ARCHIVE: ${{ secrets.JSON_RPC_POLYGON_ARCHIVE }}
           JSON_RPC_POLYGON: ${{ secrets.JSON_RPC_POLYGON }}
-          JSON_RPC_ETHEREUM: ${{ secrets.JSON_RPC_ETHEREUM }}
+          JSON_RPC_ETHEREUM: ${{ secrets.JSON_RPC_ETHEREUM_2 }}
           JSON_RPC_BASE: ${{ secrets.JSON_RPC_BASE }}
           ETHEREUM_JSON_RPC: ${{ secrets.JSON_RPC_ETHEREUM }}
           GOOGLE_CLOUD_PROJECT: ${{ secrets.GOOGLE_CLOUD_PROJECT }}
