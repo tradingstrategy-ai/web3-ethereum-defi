@@ -168,6 +168,9 @@ class ERC4626HistoricalReader(VaultHistoricalReader):
         # Decode common variables
         share_price, total_supply, total_assets, errors = self.process_core_erc_4626_result(call_by_name)
 
+        if block_number == 22_196_299:
+            import ipdb ; ipdb.set_trace()
+
         # Subclass
         return VaultHistoricalRead(
             vault=self.vault,

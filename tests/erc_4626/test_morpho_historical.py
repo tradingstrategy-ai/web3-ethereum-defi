@@ -78,6 +78,7 @@ def test_steakhouse_usdt(
         end_block=end,
         step=24*3600 // 12,
         token_cache=token_cache,
+        max_workers=1,
     )
     assert scan_report["rows_written"] == 438
 
