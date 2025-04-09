@@ -4,6 +4,7 @@ Monkey-patches JSON decoder to use ujson.
 """
 
 import logging
+import threading
 from json import JSONDecodeError
 from typing import Any, cast
 
@@ -15,6 +16,9 @@ from web3.providers.rpc import HTTPProvider
 from web3.types import RPCEndpoint, RPCResponse
 
 logger = logging.getLogger(__name__)
+
+
+last_headers_storage = threading.local()
 
 
 class PartialHttpResponseException(JSONDecodeError):
@@ -45,7 +49,10 @@ def _make_request(self, method: RPCEndpoint, params: Any) -> RPCResponse:
     raw_response.raise_for_status()
 
     try:
-        return _fast_decode_rpc_response(raw_response.content)
+        decoded = _fast_decode_rpc_response(raw_response.content)
+        # Pass dRPC / etc upstream RPC headers all along for debug
+        last_headers_storage.headers = raw_response.headers
+        return decoded
     except Exception as e:
         logger.error(
             "Unexpected decode RPC response error: %s, current provider ID is %s",
@@ -77,3 +84,8 @@ def patch_web3(web3: Web3):
         patch_web3(web3)
     """
     patch_provider(web3.provider)
+
+
+def get_last_headers() -> dict:
+    """Debug for dRPC."""
+    return last_headers_storage.headers

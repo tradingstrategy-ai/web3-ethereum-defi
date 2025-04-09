@@ -14,7 +14,7 @@ import datetime
 import logging
 import os
 import threading
-import time
+
 from abc import abstractmethod
 from dataclasses import dataclass
 from itertools import islice
@@ -30,6 +30,7 @@ from web3.contract import Contract
 from web3.contract.contract import ContractFunction
 
 from eth_defi.abi import get_deployed_contract, ZERO_ADDRESS, encode_function_call, ZERO_ADDRESS_STR, format_debug_instructions
+from eth_defi.event_reader.fast_json_rpc import get_last_headers
 from eth_defi.event_reader.web3factory import Web3Factory
 from eth_defi.provider.named import get_provider_name
 from eth_defi.timestamp import get_block_timestamp
@@ -727,7 +728,8 @@ class MultiprocessMulticallReader:
                     if output_tuple[1] == b"":
                         debug_str = format_debug_instructions(bound_func, block_identifier=block_identifier)
                         rpc_name = get_provider_name(multicall_contract.w3.provider)
-                        raise MulticallStateProblem(f"Multicall gave empty result: at block {block_identifier}.\nDebug data is:\n{debug_str}\nRPC is: {rpc_name}\nBatch result: {batch_results}\nBatch calls: {batch_calls}\nReceived block number: {received_block_number}")
+                        last_headers = get_last_headers()
+                        raise MulticallStateProblem(f"Multicall gave empty result: at block {block_identifier}.\nDebug data is:\n{debug_str}\nRPC is: {rpc_name}\nBatch result: {batch_results}\nBatch calls: {batch_calls}\nReceived block number: {received_block_number}\nResponse headers: {pformat(last_headers)}")
 
             calls_results += batch_results
 
@@ -941,24 +943,15 @@ def _execute_multicall_subprocess(
 
     timestamp = reader.get_block_timestamp(task.block_number)
 
-    sleep = 3.0
-
     # Perform multicall to read share prices
-    for attempt in range(1, 5):
-        try:
-            call_results = reader.process_calls(
-                task.block_number,
-                task.calls,
-                require_multicall_result=task.require_multicall_result,
-            )
-            # Pass results back to the main process
-            return CombinedEncodedCallResult(
-                block_number=task.block_number,
-                timestamp=timestamp,
-                results=[c for c in call_results],
-            )
-        except MulticallStateProblem as e:
-            logger.warning("Multicall attempt %d: %s", attempt, e)
-            time.sleep(sleep)
-
-    raise RuntimeError("Out of multicall fix attempts")
+    call_results = reader.process_calls(
+        task.block_number,
+        task.calls,
+        require_multicall_result=task.require_multicall_result,
+    )
+    # Pass results back to the main process
+    return CombinedEncodedCallResult(
+        block_number=task.block_number,
+        timestamp=timestamp,
+        results=[c for c in call_results],
+    )

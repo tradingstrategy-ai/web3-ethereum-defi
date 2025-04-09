@@ -9,8 +9,14 @@ See also
 - :py:mod:`eth_defi.provider.ankr`
 
 """
+from typing import Any
+
+from scipy.signal import dbode
+from web3._utils.request import make_post_request
+from web3.types import RPCEndpoint, RPCResponse
+
 from eth_defi.provider.ankr import is_ankr
-from web3 import Web3
+from web3 import Web3, HTTPProvider
 
 from eth_defi.provider.fallback import FallbackProvider
 from eth_defi.provider.mev_blocker import MEVBlockerProvider
@@ -114,3 +120,5 @@ def get_almost_latest_block_number(web3: Web3) -> int:
 
     """
     return max(1, web3.eth.block_number - get_block_tip_latency(web3))
+
+

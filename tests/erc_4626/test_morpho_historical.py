@@ -40,6 +40,9 @@ def test_steakhouse_usdt(
     name = get_provider_name(web3.provider)
     print("RPC is", name)
 
+    import ipdb ; ipdb.set_trace()
+    web3.eth.block_number
+
     token_cache = TokenDiskCache(tmp_path / "tokens.sqlite")
     parquet_file = tmp_path / "prices.parquet"
 
