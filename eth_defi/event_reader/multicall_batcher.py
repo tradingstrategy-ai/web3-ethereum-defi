@@ -757,9 +757,6 @@ class MultiprocessMulticallReader:
         logger.info("Multicall result fetch and handling took %s, input was %d bytes, output was %d bytes", duration, payload_size, out_size)
 
 
-_multicall_task_id = 0
-
-
 def read_multicall_historical(
     chain_id: int,
     web3factory: Web3Factory,
@@ -844,7 +841,7 @@ def read_multicall_historical(
 
     def _task_gen() -> Iterable[MulticallHistoricalTask]:
         for block_number in range(start_block, end_block, step):
-            task = MulticallHistoricalTask(_multicall_task_id, web3factory, block_number, calls_pickle_friendly, require_multicall_result=require_multicall_result)
+            task = MulticallHistoricalTask(task.chain_id, web3factory, block_number, calls_pickle_friendly, require_multicall_result=require_multicall_result)
             logger.debug(
                 "Created task for block %d with %d calls",
                 block_number,
