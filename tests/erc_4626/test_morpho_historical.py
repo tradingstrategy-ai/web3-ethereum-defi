@@ -18,6 +18,7 @@ from eth_defi.token import TokenDiskCache
 from eth_defi.vault.historical import scan_historical_prices_to_parquet
 
 JSON_RPC_ETHEREUM = os.environ.get("JSON_RPC_ETHEREUM")
+JSON_RPC_ETHEREUM_2 = os.environ.get("JSON_RPC_ETHEREUM_2")
 
 pytestmark = pytest.mark.skipif(JSON_RPC_ETHEREUM is None, reason="JSON_RPC_ETHEREUM needed to run these tests")
 
@@ -39,6 +40,8 @@ def test_steakhouse_usdt(
 
     name = get_provider_name(web3.provider)
     print("RPC is", name)
+    print("RPC 1 is", JSON_RPC_ETHEREUM[0:16])
+    print("RPC 2 is", JSON_RPC_ETHEREUM_2[0:16])
 
     token_cache = TokenDiskCache(tmp_path / "tokens.sqlite")
     parquet_file = tmp_path / "prices.parquet"
@@ -82,8 +85,6 @@ def test_steakhouse_usdt(
     )
     raw_result = total_assets.call(web3, block_identifier=last_scanned_block)
     assert convert_int256_bytes_to_int(raw_result) == 42449976669825
-
-
 
     steakhouse_usdt.first_seen_at_block = start
 

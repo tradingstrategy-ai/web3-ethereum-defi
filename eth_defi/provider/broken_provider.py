@@ -9,14 +9,9 @@ See also
 - :py:mod:`eth_defi.provider.ankr`
 
 """
-from typing import Any
-
-from scipy.signal import dbode
-from web3._utils.request import make_post_request
-from web3.types import RPCEndpoint, RPCResponse
 
 from eth_defi.provider.ankr import is_ankr
-from web3 import Web3, HTTPProvider
+from web3 import Web3
 
 from eth_defi.provider.fallback import FallbackProvider
 from eth_defi.provider.mev_blocker import MEVBlockerProvider
