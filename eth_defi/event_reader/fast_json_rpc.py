@@ -87,5 +87,15 @@ def patch_web3(web3: Web3):
 
 
 def get_last_headers() -> dict:
-    """Debug for dRPC."""
+    """Debug for dRPC.
+
+    Example output:
+
+    .. code-block:: plain
+
+        {'Date': 'Wed, 09 Apr 2025 14:56:48 GMT', 'Content-Type': 'application/json', 'Content-Length': '112', 'Connection': 'keep-alive', 'access-control-allow-origin': '*', 'Content-Encoding': 'gzip', 'vary': 'Accept-Encoding', 'x-drpc-owner-id': '2580e13b-d8a6-48a3-bdaa-67bc5972c7f5', 'x-drpc-owner-tier': 'paid', 'x-drpc-provider-id': 'drpc-core-free', 'x-drpc-trace-id': '3ac007d0de35bae3d390789476db31cd', 'strict-transport-security': 'max-age=31536000; includeSubDomains', 'cf-cache-status': 'DYNAMIC', 'Server': 'cloudflare', 'CF-RAY': '92dada6e5a7aed3f-SJC'}
+
+    :return:
+        Last HTTP reply headers from the JSON-RPC call.
+    """
     return getattr(last_headers_storage, "headers", {})
