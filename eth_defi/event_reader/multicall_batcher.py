@@ -637,6 +637,7 @@ class MultiprocessMulticallReader:
         self,
         block_identifier: BlockIdentifier,
         calls: list[EncodedCall],
+        require_multicall_result=False,
     ) -> Iterable[EncodedCallResult]:
         """Work a chunk of calls in the subprocess."""
 
@@ -713,6 +714,11 @@ class MultiprocessMulticallReader:
         assert len(encoded_calls) == len(calls_results), f"Calls: {len(encoded_calls)}, results: {len(calls_results)}"
 
         for call, output_tuple in zip(filtered_in_calls, calls_results):
+
+            if require_multicall_result:
+                if output_tuple[1] == b"":
+                    raise RuntimeError(f"Multicall failed: {call} at block {block_identifier}")
+
             yield EncodedCallResult(
                 call=call,
                 success=output_tuple[0],
@@ -735,6 +741,7 @@ def read_multicall_historical(
     timeout=1800,
     display_progress: bool | str = True,
     progress_suffix: Callable | None = None,
+    require_multicall_result=False,
 ) -> Iterable[CombinedEncodedCallResult]:
     """Read historical data using multiple threads in parallel for speedup.
 
@@ -779,7 +786,7 @@ def read_multicall_historical(
 
     def _task_gen() -> Iterable[MulticallHistoricalTask]:
         for block_number in range(start_block, end_block, step):
-            task = MulticallHistoricalTask(web3factory, block_number, calls_pickle_friendly)
+            task = MulticallHistoricalTask(web3factory, block_number, calls_pickle_friendly, require_multicall_result=require_multicall_result)
             logger.debug(
                 "Created task for block %d with %d calls",
                 block_number,
@@ -890,6 +897,8 @@ class MulticallHistoricalTask:
     # Multicalls to perform
     calls: list[EncodedCall]
 
+    require_multicall_result: bool = False
+
     def __post_init__(self):
         assert callable(self.web3factory)
         assert type(self.block_number) in (int, str), f"Got: {self.block_number}"
@@ -917,6 +926,7 @@ def _execute_multicall_subprocess(
     call_results = reader.process_calls(
         task.block_number,
         task.calls,
+        require_multicall_result=task.require_multicall_result,
     )
     # Pass results back to the main process
     return CombinedEncodedCallResult(
