@@ -25,7 +25,7 @@ pytestmark = pytest.mark.skipif(JSON_RPC_ETHEREUM is None, reason="JSON_RPC_ETHE
 
 @pytest.fixture(scope='module')
 def web3() -> Web3:
-    web3 = create_multi_provider_web3(JSON_RPC_ETHEREUM_2)
+    web3 = create_multi_provider_web3(JSON_RPC_ETHEREUM)
     return web3
 
 
@@ -92,7 +92,7 @@ def test_steakhouse_usdt(
     scan_report = scan_historical_prices_to_parquet(
         output_fname=parquet_file,
         web3=web3,
-        web3factory=MultiProviderWeb3Factory(JSON_RPC_ETHEREUM_2),
+        web3factory=MultiProviderWeb3Factory(JSON_RPC_ETHEREUM_2 if JSON_RPC_ETHEREUM_2 else JSON_RPC_ETHEREUM),
         vaults=vaults,
         start_block=start,
         end_block=end,

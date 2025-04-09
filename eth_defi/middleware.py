@@ -13,6 +13,7 @@ Most are for dealing with JSON-RPC unreliability issues with retries.
 
 import logging
 import time
+from pprint import pformat
 from typing import (
     Any,
     Callable,
@@ -38,6 +39,8 @@ from web3._utils.transactions import get_buffered_gas_estimate
 from web3.exceptions import BlockNotFound, ContractLogicError
 from web3.middleware.exception_retry_request import check_if_retry_on_failure
 from web3.types import Middleware, RPCEndpoint, RPCResponse
+
+from eth_defi.event_reader.fast_json_rpc import get_last_headers
 
 logger = logging.getLogger(__name__)
 
@@ -291,7 +294,15 @@ def exception_retry_middleware(
                         retryable_exceptions=retryable_exceptions,
                     ):
                         if i < retries - 1:
-                            logger.warning("Encountered JSON-RPC retryable error %s when calling method %s, retrying in %f seconds, retry #%d", e, method, current_sleep, i)
+                            headers = get_last_headers()
+                            logger.warning(
+                                "Encountered JSON-RPC retryable error %s when calling method %s, retrying in %f seconds, retry #%d\nHeaders are: %s",
+                                e,
+                                method,
+                                current_sleep,
+                                i,
+                                pformat(headers),
+                            )
                             time.sleep(current_sleep)
                             current_sleep *= backoff
                             continue

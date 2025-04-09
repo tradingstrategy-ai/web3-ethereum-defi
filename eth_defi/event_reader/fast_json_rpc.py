@@ -51,7 +51,7 @@ def _make_request(self, method: RPCEndpoint, params: Any) -> RPCResponse:
     try:
         decoded = _fast_decode_rpc_response(raw_response.content)
         # Pass dRPC / etc upstream RPC headers all along for debug
-        last_headers_storage.headers = raw_response.headers
+        last_headers_storage.headers = {k: v for k, v in raw_response.headers.items()}
         return decoded
     except Exception as e:
         logger.error(
