@@ -5,7 +5,6 @@ from pathlib import Path
 
 import pandas as pd
 import pytest
-from docutils.parsers.rst.roles import raw_role
 
 from web3 import Web3
 
@@ -42,6 +41,7 @@ def test_steakhouse_usdt(
 
     assert not parquet_file.exists()
 
+    # Deployed at 19_043_398
     # https://etherscan.io/address/0xbEef047a543E45807105E51A8BBEFCc5950fcfBa#code
     # https://app.morpho.org/ethereum/vault/0xbEef047a543E45807105E51A8BBEFCc5950fcfBa/steakhouse-usdt
     steakhouse_usdt = create_vault_instance(
