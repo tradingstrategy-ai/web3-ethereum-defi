@@ -43,6 +43,14 @@ def create_probe_calls(
     # TODO: Might be bit slowish here, but we are not perf intensive
     for address in addresses:
 
+        bad_probe_call = EncodedCall.from_keccak_signature(
+            address=address,
+            signature=Web3.keccak(text="EVM IS BROKEN SHIT()")[0:4],
+            function="EVM IS BROKEN SHIT",
+            data=b"",
+            extra_data=None,
+        )
+
         name_call = EncodedCall.from_keccak_signature(
             address=address,
             signature=Web3.keccak(text="name()")[0:4],
@@ -183,22 +191,39 @@ def create_probe_calls(
         )
 
         # Written in Vyper
-        # totalIdle()
+        # isShutdown()
         # https://polygonscan.com/address/0xa013fbd4b711f9ded6fb09c1c0d358e2fbc2eaa0#readContract
         yearn_v3_call = EncodedCall.from_keccak_signature(
             address=address,
-            signature=Web3.keccak(text="totalIdle()")[0:4],
-            function="totalIdle",
+            signature=Web3.keccak(text="get_default_queue()")[0:4],
+            function="get_default_queue",
             data=b"",
             extra_data=None,
         )
 
+        # https://basescan.org/address/0x84d7549557f0fb69efbd1229d8e2f350b483c09b#readContract
+        superform_call = EncodedCall.from_keccak_signature(
+            address=address,
+            signature=Web3.keccak(text="THIS_CHAIN_ID()")[0:4],
+            function="THIS_CHAIN_ID",
+            data=b"",
+            extra_data=None,
+        )
+
+        # https://etherscan.io//address/0x862c57d48becB45583AEbA3f489696D22466Ca1b#readProxyContract
+        superform_call_2 = EncodedCall.from_keccak_signature(
+            address=address,
+            signature=Web3.keccak(text="METADEPOSIT_TYPEHASH()")[0:4],
+            function="METADEPOSIT_TYPEHASH",
+            data=b"",
+            extra_data=None,
+        )
         # profitMaxUnlockTime()
         # https://etherscan.io/address/0xa10c40f9e318b0ed67ecc3499d702d8db9437228#readProxyContract
         term_finance_call = EncodedCall.from_keccak_signature(
             address=address,
-            signature=Web3.keccak(text="profitMaxUnlockTime()")[0:4],
-            function="profitMaxUnlockTime",
+            signature=Web3.keccak(text="repoTokenHoldings()")[0:4],
+            function="repoTokenHoldings",
             data=b"",
             extra_data=None,
         )
@@ -213,6 +238,7 @@ def create_probe_calls(
             extra_data=None,
         )
 
+        yield bad_probe_call
         yield name_call
         yield share_price_call
         yield ipor_fee_call
@@ -228,6 +254,8 @@ def create_probe_calls(
         yield lagoon_call
         yield yearn_call
         yield yearn_v3_call
+        yield superform_call
+        yield superform_call_2
         yield term_finance_call
         yield euler_call
 
@@ -240,9 +268,34 @@ def identify_vault_features(
 
     features = set()
 
+    # Example probe list
+    #
+    # EVM IS BROKEN SHIT False
+    # name True
+    # convertToShares True
+    # getPerformanceFeeData False
+    # vaultFractionToInvestDenominator False
+    # isOperator False
+    # outputToLp0Route False
+    # agent False
+    # depositCap False
+    # MORPHO False
+    # share False
+    # additionalRewardsStrategy False
+    # MAX_MANAGEMENT_RATE False
+    # GOV False
+    # isShutdown False
+    # THIS_CHAIN_ID False
+    # METADEPOSIT_TYPEHASH False
+    # profitMaxUnlockTime True
+    # MODULE_VAULT False
+
     # Should return uint256 share count. Broken proxies may return 0x or similar response.
     if not calls["convertToShares"].success and len(calls["convertToShares"].result) != 32:
         # Not ERC-4626 vault
+        return {ERC4626Feature.broken}
+
+    if calls["EVM IS BROKEN SHIT"].success:
         return {ERC4626Feature.broken}
 
     if calls["getPerformanceFeeData"].success and len(calls["getPerformanceFeeData"].result) == 64:
@@ -283,10 +336,13 @@ def identify_vault_features(
     if calls["GOV"].success:
         features.add(ERC4626Feature.yearn_compounder_like)
 
-    if calls["totalIdle"].success:
+    if calls["get_default_queue"].success:
         features.add(ERC4626Feature.yearn_v3_like)
 
-    if calls["profitMaxUnlockTime"].success:
+    if calls["THIS_CHAIN_ID"].success or calls["METADEPOSIT_TYPEHASH"].success:
+        features.add(ERC4626Feature.superform_like)
+
+    if calls["repoTokenHoldings"].success:
         features.add(ERC4626Feature.term_finance_like)
 
     if calls["MODULE_VAULT"].success:

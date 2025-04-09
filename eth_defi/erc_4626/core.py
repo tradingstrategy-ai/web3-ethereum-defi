@@ -115,12 +115,25 @@ class ERC4626Feature(enum.Enum):
     #: https://etherscan.io/address/0xa10c40f9e318b0ed67ecc3499d702d8db9437228#readProxyContract
     yearn_v3_like = "yearn_v3_like"
 
+    #: Superform
+    #: Metavault - cross-chain yield.
+    #: https://www.superform.xyz/vault/BB5FPH0VNwM1AxdvVnhn8/
+    #: Non-metavault?
+    #: https://www.superform.xyz/vault/b6XXUtR2K4ktxzAuDhZUI/
+    #: https://etherscan.io//address/0x862c57d48becB45583AEbA3f489696D22466Ca1b#readProxyContract
+    #: https://basescan.org/address/0x84d7549557f0fb69efbd1229d8e2f350b483c09b#code
+    superform_like = "superform_like"
+
     #: Term Finance
     #: https://mytermfinance.com/
     #: https://etherscan.io/address/0xa10c40f9e318b0ed67ecc3499d702d8db9437228#readProxyContract
     term_finance_like = "term_finance_like"
 
     #: Euler
+    #:
+    #: In vault names EVK stands for "Euler Vault Kit"
+    #: https://github.com/euler-xyz/euler-vault-kit/blob/master/docs/whitepaper.md
+    #:
     #: https://app.euler.finance/vault/0xC063C3b3625DF5F362F60f35B0bcd98e0fa650fb?network=base
     #: https://basescan.org/address/0x30a9a9654804f1e5b3291a86e83eded7cf281618#code
     euler_like = "euler_like"
@@ -173,8 +186,12 @@ def get_vault_protocol_name(features: set[ERC4626Feature]) -> str:
         return "Term Finance"
     elif ERC4626Feature.euler_like in features:
         return "Euler"
+    elif ERC4626Feature.superform_like in features:
+        return "Superform"
     elif ERC4626Feature.yearn_compounder_like in features:
         return "Yearn compounder"
+    elif ERC4626Feature.superform_like in features:
+        return "Superform"
     elif ERC4626Feature.yearn_v3_like in features:
         return "Yearn v3"
     elif ERC4626Feature.erc_7540_like in features:
