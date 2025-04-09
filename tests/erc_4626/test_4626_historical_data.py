@@ -85,8 +85,8 @@ def test_4626_historical_vault_data(
     assert r.block_number == 23998576
     assert r.timestamp == datetime.datetime(2024, 12, 21, 13, 8, 19)
     assert r.vault.name == "Moonwell Flagship USDC"
-    assert r.total_assets == Decimal('37003383.191686681452465622')
-    assert r.total_supply == Decimal('37404103.569505')
+    assert r.total_assets == Decimal('37404103.569505')
+    assert r.total_supply == Decimal('37003383.191686681452465622')
     assert r.share_price == pytest.approx(Decimal('1.0108292902771210900318'))
     assert r.management_fee == 0
     assert r.performance_fee == 0.15
@@ -95,8 +95,8 @@ def test_4626_historical_vault_data(
     assert r.block_number == 23998576
     assert r.timestamp == datetime.datetime(2024, 12, 21, 13, 8, 19)
     assert r.vault.name == "IPOR USDC Lending Optimizer Base"
-    assert r.total_assets == Decimal('1327724.55695781')
-    assert r.total_supply == Decimal('1343875.946355')
+    assert r.total_assets == Decimal('1343875.946355')
+    assert r.total_supply == Decimal('1327724.55695781')
     assert r.share_price == pytest.approx(Decimal('1.012164713917920875873501'))
     assert r.performance_fee == 0.10
     assert r.management_fee == 0.01
