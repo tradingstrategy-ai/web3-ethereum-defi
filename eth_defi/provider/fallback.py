@@ -5,12 +5,14 @@
 import enum
 import time
 from collections import defaultdict, Counter
+from pprint import pformat
 from typing import List, Any, cast, Dict
 import logging
 
 from web3 import Web3
 from web3.types import RPCEndpoint, RPCResponse
 
+from eth_defi.event_reader.fast_json_rpc import get_last_headers
 from eth_defi.middleware import is_retryable_http_exception, DEFAULT_RETRYABLE_EXCEPTIONS, DEFAULT_RETRYABLE_HTTP_STATUS_CODES, DEFAULT_RETRYABLE_RPC_ERROR_CODES, ProbablyNodeHasNoBlock
 from eth_defi.provider.named import BaseNamedProvider, NamedProvider, get_provider_name
 
@@ -270,7 +272,8 @@ def _check_faulty_rpc_response(
             # switch to another node, wait some extra time
             # to ensure it gets blocks
             # current_sleep = max(self.state_missing_switch_over_delay, current_sleep)
-            raise ProbablyNodeHasNoBlock(f"Node did not have data for block {block_identifier} when calling {method}")
+            headers = get_last_headers()
+            raise ProbablyNodeHasNoBlock(f"Node did not have data for block {block_identifier} when calling {method}.\nResponse headers are: {pformat(headers)}")
 
 
 def get_fallback_provider(web3: Web3) -> FallbackProvider:
