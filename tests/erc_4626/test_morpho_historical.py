@@ -13,12 +13,10 @@ from eth_defi.erc_4626.core import ERC4626Feature
 from eth_defi.event_reader.conversion import convert_int256_bytes_to_int
 from eth_defi.event_reader.multicall_batcher import EncodedCall
 from eth_defi.provider.multi_provider import create_multi_provider_web3, MultiProviderWeb3Factory
-from eth_defi.provider.named import get_provider_name
 from eth_defi.token import TokenDiskCache
 from eth_defi.vault.historical import scan_historical_prices_to_parquet
 
 JSON_RPC_ETHEREUM = os.environ.get("JSON_RPC_ETHEREUM")
-JSON_RPC_ETHEREUM_2 = os.environ.get("JSON_RPC_ETHEREUM_2", "")
 
 pytestmark = pytest.mark.skipif(JSON_RPC_ETHEREUM is None, reason="JSON_RPC_ETHEREUM needed to run these tests")
 
@@ -37,13 +35,6 @@ def test_steakhouse_usdt(
 
     - Caused some data corruption
     """
-
-    name = get_provider_name(web3.provider)
-    print("RPC name is", name)
-    print("RPC 1 is", JSON_RPC_ETHEREUM[0:15])
-    print("RPC 2 is", JSON_RPC_ETHEREUM_2[0:15])
-    print("RPC done")
-
     token_cache = TokenDiskCache(tmp_path / "tokens.sqlite")
     parquet_file = tmp_path / "prices.parquet"
 
@@ -92,7 +83,7 @@ def test_steakhouse_usdt(
     scan_report = scan_historical_prices_to_parquet(
         output_fname=parquet_file,
         web3=web3,
-        web3factory=MultiProviderWeb3Factory(JSON_RPC_ETHEREUM_2 if JSON_RPC_ETHEREUM_2 else JSON_RPC_ETHEREUM),
+        web3factory=MultiProviderWeb3Factory(JSON_RPC_ETHEREUM),
         vaults=vaults,
         start_block=start,
         end_block=end,

@@ -942,7 +942,12 @@ class MulticallHistoricalTask:
 def _execute_multicall_subprocess(
     task: MulticallHistoricalTask,
 ) -> CombinedEncodedCallResult:
-    """Extract raw JSON-RPC data from a node in a multiprocess"""
+    """Extract raw JSON-RPC data from a node in a multiprocess.
+
+    - This is called in a subprocess by joblib.Parallel
+    - The subprocess is recycled between different batch jobs
+
+    """
     global _reader_instance
 
     reader: MultiprocessMulticallReader
