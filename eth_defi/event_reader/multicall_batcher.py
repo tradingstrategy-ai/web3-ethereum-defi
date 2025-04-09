@@ -729,7 +729,7 @@ class MultiprocessMulticallReader:
                         debug_str = format_debug_instructions(bound_func, block_identifier=block_identifier)
                         rpc_name = get_provider_name(multicall_contract.w3.provider)
                         last_headers = get_last_headers()
-                        raise MulticallStateProblem(f"Multicall gave empty result: at block {block_identifier}.\nDebug data is:\n{debug_str}\nRPC is: {rpc_name}\nBatch result: {batch_results}\nBatch calls: {batch_calls}\nReceived block number: {received_block_number}\nResponse headers: {pformat(last_headers)}")
+                        raise MulticallStateProblem(f"Multicall gave empty result: at block {block_identifier} at chain {self.web3.eth.chain_id}.\nDebug data is:\n{debug_str}\nRPC is: {rpc_name}\nBatch result: {batch_results}\nBatch calls: {batch_calls}\nReceived block number: {received_block_number}\nResponse headers: {pformat(last_headers)}")
 
             calls_results += batch_results
 
