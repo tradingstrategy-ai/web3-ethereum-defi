@@ -4,6 +4,7 @@ Monkey-patches JSON decoder to use ujson.
 """
 
 import logging
+import threading
 from json import JSONDecodeError
 from typing import Any, cast
 
@@ -15,6 +16,9 @@ from web3.providers.rpc import HTTPProvider
 from web3.types import RPCEndpoint, RPCResponse
 
 logger = logging.getLogger(__name__)
+
+
+last_headers_storage = threading.local()
 
 
 class PartialHttpResponseException(JSONDecodeError):
@@ -45,7 +49,10 @@ def _make_request(self, method: RPCEndpoint, params: Any) -> RPCResponse:
     raw_response.raise_for_status()
 
     try:
-        return _fast_decode_rpc_response(raw_response.content)
+        decoded = _fast_decode_rpc_response(raw_response.content)
+        # Pass dRPC / etc upstream RPC headers all along for debug
+        last_headers_storage.headers = {k: v for k, v in raw_response.headers.items()}
+        return decoded
     except Exception as e:
         logger.error(
             "Unexpected decode RPC response error: %s, current provider ID is %s",
@@ -77,3 +84,18 @@ def patch_web3(web3: Web3):
         patch_web3(web3)
     """
     patch_provider(web3.provider)
+
+
+def get_last_headers() -> dict:
+    """Debug for dRPC.
+
+    Example output:
+
+    .. code-block:: plain
+
+        {'Date': 'Wed, 09 Apr 2025 14:56:48 GMT', 'Content-Type': 'application/json', 'Content-Length': '112', 'Connection': 'keep-alive', 'access-control-allow-origin': '*', 'Content-Encoding': 'gzip', 'vary': 'Accept-Encoding', 'x-drpc-owner-id': '2580e13b-d8a6-48a3-bdaa-67bc5972c7f5', 'x-drpc-owner-tier': 'paid', 'x-drpc-provider-id': 'drpc-core-free', 'x-drpc-trace-id': '3ac007d0de35bae3d390789476db31cd', 'strict-transport-security': 'max-age=31536000; includeSubDomains', 'cf-cache-status': 'DYNAMIC', 'Server': 'cloudflare', 'CF-RAY': '92dada6e5a7aed3f-SJC'}
+
+    :return:
+        Last HTTP reply headers from the JSON-RPC call.
+    """
+    return getattr(last_headers_storage, "headers", {})

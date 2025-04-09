@@ -550,3 +550,31 @@ def present_solidity_args(a: list | tuple | Any) -> str:
 
     """
     return _hexify(a)
+
+
+def format_debug_instructions(bound_call: ContractFunction, block_identifier="latest") -> str:
+    """Print curl command line syntax to repeat a failed contract call.
+
+    - Useful for sending information about broken nodes to dRPC team
+    """
+
+    if type(block_identifier) == int:
+        block_identifier = hex(block_identifier)
+
+    contract_address = bound_call.address
+    data = encode_function_call(bound_call, bound_call.arguments)
+    debug_template = f"""curl -X POST -H "Content-Type: application/json" \\
+    --data '{{
+      "jsonrpc": "2.0",
+      "method": "eth_call",
+      "params": [
+        {{
+          "to": "{contract_address}",
+          "data": "{data.hex()}"
+        }},
+        "{block_identifier}"
+      ],
+      "id": 1
+    }}' \\
+    $JSON_RPC_URL"""
+    return debug_template

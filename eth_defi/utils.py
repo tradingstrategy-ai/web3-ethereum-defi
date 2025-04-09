@@ -17,10 +17,13 @@ import psutil
 logger = logging.getLogger(__name__)
 
 
-def sanitise_string(s: str) -> str:
+def sanitise_string(s: str, max_length: int | None=None) -> str:
     """Remove null characters."""
     # https://stackoverflow.com/a/18762899/315168
-    return s.replace("\x00", "\U0000FFFD")
+    fixed = s.replace("\x00", "\U0000FFFD")
+    if max_length is not None:
+        return fixed[0:max_length]
+    return fixed
 
 
 def is_localhost_port_listening(port: int, host="localhost") -> bool:

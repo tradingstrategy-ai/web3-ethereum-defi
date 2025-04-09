@@ -1,4 +1,4 @@
-"""Turn vault discoveries to human readable rows."""
+"""Turn vault discoveries to human-readable and machine-readable tables."""
 import threading
 import logging
 
@@ -12,7 +12,7 @@ from eth_defi.erc_4626.core import get_vault_protocol_name
 from eth_defi.erc_4626.hypersync_discovery import ERC4262VaultDetection
 from eth_defi.erc_4626.vault import ERC4626Vault
 from eth_defi.event_reader.web3factory import Web3Factory
-
+from eth_defi.token import TokenDiskCache
 
 logger = logging.getLogger(__name__)
 
@@ -21,6 +21,7 @@ def create_vault_scan_record(
     web3: Web3,
     detection: ERC4262VaultDetection,
     block_identifier: BlockIdentifier,
+    token_cache: TokenDiskCache,
 ) -> dict:
     """Create a row in the result table.
 
@@ -30,7 +31,12 @@ def create_vault_scan_record(
         Dict for human-readable tables, with internal columns prefixed with å underscore
     """
 
-    vault = create_vault_instance(web3, detection.address, detection.features)
+    vault = create_vault_instance(
+        web3,
+        detection.address,
+        detection.features,
+        token_cache=token_cache,
+    )
 
     empty_record = {
         "Symbol": "",
@@ -71,10 +77,16 @@ def create_vault_scan_record(
         except ValueError:
             total_assets = None
 
-        total_supply = vault.fetch_total_supply(block_identifier)
+        try:
+            total_supply = vault.fetch_total_supply(block_identifier)
+        except ValueError:
+            total_supply = None
 
-        denomination_token = vault.denomination_token.export() if vault.denomination_token else None
-        assert type(denomination_token) == dict, f"Got {denomination_token}"
+        if vault.denomination_token is not None:
+            denomination_token = vault.denomination_token.export()
+            assert type(denomination_token) == dict, f"Got {denomination_token}"
+        else:
+            denomination_token = None
 
         data = {
             "Symbol": vault.symbol,
@@ -108,8 +120,8 @@ def create_vault_scan_record(
         )
         return record
 
+#: Handle per-process connections and databases
 _subprocess_web3_cache = threading.local()
-
 
 def create_vault_scan_record_subprocess(
     web3factory: Web3Factory,
@@ -118,6 +130,7 @@ def create_vault_scan_record_subprocess(
 ) -> dict:
     """Process remaining vault data reads using multiprocessing
 
+    - Runs in a subprocess
     - See :py:func:`create_vault_scan_record`
     - Because ``Vault`` classes does reads using Python instance objects in serial manner,
       we want to speed up by doing many vaults parallel
@@ -128,8 +141,15 @@ def create_vault_scan_record_subprocess(
     if web3 is None:
         web3 = _subprocess_web3_cache.web3 = web3factory()
 
-    return create_vault_scan_record(
+    token_cache = getattr(_subprocess_web3_cache, "token_cache", None)
+    if token_cache is None:
+        token_cache = _subprocess_web3_cache.token_cache = TokenDiskCache()
+
+    record = create_vault_scan_record(
         web3,
         detection,
         block_number,
+        token_cache=token_cache
     )
+
+    return record

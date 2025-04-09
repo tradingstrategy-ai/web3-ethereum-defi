@@ -5,11 +5,12 @@ from functools import cached_property
 from typing import Iterable
 
 from eth_typing import HexAddress
+from fontTools.unicodedata import block
 from web3 import Web3
 from web3.contract import Contract
 from web3.types import BlockIdentifier
 
-from eth_defi.abi import get_deployed_contract
+from eth_defi.abi import get_deployed_contract, get_contract
 from eth_defi.balances import fetch_erc20_balances_fallback
 from eth_defi.erc_4626.core import get_deployed_erc_4626_contract
 from eth_defi.event_reader.conversion import convert_int256_bytes_to_int, convert_uint256_bytes_to_address
@@ -44,7 +45,7 @@ class ERC4626HistoricalReader(VaultHistoricalReader):
     """
 
     def __init__(self, vault: "ERC4626Vault"):
-        self.vault = vault
+        super().__init__(vault)
 
     def construct_multicalls(self) -> Iterable[EncodedCall]:
         """Get the onchain calls that are needed to read the share price."""
@@ -55,22 +56,31 @@ class ERC4626HistoricalReader(VaultHistoricalReader):
 
         Does not include fees.
         """
-        amount = self.vault.denomination_token.convert_to_raw(Decimal(1))
-        share_price_call = EncodedCall.from_contract_call(
-            self.vault.vault_contract.functions.convertToShares(amount),
-            extra_data = {
-                "function": "share_price",
-                "vault": self.vault.address,
-            }
-        )
-        yield share_price_call
+
+        # TODO: use asset / supply as it is more reliable
+        if self.vault.denomination_token is not None:
+            # amount = self.vault.denomination_token.convert_to_raw(Decimal(1))
+            # share_price_call = EncodedCall.from_contract_call(
+            #     self.vault.vault_contract.functions.convertToShares(amount),
+            #     extra_data = {
+            #         "function": "share_price",
+            #         "vault": self.vault.address,
+            #         "amount": amount,
+            #         "denomination_token": self.vault.denomination_token.symbol,
+            #         "decimals": self.vault.denomination_token.decimals,
+            #     },
+            #     first_block_number=self.first_block,
+            # )
+            # yield share_price_call
+            pass
 
         total_assets = EncodedCall.from_contract_call(
             self.vault.vault_contract.functions.totalAssets(),
             extra_data = {
                 "function": "total_assets",
                 "vault": self.vault.address,
-            }
+            },
+            first_block_number=self.first_block,
         )
         yield total_assets
 
@@ -79,21 +89,57 @@ class ERC4626HistoricalReader(VaultHistoricalReader):
             extra_data = {
                 "function": "total_supply",
                 "vault": self.vault.address,
-            }
+            },
+            first_block_number=self.first_block,
         )
         yield total_supply
 
-    def process_core_erc_4626_result(self, call_by_name: dict[str, EncodedCallResult]) -> tuple:
+    def process_core_erc_4626_result(
+        self,
+        call_by_name: dict[str, EncodedCallResult],
+    ) -> tuple:
         """Decode common ERC-4626 calls."""
-        raw_share_price = convert_int256_bytes_to_int(call_by_name["share_price"].result)
-        share_price = self.vault.denomination_token.convert_to_decimals(raw_share_price)
-        raw_total_supply = convert_int256_bytes_to_int(call_by_name["total_supply"].result)
-        total_supply = self.vault.share_token.convert_to_decimals(raw_total_supply)
-        raw_total_assets = convert_int256_bytes_to_int(call_by_name["total_assets"].result)
-        total_assets = self.vault.denomination_token.convert_to_decimals(raw_total_assets)
-        return share_price, total_assets, total_supply
 
-    def dictify_multicall_results(self, block_number: int, call_results: list[EncodedCallResult]) -> dict[str, EncodedCallResult]:
+        errors = []
+
+        # Not generated with denomination token is busted
+        # assert "share_price" in call_by_name, f"share_price call missing for {self.vault}, we got {list(call_by_name.items())}"
+        assert "total_supply" in call_by_name, f"total_supply call missing for {self.vault}, we got {list(call_by_name.items())}"
+        assert "total_assets" in call_by_name, f"total_assets call missing for {self.vault}, we got {list(call_by_name.items())}"
+
+        if call_by_name["total_supply"].success:
+            raw_total_supply = convert_int256_bytes_to_int(call_by_name["total_supply"].result)
+            total_supply = self.vault.share_token.convert_to_decimals(raw_total_supply)
+        else:
+            errors.append("total_supply call failed")
+            total_supply = None
+
+        if self.vault.denomination_token is not None and call_by_name["total_assets"].success:
+            raw_total_assets = convert_int256_bytes_to_int(call_by_name["total_assets"].result)
+            total_assets = self.vault.denomination_token.convert_to_decimals(raw_total_assets)
+        else:
+            errors.append("total_assets call failed")
+            total_assets = None
+
+        if total_assets == 0:
+            errors.append(f"total_assets zero: {call_by_name['total_assets']}")
+
+        if total_supply == 0:
+            errors.append(f"total_supply zero: {call_by_name['total_supply']}")
+
+        if total_supply and total_assets:
+            share_price = Decimal(total_assets) / Decimal(total_supply)
+        else:
+            share_price = None
+
+        return share_price, total_supply, total_assets, (errors or None)
+
+    def dictify_multicall_results(
+        self,
+        block_number: int,
+        call_results: list[EncodedCallResult],
+        allow_failure=True,
+    ) -> dict[str, EncodedCallResult]:
         """Convert batch of multicalls made for this vault to more digestible dict.
 
         - Assert that all multicalls succeed
@@ -104,8 +150,9 @@ class ERC4626HistoricalReader(VaultHistoricalReader):
         call_by_name = {r.call.extra_data["function"]: r for r in call_results}
 
         # Check that all multicalls succeed for this vault
-        for result in call_by_name.values():
-            assert result.success, f"Multicall failed at block {block_number:,}: {result.call} for vault {self.vault}\nDebug info for Tenderly: {result.call.get_debug_info()}"
+        if not allow_failure:
+            for result in call_by_name.values():
+                assert result.success, f"Multicall failed at block {block_number:,}: {result.call} for vault {self.vault}\nDebug info for Tenderly: {result.call.get_debug_info()}"
 
         return call_by_name
 
@@ -117,9 +164,10 @@ class ERC4626HistoricalReader(VaultHistoricalReader):
     ) -> VaultHistoricalRead:
 
         call_by_name = self.dictify_multicall_results(block_number, call_results)
+        assert all(c.block_identifier == block_number for c in call_by_name.values()), "Sanity check for call block numbering"
 
         # Decode common variables
-        share_price, total_supply, total_assets = self.process_core_erc_4626_result(call_by_name)
+        share_price, total_supply, total_assets, errors = self.process_core_erc_4626_result(call_by_name)
 
         # Subclass
         return VaultHistoricalRead(
@@ -131,6 +179,7 @@ class ERC4626HistoricalReader(VaultHistoricalReader):
             total_supply=total_supply,
             performance_fee=None,
             management_fee=None,
+            errors=errors or None,
         )
 
 
@@ -154,10 +203,14 @@ class ERC4626Vault(VaultBase):
         self,
         web3: Web3,
         spec: VaultSpec,
+        token_cache: dict | None = None
     ):
-        super().__init__()
+        super().__init__(token_cache=token_cache)
         self.web3 = web3
         self.spec = spec
+
+    def __repr__(self):
+        return f"<{self.__class__.__name__}: {self.spec}>"
 
     @property
     def chain_id(self) -> int:
@@ -193,8 +246,16 @@ class ERC4626Vault(VaultBase):
         """Alias for :py:meth:`denomination_token`"""
         return self.denomination_token
 
+    def fetch_denomination_token_address(self) -> HexAddress | None:
+        try:
+            asset = self.vault_contract.functions.asset().call()
+            return asset
+        except ValueError:
+            pass
+        return None
+
     def fetch_denomination_token(self) -> TokenDetails | None:
-        token_address = self.info["asset"]
+        token_address = self.fetch_denomination_token_address()
         # eth_defi.token.TokenDetailError: Token 0x4C36388bE6F416A29C8d8Eee81C771cE6bE14B18 missing symbol
         if token_address:
             return fetch_erc20_details(
@@ -202,6 +263,8 @@ class ERC4626Vault(VaultBase):
                 token_address,
                 chain_id=self.spec.chain_id,
                 raise_on_error=False,
+                cause_diagnostics_message=f"Vault {self.__class__.__name__} {self.address} denominating token lookup",
+                cache=self.token_cache,
             )
         else:
             return None
@@ -212,6 +275,7 @@ class ERC4626Vault(VaultBase):
         - Vault itself (ERC-4626)
         - share() accessor (ERc-7575)
         """
+        erc_7575 = False
         try:
             # ERC-7575
             erc_7575_call = EncodedCall.from_keccak_signature(
@@ -224,6 +288,7 @@ class ERC4626Vault(VaultBase):
 
             result = erc_7575_call.call(self.web3, block_identifier="latest")
             if len(result) == 32:
+                erc_7575 = True
                 share_token_address = convert_uint256_bytes_to_address(result)
             else:
                 # Could not read ERC4626Vault 0x0271353E642708517A07985eA6276944A708dDd1 (set()):
@@ -245,7 +310,9 @@ class ERC4626Vault(VaultBase):
             self.web3,
             share_token_address,
             raise_on_error=False,
-            chain_id=self.spec.chain_id
+            chain_id=self.spec.chain_id,
+            cache=self.token_cache,
+            cause_diagnostics_message=f"Share token for vault {self.address}, ERC-7575 is {erc_7575}",
         )
 
     def fetch_vault_info(self) -> ERC4626VaultInfo:

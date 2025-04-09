@@ -4,15 +4,25 @@ Deploy ERC-20 tokens to be used within your test suite.
 
 `Read also unit test suite for tokens to see how ERC-20 can be manipulated in pytest <https://github.com/tradingstrategy-ai/web3-ethereum-defi/blob/master/tests/test_token.py>`_.
 """
-from collections import OrderedDict
-from dataclasses import dataclass, asdict
+import json
+import logging
+import datetime
+import os
+from collections import OrderedDict, defaultdict
+from dataclasses import dataclass, asdict, field
 from decimal import Decimal
 from functools import cached_property
-from typing import Optional, Union, TypeAlias
+from pathlib import Path
+from typing import Optional, Union, TypeAlias, Any, Iterable, TypedDict
 import warnings
 
 import cachetools
 from web3.contract.contract import ContractFunction
+
+from eth_defi.event_reader.conversion import convert_int256_bytes_to_int, convert_solidity_bytes_to_string
+from eth_defi.event_reader.multicall_batcher import EncodedCall, read_multicall_chunked, EncodedCallResult
+from eth_defi.event_reader.web3factory import Web3Factory
+from eth_defi.sqlite_cache import PersistentKeyValueStore
 
 with warnings.catch_warnings():
     # DeprecationWarning: pkg_resources is deprecated as an API. See https://setuptools.pypa.io/en/latest/pkg_resources.html
@@ -28,18 +38,92 @@ from eth_defi.abi import get_deployed_contract
 from eth_defi.deploy import deploy_contract
 from eth_defi.utils import sanitise_string
 
+
+logger = logging.getLogger(__name__)
+
 #: List of exceptions JSON-RPC provider can through when ERC-20 field look-up fails
 #: TODO: Add exceptios from real HTTPS/WSS providers
 #: `ValueError` is raised by Ganache
 _call_missing_exceptions = (TransactionFailed, BadFunctionCallOutput, ValueError, ContractLogicError)
 
-#: By default we cache 1024 token details using LRU.
-#:
+#: By default we cache 1024 token details using LRU in the process memory.
 #:
 DEFAULT_TOKEN_CACHE = cachetools.LRUCache(1024)
 
 #: ERC-20 address, 0x prefixed string
 TokenAddress: TypeAlias = str
+
+
+
+#: Addresses of wrapped native token (WETH9) of different chains
+WRAPPED_NATIVE_TOKEN: dict[int, HexAddress] = {
+    # Mainnet
+    1: "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",
+    # Base
+    8453: "0x4200000000000000000000000000000000000006",
+    # WBNB
+    56: "0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c",
+    # WAVAX
+    43114: "0xB31f66AA3C1e785363F0875A1B74E27b85FD66c7",
+}
+
+#: Addresses of wrapped native token (WETH9) of different chains
+USDC_NATIVE_TOKEN: dict[int, HexAddress] = {
+    # Mainnet
+    1: "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
+    # Base
+    8453: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+    # Ava
+    43114: "0xB97EF9Ef8734C71904D8002F8b6Bc66Dd9c48a6E",
+    # Arbitrum
+    42161: "0xaf88d065e77c8cC2239327C5EDb3A432268e5831",
+    # BNB
+    # https://www.coingecko.com/en/coins/binance-bridged-usdc-bnb-smart-chain
+    56: "0x8ac76a51cc950d9822d68b83fe1ad97b32cd580d",
+}
+
+
+#: Addresses USDT Tether of different chains
+USDT_NATIVE_TOKEN: dict[int, HexAddress] = {
+    # Mainnet
+    1: "0xdAC17F958D2ee523a2206206994597C13D831ec7",
+    # Binance Smart Chain
+    56: "0x55d398326f99059FF775485246999027B3197955",
+    # Avalanche USDT.E
+    43114: "0xB97EF9Ef8734C71904D8002F8b6Bc66Dd9c48a6E",
+    # Arbitrum
+    42161: "0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9",
+}
+
+
+#: Sky (MakerDAO) new tokens
+SUSDS_NATIVE_TOKEN: dict[int, HexAddress] = {
+    # Base
+    8453: "0x5875eEE11Cf8398102FdAd704C9E96607675467a",
+}
+
+#: Berachain
+#: 0xFCBD14DC51f0A4d49d5E53C2E0950e0bC26d0Dce
+#: https://docs.berachain.com/learn/pol/tokens/honey
+HONEY_NATIVE_TOKEN: dict[int, HexAddress] = {
+    # Berachain
+    80094: "0xFCBD14DC51f0A4d49d5E53C2E0950e0bC26d0Dce",
+}
+
+
+#: Token symbols that are stablecoin like.
+#: Note that it is *not* safe to to check the token symbol to know if a token is a specific stablecoin,
+#: but you always need to check the contract address.
+#: Checking against this list only works
+STABLECOIN_LIKE = {'ALUSD', 'BAC', 'BDO', 'BEAN', 'BOB', 'BUSD', 'CADC', 'CEUR', 'CJPY', 'CNHT', 'CRVUSD', 'CUSD', 'DAI', 'DJED', 'DOLA', 'DUSD', 'EOSDT', 'EURA', 'EUROC', 'EUROe', 'EURS', 'EURT', 'EURe', 'EUSD', 'FDUSD', 'FEI', 'FLEXUSD', 'FRAX', 'FXD', 'FXUSD', 'GBPT', 'GHO', 'GHST', 'GUSD', 'GYD', 'GYEN', 'HUSD', 'IRON', 'JCHF', 'JPYC', 'KDAI', 'LISUSD', 'LUSD', 'MIM', 'MIMATIC', 'MKUSD', 'MUSD', 'ONC', 'OUSD', 'PAR', 'PAXG', 'PYUSD', 'RAI', 'RUSD', 'SEUR', 'SFRAX', 'SILK', 'STUSD', 'SUSD', 'TCNH', 'TOR', 'TRYB', 'TUSD', 'USC', 'USD+', 'USDB', 'USDC', 'USDC.e', 'USDD', 'USDE', 'USDN', 'USDP', 'USDR', 'USDS', 'USDT', 'USDT.e', 'USDV', 'USDX', 'USDs', 'USK', 'UST', 'USTC', 'USX', 'UUSD', 'VAI', 'VEUR', 'VST', 'VUSD', 'XAUT', 'XDAI', 'XIDR', 'XSGD', 'XSTUSD', 'XUSD', 'YUSD', 'ZSD', 'ZUSD', 'gmUSD', 'iUSD', 'jEUR', 'crvUSD', 'USDe', 'kUSD', 'sosUSDT', 'USDXL', 'USDA'}
+
+#: Stablecoins plus their interest wrapped counterparts on Compound and Aave.
+#: Also contains other derivates.
+WRAPPED_STABLECOIN_LIKE = {"cUSDC", "cUSDT", "sUSD", "aDAI", "cDAI", "tfUSDC", "alUSD", "agEUR", "gmdUSDC", "gDAI", "blUSD"}
+
+#: All stablecoin likes - both interested bearing and non interest bearing.
+ALL_STABLECOIN_LIKE = STABLECOIN_LIKE | WRAPPED_STABLECOIN_LIKE
+
 
 
 @dataclass
@@ -75,6 +159,9 @@ class TokenDetails:
 
     #: Number of decimals
     decimals: Optional[int] = None
+
+    #: Extra metadata, e.g. related to caching this result
+    extra_data: dict[str, Any] = field(default_factory=dict)
 
     def __eq__(self, other):
         """Token is the same if it's on the same chain and has the same contract address."""
@@ -210,17 +297,22 @@ class TokenDetails:
         return raw_amount
 
     @staticmethod
-    def generate_cache_key(chain_id: int, address: str) -> int:
+    def generate_cache_key(chain_id: int, address: str) -> str:
         """Generate a cache key for this token.
 
-        - Cached by (chain, address) tuple
+        - Cached by (chain, address) as a string
 
         - Validate the inputs before generating the key
+
+        - Address is always lowercase
+
+        :return:
+            Human reaadable {chain_id}-{address}
         """
-        assert type(chain_id) == int
+        assert type(chain_id) == int, f"Bad chain id: {chain_id}"
         assert type(address) == str
-        assert address.startswith("0x")
-        return hash((chain_id, address.lower()))
+        assert address.startswith("0x"), f"Bad token address: {address}"
+        return f"{chain_id}-{address.lower()}"
 
     def export(self) -> dict:
         """Create a serialisable entry of this class.
@@ -312,14 +404,16 @@ def get_erc20_contract(
     return get_deployed_contract(web3, contract_name, address)
 
 
+
 def fetch_erc20_details(
-        web3: Web3,
-        token_address: Union[HexAddress, str],
-        max_str_length: int = 256,
-        raise_on_error=True,
-        contract_name="ERC20MockDecimals.json",
-        cache: cachetools.Cache | None = DEFAULT_TOKEN_CACHE,
-        chain_id: int = None,
+    web3: Web3,
+    token_address: Union[HexAddress, str],
+    max_str_length: int = 256,
+    raise_on_error=True,
+    contract_name="ERC20MockDecimals.json",
+    cache: dict | None = DEFAULT_TOKEN_CACHE,
+    chain_id: int = None,
+    cause_diagnostics_message: str | None = None,
 ) -> TokenDetails:
     """Read token details from on-chain data.
 
@@ -374,12 +468,18 @@ def fetch_erc20_details(
 
         If not given do ``eth_chainId`` RPC call to figure out.
 
+    :param cause_diagnostics_message:
+        Log in Python logging subsystem why this fetch was done to debug RPC overuse.
+
     :return:
         Sanitised token info
     """
 
     if not chain_id:
+        chain_id_given = False
         chain_id = web3.eth.chain_id
+    else:
+        chain_id_given = True
 
     erc_20 = get_erc20_contract(web3, token_address, contract_name)
 
@@ -394,7 +494,19 @@ def fetch_erc20_details(
                 cached["symbol"],
                 cached["supply"],
                 cached["decimals"],
+                extra_data={"cached": True},
             )
+
+    logger.info(
+        "Fetching uncached token, chain %s, address %s, chain id given: %s, reason: %s, token cache %s has %d entries",
+        chain_id,
+        token_address,
+        chain_id_given,
+        cause_diagnostics_message,
+        cache.__class__.__name__,
+        len(cache) if cache is not None else -1,
+    )
+
     try:
         symbol = sanitise_string(erc_20.functions.symbol().call()[0:max_str_length])
     except _call_missing_exceptions as e:
@@ -435,7 +547,7 @@ def fetch_erc20_details(
             raise TokenDetailError(f"Token {token_address} missing totalSupply") from e
         supply = None
 
-    token_details = TokenDetails(erc_20, name, symbol, supply, decimals)
+    token_details = TokenDetails(erc_20, name, symbol, supply, decimals, extra_data={"cached": False})
     if cache is not None:
         cache[key] = {
             "name": name,
@@ -499,76 +611,6 @@ def get_chain_known_quote_tokens(chain_id: int) -> set[TokenDetails]:
     pass
 
 
-#: Addresses of wrapped native token (WETH9) of different chains
-WRAPPED_NATIVE_TOKEN: dict[int, HexAddress] = {
-    # Mainnet
-    1: "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",
-    # Base
-    8453: "0x4200000000000000000000000000000000000006",
-    # WBNB
-    56: "0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c",
-    # WAVAX
-    43114: "0xB31f66AA3C1e785363F0875A1B74E27b85FD66c7",
-}
-
-#: Addresses of wrapped native token (WETH9) of different chains
-USDC_NATIVE_TOKEN: dict[int, HexAddress] = {
-    # Mainnet
-    1: "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
-    # Base
-    8453: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
-    # Ava
-    43114: "0xB97EF9Ef8734C71904D8002F8b6Bc66Dd9c48a6E",
-    # Arbitrum
-    42161: "0xaf88d065e77c8cC2239327C5EDb3A432268e5831",
-    # BNB
-    # https://www.coingecko.com/en/coins/binance-bridged-usdc-bnb-smart-chain
-    56: "0x8ac76a51cc950d9822d68b83fe1ad97b32cd580d",
-}
-
-
-#: Addresses USDT Tether of different chains
-USDT_NATIVE_TOKEN: dict[int, HexAddress] = {
-    # Mainnet
-    1: "0xdAC17F958D2ee523a2206206994597C13D831ec7",
-    # Binance Smart Chain
-    56: "0x55d398326f99059FF775485246999027B3197955",
-    # Avalanche USDT.E
-    43114: "0xB97EF9Ef8734C71904D8002F8b6Bc66Dd9c48a6E",
-    # Arbitrum
-    42161: "0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9",
-}
-
-
-#: Sky (MakerDAO) new tokens
-SUSDS_NATIVE_TOKEN: dict[int, HexAddress] = {
-    # Base
-    8453: "0x5875eEE11Cf8398102FdAd704C9E96607675467a",
-}
-
-#: Berachain
-#: 0xFCBD14DC51f0A4d49d5E53C2E0950e0bC26d0Dce
-#: https://docs.berachain.com/learn/pol/tokens/honey
-HONEY_NATIVE_TOKEN: dict[int, HexAddress] = {
-    # Berachain
-    80094: "0xFCBD14DC51f0A4d49d5E53C2E0950e0bC26d0Dce",
-}
-
-
-#: Token symbols that are stablecoin like.
-#: Note that it is *not* safe to to check the token symbol to know if a token is a specific stablecoin,
-#: but you always need to check the contract address.
-#: Checking against this list only works
-STABLECOIN_LIKE = {'ALUSD', 'BAC', 'BDO', 'BEAN', 'BOB', 'BUSD', 'CADC', 'CEUR', 'CJPY', 'CNHT', 'CRVUSD', 'CUSD', 'DAI', 'DJED', 'DOLA', 'DUSD', 'EOSDT', 'EURA', 'EUROC', 'EUROe', 'EURS', 'EURT', 'EURe', 'EUSD', 'FDUSD', 'FEI', 'FLEXUSD', 'FRAX', 'FXD', 'FXUSD', 'GBPT', 'GHO', 'GHST', 'GUSD', 'GYD', 'GYEN', 'HUSD', 'IRON', 'JCHF', 'JPYC', 'KDAI', 'LISUSD', 'LUSD', 'MIM', 'MIMATIC', 'MKUSD', 'MUSD', 'ONC', 'OUSD', 'PAR', 'PAXG', 'PYUSD', 'RAI', 'RUSD', 'SEUR', 'SFRAX', 'SILK', 'STUSD', 'SUSD', 'TCNH', 'TOR', 'TRYB', 'TUSD', 'USC', 'USD+', 'USDB', 'USDC', 'USDC.e', 'USDD', 'USDE', 'USDN', 'USDP', 'USDR', 'USDS', 'USDT', 'USDT.e', 'USDV', 'USDX', 'USDs', 'USK', 'UST', 'USTC', 'USX', 'UUSD', 'VAI', 'VEUR', 'VST', 'VUSD', 'XAUT', 'XDAI', 'XIDR', 'XSGD', 'XSTUSD', 'XUSD', 'YUSD', 'ZSD', 'ZUSD', 'gmUSD', 'iUSD', 'jEUR', 'crvUSD', 'USDe', 'kUSD', 'sosUSDT', 'USDXL', 'USDA'}
-
-#: Stablecoins plus their interest wrapped counterparts on Compound and Aave.
-#: Also contains other derivates.
-WRAPPED_STABLECOIN_LIKE = {"cUSDC", "cUSDT", "sUSD", "aDAI", "cDAI", "tfUSDC", "alUSD", "agEUR", "gmdUSDC", "gDAI", "blUSD"}
-
-#: All stablecoin likes - both interested bearing and non interest bearing.
-ALL_STABLECOIN_LIKE = STABLECOIN_LIKE | WRAPPED_STABLECOIN_LIKE
-
-
 def is_stablecoin_like(token_symbol: str | None, symbol_list=ALL_STABLECOIN_LIKE) -> bool:
     """Check if specific token symbol is likely a stablecoin.
 
@@ -577,6 +619,16 @@ def is_stablecoin_like(token_symbol: str | None, symbol_list=ALL_STABLECOIN_LIKE
 
     Note that new stablecoins might be introduced, so this check
     is never going to be future proof.
+
+    Example:
+
+    .. code-block:: python
+
+        assert is_stablecoin_like("USDC") == True
+        assert is_stablecoin_like("USDT") == True
+        assert is_stablecoin_like("GHO") == True
+        assert is_stablecoin_like("crvUSD") == True
+        assert is_stablecoin_like("WBTC") == False
 
     :param token_symbol:
         Token symbol as it is written on the contract.
@@ -591,4 +643,258 @@ def is_stablecoin_like(token_symbol: str | None, symbol_list=ALL_STABLECOIN_LIKE
 
     assert isinstance(token_symbol, str), f"We got {token_symbol}"
     return (token_symbol in symbol_list)
+
+
+class TokenCacheWarmupResult(TypedDict):
+    tokens_read: int
+    multicalls_done: int
+
+
+class TokenDiskCache(PersistentKeyValueStore):
+    """Token cache that stores tokens in disk.
+
+    - Use with :py:func:`fetch_erc20_details`
+    - For loading hundreds of tokens once
+    - Shared across chains
+    - Enable fast cache warmup with :py:meth:`load_token_details_with_multicall`
+    - Persistent: Make sure subsequent batch jobs do not refetch token data over RPC as it is expensive
+    - Store as a SQLite database
+
+    Example:
+
+    .. code-block:: python
+
+        addresses = [
+            "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",  # USDC
+            "0x4200000000000000000000000000000000000006",  # WETH
+            "0x50c5725949A6F0c72E6C4a641F24049A917DB0Cb",  # DAI
+            "0x554a1283cecca5a46bc31c2b82d6702785fc72d9",  # UNI
+        ]
+
+        cache = TokenDiskCache(tmp_path / "disk_cache.sqlite")
+        web3factory = MultiProviderWeb3Factory(JSON_RPC_BASE)
+        web3 = web3factory()
+
+        #
+        # Do single token lookups against cache
+        #
+        token = fetch_erc20_details(
+            web3,
+            token_address="0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+            chain_id=web3.eth.chain_id,
+            cache=cache,
+        )
+        assert token.extra_data["cached"] == False
+        assert len(cache) == 1
+        # After one look up, we should have it cached
+        token = fetch_erc20_details(
+            web3,
+            token_address="0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+            chain_id=web3.eth.chain_id,
+            cache=cache,
+        )
+        assert token.extra_data["cached"] == True
+        cache.purge()
+
+        #
+        # Warm up multiple on dry cache
+        #
+        result = cache.load_token_details_with_multicall(
+            chain_id=web3.eth.chain_id,
+            web3factory=web3factory,
+            addresses=addresses,
+            max_workers=max_workers,
+            display_progress=False,
+        )
+        assert result["tokens_read"] == 4
+        assert "8453-0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913".lower() in cache
+        assert "8453-0x4200000000000000000000000000000000000006".lower() in cache
+
+        cache_data = cache["8453-0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913".lower()]
+        assert cache_data["name"] == "USD Coin"
+        assert cache_data["symbol"] == "USDC"
+        assert cache_data["decimals"] == 6
+        assert cache_data["supply"] > 1_000_000
+
+        token = fetch_erc20_details(
+            web3,
+            token_address="0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+            chain_id=web3.eth.chain_id,
+            cache=cache,
+        )
+        assert token.extra_data["cached"] == True
+    """
+
+    DEFAULT_TOKEN_DISK_CACHE_PATH = Path("~/.cache/eth-defi-tokens.sqlite")
+
+    def __init__(
+        self,
+        filename = DEFAULT_TOKEN_DISK_CACHE_PATH,
+        max_str_length: int = 256,
+    ):
+        assert isinstance(filename, Path), f"We got {filename}"
+        filename = filename.expanduser()
+        dirname = filename.parent
+        os.makedirs(dirname, exist_ok=True)
+        self.max_str_length = max_str_length
+        super().__init__(filename)
+
+    def encode_value(self, value: dict) -> Any:
+        value["saved_at"] = datetime.datetime.utcnow().isoformat()
+        return json.dumps(value)
+
+    def decode_value(self, value: str) -> Any:
+        return json.loads(value)
+
+    def encode_multicalls(self, address: HexAddress) -> EncodedCall:
+        """Generate multicalls for each token address"""
+
+        symbol_call = EncodedCall.from_keccak_signature(
+            address=address,
+            signature=Web3.keccak(text="symbol()")[0:4],
+            function="symbol",
+            data=b"",
+            extra_data=None,
+        )
+        yield symbol_call
+
+        name_call = EncodedCall.from_keccak_signature(
+            address=address,
+            signature=Web3.keccak(text="name()")[0:4],
+            function="name",
+            data=b"",
+            extra_data=None,
+        )
+        yield name_call
+
+        decimals_call = EncodedCall.from_keccak_signature(
+            address=address,
+            signature=Web3.keccak(text="decimals()")[0:4],
+            function="decimals",
+            data=b"",
+            extra_data=None,
+        )
+        yield decimals_call
+
+        total_supply = EncodedCall.from_keccak_signature(
+            address=address,
+            signature=Web3.keccak(text="totalSupply()")[0:4],
+            function="totalSupply",
+            data=b"",
+            extra_data=None,
+        )
+        yield total_supply
+
+    def generate_calls(self, chain_id: int, addresses: list[HexAddress]) -> Iterable[EncodedCall]:
+        for address in addresses:
+            cache_key = TokenDetails.generate_cache_key(chain_id, address)
+            if cache_key not in self:
+                yield from self.encode_multicalls(address)
+            else:
+                logger.debug("Was already cached: %s", address)
+
+    def create_cache_entry(self, call_results: dict[str, EncodedCallResult]) -> dict:
+        """Map multicall results to token details data for one address"""
+        entry = {}
+
+        symbol_result = call_results["symbol"]
+        entry["address"] = symbol_result.call.address
+        if symbol_result.success and len(symbol_result.result) > 0:
+            entry["symbol"] = convert_solidity_bytes_to_string(symbol_result.result, self.max_str_length)
+        else:
+            entry["symbol"] = None
+
+        name_result = call_results["name"]
+        if name_result.success and len(name_result.result) > 0:
+            entry["name"] = convert_solidity_bytes_to_string(name_result.result, self.max_str_length)
+        else:
+            entry["name"] = None
+
+        decimals_result = call_results["decimals"]
+        if decimals_result.success:
+            entry["decimals"] = convert_int256_bytes_to_int(decimals_result.result)
+        else:
+            entry["decimals"] = 0
+
+        total_supply_result = call_results["totalSupply"]
+        if total_supply_result.success:
+            entry["supply"] = convert_int256_bytes_to_int(total_supply_result.result)
+        else:
+            entry["supply"] = None
+
+        return entry
+
+    def load_token_details_with_multicall(
+        self,
+        chain_id: int,
+        web3factory: Web3Factory,
+        addresses: list[HexAddress],
+        display_progress: str | bool = False,
+        max_workers=8,
+        block_identifier="latest",
+        checkpoint: int=32,
+    ) -> TokenCacheWarmupResult:
+        """Warm up cache and load token details for multiple """
+
+        assert type(chain_id) == int, "chain_id must be an integer"
+        assert type(addresses) == list, "addresses must be a list of HexAddress"
+
+        if type(display_progress) == str:
+            progress_bar_desc = display_progress
+        else:
+            progress_bar_desc = f"Loading token metadata for {len(addresses)} addresses using {max_workers} workers"
+
+        logger.info(f"Loading token metadata for {len(addresses)} addresses using {max_workers} workers")
+
+        encoded_calls = list(self.generate_calls(chain_id, addresses))
+        multicalls_done = len(encoded_calls)
+
+        # Temporary work buffer were we count that all calls to the address have been made,
+        # because results are dropping in one by one
+        results_per_address: dict[HexAddress, dict] = defaultdict(dict)
+
+        for call_result in read_multicall_chunked(
+            chain_id,
+            web3factory,
+            encoded_calls,
+            block_identifier=block_identifier,
+            progress_bar_desc=progress_bar_desc,
+            max_workers=max_workers,
+        ):
+            results_per_address[call_result.call.address][call_result.call.func_name] = call_result
+
+        tokens_read = 0
+
+        for address, result_per_address in results_per_address.items():
+            cache_entry = self.create_cache_entry(result_per_address)
+            key = TokenDetails.generate_cache_key(chain_id, address)
+            cache_entry["chain_id"] = chain_id
+            self[key] = cache_entry
+            tokens_read += 1
+
+            if tokens_read % checkpoint == 0:
+                self.commit()
+
+        logger.info(
+            "Read %d tokens for chain %d with %d multicalls ",
+            tokens_read,
+            chain_id,
+            multicalls_done,
+        )
+
+        self.commit()
+
+        return TokenCacheWarmupResult(
+            tokens_read=tokens_read,
+            multicalls_done=multicalls_done,
+        )
+
+
+
+
+
+
+
+
+
 

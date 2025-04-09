@@ -20,11 +20,11 @@ from eth_typing import BlockIdentifier, HexAddress
 from web3 import Web3
 
 from eth_defi.event_reader.multicall_batcher import EncodedCall, EncodedCallResult
-from eth_defi.token import TokenAddress, fetch_erc20_details, TokenDetails
+from eth_defi.token import TokenAddress, fetch_erc20_details, TokenDetails, DEFAULT_TOKEN_CACHE
 from eth_defi.vault.lower_case_dict import LowercaseDict
 
 
-@dataclass(slots=True, frozen=True)
+@dataclass(slots=True)
 class VaultSpec:
     """Unique id for a vault.
 
@@ -37,12 +37,27 @@ class VaultSpec:
     #: Ethereum chain id
     chain_id: int
 
-    #: Vault smart contract address or whatever is the primary address for unravelling a vault deployment for a vault protocol
+    #: Vault smart contract address or whatever is the primary address for unravelling a vault deployment for a vault protocol.
+    #:
+    #: Always forced to lowercase.
     vault_address: HexAddress | str
+
     def __post_init__(self):
         assert isinstance(self.chain_id, int)
         assert isinstance(self.vault_address, str), f"Expected str, got {self.vault_address}"
         assert self.vault_address.startswith("0x")
+        # assert self.vault_address == self.vault_address.lower(), f"Vault address not lowercase: {self.vault_address}"
+        # TODO: Get rid of old codepaths so we can make this dataclass frozen
+        self.vault_address = self.vault_address.lower()
+
+    def __hash__(self):
+        return hash((self.chain_id, self.vault_address))
+
+    def __eq__(self, other):
+        if not isinstance(other, VaultSpec):
+            return False
+        return self.chain_id == other.chain_id and self.vault_address == other.vault_address
+
 
 
 class VaultInfo(TypedDict):
@@ -116,6 +131,7 @@ class VaultPortfolio:
         chain_id = web3.eth.chain_id
         return LowercaseDict(**{addr: fetch_erc20_details(web3, addr, chain_id=chain_id).convert_to_raw(value) for addr, value in self.spot_erc20.items()})
 
+_nan = float("nan")
 
 @dataclass(slots=True, frozen=True)
 class VaultHistoricalRead:
@@ -131,13 +147,19 @@ class VaultHistoricalRead:
     timestamp: datetime.datetime
 
     #: What was the share price in vault denomination token
-    share_price: Decimal
+    #:
+    #: None if the read failed (call execution reverted)
+    share_price: Decimal | None
 
     #: NAV / Assets under management in denomination token
-    total_assets: Decimal
+    #:
+    #: None if the read failed (call execution reverted)
+    total_assets: Decimal | None
 
     #: Number of share tokens
-    total_supply: Decimal
+    #:
+    #: None if the read failed (call execution reverted)
+    total_supply: Decimal | None
 
     #: What was the vault performance fee around the time
     performance_fee: float | None
@@ -145,19 +167,27 @@ class VaultHistoricalRead:
     #: What was the vault management fee around the time
     management_fee: float | None
 
+    #: Add RPC error messages and such related to this read
+    #:
+    #: Exported as empty string in Parquet if no errors, otherwise concat strings
+    errors: list[str] | None
+
     def export(self) -> dict:
         """Convert historical read for a Parquet/DataFrame export."""
-        return {
+        error_msgs = ", ".join(self.errors) if self.errors else None
+        data = {
             "chain": self.vault.chain_id,
             "address": self.vault.address.lower(),
             "block_number": self.block_number,
             "timestamp": self.timestamp,
-            "share_price": float(self.share_price),
-            "total_assets": float(self.total_assets),
-            "total_supply": float(self.total_supply),
-            "performance_fee": float(self.performance_fee) if self.performance_fee is not None else float("nan"),
-            "management_fee": float(self.management_fee) if self.management_fee is not None else float("nan"),
+            "share_price": float(self.share_price) if self.share_price is not None else _nan,
+            "total_assets": float(self.total_assets) if self.total_assets is not None else _nan,
+            "total_supply": float(self.total_supply) if self.total_supply is not None else _nan,
+            "performance_fee": float(self.performance_fee) if self.performance_fee is not None else _nan,
+            "management_fee": float(self.management_fee) if self.management_fee is not None else _nan,
+            "errors": error_msgs if error_msgs else "",
         }
+        return data
 
     @classmethod
     def to_pyarrow_schema(cls) -> "pyarrow.Schema":
@@ -170,12 +200,13 @@ class VaultHistoricalRead:
             ("chain", pa.uint32()),
             ("address", pa.string()),  # Lowercase
             ("block_number", pa.uint32()),
-            ("timestamp", pa.timestamp("s")),
+            ("timestamp", pa.timestamp("ms")),  # s accuracy does not seem to work on rewrite
             ("share_price", pa.float64()),
             ("total_assets", pa.float64()),
             ("total_supply", pa.float64()),
             ("performance_fee", pa.float32()),
             ("management_fee", pa.float32()),
+            ("errors", pa.string()),
         ])
         return schema
 
@@ -188,7 +219,12 @@ class VaultHistoricalReader(ABC):
     """
 
     def __init__(self, vault: "VaultBase"):
+        assert isinstance(vault, VaultBase)
         self.vault = vault
+
+    @property
+    def first_block(self) -> int | None:
+        return self.vault.first_seen_at_block
 
     @property
     def address(self) -> HexAddress:
@@ -352,8 +388,18 @@ class VaultBase(ABC):
     #:
     first_seen_at_block: int | None
 
-    def __init__(self):
+    def __init__(self, token_cache: dict | None=None):
+        """
+        :param token_cache:
+            Token cache for vault tokens.
+
+            Allows to pass :py:class:`eth_defi.token.TokenDiskCache` to speed up operations.
+        """
         self.first_seen_at_block = None
+        if token_cache is None:
+            token_cache = DEFAULT_TOKEN_CACHE
+
+        self.token_cache = token_cache
 
     def __repr__(self):
         return f"<{self.__class__.__name__} {self.name} {self.symbol} at {self.address}>"
@@ -434,6 +480,13 @@ class VaultBase(ABC):
         :return:
             None if unsupported
         """
+
+    def fetch_denomination_token_address(self) -> HexAddress:
+        """Get the address for the denomination token.
+
+        Triggers RCP call
+        """
+        raise NotImplementedError()
 
     @abstractmethod
     def fetch_denomination_token(self) -> TokenDetails:

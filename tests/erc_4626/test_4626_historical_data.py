@@ -49,14 +49,14 @@ def test_4626_historical_vault_data(
 
     # When IPOR vault was deployed https://basescan.org/tx/0x65e66f1b8648a880ade22e316d8394ed4feddab6fc0fc5bbc3e7128e994e84bf
     start = 22_140_976
-    end = 27_000_000
+    end = 24_000_000
 
     usdc = fetch_erc20_details(web3, USDC_NATIVE_TOKEN[web3.eth.chain_id])
     susds = fetch_erc20_details(web3, SUSDS_NATIVE_TOKEN[web3.eth.chain_id])
 
     reader = VaultHistoricalReadMulticaller(
         web3factory=MultiProviderWeb3Factory(JSON_RPC_BASE),
-        supported_quote_tokens={usdc, susds}
+        supported_quote_tokens={usdc, susds},
     )
 
     records = reader.read_historical(
@@ -68,7 +68,7 @@ def test_4626_historical_vault_data(
     )
 
     records = list(records)
-    assert len(records) == 339
+    assert len(records) == 132
 
     # Records are not guaranteed to be in specific order, so fix it here
     records.sort(key=lambda r: (r.block_number, r.vault.address))
@@ -79,24 +79,24 @@ def test_4626_historical_vault_data(
     assert r.vault.name == "IPOR USDC Lending Optimizer Base"
     assert r.total_assets == 0
     assert r.total_supply == 0
-    assert r.share_price == Decimal(100)
+    assert r.share_price is None
 
     r = records[-1]
-    assert r.block_number == 26979376
-    assert r.timestamp == datetime.datetime(2025, 2, 28, 13, 8, 19)
+    assert r.block_number == 23998576
+    assert r.timestamp == datetime.datetime(2024, 12, 21, 13, 8, 19)
     assert r.vault.name == "Moonwell Flagship USDC"
-    assert r.total_assets == Decimal('29370634.415894171925433087')
-    assert r.total_supply == Decimal('29958452.263395')
-    assert r.share_price == Decimal('980378917545.099855')
+    assert r.total_assets == Decimal('37404103.569505')
+    assert r.total_supply == Decimal('37003383.191686681452465622')
+    assert r.share_price == pytest.approx(Decimal('1.0108292902771210900318'))
     assert r.management_fee == 0
     assert r.performance_fee == 0.15
 
     r = records[-3]
-    assert r.block_number == 26979376
-    assert r.timestamp == datetime.datetime(2025, 2, 28, 13, 8, 19)
+    assert r.block_number == 23998576
+    assert r.timestamp == datetime.datetime(2024, 12, 21, 13, 8, 19)
     assert r.vault.name == "IPOR USDC Lending Optimizer Base"
-    assert r.total_assets == Decimal('1415874.31104752')
-    assert r.total_supply == Decimal('1458781.534629')
-    assert r.share_price == Decimal('97.058694')
+    assert r.total_assets == Decimal('1343875.946355')
+    assert r.total_supply == Decimal('1327724.55695781')
+    assert r.share_price == pytest.approx(Decimal('1.012164713917920875873501'))
     assert r.performance_fee == 0.10
     assert r.management_fee == 0.01

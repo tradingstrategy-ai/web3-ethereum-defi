@@ -5,6 +5,7 @@
 """
 from collections import defaultdict
 from collections.abc import Iterable
+from itertools import chain
 
 import eth_abi
 from attr import dataclass
@@ -42,6 +43,14 @@ def create_probe_calls(
 
     # TODO: Might be bit slowish here, but we are not perf intensive
     for address in addresses:
+
+        bad_probe_call = EncodedCall.from_keccak_signature(
+            address=address,
+            signature=Web3.keccak(text="EVM IS BROKEN SHIT()")[0:4],
+            function="EVM IS BROKEN SHIT",
+            data=b"",
+            extra_data=None,
+        )
 
         name_call = EncodedCall.from_keccak_signature(
             address=address,
@@ -182,6 +191,55 @@ def create_probe_calls(
             extra_data=None,
         )
 
+        # Written in Vyper
+        # isShutdown()
+        # https://polygonscan.com/address/0xa013fbd4b711f9ded6fb09c1c0d358e2fbc2eaa0#readContract
+        yearn_v3_call = EncodedCall.from_keccak_signature(
+            address=address,
+            signature=Web3.keccak(text="get_default_queue()")[0:4],
+            function="get_default_queue",
+            data=b"",
+            extra_data=None,
+        )
+
+        # https://basescan.org/address/0x84d7549557f0fb69efbd1229d8e2f350b483c09b#readContract
+        superform_call = EncodedCall.from_keccak_signature(
+            address=address,
+            signature=Web3.keccak(text="THIS_CHAIN_ID()")[0:4],
+            function="THIS_CHAIN_ID",
+            data=b"",
+            extra_data=None,
+        )
+
+        # https://etherscan.io//address/0x862c57d48becB45583AEbA3f489696D22466Ca1b#readProxyContract
+        superform_call_2 = EncodedCall.from_keccak_signature(
+            address=address,
+            signature=Web3.keccak(text="METADEPOSIT_TYPEHASH()")[0:4],
+            function="METADEPOSIT_TYPEHASH",
+            data=b"",
+            extra_data=None,
+        )
+        # profitMaxUnlockTime()
+        # https://etherscan.io/address/0xa10c40f9e318b0ed67ecc3499d702d8db9437228#readProxyContract
+        term_finance_call = EncodedCall.from_keccak_signature(
+            address=address,
+            signature=Web3.keccak(text="repoTokenHoldings()")[0:4],
+            function="repoTokenHoldings",
+            data=b"",
+            extra_data=None,
+        )
+
+        #
+        # https://basescan.org/address/0x30a9a9654804f1e5b3291a86e83eded7cf281618#code
+        euler_call = EncodedCall.from_keccak_signature(
+            address=address,
+            signature=Web3.keccak(text="MODULE_VAULT()")[0:4],
+            function="MODULE_VAULT",
+            data=b"",
+            extra_data=None,
+        )
+
+        yield bad_probe_call
         yield name_call
         yield share_price_call
         yield ipor_fee_call
@@ -196,6 +254,11 @@ def create_probe_calls(
         yield kiln_metavaut_call
         yield lagoon_call
         yield yearn_call
+        yield yearn_v3_call
+        yield superform_call
+        yield superform_call_2
+        yield term_finance_call
+        yield euler_call
 
 
 def identify_vault_features(
@@ -206,9 +269,34 @@ def identify_vault_features(
 
     features = set()
 
+    # Example probe list
+    #
+    # EVM IS BROKEN SHIT False
+    # name True
+    # convertToShares True
+    # getPerformanceFeeData False
+    # vaultFractionToInvestDenominator False
+    # isOperator False
+    # outputToLp0Route False
+    # agent False
+    # depositCap False
+    # MORPHO False
+    # share False
+    # additionalRewardsStrategy False
+    # MAX_MANAGEMENT_RATE False
+    # GOV False
+    # isShutdown False
+    # THIS_CHAIN_ID False
+    # METADEPOSIT_TYPEHASH False
+    # profitMaxUnlockTime True
+    # MODULE_VAULT False
+
     # Should return uint256 share count. Broken proxies may return 0x or similar response.
     if not calls["convertToShares"].success and len(calls["convertToShares"].result) != 32:
         # Not ERC-4626 vault
+        return {ERC4626Feature.broken}
+
+    if calls["EVM IS BROKEN SHIT"].success:
         return {ERC4626Feature.broken}
 
     if calls["getPerformanceFeeData"].success and len(calls["getPerformanceFeeData"].result) == 64:
@@ -247,7 +335,19 @@ def identify_vault_features(
         assert ERC4626Feature.erc_7540_like in features, f"Lagoon vault did not pass ERC-7540 check: {debug_text}"
 
     if calls["GOV"].success:
-        features.add(ERC4626Feature.yearn_like)
+        features.add(ERC4626Feature.yearn_compounder_like)
+
+    if calls["get_default_queue"].success:
+        features.add(ERC4626Feature.yearn_v3_like)
+
+    if calls["THIS_CHAIN_ID"].success or calls["METADEPOSIT_TYPEHASH"].success:
+        features.add(ERC4626Feature.superform_like)
+
+    if calls["repoTokenHoldings"].success:
+        features.add(ERC4626Feature.term_finance_like)
+
+    if calls["MODULE_VAULT"].success:
+        features.add(ERC4626Feature.euler_like)
 
     if len(features) > 4:
         # This contract somehow responses to all calls with success.
@@ -259,34 +359,31 @@ def identify_vault_features(
     # For some minor protocols, we do not bother to read their contracts.
     name = calls["name"].result
     if name:
-        try:
-            name = name.decode("utf-8")
-            if "POPT-V1" in name:
-                features.add(ERC4626Feature.panoptic_like)
-            elif "Return Finance" in name:
-                features.add(ERC4626Feature.panoptic_like)
-            elif "ArcadiaV2" in name:
-                features.add(ERC4626Feature.arcadia_finance_like)
-            elif "BRT2" in name:
-                features.add(ERC4626Feature.baklava_space_like)
-            elif name == "Satoshi":
-                features.add(ERC4626Feature.satoshi_stablecoin)
-            elif "Athena" in name:
-                features.add(ERC4626Feature.athena_like)
-            elif "RightsToken" in name:
-                features.add(ERC4626Feature.reserve_like)
-            elif "Fluid" in name:
-                features.add(ERC4626Feature.fluid_like)
-            elif "Peapods" in name:
-                features.add(ERC4626Feature.peapods_like)
-
-        except:
-            pass
+        name = name.decode("utf-8", errors="ignore")
+        if "POPT-V1" in name:
+            features.add(ERC4626Feature.panoptic_like)
+        elif "Return Finance" in name:
+            features.add(ERC4626Feature.panoptic_like)
+        elif "ArcadiaV2" in name:
+            features.add(ERC4626Feature.arcadia_finance_like)
+        elif "BRT2" in name:
+            features.add(ERC4626Feature.baklava_space_like)
+        elif name == "Satoshi":
+            features.add(ERC4626Feature.satoshi_stablecoin)
+        elif "Athena" in name:
+            features.add(ERC4626Feature.athena_like)
+        elif "RightsToken" in name:
+            features.add(ERC4626Feature.reserve_like)
+        elif "Fluid" in name:
+            features.add(ERC4626Feature.fluid_like)
+        elif "Peapods" in name:
+            features.add(ERC4626Feature.peapods_like)
 
     return features
 
 
 def probe_vaults(
+    chain_id: int,
     web3factory: Web3Factory,
     addresses: list[HexAddress],
     block_identifier: BlockIdentifier,
@@ -299,6 +396,8 @@ def probe_vaults(
         Iterator of what vault smart contract features we detected for each potential vault address
     """
 
+    assert type(chain_id) == int
+
     probe_calls = list(create_probe_calls(addresses))
 
     # Temporary work buffer were we count that all calls to the address have been made,
@@ -306,6 +405,7 @@ def probe_vaults(
     results_per_address: dict[HexAddress, dict] = defaultdict(dict)
 
     for call_result in read_multicall_chunked(
+        chain_id,
         web3factory,
         probe_calls,
         block_identifier=block_identifier,
@@ -328,6 +428,7 @@ def create_vault_instance(
     web3: Web3,
     address: HexAddress,
     features: set[ERC4626Feature],
+    token_cache: dict | None = None,
 ) -> VaultBase | None:
     """Create a new vault instance class based on the detected features.
 
@@ -342,23 +443,23 @@ def create_vault_instance(
         None if the vault creation is not supported
     """
 
-    spec = VaultSpec(web3.eth.chain_id, address)
+    spec = VaultSpec(web3.eth.chain_id, address.lower())
 
     if ERC4626Feature.broken in features:
         return None
     elif ERC4626Feature.ipor_like in features:
         # IPOR instance
         from eth_defi.ipor.vault import IPORVault
-        return IPORVault(web3, spec)
+        return IPORVault(web3, spec, token_cache=token_cache)
     elif ERC4626Feature.lagoon_like in features:
         # Lagoon instance
         from eth_defi.lagoon.vault import LagoonVault
-        return LagoonVault(web3, spec)
+        return LagoonVault(web3, spec, token_cache=token_cache)
     elif ERC4626Feature.morpho_like in features:
         # Lagoon instance
         from eth_defi.morpho.vault import MorphoVault
-        return MorphoVault(web3, spec)
+        return MorphoVault(web3, spec, token_cache=token_cache)
     else:
         # Generic ERC-4626 without fee data
         from eth_defi.erc_4626.vault import ERC4626Vault
-        return ERC4626Vault(web3, spec)
+        return ERC4626Vault(web3, spec, token_cache=token_cache)

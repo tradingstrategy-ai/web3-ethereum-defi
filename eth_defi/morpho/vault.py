@@ -27,7 +27,8 @@ class MorphoVaultHistoricalReader(ERC4626HistoricalReader):
             data=b"",
             extra_data = {
                 "vault": self.vault.address,
-            }
+            },
+            first_block_number=self.first_block,
         )
         yield fee_call
 
@@ -48,9 +49,10 @@ class MorphoVaultHistoricalReader(ERC4626HistoricalReader):
     ) -> VaultHistoricalRead:
 
         call_by_name = self.dictify_multicall_results(block_number, call_results)
+        assert all(c.block_identifier == block_number for c in call_by_name.values()), "Sanity check for call block numbering"
 
         # Decode common variables
-        share_price, total_supply, total_assets = self.process_core_erc_4626_result(call_by_name)
+        share_price, total_supply, total_assets, errors = self.process_core_erc_4626_result(call_by_name)
         performance_fee = self.process_morpho_fee_result(call_by_name)
 
         # Subclass
@@ -63,6 +65,7 @@ class MorphoVaultHistoricalReader(ERC4626HistoricalReader):
             total_supply=total_supply,
             performance_fee=performance_fee,
             management_fee=0,
+            errors=errors,
         )
 
 
