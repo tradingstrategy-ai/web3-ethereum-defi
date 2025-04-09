@@ -59,4 +59,4 @@ curl -X POST -H "Content-Type: application/json" \
       ],
       "id": 1
     }' \
-    $JSON_RPC_URL
+    $JSON_RPC_ETHEREUM

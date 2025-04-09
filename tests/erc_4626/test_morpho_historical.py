@@ -13,6 +13,7 @@ from eth_defi.erc_4626.core import ERC4626Feature
 from eth_defi.event_reader.conversion import convert_int256_bytes_to_int
 from eth_defi.event_reader.multicall_batcher import EncodedCall
 from eth_defi.provider.multi_provider import create_multi_provider_web3, MultiProviderWeb3Factory
+from eth_defi.provider.named import get_provider_name
 from eth_defi.token import TokenDiskCache
 from eth_defi.vault.historical import scan_historical_prices_to_parquet
 
@@ -35,6 +36,8 @@ def test_steakhouse_usdt(
 
     - Caused some data corruption
     """
+
+    assert not "drpc" in get_provider_name(web3.provider)
 
     token_cache = TokenDiskCache(tmp_path / "tokens.sqlite")
     parquet_file = tmp_path / "prices.parquet"
@@ -60,8 +63,16 @@ def test_steakhouse_usdt(
     start = 19_043_398
     end = 22_196_299
 
-    last_scanned_block = 22_189_798
+    poke_block = 19086598
+    total_assets = EncodedCall.from_contract_call(
+        steakhouse_usdt.vault_contract.functions.totalAssets(),
+        extra_data={},
+    )
+    raw_result = total_assets.call(web3, block_identifier=poke_block)
+    assert len(raw_result) == 32
+    assert convert_int256_bytes_to_int(raw_result) == 0
 
+    last_scanned_block = 22_189_798
     # Correct with Tenderly
     # https://dashboard.tenderly.co/miohtama/test-project/simulator/ccbb66cf-52be-4855-9284-b91a5ac2c08f
     total_assets = EncodedCall.from_contract_call(
