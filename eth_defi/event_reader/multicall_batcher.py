@@ -642,6 +642,9 @@ class MultiprocessMulticallReader:
         )
         self.chunk_size = chunk_size
 
+    def __repr__(self):
+        return f"<MultiprocessMulticallReader process: {os.getpid()}, thread: {threading.current_thread()}, chain: {self.web3.eth.chain_id}>"
+
     def get_block_timestamp(self, block_number: int) -> datetime.datetime:
         return get_block_timestamp(self.web3, block_number)
 
@@ -726,10 +729,12 @@ class MultiprocessMulticallReader:
             if require_multicall_result:
                 for output_tuple in batch_results:
                     if output_tuple[1] == b"":
+                        global _reader_instance
+                        readers = _reader_instance.per_chain_readers
                         debug_str = format_debug_instructions(bound_func, block_identifier=block_identifier)
                         rpc_name = get_provider_name(multicall_contract.w3.provider)
                         last_headers = get_last_headers()
-                        raise MulticallStateProblem(f"Multicall gave empty result: at block {block_identifier} at chain {self.web3.eth.chain_id}.\nDebug data is:\n{debug_str}\nRPC is: {rpc_name}\nBatch result: {batch_results}\nBatch calls: {batch_calls}\nReceived block number: {received_block_number}\nResponse headers: {pformat(last_headers)}")
+                        raise MulticallStateProblem(f"Multicall gave empty result: at block {block_identifier} at chain {self.web3.eth.chain_id}.\nDebug data is:\n{debug_str}\nRPC is: {rpc_name}\nBatch result: {batch_results}\nBatch calls: {batch_calls}\nReceived block number: {received_block_number}\nResponse headers: {pformat(last_headers)}\nLive multicall readers are: {pformat(readers)}")
 
             calls_results += batch_results
 
