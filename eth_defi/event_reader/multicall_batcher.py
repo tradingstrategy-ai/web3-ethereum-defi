@@ -549,6 +549,9 @@ class EncodedCallResult:
     result: bytes
     block_identifier: BlockIdentifier
 
+    def __repr__(self):
+        return f"<Call {self.call} at block {self.block_identifier}, success {self.success}, result: {self.result.hex()}>"
+
     def __post_init__(self):
         assert isinstance(self.call, EncodedCall), f"Got: {self.call}"
         assert type(self.success) == bool, f"Got success: {self.success}"

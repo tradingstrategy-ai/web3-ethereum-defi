@@ -122,10 +122,10 @@ class ERC4626HistoricalReader(VaultHistoricalReader):
             total_assets = None
 
         if total_assets == 0:
-            errors.append("total_assets zero")
+            errors.append(f"total_assets zero: {call_by_name['total_assets']}")
 
         if total_supply == 0:
-            errors.append("total_supply zero")
+            errors.append(f"total_supply zero: {call_by_name['total_supply']}")
 
         if total_supply and total_assets:
             share_price = Decimal(total_assets) / Decimal(total_supply)
