@@ -3,6 +3,7 @@ GMX API Module
 
 This module provides functionality for interacting with GMX APIs.
 """
+
 from typing import Any, Optional
 import requests
 import pandas as pd

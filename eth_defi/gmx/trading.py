@@ -3,6 +3,7 @@ GMX Trading Module
 
 This module provides functionality for trading on GMX.
 """
+
 from typing import Any, Optional
 
 from gmx_python_sdk.scripts.v2.order.create_increase_order import IncreaseOrder

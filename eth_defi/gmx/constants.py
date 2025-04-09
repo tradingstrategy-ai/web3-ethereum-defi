@@ -3,6 +3,7 @@ GMX Constants Module
 
 This module provides contract addresses and ABIs for the GMX protocol.
 """
+
 from pathlib import Path
 import json
 

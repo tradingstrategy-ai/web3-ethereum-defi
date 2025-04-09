@@ -3,6 +3,7 @@ GMX Market Data Module
 
 This module provides access to GMX protocol market data.
 """
+
 from typing import Any, Optional
 
 from gmx_python_sdk.scripts.v2.get.get_available_liquidity import GetAvailableLiquidity
