@@ -39,6 +39,7 @@ def test_steakhouse_usdt(
     parquet_file = tmp_path / "prices.parquet"
 
     # https://etherscan.io/address/0xbEef047a543E45807105E51A8BBEFCc5950fcfBa#code
+    # https://app.morpho.org/ethereum/vault/0xbEef047a543E45807105E51A8BBEFCc5950fcfBa/steakhouse-usdt
     steakhouse_usdt = create_vault_instance(
         web3,
         address="0xbEef047a543E45807105E51A8BBEFCc5950fcfBa",
@@ -50,7 +51,6 @@ def test_steakhouse_usdt(
         steakhouse_usdt,
     ]
 
-    # When IPOR vault was deployed https://basescan.org/tx/0x65e66f1b8648a880ade22e316d8394ed4feddab6fc0fc5bbc3e7128e994e84bf
     start = 19_043_398
     end = 22_196_299
 
@@ -78,6 +78,7 @@ def test_steakhouse_usdt(
     assert r.management_fee == 0
     assert r.performance_fee == 0
     assert r.chain == 1
+    assert 1_000_000 < r.total_assets < 100_000_000
 
 
 

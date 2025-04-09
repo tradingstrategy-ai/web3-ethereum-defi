@@ -182,6 +182,37 @@ def create_probe_calls(
             extra_data=None,
         )
 
+        # Written in Vyper
+        # totalIdle()
+        # https://polygonscan.com/address/0xa013fbd4b711f9ded6fb09c1c0d358e2fbc2eaa0#readContract
+        yearn_v3_call = EncodedCall.from_keccak_signature(
+            address=address,
+            signature=Web3.keccak(text="totalIdle()")[0:4],
+            function="totalIdle",
+            data=b"",
+            extra_data=None,
+        )
+
+        # profitMaxUnlockTime()
+        # https://etherscan.io/address/0xa10c40f9e318b0ed67ecc3499d702d8db9437228#readProxyContract
+        term_finance_call = EncodedCall.from_keccak_signature(
+            address=address,
+            signature=Web3.keccak(text="profitMaxUnlockTime()")[0:4],
+            function="profitMaxUnlockTime",
+            data=b"",
+            extra_data=None,
+        )
+
+        #
+        # https://basescan.org/address/0x30a9a9654804f1e5b3291a86e83eded7cf281618#code
+        euler_call = EncodedCall.from_keccak_signature(
+            address=address,
+            signature=Web3.keccak(text="MODULE_VAULT()")[0:4],
+            function="MODULE_VAULT",
+            data=b"",
+            extra_data=None,
+        )
+
         yield name_call
         yield share_price_call
         yield ipor_fee_call
@@ -196,6 +227,9 @@ def create_probe_calls(
         yield kiln_metavaut_call
         yield lagoon_call
         yield yearn_call
+        yield yearn_v3_call
+        yield term_finance_call
+        yield euler_call
 
 
 def identify_vault_features(
@@ -247,7 +281,16 @@ def identify_vault_features(
         assert ERC4626Feature.erc_7540_like in features, f"Lagoon vault did not pass ERC-7540 check: {debug_text}"
 
     if calls["GOV"].success:
-        features.add(ERC4626Feature.yearn_like)
+        features.add(ERC4626Feature.yearn_compounder_like)
+
+    if calls["totalIdle"].success:
+        features.add(ERC4626Feature.yearn_v3_like)
+
+    if calls["profitMaxUnlockTime"].success:
+        features.add(ERC4626Feature.term_finance_like)
+
+    if calls["MODULE_VAULT"].success:
+        features.add(ERC4626Feature.euler_like)
 
     if len(features) > 4:
         # This contract somehow responses to all calls with success.
@@ -259,29 +302,25 @@ def identify_vault_features(
     # For some minor protocols, we do not bother to read their contracts.
     name = calls["name"].result
     if name:
-        try:
-            name = name.decode("utf-8")
-            if "POPT-V1" in name:
-                features.add(ERC4626Feature.panoptic_like)
-            elif "Return Finance" in name:
-                features.add(ERC4626Feature.panoptic_like)
-            elif "ArcadiaV2" in name:
-                features.add(ERC4626Feature.arcadia_finance_like)
-            elif "BRT2" in name:
-                features.add(ERC4626Feature.baklava_space_like)
-            elif name == "Satoshi":
-                features.add(ERC4626Feature.satoshi_stablecoin)
-            elif "Athena" in name:
-                features.add(ERC4626Feature.athena_like)
-            elif "RightsToken" in name:
-                features.add(ERC4626Feature.reserve_like)
-            elif "Fluid" in name:
-                features.add(ERC4626Feature.fluid_like)
-            elif "Peapods" in name:
-                features.add(ERC4626Feature.peapods_like)
-
-        except:
-            pass
+        name = name.decode("utf-8", errors="ignore")
+        if "POPT-V1" in name:
+            features.add(ERC4626Feature.panoptic_like)
+        elif "Return Finance" in name:
+            features.add(ERC4626Feature.panoptic_like)
+        elif "ArcadiaV2" in name:
+            features.add(ERC4626Feature.arcadia_finance_like)
+        elif "BRT2" in name:
+            features.add(ERC4626Feature.baklava_space_like)
+        elif name == "Satoshi":
+            features.add(ERC4626Feature.satoshi_stablecoin)
+        elif "Athena" in name:
+            features.add(ERC4626Feature.athena_like)
+        elif "RightsToken" in name:
+            features.add(ERC4626Feature.reserve_like)
+        elif "Fluid" in name:
+            features.add(ERC4626Feature.fluid_like)
+        elif "Peapods" in name:
+            features.add(ERC4626Feature.peapods_like)
 
     return features
 
