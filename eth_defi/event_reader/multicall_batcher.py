@@ -35,7 +35,6 @@ from eth_defi.event_reader.fast_json_rpc import get_last_headers
 from eth_defi.event_reader.web3factory import Web3Factory
 from eth_defi.provider.named import get_provider_name
 from eth_defi.timestamp import get_block_timestamp
-from tests.ethereum.polygon_forked.conftest import chain_id
 
 logger = logging.getLogger(__name__)
 
