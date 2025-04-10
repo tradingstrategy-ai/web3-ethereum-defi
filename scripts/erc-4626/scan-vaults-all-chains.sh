@@ -16,18 +16,6 @@ set -u
 
 SCAN_PRICES=${SCAN_PRICES:-"false"}
 
-export JSON_RPC_URL=$JSON_RPC_BLAST
-python scripts/erc-4626/scan-vaults.py
-if [[ "$SCAN_PRICES" == "true" ]]; then python scripts/erc-4626/scan-prices.py ; fi
-
-export JSON_RPC_URL=$JSON_RPC_GNOSIS
-python scripts/erc-4626/scan-vaults.py
-if [[ "$SCAN_PRICES" == "true" ]]; then python scripts/erc-4626/scan-prices.py ; fi
-
-export JSON_RPC_URL=$JSON_RPC_ZKSYNC
-python scripts/erc-4626/scan-vaults.py
-if [[ "$SCAN_PRICES" == "true" ]]; then python scripts/erc-4626/scan-prices.py ; fi
-
 export JSON_RPC_URL=$JSON_RPC_SONEIUM
 python scripts/erc-4626/scan-vaults.py
 if [[ "$SCAN_PRICES" == "true" ]]; then python scripts/erc-4626/scan-prices.py ; fi
@@ -41,6 +29,18 @@ python scripts/erc-4626/scan-vaults.py
 if [[ "$SCAN_PRICES" == "true" ]]; then python scripts/erc-4626/scan-prices.py ; fi
 
 export JSON_RPC_URL=$JSON_RPC_ABSTRACT
+python scripts/erc-4626/scan-vaults.py
+if [[ "$SCAN_PRICES" == "true" ]]; then python scripts/erc-4626/scan-prices.py ; fi
+
+export JSON_RPC_URL=$JSON_RPC_ZKSYNC
+python scripts/erc-4626/scan-vaults.py
+if [[ "$SCAN_PRICES" == "true" ]]; then python scripts/erc-4626/scan-prices.py ; fi
+
+export JSON_RPC_URL=$JSON_RPC_GNOSIS
+python scripts/erc-4626/scan-vaults.py
+if [[ "$SCAN_PRICES" == "true" ]]; then python scripts/erc-4626/scan-prices.py ; fi
+
+export JSON_RPC_URL=$JSON_RPC_ZORA
 python scripts/erc-4626/scan-vaults.py
 if [[ "$SCAN_PRICES" == "true" ]]; then python scripts/erc-4626/scan-prices.py ; fi
 
@@ -86,6 +86,12 @@ if [[ "$SCAN_PRICES" == "true" ]]; then python scripts/erc-4626/scan-prices.py ;
 export JSON_RPC_URL=$JSON_RPC_MANTLE
 python scripts/erc-4626/scan-vaults.py
 if [[ "$SCAN_PRICES" == "true" ]]; then python scripts/erc-4626/scan-prices.py ; fi
+
+export JSON_RPC_URL=$JSON_RPC_BLAST
+python scripts/erc-4626/scan-vaults.py
+if [[ "$SCAN_PRICES" == "true" ]]; then python scripts/erc-4626/scan-prices.py ; fi
+
+
 
 # Sonic net yet on HyperSync
 # export JSON_RPC_URL=$JSON_RPC_SONIC

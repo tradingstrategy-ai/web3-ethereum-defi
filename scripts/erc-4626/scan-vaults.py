@@ -112,6 +112,13 @@ def main():
     rows = worker_processor(delayed(create_vault_scan_record_subprocess)(web3factory, d, end_block) for d in tqdm(vault_detections, desc=desc))
 
     print(f"Total {len(rows)} vaults detected")
+
+    chain = web3.eth.chain_id
+
+    if len(rows) == 0:
+        print(f"No vaults found on chain {chain}, not generating any database updates")
+        sys.exit(0)
+
     df = pd.DataFrame(rows)
     # Parquet cannot export the raw Python objects,
     # so we remove columns that are marked Python-internal only
@@ -122,7 +129,7 @@ def main():
     # Save raw data rows
     #
 
-    chain = web3.eth.chain_id
+
     output_fname = Path(f"{output_folder}/chain-{chain}-vaults.parquet")
     parquet_df = df.copy()
     parquet_df = parquet_df.fillna(pd.NA)  # fillna replaces None and NaN with pd.NA

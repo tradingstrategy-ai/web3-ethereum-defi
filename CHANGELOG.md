@@ -9,7 +9,8 @@
 - Add: Morpho vault support
 - Add: `eth_defi.token.TokenDiskCache`
 - Add: `get_last_headers()`: Expose JSON-RPC server HTTP reply headers in every JSON-RPC call, to allow debugging RPC providers like dRPC 
-
+- Add new chain support: Abstract, Optimism, Celo, ZKSync, Gnosis chain, Soneium, Zora, Hyperliquid, Blast, Mantle, Unichain, Berachain
+- 
 # 0.28.1
 
 - Expose `TokenSnifferError.status_code` attribute so clients can handle sniffer errors

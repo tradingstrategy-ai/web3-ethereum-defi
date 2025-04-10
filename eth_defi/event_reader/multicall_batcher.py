@@ -22,6 +22,7 @@ from itertools import islice
 from pprint import pformat
 from typing import TypeAlias, Iterable, Generator, Hashable, Any, Final, Callable
 
+from requests import HTTPError
 from tqdm_loggable.auto import tqdm
 
 from eth_typing import HexAddress, BlockIdentifier, BlockNumber
@@ -33,6 +34,7 @@ from web3.contract.contract import ContractFunction
 from eth_defi.abi import get_deployed_contract, ZERO_ADDRESS, encode_function_call, ZERO_ADDRESS_STR, format_debug_instructions
 from eth_defi.event_reader.fast_json_rpc import get_last_headers
 from eth_defi.event_reader.web3factory import Web3Factory
+from eth_defi.middleware import ProbablyNodeHasNoBlock
 from eth_defi.provider.named import get_provider_name
 from eth_defi.timestamp import get_block_timestamp
 
@@ -41,20 +43,30 @@ logger = logging.getLogger(__name__)
 #: Address, arguments tuples
 CallData: TypeAlias = tuple[str | HexAddress, tuple]
 
-#: Multicall3 address
+#: Default Multicall3 address
 MULTICALL_DEPLOY_ADDRESS: Final[str] = "0xca11bde05977b3631167028862be2a173976ca11"
+
+#: Per-chain Multicall3 deployemnts
+MULTICALL_CHAIN_ADDRESSES = {
+    324: "0xF9cda624FBC7e059355ce98a31693d299FACd963",  # https://zksync.blockscout.com/address/0xF9cda624FBC7e059355ce98a31693d299FACd963
+}
 
 # The muticall small contract seems unable to fetch token balances at blocks preceding
 # the block when it was deployed on a chain. We can thus only use multicall for recent
 # enough blocks.
+# chain id: (block_number, blok_timestamp)
 MUTLICALL_DEPLOYED_AT: Final[dict[int, tuple[BlockNumber, datetime.datetime]]] = {
-    # values: (block_number, blok_timestamp)
     1: (14_353_601, datetime.datetime(2022, 3, 9, 16, 17, 56)),
     56: (15_921_452, datetime.datetime(2022, 3, 9, 23, 17, 54)),  # BSC
     137: (25_770_160, datetime.datetime(2022, 3, 9, 15, 58, 11)),  # Poly
     43114: (11_907_934, datetime.datetime(2022, 3, 9, 23, 11, 52)),  # Ava
     42161: (7_654_707, datetime.datetime(2022, 3, 9, 16, 5, 28)),  # Arbitrum
     5000: (304717, datetime.datetime(2023, 6, 29)),  # Mantle
+    100: (21022491, datetime.datetime(2022, 4, 9)), # Gnosis  https://blockscout.com/xdai/mainnet/address/0xcA11bde05977b3631167028862bE2a173976CA11/contracts
+    324: (3908235, datetime.datetime(2023, 5, 24)),  # Zksync
+    42220: (13112599, datetime.datetime(2022, 5, 21)),  # Celo https://celo.blockscout.com/tx/0xe21952e50a541d6a9129009429b4c931841f95817235b2a7de4d0904c6278afb
+    2741: (284377, datetime.datetime(2025, 1, 28)),  # Abstract https://abscan.org/tx/0x99fbeee476b397360a2a8cdac20488053198520c3055b78888a52bb765cb3051
+    10: (4_286_263, datetime.datetime(2022, 3, 9)),  # Optimism https://optimistic.etherscan.io/address/0xcA11bde05977b3631167028862bE2a173976CA11#code
 }
 
 
@@ -95,7 +107,7 @@ def get_multicall_contract(
     """
 
     if address is None:
-        address = MULTICALL_DEPLOY_ADDRESS
+        address = MULTICALL_CHAIN_ADDRESSES.get(web3.eth.chain_id, MULTICALL_DEPLOY_ADDRESS)
         chain_id = web3.eth.chain_id
         multicall_data = MUTLICALL_DEPLOYED_AT.get(chain_id)
         # Do a block number check for archive nodes
@@ -681,6 +693,9 @@ class MultiprocessMulticallReader:
         if chain_id == 5000:
             # Mantle argh
             return 16
+        elif chain_id == 100:
+            # Gnosis chain argh
+            return 16
         else:
             return self.batch_size
 
@@ -721,7 +736,7 @@ class MultiprocessMulticallReader:
                     tx = None
                 # Perform multicall
                 received_block_number, received_block_hash, batch_results = bound_func.call(tx, block_identifier=block_identifier)
-            except ValueError as e:
+            except (ValueError, ProbablyNodeHasNoBlock, HTTPError) as e:
                 debug_data = format_debug_instructions(bound_func, block_identifier=block_identifier)
                 headers = get_last_headers()
                 name = get_provider_name(self.web3.provider)
@@ -730,7 +745,9 @@ class MultiprocessMulticallReader:
                 addresses = [t[0] for t in batch_calls]
                 error_msg = f"Multicall failed for chain {chain_id}, block {block_identifier}, batch size: {len(batch_calls)}: {e}.\nUsing provider: {name}\nHTTP reply headers: {pformat(headers)}\nTo simulate:\n{debug_data}\nAddresses: {addresses}"
                 parsed_error = str(e)
-                if ("out of gas" in parsed_error) or ("evn_timeout" in parsed_error):
+                # F*cking hell Ethereum nodes, what unbearable mess.
+                # Need to maintain crappy retry rules and all node behaviour is totally random
+                if ("out of gas" in parsed_error) or ("evn_timeout" in parsed_error) or isinstance(e, ProbablyNodeHasNoBlock) or ((isinstance(e, HTTPError) and e.response.status_code == 500)):
                     raise MulticallRetryable(error_msg) from e
                 else:
                     raise MulticallNonRetryable(error_msg) from e

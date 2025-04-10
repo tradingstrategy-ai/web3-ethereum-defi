@@ -50,6 +50,7 @@ CHAIN_NAMES = {
     100: "Gnosis",
     81457: "Blast",
     42220: "Celo",
+    7777777: "Zora",
 }
 
 #: Chain avg block times.
@@ -68,7 +69,15 @@ EVM_BLOCK_TIMES = {
     34443: 2,     # Mode (~2 seconds, typical for Optimistic rollups)
     5000: 2,      # Mantle (~2 seconds, based on its Ethereum L2 design)
     999: 0.1,     # Hyperliquid (same as 645749, assuming chain ID confusion; verify correct ID)
-    42161: 0.25   # Arbitrum (block time ~250ms, though batches vary; reflects Nitro update)
+    42161: 0.25,  # Arbitrum (block time ~250ms, though batches vary; reflects Nitro update)
+    2741: 2,  # Layer-2, assumed fast like other L2s
+    10:  2,  # Optimistic Rollup, ~2s block time
+    1868: 2,  # New L2, assumed ~2s based on typical L2 performance
+    324: 1,  # ZK-Rollup, very fast, ~1s
+    100: 5,  # Gnosis Chain, ~5s
+    81457: 2,  # Layer-2, ~2s typical for Optimistic-style chains
+    42220: 5,  # Celo, ~5s block time
+    7777777: 2,  # Zora L2
 }
 
 

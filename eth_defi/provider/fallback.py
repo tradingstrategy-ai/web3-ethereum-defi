@@ -195,7 +195,7 @@ class FallbackProvider(BaseNamedProvider):
                     # This will trigger exception that will be handled by is_retryable_http_exception()
                     raise ValueError(resp_data["error"])
 
-                _check_faulty_rpc_response(method, params, resp_data)
+                _check_faulty_rpc_response(self, method, params, resp_data)
 
                 # Track API counts
                 self.api_call_counts[self.currently_active_provider][method] += 1
@@ -236,6 +236,7 @@ class FallbackProvider(BaseNamedProvider):
 
 
 def _check_faulty_rpc_response(
+    provider: NamedProvider,
     method: str,
     params: list,
     resp_data: dict,
@@ -267,7 +268,12 @@ def _check_faulty_rpc_response(
                 # to ensure it gets blocks
                 # current_sleep = max(self.state_missing_switch_over_delay, current_sleep)
                 headers = get_last_headers()
-                raise ProbablyNodeHasNoBlock(f"Empty 0x response for a smart contract call. Node lacked state data when doing eth_call for block {block_identifier}?\nLast response headers\n{pformat(headers)}")
+                if block_identifier.startswith("0x"):
+                    bi_str = int(block_identifier, 16)
+                else:
+                    bi_str = block_identifier
+                name = get_provider_name(provider)
+                raise ProbablyNodeHasNoBlock(f"Empty 0x response for a smart contract call on chain. Provider: {name} Node lacked state data when doing eth_call for block {bi_str}?\nLast response headers\n{pformat(headers)}")
 
     # BlockNotFound exception gets applied only later with the formatters,
     # so we need to trigger fallover here.
@@ -285,7 +291,8 @@ def _check_faulty_rpc_response(
             # to ensure it gets blocks
             # current_sleep = max(self.state_missing_switch_over_delay, current_sleep)
             headers = get_last_headers()
-            raise ProbablyNodeHasNoBlock(f"Node did not have data for block {block_identifier} when calling {method}.\nResponse headers are: {pformat(headers)}")
+            name = get_provider_name(provider)
+            raise ProbablyNodeHasNoBlock(f"Node did not have data for block {block_identifier} when calling {method}.\nProvider: {name}\nResponse headers are: {pformat(headers)}")
 
 
 def get_fallback_provider(web3: Web3) -> FallbackProvider:
