@@ -77,11 +77,4 @@ curl -X POST -H "Content-Type: application/json" \
       ],
       "id": 1
     }' \
-    "https://lb.drpc.org/ogrpc?network=mode&dkey=AiWA4TvYpkijvapnvFlyx_WBfO5CICoR76hArr3WfgV4"
 
-
-
-
-
-
-    0xcA11bde05977b3631167028862bE2a173976CA11', 'data': '
