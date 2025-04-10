@@ -3,7 +3,7 @@ GMX Market Data Module
 
 This module provides access to GMX protocol market data.
 """
-
+# TODO: Handle the returned data better. Maybe with a class and add proper exceptions
 from typing import Any, Optional
 
 from gmx_python_sdk.scripts.v2.get.get_available_liquidity import GetAvailableLiquidity
@@ -142,13 +142,13 @@ if __name__ == "__main__":
     # Access market data
     # markets = market_data.get_available_markets()
     # liquidity = market_data.get_available_liquidity()
-    # borrow_apr = market_data.get_borrow_apr()
+    borrow_apr = market_data.get_borrow_apr()
     # claimable_fees = market_data.get_claimable_fees()
     # contract_tvl = market_data.get_contract_tvl()
-    funding_apr = market_data.get_funding_apr()
+    # funding_apr = market_data.get_funding_apr()
     # gm_prices = market_data.get_gm_price()
     # open_interest = market_data.get_open_interest()
     # oracle_prices = market_data.get_oracle_prices()
     # pool_tvl = market_data.get_pool_tvl()
     # glv_price = market_data.get_glv_stats()
-    print(funding_apr)
+    print(borrow_apr)

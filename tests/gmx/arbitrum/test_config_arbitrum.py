@@ -4,11 +4,16 @@ import pytest
 
 from eth_defi.gmx.config import GMXConfig
 from gmx_python_sdk.scripts.v2.gmx_utils import ConfigManager
+import os
+
+mainnet_rpc = os.environ.get("ARBITRUM_CHAIN_JSON_RPC")
+
+pytestmark = pytest.mark.skipif(not mainnet_rpc, reason="No ARBITRUM_CHAIN_JSON_RPC environment variable")
 
 
-def test_init_basic(web3):
+def test_init_basic(web3_arbitrum):
     """Test basic initialization without private key."""
-    config = GMXConfig(web3, chain="arbitrum")
+    config = GMXConfig(web3_arbitrum, chain="arbitrum")
 
     # Check attributes
     assert config.chain == "arbitrum"
@@ -22,19 +27,19 @@ def test_init_basic(web3):
     assert not config.has_write_capability()
 
 
-def test_init_with_wallet(web3):
+def test_init_with_wallet(web3_arbitrum):
     """Test initialization with wallet address."""
     wallet = "0x1234567890123456789012345678901234567890"
-    config = GMXConfig(web3, chain="arbitrum", user_wallet_address=wallet)
+    config = GMXConfig(web3_arbitrum, chain="arbitrum", user_wallet_address=wallet)
 
     assert config._user_wallet_address == wallet
     assert config._base_config_dict["user_wallet_address"] == wallet
 
 
-def test_init_with_private_key(web3):
+def test_init_with_private_key(web3_arbitrum):
     """Test initialization with private key."""
     private_key = "0x1234567890123456789012345678901234567890123456789012345678901234"
-    config = GMXConfig(web3, chain="arbitrum", private_key=private_key)
+    config = GMXConfig(web3_arbitrum, chain="arbitrum", private_key=private_key)
 
     assert config._private_key == private_key
     assert config._write_config is not None
@@ -44,12 +49,12 @@ def test_init_with_private_key(web3):
     assert "private_key" not in config._base_config_dict
 
 
-def test_init_with_private_key_and_wallet(web3):
+def test_init_with_private_key_and_wallet(web3_arbitrum):
     """Test initialization with both private key and wallet address."""
     private_key = "0x1234567890123456789012345678901234567890123456789012345678901234"
     wallet = "0x1234567890123456789012345678901234567890"
 
-    config = GMXConfig(web3, chain="arbitrum", private_key=private_key, user_wallet_address=wallet)
+    config = GMXConfig(web3_arbitrum, chain="arbitrum", private_key=private_key, user_wallet_address=wallet)
 
     assert config._private_key == private_key
     assert config._user_wallet_address == wallet
@@ -59,9 +64,9 @@ def test_init_with_private_key_and_wallet(web3):
     assert "private_key" not in config._base_config_dict
 
 
-def test_get_read_config(web3):
+def test_get_read_config(web3_arbitrum):
     """Test get_read_config method returns a ConfigManager without private key."""
-    config = GMXConfig(web3, chain="arbitrum")
+    config = GMXConfig(web3_arbitrum, chain="arbitrum")
     read_config = config.get_read_config()
 
     assert isinstance(read_config, ConfigManager)
@@ -69,10 +74,10 @@ def test_get_read_config(web3):
     assert read_config.private_key is None
 
 
-def test_get_write_config_with_private_key(web3):
+def test_get_write_config_with_private_key(web3_arbitrum):
     """Test get_write_config method with private key."""
     private_key = "0x1234567890123456789012345678901234567890123456789012345678901234"
-    config = GMXConfig(web3, chain="arbitrum", private_key=private_key)
+    config = GMXConfig(web3_arbitrum, chain="arbitrum", private_key=private_key)
 
     write_config = config.get_write_config()
     assert isinstance(write_config, ConfigManager)
@@ -80,9 +85,9 @@ def test_get_write_config_with_private_key(web3):
     assert write_config.private_key == private_key
 
 
-def test_get_write_config_without_private_key(web3):
+def test_get_write_config_without_private_key(web3_arbitrum):
     """Test get_write_config method without private key should raise ValueError."""
-    config = GMXConfig(web3, chain="arbitrum")
+    config = GMXConfig(web3_arbitrum, chain="arbitrum")
 
     with pytest.raises(ValueError) as excinfo:
         config.get_write_config()
@@ -90,84 +95,44 @@ def test_get_write_config_without_private_key(web3):
     assert "No private key provided" in str(excinfo.value)
 
 
-def test_has_write_capability(web3):
+def test_has_write_capability(web3_arbitrum):
     """Test has_write_capability method."""
     # Without private key
-    config = GMXConfig(web3)
+    config = GMXConfig(web3_arbitrum)
     assert not config.has_write_capability()
 
     # With private key
     private_key = "0x1234567890123456789012345678901234567890123456789012345678901234"
-    config_with_key = GMXConfig(web3, private_key=private_key)
+    config_with_key = GMXConfig(web3_arbitrum, private_key=private_key)
     assert config_with_key.has_write_capability()
 
 
-def test_get_chain(web3):
+def test_get_chain(web3_arbitrum):
     """Test get_chain method."""
-    config = GMXConfig(web3, chain="arbitrum")
+    config = GMXConfig(web3_arbitrum, chain="arbitrum")
     assert config.get_chain() == "arbitrum"
 
-    config_avax = GMXConfig(web3, chain="avalanche")
+    config_avax = GMXConfig(web3_arbitrum, chain="avalanche")
     assert config_avax.get_chain() == "avalanche"
 
 
-def test_get_wallet_address(web3):
+def test_get_wallet_address(web3_arbitrum):
     """Test get_wallet_address method."""
     # Without wallet address
-    config = GMXConfig(web3)
+    config = GMXConfig(web3_arbitrum)
     assert config.get_wallet_address() is None
 
     # With wallet address
     wallet = "0x1234567890123456789012345678901234567890"
-    config_with_wallet = GMXConfig(web3, user_wallet_address=wallet)
+    config_with_wallet = GMXConfig(web3_arbitrum, user_wallet_address=wallet)
     assert config_with_wallet.get_wallet_address() == wallet
 
 
-def test_get_network_info(web3):
+def test_get_network_info(web3_arbitrum):
     """Test get_network_info method."""
-    config = GMXConfig(web3, chain="arbitrum")
+    config = GMXConfig(web3_arbitrum, chain="arbitrum")
 
     network_info = config.get_network_info()
     assert network_info["chain"] == "arbitrum"
     assert isinstance(network_info["rpc_url"], str)
     assert "chain_id" in network_info
-
-
-def test_avalanche_connection_basic(web3_avalanche):
-    """Test basic Avalanche connection parameters."""
-    config = GMXConfig(web3_avalanche, chain="avalanche")
-
-    # Check that the chain is set correctly
-    assert config.chain == "avalanche"
-
-    # Check that the network info shows avalanche
-    network_info = config.get_network_info()
-    assert network_info["chain"] == "avalanche"
-
-    # Check that the read config is initialized with avalanche
-    read_config = config.get_read_config()
-    assert read_config.chain == "avalanche"
-
-    # The chain_id should match the actual Avalanche chain ID
-    assert network_info["chain_id"] == 43114
-
-
-def test_avalanche_connection_with_private_key(web3_avalanche):
-    """Test Avalanche connection with transaction capabilities."""
-    private_key = "0x1234567890123456789012345678901234567890123456789012345678901234"
-    wallet = "0x1234567890123456789012345678901234567890"
-
-    config = GMXConfig(web3_avalanche, chain="avalanche", private_key=private_key, user_wallet_address=wallet)
-
-    # Check that write capability is properly set up for Avalanche
-    assert config.has_write_capability()
-
-    # Get the write config and verify it's set for Avalanche
-    write_config = config.get_write_config()
-    assert write_config.chain == "avalanche"
-    assert write_config.private_key == private_key
-
-    # Verify the correct chain is configured
-    network_info = config.get_network_info()
-    assert network_info["chain"] == "avalanche"
-    assert network_info["chain_id"] == 43114
