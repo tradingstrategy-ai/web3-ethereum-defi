@@ -63,7 +63,15 @@ class MulticallStateProblem(Exception):
 
 
 class MulticallRetryable(Exception):
-    """Try to decrease batch size"""
+    """Out of gas.
+
+    - Broken contract in a gas loop
+
+    Try to decrease batch size.
+    """
+
+class MulticallNonRetryable(Exception):
+    """Need to take a manual look these errors."""
 
 
 def get_multicall_block_number(chain_id: int) -> int | None:
@@ -716,7 +724,11 @@ class MultiprocessMulticallReader:
                 if type(block_identifier) == int:
                     block_identifier = f"{block_identifier:,}"
                 addresses = [t[0] for t in batch_calls]
-                raise MulticallRetryable(f"Multicall failed for chain {chain_id}, block {block_identifier}, batch size: {len(batch_calls)}: {e}.\nUsing provider: {name}\nHTTP reply headers: {pformat(headers)}\nTo simulate:\n{debug_data}\nAddresses: {addresses}") from e
+                error_msg = f"Multicall failed for chain {chain_id}, block {block_identifier}, batch size: {len(batch_calls)}: {e}.\nUsing provider: {name}\nHTTP reply headers: {pformat(headers)}\nTo simulate:\n{debug_data}\nAddresses: {addresses}"
+                if "out of gas" in str(e):
+                    raise MulticallRetryable(error_msg) from e
+                else:
+                    raise MulticallNonRetryable(error_msg) from e
 
             # Debug flag to diagnose WTF is going on Github
             # where calls randomly get empty results
@@ -806,13 +818,15 @@ class MultiprocessMulticallReader:
                 encoded_calls=encoded_calls,
                 require_multicall_result=require_multicall_result,
             )
-        except MulticallRetryable:
+        except MulticallRetryable as e:
             # Fall back to one call per time if someone is out of gas bombing us.
             # See Mantle issues.
             # This will usually fix the issue, but it if is not resolve itself in few blocks the scan will grind snail pace and
             # the underlying contract needs to be manually blacklisted.
             block_identifier_str = f"{block_identifier:,}" if type(block_identifier) == int else str(block_identifier)
-            logger.warning(f"Multicall failed (out of gas) at chain {chain_id}, block {block_identifier_str}, batch size: {chunk_size}.\nFalling back to one call at a time to figure out broken contract.")
+            logger.warning(f"Multicall failed (out of gas) at chain {chain_id}, block {block_identifier_str}, batch size: {chunk_size}.\nFalling back to one call at a time to figure out broken contract.\nDebug details: {str(e)}")
+
+            # Set batch size to 1 and give it one more go
             try:
                 calls_results = self.call_multicall_with_batch_size(
                     multicall_contract,
