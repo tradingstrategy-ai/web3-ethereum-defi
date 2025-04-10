@@ -3,8 +3,8 @@
 
 .. _scan-erc_4626_prices:
 
-ERC-4626: scanning vaults' historical price and performance
-===========================================================
+ERC-4626: scanning historical price and performance of vaults
+=============================================================
 
 Here is an example how to read the ERC-4626 vault historical data.
 
