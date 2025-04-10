@@ -8,6 +8,7 @@
 - Add: IPOR vault support
 - Add: Morpho vault support
 - Add: `eth_defi.token.TokenDiskCache`
+- Add: `get_last_headers()`: Expose JSON-RPC server HTTP reply headers in every JSON-RPC call, to allow debugging RPC providers like dRPC 
 
 # 0.28.1
 

@@ -16,6 +16,20 @@ set -u
 
 SCAN_PRICES=${SCAN_PRICES:-"false"}
 
+
+
+export JSON_RPC_URL=$JSON_RPC_HYPERLIQUID
+python scripts/erc-4626/scan-vaults.py
+if [[ "$SCAN_PRICES" == "true" ]]; then python scripts/erc-4626/scan-prices.py ; fi
+
+export JSON_RPC_URL=$JSON_RPC_POLYGON
+python scripts/erc-4626/scan-vaults.py
+if [[ "$SCAN_PRICES" == "true" ]]; then python scripts/erc-4626/scan-prices.py ; fi
+
+export JSON_RPC_URL=$JSON_RPC_AVALANCHE
+python scripts/erc-4626/scan-vaults.py
+if [[ "$SCAN_PRICES" == "true" ]]; then python scripts/erc-4626/scan-prices.py ; fi
+
 export JSON_RPC_URL=$JSON_RPC_BASE
 python scripts/erc-4626/scan-vaults.py
 if [[ "$SCAN_PRICES" == "true" ]]; then python scripts/erc-4626/scan-prices.py ; fi
@@ -44,18 +58,6 @@ python scripts/erc-4626/scan-vaults.py
 if [[ "$SCAN_PRICES" == "true" ]]; then python scripts/erc-4626/scan-prices.py ; fi
 
 export JSON_RPC_URL=$JSON_RPC_MANTLE
-python scripts/erc-4626/scan-vaults.py
-if [[ "$SCAN_PRICES" == "true" ]]; then python scripts/erc-4626/scan-prices.py ; fi
-
-export JSON_RPC_URL=$JSON_RPC_HYPERLIQUID
-python scripts/erc-4626/scan-vaults.py
-if [[ "$SCAN_PRICES" == "true" ]]; then python scripts/erc-4626/scan-prices.py ; fi
-
-export JSON_RPC_URL=$JSON_RPC_POLYGON
-python scripts/erc-4626/scan-vaults.py
-if [[ "$SCAN_PRICES" == "true" ]]; then python scripts/erc-4626/scan-prices.py ; fi
-
-export JSON_RPC_URL=$JSON_RPC_AVALANCHE
 python scripts/erc-4626/scan-vaults.py
 if [[ "$SCAN_PRICES" == "true" ]]; then python scripts/erc-4626/scan-prices.py ; fi
 

@@ -54,11 +54,24 @@ MUTLICALL_DEPLOYED_AT: Final[dict[int, tuple[BlockNumber, datetime.datetime]]] =
     137: (25_770_160, datetime.datetime(2022, 3, 9, 15, 58, 11)),  # Poly
     43114: (11_907_934, datetime.datetime(2022, 3, 9, 23, 11, 52)),  # Ava
     42161: (7_654_707, datetime.datetime(2022, 3, 9, 16, 5, 28)),  # Arbitrum
+    5000: (304717, datetime.datetime(2023, 6, 29)),  # Mantle
 }
 
 
 class MulticallStateProblem(Exception):
     """TODO"""
+
+
+class MulticallRetryable(Exception):
+    """Out of gas.
+
+    - Broken contract in a gas loop
+
+    Try to decrease batch size.
+    """
+
+class MulticallNonRetryable(Exception):
+    """Need to take a manual look these errors."""
 
 
 def get_multicall_block_number(chain_id: int) -> int | None:
@@ -611,13 +624,17 @@ class MultiprocessMulticallReader:
       then you get no results
     """
 
-    def __init__(self, web3factory: Web3Factory | Web3, chunk_size=24):
+    def __init__(
+        self,
+        web3factory: Web3Factory | Web3,
+        batch_size=40,
+    ):
         """Create subprocess worker instance.
 
         :param web3factory:
             Initialise connection within the subprocess
 
-        :param chunk_size:
+        :param batch_size:
             How many calls we pack into the multicall.
 
             Manually tuned number if your RPC nodes start to crap out, as they hit their internal time limits.
@@ -638,13 +655,101 @@ class MultiprocessMulticallReader:
             threading.current_thread(),
             name,
         )
-        self.chunk_size = chunk_size
+        self.batch_size = batch_size
 
     def __repr__(self):
         return f"<MultiprocessMulticallReader process: {os.getpid()}, thread: {threading.current_thread()}, chain: {self.web3.eth.chain_id}>"
 
     def get_block_timestamp(self, block_number: int) -> datetime.datetime:
         return get_block_timestamp(self.web3, block_number)
+
+    def get_gas_hint(self, chain_id: int, batch_calls: list[tuple[HexAddress, bytes]]) -> int | None:
+        """Fix non-standard out of gas issues
+
+        - # https://docs.alchemy.com/reference/gas-limits-for-eth_call-and-eth_estimategas
+        """
+        if chain_id == 5000:
+            # Mantle: 1000B gas
+            # Block 61298003
+            # Address 0xca11bde05977b3631167028862be2a173976ca11
+            return 999_000_000_000
+        else:
+            return None
+
+    def get_batch_size(self, chain_id) -> int | None:
+        """Fix non-standard out of gas issues"""
+        if chain_id == 5000:
+            # Mantle argh
+            return 16
+        else:
+            return self.batch_size
+
+    def call_multicall_with_batch_size(
+        self,
+        multicall_contract: Contract,
+        block_identifier: BlockIdentifier,
+        batch_size: int,
+        encoded_calls: list[tuple[HexAddress, bytes]],
+        require_multicall_result: bool,
+    ) -> list[tuple[bool, bytes]]:
+        """Communicate with Multicall3 contract.
+
+        - Fail safes for ugly situations
+        """
+        payload_size = 0
+        calls_results = []
+        chain_id = self.web3.eth.chain_id
+        for i in range(0, len(encoded_calls), batch_size):
+            batch_calls = encoded_calls[i : i + batch_size]
+            # Calculate how many bytes we are going to use
+            payload_size += sum(20 + len(c[1]) for c in batch_calls)
+
+            # Fix Mantle out of gas
+            gas = self.get_gas_hint(chain_id=chain_id, batch_calls=batch_calls)
+
+            # https://github.com/onflow/go-ethereum/blob/18406ff59b887a1d132f46068aa0bee2a9234bd7/core/state/reader.go#L303C6-L303C25
+            # https://etherscan.io/address/0xcA11bde05977b3631167028862bE2a173976CA11#code
+            bound_func = multicall_contract.functions.tryBlockAndAggregate(
+                calls=batch_calls,
+                requireSuccess=False,
+            )
+            try:
+                # Apply gas limit workaround
+                if gas:
+                    tx = {"gas": gas}
+                else:
+                    tx = None
+                # Perform multicall
+                received_block_number, received_block_hash, batch_results = bound_func.call(tx, block_identifier=block_identifier)
+            except ValueError as e:
+                debug_data = format_debug_instructions(bound_func, block_identifier=block_identifier)
+                headers = get_last_headers()
+                name = get_provider_name(self.web3.provider)
+                if type(block_identifier) == int:
+                    block_identifier = f"{block_identifier:,}"
+                addresses = [t[0] for t in batch_calls]
+                error_msg = f"Multicall failed for chain {chain_id}, block {block_identifier}, batch size: {len(batch_calls)}: {e}.\nUsing provider: {name}\nHTTP reply headers: {pformat(headers)}\nTo simulate:\n{debug_data}\nAddresses: {addresses}"
+                parsed_error = str(e)
+                if ("out of gas" in parsed_error) or ("evn_timeout" in parsed_error):
+                    raise MulticallRetryable(error_msg) from e
+                else:
+                    raise MulticallNonRetryable(error_msg) from e
+
+            # Debug flag to diagnose WTF is going on Github
+            # where calls randomly get empty results
+            if require_multicall_result:
+                for output_tuple in batch_results:
+                    if output_tuple[1] == b"":
+                        global _reader_instance
+                        readers = _reader_instance.per_chain_readers
+                        debug_str = format_debug_instructions(bound_func, block_identifier=block_identifier)
+                        rpc_name = get_provider_name(multicall_contract.w3.provider)
+                        last_headers = get_last_headers()
+                        raise MulticallStateProblem(f"Multicall gave empty result: at block {block_identifier} at chain {self.web3.eth.chain_id}.\nDebug data is:\n{debug_str}\nRPC is: {rpc_name}\nBatch result: {batch_results}\nBatch calls: {batch_calls}\nReceived block number: {received_block_number}\nResponse headers: {pformat(last_headers)}\nLive multicall readers are: {pformat(readers)}")
+
+            calls_results += batch_results
+
+        return calls_results
 
     def process_calls(
         self,
@@ -653,6 +758,9 @@ class MultiprocessMulticallReader:
         require_multicall_result=False,
     ) -> Iterable[EncodedCallResult]:
         """Work a chunk of calls in the subprocess.
+
+        - Divide unlimited number of calls to something we think Multicall3 and RPC node can handle
+        - If a single batch fail
 
         :param require_multicall_result:
             Headache debug flag.
@@ -703,45 +811,47 @@ class MultiprocessMulticallReader:
         # If multicall payload is heavy,
         # we need to break it to smaller multicall call chunks
         # or we get RPC timeout
-        calls_results = []
-        payload_size = 0
-        for i in range(0, len(encoded_calls), self.chunk_size):
-            batch_calls = encoded_calls[i : i + self.chunk_size]
-            # Calculate how many bytes we are going to use
-            payload_size += sum(20 + len(c[1]) for c in batch_calls)
+        chain_id = self.web3.eth.chain_id
+        batch_size = self.get_batch_size(chain_id)
 
-            # https://github.com/onflow/go-ethereum/blob/18406ff59b887a1d132f46068aa0bee2a9234bd7/core/state/reader.go#L303C6-L303C25
-            # https://etherscan.io/address/0xcA11bde05977b3631167028862bE2a173976CA11#code
-            bound_func = multicall_contract.functions.tryBlockAndAggregate(
-                calls=batch_calls,
-                requireSuccess=False,
+        try:
+            # Happy path
+            calls_results = self.call_multicall_with_batch_size(
+                multicall_contract,
+                block_identifier=block_identifier,
+                batch_size=batch_size,
+                encoded_calls=encoded_calls,
+                require_multicall_result=require_multicall_result,
             )
+        except MulticallRetryable as e:
+            # Fall back to one call per time if someone is out of gas bombing us.
+            # See Mantle issues.
+            # This will usually fix the issue, but it if is not resolve itself in few blocks the scan will grind snail pace and
+            # the underlying contract needs to be manually blacklisted.
+            block_identifier_str = f"{block_identifier:,}" if type(block_identifier) == int else str(block_identifier)
+            logger.warning(f"Multicall failed (out of gas?) at chain {chain_id}, block {block_identifier_str}, batch size: {batch_size}. Falling back to one call at a time to figure out broken contract.")
+            logger.info(f"Debug details: {str(e)}")  # Don't flood the terminal
+
+            # Set batch size to 1 and give it one more go
             try:
-                received_block_number, received_block_hash, batch_results = bound_func.call(block_identifier=block_identifier)
-            except ValueError as e:
-                debug_data = format_debug_instructions(bound_func)
-                raise ValueError(f"Multicall failed. To simulate:\n{debug_data}") from e
-
-            # Debug flag to diagnose WTF is going on Github
-            # where calls randomly get empty results
-            if require_multicall_result:
-                for output_tuple in batch_results:
-                    if output_tuple[1] == b"":
-                        global _reader_instance
-                        readers = _reader_instance.per_chain_readers
-                        debug_str = format_debug_instructions(bound_func, block_identifier=block_identifier)
-                        rpc_name = get_provider_name(multicall_contract.w3.provider)
-                        last_headers = get_last_headers()
-                        raise MulticallStateProblem(f"Multicall gave empty result: at block {block_identifier} at chain {self.web3.eth.chain_id}.\nDebug data is:\n{debug_str}\nRPC is: {rpc_name}\nBatch result: {batch_results}\nBatch calls: {batch_calls}\nReceived block number: {received_block_number}\nResponse headers: {pformat(last_headers)}\nLive multicall readers are: {pformat(readers)}")
-
-            calls_results += batch_results
+                calls_results = self.call_multicall_with_batch_size(
+                    multicall_contract,
+                    block_identifier=block_identifier,
+                    batch_size=1,
+                    encoded_calls=encoded_calls,
+                    require_multicall_result=require_multicall_result,
+                )
+            except MulticallRetryable as e:
+                raise RuntimeError("Encountered a contract that cannot be called, bailing out. Manually update blacklist.") from e
 
         # Calculate byte size of output
         out_size = sum(len(o[1]) for o in calls_results)
 
+        # Check we are internally coherent
         assert len(filtered_in_calls) == len(calls_results), f"Calls: {len(filtered_in_calls)}, results: {len(calls_results)}"
         assert len(encoded_calls) == len(calls_results), f"Calls: {len(encoded_calls)}, results: {len(calls_results)}"
 
+        # Build EncodedCallResult() objects out of incoming results
         for call, output_tuple in zip(filtered_in_calls, calls_results):
             yield EncodedCallResult(
                 call=call,
@@ -752,7 +862,7 @@ class MultiprocessMulticallReader:
 
         # User friendly logging
         duration = datetime.datetime.utcnow() - start
-        logger.info("Multicall result fetch and handling took %s, input was %d bytes, output was %d bytes", duration, payload_size, out_size)
+        logger.info("Multicall result fetch and handling took %s, output was %d bytes", duration, out_size)
 
 
 def read_multicall_historical(

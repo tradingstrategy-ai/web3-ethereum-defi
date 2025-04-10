@@ -87,7 +87,10 @@ def patch_web3(web3: Web3):
 
 
 def get_last_headers() -> dict:
-    """Debug for dRPC.
+    """Get last HTTP reply headers of the JSON-RPC API call.
+
+    - Debug for RPC providers
+    - Gives insight for routing of proxy providers like dRPC so you can disable faulty market place providers
 
     Example output:
 

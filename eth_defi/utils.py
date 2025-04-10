@@ -178,7 +178,7 @@ def get_url_domain(url: str) -> str:
         return f"{parsed.hostname}:{parsed.port}"
 
 
-def setup_console_logging():
+def setup_console_logging(default_log_level="warning"):
     """Set up coloured log output.
 
     - Helper function to have nicer logging output in tutorial scripts.
@@ -190,7 +190,7 @@ def setup_console_logging():
     except ImportError as e:
         raise RuntimeError("coloredlogs package missing - please install with pip first before running") from e
 
-    level = os.environ.get("LOG_LEVEL", "info").upper()
+    level = os.environ.get("LOG_LEVEL", default_log_level).upper()
 
     fmt = "%(asctime)s %(name)-44s %(message)s"
     date_fmt = "%H:%M:%S"

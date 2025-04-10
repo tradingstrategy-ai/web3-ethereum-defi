@@ -37,6 +37,7 @@ from eth_defi.erc_4626.core import ERC4626Feature
 from eth_defi.erc_4626.hypersync_discovery import HypersyncVaultDiscover
 from eth_defi.erc_4626.scan import create_vault_scan_record_subprocess
 from eth_defi.hypersync.server import get_hypersync_server
+from eth_defi.utils import setup_console_logging
 
 try:
     import hypersync
@@ -60,8 +61,7 @@ if JSON_RPC_URL is None:
 
 def main():
 
-    log_level = os.environ.get('LOG_LEVEL', 'WARNING').upper()
-    logging.basicConfig(level=log_level, stream=sys.stdout)
+    setup_console_logging()
 
     # How many CPUs / subprocess we use
     max_workers = 16

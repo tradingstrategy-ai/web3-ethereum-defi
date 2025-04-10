@@ -34,6 +34,14 @@ from eth_defi.vault.base import VaultBase, VaultHistoricalReader, VaultHistorica
 logger = logging.getLogger(__name__)
 
 
+#: List of contracts we cannot scan.
+#: These will bomb out with out of gas.
+#: See Mantle issues.
+DEFAULT_BLACK_LIST = [
+    # TODO
+]
+
+
 class ParquetScanResult(TypedDict):
     """Result of generating historical prices Parquet file."""
     existing: bool

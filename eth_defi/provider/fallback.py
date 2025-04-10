@@ -210,7 +210,18 @@ class FallbackProvider(BaseNamedProvider):
                     if i < self.retries:
                         # Black messes up string new lines here
                         # See https://github.com/psf/black/issues/1837
-                        logger.log(self.switchover_noisiness, "Encountered JSON-RPC retryable error %s\n When calling method: %s%s\n " "Retrying in %f seconds, retry #%d / %d", e, method, params, current_sleep, i + 1, self.retries)
+                        headers = get_last_headers()
+                        logger.log(
+                            self.switchover_noisiness,
+                           "Encountered JSON-RPC retryable error %s\nWhen calling RPC method: %s%s\nHeaders are: %s\nRetrying in %f seconds, retry #%d / %d",
+                           e,
+                            method,
+                            params,
+                            pformat(headers),
+                            current_sleep,
+                            i + 1,
+                            self.retries,
+                        )
                         time.sleep(current_sleep)
                         current_sleep *= self.backoff
                         self.retry_count += 1
