@@ -42,6 +42,14 @@ CHAIN_NAMES = {
     5000: "Mantle",
     999: "Hyperliquid",  # TODO: Not sure what's correct for Hyperliquid
     42161: "Arbitrum",
+    #
+    2741: "Abstract",
+    10: "Optimism",
+    1868: "Soneium",
+    324: "ZKsync",
+    100: "Gnosis",
+    81457: "Blast",
+    42220: "Celo",
 }
 
 #: Chain avg block times.
