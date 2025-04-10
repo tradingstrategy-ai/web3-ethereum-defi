@@ -678,7 +678,11 @@ class MultiprocessMulticallReader:
 
     def get_batch_size(self, chain_id) -> int | None:
         """Fix non-standard out of gas issues"""
-        return self.batch_size
+        if chain_id == 5000:
+            # Mantle argh
+            return 16
+        else:
+            return self.batch_size
 
     def call_multicall_with_batch_size(
         self,
@@ -807,7 +811,7 @@ class MultiprocessMulticallReader:
         # we need to break it to smaller multicall call chunks
         # or we get RPC timeout
         chain_id = self.web3.eth.chain_id
-        chunk_size = self.get_batch_size(chain_id)
+        batch_size = self.get_batch_size(chain_id)
 
         try:
             # Happy path
@@ -824,7 +828,8 @@ class MultiprocessMulticallReader:
             # This will usually fix the issue, but it if is not resolve itself in few blocks the scan will grind snail pace and
             # the underlying contract needs to be manually blacklisted.
             block_identifier_str = f"{block_identifier:,}" if type(block_identifier) == int else str(block_identifier)
-            logger.warning(f"Multicall failed (out of gas) at chain {chain_id}, block {block_identifier_str}, batch size: {chunk_size}.\nFalling back to one call at a time to figure out broken contract.\nDebug details: {str(e)}")
+            logger.warning(f"Multicall failed (out of gas?) at chain {chain_id}, block {block_identifier_str}, batch size: {batch_size}. Falling back to one call at a time to figure out broken contract.")
+            logger.info(f"Debug details: {str(e)}")  # Don't flood the terminal
 
             # Set batch size to 1 and give it one more go
             try:
