@@ -729,7 +729,8 @@ class MultiprocessMulticallReader:
                     block_identifier = f"{block_identifier:,}"
                 addresses = [t[0] for t in batch_calls]
                 error_msg = f"Multicall failed for chain {chain_id}, block {block_identifier}, batch size: {len(batch_calls)}: {e}.\nUsing provider: {name}\nHTTP reply headers: {pformat(headers)}\nTo simulate:\n{debug_data}\nAddresses: {addresses}"
-                if "out of gas" in str(e):
+                parsed_error = str(e)
+                if ("out of gas" in parsed_error) or ("evn_timeout" in parsed_error):
                     raise MulticallRetryable(error_msg) from e
                 else:
                     raise MulticallNonRetryable(error_msg) from e
@@ -818,7 +819,7 @@ class MultiprocessMulticallReader:
             calls_results = self.call_multicall_with_batch_size(
                 multicall_contract,
                 block_identifier=block_identifier,
-                batch_size=chunk_size,
+                batch_size=batch_size,
                 encoded_calls=encoded_calls,
                 require_multicall_result=require_multicall_result,
             )

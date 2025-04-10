@@ -17,9 +17,6 @@ set -u
 SCAN_PRICES=${SCAN_PRICES:-"false"}
 
 
-export JSON_RPC_URL=$JSON_RPC_MANTLE
-python scripts/erc-4626/scan-vaults.py
-if [[ "$SCAN_PRICES" == "true" ]]; then python scripts/erc-4626/scan-prices.py ; fi
 
 export JSON_RPC_URL=$JSON_RPC_HYPERLIQUID
 python scripts/erc-4626/scan-vaults.py
@@ -60,6 +57,9 @@ export JSON_RPC_URL=$JSON_RPC_BINANCE
 python scripts/erc-4626/scan-vaults.py
 if [[ "$SCAN_PRICES" == "true" ]]; then python scripts/erc-4626/scan-prices.py ; fi
 
+export JSON_RPC_URL=$JSON_RPC_MANTLE
+python scripts/erc-4626/scan-vaults.py
+if [[ "$SCAN_PRICES" == "true" ]]; then python scripts/erc-4626/scan-prices.py ; fi
 
 # Sonic net yet on HyperSync
 # export JSON_RPC_URL=$JSON_RPC_SONIC

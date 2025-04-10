@@ -63,6 +63,25 @@ curl -X POST -H "Content-Type: application/json" \
     $JSON_RPC_MANTLE_2
 
 
+curl -X POST -H "Content-Type: application/json" \
+    --data '{
+      "jsonrpc": "2.0",
+      "method": "eth_call",
+      "params": [
+        {
+          "to": "0xF7BAC630B46Dc92d8d6158a78cbb88343d87707d",
+          "gas": "0x47868c0",
+          "data": "0xa8d5fd65"
+        },
+        "0x320e13"
+      ],
+      "id": 1
+    }' \
+    "https://lb.drpc.org/ogrpc?network=mode&dkey=AiWA4TvYpkijvapnvFlyx_WBfO5CICoR76hArr3WfgV4"
+
+
+
+
 
 
     0xcA11bde05977b3631167028862bE2a173976CA11', 'data': '
