@@ -29,6 +29,7 @@ from eth_defi.erc_4626.classification import create_vault_instance
 from eth_defi.erc_4626.core import ERC4262VaultDetection
 from eth_defi.provider.multi_provider import create_multi_provider_web3, MultiProviderWeb3Factory
 from eth_defi.token import TokenDiskCache
+from eth_defi.utils import setup_console_logging
 from eth_defi.vault.historical import scan_historical_prices_to_parquet
 
 logger = logging.getLogger(__name__)
@@ -44,8 +45,7 @@ if JSON_RPC_URL is None:
 
 def main():
 
-    log_level = os.environ.get('LOG_LEVEL', 'WARNING').upper()
-    logging.basicConfig(level=log_level, stream=sys.stdout)
+    setup_console_logging()
 
     token_cache = TokenDiskCache()
 
