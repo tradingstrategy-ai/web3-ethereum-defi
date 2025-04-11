@@ -119,7 +119,7 @@ class GMXMarketData:
         if address is None:
             address = self.config.user_wallet_address
 
-        return GetOpenPositions(self.config.chain, address=address).get_data()
+        return GetOpenPositions(self.config, address=address).get_data()
 
 
 if __name__ == "__main__":

@@ -107,7 +107,6 @@ black = "^23.3.0"
 coloredlogs = "^15.0.1"
 
 
-
 [build-system]
 requires = ["poetry-core>=1.0.0"]
 build-backend = "poetry.core.masonry.api"
