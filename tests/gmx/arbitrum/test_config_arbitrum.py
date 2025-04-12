@@ -1,14 +1,14 @@
 # tests/test_gmx_config.py
-# To pass these tests and most of the GMX tests ARBITRUM_CHAIN_JSON_RPC & AVALANCHE_JSON_RPC_URL environment variables are set
+# To pass these tests and most of the GMX tests ARBITRUM_JSON_RPC_URL & AVALANCHE_JSON_RPC_URL environment variables are set
 import pytest
 
 from eth_defi.gmx.config import GMXConfig
 from gmx_python_sdk.scripts.v2.gmx_utils import ConfigManager
 import os
 
-mainnet_rpc = os.environ.get("ARBITRUM_CHAIN_JSON_RPC")
+mainnet_rpc = os.environ.get("ARBITRUM_JSON_RPC_URL")
 
-pytestmark = pytest.mark.skipif(not mainnet_rpc, reason="No ARBITRUM_CHAIN_JSON_RPC environment variable")
+pytestmark = pytest.mark.skipif(not mainnet_rpc, reason="No ARBITRUM_JSON_RPC_URL environment variable")
 
 
 def test_init_basic(web3_arbitrum):

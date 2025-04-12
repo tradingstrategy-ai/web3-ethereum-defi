@@ -225,7 +225,7 @@ def test_get_user_positions(market_data_avalanche):
     Users may have different positions on Avalanche compared to AVALANCHE.
     """
     # Use a test address that may have positions on Avalanche
-    test_address = "0x99f5585dcc32e2238634f11f32d9be9bd5e98b49"
+    test_address = "0xf75cD383A1C59f43bab52ADD648EDF5B1B75E2Bf"
 
     positions = market_data_avalanche.get_user_positions(address=test_address)
 
