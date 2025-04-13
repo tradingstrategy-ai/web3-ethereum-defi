@@ -117,7 +117,7 @@ class GMXAPI:
         data = self.get_candlesticks(token_symbol, period)
 
         # Convert to DataFrame
-        df = pd.DataFrame(data["candles"], columns=["timestamp", "open", "high", "low", "close", "volume"])
+        df = pd.DataFrame(data["candles"], columns=["timestamp", "open", "high", "low", "close"])
         df["timestamp"] = pd.to_datetime(df["timestamp"], unit="s")
 
         return df

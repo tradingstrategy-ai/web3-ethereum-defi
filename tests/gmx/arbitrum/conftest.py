@@ -7,6 +7,7 @@ from web3 import Web3, HTTPProvider
 
 from eth_defi.chain import install_chain_middleware
 from eth_defi.gas import node_default_gas_price_strategy
+from eth_defi.gmx.api import GMXAPI
 from eth_defi.gmx.config import GMXConfig
 from eth_defi.gmx.data import GMXMarketData
 from eth_defi.provider.anvil import fork_network_anvil
@@ -88,3 +89,11 @@ def market_data_arbitrum(gmx_config_arbitrum: GMXConfig) -> GMXMarketData:
     This instance will be reused across all tests to improve performance.
     """
     return GMXMarketData(gmx_config_arbitrum)
+
+
+@pytest.fixture()
+def api_arbitrum(gmx_config_arbitrum):
+    """
+    Create a GMXAPI instance for Arbitrum.
+    """
+    return GMXAPI(gmx_config_arbitrum)

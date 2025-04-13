@@ -3,6 +3,7 @@ import pytest
 from eth_defi.chain import install_chain_middleware
 import os
 
+from eth_defi.gmx.api import GMXAPI
 from eth_defi.gmx.config import GMXConfig
 from eth_defi.gmx.data import GMXMarketData
 
@@ -51,3 +52,11 @@ def market_data_avalanche(gmx_config_avalanche):
     Create a GMXMarketData instance for Avalanche that persists throughout the test session.
     """
     return GMXMarketData(gmx_config_avalanche)
+
+
+@pytest.fixture()
+def api_avalanche(gmx_config_avalanche):
+    """
+    Create a GMXAPI instance for Avalanche
+    """
+    return GMXAPI(gmx_config_avalanche)
