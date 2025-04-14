@@ -85,7 +85,10 @@ joblib = "^1.4.2"
 hypersync = {version = "^0.8.5", optional = true}
 cherry-etl = "^0.5.1"
 
-[tool.poetry.dev-dependencies]
+# Since new Poetry version
+[tool.poetry.group.dev.dependencies]
+black = "^23.3.0"
+coloredlogs = "^15.0.1"
 pytest = "^7.4.3"
 pytest-mock = "^3.7.0"
 ipdb = "^0.13.9"
@@ -99,12 +102,6 @@ data = ["jupyter", "tqdm", "pandas", "gql", "matplotlib", "plotly", "pyarrow", "
 test = ["pytest-xdist"]
 hypersync = ["hypersync"]
 
-
-# Since new Poetry version
-# TODO: CLean up dev dep gorups
-[tool.poetry.group.dev.dependencies]
-black = "^23.3.0"
-coloredlogs = "^15.0.1"
 
 
 [build-system]
