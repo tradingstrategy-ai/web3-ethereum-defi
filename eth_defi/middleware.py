@@ -134,6 +134,7 @@ DEFAULT_RETRYABLE_RPC_ERROR_CODES = (
     # dRPC failure
     # ValueError: {'message': 'There are not enough CUPs left to cover the CU required for current request.', 'code': 42903}g
     42903,
+
 )
 
 
@@ -157,6 +158,9 @@ DEFAULT_RETRYABLE_RPC_ERROR_MESSAGES = {
     # https://github.com/onflow/go-ethereum/blob/18406ff59b887a1d132f46068aa0bee2a9234bd7/core/state/reader.go#L303C6-L303C25
     # ValueError: {'message': 'empty reader set', 'code': -32000}
     "empty reader set",
+    # dRPC Optimism failure
+    #  {'message': 'Parse error', 'code': -32700}.,
+    "Parse error",
 }
 
 #: Ethereum JSON-RPC calls where the value never changes
