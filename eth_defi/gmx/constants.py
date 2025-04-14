@@ -26,9 +26,7 @@ GMX_EXCHANGE_ROUTER_ADDRESS = {"arbitrum": "0x900173A66dbD345006C51fA35fA3aB760F
 # Token addresses by chain
 GMX_TOKEN_ADDRESSES = {
     "arbitrum": {"ETH": "0x82aF49447D8a07e3bd95BD0d56f35241523fBab1", "BTC": "0x2f2a2543B76A4166549F7aaB2e75Bef0aefC5B0f", "USDC": "0xFF970A61A04b1cA14834A43f5dE4533eBDDB5CC8", "USDT": "0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9", "LINK": "0xf97f4df75117a78c1A5a0DBb814Af92458539FB4", "UNI": "0xFa7F8980b0f1E64A2062791cc3b0871572f1F7f0"},
-    "avalanche": {
-        # Add Avalanche token addresses
-    },
+    "avalanche": {}
 }
 
 
@@ -38,8 +36,6 @@ abi_paths = {"arbitrum": base_dir / "arbitrum" / "contracts" / "abis" / "eventem
 # Read and parse the JSON ABI files
 GMX_EVENT_EMITTER_ABI = {chain: json.loads(path.read_text()) for chain, path in abi_paths.items()}
 
-
-# ... other ABIs as needed
 
 # Event signatures for GMX contracts
 EVENT_SIGNATURES = {

@@ -10,6 +10,7 @@ from eth_defi.gas import node_default_gas_price_strategy
 from eth_defi.gmx.api import GMXAPI
 from eth_defi.gmx.config import GMXConfig
 from eth_defi.gmx.data import GMXMarketData
+from eth_defi.gmx.liquidity import GMXLiquidityManager
 from eth_defi.provider.anvil import fork_network_anvil
 
 mainnet_rpc = os.environ.get("ARBITRUM_JSON_RPC_URL")
@@ -28,16 +29,16 @@ def anvil_arbitrum_chain_fork(request, large_eth_holder) -> Generator[str, Any, 
         launch.close(log_level=logging.ERROR)
 
 
-# # forking is giving error
-# @pytest.fixture()
-# def web3_arbitrum(anvil_arbitrum_chain_fork: str) -> Web3:
-#     # Set up a local unit testing blockchain
-#     # https://web3py.readthedocs.io/en/stable/examples.html#contract-unit-tests-in-python
-#     web3 = Web3(HTTPProvider(anvil_arbitrum_chain_fork))
-#     # Anvil needs POA middlware if parent chain needs POA middleware
-#     install_chain_middleware(web3)
-#     web3.eth.set_gas_price_strategy(node_default_gas_price_strategy)
-#     return web3
+# forking is giving error
+@pytest.fixture()
+def web3_arbitrum_fork(anvil_arbitrum_chain_fork: str) -> Web3:
+    # Set up a local unit testing blockchain
+    # https://web3py.readthedocs.io/en/stable/examples.html#contract-unit-tests-in-python
+    web3 = Web3(HTTPProvider(anvil_arbitrum_chain_fork))
+    # Anvil needs POA middlware if parent chain needs POA middleware
+    install_chain_middleware(web3)
+    web3.eth.set_gas_price_strategy(node_default_gas_price_strategy)
+    return web3
 
 
 @pytest.fixture()
@@ -97,3 +98,23 @@ def api_arbitrum(gmx_config_arbitrum):
     Create a GMXAPI instance for Arbitrum.
     """
     return GMXAPI(gmx_config_arbitrum)
+
+@pytest.fixture()
+def gmx_config_arbitrum_fork(web3_arbitrum_fork: Web3) -> GMXConfig:
+    """
+    Create a GMX configuration for Arbitrum.
+
+    This creates a configuration object that can be reused across tests,
+    avoiding repeated initialization.
+    """
+    anvil_private_key: str = "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
+    address: str = "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"
+    return GMXConfig(web3_arbitrum_fork, chain="arbitrum", private_key=anvil_private_key, user_wallet_address=address)
+
+
+@pytest.fixture()
+def liquidity_manager_arbitrum(gmx_config_arbitrum_fork):
+    """
+    Create a GMXLiquidityManager instance for Arbitrum.
+    """
+    return GMXLiquidityManager(gmx_config_arbitrum_fork)
