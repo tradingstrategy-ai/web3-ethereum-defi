@@ -63,7 +63,6 @@ def test_add_liquidity_eth_usdc(liquidity_manager_arbitrum):
     assert deposit_order.debug_mode is False
 
 
-# Skip this as we need WBTC to test this & deploying a mock won't work
 def test_add_liquidity_btc_usdc(web3_arbitrum_fork, large_wbtc_holder, wbtc):
     """
     Test adding liquidity to BTC/USDC pool on Arbitrum.
@@ -84,9 +83,9 @@ def test_add_liquidity_btc_usdc(web3_arbitrum_fork, large_wbtc_holder, wbtc):
         9 * 10**8,
     ).transact({"from": large_wbtc_holder})
 
-    block_number = get_almost_latest_block_number(web3_arbitrum_fork)
-    balance = fetch_erc20_balances_multicall(web3_arbitrum_fork, address, ["0x2f2a2543b76a4166549f7aab2e75bef0aefc5b0f"], block_number)
-    print(f"{balance=}")
+    # block_number = 327050829
+    # balance = fetch_erc20_balances_multicall(web3_arbitrum_fork, address, ["0x2f2a2543b76a4166549f7aab2e75bef0aefc5b0f"], block_number)
+    # print(f"{balance=}")
 
     config = GMXConfig(web3_arbitrum_fork, chain="arbitrum", private_key=anvil_private_key, user_wallet_address=address)
     liquidity_manager_arbitrum = GMXLiquidityManager(config)
