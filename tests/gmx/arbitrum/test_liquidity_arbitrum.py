@@ -9,11 +9,14 @@ import os
 from gmx_python_sdk.scripts.v2.order.create_deposit_order import DepositOrder
 import logging
 
-from web3.contract import Contract
+from eth_defi.balances import fetch_erc20_balances_multicall
+from eth_defi.gmx.config import GMXConfig
 
 # from gmx_python_sdk.scripts.v2.order.create_withdrawal_order import WithdrawOrder
 
 from eth_defi.gmx.liquidity import GMXLiquidityManager
+from eth_defi.provider.broken_provider import get_almost_latest_block_number
+from tests.gmx.arbitrum.conftest import web3_arbitrum
 
 mainnet_rpc = os.environ.get("ARBITRUM_JSON_RPC_URL")
 
@@ -24,8 +27,6 @@ original_log_handlers = logging.getLogger().handlers[:]
 # Remove all existing log handlers bcz of anvil is dumping the logs which is not desirable in the workflows
 for handler in original_log_handlers:
     logging.getLogger().removeHandler(handler)
-
-
 
 
 def test_initialization(gmx_config_arbitrum_fork):
@@ -44,14 +45,7 @@ def test_add_liquidity_eth_usdc(liquidity_manager_arbitrum):
     This tests that the order is created correctly.
     """
     # Common market on Arbitrum: ETH with USDC as the short token
-    deposit_order = liquidity_manager_arbitrum.add_liquidity(
-        market_token_symbol="ETH",
-        long_token_symbol="ETH",
-        short_token_symbol="USDC",
-        long_token_usd=10,  # ETH
-        short_token_usd=0,  # USDC
-        debug_mode=False
-    )
+    deposit_order = liquidity_manager_arbitrum.add_liquidity(market_token_symbol="ETH", long_token_symbol="ETH", short_token_symbol="USDC", long_token_usd=10, short_token_usd=0, debug_mode=False)  # ETH  # USDC
 
     # Verify the order was created with the right type
     assert isinstance(deposit_order, DepositOrder)
@@ -70,35 +64,46 @@ def test_add_liquidity_eth_usdc(liquidity_manager_arbitrum):
 
 
 # Skip this as we need WBTC to test this & deploying a mock won't work
-# def test_add_liquidity_btc_usdc(liquidity_manager_arbitrum, btc: Contract, deployer: str):
-#     """
-#     Test adding liquidity to BTC/USDC pool on Arbitrum.
-#
-#     This verifies that other markets work as well.
-#     """
-#     # fund the user with BTC
-#     btc.functions.transfer("0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266", 500).transact({"from": deployer})
-#
-#     # Another common market on Arbitrum: BTC with USDC as the short token
-#     deposit_order = liquidity_manager_arbitrum.add_liquidity(
-#         market_token_symbol="BTC",
-#         long_token_symbol="BTC",
-#         short_token_symbol="USDC",
-#         long_token_usd=2,   # BTC
-#         short_token_usd=0,  # USDC
-#         debug_mode=False
-#     )
-#
-#     # Verify the order was created with the right type
-#     assert isinstance(deposit_order, DepositOrder)
-#
-#     # Verify the order has appropriate parameters
-#     assert hasattr(deposit_order, "market_key")
-#     assert hasattr(deposit_order, "initial_long_token")
-#     assert hasattr(deposit_order, "initial_short_token")
-#
-#     # Verify debug mode
-#     assert deposit_order.debug_mode is False
+def test_add_liquidity_btc_usdc(web3_arbitrum_fork, large_wbtc_holder, wbtc):
+    """
+    Test adding liquidity to BTC/USDC pool on Arbitrum.
+
+    This verifies that other markets work as well.
+    """
+    # block_number = get_almost_latest_block_number(web3_arbitrum_fork)
+    # balance = fetch_erc20_balances_multicall(web3_arbitrum_fork, large_wbtc_holder,
+    #                                          ["0x2f2a2543b76a4166549f7aab2e75bef0aefc5b0f"], block_number)
+    # print(f"{balance=}")
+
+    anvil_private_key: str = "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
+    address: str = "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"
+
+    # fund the user with WBTC
+    wbtc.contract.functions.transfer(
+        address,  # testing wallet address
+        9 * 10**8,
+    ).transact({"from": large_wbtc_holder})
+
+    block_number = get_almost_latest_block_number(web3_arbitrum_fork)
+    balance = fetch_erc20_balances_multicall(web3_arbitrum_fork, address, ["0x2f2a2543b76a4166549f7aab2e75bef0aefc5b0f"], block_number)
+    print(f"{balance=}")
+
+    config = GMXConfig(web3_arbitrum_fork, chain="arbitrum", private_key=anvil_private_key, user_wallet_address=address)
+    liquidity_manager_arbitrum = GMXLiquidityManager(config)
+
+    # Another common market on Arbitrum: BTC with USDC as the short token
+    deposit_order = liquidity_manager_arbitrum.add_liquidity(market_token_symbol="BTC", long_token_symbol="BTC", short_token_symbol="USDC", long_token_usd=2, short_token_usd=0, debug_mode=False)  # BTC  # USDC
+
+    # Verify the order was created with the right type
+    assert isinstance(deposit_order, DepositOrder)
+
+    # Verify the order has appropriate parameters
+    assert hasattr(deposit_order, "market_key")
+    assert hasattr(deposit_order, "initial_long_token")
+    assert hasattr(deposit_order, "initial_short_token")
+
+    # Verify debug mode
+    assert deposit_order.debug_mode is False
 
 
 # Skip the remove liquidity for now as there is too many "Insufficient Balnace" error.
@@ -172,22 +177,8 @@ def test_parameter_validation(liquidity_manager_arbitrum):
     """
     # Test with invalid market token
     with pytest.raises(Exception):
-        liquidity_manager_arbitrum.add_liquidity(
-            market_token_symbol="INVALID_TOKEN",
-            long_token_symbol="ETH",
-            short_token_symbol="USDC",
-            long_token_usd=100,
-            short_token_usd=100,
-            debug_mode=False
-        )
+        liquidity_manager_arbitrum.add_liquidity(market_token_symbol="INVALID_TOKEN", long_token_symbol="ETH", short_token_symbol="USDC", long_token_usd=100, short_token_usd=100, debug_mode=False)
 
     # Test with invalid token amounts (both zero)
     with pytest.raises(Exception):
-        liquidity_manager_arbitrum.add_liquidity(
-            market_token_symbol="ETH",
-            long_token_symbol="ETH",
-            short_token_symbol="USDC",
-            long_token_usd=0,
-            short_token_usd=0,
-            debug_mode=False
-        )
+        liquidity_manager_arbitrum.add_liquidity(market_token_symbol="ETH", long_token_symbol="ETH", short_token_symbol="USDC", long_token_usd=0, short_token_usd=0, debug_mode=False)
