@@ -15,18 +15,10 @@ from eth_defi.gmx.config import GMXConfig
 # from gmx_python_sdk.scripts.v2.order.create_withdrawal_order import WithdrawOrder
 
 from eth_defi.gmx.liquidity import GMXLiquidityManager
-from eth_defi.provider.broken_provider import get_almost_latest_block_number
-from tests.gmx.arbitrum.conftest import web3_arbitrum
 
 mainnet_rpc = os.environ.get("ARBITRUM_JSON_RPC_URL")
 
 pytestmark = pytest.mark.skipif(not mainnet_rpc, reason="No ARBITRUM_JSON_RPC_URL environment variable")
-
-# https://betterstack.com/community/questions/how-to-disable-logging-when-running-tests-in-python/
-original_log_handlers = logging.getLogger().handlers[:]
-# Remove all existing log handlers bcz of anvil is dumping the logs which is not desirable in the workflows
-for handler in original_log_handlers:
-    logging.getLogger().removeHandler(handler)
 
 
 def test_initialization(gmx_config_arbitrum_fork):
@@ -168,7 +160,7 @@ def test_add_liquidity_btc_usdc(web3_arbitrum_fork, large_wbtc_holder, wbtc):
 #     assert withdraw_order.debug_mode is False
 
 
-def test_parameter_validation(liquidity_manager_arbitrum):
+def test_fail_parameter_validation(liquidity_manager_arbitrum):
     """
     Test error handling with invalid parameters.
 

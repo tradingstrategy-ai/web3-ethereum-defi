@@ -21,6 +21,12 @@ mainnet_rpc = os.environ.get("AVALANCHE_JSON_RPC_URL")
 
 pytestmark = pytest.mark.skipif(not mainnet_rpc, reason="No AVALANCHE_JSON_RPC_URL environment variable")
 
+# https://betterstack.com/community/questions/how-to-disable-logging-when-running-tests-in-python/
+original_log_handlers = logging.getLogger().handlers[:]
+# Remove all existing log handlers bcz of anvil is dumping the logs which is not desirable in the workflows
+for handler in original_log_handlers:
+    logging.getLogger().removeHandler(handler)
+
 
 @pytest.fixture()
 def anvil_avalanche_chain_fork(request, large_eth_holder, large_wbtc_holder) -> Generator[str, Any, None]:

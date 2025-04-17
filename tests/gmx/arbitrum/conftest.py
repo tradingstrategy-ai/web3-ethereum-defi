@@ -3,6 +3,8 @@ import os
 from typing import Generator, Any
 
 import pytest
+from eth_pydantic_types import HexStr
+from eth_typing import HexAddress
 from web3 import Web3, HTTPProvider
 
 from eth_defi.chain import install_chain_middleware
@@ -11,12 +13,19 @@ from eth_defi.gmx.api import GMXAPI
 from eth_defi.gmx.config import GMXConfig
 from eth_defi.gmx.data import GMXMarketData
 from eth_defi.gmx.liquidity import GMXLiquidityManager
+from eth_defi.gmx.order import GMXOrderManager
 from eth_defi.provider.anvil import fork_network_anvil
 from eth_defi.token import fetch_erc20_details, TokenDetails
 
 mainnet_rpc = os.environ.get("ARBITRUM_JSON_RPC_URL")
 
 pytestmark = pytest.mark.skipif(not mainnet_rpc, reason="No ARBITRUM_JSON_RPC_URL environment variable")
+
+# https://betterstack.com/community/questions/how-to-disable-logging-when-running-tests-in-python/
+original_log_handlers = logging.getLogger().handlers[:]
+# Remove all existing log handlers bcz of anvil is dumping the logs which is not desirable in the workflows
+for handler in original_log_handlers:
+    logging.getLogger().removeHandler(handler)
 
 
 @pytest.fixture()
@@ -72,6 +81,12 @@ def web3_arbitrum():
 
 
 @pytest.fixture()
+def wbtc(web3_arbitrum_fork) -> TokenDetails:
+    """WBTC token."""
+    return fetch_erc20_details(web3_arbitrum_fork, "0x2f2a2543b76a4166549f7aab2e75bef0aefc5b0f")
+
+
+@pytest.fixture()
 def gmx_config_arbitrum(web3_arbitrum: Web3) -> GMXConfig:
     """
     Create a GMX configuration for Arbitrum.
@@ -122,6 +137,19 @@ def liquidity_manager_arbitrum(gmx_config_arbitrum_fork):
 
 
 @pytest.fixture()
-def wbtc(web3_arbitrum_fork) -> TokenDetails:
-    """WBTC token."""
-    return fetch_erc20_details(web3_arbitrum_fork, "0x2f2a2543b76a4166549f7aab2e75bef0aefc5b0f")
+def order_manager_arbitrum(gmx_config_arbitrum_fork):
+    """
+    Create a GMXOrderManager instance for Arbitrum.
+    """
+    return GMXOrderManager(gmx_config_arbitrum_fork)
+
+
+@pytest.fixture
+def account_with_positions_arbitrum():
+    """
+    Return an address known to have open positions on Arbitrum.
+
+    This is used for read-only testing to avoid having to create positions.
+    """
+    # This should be replaced with a real address that has positions
+    return HexAddress(HexStr("0x9dd1497FF0775bab1FAEb45ea270F66b11496dDf"))

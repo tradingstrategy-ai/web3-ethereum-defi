@@ -640,14 +640,14 @@ files = [
 
 [[package]]
 name = "cchecksum"
-version = "0.0.8"
-description = "A ~2x faster drop-in replacement for eth_utils.to_checksum_address. Raises the exact same Exceptions. Implemented in C."
+version = "0.0.12"
+description = "A ~4.5x faster drop-in replacement for eth_utils.to_checksum_address. Raises the exact same Exceptions. Implemented in C."
 optional = false
 python-versions = "<4,>=3.8"
 groups = ["main"]
 markers = "implementation_name == \"cpython\" or implementation_name == \"pypy\""
 files = [
-    {file = "cchecksum-0.0.8.tar.gz", hash = "sha256:17aabb9fb2751f1a248917f5be9216d0cacdb3667b33faafa6a9be86598c5aa1"},
+    {file = "cchecksum-0.0.12.tar.gz", hash = "sha256:ab3f449f02ae2ad92cead643c1a55111c8512a4bcba7dff01da690ce85868fcb"},
 ]
 
 [package.dependencies]
@@ -2381,7 +2381,7 @@ tests = ["cython", "hypothesis", "mpmath", "pytest", "setuptools"]
 
 [[package]]
 name = "gmx-python-sdk"
-version = "0.0.15"
+version = "0.0.16"
 description = "A python based SDK developed for interacting with GMX v2"
 optional = false
 python-versions = ">= 3.10, < 4"
@@ -2403,7 +2403,7 @@ web3 = ">= 6.10.0"
 type = "git"
 url = "https://github.com/Ankvik-Tech-Labs/gmx_python_sdk.git"
 reference = "develop"
-resolved_reference = "08ad1a4a364f470facfbaea3342d4ead02e05cf2"
+resolved_reference = "7a260884c8229725209e8a55b3a7f75671a007cd"
 
 [[package]]
 name = "google-api-core"
