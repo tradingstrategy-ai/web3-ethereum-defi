@@ -1,11 +1,9 @@
 import logging
 import os
-from time import sleep
 from typing import Generator, Any
 
 import pytest
 from web3 import Web3, HTTPProvider
-from web3.contract import Contract
 
 from eth_defi.chain import install_chain_middleware
 from eth_defi.gas import node_default_gas_price_strategy
@@ -14,7 +12,7 @@ from eth_defi.gmx.config import GMXConfig
 from eth_defi.gmx.data import GMXMarketData
 from eth_defi.gmx.liquidity import GMXLiquidityManager
 from eth_defi.provider.anvil import fork_network_anvil
-from eth_defi.token import create_token, fetch_erc20_details, TokenDetails
+from eth_defi.token import fetch_erc20_details, TokenDetails
 
 mainnet_rpc = os.environ.get("ARBITRUM_JSON_RPC_URL")
 
@@ -24,7 +22,7 @@ pytestmark = pytest.mark.skipif(not mainnet_rpc, reason="No ARBITRUM_JSON_RPC_UR
 @pytest.fixture()
 def anvil_arbitrum_chain_fork(request, large_eth_holder, large_wbtc_holder) -> Generator[str, Any, None]:
     # Create a testable fork of live arbitrum chain.
-    launch = fork_network_anvil(mainnet_rpc, unlocked_addresses=[large_eth_holder, large_wbtc_holder], test_request_timeout=30)
+    launch = fork_network_anvil(mainnet_rpc, unlocked_addresses=[large_eth_holder, large_wbtc_holder], test_request_timeout=30, fork_block_number=327050829)
     try:
         yield launch.json_rpc_url
     finally:
@@ -32,7 +30,6 @@ def anvil_arbitrum_chain_fork(request, large_eth_holder, large_wbtc_holder) -> G
         launch.close(log_level=logging.ERROR)
 
 
-# forking is giving error
 @pytest.fixture()
 def web3_arbitrum_fork(anvil_arbitrum_chain_fork: str) -> Web3:
     # Set up a local unit testing blockchain
@@ -124,17 +121,7 @@ def liquidity_manager_arbitrum(gmx_config_arbitrum_fork):
     return GMXLiquidityManager(gmx_config_arbitrum_fork)
 
 
-#
-# @pytest.fixture()
-# def deployer(web3_arbitrum_fork) -> str:
-#     """Deploy account.
-#
-#     Do some account allocation for tests.
-#     """
-#     return web3_arbitrum_fork.eth.accounts[3]
-#
-#
 @pytest.fixture()
 def wbtc(web3_arbitrum_fork) -> TokenDetails:
-    """Mock WBTC token."""
+    """WBTC token."""
     return fetch_erc20_details(web3_arbitrum_fork, "0x2f2a2543b76a4166549f7aab2e75bef0aefc5b0f")
