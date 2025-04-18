@@ -6,10 +6,7 @@
 
 # Web3-Ethereum-Defi
 
-Web-Ethereum-DeFi (`eth_defi`) Python package provides high level modules for smart
-contracts, with prepackaged ABI files for DeFi protocol integration,
-wallet management, JSON-RPC providers and automated test suites. The
-package aims for robustness, high quality of the code and documentation.
+Web-Ethereum-DeFi (`eth_defi`) Python package allows you to interact and consume data from EVM DeFi protocols.
 
 * [Use cases](#use-cases)
 * [Prerequisites](#prerequisites)
@@ -27,57 +24,68 @@ package aims for robustness, high quality of the code and documentation.
 * [History](#history)
 * [License](#license)
 
-![Supported protocols include Uniswap, Aave, others](./docs/source/logo-wall-white.png)
-
--   Supported [blockchains](https://tradingstrategy.ai/glossary) include
-    Ethereum, BNB Chain, Polygon, Avalanche C-chain, Arbitrum and many
-    other [EVM-compatible
-    blockchains](https://tradingstrategy.ai/glossary/evm-compatible).
--   Supported
-    [DeFi](https://tradingstrategy.ai/glossary/decentralised-finance)
-    [protocols](https://tradingstrategy.ai/glossary/protocol) include
-    [Uniswap](https://tradingstrategy.ai/glossary/uniswap) with its
-    [clones](https://tradingstrategy.ai/glossary/fork),
-    [Aave](https://tradingstrategy.ai/glossary/aave),
-    [USDC](https://tradingstrategy.ai/glossary/usdc), other Circle
-    [stablecoin tokens](https://tradingstrategy.ai/glossary/stablecoin),
-    [Enzyme](https://tradingstrategy.ai/glossary/enzyme-protocol),
-    Chainlink and many others.
-
 # Use cases
 
 Use cases for this package include
 
--   Trading and bots
--   Data research, extraction, transformation and loading
--   Portfolio management and accounting
--   System integrations and backends
+- Trading and bots
+- Data research, extraction, transformation and loading
+- Portfolio management and accounting
+- System integrations and backends
+- AI agent interaction for EVM chains
+
+# Supported protocols, chains and integrations
+
+![Supported protocols include Uniswap, Aave, others](./docs/source/logo-wall-white.png)
+
+| Protocol       | Actions                                              | Tutorial and API links                                                                                                                                                     |
+|:---------------|:-----------------------------------------------------|:---------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| Uniswap        | Token swaps, data research                           | [Tutorial](https://web3-ethereum-defi.readthedocs.io/tutorials/make-uniswap-v3-swap-in-python.html)                                                                        |
+| Gnosis Safe    | Create transactions, execute, deploy, create modules | [API](https://web3-ethereum-defi.readthedocs.io/api/safe/index.html)                                                                                                       |
+| Circle USDC    | USDC interactions                                    | [API](https://web3-ethereum-defi.readthedocs.io/api/usdc/index.html)                                                                                                       |
+| ChainLink      | Read oracle prices, set up oracles                   | [Tutorial](https://web3-ethereum-defi.readthedocs.io/tutorials/chainlink-native-token.html)                                                                                |
+| PancakeSwap    | Token swaps, data research                           | [Tutorial](https://web3-ethereum-defi.readthedocs.io/tutorials/pancakeswap-live-minimal.html)                                                                              |
+| Enzyme         | Deposit to vaults, deploy, read vault data           | [Tutorial](https://web3-ethereum-defi.readthedocs.io/tutorials/enzyme-read-vaults.html)                                                                                    |
+| Aave           | Deposit, borrow, read rates                          | [Tutorial](https://web3-ethereum-defi.readthedocs.io/tutorials/aave-v3-interest-analysis.html)                                                                             |
+| Sky (MakerDAO) | Token integration                                    | [API](https://web3-ethereum-defi.readthedocs.io/api/core/_autosummary/eth_defi.token.SUSDS_NATIVE_TOKEN.html#eth_defi.token.SUSDS_NATIVE_TOKEN)                            |
+| Lagoon         | Deposit to vaults, deploy, read vault data           | [API](https://web3-ethereum-defi.readthedocs.io/api/lagoon/index.html)                                                                                                     |
+| Velvet         | Deposit to vaults, deploy, read vault data           | [API](https://web3-ethereum-defi.readthedocs.io/api/lagoon/index.html)                                                                                                     |           |
+| Morpho         | Read vault data                                      | [Tutorial](https://web3-ethereum-defi.readthedocs.io/tutorials/erc-4626-scan-prices.html)                                                                                  |
+| Euler          | Read vault data                                      | [Tutorial](https://web3-ethereum-defi.readthedocs.io/tutorials/erc-4626-scan-prices.html)                                                                                  |                                                                                                                                                                           |
+| IPOR           | Read vault data                                      | [Tutorial](https://web3-ethereum-defi.readthedocs.io/tutorials/erc-4626-scan-prices.html)                                                                                  |
+| 1delta         | Open/close long/short positions                      | [API](https://web3-ethereum-defi.readthedocs.io/api/one_delta/index.html)                                                                                                  |
+| Hypersync      | Read historical data fast                            | [API](https://web3-ethereum-defi.readthedocs.io/api/hypersync/index.html)                                                                                                  |
+| TokenSniffer   | Read token risk core and metricws                    | [API](https://web3-ethereum-defi.readthedocs.io/api/token_analysis/_autosummary_token_analysis/eth_defi.token_analysis.tokensniffer.html)                                  |
+| Foundry        | Compile, deploy and verify smart contracts           | [API](https://web3-ethereum-defi.readthedocs.io/api/foundry/_autosummary_forge/eth_defi.foundry.forge.html)                                                                |
+| Etherscan      | Deploy and verify smart contracts                    | [API](https://web3-ethereum-defi.readthedocs.io/api/etherscan/index.html)                                                                                                  |
+| MEVBlocker     | Frontrun protection                                  | [Tutorial](https://web3-ethereum-defi.readthedocs.io/tutorials/mev-blocker.html)                                                                                           |
+| Base           | Frontrun protection, token mapping                   | [Tutorial](https://web3-ethereum-defi.readthedocs.io/tutorials/mev-blocker.html)                                                                                           |
+| Arbitrum       | Frontrun protection, token mapping                   | [Tutorial](https://web3-ethereum-defi.readthedocs.io/tutorials/mev-blocker.html)                                                                                           |
+| BNB chain      | Token mapping                                        | [API](https://web3-ethereum-defi.readthedocs.io/api/core/_autosummary/eth_defi.token.html#module-eth_defi.token)                                                           |
+| Polygon        | Token mapping                                        | [API](https://web3-ethereum-defi.readthedocs.io/api/core/_autosummary/eth_defi.token.html#module-eth_defi.token)                                                           |
+| Berachain      | Token mapping                                        | [API](https://web3-ethereum-defi.readthedocs.io/api/core/_autosummary/eth_defi.token.html#module-eth_defi.token)                                                           |
+| Avalanche      | Token mapping                                        | [API](https://web3-ethereum-defi.readthedocs.io/api/core/_autosummary/eth_defi.token.html#module-eth_defi.token)                                                           |
+| Hyperliquid    | Token mapping                                        | [API](https://web3-ethereum-defi.readthedocs.io/api/core/_autosummary/eth_defi.token.html#module-eth_defi.token)                                                           |
+| Mode           | Token mapping                                        | [API](https://web3-ethereum-defi.readthedocs.io/api/core/_autosummary/eth_defi.token.html#module-eth_defi.token)                                                           |
+| Unichain       | Token mapping                                        | [API](https://web3-ethereum-defi.readthedocs.io/api/core/_autosummary/eth_defi.token.html#module-eth_defi.token)                                                           |
+| ZKSync         | Token mapping                                        | [API](https://web3-ethereum-defi.readthedocs.io/api/core/_autosummary/eth_defi.token.html#module-eth_defi.token)                                                           |
+| Soneium        | Token mapping                                        | [API](https://web3-ethereum-defi.readthedocs.io/api/core/_autosummary/eth_defi.token.html#module-eth_defi.token)                                                           |
+| Google GCloud  | Support HSM wallets                                  | [API](https://web3-ethereum-defi.readthedocs.io/api/core/_autosummary/eth_defi.gcloud_hsm_wallet.html)                                                                     |
+| Hot wallet     | Secure hot wallet handling                           | [API](https://web3-ethereum-defi.readthedocs.io/api/core/_autosummary/eth_defi.hotwallet.html)                                                                             |
+| Gas            | Ethereum gas management                              | [API](https://web3-ethereum-defi.readthedocs.io/api/core/_autosummary/eth_defi.gas.html)                                                                                   |
+| EIP-4626       | Vault analysis                                       | [Tutoria](https://web3-ethereum-defi.readthedocs.io/tutorials/erc-4626-best-vaults.html)                                                                                   |
+| EIP-726        | Message signing and decoding                         | [API](https://web3-ethereum-defi.readthedocs.io/api/core/_autosummary/eth_defi.eip_712.html#module-eth_defi.eip_712)                                                       |
+| ERC-20         | High performance reading, data mappings              | [API](https://web3-ethereum-defi.readthedocs.io/api/core/_autosummary/eth_defi.token.html)                                                                                 |
+| ABI            | High performance smart contract ABI management       | [API](https://web3-ethereum-defi.readthedocs.io/api/core/_autosummary/eth_defi.abi.html)                                                                                   |
+| Transactions   | Stack traces and symbolic revert reasons             | [API](https://web3-ethereum-defi.readthedocs.io/api/core/_autosummary/eth_defi.gas.html)                                                                                   |
+| Anvil          | Mainnet works and local unit testing                 | [API](https://web3-ethereum-defi.readthedocs.io/api/provider/_autosummary_provider/eth_defi.provider.anvil.html)                                                           |
+| LlamaNodes     | Special RPC support                                  | [API](https://web3-ethereum-defi.readthedocs.io/api/provider/_autosummary_provider/eth_defi.provider.llamanodes.html#module-eth_defi.provider.llamanodes)                  |
+| Ankr           | Special RPC support                                  | [API](https://web3-ethereum-defi.readthedocs.io/api/provider/_autosummary_provider/eth_defi.provider.ankr.html)                                                            |
+| dRPC           | Special RPC support                                  | [API](https://web3-ethereum-defi.readthedocs.io/api/event_reader/_autosummary_enzyne/eth_defi.event_reader.fast_json_rpc.get_last_headers.html?highlight=get_last_headers) |
  
-# Features
+👉 [Read the full API documentation](https://web3-ethereum-defi.readthedocs.io/).
 
-Features include e.g.
-
-* [High-quality API documentation](https://web3-ethereum-defi.readthedocs.io/)
-* [Fully type hinted](https://web3-ethereum-defi.readthedocs.io/) for good developer experience
-* [MEV protection](https://web3-ethereum-defi.readthedocs.io/api/provider/_autosummary_provider/eth_defi.provider.mev_blocker.html#module-eth_defi.provider.mev_blocker)
-* [Mainnet forking with Anvil](https://web3-ethereum-defi.readthedocs.io/api/_autosummary/eth_defi.anvil.html#module-eth_defi.anvil)
-* [Revert reasons and stack traces for Solidity errors](https://web3-ethereum-defi.readthedocs.io/api/_autosummary/eth_defi.trace.html)
-* [Swap, slippage and price impact estimation](https://web3-ethereum-defi.readthedocs.io/api/index.html)
-* [ERC-20 token issuance and transfers](https://web3-ethereum-defi.readthedocs.io/en/latest/_autosummary/eth_defi.token.html#module-eth_defi.token)
-* [EIP-712, EIP-3009 support](https://web3-ethereum-defi.readthedocs.io/api/core/_autosummary/eth_defi.eip_712.html#module-eth_defi.eip_712)
-
-Web3-Ethereum-Defi supports 
-
-* Uniswap (both v2 and v3)
-* Sushi
-* Aave 
-* Enzyme Protocol
-* dHEDGE Protocol
-* More integrations to come
-* Built-in integration for over 600 smart contracts with precompiled Solidity ABI files 
-
-[Read the full API documentation](https://web3-ethereum-defi.readthedocs.io/)).
-For code examples please see below.
+This is a MIT-licensed open source project. Those who sponsor and contribute get integrations.
 
 # Prerequisites
 
@@ -122,118 +130,208 @@ poetry install --all-extras
 See [the tutorials section in the documentation](https://web3-ethereum-defi.readthedocs.io/tutorials/index.html)
 for full code examples.
 
-## PancakeSwap swap example
+## Uniswap swap example
 
-- This example shows how to read the live trades of PancakeSwap,
-  and other [Uniswap v2 compatible forks](https://tradingstrategy.ai/glossary/fork) on BNB Smart Chain
-
-- [See the instructions and full example source code in Tutorials](https://web3-ethereum-defi.readthedocs.io/tutorials/pancakeswap-live-minimal.html)
+- This example shows how to make a trade on Uniswap v3.
+- The example is for Polygon, but works on other chains.
+- See [tutorials](https://web3-ethereum-defi.readthedocs.io/tutorials/index.html) for more Uniswap and other DEX examples
 
 ```python
+
+import datetime
+import decimal
 import os
-import time
-from functools import lru_cache
+import sys
+from decimal import Decimal
 
-from web3 import HTTPProvider, Web3
+from eth_account import Account
+from eth_account.signers.local import LocalAccount
+from web3.middleware import construct_sign_and_send_raw_middleware
 
-from eth_defi.abi import get_contract
-from eth_defi.chain import install_chain_middleware
-from eth_defi.event_reader.filter import Filter
-from eth_defi.event_reader.logresult import decode_log
-from eth_defi.event_reader.reader import read_events, LogResult
-from eth_defi.uniswap_v2.pair import fetch_pair_details, PairDetails
+from eth_defi.provider.multi_provider import create_multi_provider_web3
+from eth_defi.revert_reason import fetch_transaction_revert_reason
+from eth_defi.token import fetch_erc20_details
+from eth_defi.confirmation import wait_transactions_to_complete
+from eth_defi.uniswap_v3.constants import UNISWAP_V3_DEPLOYMENTS
+from eth_defi.uniswap_v3.deployment import fetch_deployment
+from eth_defi.uniswap_v3.swap import swap_with_slippage_protection
 
+# The address of a token we are going to swap out
+#
+# Use https://tradingstrategy.ai/search to find your token
+#
+# For quote terminology see https://tradingstrategy.ai/glossary/quote-token
+#
+QUOTE_TOKEN_ADDRESS = "0x3c499c542cef5e3811e1192ce70d8cc03d5c3359"  # USDC (native)
 
-QUOTE_TOKENS = ["BUSD", "USDC", "USDT"]
-
-
-@lru_cache(maxsize=100)
-def fetch_pair_details_cached(web3: Web3, pair_address: str) -> PairDetails:
-    return fetch_pair_details(web3, pair_address)
-
-
-def main():
-    json_rpc_url = os.environ.get("JSON_RPC_BINANCE", "https://bsc-dataseed.binance.org/")
-    web3 = Web3(HTTPProvider(json_rpc_url))
-    web3.middleware_onion.clear()
-    install_chain_middleware(web3)
-
-    # Read the prepackaged ABI files and set up event filter
-    # for any Uniswap v2 like pool on BNB Smart Chain (not just PancakeSwap).
-    #
-    # We use ABI files distributed by SushiSwap project.
-    #
-    Pair = get_contract(web3, "sushi/UniswapV2Pair.json")
-
-    filter = Filter.create_filter(address=None, event_types=[Pair.events.Swap])
-
-    latest_block = web3.eth.block_number
-
-    # Keep reading events as they land
-    while True:
-
-        start = latest_block
-        end = web3.eth.block_number
-
-        evt: LogResult
-        for evt in read_events(
-            web3,
-            start_block=start,
-            end_block=end,
-            filter=filter,
-        ):
-
-            decoded = decode_log(evt)
-
-            # Swap() events are generated by UniswapV2Pool contracts
-            pair = fetch_pair_details_cached(web3, decoded["address"])
-            token0 = pair.token0
-            token1 = pair.token1
-            block_number = evt["blockNumber"]
-
-            # Determine the human-readable order of token tickers
-            if token0.symbol in QUOTE_TOKENS:
-                base = token1  # token
-                quote = token0  # stablecoin/BNB
-                base_amount = decoded["args"]["amount1Out"] - decoded["args"]["amount1In"]
-                quote_amount = decoded["args"]["amount0Out"] - decoded["args"]["amount0In"]
-            else:
-                base = token0  # stablecoin/BNB
-                quote = token1  # token
-                base_amount = decoded["args"]["amount0Out"] - decoded["args"]["amount0Out"]
-                quote_amount = decoded["args"]["amount1Out"] - decoded["args"]["amount1Out"]
-
-            # Calculate the price in Python Decimal class
-            if base_amount and quote_amount:
-                human_base_amount = base.convert_to_decimals(base_amount)
-                human_quote_amount = quote.convert_to_decimals(quote_amount)
-                price = human_quote_amount / human_base_amount
-
-                if human_quote_amount > 0:
-                    # We define selling when the stablecoin amount increases
-                    # in the swap
-                    direction = "sell"
-                else:
-                    direction = "buy"
-
-                price = abs(price)
-
-                print(f"Swap block:{block_number:,} tx:{evt['transactionHash']} {direction} price:{price:,.8f} {base.symbol}/{quote.symbol}")
-            else:
-                # Swap() event from DEX that is not Uniswap v2 compatible
-                # print(f"Swap block:{block_number:,} tx:{evt['transactionHash']} could not decode")
-                pass
-
-        else:
-            # No event detected between these blocks
-            print(".")
-
-        latest_block = end
-        time.sleep(1)
+# The address of a token we are going to receive
+#
+# Use https://tradingstrategy.ai/search to find your token
+#
+# For base terminology see https://tradingstrategy.ai/glossary/base-token
+BASE_TOKEN_ADDRESS = "0x7ceb23fd6bc0add59e62ac25578270cff1b9f619"  # WETH
 
 
-if __name__ == "__main__":
-    main()
+# Connect to JSON-RPC node
+rpc_env_var_name = "JSON_RPC_POLYGON"
+json_rpc_url = os.environ.get(rpc_env_var_name)
+assert json_rpc_url, f"You need to give {rpc_env_var_name} node URL. Check ethereumnodes.com for options"
+
+# Create a Web3 provider with ability to retry failed requests
+# and supporting fallback JSON-RPC nodes. RPC connections
+# are extremely flaky and for production grade usage you need to use multiple
+# JSON-RPC nodes.
+# create_multi_provider_web3() will also take care of any chain-specific
+# RPC setup.
+web3 = create_multi_provider_web3(json_rpc_url)
+
+print(f"Connected to blockchain, chain id is {web3.eth.chain_id}. the latest block is {web3.eth.block_number:,}")
+
+# Grab Uniswap v3 smart contract addreses for Polygon.
+#
+deployment_data = UNISWAP_V3_DEPLOYMENTS["polygon"]
+uniswap_v3 = fetch_deployment(
+    web3,
+    factory_address=deployment_data["factory"],
+    router_address=deployment_data["router"],
+    position_manager_address=deployment_data["position_manager"],
+    quoter_address=deployment_data["quoter"],
+)
+
+print(f"Using Uniwap v3 compatible router at {uniswap_v3.swap_router.address}")
+
+# Read and setup a local private key
+private_key = os.environ.get("PRIVATE_KEY")
+assert private_key is not None, "You must set PRIVATE_KEY environment variable"
+assert private_key.startswith("0x"), "Private key must start with 0x hex prefix"
+account: LocalAccount = Account.from_key(private_key)
+my_address = account.address
+
+# Enable eth_sendTransaction using this private key
+web3.middleware_onion.add(construct_sign_and_send_raw_middleware(account))
+
+# Read on-chain ERC-20 token data (name, symbol, etc.)
+base = fetch_erc20_details(web3, BASE_TOKEN_ADDRESS)
+quote = fetch_erc20_details(web3, QUOTE_TOKEN_ADDRESS)
+
+# Native token balance
+# See https://tradingstrategy.ai/glossary/native-token
+gas_balance = web3.eth.get_balance(account.address)
+
+print(f"Your address is {my_address}")
+print(f"Your have {base.fetch_balance_of(my_address)} {base.symbol}")
+print(f"Your have {quote.fetch_balance_of(my_address)} {quote.symbol}")
+print(f"Your have {gas_balance / (10 ** 18)} for gas fees")
+
+assert quote.fetch_balance_of(my_address) > 0, f"Cannot perform swap, as you have zero {quote.symbol} needed to swap"
+
+# Ask for transfer details
+decimal_amount = input(f"How many {quote.symbol} tokens you wish to swap to {base.symbol}? ")
+
+# Some input validation
+try:
+    decimal_amount = Decimal(decimal_amount)
+except (ValueError, decimal.InvalidOperation) as e:
+    raise AssertionError(f"Not a good decimal amount: {decimal_amount}") from e
+
+# Fat-fingering check
+print(f"Confirm swap amount {decimal_amount} {quote.symbol} to {base.symbol}")
+confirm = input("Ok [y/n]?")
+if not confirm.lower().startswith("y"):
+    print("Aborted")
+    sys.exit(1)
+
+# Convert a human-readable number to fixed decimal with 18 decimal places
+raw_amount = quote.convert_to_raw(decimal_amount)
+
+# Each DEX trade is two transactions
+# - ERC-20.approve()
+# - swap (various functions)
+# This is due to bad design of ERC-20 tokens,
+# more here https://twitter.com/moo9000/status/1619319039230197760
+
+# Uniswap router must be allowed to spent our quote token
+# and we do this by calling ERC20.approve() from our account
+# to the token contract.
+approve = quote.contract.functions.approve(uniswap_v3.swap_router.address, raw_amount)
+tx_1 = approve.build_transaction(
+    {
+        # approve() may take more than 500,000 gas on Arbitrum One
+        "gas": 850_000,
+        "from": my_address,
+    }
+)
+
+#
+# Uniswap v3 may have multiple pools per
+# trading pair differetiated by the fee tier. For example
+# WETH-USDC has pools of 0.05%, 0.30% and 1%
+# fees. Check for different options
+# in https://tradingstrategy.ai/search
+#
+# Here we use 5 BPS fee pool (5/10,000).
+#
+#
+# Build a swap transaction with slippage protection
+#
+# Slippage protection is very important, or you
+# get instantly overrun by MEV bots with
+# sandwitch attacks
+#
+# https://tradingstrategy.ai/glossary/mev
+#
+#
+bound_solidity_func = swap_with_slippage_protection(
+    uniswap_v3,
+    base_token=base,
+    quote_token=quote,
+    max_slippage=20,  # Allow 20 BPS slippage before tx reverts
+    amount_in=raw_amount,
+    recipient_address=my_address,
+    pool_fees=[500],   # 5 BPS pool WETH-USDC
+)
+
+tx_2 = bound_solidity_func.build_transaction(
+    {
+        # Uniswap swap should not take more than 1M gas units.
+        # We do not use automatic gas estimation, as it is unreliable
+        # and the number here is the maximum value only.
+        # Only way to know this number is by trial and error
+        # and experience.
+        "gas": 1_000_000,
+        "from": my_address,
+    }
+)
+
+# Sign and broadcast the transaction using our private key
+tx_hash_1 = web3.eth.send_transaction(tx_1)
+tx_hash_2 = web3.eth.send_transaction(tx_2)
+
+# This will raise an exception if we do not confirm within the timeout.
+# If the timeout occurs the script abort and you need to
+# manually check the transaction hash in a blockchain explorer
+# whether the transaction completed or not.
+tx_wait_minutes = 2.5
+print(f"Broadcasted transactions {tx_hash_1.hex()}, {tx_hash_2.hex()}, now waiting {tx_wait_minutes} minutes for it to be included in a new block")
+print(f"View your transactions confirming at https://polygonscan/address/{my_address}")
+receipts = wait_transactions_to_complete(
+    web3,
+    [tx_hash_1, tx_hash_2],
+    max_timeout=datetime.timedelta(minutes=tx_wait_minutes),
+    confirmation_block_count=1,
+)
+
+# Check if any our transactions failed
+# and display the reason
+for completed_tx_hash, receipt in receipts.items():
+    if receipt["status"] == 0:
+        revert_reason = fetch_transaction_revert_reason(web3, completed_tx_hash)
+        raise AssertionError(f"Our transaction {completed_tx_hash.hex()} failed because of: {revert_reason}")
+
+print("All ok!")
+print(f"After swap, you have {base.fetch_balance_of(my_address)} {base.symbol}")
+print(f"After swap, you have {quote.fetch_balance_of(my_address)} {quote.symbol}")
+print(f"After swap, you have {gas_balance / (10 ** 18)} native token left")
 ```
 
 # How to use the library in your Python project
