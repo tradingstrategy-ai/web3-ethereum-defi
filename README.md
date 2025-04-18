@@ -78,6 +78,8 @@ Use cases for this package include
  
 👉 [Read the full API documentation](https://web3-ethereum-defi.readthedocs.io/).
 
+This is a MIT-licensed open source project. Those who sponsor and contribute get integrations.
+
 # Prerequisites
 
 To use this package you need to
