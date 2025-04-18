@@ -77,7 +77,7 @@ Use cases for this package include
 | Ankr           | Special RPC support                                  | [API](https://web3-ethereum-defi.readthedocs.io/api/provider/_autosummary_provider/eth_defi.provider.ankr.html)                                                            |
 | dRPC           | Special RPC support                                  | [API](https://web3-ethereum-defi.readthedocs.io/api/event_reader/_autosummary_enzyne/eth_defi.event_reader.fast_json_rpc.get_last_headers.html?highlight=get_last_headers) |
  
-[Read the full API documentation](https://web3-ethereum-defi.readthedocs.io/)).
+👉 [Read the full API documentation](https://web3-ethereum-defi.readthedocs.io/).
 
 # Prerequisites
 
