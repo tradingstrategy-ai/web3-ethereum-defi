@@ -36,6 +36,8 @@ Use cases for this package include
 
 # Supported protocols and integrations
 
+![Supported protocols include Uniswap, Aave, others](./docs/source/logo-wall-white.png)
+
 | Protocol       | Actions                                              | Tutorial and API links                                                                                                                                                     |
 |:---------------|:-----------------------------------------------------|:---------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | Uniswap        | Token swaps, data research                           | [Tutorial](https://web3-ethereum-defi.readthedocs.io/tutorials/make-uniswap-v3-swap-in-python.html)                                                                        |
