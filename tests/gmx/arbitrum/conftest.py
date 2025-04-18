@@ -14,8 +14,10 @@ from eth_defi.gmx.config import GMXConfig
 from eth_defi.gmx.data import GMXMarketData
 from eth_defi.gmx.liquidity import GMXLiquidityManager
 from eth_defi.gmx.order import GMXOrderManager
+from eth_defi.gmx.trading import GMXTrading
 from eth_defi.provider.anvil import fork_network_anvil
 from eth_defi.token import fetch_erc20_details, TokenDetails
+from tests.gmx.conftest import large_usdc_holder_arbitrum
 
 mainnet_rpc = os.environ.get("ARBITRUM_JSON_RPC_URL")
 
@@ -29,9 +31,9 @@ for handler in original_log_handlers:
 
 
 @pytest.fixture()
-def anvil_arbitrum_chain_fork(request, large_eth_holder, large_wbtc_holder) -> Generator[str, Any, None]:
+def anvil_arbitrum_chain_fork(request, large_eth_holder, large_wbtc_holder, large_usdc_holder_arbitrum) -> Generator[str, Any, None]:
     # Create a testable fork of live arbitrum chain.
-    launch = fork_network_anvil(mainnet_rpc, unlocked_addresses=[large_eth_holder, large_wbtc_holder], test_request_timeout=30, fork_block_number=327050829)
+    launch = fork_network_anvil(mainnet_rpc, unlocked_addresses=[large_eth_holder, large_wbtc_holder, large_usdc_holder_arbitrum], fork_block_number=327050829)
     try:
         yield launch.json_rpc_url
     finally:
@@ -43,7 +45,7 @@ def anvil_arbitrum_chain_fork(request, large_eth_holder, large_wbtc_holder) -> G
 def web3_arbitrum_fork(anvil_arbitrum_chain_fork: str) -> Web3:
     # Set up a local unit testing blockchain
     # https://web3py.readthedocs.io/en/stable/examples.html#contract-unit-tests-in-python
-    web3 = Web3(HTTPProvider(anvil_arbitrum_chain_fork))
+    web3 = Web3(HTTPProvider(anvil_arbitrum_chain_fork, request_kwargs={"timeout": 30}))
     # Anvil needs POA middlware if parent chain needs POA middleware
     install_chain_middleware(web3)
     web3.eth.set_gas_price_strategy(node_default_gas_price_strategy)
@@ -81,9 +83,15 @@ def web3_arbitrum():
 
 
 @pytest.fixture()
-def wbtc(web3_arbitrum_fork) -> TokenDetails:
+def wbtc_arbitrum(web3_arbitrum_fork) -> TokenDetails:
     """WBTC token."""
     return fetch_erc20_details(web3_arbitrum_fork, "0x2f2a2543b76a4166549f7aab2e75bef0aefc5b0f")
+
+
+@pytest.fixture()
+def usdc_arbitrum(web3_arbitrum_fork) -> TokenDetails:
+    """USDC token."""
+    return fetch_erc20_details(web3_arbitrum_fork, "0xaf88d065e77c8cC2239327C5EDb3A432268e5831")
 
 
 @pytest.fixture()
@@ -116,7 +124,7 @@ def api_arbitrum(gmx_config_arbitrum):
 
 
 @pytest.fixture()
-def gmx_config_arbitrum_fork(web3_arbitrum_fork: Web3) -> GMXConfig:
+def gmx_config_arbitrum_fork(web3_arbitrum_fork: Web3, large_usdc_holder_arbitrum: str, usdc_arbitrum: TokenDetails) -> GMXConfig:
     """
     Create a GMX configuration for Arbitrum.
 
@@ -125,6 +133,13 @@ def gmx_config_arbitrum_fork(web3_arbitrum_fork: Web3) -> GMXConfig:
     """
     anvil_private_key: str = "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
     address: str = "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"
+
+    # Fund the user with USDC
+    usdc_arbitrum.contract.functions.transfer(
+        address,  # testing wallet address
+        5000 * 10**6,
+    ).transact({"from": large_usdc_holder_arbitrum})
+
     return GMXConfig(web3_arbitrum_fork, chain="arbitrum", private_key=anvil_private_key, user_wallet_address=address)
 
 
@@ -144,7 +159,7 @@ def order_manager_arbitrum(gmx_config_arbitrum_fork):
     return GMXOrderManager(gmx_config_arbitrum_fork)
 
 
-@pytest.fixture
+@pytest.fixture()
 def account_with_positions_arbitrum():
     """
     Return an address known to have open positions on Arbitrum.
@@ -152,3 +167,11 @@ def account_with_positions_arbitrum():
     This is used for read-only testing to avoid having to create positions.
     """
     return HexAddress(HexStr("0x9dd1497FF0775bab1FAEb45ea270F66b11496dDf"))
+
+
+@pytest.fixture()
+def trading_manager_arbitrum(gmx_config_arbitrum_fork) -> GMXTrading:
+    """
+    Create a GMXTrading instance for Arbitrum.
+    """
+    return GMXTrading(gmx_config_arbitrum_fork)

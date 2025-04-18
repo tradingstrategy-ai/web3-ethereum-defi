@@ -50,3 +50,9 @@ def large_wbtc_holder_avalanche() -> HexAddress:
     """
     # https://snowtrace.io/address/0xB58163D9148EfFEdF4eF8517Ad1D3251b1ddD837
     return HexAddress(HexStr("0xB58163D9148EfFEdF4eF8517Ad1D3251b1ddD837"))
+
+
+@pytest.fixture()
+def large_usdc_holder_arbitrum() -> HexAddress:
+    # https://arbiscan.io/address/0xb38e8c17e38363af6ebdcb3dae12e0243582891d#asset-multichain
+    return HexAddress(HexStr("0xB38e8c17e38363aF6EbdCb3dAE12e0243582891D"))

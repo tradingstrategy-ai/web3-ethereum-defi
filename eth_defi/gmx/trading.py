@@ -4,7 +4,7 @@ GMX Trading Module
 This module provides functionality for trading on GMX.
 """
 
-from typing import Any, Optional
+from typing import Optional
 
 from gmx_python_sdk.scripts.v2.order.create_increase_order import IncreaseOrder
 from gmx_python_sdk.scripts.v2.order.create_decrease_order import DecreaseOrder
@@ -123,4 +123,4 @@ class GMXTrading:
         order_parameters = OrderArgumentParser(write_config, is_swap=True).process_parameters_dictionary(parameters)
 
         # Create order
-        return SwapOrder(config=write_config, market_key=order_parameters["swap_path"][-1], start_token=order_parameters["start_token_address"], out_token=order_parameters["out_token_address"], collateral_address=order_parameters["start_token_address"], index_token_address=order_parameters["out_token_address"], is_long=False, size_delta=0, initial_collateral_delta_amount=order_parameters["initial_collateral_delta"], slippage_percent=order_parameters["slippage_percent"], swap_path=order_parameters["swap_path"], debug_mode=debug_mode)
+        return SwapOrder(config=write_config, market_key=order_parameters["swap_path"][-1], start_token=order_parameters["start_token_address"], out_token=order_parameters["out_token_address"], collateral_address=order_parameters["start_token_address"], index_token_address=order_parameters["out_token_address"], is_long=order_parameters["is_long"], size_delta=order_parameters["size_delta_usd"], initial_collateral_delta_amount=order_parameters["initial_collateral_delta"], slippage_percent=order_parameters["slippage_percent"], swap_path=order_parameters["swap_path"], debug_mode=debug_mode)

@@ -55,7 +55,7 @@ def test_add_liquidity_eth_usdc(liquidity_manager_arbitrum):
     assert deposit_order.debug_mode is False
 
 
-def test_add_liquidity_btc_usdc(web3_arbitrum_fork, large_wbtc_holder, wbtc):
+def test_add_liquidity_btc_usdc(web3_arbitrum_fork, large_wbtc_holder, wbtc_arbitrum):
     """
     Test adding liquidity to BTC/USDC pool on Arbitrum.
 
@@ -70,7 +70,7 @@ def test_add_liquidity_btc_usdc(web3_arbitrum_fork, large_wbtc_holder, wbtc):
     address: str = "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"
 
     # fund the user with WBTC
-    wbtc.contract.functions.transfer(
+    wbtc_arbitrum.contract.functions.transfer(
         address,  # testing wallet address
         9 * 10**8,
     ).transact({"from": large_wbtc_holder})
