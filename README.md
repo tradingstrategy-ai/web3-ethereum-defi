@@ -6,10 +6,8 @@
 
 # Web3-Ethereum-Defi
 
-Web-Ethereum-DeFi (`eth_defi`) Python package provides high level modules for smart
-contracts, with prepackaged ABI files for DeFi protocol integration,
-wallet management, JSON-RPC providers and automated test suites. The
-package aims for robustness, high quality of the code and documentation.
+Web-Ethereum-DeFi (`eth_defi`) Python package allows you directly to interact 
+and consume data from EVM DeFi protocols.
 
 * [Use cases](#use-cases)
 * [Prerequisites](#prerequisites)
@@ -27,57 +25,59 @@ package aims for robustness, high quality of the code and documentation.
 * [History](#history)
 * [License](#license)
 
-![Supported protocols include Uniswap, Aave, others](./docs/source/logo-wall-white.png)
-
--   Supported [blockchains](https://tradingstrategy.ai/glossary) include
-    Ethereum, BNB Chain, Polygon, Avalanche C-chain, Arbitrum and many
-    other [EVM-compatible
-    blockchains](https://tradingstrategy.ai/glossary/evm-compatible).
--   Supported
-    [DeFi](https://tradingstrategy.ai/glossary/decentralised-finance)
-    [protocols](https://tradingstrategy.ai/glossary/protocol) include
-    [Uniswap](https://tradingstrategy.ai/glossary/uniswap) with its
-    [clones](https://tradingstrategy.ai/glossary/fork),
-    [Aave](https://tradingstrategy.ai/glossary/aave),
-    [USDC](https://tradingstrategy.ai/glossary/usdc), other Circle
-    [stablecoin tokens](https://tradingstrategy.ai/glossary/stablecoin),
-    [Enzyme](https://tradingstrategy.ai/glossary/enzyme-protocol),
-    Chainlink and many others.
-
 # Use cases
 
 Use cases for this package include
 
--   Trading and bots
--   Data research, extraction, transformation and loading
--   Portfolio management and accounting
--   System integrations and backends
+- Trading and bots
+- Data research, extraction, transformation and loading
+- Portfolio management and accounting
+- System integrations and backends
+- AI agent interaction for EVM chains
+
+# Supported protocols and integrations
+
+| Protocol       | Actions                                              | Tutorial and API links                                                                                                                                                     |
+|:---------------|:-----------------------------------------------------|:---------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| Uniswap        | Token swaps, data research                           | [Tutorial](https://web3-ethereum-defi.readthedocs.io/tutorials/make-uniswap-v3-swap-in-python.html)                                                                        |
+| Gnosis Safe    | Create transactions, execute, deploy, create modules | [API](https://web3-ethereum-defi.readthedocs.io/api/safe/index.html)                                                                                                       |
+| Circle USDC    | USDC interactions                                    | [API](https://web3-ethereum-defi.readthedocs.io/api/usdc/index.html)                                                                                                       |
+| ChainLink      | Read oracle prices, set up oracles                   | [Tutorial](https://web3-ethereum-defi.readthedocs.io/tutorials/chainlink-native-token.html)                                                                                |
+| PancakeSwap    | Token swaps, data research                           | [Tutorial](https://web3-ethereum-defi.readthedocs.io/tutorials/pancakeswap-live-minimal.html)                                                                              |
+| Enzyme         | Deposit to vaults, deploy, read vault data           | [Tutorial](https://web3-ethereum-defi.readthedocs.io/tutorials/enzyme-read-vaults.html)                                                                                    |
+| Aave           | Deposit, borrow, read rates                          | [Tutorial](https://web3-ethereum-defi.readthedocs.io/tutorials/aave-v3-interest-analysis.html)                                                                             |
+| Sky (MakerDAO) | Token integration                                    | [API](https://web3-ethereum-defi.readthedocs.io/api/core/_autosummary/eth_defi.token.SUSDS_NATIVE_TOKEN.html#eth_defi.token.SUSDS_NATIVE_TOKEN)                            |
+| Lagoon         | Deposit to vaults, deploy, read vault data           | [API](https://web3-ethereum-defi.readthedocs.io/api/lagoon/index.html)                                                                                                     |
+| Velvet         | Deposit to vaults, deploy, read vault data           | [API](https://web3-ethereum-defi.readthedocs.io/api/lagoon/index.html)                                                                                                     |           |
+| Morpho         | Read vault data                                      | [Tutorial](https://web3-ethereum-defi.readthedocs.io/tutorials/erc-4626-scan-prices.html)                                                                                  |
+| Euler          | Read vault data                                      | [Tutorial](https://web3-ethereum-defi.readthedocs.io/tutorials/erc-4626-scan-prices.html)                                                                                  |                                                                                                                                                                           |
+| IPOR           | Read vault data                                      | [Tutorial](https://web3-ethereum-defi.readthedocs.io/tutorials/erc-4626-scan-prices.html)                                                                                  |
+| 1delta         | Open/close long/short positions                      | [API](https://web3-ethereum-defi.readthedocs.io/api/one_delta/index.html)                                                                                                  |
+| Hypersync      | Read historical data fast                            | [API](https://web3-ethereum-defi.readthedocs.io/api/hypersync/index.html)                                                                                                  |
+| TokenSniffer   | Read token risk core and metricws                    | [API](https://web3-ethereum-defi.readthedocs.io/api/token_analysis/_autosummary_token_analysis/eth_defi.token_analysis.tokensniffer.html)                                  |
+| Foundry        | Compile, deploy and verify smart contracts           | [API](https://web3-ethereum-defi.readthedocs.io/api/foundry/_autosummary_forge/eth_defi.foundry.forge.html)                                                                |
+| Etherscan      | Deploy and verify smart contracts                    | [API](https://web3-ethereum-defi.readthedocs.io/api/etherscan/index.html)                                                                                                  |
+| MEVBlocker     | Frontrun protection                                  | [Tutorial](https://web3-ethereum-defi.readthedocs.io/tutorials/mev-blocker.html)                                                                                           |
+| Base           | Frontrun protection, token mapping                   | [Tutorial](https://web3-ethereum-defi.readthedocs.io/tutorials/mev-blocker.html)                                                                                           |
+| Arbitrum       | Frontrun protection, token mapping                   | [Tutorial](https://web3-ethereum-defi.readthedocs.io/tutorials/mev-blocker.html)                                                                                           |
+| BNB chain      | Token mapping                                        | [API](https://web3-ethereum-defi.readthedocs.io/api/core/_autosummary/eth_defi.token.html#module-eth_defi.token]                                                           |
+| Polygon        | Token mapping                                        | [API](https://web3-ethereum-defi.readthedocs.io/api/core/_autosummary/eth_defi.token.html#module-eth_defi.token)                                                           |
+| Berachain      | Token mapping                                        | [API](https://web3-ethereum-defi.readthedocs.io/api/core/_autosummary/eth_defi.token.html#module-eth_defi.token)                                                           |
+| Avalanche      | Token mapping                                        | [API](https://web3-ethereum-defi.readthedocs.io/api/core/_autosummary/eth_defi.token.html#module-eth_defi.token)                                                           |
+| Google GCloud  | Support HSM wallets                                  | [API](https://web3-ethereum-defi.readthedocs.io/api/core/_autosummary/eth_defi.gcloud_hsm_wallet.html)                                                                     |
+| Hot wallet     | Secure hot wallet handling                           | [API](https://web3-ethereum-defi.readthedocs.io/api/core/_autosummary/eth_defi.hotwallet.html)                                                                             |
+| Gas            | Ethereum gas management                              | [API](https://web3-ethereum-defi.readthedocs.io/api/core/_autosummary/eth_defi.gas.html)                                                                                   |
+| EIP-4626       | Vault analysis                                       | [Tutoria](https://web3-ethereum-defi.readthedocs.io/tutorials/erc-4626-best-vaults.html)                                                                                   |
+| EIP-726        | Message signing and decoding                         | [API](https://web3-ethereum-defi.readthedocs.io/api/core/_autosummary/eth_defi.eip_712.html#module-eth_defi.eip_712)                                                       |
+| ERC-20         | High performance reading, data mappings              | [API](https://web3-ethereum-defi.readthedocs.io/api/core/_autosummary/eth_defi.token.html)                                                                                 |
+| ABI            | High performance smart contract ABI management       | [API](https://web3-ethereum-defi.readthedocs.io/api/core/_autosummary/eth_defi.abi.html)                                                                                   |
+| Transactions   | Stack traces and symbolic revert reasons             | [API](https://web3-ethereum-defi.readthedocs.io/api/core/_autosummary/eth_defi.gas.html)                                                                                   |
+| Anvil          | Mainnet works and local unit testing                 | [API](https://web3-ethereum-defi.readthedocs.io/api/provider/_autosummary_provider/eth_defi.provider.anvil.html)                                                           |
+| LlamaNodes     | Special RPC support                                  | [API](https://web3-ethereum-defi.readthedocs.io/api/provider/_autosummary_provider/eth_defi.provider.llamanodes.html#module-eth_defi.provider.llamanodes)                  |
+| Ankr           | Special RPC support                                  | [API](https://web3-ethereum-defi.readthedocs.io/api/provider/_autosummary_provider/eth_defi.provider.ankr.html)                                                            |
+| dRPC           | Special RPC support                                  | [API](https://web3-ethereum-defi.readthedocs.io/api/event_reader/_autosummary_enzyne/eth_defi.event_reader.fast_json_rpc.get_last_headers.html?highlight=get_last_headers) |
  
-# Features
-
-Features include e.g.
-
-* [High-quality API documentation](https://web3-ethereum-defi.readthedocs.io/)
-* [Fully type hinted](https://web3-ethereum-defi.readthedocs.io/) for good developer experience
-* [MEV protection](https://web3-ethereum-defi.readthedocs.io/api/provider/_autosummary_provider/eth_defi.provider.mev_blocker.html#module-eth_defi.provider.mev_blocker)
-* [Mainnet forking with Anvil](https://web3-ethereum-defi.readthedocs.io/api/_autosummary/eth_defi.anvil.html#module-eth_defi.anvil)
-* [Revert reasons and stack traces for Solidity errors](https://web3-ethereum-defi.readthedocs.io/api/_autosummary/eth_defi.trace.html)
-* [Swap, slippage and price impact estimation](https://web3-ethereum-defi.readthedocs.io/api/index.html)
-* [ERC-20 token issuance and transfers](https://web3-ethereum-defi.readthedocs.io/en/latest/_autosummary/eth_defi.token.html#module-eth_defi.token)
-* [EIP-712, EIP-3009 support](https://web3-ethereum-defi.readthedocs.io/api/core/_autosummary/eth_defi.eip_712.html#module-eth_defi.eip_712)
-
-Web3-Ethereum-Defi supports 
-
-* Uniswap (both v2 and v3)
-* Sushi
-* Aave 
-* Enzyme Protocol
-* dHEDGE Protocol
-* More integrations to come
-* Built-in integration for over 600 smart contracts with precompiled Solidity ABI files 
-
 [Read the full API documentation](https://web3-ethereum-defi.readthedocs.io/)).
-For code examples please see below.
 
 # Prerequisites
 
