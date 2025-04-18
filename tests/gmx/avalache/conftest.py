@@ -1,6 +1,7 @@
 import logging
 from typing import Generator, Any
 
+from eth_typing import HexAddress, HexStr
 from web3 import HTTPProvider, Web3
 import pytest
 
@@ -13,6 +14,7 @@ from eth_defi.gmx.api import GMXAPI
 from eth_defi.gmx.config import GMXConfig
 from eth_defi.gmx.data import GMXMarketData
 from eth_defi.gmx.liquidity import GMXLiquidityManager
+from eth_defi.gmx.order import GMXOrderManager
 from eth_defi.provider.anvil import fork_network_anvil
 from eth_defi.provider.broken_provider import get_almost_latest_block_number
 from eth_defi.token import TokenDetails, fetch_erc20_details
@@ -31,7 +33,7 @@ for handler in original_log_handlers:
 @pytest.fixture()
 def anvil_avalanche_chain_fork(request, large_eth_holder, large_wbtc_holder) -> Generator[str, Any, None]:
     # Create a testable fork of live avalanche chain.
-    launch = fork_network_anvil(mainnet_rpc, unlocked_addresses=[large_eth_holder, large_wbtc_holder], test_request_timeout=30)
+    launch = fork_network_anvil(mainnet_rpc, unlocked_addresses=[large_eth_holder, large_wbtc_holder], test_request_timeout=30, fork_block_number=60491219)
     try:
         yield launch.json_rpc_url
     finally:
@@ -150,3 +152,23 @@ def wallet_with_avax(web3_avalanche_fork, wavax) -> None:
     # block_number = get_almost_latest_block_number(web3_avalanche_fork)
     # balance = fetch_erc20_balances_multicall(web3_avalanche_fork, address, ["0xB31f66AA3C1e785363F0875A1B74E27b85FD66c7"], block_number)
     # print(f"{balance=}")
+
+
+@pytest.fixture()
+def order_manager_avalanche(gmx_config_avalanche_fork):
+    """
+    Create a GMXOrderManager instance for Avalanche.
+    """
+    return GMXOrderManager(gmx_config_avalanche_fork)
+
+
+@pytest.fixture
+def account_with_positions_avalanche():
+    """
+    Return an address known to have open positions on Avalanche.
+
+    This is used for read-only testing to avoid having to create positions.
+    """
+    # https://app.gmx.io/#/accounts/0x83806fe5D4166868498eB95e32c972E07A5C065D?network=avalanche&v=2
+    # At this time the account has AVAX_long, AVAX_short & ETH_short positions
+    return HexAddress(HexStr("0x83806fe5D4166868498eB95e32c972E07A5C065D"))

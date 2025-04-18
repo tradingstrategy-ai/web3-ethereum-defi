@@ -92,4 +92,3 @@ if __name__ == "__main__":
     # Initialize market data module
     lqd_manager = GMXLiquidityManager(cfg)
     lqd_manager.add_liquidity("ETH", "ETH", "USDC", 100, 0)
-

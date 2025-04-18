@@ -99,24 +99,10 @@ class GMXOrderManager:
             parameters["chain"] = self.config.get_chain()
 
         # Process parameters through the OrderArgumentParser
-        order_parameters = OrderArgumentParser(
-            write_config,
-            is_decrease=True
-        ).process_parameters_dictionary(parameters)
+        order_parameters = OrderArgumentParser(write_config, is_decrease=True).process_parameters_dictionary(parameters)
 
         # Create decrease order
-        return DecreaseOrder(
-            config=write_config,
-            market_key=order_parameters['market_key'],
-            collateral_address=order_parameters['collateral_address'],
-            index_token_address=order_parameters['index_token_address'],
-            is_long=order_parameters['is_long'],
-            size_delta=order_parameters['size_delta'],
-            initial_collateral_delta_amount=order_parameters['initial_collateral_delta'],
-            slippage_percent=order_parameters['slippage_percent'],
-            swap_path=order_parameters.get('swap_path', []),
-            debug_mode=debug_mode
-        )
+        return DecreaseOrder(config=write_config, market_key=order_parameters["market_key"], collateral_address=order_parameters["collateral_address"], index_token_address=order_parameters["index_token_address"], is_long=order_parameters["is_long"], size_delta=order_parameters["size_delta"], initial_collateral_delta_amount=order_parameters["initial_collateral_delta"], slippage_percent=order_parameters["slippage_percent"], swap_path=order_parameters.get("swap_path", []), debug_mode=debug_mode)
 
     def close_position_by_key(self, position_key: str, out_token_symbol: str, amount_of_position_to_close: float = 1.0, amount_of_collateral_to_remove: float = 1.0, slippage_percent: float = 0.003, debug_mode: bool = False, address: Optional[Union[str, Address]] = None) -> DecreaseOrder:
         """
@@ -147,6 +133,7 @@ class GMXOrderManager:
         if position_key not in positions.keys():
             raise ValueError(f"Position with key {position_key} not found")
 
+        # key will be like this `ETH_short`
         # Split the key to get market and direction
         parts = position_key.split("_")
         if len(parts) != 2:

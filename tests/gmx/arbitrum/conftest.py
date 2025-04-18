@@ -151,5 +151,4 @@ def account_with_positions_arbitrum():
 
     This is used for read-only testing to avoid having to create positions.
     """
-    # This should be replaced with a real address that has positions
     return HexAddress(HexStr("0x9dd1497FF0775bab1FAEb45ea270F66b11496dDf"))
