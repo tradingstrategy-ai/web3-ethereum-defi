@@ -6,8 +6,7 @@
 
 # Web3-Ethereum-Defi
 
-Web-Ethereum-DeFi (`eth_defi`) Python package allows you directly to interact 
-and consume data from EVM DeFi protocols.
+Web-Ethereum-DeFi (`eth_defi`) Python package allows you to interact and consume data from EVM DeFi protocols.
 
 * [Use cases](#use-cases)
 * [Prerequisites](#prerequisites)

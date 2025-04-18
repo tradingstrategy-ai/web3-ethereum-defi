@@ -8,27 +8,19 @@ Web3-Ethereum-DeFi Python APIs
 
 This is the documentation for `Web3-Ethereum-Defi <https://github.com/tradingstrategy-ai/web3-ethereum-defi>`__ `Python <https://tradingstrategy.ai/glossary/python>`__ package.
 
-Web-Ethereum-DeFi Python package provides high level modules for smart contracts,
-with prepackaged ABI files for DeFi protocol integration, wallet management, JSON-RPC providers and
-automated test suites. The package aims for robustness, high quality of the code and documentation.
+Web-Ethereum-DeFi (`eth_defi`) Python package allows you to interact and consume data from EVM DeFi protocols.
 
-- Supported `blockchains <https://tradingstrategy.ai/glossary>`__ include
-  Ethereum, BNB Chain, Polygon, Avalanche C-chain, Arbitrum and many other `EVM-compatible blockchains <https://tradingstrategy.ai/glossary/evm-compatible>`__.
-
-- Supported `DeFi <https://tradingstrategy.ai/glossary/decentralised-finance>`__ `protocols <https://tradingstrategy.ai/glossary/protocol>`__ include `Uniswap <https://tradingstrategy.ai/glossary/uniswap>`__
-  with its `clones <https://tradingstrategy.ai/glossary/fork>`__, `Aave <https://tradingstrategy.ai/glossary/aave>`__,
-  `USDC <https://tradingstrategy.ai/glossary/usdc>`__, other Circle `stablecoin tokens <https://tradingstrategy.ai/glossary/stablecoin>`__,
-  `Enzyme <https://tradingstrategy.ai/glossary/enzyme-protocol>`__, Chainlink and many others.
-
-Use cases for this package include
+**Use cases**
 
 - Trading and bots
-
 - Data research, extraction, transformation and loading
-
 - Portfolio management and accounting
-
 - System integrations and backends
+- AI agent interaction for EVM chains
+
+**Supported protocols and integrations**
+
+- `See README for the full list <https://github.com/tradingstrategy-ai/web3-ethereum-defi>`__
 
 Table of contents
 =================
