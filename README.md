@@ -34,7 +34,7 @@ Use cases for this package include
 - System integrations and backends
 - AI agent interaction for EVM chains
 
-# Supported protocols and integrations
+# Supported protocols, chains and integrations
 
 ![Supported protocols include Uniswap, Aave, others](./docs/source/logo-wall-white.png)
 
@@ -65,6 +65,11 @@ Use cases for this package include
 | Polygon        | Token mapping                                        | [API](https://web3-ethereum-defi.readthedocs.io/api/core/_autosummary/eth_defi.token.html#module-eth_defi.token)                                                           |
 | Berachain      | Token mapping                                        | [API](https://web3-ethereum-defi.readthedocs.io/api/core/_autosummary/eth_defi.token.html#module-eth_defi.token)                                                           |
 | Avalanche      | Token mapping                                        | [API](https://web3-ethereum-defi.readthedocs.io/api/core/_autosummary/eth_defi.token.html#module-eth_defi.token)                                                           |
+| Hyperliquid    | Token mapping                                        | [API](https://web3-ethereum-defi.readthedocs.io/api/core/_autosummary/eth_defi.token.html#module-eth_defi.token)                                                           |
+| Mode           | Token mapping                                        | [API](https://web3-ethereum-defi.readthedocs.io/api/core/_autosummary/eth_defi.token.html#module-eth_defi.token)                                                           |
+| Unichain       | Token mapping                                        | [API](https://web3-ethereum-defi.readthedocs.io/api/core/_autosummary/eth_defi.token.html#module-eth_defi.token)                                                           |
+| ZKSync         | Token mapping                                        | [API](https://web3-ethereum-defi.readthedocs.io/api/core/_autosummary/eth_defi.token.html#module-eth_defi.token)                                                           |
+| Soneium        | Token mapping                                        | [API](https://web3-ethereum-defi.readthedocs.io/api/core/_autosummary/eth_defi.token.html#module-eth_defi.token)                                                           |
 | Google GCloud  | Support HSM wallets                                  | [API](https://web3-ethereum-defi.readthedocs.io/api/core/_autosummary/eth_defi.gcloud_hsm_wallet.html)                                                                     |
 | Hot wallet     | Secure hot wallet handling                           | [API](https://web3-ethereum-defi.readthedocs.io/api/core/_autosummary/eth_defi.hotwallet.html)                                                                             |
 | Gas            | Ethereum gas management                              | [API](https://web3-ethereum-defi.readthedocs.io/api/core/_autosummary/eth_defi.gas.html)                                                                                   |
