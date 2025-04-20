@@ -11,10 +11,13 @@ from web3 import Web3
 from eth_defi.hotwallet import HotWallet
 from eth_defi.lagoon.deployment import LagoonDeploymentParameters, deploy_automated_lagoon_vault, LagoonAutomatedDeployment
 from eth_defi.lagoon.vault import LagoonVault
+from eth_defi.middleware import construct_sign_and_send_raw_middleware_anvil
 from eth_defi.provider.anvil import AnvilLaunch, fork_network_anvil
 from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.token import TokenDetails, fetch_erc20_details, USDC_NATIVE_TOKEN
 from eth_defi.trace import assert_transaction_success_with_explanation
+from eth_defi.trade import TradeSuccess
+from eth_defi.uniswap_v2.analysis import analyse_trade_by_hash
 from eth_defi.uniswap_v2.constants import UNISWAP_V2_DEPLOYMENTS
 from eth_defi.uniswap_v2.deployment import fetch_deployment, UniswapV2Deployment
 from eth_defi.uniswap_v2.swap import swap_with_slippage_protection
@@ -91,18 +94,6 @@ def base_weth(web3) -> TokenDetails:
 
 
 @pytest.fixture()
-def base_dino(web3) -> TokenDetails:
-    """A token that trades as DINO/WETH on Uniswap v2
-
-    https://app.uniswap.org/explore/pools/base/0x6a77CDeC82EFf6A6A5D273F18C1c27CD3d71A588
-    """
-    return fetch_erc20_details(
-        web3,
-        "0x85E90a5430AF45776548ADB82eE4cD9E33B08077",
-    )
-
-
-@pytest.fixture()
 def base_eai(web3) -> TokenDetails:
     """A taxed token.
 
@@ -116,7 +107,7 @@ def base_eai(web3) -> TokenDetails:
 
 
 @pytest.fixture()
-def hot_wallet_user(web3, usdc, usdc_holder) -> HotWallet:
+def hot_wallet_user(web3, base_usdc, usdc_holder) -> HotWallet:
     """A test account with USDC balance."""
 
     hw = HotWallet.create_for_testing(
@@ -136,8 +127,11 @@ def hot_wallet_user(web3, usdc, usdc_holder) -> HotWallet:
     )
 
     # Top up with 999 USDC
-    tx_hash = usdc.contract.functions.transfer(hw.address, 999 * 10**6).transact({"from": usdc_holder, "gas": 100_000})
+    tx_hash = base_usdc.contract.functions.transfer(hw.address, 999 * 10**6).transact({"from": usdc_holder, "gas": 100_000})
     assert_transaction_success_with_explanation(web3, tx_hash)
+
+    web3.middleware_onion.add(construct_sign_and_send_raw_middleware_anvil(hw.account))
+
     return hw
 
 
@@ -158,16 +152,17 @@ def test_analyse_taxed_buy(
     base_usdc: TokenDetails,
     base_eai: TokenDetails,
     base_weth: TokenDetails,
-    hot_wallet_user,
+    hot_wallet_user: HotWallet,
 ):
     """Analyse a taxed buy transaction.
 
     - Build three-legged trade USDC -> WETH -> EAI
     - Analyse result
+    - EAI has 2% buy tax, 3% sell tax
     """
 
     raw_amount = 500 * 10**6
-    tx_hash = base_usdc.approve(uniswap_v2.router.address, raw_amount).transact({"from": hot_wallet_user.address})
+    tx_hash = base_usdc.approve(uniswap_v2.router.address, Decimal(500)).transact({"from": hot_wallet_user.address})
     assert_transaction_success_with_explanation(web3, tx_hash)
 
     # path = [
@@ -185,6 +180,16 @@ def test_analyse_taxed_buy(
         amount_in=raw_amount,
     ).transact({"from": hot_wallet_user.address})
     assert_transaction_success_with_explanation(web3, tx_hash)
+
+    analysis = analyse_trade_by_hash(
+        web3,
+        uniswap_v2,
+        tx_hash,
+    )
+
+    assert isinstance(analysis, TradeSuccess)
+
+
 
 
 

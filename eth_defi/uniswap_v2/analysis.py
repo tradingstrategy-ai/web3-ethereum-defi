@@ -2,6 +2,8 @@
 from decimal import Decimal
 from typing import Union
 
+from hexbytes import HexBytes
+
 from eth_defi.revert_reason import fetch_transaction_revert_reason
 from web3 import Web3
 from web3.logs import DISCARD
@@ -12,7 +14,7 @@ from eth_defi.uniswap_v2.deployment import UniswapV2Deployment
 from eth_defi.trade import TradeFail, TradeSuccess
 
 
-def analyse_trade_by_hash(web3: Web3, uniswap: UniswapV2Deployment, tx_hash: str) -> Union[TradeSuccess, TradeFail]:
+def analyse_trade_by_hash(web3: Web3, uniswap: UniswapV2Deployment, tx_hash: str | HexBytes) -> Union[TradeSuccess, TradeFail]:
     """Analyse details of a Uniswap trade based on a transaction id.
 
     Analyses trade fees, etc. based on the event signatures in the transaction.
