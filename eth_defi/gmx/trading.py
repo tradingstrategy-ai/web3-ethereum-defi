@@ -86,7 +86,7 @@ class GMXTrading:
         # Create order
         return DecreaseOrder(config=write_config, market_key=order_parameters["market_key"], collateral_address=order_parameters["collateral_address"], index_token_address=order_parameters["index_token_address"], is_long=order_parameters["is_long"], size_delta=order_parameters["size_delta"], initial_collateral_delta_amount=order_parameters["initial_collateral_delta"], slippage_percent=order_parameters["slippage_percent"], swap_path=order_parameters.get("swap_path", []), debug_mode=debug_mode)
 
-    def swap_tokens(self, out_token_symbol: str, start_token_symbol: str, amount: float, slippage_percent: Optional[float] = 0.003, debug_mode: Optional[bool] = False) -> SwapOrder:
+    def swap_tokens(self, out_token_symbol: str, start_token_symbol: str, amount: float, position_usd: Optional[float] = 0, slippage_percent: Optional[float] = 0.003, debug_mode: Optional[bool] = False) -> SwapOrder:
         """
         Swap tokens on GMX.
 
@@ -94,6 +94,7 @@ class GMXTrading:
             out_token_symbol: Symbol of the token to receive
             start_token_symbol: Symbol of the token to swap
             amount: Amount of start token to swap
+            position_usd: Position size in in USD
             slippage_percent: Slippage tolerance as a decimal
             debug_mode: Run in debug mode without submitting transaction
 
@@ -112,7 +113,7 @@ class GMXTrading:
             "start_token_symbol": start_token_symbol,
             "is_long": False,
             # Position size in in USD
-            "size_delta_usd": 0,
+            "size_delta_usd": position_usd,
             # if leverage is passed, will calculate number of tokens in
             # start_token_symbol amount
             "initial_collateral_delta": amount,

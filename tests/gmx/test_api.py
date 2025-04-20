@@ -1,35 +1,29 @@
 """
-Tests for GMXAPI on Avalanche network.
+Tests for GMXAPI with parametrized chain testing.
 
-This test suite makes real API calls to GMX API endpoints for Avalanche.
+This test suite makes real API calls to GMX API endpoints for Arbitrum and Avalanche networks.
 """
-import os
-
 import pytest
 import pandas as pd
 
 from eth_defi.gmx.api import GMXAPI
 
-mainnet_rpc = os.environ.get("AVALANCHE_JSON_RPC_URL")
 
-pytestmark = pytest.mark.skipif(not mainnet_rpc, reason="No AVALANCHE_JSON_RPC_URL environment variable")
-
-
-def test_api_initialization(gmx_config_avalanche):
+def test_api_initialization(chain_name, gmx_config):
     """
-    Test that the API initializes correctly with Avalanche config.
+    Test that the API initializes correctly with chain-specific config.
     """
-    api = GMXAPI(gmx_config_avalanche)
-    assert api.chain.lower() == "avalanche"
-    assert "avalanche" in api.base_url
-    assert "avalanche" in api.backup_url
+    api = GMXAPI(gmx_config)
+    assert api.chain.lower() == chain_name.lower()
+    assert chain_name.lower() in api.base_url
+    assert chain_name.lower() in api.backup_url
 
 
-def test_get_tickers(api_avalanche):
+def test_get_tickers(api):
     """
-    Test retrieving current price information for all tokens on Avalanche.
+    Test retrieving current price information for all tokens.
     """
-    tickers = api_avalanche.get_tickers()
+    tickers = api.get_tickers()
 
     # Check that we got data back
     assert tickers is not None
@@ -46,11 +40,11 @@ def test_get_tickers(api_avalanche):
         assert "maxPrice" in ticker
 
 
-def test_get_signed_prices(api_avalanche):
+def test_get_signed_prices(api):
     """
-    Test retrieving signed prices for on-chain transactions on Avalanche.
+    Test retrieving signed prices for on-chain transactions.
     """
-    signed_prices = api_avalanche.get_signed_prices()
+    signed_prices = api.get_signed_prices()
 
     # Check that we got data back
     assert signed_prices is not None
@@ -66,11 +60,11 @@ def test_get_signed_prices(api_avalanche):
         assert "signers" in result or "signatures" in result
 
 
-def test_get_tokens(api_avalanche):
+def test_get_tokens(api):
     """
-    Test retrieving list of supported tokens on Avalanche.
+    Test retrieving list of supported tokens.
     """
-    tokens = api_avalanche.get_tokens()
+    tokens = api.get_tokens()
 
     # Check that we got data back
     assert tokens is not None
@@ -87,19 +81,23 @@ def test_get_tokens(api_avalanche):
             assert "address" in token
 
 
-def test_get_candlesticks(api_avalanche):
+def test_get_candlesticks(chain_name, api):
     """
-    Test retrieving historical price data on Avalanche.
+    Test retrieving historical price data.
     """
-    # Test with ETH (common token on Avalanche)
-    candlesticks = api_avalanche.get_candlesticks("ETH", period="1h")
+    # Test with a common token (ETH for both chains or AVAX for Avalanche)
+    token_symbol = "ETH"
+    if chain_name.lower() == "avalanche":
+        # Test AVAX as well on Avalanche
+        token_symbol = "AVAX"
+
+    candlesticks = api.get_candlesticks(token_symbol, period="1h")
 
     # Check that we got data back
     assert candlesticks is not None
     assert isinstance(candlesticks, dict)
 
     # Check basic response structure
-    # Expect candle data in some format
     if "result" in candlesticks:
         result = candlesticks["result"]
         assert "candles" in result
@@ -112,12 +110,12 @@ def test_get_candlesticks(api_avalanche):
             assert isinstance(candle, list) and len(candle) >= 5
 
 
-def test_get_candlesticks_dataframe(api_avalanche):
+def test_get_candlesticks_dataframe(api):
     """
-    Test retrieving historical price data as DataFrame on Avalanche.
+    Test retrieving historical price data as DataFrame.
     """
-    # Test with ETH (common token on Avalanche)
-    df = api_avalanche.get_candlesticks_dataframe("ETH", period="1h")
+    # Test with ETH (common token on both chains)
+    df = api.get_candlesticks_dataframe("ETH", period="1h")
 
     # Should be a pandas DataFrame
     assert isinstance(df, pd.DataFrame)
@@ -137,13 +135,13 @@ def test_get_candlesticks_dataframe(api_avalanche):
         assert pd.api.types.is_numeric_dtype(df[col])
 
 
-def test_api_retry_mechanism(gmx_config_avalanche, monkeypatch):
+def test_api_retry_mechanism(chain_name, gmx_config, monkeypatch):
     """
     Test that the API retries with backup URL on failure.
 
     This test deliberately breaks the primary URL to trigger the fallback.
     """
-    api = GMXAPI(gmx_config_avalanche)
+    api = GMXAPI(gmx_config)
 
     # Save original URLs
     original_base_url = api.base_url

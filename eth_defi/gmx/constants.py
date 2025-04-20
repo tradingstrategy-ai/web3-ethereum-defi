@@ -28,7 +28,7 @@ GMX_TOKEN_ADDRESSES = {"arbitrum": {"ETH": "0x82aF49447D8a07e3bd95BD0d56f3524152
 
 
 # Define the paths to ABI files
-abi_paths = {"arbitrum": base_dir / "arbitrum" / "contracts" / "abis" / "eventemitter.json", "avalanche": base_dir / "avalanche" / "contracts" / "abis" / "eventemitter.json"}
+abi_paths = {"arbitrum": base_dir / "../" / "abi" / "gmx" / "arbitrum" / "eventemitter.json", "avalanche": base_dir / "../" / "abi" / "gmx" / "avalanche" / "eventemitter.json"}
 
 # Read and parse the JSON ABI files
 GMX_EVENT_EMITTER_ABI = {chain: json.loads(path.read_text()) for chain, path in abi_paths.items()}
