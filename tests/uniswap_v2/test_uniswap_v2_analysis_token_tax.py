@@ -189,6 +189,10 @@ def test_analyse_taxed_buy(
 
     assert isinstance(analysis, TradeSuccess)
 
+    expected_balance = analysis.amount_out
+    actual_balance = base_eai.contract.functions.balanceOf(hot_wallet_user.address).call()
+    assert actual_balance == expected_balance, f"Expected {expected_balance} EAI, got {actual_balance}"
+
 
 
 
