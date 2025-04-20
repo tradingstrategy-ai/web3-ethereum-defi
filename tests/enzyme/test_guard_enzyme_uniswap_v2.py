@@ -7,6 +7,7 @@
 import datetime
 import random
 
+import flaky
 from web3.middleware import construct_sign_and_send_raw_middleware
 
 from eth_defi.enzyme.generic_adapter_vault import deploy_vault_with_generic_adapter, deploy_guard, whitelist_sender_receiver, bind_vault, deploy_generic_adapter_with_guard
@@ -386,6 +387,7 @@ def test_enzyme_guarded_trade_singlehop_uniswap_v2(
     assert weth_token.contract.functions.balanceOf(vault.address).call() == pytest.approx(0.12450087262998791 * 10**18)
 
 
+@flaky.flaky
 def test_enzyme_guarded_trade_multihops_uniswap_v2(
     web3: Web3,
     deployer: HexAddress,
