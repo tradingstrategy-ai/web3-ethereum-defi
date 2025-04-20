@@ -139,6 +139,16 @@ class TradeSuccess(TradeResult):
         else:
             return self.price
 
+    def get_tax(self) -> float:
+        """Get Uniswap v2 style token tax.
+
+        :return:
+            Tax in bps. Always negative.
+
+            0 if no tax.
+        """
+        return (self.amount_out - self.untaxed_amount_out) / self.untaxed_amount_out
+
 
 @dataclass
 class TradeFail(TradeResult):

@@ -136,6 +136,10 @@ def hot_wallet_user(web3, base_usdc, usdc_holder) -> HotWallet:
 
     return hw
 
+@pytest.fixture()
+def random_receiver(web3) -> HexAddress:
+    return web3.eth.accounts[0]
+
 
 @pytest.fixture()
 def uniswap_v2(web3) -> UniswapV2Deployment:
@@ -188,9 +192,7 @@ def test_analyse_taxed_buy(
         uniswap_v2,
         tx_hash,
     )
-
     assert isinstance(analysis, TradeSuccess)
-
     assert analysis.untaxed_amount_out != analysis.amount_out
 
     expected_balance = analysis.amount_out
@@ -198,12 +200,83 @@ def test_analyse_taxed_buy(
     diff = (expected_balance - actual_balance) / actual_balance
     assert actual_balance == pytest.approx(expected_balance), f"Expected {expected_balance} EAI, got {actual_balance}, diff: {diff:.2%}"
 
+    expected_balance = analysis.amount_out
+    untaxed_balance = analysis.untaxed_amount_out
+    diff = (expected_balance - untaxed_balance) / untaxed_balance
+    assert diff == pytest.approx(-0.02), f"Expected {expected_balance} EAI, got {actual_balance}, diff: {diff:.2%}"
+
+    assert analysis.get_tax() == pytest.appr(-0.02)
 
 
+@pytest.mark.skip(reason="EagleAI is not a fixed tax, but a scam token")
+def test_analyse_taxed_sell(
+    web3,
+    uniswap_v2: UniswapV2Deployment,
+    base_usdc: TokenDetails,
+    base_eai: TokenDetails,
+    base_weth: TokenDetails,
+    hot_wallet_user: HotWallet,
+    random_receiver: HexAddress,
+):
+    """Analyse a taxed buy transaction.
 
+    - Sell tax
+    """
 
+    #
+    # Buy tokens to test sell
+    #
 
+    raw_amount = 500 * 10**6
+    tx_hash = base_usdc.approve(uniswap_v2.router.address, Decimal(500)).transact({"from": hot_wallet_user.address})
+    assert_transaction_success_with_explanation(web3, tx_hash)
 
+    tx_hash = swap_with_slippage_protection(
+        uniswap_v2_deployment=uniswap_v2,
+        recipient_address=hot_wallet_user.address,
+        base_token=base_eai.contract,
+        quote_token=base_usdc.contract,
+        intermediate_token=base_weth.contract,
+        amount_in=raw_amount,
+    ).transact({"from": hot_wallet_user.address})
+    assert_transaction_success_with_explanation(web3, tx_hash)
 
+    #
+    # Sell
+    #
 
+    raw_amount = base_eai.contract.functions.balanceOf(hot_wallet_user.address).call() // 2
+    starting_usdc = base_usdc.contract.functions.balanceOf(hot_wallet_user.address).call()
 
+    tx_hash = base_eai.contract.functions.approve(uniswap_v2.router.address, raw_amount).transact({"from": hot_wallet_user.address})
+    assert_transaction_success_with_explanation(web3, tx_hash)
+
+    tx_hash = swap_with_slippage_protection(
+        uniswap_v2_deployment=uniswap_v2,
+        recipient_address=hot_wallet_user.address,
+        base_token=base_usdc.contract,
+        quote_token=base_eai.contract,
+        intermediate_token=base_weth.contract,
+        amount_in=raw_amount,
+    ).transact({"from": hot_wallet_user.address, "gas": 2_000_000})
+    assert_transaction_success_with_explanation(web3, tx_hash)
+
+    analysis = analyse_trade_by_hash(
+        web3,
+        uniswap_v2,
+        tx_hash,
+    )
+    assert isinstance(analysis, TradeSuccess)
+    assert analysis.untaxed_amount_out != analysis.amount_out, "Tax not detected"
+
+    expected_balance = analysis.amount_out
+    actual_balance = base_eai.contract.functions.balanceOf(random_receiver).call()
+    diff = (expected_balance - actual_balance) / actual_balance
+    assert actual_balance == pytest.approx(expected_balance), f"Expected {expected_balance} EAI, got {actual_balance}, diff: {diff:.2%}"
+
+    expected_balance = analysis.amount_out
+    untaxed_balance = analysis.untaxed_amount_out
+    diff = (expected_balance - untaxed_balance) / untaxed_balance
+    assert diff == pytest.approx(-0.03), f"Expected {expected_balance} EAI, got {actual_balance}, diff: {diff:.2%}"
+
+    assert analysis.get_tax() == pytest.appr(-0.03)
