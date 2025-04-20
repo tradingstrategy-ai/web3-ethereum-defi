@@ -9,7 +9,7 @@ from web3 import Web3
 from web3.logs import DISCARD
 
 from eth_defi.abi import get_deployed_contract
-from eth_defi.token import fetch_erc20_details
+from eth_defi.token import fetch_erc20_details, get_erc20_contract
 from eth_defi.uniswap_v2.deployment import UniswapV2Deployment
 from eth_defi.trade import TradeFail, TradeSuccess
 
@@ -194,6 +194,22 @@ def analyse_trade_by_receipt(web3: Web3, uniswap: UniswapV2Deployment, tx: dict,
 
     lp_fee_paid = float(amount_in * pair_fee / 10**in_token_details.decimals) if pair_fee else None
 
+    erc_20 = out_token_details.contract
+    transfer = erc_20.events.Transfer()
+    events = transfer.process_receipt(tx_receipt, errors=DISCARD)
+
+    assert len(events) > 1, f"Uniswap v2 lacked transfer events: {tx_receipt}"
+    filter_by_token_out_events = [e for e in events if e["address"].lower() == out_token_details.address_lower]
+    assert len(filter_by_token_out_events) > 1, f"Uniswap v2 lacked transfer events for token out: {out_token_details}\ntx receipt: {tx_receipt}"
+    last_transfer = filter_by_token_out_events[-1]
+
+    wallet_amount_in = last_transfer["args"]["value"]
+    if wallet_amount_in != amount_out:
+        untaxed_amount_out = amount_out
+        amount_out = wallet_amount_in
+    else:
+        untaxed_amount_out = amount_out
+
     return TradeSuccess(
         gas_used,
         effective_gas_price,
@@ -207,6 +223,7 @@ def analyse_trade_by_receipt(web3: Web3, uniswap: UniswapV2Deployment, tx: dict,
         token0=None,
         token1=None,
         lp_fee_paid=lp_fee_paid,
+        untaxed_amount_out=untaxed_amount_out,
     )
 
 

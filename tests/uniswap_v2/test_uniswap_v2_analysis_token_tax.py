@@ -191,6 +191,8 @@ def test_analyse_taxed_buy(
 
     assert isinstance(analysis, TradeSuccess)
 
+    assert analysis.untaxed_amount_out != analysis.amount_out
+
     expected_balance = analysis.amount_out
     actual_balance = base_eai.contract.functions.balanceOf(hot_wallet_user.address).call()
     diff = (expected_balance - actual_balance) / actual_balance

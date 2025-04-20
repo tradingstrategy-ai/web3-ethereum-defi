@@ -102,6 +102,9 @@ class TradeSuccess(TradeResult):
     #:
     intent_based: bool | None = None
 
+    #: For Uniswap v2 swaps were token tax applies
+    untaxed_amount_out: int | None = None
+
     def __post_init__(self):
         if self.price is not None:
             assert isinstance(self.price, Decimal)
