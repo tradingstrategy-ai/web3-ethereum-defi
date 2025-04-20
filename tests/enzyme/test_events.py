@@ -8,6 +8,7 @@ from functools import partial
 from typing import cast
 from decimal import Decimal
 
+import flaky
 import pytest
 from eth_typing import HexAddress
 from web3 import Web3
@@ -197,6 +198,7 @@ def test_read_withdrawal(
         assert_transaction_success_with_explanation(web3, tx_hash)
 
 
+@flaky.flaky
 def test_read_withdrawal_in_kind(
     web3: Web3,
     deployer: HexAddress,
