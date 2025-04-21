@@ -183,7 +183,7 @@ class TokenDetails:
     def address(self) -> HexAddress:
         """The address of this token.
 
-        Always lowercase.
+        See also :py:meth:`address_lower`.
         """
         return self.contract.address
 

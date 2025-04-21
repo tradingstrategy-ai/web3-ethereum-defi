@@ -102,6 +102,11 @@ class TradeSuccess(TradeResult):
     #:
     intent_based: bool | None = None
 
+    #: For Uniswap v2 swaps were token tax applies.
+    #:
+    #: Set to ``None`` if could not be determined.
+    untaxed_amount_out: int | None = None
+
     def __post_init__(self):
         if self.price is not None:
             assert isinstance(self.price, Decimal)
@@ -135,6 +140,22 @@ class TradeSuccess(TradeResult):
             return Decimal(1) / self.price
         else:
             return self.price
+
+    def get_tax(self) -> float | None:
+        """Get Uniswap v2 style token tax.
+
+        :return:
+            Tax in bps. Always negative.
+
+            0 if no tax.
+
+            None if could not determined.
+        """
+
+        if not self.untaxed_amount_out:
+            return None
+
+        return (self.amount_out - self.untaxed_amount_out) / self.untaxed_amount_out
 
 
 @dataclass
