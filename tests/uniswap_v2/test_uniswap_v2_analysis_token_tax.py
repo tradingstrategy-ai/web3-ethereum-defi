@@ -205,7 +205,7 @@ def test_analyse_taxed_buy(
     diff = (expected_balance - untaxed_balance) / untaxed_balance
     assert diff == pytest.approx(-0.02), f"Expected {expected_balance} EAI, got {actual_balance}, diff: {diff:.2%}"
 
-    assert analysis.get_tax() == pytest.appr(-0.02)
+    assert analysis.get_tax() == pytest.approx(-0.02)
 
 
 @pytest.mark.skip(reason="EagleAI is not a fixed tax, but a scam token")
