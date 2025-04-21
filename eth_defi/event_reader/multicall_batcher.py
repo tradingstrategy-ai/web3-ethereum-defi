@@ -743,11 +743,16 @@ class MultiprocessMulticallReader:
                 if type(block_identifier) == int:
                     block_identifier = f"{block_identifier:,}"
                 addresses = [t[0] for t in batch_calls]
-                error_msg = f"Multicall failed for chain {chain_id}, block {block_identifier}, batch size: {len(batch_calls)}: {e}.\nUsing provider: {name}\nHTTP reply headers: {pformat(headers)}\nTo simulate:\n{debug_data}\nAddresses: {addresses}"
+                error_msg = f"Multicall failed for chain {chain_id}, block {block_identifier}, batch size: {len(batch_calls)}: {e}.\nUsing provider: {self.web3.provider.__class__}: {name}\nHTTP reply headers: {pformat(headers)}\nTo simulate:\n{debug_data}\nAddresses: {addresses}"
                 parsed_error = str(e)
                 # F*cking hell Ethereum nodes, what unbearable mess.
                 # Need to maintain crappy retry rules and all node behaviour is totally random
-                if ("out of gas" in parsed_error) or ("evn_timeout" in parsed_error) or isinstance(e, ProbablyNodeHasNoBlock) or ((isinstance(e, HTTPError) and e.response.status_code == 500)):
+                if ("out of gas" in parsed_error) or \
+                   ("evm_timeout" in parsed_error) or \
+                   ("request timeout" in parsed_error) or \
+                   ("request timed out" in parsed_error) or \
+                   isinstance(e, ProbablyNodeHasNoBlock) or \
+                   ((isinstance(e, HTTPError) and e.response.status_code == 500)):
                     raise MulticallRetryable(error_msg) from e
                 else:
                     raise MulticallNonRetryable(error_msg) from e

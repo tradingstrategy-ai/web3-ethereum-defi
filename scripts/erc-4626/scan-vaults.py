@@ -37,6 +37,7 @@ from eth_defi.erc_4626.core import ERC4626Feature
 from eth_defi.erc_4626.hypersync_discovery import HypersyncVaultDiscover
 from eth_defi.erc_4626.scan import create_vault_scan_record_subprocess
 from eth_defi.hypersync.server import get_hypersync_server
+from eth_defi.provider.named import get_provider_name
 from eth_defi.utils import setup_console_logging
 
 try:
@@ -70,7 +71,8 @@ def main():
     web3 = create_multi_provider_web3(JSON_RPC_URL)
     web3factory = MultiProviderWeb3Factory(JSON_RPC_URL, retries=5)
     name = get_chain_name(web3.eth.chain_id)
-    print(f"Scanning ERC-4626 vaults on chain {web3.eth.chain_id}: {name}")
+    rpcs = get_provider_name(web3.provider)
+    print(f"Scanning ERC-4626 vaults on chain {web3.eth.chain_id}: {name}, using rpcs: {rpcs}")
 
     hypersync_url = get_hypersync_server(web3)
     client = hypersync.HypersyncClient(hypersync.ClientConfig(url=hypersync_url))
