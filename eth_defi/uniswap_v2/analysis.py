@@ -23,6 +23,10 @@ def analyse_trade_by_hash(web3: Web3, uniswap: UniswapV2Deployment, tx_hash: str
     Currently only supports simple analysis where there is one input token
     and one output token.
 
+    .. note ::
+
+        Only works if you have one trade per transaction.
+
     Example:
 
     .. code-block:: python
@@ -62,9 +66,9 @@ def analyse_trade_by_receipt(web3: Web3, uniswap: UniswapV2Deployment, tx: dict,
     This function is more ideal for the cases where you know your transaction is already confirmed
     and you do not need to poll the chain for a receipt.
 
-    .. warning::
+    .. note ::
 
-        Assumes one trade per TX - cannot decode TXs with multiple trades in them.
+        Only works if you have one trade per transaction.
 
     Example:
 
@@ -200,15 +204,17 @@ def analyse_trade_by_receipt(web3: Web3, uniswap: UniswapV2Deployment, tx: dict,
 
     assert len(events) > 1, f"Uniswap v2 lacked transfer events: {tx_receipt}"
     filter_by_token_out_events = [e for e in events if e["address"].lower() == out_token_details.address_lower]
-    assert len(filter_by_token_out_events) > 1, f"Uniswap v2 lacked transfer events for token out: {out_token_details}\ntx receipt: {tx_receipt}"
-    last_transfer = filter_by_token_out_events[-1]
+    if len(filter_by_token_out_events) > 1:
+        last_transfer = filter_by_token_out_events[-1]
 
-    wallet_amount_in = last_transfer["args"]["value"]
-    if wallet_amount_in != amount_out:
-        untaxed_amount_out = amount_out
-        amount_out = wallet_amount_in
+        wallet_amount_in = last_transfer["args"]["value"]
+        if wallet_amount_in != amount_out:
+            untaxed_amount_out = amount_out
+            amount_out = wallet_amount_in
+        else:
+            untaxed_amount_out = amount_out
     else:
-        untaxed_amount_out = amount_out
+        untaxed_amount_out = None
 
     return TradeSuccess(
         gas_used,

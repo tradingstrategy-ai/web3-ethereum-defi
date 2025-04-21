@@ -123,6 +123,7 @@ def test_analyse_buy_success(web3: Web3, deployer: str, user_1, uniswap_v2: Unis
     assert analysis.get_effective_gas_price_gwei() == 1
     assert analysis.amount_in_decimals == 6
     assert analysis.amount_out_decimals == 18
+    assert analysis.untaxed_amount_out is None
 
 
 def test_analyse_sell_success(web3: Web3, deployer: str, user_1, uniswap_v2: UniswapV2Deployment, weth: Contract, usdc: Contract):
