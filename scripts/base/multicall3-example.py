@@ -122,7 +122,7 @@ def main():
             fees=[pool_data["fee"] * 100],
         )
         signature_string = "quoteExactInput(bytes,uint256)(uint256,uint160[],uint32[],uint256)"
-        signature_4bytes = Web3.keccak(text=signature_string)
+        signature_4bytes = Web3.keccak(text=signature_string)[0:4]
         packed_args = eth_abi.encode(["bytes", "uint256"], [path_bytes, amount_in])
         # Add a pool hint as an extra data for which pool this call is
         return EncodedCall.from_keccak_signature(
