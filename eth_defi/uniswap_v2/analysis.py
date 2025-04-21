@@ -204,7 +204,8 @@ def analyse_trade_by_receipt(web3: Web3, uniswap: UniswapV2Deployment, tx: dict,
 
     assert len(events) > 1, f"Uniswap v2 lacked transfer events: {tx_receipt}"
     filter_by_token_out_events = [e for e in events if e["address"].lower() == out_token_details.address_lower]
-    if len(filter_by_token_out_events) > 1:
+
+    if len(filter_by_token_out_events) >= 1:
         last_transfer = filter_by_token_out_events[-1]
 
         wallet_amount_in = last_transfer["args"]["value"]
