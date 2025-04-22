@@ -67,6 +67,7 @@ Tutorials and examples
    enzyme-read-vaults
    enzyme-deploy
    verify-node-integrity
+   multicall3-with-python
    multithread-reader
    mev-blocker
 

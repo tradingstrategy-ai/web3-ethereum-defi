@@ -1,5 +1,6 @@
-"""Multicall contract helpers.
+"""Multicall3 contract helpers.
 
+- Read :ref:`multicall3-tutorial` for tutorial
 - Perform several smart contract calls in one RPC request using `Multicall <https://www.multicall3.com/>`__ contract
 - Increase smart contract call throughput using Multicall smart contract
 - Further increase call throughput using multiprocessing with :py:class:`joblib.Parallel`
@@ -483,11 +484,13 @@ class EncodedCall:
     @staticmethod
     def from_contract_call(
         call: ContractFunction,
-        extra_data: dict,
+        extra_data: dict | None = None,
         first_block_number: int | None = None,
     ) -> "EncodedCall":
         """Create poller call from Web3.py Contract proxy object"""
         assert isinstance(call, ContractFunction)
+        if extra_data is None:
+            extra_data = {}
         assert isinstance(extra_data, dict)
         data = encode_function_call(
             call,
@@ -743,11 +746,17 @@ class MultiprocessMulticallReader:
                 if type(block_identifier) == int:
                     block_identifier = f"{block_identifier:,}"
                 addresses = [t[0] for t in batch_calls]
-                error_msg = f"Multicall failed for chain {chain_id}, block {block_identifier}, batch size: {len(batch_calls)}: {e}.\nUsing provider: {name}\nHTTP reply headers: {pformat(headers)}\nTo simulate:\n{debug_data}\nAddresses: {addresses}"
+                error_msg = f"Multicall failed for chain {chain_id}, block {block_identifier}, batch size: {len(batch_calls)}: {e}.\nUsing provider: {self.web3.provider.__class__}: {name}\nHTTP reply headers: {pformat(headers)}\nTo simulate:\n{debug_data}\nAddresses: {addresses}"
                 parsed_error = str(e)
                 # F*cking hell Ethereum nodes, what unbearable mess.
                 # Need to maintain crappy retry rules and all node behaviour is totally random
-                if ("out of gas" in parsed_error) or ("evn_timeout" in parsed_error) or isinstance(e, ProbablyNodeHasNoBlock) or ((isinstance(e, HTTPError) and e.response.status_code == 500)):
+                if ("out of gas" in parsed_error) or \
+                   ("evm timeout" in parsed_error) or \
+                   ("request timeout" in parsed_error) or \
+                   ("request timed out" in parsed_error) or \
+                   ("intrinsic gas too high" in parsed_error) or \
+                   isinstance(e, ProbablyNodeHasNoBlock) or \
+                   ((isinstance(e, HTTPError) and e.response.status_code == 500)):
                     raise MulticallRetryable(error_msg) from e
                 else:
                     raise MulticallNonRetryable(error_msg) from e
@@ -1003,13 +1012,30 @@ def read_multicall_chunked(
     - All calls hit the same block number
     - Show a progress bar using :py:mod:`tqdm`
 
+    :param chain_id:
+        Which EVM chain we are targeting with calls.
+
+    :param web3factory:
+        The connection factory for subprocesses
+
+    :param calls:
+        List of calls to perform against Multicall3.
+
     :param chunk_size:
         Max calls per one chunk sent to Multicall contract, to stay below JSON-RPC read gas limit.
 
-    :param total:
-        Estimated total number of calls for the progress bar.
+    :param max_workers:
+        How many parallel processes to use.
 
-    :param progress_bar_template:
+    :param timeout:
+        Joblib timeout to wait for a result from an individual task.
+
+    :param block_identifier:
+        Block number to read.
+
+        - Can be a block number or "latest" or "earliest"
+
+    :param progress_bar_desc:
         If set, display a TQDM progress bar for the process.
     """
 

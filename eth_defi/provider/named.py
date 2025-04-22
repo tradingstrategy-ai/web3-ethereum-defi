@@ -68,6 +68,10 @@ def get_provider_name(provider: BaseProvider) -> str:
 
         Assume any API keys are not part of the domain name.
     """
-    if hasattr(provider, "endpoint_uri"):
+
+    from eth_defi.provider.fallback import FallbackProvider
+    if isinstance(provider, FallbackProvider):
+        return "fallbacks " + ", ".join(get_provider_name(p) for p in provider.providers)
+    elif hasattr(provider, "endpoint_uri"):
         return get_url_domain(provider.endpoint_uri)
     return str(provider)

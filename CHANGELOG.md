@@ -1,4 +1,4 @@
-# Current
+# 0.29
 
 - Add: Abstract ERC-4626 vault base class out from Lagoon implementation
 - Add: Multicall historical reader

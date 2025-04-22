@@ -2,15 +2,16 @@ Web3-Ethereum-DeFi Python APIs
 ==============================
 
 .. meta::
-   :description: Python API for Web3 protocols like Uniswap, Chainlink and others
+   :description: DeFi Python APIs for trading and AI
 
 .. image:: logo-wall-white.png
 
-This is the documentation for `Web3-Ethereum-Defi <https://github.com/tradingstrategy-ai/web3-ethereum-defi>`__ `Python <https://tradingstrategy.ai/glossary/python>`__ package.
+This is the documentation for `Web3-Ethereum-Defi <https://github.com/tradingstrategy-ai/web3-ethereum-defi>`__ package for `Python <https://tradingstrategy.ai/glossary/python>`.
 
-Web-Ethereum-DeFi (`eth_defi`) Python package allows you to interact and consume data from EVM DeFi protocols.
+Web-Ethereum-DeFi (``eth_defi``) Python package allows you to interact and consume data from EVM DeFi protocols.
 
-**Use cases**
+Use cases
+=========
 
 - Trading and bots
 - Data research, extraction, transformation and loading
@@ -18,9 +19,10 @@ Web-Ethereum-DeFi (`eth_defi`) Python package allows you to interact and consume
 - System integrations and backends
 - AI agent interaction for EVM chains
 
-**Supported protocols and integrations**
+Supported protocols and integrations
+====================================
 
-- `See README for the full list <https://github.com/tradingstrategy-ai/web3-ethereum-defi>`__
+👉 `See README for the full list <https://github.com/tradingstrategy-ai/web3-ethereum-defi>`__.
 
 Table of contents
 =================

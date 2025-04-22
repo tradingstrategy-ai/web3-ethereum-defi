@@ -4,6 +4,7 @@ Deploy ERC-20 tokens to be used within your test suite.
 
 `Read also unit test suite for tokens to see how ERC-20 can be manipulated in pytest <https://github.com/tradingstrategy-ai/web3-ethereum-defi/blob/master/tests/test_token.py>`_.
 """
+
 import json
 import logging
 import datetime
@@ -52,7 +53,6 @@ DEFAULT_TOKEN_CACHE = cachetools.LRUCache(1024)
 
 #: ERC-20 address, 0x prefixed string
 TokenAddress: TypeAlias = str
-
 
 
 #: Addresses of wrapped native token (WETH9) of different chains
@@ -115,7 +115,7 @@ HONEY_NATIVE_TOKEN: dict[int, HexAddress] = {
 #: Note that it is *not* safe to to check the token symbol to know if a token is a specific stablecoin,
 #: but you always need to check the contract address.
 #: Checking against this list only works
-STABLECOIN_LIKE = {'ALUSD', 'BAC', 'BDO', 'BEAN', 'BOB', 'BUSD', 'CADC', 'CEUR', 'CJPY', 'CNHT', 'CRVUSD', 'CUSD', 'DAI', 'DJED', 'DOLA', 'DUSD', 'EOSDT', 'EURA', 'EUROC', 'EUROe', 'EURS', 'EURT', 'EURe', 'EUSD', 'FDUSD', 'FEI', 'FLEXUSD', 'FRAX', 'FXD', 'FXUSD', 'GBPT', 'GHO', 'GHST', 'GUSD', 'GYD', 'GYEN', 'HUSD', 'IRON', 'JCHF', 'JPYC', 'KDAI', 'LISUSD', 'LUSD', 'MIM', 'MIMATIC', 'MKUSD', 'MUSD', 'ONC', 'OUSD', 'PAR', 'PAXG', 'PYUSD', 'RAI', 'RUSD', 'SEUR', 'SFRAX', 'SILK', 'STUSD', 'SUSD', 'TCNH', 'TOR', 'TRYB', 'TUSD', 'USC', 'USD+', 'USDB', 'USDC', 'USDC.e', 'USDD', 'USDE', 'USDN', 'USDP', 'USDR', 'USDS', 'USDT', 'USDT.e', 'USDV', 'USDX', 'USDs', 'USK', 'UST', 'USTC', 'USX', 'UUSD', 'VAI', 'VEUR', 'VST', 'VUSD', 'XAUT', 'XDAI', 'XIDR', 'XSGD', 'XSTUSD', 'XUSD', 'YUSD', 'ZSD', 'ZUSD', 'gmUSD', 'iUSD', 'jEUR', 'crvUSD', 'USDe', 'kUSD', 'sosUSDT', 'USDXL', 'USDA', 'avUSD', 'AUSD', 'USDt', 'deUSD', 'WXDAI', 'SDAI', 'USDM', 'lvlUSD', 'USD0', "USD+", "USDO", "USR", "RLUSD"}
+STABLECOIN_LIKE = {"ALUSD", "BAC", "BDO", "BEAN", "BOB", "BUSD", "CADC", "CEUR", "CJPY", "CNHT", "CRVUSD", "CUSD", "DAI", "DJED", "DOLA", "DUSD", "EOSDT", "EURA", "EUROC", "EUROe", "EURS", "EURT", "EURe", "EUSD", "FDUSD", "FEI", "FLEXUSD", "FRAX", "FXD", "FXUSD", "GBPT", "GHO", "GHST", "GUSD", "GYD", "GYEN", "HUSD", "IRON", "JCHF", "JPYC", "KDAI", "LISUSD", "LUSD", "MIM", "MIMATIC", "MKUSD", "MUSD", "ONC", "OUSD", "PAR", "PAXG", "PYUSD", "RAI", "RUSD", "SEUR", "SFRAX", "SILK", "STUSD", "SUSD", "TCNH", "TOR", "TRYB", "TUSD", "USC", "USD+", "USDB", "USDC", "USDC.e", "USDD", "USDE", "USDN", "USDP", "USDR", "USDS", "USDT", "USDT.e", "USDV", "USDX", "USDs", "USK", "UST", "USTC", "USX", "UUSD", "VAI", "VEUR", "VST", "VUSD", "XAUT", "XDAI", "XIDR", "XSGD", "XSTUSD", "XUSD", "YUSD", "ZSD", "ZUSD", "gmUSD", "iUSD", "jEUR", "crvUSD", "USDe", "kUSD", "sosUSDT", "USDXL", "USDA", "avUSD", "AUSD", "USDt", "deUSD", "WXDAI", "SDAI", "USDM", "lvlUSD", "USD0", "USD+", "USDO", "USR", "RLUSD", "wM", "USD1"}
 
 #: Stablecoins plus their interest wrapped counterparts on Compound and Aave.
 #: Also contains other derivates.
@@ -123,7 +123,6 @@ WRAPPED_STABLECOIN_LIKE = {"cUSDC", "cUSDT", "sUSD", "aDAI", "cDAI", "tfUSDC", "
 
 #: All stablecoin likes - both interested bearing and non interest bearing.
 ALL_STABLECOIN_LIKE = STABLECOIN_LIKE | WRAPPED_STABLECOIN_LIKE
-
 
 
 @dataclass
@@ -184,7 +183,7 @@ class TokenDetails:
     def address(self) -> HexAddress:
         """The address of this token.
 
-        Always lowercase.
+        See also :py:meth:`address_lower`.
         """
         return self.contract.address
 
@@ -208,7 +207,7 @@ class TokenDetails:
             assert details.convert_to_decimals(1) == Decimal("0.0000000000000001")
 
         """
-        return Decimal(raw_amount) / Decimal(10 ** self.decimals)
+        return Decimal(raw_amount) / Decimal(10**self.decimals)
 
     def convert_to_raw(self, decimal_amount: Decimal) -> int:
         """Convert decimalised token amount to raw uint256.
@@ -222,7 +221,7 @@ class TokenDetails:
             assert details.convert_to_raw(1) == 1_000_000
 
         """
-        return int(decimal_amount * 10 ** self.decimals)
+        return int(decimal_amount * 10**self.decimals)
 
     def fetch_balance_of(self, address: HexAddress | str, block_identifier="latest") -> Decimal:
         """Get an address token balance.
@@ -238,9 +237,9 @@ class TokenDetails:
         return self.convert_to_decimals(raw_amount)
 
     def transfer(
-            self,
-            to: HexAddress | str,
-            amount: Decimal,
+        self,
+        to: HexAddress | str,
+        amount: Decimal,
     ) -> ContractFunction:
         """Prepare a ERC20.transfer() transaction with human-readable amount.
 
@@ -261,9 +260,9 @@ class TokenDetails:
         return self.contract.functions.transfer(to, raw_amount)
 
     def approve(
-            self,
-            to: HexAddress | str,
-            amount: Decimal,
+        self,
+        to: HexAddress | str,
+        amount: Decimal,
     ) -> ContractFunction:
         """Prepare a ERC20.approve() transaction with human-readable amount.
 
@@ -323,7 +322,7 @@ class TokenDetails:
             Python dict of exported data.
         """
         clone = dict(**self.__dict__)
-        clone["address"] = self.addressisi
+        clone["address"] = self.address
         clone["chain"] = self.chain_id
         del clone["contract"]
         return clone
@@ -396,13 +395,12 @@ def create_token(
 
 
 def get_erc20_contract(
-        web3: Web3,
-        address: HexAddress,
-        contract_name="ERC20MockDecimals.json",
+    web3: Web3,
+    address: HexAddress,
+    contract_name="ERC20MockDecimals.json",
 ) -> Contract:
     """Wrap address as ERC-20 standard interface."""
     return get_deployed_contract(web3, contract_name, address)
-
 
 
 def fetch_erc20_details(
@@ -642,7 +640,7 @@ def is_stablecoin_like(token_symbol: str | None, symbol_list=ALL_STABLECOIN_LIKE
         return False
 
     assert isinstance(token_symbol, str), f"We got {token_symbol}"
-    return (token_symbol in symbol_list)
+    return token_symbol in symbol_list
 
 
 class TokenCacheWarmupResult(TypedDict):
@@ -729,7 +727,7 @@ class TokenDiskCache(PersistentKeyValueStore):
 
     def __init__(
         self,
-        filename = DEFAULT_TOKEN_DISK_CACHE_PATH,
+        filename=DEFAULT_TOKEN_DISK_CACHE_PATH,
         max_str_length: int = 256,
     ):
         assert isinstance(filename, Path), f"We got {filename}"
@@ -832,9 +830,9 @@ class TokenDiskCache(PersistentKeyValueStore):
         display_progress: str | bool = False,
         max_workers=8,
         block_identifier="latest",
-        checkpoint: int=32,
+        checkpoint: int = 32,
     ) -> TokenCacheWarmupResult:
-        """Warm up cache and load token details for multiple """
+        """Warm up cache and load token details for multiple"""
 
         assert type(chain_id) == int, "chain_id must be an integer"
         assert type(addresses) == list, "addresses must be a list of HexAddress"
@@ -888,13 +886,3 @@ class TokenDiskCache(PersistentKeyValueStore):
             tokens_read=tokens_read,
             multicalls_done=multicalls_done,
         )
-
-
-
-
-
-
-
-
-
-
