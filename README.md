@@ -8,21 +8,19 @@
 
 Web-Ethereum-DeFi (`eth_defi`) Python package allows you to interact and consume data from EVM DeFi protocols.
 
-* [Use cases](#use-cases)
-* [Prerequisites](#prerequisites)
-* [Install](#install)
-* [Code examples](#code-examples)
-   * [Deploy and transfer ERC-20 token between wallets](#deploy-and-transfer-erc-20-token-between-wallets)
-   * [Uniswap v2 trade example](#uniswap-v2-trade-example)
-   * [Uniswap v2 price estimation example](#uniswap-v2-price-estimation-example)
-* [How to use the library in your Python project](#how-to-use-the-library-in-your-python-project)
-* [Documentation](#documentation)
-  * [Development and contributing](#development-and-contributing)
-* [Version history](#version-history)
-* [Support](#support)
-* [Social media](#social-media)
-* [History](#history)
-* [License](#license)
+- [Use cases](#use-cases)
+- [Supported protocols, chains and integrations](#supported-protocols-chains-and-integrations)
+- [Prerequisites](#prerequisites)
+- [Install](#install)
+- [Example code](#example-code)
+   * [Uniswap swap example](#uniswap-swap-example)
+- [How to use the library in your Python project](#how-to-use-the-library-in-your-python-project)
+- [Documentation](#documentation)
+- [Development and contributing](#development-and-contributing)
+- [Version history](#version-history)
+- [Support ](#support)
+- [Social media](#social-media)
+- [License ](#license)
 
 # Use cases
 
