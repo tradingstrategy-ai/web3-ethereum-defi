@@ -65,9 +65,9 @@ def pytest_generate_tests(metafunc):
 
 
 @pytest.fixture()
-def test_address() -> str:
+def test_address() -> HexAddress:
     """Return the default anvil test address."""
-    return "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"
+    return HexAddress(HexStr("0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"))
 
 
 @pytest.fixture()
@@ -232,7 +232,7 @@ def api(gmx_config):
 
 # Token fixtures for specific chains
 @pytest.fixture()
-def wbtc_arbitrum(web3_fork, chain_name) -> TokenDetails:
+def wbtc_arbitrum(web3_fork: Web3, chain_name) -> TokenDetails:
     """WBTC token on Arbitrum."""
     if chain_name != "arbitrum":
         pytest.skip("This fixture is for Arbitrum only")
@@ -240,7 +240,7 @@ def wbtc_arbitrum(web3_fork, chain_name) -> TokenDetails:
 
 
 @pytest.fixture()
-def usdc_arbitrum(web3_fork, chain_name) -> TokenDetails:
+def usdc_arbitrum(web3_fork: Web3, chain_name) -> TokenDetails:
     """USDC token on Arbitrum."""
     if chain_name != "arbitrum":
         pytest.skip("This fixture is for Arbitrum only")
@@ -248,7 +248,7 @@ def usdc_arbitrum(web3_fork, chain_name) -> TokenDetails:
 
 
 @pytest.fixture()
-def usdt_arbitrum(web3_fork, chain_name) -> TokenDetails:
+def usdt_arbitrum(web3_fork: Web3, chain_name) -> TokenDetails:
     """USDT token on Arbitrum."""
     if chain_name != "arbitrum":
         pytest.skip("This fixture is for Arbitrum only")
@@ -256,7 +256,7 @@ def usdt_arbitrum(web3_fork, chain_name) -> TokenDetails:
 
 
 @pytest.fixture()
-def wbtc_avalanche(web3_fork, chain_name) -> TokenDetails:
+def wbtc_avalanche(web3_fork: Web3, chain_name) -> TokenDetails:
     """WBTC token on Avalanche."""
     if chain_name != "avalanche":
         pytest.skip("This fixture is for Avalanche only")
@@ -264,7 +264,7 @@ def wbtc_avalanche(web3_fork, chain_name) -> TokenDetails:
 
 
 @pytest.fixture()
-def wavax_avalanche(web3_fork, chain_name) -> TokenDetails:
+def wavax_avalanche(web3_fork: Web3, chain_name) -> TokenDetails:
     """WAVAX token on Avalanche."""
     if chain_name != "avalanche":
         pytest.skip("This fixture is for Avalanche only")
@@ -273,28 +273,28 @@ def wavax_avalanche(web3_fork, chain_name) -> TokenDetails:
 
 # Generic token fixtures that adapt to the current chain
 @pytest.fixture()
-def wbtc(web3_fork, chain_name) -> TokenDetails:
+def wbtc(web3_fork: Web3, chain_name) -> TokenDetails:
     """WBTC token details for the specified chain."""
     wbtc_address = CHAIN_CONFIG[chain_name]["wbtc_address"]
     return fetch_erc20_details(web3_fork, wbtc_address)
 
 
 @pytest.fixture()
-def usdc(web3_fork, chain_name) -> TokenDetails:
+def usdc(web3_fork: Web3, chain_name) -> TokenDetails:
     """USDC token details for the specified chain."""
     usdc_address = CHAIN_CONFIG[chain_name]["usdc_address"]
     return fetch_erc20_details(web3_fork, usdc_address)
 
 
 @pytest.fixture()
-def usdt(web3_fork, chain_name) -> TokenDetails:
+def usdt(web3_fork: Web3, chain_name) -> TokenDetails:
     """USDT token details for the specified chain."""
     usdt_address = CHAIN_CONFIG[chain_name]["usdt_address"]
     return fetch_erc20_details(web3_fork, usdt_address)
 
 
 @pytest.fixture()
-def wrapped_native_token(web3_fork, chain_name) -> TokenDetails:
+def wrapped_native_token(web3_fork: Web3, chain_name) -> TokenDetails:
     """Get the native wrapped token (WETH for Arbitrum, WAVAX for Avalanche)."""
     native_address = CHAIN_CONFIG[chain_name]["native_token_address"]
     contract_name = "./WAVAX.json" if chain_name == "avalanche" else None
@@ -303,8 +303,8 @@ def wrapped_native_token(web3_fork, chain_name) -> TokenDetails:
 
 # Wallet funding fixtures
 @pytest.fixture()
-def wallet_with_native_token(web3_fork, chain_name, test_address) -> None:
-    """Setup the anvil wallet with the chain's native token for testing."""
+def wallet_with_native_token(web3_fork: Web3, chain_name, test_address: HexAddress) -> None:
+    """Set up the anvil wallet with the chain's native token for testing."""
     # Native ETH is already available in the test account on both forks
 
     # Wrap some native token if needed
@@ -318,7 +318,7 @@ def wallet_with_native_token(web3_fork, chain_name, test_address) -> None:
 
 
 @pytest.fixture()
-def wallet_with_usdc(web3_fork, chain_name, test_address, large_usdc_holder_arbitrum, large_usdc_holder_avalanche) -> None:
+def wallet_with_usdc(web3_fork: Web3, chain_name, test_address: HexAddress, large_usdc_holder_arbitrum, large_usdc_holder_avalanche) -> None:
     """Fund the test wallet with USDC."""
     if chain_name == "arbitrum":
         usdc_address = CHAIN_CONFIG["arbitrum"]["usdc_address"]
@@ -339,7 +339,7 @@ def wallet_with_usdc(web3_fork, chain_name, test_address, large_usdc_holder_arbi
 
 
 @pytest.fixture()
-def wallet_with_wbtc(web3_fork, chain_name, test_address, large_wbtc_holder, large_wbtc_holder_avalanche) -> None:
+def wallet_with_wbtc(web3_fork: Web3, chain_name, test_address: HexAddress, large_wbtc_holder, large_wbtc_holder_avalanche) -> None:
     """Fund the test wallet with WBTC."""
     if chain_name == "arbitrum":
         wbtc_address = CHAIN_CONFIG["arbitrum"]["wbtc_address"]
@@ -359,7 +359,7 @@ def wallet_with_wbtc(web3_fork, chain_name, test_address, large_wbtc_holder, lar
 
 
 # @pytest.fixture()
-# def wallet_with_link(web3_fork, chain_name, test_address, large_link_holder_avalanche) -> None:
+# def wallet_with_link(web3_fork, chain_name, test_address: HexAddress, large_link_holder_avalanche) -> None:
 #     """Fund the test wallet with LINK."""
 #     if chain_name == "avalanche":
 #         link_address = "0x5947BB275c521040051D82396192181b413227A3"
@@ -380,18 +380,25 @@ def wallet_with_all_tokens(
     wallet_with_wbtc,
     # wallet_with_link
 ) -> None:
-    """Setup the wallet with all tokens needed for testing."""
+    """Set up the wallet with all tokens needed for testing."""
     # This fixture combines all token fixtures to ensure the wallet has all needed tokens
     pass
 
 
 @pytest.fixture()
-def gmx_config_fork(web3_fork, chain_name, test_address, wallet_with_all_tokens) -> GMXConfig:
-    """Create a GMX configuration with a private key for testing transactions."""
+def gmx_config_fork(web3_fork: Web3, chain_name: str, test_address: HexAddress, wallet_with_all_tokens) -> GMXConfig:
+    """Create a GMX configuration with a wallet for testing transactions."""
+    from eth_account import Account
+    from eth_defi.hotwallet import HotWallet
+
+    # Create a hot wallet with the anvil private key
     anvil_private_key: str = "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
+    account = Account.from_key(anvil_private_key)
+    wallet = HotWallet(account)
+    wallet.sync_nonce(web3_fork)
 
     # The wallet_with_all_tokens fixture ensures the wallet has all necessary tokens
-    return GMXConfig(web3_fork, chain=chain_name, private_key=anvil_private_key, user_wallet_address=test_address)
+    return GMXConfig(web3_fork, chain=chain_name, wallet=wallet, user_wallet_address=test_address)
 
 
 @pytest.fixture()
