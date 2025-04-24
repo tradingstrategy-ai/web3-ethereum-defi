@@ -41,6 +41,10 @@ class GMXConfig:
             self._wallet = HotWallet(account)
             self._wallet.sync_nonce(web3)
 
+            # If no user_wallet_address is provided, derive it from the created wallet
+            if not user_wallet_address:
+                user_wallet_address = self._wallet.get_main_address()
+
         # Get the wallet address either from the provided address or the wallet
         if wallet and not user_wallet_address:
             user_wallet_address = wallet.get_main_address()
@@ -86,14 +90,7 @@ class GMXConfig:
             self._wallet.sync_nonce(self.web3)
 
         # Create ConfigManager with the adapter signer
-        config_manager = ConfigManager(
-            chain=self.chain,
-            rpc=self._rpc_url,
-            chain_id=self.web3.eth.chain_id,
-            user_wallet_address=self._user_wallet_address,
-            config=write_config_dict,
-            signer=adapter_signer
-        )
+        config_manager = ConfigManager(chain=self.chain, rpc=self._rpc_url, chain_id=self.web3.eth.chain_id, user_wallet_address=self._user_wallet_address, config=write_config_dict, signer=adapter_signer)
 
         return config_manager
 

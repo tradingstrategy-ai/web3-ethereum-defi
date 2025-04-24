@@ -59,9 +59,7 @@ class WalletAdapterSigner(Signer):
             elif isinstance(self.wallet, Web3ProviderWallet):
                 # Web3ProviderWallet needs to delegate to the provider
                 # But we can't directly sign, only send
-                raise NotImplementedError(
-                    "Direct signing with nonce not supported for Web3ProviderWallet"
-                )
+                raise NotImplementedError("Direct signing with nonce not supported for Web3ProviderWallet")
             else:
                 # For other wallet types, we need to extract nonce, sign, and update
                 nonce = unsigned_tx.pop("nonce")
@@ -69,7 +67,7 @@ class WalletAdapterSigner(Signer):
                 # Restore the nonce value in the original transaction
                 unsigned_tx["nonce"] = nonce
                 # Update the wallet's nonce tracking
-                if hasattr(self.wallet, 'current_nonce') and self.wallet.current_nonce is not None:
+                if hasattr(self.wallet, "current_nonce") and self.wallet.current_nonce is not None:
                     self.wallet.current_nonce = max(nonce + 1, self.wallet.current_nonce)
                 return result
         else:
@@ -95,7 +93,7 @@ class WalletAdapterSigner(Signer):
                 del tx_copy["from"]
 
             # Use the wallet's nonce management if no nonce is provided
-            if "nonce" not in tx_copy and hasattr(self.wallet, 'allocate_nonce'):
+            if "nonce" not in tx_copy and hasattr(self.wallet, "allocate_nonce"):
                 tx_copy["nonce"] = self.wallet.allocate_nonce()
 
             # Send through the provider
@@ -106,9 +104,9 @@ class WalletAdapterSigner(Signer):
             signed_tx = self.sign_transaction(unsigned_tx)
 
             # Extract the raw transaction bytes
-            if hasattr(signed_tx, 'rawTransaction'):
+            if hasattr(signed_tx, "rawTransaction"):
                 raw_tx = signed_tx.rawTransaction
-            elif hasattr(signed_tx, 'raw_transaction'):
+            elif hasattr(signed_tx, "raw_transaction"):
                 raw_tx = signed_tx.raw_transaction
             elif isinstance(signed_tx, SignedTransactionWithNonce):
                 raw_tx = signed_tx.rawTransaction

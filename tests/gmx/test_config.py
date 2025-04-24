@@ -223,3 +223,107 @@ def test_wallet_adapter_signer(chain_name, web3_mainnet):
 
     # Check that the adapter signer has the correct wallet address
     assert write_config._signer.get_address() == wallet.address
+
+
+def test_private_key_auto_address_derivation(web3_fork, chain_name, anvil_private_key):
+    """Test that providing only a private key automatically sets up the correct wallet address."""
+    # Determine expected address from this private key
+    account = Account.from_key(anvil_private_key)
+    expected_address = account.address
+
+    # Create GMXConfig with only a private key (no explicit address)
+    config = GMXConfig(web3_fork, chain=chain_name, private_key=anvil_private_key)
+
+    # Check that the wallet was created
+    assert config._wallet is not None
+    assert isinstance(config._wallet, HotWallet)
+
+    # Verify that the address was derived correctly
+    assert config._user_wallet_address is not None
+    assert config._user_wallet_address == expected_address
+    assert config.get_wallet_address() == expected_address
+
+    # Verify write capability
+    assert config.has_write_capability()
+
+    # Check that the derived address is used in configs
+    assert config._base_config_dict["user_wallet_address"] == expected_address
+
+    # Check that read and write configs have the correct address
+    assert config.get_read_config().user_wallet_address == expected_address
+    assert config.get_write_config().user_wallet_address == expected_address
+
+
+def test_private_key_with_explicit_address(web3_fork, chain_name, anvil_private_key):
+    """Test that when both private key and address are provided, the explicit address is used."""
+    # Use an explicit address different from the private key's address
+    explicit_address = "0x70997970C51812dc3A010C7d01b50e0d17dc79C8"  # Second anvil address
+
+    # Create GMXConfig with both private key and explicit address
+    config = GMXConfig(web3_fork, chain=chain_name, private_key=anvil_private_key, user_wallet_address=explicit_address)
+
+    # Check that the wallet was created
+    assert config._wallet is not None
+    assert isinstance(config._wallet, HotWallet)
+
+    # Verify that the explicit address is used (not the derived one)
+    assert config._user_wallet_address == explicit_address
+    assert config.get_wallet_address() == explicit_address
+
+    # Verify write capability
+    assert config.has_write_capability()
+
+
+def test_comparison_with_different_initialization_methods(web3_fork, chain_name, anvil_private_key):
+    """Test that different initialization methods result in consistent addresses."""
+    # Create account and wallet
+    account = Account.from_key(anvil_private_key)
+    wallet = HotWallet(account)
+    wallet.sync_nonce(web3_fork)
+    expected_address = wallet.address
+
+    # Create GMXConfig in three different ways
+    config1 = GMXConfig(web3_fork, chain=chain_name, private_key=anvil_private_key)  # Private key only
+    config2 = GMXConfig(web3_fork, chain=chain_name, wallet=wallet)  # Wallet only
+    config3 = GMXConfig.from_private_key(web3_fork, anvil_private_key, chain=chain_name)  # Factory method
+
+    # All three should result in the same address
+    assert config1.get_wallet_address() == expected_address
+    assert config2.get_wallet_address() == expected_address
+    assert config3.get_wallet_address() == expected_address
+
+    # All three should have write capability
+    assert config1.has_write_capability()
+    assert config2.has_write_capability()
+    assert config3.has_write_capability()
+
+
+def test_integration_with_trading(web3_fork, chain_name, wallet_with_usdc, anvil_private_key):
+    """Test that a config created with just a private key works with trading operations."""
+    from eth_defi.gmx.trading import GMXTrading
+
+    # Create GMXConfig with only a private key
+    config = GMXConfig(web3_fork, chain=chain_name, private_key=anvil_private_key)
+
+    # Create a trading instance
+    trading = GMXTrading(config)
+
+    # Test parameters
+    if chain_name == "arbitrum":
+        market_symbol = "ETH"
+        collateral_symbol = "USDC"
+    else:  # avalanche
+        market_symbol = "AVAX"
+        collateral_symbol = "USDC"
+
+    # Try to create a position order in debug mode
+    order = trading.open_position(market_symbol=market_symbol, collateral_symbol=collateral_symbol, start_token_symbol=collateral_symbol, is_long=True, size_delta_usd=100, leverage=2, debug_mode=True)
+
+    # Verify the order was created
+    assert order is not None
+    assert order.is_long is True
+    assert order.debug_mode is True
+
+    # Verify the order has the correct config with the derived address
+    assert hasattr(order, "config")
+    assert order.config.user_wallet_address == config.get_wallet_address()

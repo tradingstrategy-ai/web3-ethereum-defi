@@ -386,13 +386,18 @@ def wallet_with_all_tokens(
 
 
 @pytest.fixture()
-def gmx_config_fork(web3_fork: Web3, chain_name: str, test_address: HexAddress, wallet_with_all_tokens) -> GMXConfig:
+def anvil_private_key() -> HexAddress:
+    """The default private key for the first Anvil test account."""
+    return HexAddress(HexStr("0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"))
+
+
+@pytest.fixture()
+def gmx_config_fork(web3_fork: Web3, chain_name: str, test_address: HexAddress, anvil_private_key: HexAddress, wallet_with_all_tokens) -> GMXConfig:
     """Create a GMX configuration with a wallet for testing transactions."""
     from eth_account import Account
     from eth_defi.hotwallet import HotWallet
 
     # Create a hot wallet with the anvil private key
-    anvil_private_key: str = "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
     account = Account.from_key(anvil_private_key)
     wallet = HotWallet(account)
     wallet.sync_nonce(web3_fork)
