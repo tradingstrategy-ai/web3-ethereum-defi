@@ -7,7 +7,6 @@ This module provides utility functions for the GMX integration.
 import logging
 from typing import Any, Optional
 
-from eth_defi.gmx.constants import GMX_TOKEN_ADDRESSES
 from decimal import Decimal
 
 from gmx_python_sdk.scripts.v2.get.get_markets import Markets
@@ -15,20 +14,20 @@ from gmx_python_sdk.scripts.v2.get.get_markets import Markets
 from gmx_python_sdk.scripts.v2.get.get_open_positions import GetOpenPositions
 from gmx_python_sdk.scripts.v2.gmx_utils import ConfigManager, find_dictionary_by_key_value, get_tokens_address_dict, determine_swap_route
 
-
-def token_symbol_to_address(chain: str, symbol: str) -> Optional[str]:
-    """
-    Convert a token symbol to its address.
-
-    Args:
-        chain: Chain name (arbitrum or avalanche)
-        symbol: Token symbol
-
-    Returns:
-        Token address or None if not found
-    """
-    chain_tokens = GMX_TOKEN_ADDRESSES.get(chain.lower(), {})
-    return chain_tokens.get(symbol.upper())
+# Can be done using the `GMXAPI` class if needed
+# def token_symbol_to_address(chain: str, symbol: str) -> Optional[str]:
+#     """
+#     Convert a token symbol to its address.
+#
+#     Args:
+#         chain: Chain name (arbitrum or avalanche)
+#         symbol: Token symbol
+#
+#     Returns:
+#         Token address or None if not found
+#     """
+#     chain_tokens = GMX_TOKEN_ADDRESSES.get(chain.lower(), {})
+#     return chain_tokens.get(symbol.upper())
 
 
 def format_position_for_display(position: dict[str, Any]) -> dict[str, Any]:
