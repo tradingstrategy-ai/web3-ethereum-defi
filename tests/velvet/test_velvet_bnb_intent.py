@@ -270,17 +270,24 @@ def test_velvet_bnb_swap_very_little(
     )
 
     #  code 500: {"message":"Could not quote shortcuts for route 0x833589fcd6edb6e08f4c7c32d4f71b54bda02913 -> 0x6921b130d297cc43754afba22e5eac0fbf8db75b on network 8453, please make sure your amountIn (1) is within an acceptable range","description":"failed enso request"}
-    with pytest.raises(VelvetSwapError):
-        vault.prepare_swap_with_enso(
-            token_in=bnb_usdt_token.address,
-            token_out=bnb_cake_token.address,
-            swap_amount=1,  # Raw 1 unit
-            slippage=slippage,
-            remaining_tokens=universe.spot_token_addresses,
-            swap_all=False,
-            from_=vault_owner,
-            retries=0,
-        )
+    #with pytest.raises(VelvetSwapError):
+    tx_data = vault.prepare_swap_with_enso(
+        token_in=bnb_usdt_token.address,
+        token_out=bnb_cake_token.address,
+        swap_amount=1,  # Raw 1 unit
+        slippage=slippage,
+        remaining_tokens=universe.spot_token_addresses,
+        swap_all=False,
+        from_=vault_owner,
+        retries=0,
+    )
+
+    # Perform swap
+    tx_hash = web3.eth.send_transaction(tx_data)
+    assert_transaction_success_with_explanation(web3, tx_hash)
+
+    receipt = web3.eth.get_transaction_receipt(tx_hash)
+
 
 
 def test_velvet_bnb_swap_analyse(
@@ -339,8 +346,9 @@ def test_velvet_bnb_swap_analyse(
     assert analysis.intent_based
     assert analysis.token0.symbol == "USDT"
     assert analysis.token1.symbol == "Cake"
-    assert analysis.amount_in == 1 * 10**6
+    assert analysis.amount_in == 1 * 10**18
     assert analysis.amount_out > 0
-    # https://www.coingecko.com/en/coins/doginme
+    # assert
+    # https://tradingstrategy.ai/trading-view/binance/pancakeswap-v2/cake-bnb
     price = analysis.get_human_price(reverse_token_order=True)
-    assert 0 < price < 0.01
+    assert 0.001 < price < 10.00
