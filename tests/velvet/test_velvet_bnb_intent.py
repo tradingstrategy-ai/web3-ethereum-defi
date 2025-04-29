@@ -252,6 +252,7 @@ def test_velvet_bnb_swap_partially(
     assert portfolio.spot_erc20[bnb_usdt_token.address] < existing_stable_balance
 
 
+@pytest.mark.xfail(reason="Depends on daily Enso weather whether this pases or not")
 def test_velvet_bnb_swap_very_little(
     vault: VelvetVault,
     vault_owner: HexAddress,
