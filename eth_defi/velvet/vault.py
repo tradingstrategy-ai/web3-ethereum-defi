@@ -28,7 +28,12 @@ from eth_defi.velvet.enso import swap_with_velvet_and_enso
 from eth_defi.velvet.redeem import redeem_from_velvet_velvet
 
 #: Signing API URL
-DEFAULT_VELVET_API_URL = "https://eventsapi.velvetdao.xyz/api/v3"
+#:
+#: See Swagger https://intents.velvet.capital/swagger#/Portfolio/PortfolioController_getPortfolioByAddress_api%2Fv1
+#:
+# DEFAULT_VELVET_API_URL = "https://eventsapi.velvetdao.xyz/api/v3"
+
+DEFAULT_VELVET_API_URL = "https://intents.velvet.capital/api/v1"
 
 
 logger = logging.getLogger(__name__)
