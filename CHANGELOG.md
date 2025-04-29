@@ -1,3 +1,7 @@
+# Current
+
+- Fix: Upgrade Velvet vault swap API to their new version, old API no longer works
+
 # 0.29
 
 - Add: Abstract ERC-4626 vault base class out from Lagoon implementation
