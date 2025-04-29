@@ -20,10 +20,10 @@ logger = logging.getLogger(__name__)
 class VelvetSwapError(Exception):
     """Error reply from velvet txn API"""
 
-
-def swap_with_velvet_and_enso(
+# swap_with_velvet_and_enso
+def swap_with_velvet_intent(
     chain_id: int,
-    rebalance_address: HexAddress,
+    portfolio_address: HexAddress,
     owner_address: HexAddress,
     token_in: HexAddress,
     token_out: HexAddress,
@@ -36,7 +36,7 @@ def swap_with_velvet_and_enso(
 ) -> dict:
     """Set up a Enzo + Velvet swap tx.
 
-    :param rebalance_address:
+    :param portfolio_address:
         Vault's rebalancer address
 
     :param slippage:
@@ -53,7 +53,7 @@ def swap_with_velvet_and_enso(
     assert 0 <= slippage <= 1
     assert token_in.startswith("0x"), f"Got {token_in} instead of hex string"
     assert token_out.startswith("0x"), f"Got {token_out} instead of hex string"
-    assert rebalance_address.startswith('0x'), f"Got {rebalance_address} instead of hex string"
+    assert portfolio_address.startswith('0x'), f"Got {portfolio_address} instead of hex string"
     assert owner_address.startswith('0x'), f"Got {owner_address} instead of hex string"
     assert len(remaining_tokens) >= 1, f"At least the vault reserve currency must be always left"
     assert type(swap_amount) == int, f"Got {type(swap_amount)} instead of int, swap amount must be the raw number of tokens"
@@ -70,19 +70,20 @@ def swap_with_velvet_and_enso(
         session.mount('https://', HTTPAdapter(max_retries=retry_policy))
 
     payload = {
-        "rebalanceAddress": rebalance_address,
+        "portfolio": portfolio_address,
         "sellToken": token_in,
         "buyToken": token_out,
         "sellAmount": str(swap_amount),
         "slippage": str(int(slippage * 10_000)),  # 100 = 1%
         "remainingTokens": list(remaining_tokens),
-        "owner": owner_address
+        "owner": owner_address,
+        "chainID": chain_id,
     }
 
     # Log out everything, so we can post the data for others to debug
     logger.info("Velvet + Enso swap, slippage is %f:\n%s", slippage, pformat(payload))
 
-    url = f"{api_url}/rebalance/txn"
+    url = f"{api_url}/portfolio/trade"
 
     try:
         try:
@@ -113,3 +114,5 @@ def swap_with_velvet_and_enso(
     logger.info("Tx data is:\n%s", pformat(tx))
     return tx
 
+
+swap_with_velvet_and_enso = swap_with_velvet_intent

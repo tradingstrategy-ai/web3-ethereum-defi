@@ -23,17 +23,10 @@ from eth_defi.abi import get_deployed_contract
 from eth_defi.balances import fetch_erc20_balances_fallback
 from eth_defi.token import fetch_erc20_details
 from eth_defi.vault.base import VaultBase, VaultInfo, VaultSpec, TradingUniverse, VaultPortfolio, VaultHistoricalReader
+from eth_defi.velvet.config import VELVET_DEFAULT_API_URL
 from eth_defi.velvet.deposit import deposit_to_velvet
-from eth_defi.velvet.enso import swap_with_velvet_and_enso
+from eth_defi.velvet.enso import swap_with_velvet_intent
 from eth_defi.velvet.redeem import redeem_from_velvet_velvet
-
-#: Signing API URL
-#:
-#: See Swagger https://intents.velvet.capital/swagger#/Portfolio/PortfolioController_getPortfolioByAddress_api%2Fv1
-#:
-# DEFAULT_VELVET_API_URL = "https://eventsapi.velvetdao.xyz/api/v3"
-
-DEFAULT_VELVET_API_URL = "https://intents.velvet.capital/api/v1"
 
 
 logger = logging.getLogger(__name__)
@@ -87,7 +80,7 @@ class VelvetVault(VaultBase):
         self,
         web3: Web3,
         spec: VaultSpec,
-        api_url: str = DEFAULT_VELVET_API_URL,
+        api_url: str = VELVET_DEFAULT_API_URL,
     ):
         """
         :param spec:
@@ -125,7 +118,7 @@ class VelvetVault(VaultBase):
     def fetch_info(self) -> VelvetVaultInfo:
         """Read vault parameters from the chain."""
         # url = f"https://api.velvet.capital/api/v3/portfolio/{self.spec.vault_address}"
-        url = f"https://eventsapi.velvetdao.xyz/api/v3/portfolio/{self.spec.vault_address}"
+        url = f"{self.api_url}/portfolio/{self.spec.vault_address}"
         data = self.session.get(url).json()
         if ("error" in data) or ("message" in data):
             raise VelvetBadConfig(f"Portfolio: {self.spec.vault_address} - velvet portfolio info failed: {data}")
@@ -207,7 +200,7 @@ class VelvetVault(VaultBase):
             spot_erc20=erc20_balances,
         )
 
-    def prepare_swap_with_enso(
+    def prepare_swap_with_intent(
         self,
         token_in: HexAddress | str,
         token_out: HexAddress | str,
@@ -229,7 +222,7 @@ class VelvetVault(VaultBase):
         """
 
         logger.info(
-            "Enso swap. Token %s -> %s, amount %d, swap all is %s",
+            "Velvet swap. Token %s -> %s, amount %d, swap all is %s",
             token_in,
             token_out,
             swap_amount,
@@ -240,7 +233,7 @@ class VelvetVault(VaultBase):
 
         if manage_token_list:
             if swap_all:
-                assert token_in in remaining_tokens, f"Enso swap full amount: Tried to remove {token_in}, not in the list {remaining_tokens}"
+                assert token_in in remaining_tokens, f"Velvet swap full amount: Tried to remove {token_in}, not in the list {remaining_tokens}"
                 remaining_tokens.remove(token_in)
 
         # Sell all - we need to deal with Velvet specific dust filter,
@@ -259,8 +252,8 @@ class VelvetVault(VaultBase):
             assert diff_pct < swap_all_tripwire_pct, f"Onchain balance: {onchain_amount}, asked sell all balance: {swap_all}, diff {diff_pct:%}"
             swap_amount = onchain_amount
 
-        tx_data = swap_with_velvet_and_enso(
-            rebalance_address=self.info["rebalancing"],
+        tx_data = swap_with_velvet_intent(
+            portfolio_address=self.portfolio_address,
             owner_address=self.owner_address,
             token_in=token_in,
             token_out=token_out,
@@ -275,6 +268,9 @@ class VelvetVault(VaultBase):
             tx_data["from"] = Web3.to_checksum_address(from_)
 
         return tx_data
+
+    #: Legacy
+    prepare_swap_with_enso = prepare_swap_with_intent
 
     def prepare_deposit_with_enso(
         self,
