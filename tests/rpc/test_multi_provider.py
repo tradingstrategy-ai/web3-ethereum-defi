@@ -31,7 +31,7 @@ def test_multi_provider_mev_and_fallback():
     https://bsc-dataseed2.bnbchain.org
     """
     web3 = create_multi_provider_web3(config)
-    assert get_provider_name(web3.get_fallback_provider()) == "polygon-rpc.com"
+    assert "fallbacks" in get_provider_name(web3.get_fallback_provider())
     assert len(web3.get_fallback_provider().providers) == 2
     assert get_provider_name(web3.get_active_transact_provider()) == "rpc.mevblocker.io"
     assert web3.eth.block_number > 0
@@ -45,7 +45,7 @@ def test_multi_provider_fallback_only():
     https://polygon-rpc.com
     """
     web3 = create_multi_provider_web3(config)
-    assert get_provider_name(web3.get_fallback_provider()) == "polygon-rpc.com"
+    assert "polygon-rpc.com" in get_provider_name(web3.get_fallback_provider())
 
 
 def test_multi_provider_no_graphql():

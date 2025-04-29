@@ -394,10 +394,17 @@ def launch_anvil(
 
     url = f"http://localhost:{port}"
 
+    if fork_url and " " in fork_url:
+        # Assume multi-RPC syntax
+        cleaned_fork_url = fork_url.split(" ")[0]
+        logger.info("Multi RPC detectec, using Anvil at the first RPC endpoint %s", cleaned_fork_url)
+    else:
+        cleaned_fork_url = fork_url
+
     # https://book.getfoundry.sh/reference/anvil/
     args = dict(
         port=port,
-        fork=fork_url,
+        fork=cleaned_fork_url,
         hardfork=hardfork,
         gas_limit=gas_limit,
         steps_tracing=steps_tracing,
