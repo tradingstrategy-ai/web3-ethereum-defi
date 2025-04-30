@@ -63,6 +63,8 @@ WRAPPED_NATIVE_TOKEN: dict[int, HexAddress] = {
     8453: "0x4200000000000000000000000000000000000006",
     # WBNB
     56: "0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c",
+    # WETH: Arbitrum
+    42161: "0x82aF49447D8a07e3bd95BD0d56f35241523fBab1",
     # WAVAX
     43114: "0xB31f66AA3C1e785363F0875A1B74E27b85FD66c7",
 }
@@ -90,7 +92,7 @@ USDT_NATIVE_TOKEN: dict[int, HexAddress] = {
     # Binance Smart Chain
     56: "0x55d398326f99059FF775485246999027B3197955",
     # Avalanche USDT.E
-    43114: "0xB97EF9Ef8734C71904D8002F8b6Bc66Dd9c48a6E",
+    43114: "0x9702230A8Ea53601f5cD2dc00fDBc13d4dF4A8c7",
     # Arbitrum
     42161: "0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9",
 }
@@ -115,7 +117,7 @@ HONEY_NATIVE_TOKEN: dict[int, HexAddress] = {
 #: Note that it is *not* safe to to check the token symbol to know if a token is a specific stablecoin,
 #: but you always need to check the contract address.
 #: Checking against this list only works
-STABLECOIN_LIKE = {"ALUSD", "BAC", "BDO", "BEAN", "BOB", "BUSD", "CADC", "CEUR", "CJPY", "CNHT", "CRVUSD", "CUSD", "DAI", "DJED", "DOLA", "DUSD", "EOSDT", "EURA", "EUROC", "EUROe", "EURS", "EURT", "EURe", "EUSD", "FDUSD", "FEI", "FLEXUSD", "FRAX", "FXD", "FXUSD", "GBPT", "GHO", "GHST", "GUSD", "GYD", "GYEN", "HUSD", "IRON", "JCHF", "JPYC", "KDAI", "LISUSD", "LUSD", "MIM", "MIMATIC", "MKUSD", "MUSD", "ONC", "OUSD", "PAR", "PAXG", "PYUSD", "RAI", "RUSD", "SEUR", "SFRAX", "SILK", "STUSD", "SUSD", "TCNH", "TOR", "TRYB", "TUSD", "USC", "USD+", "USDB", "USDC", "USDC.e", "USDD", "USDE", "USDN", "USDP", "USDR", "USDS", "USDT", "USDT.e", "USDV", "USDX", "USDs", "USK", "UST", "USTC", "USX", "UUSD", "VAI", "VEUR", "VST", "VUSD", "XAUT", "XDAI", "XIDR", "XSGD", "XSTUSD", "XUSD", "YUSD", "ZSD", "ZUSD", "gmUSD", "iUSD", "jEUR", "crvUSD", "USDe", "kUSD", "sosUSDT", "USDXL", "USDA", "avUSD", "AUSD", "USDt", "deUSD", "WXDAI", "SDAI", "USDM", "lvlUSD", "USD0", "USD+", "USDO", "USR", "RLUSD", "wM", "USD1"}
+STABLECOIN_LIKE = {"ALUSD", "BAC", "BDO", "BEAN", "BOB", "BUSD", "CADC", "CEUR", "CJPY", "CNHT", "CRVUSD", "CUSD", "DAI", "DJED", "DOLA", "DUSD", "EOSDT", "EURA", "EUROC", "EUROe", "EURS", "EURT", "EURe", "EUSD", "FDUSD", "FEI", "FLEXUSD", "FRAX", "FXD", "FXUSD", "GBPT", "GHO", "GHST", "GUSD", "GYD", "GYEN", "HUSD", "IRON", "JCHF", "JPYC", "KDAI", "LISUSD", "LUSD", "MIM", "MIMATIC", "MKUSD", "MUSD", "ONC", "OUSD", "PAR", "PAXG", "PYUSD", "RAI", "RUSD", "SEUR", "SFRAX", "SILK", "STUSD", "SUSD", "TCNH", "TOR", "TRYB", "TUSD", "USC", "USD+", "USDB", "USDC", "USDC.e", "USDD", "USDE", "USDN", "USDP", "USDR", "USDS", "USDT", "USDT.e", "USDV", "USDX", "USDs", "USK", "UST", "USTC", "USX", "UUSD", "VAI", "VEUR", "VST", "VUSD", "XAUT", "XDAI", "XIDR", "XSGD", "XSTUSD", "XUSD", "YUSD", "ZSD", "ZUSD", "gmUSD", "iUSD", "jEUR", "crvUSD", "USDe", "kUSD", "sosUSDT", "USDXL", "USDA", "avUSD", "AUSD", "USDt", "deUSD", "WXDAI", "SDAI", "USDM", "lvlUSD", "USD0", "USD+", "USDO", "USR", "RLUSD", "wM", "USD1", "USDf"}
 
 #: Stablecoins plus their interest wrapped counterparts on Compound and Aave.
 #: Also contains other derivates.

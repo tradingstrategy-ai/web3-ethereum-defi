@@ -91,6 +91,7 @@ jobs:
           JSON_RPC_POLYGON: ${{ secrets.JSON_RPC_POLYGON }}
           JSON_RPC_ETHEREUM: ${{ secrets.JSON_RPC_ETHEREUM_2 }}
           JSON_RPC_BASE: ${{ secrets.JSON_RPC_BASE }}
+          JSON_RPC_BINANCE: ${{ secrets.JSON_RPC_BINANCE }}
           ETHEREUM_JSON_RPC: ${{ secrets.JSON_RPC_ETHEREUM }}
           GOOGLE_CLOUD_PROJECT: ${{ secrets.GOOGLE_CLOUD_PROJECT }}
           GOOGLE_CLOUD_REGION: ${{ secrets.GOOGLE_CLOUD_REGION }}
