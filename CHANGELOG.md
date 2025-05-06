@@ -1,5 +1,8 @@
 # Current
 
+- Add: ERC-4626 deposit/redeem
+- Add: ERC-4626 vault flow transaction analysis
+- Add: ERC-4626 share price redemption estimator
 - Fix: Upgrade Velvet vault swap API to their new version, old API no longer works
 
 # 0.29
