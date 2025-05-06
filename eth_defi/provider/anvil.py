@@ -492,7 +492,19 @@ def sleep(web3: Web3, seconds: int) -> int:
 
 
 def mine(web3: Web3, timestamp: Optional[int] = None, increase_timestamp: float=0) -> None:
-    """Call evm_setNextBlockTimestamp on Anvil"""
+    """Call evm_setNextBlockTimestamp on Anvil.
+
+    Mine blocks, optionally set the time of the new block.
+
+    :param web3:
+        Web3 connection connected to Anvil JSON-RPC.
+
+    :param timestamp:
+        Jump to absolute future timestamp.
+
+    :param increase_timestamp:
+        How many seconds we leap to the future.
+    """
 
     if timestamp is None and not increase_timestamp:
         make_anvil_custom_rpc_request(web3, "evm_mine")
