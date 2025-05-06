@@ -48,7 +48,9 @@ class TradeSuccess(TradeResult):
     See :py:func:`eth_defi.uniswap_v2.analysis.analyse_trade_by_receipt`
     """
 
-    #: Routing path that was used for this trade
+    #: Routing path that was used for this trade.
+    #:
+    #: Should be lowercased.
     path: List[HexAddress] | None
 
     #: How much token swas swapped from
