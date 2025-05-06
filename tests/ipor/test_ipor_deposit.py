@@ -122,6 +122,7 @@ def test_ipor_deposit(
     vault: IPORVault,
     depositor: HexAddress,
     base_usdc: TokenDetails,
+    test_block_number,
 ):
     """Do ERC-4626 deposit into Ipor vautl."""
 
@@ -155,5 +156,8 @@ def test_ipor_deposit(
     assert analysis.amount_in == 100 * 10**6
     assert analysis.amount_out == pytest.approx(9675231755)
     assert analysis.amount_out_decimals == 8  # IPOR has 8 decimals
-    assert analysis.price == pytest.approx(Decimal("0.9675231755"))
+    assert analysis.price == pytest.approx(Decimal("1.033566972663402121955991264"))
+
+    share_price = vault.fetch_share_price("latest")
+    assert share_price == pytest.approx(Decimal("1.033566972584479679488338198"))
 

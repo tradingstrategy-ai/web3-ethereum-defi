@@ -83,6 +83,9 @@ def analyse_4626_flow_transaction(
 
     price = amount_out_cleaned / amount_in_cleaned
 
+    if direction == "deposit":
+        price = Decimal(1) / price
+
     return TradeSuccess(
         gas_used,
         effective_gas_price,
