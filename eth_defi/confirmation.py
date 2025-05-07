@@ -425,6 +425,12 @@ def _broadcast_multiple_nodes(
                 logger.info("Nonce too low. Current:%s proposed:%s address:%s: tx:%s resp:%s", current_nonce, nonce, address, signed_tx, resp_data)
                 # raise NonceTooLow(f"Current on-chain nonce {current_nonce}, proposed {nonce}") from e
 
+            elif "ALREADY_EXISTS" in resp_data["message"]:
+                # Some RPCs throw this custom error.
+                # BNB chain.
+                # {'code': -32000, 'message': 'ALREADY_EXISTS: already known'}
+                logger.info("Alraeady exists. Current:%s proposed:%s address:%s: tx:%s resp:%s", current_nonce, nonce, address, signed_tx, resp_data)
+
             elif "invalid chain" in resp_data["message"]:
                 # Invalid chain id / chain id missing.
                 # Cannot retry.
