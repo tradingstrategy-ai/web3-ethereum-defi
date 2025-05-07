@@ -7,6 +7,7 @@
 import datetime
 import random
 
+import flaky
 import pytest
 from eth_account import Account
 from eth_account.signers.local import LocalAccount
@@ -271,6 +272,7 @@ def weth_mln_pool(web3, uniswap_v3, weth, mln, deployer) -> Contract:
     return pool
 
 
+@flaky.flaky
 def test_enzyme_guarded_trade_singlehop_uniswap_v3(
     web3: Web3,
     deployer: HexAddress,

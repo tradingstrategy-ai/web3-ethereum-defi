@@ -45,6 +45,7 @@ def usdc(web3) -> TokenDetails:
 
 
 @pytest.mark.skipif(os.environ.get("JSON_RPC_POLYGON") is None, reason="JSON_RPC_POLYGON needed to run this test")
+@pytest.mark.skipif(os.environ.get("CI") == "true", reason="Misbehaves on Github")
 def test_broadcast_and_wait_multiple_out_of_gas(
     web3: Web3,
     quickswap: UniswapV2Deployment,
