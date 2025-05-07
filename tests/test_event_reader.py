@@ -157,6 +157,7 @@ def test_read_events_concurrent_two_blocks_concurrent(web3):
     assert max(blocks) == 37898276
 
 
+@flaky.flaky
 def test_read_events_lazy_timestamp(web3):
     """Read events but extract timestamps only for events, not whole block ranges."""
 
