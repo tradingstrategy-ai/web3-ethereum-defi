@@ -161,6 +161,9 @@ DEFAULT_RETRYABLE_RPC_ERROR_MESSAGES = {
     # dRPC Optimism failure
     #  {'message': 'Parse error', 'code': -32700}.,
     "Parse error",
+
+    # Hyperliquid EVM WTF
+    "Unexpected error (code=40000)",
 }
 
 #: Ethereum JSON-RPC calls where the value never changes
