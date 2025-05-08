@@ -10,7 +10,7 @@ from eth_typing import HexAddress
 from web3 import Web3
 
 from eth_defi.erc_4626.analysis import analyse_4626_flow_transaction
-from eth_defi.erc_4626.estimate import estimate_4626_redeem
+from eth_defi.erc_4626.estimate import estimate_4626_redeem, estimate_4626_deposit
 from eth_defi.erc_4626.flow import deposit_4626, redeem_4626
 from eth_defi.ipor.vault import IPORVault
 from eth_defi.provider.anvil import fork_network_anvil, AnvilLaunch, mine
@@ -128,6 +128,13 @@ def test_ipor_deposit(
     """Do ERC-4626 deposit into Ipor vautl."""
 
     amount = Decimal(100)
+
+    shares = estimate_4626_deposit(
+        vault,
+        amount,
+        block_identifier=test_block_number,
+    )
+    assert shares == pytest.approx(Decimal('96.75231846'))
 
     tx_hash = base_usdc.approve(
         vault.address,
