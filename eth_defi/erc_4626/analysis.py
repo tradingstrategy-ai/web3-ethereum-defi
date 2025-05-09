@@ -55,6 +55,9 @@ def analyse_4626_flow_transaction(
         out_token_details = vault.denomination_token
         swap_events = contract.events.Withdraw().process_receipt(tx_receipt, errors=DISCARD)
 
+    # The contract deposit/redeem may trigger same event in nested contracts so we clean up here
+    swap_events = [event for event in swap_events if event["address"].lower() == vault.vault_address.lower()]
+
     path = [in_token_details.address_lower, out_token_details.address_lower]
     amount_out_min = None
 
@@ -72,9 +75,9 @@ def analyse_4626_flow_transaction(
             amount_out = first_event["args"]["assets"]
 
     elif len(swap_events) == 0:
-        raise AssertionError(f"No {direction} events detected: {tx_receipt}")
+        raise AssertionError(f"No {direction} events detected for vault {vault.vault_address}: {tx_receipt}")
     else:
-        raise AssertionError(f"Can handle only single event per tx")
+        raise AssertionError(f"Can handle only single event per tx, got {len(swap_events)}. Receipt: {tx_receipt}")
 
     assert amount_out > 0, "amount out should be negative for ERC-4626 flow event"
 
