@@ -159,7 +159,7 @@ def redeem_4626(
 
     contract = vault.vault_contract
 
-    raw_amount = vault.denomination_token.convert_to_raw(amount)
+    raw_amount = vault.share_token.convert_to_raw(amount)
 
     if check_enough_token:
         actual_balance = vault.share_token.fetch_raw_balance_of(owner)
