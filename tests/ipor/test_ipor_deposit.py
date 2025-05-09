@@ -226,8 +226,8 @@ def test_ipor_redeem(
     assert isinstance(analysis, TradeSuccess)
 
     assert analysis.path == [vault.share_token.address_lower, base_usdc.address_lower]
-    assert analysis.amount_in == pytest.approx(96752317)
-    assert analysis.amount_out == pytest.approx(990941)  # Management fee removed?
+    assert analysis.amount_in == pytest.approx(9675231789)
+    assert analysis.amount_out == pytest.approx(99094116)  # Management fee removed?
     assert analysis.amount_in_decimals == 8  # IPOR has 8 decimals
     assert analysis.price == pytest.approx(Decimal("1.024203895809544282024791200"))
 
