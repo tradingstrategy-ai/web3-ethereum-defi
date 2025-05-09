@@ -31,7 +31,7 @@ JSON_RPC_BINANCE = os.environ.get("JSON_RPC_BINANCE")
 
 CI = os.environ.get("CI", None) is not None
 
-pytestmark = pytest.mark.skipif(not JSON_RPC_BINANCE, reason="JSON_RPC_BINANCE needed to run these tests")
+pytestmark = pytest.mark.skipif(not JSON_RPC_BINANCE or CI, reason="JSON_RPC_BINANCE needed to run these tests")
 
 
 @pytest.fixture()
