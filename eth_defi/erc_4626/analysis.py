@@ -53,7 +53,7 @@ def analyse_4626_flow_transaction(
     else:
         in_token_details = vault.share_token
         out_token_details = vault.denomination_token
-        swap_events = contract.events.Deposit().process_receipt(tx_receipt, errors=DISCARD)
+        swap_events = contract.events.Withdraw().process_receipt(tx_receipt, errors=DISCARD)
 
     path = [in_token_details.address_lower, out_token_details.address_lower]
     amount_out_min = None
@@ -72,7 +72,7 @@ def analyse_4626_flow_transaction(
             amount_out = first_event["args"]["assets"]
 
     elif len(swap_events) == 0:
-        raise AssertionError(f"No events detected: {tx_receipt}")
+        raise AssertionError(f"No {direction} events detected: {tx_receipt}")
     else:
         raise AssertionError(f"Can handle only single event per tx")
 

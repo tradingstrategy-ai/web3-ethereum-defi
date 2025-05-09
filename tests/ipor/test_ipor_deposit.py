@@ -10,7 +10,7 @@ from eth_typing import HexAddress
 from web3 import Web3
 
 from eth_defi.erc_4626.analysis import analyse_4626_flow_transaction
-from eth_defi.erc_4626.estimate import estimate_4626_redeem
+from eth_defi.erc_4626.estimate import estimate_4626_redeem, estimate_4626_deposit
 from eth_defi.erc_4626.flow import deposit_4626, redeem_4626
 from eth_defi.ipor.vault import IPORVault
 from eth_defi.provider.anvil import fork_network_anvil, AnvilLaunch, mine
@@ -129,6 +129,13 @@ def test_ipor_deposit(
 
     amount = Decimal(100)
 
+    shares = estimate_4626_deposit(
+        vault,
+        amount,
+        block_identifier=test_block_number,
+    )
+    assert shares == pytest.approx(Decimal('96.75231846'))
+
     tx_hash = base_usdc.approve(
         vault.address,
         amount,
@@ -187,7 +194,6 @@ def test_ipor_redeem(
     )
     tx_hash = bound_func.transact({"from": depositor})
     assert_transaction_success_with_explanation(web3, tx_hash)
-    tx_receipt = web3.eth.get_transaction_receipt(tx_hash)
 
     # Redeem after 1 year
     mine(web3, increase_timestamp=24*3600*365)
@@ -208,6 +214,7 @@ def test_ipor_redeem(
 
     tx_hash = redeem_4626(vault, depositor, shares).transact({"from": depositor})
     assert_transaction_success_with_explanation(web3, tx_hash)
+    tx_receipt = web3.eth.get_transaction_receipt(tx_hash)
 
     # Analyse the ERC-4626 deposit transaction
     analysis = analyse_4626_flow_transaction(
@@ -219,10 +226,10 @@ def test_ipor_redeem(
     assert isinstance(analysis, TradeSuccess)
 
     assert analysis.path == [vault.share_token.address_lower, base_usdc.address_lower]
-    assert analysis.amount_in == pytest.approx(9675231765)
-    assert analysis.amount_out == pytest.approx(100000000)
+    assert analysis.amount_in == pytest.approx(9675231789)
+    assert analysis.amount_out == pytest.approx(99094116)  # Management fee removed?
     assert analysis.amount_in_decimals == 8  # IPOR has 8 decimals
-    assert analysis.price == pytest.approx(Decimal("1.033566972663402121955991264"))
+    assert analysis.price == pytest.approx(Decimal("1.024203895809544282024791200"))
 
     # Share price has changed over 1yera
     share_price = vault.fetch_share_price("latest")

@@ -36,6 +36,7 @@ from eth_defi.abi import get_deployed_contract, ZERO_ADDRESS, encode_function_ca
 from eth_defi.event_reader.fast_json_rpc import get_last_headers
 from eth_defi.event_reader.web3factory import Web3Factory
 from eth_defi.middleware import ProbablyNodeHasNoBlock
+from eth_defi.provider.fallback import FallbackProvider
 from eth_defi.provider.named import get_provider_name
 from eth_defi.timestamp import get_block_timestamp
 
@@ -858,6 +859,11 @@ class MultiprocessMulticallReader:
             logger.warning(f"Multicall failed (out of gas?) at chain {chain_id}, block {block_identifier_str}, batch size: {batch_size}. Falling back to one call at a time to figure out broken contract.")
             logger.info(f"Debug details: {str(e)}")  # Don't flood the terminal
 
+            # Work around some bad apples by doing forced switch
+            provider = self.web3.provider
+            if isinstance(provider, FallbackProvider):
+                provider.switch_provider()
+
             # Set batch size to 1 and give it one more go
             try:
                 calls_results = self.call_multicall_with_batch_size(
@@ -867,6 +873,7 @@ class MultiprocessMulticallReader:
                     encoded_calls=encoded_calls,
                     require_multicall_result=require_multicall_result,
                 )
+
             except MulticallRetryable as e:
                 raise RuntimeError("Encountered a contract that cannot be called, bailing out. Manually update blacklist.") from e
 

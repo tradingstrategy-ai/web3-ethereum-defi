@@ -1,6 +1,7 @@
 """Event reader test coverage."""
 import os
 
+import flaky
 import pytest
 import requests
 from requests.adapters import HTTPAdapter
