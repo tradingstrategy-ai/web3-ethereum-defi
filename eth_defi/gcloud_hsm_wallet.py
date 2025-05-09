@@ -99,7 +99,7 @@ from web3_google_hsm.config import BaseConfig
 from web3_google_hsm.types import Transaction as Web3HSMTransaction
 
 from eth_defi.basewallet import BaseWallet
-from eth_defi.gas import apply_gas, estimate_gas_fees, estimate_gas_price
+from eth_defi.gas import apply_gas, estimate_gas_fees, estimate_gas_price, GasPriceMethod
 from eth_defi.hotwallet import SignedTransactionWithNonce
 
 
@@ -273,7 +273,14 @@ class GCloudHSMWallet(BaseWallet):
         assert "nonce" not in tx
         tx["nonce"] = self.allocate_nonce()
 
-        signed_tx_bytes = self.account.sign_transaction(Web3HSMTransaction.from_dict(tx))
+        try:
+            # EthTester issues
+            type_verified = Web3HSMTransaction.from_dict(tx)
+        except Exception as e:
+            raise RuntimeError(f"Type validation failed for transaction data: {tx}") from e
+
+        signed_tx_bytes = self.account.sign_transaction(type_verified)
+
         if not signed_tx_bytes:
             raise Exception("Failed to sign transaction")
 
@@ -294,7 +301,7 @@ class GCloudHSMWallet(BaseWallet):
         func: ContractFunction,
         tx_params: dict | None = None,
         web3: Web3 | None = None,
-        fill_gas_price=False,
+        fill_gas_price: bool | GasPriceMethod=False,
     ) -> SignedTransactionWithNonce:
         """Signs a bound Web3 Contract call.
 
@@ -342,7 +349,12 @@ class GCloudHSMWallet(BaseWallet):
 
         if fill_gas_price:
             assert web3, "web3 instance must be given for automatic gas price fill"
-            gas_price_suggestion = estimate_gas_price(web3)
+            # EthereumTester brokeness hack
+            if isinstance(fill_gas_price, GasPriceMethod):
+                method = fill_gas_price
+            else:
+                method = None
+            gas_price_suggestion = estimate_gas_price(web3, method=method)
             apply_gas(tx_params, gas_price_suggestion)
         elif "gasPrice" not in tx_params and "maxFeePerGas" not in tx_params:
             # If no gas price is set and not using automatic filling,

@@ -57,7 +57,7 @@ class GasPriceSuggestion:
             return {"gasPrice": self.legacy_gas_price}
 
 
-def estimate_gas_price(web3: Web3) -> GasPriceSuggestion:
+def estimate_gas_price(web3: Web3, method=None) -> GasPriceSuggestion:
     """Get a good gas price for a transaction.
 
     TODO: This is non-optimal, first draft implementation.
@@ -65,7 +65,14 @@ def estimate_gas_price(web3: Web3) -> GasPriceSuggestion:
 
     last_block = web3.eth.get_block("latest")
     base_fee = last_block.get("baseFeePerGas")
-    if base_fee is not None:
+
+    if method is None:
+        if base_fee is not None:
+            method = GasPriceMethod.london
+        else:
+            method = GasPriceMethod.legacy
+
+    if method == GasPriceMethod.london:
         # London gas strategy
         # see https://github.com/ethereum/web3.py/blob/c70f7fbe1cfa98b1ce8597a08c99e05759a9667b/web3/_utils/transactions.py#L57
         # see https://github.com/ethereum/web3.py/blob/36adb16c68f570c343d01ecc8d0096cbac814172/web3/middleware/gas_price_strategy.py#L57
