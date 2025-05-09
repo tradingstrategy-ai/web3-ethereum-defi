@@ -127,6 +127,10 @@ def apply_gas(tx: dict, suggestion: GasPriceSuggestion) -> dict:
     if suggestion.method == GasPriceMethod.london:
         tx["maxFeePerGas"] = suggestion.max_fee_per_gas
         tx["maxPriorityFeePerGas"] = suggestion.max_priority_fee_per_gas
+
+        if "gasPrice" in tx:
+            # Cannot have both maxFeePerGas + maxPriorityFeePerGas and gasPrice
+            del tx["gasPrice"]
     else:
         tx["gasPrice"] = suggestion.legacy_gas_price
 
