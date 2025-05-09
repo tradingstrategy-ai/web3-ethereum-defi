@@ -54,9 +54,12 @@ def analyse_4626_flow_transaction(
         in_token_details = vault.share_token
         out_token_details = vault.denomination_token
         swap_events = contract.events.Withdraw().process_receipt(tx_receipt, errors=DISCARD)
+<<<<<<< HEAD
 
     # The contract deposit/redeem may trigger same event in nested contracts so we clean up here
     swap_events = [event for event in swap_events if event["address"].lower() == vault.vault_address.lower()]
+=======
+>>>>>>> master
 
     path = [in_token_details.address_lower, out_token_details.address_lower]
     amount_out_min = None
