@@ -436,6 +436,13 @@ def _broadcast_multiple_nodes(
                 # {'code': -32000, 'message': 'ALREADY_EXISTS: already known'}
                 logger.info("Already exists. Current:%s proposed:%s address:%s: tx:%s resp:%s", current_nonce, nonce, address, signed_tx, resp_data)
 
+            elif "transaction underpriced" in resp_data["message"]:
+                # Some RPCs throw this custom error.
+                # Transaction is not really underpriced.
+                # BNB chain.
+                #  lb.drpc.org, got error: {'message': 'transaction underpriced: gas tip cap 100000000, minimum needed 1000000000', 'code': -32000}
+                logger.info("Transaction underpriced. Current:%s proposed:%s address:%s: tx:%s resp:%s", current_nonce, nonce, address, signed_tx, resp_data)
+
             elif "invalid chain" in resp_data["message"]:
                 # Invalid chain id / chain id missing.
                 # Cannot retry.
