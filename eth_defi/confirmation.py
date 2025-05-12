@@ -12,12 +12,14 @@ Some notes
 import datetime
 import logging
 import time
+from pprint import pformat
 
 from typing import Collection, Dict, List, Set, Union, cast
 
 from _decimal import Decimal
 from eth_account.datastructures import SignedTransaction
 
+from eth_defi.event_reader.fast_json_rpc import get_last_headers
 from eth_defi.provider.anvil import is_anvil
 from hexbytes import HexBytes
 from web3 import Web3
@@ -406,9 +408,12 @@ def _broadcast_multiple_nodes(
             web3.eth.send_raw_transaction(signed_tx.rawTransaction)
             success.add(p)
         except ValueError as e:
+
+            headers = get_last_headers()
             resp_data: dict = e.args[0]
 
             logger.info("Broadcast JSON-RPC error %s from: %s, nonce: %s on provider: %s, got error: %s\n", signed_tx.hash.hex(), address, nonce, name, resp_data)
+            logger.info("send_raw_transaction() headers:\n%s", pformat(headers))
             logger.info("Signed tx: %s", signed_tx)
             logger.info("Source transaction data: %s", source)
 
