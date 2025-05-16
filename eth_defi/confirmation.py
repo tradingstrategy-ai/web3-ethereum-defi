@@ -12,12 +12,14 @@ Some notes
 import datetime
 import logging
 import time
+from pprint import pformat
 
 from typing import Collection, Dict, List, Set, Union, cast
 
 from _decimal import Decimal
 from eth_account.datastructures import SignedTransaction
 
+from eth_defi.event_reader.fast_json_rpc import get_last_headers
 from eth_defi.provider.anvil import is_anvil
 from hexbytes import HexBytes
 from web3 import Web3
@@ -406,9 +408,12 @@ def _broadcast_multiple_nodes(
             web3.eth.send_raw_transaction(signed_tx.rawTransaction)
             success.add(p)
         except ValueError as e:
+
+            headers = get_last_headers()
             resp_data: dict = e.args[0]
 
             logger.info("Broadcast JSON-RPC error %s from: %s, nonce: %s on provider: %s, got error: %s\n", signed_tx.hash.hex(), address, nonce, name, resp_data)
+            logger.info("send_raw_transaction() headers:\n%s", pformat(headers))
             logger.info("Signed tx: %s", signed_tx)
             logger.info("Source transaction data: %s", source)
 
@@ -424,6 +429,19 @@ def _broadcast_multiple_nodes(
 
                 logger.info("Nonce too low. Current:%s proposed:%s address:%s: tx:%s resp:%s", current_nonce, nonce, address, signed_tx, resp_data)
                 # raise NonceTooLow(f"Current on-chain nonce {current_nonce}, proposed {nonce}") from e
+
+            elif "ALREADY_EXISTS" in resp_data["message"]:
+                # Some RPCs throw this custom error.
+                # BNB chain.
+                # {'code': -32000, 'message': 'ALREADY_EXISTS: already known'}
+                logger.info("Already exists. Current:%s proposed:%s address:%s: tx:%s resp:%s", current_nonce, nonce, address, signed_tx, resp_data)
+
+            elif "transaction underpriced" in resp_data["message"]:
+                # Some RPCs throw this custom error.
+                # Transaction is not really underpriced.
+                # BNB chain.
+                #  lb.drpc.org, got error: {'message': 'transaction underpriced: gas tip cap 100000000, minimum needed 1000000000', 'code': -32000}
+                logger.info("Transaction underpriced. Current:%s proposed:%s address:%s: tx:%s resp:%s", current_nonce, nonce, address, signed_tx, resp_data)
 
             elif "invalid chain" in resp_data["message"]:
                 # Invalid chain id / chain id missing.

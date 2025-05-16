@@ -12,7 +12,7 @@ from web3.types import BlockIdentifier
 
 from eth_defi.abi import get_deployed_contract, get_contract
 from eth_defi.balances import fetch_erc20_balances_fallback
-from eth_defi.erc_4626.core import get_deployed_erc_4626_contract
+from eth_defi.erc_4626.core import get_deployed_erc_4626_contract, ERC4626Feature
 from eth_defi.event_reader.conversion import convert_int256_bytes_to_int, convert_uint256_bytes_to_address
 from eth_defi.event_reader.multicall_batcher import EncodedCall, EncodedCallResult
 from eth_defi.provider.broken_provider import get_almost_latest_block_number
@@ -203,11 +203,32 @@ class ERC4626Vault(VaultBase):
         self,
         web3: Web3,
         spec: VaultSpec,
-        token_cache: dict | None = None
+        token_cache: dict | None = None,
+        features: set[ERC4626Feature] | None = None,
     ):
+        """
+        :param web3:
+            Connection we bind this instance to
+
+        :param spec:
+            Chain, address tuple
+
+        :param token_cache:
+            Cache used with :py:meth:`fetch_erc20_details` to avoid multiple calls to the same token.
+
+            Reduces the number of RPC calls when scanning multiple vaults.
+
+        :param features:
+            Pass vault feature flags along, externally detected.
+        """
+
+        if type(features) == set:
+            assert len(features) >= 1, "If given, the vault features set should contain at least one feature"
+
         super().__init__(token_cache=token_cache)
         self.web3 = web3
         self.spec = spec
+        self.features = features
 
     def __repr__(self):
         return f"<{self.__class__.__name__}: {self.spec}>"

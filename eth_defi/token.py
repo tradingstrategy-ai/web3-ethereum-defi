@@ -209,6 +209,7 @@ class TokenDetails:
             assert details.convert_to_decimals(1) == Decimal("0.0000000000000001")
 
         """
+        assert type(raw_amount) == int, f"Got {type(raw_amount)}, expected int: {raw_amount}"
         return Decimal(raw_amount) / Decimal(10**self.decimals)
 
     def convert_to_raw(self, decimal_amount: Decimal) -> int:
