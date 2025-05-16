@@ -8,6 +8,7 @@
 
 - See :py:class:`VaultBase` to get started
 """
+import dataclasses
 import datetime
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
@@ -210,6 +211,19 @@ class VaultHistoricalRead:
         ])
         return schema
 
+
+@dataclasses.dataclass(slots=True, frozen=True)
+class VaultReadCondition:
+
+    last_timestamp: datetime.datetime
+
+    last_tvl: Decimal
+
+    def __init__(self):
+        pass
+
+    def __call__(self):
+        pass
 
 
 class VaultHistoricalReader(ABC):

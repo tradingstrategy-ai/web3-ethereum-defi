@@ -84,7 +84,8 @@ HYPERSYNC_SERVES = {
     7000: {"Network Name": "Zeta", "URL": "https://zeta.hypersync.xyz or https://7000.hypersync.xyz", "Tier": "🪨", "Supports Traces": False},
     48900: {"Network Name": "Zircuit", "URL": "https://zircuit.hypersync.xyz or https://48900.hypersync.xyz", "Tier": "🪨", "Supports Traces": False},
     324: {"Network Name": "ZKsync", "URL": "https://zksync.hypersync.xyz or https://324.hypersync.xyz", "Tier": "🥉", "Supports Traces": False},
-    7777777: {"Network Name": "Zora", "URL": "https://zora.hypersync.xyz or https://7777777.hypersync.xyz", "Tier": "🪨", "Supports Traces": False}
+    7777777: {"Network Name": "Zora", "URL": "https://zora.hypersync.xyz or https://7777777.hypersync.xyz", "Tier": "🪨", "Supports Traces": False},
+    146: {"Network Name": "Sonic", "URL": "https://sonic.hypersync.xyz or https://146.hypersync.xyz", "Tier": "🪨", "Supports Traces": False},
 }
 
 
