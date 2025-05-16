@@ -12,6 +12,7 @@ import pytest
 
 from eth_defi.gmx.trading import GMXTrading
 
+# TODO: use to avoid race condition https://web3-ethereum-defi.readthedocs.io/api/core/_autosummary/eth_defi.trace.assert_transaction_success_with_explanation.html#eth_defi.trace.assert_transaction_success_with_explanation
 
 @pytest.fixture()
 def trading_manager(gmx_config_fork):
@@ -31,7 +32,7 @@ def test_initialization(chain_name, gmx_config):
     assert trading.config.get_chain().lower() == chain_name.lower()
 
 
-def test_open_position_long(chain_name, trading_manager):
+def test_open_position_long(chain_name, trading_manager, gmx_config_fork, usdc):
     """
     Test opening a long position.
 
@@ -46,8 +47,25 @@ def test_open_position_long(chain_name, trading_manager):
         market_symbol = "AVAX"
         collateral_symbol = "USDC"
 
+    # Get test wallet address
+    wallet_address = gmx_config_fork.get_wallet_address()
+
+    # Check initial balances
+    initial_usdc_balance = usdc.contract.functions.balanceOf(wallet_address).call()
+
     # Create a long position with USDC as collateral
-    increase_order = trading_manager.open_position(market_symbol=market_symbol, collateral_symbol=collateral_symbol, start_token_symbol=collateral_symbol, is_long=True, size_delta_usd=100, leverage=2, slippage_percent=0.003, debug_mode=False)  # 100$ worth of token  # as a decimal i.e. 0.003 == 0.3%
+    # Using ACTUAL transaction (not debug mode) to test balance changes
+    increase_order = trading_manager.open_position(
+        market_symbol=market_symbol,
+        collateral_symbol=collateral_symbol,
+        start_token_symbol=collateral_symbol,
+        is_long=True,
+        size_delta_usd=100,
+        leverage=2,
+        slippage_percent=0.003,
+        debug_mode=False,
+        execution_buffer=2.2
+    )
 
     # Verify the order was created with the right type
     assert isinstance(increase_order, IncreaseOrder)
@@ -69,8 +87,14 @@ def test_open_position_long(chain_name, trading_manager):
     assert hasattr(increase_order, "debug_mode")
     assert increase_order.debug_mode is False
 
+    # Check final balances (USDC should decrease)
+    final_usdc_balance = usdc.contract.functions.balanceOf(wallet_address).call()
 
-def test_open_position_short(chain_name, trading_manager):
+    # Verify USDC was spent
+    assert final_usdc_balance < initial_usdc_balance, "USDC balance should decrease after opening a long position"
+
+
+def test_open_position_short(chain_name, trading_manager, gmx_config_fork, usdc):
     """
     Test opening a short position.
 
@@ -83,8 +107,24 @@ def test_open_position_short(chain_name, trading_manager):
     else:
         market_symbol = "AVAX"
 
+    # Get test wallet address
+    wallet_address = gmx_config_fork.get_wallet_address()
+
+    # Check initial balances
+    initial_usdc_balance = usdc.contract.functions.balanceOf(wallet_address).call()
+
     # Create a short position with USDC as collateral
-    increase_order = trading_manager.open_position(market_symbol=market_symbol, collateral_symbol="USDC", start_token_symbol="USDC", is_long=False, size_delta_usd=200, leverage=1.5, slippage_percent=0.003, debug_mode=False)  # $200 worth of tokens
+    increase_order = trading_manager.open_position(
+        market_symbol=market_symbol,
+        collateral_symbol="USDC",
+        start_token_symbol="USDC",
+        is_long=False,
+        size_delta_usd=200,
+        leverage=1.5,
+        slippage_percent=0.003,
+        debug_mode=False,
+        execution_buffer=2.2
+    )
 
     # Verify the order was created with the right type
     assert isinstance(increase_order, IncreaseOrder)
@@ -100,8 +140,14 @@ def test_open_position_short(chain_name, trading_manager):
     # Verify debug mode
     assert increase_order.debug_mode is False
 
+    # Check final balances (USDC should decrease)
+    final_usdc_balance = usdc.contract.functions.balanceOf(wallet_address).call()
 
-def test_open_position_high_leverage(chain_name, trading_manager):
+    # Verify USDC was spent
+    assert final_usdc_balance < initial_usdc_balance, "USDC balance should decrease after opening a short position"
+
+
+def test_open_position_high_leverage(chain_name, trading_manager, gmx_config_fork, wrapped_native_token):
     """
     Test opening a position with high leverage.
 
@@ -116,8 +162,24 @@ def test_open_position_high_leverage(chain_name, trading_manager):
         market_symbol = "AVAX"
         collateral_symbol = "AVAX"
 
+    # Get test wallet address
+    wallet_address = gmx_config_fork.get_wallet_address()
+
+    # Check initial balances
+    initial_native_balance = wrapped_native_token.contract.functions.balanceOf(wallet_address).call()
+
     # Create a long position with high leverage
-    increase_order = trading_manager.open_position(market_symbol=market_symbol, collateral_symbol=collateral_symbol, start_token_symbol=collateral_symbol, is_long=True, size_delta_usd=100, leverage=10, slippage_percent=0.003, debug_mode=False)  # Higher leverage
+    increase_order = trading_manager.open_position(
+        market_symbol=market_symbol,
+        collateral_symbol=collateral_symbol,
+        start_token_symbol=collateral_symbol,
+        is_long=True,
+        size_delta_usd=100,
+        leverage=10,
+        slippage_percent=0.003,
+        debug_mode=False,
+        execution_buffer=2.2
+    )
 
     # Verify the order was created with the right type
     assert isinstance(increase_order, IncreaseOrder)
@@ -126,12 +188,18 @@ def test_open_position_high_leverage(chain_name, trading_manager):
     assert increase_order.is_long is True
     assert increase_order.debug_mode is False
 
+    # Check final balances (Native token should decrease)
+    final_native_balance = wrapped_native_token.contract.functions.balanceOf(wallet_address).call()
 
-def test_close_position(chain_name, trading_manager):
+    # Verify native token was spent
+    assert final_native_balance < initial_native_balance, f"{wrapped_native_token.symbol} balance should decrease after opening a high leverage position"
+
+
+def test_close_position(chain_name, trading_manager, gmx_config_fork, usdc, web3_fork):
     """
     Test closing a position.
 
-    This tests creating a DecreaseOrder.
+    This test first creates a position, then closes it to ensure both operations work correctly.
     """
     # Select appropriate parameters based on the chain
     if chain_name == "arbitrum":
@@ -140,8 +208,41 @@ def test_close_position(chain_name, trading_manager):
     else:
         market_symbol = "AVAX"
 
-    # Close a long position
-    decrease_order = trading_manager.close_position(market_symbol=market_symbol, collateral_symbol="USDC", start_token_symbol="USDC", is_long=True, size_delta_usd=500, initial_collateral_delta=250, slippage_percent=0.003, debug_mode=False)  # Close $500 worth  # Remove $250 collateral
+    # Get test wallet address
+    wallet_address = gmx_config_fork.get_wallet_address()
+
+    # First, create a position to close
+    trading_manager.open_position(
+        market_symbol=market_symbol,
+        collateral_symbol="USDC",
+        start_token_symbol="USDC",
+        is_long=True,
+        size_delta_usd=500,
+        leverage=2,
+        slippage_percent=0.003,
+        debug_mode=False,
+        execution_buffer=2.2
+    )
+
+    # Small delay to allow the position to be processed
+    web3_fork.provider.make_request("evm_increaseTime", [60])  # Advance time by 60 seconds
+    web3_fork.provider.make_request("evm_mine", [])  # Mine a new block
+
+    # Check USDC balance before closing position
+    usdc_balance_before_close = usdc.contract.functions.balanceOf(wallet_address).call()
+
+    # Close the position
+    decrease_order = trading_manager.close_position(
+        market_symbol=market_symbol,
+        collateral_symbol="USDC",
+        start_token_symbol="USDC",
+        is_long=True,
+        size_delta_usd=500,  # Close full position
+        initial_collateral_delta=250,  # Remove half of collateral
+        slippage_percent=0.003,
+        debug_mode=False,
+        execution_buffer=2.2
+    )
 
     # Verify the order was created with the right type
     assert isinstance(decrease_order, DecreaseOrder)
@@ -162,8 +263,15 @@ def test_close_position(chain_name, trading_manager):
     # Verify debug mode
     assert decrease_order.debug_mode is False
 
+    # Check USDC balance after closing position
+    usdc_balance_after_close = usdc.contract.functions.balanceOf(wallet_address).call()
 
-def test_close_position_full_size(chain_name, trading_manager):
+    # Verify USDC balance has increased after closing the position
+    # Note: Due to fees, we might not get back the exact amount, but should be more than before
+    assert usdc_balance_after_close > usdc_balance_before_close, "USDC balance should increase after closing a position"
+
+
+def test_close_position_full_size(chain_name, trading_manager, gmx_config_fork, usdc, web3_fork):
     """
     Test closing a full position.
 
@@ -181,8 +289,41 @@ def test_close_position_full_size(chain_name, trading_manager):
         collateral_delta = 133
         collateral_symbol = "AVAX"
 
+    # Get test wallet address
+    wallet_address = gmx_config_fork.get_wallet_address()
+
+    # First, create a position to close
+    trading_manager.open_position(
+        market_symbol=market_symbol,
+        collateral_symbol="USDC",
+        start_token_symbol="USDC",
+        is_long=False,
+        size_delta_usd=size_delta,
+        leverage=1.5,
+        slippage_percent=0.003,
+        debug_mode=False,
+        execution_buffer=2.2
+    )
+
+    # Small delay to allow the position to be processed
+    web3_fork.provider.make_request("evm_increaseTime", [60])  # Advance time by 60 seconds
+    web3_fork.provider.make_request("evm_mine", [])  # Mine a new block
+
+    # Check USDC balance before closing position
+    usdc_balance_before_close = usdc.contract.functions.balanceOf(wallet_address).call()
+
     # Close a full short position
-    decrease_order = trading_manager.close_position(market_symbol=market_symbol, collateral_symbol="USDC", start_token_symbol="USDC", is_long=False, size_delta_usd=size_delta, initial_collateral_delta=collateral_delta, slippage_percent=0.003, debug_mode=False)  # Full position size  # Full collateral
+    decrease_order = trading_manager.close_position(
+        market_symbol=market_symbol,
+        collateral_symbol="USDC",
+        start_token_symbol="USDC",
+        is_long=False,
+        size_delta_usd=size_delta,  # Full position size
+        initial_collateral_delta=collateral_delta,  # Full collateral
+        slippage_percent=0.003,
+        debug_mode=False,
+        execution_buffer=2.2
+    )
 
     # Verify the order was created with the right type
     assert isinstance(decrease_order, DecreaseOrder)
@@ -193,8 +334,14 @@ def test_close_position_full_size(chain_name, trading_manager):
     # Verify debug mode
     assert decrease_order.debug_mode is False
 
+    # Check USDC balance after closing position
+    usdc_balance_after_close = usdc.contract.functions.balanceOf(wallet_address).call()
 
-def test_swap_tokens(chain_name, trading_manager):
+    # Verify USDC balance has increased after closing the position
+    assert usdc_balance_after_close > usdc_balance_before_close, "USDC balance should increase after closing a full position"
+
+
+def test_swap_tokens(chain_name, trading_manager, gmx_config_fork, usdc):
     """
     Test swapping tokens.
 
@@ -209,8 +356,21 @@ def test_swap_tokens(chain_name, trading_manager):
         pytest.skip("Skipping swap_tokens for avalanche because of the known issue in the Reader contract")
         out_token_symbol = "GMX"
 
+    # Get test wallet address
+    wallet_address = gmx_config_fork.get_wallet_address()
+
+    # Check initial balances
+    initial_usdc_balance = usdc.contract.functions.balanceOf(wallet_address).call()
+
     # Swap USDC for chain-specific native token
-    swap_order = trading_manager.swap_tokens(out_token_symbol=out_token_symbol, start_token_symbol="USDC", amount=1000, slippage_percent=0.003, debug_mode=False)  # $1000 USDC
+    swap_order = trading_manager.swap_tokens(
+        out_token_symbol=out_token_symbol,
+        start_token_symbol="USDC",
+        amount=1000,  # $1000 USDC
+        slippage_percent=0.003,
+        debug_mode=False,
+        execution_buffer=2.5
+    )
 
     # Verify the order was created with the right type
     assert isinstance(swap_order, SwapOrder)
@@ -229,3 +389,9 @@ def test_swap_tokens(chain_name, trading_manager):
 
     # Verify debug mode
     assert swap_order.debug_mode is False
+
+    # Check final balances
+    final_usdc_balance = usdc.contract.functions.balanceOf(wallet_address).call()
+
+    # Verify balances changed
+    assert final_usdc_balance < initial_usdc_balance, "USDC balance should decrease after swap"
