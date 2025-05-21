@@ -2,9 +2,12 @@ import json
 import os
 from decimal import Decimal
 from pathlib import Path
+from typing import Optional
 
+import requests
 from cchecksum import to_checksum_address
 from eth_abi import encode
+from eth_account import Account
 from eth_utils import keccak
 from gmx_python_sdk.scripts.v2.get.get_oracle_prices import OraclePrices
 from gmx_python_sdk.scripts.v2.gmx_utils import create_hash_string, get_reader_contract, get_datastore_contract
@@ -12,42 +15,47 @@ from gmx_python_sdk.scripts.v2.utils.exchange import execute_with_oracle_params
 from gmx_python_sdk.scripts.v2.utils.hash_utils import hash_data
 from gmx_python_sdk.scripts.v2.utils.keys import IS_ORACLE_PROVIDER_ENABLED, MAX_ORACLE_REF_PRICE_DEVIATION_FACTOR
 from rich.console import Console
-from web3 import Web3
+from web3 import HTTPProvider, Web3
 
 from eth_defi.gmx.config import GMXConfig
+from eth_defi.gmx.trading import GMXTrading
+from eth_defi.hotwallet import HotWallet
 
 # Create the ORDER_LIST key directly
 ORDER_LIST = create_hash_string("ORDER_LIST")
 print = Console().print
 
+JSON_RPC_BASE = "https://virtual.arbitrum.rpc.tenderly.co/e916f78f-7d9b-4112-b6b3-1547bc2261fa"
 
-# TOKENS: dict = {
-#     "USDC": to_checksum_address("0xaf88d065e77c8cC2239327C5EDb3A432268e5831"),
-#     "SOL": to_checksum_address("0x2bcC6D6CdBbDC0a4071e48bb3B969b06B3330c07"),
-#     "ARB": to_checksum_address("0x912ce59144191c1204e64559fe8253a0e49e6548"),
-#     "LINK": to_checksum_address("0xf97f4df75117a78c1A5a0DBb814Af92458539FB4"),
-# }
-#
-# INITIAL_TOKEN_SYMBOL: str = "ARB"
-# TARGET_TOKEN_SYMBOL: str = "SOL"
-#
-# initial_token_address: str = TOKENS[INITIAL_TOKEN_SYMBOL]
-# target_token_address: str = TOKENS[TARGET_TOKEN_SYMBOL]
+TOKENS: dict = {
+    "USDC": to_checksum_address("0xaf88d065e77c8cC2239327C5EDb3A432268e5831"),
+    "SOL": to_checksum_address("0x2bcC6D6CdBbDC0a4071e48bb3B969b06B3330c07"),
+    "ARB": to_checksum_address("0x912ce59144191c1204e64559fe8253a0e49e6548"),
+    "LINK": to_checksum_address("0xf97f4df75117a78c1A5a0DBb814Af92458539FB4"),
+}
+
+INITIAL_TOKEN_SYMBOL: str = "ARB"
+TARGET_TOKEN_SYMBOL: str = "SOL"
+
+initial_token_address: str = TOKENS[INITIAL_TOKEN_SYMBOL]
+target_token_address: str = TOKENS[TARGET_TOKEN_SYMBOL]
 
 ABIS_PATH = os.path.dirname(os.path.abspath(__file__))
 
 
-def set_opt_code(w3: Web3, bytecode=None, contract_address=None):
+def set_opt_code(rpc, bytecode=None, contract_address=None):
+    # Connect to the Anvil node
+    w3 = Web3(Web3.HTTPProvider(rpc))
+
     # Use Anvil's RPC to set the contract's bytecode
-    response = w3.provider.make_request("anvil_setCode", [contract_address, bytecode])
+    response = w3.provider.make_request("tenderly_setCode", [contract_address, bytecode])
 
-    # print(f"{response=}")
-
-    # Verify the response from anvil
+    # Verify the response from Tenderly
     if response.get("result"):
-        print("Code successfully set via anvil")
+        print("Code successfully set via Tenderly")
     else:
         print(f"Failed to set code: {response.get('error', {}).get('message', 'Unknown error')}")
+        exit(1)
 
     # Now verify that the code was actually set by retrieving it
     deployed_code = w3.eth.get_code(contract_address).hex()
@@ -67,7 +75,7 @@ def set_opt_code(w3: Web3, bytecode=None, contract_address=None):
             print(f"Length mismatch - Expected: {len(bytecode)}, Got: {len(deployed_code)}")
 
 
-def execute_order(config, connection, order_key, deployed_oracle_address, initial_token_address, target_token_address, logger=None, overrides=None):
+def execute_order(config, connection, order_key, deployed_oracle_address, logger=None, overrides=None):
     """
     Execute an order with oracle prices
 
@@ -199,11 +207,65 @@ def execute_order(config, connection, order_key, deployed_oracle_address, initia
 GMX_ADMIN = "0x7A967D114B8676874FA2cFC1C14F3095C88418Eb"
 
 
+# def add_tenderly_balances():
+#     """
+#     Adds both ETH and ERC20 token balances to a specific address on a Tenderly fork.
+#     This function will execute both operations automatically when this script is run.
+#     """
+#     # Common configuration for both operations
+#     tenderly_url = JSON_RPC_BASE
+#     address = "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"
+#     headers = {"Content-Type": "application/json"}
+#
+#     print("Starting Tenderly balance operations...")
+#
+#     # Step 1: Add ETH balance
+#     eth_amount = "0xa3123b753e1e780000000"
+#     eth_payload = {"id": 2, "jsonrpc": "2.0", "method": "tenderly_addBalance", "params": [[address], eth_amount]}
+#
+#     try:
+#         print(f"Adding ETH balance of {eth_amount} to {address}...")
+#         eth_response = requests.post(tenderly_url, headers=headers, data=json.dumps(eth_payload))
+#         eth_result = eth_response.json()
+#
+#         if "error" in eth_result:
+#             print(f"Error adding ETH balance: {eth_result['error']}")
+#         else:
+#             print(f"Successfully added ETH balance. Response: {eth_result}")
+#     except Exception as e:
+#         print(f"Exception occurred while adding ETH balance: {e}")
+#
+#     # Step 2: Add ERC20 token balance
+#     token_address = "0x912ce59144191c1204e64559fe8253a0e49e6548"
+#     token_amount = "0x1566336316561e0000000000000000"
+#
+#     erc20_payload = {
+#         "id": 3,
+#         "jsonrpc": "2.0",
+#         "method": "tenderly_addErc20Balance",
+#         "params": [token_address, [address], token_amount],
+#     }
+#
+#     try:
+#         print(f"Adding ERC20 balance of {token_amount} for token {token_address} to {address}...")
+#         erc20_response = requests.post(tenderly_url, headers=headers, data=json.dumps(erc20_payload))
+#         erc20_result = erc20_response.json()
+#
+#         if "error" in erc20_result:
+#             print(f"Error adding ERC20 balance: {erc20_result['error']}")
+#         else:
+#             print(f"Successfully added ERC20 balance. Response: {erc20_result}")
+#     except Exception as e:
+#         print(f"Exception occurred while adding ERC20 balance: {e}")
+#
+#     print("Tenderly balance operations completed.")
+
+
 def deploy_custom_oracle(w3: Web3, account) -> str:
     # /// Delpoy the `Oracle` contract here & then return the deployed bytecode
     # Check balance
-    balance = w3.eth.get_balance(account)
-    # print(f"Deployer balance: {w3.from_wei(balance, 'ether')} ETH")
+    balance = w3.eth.get_balance(account.address)
+    print(f"Deployer balance: {w3.from_wei(balance, 'ether')} ETH")
 
     # Load contract ABI and bytecode
     artifacts_path = Path(f"{ABIS_PATH}/mock_abis/Oracle.json")
@@ -223,32 +285,35 @@ def deploy_custom_oracle(w3: Web3, account) -> str:
     contract = w3.eth.contract(abi=abi, bytecode=bytecode)
 
     # Prepare transaction for contract deployment
-    nonce = w3.eth.get_transaction_count(account)
+    nonce = w3.eth.get_transaction_count(account.address)
     transaction = contract.constructor(role_store, data_store, event_emitter, sequender_uptime_feed).build_transaction(
         {
-            "from": account,
+            "from": account.address,
             "nonce": nonce,
             "gas": 33000000,
             "gasPrice": w3.to_wei("50", "gwei"),
         }
     )
 
+    # Sign transaction
+    signed_txn = w3.eth.account.sign_transaction(transaction, account._private_key)
+
     # Send transaction
-    tx_hash = w3.eth.send_transaction(transaction)
-    # print(f"📝 Deployment tx hash: {tx_hash.hex()}")
+    tx_hash = w3.eth.send_raw_transaction(signed_txn.rawTransaction)
+    print(f"📝 Deployment tx hash: {tx_hash.hex()}")
 
     # Wait for transaction receipt
     tx_receipt = w3.eth.wait_for_transaction_receipt(tx_hash)
     contract_address = tx_receipt.contractAddress
     print(f"🚀 Deployed GmOracleProvider to: {contract_address}")
-    # print(f"   Gas used: {tx_receipt.gasUsed}")
+    print(f"   Gas used: {tx_receipt.gasUsed}")
 
     # Get deployed contract
     deployed_contract = w3.eth.contract(address=contract_address, abi=abi)
 
     # Fetch on-chain bytecode and print its size
     code = w3.eth.get_code(contract_address)
-    # print(f"📦 On-chain code size (bytes): {len(code) // 2}")
+    print(f"📦 On-chain code size (bytes): {len(code) // 2}")
 
     # List contract methods
     # methods = [func for func in deployed_contract.functions]
@@ -261,22 +326,22 @@ def deploy_custom_oracle(w3: Web3, account) -> str:
     data_store_address = deployed_contract.functions.dataStore().call()
     event_emitter_address = deployed_contract.functions.eventEmitter().call()
 
-    # print(f"📌 roleStore address: {role_store_address}")
-    # print(f"📌 dataStore address: {data_store_address}")
-    # print(f"📌 eventEmitter address: {event_emitter_address}")
+    print(f"📌 roleStore address: {role_store_address}")
+    print(f"📌 dataStore address: {data_store_address}")
+    print(f"📌 eventEmitter address: {event_emitter_address}")
     bytecode = w3.eth.get_code(contract_address)
 
     original_oracle_contract = to_checksum_address("0x918b60ba71badfada72ef3a6c6f71d0c41d4785c")
 
-    set_opt_code(w3, bytecode, original_oracle_contract)
+    set_opt_code(JSON_RPC_BASE, bytecode, original_oracle_contract)
 
     return contract_address
 
 
 def deploy_custom_oracle_provider(w3: Web3, account) -> str:
     # Check balance
-    balance = w3.eth.get_balance(account)
-    # print(f"Deployer balance: {w3.from_wei(balance, 'ether')} ETH")
+    balance = w3.eth.get_balance(account.address)
+    print(f"Deployer balance: {w3.from_wei(balance, 'ether')} ETH")
 
     # Load contract ABI and bytecode
     artifacts_path = Path(f"{ABIS_PATH}/mock_abis/GmOracleProvider.json")
@@ -294,32 +359,35 @@ def deploy_custom_oracle_provider(w3: Web3, account) -> str:
     contract = w3.eth.contract(abi=abi, bytecode=bytecode)
 
     # Prepare transaction for contract deployment
-    nonce = w3.eth.get_transaction_count(account)
+    nonce = w3.eth.get_transaction_count(account.address)
     transaction = contract.constructor(role_store, data_store, oracle_store).build_transaction(
         {
-            "from": account,
+            "from": account.address,
             "nonce": nonce,
             "gas": 33000000,
             "gasPrice": w3.to_wei("50", "gwei"),
         }
     )
 
+    # Sign transaction
+    signed_txn = w3.eth.account.sign_transaction(transaction, account._private_key)
+
     # Send transaction
-    tx_hash = w3.eth.send_transaction(transaction)
-    # print(f"📝 Deployment tx hash: {tx_hash.hex()}")
+    tx_hash = w3.eth.send_raw_transaction(signed_txn.rawTransaction)
+    print(f"📝 Deployment tx hash: {tx_hash.hex()}")
 
     # Wait for transaction receipt
     tx_receipt = w3.eth.wait_for_transaction_receipt(tx_hash)
     contract_address = tx_receipt.contractAddress
     print(f"🚀 Deployed GmOracleProvider to: {contract_address}")
-    # print(f"   Gas used: {tx_receipt.gasUsed}")
+    print(f"   Gas used: {tx_receipt.gasUsed}")
 
     # Get deployed contract
     deployed_contract = w3.eth.contract(address=contract_address, abi=abi)
 
     # Fetch on-chain bytecode and print its size
     code = w3.eth.get_code(contract_address)
-    # print(f"📦 On-chain code size (bytes): {len(code) // 2}")
+    print(f"📦 On-chain code size (bytes): {len(code) // 2}")
 
     # List contract methods
     # methods = [func for func in deployed_contract.functions]
@@ -331,8 +399,8 @@ def deploy_custom_oracle_provider(w3: Web3, account) -> str:
     role_store_address = deployed_contract.functions.roleStore().call()
     data_store_address = deployed_contract.functions.dataStore().call()
 
-    # print(f"📌 roleStore address: {role_store_address}")
-    # print(f"📌 dataStore address: {data_store_address}")
+    print(f"📌 roleStore address: {role_store_address}")
+    print(f"📌 dataStore address: {data_store_address}")
 
     return contract_address
 
@@ -350,7 +418,7 @@ def override_storage_slot(
         contract_address: The address of the contract
         slot: The storage slot to override (as a hex string)
         value: The value to set (as an integer)
-        web3: Web3 object
+        anvil_url: URL of the Anvil node
     """
 
     # Check connection
@@ -375,7 +443,7 @@ def override_storage_slot(
     contract_address = web3.to_checksum_address(contract_address)
 
     # Call the anvil_setStorageAt RPC method
-    result = web3.provider.make_request("anvil_setStorageAt", [contract_address, slot, padded_hex_value])
+    result = web3.provider.make_request("tenderly_setStorageAt", [contract_address, slot, padded_hex_value])
 
     # Check for errors
     if "error" in result:
@@ -384,84 +452,108 @@ def override_storage_slot(
     print(f"Successfully set storage at slot {slot} to {padded_hex_value}")
 
     storage_value = web3.eth.get_storage_at(contract_address, slot)
-    # print(f"Verified value: {storage_value.hex()}")
+    print(f"Verified value: {storage_value.hex()}")
 
     return result
 
 
-def emulate_keepers(gmx_config: GMXConfig, initial_token_symbol: str, target_token_symbol: str, w3: Web3, recipient_address: str, initial_token_address: str, target_token_address: str, debug_logs: bool = False):
-    if debug_logs:
-        erc20_abi = [
-            {
-                "constant": True,
-                "inputs": [{"name": "_owner", "type": "address"}],
-                "name": "balanceOf",
-                "outputs": [{"name": "balance", "type": "uint256"}],
-                "type": "function",
-            },
-            {
-                "constant": False,
-                "inputs": [
-                    {"name": "_to", "type": "address"},
-                    {"name": "_value", "type": "uint256"},
-                ],
-                "name": "transfer",
-                "outputs": [{"name": "", "type": "bool"}],
-                "type": "function",
-            },
-            {
-                "constant": True,
-                "inputs": [],
-                "name": "decimals",
-                "outputs": [{"name": "", "type": "uint8"}],
-                "type": "function",
-            },
-            {
-                "constant": True,
-                "inputs": [],
-                "name": "symbol",
-                "outputs": [{"name": "", "type": "string"}],
-                "payable": False,
-                "stateMutability": "view",
-                "type": "function",
-            },
-        ]
+def main():
+    anvil_private_key: str = "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
 
-        initial_token_contract = w3.eth.contract(address=initial_token_address, abi=erc20_abi)
-        target_contract = w3.eth.contract(address=target_token_address, abi=erc20_abi)
+    start_token_symbol: str = "ARB"
+    out_token_symbol: str = "SOL"
+    w3 = Web3(HTTPProvider(JSON_RPC_BASE))
 
-        decimals = initial_token_contract.functions.decimals().call()
-        symbol = initial_token_contract.functions.symbol().call()
+    account = Account.from_key(anvil_private_key)
+    wallet = HotWallet(account)
+    wallet.sync_nonce(w3)
 
-        # Check initial balances
-        balance = initial_token_contract.functions.balanceOf(recipient_address).call()
-        print(f"Recipient {initial_token_symbol} balance: {Decimal(balance / 10**decimals)} {symbol}")
+    config = GMXConfig(w3, chain="arbitrum", wallet=wallet, user_wallet_address=account.address)
 
-        target_balance_before = target_contract.functions.balanceOf(recipient_address).call()
-        target_symbol = target_contract.functions.symbol().call()
-        target_decimals = target_contract.functions.decimals().call()
+    trading_manager = GMXTrading(config)
 
-        # Convert both values to Decimal BEFORE division
-        balance_decimal = Decimal(str(target_balance_before)) / Decimal(10**target_decimals)
+    erc20_abi = [
+        {
+            "constant": True,
+            "inputs": [{"name": "_owner", "type": "address"}],
+            "name": "balanceOf",
+            "outputs": [{"name": "balance", "type": "uint256"}],
+            "type": "function",
+        },
+        {
+            "constant": False,
+            "inputs": [
+                {"name": "_to", "type": "address"},
+                {"name": "_value", "type": "uint256"},
+            ],
+            "name": "transfer",
+            "outputs": [{"name": "", "type": "bool"}],
+            "type": "function",
+        },
+        {
+            "constant": True,
+            "inputs": [],
+            "name": "decimals",
+            "outputs": [{"name": "", "type": "uint8"}],
+            "type": "function",
+        },
+        {
+            "constant": True,
+            "inputs": [],
+            "name": "symbol",
+            "outputs": [{"name": "", "type": "string"}],
+            "payable": False,
+            "stateMutability": "view",
+            "type": "function",
+        },
+    ]
 
-        # Format to avoid scientific notation and show proper decimal places
-        print(f"Recipient {target_token_symbol} balance before: {balance_decimal:.18f} {target_symbol}")
+    recipient_address = account.address
+
+    initial_token_contract = w3.eth.contract(address=initial_token_address, abi=erc20_abi)
+    target_contract = w3.eth.contract(address=target_token_address, abi=erc20_abi)
+
+    decimals = initial_token_contract.functions.decimals().call()
+    symbol = initial_token_contract.functions.symbol().call()
+
+    # Check initial balances
+    balance = initial_token_contract.functions.balanceOf(recipient_address).call()
+    print(f"Recipient {start_token_symbol} balance: {Decimal(balance / 10**decimals)} {symbol}")
+
+    target_balance_before = target_contract.functions.balanceOf(recipient_address).call()
+    target_symbol = target_contract.functions.symbol().call()
+    target_decimals = target_contract.functions.decimals().call()
+
+    # Convert both values to Decimal BEFORE division
+    balance_decimal = Decimal(str(target_balance_before)) / Decimal(10**target_decimals)
+
+    # Format to avoid scientific notation and show proper decimal places
+    print(f"Recipient {out_token_symbol} balance before: {balance_decimal:.18f} {target_symbol}")
+
+    swap_order = trading_manager.swap_tokens(
+        out_token_symbol=out_token_symbol,
+        start_token_symbol=start_token_symbol,
+        amount=50000.3785643,
+        slippage_percent=0.02,
+        debug_mode=False,
+        execution_buffer=2.5,
+    )
 
     deployed: tuple = (None, None)  # (None, None)
     if not deployed[0]:
-        deployed_oracle_address = deploy_custom_oracle_provider(w3, recipient_address)
-        custom_oracle_contract_address = deploy_custom_oracle(w3, recipient_address)
+        deployed_oracle_address = deploy_custom_oracle_provider(w3, account)
+        custom_oracle_contract_address = deploy_custom_oracle(w3, account)
     else:
         deployed_oracle_address = deployed[0]
         custom_oracle_contract_address = deployed[1]
 
     try:
-        config = gmx_config.get_write_config()
+        config = config.get_write_config()
         # order_key = order.create_order_and_get_key()
 
         data_store = get_datastore_contract(config)
 
-        # print(f"Order LIST: {ORDER_LIST.hex()}")
+        print(f"Order LIST: {ORDER_LIST.hex()}")
 
         assert ORDER_LIST.hex().removeprefix("0x") == "0x86f7cfd5d8f8404e5145c91bebb8484657420159dabd0753d6a59f3de3f7b8c1".removeprefix("0x"), "Order list mismatch"
         order_count = data_store.functions.getBytes32Count(ORDER_LIST).call()
@@ -470,14 +562,14 @@ def emulate_keepers(gmx_config: GMXConfig, initial_token_symbol: str, target_tok
 
         # Get the most recent order key
         order_key = data_store.functions.getBytes32ValuesAt(ORDER_LIST, order_count - 1, order_count).call()[0]
-        # print(f"Order created with key: {order_key.hex()}")
+        print(f"Order created with key: {order_key.hex()}")
 
         # for key in keys:
         #     print(f"Key: {key.hex()}")
 
         reader = get_reader_contract(config)
         order_info = reader.functions.getOrder(data_store.address, order_key).call()
-        # print(f"Order: {order_info}")
+        print(f"Order: {order_info}")
 
         # data_store_owner = "0xE7BfFf2aB721264887230037940490351700a068"
         controller = "0xf5F30B10141E1F63FC11eD772931A8294a591996"
@@ -490,7 +582,7 @@ def emulate_keepers(gmx_config: GMXConfig, initial_token_symbol: str, target_tok
         data_store.functions.setBool("0x1153e082323163af55b3003076402c9f890dda21455104e09a048bf53f1ab30c", True).transact({"from": controller})
 
         value = data_store.functions.getBool("0x1153e082323163af55b3003076402c9f890dda21455104e09a048bf53f1ab30c").call()
-        # print(f"Value: {value}")
+        print(f"Value: {value}")
 
         assert value, "Value should be true"
 
@@ -503,7 +595,7 @@ def emulate_keepers(gmx_config: GMXConfig, initial_token_symbol: str, target_tok
         # Enable the oracle provider
         data_store.functions.setBool(slot, True).transact({"from": controller})
         is_oracle_provider_enabled: bool = data_store.functions.getBool(slot).call()
-        # print(f"Value: {is_oracle_provider_enabled}")
+        print(f"Value: {is_oracle_provider_enabled}")
         assert is_oracle_provider_enabled, "Value should be true"
 
         # TODO: This will change for various tokens apparently
@@ -512,23 +604,23 @@ def emulate_keepers(gmx_config: GMXConfig, initial_token_symbol: str, target_tok
         data_store.functions.setAddress(address_slot, custom_oracle_provider).transact({"from": controller})
 
         new_address = data_store.functions.getAddress(address_slot).call()
-        # print(f"New address: {new_address}")
+        print(f"New address: {new_address}")
         # 0x0000000000000000000000005d6B84086DA6d4B0b6C0dF7E02f8a6A039226530
         assert new_address == custom_oracle_provider, "New address should be the oracle provider"
 
-        # need this to be set to pass the `Oracle._validatePrices` check. Key taken from anvil tx debugger
+        # need this to be set to pass the `Oracle._validatePrices` check. Key taken from tenderly tx debugger
         address_key: str = "0xf986b0f912da0acadea6308636145bb2af568ddd07eb6c76b880b8f341fef306"  # "0xf986b0f912da0acadea6308636145bb2af568ddd07eb6c76b880b8f341fef306"
 
         data_store.functions.setAddress(address_key, custom_oracle_provider).transact({"from": controller})
         value = data_store.functions.getAddress(address_key).call()
-        # print(f"Value: {value}")
+        print(f"Value: {value}")
         assert value == custom_oracle_provider, "Value should be recipient address"
 
         # ? Set another key value to pass the test in `Oracle.sol` this time for ChainlinkDataStreamProvider
         address_key: str = "0x659d3e479f4f2d295ea225e3d439a6b9d6fbf14a5cd4689e7d007fbab44acb8a"
         data_store.functions.setAddress(address_key, custom_oracle_provider).transact({"from": controller})
         value = data_store.functions.getAddress(address_key).call()
-        # print(f"Value: {value}")
+        print(f"Value: {value}")
         assert value == custom_oracle_provider, "Value should be recipient address"
 
         # ? Set the `maxRefPriceDeviationFactor` to pass tests in `Oracle.sol`
@@ -537,7 +629,7 @@ def emulate_keepers(gmx_config: GMXConfig, initial_token_symbol: str, target_tok
         large_value: int = 10021573904618365809021423188717
         data_store.functions.setUint(price_deviation_factor_key, large_value).transact({"from": controller})
         value = data_store.functions.getUint(price_deviation_factor_key).call()
-        # print(f"Value: {value}")
+        print(f"Value: {value}")
         assert value == large_value, f"Value should be {large_value}"
 
         oracle_contract: str = "0x918b60ba71badfada72ef3a6c6f71d0c41d4785c"
@@ -546,38 +638,57 @@ def emulate_keepers(gmx_config: GMXConfig, initial_token_symbol: str, target_tok
 
         oracle_prices = OraclePrices(chain=config.chain).get_recent_prices()
 
-        max_price: int = int(oracle_prices[target_token_address]["maxPriceFull"])
-        min_price: int = int(oracle_prices[target_token_address]["minPriceFull"])
+        max_price: int = int(oracle_prices[TOKENS[TARGET_TOKEN_SYMBOL]]["maxPriceFull"])
+        min_price: int = int(oracle_prices[TOKENS[TARGET_TOKEN_SYMBOL]]["minPriceFull"])
         max_res = override_storage_slot(oracle_contract, token_b_max_value_slot, max_price, w3)
         min_res = override_storage_slot(oracle_contract, token_b_min_value_slot, min_price, w3)
 
-        # print(f"Max price: {max_price}")
-        # print(f"Min price: {min_price}")
-        # print(f"Max res: {max_res}")
-        # print(f"Min res: {min_res}")
+        print(f"Max price: {max_price}")
+        print(f"Min price: {min_price}")
+        print(f"Max res: {max_res}")
+        print(f"Min res: {min_res}")
+
+        # # ! Can't do it here
+        # oracle_contract = get_contract_object(config.get_web3_connection(), "oracle", config.chain)
+        # # ETH PRICE
+        # oracle_contract.functions.setPrimaryPrice(link_token_address, (2492652716024169, 2492891019455477)).transact({"from": controller})
 
         # print(f"Order key: {order_key.hex()}")
         overrides = {
             "simulate": False,
+            # "oracle_signer": oracle_signer,
+            # "priceFeedTokens": [
+            #     to_checksum_address("0xf97f4df75117a78c1a5a0dbb814af92458539fb4"),  # LINK on Arbitrum
+            #     to_checksum_address("0x2bcC6D6CdBbDC0a4071e48bb3B969b06B3330c07"),  # SOL on Arbitrum
+            # ],
         }
         # Execute the order with oracle prices
-        execute_order(config=config, connection=w3, order_key=order_key, deployed_oracle_address=deployed_oracle_address, overrides=overrides, initial_token_address=initial_token_address, target_token_address=target_token_address)
+        execute_order(
+            config=config,
+            connection=w3,
+            order_key=order_key,
+            deployed_oracle_address=deployed_oracle_address,
+            overrides=overrides,
+        )
 
-        if debug_logs:
-            # Check the balances after execution
-            balance = initial_token_contract.functions.balanceOf(recipient_address).call()
-            symbol = initial_token_contract.functions.symbol().call()
-            print(f"Recipient {initial_token_symbol} balance after swap: {Decimal(balance / 10**decimals)} {symbol}")
+        # Check the balances after execution
+        balance = initial_token_contract.functions.balanceOf(recipient_address).call()
+        symbol = initial_token_contract.functions.symbol().call()
+        print(f"Recipient {INITIAL_TOKEN_SYMBOL} balance after swap: {Decimal(balance / 10**decimals)} {symbol}")
 
-            target_balance_after = target_contract.functions.balanceOf(recipient_address).call()
-            symbol = target_contract.functions.symbol().call()
-            target_decimals = target_contract.functions.decimals().call()
+        target_balance_after = target_contract.functions.balanceOf(recipient_address).call()
+        symbol = target_contract.functions.symbol().call()
+        target_decimals = target_contract.functions.decimals().call()
 
-            balance_decimal = Decimal(str(target_balance_after)) / Decimal(10**target_decimals)
+        balance_decimal = Decimal(str(target_balance_after)) / Decimal(10**target_decimals)
 
-            # Format to avoid scientific notation and show proper decimal places
-            print(f"Recipient {target_token_symbol} balance after swap: {balance_decimal:.18f} {target_symbol}")
-            print(f"Change in {target_token_symbol} balance: {Decimal((target_balance_after - target_balance_before) / 10**target_decimals):.18f}")
+        # Format to avoid scientific notation and show proper decimal places
+        print(f"Recipient {TARGET_TOKEN_SYMBOL} balance after swap: {balance_decimal:.18f} {target_symbol}")
+        print(f"Change in {TARGET_TOKEN_SYMBOL} balance: {Decimal((target_balance_after - target_balance_before) / 10**target_decimals):.18f}")
     except Exception as e:
         print(f"Error during swap process: {e!s}")
         raise e
+
+
+if __name__ == "__main__":
+    main()

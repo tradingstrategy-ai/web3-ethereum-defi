@@ -15,6 +15,7 @@ from eth_defi.gmx.config import GMXConfig
 
 # TODO: Add option to Return tx_hash from all of the on-chain operations
 
+
 class GMXTrading:
     """
     Trading functionality for GMX protocol.
@@ -29,7 +30,18 @@ class GMXTrading:
         """
         self.config = config
 
-    def open_position(self, market_symbol: str, collateral_symbol: str, start_token_symbol: str, is_long: bool, size_delta_usd: float, leverage: float, slippage_percent: Optional[float] = 0.003, debug_mode: Optional[bool] = False, **kwargs) -> IncreaseOrder:
+    def open_position(
+        self,
+        market_symbol: str,
+        collateral_symbol: str,
+        start_token_symbol: str,
+        is_long: bool,
+        size_delta_usd: float,
+        leverage: float,
+        slippage_percent: Optional[float] = 0.003,
+        debug_mode: Optional[bool] = False,
+        **kwargs,
+    ) -> IncreaseOrder:
         """
         Open a new position on GMX.
 
@@ -55,15 +67,47 @@ class GMXTrading:
         write_config = self.config.get_write_config()
 
         # Prepare parameters dictionary
-        parameters = {"chain": self.config.get_chain(), "index_token_symbol": market_symbol, "collateral_token_symbol": collateral_symbol, "start_token_symbol": start_token_symbol, "is_long": is_long, "size_delta_usd": size_delta_usd, "leverage": leverage, "slippage_percent": slippage_percent}
+        parameters = {
+            "chain": self.config.get_chain(),
+            "index_token_symbol": market_symbol,
+            "collateral_token_symbol": collateral_symbol,
+            "start_token_symbol": start_token_symbol,
+            "is_long": is_long,
+            "size_delta_usd": size_delta_usd,
+            "leverage": leverage,
+            "slippage_percent": slippage_percent,
+        }
 
         # Process parameters
         order_parameters = OrderArgumentParser(write_config, is_increase=True).process_parameters_dictionary(parameters)
 
         # Create order with any additional parameters
-        return IncreaseOrder(config=write_config, market_key=order_parameters["market_key"], collateral_address=order_parameters["collateral_address"], index_token_address=order_parameters["index_token_address"], is_long=order_parameters["is_long"], size_delta=order_parameters["size_delta"], initial_collateral_delta_amount=order_parameters["initial_collateral_delta"], slippage_percent=order_parameters["slippage_percent"], swap_path=order_parameters["swap_path"], debug_mode=debug_mode, **kwargs)  
+        return IncreaseOrder(
+            config=write_config,
+            market_key=order_parameters["market_key"],
+            collateral_address=order_parameters["collateral_address"],
+            index_token_address=order_parameters["index_token_address"],
+            is_long=order_parameters["is_long"],
+            size_delta=order_parameters["size_delta"],
+            initial_collateral_delta_amount=order_parameters["initial_collateral_delta"],
+            slippage_percent=order_parameters["slippage_percent"],
+            swap_path=order_parameters["swap_path"],
+            debug_mode=debug_mode,
+            **kwargs,
+        )
 
-    def close_position(self, market_symbol: str, collateral_symbol: str, start_token_symbol: str, is_long: bool, size_delta_usd: float, initial_collateral_delta: float, slippage_percent: Optional[float] = 0.003, debug_mode: Optional[bool] = False, **kwargs) -> DecreaseOrder:
+    def close_position(
+        self,
+        market_symbol: str,
+        collateral_symbol: str,
+        start_token_symbol: str,
+        is_long: bool,
+        size_delta_usd: float,
+        initial_collateral_delta: float,
+        slippage_percent: Optional[float] = 0.003,
+        debug_mode: Optional[bool] = False,
+        **kwargs,
+    ) -> DecreaseOrder:
         """
         Close a position on GMX.
 
@@ -89,15 +133,45 @@ class GMXTrading:
         write_config = self.config.get_write_config()
 
         # Prepare parameters dictionary
-        parameters = {"chain": self.config.get_chain(), "index_token_symbol": market_symbol, "collateral_token_symbol": collateral_symbol, "start_token_symbol": start_token_symbol, "is_long": is_long, "size_delta_usd": size_delta_usd, "initial_collateral_delta": initial_collateral_delta, "slippage_percent": slippage_percent}
+        parameters = {
+            "chain": self.config.get_chain(),
+            "index_token_symbol": market_symbol,
+            "collateral_token_symbol": collateral_symbol,
+            "start_token_symbol": start_token_symbol,
+            "is_long": is_long,
+            "size_delta_usd": size_delta_usd,
+            "initial_collateral_delta": initial_collateral_delta,
+            "slippage_percent": slippage_percent,
+        }
 
         # Process parameters
         order_parameters = OrderArgumentParser(write_config, is_decrease=True).process_parameters_dictionary(parameters)
 
         # Create order with any additional parameters
-        return DecreaseOrder(config=write_config, market_key=order_parameters["market_key"], collateral_address=order_parameters["collateral_address"], index_token_address=order_parameters["index_token_address"], is_long=order_parameters["is_long"], size_delta=order_parameters["size_delta"], initial_collateral_delta_amount=order_parameters["initial_collateral_delta"], slippage_percent=order_parameters["slippage_percent"], swap_path=order_parameters.get("swap_path", []), debug_mode=debug_mode, **kwargs)  
+        return DecreaseOrder(
+            config=write_config,
+            market_key=order_parameters["market_key"],
+            collateral_address=order_parameters["collateral_address"],
+            index_token_address=order_parameters["index_token_address"],
+            is_long=order_parameters["is_long"],
+            size_delta=order_parameters["size_delta"],
+            initial_collateral_delta_amount=order_parameters["initial_collateral_delta"],
+            slippage_percent=order_parameters["slippage_percent"],
+            swap_path=order_parameters.get("swap_path", []),
+            debug_mode=debug_mode,
+            **kwargs,
+        )
 
-    def swap_tokens(self, out_token_symbol: str, start_token_symbol: str, amount: float, position_usd: Optional[float] = 0, slippage_percent: Optional[float] = 0.003, debug_mode: Optional[bool] = False, **kwargs) -> SwapOrder:
+    def swap_tokens(
+        self,
+        out_token_symbol: str,
+        start_token_symbol: str,
+        amount: float,
+        position_usd: Optional[float] = 0,
+        slippage_percent: Optional[float] = 0.02,
+        debug_mode: Optional[bool] = False,
+        **kwargs,
+    ) -> SwapOrder:
         """
         Swap tokens on GMX.
 
@@ -133,6 +207,21 @@ class GMXTrading:
 
         # Process parameters
         order_parameters = OrderArgumentParser(write_config, is_swap=True).process_parameters_dictionary(parameters)
-
+        print(f"{write_config.get_signer().get_address()=}")
+        print(f"{write_config.get_web3_connection().provider.endpoint_uri=}")
         # Create order with any additional parameters
-        return SwapOrder(config=write_config, market_key=order_parameters["swap_path"][-1], start_token=order_parameters["start_token_address"], out_token=order_parameters["out_token_address"], collateral_address=order_parameters["start_token_address"], index_token_address=order_parameters["out_token_address"], is_long=order_parameters["is_long"], size_delta=order_parameters["size_delta_usd"], initial_collateral_delta_amount=order_parameters["initial_collateral_delta"], slippage_percent=order_parameters["slippage_percent"], swap_path=order_parameters["swap_path"], debug_mode=debug_mode, **kwargs)
+        return SwapOrder(
+            config=write_config,
+            market_key=order_parameters["swap_path"][-1],
+            start_token=order_parameters["start_token_address"],
+            out_token=order_parameters["out_token_address"],
+            collateral_address=order_parameters["start_token_address"],
+            index_token_address=order_parameters["out_token_address"],
+            is_long=order_parameters["is_long"],
+            size_delta=order_parameters["size_delta_usd"],
+            initial_collateral_delta_amount=order_parameters["initial_collateral_delta"],
+            slippage_percent=order_parameters["slippage_percent"],
+            swap_path=order_parameters["swap_path"],
+            debug_mode=debug_mode,
+            **kwargs,
+        )

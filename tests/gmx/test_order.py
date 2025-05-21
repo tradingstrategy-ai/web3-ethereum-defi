@@ -4,6 +4,7 @@ Tests for GMXOrderManager with parametrized chain testing.
 This test suite tests the functionality of the GMXOrderManager class
 when connected to different networks using Anvil forks.
 """
+
 import pytest
 from gmx_python_sdk.scripts.v2.order.create_decrease_order import DecreaseOrder
 from eth_defi.gmx.order import GMXOrderManager
@@ -95,7 +96,16 @@ def test_close_position_creates_valid_order(chain_name, order_manager):
         collateral_delta = 2  # 2 AVAX
 
     # Valid parameters for closing a position
-    valid_params = {"chain": chain_name, "index_token_symbol": index_token, "collateral_token_symbol": collateral_token, "start_token_symbol": collateral_token, "is_long": True, "size_delta_usd": size_delta, "initial_collateral_delta": collateral_delta, "slippage_percent": 0.05}  # 5% slippage
+    valid_params = {
+        "chain": chain_name,
+        "index_token_symbol": index_token,
+        "collateral_token_symbol": collateral_token,
+        "start_token_symbol": collateral_token,
+        "is_long": True,
+        "size_delta_usd": size_delta,
+        "initial_collateral_delta": collateral_delta,
+        "slippage_percent": 0.05,
+    }  # 5% slippage
 
     # Create order in debug mode
     order = order_manager.close_position(parameters=valid_params, debug_mode=False)
@@ -133,7 +143,11 @@ def test_fail_close_position_by_key_invalid_format(order_manager):
     """
     # Invalid key format (no underscore)
     with pytest.raises(ValueError, match="Position with key .* not found"):
-        order_manager.close_position_by_key(position_key="INVALID_FORMAT_WITH_NO_PROPER_STRUCTURE", out_token_symbol="ETH", debug_mode=False)
+        order_manager.close_position_by_key(
+            position_key="INVALID_FORMAT_WITH_NO_PROPER_STRUCTURE",
+            out_token_symbol="ETH",
+            debug_mode=False,
+        )
 
 
 def test_close_position_chain_default(chain_name, order_manager):
@@ -153,7 +167,15 @@ def test_close_position_chain_default(chain_name, order_manager):
         collateral_delta = 2
 
     # Valid parameters but without chain specification
-    params = {"index_token_symbol": index_token, "collateral_token_symbol": collateral_token, "start_token_symbol": collateral_token, "is_long": True, "size_delta_usd": size_delta, "initial_collateral_delta": collateral_delta, "slippage_percent": 0.05}
+    params = {
+        "index_token_symbol": index_token,
+        "collateral_token_symbol": collateral_token,
+        "start_token_symbol": collateral_token,
+        "is_long": True,
+        "size_delta_usd": size_delta,
+        "initial_collateral_delta": collateral_delta,
+        "slippage_percent": 0.05,
+    }
 
     # Create order
     order = order_manager.close_position(parameters=params, debug_mode=False)
@@ -181,7 +203,16 @@ def test_close_position_partial_amount(chain_name, order_manager):
         collateral_delta = 2  # Remove only 2 AVAX
 
     # Parameters for closing a small amount
-    params = {"chain": chain_name, "index_token_symbol": index_token, "collateral_token_symbol": collateral_token, "start_token_symbol": collateral_token, "is_long": True, "size_delta_usd": size_delta, "initial_collateral_delta": collateral_delta, "slippage_percent": 0.03}  # 3% slippage
+    params = {
+        "chain": chain_name,
+        "index_token_symbol": index_token,
+        "collateral_token_symbol": collateral_token,
+        "start_token_symbol": collateral_token,
+        "is_long": True,
+        "size_delta_usd": size_delta,
+        "initial_collateral_delta": collateral_delta,
+        "slippage_percent": 0.03,
+    }  # 3% slippage
 
     # Create order
     order = order_manager.close_position(parameters=params, debug_mode=False)
@@ -223,7 +254,16 @@ def test_full_workflow_with_existing_positions(chain_name, order_manager, accoun
     # Create parameters for closing a tiny amount of the position
     size_delta = min(5 if chain_name == "avalanche" else 10, position["position_size"] * 0.01)  # Close 1% or $5/$10
 
-    params = {"chain": chain_name, "index_token_symbol": market_symbol, "collateral_token_symbol": market_symbol, "start_token_symbol": market_symbol, "is_long": is_long, "size_delta_usd": size_delta, "initial_collateral_delta": position["inital_collateral_amount"] * 0.01, "slippage_percent": 0.05}  # Remove 1% of collateral  # 5% slippage
+    params = {
+        "chain": chain_name,
+        "index_token_symbol": market_symbol,
+        "collateral_token_symbol": market_symbol,
+        "start_token_symbol": market_symbol,
+        "is_long": is_long,
+        "size_delta_usd": size_delta,
+        "initial_collateral_delta": position["inital_collateral_amount"] * 0.01,
+        "slippage_percent": 0.05,
+    }  # Remove 1% of collateral  # 5% slippage
 
     # Create order
     order = order_manager.close_position(parameters=params, debug_mode=False)
@@ -242,7 +282,15 @@ def test_full_workflow_with_existing_positions(chain_name, order_manager, accoun
     out_token_symbol = positions[position_key]["collateral_token"]
 
     # Now try using close_position_by_key with the same position
-    order2 = order_manager.close_position_by_key(position_key=position_key, out_token_symbol=out_token_symbol, amount_of_position_to_close=0.01, amount_of_collateral_to_remove=0.01, slippage_percent=0.05, debug_mode=False, address=account_with_positions)  # Close 1%  # Remove 1% of collateral
+    order2 = order_manager.close_position_by_key(
+        position_key=position_key,
+        out_token_symbol=out_token_symbol,
+        amount_of_position_to_close=0.01,
+        amount_of_collateral_to_remove=0.01,
+        slippage_percent=0.05,
+        debug_mode=False,
+        address=account_with_positions,
+    )  # Close 1%  # Remove 1% of collateral
 
     # Verify the second order was created
     assert isinstance(order2, DecreaseOrder)

@@ -3,6 +3,7 @@ GMX Market Data Module
 
 This module provides access to GMX protocol market data.
 """
+
 # TODO: Handle the returned data better. Maybe with a class and add proper exceptions
 from typing import Any, Optional
 

@@ -3,6 +3,7 @@ Tests for GMXAPI with parametrized chain testing.
 
 This test suite makes real API calls to GMX API endpoints for Arbitrum and Avalanche networks.
 """
+
 import pytest
 import pandas as pd
 

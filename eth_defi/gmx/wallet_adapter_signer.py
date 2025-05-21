@@ -1,6 +1,12 @@
-from typing import Union
+from typing import Union, Any, Dict, Optional, cast
+
+from eth_account.messages import encode_defunct
+from eth_typing import ChecksumAddress
+from cchecksum import to_checksum_address
+from hexbytes import HexBytes
 
 from web3 import Web3
+from web3.types import SignedTx, TxParams
 from eth_defi.basewallet import BaseWallet
 from eth_defi.hotwallet import HotWallet, SignedTransactionWithNonce
 from eth_defi.provider_wallet import Web3ProviderWallet
@@ -17,7 +23,7 @@ class WalletAdapterSigner(Signer):
     - Other BaseWallet implementations: Using their sign_transaction_with_new_nonce method
     """
 
-    def __init__(self, wallet: Union[BaseWallet, HotWallet, Web3ProviderWallet], web3: Web3):
+    def __init__(self, wallet: Union[BaseWallet, HotWallet, Web3ProviderWallet], web3: Web3) -> None:
         """Initialize the adapter with a wallet and web3 instance.
 
         Args:
@@ -27,15 +33,65 @@ class WalletAdapterSigner(Signer):
         self.wallet = wallet
         self.web3 = web3
 
-    def get_address(self) -> str:
+    def get_address(self) -> ChecksumAddress:
         """Get the wallet's address.
 
         Returns:
             The Ethereum address associated with this wallet
         """
-        return self.wallet.get_main_address()
+        return to_checksum_address(self.wallet.get_main_address())
 
-    def sign_transaction(self, unsigned_tx):
+    def sign_message(self, message: Union[str, bytes, int]) -> HexBytes:
+        """Sign a message with the wallet.
+
+        This method adapts to different wallet types to sign a message.
+
+        Args:
+            message: The message to sign, which can be a string, bytes, or integer
+
+        Returns:
+            The signed message as a HexBytes object
+
+        Raises:
+            NotImplementedError: If the wallet type doesn't support direct message signing
+            ValueError: If there's an error during the signing process
+        """
+        # Convert message to bytes if it's not already
+        if isinstance(message, str):
+            # Check if it's a hex string
+            if message.startswith("0x"):
+                signable_message = encode_defunct(HexBytes(message))
+            else:
+                signable_message = encode_defunct(message.encode("utf-8"))
+        elif isinstance(message, int):
+            signable_message = encode_defunct(Web3.to_bytes(message))
+        elif isinstance(message, bytes) or isinstance(message, HexBytes):
+            signable_message = encode_defunct(message)
+        else:
+            raise ValueError(f"Unsupported message type: {type(message)}")
+
+        try:
+            # HotWallet has an account object we can use directly
+            if isinstance(self.wallet, HotWallet):
+                # Use the account's sign method
+                signature = self.wallet.account.sign_message(signable_message)
+                return HexBytes(signature.signature)
+
+            elif isinstance(self.wallet, Web3ProviderWallet):
+                # For provider wallets, use personal_sign
+                raise NotImplementedError("Message signing not implemented for wallet type: Web3ProviderWallet")
+
+            else:
+                # Try using the wallet's sign_message method if available
+                if hasattr(self.wallet, "sign_message"):
+                    return HexBytes(self.wallet.sign_message(signable_message).messageHash)
+
+                raise NotImplementedError(f"Message signing not implemented for wallet type: {type(self.wallet)}")
+
+        except Exception as e:
+            raise ValueError(f"Failed to sign message: {str(e)}") from e
+
+    def sign_transaction(self, unsigned_tx: TxParams) -> Union[SignedTransactionWithNonce, SignedTx]:
         """Sign a transaction with the wallet.
 
         This method handles different wallet types and transactions with or without nonces.
@@ -45,6 +101,10 @@ class WalletAdapterSigner(Signer):
 
         Returns:
             A signed transaction object
+
+        Raises:
+            NotImplementedError: If direct signing with nonce is not supported for Web3ProviderWallet
+            ValueError: If there's an error during the signing process
         """
         # Handle transactions that already have a nonce
         if "nonce" in unsigned_tx:
@@ -74,7 +134,7 @@ class WalletAdapterSigner(Signer):
             # No nonce provided, use the wallet's nonce management
             return self.wallet.sign_transaction_with_new_nonce(unsigned_tx)
 
-    def send_transaction(self, unsigned_tx):
+    def send_transaction(self, unsigned_tx: TxParams) -> HexBytes:
         """Sign and send a transaction.
 
         This method handles different wallet types and adapts to their capabilities.
@@ -83,7 +143,10 @@ class WalletAdapterSigner(Signer):
             unsigned_tx: The transaction to sign and send
 
         Returns:
-            The transaction hash
+            The transaction hash as a HexBytes object
+
+        Raises:
+            ValueError: If there's an error during the transaction sending process
         """
         # Handle Web3ProviderWallet specially
         if isinstance(self.wallet, Web3ProviderWallet):
@@ -105,9 +168,9 @@ class WalletAdapterSigner(Signer):
 
             # Extract the raw transaction bytes
             if hasattr(signed_tx, "rawTransaction"):
-                raw_tx = signed_tx.rawTransaction
+                raw_tx = cast(Any, signed_tx).rawTransaction
             elif hasattr(signed_tx, "raw_transaction"):
-                raw_tx = signed_tx.raw_transaction
+                raw_tx = cast(Any, signed_tx).raw_transaction
             elif isinstance(signed_tx, SignedTransactionWithNonce):
                 raw_tx = signed_tx.rawTransaction
             else:
@@ -116,4 +179,4 @@ class WalletAdapterSigner(Signer):
             # Send the raw transaction
             return self.web3.eth.send_raw_transaction(raw_tx)
         except Exception as e:
-            raise ValueError(f"Failed to send transaction: {str(e)}") from e
+            raise ValueError(f"Failed to send transaction: {e!s}") from e

@@ -28,7 +28,6 @@ sample makets data :
 }
 """
 
-
 """
 `get_available_liquidity()`
 

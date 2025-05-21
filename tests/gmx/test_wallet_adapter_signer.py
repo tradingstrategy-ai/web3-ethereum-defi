@@ -5,6 +5,7 @@ This test suite verifies that the wallet adapter successfully bridges between
 eth_defi wallet implementations and GMX's signer interface, allowing different
 wallet types to interact with the GMX protocol.
 """
+
 from eth_account import Account
 from hexbytes import HexBytes
 
@@ -74,7 +75,16 @@ def test_trading_with_hotwallet(gmx_config_fork, chain_name, wallet_with_usdc):
         collateral_symbol = "USDC"
 
     # Create a position order in debug mode
-    order = trading.open_position(market_symbol=market_symbol, collateral_symbol=collateral_symbol, start_token_symbol=collateral_symbol, is_long=True, size_delta_usd=100, leverage=2, slippage_percent=0.003, debug_mode=True)  # Debug mode to avoid actual transaction
+    order = trading.open_position(
+        market_symbol=market_symbol,
+        collateral_symbol=collateral_symbol,
+        start_token_symbol=collateral_symbol,
+        is_long=True,
+        size_delta_usd=100,
+        leverage=2,
+        slippage_percent=0.003,
+        debug_mode=True,
+    )  # Debug mode to avoid actual transaction
 
     # Verify the order was created with appropriate parameters
     assert order is not None
@@ -98,7 +108,14 @@ def test_liquidity_with_hotwallet(gmx_config_fork, chain_name, wallet_with_nativ
         long_token_symbol = "AVAX"
 
     # Add liquidity in debug mode
-    order = liquidity_manager.add_liquidity(market_token_symbol=market_token_symbol, long_token_symbol=long_token_symbol, short_token_symbol="USDC", long_token_usd=10, short_token_usd=0, debug_mode=True)  # Debug mode to avoid actual transaction
+    order = liquidity_manager.add_liquidity(
+        market_token_symbol=market_token_symbol,
+        long_token_symbol=long_token_symbol,
+        short_token_symbol="USDC",
+        long_token_usd=10,
+        short_token_usd=0,
+        debug_mode=True,
+    )  # Debug mode to avoid actual transaction
 
     # Verify the order was created
     assert order is not None
@@ -125,7 +142,16 @@ def test_order_manager_with_hotwallet(gmx_config_fork, chain_name):
         collateral_delta = 2
 
     # Create a close position order in debug mode
-    params = {"chain": chain_name, "index_token_symbol": index_token, "collateral_token_symbol": collateral_token, "start_token_symbol": collateral_token, "is_long": True, "size_delta_usd": size_delta, "initial_collateral_delta": collateral_delta, "slippage_percent": 0.05}
+    params = {
+        "chain": chain_name,
+        "index_token_symbol": index_token,
+        "collateral_token_symbol": collateral_token,
+        "start_token_symbol": collateral_token,
+        "is_long": True,
+        "size_delta_usd": size_delta,
+        "initial_collateral_delta": collateral_delta,
+        "slippage_percent": 0.05,
+    }
 
     order = order_manager.close_position(parameters=params, debug_mode=True)
 
@@ -198,7 +224,13 @@ def test_wallet_adapter_sign_transaction(web3_fork, chain_name):
     adapter = WalletAdapterSigner(wallet, web3_fork)
 
     # Create a test transaction
-    tx = {"to": "0x1234567890123456789012345678901234567890", "value": 1000, "gas": 21000, "gasPrice": web3_fork.eth.gas_price, "chainId": web3_fork.eth.chain_id}
+    tx = {
+        "to": "0x1234567890123456789012345678901234567890",
+        "value": 1000,
+        "gas": 21000,
+        "gasPrice": web3_fork.eth.gas_price,
+        "chainId": web3_fork.eth.chain_id,
+    }
 
     # Sign transaction (without nonce)
     signed_tx = adapter.sign_transaction(tx)
@@ -234,7 +266,13 @@ def test_wallet_adapter_send_transaction(web3_fork, chain_name):
     # Create a test transaction to send a small amount of ETH to another address
     recipient = "0x70997970C51812dc3A010C7d01b50e0d17dc79C8"  # Second anvil address
 
-    tx = {"to": recipient, "value": 1000, "gas": 21000, "gasPrice": web3_fork.eth.gas_price, "chainId": web3_fork.eth.chain_id}
+    tx = {
+        "to": recipient,
+        "value": 1000,
+        "gas": 21000,
+        "gasPrice": web3_fork.eth.gas_price,
+        "chainId": web3_fork.eth.chain_id,
+    }
 
     # Record balances before
     balance_before = web3_fork.eth.get_balance(recipient)
@@ -284,11 +322,35 @@ def test_trading_with_configs_with_different_wallet_types(web3_fork, chain_name,
         collateral_symbol = "USDC"
 
     # Create position orders in debug mode for each trading manager
-    order1 = trading1.open_position(market_symbol=market_symbol, collateral_symbol=collateral_symbol, start_token_symbol=collateral_symbol, is_long=True, size_delta_usd=100, leverage=2, debug_mode=True)
+    order1 = trading1.open_position(
+        market_symbol=market_symbol,
+        collateral_symbol=collateral_symbol,
+        start_token_symbol=collateral_symbol,
+        is_long=True,
+        size_delta_usd=100,
+        leverage=2,
+        debug_mode=True,
+    )
 
-    order2 = trading2.open_position(market_symbol=market_symbol, collateral_symbol=collateral_symbol, start_token_symbol=collateral_symbol, is_long=True, size_delta_usd=100, leverage=2, debug_mode=True)
+    order2 = trading2.open_position(
+        market_symbol=market_symbol,
+        collateral_symbol=collateral_symbol,
+        start_token_symbol=collateral_symbol,
+        is_long=True,
+        size_delta_usd=100,
+        leverage=2,
+        debug_mode=True,
+    )
 
-    order3 = trading3.open_position(market_symbol=market_symbol, collateral_symbol=collateral_symbol, start_token_symbol=collateral_symbol, is_long=True, size_delta_usd=100, leverage=2, debug_mode=True)
+    order3 = trading3.open_position(
+        market_symbol=market_symbol,
+        collateral_symbol=collateral_symbol,
+        start_token_symbol=collateral_symbol,
+        is_long=True,
+        size_delta_usd=100,
+        leverage=2,
+        debug_mode=True,
+    )
 
     # Verify all orders were created
     assert order1 is not None
@@ -331,7 +393,16 @@ def test_order_management_with_different_wallet_types(web3_fork, chain_name, tes
         collateral_delta = 2
 
     # Parameters for closing a position
-    params = {"chain": chain_name, "index_token_symbol": index_token, "collateral_token_symbol": collateral_token, "start_token_symbol": collateral_token, "is_long": True, "size_delta_usd": size_delta, "initial_collateral_delta": collateral_delta, "slippage_percent": 0.05}
+    params = {
+        "chain": chain_name,
+        "index_token_symbol": index_token,
+        "collateral_token_symbol": collateral_token,
+        "start_token_symbol": collateral_token,
+        "is_long": True,
+        "size_delta_usd": size_delta,
+        "initial_collateral_delta": collateral_delta,
+        "slippage_percent": 0.05,
+    }
 
     # Create order in debug mode
     order1 = order_manager1.close_position(parameters=params, debug_mode=True)

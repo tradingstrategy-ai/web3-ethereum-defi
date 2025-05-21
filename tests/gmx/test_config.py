@@ -4,6 +4,7 @@ Tests for GMXConfig with parametrized chain testing.
 This test suite verifies the configuration functionality across different chains
 and with various wallet implementations.
 """
+
 import pytest
 from web3 import Web3
 from eth_account import Account
@@ -260,7 +261,12 @@ def test_private_key_with_explicit_address(web3_fork, chain_name, anvil_private_
     explicit_address = "0x70997970C51812dc3A010C7d01b50e0d17dc79C8"  # Second anvil address
 
     # Create GMXConfig with both private key and explicit address
-    config = GMXConfig(web3_fork, chain=chain_name, private_key=anvil_private_key, user_wallet_address=explicit_address)
+    config = GMXConfig(
+        web3_fork,
+        chain=chain_name,
+        private_key=anvil_private_key,
+        user_wallet_address=explicit_address,
+    )
 
     # Check that the wallet was created
     assert config._wallet is not None
@@ -317,7 +323,15 @@ def test_integration_with_trading(web3_fork, chain_name, wallet_with_usdc, anvil
         collateral_symbol = "USDC"
 
     # Try to create a position order in debug mode
-    order = trading.open_position(market_symbol=market_symbol, collateral_symbol=collateral_symbol, start_token_symbol=collateral_symbol, is_long=True, size_delta_usd=100, leverage=2, debug_mode=True)
+    order = trading.open_position(
+        market_symbol=market_symbol,
+        collateral_symbol=collateral_symbol,
+        start_token_symbol=collateral_symbol,
+        is_long=True,
+        size_delta_usd=100,
+        leverage=2,
+        debug_mode=True,
+    )
 
     # Verify the order was created
     assert order is not None

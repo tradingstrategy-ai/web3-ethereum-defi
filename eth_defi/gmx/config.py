@@ -15,7 +15,14 @@ class GMXConfig:
     to be used interchangeably.
     """
 
-    def __init__(self, web3: Web3, chain: str = "arbitrum", wallet: Optional[Union[BaseWallet, HotWallet]] = None, user_wallet_address: Optional[str] = None, private_key: Optional[str] = None):  # For backward compatibility
+    def __init__(
+        self,
+        web3: Web3,
+        chain: str = "arbitrum",
+        wallet: Optional[Union[BaseWallet, HotWallet]] = None,
+        user_wallet_address: Optional[str] = None,
+        private_key: Optional[str] = None,
+    ):  # For backward compatibility
         """
         Initialize GMX configuration.
 
@@ -63,7 +70,13 @@ class GMXConfig:
         }
 
         # Initialize a read-only ConfigManager instance (no private key)
-        self._read_config = ConfigManager(chain=chain, rpc=self._rpc_url, chain_id=web3.eth.chain_id, user_wallet_address=user_wallet_address, config=self._base_config_dict)
+        self._read_config = ConfigManager(
+            chain=chain,
+            rpc=self._rpc_url,
+            chain_id=web3.eth.chain_id,
+            user_wallet_address=user_wallet_address,
+            config=self._base_config_dict,
+        )
 
         # Only initialize a write config if we have a wallet
         self._write_config = None
@@ -75,7 +88,14 @@ class GMXConfig:
             # For backward compatibility
             write_config_dict = self._base_config_dict.copy()
             write_config_dict["private_key"] = private_key
-            self._write_config = ConfigManager(chain=chain, rpc=self._rpc_url, chain_id=web3.eth.chain_id, user_wallet_address=user_wallet_address, private_key=private_key, config=write_config_dict)
+            self._write_config = ConfigManager(
+                chain=chain,
+                rpc=self._rpc_url,
+                chain_id=web3.eth.chain_id,
+                user_wallet_address=user_wallet_address,
+                private_key=private_key,
+                config=write_config_dict,
+            )
 
     def _create_write_config(self) -> ConfigManager:
         """Create a ConfigManager with transaction signing capability."""
@@ -90,7 +110,14 @@ class GMXConfig:
             self._wallet.sync_nonce(self.web3)
 
         # Create ConfigManager with the adapter signer
-        config_manager = ConfigManager(chain=self.chain, rpc=self._rpc_url, chain_id=self.web3.eth.chain_id, user_wallet_address=self._user_wallet_address, config=write_config_dict, signer=adapter_signer)
+        config_manager = ConfigManager(
+            chain=self.chain,
+            rpc=self._rpc_url,
+            chain_id=self.web3.eth.chain_id,
+            user_wallet_address=self._user_wallet_address,
+            config=write_config_dict,
+            signer=adapter_signer,
+        )
 
         return config_manager
 
@@ -129,7 +156,11 @@ class GMXConfig:
 
     def get_network_info(self) -> dict[str, Any]:
         """Get network information (chain, RPC, chain ID)."""
-        return {"chain": self.chain, "rpc_url": self._rpc_url, "chain_id": self.web3.eth.chain_id}
+        return {
+            "chain": self.chain,
+            "rpc_url": self._rpc_url,
+            "chain_id": self.web3.eth.chain_id,
+        }
 
     @classmethod
     def from_private_key(cls, web3: Web3, private_key: str, chain: str = "arbitrum"):

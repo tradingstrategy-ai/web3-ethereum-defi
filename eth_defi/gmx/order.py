@@ -89,7 +89,12 @@ class GMXOrderManager:
         write_config = self.config.get_write_config()
 
         # Validate required parameters
-        required_params = ["index_token_symbol", "collateral_token_symbol", "is_long", "size_delta_usd"]
+        required_params = [
+            "index_token_symbol",
+            "collateral_token_symbol",
+            "is_long",
+            "size_delta_usd",
+        ]
         for param in required_params:
             if param not in parameters:
                 raise ValueError(f"Missing required parameter: {param}")
@@ -102,9 +107,29 @@ class GMXOrderManager:
         order_parameters = OrderArgumentParser(write_config, is_decrease=True).process_parameters_dictionary(parameters)
 
         # Create decrease order
-        return DecreaseOrder(config=write_config, market_key=order_parameters["market_key"], collateral_address=order_parameters["collateral_address"], index_token_address=order_parameters["index_token_address"], is_long=order_parameters["is_long"], size_delta=order_parameters["size_delta"], initial_collateral_delta_amount=order_parameters["initial_collateral_delta"], slippage_percent=order_parameters["slippage_percent"], swap_path=order_parameters.get("swap_path", []), debug_mode=debug_mode)
+        return DecreaseOrder(
+            config=write_config,
+            market_key=order_parameters["market_key"],
+            collateral_address=order_parameters["collateral_address"],
+            index_token_address=order_parameters["index_token_address"],
+            is_long=order_parameters["is_long"],
+            size_delta=order_parameters["size_delta"],
+            initial_collateral_delta_amount=order_parameters["initial_collateral_delta"],
+            slippage_percent=order_parameters["slippage_percent"],
+            swap_path=order_parameters.get("swap_path", []),
+            debug_mode=debug_mode,
+        )
 
-    def close_position_by_key(self, position_key: str, out_token_symbol: str, amount_of_position_to_close: float = 1.0, amount_of_collateral_to_remove: float = 1.0, slippage_percent: float = 0.003, debug_mode: bool = False, address: Optional[Union[str, Address]] = None) -> DecreaseOrder:
+    def close_position_by_key(
+        self,
+        position_key: str,
+        out_token_symbol: str,
+        amount_of_position_to_close: float = 1.0,
+        amount_of_collateral_to_remove: float = 1.0,
+        slippage_percent: float = 0.003,
+        debug_mode: bool = False,
+        address: Optional[Union[str, Address]] = None,
+    ) -> DecreaseOrder:
         """
         Close a position by its key.
 
@@ -144,7 +169,27 @@ class GMXOrderManager:
         is_long = direction.lower() == "long"
 
         # Transform position to order parameters
-        order_parameters = transform_open_position_to_order_parameters(config=write_config, positions=positions, market_symbol=market_symbol, is_long=is_long, slippage_percent=slippage_percent, out_token=out_token_symbol, amount_of_position_to_close=amount_of_position_to_close, amount_of_collateral_to_remove=amount_of_collateral_to_remove)
+        order_parameters = transform_open_position_to_order_parameters(
+            config=write_config,
+            positions=positions,
+            market_symbol=market_symbol,
+            is_long=is_long,
+            slippage_percent=slippage_percent,
+            out_token=out_token_symbol,
+            amount_of_position_to_close=amount_of_position_to_close,
+            amount_of_collateral_to_remove=amount_of_collateral_to_remove,
+        )
 
         # Create decrease order
-        return DecreaseOrder(config=write_config, market_key=order_parameters["market_key"], collateral_address=order_parameters["collateral_address"], index_token_address=order_parameters["index_token_address"], is_long=order_parameters["is_long"], size_delta=order_parameters["size_delta"], initial_collateral_delta_amount=order_parameters["initial_collateral_delta"], slippage_percent=order_parameters["slippage_percent"], swap_path=order_parameters.get("swap_path", []), debug_mode=debug_mode)
+        return DecreaseOrder(
+            config=write_config,
+            market_key=order_parameters["market_key"],
+            collateral_address=order_parameters["collateral_address"],
+            index_token_address=order_parameters["index_token_address"],
+            is_long=order_parameters["is_long"],
+            size_delta=order_parameters["size_delta"],
+            initial_collateral_delta_amount=order_parameters["initial_collateral_delta"],
+            slippage_percent=order_parameters["slippage_percent"],
+            swap_path=order_parameters.get("swap_path", []),
+            debug_mode=debug_mode,
+        )

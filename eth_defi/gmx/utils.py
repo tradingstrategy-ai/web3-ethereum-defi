@@ -12,7 +12,12 @@ from decimal import Decimal
 from gmx_python_sdk.scripts.v2.get.get_markets import Markets
 
 from gmx_python_sdk.scripts.v2.get.get_open_positions import GetOpenPositions
-from gmx_python_sdk.scripts.v2.gmx_utils import ConfigManager, find_dictionary_by_key_value, get_tokens_address_dict, determine_swap_route
+from gmx_python_sdk.scripts.v2.gmx_utils import (
+    ConfigManager,
+    find_dictionary_by_key_value,
+    get_tokens_address_dict,
+    determine_swap_route,
+)
 
 # Can be done using the `GMXAPI` class if needed
 # def token_symbol_to_address(chain: str, symbol: str) -> Optional[str]:
@@ -41,10 +46,25 @@ def format_position_for_display(position: dict[str, Any]) -> dict[str, Any]:
         Formatted position data
     """
     # Extract and format relevant fields for display
-    return {"market": position.get("market_symbol", ""), "direction": "Long" if position.get("is_long") else "Short", "size_usd": position.get("position_size", 0), "collateral": position.get("collateral_token", ""), "leverage": position.get("leverage", 0), "entry_price": position.get("entry_price", 0), "current_price": position.get("mark_price", 0), "pnl_percent": position.get("percent_profit", 0)}
+    return {
+        "market": position.get("market_symbol", ""),
+        "direction": "Long" if position.get("is_long") else "Short",
+        "size_usd": position.get("position_size", 0),
+        "collateral": position.get("collateral_token", ""),
+        "leverage": position.get("leverage", 0),
+        "entry_price": position.get("entry_price", 0),
+        "current_price": position.get("mark_price", 0),
+        "pnl_percent": position.get("percent_profit", 0),
+    }
 
 
-def calculate_estimated_liquidation_price(entry_price: float, collateral_usd: float, size_usd: float, is_long: bool, maintenance_margin: float = 0.01) -> float:  # 1% maintenance margin
+def calculate_estimated_liquidation_price(
+    entry_price: float,
+    collateral_usd: float,
+    size_usd: float,
+    is_long: bool,
+    maintenance_margin: float = 0.01,
+) -> float:  # 1% maintenance margin
     """
     Calculate an estimated liquidation price.
 
@@ -101,7 +121,16 @@ def get_positions(config, address: str = None) -> dict[str, Any]:
     return positions
 
 
-def transform_open_position_to_order_parameters(config, positions: dict[str, Any], market_symbol: str, is_long: bool, slippage_percent: float, out_token: str, amount_of_position_to_close: float, amount_of_collateral_to_remove: float) -> dict[str, Any]:
+def transform_open_position_to_order_parameters(
+    config,
+    positions: dict[str, Any],
+    market_symbol: str,
+    is_long: bool,
+    slippage_percent: float,
+    out_token: str,
+    amount_of_position_to_close: float,
+    amount_of_collateral_to_remove: float,
+) -> dict[str, Any]:
     """
     Transform an open position into parameters for a close order.
 
@@ -152,7 +181,17 @@ def transform_open_position_to_order_parameters(config, positions: dict[str, Any
         size_delta = int((Decimal(raw_position_data["position_size"]) * (Decimal(10) ** 30)) * Decimal(amount_of_position_to_close))
 
         # Return formatted parameters
-        return {"chain": config.chain, "market_key": raw_position_data["market"], "collateral_address": collateral_address, "index_token_address": index_address["address"], "is_long": raw_position_data["is_long"], "size_delta": size_delta, "initial_collateral_delta": int(raw_position_data["inital_collateral_amount"] * amount_of_collateral_to_remove), "slippage_percent": slippage_percent, "swap_path": swap_path}
+        return {
+            "chain": config.chain,
+            "market_key": raw_position_data["market"],
+            "collateral_address": collateral_address,
+            "index_token_address": index_address["address"],
+            "is_long": raw_position_data["is_long"],
+            "size_delta": size_delta,
+            "initial_collateral_delta": int(raw_position_data["inital_collateral_amount"] * amount_of_collateral_to_remove),
+            "slippage_percent": slippage_percent,
+            "swap_path": swap_path,
+        }
     except KeyError:
         raise Exception(f"Couldn't find a {market_symbol} {direction} position for the given user!")
 

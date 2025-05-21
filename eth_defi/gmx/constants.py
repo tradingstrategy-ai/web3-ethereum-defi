@@ -11,18 +11,36 @@ import json
 base_dir = Path(__file__).resolve().parent
 
 # GMX Is maintaining these APIs and the official documentation can be found here: https://gmx-docs.io/docs/api/rest-v2
-GMX_API_URLS: dict = {"arbitrum": "https://arbitrum-api.gmxinfra.io", "avalanche": "https://avalanche-api.gmxinfra.io"}
+GMX_API_URLS: dict = {
+    "arbitrum": "https://arbitrum-api.gmxinfra.io",
+    "avalanche": "https://avalanche-api.gmxinfra.io",
+}
 
-GMX_API_URLS_BACKUP: dict = {"arbitrum": "https://arbitrum-api.gmxinfra2.io", "avalanche": "https://avalanche-api.gmxinfra2.io"}
+GMX_API_URLS_BACKUP: dict = {
+    "arbitrum": "https://arbitrum-api.gmxinfra2.io",
+    "avalanche": "https://avalanche-api.gmxinfra2.io",
+}
 
 # Contract addresses by chain
-GMX_EVENT_EMITTER_ADDRESS = {"arbitrum": "0xC8ee91A54287DB53897056e12D9819156D3822Fb", "avalanche": "0xDb17B211c34240B014ab6d61d4A31FA0C0e20c26"}
+GMX_EVENT_EMITTER_ADDRESS = {
+    "arbitrum": "0xC8ee91A54287DB53897056e12D9819156D3822Fb",
+    "avalanche": "0xDb17B211c34240B014ab6d61d4A31FA0C0e20c26",
+}
 
-GMX_DATASTORE_ADDRESS = {"arbitrum": "0xFD70de6b91282D8017aA4E741e9Ae325CAb992d8", "avalanche": "0x2F0b22339414ADeD7D5F06f9D604c7fF5b2fe3f6"}
+GMX_DATASTORE_ADDRESS = {
+    "arbitrum": "0xFD70de6b91282D8017aA4E741e9Ae325CAb992d8",
+    "avalanche": "0x2F0b22339414ADeD7D5F06f9D604c7fF5b2fe3f6",
+}
 
-GMX_READER_ADDRESS = {"arbitrum": "0x5Ca84c34a381434786738735265b9f3FD814b824", "avalanche": "0xBAD04dDcc5CC284A86493aFA75D2BEb970C72216"}
+GMX_READER_ADDRESS = {
+    "arbitrum": "0x5Ca84c34a381434786738735265b9f3FD814b824",
+    "avalanche": "0xBAD04dDcc5CC284A86493aFA75D2BEb970C72216",
+}
 
-GMX_EXCHANGE_ROUTER_ADDRESS = {"arbitrum": "0x900173A66dbD345006C51fA35fA3aB760FcD843b", "avalanche": "0x2b76df209E1343da5698AF0f8757f6170162e78b"}
+GMX_EXCHANGE_ROUTER_ADDRESS = {
+    "arbitrum": "0x900173A66dbD345006C51fA35fA3aB760FcD843b",
+    "avalanche": "0x2b76df209E1343da5698AF0f8757f6170162e78b",
+}
 
 # Define the paths to ABI files
 eventemitter_path = base_dir / "../" / "abi" / "gmx" / "eventemitter.json"

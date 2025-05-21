@@ -27,7 +27,7 @@ CHAIN_CONFIG = {
     "arbitrum": {
         "rpc_env_var": "ARBITRUM_JSON_RPC_URL",
         "chain_id": 42161,
-        "fork_block_number": 337228641,
+        "fork_block_number": 338206286,
         "wbtc_address": "0x2f2a2543B76A4166549F7aaB2e75Bef0aefC5B0f",
         "usdc_address": "0xaf88d065e77c8cC2239327C5EDb3A432268e5831",  # USDC on Arbitrum
         "usdt_address": "0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9",  # USDT on Arbitrum
@@ -75,6 +75,7 @@ def pytest_generate_tests(metafunc):
 def test_address(anvil_private_key) -> HexAddress:
     """Return the default anvil test address."""
     account = Account.from_key(anvil_private_key)
+    assert to_checksum_address("0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266") == account.address
     return account.address
 
 
@@ -163,6 +164,12 @@ def large_link_holder_avalanche() -> HexAddress:
     return HexAddress(HexStr("0x4e9f683A27a6BdAD3FC2764003759277e93696e6"))
 
 
+@pytest.fixture()
+def large_arb_holder_arbitrum() -> HexAddress:
+    # Binance Hot wallet 20
+    return HexAddress(HexStr("0xF977814e90dA44bFA03b6295A0616a897441aceC"))
+
+
 # GMX Actors for passing checks
 @pytest.fixture()
 def gmx_controller_arbitrum() -> HexAddress:
@@ -185,7 +192,21 @@ def chain_rpc_url(chain_name):
 
 
 @pytest.fixture()
-def anvil_chain_fork(request, chain_name, chain_rpc_url, large_eth_holder, large_wbtc_holder, large_wavax_holder, large_usdc_holder_arbitrum, large_usdc_holder_avalanche, large_wbtc_holder_avalanche, large_link_holder_avalanche, gmx_controller_arbitrum, large_weth_holder_arbitrum, gmx_keeper_arbitrum) -> Generator[str, Any, None]:
+def anvil_chain_fork(
+    request,
+    chain_name,
+    chain_rpc_url,
+    large_eth_holder,
+    large_wbtc_holder,
+    large_wavax_holder,
+    large_usdc_holder_arbitrum,
+    large_usdc_holder_avalanche,
+    large_wbtc_holder_avalanche,
+    large_link_holder_avalanche,
+    gmx_controller_arbitrum,
+    large_weth_holder_arbitrum,
+    gmx_keeper_arbitrum,
+) -> Generator[str, Any, None]:
     """Create a testable fork of the live chain using Anvil."""
     unlocked_addresses = [large_eth_holder, large_wbtc_holder]
 
@@ -202,7 +223,13 @@ def anvil_chain_fork(request, chain_name, chain_rpc_url, large_eth_holder, large
 
     fork_block = CHAIN_CONFIG[chain_name]["fork_block_number"]
 
-    launch = fork_network_anvil(chain_rpc_url, unlocked_addresses=unlocked_addresses, test_request_timeout=30, fork_block_number=fork_block, launch_wait_seconds=40)
+    launch = fork_network_anvil(
+        chain_rpc_url,
+        unlocked_addresses=unlocked_addresses,
+        test_request_timeout=30,
+        fork_block_number=fork_block,
+        launch_wait_seconds=40,
+    )
 
     try:
         yield launch.json_rpc_url
@@ -214,7 +241,12 @@ def anvil_chain_fork(request, chain_name, chain_rpc_url, large_eth_holder, large
 @pytest.fixture()
 def web3_fork(anvil_chain_fork: str) -> Web3:
     """Set up a local unit testing blockchain with the forked chain."""
-    web3 = Web3(HTTPProvider("https://virtual.arbitrum.rpc.tenderly.co/187913b5-6725-498d-a9c0-647cdb0ea114"))
+    web3 = Web3(
+        HTTPProvider(
+            anvil_chain_fork,
+            request_kwargs={"timeout": 30},
+        )
+    )
     install_chain_middleware(web3)
     web3.eth.set_gas_price_strategy(node_default_gas_price_strategy)
     return web3
@@ -296,7 +328,11 @@ def wavax_avalanche(web3_fork: Web3, chain_name) -> TokenDetails:
     """WAVAX token on Avalanche."""
     if chain_name != "avalanche":
         pytest.skip("This fixture is for Avalanche only")
-    return fetch_erc20_details(web3_fork, CHAIN_CONFIG["avalanche"]["wavax_address"], contract_name="./WAVAX.json")
+    return fetch_erc20_details(
+        web3_fork,
+        CHAIN_CONFIG["avalanche"]["wavax_address"],
+        contract_name="./WAVAX.json",
+    )
 
 
 # Generic token fixtures that adapt to the current chain
@@ -352,7 +388,13 @@ def wrapped_native_token(web3_fork: Web3, chain_name) -> TokenDetails:
 
 # Wallet funding fixtures
 @pytest.fixture()
-def wallet_with_native_token(web3_fork: Web3, chain_name, test_address: HexAddress, gmx_controller_arbitrum: HexAddress, large_eth_holder: HexAddress) -> None:
+def wallet_with_native_token(
+    web3_fork: Web3,
+    chain_name,
+    test_address: HexAddress,
+    gmx_controller_arbitrum: HexAddress,
+    large_eth_holder: HexAddress,
+) -> None:
     """Set up the anvil wallet with the chain's native token for testing."""
     # Native ETH is already available in the test account on both forks
 
@@ -365,13 +407,19 @@ def wallet_with_native_token(web3_fork: Web3, chain_name, test_address: HexAddre
         wavax.contract.functions.deposit().transact({"from": test_address, "value": amount})
     else:
         # Fund the account with native gas tokens of arbitrum
-        amount_wei = 500 * 10**18
-        web3_fork.provider.make_request("tenderly_setBalance", [gmx_controller_arbitrum, hex(amount_wei)])
-        web3_fork.provider.make_request("tenderly_setBalance", [test_address, hex(amount_wei)])
+        amount_wei = 5000000 * 10**18
+        web3_fork.provider.make_request("anvil_setBalance", [gmx_controller_arbitrum, hex(amount_wei)])
+        web3_fork.provider.make_request("anvil_setBalance", [test_address, hex(amount_wei)])
 
 
 @pytest.fixture()
-def wallet_with_usdc(web3_fork: Web3, chain_name, test_address: HexAddress, large_usdc_holder_arbitrum, large_usdc_holder_avalanche) -> None:
+def wallet_with_usdc(
+    web3_fork: Web3,
+    chain_name,
+    test_address: HexAddress,
+    large_usdc_holder_arbitrum,
+    large_usdc_holder_avalanche,
+) -> None:
     """Fund the test wallet with USDC."""
     if chain_name == "arbitrum":
         usdc_address = CHAIN_CONFIG["arbitrum"]["usdc_address"]
@@ -392,7 +440,13 @@ def wallet_with_usdc(web3_fork: Web3, chain_name, test_address: HexAddress, larg
 
 
 @pytest.fixture()
-def wallet_with_wbtc(web3_fork: Web3, chain_name, test_address: HexAddress, large_wbtc_holder, large_wbtc_holder_avalanche) -> None:
+def wallet_with_wbtc(
+    web3_fork: Web3,
+    chain_name,
+    test_address: HexAddress,
+    large_wbtc_holder,
+    large_wbtc_holder_avalanche,
+) -> None:
     """Fund the test wallet with WBTC."""
     if chain_name == "arbitrum":
         wbtc_address = to_checksum_address(CHAIN_CONFIG["arbitrum"]["link_address"])
@@ -403,7 +457,7 @@ def wallet_with_wbtc(web3_fork: Web3, chain_name, test_address: HexAddress, larg
         #     large_holder = large_wbtc_holder_avalanche
         #     amount = 5 * 10 ** 8  # 1 WBTC (8 decimals)
         try:
-            web3_fork.provider.make_request("tenderly_addErc20Balance", [wbtc_address, [test_address], hex(amount)])
+            web3_fork.provider.make_request("anvil_addErc20Balance", [wbtc_address, [test_address], hex(amount)])
             # wbtc.contract.functions.transfer(test_address, amount).transact({"from": large_holder})
         except Exception as e:
             # If the transfer fails, skip the test instead of failing
@@ -423,29 +477,39 @@ def wallet_with_link(web3_fork, chain_name, test_address: HexAddress, large_link
         except Exception as e:
             # If the transfer fails, skip the test instead of failing
             pytest.skip(f"Could not transfer LINK to test wallet: {str(e)}")
-    else:
-        link_address = to_checksum_address(CHAIN_CONFIG[chain_name]["link_address"])
-
-        web3_fork.provider.make_request("tenderly_addErc20Balance", [link_address, [test_address], hex(amount)])
+    # else:
+    #     link_address = to_checksum_address(CHAIN_CONFIG[chain_name]["link_address"])
+    #
+    #     web3_fork.provider.make_request("tenderly_addErc20Balance", [link_address, [test_address], hex(amount)])
 
 
 @pytest.fixture()
-def wallet_with_arb(web3_fork, chain_name, test_address: HexAddress) -> None:
+def wallet_with_arb(web3_fork, chain_name, test_address: HexAddress, large_arb_holder_arbitrum: HexAddress) -> None:
     """Fund the test wallet with LINK."""
-    amount = 100000 * 10**18
-    arb_address = to_checksum_address(CHAIN_CONFIG[chain_name]["arb_address"])
-
-    web3_fork.provider.make_request("tenderly_addErc20Balance", [arb_address, [test_address], hex(amount)])
+    amount = 1000000 * 10**18
+    if chain_name == "arbitrum":
+        try:
+            arb_address = to_checksum_address(CHAIN_CONFIG[chain_name]["arb_address"])
+            arb = fetch_erc20_details(web3_fork, arb_address)
+            arb.contract.functions.transfer(test_address, amount).transact({"from": large_arb_holder_arbitrum})
+        except Exception as e:
+            # If the transfer fails, skip the test instead of failing
+            pytest.skip(f"Could not transfer ARB to test wallet: {str(e)}")
 
 
 @pytest.fixture()
-def wallet_with_all_tokens(wallet_with_native_token, wallet_with_usdc, wallet_with_wbtc, wallet_with_link, wallet_with_arb) -> None:
+def wallet_with_all_tokens(
+    wallet_with_native_token,
+    wallet_with_usdc,
+    wallet_with_wbtc,
+    wallet_with_link,
+    wallet_with_arb,
+) -> None:
     """Set up the wallet with all tokens needed for testing."""
     # This fixture combines all token fixtures to ensure the wallet has all needed tokens
     pass
 
 
-# TODO: Replace this with anvil accounts
 @pytest.fixture()
 def anvil_private_key() -> HexAddress:
     """The default private key for the first Anvil test account."""
@@ -453,7 +517,13 @@ def anvil_private_key() -> HexAddress:
 
 
 @pytest.fixture()
-def gmx_config_fork(web3_fork: Web3, chain_name: str, test_address: HexAddress, anvil_private_key: HexAddress, wallet_with_all_tokens) -> GMXConfig:
+def gmx_config_fork(
+    web3_fork: Web3,
+    chain_name: str,
+    test_address: HexAddress,
+    anvil_private_key: HexAddress,
+    wallet_with_all_tokens,
+) -> GMXConfig:
     """Create a GMX configuration with a wallet for testing transactions."""
     from eth_account import Account
     from eth_defi.hotwallet import HotWallet
@@ -488,5 +558,8 @@ def trading_manager(gmx_config_fork):
 @pytest.fixture
 def account_with_positions(chain_name):
     """Return an address known to have open positions on the specified chain."""
-    addresses = {"arbitrum": HexAddress(HexStr("0x9dd1497FF0775bab1FAEb45ea270F66b11496dDf")), "avalanche": HexAddress(HexStr("0x83806fe5D4166868498eB95e32c972E07A5C065D"))}
+    addresses = {
+        "arbitrum": HexAddress(HexStr("0x9dd1497FF0775bab1FAEb45ea270F66b11496dDf")),
+        "avalanche": HexAddress(HexStr("0x83806fe5D4166868498eB95e32c972E07A5C065D")),
+    }
     return addresses[chain_name]

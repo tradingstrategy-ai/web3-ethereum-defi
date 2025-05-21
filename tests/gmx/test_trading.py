@@ -5,6 +5,7 @@ This test suite verifies the functionality of the GMXTrading class
 when connected to different networks. The tests focus on creating
 orders in debug mode without submitting actual transactions.
 """
+
 from gmx_python_sdk.scripts.v2.order.create_decrease_order import DecreaseOrder
 from gmx_python_sdk.scripts.v2.order.create_increase_order import IncreaseOrder
 from gmx_python_sdk.scripts.v2.order.create_swap_order import SwapOrder
@@ -58,7 +59,17 @@ def test_open_position_long(chain_name, trading_manager, gmx_config_fork, usdc):
 
     # Create a long position with USDC as collateral
     # Using ACTUAL transaction (not debug mode) to test balance changes
-    increase_order = trading_manager.open_position(market_symbol=market_symbol, collateral_symbol=collateral_symbol, start_token_symbol=collateral_symbol, is_long=True, size_delta_usd=100, leverage=2, slippage_percent=0.003, debug_mode=False, execution_buffer=2.2)
+    increase_order = trading_manager.open_position(
+        market_symbol=market_symbol,
+        collateral_symbol=collateral_symbol,
+        start_token_symbol=collateral_symbol,
+        is_long=True,
+        size_delta_usd=100,
+        leverage=2,
+        slippage_percent=0.003,
+        debug_mode=False,
+        execution_buffer=2.2,
+    )
 
     # Verify the order was created with the right type
     assert isinstance(increase_order, IncreaseOrder)
@@ -107,7 +118,17 @@ def test_open_position_short(chain_name, trading_manager, gmx_config_fork, usdc)
     initial_usdc_balance = usdc.contract.functions.balanceOf(wallet_address).call()
 
     # Create a short position with USDC as collateral
-    increase_order = trading_manager.open_position(market_symbol=market_symbol, collateral_symbol="USDC", start_token_symbol="USDC", is_long=False, size_delta_usd=200, leverage=1.5, slippage_percent=0.003, debug_mode=False, execution_buffer=2.2)
+    increase_order = trading_manager.open_position(
+        market_symbol=market_symbol,
+        collateral_symbol="USDC",
+        start_token_symbol="USDC",
+        is_long=False,
+        size_delta_usd=200,
+        leverage=1.5,
+        slippage_percent=0.003,
+        debug_mode=False,
+        execution_buffer=2.2,
+    )
 
     # Verify the order was created with the right type
     assert isinstance(increase_order, IncreaseOrder)
@@ -152,7 +173,17 @@ def test_open_position_high_leverage(chain_name, trading_manager, gmx_config_for
     initial_native_balance = wrapped_native_token.contract.functions.balanceOf(wallet_address).call()
 
     # Create a long position with high leverage
-    increase_order = trading_manager.open_position(market_symbol=market_symbol, collateral_symbol=collateral_symbol, start_token_symbol=collateral_symbol, is_long=True, size_delta_usd=100, leverage=10, slippage_percent=0.003, debug_mode=False, execution_buffer=2.2)
+    increase_order = trading_manager.open_position(
+        market_symbol=market_symbol,
+        collateral_symbol=collateral_symbol,
+        start_token_symbol=collateral_symbol,
+        is_long=True,
+        size_delta_usd=100,
+        leverage=10,
+        slippage_percent=0.003,
+        debug_mode=False,
+        execution_buffer=2.2,
+    )
 
     # Verify the order was created with the right type
     assert isinstance(increase_order, IncreaseOrder)
@@ -185,7 +216,17 @@ def test_close_position(chain_name, trading_manager, gmx_config_fork, usdc, web3
     wallet_address = gmx_config_fork.get_wallet_address()
 
     # First, create a position to close
-    trading_manager.open_position(market_symbol=market_symbol, collateral_symbol="USDC", start_token_symbol="USDC", is_long=True, size_delta_usd=500, leverage=2, slippage_percent=0.003, debug_mode=False, execution_buffer=2.2)
+    trading_manager.open_position(
+        market_symbol=market_symbol,
+        collateral_symbol="USDC",
+        start_token_symbol="USDC",
+        is_long=True,
+        size_delta_usd=500,
+        leverage=2,
+        slippage_percent=0.003,
+        debug_mode=False,
+        execution_buffer=2.2,
+    )
 
     # Small delay to allow the position to be processed
     web3_fork.provider.make_request("evm_increaseTime", [60])  # Advance time by 60 seconds
@@ -195,7 +236,17 @@ def test_close_position(chain_name, trading_manager, gmx_config_fork, usdc, web3
     usdc_balance_before_close = usdc.contract.functions.balanceOf(wallet_address).call()
 
     # Close the position
-    decrease_order = trading_manager.close_position(market_symbol=market_symbol, collateral_symbol="USDC", start_token_symbol="USDC", is_long=True, size_delta_usd=500, initial_collateral_delta=250, slippage_percent=0.003, debug_mode=False, execution_buffer=2.2)  # Close full position  # Remove half of collateral
+    decrease_order = trading_manager.close_position(
+        market_symbol=market_symbol,
+        collateral_symbol="USDC",
+        start_token_symbol="USDC",
+        is_long=True,
+        size_delta_usd=500,
+        initial_collateral_delta=250,
+        slippage_percent=0.003,
+        debug_mode=False,
+        execution_buffer=2.2,
+    )  # Close full position  # Remove half of collateral
 
     # Verify the order was created with the right type
     assert isinstance(decrease_order, DecreaseOrder)
@@ -246,7 +297,17 @@ def test_close_position_full_size(chain_name, trading_manager, gmx_config_fork, 
     wallet_address = gmx_config_fork.get_wallet_address()
 
     # First, create a position to close
-    trading_manager.open_position(market_symbol=market_symbol, collateral_symbol="USDC", start_token_symbol="USDC", is_long=False, size_delta_usd=size_delta, leverage=1.5, slippage_percent=0.003, debug_mode=False, execution_buffer=2.2)
+    trading_manager.open_position(
+        market_symbol=market_symbol,
+        collateral_symbol="USDC",
+        start_token_symbol="USDC",
+        is_long=False,
+        size_delta_usd=size_delta,
+        leverage=1.5,
+        slippage_percent=0.003,
+        debug_mode=False,
+        execution_buffer=2.2,
+    )
 
     # Small delay to allow the position to be processed
     web3_fork.provider.make_request("evm_increaseTime", [60])  # Advance time by 60 seconds
@@ -256,7 +317,17 @@ def test_close_position_full_size(chain_name, trading_manager, gmx_config_fork, 
     usdc_balance_before_close = usdc.contract.functions.balanceOf(wallet_address).call()
 
     # Close a full short position
-    decrease_order = trading_manager.close_position(market_symbol=market_symbol, collateral_symbol="USDC", start_token_symbol="USDC", is_long=False, size_delta_usd=size_delta, initial_collateral_delta=collateral_delta, slippage_percent=0.003, debug_mode=False, execution_buffer=2.2)  # Full position size  # Full collateral
+    decrease_order = trading_manager.close_position(
+        market_symbol=market_symbol,
+        collateral_symbol="USDC",
+        start_token_symbol="USDC",
+        is_long=False,
+        size_delta_usd=size_delta,
+        initial_collateral_delta=collateral_delta,
+        slippage_percent=0.003,
+        debug_mode=False,
+        execution_buffer=2.2,
+    )  # Full position size  # Full collateral
 
     # Verify the order was created with the right type
     assert isinstance(decrease_order, DecreaseOrder)
@@ -299,7 +370,14 @@ def test_swap_tokens(chain_name, trading_manager, gmx_config_fork, arb, wsol, wa
     initial_arb_balance = arb.contract.functions.balanceOf(wallet_address).call()
 
     # Swap USDC for chain-specific native token
-    swap_order = trading_manager.swap_tokens(out_token_symbol=out_token_symbol, start_token_symbol=start_token_symbol, amount=50000.3785643, slippage_percent=0.02, debug_mode=False, execution_buffer=2.5)  # 1000 ARB tokens
+    swap_order = trading_manager.swap_tokens(
+        out_token_symbol=out_token_symbol,
+        start_token_symbol=start_token_symbol,
+        amount=50000.3785643,  # 50000 ARB tokens & fractions for fun
+        slippage_percent=0.02,  # 0.2% slippage
+        debug_mode=False,
+        execution_buffer=2.5,  # this is needed to pass the gas usage
+    )
 
     # Verify the order was created with the right type
     assert isinstance(swap_order, SwapOrder)
@@ -321,12 +399,22 @@ def test_swap_tokens(chain_name, trading_manager, gmx_config_fork, arb, wsol, wa
 
     # Check final balances
     final_arb_balance = arb.contract.functions.balanceOf(wallet_address).call()
+    decimals = wsol.contract.functions.decimals().call()
 
     # Verify balances changed
     assert final_arb_balance < initial_arb_balance, "USDC balance should decrease after swap"
 
-    emulate_keepers(trading_manager.config.get_read_config(), start_token_symbol, out_token_symbol, gmx_config_fork.web3, wallet_address, start_token_address, out_token_address)
+    emulate_keepers(
+        gmx_config_fork,
+        start_token_symbol,
+        out_token_symbol,
+        gmx_config_fork.web3,
+        wallet_address,
+        start_token_address,
+        out_token_address,
+    )
 
     output = wsol.contract.functions.balanceOf(wallet_address).call()
 
-    print(f"{output=}")
+    # As of 21 May 2025, 50k ARB -> 122 SOL (Roughly). Keeping it at 100 just be safe.
+    assert output // decimals >= 100
