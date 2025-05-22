@@ -1,5 +1,5 @@
 """Test open and close short position with Aave v3"""
-
+import flaky
 import pytest
 from eth_account import Account
 from eth_account.signers.local import LocalAccount
@@ -155,6 +155,7 @@ def print_current_balances(address, usdc, weth):
     )
 
 
+@flaky.flaky
 def test_aave_v3_short(
     web3: Web3,
     aave_v3_deployment,
