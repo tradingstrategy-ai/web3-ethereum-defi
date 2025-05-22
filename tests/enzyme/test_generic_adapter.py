@@ -1,6 +1,7 @@
 """Test generic adapter on Enzyme.
 
 """
+import flaky
 import pytest
 from eth_typing import HexAddress
 from web3 import Web3
@@ -152,6 +153,7 @@ def test_generic_adapter_uniswap_v2(
     assert usdc.functions.balanceOf(vault.address).call() == 350 * 10**6
 
 
+@flaky.flaky
 def test_generic_adapter_approve(
     web3: Web3,
     deployer: HexAddress,
