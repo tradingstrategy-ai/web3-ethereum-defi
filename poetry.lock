@@ -1533,31 +1533,30 @@ test = ["asn1tools (>=0.146.2,<0.147)", "eth-hash[pycryptodome] ; implementation
 
 [[package]]
 name = "eth-pydantic-types"
-version = "0.2.0"
+version = "0.1.3"
 description = "eth-pydantic-types: Pydantic Types for Ethereum"
 optional = false
 python-versions = "<4,>=3.9"
 groups = ["main"]
 markers = "implementation_name == \"cpython\" or implementation_name == \"pypy\""
 files = [
-    {file = "eth_pydantic_types-0.2.0-py3-none-any.whl", hash = "sha256:890505af6e4a14f3af07ced0bb2fc13569bfed83eb7ee4f33d397b1310e41408"},
-    {file = "eth_pydantic_types-0.2.0.tar.gz", hash = "sha256:020b207804e6c3436c4aff925426818e8e485b21eb19dd719607ce72a2c792d6"},
+    {file = "eth-pydantic-types-0.1.3.tar.gz", hash = "sha256:4764ba82434ab6d0d98d3b7aee4ace0cc7b12cf47c7e53424525c33fb9b872af"},
+    {file = "eth_pydantic_types-0.1.3-py3-none-any.whl", hash = "sha256:7a54f253f32bb3c01b21dbbfc7022d476b53ad5b7da96dcc4dae24997ec69469"},
 ]
 
 [package.dependencies]
-cchecksum = ">=0.0.3,<1"
 eth-typing = ">=3.5.2,<6"
 eth-utils = ">=2.3.1,<6"
 hexbytes = ">=0.3.1,<2"
 pydantic = ">=2.5.2,<3"
-typing_extensions = ">=4.8.0,<5"
+typing-extensions = ">=4.8.0,<5"
 
 [package.extras]
-dev = ["black (>=25.1.0,<26)", "commitizen (>=2.40,<2.41)", "eth-hash[pycryptodome]", "flake8 (>=7.2.0,<8)", "flake8-breakpoint (>=1.1.0,<2)", "flake8-print (>=5.0.0,<6)", "flake8-pydantic", "flake8-type-checking", "hypothesis (>=6.2.0,<7.0)", "hypothesis-jsonschema (==0.19.0)", "ipdb", "isort (>=6.0.1,<7)", "mdformat (>=0.7.22)", "mdformat-frontmatter (>=0.4.1)", "mdformat-gfm (>=0.3.5)", "mdformat-pyproject (>=0.0.2)", "mypy (>=1.15.0,<2)", "packaging (>=23.1,<24)", "pre-commit", "pytest (>=6.0)", "pytest-cov (>=4.0.0,<5)", "pytest-mock", "pytest-watch", "pytest-xdist", "setuptools (>=75.6.0)", "sphinx-ape", "twine (==3.8.0)", "types-setuptools", "wheel"]
-doc = ["sphinx-ape"]
-lint = ["black (>=25.1.0,<26)", "flake8 (>=7.2.0,<8)", "flake8-breakpoint (>=1.1.0,<2)", "flake8-print (>=5.0.0,<6)", "flake8-pydantic", "flake8-type-checking", "isort (>=6.0.1,<7)", "mdformat (>=0.7.22)", "mdformat-frontmatter (>=0.4.1)", "mdformat-gfm (>=0.3.5)", "mdformat-pyproject (>=0.0.2)", "mypy (>=1.15.0,<2)", "types-setuptools"]
-release = ["packaging (>=23.1,<24)", "setuptools (>=75.6.0)", "twine (==3.8.0)", "wheel"]
-test = ["eth-hash[pycryptodome]", "hypothesis (>=6.2.0,<7.0)", "hypothesis-jsonschema (==0.19.0)", "pytest (>=6.0)", "pytest-cov (>=4.0.0,<5)", "pytest-mock", "pytest-xdist"]
+dev = ["Sphinx (>=6.1.3,<7)", "black (>=24.8.0,<25)", "commitizen (>=2.40,<2.41)", "eth-hash[pycryptodome]", "flake8 (>=7.1.1,<8)", "flake8-breakpoint (>=1.1.0,<2)", "flake8-print (>=5.0.0,<6)", "hypothesis (>=6.2.0,<7.0)", "hypothesis-jsonschema (==0.19.0)", "ipdb", "isort (>=5.10.1,<6)", "mdformat (>=0.7.17)", "mdformat-frontmatter (>=0.4.1)", "mdformat-gfm (>=0.3.5)", "mdformat-pyproject (>=0.0.1)", "mypy (>=1.11.1,<2)", "myst-parser (>=1.0.0,<2)", "packaging (>=23.1,<24)", "pre-commit", "pytest-cov (>=4.0.0,<5)", "pytest-mock", "pytest-watch", "pytest-xdist", "setuptools", "sphinx-rtd-theme (>=1.2.0,<2)", "sphinxcontrib-napoleon (>=0.7)", "twine (==3.8.0)", "types-setuptools", "wheel"]
+doc = ["Sphinx (>=6.1.3,<7)", "myst-parser (>=1.0.0,<2)", "packaging (>=23.1,<24)", "sphinx-rtd-theme (>=1.2.0,<2)", "sphinxcontrib-napoleon (>=0.7)"]
+lint = ["black (>=24.8.0,<25)", "flake8 (>=7.1.1,<8)", "flake8-breakpoint (>=1.1.0,<2)", "flake8-print (>=5.0.0,<6)", "isort (>=5.10.1,<6)", "mdformat (>=0.7.17)", "mdformat-frontmatter (>=0.4.1)", "mdformat-gfm (>=0.3.5)", "mdformat-pyproject (>=0.0.1)", "mypy (>=1.11.1,<2)", "types-setuptools"]
+release = ["packaging (>=23.1,<24)", "setuptools", "twine (==3.8.0)", "wheel"]
+test = ["eth-hash[pycryptodome]", "hypothesis (>=6.2.0,<7.0)", "hypothesis-jsonschema (==0.19.0)", "pytest-cov (>=4.0.0,<5)", "pytest-mock", "pytest-xdist"]
 
 [[package]]
 name = "eth-retry"
@@ -7041,4 +7040,4 @@ test = ["pytest-xdist"]
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.10,<4"
-content-hash = "4c39ac1e0aa58b30afaeb8a76695746d9feee3911c22f32734061c154c3bebdb"
+content-hash = "0eea5563e1982455cde6300e9e966c3015b77a2f88ccfc69e3283ede2b2e7b16"
