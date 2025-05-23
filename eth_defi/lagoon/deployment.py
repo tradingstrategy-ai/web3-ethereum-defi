@@ -31,6 +31,7 @@ from web3.contract.contract import ContractFunction
 from eth_defi.aave_v3.deployment import AaveV3Deployment
 from eth_defi.abi import get_contract
 from eth_defi.deploy import deploy_contract
+from eth_defi.erc_4626.vault import ERC4626Vault
 from eth_defi.foundry.forge import deploy_contract_with_forge
 from eth_defi.hotwallet import HotWallet
 from eth_defi.lagoon.beacon_proxy import deploy_beacon_proxy
@@ -43,7 +44,7 @@ from eth_defi.trace import assert_transaction_success_with_explanation
 from eth_defi.uniswap_v2.deployment import UniswapV2Deployment
 from eth_defi.uniswap_v3.deployment import UniswapV3Deployment
 from eth_defi.vault.base import VaultSpec
-
+from tests.guard.test_guard_simple_vault_erc_4626 import erc4626_vault
 
 logger = logging.getLogger(__name__)
 
@@ -369,6 +370,7 @@ def setup_guard(
     uniswap_v2: UniswapV2Deployment = None,
     uniswap_v3: UniswapV3Deployment = None,
     aave_v3: AaveV3Deployment = None,
+    erc_4626_vaults: ERC4626Vault | None = None,
 ):
 
     assert isinstance(deployer, HotWallet), f"Got: {deployer}"
@@ -423,6 +425,13 @@ def setup_guard(
             tx_hash = _broadcast(module.functions.whitelistToken(ausdc.address, note))
             assert_transaction_success_with_explanation(web3, tx_hash)
 
+    # Whitelist all ERC-4626 vaults
+    for vault in erc_4626_vaults:
+        logger.info("Whitelisting ERC-4626 vault %s", vault)
+        note = f"Whitelisting {vault.name}"
+        tx_hash = _broadcast(module.functions.whitelistVault(vault.address, note))
+        assert_transaction_success_with_explanation(web3, tx_hash)
+
     # Whitelist all assets
     if any_asset:
         logger.info("Allow any asset whitelist")
@@ -451,6 +460,7 @@ def deploy_automated_lagoon_vault(
     etherscan_api_key: str = None,
     use_forge=False,
     between_contracts_delay_seconds=10.0,
+    erc_4626_vaults: ERC4626Vault | None = None,
 ) -> LagoonAutomatedDeployment:
     """Deploy a full Lagoon setup with a guard.
 
@@ -554,6 +564,7 @@ def deploy_automated_lagoon_vault(
         aave_v3=aave_v3,
         any_asset=any_asset,
         broadcast_func=_broadcast,
+        erc_4626_vaults=erc_4626_vaults,
     )
 
     # After everything is deployed, fix ownership

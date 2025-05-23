@@ -310,9 +310,10 @@ def test_guard_can_do_erc_4626_withdraw(
     assert usdc.fetch_balance_of(erc4626_vault.vault_address) == pytest.approx(40_000)
 
     # Withdraw
+    share_amount = erc4626_vault.share_token.fetch_balance_of(vault.address)
     fn_calls = approve_and_redeem_4626(
         vault=erc4626_vault,
-        amount=usdc_amount,
+        amount=share_amount,
         from_=vault.address,
     )
     for fn_call in fn_calls:
@@ -351,9 +352,10 @@ def test_guard_malicious_withdraw(
     assert usdc.fetch_balance_of(erc4626_vault.vault_address) == pytest.approx(40_000)
 
     # Withdraw
+    share_amount = erc4626_vault.share_token.fetch_balance_of(vault.address)
     fn_calls = approve_and_redeem_4626(
         vault=erc4626_vault,
-        amount=usdc_amount,
+        amount=share_amount,
         from_=vault.address,
     )
     fn_calls[1].args[1] = third_party
