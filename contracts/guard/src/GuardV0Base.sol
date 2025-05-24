@@ -293,10 +293,14 @@ abstract contract GuardV0Base is IGuard  {
         require(isAllowedDelegationApprovalDestination(to), "validate_approveDelegation: Approve delegation address does not match");
     }
 
-    function whitelistToken(address token, string calldata notes) external {
+    function _whitelistToken(address token, string calldata notes) internal {
         allowCallSite(token, getSelector("transfer(address,uint256)"), notes);
         allowCallSite(token, getSelector("approve(address,uint256)"), notes);
         allowAsset(token, notes);
+    }
+
+    function whitelistToken(address token, string calldata notes) external {
+        _whitelistToken(token, notes);
     }
 
     function whitelistTokenForDelegation(address token, string calldata notes) external {
@@ -526,14 +530,14 @@ abstract contract GuardV0Base is IGuard  {
     function validate_ERC4626Withdraw(bytes memory callData) public view {
         // We can only receive from ERC-4626 to ourselves
         (, address receiver, ) = abi.decode(callData, (uint256, address, address));
-        require(isAllowedWithdrawDestination(receiver), "validate_ERC4626Withdrawal: Receiver address not whitelisted by Guard");
+        require(isAllowedReceiver(receiver), "validate_ERC4626Withdrawal: Receiver address not whitelisted by Guard");
     }
 
     // ERC-4626 trading: Check we are allowed to withdraw from a vault to ourselves only
     function validate_ERC4626Redeem(bytes memory callData) public view {
         // We can only receive from ERC-4626 to ourselves
         (, address receiver, ) = abi.decode(callData, (uint256, address, address));
-        require(isAllowedWithdrawDestination(receiver), "validate_ERC4626Redeem: Receiver address not whitelisted by Guard");
+        require(isAllowedReceiver(receiver), "validate_ERC4626Redeem: Receiver address not whitelisted by Guard");
     }
 
     // 1delta implementation: https://github.com/1delta-DAO/contracts-delegation/blob/4f27e1593c564c419ff042cdd932ed52d04216bf/contracts/1delta/modules/aave/MarginTrading.sol#L43-L89
@@ -605,11 +609,11 @@ abstract contract GuardV0Base is IGuard  {
         address denominationToken = vault_.asset();
         address shareToken = vault;
         allowCallSite(vault, getSelector("deposit(uint256,address)"), notes);
-        allowCallSite(vault, getSelector("withdraw(address,uint256,address)"), notes);
-        allowCallSite(vault, getSelector("redeem(address,uint256,address)"), notes);
+        allowCallSite(vault, getSelector("withdraw(uint256,address,address)"), notes);
+        allowCallSite(vault, getSelector("redeem(uint256,address,address)"), notes);
         allowApprovalDestination(vault, notes);
-        allowAsset(shareToken, notes);
-        allowAsset(denominationToken, notes);
+        _whitelistToken(shareToken, notes);
+        _whitelistToken(denominationToken, notes);
     }
 
     // Aave V3 implementation: https://github.com/aave/aave-v3-core/blob/e0bfed13240adeb7f05cb6cbe5e7ce78657f0621/contracts/protocol/pool/Pool.sol#L145
@@ -630,7 +634,6 @@ abstract contract GuardV0Base is IGuard  {
     function whitelistAaveV3(address lendingPool, string calldata notes) external {
         allowCallSite(lendingPool, getSelector("supply(address,uint256,address,uint16)"), notes);
         allowCallSite(lendingPool, getSelector("withdraw(address,uint256,address)"), notes);
-        
         allowApprovalDestination(lendingPool, notes);
     }
 

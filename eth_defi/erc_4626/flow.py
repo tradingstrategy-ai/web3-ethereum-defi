@@ -84,7 +84,8 @@ def deposit_4626(
 
     if check_max_deposit:
         max_deposit = contract.functions.maxDeposit(receiver).call()
-        assert raw_amount <= max_deposit, f"Max deposit {max_deposit} is less than {raw_amount}"
+        if max_deposit != 0:
+            assert raw_amount <= max_deposit, f"Max deposit {max_deposit} is less than {raw_amount}"
 
     call = contract.functions.deposit(raw_amount, receiver)
     return call
