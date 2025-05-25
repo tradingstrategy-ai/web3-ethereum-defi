@@ -57,6 +57,19 @@ def deposit_4626(
         assert analysis.path == [base_usdc.address_lower, vault.share_token.address_lower]
         assert analysis.price == pytest.approx(Decimal("1.033566972663402121955991264"))
 
+    Another example how to use this with Lagoon, where from (TradingStrategyModuleV0) and receiver (Safe multisig)
+    are different contracts:
+
+    .. code-block:: python
+
+        fn_calls = approve_and_deposit_4626(
+            vault=erc4626_vault,  # IPOR vault we trade
+            amount=usdc_amount,
+            from_=vault.address,  # Our Lagoon vault
+            check_enough_token=False,
+            receiver=vault.safe_address,  # Safe multisig address of our Lagoon vault
+        )
+
     :param check_enough_token:
         Assume from address holds the token and do live check.
 
