@@ -366,7 +366,7 @@ def test_guard_can_do_erc_4626_withdraw(
         from_=vault.address,
     )
 
-    # We need to skip time or IPOR will revert
+    # We need to skip time or the IPOR redeem will revert
     mine(web3, increase_timestamp=3600)
 
     for fn_call in fn_calls:
@@ -423,7 +423,7 @@ def test_guard_malicious_withdraw(
         from_=vault.address,
     )
 
-    # We need to skip time or IPOR will revert
+    # We need to skip time or the IPOR redeem will revert
     mine(web3, increase_timestamp=3600)
 
     target, call_data = encode_simple_vault_transaction(fn_calls[0])

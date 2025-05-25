@@ -8,7 +8,7 @@ pragma solidity ^0.8.0;
 import "./lib/Path.sol";
 import "./IGuard.sol";
 
-import "@openzeppelin/interfaces/IERC4626.sol";
+import "./lib/IERC4626.sol";
 
 /**
  * Prototype guard implementation.

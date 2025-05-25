@@ -8,10 +8,11 @@ from web3 import Web3
 
 from eth_defi.erc_4626.classification import create_vault_instance
 from eth_defi.erc_4626.core import ERC4626Feature
-from eth_defi.erc_4626.flow import approve_and_deposit_4626
+from eth_defi.erc_4626.flow import approve_and_deposit_4626, approve_and_redeem_4626
 from eth_defi.erc_4626.vault import ERC4626Vault
 from eth_defi.hotwallet import HotWallet
 from eth_defi.lagoon.deployment import LagoonAutomatedDeployment, LagoonDeploymentParameters, deploy_automated_lagoon_vault
+from eth_defi.provider.anvil import mine
 from eth_defi.token import TokenDetails, USDC_NATIVE_TOKEN
 from eth_defi.trace import assert_transaction_success_with_explanation
 
@@ -29,7 +30,7 @@ def erc4626_vault(web3) -> ERC4626Vault:
         address="0x0d877Dc7C8Fa3aD980DfDb18B48eC9F8768359C4",
         features={ERC4626Feature.ipor_like},
     )
-    return cast(vault, ERC4626Vault)
+    return cast(ERC4626Vault, vault)
 
 
 def test_lagoon_erc_4626(
@@ -67,6 +68,7 @@ def test_lagoon_erc_4626(
         safe_owners=multisig_owners,
         safe_threshold=2,
         uniswap_v2=None,
+        uniswap_v3=None,
         any_asset=False,
         erc_4626_vaults=[erc4626_vault],
     )
@@ -98,7 +100,12 @@ def test_lagoon_erc_4626(
         "from": asset_manager,
         "gas": 1_000_000,
     })
-    assert_transaction_success_with_explanation(web3, tx_hash)
+    assert_transaction_success_with_explanation(
+        web3,
+        tx_hash,
+        func=settle_func,
+        tracing=True,
+    )
 
     # Check we have money for the swap
     swap_amount = usdc_amount // 2
@@ -110,24 +117,32 @@ def test_lagoon_erc_4626(
         vault=erc4626_vault,
         amount=usdc_amount,
         from_=vault.address,
+        check_enough_token=False,
+        receiver=vault.safe_address,
     )
 
     for fn_call in fn_calls:
         moduled_tx = vault.transact_via_trading_strategy_module(fn_call)
         tx_hash = moduled_tx.transact({"from": asset_manager, "gas": 1_000_000})
-        assert_transaction_success_with_explanation(web3, tx_hash)
+        assert_transaction_success_with_explanation(web3, tx_hash, func=fn_call)
 
+    # Approve and withdraw into our Lagoon vault from the IPOR vault we use for trading
 
-    # Approve and withdraw into the vault
-    share_amount = erc4626_vault.share_token.fetch_balance_of(vault.address)
-    fn_calls = approve_and_deposit_4626(
+    # We need to skip time or the IPOR redeem will revert
+    mine(web3, increase_timestamp=3600)
+
+    share_amount = erc4626_vault.share_token.fetch_balance_of(vault.safe_address)
+    assert share_amount > 0
+    fn_calls = approve_and_redeem_4626(
         vault=erc4626_vault,
         amount=share_amount,
-        from_=vault.address,
+        from_=vault.safe_address,
+        check_enough_token=False,
     )
 
+    # | Error    | ERC4626ExceededMaxRedeem(address,uint256,uint256)   | 0xb94abeec
     for fn_call in fn_calls:
         moduled_tx = vault.transact_via_trading_strategy_module(fn_call)
         tx_hash = moduled_tx.transact({"from": asset_manager, "gas": 1_000_000})
-        assert_transaction_success_with_explanation(web3, tx_hash)
+        assert_transaction_success_with_explanation(web3, tx_hash, func=fn_call)
 

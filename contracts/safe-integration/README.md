@@ -31,3 +31,9 @@ Included as Github submodules
 - The code is designed to be used with offchain Python automation
 - [See Lagoon integration code in eth-defi Python package](https://web3-ethereum-defi.readthedocs.io/api/lagoon/index.html)
 
+## How repackage with Python package
+
+```shell
+make safe-integration
+```
+

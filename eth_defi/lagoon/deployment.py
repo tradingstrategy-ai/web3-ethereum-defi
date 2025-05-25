@@ -370,14 +370,20 @@ def setup_guard(
     uniswap_v2: UniswapV2Deployment = None,
     uniswap_v3: UniswapV3Deployment = None,
     aave_v3: AaveV3Deployment = None,
-    erc_4626_vaults: ERC4626Vault | None = None,
+    erc_4626_vaults: list[ERC4626Vault] | None = None,
 ):
+    """Setups up TradingStrategyModuleV0 guard on the Lagoon vault.
+
+    - Creates the guard smart contract (TradingStrategyModuleV0)
+      and enables it on the Safe multisig as a module.
+
+    - Runs through various whitelisting rules as transactions against this contract
+    """
 
     assert isinstance(deployer, HotWallet), f"Got: {deployer}"
     assert type(owner) == str
     assert isinstance(module, Contract)
     assert isinstance(vault, Contract)
-    assert any_asset, f"Only wildcard trading supported at the moment"
     assert callable(broadcast_func), "Must have a broadcast function for txs"
 
     _broadcast = broadcast_func
@@ -426,11 +432,15 @@ def setup_guard(
             assert_transaction_success_with_explanation(web3, tx_hash)
 
     # Whitelist all ERC-4626 vaults
-    for vault in erc_4626_vaults:
-        logger.info("Whitelisting ERC-4626 vault %s", vault)
-        note = f"Whitelisting {vault.name}"
-        tx_hash = _broadcast(module.functions.whitelistVault(vault.address, note))
-        assert_transaction_success_with_explanation(web3, tx_hash)
+    if erc_4626_vaults:
+        for erc_4626_vault in erc_4626_vaults:
+            assert isinstance(erc_4626_vault, ERC4626Vault), f"Expected ERC4626Vault, got {type(erc_4626_vault)}: {erc4626_vault}"
+            # This will whitelist vault deposit/withdraw and its share and denomination token.
+            # USDC may be whitelisted twice because denomination tokens are shared.
+            logger.info("Whitelisting ERC-4626 vault %s: %s", erc_4626_vault, erc_4626_vault.vault_address)
+            note = f"Whitelisting {erc_4626_vault.name}"
+            tx_hash = _broadcast(module.functions.whitelistERC4626(erc_4626_vault.vault_address, note))
+            assert_transaction_success_with_explanation(web3, tx_hash)
 
     # Whitelist all assets
     if any_asset:
@@ -460,7 +470,7 @@ def deploy_automated_lagoon_vault(
     etherscan_api_key: str = None,
     use_forge=False,
     between_contracts_delay_seconds=10.0,
-    erc_4626_vaults: ERC4626Vault | None = None,
+    erc_4626_vaults: list[ERC4626Vault] | None = None,
 ) -> LagoonAutomatedDeployment:
     """Deploy a full Lagoon setup with a guard.
 

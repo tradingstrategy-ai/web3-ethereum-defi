@@ -279,8 +279,19 @@ def assert_transaction_success_with_explanation(
         E           CALL: RevertTest.revert2(second=0xe7f1725e7734ce288f8367e1bb143e90bb3f0512) [3284 gas]
         E           └── CALL: RevertTest2.boom() [230 gas]
 
-    See also :py:func:`print_symbolic_trace`.
+    You can also pass Web3 :py:class:`ContractFunction` instance for more information:
 
+    .. code-block:: python
+
+       # Settle deposit queue 9 USDC -> 0 USDC
+        settle_func = vault.settle_via_trading_strategy_module()
+        tx_hash = settle_func.transact({
+            "from": asset_manager,
+            "gas": 1_000_000,
+        })
+        assert_transaction_success_with_explanation(web3, tx_hash, func=settle_func)
+
+    See also :py:func:`print_symbolic_trace`.
 
     .. note::
 
