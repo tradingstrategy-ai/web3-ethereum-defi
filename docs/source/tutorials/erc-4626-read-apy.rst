@@ -15,6 +15,8 @@ Here is a Python example how to estimate the ERC-4626 `APY <https://tradingstrat
 - Only uses EVM JSON-RPC and archive node, no external services needed. Public RPC nodes won't work,
   because they are not archive nodes. Get your Base node JSON-RPC access from `dRPC <https://drpc.io/>`__ or `Ethereumnodes.com <https://ethereumnodes.com/>`__.
 
+- Supported vaults include all ERC-4626, including but not limited to: Morpho, Euler, Lagoon Finance, Superform, IPOR, Yearn, Fluid
+
 Then to run this script:
 
 .. code-block:: shell
