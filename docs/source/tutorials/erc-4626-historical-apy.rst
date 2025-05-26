@@ -3,10 +3,10 @@
 
 .. _historical-erc-4626-apy:
 
-ERC-4626: historical APY
-========================
+ERC-4626: historical APY of a vault
+===================================
 
-Here is a Python example how to estimate the ERC-4626 `APY <https://tradingstrategy.ai/glossary/annual-percentage-yield-apy>__`.
+Here is a Python example how to estimate the ERC-4626 `APY <https://tradingstrategy.ai/glossary/annual-percentage-yield-apy>`__.
 
 - Takes a time range and estimates the APY for it
 

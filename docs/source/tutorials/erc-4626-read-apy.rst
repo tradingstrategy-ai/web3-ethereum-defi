@@ -3,10 +3,10 @@
 
 .. _read-erc-4626-apy:
 
-ERC-4626: Read APY of the vault
-===============================
+ERC-4626: current APY of a vault
+================================
 
-Here is a Python example how to estimate the ERC-4626 `APY <https://tradingstrategy.ai/glossary/annual-percentage-yield-apy>__`.
+Here is a Python example how to estimate the ERC-4626 `APY <https://tradingstrategy.ai/glossary/annual-percentage-yield-apy>`__.
 
 - Reads the most recent APY of given ERC-4626 `vault <https://tradingstrategy.ai/glossary/vault>`__
 
