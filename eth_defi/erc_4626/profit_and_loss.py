@@ -68,6 +68,34 @@ class ERC4626Profitability:
         else:
             return float(profit)
 
+    def get_time_range(self) -> tuple[datetime.datetime, datetime.datetime]:
+        """Get the time range of the profitability data.
+
+        :return:
+            Tuple of start and end timestamps.
+        """
+        start_time = self.timestamps.get(self.start_block)
+        end_time = self.timestamps.get(self.end_block)
+        return start_time, end_time
+
+    def get_block_range(self) -> tuple[BlockNumber, BlockNumber]:
+        """Get the block range of the profitability data.
+
+        :return:
+            Tuple of start and end block numbers.
+        """
+        return self.start_block, self.end_block
+
+    def get_share_price_range(self) -> tuple[Decimal, Decimal]:
+        """Get the share price range of the profitability data.
+
+        :return:
+            Tuple of start and end share prices.
+        """
+        start_price = self.share_prices.get(self.start_block)
+        end_price = self.share_prices.get(self.end_block)
+        return start_price, end_price
+
 
 def estimate_4626_profitability(
     vault: ERC4626Vault,

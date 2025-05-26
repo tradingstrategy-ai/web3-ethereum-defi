@@ -427,7 +427,7 @@ def probe_vaults(
 def create_vault_instance(
     web3: Web3,
     address: HexAddress,
-    features: set[ERC4626Feature],
+    features: set[ERC4626Feature] | None = None,
     token_cache: dict | None = None,
 ) -> VaultBase | None:
     """Create a new vault instance class based on the detected features.
@@ -442,6 +442,10 @@ def create_vault_instance(
     :return:
         None if the vault creation is not supported
     """
+
+    if not features:
+        # If no features are given, we assume it is a generic ERC-4626 vault
+        features = {}
 
     spec = VaultSpec(web3.eth.chain_id, address.lower())
 
