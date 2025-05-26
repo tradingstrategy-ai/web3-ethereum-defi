@@ -1,3 +1,9 @@
+# Current
+
+- Add: Gnosis Safe guard support for ERC-4626 vaults using [TradingStrategyModuleV0](https://github.com/tradingstrategy-ai/web3-ethereum-defi/tree/master/contracts/safe-integration) Zodiac module
+- Add: [More ERC-4626 tutorials](https://web3-ethereum-defi.readthedocs.io/tutorials/index.html)
+- Update: Stablecoin token lists
+
 # 0.29.1
 
 - Add: ERC-4626 deposit/redeem

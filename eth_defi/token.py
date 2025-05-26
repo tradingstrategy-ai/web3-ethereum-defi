@@ -18,7 +18,7 @@ from typing import Optional, Union, TypeAlias, Any, Iterable, TypedDict
 import warnings
 
 import cachetools
-from web3.contract.contract import ContractFunction
+from web3.contract.contract import ContractFunction, ContractFunctions
 
 from eth_defi.event_reader.conversion import convert_int256_bytes_to_int, convert_solidity_bytes_to_string
 from eth_defi.event_reader.multicall_batcher import EncodedCall, read_multicall_chunked, EncodedCallResult
@@ -196,6 +196,11 @@ class TokenDetails:
         Always lowercase.
         """
         return self.contract.address.lower()
+
+    @property
+    def functions(self) -> ContractFunctions:
+        """Alias for underlying Web3 contract method"""
+        return self.contract.functions
 
     def convert_to_decimals(self, raw_amount: int) -> Decimal:
         """Convert raw token units to decimals.

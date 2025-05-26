@@ -250,6 +250,7 @@ def assert_transaction_success_with_explanation(
     tx_hash: HexBytes | str,
     RaisedException=TransactionAssertionError,
     tracing: bool = False,
+    func: ContractFunction = None,
 ) -> TxReceipt:
     """Checks if a transaction succeeds and give a verbose explanation why not..
 
@@ -278,8 +279,19 @@ def assert_transaction_success_with_explanation(
         E           CALL: RevertTest.revert2(second=0xe7f1725e7734ce288f8367e1bb143e90bb3f0512) [3284 gas]
         E           └── CALL: RevertTest2.boom() [230 gas]
 
-    See also :py:func:`print_symbolic_trace`.
+    You can also pass Web3 :py:class:`ContractFunction` instance for more information:
 
+    .. code-block:: python
+
+       # Settle deposit queue 9 USDC -> 0 USDC
+        settle_func = vault.settle_via_trading_strategy_module()
+        tx_hash = settle_func.transact({
+            "from": asset_manager,
+            "gas": 1_000_000,
+        })
+        assert_transaction_success_with_explanation(web3, tx_hash, func=settle_func)
+
+    See also :py:func:`print_symbolic_trace`.
 
     .. note::
 
@@ -298,6 +310,11 @@ def assert_transaction_success_with_explanation(
 
     :param tracing:
         Force turn on transaction tracing to use in e.g testing.
+
+    :param func:
+        Bound ContractFunction instance with arguments.
+
+        Used for diagnostics and exception messages only.
 
     :raise TransactionAssertionError:
         Outputs a verbose AssertionError on what went wrong.
@@ -322,8 +339,15 @@ def assert_transaction_success_with_explanation(
             # Transaction tracing only enabled to anvil
             trace_data = trace_evm_transaction(web3, tx_hash, TraceMethod.parity)
             trace_output = print_symbolic_trace(get_or_create_contract_registry(web3), trace_data)
+
+            if func:
+                args = [str(a) for a in func.args] or []
+                func_msg = f"{func.fn_name}({', '.join(args)})"
+            else:
+                func_msg = "-"
+
             raise RaisedException(
-                f"Revert reason: {revert_reason}\nSolidity stack trace:\n{trace_output}\nTransaction details:\n{tx_details}\nTransaction receipt:{receipt}",
+                f"Revert reason: {revert_reason}\nSolidity stack trace:\n{trace_output}\nTransaction details:\n{tx_details}\nTransaction receipt:{receipt}\nFunction: {func_msg}",
                 revert_reason=revert_reason,
                 solidity_stack_trace=trace_output,
             )
