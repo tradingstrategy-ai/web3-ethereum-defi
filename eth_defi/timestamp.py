@@ -97,6 +97,7 @@ def estimate_block_number_for_timestamp_by_findblock(
     - To convert timestamps to block numbers
     - Uses `FindBlock API <https://www.findblock.xyz/>`__, using ``block/before`` API
     - Gets the block that was finaliesd at the timestamp or before it.
+    - FindBlock API is free
 
     :param timestamp:
         Timestamp to estimate the block number for
