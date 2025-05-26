@@ -90,6 +90,20 @@ def get_chain_name(chain_id: int) -> str:
     return f"<Unknown chain, id {chain_id}>"
 
 
+def get_block_time(chain_id: int) -> float:
+    """Get average block time for a chain.
+
+    :param chain_id:
+        Chain id to get the block time for
+
+    :return:
+        Average block time in seconds.
+    """
+    block_time = EVM_BLOCK_TIMES.get(chain_id)
+    assert block_time is not None, f"Unknown chain id {chain_id} {get_chain_name()} for block time lookup table"
+    return block_time
+
+
 def install_chain_middleware(web3: Web3, poa_middleware=None):
     """Install any chain-specific middleware to Web3 instance.
 

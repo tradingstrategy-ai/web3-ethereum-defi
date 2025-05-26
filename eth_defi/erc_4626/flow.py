@@ -57,6 +57,24 @@ def deposit_4626(
         assert analysis.path == [base_usdc.address_lower, vault.share_token.address_lower]
         assert analysis.price == pytest.approx(Decimal("1.033566972663402121955991264"))
 
+    Another example how to use this with Lagoon, where from (TradingStrategyModuleV0) and receiver (Safe multisig)
+    are different contracts:
+
+    .. code-block:: python
+
+        fn_calls = approve_and_deposit_4626(
+            vault=erc4626_vault,  # IPOR vault we trade
+            amount=usdc_amount,
+            from_=vault.address,  # Our Lagoon vault
+            check_enough_token=False,
+            receiver=vault.safe_address,  # Safe multisig address of our Lagoon vault
+        )
+
+    :param check_enough_token:
+        Assume from address holds the token and do live check.
+
+        Must be disabled e.g. for Lagoon as TradingStrategyModuleV0  calls are performed from a d different address than the vault address.
+
     """
 
     assert isinstance(vault, ERC4626Vault)
@@ -84,7 +102,8 @@ def deposit_4626(
 
     if check_max_deposit:
         max_deposit = contract.functions.maxDeposit(receiver).call()
-        assert raw_amount <= max_deposit, f"Max deposit {max_deposit} is less than {raw_amount}"
+        if max_deposit != 0:
+            assert raw_amount <= max_deposit, f"Max deposit {max_deposit} is less than {raw_amount}"
 
     call = contract.functions.deposit(raw_amount, receiver)
     return call
@@ -140,6 +159,18 @@ def redeem_4626(
         assert analysis.amount_in_decimals == 8  # IPOR has 8 decimals
         assert analysis.price == pytest.approx(Decimal("1.033566972663402121955991264"))
 
+    :param vault:
+        ERC-4626 vault from where we redeem.
+
+    :param amount:
+        Share token mount in human readable form.
+
+    :param owner:
+        The hot wallet/vault storage contract which will receive the tokens.
+
+        Matters in complex vault setups. Like in the case of Lagoon vault,
+        the receiver is the Safe multisig address of the vault.
+
     """
 
     assert isinstance(vault, ERC4626Vault)
@@ -167,7 +198,8 @@ def redeem_4626(
 
     if check_max_redeem:
         max_redeem = contract.functions.maxRedeem(receiver).call()
-        assert raw_amount <= max_redeem, f"Max redeem {max_redeem} is less than {raw_amount}"
+        if max_redeem != 0:
+            assert raw_amount <= max_redeem, f"Max redeem {max_redeem} is less than {raw_amount}"
 
     call = contract.functions.redeem(raw_amount, owner, receiver)
     return call
@@ -181,6 +213,10 @@ def approve_and_deposit_4626(
     check_enough_token=True,
     receiver=None,
 ) -> tuple[ContractFunction, ContractFunction]:
+    """two ERC-20 calls needed to deposit.
+
+    For documentation see :py:func:`deposit_4626`.
+    """
     approve_call = vault.denomination_token.approve(vault.address, amount)
     deposit_call = deposit_4626(
         vault,
@@ -201,6 +237,10 @@ def approve_and_redeem_4626(
     check_max_redeem=True,
     receiver=None,
 ) -> tuple[ContractFunction, ContractFunction]:
+    """two ERC-20 calls needed to deposit.
+
+    For documentation see :py:func:`redeem_4626`.
+    """
     approve_call = vault.denomination_token.approve(vault.address, amount)
     redeem_call = redeem_4626(
         vault,

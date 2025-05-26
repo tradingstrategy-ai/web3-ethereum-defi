@@ -755,6 +755,7 @@ class MultiprocessMulticallReader:
                    ("evm timeout" in parsed_error) or \
                    ("request timeout" in parsed_error) or \
                    ("request timed out" in parsed_error) or \
+                   ("intrinsic gas too low" in parsed_error) or \
                    ("intrinsic gas too high" in parsed_error) or \
                    isinstance(e, ProbablyNodeHasNoBlock) or \
                    ((isinstance(e, HTTPError) and e.response.status_code == 500)):

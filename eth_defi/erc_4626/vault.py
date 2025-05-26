@@ -1,4 +1,5 @@
 """Generic ECR-4626 vault reader implementation."""
+import dataclasses
 import datetime
 from decimal import Decimal
 from functools import cached_property
@@ -8,6 +9,7 @@ from eth_typing import HexAddress
 from fontTools.unicodedata import block
 from web3 import Web3
 from web3.contract import Contract
+from web3.exceptions import BadFunctionCallOutput
 from web3.types import BlockIdentifier
 
 from eth_defi.abi import get_deployed_contract, get_contract
@@ -271,7 +273,7 @@ class ERC4626Vault(VaultBase):
         try:
             asset = self.vault_contract.functions.asset().call()
             return asset
-        except ValueError:
+        except (ValueError, BadFunctionCallOutput):
             pass
         return None
 
@@ -315,7 +317,7 @@ class ERC4626Vault(VaultBase):
                 # Could not read ERC4626Vault 0x0271353E642708517A07985eA6276944A708dDd1 (set()):
                 share_token_address = self.vault_address
 
-        except ValueError as e:
+        except (ValueError, BadFunctionCallOutput) as e:
             parsed_error = str(e)
             # Mantle
             # Could not read ERC4626Vault 0x32F6D2c91FF3C3d2f1fC2cCAb4Afcf2b6ecF24Ef (set()): {'message': 'out of gas', 'code': -32000}

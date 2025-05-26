@@ -59,11 +59,14 @@ Tutorials and examples
    live-swap
    pancakeswap-live-minimal
    aave-v3-interest-analysis
+   erc-4626-read-apy
+   erc-4626-historical-apy
    erc-4626-scan-vaults
    erc-4626-scan-prices
    erc-4626-vault-list
    erc-4626-historical-price
    erc-4626-best-vaults
+   erc-4626-single-vault
    enzyme-read-vaults
    enzyme-deploy
    verify-node-integrity

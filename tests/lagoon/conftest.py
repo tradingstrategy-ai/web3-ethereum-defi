@@ -65,7 +65,13 @@ def safe_address() -> HexAddress:
 
 
 @pytest.fixture()
-def anvil_base_fork(request, vault_owner, usdc_holder, asset_manager, valuation_manager) -> AnvilLaunch:
+def test_block_number() -> int:
+    """Fork height for our tests."""
+    return 30_659_990
+
+
+@pytest.fixture()
+def anvil_base_fork(request, vault_owner, usdc_holder, asset_manager, valuation_manager, test_block_number) -> AnvilLaunch:
     """Create a testable fork of live BNB chain.
 
     :return: JSON-RPC URL for Web3
@@ -74,6 +80,7 @@ def anvil_base_fork(request, vault_owner, usdc_holder, asset_manager, valuation_
     launch = fork_network_anvil(
         JSON_RPC_BASE,
         unlocked_addresses=[vault_owner, usdc_holder, asset_manager, valuation_manager],
+        fork_block_number=test_block_number,
     )
     try:
         yield launch
