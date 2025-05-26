@@ -572,9 +572,9 @@ def deploy_automated_lagoon_vault(
         uniswap_v2=uniswap_v2,
         uniswap_v3=uniswap_v3,
         aave_v3=aave_v3,
+        erc_4626_vaults=erc_4626_vaults,
         any_asset=any_asset,
         broadcast_func=_broadcast,
-        erc_4626_vaults=erc_4626_vaults,
     )
 
     # After everything is deployed, fix ownership
