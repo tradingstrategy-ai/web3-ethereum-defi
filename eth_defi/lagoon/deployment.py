@@ -29,14 +29,12 @@ from web3.contract import Contract
 from web3.contract.contract import ContractFunction
 
 from eth_defi.aave_v3.deployment import AaveV3Deployment
-from eth_defi.abi import get_contract
 from eth_defi.deploy import deploy_contract
 from eth_defi.erc_4626.vault import ERC4626Vault
 from eth_defi.foundry.forge import deploy_contract_with_forge
 from eth_defi.hotwallet import HotWallet
 from eth_defi.lagoon.beacon_proxy import deploy_beacon_proxy
 from eth_defi.lagoon.vault import LagoonVault
-from eth_defi.middleware import construct_sign_and_send_raw_middleware_anvil
 from eth_defi.provider.anvil import is_anvil
 from eth_defi.safe.deployment import deploy_safe, add_new_safe_owners
 from eth_defi.token import get_wrapped_native_token_address, fetch_erc20_details
@@ -44,7 +42,7 @@ from eth_defi.trace import assert_transaction_success_with_explanation
 from eth_defi.uniswap_v2.deployment import UniswapV2Deployment
 from eth_defi.uniswap_v3.deployment import UniswapV3Deployment
 from eth_defi.vault.base import VaultSpec
-from tests.guard.test_guard_simple_vault_erc_4626 import erc4626_vault
+
 
 logger = logging.getLogger(__name__)
 
