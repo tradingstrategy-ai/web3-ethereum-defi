@@ -60,7 +60,7 @@ Tutorials and examples
    pancakeswap-live-minimal
    aave-v3-interest-analysis
    erc-4626-read-apy
-   erc-4626-historcal-apy
+   erc-4626-historical-apy
    erc-4626-scan-vaults
    erc-4626-scan-prices
    erc-4626-vault-list
