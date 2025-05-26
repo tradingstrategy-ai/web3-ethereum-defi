@@ -1,5 +1,7 @@
 """Calculate ERC-4626 vault APY, or profitability.
 
+- Read tutorial :ref:`historical-erc-4626-apy`
+- Read tutorial :ref:`read-erc-4626-apy`
 - See about `APY <https://tradingstrategy.ai/glossary/annual-percentage-yield-apy>`__.
 """
 
