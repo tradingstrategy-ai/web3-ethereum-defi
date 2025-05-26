@@ -1,7 +1,7 @@
 .. meta::
    :description: Calculate the historical APY of ERC-4626 vault
 
-.. _read-erc-4626-apy:
+.. _historical-erc-4626-apy:
 
 ERC-4626: historical APY
 ========================
