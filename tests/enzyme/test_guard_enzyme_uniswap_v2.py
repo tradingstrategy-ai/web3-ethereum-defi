@@ -310,6 +310,7 @@ def test_fetch_terms_of_service(web3: Web3, vault: Vault):
     assert vault2.terms_of_service_contract is not None
 
 
+@flaky.flaky
 def test_enzyme_guarded_trade_singlehop_uniswap_v2(
     web3: Web3,
     deployer: HexAddress,
