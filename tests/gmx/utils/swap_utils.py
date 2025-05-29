@@ -1,3 +1,7 @@
+"""
+This file aims to emulate the off-chain `Keeper`'s actions.
+"""
+
 import json
 import os
 from decimal import Decimal
@@ -506,7 +510,6 @@ def emulate_keepers(gmx_config: GMXConfig, initial_token_symbol: str, target_tok
         # print(f"Value: {is_oracle_provider_enabled}")
         assert is_oracle_provider_enabled, "Value should be true"
 
-        # TODO: This will change for various tokens apparently
         # pass the test `address expectedProvider = dataStore.getAddress(Keys.oracleProviderForTokenKey(token));` in Oracle.sol#L278
         address_slot: str = "0x233a49594db4e7a962a8bd9ec7298b99d6464865065bd50d94232b61d213f16d"
         data_store.functions.setAddress(address_slot, custom_oracle_provider).transact({"from": controller})
