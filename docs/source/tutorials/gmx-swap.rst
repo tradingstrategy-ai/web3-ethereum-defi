@@ -35,6 +35,7 @@ Output looks like:
 
 Further reading
 
+- :ref:`gmx`
 - `GMX swap documentation <https://docs.gmx.io/docs/trading/v2#swaps>`__
 
 

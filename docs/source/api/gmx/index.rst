@@ -8,6 +8,7 @@ This module contains `GMX <https://gmx.io/>`__ support for Python.
 GMX is a `decentralised exchange <https://tradingstrategy.ai/glossary/decentralised-exchange>`__ for
 `perpetual futures <https://tradingstrategy.ai/glossary/perpetual-future>`__.
 
+- The functions connect directly to JSON-RPC instance
 - Open and close GMX positions
 - Read market and current market data
 
