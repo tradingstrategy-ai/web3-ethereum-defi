@@ -216,10 +216,12 @@ def create_multi_provider_web3(
         # https://stackoverflow.com/a/47475019/315168
         # TODO: Make these parameters configurable
         session = requests.Session()
-        retry = Retry(connect=3, backoff_factor=0.5)
-        adapter = HTTPAdapter(max_retries=retry)
-        session.mount("http://", adapter)
-        session.mount("https://", adapter)
+
+        if retries >= 1:
+            retry = Retry(connect=3, backoff_factor=0.5)
+            adapter = HTTPAdapter(max_retries=retry)
+            session.mount("http://", adapter)
+            session.mount("https://", adapter)
 
     if request_kwargs is None:
         request_kwargs = {"timeout": default_http_timeout}

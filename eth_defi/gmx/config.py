@@ -34,7 +34,9 @@ class GMXConfig:
             private_key: Private key (optional, for backward compatibility)
         """
         self.web3 = web3
-        chain = self.chain = get_chain_name(web3.eth.chain_id)
+
+        # Used in some GMX API mappings
+        chain = self.chain = get_chain_name(web3.eth.chain_id).lower()
 
         assert self.chain, f"Unsupported chain ID: {web3.eth.chain_id}. Supported chains are Arbitrum and Avalanche."
 
