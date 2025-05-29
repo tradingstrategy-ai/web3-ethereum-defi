@@ -224,7 +224,6 @@ def create_multi_provider_web3(
             session.mount("https://", adapter)
 
     if request_kwargs is None:
-        import ipdb ; ipdb.set_trace()
         request_kwargs = {"timeout": default_http_timeout}
 
     call_providers = [HTTPProvider(url, request_kwargs=request_kwargs, session=session) for url in call_endpoints]
