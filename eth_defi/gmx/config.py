@@ -1,6 +1,7 @@
 from typing import Optional, Any, Union
 from web3 import Web3
 
+from eth_defi.chain import get_chain_name
 from gmx_python_sdk.scripts.v2.gmx_utils import ConfigManager
 from eth_defi.basewallet import BaseWallet
 from eth_defi.gmx.wallet_adapter_signer import WalletAdapterSigner
@@ -18,7 +19,6 @@ class GMXConfig:
     def __init__(
         self,
         web3: Web3,
-        chain: str = "arbitrum",
         wallet: Optional[Union[BaseWallet, HotWallet]] = None,
         user_wallet_address: Optional[str] = None,
         private_key: Optional[str] = None,
@@ -34,7 +34,10 @@ class GMXConfig:
             private_key: Private key (optional, for backward compatibility)
         """
         self.web3 = web3
-        self.chain = chain
+        chain = self.chain = get_chain_name(web3.eth.chain_id)
+
+        assert self.chain, f"Unsupported chain ID: {web3.eth.chain_id}. Supported chains are Arbitrum and Avalanche."
+
         self._wallet = wallet
 
         # For backward compatibility
