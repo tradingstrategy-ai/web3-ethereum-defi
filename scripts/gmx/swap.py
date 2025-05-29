@@ -9,6 +9,7 @@ from decimal import Decimal
 from web3 import Web3
 
 from eth_defi.gmx.config import GMXConfig
+from eth_defi.gmx.testing import emulate_keepers
 from eth_defi.gmx.trading import GMXTrading
 from eth_defi.hotwallet import HotWallet
 from eth_defi.provider.anvil import fork_network_anvil
@@ -64,21 +65,36 @@ def main():
     trading_manager = GMXTrading(gmx_config)
 
     usd_amount = 1.00  # Amount in USD to swap
+    in_token_symbol = "USDC"  # Native USDC on Arbitrum
+    out_token_symbol = "SOL"  # Wormhole-wrapped SOL on Arbitrum
 
     # Swap USDC for SOL (Wormhole)
     # GMX v2 supports token swaps for its collateral tokens.
     # https://docs.gmx.io/docs/trading/v2#swaps
     swap_order = trading_manager.swap_tokens(
-        in_token_symbol="USDC",
-        out_token_symbol="SOL",
+        in_token_symbol=in_token_symbol,
+        out_token_symbol=out_token_symbol,
         amount=1.00,
         slippage_percent=0.02,  # 0.2% slippage
         debug_mode=False,
     )
+    print(f"Swap order created: {swap_order.tx_info}")
 
-
-
-
+    if SIMULATE:
+        # GMX Keepers are offchain oracles resposnible for maintaining GMX markets.
+        # In live execution, Keepers will automatically execute fulfilling the swap order
+        # when they see the swap order onchain.
+        # In mainnet fork, we need to emulate their actions, because naturally
+        # keepers cannot see what's going on in the forked environment.
+        emulate_keepers(
+            gmx_config,
+            in_token_symbol,
+            out_token_symbol,
+            web3,
+            hot_wallet.address,
+            start_token_address,
+            out_token_address,
+        )
 
 
 if __name__ == "__main__":
