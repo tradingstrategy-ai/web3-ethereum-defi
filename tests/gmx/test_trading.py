@@ -12,9 +12,9 @@ from gmx_python_sdk.scripts.v2.order.create_swap_order import SwapOrder
 import pytest
 
 from eth_defi.gmx.trading import GMXTrading
-from tests.gmx.utils import emulate_keepers
+from gmx.utils.swap_utils import emulate_keepers
 
-
+s
 # TODO: use to avoid race condition https://web3-ethereum-defi.readthedocs.io/api/core/_autosummary/eth_defi.trace.assert_transaction_success_with_explanation.html#eth_defi.trace.assert_transaction_success_with_explanation
 
 
