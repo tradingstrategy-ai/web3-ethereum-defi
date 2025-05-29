@@ -59,6 +59,8 @@ eth-pydantic-types = {version = "<0.2"}
 # web3-google-hsm = {git = "https://github.com/Ankvik-Tech-Labs/web3-google-hsm"}
 web3-google-hsm = "^0.1.0"
 pytz = "^2024.2"
+# The project's python requirement is incompatible with eth_defi so for now use this fork
+gmx-python-ng = "^1.0.0"
 
 # Docs
 Sphinx = {version = "^4.5.0", optional = true}
@@ -84,6 +86,7 @@ joblib = "^1.4.2"
 
 # HyperSync
 hypersync = {version = "^0.8.5", optional = true}
+cherry-etl = "^0.5.1"
 
 # Since new Poetry version
 [tool.poetry.group.dev.dependencies]

@@ -7,6 +7,7 @@
 - Do swap and credit supply tests
 """
 import os
+from decimal import Decimal
 
 import pytest
 

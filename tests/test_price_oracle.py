@@ -22,22 +22,23 @@ from web3.middleware import geth_poa_middleware
 
 from eth_defi.event_reader.web3factory import TunedWeb3Factory
 from eth_defi.price_oracle.oracle import PriceOracle, time_weighted_average_price, NotEnoughData, DataTooOld, DataPeriodTooShort
+from eth_defi.provider.multi_provider import create_multi_provider_web3, MultiProviderWeb3Factory
 from eth_defi.uniswap_v2.oracle import update_price_oracle_with_sync_events_single_thread
 from eth_defi.uniswap_v2.pair import fetch_pair_details
 
 
 @pytest.fixture
-def web3_factory() -> TunedWeb3Factory:
+def web3_factory() -> MultiProviderWeb3Factory:
     """Set up a Web3 connection generation factury"""
     # https://web3py.readthedocs.io/en/latest/web3.eth.account.html#read-a-private-key-from-an-environment-variable
-    return TunedWeb3Factory(os.environ["BNB_CHAIN_JSON_RPC"])
+    return MultiProviderWeb3Factory(os.environ["JSON_RPC_BINANCE"])
 
 
 @pytest.fixture
 def web3() -> Web3:
     """Set up a Web3 connection generation factury"""
     # https://web3py.readthedocs.io/en/latest/web3.eth.account.html#read-a-private-key-from-an-environment-variable
-    web3 = Web3(HTTPProvider(os.environ["BNB_CHAIN_JSON_RPC"]))
+    web3 = create_multi_provider_web3(os.environ["JSON_RPC_BINANCE"])
     web3.middleware_onion.clear()
     web3.middleware_onion.inject(http_retry_request_with_sleep_middleware, layer=0)
     web3.middleware_onion.inject(geth_poa_middleware, layer=0)
@@ -147,8 +148,8 @@ def test_too_narrow_time_window():
 
 
 @pytest.mark.skipif(
-    os.environ.get("BNB_CHAIN_JSON_RPC") is None,
-    reason="Set BNB_CHAIN_JSON_RPC environment variable to Binance Smart Chain node to run this test",
+    os.environ.get("JSON_RPC_BINANCE") is None,
+    reason="Set JSON_RPC_BINANCE environment variable to Binance Smart Chain node to run this test",
 )
 @flaky.flaky(max_runs=2)
 def test_bnb_busd_price(web3, bnb_busd_address):
