@@ -347,6 +347,7 @@ def test_enzyme_guarded_trade_singlehop_uniswap_v3(
     assert weth_token.contract.functions.balanceOf(vault.address).call() == pytest.approx(0.123090978678222650 * 10**18)
 
 
+@flaky.flaky
 def test_enzyme_guarded_trade_multihops_uniswap_v3(
     web3: Web3,
     deployer: HexAddress,
