@@ -59,6 +59,7 @@ Tutorials and examples
    live-swap
    pancakeswap-live-minimal
    aave-v3-interest-analysis
+   gmx-swap
    erc-4626-read-apy
    erc-4626-historical-apy
    erc-4626-scan-vaults

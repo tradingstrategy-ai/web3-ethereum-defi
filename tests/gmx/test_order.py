@@ -6,6 +6,7 @@ when connected to different networks using Anvil forks.
 """
 
 import pytest
+
 from gmx_python_sdk.scripts.v2.order.create_decrease_order import DecreaseOrder
 from eth_defi.gmx.order import GMXOrderManager
 

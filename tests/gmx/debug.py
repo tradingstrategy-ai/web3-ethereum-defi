@@ -532,7 +532,7 @@ def main():
 
     swap_order = trading_manager.swap_tokens(
         out_token_symbol=out_token_symbol,
-        start_token_symbol=start_token_symbol,
+        in_token_symbol=start_token_symbol,
         amount=50000.3785643,
         slippage_percent=0.02,
         debug_mode=False,

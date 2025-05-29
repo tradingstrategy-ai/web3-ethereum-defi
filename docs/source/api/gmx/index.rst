@@ -14,7 +14,7 @@ GMX is a `decentralised exchange <https://tradingstrategy.ai/glossary/decentrali
 Tutorials
 =========
 
-- :ref:`gmx-open-position`
+- :ref:`gmx-swap`
 
 More info
 =========

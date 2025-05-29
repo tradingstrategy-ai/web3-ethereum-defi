@@ -164,11 +164,12 @@ class GMXTrading:
 
     def swap_tokens(
         self,
+        in_token_symbol: str,
         out_token_symbol: str,
-        start_token_symbol: str,
         amount: float,
         position_usd: Optional[float] = 0,
         slippage_percent: Optional[float] = 0.02,
+        execution_buffer=2.5,  # this is needed to pass the gas usage
         debug_mode: Optional[bool] = False,
         **kwargs,
     ) -> SwapOrder:
@@ -177,7 +178,7 @@ class GMXTrading:
 
         Args:
             out_token_symbol: Symbol of the token to receive
-            start_token_symbol: Symbol of the token to swap
+            in_token_symbol: Symbol of the token to swap
             amount: Amount of start token to swap
             position_usd: Position size in USD (for size-based swaps)
             slippage_percent: Slippage tolerance as a decimal
@@ -198,7 +199,7 @@ class GMXTrading:
         parameters = {
             "chain": self.config.get_chain(),
             "out_token_symbol": out_token_symbol,
-            "start_token_symbol": start_token_symbol,
+            "start_token_symbol": in_token_symbol,
             "is_long": False,
             "size_delta_usd": position_usd,
             "initial_collateral_delta": amount,
@@ -223,5 +224,6 @@ class GMXTrading:
             slippage_percent=order_parameters["slippage_percent"],
             swap_path=order_parameters["swap_path"],
             debug_mode=debug_mode,
+            execution_buffer=execution_buffer,
             **kwargs,
         )

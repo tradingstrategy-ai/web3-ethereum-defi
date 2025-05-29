@@ -6,10 +6,11 @@ when connected to different networks. The tests focus on creating
 orders in debug mode without submitting actual transactions.
 """
 
+import pytest
+
 from gmx_python_sdk.scripts.v2.order.create_decrease_order import DecreaseOrder
 from gmx_python_sdk.scripts.v2.order.create_increase_order import IncreaseOrder
 from gmx_python_sdk.scripts.v2.order.create_swap_order import SwapOrder
-import pytest
 
 from eth_defi.gmx.trading import GMXTrading
 from eth_defi.gmx.testing import emulate_keepers
@@ -372,7 +373,7 @@ def test_swap_tokens(chain_name, trading_manager, gmx_config_fork, arb, wsol, wa
     # Swap USDC for chain-specific native token
     swap_order = trading_manager.swap_tokens(
         out_token_symbol=out_token_symbol,
-        start_token_symbol=start_token_symbol,
+        in_token_symbol=start_token_symbol,
         amount=50000.3785643,  # 50000 ARB tokens & fractions for fun
         slippage_percent=0.02,  # 0.2% slippage
         debug_mode=False,

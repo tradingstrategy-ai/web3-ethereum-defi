@@ -4,10 +4,11 @@ Tests for GMXLiquidityManager with parametrized chain testing.
 This test suite verifies the functionality of the GMXLiquidityManager class
 when connected to different networks.
 """
+import logging
 
 import pytest
 from gmx_python_sdk.scripts.v2.order.create_deposit_order import DepositOrder
-import logging
+
 
 # Suppress logging to keep test output clean
 original_log_handlers = logging.getLogger().handlers[:]
