@@ -2,7 +2,7 @@
 
 This module provides Python integration for Anvil.
 
-- `Anvil <https://github.com/foundry-rs/foundry/tree/master/crates/anvil>`__
+- `Anvil <https://github.com/foundry-rs/foundry/tree/master?tab=readme-ov-file#anvil>`__
   is a blazing-fast local testnet node implementation in Rust from
   `Foundry project <https://github.com/foundry-rs/foundry>`__
 
