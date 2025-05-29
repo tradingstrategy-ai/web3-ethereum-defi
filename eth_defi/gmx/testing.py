@@ -1,5 +1,8 @@
-"""
-This file aims to emulate the off-chain `Keeper`'s actions.
+"""Testing utilities for GMX.
+
+- This file aims to emulate the off-chain `Keeper`'s actions
+- Use with pytest and Anvil mainnet forks
+
 """
 
 import json
